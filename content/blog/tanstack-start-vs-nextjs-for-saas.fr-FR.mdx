@@ -1,0 +1,255 @@
+---
+title: "TanStack Start vs Next.js pour un SaaS en 2026 : sur lequel construire"
+description: "TanStack Start 1.0 face à Next.js 16, comparés pour un SaaS sur le rendu, le routage, les fonctions serveur et leur sécurité, l’hébergement sur Vercel, Node et Cloudflare Workers, et l’écosystème, avec les cas où Next.js est le meilleur choix."
+excerpt: "TanStack Start est passé en 1.0 en octobre 2026, et Next.js 16 dispose désormais d’une Adapter API stable : la plupart des comparatifs que vous trouverez décrivent donc des frameworks qui n’existent plus. Voici les deux tels qu’ils sont aujourd’hui, vérifiés sur leurs propres pages, par une équipe qui a choisi TanStack Start et peut vous dire où Next.js l’emporte."
+authorName: Piotr J. Borowiecki
+authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/tanstack-start-vs-nextjs-for-saas.webp
+tags:
+  - comparison
+  - tanstack-start
+  - nextjs
+  - stack
+faq:
+  - question: TanStack Start est-il meilleur que Next.js pour un SaaS ?
+    answer: >-
+      Aucun des deux n’est meilleur pour tous les SaaS. TanStack Start convient à une application
+      qui vit derrière une connexion, où les routes typées, les paramètres de recherche typés, les
+      loaders explicites et les fonctions serveur font l’essentiel du travail, et Cloudflare figure
+      parmi ses partenaires d’hébergement officiels. Next.js convient à un produit dont les pages
+      publiques comptent autant que l’application, car les Server Components, l’Incremental Static
+      Regeneration et l’optimisation des images sont intégrés, et il dispose de l’écosystème et du
+      vivier de recrutement les plus vastes.
+  - question: TanStack Start est-il prêt pour la production en 2026 ?
+    answer: >-
+      Oui. TanStack a annoncé TanStack Start 1.0 comme stable et prêt pour la production le 13
+      octobre 2026, publié en tant que version 1.169 de @tanstack/react-start. Les React Server
+      Components font exception : TanStack Start les prend en charge en tant que fonctionnalité
+      expérimentale, non activée par défaut.
+  - question: TanStack Start prend-il en charge les React Server Components ?
+    answer: >-
+      À titre expérimental. Sa documentation indique que les Server Components sont expérimentaux et
+      non activés par défaut, et vous les ajoutez avec le paquet @vitejs/plugin-rsc. Dans l’App
+      Router de Next.js, les layouts et les pages sont des Server Components par défaut.
+  - question: Puis-je auto-héberger Next.js sans Vercel ?
+    answer: >-
+      Oui. La documentation de Next.js indique qu’une plateforme a besoin d’un serveur Node.js et
+      qu’un seul processus next start gère toutes les fonctionnalités. Next.js 16.2 a rendu
+      l’Adapter API stable, et Vercel et Bun disposent d’adaptateurs vérifiés. Avec plus d’une
+      instance, vous configurez un gestionnaire de cache partagé et la même clé de chiffrement des
+      Server Actions sur chaque instance.
+  - question: Puis-je faire tourner un SaaS sur la formule Hobby gratuite de Vercel ?
+    answer: >-
+      Pas un SaaS que vous vendez. Les conditions de Vercel limitent la formule Hobby à un usage
+      personnel ou non commercial. La formule Pro coûte 20 $ de frais de plateforme par mois, qui
+      incluent un siège de déploiement et 20 $ de crédit d’utilisation ; chaque siège payant
+      supplémentaire coûte 20 $ par mois, et l’utilisation au-delà du crédit est facturée à l’usage.
+  - question: Lequel tourne le mieux sur Cloudflare Workers ?
+    answer: >-
+      TanStack Start compte Cloudflare parmi ses partenaires d’hébergement officiels et se compile
+      pour Workers au moyen du plugin Vite de Cloudflare. Pour Next.js, Cloudflare recommande
+      vinext, un plugin Vite qui réimplémente l’API de Next.js et que la documentation de Cloudflare
+      qualifie de bêta, tandis que l’adaptateur OpenNext prend en charge toutes les versions de
+      Next.js 16. saasyland.com fait tourner TanStack Start sur un Worker.
+  - question: Dois-je migrer mon application Next.js vers TanStack Start ?
+    answer: >-
+      En général, pas pour le principe. La comparaison publiée par TanStack elle-même indique qu’un
+      modèle de routage différent n’est pas, à lui seul, une raison de réécrire une application en
+      bonne santé. Migrez quand un problème concret, comme un état d’URL non typé, le modèle des
+      Server Components ou votre cible d’hébergement, vous coûte plus que ne vous coûterait la
+      réécriture.
+  - question: SaaSy Land prend-il en charge Next.js ?
+    answer: >-
+      {generation, select, available {Pas encore. {initCommand} génère aujourd’hui des projets
+      TanStack Start pour Cloudflare Workers, et le configurateur affiche Next.js comme à venir.}
+      other {Pas encore. La génération de projets de SaaSy Land arrive dans une version ultérieure
+      et commence par TanStack Start sur Cloudflare Workers, et le configurateur affiche Next.js
+      comme à venir. Aujourd’hui, la CLI active votre licence, et le code source TanStack Start de
+      saasyland.com est public sous licence MIT.}}
+---
+
+<Callout title="Ce qu’est cet article">
+
+Une comparaison de TanStack Start et de Next.js pour qui s’apprête à construire un SaaS, écrite par une équipe qui a dû choisir entre les deux. Elle couvre :
+
+1. Où en sont les deux frameworks en novembre 2026, après TanStack Start 1.0 et Next.js 16.
+2. La différence qui commande tout le reste : ce qui s’exécute sur le serveur par défaut.
+3. Le routage, la sûreté du typage et les fonctions serveur, y compris les incidents de sécurité que les deux ont connus.
+4. L’hébergement sur Vercel, sur un serveur Node et sur Cloudflare Workers, et ce que chacun coûte.
+5. Ce dont un SaaS a besoin et qu’aucun des deux frameworks ne fournit, et les cas où chacun est le meilleur choix.
+
+</Callout>
+
+_Dernière vérification le 20 novembre 2026. Chaque affirmation sur TanStack Start, Next.js, Vercel et Cloudflare provient de leur propre documentation, de leurs blogs, de leurs conditions, de leurs avis de sécurité ou du registre npm, avec les liens en bas de page. Chaque chiffre concernant SaaSy Land est affiché à partir de son code. Nous vendons un produit construit sur TanStack Start : pesez donc nos conclusions en conséquence ; les sources sont là pour que vous n’ayez à nous croire sur parole sur aucun point._
+
+## La réponse courte
+
+**Choisissez Next.js** si vos pages publiques comptent autant que votre application : le marketing, la documentation et le contenu que vous voulez rendus sur le serveur, mis en cache et revalidés, avec des images optimisées, le tout intégré. Choisissez-le aussi si votre équipe le connaît déjà, si vous voulez le plus grand écosystème et le plus grand vivier de recrutement de l’univers React, ou si vous prévoyez d’héberger sur Vercel.
+
+**Choisissez TanStack Start** si l’essentiel de votre produit vit derrière une connexion et se compose de tableaux de bord, de tables, de formulaires et de filtres, où les routes typées et les paramètres de recherche typés interceptent les erreurs avant qu’elles n’arrivent en production. Choisissez-le aussi si vous voulez des fonctions serveur sans faire des Server Components votre modèle de composants, ou si vous déployez sur Cloudflare Workers, Cloudflare figurant parmi les partenaires d’hébergement officiels de TanStack.
+
+Les deux peuvent faire tourner un SaaS en production dès aujourd’hui. Le reste de cet article détaille ce qui se trouve derrière ces deux paragraphes.
+
+## Où en sont les deux frameworks en novembre 2026
+
+**TanStack Start est stable.** TanStack a annoncé le 13 octobre 2026 que « TanStack Start 1.0 est enfin stable ». La version stable a été publiée en tant que version 1.169 de `@tanstack/react-start`, et non en 1.0.0, et le guide de migration de TanStack appelle la 1.169 « la première version stable » : un numéro de version antérieur correspond donc à une version candidate. Les comparatifs écrits avant octobre décrivent un framework qui n’était pas encore stable.
+
+**Next.js en est à la version 16.** Next.js 16 a fait de Turbopack le bundler par défaut, remplacé `middleware.ts` par `proxy.ts`, qui s’exécute sur le runtime Node.js, rendu stable l’intégration du React Compiler et introduit les Cache Components avec la directive `"use cache"`. Next.js 16.2 a rendu l’Adapter API stable en mars 2026. Avec la 16.4, les nouvelles applications créées avec `create-next-app` ont les Cache Components activés par défaut, et Next.js indique que ce modèle « deviendra le comportement par défaut dans Next.js 17 ». Le 20 novembre 2026, la dernière version publiée sur npm était la 16.4.6.
+
+**La comparaison officielle est d’une rare honnêteté.** La page de comparaison publiée par TanStack lui-même, vérifiée le 11 septembre 2026 face à Next.js 16.3, indique que l’auto-hébergement de Next.js « inclut l’optimisation des images et la configuration de l’ISR ; ces fonctionnalités ne doivent pas être présentées comme réservées à Vercel », et que la page « ne désigne pas de vainqueur en matière de performances ». Tout article qui vous dit que TanStack Start est plus rapide, ou que Next.js ne fonctionne que sur Vercel, va plus loin que TanStack lui-même.
+
+## TanStack Start et Next.js en un coup d’œil
+
+| Question                            | TanStack Start                                                                  | Next.js                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Statut                              | 1.0 stable depuis le 13 octobre 2026, en tant que `@tanstack/react-start` 1.169 | 16.4.6, la dernière version sur npm le 20 novembre 2026                                                        |
+| Modèle de composants par défaut     | Composants client rendus sur le serveur, avec loaders et fonctions serveur      | Server Components par défaut dans l’App Router                                                                 |
+| React Server Components             | Expérimentaux et à activer explicitement                                        | Le modèle central de l’App Router                                                                              |
+| Routage                             | TanStack Router : types de routes inférés, paramètres de recherche validés      | App Router fondé sur le système de fichiers, avec routes typées en option                                      |
+| Code serveur que vous appelez       | Fonctions serveur `createServerFn`, routes serveur et middleware                | Server Functions et Server Actions, route handlers et `proxy.ts`                                               |
+| Mise en cache des pages             | ISR via les en-têtes de cache HTTP standard et votre CDN                        | ISR et Cache Components intégrés, stockés sur le disque de chaque serveur sauf si vous ajoutez un gestionnaire |
+| Images                              | Au choix : CSS, un service d’images ou une intégration de l’hébergeur           | `next/image` et `next/font` intégrés                                                                           |
+| Outil de build                      | Vite ou Rsbuild                                                                 | Turbopack par défaut, webpack sur demande                                                                      |
+| Partenaires d’hébergement officiels | Cloudflare, Netlify et Railway ; Vercel, Node et Bun via Nitro                  | N’importe quel serveur Node.js ; adaptateurs vérifiés pour Vercel et Bun                                       |
+
+## La différence qui commande tout le reste : ce qui s’exécute sur le serveur
+
+**Next.js part du serveur.** Dans l’App Router, « les layouts et les pages sont des Server Components » par défaut. Un composant récupère ses données là où il est rendu, n’envoie aucun JavaScript pour lui-même, et vous marquez les parties interactives avec `"use client"`. Les mutations sont des Server Functions, qu’un composant client appelle comme une fonction locale. Pour une page riche en contenu, c’est un réel avantage : moins de JavaScript parvient au navigateur, et la récupération des données se trouve à côté du balisage qui les utilise.
+
+**TanStack Start part de React ordinaire.** Les pages sont des composants client que TanStack Start rend sur le serveur pour la première requête et hydrate dans le navigateur. Les données arrivent par les loaders de route, et le code réservé au serveur vit dans des fonctions serveur créées avec `createServerFn`, qui « s’exécutent sur le serveur mais peuvent être appelées depuis le code client de manière transparente ». Vous pouvez désactiver le rendu serveur route par route avec le SSR sélectif, ou livrer une application monopage qui appelle tout de même des fonctions serveur. Les Server Components existent, mais à titre d’expérience : la documentation indique qu’ils « ne sont pas activés par défaut », et dans l’annonce de la 1.0, Tanner Linsley a écrit avoir « décidé d’arrêter de l’utiliser sur tanstack.com ».
+
+**Ce que cela signifie pour un SaaS.** L’essentiel d’un SaaS se trouve derrière la connexion : des tables, des filtres, des formulaires et des paramètres, où la page est de toute façon interactive et où le navigateur détient déjà l’essentiel de l’état. C’est là que le modèle de TanStack Start vous coûte le moins. Le site marketing, la documentation et le blog sont l’inverse : essentiellement statiques, lus par les moteurs de recherche, et mieux servis par le modèle de Next.js, qui part du serveur. La première question à trancher est de savoir laquelle des deux moitiés de votre produit est la plus grande.
+
+## Routage et sûreté du typage
+
+**TanStack Router type chaque route.** Il « infère entièrement les types qui lui sont fournis et les fait circuler avec ténacité dans toute l’expérience de routage » : un lien vers une route qui n’existe pas, un paramètre de chemin manquant ou un paramètre de recherche erroné fait échouer la vérification des types. Les paramètres de recherche sont validés et typés route par route avec `validateSearch`, ce qui compte dans un SaaS, où les filtres, le tri, la pagination et les onglets ont leur place dans l’URL afin qu’une vue puisse être partagée et rechargée.
+
+**Next.js a lui aussi des routes typées, avec une portée différente.** Next.js « peut typer statiquement les liens pour éviter les fautes de frappe et d’autres erreurs lors de l’utilisation de `next/link` » grâce à son option facultative `typedRoutes`, et la comparaison de TanStack elle-même prévient que « le décrire comme de simples indications dans l’IDE est inexact ». Les paramètres de recherche, en revanche, parviennent à une page sous forme de chaînes que vous analysez et validez vous-même, ou avec une bibliothèque.
+
+C’est la raison que nous entendons le plus souvent pour choisir TanStack Start, et c’est celle qui nous l’a fait choisir : dans une application qui compte des dizaines de tables filtrables, l’URL est un état, et le faire vérifier par le compilateur est vite rentabilisé.
+
+## Les fonctions serveur et la frontière de sécurité
+
+Les deux frameworks permettent à un composant client d’appeler une fonction qui s’exécute sur le serveur, et dans les deux cas, il s’agit d’un endpoint HTTP que n’importe qui peut appeler. La documentation de Next.js le dit sans détour : « Les Server Functions sont accessibles par des requêtes POST directes, pas seulement via l’interface de votre application. Vérifiez toujours l’authentification et l’autorisation à l’intérieur de chaque Server Function. » Il en va de même pour `createServerFn` de TanStack Start, et c’est dans son middleware que cette vérification a sa place.
+
+Trois incidents montrent pourquoi la vérification doit se trouver dans chaque fonction plutôt qu’en bordure de l’application :
+
+- **CVE-2025-29927, mars 2025.** Dans Next.js, « il est possible de contourner les vérifications d’autorisation au sein d’une application Next.js, si la vérification d’autorisation a lieu dans le middleware ». La faille a été classée critique, touchait les versions à partir de la 11.1.4 et a été corrigée dans les versions 12.3.5, 13.5.9, 14.2.25 et 15.2.3. L’analyse post-incident de Vercel indique que les applications auto-hébergées utilisant `next start` et `output: 'standalone'` étaient touchées, tandis que les applications sur Vercel, Netlify et Cloudflare Workers ne l’étaient pas.
+- **CVE-2025-55182, décembre 2025.** React a divulgué « une vulnérabilité d’exécution de code à distance non authentifiée dans les React Server Components », avec un score CVSS de 10,0. Elle touchait tous les frameworks et bundlers qui prennent en charge les Server Components, dont `next`, `react-router` et `@vitejs/plugin-rsc` ; dans Next.js, les applications App Router en 15.x et 16.x étaient touchées, et les applications Pages Router ne l’étaient pas. TanStack Start ne figurait pas sur la liste, car les Server Components y sont à activer explicitement, mais sa configuration expérimentale utilise `@vitejs/plugin-rsc`.
+- **CVE-2026-102989, septembre 2026.** TanStack a divulgué « une vulnérabilité critique de cross-site scripting (XSS) réfléchi dans la gestion des réponses des fonctions serveur de TanStack Start », qui touchait `@tanstack/react-start` à partir de la 1.143.12 et a été corrigée dans la 1.168.60.
+
+Aucun des deux frameworks n’est immunisé, et le plus récent a eu moins de temps pour être attaqué. Ce qui protège un SaaS, c’est une vérification d’autorisation dans chaque fonction serveur et l’habitude de mettre à jour en quelques jours. Dans saasyland.com, chaque fonction serveur exécute le middleware de `auth.middleware.ts` qui lui convient, `authorized(...)` pour un utilisateur connecté ou une permission, et la [convention des fonctions serveur](/docs/conventions/server-functions) explique pourquoi une garde de route n’est jamais considérée comme une autorisation.
+
+## Hébergement : Vercel, un serveur Node ou Cloudflare Workers
+
+### Next.js
+
+**Next.js tourne partout où tourne Node.js.** Son guide de déploiement indique qu’une plateforme « a besoin d’un serveur Node.js. C’est tout. Un seul processus `next start` gère correctement toutes les fonctionnalités de Next.js ». Depuis Next.js 16.2, l’Adapter API est stable, conçue avec OpenNext, Netlify, Cloudflare, AWS Amplify et Google Cloud, et la documentation liste deux adaptateurs vérifiés, pour Vercel et Bun, tandis que Cloudflare et Netlify travaillent sur les leurs.
+
+**Auto-héberger plus d’une instance demande de la configuration.** Le cache qu’utilisent l’ISR et les Cache Components est stocké « sur le système de fichiers local (sur disque) de chaque instance de serveur Next.js », et « appeler `revalidateTag()` sur une instance n’invalide le cache que sur cette instance » : plusieurs instances ont donc besoin d’un gestionnaire de cache partagé. Elles ont aussi besoin de la même `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, faute de quoi les utilisateurs voient des erreurs « Failed to find Server Action » après un déploiement.
+
+**Vercel est la voie la plus simple, et un SaaS a besoin de Pro.** Les conditions de Vercel stipulent que « vous n’utiliserez les Services dans le cadre d’une formule Hobby que pour votre usage personnel ou non commercial » : un produit que vous faites payer relève donc de Pro. Pro coûte 20 $ de frais de plateforme par mois, qui incluent un siège de déploiement et 20 $ de crédit d’utilisation ; les sièges payants supplémentaires coûtent 20 $ par mois chacun, les sièges de consultation sont gratuits, et l’utilisation au-delà du crédit est facturée à l’usage.
+
+**Sur Cloudflare Workers, Next.js passe par une réimplémentation ou un adaptateur.** Cloudflare « recommande vinext comme méthode par défaut pour exécuter des applications Next.js sur Cloudflare Workers ». vinext est un plugin Vite qui réimplémente l’API de Next.js, et la documentation de Cloudflare indique que « vinext est en bêta » ; son propre README répond à la question de son usage en production par « Vous pouvez, avec prudence », et ajoute qu’« OpenNext est le choix le plus sûr » si vous avez besoin d’un moyen éprouvé d’exécuter Next.js en dehors de Vercel. L’adaptateur Cloudflare d’OpenNext prend en charge toutes les versions mineures et correctives de Next.js 16.
+
+### TanStack Start
+
+**TanStack Start est une application Vite qui se déploie comme telle.** Son guide d’hébergement recommande trois partenaires d’hébergement officiels, Cloudflare, Netlify et Railway, et liste Vercel, un serveur Node, Bun et d’autres via Nitro. Sur Cloudflare, il se compile avec le propre plugin Vite de Cloudflare : l’application est donc un Worker, avec D1, KV et R2 comme bindings ordinaires, plutôt qu’au travers d’un adaptateur qui traduit le runtime d’un autre framework.
+
+**Ce à quoi vous renoncez, c’est la mise en cache intégrée.** L’ISR de TanStack Start « s’appuie sur les en-têtes de cache HTTP standard, qui fonctionnent avec n’importe quel CDN » : vous définissez les en-têtes et votre CDN fait le reste. C’est plus simple à appréhender, et c’est aussi un travail que Next.js fait à votre place.
+
+saasyland.com tourne sur un Cloudflare Worker avec D1 via Drizzle, KV et R2, et la [documentation Cloudflare Workers](/docs/integrations/cloudflare-workers) montre comment.
+
+## Ce dont un SaaS a besoin et qu’aucun des deux frameworks ne vous donne
+
+Un framework est la plus petite partie d’un SaaS. Ni TanStack Start ni Next.js ne fournissent la connexion, la facturation, l’e-mail transactionnel, un espace d’administration ou les tests qui maintiennent le tout en état de marche, et les manques qui subsistent diffèrent légèrement :
+
+- **Langues.** L’App Router de Next.js n’a pas de routage internationalisé intégré : son guide imbrique chaque page dans un dossier `app/[lang]`, redirige selon la langue dans `proxy.js` et renvoie vers des bibliothèques comme next-intl. TanStack Router propose des primitives, comme les paramètres de chemin optionnels et la réécriture de routes, avec des exemples construits sur Paraglide. Dans les deux cas, vous choisissez et branchez une bibliothèque.
+- **Images.** Next.js a `next/image` et `next/font`. TanStack Start laisse les images au CSS, à un service d’images ou à votre hébergeur.
+- **Authentification.** Les deux sont pris en charge par Better Auth, Clerk et les autres bibliothèques ; nous les comparons dans [Better Auth vs Clerk vs Auth.js](/blog/better-auth-vs-clerk-vs-authjs).
+- **Facturation.** Aucun des deux frameworks n’encaisse de paiements. Polar, Stripe et Lemon Squeezy sont comparés dans [Polar vs Stripe vs Lemon Squeezy](/blog/polar-vs-stripe-vs-lemon-squeezy).
+
+Cette liste, plus une console d’administration, l’e-mail, une suite de tests et la documentation, c’est la raison d’être d’un kit de démarrage, et c’est le même travail quel que soit le framework en dessous.
+
+## Écosystème, recrutement et agents de codage IA
+
+**Next.js est bien plus grand.** Pendant la semaine du 12 au 18 novembre 2026, les statistiques de téléchargement de npm ont compté 99 343 684 téléchargements de `next` et 14 088 042 de `@tanstack/react-start`. Davantage de développeurs connaissent Next.js, davantage d’éditeurs le documentent en premier, et davantage de kits de démarrage sont construits dessus. C’est un réel avantage quand vous recrutez, quand vous cherchez un message d’erreur et quand vous intégrez un service.
+
+**TanStack Start profite de TanStack.** TanStack Query, Router, Table et Form sont largement utilisés de manière autonome : une grande partie d’une application TanStack Start est donc familière à quiconque les a utilisés, et les services dont un SaaS a besoin le documentent de plus en plus ; Better Auth et Clerk ont tous deux des guides TanStack Start.
+
+**Pour les agents de codage, les deux frameworks sont récents.** Next.js 16 a renommé le middleware et changé la mise en cache ; la version stable de TanStack Start a renommé `.inputValidator()` en `.validator()` et exige Vite 8. Quel que soit votre choix, donnez à vos agents la documentation à jour plutôt que de vous fier à ce qu’ils ont appris pendant leur entraînement ; nous en avons parlé dans [choisir une pile SaaS pour les agents de codage IA](/blog/choosing-a-saas-stack-for-ai-coding-agents).
+
+## Quand Next.js est le meilleur choix
+
+- **Vos pages publiques portent l’activité.** Un site de contenu, une place de marché avec des milliers de pages indexables, ou une documentation qui génère des inscriptions tirent parti des Server Components, de l’ISR, des Cache Components et de l’optimisation des images sans que vous ayez à les assembler vous-même.
+- **Vous voulez les Server Components comme modèle.** Ils sont au cœur de l’App Router et expérimentaux dans TanStack Start.
+- **Votre équipe connaît déjà Next.js.** La comparaison de TanStack elle-même indique qu’« un modèle de routage différent n’est pas, à lui seul, une raison de réécrire une application en bonne santé », et le même raisonnement s’applique à l’expérience d’une équipe.
+- **Vous hébergerez sur Vercel.** Les déploiements de prévisualisation, la mise en cache et l’optimisation des images fonctionnent sans configuration, et Pro coûte 20 $ par mois pour commencer.
+- **Vous avez besoin de l’écosystème le plus large.** Plus d’intégrations, d’exemples, de kits de démarrage et de développeurs à recruter.
+
+## Quand TanStack Start est le meilleur choix
+
+- **Votre produit se trouve surtout derrière une connexion.** Les tableaux de bord, les tables et les formulaires gagnent davantage aux routes typées, aux paramètres de recherche validés et aux loaders explicites qu’aux Server Components.
+- **Vous voulez un modèle mental centré sur le client.** Les fonctions serveur et le middleware vous donnent du code serveur sans faire de la frontière entre serveur et client une partie de chaque composant.
+- **Vous déployez sur Cloudflare Workers, ou voulez pouvoir choisir votre hébergeur.** Cloudflare est un partenaire d’hébergement officiel, et le build est celui de Vite.
+- **Vous voulez que le framework ne se mêle pas de votre mise en cache.** Des en-têtes de cache HTTP et votre CDN, au lieu d’un cache de framework que vous configurez instance par instance.
+
+## Pourquoi SaaSy Land est construit sur TanStack Start
+
+saasyland.com est précisément un SaaS du premier type : un espace client, une console d’administration avec des tables de données, une API de licence, un tunnel de paiement, un blog et une documentation en <RepositoryFact name="languages" /> langues. Jusqu’en septembre 2026, il tournait sous Next.js 16 sur Vercel ; le passage à TanStack Start sur Cloudflare Workers figure dans son historique public. Nous avons choisi TanStack Start, avec React <RepositoryFact name="reactMajor" />, Vite+ et Cloudflare Workers, pour quatre raisons que vous pouvez lire dans son code public :
+
+1. **Des URL typées.** Une route qui lit des paramètres de recherche les valide avec Zod dans `validateSearch` : un filtre, un numéro de page ou un onglet dans l’URL est donc vérifié au moment de son analyse et typé partout où il est lu. La [convention des routes](/docs/conventions/routes) montre la forme unique qu’ont tous les fichiers de route.
+2. **Des fonctions serveur avec un middleware explicite.** Chaque fonction serveur valide son entrée avec le schéma Zod de son module et exécute le middleware d’autorisation qui lui convient : c’est précisément la vérification que réclament les incidents ci-dessus.
+3. **Workers comme plateforme, pas comme cible.** Le Worker, D1, KV et R2 sont le runtime de l’application, sans adaptateur entre le framework et la plateforme.
+4. **Une seule chaîne d’outils.** Vite+ exécute le serveur de développement, le build, Vitest et les linters depuis un seul `vite.config.ts`, et la fusion échoue en dessous de <RepositoryFact name="coverageThreshold" /> % de couverture des instructions, des branches, des fonctions et des lignes.
+
+Les contreparties sont réelles. Nous n’avons pas de Server Components : chaque composant de nos pages marketing est donc hydraté dans le navigateur, y compris les parties qui ne changent jamais, et la [convention sur les performances](/docs/conventions/performance) consigne ce que nous mesurons et allégeons à la place. Nous n’avons pas `next/image` : nous préparons donc nous-mêmes nos images et les images d’aperçu de nos vidéos. Et nous suivons de près un framework plus jeune : sa version stable a modifié des API que nous utilisons, et nous restons sur sa dernière version.
+
+La CLI de SaaSy Land est en bêta. Aujourd’hui, elle active votre licence ; la génération de projets arrive dans une version ultérieure et commence par TanStack Start sur Cloudflare Workers, et le [configurateur](/#cli) affiche Next.js comme à venir. D’ici là, l’intégralité de saasyland.com est publique sous licence MIT : vous pouvez donc lire l’application TanStack Start à partir de laquelle le générateur écrira les projets.
+
+## Lecture connexe
+
+<Cards>
+
+<Card title="Better Auth vs Clerk vs Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
+  La taxe d’authentification à grande échelle, qui détient la table des utilisateurs, et quand l’authentification hébergée vaut son prix.
+</Card>
+
+<Card title="Les meilleurs kits de démarrage SaaS TanStack Start" href="/blog/best-tanstack-start-saas-starter-kits">
+  Six kits comparés sur le prix, la licence, la stack, l’authentification, la facturation, les langues, les tests et l’hébergement.
+</Card>
+
+<Card title="Choisir une pile SaaS pour les agents de codage IA" href="/blog/choosing-a-saas-stack-for-ai-coding-agents">
+  Un test en quatre questions pour toute dépendance, appliqué couche par couche à cette stack.
+</Card>
+
+<Card title="L’alternative à MakerKit pour les ingénieurs" href="/blog/makerkit-alternative-for-engineers">
+  Un kit vendu à la fois pour Next.js et pour TanStack Start, comparé à un kit conçu pour Cloudflare Workers.
+</Card>
+
+</Cards>
+
+<Callout title="Lisez d’abord l’application TanStack Start">
+
+Le code source de saasyland.com est l’application TanStack Start décrite ici, et la [documentation](/docs) en explique chaque partie. Choisissez votre stack dans le [configurateur](/#cli), puis [voyez ce que coûte chaque formule](/#pricing) : un paiement unique à partir de <TierPrice tier="core" />, chaque carte indiquant ce qui est disponible maintenant et ce qui est à venir. Pour être prévenu de l’arrivée de la génération de projets, inscrivez-vous au journal de développement en bas de cette page.
+
+</Callout>
+
+## Foire aux questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- TanStack Start : [annonce de la 1.0](https://tanstack.com/blog/tanstack-start-1-0), [présentation](https://tanstack.com/start/latest/docs/framework/react/overview), [migration depuis la version candidate](https://tanstack.com/start/latest/docs/framework/react/migrate-from-release-candidate), [comparaison](https://tanstack.com/start/latest/docs/framework/react/comparison), [Start vs Next.js](https://tanstack.com/start/latest/docs/framework/react/start-vs-nextjs), [fonctions serveur](https://tanstack.com/start/latest/docs/framework/react/guide/server-functions), [middleware](https://tanstack.com/start/latest/docs/framework/react/guide/middleware), [SSR sélectif](https://tanstack.com/start/latest/docs/framework/react/guide/selective-ssr), [Server Components](https://tanstack.com/start/latest/docs/framework/react/guide/server-components), [ISR](https://tanstack.com/start/latest/docs/framework/react/guide/isr), [hébergement](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) et la [mise à jour de sécurité CVE-2026-102989](https://tanstack.com/blog/tanstack-start-security-update-cve-2026-102989)
+- TanStack Router : [sûreté du typage](https://tanstack.com/router/latest/docs/framework/react/guide/type-safety), [paramètres de recherche](https://tanstack.com/router/latest/docs/framework/react/guide/search-params) et [internationalisation](https://tanstack.com/router/latest/docs/framework/react/guide/internationalization-i18n)
+- Next.js : [Next.js 16](https://nextjs.org/blog/next-16), [Next.js 16.4](https://nextjs.org/blog/next-16-4), [Next.js sur toutes les plateformes](https://nextjs.org/blog/nextjs-across-platforms), [déploiement](https://nextjs.org/docs/app/getting-started/deploying), [déploiement sur les plateformes](https://nextjs.org/docs/app/guides/deploying-to-platforms), [auto-hébergement](https://nextjs.org/docs/app/guides/self-hosting), [composants serveur et client](https://nextjs.org/docs/app/getting-started/server-and-client-components), [modification des données](https://nextjs.org/docs/app/getting-started/mutating-data), [internationalisation](https://nextjs.org/docs/app/guides/internationalization) et l’[avis CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478)
+- Avis de sécurité : [CVE-2025-29927](https://github.com/vercel/next.js/security/advisories/GHSA-f82v-jwr5-mffw), [l’analyse post-incident de Vercel](https://vercel.com/blog/postmortem-on-next-js-middleware-bypass) et [la divulgation de CVE-2025-55182 par React](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+- Vercel : [tarifs](https://vercel.com/pricing), [la formule Pro](https://vercel.com/docs/plans/pro-plan) et [conditions d’utilisation](https://vercel.com/legal/terms)
+- Cloudflare : [Next.js sur Workers](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs), [vinext sur GitHub](https://github.com/cloudflare/vinext) et l’[adaptateur Cloudflare d’OpenNext](https://opennext.js.org/cloudflare)
+- npm : le [registre](https://registry.npmjs.org/next) pour les dernières versions, et l’[API de téléchargements](https://api.npmjs.org/downloads/point/last-week/next) pour les chiffres hebdomadaires
+- SaaSy Land : la [documentation](/docs), les conventions des [fonctions serveur](/docs/conventions/server-functions) et des [routes](/docs/conventions/routes), le [configurateur](/#cli), et le `vite.config.ts` de ce dépôt pour les seuils de couverture
+
+_Écrit par Piotr J. Borowiecki, qui construit SaaSy Land sur TanStack Start. Les faits concernant TanStack Start, Next.js, Vercel et Cloudflare ont été relevés sur leurs propres pages le 20 novembre 2026 et peuvent avoir changé depuis ; les liens mènent à la source plutôt qu’à une capture d’écran. Si quelque chose ici est périmé ou faux, dites-le-moi et je le corrigerai._

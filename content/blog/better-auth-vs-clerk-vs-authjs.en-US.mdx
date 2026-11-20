@@ -1,0 +1,258 @@
+---
+title: "Better Auth vs Clerk vs Auth.js in 2026: The Auth Tax, Lock-in and What You Own"
+description: "Better Auth, Clerk and Auth.js compared for a SaaS on price at scale, data ownership and export, self-hosting, organizations, two-factor and passkeys, with Clerk’s current pricing and the cases where hosted auth is worth paying for."
+excerpt: "Hosted auth is free until your product works. Clerk now gives you 50,000 monthly retained users before it charges per user, Auth.js is maintained by the Better Auth team, and Better Auth has a paid product of its own. Here is what each one costs at scale, who holds your user table, and when Clerk is still the right call."
+authorName: Piotr J. Borowiecki
+authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/better-auth-vs-clerk-vs-authjs.webp
+tags:
+  - comparison
+  - auth
+  - saas
+faq:
+  - question: What is the auth tax?
+    answer: >-
+      It is what a hosted authentication service charges you for each user once you outgrow its free
+      allowance. Clerk’s Pro plan includes 50,000 monthly retained users per application and then
+      charges $0.02 to $0.012 for each further user every month, so the bill grows with your user
+      base. A library such as Better Auth or Auth.js stores users in your own database and charges
+      nothing per user.
+  - question: How much does Clerk cost for 100,000 users?
+    answer: >-
+      On its Pro plan at list price on 20 November 2026, $1,025 a month: the $25 plan fee with 50,000
+      monthly retained users included, plus $0.02 for each of the next 50,000. Organizations beyond
+      the free 100, extra enterprise SSO connections and SMS codes are billed on top. Clerk counts a
+      user only in a month when they return at least a day after signing up.
+  - question: Is Better Auth really free?
+    answer: >-
+      The library is, under the MIT licence, with no per-user fee; you pay for the database, the
+      email and SMS provider and the hosting it runs on. Better Auth also sells an optional managed
+      Infrastructure product with a dashboard, audit logs and security detections: a free Starter
+      plan, Pro at $20 a month, and self-service SSO at $50 a month per connection after the first.
+  - question: Is Auth.js still maintained in 2026?
+    answer: >-
+      It is maintained by the Better Auth team, which took it over in September 2025 and says it
+      keeps addressing security patches and urgent issues. Auth.js v5 is still published as a beta,
+      and both teams recommend Better Auth for new projects. On 20 November 2026 the latest releases
+      on npm were next-auth 4.24.15 and 5.0.0-beta.32, both from 20 July 2026.
+  - question: Can I export my users from Clerk with their passwords?
+    answer: >-
+      Yes, from the Clerk Dashboard: it is the only export that includes password digests and TOTP
+      secrets, while the CLI and Backend API exports cannot include password digests. No export
+      includes backup codes. Clerk hashes passwords with bcrypt, so the library you move to must
+      verify bcrypt hashes; Better Auth’s Clerk migration guide shows how.
+  - question: Which supports passkeys and two-factor authentication?
+    answer: >-
+      Clerk includes multi-factor authentication and passkeys on its Pro and Business plans, not on
+      the free Hobby plan. Better Auth has a two-factor plugin with TOTP, one-time codes, backup codes
+      and trusted devices, and a passkey plugin. Auth.js has no built-in two-factor authentication,
+      and it calls its WebAuthn and passkeys provider experimental and not recommended for
+      production.
+  - question: Which is best for a B2B SaaS with organizations?
+    answer: >-
+      Clerk and Better Auth both ship organizations with roles and invitations. Clerk’s are free up
+      to 100 monthly retained organizations of up to 20 members, and beyond that its B2B add-on costs
+      $100 a month plus $1 to $0.60 per organization. Better Auth’s organization plugin adds teams
+      and roles created at runtime, at no charge, in your own database. Auth.js has no organizations.
+  - question: Can I self-host Clerk?
+    answer: >-
+      No. Clerk is a managed service, and its security page says it offers no regional data
+      residency: data is hosted on US infrastructure. If your users or your contracts require auth
+      data in your own database or region, use a library such as Better Auth or Auth.js.
+  - question: Does Better Auth work on Cloudflare Workers with D1?
+    answer: >-
+      Yes; saasyland.com runs it on a Worker, with users, sessions and rate limits in D1 through
+      Drizzle. Better Auth’s Cloudflare guide adds two cautions: Workers KV cannot serve as its
+      secondary storage, and the Better Auth CLI cannot reach D1 directly, because D1 is only
+      queried through a Worker.
+  - question: Does SaaSy Land use Better Auth?
+    answer: >-
+      {generation, select, available {Yes. saasyland.com runs Better Auth on Cloudflare D1, and
+      {initCommand} writes a project with Better Auth or without auth, as you choose in the
+      configurator.} other {Yes. saasyland.com runs Better Auth on Cloudflare D1 today, and its
+      source is public under the MIT licence. Project generation, with Better Auth or without auth
+      as you choose in the configurator, arrives in a later release.}}
+---
+
+<Callout title="What this article is">
+
+A comparison of Better Auth, Clerk and Auth.js for anyone choosing authentication for a SaaS. It covers:
+
+1. The auth tax: what each option costs at 10,000, 100,000 and 1,000,000 users.
+2. Who holds your user table, and what you can take with you when you leave.
+3. Self-hosting, data residency and where each one runs, Cloudflare Workers included.
+4. Organizations, two-factor authentication and passkeys.
+5. The state of Auth.js in 2026, where Clerk is the better choice, and why saasyland.com runs Better Auth.
+
+</Callout>
+
+_Last checked 20 November 2026. Every price, limit and feature of Clerk, Better Auth and Auth.js below was read on the vendor’s own pricing page, documentation, changelog, security page or the npm registry that day, and the sources are linked at the bottom. Every figure about SaaSy Land is printed from its code. We use Better Auth and sell a product built on it, so read Clerk’s case below as carefully as ours._
+
+## The short answer
+
+**Choose Clerk** if you want sign-in, user management and organizations working this afternoon, with prebuilt components, bot protection and SOC 2 and HIPAA reports handled by someone else, and you expect to stay under 50,000 monthly retained users for a while, or have the margin to pay per user beyond that.
+
+**Choose Better Auth** if you want your users in your own database, no per-user fee at any scale, and features such as two-factor, passkeys, organizations and SSO as plugins you configure in code. It is what we run.
+
+**Keep Auth.js** if you already have it and it works. For a new project, its own maintainers recommend Better Auth.
+
+## The auth tax: what each option costs as you grow
+
+### What Clerk charges, from its pricing page
+
+Clerk prices by **monthly retained users** (MRU): "a user who visits your app in a given month at least one day after signing up". Someone who signs up and never comes back is not counted, which is generous, and it is not the same as the monthly active users other services count.
+
+- **Hobby** is free, with "50,000 MRU limit per app", up to three dashboard seats and a fixed seven-day session lifetime. It does not include multi-factor authentication or passkeys.
+- **Pro** costs $25 a month, or $20 billed annually, and includes "50,000 MRUs included per app". Beyond that, each retained user costs $0.02 a month from 50,001 to 100,000, $0.018 up to 1,000,000, $0.015 up to 10,000,000 and $0.012 above.
+- **Business** costs $300 a month, or $250 billed annually, with the same per-user rates, ten dashboard seats and SOC 2 report access.
+
+Clerk raised the free allowance on 5 February 2026: "50,000 Monthly Retained Users are now free in every application, up from 10,000". Comparisons that quote a free tier of 10,000 users describe the old plans.
+
+### Clerk’s bill at scale
+
+My arithmetic, from that table, for one application on Pro at monthly list price, before any add-on:
+
+| Monthly retained users | Clerk Pro, per month | Better Auth, per month | Auth.js, per month |
+| ---------------------- | -------------------- | ---------------------- | ------------------ |
+| 10,000                 | $25                  | $0 in licence fees     | $0 in licence fees |
+| 50,000                 | $25                  | $0 in licence fees     | $0 in licence fees |
+| 100,000                | $1,025               | $0 in licence fees     | $0 in licence fees |
+| 1,000,000              | $17,225              | $0 in licence fees     | $0 in licence fees |
+
+At 100,000 users the per-user part is 50,000 × $0.02. At 1,000,000 it is that $1,000 plus 900,000 × $0.018, $16,200, so about $206,700 a year. The Hobby plan would cover the first two rows for nothing, without multi-factor authentication or passkeys.
+
+The add-ons are billed on top. Organizations are free up to 100 monthly retained organizations; past that, Clerk’s FAQ says "you will be required to upgrade to the B2B Authentication add-on", which costs $100 a month and $1 per further organization up to 1,000, falling to $0.60 above 100,000. Pro and Business include one enterprise SSO connection, then charge $75 a month for each of the next fourteen. SMS codes cost $0.01 each in the US and Canada and the market rate elsewhere. A B2B product with 500 retained organizations and ten customers on SAML would add $500 and $675 a month to the figures above.
+
+That is the **auth tax**: a bill that grows with exactly the number you are trying to grow. It is also why a hosted service can give you so much for free at the start.
+
+### What the libraries cost instead
+
+**Better Auth** is MIT-licensed, and its comparison page sums up the case: "Users stay in your database, not a third-party service" and "No per-user costs". You pay for the database it writes to, the email and SMS provider that sends its codes and links, and the hosting it runs on, which your application needs anyway.
+
+Better Auth also sells **Better Auth Infrastructure**, a managed dashboard, audit log and security service for a self-hosted Better Auth: a free Starter plan; Pro at $20 a month with 20,000 audit log events and 10,000 security detections included; self-service SSO and directory sync at one connection included and $50 a month per further connection; and email at $0.001 and SMS at $0.09 per message. Its pricing page is clear that "the Better Auth framework is free and open source", and none of the plugins in this article needs Infrastructure, except that letting customers configure their own SSO connection through an onboarding link is an Infrastructure feature.
+
+**Auth.js** is ISC-licensed and free in the same way.
+
+**What no table shows is your time.** With a library, you build the sign-in screens, send the emails, keep the dependency current and own the incident when something breaks. With Clerk, its prebuilt components and its operations team do that for you. If your team is small and your users are few, that can be worth more than the auth tax costs you.
+
+## Who owns the user table
+
+**With Clerk, Clerk holds it.** Your users, sessions and credentials live in Clerk’s service, and its security page says Clerk "does not offer regional data residency or region selection. Data is hosted on US infrastructure". Every plan includes "full data exports", and the export is where lock-in shows: according to Clerk’s documentation, "only the Clerk Dashboard export includes password digests and time-based one-time password (TOTP) secrets", the CLI and Backend API exports cannot include password digests, and "no export includes backup codes". Moving off Clerk is possible with the Dashboard export, and users who rely on backup codes will need new ones.
+
+Clerk hashes passwords with bcrypt. Better Auth’s Clerk migration guide notes that Better Auth uses scrypt by default, so migrated users can sign in with their old passwords only once you configure Better Auth to verify bcrypt hashes.
+
+**With Better Auth or Auth.js, you hold it.** The users, sessions, accounts and verification tables sit in your own database, through adapters for Drizzle, Prisma, Kysely, MongoDB and others, and you back them up, query them and join them to your own tables like any other data. The lock-in moves from a vendor to a library: you depend on its schema and its API, but you can read its source and fork it, and Better Auth publishes a migration guide from Auth.js.
+
+## Self-hosting and where it runs
+
+**Clerk** is a managed service, so there is nothing to host and nothing you can host. It has SDKs for the major frameworks, TanStack Start among them through `@clerk/tanstack-react-start`, and a public status page.
+
+**Better Auth** runs inside your application, on any runtime your application runs on. It documents integrations for Next.js, TanStack Start, React Router, Nuxt, SvelteKit, SolidStart, Astro, Hono, Express and others, and its Cloudflare guide covers Workers: read the client IP from `CF-Connecting-IP`, use a database driver that queries over HTTP, and do not use Workers KV as `secondaryStorage`, because KV "cannot meet the `secondaryStorage` contract".
+
+**Auth.js** runs inside your application too, with official adapters for most databases, Cloudflare D1 included.
+
+## Organizations and multi-tenancy
+
+If you sell to companies, the organization model matters more than the sign-in form.
+
+**Clerk** includes organizations on every plan, free up to 100 monthly retained organizations of up to 20 members, with admin and member roles, custom permissions and invitations. An organization counts as retained "when it has at least 2 members and at least one of those members is a monthly retained user for that month". Custom roles, unlimited members and verified domains are part of the B2B add-on. Its `<OrganizationSwitcher />` component "handles all Organization-related flows", and enterprise SSO supports SAML, OIDC and EASIE.
+
+**Better Auth** has an organization plugin with members, invitations and roles; teams, which "allow you to group members within an organization"; and dynamic access control, which "allows you to create roles at runtime for organizations". Its SSO plugin connects "each organization to its own OIDC or SAML 2.0 identity provider", and a separate SCIM plugin provisions users from a directory. All of it lives in your database, at no per-organization price.
+
+**Auth.js** has no organizations. Its role-based access control guide shows how to add a role to the session yourself.
+
+## Two-factor, passkeys and the rest of sign-in
+
+| Feature             | Clerk                                                   | Better Auth                                           | Auth.js                                                    |
+| ------------------- | ------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| Two-factor          | Authenticator apps, SMS codes and backup codes, on Pro  | Two-factor plugin: TOTP, one-time codes, backup codes | Not built in                                               |
+| Passkeys            | On Pro and Business                                     | Passkey plugin, `@better-auth/passkey`                | WebAuthn provider, experimental                            |
+| Social sign-in      | Up to three providers on Hobby, unlimited on paid plans | Built-in social providers, plus generic OAuth         | More than 80 preconfigured providers                       |
+| Email and password  | Passwords checked against leaked password databases     | Included, with verification and password reset        | Credentials provider; you write the storage and the checks |
+| Magic links and OTP | Email links and six-digit email codes, on every plan    | Magic link and email OTP plugins                      | Email magic links                                          |
+| Admin and bans      | Bans on Pro; five impersonations a month on every plan  | Admin plugin: roles, bans and impersonation           | Not built in                                               |
+| Prebuilt UI         | `<SignIn />`, `<UserProfile />` and more                | None: you build the screens                           | A default sign-in page                                     |
+
+Two of those rows changed this year. Clerk eliminated its Enhanced Authentication add-on in February 2026 and moved multi-factor authentication into Pro, so two-factor no longer needs an add-on there; it is still not on the free plan. And Better Auth moved several plugins into their own packages, passkeys, SSO and API keys among them, so older tutorials import them from the wrong place.
+
+Auth.js is direct about its limits. Its WebAuthn page says "the WebAuthn / Passkeys provider is experimental and not recommended for production use", and its credentials page recommends "a more modern and secure authentication mechanism" and reminds you that you must "provide the necessary logic, eg. to encrypt passwords, add rate-limiting, add password reset functionality".
+
+## Auth.js in 2026: maintained by the Better Auth team
+
+On 22 September 2025, Better Auth announced that "Auth.js, formerly known as NextAuth.js, is now being maintained and overseen by Better Auth team". The announcement promised to "keep addressing security patches and urgent issues", and added: "we strongly recommend new projects to start with Better Auth unless there are some very specific feature gaps (most notably stateless session management without a database)". The Auth.js team’s own GitHub discussion says the same, and both of its websites now carry a banner saying the project is part of Better Auth.
+
+That one exception has since closed: Better Auth’s session documentation says it "supports stateless session management without any database".
+
+Auth.js v5 is still a beta. On 20 November 2026, the latest releases on npm were `next-auth` 4.24.15 and 5.0.0-beta.32, both published on 20 July 2026. An existing Auth.js app is not in danger, and there is no reason to rewrite one that works. A new one should start somewhere with a future.
+
+## When Clerk is the better choice
+
+Clerk is a good product, and for many teams it is the right one:
+
+- **You want it working today.** `<SignIn />` "renders a UI to allow users to sign in or sign up", and `<UserProfile />` gives users "a beautiful, full-featured account management UI". With a library, those screens are yours to build, translate and test.
+- **You need compliance paperwork.** Clerk says it "has been SOC 2 Type 2 and HIPAA certified since May 2022", with the SOC 2 report on Business and above and a HIPAA business associate agreement on Enterprise.
+- **You want abuse handled for you.** Brute force prevention and basic bot protection are on every plan, with advanced protections on Business.
+- **Your user count will stay modest.** Up to 50,000 monthly retained users per application, Clerk costs nothing on Hobby and $25 a month on Pro, and users who sign up once and leave are never counted.
+- **You sell to enterprises soon.** SAML, OIDC and EASIE connections, directory sync and organizations work without building an admin for them.
+
+Weigh that against two things that grow with success: the per-user and per-organization bill, and the cost of leaving once your users, sessions and second factors live in someone else’s service.
+
+## Why saasyland.com runs Better Auth
+
+saasyland.com sells one-time licences, runs on a Cloudflare Worker and speaks <RepositoryFact name="languages" /> languages. Its authentication, all of it public under the MIT licence, is Better Auth on D1:
+
+- **Users, sessions and rate limits are rows in D1**, through the Drizzle adapter, so the admin console joins them to orders and licences like any other table, and an admin can revoke any user’s sessions from their profile.
+- **Email and password with verification required**, passwords of <RepositoryFact name="passwordMinLength" /> to <RepositoryFact name="passwordMaxLength" /> characters, sessions revoked on a password reset, and GitHub and Google sign-in with account linking and encrypted OAuth tokens.
+- **Two-factor authentication with backup codes**, through Better Auth’s `twoFactor` plugin.
+- **Roles, bans and impersonation** through the `admin` plugin, with the permission statements in the code.
+- **Polar’s Better Auth plugin** connects each user to their customer portal and receives Polar’s verified webhooks; the [payments comparison](/blog/polar-vs-stripe-vs-lemon-squeezy) explains why we chose Polar.
+
+The [Authentication](/docs/features/authentication), [Two-factor authentication](/docs/features/two-factor) and [Sessions](/docs/features/sessions) pages document every part.
+
+The costs are real here too. We built and translated every sign-in, sign-up, verification and two-factor screen ourselves, because Better Auth ships none. The site has no passkeys today, and it has no organizations: the [Organizations](/docs/features/organizations) page says the Better Auth organization plugin is not installed, and the configurator lists multi-tenancy as arriving. And when Better Auth publishes a release, keeping our sign-in correct is our job, not a vendor’s.
+
+SaaSy Land’s CLI is in beta: today it activates your licence, and project generation arrives in a later release, with Better Auth or no auth as the [configurator](/#cli) offers.
+
+## Related reading
+
+<Cards>
+
+<Card title="TanStack Start vs Next.js for SaaS" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  Both frameworks as they stand after TanStack Start 1.0 and Next.js 16, and where Next.js wins.
+</Card>
+
+<Card title="Polar vs Stripe vs Lemon Squeezy" href="/blog/polar-vs-stripe-vs-lemon-squeezy">
+  Merchant of record or payment processor, and why saasyland.com runs on Polar.
+</Card>
+
+<Card title="Choosing a SaaS stack for AI coding agents" href="/blog/choosing-a-saas-stack-for-ai-coding-agents">
+  A four-question test for any dependency, applied layer by layer to this stack.
+</Card>
+
+<Card title="The best TanStack Start SaaS starter kits" href="/blog/best-tanstack-start-saas-starter-kits">
+  Six kits compared, and the auth library that almost all of them converged on.
+</Card>
+
+</Cards>
+
+<Callout title="Read the auth code before you choose">
+
+Every line of saasyland.com’s Better Auth setup is public, and the [Better Auth integration page](/docs/integrations/better-auth) walks through it. Pick your stack in the [configurator](/#cli), then [see what each tier costs](/#pricing): one payment from <TierPrice tier="core" />, with no per-user fee after it and each card saying what is available now and what is arriving. To hear when project generation ships, sign up for the build log at the foot of this page.
+
+</Callout>
+
+## Frequently asked questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- Clerk: [pricing](https://clerk.com/pricing), [the February 2026 plan changes](https://clerk.com/changelog/2026-02-05-new-plans-more-value), [exporting users](https://clerk.com/docs/guides/development/migrating/export-from-clerk), [security and compliance](https://clerk.com/security), [how Clerk works](https://clerk.com/docs/guides/how-clerk-works/overview), [the TanStack Start quickstart](https://clerk.com/docs/tanstack-react-start/getting-started/quickstart), the [SignIn](https://clerk.com/docs/tanstack-react-start/reference/components/authentication/sign-in), [UserProfile](https://clerk.com/docs/tanstack-react-start/reference/components/user/user-profile) and [OrganizationSwitcher](https://clerk.com/docs/tanstack-react-start/reference/components/organization/organization-switcher) components, and the [status page](https://status.clerk.com)
+- Better Auth: [comparison](https://better-auth.com/docs/comparison), [pricing](https://better-auth.com/pricing), [Infrastructure](https://better-auth.com/docs/infrastructure/introduction), [two-factor](https://better-auth.com/docs/plugins/2fa), [passkey](https://better-auth.com/docs/plugins/passkey), [organization](https://better-auth.com/docs/plugins/organization), [admin](https://better-auth.com/docs/plugins/admin), [SSO](https://better-auth.com/docs/plugins/sso), [magic link](https://better-auth.com/docs/plugins/magic-link), [email OTP](https://better-auth.com/docs/plugins/email-otp), [session management](https://better-auth.com/docs/concepts/session-management), [databases](https://better-auth.com/docs/concepts/database), [Cloudflare](https://better-auth.com/docs/guides/cloudflare), [TanStack Start](https://better-auth.com/docs/integrations/tanstack), the [Clerk migration guide](https://better-auth.com/docs/guides/clerk-migration-guide), the [Auth.js migration guide](https://better-auth.com/docs/guides/next-auth-migration-guide), the [licence](https://github.com/better-auth/better-auth) and the [announcement that Auth.js joins Better Auth](https://better-auth.com/blog/authjs-joins-better-auth)
+- Auth.js: [installation](https://authjs.dev/getting-started/installation), [signing in](https://authjs.dev/getting-started/session-management/login), [OAuth providers](https://authjs.dev/getting-started/authentication/oauth), [credentials](https://authjs.dev/getting-started/authentication/credentials), [WebAuthn](https://authjs.dev/getting-started/authentication/webauthn), [database adapters](https://authjs.dev/getting-started/database), [session strategies](https://authjs.dev/concepts/session-strategies), [role-based access control](https://authjs.dev/guides/role-based-access-control), the [maintainers’ discussion](https://github.com/nextauthjs/next-auth/discussions/13252) and the [licence](https://github.com/nextauthjs/next-auth)
+- npm: the registry entries for [better-auth](https://registry.npmjs.org/better-auth), [next-auth](https://registry.npmjs.org/next-auth) and [@clerk/tanstack-react-start](https://registry.npmjs.org/@clerk/tanstack-react-start)
+- SaaSy Land: the [Authentication](/docs/features/authentication), [Two-factor authentication](/docs/features/two-factor), [Sessions](/docs/features/sessions) and [Organizations](/docs/features/organizations) pages, and `src/integrations/better-auth/auth.server.ts` in this repository
+
+_Written by Piotr J. Borowiecki, who builds SaaSy Land on Better Auth. The prices and features of Clerk, Better Auth and Auth.js were read from their public pages on 20 November 2026 and may have changed since; the links go to the source rather than to a screenshot. If anything here is out of date or wrong, tell me and I will correct it._

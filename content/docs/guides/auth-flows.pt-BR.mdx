@@ -21,7 +21,7 @@ O Better Auth (`src/integrations/better-auth/auth.server.ts`) armazena usuários
 ## Login
 
 1. `SignInForm` chama `signIn.email` do cliente do Better Auth.
-2. Uma conta não verificada recebe o erro `EMAIL_NOT_VERIFIED` e é enviada para `/auth/verify-email` com o endereço de e-mail e `redirect`.
+2. Uma conta não verificada recebe o erro `EMAIL_NOT_VERIFIED`, o Better Auth envia um link de verificação novo (`sendOnSignIn`) no idioma da página de login e com o `redirect` dela, e o formulário abre `/auth/verify-email` com o endereço de e-mail, `redirect` e `unverified`.
 3. Uma conta com autenticação em dois fatores recebe `twoFactorRedirect`; `SignInForm` abre `/auth/two-factor`, mantendo `redirect`.
 4. Em caso de sucesso, `finishSignIn` de `useAuthRedirect` remove os dados do usuário anterior do cache de queries, limpa o cache do router e navega para `/auth/callback`, que continua para `redirect` ou para a área de trabalho do papel.
 
@@ -30,7 +30,7 @@ Os erros que o Better Auth informa por redirecionamento chegam como `?error=` em
 ## Cadastro e verificação de e-mail
 
 1. `SignUpForm` valida `signUpWithPasswordSchema` e chama `signUpWithPasswordMutation`, uma função de servidor com limite de requisições que chama `auth.api.signUpEmail`.
-2. O Better Auth cria o usuário e chama `sendVerifyEmail` com o `callbackURL` do formulário, o `/auth/callback` localizado com `redirect`. O e-mail aponta para `/auth/verify-email` neste site, no idioma do callback e com o `redirect` dele, além do `token`. Cadastrar-se de novo com um endereço não verificado envia um link novo. No máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de verificação vão para um mesmo endereço por hora; as solicitações seguintes não enviam nada.
+2. O Better Auth cria o usuário e chama `sendVerifyEmail` com o `callbackURL` do formulário, o `/auth/callback` localizado com `redirect`. O e-mail aponta para `/auth/verify-email` neste site, no idioma do callback e com o `redirect` dele, além do `token`. Cadastrar-se de novo com um endereço não verificado envia um link novo, e com um endereço verificado, o e-mail de conta existente, enquanto a resposta e a tela seguinte continuam as mesmas. No máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de verificação vão para um mesmo endereço por hora; as solicitações seguintes não enviam nada.
 3. O formulário navega para `/auth/verify-email?email=…`, onde `VerifyEmailForm` pode reenviar o link com `sendVerificationEmailMutation`, que também tem limite de requisições.
 4. Ao abrir o link, o `beforeLoad` da rota entrega o token a `/api/auth/verify-email`. O Better Auth o verifica, faz o login do usuário e volta para `/auth/verify-email?verified=true`, que redireciona para `/auth/callback`, mantendo `redirect`. Um link inválido ou expirado volta com `error`, e a página oferece um novo.
 
@@ -40,7 +40,7 @@ O login fica bloqueado até o e-mail ser verificado (`requireEmailVerification: 
 
 1. `/auth/forgot-password`: `ForgotPasswordForm` chama `requestPasswordResetMutation` com `redirectTo` apontando para `/auth/reset-password` localizado.
 2. O Better Auth chama `sendResetPasswordEmail`, que envia no máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de redefinição para um mesmo endereço por hora. O link do e-mail passa pelo Better Auth, que redireciona para `/auth/reset-password?token=…`, ou com `error` quando o token é inválido ou expirou.
-3. `ResetPasswordForm` envia a nova senha com `resetPasswordMutation`. O Better Auth revoga todas as sessões existentes (`revokeSessionsOnPasswordReset: true`) e o formulário navega para o login.
+3. `ResetPasswordForm` envia a nova senha com `resetPasswordMutation`. O Better Auth revoga todas as sessões existentes (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` envia por e-mail o aviso de troca de senha e o formulário navega para o login.
 
 ## Autenticação em dois fatores
 

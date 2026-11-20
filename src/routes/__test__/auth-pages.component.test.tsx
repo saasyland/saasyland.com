@@ -325,3 +325,16 @@ describe("authentication routes", () => {
     })
   })
 })
+
+describe("verification page guidance", () => {
+  it.each([
+    { message: pagesAuthVerifyEmailMessages.form.pendingDescription, search: "?email=person%40example.com" },
+    { message: pagesAuthVerifyEmailMessages.form.unverifiedDescription, search: "?email=person%40example.com&unverified=true" },
+    { message: pagesAuthVerifyEmailMessages.form.pendingDescription, search: "?unverified=yes" },
+  ])("tells a visitor arriving with $search what to do next", async ({ message, search }) => {
+    await renderAuth(`${ROUTES.VERIFY_EMAIL}${search}`)
+
+    expect(await screen.findByText(message)).toBeVisible()
+    expect(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.form.resend })).toBeVisible()
+  })
+})

@@ -21,7 +21,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) stores users, sessio
 ## Sign-in
 
 1. `SignInForm` calls the Better Auth client's `signIn.email`.
-2. An unverified account gets the `EMAIL_NOT_VERIFIED` error and is sent to `/auth/verify-email` with its email address and `redirect`.
+2. An unverified account gets the `EMAIL_NOT_VERIFIED` error, Better Auth sends a fresh verification link (`sendOnSignIn`) in the sign-in page's locale and with its `redirect`, and the form opens `/auth/verify-email` with the email address, `redirect` and `unverified`.
 3. An account with two-factor authentication receives `twoFactorRedirect`; `SignInForm` opens `/auth/two-factor`, keeping `redirect`.
 4. On success, `finishSignIn` from `useAuthRedirect` removes the previous user's data from the query cache, clears the router cache and navigates to `/auth/callback`, which continues to `redirect` or to the workspace for the role.
 
@@ -30,7 +30,7 @@ Errors that Better Auth reports by redirect arrive as `?error=` on `/auth/sign-i
 ## Sign-up and email verification
 
 1. `SignUpForm` validates `signUpWithPasswordSchema` and calls `signUpWithPasswordMutation`, a rate-limited server function that calls `auth.api.signUpEmail`.
-2. Better Auth creates the user and calls `sendVerifyEmail` with the form's `callbackURL`, the localized `/auth/callback` with `redirect`. The email links to `/auth/verify-email` on this site, in the callback's locale and with its `redirect`, plus the `token`. Signing up again with an unverified address sends a fresh link. At most <RepositoryFact name="recipientEmailsPerHour" /> verification emails go to one address per hour; further requests send nothing.
+2. Better Auth creates the user and calls `sendVerifyEmail` with the form's `callbackURL`, the localized `/auth/callback` with `redirect`. The email links to `/auth/verify-email` on this site, in the callback's locale and with its `redirect`, plus the `token`. Signing up again with an unverified address sends a fresh link, and with a verified address the existing-account email, while the answer and the next screen stay the same. At most <RepositoryFact name="recipientEmailsPerHour" /> verification emails go to one address per hour; further requests send nothing.
 3. The form navigates to `/auth/verify-email?email=…`, where `VerifyEmailForm` can resend the link through the rate-limited `sendVerificationEmailMutation`.
 4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which redirects to `/auth/callback`, keeping `redirect`. An invalid or expired link returns with `error` and the page offers a new one.
 
@@ -40,7 +40,7 @@ Sign-in is blocked until the email is verified (`requireEmailVerification: true`
 
 1. `/auth/forgot-password`: `ForgotPasswordForm` calls `requestPasswordResetMutation` with `redirectTo` set to the localized `/auth/reset-password`.
 2. Better Auth calls `sendResetPasswordEmail`, which sends at most <RepositoryFact name="recipientEmailsPerHour" /> reset emails to one address per hour. The emailed link passes through Better Auth, which redirects to `/auth/reset-password?token=…`, or with `error` when the token is invalid or expired.
-3. `ResetPasswordForm` submits the new password through `resetPasswordMutation`. Better Auth revokes every existing session (`revokeSessionsOnPasswordReset: true`) and the form navigates to sign-in.
+3. `ResetPasswordForm` submits the new password through `resetPasswordMutation`. Better Auth revokes every existing session (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` emails the password change notice, and the form navigates to sign-in.
 
 ## Two-factor authentication
 

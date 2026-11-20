@@ -4,11 +4,15 @@ import type { AuthEmails } from "~/src/data/auth-emails"
 
 const USER = { email: "ada@example.test", name: "Ada" }
 const CHANGE_EMAIL = { newEmail: "grace@example.test", token: "change-token", url: "https://example.test/change", user: USER }
+const EXISTING_ACCOUNT = { callbackURL: "/auth/callback", user: { ...USER, id: "ada" } }
+const PASSWORD_CHANGED = { callbackURL: "/auth/callback", user: USER }
 const RESET_PASSWORD = { token: "reset-token", url: "https://example.test/reset", user: USER }
 const VERIFICATION = { callbackURL: "/auth/callback", token: "verify-token", user: USER }
 
 const emailArea = (): AuthEmails => ({
   sendChangeEmailConfirmation: vi.fn(() => Promise.resolve()),
+  sendExistingAccount: vi.fn(() => Promise.resolve()),
+  sendPasswordChanged: vi.fn(() => Promise.resolve()),
   sendResetPassword: vi.fn(() => Promise.resolve()),
   sendVerification: vi.fn(() => Promise.resolve()),
 })
@@ -31,11 +35,15 @@ describe("auth emails", () => {
     const emails = await loadAuthEmails({ FIRST_AUTH_EMAILS: first, SECOND_AUTH_EMAILS: second })
 
     await emails.sendChangeEmailConfirmation(CHANGE_EMAIL)
+    await emails.sendExistingAccount(EXISTING_ACCOUNT)
+    await emails.sendPasswordChanged(PASSWORD_CHANGED)
     await emails.sendResetPassword(RESET_PASSWORD)
     await emails.sendVerification(VERIFICATION)
 
     for (const area of [first, second]) {
       expect(area.sendChangeEmailConfirmation).toHaveBeenCalledExactlyOnceWith(CHANGE_EMAIL)
+      expect(area.sendExistingAccount).toHaveBeenCalledExactlyOnceWith(EXISTING_ACCOUNT)
+      expect(area.sendPasswordChanged).toHaveBeenCalledExactlyOnceWith(PASSWORD_CHANGED)
       expect(area.sendResetPassword).toHaveBeenCalledExactlyOnceWith(RESET_PASSWORD)
       expect(area.sendVerification).toHaveBeenCalledExactlyOnceWith(VERIFICATION)
     }

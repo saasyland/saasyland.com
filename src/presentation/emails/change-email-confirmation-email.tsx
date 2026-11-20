@@ -3,10 +3,13 @@ import type { JSX } from "react"
 import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
 import { createTranslator } from "use-intl"
 
+import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.change-email-confirmation-email.json"
 import { APP_NAME } from "~/src/presentation/branding"
+import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
+import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
 
 export const CHANGE_EMAIL_CONFIRMATION_NAMESPACE = "emails.change-email-confirmation-email"
 
@@ -40,6 +43,7 @@ export const ChangeEmailConfirmationEmail = ({
         <Body className="font-sans">
           <Preview>{t("preview", { appName: APP_NAME })}</Preview>
           <Container className="mx-auto px-5 py-10">
+            <EmailBrandHeader />
             <Section>
               <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
               <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name, newEmail })}</Text>
@@ -49,6 +53,8 @@ export const ChangeEmailConfirmationEmail = ({
               >
                 {t("button")}
               </Button>
+              <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
+              <EmailFallbackLink label={t("fallback")} url={confirmUrl} />
               <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
             </Section>
           </Container>

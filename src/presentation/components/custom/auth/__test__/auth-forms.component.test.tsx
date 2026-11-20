@@ -261,7 +261,7 @@ describe("sign in form", () => {
     expect(toastSuccessMock).not.toHaveBeenCalled()
     if (code === "EMAIL_NOT_VERIFIED") {
       await waitFor(() => {
-        expect(pushMock).toHaveBeenCalledWith({ search: { email: TEST_EMAIL }, to: ROUTES.VERIFY_EMAIL })
+        expect(pushMock).toHaveBeenCalledWith({ search: { email: TEST_EMAIL, unverified: true }, to: ROUTES.VERIFY_EMAIL })
       })
     } else {
       expect(pushMock).not.toHaveBeenCalled()

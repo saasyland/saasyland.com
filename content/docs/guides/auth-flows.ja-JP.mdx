@@ -21,7 +21,7 @@ Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー
 ## サインイン
 
 1. `SignInForm` が、Better Auth クライアントの `signIn.email` を呼び出します。
-2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返され、そのメールアドレスと `redirect` とともに `/auth/verify-email` に送られます。
+2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返されます。Better Auth はサインインページのロケールとその `redirect` で新しい認証リンクを送信し（`sendOnSignIn`）、フォームはメールアドレス、`redirect`、`unverified` を付けて `/auth/verify-email` を開きます。
 3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。
 4. 成功すると、`useAuthRedirect` の `finishSignIn` がクエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこから `redirect`、またはロールに応じたワークスペースへ進みます。
 
@@ -30,7 +30,7 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 ## サインアップとメール認証
 
 1. `SignUpForm` は `signUpWithPasswordSchema` で検証し、`signUpWithPasswordMutation` を呼び出します。これは `auth.api.signUpEmail` を呼び出す、レート制限付きのサーバー関数です。
-2. Better Auth がユーザーを作成し、フォームの `callbackURL`（`redirect` 付きのローカライズされた `/auth/callback`）を渡して `sendVerifyEmail` を呼び出します。メールのリンク先は、このサイトの `/auth/verify-email` で、コールバックのロケールとその `redirect`、さらに `token` が付きます。未認証のアドレスで再度サインアップすると、新しいリンクが送信されます。1 つのアドレスに送られる認証メールは 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通で、それ以降のリクエストでは何も送信されません。
+2. Better Auth がユーザーを作成し、フォームの `callbackURL`（`redirect` 付きのローカライズされた `/auth/callback`）を渡して `sendVerifyEmail` を呼び出します。メールのリンク先は、このサイトの `/auth/verify-email` で、コールバックのロケールとその `redirect`、さらに `token` が付きます。未認証のアドレスで再度サインアップすると新しいリンクが、認証済みのアドレスでは既存アカウントのメールが送信されます。応答と次の画面は変わりません。1 つのアドレスに送られる認証メールは 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通で、それ以降のリクエストでは何も送信されません。
 3. フォームは `/auth/verify-email?email=…` に遷移します。そこでは `VerifyEmailForm` が、レート制限付きの `sendVerificationEmailMutation` を通じてリンクを再送信できます。
 4. リンクを開くと、ルートの `beforeLoad` がトークンを `/api/auth/verify-email` に渡します。Better Auth はトークンを検証してユーザーをサインインさせ、`/auth/verify-email?verified=true` に戻します。そこから `redirect` を保持したまま `/auth/callback` にリダイレクトされます。リンクが無効または期限切れの場合は `error` 付きで戻り、ページは新しいリンクの送信を提案します。
 
@@ -40,7 +40,7 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 
 1. `/auth/forgot-password`：`ForgotPasswordForm` が、`redirectTo` にローカライズされた `/auth/reset-password` を設定して `requestPasswordResetMutation` を呼び出します。
 2. Better Auth が `sendResetPasswordEmail` を呼び出します。これは 1 つのアドレスに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までリセットメールを送信します。メールで送られたリンクは Better Auth を経由して `/auth/reset-password?token=…` にリダイレクトされます。トークンが無効または期限切れの場合は、`error` 付きでリダイレクトされます。
-3. `ResetPasswordForm` が `resetPasswordMutation` を通じて新しいパスワードを送信します。Better Auth は既存のすべてのセッションを無効化し（`revokeSessionsOnPasswordReset: true`）、フォームはサインインページに遷移します。
+3. `ResetPasswordForm` が `resetPasswordMutation` を通じて新しいパスワードを送信します。Better Auth は既存のすべてのセッションを無効化し（`revokeSessionsOnPasswordReset: true`）、`onPasswordReset` がパスワード変更の通知をメールで送信し、フォームはサインインページに遷移します。
 
 ## 二要素認証
 

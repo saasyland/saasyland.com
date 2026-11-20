@@ -12,6 +12,8 @@ description: "src/presentation/emails の React Email テンプレート。ユ�
 | `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail`（Better Auth のフック）                                  |
 | `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail`（Better Auth のフック）                           |
 | `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail`（Better Auth のフック）                 |
+| `ExistingAccountEmail`         | `emails.existing-account-email`          | `sendExistingAccountEmail`（Better Auth の `onExistingUserSignUp`）        |
+| `PasswordChangedEmail`         | `emails.password-changed-email`          | `sendPasswordChangedEmail`（Better Auth の `onPasswordReset`）             |
 | `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                                    |
 | `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`、宛先は `CONTACT_EMAIL`                    |
 | `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail`（Polar の `order.paid`）                   |
@@ -22,6 +24,8 @@ description: "src/presentation/emails の React Email テンプレート。ユ�
 ```tsx
 const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
 ```
+
+アカウント関連のメールは、アプリケーション名を表示する `EmailBrandHeader` で始まり、ボタンの下に `EmailFallbackLink` を置きます。これは同じリンクをプレーンテキストにしたもので、ボタンを表示しないメールクライアントのためのものです。確認、パスワードリセット、メールアドレス変更のメールには、Better Auth に設定された値である `EMAIL_LINK_LIFETIME_HOURS` から、リンクの有効期間が記載されます。
 
 ## 送信
 
@@ -49,9 +53,9 @@ await sendEmail({
 
 `sendEmail`（`src/integrations/resend/resend.utils.ts`）は、`from` が指定されない限り `RESEND_EMAIL_FROM` から Resend 経由で送信し（オーナーへの通知と、アカウントに対応しない注文のアラートは `NOTIFICATIONS_EMAIL` を使います）、冪等性キーを渡し、失敗時はエラーを投げます。
 
-アカウント関連のメールは、フローを開始したページの言語を使います。この言語はメールのリンクに含まれる `callbackURL` から読み取ります。再登録の場合は、登録リクエストの `callbackURL` から取得します。ニュースレターのメールはフォームと一緒に送られた言語を使い、オーナーへの通知は常に `en-US` です。購入確認メールは、`startCheckout` が注文のメタデータに保存した言語を使い、言語がない場合は英語になります。このメールは、即時提供への購入者の同意を永続的な媒体で確認するものです。[ライセンス](/docs/features/licences#purchase-confirmation)を参照してください。アカウントに対応しない注文のアラートは、顧客がどのアカウントにも対応しない支払い済みのライセンス注文をサイトに知らせるもので、`I18N.DEFAULT_LOCALE` で送られます。[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照してください。
+アカウント関連のメールは、フローを開始したページの言語を使います。この言語はメールのリンクに含まれる `callbackURL` から読み取ります。再登録の場合は、登録リクエストの `callbackURL` から取得します。コールバックを指定しないフロー、つまり未確認のアカウントへのサインインとパスワードリセットは、リクエストを送ったページ（このサイト上にある場合はその `Referer`）から言語と `redirect` を取得します。ニュースレターのメールはフォームと一緒に送られた言語を使い、オーナーへの通知は常に `en-US` です。購入確認メールは、`startCheckout` が注文のメタデータに保存した言語を使い、言語がない場合は英語になります。このメールは、即時提供への購入者の同意を永続的な媒体で確認するものです。[ライセンス](/docs/features/licences#purchase-confirmation)を参照してください。アカウントに対応しない注文のアラートは、顧客がどのアカウントにも対応しない支払い済みのライセンス注文をサイトに知らせるもので、`I18N.DEFAULT_LOCALE` で送られます。[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照してください。
 
-`withinRecipientRateLimit`（`src/lib/rate-limit.ts`）は、種類（確認、パスワードリセット、ニュースレターの確認）ごとに、アドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までメールを許可し、アドレスの SHA-256 ハッシュをキーとして `rate_limit` テーブルでカウントします。上限を超えるとメールはスキップされますが、リクエストには通常どおりの応答が返ります。メールアドレス変更の確認メール、オーナーへの通知、購入確認メール、アカウントに対応しない注文のアラートには上限はありません。最後の 2 つを送らせるのは訪問者ではなく Polar の Webhook で、送信はどちらも注文ごとに 1 回です。
+`withinRecipientRateLimit`（`src/lib/rate-limit.ts`）は、種類（確認、パスワードリセット、既存アカウント、ニュースレターの確認）ごとに、アドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までメールを許可し、アドレスの SHA-256 ハッシュをキーとして `rate_limit` テーブルでカウントします。上限を超えるとメールはスキップされますが、リクエストには通常どおりの応答が返ります。メールアドレス変更の確認メール、パスワード変更の通知、オーナーへの通知、購入確認メール、アカウントに対応しない注文のアラートには上限はありません。パスワードの変更にはリセットトークンが必要で、最後の 2 つを送らせるのは訪問者ではなく Polar の Webhook で、送信はどちらも注文ごとに 1 回です。
 
 ## 関連ガイド
 

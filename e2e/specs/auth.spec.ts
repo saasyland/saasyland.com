@@ -2,11 +2,21 @@ import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { SOCIAL_IMAGE } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
-import { expectVerificationEmail } from "../fixtures/emails"
+import type { Page } from "@playwright/test"
+import authErrorMessages from "../../messages/en-US/auth.errors.json" with { type: "json" }
+import verifyEmailMessages from "../../messages/en-US/pages.auth.verify-email.json" with { type: "json" }
+import {
+  expectExistingAccountEmail,
+  expectPasswordChangedEmail,
+  expectResetPasswordEmail,
+  expectVerificationEmail,
+} from "../fixtures/emails"
 import { expect, test } from "../fixtures/auth"
-import type { AuthPage } from "../pages"
+import { AuthPage } from "../pages"
+import { RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
 
 const SIGN_UP_PASSWORD = "StrongPassword123!"
+const NEW_PASSWORD = "RenewedPassword456!"
 const MS_PER_SECOND = 1000
 
 const secondOf = (milliseconds: number): number => Math.floor(milliseconds / MS_PER_SECOND)
@@ -163,6 +173,95 @@ test.describe("auth", () => {
     expect(verificationUrl.origin).toBe(new URL(page.url()).origin)
     await page.goto(verificationUrl.toString())
     await expect(page).toHaveURL(/\/app\/?$/u)
+  })
+
+  test("sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in", async ({
+    authPage,
+    baseURL,
+    browser,
+    page,
+    request,
+  }) => {
+    const id = crypto.randomUUID()
+    const existing = `existing.${id}@example.test`
+    const pending = `pending.${id}@example.test`
+    const fromNewAddress = (target: Page): Promise<void> =>
+      target.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+    const sessionOf = async (target: Page): Promise<unknown> => (await target.request.get("/api/auth/get-session")).json()
+
+    await fromNewAddress(page)
+    await completeSignUp(authPage, existing)
+    await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
+    await expect(page.getByText(verifyEmailMessages.form.pendingDescription, { exact: true })).toBeVisible()
+    await page.goto((await expectVerificationEmail(request, existing)).toString())
+    await expect(page).toHaveURL(/\/app\/?$/u)
+    expect(await sessionOf(page)).toMatchObject({ user: { email: existing } })
+
+    const visitorContext = await browser.newContext(baseURL === undefined ? {} : { baseURL })
+    await visitorContext.addInitScript(recordRenderedLocations, RENDERED_LOCATION_KEY)
+    const visitorPage = await visitorContext.newPage()
+    const visitor = new AuthPage(visitorPage)
+    const nextScreen = visitorPage.getByText(verifyEmailMessages.form.pendingDescription, { exact: true })
+
+    await fromNewAddress(visitorPage)
+    await completeSignUp(visitor, existing)
+    await expect(visitorPage).toHaveURL(/\/auth\/verify-email\?email=/u)
+    await expect(nextScreen).toBeVisible()
+    const { resetPasswordUrl, signInUrl } = await expectExistingAccountEmail(request, existing)
+    expect(signInUrl.origin).toBe(new URL(visitorPage.url()).origin)
+
+    await fromNewAddress(visitorPage)
+    await completeSignUp(visitor, pending)
+    await expect(nextScreen).toBeVisible()
+    await expectVerificationEmail(request, pending)
+    await fromNewAddress(visitorPage)
+    await completeSignUp(visitor, pending)
+    await expect(visitorPage).toHaveURL(/\/auth\/verify-email\?email=/u)
+    await expect(nextScreen).toBeVisible()
+    await expectVerificationEmail(request, pending, 2)
+
+    await fromNewAddress(visitorPage)
+    await visitor.gotoSignIn()
+    await visitor.emailField().fill(pending)
+    await visitor.passwordField().fill(SIGN_UP_PASSWORD)
+    await visitor.signInSubmitButton().click()
+    await expect(visitorPage).toHaveURL(/\/auth\/verify-email\?.*unverified=true/u)
+    await expect(visitorPage.getByText(verifyEmailMessages.form.unverifiedDescription, { exact: true })).toBeVisible()
+    await expect(visitor.verifyEmailResendButton()).toBeVisible()
+    await expectVerificationEmail(request, pending, 3)
+
+    await fromNewAddress(visitorPage)
+    await visitorPage.goto(resetPasswordUrl.toString())
+    await expect(visitor.forgotPasswordHeading()).toBeVisible()
+    await visitor.waitForAppReady()
+    await visitor.emailField().fill(existing)
+    await visitorPage.getByRole("button", { exact: true, name: "Send reset link" }).click()
+    await visitorPage.goto((await expectResetPasswordEmail(request, existing)).toString())
+    await expect(visitorPage).toHaveURL(/\/auth\/reset-password\?token=/u)
+    await visitor.waitForAppReady()
+    await visitorPage.getByLabel("New password", { exact: true }).fill(NEW_PASSWORD)
+    await visitorPage.getByLabel("Confirm new password", { exact: true }).fill(NEW_PASSWORD)
+    await visitor.resetPasswordSubmitButton().click()
+    await expect(visitorPage).toHaveURL(/\/auth\/sign-in$/u)
+    await expectPasswordChangedEmail(request, existing)
+    expect(await sessionOf(page)).toBeNull()
+
+    await fromNewAddress(visitorPage)
+    await visitor.emailField().fill(existing)
+    await visitor.passwordField().fill(SIGN_UP_PASSWORD)
+    await visitor.signInSubmitButton().click()
+    await expect(visitorPage.getByText(authErrorMessages.invalidEmailOrPassword, { exact: true })).toBeVisible()
+    await expect(visitorPage).toHaveURL(/\/auth\/sign-in$/u)
+    expect(await sessionOf(visitorPage)).toBeNull()
+
+    await visitorPage.goto(signInUrl.toString())
+    await visitor.waitForAppReady()
+    await visitor.emailField().fill(existing)
+    await visitor.passwordField().fill(NEW_PASSWORD)
+    await visitor.signInSubmitButton().click()
+    await expect(visitorPage).toHaveURL(/\/app\/?$/u)
+    expect(await sessionOf(visitorPage)).toMatchObject({ user: { email: existing, emailVerified: true } })
+    await visitorContext.close()
   })
 
   test("forgot-password page renders email field", async ({ authPage }) => {

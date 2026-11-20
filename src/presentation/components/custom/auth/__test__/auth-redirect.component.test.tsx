@@ -122,7 +122,7 @@ describe("return path through the auth pages", () => {
     await signInWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO }, to: ROUTES.VERIFY_EMAIL })
+      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO, unverified: true }, to: ROUTES.VERIFY_EMAIL })
     })
   })
 

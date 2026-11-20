@@ -33,15 +33,16 @@ export const AUTH_FLOWS = [
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "auth.spec.ts", title: "auth › repeating signup for an unverified email sends another verification email and resend still works" },
+      { spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" },
     ],
   },
   {
     area: FLOW_AREA.ACCOUNT,
     id: "sign-up-taken-address",
     outcome:
-      "Signing up with the address of a verified account creates no second account and tells the visitor no more than for a new address",
-    reason: "No spec signs up with the address of an account that is already verified.",
-    status: FLOW_STATUS.MISSING,
+      "Signing up with the address of a verified account creates no second account, shows the same screen as for a new address, and emails the account a sign-in link and a reset link instead",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
@@ -65,19 +66,21 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ACCOUNT,
     id: "sign-in-wrong-password",
     outcome: "A wrong password is refused with an error and creates no session",
-    reason: "Every spec signs in with the right password.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
     id: "sign-in-unverified",
-    outcome: "An unverified account that signs in is sent to verify its address, and the link of a resent email signs it into /app",
+    outcome:
+      "An unverified account that signs in gets a fresh verification email and is sent to verify its address, and the emailed link signs it into /app",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "admin-users.spec.ts",
         title: "a user the admin adds verifies their email, signs in and is signed out when the admin revokes every session",
       },
+      { spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" },
     ],
   },
   {
@@ -128,13 +131,9 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ACCOUNT,
     id: "password-reset",
     outcome:
-      "A user asks for a reset, opens the emailed link, sets a new password and signs in with it, while the old password and the user's other sessions stop working",
-    reason: "The specs render the two forms but never send a request, open the reset email or sign in with the new password.",
-    status: FLOW_STATUS.MISSING,
-    tests: [
-      { spec: "auth.spec.ts", title: "auth › forgot-password page renders email field" },
-      { spec: "auth.spec.ts", title: "auth › reset-password page with token renders the reset form" },
-    ],
+      "A user asks for a reset, opens the emailed link, sets a new password and signs in with it, while the old password and the user's other sessions stop working and an email says the password changed",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,

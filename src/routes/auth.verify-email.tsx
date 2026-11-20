@@ -16,9 +16,27 @@ import { VerifyEmailForm } from "~/src/presentation/components/custom/auth/verif
 
 import { ROUTES } from "~/src/routes"
 
+interface VerifyEmailState {
+  readonly error?: string | undefined
+  readonly unverified?: boolean | undefined
+}
+
+type VerifyEmailMessage = "form.invalidToken" | "form.pendingDescription" | "form.unverifiedDescription"
+
+const verifyEmailMessage = ({ error, unverified }: VerifyEmailState): VerifyEmailMessage => {
+  if (error !== undefined) {
+    return "form.invalidToken"
+  }
+  if (unverified === true) {
+    return "form.unverifiedDescription"
+  }
+  return "form.pendingDescription"
+}
+
 const VerifyEmailPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.verify-email")
-  const isInvalidLink = Route.useSearch({ select: (search) => search.error !== undefined })
+  const message = Route.useSearch({ select: verifyEmailMessage })
+  const isInvalidLink = message === "form.invalidToken"
 
   return (
     <>
@@ -27,7 +45,7 @@ const VerifyEmailPage = (): JSX.Element => {
 
       <div className="mt-10 flex flex-col gap-6">
         <p className={cn("text-body text-pretty", { "text-destructive": isInvalidLink, "text-muted-foreground": !isInvalidLink })}>
-          {t(isInvalidLink ? "form.invalidToken" : "form.pendingDescription")}
+          {t(message)}
         </p>
         <VerifyEmailForm />
       </div>
@@ -42,6 +60,7 @@ export const Route = createFileRoute("/auth/verify-email")({
     email: searchText(),
     error: searchText(),
     token: searchText(),
+    unverified: searchFlag(),
     verified: searchFlag(),
   }),
   beforeLoad: ({ buildLocation, preload, search }) => {

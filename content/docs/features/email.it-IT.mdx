@@ -12,6 +12,8 @@ I template si trovano in `src/presentation/emails`. Ogni file contiene solo mark
 | `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook di Better Auth)                              |
 | `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook di Better Auth)                       |
 | `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook di Better Auth)             |
+| `ExistingAccountEmail`         | `emails.existing-account-email`          | `sendExistingAccountEmail` (`onExistingUserSignUp` di Better Auth)   |
+| `PasswordChangedEmail`         | `emails.password-changed-email`          | `sendPasswordChangedEmail` (`onPasswordReset` di Better Auth)        |
 | `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                              |
 | `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`                   |
 | `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail` (`order.paid` di Polar)              |
@@ -22,6 +24,8 @@ Un template riceve `locale` e `messages` e traduce con `createTranslator` di use
 ```tsx
 const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
 ```
+
+Le email dell’account iniziano con `EmailBrandHeader`, il nome dell’applicazione, e mettono `EmailFallbackLink` sotto il pulsante: lo stesso link come testo semplice, per i client che nascondono i pulsanti. Le email di verifica, di reimpostazione della password e di cambio dell’email indicano per quanto tempo vale il loro link, da `EMAIL_LINK_LIFETIME_HOURS`, il valore con cui è configurato Better Auth.
 
 ## Invio
 
@@ -49,9 +53,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) invia tramite Resend da `RESEND_EMAIL_FROM`, a meno che non venga indicato un `from` (la notifica al proprietario e l’avviso di ordine senza account usano `NOTIFICATIONS_EMAIL`), passa la chiave di idempotenza e lancia un errore in caso di fallimento.
 
-Le email dell’account usano la lingua della pagina in cui è iniziato il flusso, letta dal `callbackURL` nel link dell’email; per una registrazione ripetuta proviene dal `callbackURL` della richiesta di registrazione. Le email della newsletter usano la lingua inviata con il modulo; la notifica al proprietario è sempre in `en-US`. La conferma dell’acquisto usa la lingua che `startCheckout` ha salvato nei metadati dell’ordine, e l’inglese quando non ce n’è nessuna; conferma su un supporto durevole il consenso dell’acquirente alla fornitura immediata, vedi [Licenze](/docs/features/licences#purchase-confirmation). L’avviso di ordine senza account, che segnala al sito un ordine di licenza pagato il cui cliente non corrisponde a nessun account, è in `I18N.DEFAULT_LOCALE`, vedi [Licenze](/docs/features/licences#orders-that-match-no-account).
+Le email dell’account usano la lingua della pagina in cui è iniziato il flusso, letta dal `callbackURL` nel link dell’email; per una registrazione ripetuta proviene dal `callbackURL` della richiesta di registrazione. Un flusso che non indica alcun callback, un accesso a un account non verificato o una reimpostazione della password, prende la lingua e il `redirect` dalla pagina che ha inviato la richiesta (il suo `Referer`, quando è su questo sito). Le email della newsletter usano la lingua inviata con il modulo; la notifica al proprietario è sempre in `en-US`. La conferma dell’acquisto usa la lingua che `startCheckout` ha salvato nei metadati dell’ordine, e l’inglese quando non ce n’è nessuna; conferma su un supporto durevole il consenso dell’acquirente alla fornitura immediata, vedi [Licenze](/docs/features/licences#purchase-confirmation). L’avviso di ordine senza account, che segnala al sito un ordine di licenza pagato il cui cliente non corrisponde a nessun account, è in `I18N.DEFAULT_LOCALE`, vedi [Licenze](/docs/features/licences#orders-that-match-no-account).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) consente al massimo <RepositoryFact name="recipientEmailsPerHour" /> email di ogni tipo (verifica, reimpostazione della password e conferma della newsletter) per indirizzo all’ora, conteggiate nella tabella `rate_limit` sotto un hash SHA-256 dell’indirizzo. Oltre il limite l’email viene saltata e la richiesta riceve comunque la sua risposta normale. La conferma del cambio di email, la notifica al proprietario, la conferma dell’acquisto e l’avviso di ordine senza account non sono limitati; gli ultimi due li attiva il webhook di Polar, non un visitatore, una volta per ordine.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) consente al massimo <RepositoryFact name="recipientEmailsPerHour" /> email di ogni tipo (verifica, reimpostazione della password, account esistente e conferma della newsletter) per indirizzo all’ora, conteggiate nella tabella `rate_limit` sotto un hash SHA-256 dell’indirizzo. Oltre il limite l’email viene saltata e la richiesta riceve comunque la sua risposta normale. La conferma del cambio di email, l’avviso di cambio della password, la notifica al proprietario, la conferma dell’acquisto e l’avviso di ordine senza account non sono limitati; un cambio della password richiede un token di reimpostazione, e gli ultimi due li attiva il webhook di Polar, non un visitatore, una volta per ordine.
 
 ## Guide correlate
 

@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vite-plus/test"
+import { getRequest } from "@tanstack/react-start/server"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
@@ -11,6 +13,7 @@ import {
   signUpAndVerify,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -26,6 +29,10 @@ const resetToken = (email: string): string => {
   const link = emailLink(email, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.RESET_PASSWORD}/`)
   return RESET_TOKEN.exec(link.pathname)?.groups?.["token"] ?? ""
 }
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe("auth password reset", () => {
   it("emails a reset link that returns to the reset page", async () => {
@@ -69,5 +76,49 @@ describe("auth password reset", () => {
     await requestPasswordReset(email)
 
     expect(getSentEmails(email)).toStrictEqual([])
+  })
+
+  it.each([
+    {
+      locale: "pl-PL",
+      referer: `${TEST_APP_URL}/pl-PL${ROUTES.RESET_PASSWORD}?token=reset`,
+      signIn: `${TEST_APP_URL}/pl-PL${ROUTES.SIGN_IN}`,
+    },
+    { locale: "en-US", referer: undefined, signIn: `${TEST_APP_URL}${ROUTES.SIGN_IN}` },
+  ])(
+    "tells the account its password changed, in the language of the reset page $referer",
+    async ({ locale, referer, signIn: signInUrl }) => {
+      const { account } = await signUpAndVerify()
+      await requestPasswordReset(account.email)
+      vi.mocked(getRequest).mockReturnValue(
+        new Request(`${TEST_APP_URL}/_serverFn/reset-password`, { headers: referer === undefined ? {} : { referer } }),
+      )
+
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: resetToken(account.email) }, headers: browserHeaders() })
+      await flushWaitUntil()
+
+      const notice = getSentEmails(account.email).at(-1)
+      expect(notice?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
+      expect(notice?.html).toContain(`lang="${locale}"`)
+      expect(notice?.html).toContain(`href="${signInUrl}"`)
+    },
+  )
+
+  it("keeps the new password when the notice cannot be sent", async () => {
+    const { account } = await signUpAndVerify()
+    await requestPasswordReset(account.email)
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ message: "Provider temporarily unavailable", name: "application_error", statusCode: 503 }, { status: 503 }),
+    )
+
+    await expect(
+      auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: resetToken(account.email) }, headers: browserHeaders() }),
+    ).resolves.toStrictEqual({ status: true })
+    await flushWaitUntil()
+
+    expect(consoleError).toHaveBeenCalledWith("[email] an account email could not be sent", expect.any(Error))
+    const session = await auth.api.getSession({ headers: await signIn({ email: account.email, password: NEW_PASSWORD }) })
+    expect(session?.user.email).toBe(account.email)
   })
 })

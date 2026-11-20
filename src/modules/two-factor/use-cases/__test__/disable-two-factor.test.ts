@@ -38,8 +38,8 @@ describe("disable-two-factor", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
     disableTwoFactorMock.mockResolvedValue({ status: true })
 
-    await expect(executeMutation(disableTwoFactorMutation, { password: "Secret1!" })).resolves.toMatchObject({ status: true })
-    expect(disableTwoFactorMock).toHaveBeenCalledWith({ body: { password: "Secret1!" }, headers: HEADERS })
+    await expect(executeMutation(disableTwoFactorMutation, { password: "SecretPass1!" })).resolves.toMatchObject({ status: true })
+    expect(disableTwoFactorMock).toHaveBeenCalledWith({ body: { password: "SecretPass1!" }, headers: HEADERS })
   })
 
   it("returns a domain error when the caller is signed out", async () => {
@@ -48,6 +48,6 @@ describe("disable-two-factor", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(disableTwoFactorMutation, { password: "Secret1!" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(disableTwoFactorMutation, { password: "SecretPass1!" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

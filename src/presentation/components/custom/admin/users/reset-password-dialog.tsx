@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
+
 import { setUserPasswordMutation } from "~/src/modules/user/use-cases/set-user-password"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import type { User } from "~/src/modules/user/user.types"
@@ -40,6 +43,7 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
 
   const form = useForm({
     defaultValues: { newPassword: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ formApi, value }) => {
       setPassword.mutate(
         { newPassword: value.newPassword, userId: user.id },
@@ -52,7 +56,7 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
         },
       )
     },
-    validators: { onChange: userZodSchemas.setUserPasswordForm, onSubmit: userZodSchemas.setUserPasswordForm },
+    validators: { onChange: userZodSchemas.setUserPasswordForm },
   })
 
   return (
@@ -65,8 +69,7 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
       <form
         noValidate
         onSubmit={(event) => {
-          event.preventDefault()
-          void form.handleSubmit()
+          void submitForm(event, form)
         }}
       >
         <FieldGroup>

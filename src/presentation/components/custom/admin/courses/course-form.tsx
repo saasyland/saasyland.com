@@ -6,6 +6,8 @@ import { useRouter } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { LOCALIZED_LIST_MAX_ITEMS } from "~/src/modules/_core/utils/localized-text"
@@ -108,6 +110,7 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
 
   const form = useForm({
     defaultValues: course === undefined ? NEW_COURSE : toValues(course),
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       if (course === undefined) {
         create.mutate(value)
@@ -115,7 +118,7 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
       }
       update.mutate({ ...value, courseId: course.id })
     },
-    validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+    validators: { onChange: courseZodSchemas.createCourse },
   })
 
   const listTab = (list: "outcomes" | "prerequisites", locale: SupportedLocale): JSX.Element => (
@@ -151,8 +154,7 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
     <form
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <Card>

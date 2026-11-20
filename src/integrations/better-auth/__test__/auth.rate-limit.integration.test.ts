@@ -11,7 +11,7 @@ const SIGN_IN_ATTEMPTS_PER_WINDOW = 3
 
 const signInWithWrongPassword = async (email: string, ip: string): Promise<number> => {
   const response = await auth.handler(
-    postJson(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`, { email, password: "WrongPass1!" }, { ip }),
+    postJson(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`, { email, password: "WrongPassword1!" }, { ip }),
   )
   return response.status
 }

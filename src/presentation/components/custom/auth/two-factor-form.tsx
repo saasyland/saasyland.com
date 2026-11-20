@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS, TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { createOtpSlotIndices } from "~/src/modules/two-factor/two-factor.utils"
 import { twoFactorZodSchemas } from "~/src/modules/two-factor/two-factor.zod"
@@ -48,10 +49,11 @@ const TotpForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { code: "", trustDevice: true },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       verifyTotp.mutate(value)
     },
-    validators: { onChange: totpSchema, onSubmit: totpSchema },
+    validators: { onChange: totpSchema },
   })
 
   return (
@@ -60,13 +62,12 @@ const TotpForm = (): JSX.Element => {
       id="two-factor-form"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="code">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field data-invalid={isInvalid}>
@@ -133,10 +134,11 @@ const BackupCodeForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { code: "", trustDevice: true },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       verifyBackupCode.mutate(value)
     },
-    validators: { onChange: backupCodeSchema, onSubmit: backupCodeSchema },
+    validators: { onChange: backupCodeSchema },
   })
 
   return (
@@ -145,13 +147,12 @@ const BackupCodeForm = (): JSX.Element => {
       id="two-factor-backup-form"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="code">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field data-invalid={isInvalid}>

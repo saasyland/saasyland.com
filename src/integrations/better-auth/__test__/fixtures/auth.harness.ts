@@ -14,7 +14,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { ROUTES } from "~/src/routes"
 
-export const AUTH_TEST_PASSWORD = "Secret1!"
+export const AUTH_TEST_PASSWORD = "SecretPass1!"
 
 const OCTET = 256
 const LINK = /href="(?<href>[^"]+)"/gu

@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
@@ -18,6 +20,7 @@ const changePassword = vi.hoisted(() => vi.fn<(data: { currentPassword: string; 
 vi.mock("~/src/modules/account/use-cases/change-password", () => ({ changePasswordMutation: { mutationFn: changePassword } }))
 
 const messages = getTestMessages("en-US")
+const NEW_PASSWORD = "NewPassword1!"
 const labels = pagesAdminSettingsMessages.security.password
 
 beforeEach(() => {
@@ -36,11 +39,10 @@ const renderPasswordForm = () => {
   return result
 }
 
-const fillPasswords = (confirmNewPassword = "NewPassword1!") => {
+const fillPasswords = (newPassword = NEW_PASSWORD) => {
   for (const [label, value] of [
-    [labels.confirm, confirmNewPassword],
     [labels.current, "OldPassword1!"],
-    [labels.new, "NewPassword1!"],
+    [labels.new, newPassword],
   ] as const) {
     const field = screen.getByLabelText(label)
     fireEvent.change(field, { target: { value } })
@@ -59,7 +61,7 @@ describe("settings password change", () => {
     await waitFor(() => {
       expect(button).toHaveAttribute("aria-disabled", "true")
     })
-    expect(changePassword).toHaveBeenCalledWith({ currentPassword: "OldPassword1!", newPassword: "NewPassword1!" }, expect.anything())
+    expect(changePassword).toHaveBeenCalledWith({ currentPassword: "OldPassword1!", newPassword: NEW_PASSWORD }, expect.anything())
     await act(async () => {
       pending.resolve({})
       await pending.promise
@@ -80,18 +82,41 @@ describe("settings password change", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled()
     })
-    expect(screen.getByLabelText(labels.new)).toHaveValue("NewPassword1!")
+    expect(screen.getByLabelText(labels.new)).toHaveValue(NEW_PASSWORD)
     expect(screen.getByRole("button", { name: labels.update })).toBeEnabled()
     expect(queryClient.getQueryState(SESSION_QUERY_KEYS.ALL)?.isInvalidated).toBe(false)
   })
 
-  it("rejects mismatched confirmation before calling the server", async () => {
+  it("rejects a new password that is too short before calling the server", async () => {
     renderPasswordForm()
-    fillPasswords("DifferentPassword1!")
+    fillPasswords("short")
     fireEvent.click(screen.getByRole("button", { name: labels.update }))
+    const newPassword = screen.getByLabelText(labels.new)
     await waitFor(() => {
-      expect(screen.getByLabelText(labels.confirm)).toHaveAccessibleDescription(authValidationsMessages.passwordsMustMatch)
+      expect(newPassword).toHaveAttribute("aria-invalid", "true")
     })
+    expect(newPassword).toHaveFocus()
+    const tooShort = authValidationsMessages.passwordMinLength.replace("{min}", String(PASSWORD_MIN_LENGTH))
+    expect(screen.getByText(tooShort)).toHaveAttribute("id", "newPassword-error")
     expect(changePassword).not.toHaveBeenCalled()
+  })
+
+  it("shows a password found in a known data breach on the new password field and focuses it", async () => {
+    changePassword.mockRejectedValueOnce(new Error(AUTH_ERRORS.PASSWORD_COMPROMISED))
+    renderPasswordForm()
+    fillPasswords()
+    fireEvent.click(screen.getByRole("button", { name: labels.update }))
+    const newPassword = screen.getByLabelText(labels.new)
+    await waitFor(() => {
+      expect(screen.getByText(authValidationsMessages.passwordCompromised)).toHaveAttribute("id", "newPassword-error")
+    })
+    expect(newPassword).toHaveAttribute("aria-invalid", "true")
+    expect(newPassword).toHaveFocus()
+    expect(toast.error).not.toHaveBeenCalled()
+
+    fireEvent.change(newPassword, { target: { value: `${NEW_PASSWORD}?` } })
+
+    expect(screen.queryByText(authValidationsMessages.passwordCompromised)).not.toBeInTheDocument()
+    expect(newPassword).toHaveAttribute("aria-invalid", "false")
   })
 })

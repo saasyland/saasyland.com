@@ -5,6 +5,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
@@ -49,6 +51,7 @@ export const LinkAttachmentDialog = ({ lessonId, link, trigger }: LinkAttachment
 
   const form = useForm({
     defaultValues: { title: link?.title ?? { [I18N.DEFAULT_LOCALE]: "" }, url: link?.url ?? "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       if (link === undefined) {
         create.mutate({ ...value, lessonId })
@@ -56,7 +59,7 @@ export const LinkAttachmentDialog = ({ lessonId, link, trigger }: LinkAttachment
       }
       update.mutate({ ...value, attachmentId: link.id })
     },
-    validators: { onChange: linkSchema, onSubmit: linkSchema },
+    validators: { onChange: linkSchema },
   })
 
   return (
@@ -67,8 +70,7 @@ export const LinkAttachmentDialog = ({ lessonId, link, trigger }: LinkAttachment
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <DialogHeader>

@@ -47,10 +47,41 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.ACCOUNT,
     id: "sign-up-password-rules",
-    outcome: "The sign-up form marks each of the four password rules as the visitor types and creates no account until all four are met",
-    reason: "The spec watches the four indicators but never submits a password that breaks a rule.",
-    status: FLOW_STATUS.MISSING,
-    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up page shows its own headline and updates all four password requirements" }],
+    outcome:
+      "The sign-up form ticks off the length rule as the visitor types, and refuses a password that is too short or found in a known data breach under the password field, creating no account",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "auth.spec.ts", title: "auth › sign-up page shows its own headline and ticks off the password length as the visitor types" },
+      {
+        spec: "form-validation.spec.ts",
+        title: "form validation timing › a password that is too short or found in a known data breach is refused under the password field",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "form-error-timing",
+    outcome:
+      "A field reports its mistake only once the visitor leaves it, clears it on the keystroke that fixes it, and a submit with mistakes shows every error and focuses the first field while the button stays enabled",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "form-validation.spec.ts",
+        title: "form validation timing › a password being typed updates the requirement live but is reported only after the visitor leaves it",
+      },
+      {
+        spec: "form-validation.spec.ts",
+        title: "form validation timing › Continue stays enabled, and pressing it with mistakes reveals every error and focuses the first field",
+      },
+      { spec: "form-validation.spec.ts", title: "form validation timing › sign-in reports an invalid email only after the visitor leaves the field" },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "sign-up-email-suggestion",
+    outcome: "After a misspelt email domain, sign-up suggests the likely address once the field is left, and one press fills it in",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "form-validation.spec.ts", title: "form validation timing › a misspelt email domain gets a suggestion once the visitor leaves the field" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,

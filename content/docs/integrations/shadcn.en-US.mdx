@@ -25,23 +25,23 @@ Every form follows the shadcn TanStack Form pattern with the module's Zod schema
 ```tsx
 const form = useForm({
   defaultValues: { email: "" },
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
     subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
   },
-  validators: { onChange: emailSchema, onSubmit: emailSchema },
+  validators: { onChange: emailSchema },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
     <form.Field name="email">
       {(field) => {
-        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+        const isInvalid = isFieldInvalid(field)
 
         return (
           <Field data-invalid={isInvalid}>
@@ -74,6 +74,8 @@ return (
   </form>
 )
 ```
+
+The one departure from shadcn's guide is when an error shows. The guide marks a field invalid once `isTouched` is set, and TanStack Form sets it on the first keystroke; `isFieldInvalid` (`src/integrations/tanstack-form/form.fields.ts`) waits until the visitor leaves the field or tries to submit, and `submitForm` (`src/integrations/tanstack-form/form.submit.ts`) shows every error and focuses the first invalid field on an invalid submit. The [forms conventions](/docs/conventions/forms-and-tables) give the full rule.
 
 Zod messages are translation keys. `fieldErrorMessage` (`src/integrations/tanstack-form/form.fields.ts`) extracts the first error, and `ValidationFieldError` translates it in the given namespace or falls back to `errors.codes.VALIDATION`. Complete examples: `src/presentation/components/custom/newsletter-form.tsx` and `src/presentation/components/custom/auth/sign-in-form.tsx`.
 

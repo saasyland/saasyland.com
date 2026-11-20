@@ -24,7 +24,7 @@ describe("auth change password", () => {
 
     await expect(
       auth.api.changePassword({
-        body: { currentPassword: "WrongPass1!", newPassword: UPDATED_PASSWORD, revokeOtherSessions: false },
+        body: { currentPassword: "WrongPassword1!", newPassword: UPDATED_PASSWORD, revokeOtherSessions: false },
         headers,
       }),
     ).rejects.toThrow("Invalid password")

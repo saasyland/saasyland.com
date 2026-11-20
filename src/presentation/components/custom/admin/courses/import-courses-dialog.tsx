@@ -7,7 +7,8 @@ import { FileTrigger } from "react-aria-components"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import {
   COURSE_DOCUMENT_ENTITIES,
@@ -150,10 +151,11 @@ const useImportCourses = ({ onImported }: { readonly onImported: () => void }) =
 
   const form = useForm({
     defaultValues: NEW_IMPORT,
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       check.mutate({ ...value, dryRun: true })
     },
-    validators: { onChange: importSchema, onSubmit: importSchema },
+    validators: { onChange: importSchema },
   })
 
   return { apply, check, form }
@@ -188,8 +190,7 @@ export const ImportCoursesDialog = (): JSX.Element => {
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <DialogHeader>
@@ -200,7 +201,7 @@ export const ImportCoursesDialog = (): JSX.Element => {
           <FieldGroup>
             <form.Field name="document">
               {(field) => (
-                <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}>
+                <Field data-invalid={isFieldInvalid(field)}>
                   <FieldLabel>{t("dialog.file")}</FieldLabel>
                   <div className="flex flex-wrap items-center gap-3">
                     <FileTrigger
@@ -217,7 +218,12 @@ export const ImportCoursesDialog = (): JSX.Element => {
                         }
                       }}
                     >
-                      <Button size="sm" variant="outline">
+                      <Button
+                        aria-describedby="import-courses-document-error"
+                        aria-invalid={isFieldInvalid(field)}
+                        size="sm"
+                        variant="outline"
+                      >
                         <Upload aria-hidden className="size-4" />
                         {t("dialog.chooseFile")}
                       </Button>
@@ -225,8 +231,9 @@ export const ImportCoursesDialog = (): JSX.Element => {
                     {fileName !== "" && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{fileName}</span>}
                   </div>
                   <FieldDescription>{t("dialog.fileHint")}</FieldDescription>
-                  {field.state.meta.isTouched && (
+                  {isFieldInvalid(field) && (
                     <ValidationFieldError
+                      id="import-courses-document-error"
                       message={fieldErrorMessage(field.state.meta.errors)}
                       namespace="course.validations"
                       params={COURSE_VALIDATION_PARAMS}

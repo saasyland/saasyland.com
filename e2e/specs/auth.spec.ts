@@ -26,7 +26,6 @@ const completeSignUp = async (authPage: AuthPage, email: string): Promise<void> 
   await authPage.nameField().fill("Test User")
   await authPage.emailField().fill(email)
   await authPage.signUpPasswordField().fill(SIGN_UP_PASSWORD)
-  await authPage.confirmPasswordField().fill(SIGN_UP_PASSWORD)
   await authPage.signUpSubmitButton().click()
 }
 
@@ -68,48 +67,33 @@ test.describe("auth", () => {
     })
   }
 
-  test("sign-up page shows its own headline and updates all four password requirements", async ({ authPage, page }, testInfo) => {
+  test("sign-up page shows its own headline and ticks off the password length as the visitor types", async ({ authPage, page }, testInfo) => {
     await authPage.gotoSignUp()
 
     await expect(authPage.signUpHeading()).toBeVisible()
     await expect(authPage.emailField()).toBeVisible()
     await expect(page.getByText("Start building the part only you can build.", { exact: true })).toBeVisible()
+    await expect(page.locator("#sign-up-confirmPassword")).toHaveCount(0)
+    await expect(authPage.signUpPasswordField()).not.toHaveAttribute("placeholder")
 
     const requirements = page.getByRole("list", { name: "Password requirements", exact: true })
     const met = requirements.getByText("Requirement met", { exact: true })
     const notMet = requirements.getByText("Requirement not met", { exact: true })
-    const passwordMatch = requirements.getByRole("listitem").filter({ hasText: "Passwords match" })
-    await expect(requirements.getByRole("listitem")).toHaveCount(4)
-    await expect(passwordMatch.getByText("Passwords match", { exact: true })).toBeVisible()
-    await expect(requirements.getByText("Not met yet", { exact: true })).toHaveCount(0)
-    await expect(notMet).toHaveCount(4)
-    for (const status of await notMet.all()) {
-      await expect(status).toHaveClass("sr-only")
-      await expect(status).toHaveCSS("clip-path", "inset(50%)")
-    }
+    await expect(requirements.getByRole("listitem")).toHaveCount(1)
+    await expect(notMet).toHaveCount(1)
+    await expect(notMet).toHaveClass("sr-only")
+    await expect(notMet).toHaveCSS("clip-path", "inset(50%)")
     await expect(met).toHaveCount(0)
     await page.screenshot({ fullPage: true, path: testInfo.outputPath("signup-password-requirements-empty.png") })
 
-    await authPage.signUpPasswordField().fill(SIGN_UP_PASSWORD)
-    await expect(met).toHaveCount(3)
-    await expect(met.first()).toHaveClass("sr-only")
-    await expect(met.first()).toHaveCSS("clip-path", "inset(50%)")
-    await expect(notMet).toHaveCount(1)
-    await expect(passwordMatch).toContainText("Requirement not met")
-    await page.screenshot({ fullPage: true, path: testInfo.outputPath("signup-password-requirements-mixed.png") })
-
-    await authPage.confirmPasswordField().fill("DifferentPassword123!")
-    await expect(met).toHaveCount(3)
-    await expect(passwordMatch).toContainText("Requirement not met")
-
-    await authPage.confirmPasswordField().fill(SIGN_UP_PASSWORD)
-    await expect(met).toHaveCount(4)
+    await authPage.signUpPasswordField().fill("all lowercase words")
+    await expect(met).toHaveCount(1)
+    await expect(met).toHaveClass("sr-only")
     await expect(notMet).toHaveCount(0)
+    await page.screenshot({ fullPage: true, path: testInfo.outputPath("signup-password-requirements-met.png") })
 
-    await authPage.signUpPasswordField().fill("ChangedPassword123!")
-    await expect(met).toHaveCount(3)
-    await expect(passwordMatch).toContainText("Requirement not met")
-    await expect(passwordMatch.getByText("Passwords match", { exact: true })).toBeVisible()
+    await authPage.signUpPasswordField().fill("short")
+    await expect(notMet).toHaveCount(1)
   })
 
   test("prefixed locale sign-up route is reachable", async ({ authPage, page }) => {
@@ -240,7 +224,6 @@ test.describe("auth", () => {
     await expect(visitorPage).toHaveURL(/\/auth\/reset-password\?token=/u)
     await visitor.waitForAppReady()
     await visitorPage.getByLabel("New password", { exact: true }).fill(NEW_PASSWORD)
-    await visitorPage.getByLabel("Confirm new password", { exact: true }).fill(NEW_PASSWORD)
     await visitor.resetPasswordSubmitButton().click()
     await expect(visitorPage).toHaveURL(/\/auth\/sign-in$/u)
     await expectPasswordChangedEmail(request, existing)

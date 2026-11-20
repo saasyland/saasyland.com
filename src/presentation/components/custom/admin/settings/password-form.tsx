@@ -6,7 +6,9 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { showFieldError, submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { accountZodSchemas } from "~/src/modules/account/account.zod"
 import { changePasswordMutation } from "~/src/modules/account/use-cases/change-password"
@@ -17,15 +19,16 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
-import { Input } from "~/src/presentation/components/shadcn/input"
 
+import { PasswordInput } from "~/src/presentation/components/custom/auth/password-input"
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
+const PASSWORD_REQUIREMENTS_ID = "settings-password-requirements"
+
 const PASSWORD_FIELDS = [
-  { autoComplete: "current-password", labelKey: "current", name: "currentPassword" },
-  { autoComplete: "new-password", labelKey: "new", name: "newPassword" },
-  { autoComplete: "new-password", labelKey: "confirm", name: "confirmNewPassword" },
+  { autoComplete: "current-password", describedBy: "currentPassword-error", labelKey: "current", name: "currentPassword" },
+  { autoComplete: "new-password", describedBy: `newPassword-error ${PASSWORD_REQUIREMENTS_ID}`, labelKey: "new", name: "newPassword" },
 ] as const
 
 const changePasswordSchema = accountZodSchemas.changePasswordForm
@@ -37,18 +40,23 @@ export const SettingsPasswordForm = (): JSX.Element => {
 
   const changePassword = useMutation({
     ...changePasswordMutation,
-    onError: (error) => {
-      toast.error(errorMessage(error))
-    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL }),
   })
 
   const form = useForm({
-    defaultValues: { confirmNewPassword: "", currentPassword: "", newPassword: "" },
+    defaultValues: { currentPassword: "", newPassword: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ formApi, value }) => {
       changePassword.mutate(
         { currentPassword: value.currentPassword, newPassword: value.newPassword },
         {
+          onError: (error) => {
+            if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+              showFieldError(formApi, { controlId: "newPassword", field: "newPassword", message: error.message })
+              return
+            }
+            toast.error(errorMessage(error))
+          },
           onSuccess: () => {
             toast.success(t("feedback.updateSuccess"))
             formApi.reset()
@@ -56,7 +64,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
         },
       )
     },
-    validators: { onChange: changePasswordSchema, onSubmit: changePasswordSchema },
+    validators: { onChange: changePasswordSchema },
   })
 
   return (
@@ -69,24 +77,23 @@ export const SettingsPasswordForm = (): JSX.Element => {
       <form
         noValidate
         onSubmit={(event) => {
-          event.preventDefault()
-          void form.handleSubmit()
+          void submitForm(event, form)
         }}
       >
         <CardContent className="grid grid-cols-1 items-start gap-8 p-5 lg:grid-cols-[1.5fr_1fr] lg:gap-12">
           <FieldGroup className="gap-4">
-            {PASSWORD_FIELDS.map(({ autoComplete, labelKey, name }) => (
+            {PASSWORD_FIELDS.map(({ autoComplete, describedBy, labelKey, name }) => (
               <form.Field key={name} name={name}>
                 {(field) => {
-                  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                  const isInvalid = isFieldInvalid(field)
 
                   return (
                     <Field data-invalid={isInvalid}>
                       <FieldLabel className="text-xs" htmlFor={field.name}>
                         {t(labelKey)}
                       </FieldLabel>
-                      <Input
-                        aria-describedby={`${field.name}-error`}
+                      <PasswordInput
+                        aria-describedby={describedBy}
                         aria-invalid={isInvalid}
                         autoComplete={autoComplete}
                         id={field.name}
@@ -95,7 +102,6 @@ export const SettingsPasswordForm = (): JSX.Element => {
                         onChange={(event) => {
                           field.handleChange(event.target.value)
                         }}
-                        type="password"
                         value={field.state.value}
                       />
                       {isInvalid && (
@@ -115,9 +121,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
           <div className="rounded-lg border border-border bg-muted/40 p-5">
             <h3 className="mb-4 text-xs font-medium text-foreground">{t("requirements.title")}</h3>
             <form.Subscribe selector={(state) => state.values}>
-              {({ confirmNewPassword, newPassword }) => (
-                <PasswordRequirements confirmPassword={confirmNewPassword} password={newPassword} />
-              )}
+              {({ newPassword }) => <PasswordRequirements id={PASSWORD_REQUIREMENTS_ID} password={newPassword} />}
             </form.Subscribe>
           </div>
         </CardContent>

@@ -33,7 +33,7 @@ const signInWithUnknownAccount = (ip: string): Promise<Response> =>
   auth.handler(
     postJson(
       `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`,
-      { email: createTestAccount().email, password: "WrongPass1!" },
+      { email: createTestAccount().email, password: "WrongPassword1!" },
       { ip },
     ),
   )

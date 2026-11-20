@@ -2,16 +2,24 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
-import { EMAIL_MAX_LENGTH, IMAGE_URL_MAX_LENGTH, NAME_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import {
+  EMAIL_MAX_LENGTH,
+  IMAGE_URL_MAX_LENGTH,
+  NAME_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 
+import { BREACHED_PASSWORD } from "~/e2e/data/accounts"
 import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const STRONG_PASSWORD = "PolicyPassword123!"
-const WEAK_PASSWORDS = ["aaaaaaaa", "AAAAAAAA", "Aaaaaaaa", "aaaaaaa!"]
+const SHORT_PASSWORDS = ["a".repeat(PASSWORD_MIN_LENGTH - 1), "Aa1!Aa1!Aa1"]
+const SHORT_PASSWORD = "a".repeat(PASSWORD_MIN_LENGTH - 1)
+const PASSPHRASE = "correct horse battery staple"
 const LONG_NAME = "n".repeat(NAME_MAX_LENGTH + 1)
 const LONG_EMAIL = `${"e".repeat(EMAIL_MAX_LENGTH)}@example.test`
 const LONG_IMAGE = `https://example.test/${"i".repeat(IMAGE_URL_MAX_LENGTH)}`
@@ -44,8 +52,21 @@ const signUpBody = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("auth input policy on Better Auth's own endpoints", () => {
-  it.each(WEAK_PASSWORDS)("rejects a sign-up posted straight to Better Auth with the weak password %s", async (password) => {
+  it.each(SHORT_PASSWORDS)("rejects a sign-up posted straight to Better Auth with the short password %s", async (password) => {
     await expectRejected(await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody({ password })))
+  })
+
+  it("accepts a long password without uppercase letters, digits or special characters", async () => {
+    const response = await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody({ password: PASSPHRASE }))
+
+    expect(response.status).toBe(HTTP_STATUS.OK)
+  })
+
+  it("refuses a password found in a known data breach, after checking only a prefix of its hash", async () => {
+    const response = await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody({ password: BREACHED_PASSWORD }))
+
+    expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(await response.json()).toMatchObject({ code: "PASSWORD_COMPROMISED" })
   })
 
   it.each([
@@ -63,13 +84,13 @@ describe("auth input policy on Better Auth's own endpoints", () => {
   })
 
   it.each([
-    { body: { newPassword: "aaaaaaaa", token: "any-token" }, path: ROUTES.API_AUTH.RESET_PASSWORD },
-    { body: { currentPassword: STRONG_PASSWORD, newPassword: "aaaaaaaa" }, path: ROUTES.API_AUTH.CHANGE_PASSWORD },
+    { body: { newPassword: SHORT_PASSWORD, token: "any-token" }, path: ROUTES.API_AUTH.RESET_PASSWORD },
+    { body: { currentPassword: STRONG_PASSWORD, newPassword: SHORT_PASSWORD }, path: ROUTES.API_AUTH.CHANGE_PASSWORD },
     { body: { name: LONG_NAME }, path: ROUTES.API_AUTH.UPDATE_USER },
     { body: { image: LONG_IMAGE }, path: ROUTES.API_AUTH.UPDATE_USER },
     { body: { newEmail: "not-an-email" }, path: ROUTES.API_AUTH.CHANGE_EMAIL },
-    { body: { email: "admin-made@example.test", name: "Made", password: "aaaaaaaa" }, path: ROUTES.API_AUTH.ADMIN_CREATE_USER },
-    { body: { newPassword: "aaaaaaaa", userId: "any-user" }, path: ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD },
+    { body: { email: "admin-made@example.test", name: "Made", password: SHORT_PASSWORD }, path: ROUTES.API_AUTH.ADMIN_CREATE_USER },
+    { body: { newPassword: SHORT_PASSWORD, userId: "any-user" }, path: ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD },
     { body: { data: { name: LONG_NAME }, userId: "any-user" }, path: ROUTES.API_AUTH.ADMIN_UPDATE_USER },
   ])("rejects $path with input the forms would refuse, before Better Auth runs it", async ({ body, path }) => {
     await expectRejected(await post(path, body))

@@ -39,6 +39,7 @@ export const AUTH_ERRORS = {
   NONCE_BINDING_MISSING: "socialSignInFailed",
   NO_CODE: "socialSignInFailed",
   OAUTH_PROVIDER_NOT_FOUND: "socialSignInFailed",
+  PASSWORD_COMPROMISED: "passwordCompromised",
   PASSWORD_TOO_LONG: "passwordTooLong",
   PASSWORD_TOO_SHORT: "passwordTooShort",
   PROVIDER_NOT_FOUND: "socialSignInFailed",

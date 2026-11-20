@@ -61,7 +61,7 @@ const renderCard = (twoFactorEnabled = false) => {
 
 const startSetup = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole("button", { name: labels.enable }))
-  await user.type(screen.getByLabelText(labels.password), "Secret1!")
+  await user.type(screen.getByLabelText(labels.password), "SecretPass1!")
   await user.click(screen.getByRole("button", { name: labels.continue }))
   return screen.findByLabelText(labels.verificationCode)
 }
@@ -101,7 +101,7 @@ describe("two-factor settings pending requests", () => {
     enableMock.mockReturnValueOnce(pending.promise)
     const { user, queryClient } = renderCard()
     await user.click(screen.getByRole("button", { name: labels.enable }))
-    await user.type(screen.getByLabelText(labels.password), "Secret1!")
+    await user.type(screen.getByLabelText(labels.password), "SecretPass1!")
     await user.click(screen.getByRole("button", { name: labels.continue }))
     await waitFor(() => {
       expect(enableMock).toHaveBeenCalledOnce()
@@ -167,7 +167,7 @@ describe("two-factor settings pending requests", () => {
     disableMock.mockReturnValueOnce(pending.promise)
     const { user, queryClient } = renderCard(true)
     await user.click(screen.getByRole("button", { name: labels.disable }))
-    await user.type(screen.getByLabelText(labels.password), "Secret1!")
+    await user.type(screen.getByLabelText(labels.password), "SecretPass1!")
     await user.click(screen.getByRole("button", { name: labels.disableConfirm }))
     await waitFor(() => {
       expect(disableMock).toHaveBeenCalledOnce()
@@ -197,13 +197,13 @@ describe("two-factor settings", () => {
     request.mockRejectedValueOnce(new Error("Request failed"))
     const { user, queryClient } = renderCard(enabled)
     await user.click(screen.getByRole("button", { name: enabled ? labels.disable : labels.enable }))
-    await user.type(screen.getByLabelText(labels.password), "Secret1!")
+    await user.type(screen.getByLabelText(labels.password), "SecretPass1!")
     await user.click(screen.getByRole("button", { name: enabled ? labels.disableConfirm : labels.continue }))
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledOnce()
     })
     expect(screen.getByRole("dialog")).toBeVisible()
-    expect(screen.getByLabelText(labels.password)).toHaveValue("Secret1!")
+    expect(screen.getByLabelText(labels.password)).toHaveValue("SecretPass1!")
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(false)
   })
   it.each([false, true])("requires a password before sending the request (disabling: %s)", async (enabled) => {
@@ -217,7 +217,7 @@ describe("two-factor settings", () => {
     expect(enableMock).not.toHaveBeenCalled()
     expect(disableMock).not.toHaveBeenCalled()
 
-    await user.type(password, "Secret1!")
+    await user.type(password, "SecretPass1!")
     await waitFor(() => {
       expect(screen.queryByText(authValidationsMessages.passwordRequired)).not.toBeInTheDocument()
     })
@@ -228,7 +228,7 @@ describe("two-factor settings", () => {
     enableMock.mockResolvedValueOnce({ method: "otp" })
     const { user } = renderCard()
     await user.click(screen.getByRole("button", { name: labels.enable }))
-    await user.type(screen.getByLabelText(labels.password), "Secret1!")
+    await user.type(screen.getByLabelText(labels.password), "SecretPass1!")
     await user.click(screen.getByRole("button", { name: labels.continue }))
 
     await waitFor(() => {
@@ -308,13 +308,13 @@ describe("two-factor settings", () => {
     await user.click(screen.getByRole("button", { name: labels.disable }))
     const dialog = screen.getByRole("dialog")
     expect(within(dialog).getByRole("heading", { name: labels.disableDialogTitle })).toBeVisible()
-    await user.type(within(dialog).getByLabelText(labels.password), "Secret1!")
+    await user.type(within(dialog).getByLabelText(labels.password), "SecretPass1!")
     await user.click(within(dialog).getByRole("button", { name: labels.disableConfirm }))
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     })
-    expect(disableMock).toHaveBeenCalledExactlyOnceWith({ password: "Secret1!" }, expect.anything())
+    expect(disableMock).toHaveBeenCalledExactlyOnceWith({ password: "SecretPass1!" }, expect.anything())
     expect(toast.success).toHaveBeenCalledWith(labels.disabledSuccess)
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(true)
   })

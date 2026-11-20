@@ -1,6 +1,6 @@
 import zod from "zod/v4"
 
-import { emailSchema, strictPasswordSchema, withMatchingPasswords } from "~/src/integrations/better-auth/auth.zod"
+import { emailSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 
@@ -8,12 +8,9 @@ const forgotPassword = zod.object({
   email: emailSchema,
 })
 
-const resetPasswordForm = withMatchingPasswords(
-  zod.object({
-    confirmPassword: zod.string().min(MIN_FIELD_LENGTH, { message: "confirmPasswordRequired" }),
-    password: strictPasswordSchema,
-  }),
-)
+const resetPasswordForm = zod.object({
+  password: strictPasswordSchema,
+})
 
 const tokenField = zod.string().min(MIN_FIELD_LENGTH, { message: "tokenRequired" })
 

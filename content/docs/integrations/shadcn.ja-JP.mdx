@@ -25,23 +25,23 @@ className={cn("flex items-center gap-4 border-b", {
 ```tsx
 const form = useForm({
   defaultValues: { email: "" },
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
     subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
   },
-  validators: { onChange: emailSchema, onSubmit: emailSchema },
+  validators: { onChange: emailSchema },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
     <form.Field name="email">
       {(field) => {
-        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+        const isInvalid = isFieldInvalid(field)
 
         return (
           <Field data-invalid={isInvalid}>
@@ -74,6 +74,8 @@ return (
   </form>
 )
 ```
+
+shadcn のガイドと異なるのは、エラーを表示するタイミングの 1 点だけです。ガイドは `isTouched` が設定された時点でフィールドを無効としてマークしますが、TanStack Form は最初のキー入力でこれを設定します。`isFieldInvalid`（`src/integrations/tanstack-form/form.fields.ts`）は訪問者がフィールドを離れるか送信しようとするまで待ち、`submitForm`（`src/integrations/tanstack-form/form.submit.ts`）は無効な送信の際にすべてのエラーを表示して最初の無効なフィールドにフォーカスを移します。ルールの全体は[フォームの規約](/docs/conventions/forms-and-tables)にあります。
 
 Zod のメッセージは翻訳キーです。`fieldErrorMessage`（`src/integrations/tanstack-form/form.fields.ts`）が最初のエラーを取り出し、`ValidationFieldError` が指定された名前空間でそれを翻訳します。翻訳できない場合は `errors.codes.VALIDATION` にフォールバックします。完全な例は `src/presentation/components/custom/newsletter-form.tsx` と `src/presentation/components/custom/auth/sign-in-form.tsx` です。
 

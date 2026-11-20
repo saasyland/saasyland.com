@@ -17,7 +17,7 @@ describe("user zod schemas", () => {
       userZodSchemas.createUser.safeParse({
         email: "user@example.com",
         name: "User",
-        password: "Secret1!",
+        password: "SecretPass1!",
         role: ROLE_CODES.CUSTOMER,
       }).success,
     ).toBe(true)
@@ -25,7 +25,7 @@ describe("user zod schemas", () => {
 
   it("creates an account only with an initial password and a known role", () => {
     expect.hasAssertions()
-    const account = { email: "user@example.com", name: "User", password: "Secret1!", role: ROLE_CODES.CUSTOMER }
+    const account = { email: "user@example.com", name: "User", password: "SecretPass1!", role: ROLE_CODES.CUSTOMER }
     expect(userZodSchemas.createUser.safeParse({ ...account, password: undefined }).success).toBe(false)
     expect(userZodSchemas.createUser.safeParse({ ...account, role: "owner" }).success).toBe(false)
   })
@@ -44,7 +44,7 @@ describe("user zod schemas", () => {
 
   it("accepts a strong password on set user password form", () => {
     expect.hasAssertions()
-    expect(userZodSchemas.setUserPasswordForm.safeParse({ newPassword: "Secret1!" }).success).toBe(true)
+    expect(userZodSchemas.setUserPasswordForm.safeParse({ newPassword: "SecretPass1!" }).success).toBe(true)
   })
 
   it("rejects a weak password on set user password form", () => {

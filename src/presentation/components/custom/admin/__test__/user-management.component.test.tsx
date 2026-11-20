@@ -101,7 +101,7 @@ const fillNewUser = async (user: ReturnType<typeof userEvent.setup>) => {
   const dialog = screen.getByRole("dialog")
   await user.type(within(dialog).getByLabelText(labels.actions.createDialog.name), "Grace Hopper")
   await user.type(within(dialog).getByLabelText(labels.actions.createDialog.email), "grace@example.com")
-  await user.type(within(dialog).getByLabelText(labels.actions.createDialog.password), "Stronger1!")
+  await user.type(within(dialog).getByLabelText(labels.actions.createDialog.password), "StrongerPass1!")
   return dialog
 }
 
@@ -220,7 +220,7 @@ describe("adding a user", () => {
       expect(router.state.location.pathname).toBe("/admin/users/grace")
     })
     expect(create).toHaveBeenCalledWith(
-      { email: "grace@example.com", name: "Grace Hopper", password: "Stronger1!", role: ROLE_CODES.ADMIN },
+      { email: "grace@example.com", name: "Grace Hopper", password: "StrongerPass1!", role: ROLE_CODES.ADMIN },
       expect.anything(),
     )
     expect(invalidateQueries).toHaveBeenCalledExactlyOnceWith({ queryKey: USER_QUERY_KEYS.ALL })
@@ -516,14 +516,14 @@ describe("resetting a password", () => {
     await chooseAction(user, labels.actions.row.resetPassword)
     const dialog = screen.getByRole("dialog")
     const input = within(dialog).getByLabelText(labels.actions.resetPasswordDialog.password)
-    await user.type(input, "Stronger1!")
+    await user.type(input, "StrongerPass1!")
     fireEvent.blur(input)
     const submit = within(dialog).getByRole("button", { name: labels.actions.resetPasswordDialog.confirm })
     await user.click(submit)
     await waitFor(() => {
       expect(submit).toHaveAttribute("aria-disabled", "true")
     })
-    expect(resetPassword).toHaveBeenCalledWith({ newPassword: "Stronger1!", userId: ada.id }, expect.anything())
+    expect(resetPassword).toHaveBeenCalledWith({ newPassword: "StrongerPass1!", userId: ada.id }, expect.anything())
     await act(async () => {
       if (fails) {
         pending.reject(FORBIDDEN)

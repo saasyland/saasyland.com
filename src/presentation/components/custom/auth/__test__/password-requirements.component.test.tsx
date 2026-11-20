@@ -4,9 +4,15 @@ import { render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
+
+import validations from "~/messages/en-US/auth.validations.json"
+
+const REQUIREMENTS_ID = "password-requirements"
+const LENGTH_RULE = validations.atLeastMinCharactersLong.replace("{min}", String(PASSWORD_MIN_LENGTH))
 
 const MessagesProvider = ({ children }: Readonly<{ children: ReactNode }>) => (
   <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
@@ -17,37 +23,24 @@ const MessagesProvider = ({ children }: Readonly<{ children: ReactNode }>) => (
 const renderWithMessages = (ui: ReactNode): ReturnType<typeof render> => render(ui, { wrapper: MessagesProvider })
 
 describe("password requirements component", () => {
-  it("marks all rules satisfied for a strong password", () => {
-    expect.hasAssertions()
-    renderWithMessages(<PasswordRequirements confirmPassword="Strong123!" password="Strong123!" />)
+  it("lists the length rule as unmet until the password is long enough, whatever characters it uses", () => {
+    const { rerender } = renderWithMessages(<PasswordRequirements id={REQUIREMENTS_ID} password="" />)
 
-    expect(screen.getByText(/at least 8 characters/iu)).toBeInTheDocument()
-    expect(screen.getByText(/special character/iu)).toBeInTheDocument()
-    expect(screen.getByText(/uppercase/iu)).toBeInTheDocument()
-    expect(screen.getByText("Passwords match")).toBeVisible()
-    expect(screen.getAllByText("Requirement met")).toHaveLength(4)
-    for (const label of screen.getAllByText("Requirement met")) {
-      expect(label).toHaveClass("sr-only")
-    }
+    expect(screen.getAllByRole("listitem")).toHaveLength(1)
+    expect(screen.getByRole("listitem")).toHaveTextContent(LENGTH_RULE)
+    expect(screen.getByText(validations.requirementNotMet)).toHaveClass("sr-only")
+
+    rerender(<PasswordRequirements id={REQUIREMENTS_ID} password={"a".repeat(PASSWORD_MIN_LENGTH - 1)} />)
+    expect(screen.getByText(validations.requirementNotMet)).toBeInTheDocument()
+
+    rerender(<PasswordRequirements id={REQUIREMENTS_ID} password={"a".repeat(PASSWORD_MIN_LENGTH)} />)
+    expect(screen.getByText(validations.requirementMet)).toHaveClass("sr-only")
   })
 
-  it("shows all four requirements as unmet while both password fields are empty", () => {
-    renderWithMessages(<PasswordRequirements confirmPassword="" password="" />)
+  it("says that the password is checked against known data breaches on submit, under the id inputs describe themselves with", () => {
+    const { container } = renderWithMessages(<PasswordRequirements id={REQUIREMENTS_ID} password="" />)
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(4)
-    expect(screen.getAllByText("Requirement not met")).toHaveLength(4)
-    for (const label of screen.getAllByText("Requirement not met")) {
-      expect(label).toHaveClass("sr-only")
-    }
-  })
-
-  it("updates the matching requirement when either password changes", () => {
-    const { rerender } = renderWithMessages(<PasswordRequirements confirmPassword="Different1!" password="Strong123!" />)
-
-    expect(screen.getByText("Passwords match").parentElement).toHaveTextContent("Requirement not met")
-    rerender(<PasswordRequirements confirmPassword="Strong123!" password="Strong123!" />)
-    expect(screen.getByText("Passwords match").parentElement).toHaveTextContent("Requirement met")
-    rerender(<PasswordRequirements confirmPassword="Strong123!" password="Changed123!" />)
-    expect(screen.getByText("Passwords match").parentElement).toHaveTextContent("Requirement not met")
+    expect(screen.getByText(validations.breachCheck)).toBeVisible()
+    expect(container.querySelector(`#${REQUIREMENTS_ID}`)).toContainElement(screen.getByText(validations.breachCheck))
   })
 })

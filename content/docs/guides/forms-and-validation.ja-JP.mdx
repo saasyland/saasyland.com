@@ -31,6 +31,7 @@ export const NewsletterForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { email: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value, formApi }) => {
       subscribe.mutate(
         { email: value.email, locale: getCurrentLocale() },
@@ -41,20 +42,19 @@ export const NewsletterForm = (): JSX.Element => {
         },
       )
     },
-    validators: { onChange: emailSchema, onSubmit: emailSchema },
+    validators: { onChange: emailSchema },
   })
 
   return (
     <form
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="email">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field data-invalid={isInvalid}>
@@ -97,12 +97,15 @@ export const NewsletterForm = (): JSX.Element => {
 ## スキーマ
 
 - モジュールの `<table>.zod.ts` にあるスキーマを使います。認証フォームでは `src/integrations/better-auth/auth.zod.ts` のスキーマを使います。`.pick(...)` でフォームに表示するフィールドを選びます。ロケールのように、ユーザーが入力しない値は `onSubmit` で追加します。
-- `onChange` はユーザーの入力中に検証し、`onSubmit` はフォームの送信時にすべてのフィールドを検証します。
+- バリデーターは `validators: { onChange: emailSchema }` の 1 つだけです。TanStack Form は変更のたびに、そして送信時にもう一度これを実行します。別に `onSubmit` の複製を置くと、`passwordsMustMatch` のような送信時のエラーが、そのフィールド自身が変更されるまで赤いまま残ってしまいます。
+- `listeners: { onBlur: validateOnBlur }` は、フィールドがフォーカスを失ったときに同じバリデーターを実行します。そのため、訪問者が Tab キーで通過したフィールドには、そこを離れた時点ですぐにエラーが表示されます。
 - `noValidate` はブラウザのバリデーションを無効にし、Zod のメッセージだけがエラーとして表示されるようにします。
 
 ## エラー
 
-- フィールドは、タッチされた後にのみエラーを表示します：`field.state.meta.isTouched && !field.state.meta.isValid`。この値によって、`Field` に `data-invalid` が、入力要素に `aria-invalid` が設定されます。
+- フィールドは、訪問者がそこを離れるか送信しようとした時点でエラーを表示し、まだ入力している間は表示しません。判定は `src/integrations/tanstack-form/form.fields.ts` の `isFieldInvalid(field)` で、その中身は `field.state.meta.isBlurred && !field.state.meta.isValid` です。この値が `Field` の `data-invalid`、入力要素の `aria-invalid`、そしてエラーを描画するかどうかを決めるため、3 つは常に一緒に変わります。
+- エラーが表示された後は、変更のたびにフィールドが再検証されるため、値を直したキー入力でエラーが消えます。`isTouched` は使いません。TanStack Form は最初のキー入力でこれを設定します。
+- `PasswordRequirements` のように進捗に報いるライブのフィードバックは、値を直接読み取り、最初のキー入力から更新されます。
 - 入力は常に `aria-describedby` に自身のエラーの id（`<input id>-error`）を設定し、`ValidationFieldError` はフィールドが無効な間だけその id を持つ要素を描画します。ブラウザーは存在しない要素への参照を無視するため、有効なフィールドには説明がありません。
 - Zod のメッセージは、`emailInvalid` のような翻訳キーです。`fieldErrorMessage` は最初のキーを取り出し、`ValidationFieldError` は `<namespace>.<key>` を `params` の対応するエントリとともにレンダリングします。例えば `emailMaxLength` には `{ max: 64 }` を使います。存在しないキーは `errors.codes.VALIDATION` にフォールバックします。
 - フォームは `auth.validations` を渡します。これは `auth` と `admin` の各レイアウトがプリロードし、ニュースレターのエリアが自分のフォームのために `_marketing` レイアウトに追加します。例外は管理画面のコースのフォームで、`admin.courses.tsx` レイアウトが読み込む `course.validations` を渡します。ルートはフォームが使う名前空間を読み込む必要があります。`messages/` にはほかのモジュールにも `user.validations` のような `<table>.validations` 名前空間がありますが、それらを読み込むフォームやルートはありません。
@@ -110,8 +113,11 @@ export const NewsletterForm = (): JSX.Element => {
 
 ## 送信
 
+- フォームの `onSubmit` は `src/integrations/tanstack-form/form.submit.ts` の `submitForm(event, form)` を呼び出します。これはブラウザーによる送信を防いで `form.handleSubmit()` を呼び出します。フォームが無効な場合は、すべてのフィールドを離れた状態としてマークしてすべてのエラーを表示し、`aria-invalid="true"` を持つ最初のコントロールにフォーカスを移します。
 - ユースケースのミューテーションオプションを `useMutation` に展開し、それを通して送信します。例外は `SignInForm` で、独自の `useMutation` の中で Better Auth クライアントの `signIn.email` を呼び出し、`twoFactorRedirect` はクライアントの二要素認証プラグインが処理します。
 - `<Button isPending={mutation.isPending} type="submit">` は、リクエストの実行中にボタンを無効化し、処理中であることを支援技術に伝えます。
+- フォームが未完成の間も送信ボタンは有効なままで、無効化するのは `isPending` だけです。誤りがあるまま押すと、すべてのエラーを表示して最初の無効なフィールドにフォーカスを移します。
+- 既知のデータ漏洩に含まれるパスワードに対する `passwordCompromised` のように、1 つのフィールドに属するサーバーのエラーは、トーストではなく `form.submit.ts` の `showFieldError(formApi, { controlId, field, message })` でそのフィールドの下に表示します。このエラーはフィールドが変更されると消えます。
 - ミューテーションの `onSuccess` でフォームをリセットするかページを遷移し、ミューテーションが変更したモジュールのクエリを無効化します。
 
 その他の例は、`src/presentation/components/custom/auth/` の `sign-in-form.tsx`、`sign-up-form.tsx`、`reset-password-form.tsx`、`two-factor-form.tsx` です。

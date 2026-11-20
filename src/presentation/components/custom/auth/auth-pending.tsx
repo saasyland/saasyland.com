@@ -3,11 +3,13 @@ import type { JSX } from "react"
 import { useRouterState } from "@tanstack/react-router"
 
 import { TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { createOtpSlotIndices } from "~/src/modules/two-factor/two-factor.utils"
 
-import { AUTH_ASSURANCES, OAUTH_PROVIDERS, PASSWORD_RULES } from "~/src/data/auth"
+import { AUTH_ASSURANCES, OAUTH_PROVIDERS } from "~/src/data/auth"
+import { findSignUpIntro } from "~/src/data/sign-up-intros"
 import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -42,12 +44,11 @@ const FieldPending = (): JSX.Element => (
 
 const PasswordRulesPending = (): JSX.Element => (
   <div className="flex flex-col gap-2 text-body-sm">
-    {PASSWORD_RULES.map((rule) => (
-      <div className="flex items-start gap-2.5" key={rule}>
-        <Skeleton className="mt-0.5 size-4 shrink-0 rounded-xs" />
-        <Skeleton className="h-lh w-52 scale-y-70" />
-      </div>
-    ))}
+    <div className="flex items-start gap-2.5">
+      <Skeleton className="mt-0.5 size-4 shrink-0 rounded-xs" />
+      <Skeleton className="h-lh w-52 scale-y-70" />
+    </div>
+    <Skeleton className="h-lh w-4/5 scale-y-70" />
   </div>
 )
 
@@ -77,15 +78,26 @@ export const SignInPending = (): JSX.Element => (
   </div>
 )
 
+const SignUpIntroPending = (): JSX.Element => {
+  const redirect = useRouterState({ select: ({ location }) => authSearchSchema.parse(location.search).redirect })
+
+  const intro = findSignUpIntro(redirect)
+
+  if (intro === undefined) {
+    return <Skeleton className="mt-3 h-lh w-4/5 scale-y-70 text-body" />
+  }
+
+  return <intro.Pending />
+}
+
 export const SignUpPending = (): JSX.Element => (
   <div aria-busy="true" className="flex flex-col">
     <TitlePending />
-    <Skeleton className="mt-3 h-lh w-4/5 scale-y-70 text-body" />
+    <SignUpIntroPending />
     <div className="mt-10 flex flex-col gap-6">
       <OAuthPending />
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-5">
-          <FieldPending />
           <FieldPending />
           <FieldPending />
           <FieldPending />
@@ -121,10 +133,7 @@ export const ResetPasswordPending = (): JSX.Element => (
     <TitlePending />
     <Skeleton className="mt-3 h-lh w-4/5 scale-y-70 text-body" />
     <div className="mt-10 flex flex-col gap-6">
-      <div className="flex flex-col gap-5">
-        <FieldPending />
-        <FieldPending />
-      </div>
+      <FieldPending />
       <PasswordRulesPending />
       <Skeleton className="h-11 w-full rounded-lg" />
     </div>

@@ -44,7 +44,7 @@ describe("change-password", () => {
     changePasswordMock.mockResolvedValue(changeResult)
 
     await expect(
-      executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" }),
+      executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "SecretPass1!" }),
     ).resolves.toMatchObject(changeResult)
   })
 
@@ -54,7 +54,7 @@ describe("change-password", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" })).rejects.toThrow(
+    await expect(executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "SecretPass1!" })).rejects.toThrow(
       ERROR_CODES.UNAUTHORIZED,
     )
   })

@@ -11,44 +11,57 @@ Jedes Formular folgt der [TanStack-Form-Anleitung von shadcn](https://ui.shadcn.
 
 ```tsx
 const form = useForm({
-  defaultValues: course ?? NEW_COURSE,
+  defaultValues: course === undefined ? NEW_COURSE : toValues(course),
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
-    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
     if (course === undefined) {
-      create.mutate(fields)
+      create.mutate(value)
       return
     }
-    update.mutate({ ...fields, courseId: course.id })
+    update.mutate({ ...value, courseId: course.id })
   },
-  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+  validators: { onChange: courseZodSchemas.createCourse },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
 ```
 
 - **Das Schema ist das Schema des Servers.** Der Validator ist dasselbe `courseZodSchemas.createCourse`, mit dem die Server Function parst, oder ein `.pick(...)` davon, wie `chapter-dialog.tsx` mit `chapterZodSchemas.updateChapter.pick({ title: true })`. Schreibe nie ein zweites Schema nur für das Formular.
-- **Bei Änderung und beim Absenden validieren.** Beide Validatoren sind gesetzt: Mit nur `onSubmit` bleibt ein korrigiertes Feld bis zum nächsten Absenden rot.
-- **`noValidate` und `preventDefault`.** Die eigene Validierung des Browsers ist abgeschaltet, sodass jede Meldung aus dem Schema stammt und übersetzt ist.
+- **Ein Validator, `onChange`.** TanStack Form führt ihn bei jeder Änderung und beim Absenden noch einmal aus. Füge keine `onSubmit`-Kopie hinzu: Ein Fehler des Absende-Validators verschwindet erst, wenn sich sein eigenes Feld ändert, daher blieb ein feldübergreifender Fehler wie `passwordsMustMatch` rot, nachdem das andere Feld korrigiert war.
+- **Das Feld validieren, das der Besucher verlässt.** `listeners: { onBlur: validateOnBlur }` führt denselben Validator aus, wenn ein Feld den Fokus verliert, sodass ein Feld, das der Besucher nur durchquert hat, seinen Fehler genau in diesem Moment bekommt und nicht erst bei einem späteren Tastendruck in einem anderen Feld.
+- **Über `submitForm` absenden.** `submitForm(event, form)` aus `src/integrations/tanstack-form/form.submit.ts` unterbindet das eigene Absenden des Browsers und ruft `form.handleSubmit()` auf. Ist das Formular ungültig, markiert es jedes Feld als verlassen, sodass alle Fehler auf einmal erscheinen, und setzt den Fokus auf das erste Steuerelement mit `aria-invalid="true"`.
+- **`noValidate`.** Die eigene Validierung des Browsers ist abgeschaltet, sodass jede Meldung aus dem Schema stammt und übersetzt ist.
 - **Standardwerte sind über das Modul-Interface typisiert**, etwa `NEW_COURSE: Course["createCourse"]`.
 - **Mit der Mutation absenden.** `onSubmit` ruft `mutate` aus den Mutation-Optionen auf, und der Absende-Button zeigt den Ladezustand: `<Button isPending={create.isPending || update.isPending} type="submit">`.
 
+### Wann Fehler erscheinen
+
+Fehler folgen der Regel „früh belohnen, spät bestrafen“:
+
+- Während der Besucher in einem Feld tippt, zeigt das Feld keinen Fehler und hat kein `aria-invalid`, auch wenn der Wert noch nicht gültig ist.
+- Wenn der Besucher das Feld verlässt oder abzusenden versucht, zeigt das Feld seinen Fehler.
+- Ab dann validiert das Feld bei jeder Änderung neu, sodass der Fehler mit dem Tastendruck verschwindet, der den Wert korrigiert.
+- Rückmeldungen, die Fortschritt belohnen, etwa die Liste der Passwortanforderungen, aktualisieren sich ab dem ersten Tastendruck, denn sie sind kein Fehler.
+- Serverfehler, etwa eine bereits registrierte E-Mail-Adresse, erscheinen als Toast.
+
+`isFieldInvalid(field)` aus `src/integrations/tanstack-form/form.fields.ts` ist die eine Stelle, die das entscheidet: `field.state.meta.isBlurred && !field.state.meta.isValid`. Übernimm nicht die `isTouched`-Prüfung aus der Anleitung von shadcn: TanStack Form setzt `isTouched` beim ersten Tastendruck, wodurch ein halb getipptes Passwort rot wurde.
+
 ### Felder
 
-Jedes Feld ist ein shadcn-`Field`, das erst als ungültig markiert wird, nachdem der Besucher es berührt hat. Aus `course-fields.tsx`:
+Jedes Feld ist ein shadcn-`Field`, dessen ungültiger Zustand von `isFieldInvalid` kommt. Aus `course-fields.tsx`:
 
 ```tsx
-<Field data-invalid={isInvalidField(field)}>
+<Field data-invalid={isFieldInvalid(field)}>
   <FieldLabel htmlFor={id}>{label}</FieldLabel>
   <Input
     aria-describedby={`${id}-error`}
-    aria-invalid={isInvalidField(field)}
+    aria-invalid={isFieldInvalid(field)}
     className={cn({ "font-mono": isCode })}
     id={id}
     lang={lang}
@@ -63,7 +76,8 @@ Jedes Feld ist ein shadcn-`Field`, das erst als ungültig markiert wird, nachdem
 </Field>
 ```
 
-- `isInvalid` ist `field.state.meta.isTouched && !field.state.meta.isValid`.
+- `data-invalid`, `aria-invalid` und das Fehlerelement lesen alle `isFieldInvalid(field)`, sodass ein Screenreader genau dann meldet, dass ein Feld ungültig ist, wenn der Fehler erscheint, und nie, während der Besucher noch tippt.
+- Jedes Steuerelement ruft `field.handleBlur` in `onBlur` auf; eine Dateiauswahl ruft es auf, nachdem eine Datei gewählt wurde.
 - Das Eingabefeld verweist mit `aria-describedby` immer auf die ID seines Fehlers. Das Fehlerelement wird nur gerendert, solange das Feld ungültig ist, und ein Verweis auf ein fehlendes Element beschreibt nichts.
 - Fehler werden über `ValidationFieldError` aus `custom/validation-field-error.tsx` gerendert. Zod-Meldungen sind Übersetzungsschlüssel, daher schlägt die Komponente sie im Namespace `<table>.validations` des Moduls nach und interpoliert die Zahlen aus `<MODULE>_VALIDATION_PARAMS`:
 
@@ -78,6 +92,30 @@ Jedes Feld ist ein shadcn-`Field`, das erst als ungültig markiert wird, nachdem
 
 - Keine handgeschriebenen `<input>`-, `<label>`- oder `<button>`-Elemente und keine Wrapper-Komponente um ein Feld für ein einzelnes Formular. Eine Feldkomponente, die mehrere Formulare eines Bereichs teilen, liegt in einer Datei, so wie `CourseTextField`, `CourseTextAreaField` und `CourseOptionField` für die Kurs-, Kapitel- und Lektionsformulare.
 - Serverfehler werden mit `toast.error(errorMessage(error))` angezeigt, Erfolg mit einem übersetzten `toast.success`.
+
+### Absende-Buttons bleiben aktiv
+
+Der Absende-Button wird nie deaktiviert, weil das Formular unvollständig ist: kein `isDisabled`, kein `disabled` und kein `aria-disabled`, solange Werte fehlen oder ungültig sind. Ein gedimmter Button sagt nicht, was falsch ist, und GOV.UK, NN/g und Adrian Roselli raten davon ab. Ein Druck darauf trotz Fehlern ist ein gewöhnlicher Absendeversuch: `submitForm` zeigt jeden Fehler und setzt den Fokus auf das erste ungültige Feld. Nur `isPending` deaktiviert den Button, solange die Anfrage läuft.
+
+Der shadcn-`Button` setzt `preventFocusOnPress` bei einem Button mit `type="submit"`, sodass der Fokus beim Drücken mit Maus oder Finger im gerade bearbeiteten Feld bleibt. Sonst würde der Fehler, der beim Verlassen dieses Felds erscheint, den Button verschieben, bevor das Drücken endet, und das Drücken würde nichts absenden.
+
+### Serverfehler an einem Feld
+
+Wenn der Server ein einzelnes Feld zurückweist, gehört der Fehler unter dieses Feld statt in einen Toast. Die Formulare für Registrierung, Passwort zurücksetzen und das Passwort in den Einstellungen tun das für ein Passwort, das in einem bekannten Datenleck vorkommt, und zwar im `onError` der Mutation in `onSubmit`. Aus `sign-up-form.tsx`:
+
+```tsx
+onError: (error) => {
+  if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+    showFieldError(formApi, { controlId: "sign-up-password", field: "password", message: error.message })
+    return
+  }
+  toast.error(errorMessage(error))
+},
+```
+
+- `showFieldError` aus `src/integrations/tanstack-form/form.submit.ts` speichert den Nachrichtenschlüssel als Absendefehler des Felds, markiert das Feld als verlassen, damit `isFieldInvalid` den Fehler anzeigt, und setzt den Fokus auf das Steuerelement.
+- Der Schlüssel wird wie jede andere Validierungsmeldung nachgeschlagen und braucht daher einen Eintrag im Validierungs-Namespace des Felds, hier `auth.validations.passwordCompromised`.
+- Der Fehler verschwindet bei der nächsten Änderung dieses Felds, und jeder andere Serverfehler bleibt ein Toast.
 
 Das kleinste vollständige Beispiel ist `src/presentation/components/custom/newsletter-form.tsx`; die [Formular-Anleitung](/docs/guides/forms-and-validation) führt Schritt für Schritt durch den Bau eines Formulars.
 

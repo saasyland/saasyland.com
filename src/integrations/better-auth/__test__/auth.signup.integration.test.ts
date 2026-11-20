@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import * as zod from "zod"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
+import { failNextResendDelivery } from "~/src/platform/testing/lib/resend"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
@@ -32,7 +33,6 @@ const signUpResponseSchema = zod.object({ token: zod.null(), user: zod.record(zo
 
 const createSignUp = () => ({
   callbackURL: "/pl-PL/app",
-  confirmPassword: "SignupPassword123!",
   email: `signup-${crypto.randomUUID()}@example.test`,
   name: "Test Customer",
   password: "SignupPassword123!",
@@ -184,9 +184,7 @@ describe("production signup verification delivery", () => {
   it("recovers a failed initial email delivery when signup is retried and lets the customer verify and sign in", async () => {
     const body = createSignUp()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      Response.json({ message: "Provider temporarily unavailable", name: "application_error", statusCode: 503 }, { status: 503 }),
-    )
+    failNextResendDelivery()
 
     const first = await signUp(body)
 

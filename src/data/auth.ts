@@ -28,8 +28,6 @@ export const OAUTH_CLIENTS = {
   },
 } as const satisfies Record<(typeof OAUTH_PROVIDERS)[number]["id"], OAuthClient>
 
-export const PASSWORD_RULES = ["atLeastMinCharactersLong", "atLeastOneSpecialCharacter", "atLeastOneUppercase", "passwordsMatch"] as const
-
 export const SOCIAL_SIGN_IN_PATH = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`
 
 export const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`

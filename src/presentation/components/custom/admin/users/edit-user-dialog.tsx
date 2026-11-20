@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
+
 import { updateUserMutation } from "~/src/modules/user/use-cases/update-user"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import type { User } from "~/src/modules/user/user.types"
@@ -46,10 +49,11 @@ export const EditUserDialog = ({ isOpen, onOpenChange, user }: EditUserDialogPro
 
   const form = useForm({
     defaultValues,
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       update.mutate(value)
     },
-    validators: { onChange: userZodSchemas.updateUser, onSubmit: userZodSchemas.updateUser },
+    validators: { onChange: userZodSchemas.updateUser },
   })
 
   return (
@@ -62,8 +66,7 @@ export const EditUserDialog = ({ isOpen, onOpenChange, user }: EditUserDialogPro
       <form
         noValidate
         onSubmit={(event) => {
-          event.preventDefault()
-          void form.handleSubmit()
+          void submitForm(event, form)
         }}
       >
         <FieldGroup>

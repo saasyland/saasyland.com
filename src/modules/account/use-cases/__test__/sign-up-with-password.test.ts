@@ -31,7 +31,6 @@ describe("signUpWithPassword use case", () => {
     vi.spyOn(authServer.auth.api, "signUpEmail").mockImplementation(signUpEmailMock)
 
     const payload = {
-      confirmPassword: "Password123!",
       email: "newuser@example.com",
       name: "New User",
       password: "Password123!",

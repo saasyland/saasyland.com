@@ -8,6 +8,7 @@ import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { findSignUpIntro } from "~/src/data/sign-up-intros"
 import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { pageHead } from "~/src/lib/seo"
@@ -17,16 +18,20 @@ import { SignUpPending } from "~/src/presentation/components/custom/auth/auth-pe
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
-import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")
 
+  const { redirect } = Route.useSearch()
+
+  const intro = findSignUpIntro(redirect)
+
   return (
     <>
       <h1 className="text-headline-support text-balance text-foreground">{t("form.title")}</h1>
-      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description", { appName: APP_NAME })}</p>
+      {intro === undefined && <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description")}</p>}
+      {intro !== undefined && <intro.Intro redirect={redirect} />}
 
       <div className="mt-10 flex flex-col gap-6">
         <OAuthButtons />

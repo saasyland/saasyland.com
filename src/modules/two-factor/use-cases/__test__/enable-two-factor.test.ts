@@ -38,11 +38,11 @@ describe("enable-two-factor", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
     enableTwoFactorMock.mockResolvedValue({ backupCodes: ["code-1"], method: "totp", totpURI: "otpauth://totp" })
 
-    await expect(executeMutation(enableTwoFactorMutation, { password: "Secret1!" })).resolves.toMatchObject({
+    await expect(executeMutation(enableTwoFactorMutation, { password: "SecretPass1!" })).resolves.toMatchObject({
       backupCodes: ["code-1"],
       totpURI: "otpauth://totp",
     })
-    expect(enableTwoFactorMock).toHaveBeenCalledWith({ body: { password: "Secret1!" }, headers: HEADERS })
+    expect(enableTwoFactorMock).toHaveBeenCalledWith({ body: { password: "SecretPass1!" }, headers: HEADERS })
   })
 
   it("returns a domain error when the caller is signed out", async () => {
@@ -51,6 +51,6 @@ describe("enable-two-factor", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(enableTwoFactorMutation, { password: "Secret1!" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(enableTwoFactorMutation, { password: "SecretPass1!" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

@@ -11,44 +11,57 @@ Todo formulário segue o [guia de TanStack Form do shadcn](https://ui.shadcn.com
 
 ```tsx
 const form = useForm({
-  defaultValues: course ?? NEW_COURSE,
+  defaultValues: course === undefined ? NEW_COURSE : toValues(course),
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
-    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
     if (course === undefined) {
-      create.mutate(fields)
+      create.mutate(value)
       return
     }
-    update.mutate({ ...fields, courseId: course.id })
+    update.mutate({ ...value, courseId: course.id })
   },
-  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+  validators: { onChange: courseZodSchemas.createCourse },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
 ```
 
 - **O schema é o schema do servidor.** O validador é o mesmo `courseZodSchemas.createCourse` com que a server function faz a análise, ou um `.pick(...)` dele, como faz `chapter-dialog.tsx` com `chapterZodSchemas.updateChapter.pick({ title: true })`. Nunca escreva um segundo schema só para o formulário.
-- **Valide na alteração e no envio.** Os dois validadores são definidos: só com `onSubmit`, um campo que foi corrigido continua vermelho até o próximo envio.
-- **`noValidate` e `preventDefault`.** A validação do próprio navegador fica desativada, então toda mensagem vem do schema e é traduzida.
+- **Um validador, `onChange`.** O TanStack Form o executa a cada alteração e de novo no envio. Não adicione uma cópia em `onSubmit`: um erro do validador de envio só desaparece quando o próprio campo dele muda, então um erro entre campos como `passwordsMustMatch` continuava vermelho depois que o outro campo era corrigido.
+- **Valide o campo que o visitante deixa.** `listeners: { onBlur: validateOnBlur }` executa o mesmo validador quando um campo perde o foco, então um campo pelo qual o visitante apenas passou recebe o seu erro nesse momento, e não numa tecla digitada mais tarde em outro campo.
+- **Envie por `submitForm`.** `submitForm(event, form)`, de `src/integrations/tanstack-form/form.submit.ts`, impede o envio próprio do navegador e chama `form.handleSubmit()`. Quando o formulário é inválido, ele marca todos os campos como deixados, para que todos os erros apareçam de uma vez, e move o foco para o primeiro controle com `aria-invalid="true"`.
+- **`noValidate`.** A validação do próprio navegador fica desativada, então toda mensagem vem do schema e é traduzida.
 - **Os valores padrão são tipados pela interface do módulo**, como em `NEW_COURSE: Course["createCourse"]`.
 - **Envie com a mutation.** `onSubmit` chama `mutate` das mutation options, e o botão de envio mostra o estado pendente: `<Button isPending={create.isPending || update.isPending} type="submit">`.
 
+### Quando os erros aparecem
+
+Os erros seguem a regra de recompensar cedo e punir tarde:
+
+- Enquanto o visitante digita em um campo, o campo não mostra erro nem tem `aria-invalid`, mesmo que o valor ainda não seja válido.
+- Quando o visitante deixa o campo, ou tenta enviar, o campo mostra o seu erro.
+- A partir daí o campo é revalidado a cada alteração, então o erro desaparece na tecla que corrige o valor.
+- O retorno que recompensa o progresso, como a lista de requisitos da senha, é atualizado desde a primeira tecla: não é um erro.
+- Os erros do servidor, como um e-mail que já está cadastrado, são um toast.
+
+`isFieldInvalid(field)`, de `src/integrations/tanstack-form/form.fields.ts`, é o único lugar que decide isso: `field.state.meta.isBlurred && !field.state.meta.isValid`. Não copie a verificação de `isTouched` do guia do shadcn: o TanStack Form define `isTouched` na primeira tecla, o que deixava vermelha uma senha digitada pela metade.
+
 ### Campos
 
-Cada campo é um `Field` do shadcn marcado como inválido apenas depois que o visitante o tocou. De `course-fields.tsx`:
+Cada campo é um `Field` do shadcn cujo estado inválido vem de `isFieldInvalid`. De `course-fields.tsx`:
 
 ```tsx
-<Field data-invalid={isInvalidField(field)}>
+<Field data-invalid={isFieldInvalid(field)}>
   <FieldLabel htmlFor={id}>{label}</FieldLabel>
   <Input
     aria-describedby={`${id}-error`}
-    aria-invalid={isInvalidField(field)}
+    aria-invalid={isFieldInvalid(field)}
     className={cn({ "font-mono": isCode })}
     id={id}
     lang={lang}
@@ -63,7 +76,8 @@ Cada campo é um `Field` do shadcn marcado como inválido apenas depois que o vi
 </Field>
 ```
 
-- `isInvalid` é `field.state.meta.isTouched && !field.state.meta.isValid`.
+- `data-invalid`, `aria-invalid` e o elemento de erro leem todos `isFieldInvalid(field)`, então um leitor de tela anuncia que um campo é inválido exatamente quando o erro aparece, nunca enquanto o visitante ainda está digitando.
+- Todo controle chama `field.handleBlur` em `onBlur`; um seletor de arquivos o chama depois que um arquivo é escolhido.
 - O input sempre aponta `aria-describedby` para o ID do seu erro. O elemento de erro só é renderizado enquanto o campo é inválido, e uma referência a um elemento inexistente não descreve nada.
 - Os erros são renderizados por `ValidationFieldError`, de `custom/validation-field-error.tsx`. As mensagens do Zod são chaves de tradução, então ele as procura no namespace `<table>.validations` do módulo e interpola os números de `<MODULE>_VALIDATION_PARAMS`:
 
@@ -78,6 +92,30 @@ Cada campo é um `Field` do shadcn marcado como inválido apenas depois que o vi
 
 - Nada de elementos `<input>`, `<label>` ou `<button>` escritos à mão, e nada de um componente wrapper em volta de um campo para um único formulário. Um componente de campo compartilhado por vários formulários de uma área fica em um único arquivo, como fazem `CourseTextField`, `CourseTextAreaField` e `CourseOptionField` para os formulários de curso, capítulo e aula.
 - Os erros do servidor são exibidos com `toast.error(errorMessage(error))`, e o sucesso com um `toast.success` traduzido.
+
+### Os botões de envio continuam habilitados
+
+O botão de envio nunca é desativado porque o formulário está incompleto: nada de `isDisabled`, `disabled` ou `aria-disabled` enquanto faltam valores ou eles são inválidos. Um botão esmaecido não diz o que está errado, e GOV.UK, NN/g e Adrian Roselli desaconselham isso. Pressioná-lo com erros é uma tentativa de envio comum: `submitForm` mostra todos os erros e move o foco para o primeiro campo inválido. Só `isPending` desativa o botão, enquanto a requisição está em andamento.
+
+O `Button` do shadcn define `preventFocusOnPress` em um botão com `type="submit"`, então pressioná-lo com o mouse ou o dedo mantém o foco no campo que está sendo editado. Caso contrário, o erro que aparece ao sair desse campo moveria o botão antes do fim do toque, e o toque não enviaria nada.
+
+### Erros do servidor em um campo
+
+Quando o servidor rejeita um campo, o erro fica abaixo desse campo, e não em um toast. Os formulários de cadastro, de redefinição de senha e de senha das configurações fazem isso para uma senha encontrada em um vazamento de dados conhecido, a partir do `onError` da mutation em `onSubmit`. De `sign-up-form.tsx`:
+
+```tsx
+onError: (error) => {
+  if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+    showFieldError(formApi, { controlId: "sign-up-password", field: "password", message: error.message })
+    return
+  }
+  toast.error(errorMessage(error))
+},
+```
+
+- `showFieldError`, de `src/integrations/tanstack-form/form.submit.ts`, guarda a chave da mensagem como erro de envio do campo, marca o campo como deixado para que `isFieldInvalid` o mostre e coloca o foco no controle.
+- A chave é procurada como qualquer outra mensagem de validação, então precisa de uma entrada no namespace de validação do campo, aqui `auth.validations.passwordCompromised`.
+- O erro some na próxima alteração desse campo, e todos os outros erros do servidor continuam sendo toasts.
 
 O menor exemplo completo é `src/presentation/components/custom/newsletter-form.tsx`; o [guia de formulários](/docs/guides/forms-and-validation) mostra passo a passo como construir um.
 

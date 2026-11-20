@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { NEWSLETTER_SUBSCRIBER_QUERY_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
@@ -46,6 +47,7 @@ export const NewsletterForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { email: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value, formApi }) => {
       subscribe.mutate(
         { email: value.email, locale: getCurrentLocale() },
@@ -56,7 +58,7 @@ export const NewsletterForm = (): JSX.Element => {
         },
       )
     },
-    validators: { onChange: emailSchema, onSubmit: emailSchema },
+    validators: { onChange: emailSchema },
   })
 
   return (
@@ -64,13 +66,12 @@ export const NewsletterForm = (): JSX.Element => {
       className="mt-6"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="email">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field data-invalid={isInvalid}>

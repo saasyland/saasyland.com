@@ -27,12 +27,16 @@ const alternateSchema = zod.object({ href: zod.url(), hreflang: zod.string() })
 
 const pageHeadSchema = zod.object({
   alternates: zod.array(alternateSchema),
+  author: zod.string().optional(),
   canonical: zod.url(),
+  description: zod.string().optional(),
   image: zod.url(),
   lang: zod.enum(I18N.SUPPORTED_LOCALES),
   modified: zod.iso.datetime().optional(),
+  published: zod.iso.datetime().optional(),
   robots: zod.string().optional(),
   section: zod.string().optional(),
+  tags: zod.array(zod.string()),
   title: zod.string(),
 })
 
@@ -61,21 +65,26 @@ const readTag = ({ groups }: RegExpExecArray): HeadTag => {
 export const readPageHead = (html: string): PageHead => {
   const tags = Array.from(html.slice(0, html.indexOf(HEAD_END)).matchAll(TAG), readTag)
   const links = (rel: string) => tags.filter(({ attributes, tag }) => tag === TAG_NAME.LINK && attributes.get("rel") === rel)
-  const content = (key: string): string | undefined =>
+  const contents = (key: string): (string | undefined)[] =>
     tags
-      .find(({ attributes, tag }) => tag === TAG_NAME.META && (attributes.get("property") ?? attributes.get("name")) === key)
-      ?.attributes.get("content")
+      .filter(({ attributes, tag }) => tag === TAG_NAME.META && (attributes.get("property") ?? attributes.get("name")) === key)
+      .map(({ attributes }) => attributes.get("content"))
+  const content = (key: string): string | undefined => contents(key).at(0)
 
   return pageHeadSchema.parse({
     ...DOCUMENT_LANGUAGE.exec(html)?.groups,
     alternates: links(REL.ALTERNATE)
       .filter(({ attributes }) => attributes.has("hreflang"))
       .map(({ attributes }) => ({ href: attributes.get("href"), hreflang: attributes.get("hreflang") })),
+    author: content("author"),
     canonical: links(REL.CANONICAL).at(0)?.attributes.get("href"),
+    description: content("description"),
     image: content("og:image"),
     modified: content("article:modified_time"),
+    published: content("article:published_time"),
     robots: content("robots"),
     section: content("article:section"),
+    tags: contents("article:tag"),
     title: content("og:title"),
   })
 }

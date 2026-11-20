@@ -1,4 +1,4 @@
-import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
+import type { BlogIndex, BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
@@ -15,3 +15,24 @@ export const toBlogPostSummary = (post: BlogPost, locale: SupportedLocale) => ({
 })
 
 export type BlogPostSummary = ReturnType<typeof toBlogPostSummary>
+
+const RELATED_POSTS = 3
+
+export const relatedBlogPosts = ({
+  locale,
+  post,
+  posts,
+}: {
+  locale: SupportedLocale
+  post: BlogPost
+  posts: BlogIndex
+}): BlogPostSummary[] => {
+  const tags = new Set(post.tags)
+  const sharedTags = (other: BlogPost): number => other.tags.filter((tag) => tags.has(tag)).length
+
+  return posts
+    .filter((other) => other.url !== post.url)
+    .toSorted((first, second) => sharedTags(second) - sharedTags(first))
+    .slice(0, RELATED_POSTS)
+    .map((other) => toBlogPostSummary(other, locale))
+}

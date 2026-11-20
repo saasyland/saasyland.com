@@ -133,8 +133,11 @@ const buildBlogIndex = (source: BlogSource, locale: SupportedLocale) =>
       .filter((page) => page.data.published)
       .toSorted((first, second) => new Date(second.data.date).getTime() - new Date(first.data.date).getTime())
       .map(async ({ data, path, url }) => ({
+        authorImage: data.authorImage,
         authorName: data.authorName,
+        authorUrl: data.authorUrl,
         date: toDate(data.date),
+        description: data.description,
         faq: data.faq,
         featured: data.featured === true,
         image: data.image,

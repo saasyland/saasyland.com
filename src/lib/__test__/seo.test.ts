@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { BLOG_COVER } from "~/src/data/blog"
+
 import {
+  ORGANIZATION_LOGO,
   ORGANIZATION_STRUCTURED_DATA_HTML,
   SOCIAL_IMAGE,
   buildBlogPostStructuredData,
   buildBlogPostStructuredDataHtml,
+  buildBlogStructuredData,
+  buildBlogStructuredDataHtml,
   buildPageHead,
   pageHead,
   socialImagePath,
@@ -18,6 +23,7 @@ const GRAPH_NODES_WITHOUT_FAQ = 2
 const ORGANIZATION = {
   "@type": "Organization",
   email: CONTACT_EMAIL,
+  logo: { "@type": "ImageObject", height: ORGANIZATION_LOGO.SIZE, url: `${APP_URL}/images/logo.png`, width: ORGANIZATION_LOGO.SIZE },
   name: APP_NAME,
   sameAs: [APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL],
   url: APP_URL,
@@ -26,7 +32,10 @@ const ORGANIZATION = {
 const BASE_INPUT = {
   authorName: "Piotr J. Borowiecki",
   baseUrl: "https://example.com",
+  blogTitle: "Blog",
   date: "2026-08-15",
+  keywords: [],
+  locale: "en-US",
   title: "A post",
   url: "/blog/a-post",
 } as const
@@ -58,18 +67,62 @@ describe("blog post structured data", () => {
     expect(graph[0]?.["dateModified"]).toBe("2026-09-01T00:00:00.000Z")
   })
 
-  it("resolves a relative image path against the base url", () => {
+  it("describes the cover as an image of the cover size, resolved against the base url", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData({ ...BASE_INPUT, description: "A summary", image: "/images/blog/a.webp" })["@graph"]
-    expect(graph[0]?.["image"]).toBe("https://example.com/images/blog/a.webp")
+    expect(graph[0]?.["image"]).toStrictEqual({
+      "@type": "ImageObject",
+      height: BLOG_COVER.HEIGHT,
+      url: "https://example.com/images/blog/a.webp",
+      width: BLOG_COVER.WIDTH,
+    })
     expect(graph[0]?.["description"]).toBe("A summary")
   })
 
-  it("omits description and image when the frontmatter has neither", () => {
+  it("omits description, image and keywords when the post has none", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
     expect(graph[0]).not.toHaveProperty("description")
     expect(graph[0]).not.toHaveProperty("image")
+    expect(graph[0]).not.toHaveProperty("keywords")
+  })
+
+  it("names the author as a person with the profile and image the post gives", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData({
+      ...BASE_INPUT,
+      authorImage: "/images/blog/authors/author.webp",
+      authorUrl: "https://github.com/author",
+    })["@graph"]
+    expect(graph[0]?.["author"]).toStrictEqual({
+      "@type": "Person",
+      image: "https://example.com/images/blog/authors/author.webp",
+      name: BASE_INPUT.authorName,
+      url: "https://github.com/author",
+    })
+  })
+
+  it("names an author without a profile or image by name alone", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
+    expect(graph[0]?.["author"]).toStrictEqual({ "@type": "Person", name: BASE_INPUT.authorName })
+  })
+
+  it("gives the language and the tags of the post", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData({ ...BASE_INPUT, keywords: ["Testy", "Narzędzia"], locale: "pl-PL" })["@graph"]
+    expect(graph[0]?.["inLanguage"]).toBe("pl-PL")
+    expect(graph[0]?.["keywords"]).toStrictEqual(["Testy", "Narzędzia"])
+  })
+
+  it("leads the breadcrumb through the home page and the blog in the post's language", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData({ ...BASE_INPUT, blogTitle: "ブログ", locale: "ja-JP", url: "/ja-JP/blog/a-post" })["@graph"]
+    expect(graph[1]?.["itemListElement"]).toStrictEqual([
+      { "@type": "ListItem", item: "https://example.com/ja-JP", name: APP_NAME, position: 1 },
+      { "@type": "ListItem", item: "https://example.com/ja-JP/blog", name: "ブログ", position: 2 },
+      { "@type": "ListItem", item: "https://example.com/ja-JP/blog/a-post", name: BASE_INPUT.title, position: 3 },
+    ])
   })
 
   it("appends an FAQPage when the post declares faq entries", () => {
@@ -88,7 +141,41 @@ describe("blog post structured data", () => {
   })
 })
 
-it("describes the organisation with its profiles on other sites", () => {
+describe("blog structured data", () => {
+  const POSTS = [
+    { date: "2026-11-17", title: "Newest", url: "/de-DE/blog/newest" },
+    { date: new Date("2026-08-15"), title: "Older", url: "/de-DE/blog/older" },
+  ]
+
+  it("describes the blog with its posts in the page's language", () => {
+    expect(buildBlogStructuredData({ description: "Notizen", locale: "de-DE", posts: POSTS, title: "Blog" })).toStrictEqual({
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      blogPost: [
+        { "@type": "BlogPosting", datePublished: "2026-11-17T00:00:00.000Z", headline: "Newest", url: `${APP_URL}/de-DE/blog/newest` },
+        { "@type": "BlogPosting", datePublished: "2026-08-15T00:00:00.000Z", headline: "Older", url: `${APP_URL}/de-DE/blog/older` },
+      ],
+      description: "Notizen",
+      inLanguage: "de-DE",
+      name: `Blog – ${APP_NAME}`,
+      publisher: ORGANIZATION,
+      url: `${APP_URL}/de-DE/blog`,
+    })
+  })
+
+  it("escapes the blog's structured data", () => {
+    const { __html: html } = buildBlogStructuredDataHtml({
+      description: "</script>",
+      locale: "en-US",
+      posts: [],
+      title: "Blog",
+    })
+    expect(html).not.toContain("<")
+    expect(JSON.parse(html)).toMatchObject({ blogPost: [], description: "</script>", url: `${APP_URL}${ROUTES.BLOG}` })
+  })
+})
+
+it("describes the organisation with its logo and its profiles on other sites", () => {
   const { __html: html } = ORGANIZATION_STRUCTURED_DATA_HTML
   expect(JSON.parse(html)).toStrictEqual({ "@context": "https://schema.org", ...ORGANIZATION })
 })
@@ -182,6 +269,37 @@ describe("social preview", () => {
 
     expect(meta).toContainEqual({ content: APP_NAME, property: "og:title" })
     expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
+  })
+})
+
+describe("article author", () => {
+  it("names the author and links the author's profile", () => {
+    const { meta } = buildPageHead({
+      author: { name: "Ada", url: "https://github.com/ada" },
+      pathname: "/blog/post",
+      title: "Post",
+      type: "article",
+    })
+
+    expect(meta).toStrictEqual(
+      expect.arrayContaining([
+        { content: "Ada", name: "author" },
+        { content: "https://github.com/ada", property: "article:author" },
+      ]),
+    )
+  })
+
+  it("names an author without a profile by name alone", () => {
+    const { meta } = buildPageHead({ author: { name: "Ada" }, pathname: "/blog/post", title: "Post", type: "article" })
+
+    expect(meta).toContainEqual({ content: "Ada", name: "author" })
+    expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:author" }))
+  })
+
+  it("names no author on a page that is not an article", () => {
+    const { meta } = buildPageHead({ pathname: ROUTES.HOME, title: "Home" })
+
+    expect(meta).not.toContainEqual(expect.objectContaining({ name: "author" }))
   })
 })
 

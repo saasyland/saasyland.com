@@ -16,6 +16,7 @@ import { BLOG_TAG } from "~/src/data/blog"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import { BLOG_FEED } from "~/src/lib/feed"
 import { starCountQuery } from "~/src/lib/github"
 import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
@@ -24,6 +25,7 @@ import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
+import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
@@ -52,7 +54,10 @@ const { loadBlogIndex } = vi.hoisted(() => {
       post("recent", { date: "2026-09-02", title: "Recent" }),
       post("older", { title: "Older" }),
       post("complete", {
+        authorImage: "/images/blog/authors/ada.webp",
+        authorUrl: "https://github.com/ada",
         date: "2025-06-01",
+        description: "Article description",
         faq: [{ answer: "Because.", question: "Why?" }],
         image: "/article.webp",
         title: "Complete guide",
@@ -165,10 +170,14 @@ describe("blog post loader", () => {
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "en-US",
       post: {
+        authorImage: "/images/blog/authors/ada.webp",
         authorName: "Ada",
+        authorUrl: "https://github.com/ada",
+        description: "Article description",
         faq: [{ answer: "Because.", question: "Why?" }],
         image: "/article.webp",
         path: "complete.en-US.mdx",
+        related: [{ title: "Recent" }, { title: "Older" }, { title: "Featured" }],
         summary: "Article summary",
         title: "Complete guide",
         toc: [
@@ -182,10 +191,36 @@ describe("blog post loader", () => {
     expect(router.state.matches.at(-1)?.meta).toStrictEqual(
       expect.arrayContaining([
         { content: pagesBlogMessages.metadata.title, property: "article:section" },
+        { content: "Article description", name: "description" },
+        { content: "Ada", name: "author" },
         { content: "2025-06-01T00:00:00.000Z", property: "article:published_time" },
         { content: "2025-07-01T00:00:00.000Z", property: "article:modified_time" },
+        { content: "https://github.com/ada", property: "article:author" },
       ]),
     )
+  })
+
+  it("relates the newest posts when none shares a tag with the article", async () => {
+    const router = await load("/blog/minimal")
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
+      post: { related: [{ title: "Recent" }, { title: "Older" }, { title: "Complete guide" }] },
+    })
+  })
+
+  it("describes an article without its own description by its summary", async () => {
+    const router = await load("/blog/recent")
+    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: "Article summary", name: "description" })
+  })
+
+  it("names the blog's feed in the head of the blog and its posts", async () => {
+    const router = await load("/pl-PL/blog/guide")
+    const blog = router.state.matches.find(({ routeId }) => routeId === "/_site/_marketing/blog")
+    expect(blog?.links).toContainEqual({
+      href: `${APP_URL}/pl-PL${ROUTES.BLOG}/rss.xml`,
+      rel: "alternate",
+      title: buildTitle({ locale: "pl-PL", title: plPagesBlogMessages.metadata.title }),
+      type: BLOG_FEED.TYPE,
+    })
   })
 
   it("loads an article without a summary, image or frequently asked questions", async () => {

@@ -19,6 +19,28 @@ describe("content schema", () => {
       false,
     )
   })
+
+  it.each([
+    { authorImage: "/images/blog/authors/author.webp", isValid: true },
+    { authorImage: "https://avatars.githubusercontent.com/u/1", isValid: false },
+    { authorImage: "//avatars.githubusercontent.com/u/1", isValid: false },
+  ])("accepts $authorImage as the author's image: $isValid", ({ authorImage, isValid }) => {
+    const { schema } = blog
+    if (!schema || typeof schema === "function" || !("safeParse" in schema)) {
+      throw new Error("Missing blog schema")
+    }
+    expect(schema.safeParse({ authorImage, authorName: "Author", date: "2026-09-01", title: "Release" }).success).toBe(isValid)
+  })
+
+  it("accepts an author profile only as a URL", () => {
+    const { schema } = blog
+    if (!schema || typeof schema === "function" || !("safeParse" in schema)) {
+      throw new Error("Missing blog schema")
+    }
+    const post = { authorName: "Author", date: "2026-09-01", title: "Release" }
+    expect(schema.safeParse({ ...post, authorUrl: "https://github.com/author" }).success).toBe(true)
+    expect(schema.safeParse({ ...post, authorUrl: "github.com/author" }).success).toBe(false)
+  })
 })
 
 describe("MDX options", () => {

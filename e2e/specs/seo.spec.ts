@@ -5,10 +5,11 @@ import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import * as zod from "zod"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
-import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
+import { deLocalizePathname, localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { BLOG_FEED, blogFeedPath } from "../../src/lib/feed"
 import { readPageHead } from "../../src/lib/page-head"
-import { ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
+import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
@@ -21,6 +22,10 @@ const BLOG_POST_FILE = /^(?<slug>.+)\.(?<locale>[^.]+)\.mdx$/u
 const PNG_WIDTH_OFFSET = 16
 const PNG_HEIGHT_OFFSET = 20
 const REQUESTS_AT_ONCE = 16
+const FEED_ITEM = /<item>\s*<title>[^<]*<\/title>\s*<link>(?<link>[^<]+)<\/link>[\s\S]*?<pubDate>(?<published>[^<]+)<\/pubDate>/gu
+const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
+const POST_PREFIX = `${ROUTES.BLOG}/`
+const UNPUBLISHED = /^published:\s*false\s*$/mu
 
 const BLOG_POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
 const DOCS_PAGE = `${ROUTES.DOCS}/conventions/files-and-naming`
@@ -85,6 +90,43 @@ test("the prerendered home page describes the organisation in structured data", 
 
   expect(response.status()).toBe(HTTP_STATUS.OK)
   expect(await response.text()).toContain(`<script type="application/ld+json">${html}</script>`)
+})
+
+test("serves the organisation's logo at the size its structured data declares", async ({ request }) => {
+  const response = await request.get(ORGANIZATION_LOGO.PATH)
+  const png = await response.body()
+
+  expect(response.status()).toBe(HTTP_STATUS.OK)
+  expect(response.headers()["content-type"]).toBe(SOCIAL_IMAGE.TYPE)
+  expect([png.readUInt32BE(PNG_WIDTH_OFFSET), png.readUInt32BE(PNG_HEIGHT_OFFSET)]).toStrictEqual([ORGANIZATION_LOGO.SIZE, ORGANIZATION_LOGO.SIZE])
+})
+
+for (const path of [ROUTES.BLOG, BLOG_POST, `/ja-JP${ROUTES.BLOG}`, `/ja-JP${BLOG_POST}`]) {
+  test(`${path} names the blog feed of its own language`, async ({ page }) => {
+    await page.goto(path)
+    const locale = path.startsWith("/ja-JP") ? "ja-JP" : I18N.DEFAULT_LOCALE
+
+    await expect(page.locator(`head > link[rel="alternate"][type="${BLOG_FEED.TYPE}"]`)).toHaveAttribute("href", `${APP_URL}${blogFeedPath(locale)}`)
+  })
+}
+
+test("every blog feed lists exactly the published posts of its language with their publication dates", async ({ request }) => {
+  const pages = globSync("**/index.html", { cwd: CLIENT_DIR }).map((file) => readPageHead(readFileSync(join(CLIENT_DIR, file), "utf8")))
+
+  for (const locale of I18N.SUPPORTED_LOCALES) {
+    const response = await request.get(blogFeedPath(locale))
+    const items = Array.from((await response.text()).matchAll(FEED_ITEM), ({ groups }) => [groups?.["link"], groups?.["published"]])
+    const posts = pages
+      .filter(({ canonical, lang }) => lang === locale && deLocalizePathname(new URL(canonical).pathname).startsWith(POST_PREFIX))
+      .map(({ canonical, published }) => [canonical, new Date(published ?? "").toUTCString()])
+
+    expect(response.status()).toBe(HTTP_STATUS.OK)
+    expect(response.headers()["content-type"]).toMatch(XML_CONTENT_TYPE)
+    const published = globSync(`content/blog/*.${locale}.mdx`).filter((file) => !UNPUBLISHED.test(readFileSync(file, "utf8")))
+
+    expect(items).toHaveLength(published.length)
+    expect(items.toSorted()).toStrictEqual(posts.toSorted())
+  }
 })
 
 for (const path of SHARED_PAGES) {

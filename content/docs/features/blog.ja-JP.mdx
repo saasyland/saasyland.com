@@ -5,7 +5,11 @@ description: "content/blog にあるローカライズされた MDX 記事。Fum
 
 ## コンテンツ
 
-記事は言語ごとに 1 ファイルずつ `content/blog/<slug>.<locale>.mdx` に置きます。`src/integrations/fumadocs/fumadocs.schema.ts` のフロントマタースキーマでは `title`、`authorName`、`date` が必須で、`description`、`authorImage`、`excerpt`、`faq`、`featured`、`image`、`published`（既定値 `true`）、`tags`、`updated` を指定できます。タグは `src/data/blog.ts` の `BLOG_TAGS` のいずれかで、スキーマはそれ以外の値を拒否します。`PostRow` と `PostMeta` は各タグを `pages.blog` の `tags` にあるラベルで表示するため、タグはページの言語で読めます。
+記事は言語ごとに 1 ファイルずつ `content/blog/<slug>.<locale>.mdx` に置きます。`src/integrations/fumadocs/fumadocs.schema.ts` のフロントマタースキーマでは `title`、`authorName`、`date` が必須で、`description`、`authorImage`、`authorUrl`、`excerpt`、`faq`、`featured`、`image`、`published`（既定値 `true`）、`tags`、`updated` を指定できます。タグは `src/data/blog.ts` の `BLOG_TAGS` のいずれかで、スキーマはそれ以外の値を拒否します。`PostRow` と `PostMeta` は各タグを `pages.blog` の `tags` にあるラベルで表示するため、タグはページの言語で読めます。
+
+- `description` は記事の検索用の説明で、`description` と `og:description` のタグ、そしてフィードがこれを使います。`excerpt` はタイトルの下とブログの一覧に表示する長めの紹介文で、`description` がない場合はその代わりになります。
+- `image` はカバー画像で、`public/images/blog` に置く WebP ファイルです。サイズは `src/data/blog.ts` の `BLOG_COVER` が宣言します。記事ページはカバー画像にその `width` と `height` を指定し、構造化データもそのサイズで画像を記述します。カバー画像のサイズが異なると、`src/data/__test__/blog.test.ts` が失敗します。
+- `authorImage` は `/images/blog/authors/piotr-j-borowiecki.webp` のようなこのサイト上のパスでなければなりません。そうすることで、読者のブラウザーがこの画像をほかのホストに要求することはありません。スキーマは URL を拒否します。`authorUrl` は執筆者のプロフィールの URL で、執筆者のブロック、`article:author` タグ、構造化データがここにリンクします。
 
 ## 日付 [#dates]
 
@@ -23,15 +27,48 @@ description: "content/blog にあるローカライズされた MDX 記事。Fum
 
 ## ソース
 
-ビルドのたびに、記事は言語ごとのブログのインデックスになります（[Fumadocs](/docs/integrations/fumadocs#content-indexes) を参照）。インデックスには、`/blog` 配下の公開済みの記事が、ドキュメントと同じ i18n 設定で新しい順に入り、各記事はフロントマター、目次、その言語向けに `Intl.Segmenter` で数えた読了時間を持ちます。`loadBlogIndex(locale)` はある言語のインデックス（`/assets/` 配下のファイル）をインポートし、`fumadocs.blog.ts` の `toBlogPostSummary` は記事のタイトルを整形して URL をローカライズします。以下のローダーはクライアント側のナビゲーションではブラウザーでインデックスを読むため、ブログ内を移動しても Worker には届きません。
+ビルドのたびに、記事は言語ごとのブログのインデックスになります（[Fumadocs](/docs/integrations/fumadocs#content-indexes) を参照）。インデックスには、`/blog` 配下の公開済みの記事が、ドキュメントと同じ i18n 設定で新しい順に入り、各記事はフロントマター、目次、その言語向けに `Intl.Segmenter` で数えた読了時間を持ちます。`loadBlogIndex(locale)` はある言語のインデックス（`/assets/` 配下のファイル）をインポートし、`fumadocs.blog.ts` の `toBlogPostSummary` は記事のタイトルを整形して URL をローカライズします。以下のローダーはクライアント側のナビゲーションではブラウザーでインデックスを読むため、ブログ内を移動しても Worker には届きません。同じファイルの `relatedBlogPosts` は、同じインデックスから、ある記事と共通するタグが最も多いほかの記事を、共通するタグの数が同じなら新しい記事を優先して、`RELATED_POSTS` が許す数だけ選びます。
 
 ## ルート
 
-- `/blog` レイアウト（`_site._marketing.blog.tsx`）は `_site` と `_marketing` のレイアウトの中にあり、この 2 つがサイトヘッダー、`PageFrame`、`Footer`、`BackToTop` でその周囲を囲みます（[ランディングページ](/docs/features/landing-page#navigation-and-back-to-top)を参照）。記事のタイポグラフィ用に `docs.css` を読み込みます。ヘッダーは、一覧とすべての記事で **ブログ** を現在のセクションとして示します。ローダーは `fumadocs` と `pages.blog` を事前に読み込みます。
-- `/blog`（`_site._marketing.blog.index.tsx`）は、ブログのインデックスにある記事を `PostRow` で一覧表示します。
-- `/blog/$`（`_site._marketing.blog.$.tsx`）はブログのインデックスから記事を 1 件探し（見つからないか未公開なら 404）、`blogContent` でコンパイル済みの MDX をプリロードし、`src/presentation/components/custom/blog` の `PostMeta`、`PostToc`（小さい画面では同じ見出しの `InlineTOC`）、`PostCta`、`PostShare` を組み合わせます。`buildBlogPostStructuredDataHtml` の JSON-LD と `buildPageHead` の記事メタデータを追加します。`article:section` には `pages.blog` のブログのタイトルが入り、記事ごとに専用のソーシャルカードが付きます。[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照してください。記事は MDX を Fumadocs の `RootProvider` で包み、検索とテーマの切り替えは無効、文言は `useFumadocsI18n` のものです。そのため、コードブロックと見出しのアンカーのコピーボタン、FAQ のアコーディオンの項目には記事の言語で名前が付きます。
+- `/blog` レイアウト（`_site._marketing.blog.tsx`）は `_site` と `_marketing` のレイアウトの中にあり、この 2 つがサイトヘッダー、`PageFrame`、`Footer`、`BackToTop` でその周囲を囲みます（[ランディングページ](/docs/features/landing-page#navigation-and-back-to-top)を参照）。記事のタイポグラフィ用に `docs.css` を読み込みます。ヘッダーは、一覧とすべての記事で **ブログ** を現在のセクションとして示します。ローダーは `fumadocs` と `pages.blog` を事前に読み込んでブログのタイトルを読み取り、head ではページの言語のフィードを `<link rel="alternate" type="application/rss+xml">`（`blogFeedLinks`）で示します。そのため、フィードリーダーやブラウザーは一覧からもすべての記事からもフィードを見つけられます。
+- `/blog`（`_site._marketing.blog.index.tsx`）は、ブログのインデックスにある記事を `PostRow` で一覧表示します。リード文の下にはその言語のフィードへのリンクを置き、検索エンジンには記事を含む `Blog` として自身を説明します（`buildBlogStructuredDataHtml`）。
+- `/blog/$`（`_site._marketing.blog.$.tsx`）はブログのインデックスから記事を 1 件探し（見つからないか未公開なら 404）、`blogContent` でコンパイル済みの MDX をプリロードし、`src/presentation/components/custom/blog` のコンポーネントを組み合わせます。タイトルの下のバーに `PostMeta` と `PostShare` を、続いて `PostToc`（小さい画面では同じ見出しの `InlineTOC`）を置き、記事の後には `PostAuthor` と 2 つ目の `PostShare` を並べ、その後に `PostCta` と `PostRelated` を置きます。`buildBlogPostStructuredDataHtml` の JSON-LD と `buildPageHead` の記事メタデータを追加します。`article:section` には `pages.blog` のブログのタイトルが入り、タグごとにページの言語で `article:tag` が付き、記事ごとに専用のソーシャルカードが付きます。[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照してください。記事は MDX を Fumadocs の `RootProvider` で包み、検索とテーマの切り替えは無効、文言は `useFumadocsI18n` のものです。そのため、コードブロックと見出しのアンカーのコピーボタン、FAQ のアコーディオンの項目には記事の言語で名前が付きます。
 
 ランディングページの Notes セクションには、ブログのインデックスから 3 記事が、おすすめ記事を先に、続いて新しい記事の順で表示されます。
+
+## 共有 [#sharing]
+
+`PostShare` は、すべての記事で同じリストを 2 回表示します。タイトルの下のバーと、記事の後の執筆者の隣です。どのコントロールもページの言語での記事の正規 URL を共有し、どのネットワークにも記事のタイトルが渡されます。
+
+- **リンクをコピーします** のボタンは React Aria の `Button` です。URL をクリップボードに書き込み、アイコンを一瞬チェックマークに変えて `toast.success` の通知を表示します。この通知は、通知領域がスクリーンリーダーに読み上げます。ブラウザーが書き込みを拒否した場合は、`toast.error` がそのことを伝えます。
+- **X、LinkedIn、Bluesky、Hacker News、Reddit** は、各ネットワーク自身の共有ページへの通常のリンクで、`rel="noopener noreferrer"` 付きで新しいタブに開きます。ページはこれらのどこからもスクリプト、ウィジェット、トラッキングピクセルを読み込まず、これらのための Cookie も設定せず、URL にトラッキング用のパラメーターも付けません。そのため共有されるのは正規 URL そのもので、リンクは JavaScript がなくても動作します。
+- **メールで共有する** は `mailto:` リンクで、タイトルを件名に、URL を本文にします。新しいタブではなく、読者のメールアプリで開きます。
+- **ほかのアプリで共有する** は、スマートフォンのようにブラウザーに共有シートがある場合に、`navigator.share` でシステムの共有シートを開きます。このボタンは最初の描画から場所を確保しており、そうしたブラウザーではページのハイドレーションが終わると表示されるため、レイアウトは動きません。読者が共有シートを閉じた場合は何も起こらず、共有に失敗した場合は代わりにリンクをコピーします。
+
+ネットワークのマークは Simple Icons の公式ロゴで、`src/presentation/components/custom/icons.tsx` にあり、テキストの色で描画されます。そのほかのアイコンは Lucide のものです。各コントロールの名前は、すべての言語で `pages.blog` の `post.share` にあります。
+
+記事の見出しはすべてその見出し自身へのリンクで、そのコピーボタンはそのセクションへのリンクをコピーします。そのため読者は、記事全体だけでなく個々のセクションも共有できます。
+
+## 執筆者と関連記事
+
+`PostAuthor` は、フロントマターの情報だけで執筆者を示します。表示するのは `authorName`、`authorImage` がある場合はその画像、`authorUrl` がある場合は `rel="author"` 付きのそのリンクです。フロントマターにない肩書き、経歴、主張は加えません。
+
+`PostRelated` は `relatedBlogPosts` が選んだ記事を日付と読了時間付きで一覧表示するため、どの記事も同じテーマのほかの記事にリンクします。その言語にほかの記事がない場合は何も表示しません。
+
+## フィード [#feed]
+
+各言語には、そのブログの RSS 2.0 フィードが `src/lib/feed.ts` の `BLOG_FEED.PATH` にあり、ページと同じようにローカライズされます（`/blog/rss.xml`、`/de-DE/blog/rss.xml` など）。`scripts/generate-seo-files.ts` はビルドの後に `buildBlogFeeds` で、プリレンダリングされたページの head からフィードを書き出します。そのため、フィードは Worker に負荷をかけず、内容もページと一致します。
+
+- チャンネルはタイトル、リンク、説明をその言語のブログのインデックスから取り、自身の URL を `atom:link rel="self"` で示します。
+- 各記事は 1 つの項目になり、タイトル、`link` と `guid` としての正規 URL、`pubDate` としての `article:published_time`、`dc:creator` としての執筆者、`category` としてのページの言語での各タグ、そして説明を持ちます。項目は新しい順に並び、`lastBuildDate` は記事の公開日または更新日のうち最も新しいものです。
+- 読み取るのはサイトマップに載っているページだけで、未公開の記事はプリレンダリングされないため、下書きがフィードに入ることはありません。記事に公開日がない場合や、言語にブログのインデックスがない場合、ビルドは失敗します。
+
+プリレンダラーはリンクをたどりますが、ブログの一覧にあるフィードへのリンクは、ビルドがその後で書き出すファイルを指しています。そのため、`src/data/tanstack.vite.ts` の `shouldPrerender` はファイル拡張子を持つすべてのパスをスキップします。デプロイ後、`verify-deployment.ts` はほかの本番サイトのチェックと一緒に英語のフィードをリクエストします。
+
+## タグ
+
+タグは記事にラベルを付け、`article:tag` タグ、フィードのカテゴリー、構造化データの `keywords` を埋めますが、タグ専用のページはありません。ほとんどのタグは付いている記事がごくわずかなので、すべての言語でタグごとのページを作っても、ブログの一覧にすでにある記事を並べるだけになります。検索エンジンは、こうした中身のほとんどないアーカイブを内容の薄いコンテンツとして扱います。タグページは、各タグに専用の一覧が必要なほど記事が集まった時点で追加する価値があります。それまでは、クロールする URL を増やすだけです。
 
 ## 管理画面のブログ（デモ）
 
@@ -40,3 +77,5 @@ description: "content/blog にあるローカライズされた MDX 記事。Fum
 ## チェック
 
 記事を追加したら `bun run content` を実行します。`bun scripts/check-content.ts` は、すべての言語のファイルがあること、タイトル・説明・抜粋が翻訳されていること、コードブロックが同一であること、記事のすべての言語で `date` と `updated` が同じであることを確認します。
+
+`blog-routes.component.test.tsx` は、各共有先の URL、コピーの確認表示、システムの共有シート、執筆者のブロック、関連記事、フィードへのリンク、記事のメタデータを確認します。`feed.test.ts` はフィードを確認します。ブラウザーのテストスイートでは、`blog-share.spec.ts` がデスクトップとスマートフォンで、JavaScript がある場合とない場合の両方で記事を共有し、`seo.spec.ts` がすべての言語のフィードを読み取って公開済みの記事と比較します。

@@ -38,7 +38,9 @@ const DOCS = {
 const BLOG = {
   [`${BLOG_DIRECTORY}/newer.en-US.mdx`]: mdx(
     {
+      authorImage: "/images/blog/authors/ada.webp",
       authorName: "Ada",
+      authorUrl: "https://github.com/ada",
       date: "2026-09-02",
       description: "Newer description",
       excerpt: "Newer excerpt",
@@ -134,8 +136,11 @@ describe("blog index", () => {
 
     expect(posts.map(({ title }) => title)).toStrictEqual(["Newer", "Older"])
     expect(posts[0]).toMatchObject({
+      authorImage: "/images/blog/authors/ada.webp",
       authorName: "Ada",
+      authorUrl: "https://github.com/ada",
       date: "2026-09-02",
+      description: "Newer description",
       faq: undefined,
       featured: false,
       image: undefined,
@@ -146,6 +151,8 @@ describe("blog index", () => {
       url: "/blog/newer",
     })
     expect(posts[1]).toMatchObject({
+      authorImage: undefined,
+      authorUrl: undefined,
       faq: [{ answer: "Because.", question: "Why?" }],
       featured: true,
       image: "/older.webp",

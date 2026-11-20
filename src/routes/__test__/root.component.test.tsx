@@ -6,8 +6,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { Route as RootRoute } from "~/src/routes/__root"
 
+import { ROBOTS } from "~/src/lib/seo"
 import { isStaleBuildError } from "~/src/lib/stale-build"
 
 import sonnerMessages from "~/messages/pl-PL/components.shadcn.sonner.json"
@@ -35,9 +38,10 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
-const renderRoot = async (): Promise<void> => {
+const renderRoot = async () => {
   Reflect.deleteProperty(RootRoute.options, "shellComponent")
   const home = createRoute({ component: () => <h1>Home page</h1>, getParentRoute: () => RootRoute, path: ROUTES.HOME })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -54,11 +58,23 @@ const renderRoot = async (): Promise<void> => {
     </QueryClientProvider>,
   )
   await act(() => router.load())
+  return router
 }
 
 const failPreload = (error: Error): void => {
   globalThis.dispatchEvent(Object.assign(new Event("vite:preloadError"), { payload: error }))
 }
+
+it.each([
+  { mode: ENVIRONMENT.PRODUCTION, robots: ROBOTS.FULL_PREVIEWS },
+  { mode: ENVIRONMENT.PREVIEW, robots: ROBOTS.NON_PRODUCTION },
+  { mode: ENVIRONMENT.TEST, robots: ROBOTS.NON_PRODUCTION },
+])("asks search engines for $robots in a $mode build", async ({ mode, robots }) => {
+  vi.stubEnv("MODE", mode)
+  const router = await renderRoot()
+
+  expect(router.state.matches.at(0)?.meta).toContainEqual({ content: robots, name: "robots" })
+})
 
 it("mounts the components the areas add to the root beside every page", async () => {
   await renderRoot()

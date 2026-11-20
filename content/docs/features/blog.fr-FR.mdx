@@ -5,7 +5,11 @@ description: "Articles MDX localisés dans content/blog, chargés via une collec
 
 ## Contenu
 
-Les articles se trouvent dans `content/blog/<slug>.<locale>.mdx`, un fichier par langue. Le schéma du frontmatter dans `src/integrations/fumadocs/fumadocs.schema.ts` exige `title`, `authorName` et `date`, et accepte `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (par défaut `true`), `tags` et `updated`. Une étiquette est l’une des `BLOG_TAGS` de `src/data/blog.ts`, et le schéma refuse toute autre valeur ; `PostRow` et `PostMeta` affichent chaque étiquette par son libellé sous `tags` dans `pages.blog`, si bien que les étiquettes se lisent dans la langue de la page.
+Les articles se trouvent dans `content/blog/<slug>.<locale>.mdx`, un fichier par langue. Le schéma du frontmatter dans `src/integrations/fumadocs/fumadocs.schema.ts` exige `title`, `authorName` et `date`, et accepte `description`, `authorImage`, `authorUrl`, `excerpt`, `faq`, `featured`, `image`, `published` (par défaut `true`), `tags` et `updated`. Une étiquette est l’une des `BLOG_TAGS` de `src/data/blog.ts`, et le schéma refuse toute autre valeur ; `PostRow` et `PostMeta` affichent chaque étiquette par son libellé sous `tags` dans `pages.blog`, si bien que les étiquettes se lisent dans la langue de la page.
+
+- `description` est la description de l’article destinée aux moteurs de recherche : les balises `description` et `og:description` ainsi que le flux l’utilisent. `excerpt` est l’accroche plus longue affichée sous le titre et sur l’index du blog, et remplace une `description` absente.
+- `image` est la couverture, un fichier WebP dans `public/images/blog` de la taille que déclare `BLOG_COVER` dans `src/data/blog.ts`. La page de l’article donne à la couverture cette `width` et cette `height`, et les données structurées la décrivent à cette taille ; `src/data/__test__/blog.test.ts` échoue lorsqu’une couverture a une autre taille.
+- `authorImage` doit être un chemin sur ce site, comme `/images/blog/authors/piotr-j-borowiecki.webp`, afin que le navigateur d’un lecteur ne la demande jamais à un autre hôte ; le schéma refuse une URL. `authorUrl` est l’URL du profil de l’auteur, vers laquelle pointent le bloc auteur, la balise `article:author` et les données structurées.
 
 ## Dates [#dates]
 
@@ -23,15 +27,48 @@ Un article affiche les valeurs que le code définit au lieu de les saisir : `<Re
 
 ## Source
 
-Chaque build transforme les articles en un index du blog par langue (voir [Fumadocs](/docs/integrations/fumadocs#content-indexes)) : les articles publiés sous `/blog`, du plus récent au plus ancien, avec les mêmes réglages i18n que la documentation, chacun avec son frontmatter, sa table des matières et son temps de lecture, calculé avec `Intl.Segmenter` pour cette langue. `loadBlogIndex(locale)` importe l’index d’une langue, un fichier sous `/assets/`, et `toBlogPostSummary` dans `fumadocs.blog.ts` formate le titre d’un article et localise son URL. Les loaders ci-dessous le lisent dans le navigateur lors d’une navigation côté client : parcourir le blog n’atteint donc jamais le Worker.
+Chaque build transforme les articles en un index du blog par langue (voir [Fumadocs](/docs/integrations/fumadocs#content-indexes)) : les articles publiés sous `/blog`, du plus récent au plus ancien, avec les mêmes réglages i18n que la documentation, chacun avec son frontmatter, sa table des matières et son temps de lecture, calculé avec `Intl.Segmenter` pour cette langue. `loadBlogIndex(locale)` importe l’index d’une langue, un fichier sous `/assets/`, et `toBlogPostSummary` dans `fumadocs.blog.ts` formate le titre d’un article et localise son URL. Les loaders ci-dessous le lisent dans le navigateur lors d’une navigation côté client : parcourir le blog n’atteint donc jamais le Worker. `relatedBlogPosts`, dans le même fichier, choisit dans ce même index les autres articles qui partagent le plus d’étiquettes avec un article, les plus récents d’abord à égalité, dans la limite fixée par `RELATED_POSTS`.
 
 ## Routes
 
-- Le layout `/blog` (`_site._marketing.blog.tsx`) se trouve dans les layouts `_site` et `_marketing`, qui placent autour de lui l’en-tête du site, `PageFrame`, `Footer` et `BackToTop` (voir [Page d’accueil](/docs/features/landing-page#navigation-and-back-to-top)). Il charge `docs.css` pour la typographie des articles. L’en-tête signale **Blog** comme section courante sur l’index et sur chaque article. Son loader précharge `fumadocs` et `pages.blog`.
-- `/blog` (`_site._marketing.blog.index.tsx`) liste les articles de l’index du blog avec `PostRow`.
-- `/blog/$` (`_site._marketing.blog.$.tsx`) trouve un article dans l’index du blog (404 s’il est absent ou n’est pas publié), précharge son MDX compilé avec `blogContent` et compose `PostMeta`, `PostToc` (ou, sur petit écran, `InlineTOC` sous le même titre), `PostCta` et `PostShare` de `src/presentation/components/custom/blog`. Il ajoute du JSON-LD via `buildBlogPostStructuredDataHtml` et les métadonnées d’article via `buildPageHead`, avec le titre du blog issu de `pages.blog` comme `article:section` et sa propre carte de partage ; voir [Référencement et aperçus sociaux](/docs/features/seo). L’article enveloppe son MDX dans le `RootProvider` de Fumadocs, avec la recherche et le changement de thème désactivés et les textes de `useFumadocsI18n`, pour que les boutons de copie des blocs de code et des ancres de titre ainsi que les éléments d’accordéon de la FAQ soient nommés dans la langue de l’article.
+- Le layout `/blog` (`_site._marketing.blog.tsx`) se trouve dans les layouts `_site` et `_marketing`, qui placent autour de lui l’en-tête du site, `PageFrame`, `Footer` et `BackToTop` (voir [Page d’accueil](/docs/features/landing-page#navigation-and-back-to-top)). Il charge `docs.css` pour la typographie des articles. L’en-tête signale **Blog** comme section courante sur l’index et sur chaque article. Son loader précharge `fumadocs` et `pages.blog` et lit le titre du blog, et son head indique le flux de la langue de la page dans un `<link rel="alternate" type="application/rss+xml">` (`blogFeedLinks`), pour que les lecteurs de flux et les navigateurs le trouvent depuis l’index comme depuis chaque article.
+- `/blog` (`_site._marketing.blog.index.tsx`) liste les articles de l’index du blog avec `PostRow`. Sous l’introduction, il renvoie vers le flux de sa langue, et il se décrit aux moteurs de recherche comme un `Blog` avec ses articles (`buildBlogStructuredDataHtml`).
+- `/blog/$` (`_site._marketing.blog.$.tsx`) trouve un article dans l’index du blog (404 s’il est absent ou n’est pas publié), précharge son MDX compilé avec `blogContent` et compose la page à partir de `src/presentation/components/custom/blog` : `PostMeta` et `PostShare` dans la barre sous le titre, `PostToc` (ou, sur petit écran, `InlineTOC` sous le même titre), puis, après l’article, `PostAuthor` à côté d’un second `PostShare`, et enfin `PostCta` et `PostRelated`. Il ajoute du JSON-LD via `buildBlogPostStructuredDataHtml` et les métadonnées d’article via `buildPageHead`, avec le titre du blog issu de `pages.blog` comme `article:section`, un `article:tag` pour chaque étiquette dans la langue de la page et sa propre carte de partage ; voir [Référencement et aperçus sociaux](/docs/features/seo). L’article enveloppe son MDX dans le `RootProvider` de Fumadocs, avec la recherche et le changement de thème désactivés et les textes de `useFumadocsI18n`, pour que les boutons de copie des blocs de code et des ancres de titre ainsi que les éléments d’accordéon de la FAQ soient nommés dans la langue de l’article.
 
 La section Notes de la page d’accueil affiche trois articles de l’index du blog, ceux mis en avant en premier, puis les plus récents.
+
+## Partage [#sharing]
+
+`PostShare` affiche la même liste deux fois sur chaque article : dans la barre sous le titre, et après l’article à côté de l’auteur. Chaque commande partage l’URL canonique de l’article dans la langue de la page, et chaque réseau reçoit le titre de l’article.
+
+- **Copier le lien** est un `Button` de React Aria. Il écrit l’URL dans le presse-papiers, transforme un instant son icône en coche et affiche une notification `toast.success`, que la zone de notifications annonce aux lecteurs d’écran. Lorsque le navigateur refuse, `toast.error` le signale.
+- **X, LinkedIn, Bluesky, Hacker News et Reddit** sont de simples liens vers la page de partage propre à chaque réseau, ouverts dans un nouvel onglet avec `rel="noopener noreferrer"`. La page ne charge aucun script, widget ni pixel de suivi d’aucun d’entre eux, ne dépose aucun cookie pour eux et n’ajoute aucun paramètre de suivi à l’URL : c’est donc bien l’URL canonique qui est partagée, et les liens fonctionnent sans JavaScript.
+- **Partager par e-mail** est un lien `mailto:` avec le titre comme objet et l’URL comme corps du message, qui s’ouvre dans l’application de messagerie du lecteur plutôt que dans un nouvel onglet.
+- **Autres options de partage** ouvre la feuille de partage du système avec `navigator.share`, lorsque le navigateur en propose une, comme sur les téléphones. Le bouton occupe sa place dès le premier rendu et devient visible une fois la page hydratée dans un tel navigateur, si bien que rien ne bouge. Si le lecteur ferme la feuille, rien ne se passe ; si le partage échoue, le bouton copie le lien à la place.
+
+Les marques des réseaux sont leurs logos officiels issus de Simple Icons, dans `src/presentation/components/custom/icons.tsx`, dessinés dans la couleur du texte ; les autres icônes viennent de Lucide. Chaque commande est nommée dans chaque langue sous `post.share` dans `pages.blog`.
+
+Chaque titre d’un article renvoie vers lui-même, et son bouton de copie copie le lien vers cette section : un lecteur peut ainsi partager une seule section aussi bien que l’article entier.
+
+## Auteur et articles similaires
+
+`PostAuthor` présente l’auteur à partir du seul frontmatter : `authorName`, l’image située à `authorImage` s’il y en a une, et un lien vers `authorUrl` avec `rel="author"` s’il y en a un. Il n’ajoute aucun titre, aucune biographie ni aucune affirmation que le frontmatter ne contient pas.
+
+`PostRelated` liste les articles qu’a choisis `relatedBlogPosts`, avec leur date et leur temps de lecture, pour que chaque article renvoie vers d’autres articles sur les mêmes sujets. Il n’affiche rien lorsque la langue n’a aucun autre article.
+
+## Flux RSS [#feed]
+
+Chaque langue a un flux RSS 2.0 de son blog à `BLOG_FEED.PATH` dans `src/lib/feed.ts`, localisé comme une page : `/blog/rss.xml`, `/de-DE/blog/rss.xml` et ainsi de suite. `scripts/generate-seo-files.ts` écrit les flux après le build avec `buildBlogFeeds`, à partir des heads des pages prérendues : ils ne coûtent donc rien au Worker et disent la même chose que les pages :
+
+- Le canal reprend son titre, son lien et sa description de l’index du blog de la langue, et indique sa propre URL dans un `atom:link rel="self"`.
+- Chaque article est un item avec son titre, son URL canonique comme `link` et `guid`, `article:published_time` comme `pubDate`, l’auteur comme `dc:creator`, chaque étiquette dans la langue de la page comme `category`, et sa description. Les items vont du plus récent au plus ancien, et `lastBuildDate` est la date de publication ou de mise à jour la plus récente des articles.
+- Seules les pages que liste le sitemap sont lues, et un article non publié n’est jamais prérendu : un brouillon n’arrive donc jamais dans un flux. Le build échoue lorsqu’un article n’a pas de date de publication ou qu’une langue n’a pas d’index du blog.
+
+Le prérendu suit les liens, et le lien du flux sur l’index du blog pointe vers un fichier que le build n’écrit qu’ensuite : `shouldPrerender` dans `src/data/tanstack.vite.ts` ignore donc tout chemin doté d’une extension de fichier. Après un déploiement, `verify-deployment.ts` demande le flux anglais avec le reste des vérifications du site en ligne.
+
+## Étiquettes
+
+Les étiquettes classent les articles et alimentent les balises `article:tag`, les catégories du flux et les `keywords` des données structurées, mais elles n’ont pas de pages propres. La plupart des étiquettes ne s’appliquent qu’à très peu d’articles : une page par étiquette dans chaque langue répéterait donc ce que liste déjà l’index du blog, et les moteurs de recherche considèrent ces archives presque vides comme du contenu pauvre. Des pages d’étiquettes vaudront la peine d’être ajoutées quand chaque étiquette réunira assez d’articles pour justifier sa propre liste ; d’ici là, elles ne feraient que multiplier les URL à explorer.
 
 ## Blog de l’administration (démo)
 
@@ -40,3 +77,5 @@ La section Notes de la page d’accueil affiche trois articles de l’index du b
 ## Vérifications
 
 Lancez `bun run content` après avoir ajouté un article. `bun scripts/check-content.ts` vérifie que chaque langue existe, que les titres, descriptions et extraits sont traduits, que les blocs de code sont identiques et que chaque langue d’un article a les mêmes `date` et `updated`.
+
+`blog-routes.component.test.tsx` vérifie l’URL de chaque cible de partage, la confirmation de copie, la feuille de partage du système, le bloc auteur, les articles similaires, le lien du flux et les métadonnées de l’article ; `feed.test.ts` vérifie les flux. Dans la suite navigateur, `blog-share.spec.ts` partage un article sur un ordinateur et sur un téléphone, avec et sans JavaScript, et `seo.spec.ts` lit le flux de chaque langue et le compare aux articles publiés.

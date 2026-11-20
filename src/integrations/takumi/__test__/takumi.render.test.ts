@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { createSocialCardRenderer } from "~/src/integrations/takumi/takumi.render"
 
-import { SOCIAL_IMAGE } from "~/src/lib/seo"
+import { ORGANIZATION_LOGO, SOCIAL_IMAGE } from "~/src/lib/seo"
 
 const PNG_SIGNATURE = Buffer.from("89504E470D0A1A0A", "hex")
 const WIDTH_OFFSET = 16
@@ -36,6 +36,17 @@ describe("createSocialCardRenderer", () => {
     const render = await renderer
 
     expectSocialImage(await render.page(card))
+  })
+
+  it("renders the organisation logo as a square PNG of the logo size", async () => {
+    const render = await renderer
+    const png = await render.logo()
+
+    expect(png.subarray(0, PNG_SIGNATURE.length)).toStrictEqual(PNG_SIGNATURE)
+    expect([png.readUInt32BE(WIDTH_OFFSET), png.readUInt32BE(HEIGHT_OFFSET)]).toStrictEqual([
+      ORGANIZATION_LOGO.SIZE,
+      ORGANIZATION_LOGO.SIZE,
+    ])
   })
 
   it("renders different titles into different images", async () => {

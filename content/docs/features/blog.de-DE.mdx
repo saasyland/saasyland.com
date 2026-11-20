@@ -5,7 +5,11 @@ description: "Lokalisierte MDX-Beiträge in content/blog, geladen über eine Fum
 
 ## Inhalte
 
-Beiträge liegen in `content/blog/<slug>.<locale>.mdx`, eine Datei pro Locale. Das Frontmatter-Schema in `src/integrations/fumadocs/fumadocs.schema.ts` verlangt `title`, `authorName` und `date` und akzeptiert `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (Standard `true`), `tags` und `updated`. Ein Tag ist einer der `BLOG_TAGS` aus `src/data/blog.ts`, und das Schema lehnt jeden anderen Wert ab; `PostRow` und `PostMeta` zeigen jedes Tag mit seiner Bezeichnung unter `tags` in `pages.blog`, sodass die Tags in der Sprache der Seite erscheinen.
+Beiträge liegen in `content/blog/<slug>.<locale>.mdx`, eine Datei pro Locale. Das Frontmatter-Schema in `src/integrations/fumadocs/fumadocs.schema.ts` verlangt `title`, `authorName` und `date` und akzeptiert `description`, `authorImage`, `authorUrl`, `excerpt`, `faq`, `featured`, `image`, `published` (Standard `true`), `tags` und `updated`. Ein Tag ist einer der `BLOG_TAGS` aus `src/data/blog.ts`, und das Schema lehnt jeden anderen Wert ab; `PostRow` und `PostMeta` zeigen jedes Tag mit seiner Bezeichnung unter `tags` in `pages.blog`, sodass die Tags in der Sprache der Seite erscheinen.
+
+- `description` ist die Suchbeschreibung des Beitrags: Die Tags `description` und `og:description` und der Feed verwenden sie. `excerpt` ist der längere Teaser unter dem Titel und auf der Blog-Übersicht und springt ein, wenn `description` fehlt.
+- `image` ist das Titelbild, eine WebP-Datei in `public/images/blog` in der Größe, die `BLOG_COVER` in `src/data/blog.ts` festlegt. Die Beitragsseite gibt dem Titelbild diese `width` und `height`, und die strukturierten Daten beschreiben es in dieser Größe; `src/data/__test__/blog.test.ts` schlägt fehl, wenn ein Titelbild eine andere Größe hat.
+- `authorImage` muss ein Pfad auf dieser Website sein, etwa `/images/blog/authors/piotr-j-borowiecki.webp`, damit der Browser eines Lesers es nie bei einem anderen Host anfragt; das Schema lehnt eine URL ab. `authorUrl` ist die URL des Profils des Autors, auf die der Autorenblock, das Tag `article:author` und die strukturierten Daten verlinken.
 
 ## Datumsangaben [#dates]
 
@@ -23,15 +27,48 @@ Ein Beitrag gibt die Werte aus, die der Code festlegt, statt sie abzutippen: `<R
 
 ## Quelle
 
-Jeder Build macht aus den Beiträgen einen Blog-Index pro Locale (siehe [Fumadocs](/docs/integrations/fumadocs#content-indexes)): die veröffentlichten Beiträge unter `/blog`, die neuesten zuerst, mit denselben i18n-Einstellungen wie die Dokumentation, jeder mit seinem Frontmatter, seinem Inhaltsverzeichnis und seiner Lesezeit, berechnet mit `Intl.Segmenter` für diese Locale. `loadBlogIndex(locale)` importiert den Index einer Locale, eine Datei unter `/assets/`, und `toBlogPostSummary` in `fumadocs.blog.ts` formatiert den Titel eines Beitrags und lokalisiert seine URL. Die folgenden Loader lesen ihn bei einer clientseitigen Navigation im Browser, daher erreicht das Navigieren durch den Blog nie den Worker.
+Jeder Build macht aus den Beiträgen einen Blog-Index pro Locale (siehe [Fumadocs](/docs/integrations/fumadocs#content-indexes)): die veröffentlichten Beiträge unter `/blog`, die neuesten zuerst, mit denselben i18n-Einstellungen wie die Dokumentation, jeder mit seinem Frontmatter, seinem Inhaltsverzeichnis und seiner Lesezeit, berechnet mit `Intl.Segmenter` für diese Locale. `loadBlogIndex(locale)` importiert den Index einer Locale, eine Datei unter `/assets/`, und `toBlogPostSummary` in `fumadocs.blog.ts` formatiert den Titel eines Beitrags und lokalisiert seine URL. Die folgenden Loader lesen ihn bei einer clientseitigen Navigation im Browser, daher erreicht das Navigieren durch den Blog nie den Worker. `relatedBlogPosts` in derselben Datei wählt aus demselben Index die anderen Beiträge, die die meisten Tags mit einem Beitrag teilen, bei Gleichstand die neuesten zuerst, und zwar so viele, wie `RELATED_POSTS` erlaubt.
 
 ## Routen
 
-- Das Layout `/blog` (`_site._marketing.blog.tsx`) liegt in den Layouts `_site` und `_marketing`, die den Website-Header, `PageFrame`, `Footer` und `BackToTop` darum legen (siehe [Landingpage](/docs/features/landing-page#navigation-and-back-to-top)). Es lädt `docs.css` für die Typografie der Artikel. Der Header markiert **Blog** auf der Übersicht und in jedem Beitrag als aktuellen Bereich. Sein Loader lädt `fumadocs` und `pages.blog` vorab.
-- `/blog` (`_site._marketing.blog.index.tsx`) listet die Beiträge des Blog-Index mit `PostRow` auf.
-- `/blog/$` (`_site._marketing.blog.$.tsx`) findet einen Beitrag im Blog-Index (404, wenn er fehlt oder nicht veröffentlicht ist), lädt dessen kompiliertes MDX mit `blogContent` vorab und setzt `PostMeta`, `PostToc` (bzw. auf kleinen Bildschirmen `InlineTOC` mit demselben Titel), `PostCta` und `PostShare` aus `src/presentation/components/custom/blog` zusammen. Die Route ergänzt JSON-LD aus `buildBlogPostStructuredDataHtml` und Artikel-Metadaten aus `buildPageHead`, mit dem Titel des Blogs aus `pages.blog` als `article:section` und einer eigenen Social Card; siehe [Suche und Social-Media-Vorschauen](/docs/features/seo). Der Beitrag legt sein MDX in den `RootProvider` von Fumadocs, mit abgeschalteter Suche und abgeschaltetem Theme-Wechsel und mit den Texten aus `useFumadocsI18n`, sodass die Kopier-Buttons von Codeblöcken und Überschriften-Ankern und die Akkordeon-Einträge der FAQ in der Sprache des Beitrags beschriftet sind.
+- Das Layout `/blog` (`_site._marketing.blog.tsx`) liegt in den Layouts `_site` und `_marketing`, die den Website-Header, `PageFrame`, `Footer` und `BackToTop` darum legen (siehe [Landingpage](/docs/features/landing-page#navigation-and-back-to-top)). Es lädt `docs.css` für die Typografie der Artikel. Der Header markiert **Blog** auf der Übersicht und in jedem Beitrag als aktuellen Bereich. Sein Loader lädt `fumadocs` und `pages.blog` vorab und liest den Titel des Blogs, und sein Head nennt den Feed der Locale der Seite in einem `<link rel="alternate" type="application/rss+xml">` (`blogFeedLinks`), sodass Feedreader und Browser ihn von der Übersicht und von jedem Beitrag aus finden.
+- `/blog` (`_site._marketing.blog.index.tsx`) listet die Beiträge des Blog-Index mit `PostRow` auf. Unter dem Einleitungstext verlinkt die Seite den Feed ihrer Locale, und Suchmaschinen gegenüber beschreibt sie sich als `Blog` mit ihren Beiträgen (`buildBlogStructuredDataHtml`).
+- `/blog/$` (`_site._marketing.blog.$.tsx`) findet einen Beitrag im Blog-Index (404, wenn er fehlt oder nicht veröffentlicht ist), lädt dessen kompiliertes MDX mit `blogContent` vorab und setzt die Seite aus `src/presentation/components/custom/blog` zusammen: `PostMeta` und `PostShare` in der Leiste unter dem Titel, `PostToc` (bzw. auf kleinen Bildschirmen `InlineTOC` mit demselben Titel) und nach dem Artikel `PostAuthor` neben einem zweiten `PostShare`, danach `PostCta` und `PostRelated`. Die Route ergänzt JSON-LD aus `buildBlogPostStructuredDataHtml` und Artikel-Metadaten aus `buildPageHead`, mit dem Titel des Blogs aus `pages.blog` als `article:section`, einem `article:tag` für jedes Tag in der Sprache der Seite und einer eigenen Social Card; siehe [Suche und Social-Media-Vorschauen](/docs/features/seo). Der Beitrag legt sein MDX in den `RootProvider` von Fumadocs, mit abgeschalteter Suche und abgeschaltetem Theme-Wechsel und mit den Texten aus `useFumadocsI18n`, sodass die Kopier-Buttons von Codeblöcken und Überschriften-Ankern und die Akkordeon-Einträge der FAQ in der Sprache des Beitrags beschriftet sind.
 
 Der Abschnitt „Notes“ der Landingpage zeigt drei Beiträge des Blog-Index, hervorgehobene zuerst, danach die neuesten.
+
+## Teilen [#sharing]
+
+`PostShare` rendert in jedem Beitrag zweimal dieselbe Liste: in der Leiste unter dem Titel und nach dem Artikel neben dem Autor. Jedes Element teilt die kanonische URL des Beitrags in der Locale der Seite, und jedes Netzwerk erhält den Titel des Beitrags.
+
+- **Link kopieren** ist ein `Button` von React Aria. Er schreibt die URL in die Zwischenablage, verwandelt sein Symbol kurz in ein Häkchen und zeigt eine Benachrichtigung mit `toast.success` an, die der Benachrichtigungsbereich Screenreadern ansagt. Verweigert der Browser das Kopieren, meldet `toast.error` es.
+- **X, LinkedIn, Bluesky, Hacker News und Reddit** sind einfache Links auf die eigene Teilen-Seite des jeweiligen Netzwerks, die sich mit `rel="noopener noreferrer"` in einem neuen Tab öffnen. Die Seite lädt von keinem dieser Netzwerke ein Skript, ein Widget oder ein Tracking-Pixel, setzt für keines ein Cookie und hängt keinen Tracking-Parameter an die URL an, sodass genau die kanonische URL geteilt wird und die Links ohne JavaScript funktionieren.
+- **Per E-Mail teilen** ist ein `mailto:`-Link mit dem Titel als Betreff und der URL als Text, der sich im Mailprogramm des Lesers statt in einem neuen Tab öffnet.
+- **Weitere Möglichkeiten zum Teilen** öffnet mit `navigator.share` das Teilen-Menü des Systems, sofern der Browser eines hat, wie auf Smartphones. Der Button hat seinen Platz ab dem ersten Rendern und wird sichtbar, sobald die Seite in einem solchen Browser hydratisiert ist, sodass sich nichts verschiebt. Bricht der Leser das Menü ab, passiert nichts; schlägt das Teilen fehl, kopiert der Button stattdessen den Link.
+
+Die Zeichen der Netzwerke sind ihre offiziellen Logos aus Simple Icons in `src/presentation/components/custom/icons.tsx`, in der Textfarbe gezeichnet; die übrigen Symbole stammen aus Lucide. Jedes Element ist in jeder Locale unter `post.share` in `pages.blog` benannt.
+
+Jede Überschrift in einem Beitrag verlinkt auf sich selbst, und ihr Kopier-Button kopiert den Link zu diesem Abschnitt, sodass ein Leser nicht nur den ganzen Beitrag, sondern auch einen einzelnen Abschnitt teilen kann.
+
+## Autor und ähnliche Beiträge
+
+`PostAuthor` nennt den Autor allein anhand des Frontmatters: `authorName`, das Bild unter `authorImage`, sofern vorhanden, und einen Link auf `authorUrl` mit `rel="author"`, sofern vorhanden. Die Komponente ergänzt keinen Titel, keine Biografie und keine Aussage, die das Frontmatter nicht macht.
+
+`PostRelated` listet die Beiträge auf, die `relatedBlogPosts` ausgewählt hat, mit ihrem Datum und ihrer Lesezeit, sodass jeder Beitrag auf andere zu denselben Themen verlinkt. Hat die Locale keinen anderen Beitrag, rendert die Komponente nichts.
+
+## Feed
+
+Jede Locale hat einen RSS-2.0-Feed ihres Blogs unter `BLOG_FEED.PATH` in `src/lib/feed.ts`, lokalisiert wie eine Seite: `/blog/rss.xml`, `/de-DE/blog/rss.xml` und so weiter. `scripts/generate-seo-files.ts` schreibt die Feeds nach dem Build mit `buildBlogFeeds` aus den Heads der vorgerenderten Seiten, sodass sie den Worker nichts kosten und dasselbe aussagen wie die Seiten:
+
+- Der Channel übernimmt Titel, Link und Beschreibung von der Blog-Übersicht der Locale und nennt seine eigene URL in einem `atom:link rel="self"`.
+- Jeder Beitrag ist ein Item mit seinem Titel, seiner kanonischen URL als `link` und `guid`, `article:published_time` als `pubDate`, dem Autor als `dc:creator`, jedem Tag in der Sprache der Seite als `category` und seiner Beschreibung. Die neuesten Items stehen zuerst, und `lastBuildDate` ist das späteste Veröffentlichungs- oder Aktualisierungsdatum der Beiträge.
+- Gelesen werden nur Seiten, die die Sitemap aufführt, und ein unveröffentlichter Beitrag wird nie vorgerendert, daher gelangt ein Entwurf nie in einen Feed. Der Build schlägt fehl, wenn ein Beitrag kein Veröffentlichungsdatum hat oder eine Locale keine Blog-Übersicht.
+
+Der Prerenderer folgt Links, und der Feed-Link auf der Blog-Übersicht zeigt auf eine Datei, die der Build erst danach schreibt, daher überspringt `shouldPrerender` in `src/data/tanstack.vite.ts` jeden Pfad mit einer Dateiendung. Nach einem Deployment ruft `verify-deployment.ts` den englischen Feed zusammen mit den übrigen Live-Prüfungen ab.
+
+## Tags
+
+Tags kennzeichnen Beiträge und füllen die `article:tag`-Tags, die Kategorien des Feeds und die `keywords` der strukturierten Daten, haben aber keine eigenen Seiten. Die meisten Tags kennzeichnen nur sehr wenige Beiträge, daher würde eine Seite pro Tag in jeder Locale nur auflisten, was die Blog-Übersicht schon auflistet, und Suchmaschinen werten solche fast leeren Archive als Thin Content. Tag-Seiten lohnen sich, sobald jedes Tag so viele Beiträge sammelt, dass es eine eigene Liste braucht; bis dahin würden sie nur die Zahl der zu crawlenden URLs vervielfachen.
 
 ## Admin-Blog (Demo)
 
@@ -40,3 +77,5 @@ Der Abschnitt „Notes“ der Landingpage zeigt drei Beiträge des Blog-Index, h
 ## Prüfungen
 
 Führe nach dem Hinzufügen eines Beitrags `bun run content` aus. `bun scripts/check-content.ts` prüft, ob jede Locale vorhanden ist, ob Titel, Beschreibungen und Auszüge übersetzt sind, ob die Codeblöcke identisch sind und ob jede Locale eines Beitrags dasselbe `date` und `updated` hat.
+
+`blog-routes.component.test.tsx` prüft die URL jedes Teilen-Ziels, die Bestätigung beim Kopieren, das Teilen-Menü des Systems, den Autorenblock, die ähnlichen Beiträge, den Feed-Link und die Metadaten des Beitrags; `feed.test.ts` prüft die Feeds. In der Browser-Suite teilt `blog-share.spec.ts` einen Beitrag auf einem Desktop und auf einem Smartphone, mit und ohne JavaScript, und `seo.spec.ts` liest den Feed jeder Locale und vergleicht ihn mit den veröffentlichten Beiträgen.

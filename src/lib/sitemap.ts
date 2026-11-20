@@ -10,7 +10,7 @@ const W3C_DATE_LENGTH = "YYYY-MM-DD".length
 
 type SitemapPage = Pick<PageHead, "alternates" | "canonical" | "modified">
 
-const escapeXml = (value: string): string =>
+export const escapeXml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;")
 
 export const isIndexable = (robots: string | undefined): boolean =>

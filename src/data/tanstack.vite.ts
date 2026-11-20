@@ -2,11 +2,12 @@ import { isUnlistedRoute } from "./unlisted.ts"
 import type { VitePluginEntry } from "./vite.ts"
 
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
+const FILE_EXTENSION = /\.\w+$/u
 
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 
 export const shouldPrerender = ({ path }: { path: string }): boolean => {
-  if (path.includes("?") || path.includes("#")) {
+  if (path.includes("?") || path.includes("#") || FILE_EXTENSION.test(path)) {
     return false
   }
 

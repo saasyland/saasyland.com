@@ -56,7 +56,7 @@ test("blog opens a published article without browser errors", async ({ appPage, 
   page.on("pageerror", (error) => errors.push(error.message))
   await page.goto("/blog")
   await appPage.waitForAppReady()
-  await page.locator('main a[href^="/blog/"]').first().click()
+  await page.locator('main h2 a[href^="/blog/"]').first().click()
   await expect(page).toHaveURL(/\/blog\/.+/u)
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   expect(errors).toEqual([])
@@ -66,7 +66,7 @@ test.describe("server rendering and client navigation", () => {
   test("/blog renders its heading before JavaScript runs", async ({ pageWithoutJavaScript }) => {
     await pageWithoutJavaScript.goto("/blog")
     await expect(pageWithoutJavaScript.getByRole("heading", { level: 1 })).toBeVisible()
-    await expect(pageWithoutJavaScript.locator('main a[href^="/blog/"]').first()).toBeVisible()
+    await expect(pageWithoutJavaScript.locator('main h2 a[href^="/blog/"]').first()).toBeVisible()
   })
 
   for (const prefix of ["", "/ja-JP", "/pt-BR"]) {
@@ -187,7 +187,7 @@ test.describe("content without the Worker", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
     await page.locator(`header a[href="${ROUTES.BLOG}"]`).first().click()
     await expect(page).toHaveURL(ROUTES.BLOG)
-    await page.locator('main a[href^="/blog/"]').first().click()
+    await page.locator('main h2 a[href^="/blog/"]').first().click()
     await expect(page).toHaveURL(/\/blog\/.+/u)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
 

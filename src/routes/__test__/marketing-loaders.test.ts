@@ -28,26 +28,29 @@ import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
-vi.mock("collections/server", async () => {
-  const { createElement } = await import("react")
-  const { BLOG_TAG: TAG } = await import("~/src/data/blog")
-  const prose = { contents: [{ content: "word ".repeat(1100), heading: undefined }], headings: [] }
-  const post = (slug: string, { toc = [], ...data }: Record<string, unknown>, locale = "en-US") => ({
+const { loadBlogIndex } = vi.hoisted(() => {
+  const base = {
     authorName: "Ada",
     date: "2026-09-01",
-    description: "Article summary",
-    info: { fullPath: `/content/blog/${slug}.${locale}.mdx`, path: `${slug}.${locale}.mdx` },
-    load: () => Promise.resolve({ structuredData: prose, toc }),
-    published: true,
-    tags: [TAG.TANSTACK_START],
-    ...data,
+    faq: undefined,
+    featured: false,
+    image: undefined,
+    readingTimeMinutes: 5,
+    summary: "Article summary",
+    tags: ["tanstack-start"],
+    toc: [],
+    updated: undefined,
+  }
+  const post = (slug: string, fields: Record<string, unknown>, locale = "en-US") => ({
+    ...base,
+    path: `${slug}.${locale}.mdx`,
+    url: `/blog/${slug}`,
+    ...fields,
   })
-  return {
-    blog: [
-      post("older", { date: "2026-09-01", title: "Older" }),
+  const posts: Record<string, unknown[]> = {
+    "en-US": [
       post("recent", { date: "2026-09-02", title: "Recent" }),
-      post("draft", { date: "2026-09-09", published: false, title: "Draft" }),
-      post("featured", { date: "2025-01-01", featured: true, title: "Featured" }),
+      post("older", { title: "Older" }),
       post("complete", {
         date: "2025-06-01",
         faq: [{ answer: "Because.", question: "Why?" }],
@@ -55,16 +58,19 @@ vi.mock("collections/server", async () => {
         title: "Complete guide",
         toc: [
           { depth: 2, title: "Introduction", url: "#intro" },
-          { depth: 3, title: ["Step ", 1, createElement("strong", null, " — ", createElement("em", null, "Deploy"))], url: "#deploy" },
-          { depth: 3, title: [null, "Ship ", false, ["it ", createElement("code", null, "today")], createElement("br")], url: "#ship" },
+          { depth: 3, title: "Deploy", url: "#deploy" },
         ],
       }),
-      post("minimal", { authorName: " ", date: "2024-01-01", description: undefined, tags: [], title: "Minimal" }),
-      post("guide", { title: "Przewodnik" }, "pl-PL"),
+      post("featured", { date: "2025-01-01", featured: true, title: "Featured" }),
+      post("minimal", { authorName: " ", date: "2024-01-01", summary: undefined, tags: [], title: "Minimal" }),
     ],
-    docs: { toFumadocsSource: () => ({ files: [] }) },
+    "pl-PL": [post("guide", { title: "Przewodnik" }, "pl-PL")],
   }
+
+  return { loadBlogIndex: vi.fn((locale: string) => Promise.resolve(posts[locale] ?? [])) }
 })
+
+vi.mock("virtual:content-indexes", () => ({ loadBlogIndex }))
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { preload: vi.fn(() => Promise.resolve()) },
 }))
@@ -135,7 +141,7 @@ describe("landing loader", () => {
 })
 
 describe("blog index loader", () => {
-  it("lists published posts newest first with their summary, tags and reading time", async () => {
+  it("lists the posts of the blog index with their summary, tags and reading time", async () => {
     const router = await load("/blog")
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "en-US",
@@ -152,7 +158,7 @@ describe("blog index loader", () => {
 })
 
 describe("blog post loader", () => {
-  it("loads the article with a plain-text table of contents and preloads its content", async () => {
+  it("loads the article with its table of contents and preloads its content", async () => {
     const router = await load("/blog/complete")
     expect(blogContent.preload).toHaveBeenCalledExactlyOnceWith("complete.en-US.mdx")
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
@@ -166,8 +172,7 @@ describe("blog post loader", () => {
         title: "Complete guide",
         toc: [
           { depth: 2, title: "Introduction", url: "#intro" },
-          { depth: 3, title: "Step 1 — Deploy", url: "#deploy" },
-          { depth: 3, title: "Ship it today", url: "#ship" },
+          { depth: 3, title: "Deploy", url: "#deploy" },
         ],
         url: "/blog/complete",
       },
@@ -214,19 +219,17 @@ describe("blog post loader", () => {
     },
   )
 
-  it.each<{ _splat?: string }>([{ _splat: "draft" }, { _splat: "missing" }, { _splat: "" }, {}])(
-    "treats params %j as a missing article",
-    async (params) => {
-      const { input, loader } = await captureBlogPostLoad("/blog/complete")
-      await expect(loader({ ...input, params })).rejects.toMatchObject({ isNotFound: true })
-    },
-  )
+  it.each<{ _splat?: string }>([{ _splat: "missing" }, { _splat: "" }, {}])("treats params %j as a missing article", async (params) => {
+    const { input, loader } = await captureBlogPostLoad("/blog/complete")
+    await expect(loader({ ...input, params })).rejects.toMatchObject({ isNotFound: true })
+  })
 
-  it("loads the post in the page's locale when the server function request carries another locale's cookie", async () => {
-    const { input, loader } = await captureBlogPostLoad("/pl-PL/blog/guide")
-    vi.mocked(getRequest)
-      .mockReturnValueOnce(new Request("http://127.0.0.1:3000/pl-PL/blog/guide"))
-      .mockReturnValue(new Request("http://127.0.0.1:3000/_serverFn/blog-post", { headers: { cookie: `${I18N.COOKIE_NAME}=en-US` } }))
-    await expect(loader(input)).resolves.toMatchObject({ locale: "pl-PL", post: { title: "Przewodnik" } })
+  it("loads the post from the blog index of the page's locale", async () => {
+    const router = await load("/pl-PL/blog/guide")
+    expect(loadBlogIndex).toHaveBeenCalledWith("pl-PL")
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
+      locale: "pl-PL",
+      post: { title: "Przewodnik", url: "/pl-PL/blog/guide" },
+    })
   })
 })

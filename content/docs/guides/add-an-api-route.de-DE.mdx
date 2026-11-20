@@ -10,7 +10,6 @@ API-Routen sind Server-Handler von TanStack Start in `src/routes/api/`. Die eige
 | Datei                        | Pfad                                         | Zweck                                                                                                  |
 | ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: Anmeldung, OAuth-Callbacks, E-Mail-Verifizierung, das Kundenportal von Polar und Webhooks |
-| `src/routes/api/search.ts`   | `/api/search`                                | Fumadocs-Suche für die Dokumentation                                                                   |
 | `src/routes/api/index.ts`    | `/api`                                       | Laufzeitprüfung, die `{ "runtime": "cloudflare-workers" }` zurückgibt                                  |
 | `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | Die [CLI-Lizenz-API](/docs/features/cli-licence-api), die die CLI `saasyland` aufruft                  |
 
@@ -23,12 +22,13 @@ Die Methoden in `server.handlers` deklarieren. Jeder Handler erhält den Web-`Re
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
 
-import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/search")({
+export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => search.GET(request),
+      GET: ({ request }) => auth.handler(request),
+      POST: ({ request }) => auth.handler(request),
     },
   },
 })
@@ -45,9 +45,9 @@ Innerhalb eines Handlers:
 ## Routing-Regeln
 
 - `/api`-Pfade erhalten nie ein Locale-Präfix, und der Worker überspringt für sie die Suche nach statischen Assets und die Locale-Weiterleitungen.
-- `/api`-URLs enthalten keine Locale, daher liefert `getCurrentLocale()` dort die Standard-Locale. Eine lokalisierte Antwort entnimmt die Locale dem Request, so wie `/api/search` über seinen Query-Parameter `locale`.
+- `/api`-URLs enthalten keine Locale, daher liefert `getCurrentLocale()` dort die Standard-Locale. Eine lokalisierte Antwort entnimmt die Locale dem Request, etwa einem Query-Parameter `locale`.
 - `/api` ist vom Prerendering ausgeschlossen.
 
 ## Testen
 
-Den Handler über die Route-Optionen aufrufen, wie es `src/routes/api/__test__/search.test.ts` mit `Route.options.server.handlers` tut, und den Provider mocken, an den er weiterleitet.
+Den Handler über die Route-Optionen aufrufen, wie es `src/routes/api/__test__/auth.test.ts` mit `Route.options.server.handlers` tut, und den Provider mocken, an den er weiterleitet.

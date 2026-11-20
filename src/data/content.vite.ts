@@ -12,6 +12,15 @@ export const CONTENT_VITE_PLUGINS = [
   },
   {
     order: 20,
+    plugins: async () => {
+      const { contentIndexes } = await import("../../scripts/content-indexes.ts")
+
+      return [contentIndexes()]
+    },
+    vitest: true,
+  },
+  {
+    order: 20,
     plugins: () =>
       Promise.resolve([
         { config: () => ({ resolve: { noExternal: ["fumadocs-core", "@fumadocs/base-ui"] } }), name: "saasyland:fumadocs-bundled" },

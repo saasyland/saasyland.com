@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react"
 import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -110,7 +110,6 @@ const MINIMAL: BlogPost = {
   url: "/blog/minimal",
 }
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 vi.mock(import("~/src/integrations/use-intl/i18n.messages"), async (original) => ({
   ...(await original()),
   preloadNamespaces: vi.fn(() => Promise.resolve()),

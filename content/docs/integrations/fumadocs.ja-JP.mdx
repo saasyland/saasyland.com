@@ -3,19 +3,29 @@ title: "Fumadocs"
 description: "ドキュメントとブログの MDX コレクション、ローカライズされたソース、検索です。"
 ---
 
-Fumadocs は `content/docs` と `content/blog` を、ローカライズされたページツリーに変換します。`bun run content` は `fumadocs-mdx` を実行して `.source/` を書き出します。`dev`、`typegen`、すべてのビルドスクリプトは、最初にこれを実行します。どちらのコレクションも `async` です。Worker はすべてのページのフロントマターを保持し、リクエストがページの見出しや検索用テキストを必要とするときに、`page.data.load()` でそのページのコンパイル済み MDX をインポートします（[パフォーマンス](/docs/conventions/performance#keep-the-route-tree-light)を参照）。
+Fumadocs は `content/docs` と `content/blog` を、ローカライズされたページに変換します。`bun run content` は `fumadocs-mdx` を実行して `.source/` を書き出します。`dev`、`typegen`、すべてのビルドスクリプトは、最初にこれを実行します。アプリは、ページのコンパイル済み MDX をブラウザーでもプリレンダリング中も `.source/browser.ts` から読み、コンテンツに関するそれ以外のすべてを以下のインデックスから読みます。そのため、デプロイされた Worker はコンテンツを一切保持しません（[パフォーマンス](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)を参照）。
 
 | ファイル                | 目的                                                                                                                                                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fumadocs.config.ts`    | `docs` と `blog` のコレクション（どちらも `async`）、ブログのフロントマターのスキーマ、コードハイライトのテーマと色の置き換え                                                                            |
+| `fumadocs.config.ts`    | `docs` と `blog` のコレクション（どちらも `async`）、コードハイライトのテーマと色の置き換え                                                                                                              |
+| `fumadocs.schema.ts`    | ブログのフロントマターのスキーマ                                                                                                                                                                         |
 | `fumadocs.i18n.ts`      | `I18N` のロケール、デフォルトかつフォールバックとしての `en-US`、`<slug>.<locale>.mdx` 用の `dot` パーサー、非表示のロケールプレフィックス                                                               |
-| `fumadocs.source.ts`    | `docsIcon` のアイコン付きで `/docs` に配置する `source`、`/blog` に配置する `blogSource`、`getPublishedBlogPages`、読了時間付きの `getPublishedBlogPosts`                                                |
+| `fumadocs.indexes.ts`   | ビルド時に実行され、`content/docs` と `content/blog` を読んで、各ロケールのドキュメントのインデックス、ブログのインデックス、検索インデックスを作ります                                                  |
 | `fumadocs.icons.ts`     | `DOCS_ICONS`（meta ファイルが名前を挙げる Lucide のアイコン）と、meta ファイルの `icon` を対応するアイコンに変換する `docsIcon`                                                                          |
-| `fumadocs.docs.ts`      | `docs.$` ルート用の `getDocsPage` サーバー関数、`loadDocsPage`、`docsHead`                                                                                                                               |
-| `fumadocs.search.ts`    | `/api/search` から提供される検索インデックス                                                                                                                                                             |
+| `fumadocs.docs.ts`      | `docs.$` ルート用の `loadDocsPage` と `docsHead`                                                                                                                                                         |
+| `fumadocs.blog.ts`      | 記事のタイトルを整形し、その URL をローカライズする `toBlogPostSummary`                                                                                                                                  |
 | `fumadocs.changelog.ts` | `changelogEntries` プラグイン。変更履歴ページの `<ChangelogEntries unreleased="…" />` を、ページのロケールの `content/changelog` のエントリに置き換え、それぞれが `main` に入った UTC の日付ごとに並べる |
 
 ロケールプレフィックスはルーターが付与するため、Fumadocs の URL では非表示になっています。ブログのフロントマターでは `title`、`authorName`、`date` が必須で、`description`、`excerpt`、`faq`、`featured`、`image`、`published`、`tags`、`updated`、`authorImage` も指定できます。
+
+## コンテンツのインデックス [#content-indexes]
+
+`scripts/content-indexes.ts` は Vite プラグインです。Vite のモジュールランナーで `fumadocs.indexes.ts` を読み込み、それが作ったものを仮想モジュールとして提供します。ビルドでも開発サーバーでも同じように動き、開発サーバーでは `content/` 配下を編集するとインデックスが作り直されます。
+
+- `virtual:content-indexes`: `loadDocsIndex(locale)` は、ロケールのシリアライズされたページツリーと、スラッグごとのページを返します。各ページはタイトル、説明、セクション、MDX ファイルを持ちます。`loadBlogIndex(locale)` は、ロケールの公開済みの記事を新しい順に、そのフロントマター、目次、読了時間とともに返します。各ロケールのインデックスはそれぞれ専用のチャンクで、ローダーが最初に必要としたときにインポートします。
+- `virtual:docs-search`: `SEARCH_INDEXES` は、各ロケールの検索インデックスの URL を返します。ビルドは Fumadocs の `createSearchAPI("advanced")` で各インデックスを `/assets/search-index-<locale>-<hash>.json` に書き出します。元になるのは Fumadocs の `structure` が各ページから読み取る見出しと本文で、変更履歴ページには変更履歴のエントリが含まれ、各ページには Fumadocs 自身の検索が付けるのと同じパンくずリストが付きます。
+
+`fumadocs.indexes.ts` は、各ページのフロントマターをコレクションのスキーマで検証し、Fumadocs の `loader`、`fumadocs.i18n.ts` の i18n 設定、`docsIcon` のアイコンを使ってツリーを作ります。ブログ記事の目次は `getTableOfContents` から、読了時間は本文の単語数から求めます。単語はその記事のロケール向けの `Intl.Segmenter` で数えます。
 
 ## コンポーネント
 

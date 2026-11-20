@@ -10,7 +10,6 @@ description: "Додайте HTTP-обробник під /api для вебху
 | Файл                         | Шлях                                         | Призначення                                                                           |
 | ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: вхід, callback OAuth, підтвердження пошти, портал і вебхуки Polar        |
-| `src/routes/api/search.ts`   | `/api/search`                                | Пошук Fumadocs для документації                                                       |
 | `src/routes/api/index.ts`    | `/api`                                       | Перевірка середовища виконання, що повертає `{ "runtime": "cloudflare-workers" }`     |
 | `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | [API ліцензій для CLI](/docs/features/cli-licence-api), який викликає CLI `saasyland` |
 
@@ -23,12 +22,13 @@ description: "Додайте HTTP-обробник під /api для вебху
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
 
-import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/search")({
+export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => search.GET(request),
+      GET: ({ request }) => auth.handler(request),
+      POST: ({ request }) => auth.handler(request),
     },
   },
 })
@@ -45,9 +45,9 @@ export const Route = createFileRoute("/api/search")({
 ## Правила маршрутизації
 
 - Шляхи `/api` ніколи не отримують мовного префікса, а Worker пропускає для них пошук статичних файлів і мовні перенаправлення.
-- URL `/api` не містять мови, тож `getCurrentLocale()` повертає там типову мову. Локалізована відповідь бере мову із запиту, як це робить `/api/search` з параметром запиту `locale`.
+- URL `/api` не містять мови, тож `getCurrentLocale()` повертає там типову мову. Локалізована відповідь бере мову із запиту, наприклад із параметра запиту `locale`.
 - `/api` виключено з попереднього рендерингу.
 
 ## Тест
 
-Викликайте обробник через параметри маршруту, як це робить `src/routes/api/__test__/search.test.ts` з `Route.options.server.handlers`, і мокайте провайдера, якому він передає запит.
+Викликайте обробник через параметри маршруту, як це робить `src/routes/api/__test__/auth.test.ts` з `Route.options.server.handlers`, і мокайте провайдера, якому він передає запит.

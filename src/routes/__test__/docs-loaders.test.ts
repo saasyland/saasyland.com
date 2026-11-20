@@ -2,13 +2,17 @@ import { createMemoryHistory } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
 import { expect, it, vi } from "vite-plus/test"
 
-import { source } from "~/src/integrations/fumadocs/fumadocs.source"
-
 import { Route as DocsRoute } from "~/src/routes/_site.docs"
 
 import { getRouter } from "~/src/router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
+const loadDocsIndex = vi.hoisted(() =>
+  vi.fn((locale: string) =>
+    Promise.resolve({ pages: {}, tree: { $fumadocs_loader: "page-tree", data: { children: [], name: `Docs ${locale}` } } }),
+  ),
+)
+
+vi.mock("virtual:content-indexes", () => ({ loadDocsIndex }))
 
 const loadDocs = async (path: string) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
@@ -21,11 +25,10 @@ const loadDocs = async (path: string) => {
 it.each([
   { locale: "en-US", path: "/docs" },
   { locale: "pl-PL", path: "/pl-PL/docs" },
-])("loads the $locale page tree for the documentation layout at $path", async ({ locale, path }) => {
-  const getPageTree = vi.spyOn(source, "getPageTree")
+])("gives the documentation layout the $locale page tree from the docs index at $path", async ({ locale, path }) => {
   const router = await loadDocs(path)
-  expect(getPageTree).toHaveBeenCalledExactlyOnceWith(locale)
-  expect(router.state.matches.find((match) => match.routeId === DocsRoute.id)?.loaderData).toEqual({
-    tree: await source.serializePageTree(source.getPageTree(locale)),
+  expect(loadDocsIndex).toHaveBeenCalledWith(locale)
+  expect(router.state.matches.find((match) => match.routeId === DocsRoute.id)?.loaderData).toStrictEqual({
+    tree: { $fumadocs_loader: "page-tree", data: { children: [], name: `Docs ${locale}` } },
   })
 })

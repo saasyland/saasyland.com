@@ -10,7 +10,6 @@ API routes are TanStack Start server handlers in `src/routes/api/`. The applicat
 | File                         | Path                                         | Purpose                                                                                  |
 | ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: sign-in, OAuth callbacks, email verification, the Polar portal and webhooks |
-| `src/routes/api/search.ts`   | `/api/search`                                | Fumadocs search for the docs                                                             |
 | `src/routes/api/index.ts`    | `/api`                                       | Runtime check that returns `{ "runtime": "cloudflare-workers" }`                         |
 | `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | The [CLI licence API](/docs/features/cli-licence-api) that the `saasyland` CLI calls     |
 
@@ -23,12 +22,13 @@ Declare the methods in `server.handlers`. Each handler receives the Web `Request
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
 
-import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/search")({
+export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => search.GET(request),
+      GET: ({ request }) => auth.handler(request),
+      POST: ({ request }) => auth.handler(request),
     },
   },
 })
@@ -45,9 +45,9 @@ Inside a handler:
 ## Routing rules
 
 - `/api` paths never get a locale prefix, and the Worker skips the static-asset lookup and locale redirects for them.
-- `/api` URLs carry no locale, so `getCurrentLocale()` returns the default locale there. A localized response takes the locale from the request, as `/api/search` does with its `locale` query parameter.
+- `/api` URLs carry no locale, so `getCurrentLocale()` returns the default locale there. A localized response takes the locale from the request, such as a `locale` query parameter.
 - `/api` is excluded from prerendering.
 
 ## Test
 
-Call the handler through the route options, as `src/routes/api/__test__/search.test.ts` does with `Route.options.server.handlers`, and mock the provider it forwards to.
+Call the handler through the route options, as `src/routes/api/__test__/auth.test.ts` does with `Route.options.server.handlers`, and mock the provider it forwards to.

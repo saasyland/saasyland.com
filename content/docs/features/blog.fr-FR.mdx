@@ -5,7 +5,7 @@ description: "Articles MDX localisés dans content/blog, chargés via une collec
 
 ## Contenu
 
-Les articles se trouvent dans `content/blog/<slug>.<locale>.mdx`, un fichier par langue. Le schéma du frontmatter dans `src/integrations/fumadocs/fumadocs.config.ts` exige `title`, `authorName` et `date`, et accepte `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (par défaut `true`), `tags` et `updated`. Une étiquette est l’une des `BLOG_TAGS` de `src/data/blog.ts`, et le schéma refuse toute autre valeur ; `PostRow` et `PostMeta` affichent chaque étiquette par son libellé sous `tags` dans `pages.blog`, si bien que les étiquettes se lisent dans la langue de la page.
+Les articles se trouvent dans `content/blog/<slug>.<locale>.mdx`, un fichier par langue. Le schéma du frontmatter dans `src/integrations/fumadocs/fumadocs.schema.ts` exige `title`, `authorName` et `date`, et accepte `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (par défaut `true`), `tags` et `updated`. Une étiquette est l’une des `BLOG_TAGS` de `src/data/blog.ts`, et le schéma refuse toute autre valeur ; `PostRow` et `PostMeta` affichent chaque étiquette par son libellé sous `tags` dans `pages.blog`, si bien que les étiquettes se lisent dans la langue de la page.
 
 ## Valeurs issues du code
 
@@ -13,15 +13,15 @@ Un article affiche les valeurs que le code définit au lieu de les saisir : `<Re
 
 ## Source
 
-`blogSource` dans `fumadocs.source.ts` charge la collection sous `/blog` avec les mêmes réglages i18n que la documentation. La collection est `async` : le Worker garde le frontmatter de chaque article et ne charge son MDX compilé que pour les articles qu’une requête affiche. `getPublishedBlogPages(locale)` liste les articles publiés d’une langue, du plus récent au plus ancien, à partir de leur frontmatter ; `toBlogPostSummary` charge un article pour calculer son temps de lecture avec `Intl.Segmenter` pour cette langue, et `getPublishedBlogPosts(locale)` résume chaque article publié.
+Chaque build transforme les articles en un index du blog par langue (voir [Fumadocs](/docs/integrations/fumadocs#content-indexes)) : les articles publiés sous `/blog`, du plus récent au plus ancien, avec les mêmes réglages i18n que la documentation, chacun avec son frontmatter, sa table des matières et son temps de lecture, calculé avec `Intl.Segmenter` pour cette langue. `loadBlogIndex(locale)` importe l’index d’une langue, un fichier sous `/assets/`, et `toBlogPostSummary` dans `fumadocs.blog.ts` formate le titre d’un article et localise son URL. Les loaders ci-dessous le lisent dans le navigateur lors d’une navigation côté client : parcourir le blog n’atteint donc jamais le Worker.
 
 ## Routes
 
 - Le layout `/blog` (`_site._marketing.blog.tsx`) se trouve dans les layouts `_site` et `_marketing`, qui placent autour de lui l’en-tête du site, `PageFrame`, `Footer` et `BackToTop` (voir [Page d’accueil](/docs/features/landing-page#navigation-and-back-to-top)). Il charge `docs.css` pour la typographie des articles. L’en-tête signale **Blog** comme section courante sur l’index et sur chaque article. Son loader précharge `fumadocs` et `pages.blog`.
-- `/blog` (`_site._marketing.blog.index.tsx`) liste les articles avec `PostRow` ; la liste provient d’une fonction serveur définie dans le fichier de route.
-- `/blog/$` (`_site._marketing.blog.$.tsx`) charge un article (404 s’il n’est pas publié), précharge son MDX compilé avec `blogContent` et compose `PostMeta`, `PostToc` (ou, sur petit écran, `InlineTOC` sous le même titre), `PostCta` et `PostShare` de `src/presentation/components/custom/blog`. Il ajoute du JSON-LD via `buildBlogPostStructuredDataHtml` et les métadonnées d’article via `buildPageHead`, avec le titre du blog issu de `pages.blog` comme `article:section` et sa propre carte de partage ; voir [Référencement et aperçus sociaux](/docs/features/seo). L’article enveloppe son MDX dans le `RootProvider` de Fumadocs, avec la recherche et le changement de thème désactivés et les textes de `useFumadocsI18n`, pour que les boutons de copie des blocs de code et des ancres de titre ainsi que les éléments d’accordéon de la FAQ soient nommés dans la langue de l’article.
+- `/blog` (`_site._marketing.blog.index.tsx`) liste les articles de l’index du blog avec `PostRow`.
+- `/blog/$` (`_site._marketing.blog.$.tsx`) trouve un article dans l’index du blog (404 s’il est absent ou n’est pas publié), précharge son MDX compilé avec `blogContent` et compose `PostMeta`, `PostToc` (ou, sur petit écran, `InlineTOC` sous le même titre), `PostCta` et `PostShare` de `src/presentation/components/custom/blog`. Il ajoute du JSON-LD via `buildBlogPostStructuredDataHtml` et les métadonnées d’article via `buildPageHead`, avec le titre du blog issu de `pages.blog` comme `article:section` et sa propre carte de partage ; voir [Référencement et aperçus sociaux](/docs/features/seo). L’article enveloppe son MDX dans le `RootProvider` de Fumadocs, avec la recherche et le changement de thème désactivés et les textes de `useFumadocsI18n`, pour que les boutons de copie des blocs de code et des ancres de titre ainsi que les éléments d’accordéon de la FAQ soient nommés dans la langue de l’article.
 
-La section Notes de la page d’accueil affiche les trois derniers articles, ceux mis en avant en premier, et ne résume que ces trois-là.
+La section Notes de la page d’accueil affiche trois articles de l’index du blog, ceux mis en avant en premier, puis les plus récents.
 
 ## Blog de l’administration (démo)
 

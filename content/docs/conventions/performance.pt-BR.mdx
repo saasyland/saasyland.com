@@ -1,6 +1,6 @@
 ---
 title: "Desempenho"
-description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, uma árvore de rotas leve, nenhum ORM no navegador, mensagens carregadas sob demanda, hints de preload removidos, o posicionamento dos providers, esqueletos que aparecem cedo, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
+description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, uma árvore de rotas leve, nenhum conteúdo da documentação ou do blog no Worker, nenhum ORM no navegador, mensagens carregadas sob demanda, hints de preload removidos, o posicionamento dos providers, esqueletos que aparecem cedo, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
 ---
 
 Cada regra desta página veio de uma medição, e várias substituíram uma correção intuitiva que piorava as coisas. Altere o código por trás de uma delas apenas com uma nova medição que a supere.
@@ -28,13 +28,11 @@ Um único import estático do nome de um cabeçalho, vindo de um módulo que tam
 
 ## Mantenha leve a árvore de rotas [#keep-the-route-tree-light]
 
-O Worker entrega ao TanStack Start toda requisição que não é nem uma página pré-renderizada nem um arquivo estático, e o Start carrega a árvore de rotas antes de fazer qualquer outra coisa, tanto para uma chamada de função de servidor quanto para uma página que renderiza: `src/routeTree.gen.ts` e todos os módulos que os arquivos de rota importam estaticamente, incluindo os handlers de rotas de servidor como `/api/search`. Um isolate do Worker a avalia na primeira requisição desse tipo, e uma função de servidor carrega o próprio chunk na primeira chamada. As duas coisas acontecem enquanto um visitante espera por uma navegação no cliente, então tudo o que elas importam faz parte da espera em um isolate novo.
+O Worker entrega ao TanStack Start toda requisição que não é nem uma página pré-renderizada nem um arquivo estático, e o Start carrega a árvore de rotas antes de fazer qualquer outra coisa, tanto para uma chamada de função de servidor quanto para uma página que renderiza: `src/routeTree.gen.ts` e todos os módulos que os arquivos de rota importam estaticamente, incluindo os handlers de rotas de servidor como `/api/auth/$`. Um isolate do Worker a avalia na primeira requisição desse tipo, e uma função de servidor carrega o próprio chunk na primeira chamada. As duas coisas acontecem enquanto um visitante espera por uma navegação no cliente, então tudo o que elas importam faz parte da espera em um isolate novo.
 
 As coleções da documentação e do blog eram carregadas de antemão: `.source/server.ts` importava o MDX compilado de todas as páginas da documentação e de todos os posts do blog em todos os idiomas, 1.305 módulos com os títulos e o texto de busca de cada página, e o plugin de ícones Lucide acrescentava o conjunto inteiro de ícones para os poucos ícones que os arquivos meta da documentação nomeiam. O layout da documentação, as páginas da documentação, a landing page e o blog liam essa fonte pelas suas funções de servidor, e `/api/search` a importava estaticamente, o que a colocava na árvore de rotas. Em saasyland.com, uma navegação no cliente de `/` para `/docs` esperava cerca de 1,3 segundo pelas suas duas funções de servidor em um isolate novo, e cerca de 25 ms em um isolate já aquecido; a landing page e o blog pagavam o mesmo na sua primeira navegação.
 
-- `fumadocs.config.ts` torna as duas coleções `async`. A fonte guarda o frontmatter de cada página, e `page.data.load()` importa o MDX compilado de uma página quando uma requisição precisa dos títulos ou do texto de busca dela. A árvore de páginas e `getDocsPage` leem apenas o frontmatter; a landing page carrega os posts que mostra, o índice do blog, os posts de um idioma, um post do blog, apenas ele mesmo, e `/api/search`, todas as páginas na sua primeira requisição.
-- `/api/search` importa `fumadocs.search.ts` no seu handler, então o índice de busca fica fora da árvore de rotas.
-- `fumadocs.icons.ts` importa apenas os ícones que os arquivos meta nomeiam, e `fumadocs.icons.test.ts` falha quando um arquivo meta nomeia um ícone que ele não importa ou quando ele importa um ícone que nenhum arquivo meta nomeia.
+As coleções passaram a ser `async`, então a fonte guardava o frontmatter de cada página e importava o MDX compilado de uma página apenas quando uma requisição precisava dos títulos ou do texto de busca dela, e `/api/search` importava o seu índice no seu handler. A seção seguinte tirou o conteúdo do Worker de vez. `fumadocs.icons.ts` importa apenas os ícones que os arquivos meta nomeiam, e `fumadocs.icons.test.ts` falha quando um arquivo meta nomeia um ícone que ele não importa ou quando ele importa um ícone que nenhum arquivo meta nomeia.
 
 Os tamanhos são o que cada parte importa estaticamente no Worker de `bun run build:test`, e os tempos são a mediana de cinco execuções intercaladas em um laptop:
 
@@ -47,7 +45,34 @@ Os tamanhos são o que cada parte importa estaticamente no Worker de `bun run bu
 | Avaliação da fonte do Fumadocs no Node                                              | 375 ms                   | 24 ms                    |
 | Primeira navegação de `/` até o título de `/docs` em um Worker novo de `vp preview` | 260 ms                   | 198 ms                   |
 
-`scripts/verify-build.ts` segue os imports estáticos da árvore de rotas e de cada função de servidor em `dist/server` e faz o build falhar quando eles chegam a uma página compilada da documentação ou do blog. A maior parte do que a árvore de rotas ainda carrega, cerca de 3 MiB, é o Better Auth e os módulos que ele importa, que `/api/auth/$`, o schema dos search params das páginas de autenticação e a API de licenças da CLI importam estaticamente.
+A maior parte do que a árvore de rotas ainda carrega, cerca de 3 MiB, é o Better Auth e os módulos que ele importa, que `/api/auth/$`, o schema dos search params das páginas de autenticação e a API de licenças da CLI importam estaticamente.
+
+## O Worker não contém conteúdo da documentação nem do blog [#the-worker-holds-no-docs-or-blog-content]
+
+Depois da mudança acima, o Worker ainda incluía no bundle a documentação e o blog: o MDX compilado de 1.305 páginas, cerca de 14,6 MiB de um upload de 27,5 MiB, mantido para `/api/search` e para os sumários e os tempos de leitura dos posts do blog, ao lado do frontmatter que as funções de servidor da documentação, do blog e da landing page liam. Uma requisição em um isolate novo esperava de 1 a 2 segundos antes de qualquer código rodar, uma navegação no cliente pela documentação em saasyland.com levava de 1,3 a 2,0 segundos em um isolate novo e cerca de 270 ms em um isolate já aquecido, e uma busca na documentação levava de 9 a 18 segundos.
+
+Agora todo build transforma o conteúdo em dados que o app importa como arquivos estáticos. `scripts/content-indexes.ts`, um plugin do Vite, carrega `fumadocs.indexes.ts` com o module runner do Vite; esse módulo lê `content/docs` e `content/blog` com os schemas das coleções e o `loader` do Fumadocs e monta, para cada locale:
+
+- o índice da documentação: a árvore de páginas e as páginas por slug, com o título, a descrição, a seção e o arquivo MDX de cada uma;
+- o índice do blog: os posts publicados, do mais recente para o mais antigo, com o frontmatter, o sumário e o tempo de leitura de cada um;
+- o índice de busca: o banco de dados de busca que o Fumadocs exporta a partir das páginas da documentação, e que o build grava em `/assets/search-index-<locale>-<hash>.json`.
+
+`loadDocsIndex` e `loadBlogIndex` de `virtual:content-indexes` importam o índice da documentação ou do blog de um locale, um chunk próprio em `/assets/`. O layout e as páginas da documentação, o blog, os seus posts e a landing page os leem nos seus loaders, que rodam no navegador em uma navegação no cliente e no servidor durante a pré-renderização, e o MDX compilado de uma página vem do seu chunk do navegador, como antes. `run_worker_first` deixa `/assets/*` para os assets estáticos da Cloudflare, então uma navegação no cliente pela documentação ou pelo blog não faz nenhuma requisição ao Worker. A busca da documentação baixa o índice do seu locale na primeira consulta e faz a busca nele dentro do navegador (veja [Site de documentação](/docs/features/docs-site#search)); `/api/search` deixou de existir.
+
+O Worker que vai para o deploy serve pré-renderizadas todas as páginas da documentação e todos os posts do blog, então `scripts/deployed-worker.ts` resolve todo import de uma página compilada para um único módulo que lança um erro, e o build não compila nenhuma delas. `scripts/verify-build.ts` faz o build falhar quando algum arquivo do Worker que vai para o deploy contém um módulo da documentação ou do blog, quando um locale não tem índice de busca ou quando o índice de um locale não contém exatamente as páginas da documentação daquele locale com os seus títulos.
+
+Os tamanhos vêm do Worker de `bun run build:test`, e os tempos, do deploy de preview, com o Chromium headless e cada amostra em um isolate novo, associada aos logs do Worker pelo seu `cf-ray`:
+
+| Medida                                                                                                       | Antes                          | Depois                         |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------ |
+| Upload do Worker, `wrangler deploy --dry-run`                                                                | 30.115 KiB, 7.201 KiB com gzip | 13.465 KiB, 3.148 KiB com gzip |
+| Arquivos em `dist/server`                                                                                    | 3.021                          | 1.590                          |
+| Páginas compiladas da documentação e do blog no Worker que vai para o deploy                                 | 1.341                          | nenhuma                        |
+| Espera antes de o handler do Worker rodar, primeira requisição de HTML em um isolate novo (mediana)          | 934 ms                         | 561 ms                         |
+| Requisições ao Worker de uma navegação no cliente de `/` para `/docs` e dali para uma página da documentação | 2 (0,9–2,6 s)                  | nenhuma                        |
+| Busca na documentação, da consulta aos primeiros resultados                                                  | 7,3–15,5 s                     | 0,8–1,8 s                      |
+
+`e2e/specs/content.spec.ts` verifica que as navegações no cliente pela documentação e pelo blog não pedem nada além de arquivos estáticos, e que a busca da documentação baixa o índice do locale da página apenas quando alguém faz uma busca.
 
 ## Uma navegação lenta mostra o seu esqueleto na hora [#a-slow-navigation-shows-its-skeleton-at-once]
 
@@ -57,7 +82,7 @@ Os tamanhos são o que cada parte importa estaticamente no Worker de `bun run bu
 - Uma navegação que ainda está carregando depois do atraso mostra o esqueleto da sua rota exatamente enquanto continua carregando: `defaultPendingMinMs` é <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, então o router remove o esqueleto assim que a página fica pronta em vez de segurá-lo na tela.
 - As páginas da documentação têm esqueletos próprios, `DocsIndexPending` e `DocsPagePending`, que preenchem o artigo e o sumário ao lado da barra lateral, então uma navegação lenta entre páginas da documentação mostra a forma da próxima página em vez de deixar a anterior no lugar.
 
-`e2e/specs/content.spec.ts` segura as funções de servidor de uma navegação para `/docs` e de uma navegação entre páginas da documentação e verifica que cada uma mostra o seu esqueleto, e a segunda também a barra lateral, até que elas respondam. Esses testes ativam antes a economia de dados, para que o cabeçalho não carregue a documentação antes do clique.
+`e2e/specs/content.spec.ts` segura o índice da documentação de uma navegação para `/docs` e o MDX compilado de uma navegação entre páginas da documentação e verifica que cada uma mostra o seu esqueleto, e a segunda também a barra lateral, até que eles cheguem. Esses testes ativam antes a economia de dados, para que o cabeçalho não carregue a documentação antes do clique.
 
 ## As páginas do cabeçalho carregam antes do clique [#the-headers-pages-load-before-a-click]
 

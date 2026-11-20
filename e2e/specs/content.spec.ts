@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs"
 
+import englishFumadocs from "../../messages/en-US/fumadocs.json" with { type: "json" }
+import polishFumadocs from "../../messages/pl-PL/fumadocs.json" with { type: "json" }
 import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
@@ -10,7 +12,10 @@ const titleOf = (file: string) => /^title: "(?<title>.+)"$/mu.exec(readFileSync(
 const INSTALLATION_TITLE = titleOf("content/docs/getting-started/installation.en-US.mdx")
 const DOCS_TITLE = titleOf("content/docs/index.en-US.mdx")
 const ENGLISH_MDX_CHUNK = /\/assets\/[\w.-]+\.en-US-[\w-]+\.js$/u
-const SERVER_FUNCTION = "**/_serverFn/**"
+const ENGLISH_DOCS_INDEX_CHUNK = /\/assets\/docs-index-en-US-[\w-]+\.js$/u
+const SEARCH_INDEX = /^\/assets\/search-index-(?<locale>[a-zA-Z-]+)-[\da-f]+\.json$/u
+const SEARCH_OPEN_TIMEOUT_MS = 2000
+const STATIC_FILE = /^\/(?:assets|fonts|images)\//u
 const GETTING_STARTED_PATH = `${ROUTES.DOCS}/getting-started`
 const INSTALLATION_PATH = `${GETTING_STARTED_PATH}/installation`
 const INSTALLATION_CHUNK = "/installation.en-US-"
@@ -126,7 +131,7 @@ test.describe("a slow navigation to the docs", () => {
     const loaded = Promise.withResolvers<void>()
     await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await page.route(SERVER_FUNCTION, async (route) => {
+    await page.route(ENGLISH_DOCS_INDEX_CHUNK, async (route) => {
       await loaded.promise
       await route.continue()
     })
@@ -145,8 +150,10 @@ test.describe("a slow navigation to the docs", () => {
     const loaded = Promise.withResolvers<void>()
     await page.goto(GETTING_STARTED_PATH, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await page.route(SERVER_FUNCTION, async (route) => {
-      await loaded.promise
+    await page.route(ENGLISH_MDX_CHUNK, async (route) => {
+      if (route.request().url().includes(INSTALLATION_CHUNK)) {
+        await loaded.promise
+      }
       await route.continue()
     })
 
@@ -159,4 +166,59 @@ test.describe("a slow navigation to the docs", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
     await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0)
   })
+})
+
+test.describe("content without the Worker", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(turnOnDataSaver)
+  })
+
+  test("client navigations through the docs and the blog request nothing but static files", async ({ appPage, page }) => {
+    await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const requests: string[] = []
+    page.on("request", (request) => requests.push(new URL(request.url()).pathname))
+
+    await page.locator(`header a[href="${ROUTES.DOCS}"]`).first().click()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(DOCS_TITLE ?? "")
+    await page.locator(`a[href="${GETTING_STARTED_PATH}"]`).first().click()
+    await expect(page).toHaveURL(GETTING_STARTED_PATH)
+    await page.locator(`a[href="${INSTALLATION_PATH}"]`).first().click()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
+    await page.locator(`header a[href="${ROUTES.BLOG}"]`).first().click()
+    await expect(page).toHaveURL(ROUTES.BLOG)
+    await page.locator('main a[href^="/blog/"]').first().click()
+    await expect(page).toHaveURL(/\/blog\/.+/u)
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+
+    expect(requests.length).toBeGreaterThan(0)
+    expect(requests.filter((pathname) => !STATIC_FILE.test(pathname))).toEqual([])
+  })
+
+  for (const { label, locale, prefix, query } of [
+    { label: englishFumadocs.search.label, locale: "en-US", prefix: "", query: "installation" },
+    { label: polishFumadocs.search.label, locale: "pl-PL", prefix: "/pl-PL", query: "instalacja" },
+  ]) {
+    test(`the ${locale} docs search downloads its own static index and finds pages in it`, async ({ appPage, page }) => {
+      await page.goto(`${prefix}${GETTING_STARTED_PATH}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+      const requests: string[] = []
+      page.on("request", (request) => requests.push(new URL(request.url()).pathname))
+
+      const trigger = page.getByRole("button", { name: new RegExp(`^${label}`, "u") }).first()
+      const dialog = page.getByRole("dialog")
+      await expect(async () => {
+        if (!(await dialog.isVisible())) {
+          await trigger.click({ timeout: SEARCH_OPEN_TIMEOUT_MS })
+        }
+        await expect(dialog).toBeVisible({ timeout: SEARCH_OPEN_TIMEOUT_MS })
+      }).toPass()
+      expect(requests.filter((pathname) => SEARCH_INDEX.test(pathname))).toEqual([])
+      await dialog.getByRole("combobox").fill(query)
+
+      await expect(dialog.getByRole("option").first()).toBeVisible()
+      expect(requests.flatMap((pathname) => SEARCH_INDEX.exec(pathname)?.groups?.["locale"] ?? [])).toEqual([locale])
+      expect(requests.filter((pathname) => !STATIC_FILE.test(pathname))).toEqual([])
+    })
+  }
 })

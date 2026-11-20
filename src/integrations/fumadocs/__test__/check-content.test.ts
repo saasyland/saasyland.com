@@ -47,7 +47,7 @@ describe("check-content", () => {
       `${API_SURFACE_LABEL} leaves out \`license.api.ts\` from the English page`,
       `${API_SURFACE_LABEL} leaves out \`saasyland\` from the English page`,
       `${API_SURFACE_LABEL} leaves out <RepositoryFact name="cliApiBasePath"> from the English page`,
-      `${API_SURFACE_LABEL} has 5 table rows where the English page has 6`,
+      `${API_SURFACE_LABEL} has 4 table rows where the English page has 5`,
     ])
   })
 

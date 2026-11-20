@@ -9,8 +9,6 @@ import { getCoursesQuery } from "~/src/modules/course/use-cases/get-courses"
 
 import { expectLocalizedAdminPage, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
 
 const ADMIN_SESSION = createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USERS.VISITOR })

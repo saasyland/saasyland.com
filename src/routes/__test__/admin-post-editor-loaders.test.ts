@@ -4,8 +4,6 @@ import { expectLocalizedAdminPage, loadAsAdmin } from "~/src/routes/__test__/fix
 
 import { getRouter } from "~/src/router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin post editor route loaders", () => {

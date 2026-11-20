@@ -1,16 +1,14 @@
 import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
-import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
+import { loadBlogIndex } from "virtual:content-indexes"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
+import { toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
-
-import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -20,10 +18,6 @@ import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { HighlightGroup } from "~/src/presentation/components/custom/highlight"
 
 import { ROUTES } from "~/src/routes"
-
-const getBlogPosts = createServerFn({ method: "GET" })
-  .validator(localeField)
-  .handler(({ data: locale }) => getPublishedBlogPosts(locale))
 
 const BlogIndexPage = (): JSX.Element => {
   const t = useTranslations("pages.blog")
@@ -60,10 +54,10 @@ export const Route = createFileRoute("/_site/_marketing/blog/")({
     const locale = getCurrentLocale()
     const [metadata, posts] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
-      getBlogPosts({ data: locale }),
+      loadBlogIndex(locale),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    return { locale, metadata, posts }
+    return { locale, metadata, posts: posts.map((post) => toBlogPostSummary(post, locale)) }
   },
   pendingComponent: BlogIndexPending,
   staticData: { namespaces: [NAMESPACE] },

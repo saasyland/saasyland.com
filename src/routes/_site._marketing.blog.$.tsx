@@ -1,18 +1,15 @@
-import { type JSX, type ReactNode, isValidElement } from "react"
+import type { JSX } from "react"
 
 import { InlineTOC } from "@fumadocs/base-ui/components/inline-toc"
 import { RootProvider } from "@fumadocs/base-ui/provider/tanstack"
 import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
-import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
-import zod from "zod/v4"
+import { loadBlogIndex } from "virtual:content-indexes"
 
-import { type BlogPostSummary, blogSource, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import { type BlogPostSummary, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
-
-import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
@@ -30,43 +27,8 @@ import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
 import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const tocItemTitle = (title: ReactNode): string => {
-  if (typeof title === "string" || typeof title === "number" || typeof title === "bigint") {
-    return String(title)
-  }
-
-  if (isValidElement<{ children?: ReactNode }>(title)) {
-    return tocItemTitle(title.props.children)
-  }
-
-  if (typeof title === "object" && title !== null && Symbol.iterator in title) {
-    return Array.from(title, tocItemTitle).join("")
-  }
-
-  return ""
-}
-
 const SEARCH = { enabled: false } as const
 const THEME = { enabled: false } as const
-
-const getBlogPost = createServerFn({ method: "GET" })
-  .validator(zod.object({ locale: localeField, slug: zod.string() }))
-  .handler(async ({ data: { locale, slug } }) => {
-    const page = blogSource.getPage(slug.split("/"), locale)
-    if (!page || !page.data.published) {
-      throw notFound()
-    }
-    const [summary, { toc }] = await Promise.all([toBlogPostSummary(page, locale), page.data.load()])
-    return {
-      ...summary,
-      authorName: page.data.authorName,
-      faq: page.data.faq,
-      image: page.data.image,
-      path: page.path,
-      toc: toc.map((item) => ({ depth: item.depth, title: tocItemTitle(item.title), url: item.url })),
-      updated: page.data.updated,
-    }
-  })
 
 const BlogPostPage = (): JSX.Element => {
   const { post } = Route.useLoaderData()
@@ -164,13 +126,18 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
   },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
-    const [post, blog] = await Promise.all([
-      getBlogPost({ data: { locale, slug: params._splat ?? "" } }),
+    const [posts, blog] = await Promise.all([
+      loadBlogIndex(locale),
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
+    const post = posts.find(({ url }) => url === `${ROUTES.BLOG}/${params._splat ?? ""}`)
+    if (post === undefined) {
+      throw notFound()
+    }
     await blogContent.preload(post.path)
-    return { locale, post, section: blog.title }
+    const { authorName, faq, image, path, toc, updated } = post
+    return { locale, post: { ...toBlogPostSummary(post, locale), authorName, faq, image, path, toc, updated }, section: blog.title }
   },
   pendingComponent: BlogPostPending,
   staticData: { namespaces: [NAMESPACE] },

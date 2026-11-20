@@ -1,31 +1,11 @@
-import { pageSchema } from "fumadocs-core/source/schema"
 import { defineCollections, defineConfig, defineDocs } from "fumadocs-mdx/config"
-import zod from "zod/v4"
 
-import { rehypeOmitRenderedContent } from "../../../scripts/deployed-worker"
-import { BLOG_TAGS } from "../../data/blog"
 import { changelogEntries } from "./fumadocs.changelog"
+import { blogSchema } from "./fumadocs.schema"
 
 export const docs = defineDocs({
   dir: "./content/docs",
   docs: { async: true },
-})
-
-const blogDateSchema = zod.union([zod.string(), zod.date()])
-
-const blogFaqSchema = zod.array(zod.object({ answer: zod.string(), question: zod.string() }))
-
-const blogSchema = pageSchema.extend({
-  authorImage: zod.string().optional(),
-  authorName: zod.string(),
-  date: blogDateSchema,
-  excerpt: zod.string().optional(),
-  faq: blogFaqSchema.optional(),
-  featured: zod.boolean().optional(),
-  image: zod.string().optional(),
-  published: zod.boolean().default(true),
-  tags: zod.array(zod.enum(BLOG_TAGS)).optional(),
-  updated: blogDateSchema.optional(),
 })
 
 export const blog = defineCollections({
@@ -44,7 +24,6 @@ export default defineConfig({
       },
       themes: { dark: "github-dark", light: "github-light" },
     },
-    rehypePlugins: (plugins) => [...plugins, rehypeOmitRenderedContent],
   },
   plugins: [changelogEntries],
 })

@@ -6,13 +6,13 @@ const DEPLOYED_WORKER_BUILD = "DEPLOYED_WORKER_BUILD"
 
 const PRERENDERED_ONLY_MESSAGES = ["pages.landing", "pages.legal.*"].map((namespace) => `**/messages/*/${namespace}.json`)
 
-const isDeployedWorkerBuild = (): boolean => process.env[DEPLOYED_WORKER_BUILD] === "true"
+const COMPILED_PAGE = /\.mdx\?collection=[\w-]+$/u
 
-export const rehypeOmitRenderedContent = () => (tree: { children: { type: string }[] }) => {
-  if (isDeployedWorkerBuild()) {
-    tree.children = tree.children.filter((node) => node.type === "mdxjsEsm")
-  }
-}
+const PRERENDERED_PAGE = "\0saasyland:prerendered-page"
+
+const PRERENDERED_PAGE_MODULE = `throw new Error("The deployed Worker serves the docs and blog pages prerendered and never compiles them")`
+
+const isDeployedWorkerBuild = (): boolean => process.env[DEPLOYED_WORKER_BUILD] === "true"
 
 export const deployedWorker = (): Plugin => {
   let clientOutDir = ""
@@ -50,7 +50,16 @@ export const deployedWorker = (): Plugin => {
         }
       }
     },
+    load: {
+      filter: { id: /^\0saasyland:prerendered-page$/u },
+      handler: () => PRERENDERED_PAGE_MODULE,
+    },
     name: "saasyland:deployed-worker",
+    resolveId: {
+      filter: { id: COMPILED_PAGE },
+      handler: () => (isDeployedWorkerBuild() ? PRERENDERED_PAGE : undefined),
+      order: "pre",
+    },
     transform: {
       filter: { id: PRERENDERED_ONLY_MESSAGES },
       handler: (code) => (isDeployedWorkerBuild() ? "{}" : code),

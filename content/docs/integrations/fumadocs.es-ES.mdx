@@ -3,19 +3,29 @@ title: "Fumadocs"
 description: "Colecciones MDX para la documentación y el blog, fuentes localizadas y búsqueda."
 ---
 
-Fumadocs convierte `content/docs` y `content/blog` en árboles de páginas localizados. `bun run content` ejecuta `fumadocs-mdx` y escribe `.source/`; `dev`, `typegen` y todos los scripts de compilación lo ejecutan primero. Las dos colecciones son `async`: el Worker guarda el frontmatter de todas las páginas e importa el MDX compilado de una página con `page.data.load()` cuando una petición necesita sus encabezados o su texto de búsqueda (consulta [Rendimiento](/docs/conventions/performance#keep-the-route-tree-light)).
+Fumadocs convierte `content/docs` y `content/blog` en páginas localizadas. `bun run content` ejecuta `fumadocs-mdx` y escribe `.source/`; `dev`, `typegen` y todos los scripts de compilación lo ejecutan primero. La aplicación lee el MDX compilado de una página de `.source/browser.ts`, en el navegador y durante el prerenderizado, y todo lo demás sobre el contenido, de los índices que se describen más abajo, así que el Worker desplegado no contiene ningún contenido (consulta [Rendimiento](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)).
 
 | Archivo                 | Propósito                                                                                                                                                                                                                                |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fumadocs.config.ts`    | Las colecciones `docs` y `blog`, ambas `async`, el esquema de frontmatter del blog, y los temas y sustituciones de color del resaltado de código                                                                                         |
+| `fumadocs.config.ts`    | Las colecciones `docs` y `blog`, ambas `async`, y los temas y sustituciones de color del resaltado de código                                                                                                                             |
+| `fumadocs.schema.ts`    | El esquema de frontmatter del blog                                                                                                                                                                                                       |
 | `fumadocs.i18n.ts`      | Los idiomas de `I18N`, `en-US` como idioma predeterminado y de reserva, el parser `dot` para `<slug>.<locale>.mdx` y el prefijo de idioma oculto                                                                                         |
-| `fumadocs.source.ts`    | `source` en `/docs` con los iconos de `docsIcon`, `blogSource` en `/blog`, `getPublishedBlogPages` y `getPublishedBlogPosts` con el tiempo de lectura                                                                                    |
+| `fumadocs.indexes.ts`   | Se ejecuta en el build: lee `content/docs` y `content/blog` y construye el índice de la documentación, el índice del blog y el índice de búsqueda de cada idioma                                                                         |
 | `fumadocs.icons.ts`     | `DOCS_ICONS`, los iconos de Lucide que nombran los archivos meta, y `docsIcon`, que convierte el `icon` de un archivo meta en su icono                                                                                                   |
-| `fumadocs.docs.ts`      | La función de servidor `getDocsPage`, `loadDocsPage` y `docsHead` para la ruta `docs.$`                                                                                                                                                  |
-| `fumadocs.search.ts`    | El índice de búsqueda servido por `/api/search`                                                                                                                                                                                          |
+| `fumadocs.docs.ts`      | `loadDocsPage` y `docsHead` para la ruta `docs.$`                                                                                                                                                                                        |
+| `fumadocs.blog.ts`      | `toBlogPostSummary`, que formatea el título de una entrada y localiza su URL                                                                                                                                                             |
 | `fumadocs.changelog.ts` | El plugin `changelogEntries`, que sustituye `<ChangelogEntries unreleased="…" />` en la página del registro de cambios por las entradas de `content/changelog` en el idioma de la página, bajo el día UTC en que cada una llegó a `main` |
 
 El prefijo de idioma se oculta en las URL de Fumadocs porque lo añade el router. El frontmatter del blog exige `title`, `authorName` y `date`, y acepta `description`, `excerpt`, `faq`, `featured`, `image`, `published`, `tags`, `updated` y `authorImage`.
+
+## Índices de contenido [#content-indexes]
+
+`scripts/content-indexes.ts` es un plugin de Vite que carga `fumadocs.indexes.ts` con el module runner de Vite y sirve lo que este construye como módulos virtuales, en el build y en el servidor de desarrollo, donde una edición bajo `content/` los vuelve a construir:
+
+- `virtual:content-indexes`: `loadDocsIndex(locale)` devuelve el árbol de páginas serializado de un idioma y sus páginas por slug, cada una con su título, su descripción, su sección y su archivo MDX; `loadBlogIndex(locale)` devuelve las entradas publicadas de un idioma, de la más reciente a la más antigua, con su frontmatter, su tabla de contenidos y su tiempo de lectura. El índice de cada idioma es un chunk propio, que un loader importa la primera vez que lo necesita.
+- `virtual:docs-search`: `SEARCH_INDEXES` devuelve la URL del índice de búsqueda de cada idioma. El build escribe cada índice en `/assets/search-index-<locale>-<hash>.json` con `createSearchAPI("advanced")` de Fumadocs, a partir de los encabezados y el texto que `structure` de Fumadocs lee de cada página, con las entradas del registro de cambios en la página del registro de cambios y las migas de pan que le daría la propia búsqueda de Fumadocs.
+
+`fumadocs.indexes.ts` valida el frontmatter de cada página con el esquema de su colección y construye los árboles con el `loader` de Fumadocs, la configuración de i18n de `fumadocs.i18n.ts` y los iconos de `docsIcon`. La tabla de contenidos de una entrada del blog sale de `getTableOfContents`, y su tiempo de lectura, de las palabras de su texto, contadas con `Intl.Segmenter` para su idioma.
 
 ## Componentes
 

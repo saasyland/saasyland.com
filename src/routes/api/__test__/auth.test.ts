@@ -12,7 +12,6 @@ const { authHandler } = vi.hoisted(() => ({
 }))
 
 vi.mock("~/src/integrations/better-auth/auth.server", () => ({ auth: { handler: authHandler } }))
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 
 const AUTH_SPLAT_PATH = `${ROUTES.API_AUTH_BASE}/$`
 

@@ -1,17 +1,16 @@
 import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
-import { createServerFn } from "@tanstack/react-start"
 import { createFormatter } from "use-intl"
+import { loadBlogIndex } from "virtual:content-indexes"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { getPublishedBlogPages, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import { toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
-import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
@@ -42,14 +41,6 @@ import { StudioSection } from "~/src/presentation/components/custom/landing-page
 import { ROUTES } from "~/src/routes"
 
 const NOTE_COUNT = 3
-
-const getLatestBlogPosts = createServerFn({ method: "GET" })
-  .validator(localeField)
-  .handler(({ data: locale }) => {
-    const pages = getPublishedBlogPages(locale)
-    const notes = [...pages.filter((page) => page.data.featured === true), ...pages.filter((page) => page.data.featured !== true)]
-    return Promise.all(notes.slice(0, NOTE_COUNT).map((page) => toBlogPostSummary(page, locale)))
-  })
 
 const LandingPage = (): JSX.Element => (
   <MotionProvider>
@@ -88,11 +79,12 @@ export const Route = createFileRoute("/_site/_marketing/")({
         namespace: NAMESPACE,
         values: { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, languages: REPOSITORY_FACTS.languages, price },
       }),
-      getLatestBlogPosts({ data: locale }),
+      loadBlogIndex(locale),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    return { locale, metadata, posts }
+    const notes = [...posts.filter(({ featured }) => featured), ...posts.filter(({ featured }) => !featured)]
+    return { locale, metadata, posts: notes.slice(0, NOTE_COUNT).map((post) => toBlogPostSummary(post, locale)) }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: [NAMESPACE], underHeader: true },

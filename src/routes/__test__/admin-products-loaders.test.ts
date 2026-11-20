@@ -7,8 +7,6 @@ import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } f
 
 import { getRouter } from "~/src/router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin catalog route loaders", () => {

@@ -10,7 +10,6 @@ Le route API sono handler server di TanStack Start in `src/routes/api/`. Le sche
 | File                         | Percorso                                     | Scopo                                                                                         |
 | ---------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: accesso, callback OAuth, verifica email, portale e webhook di Polar              |
-| `src/routes/api/search.ts`   | `/api/search`                                | Ricerca Fumadocs per la documentazione                                                        |
 | `src/routes/api/index.ts`    | `/api`                                       | Controllo del runtime che restituisce `{ "runtime": "cloudflare-workers" }`                   |
 | `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | L'[API delle licenze della CLI](/docs/features/cli-licence-api) che la CLI `saasyland` chiama |
 
@@ -23,12 +22,13 @@ Dichiara i metodi in `server.handlers`. Ogni handler riceve la `Request` web e r
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
 
-import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/search")({
+export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => search.GET(request),
+      GET: ({ request }) => auth.handler(request),
+      POST: ({ request }) => auth.handler(request),
     },
   },
 })
@@ -45,9 +45,9 @@ All'interno di un handler:
 ## Regole di routing
 
 - I percorsi `/api` non hanno mai un prefisso di lingua e il Worker salta per essi la ricerca delle risorse statiche e i reindirizzamenti di lingua.
-- Gli URL `/api` non contengono la lingua, quindi `getCurrentLocale()` lì restituisce la lingua predefinita. Una risposta localizzata prende la lingua dalla richiesta, come fa `/api/search` con il parametro di query `locale`.
+- Gli URL `/api` non contengono la lingua, quindi `getCurrentLocale()` lì restituisce la lingua predefinita. Una risposta localizzata prende la lingua dalla richiesta, ad esempio da un parametro di query `locale`.
 - `/api` è escluso dal prerendering.
 
 ## Test
 
-Chiama l'handler tramite le opzioni della route, come fa `src/routes/api/__test__/search.test.ts` con `Route.options.server.handlers`, e simula il provider a cui inoltra la richiesta.
+Chiama l'handler tramite le opzioni della route, come fa `src/routes/api/__test__/auth.test.ts` con `Route.options.server.handlers`, e simula il provider a cui inoltra la richiesta.

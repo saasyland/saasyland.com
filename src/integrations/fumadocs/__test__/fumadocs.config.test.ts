@@ -3,8 +3,6 @@ import { describe, expect, it } from "vite-plus/test"
 import { changelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import config, { blog, docs } from "~/src/integrations/fumadocs/fumadocs.config"
 
-import { rehypeOmitRenderedContent } from "~/scripts/deployed-worker"
-
 describe("content schema", () => {
   it("loads the documentation and blog from their content directories", () => {
     expect(docs.docs.dir).toBe("./content/docs")
@@ -24,12 +22,13 @@ describe("content schema", () => {
 })
 
 describe("MDX options", () => {
-  it("runs the deployed Worker plugin after the default rehype plugins", () => {
-    const { mdxOptions } = config
-    if (typeof mdxOptions !== "object" || typeof mdxOptions.rehypePlugins !== "function") {
-      throw new TypeError("Missing rehype plugins")
-    }
-    expect(mdxOptions.rehypePlugins([])).toEqual([rehypeOmitRenderedContent])
+  it("highlights code with the GitHub themes and adds no rehype plugin", () => {
+    expect(config.mdxOptions).toStrictEqual({
+      rehypeCodeOptions: {
+        colorReplacements: { "github-dark": { "#6a737d": "#78828c" }, "github-light": { "#e36209": "#c55300" } },
+        themes: { dark: "github-dark", light: "github-light" },
+      },
+    })
   })
 })
 

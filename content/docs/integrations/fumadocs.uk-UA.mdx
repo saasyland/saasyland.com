@@ -3,19 +3,29 @@ title: "Fumadocs"
 description: "Колекції MDX для документації та блогу, локалізовані джерела й пошук."
 ---
 
-Fumadocs перетворює `content/docs` і `content/blog` на локалізовані дерева сторінок. `bun run content` запускає `fumadocs-mdx` і записує `.source/`; `dev`, `typegen` і кожен скрипт збірки спершу запускають його. Обидві колекції `async`: Worker зберігає frontmatter кожної сторінки й імпортує скомпільований MDX сторінки через `page.data.load()`, коли запиту потрібні її заголовки чи текст для пошуку (див. [Продуктивність](/docs/conventions/performance#keep-the-route-tree-light)).
+Fumadocs перетворює `content/docs` і `content/blog` на локалізовані сторінки. `bun run content` запускає `fumadocs-mdx` і записує `.source/`; `dev`, `typegen` і кожен скрипт збірки спершу запускають його. Застосунок читає скомпільований MDX сторінки з `.source/browser.ts` — у браузері та під час попереднього рендерингу, а все інше про вміст — з індексів, описаних нижче, тож розгорнутий Worker узагалі не містить вмісту (див. [Продуктивність](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)).
 
 | Файл                    | Призначення                                                                                                                                                                                        |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fumadocs.config.ts`    | Колекції `docs` і `blog`, обидві `async`, схема frontmatter блогу, а також теми й заміни кольорів підсвічування коду                                                                               |
+| `fumadocs.config.ts`    | Колекції `docs` і `blog`, обидві `async`, а також теми й заміни кольорів підсвічування коду                                                                                                        |
+| `fumadocs.schema.ts`    | Схема frontmatter блогу                                                                                                                                                                            |
 | `fumadocs.i18n.ts`      | Локалі з `I18N`, `en-US` як типова та резервна, парсер `dot` для `<slug>.<locale>.mdx`, прихований префікс локалі                                                                                  |
-| `fumadocs.source.ts`    | `source` на `/docs` з іконками `docsIcon`, `blogSource` на `/blog`, `getPublishedBlogPages` і `getPublishedBlogPosts` з часом читання                                                              |
+| `fumadocs.indexes.ts`   | Виконується під час збірки: читає `content/docs` і `content/blog` та будує для кожної локалі індекс документації, індекс блогу й пошуковий індекс                                                  |
 | `fumadocs.icons.ts`     | `DOCS_ICONS` — іконки Lucide, які називають meta-файли, і `docsIcon`, що перетворює `icon` meta-файлу на відповідну іконку                                                                         |
-| `fumadocs.docs.ts`      | Серверна функція `getDocsPage`, `loadDocsPage` і `docsHead` для маршруту `docs.$`                                                                                                                  |
-| `fumadocs.search.ts`    | Пошуковий індекс, який обслуговує `/api/search`                                                                                                                                                    |
+| `fumadocs.docs.ts`      | `loadDocsPage` і `docsHead` для маршруту `docs.$`                                                                                                                                                  |
+| `fumadocs.blog.ts`      | `toBlogPostSummary`, який форматує заголовок допису й локалізує його URL                                                                                                                           |
 | `fumadocs.changelog.ts` | Плагін `changelogEntries`, який замінює `<ChangelogEntries unreleased="…" />` на сторінці журналу змін записами з `content/changelog` мовою сторінки, під днем (UTC), коли кожен потрапив у `main` |
 
 Префікс локалі приховано в URL Fumadocs, бо його додає роутер. Frontmatter блогу вимагає `title`, `authorName` і `date` та приймає `description`, `excerpt`, `faq`, `featured`, `image`, `published`, `tags`, `updated` і `authorImage`.
+
+## Індекси вмісту [#content-indexes]
+
+`scripts/content-indexes.ts` — це плагін Vite, який завантажує `fumadocs.indexes.ts` через module runner Vite і надає те, що той будує, як віртуальні модулі — і під час збірки, і в dev-сервері, де редагування в `content/` перебудовує їх:
+
+- `virtual:content-indexes`: `loadDocsIndex(locale)` повертає серіалізоване дерево сторінок локалі та її сторінки за slug, кожну із заголовком, описом, розділом і файлом MDX; `loadBlogIndex(locale)` повертає опубліковані дописи локалі, від найновішого, з їхнім frontmatter, змістом і часом читання. Індекс кожної локалі — окремий чанк, який loader імпортує, коли той уперше знадобиться.
+- `virtual:docs-search`: `SEARCH_INDEXES` повертає URL пошукового індексу кожної локалі. Збірка записує кожен індекс у `/assets/search-index-<locale>-<hash>.json` через `createSearchAPI("advanced")` з Fumadocs — із заголовків і тексту, які `structure` з Fumadocs читає з кожної сторінки, разом із записами журналу змін на сторінці журналу змін і хлібними крихтами, які дав би сторінці власний пошук Fumadocs.
+
+`fumadocs.indexes.ts` перевіряє frontmatter кожної сторінки схемою колекції й будує дерева через `loader` з Fumadocs, налаштування i18n з `fumadocs.i18n.ts` та іконки `docsIcon`. Зміст допису блогу береться з `getTableOfContents`, а час читання — зі слів його тексту, підрахованих через `Intl.Segmenter` для його локалі.
 
 ## Компоненти
 

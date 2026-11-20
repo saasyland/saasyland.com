@@ -20,7 +20,13 @@ const CHANGELOG: Changelog = {
         { key: "150", source: "- Dependencies updated, see [Vite+](https://viteplus.dev/).\n- Fixed: the logo scrolls to the top.\n" },
       ],
     },
-    { date: "2026-11-13", entries: [{ key: "120", source: "- Courses.\n" }] },
+    {
+      date: "2026-11-13",
+      entries: [
+        { key: "120", source: "- Courses.\n" },
+        { key: EARLIER_COMMIT, source: "- Dependencies updated.\n" },
+      ],
+    },
   ],
   unreleased: [{ key: "152", source: "- Changelog entries.\n" }],
 }
@@ -64,18 +70,21 @@ describe("releaseTag", () => {
 })
 
 describe("releaseNotes", () => {
-  it.each(["v2026.11.14", "v2026.11.14.2"])("gives %s the entries that reached main on its day, with absolute site links", (tag) => {
-    expect(releaseNotes(CHANGELOG, tag)).toBe(
-      [
-        "- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos).",
-        "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
-        "- Fixed: the logo scrolls to the top.",
-      ].join("\n"),
-    )
-  })
+  it.each(["v2026.11.14", "v2026.11.14.2"])(
+    "gives %s the entries that reached main on its day, with absolute site links and the pull request each came from",
+    (tag) => {
+      expect(releaseNotes(CHANGELOG, tag)).toBe(
+        [
+          "- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos). (#151)",
+          "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
+          "- Fixed: the logo scrolls to the top. (#150)",
+        ].join("\n"),
+      )
+    },
+  )
 
-  it("leaves out the entries of other days and the ones not on main yet", () => {
-    expect(releaseNotes(CHANGELOG, "v2026.11.13")).toBe("- Courses.")
+  it("leaves out the entries of other days and the ones not on main yet, and names the commit of an entry without a pull request", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.13")).toBe(`- Courses. (#120)\n- Dependencies updated. (${EARLIER_COMMIT})`)
   })
 
   it("links to the changelog when no entry reached main that day", () => {

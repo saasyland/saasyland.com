@@ -1,7 +1,8 @@
 import type { Plugin } from "fumadocs-mdx"
+import process from "node:process"
 import zod from "zod/v4"
 
-import { type ChangelogEntry, joinEntries, readChangelog } from "../../lib/changelog"
+import { type ChangelogEntry, joinEntries, originOf, readChangelog, unreleasedEntryProblems } from "../../lib/changelog"
 
 interface CompiledDocument {
   readonly cwd: string
@@ -16,9 +17,12 @@ const SECTION_SEPARATOR = "\n\n"
 
 const elementSchema = zod.object({ unreleased: zod.string() })
 const pageSchema = zod.object({ locale: zod.string() })
+const runSchema = zod.object({ GITHUB_BASE_REF: zod.string().default(""), GITHUB_REF: zod.string().default("") })
+
+const entryLinks = ({ key }: ChangelogEntry): string => `<ChangelogLinks ${originOf(key)}="${key}" />`
 
 const section = (heading: string, entries: readonly ChangelogEntry[]): string[] =>
-  entries.length === 0 ? [] : [`## ${heading}`, joinEntries(entries)]
+  entries.length === 0 ? [] : [`## ${heading}`, joinEntries(entries, entryLinks)]
 
 export const listChangelogEntries = async ({ cwd, path, source }: { cwd: string; path: string; source: string }): Promise<string> => {
   const element = ENTRIES_ELEMENT.exec(source)
@@ -29,7 +33,14 @@ export const listChangelogEntries = async ({ cwd, path, source }: { cwd: string;
 
   const { unreleased } = elementSchema.parse(element.groups)
   const { locale } = pageSchema.parse(PAGE_LOCALE.exec(path)?.groups)
+  const { GITHUB_BASE_REF, GITHUB_REF } = runSchema.parse(process.env)
   const changelog = await readChangelog({ cwd, locale })
+  const problems = unreleasedEntryProblems({ changelog, run: { baseRef: GITHUB_BASE_REF, ref: GITHUB_REF } })
+
+  if (problems.length > 0) {
+    throw new Error(problems.join("\n"))
+  }
+
   const sections = [...section(unreleased, changelog.unreleased), ...changelog.days.flatMap(({ date, entries }) => section(date, entries))]
 
   return source.replace(element[0], () => sections.join(SECTION_SEPARATOR))

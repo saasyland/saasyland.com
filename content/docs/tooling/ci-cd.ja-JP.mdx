@@ -21,7 +21,7 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、[フロー一覧](/docs/tooling/test-coverage#flow-coverage)、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:reset:test` と `build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
 
-プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗します。
+プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗します。`e2e` ジョブとデプロイジョブのビルドは、変更履歴がそのプルリクエスト自身のもの以外のエントリを**未リリース**の下に載せることになる間は失敗し、`main` では未リリースのエントリが 1 つでもあれば失敗します。
 
 ## デプロイ
 
@@ -42,7 +42,7 @@ Dependabot は GitHub Actions を毎週更新します。
 
 サイトは継続的にデプロイされるため、バージョンはセマンティックバージョンではなく日付です。本番へのデプロイが成功すると、`ci.yml` の `release` ジョブがデプロイしたコミットに UTC の日付で `vYYYY.MM.DD` のタグを付け、GitHub Release を公開します。同じ日の 2 回目の本番デプロイには `vYYYY.MM.DD.2`、その次には `.3` というようにタグが付きます。プレビューへのデプロイにはタグを付けません。`contents: write` を持つジョブは `release` ジョブだけです。
 
-リリースノートは、その日に `main` に入った[変更履歴](/docs/project/changelog)のエントリなので、変更の説明は 1 か所にまとまります。その日に入ったエントリがない場合、リリースノートは変更履歴へのリンクになります。 `scripts/publish-release.ts` が `src/lib/release.ts` でタグとリリースノートを決め、`gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
+リリースノートは、その日に `main` に入った[変更履歴](/docs/project/changelog)のエントリで、各エントリの末尾には GitHub がプルリクエストへのリンクにする `(#<number>)` が付きます。これにより、変更の説明は 1 か所にまとまります。その日に入ったエントリがない場合、リリースノートは変更履歴へのリンクになります。 `scripts/publish-release.ts` が `src/lib/release.ts` でタグとリリースノートを決め、`gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
 
 本番をあるリリースに戻すには、そのタグより後の変更をすべてプルリクエストで取り消します。
 

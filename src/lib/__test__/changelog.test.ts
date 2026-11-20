@@ -4,10 +4,22 @@ import { type GitRepository, createGitRepository } from "~/src/platform/testing/
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { ENTRY_KEY, joinEntries, pullRequestOf, readChangelog } from "~/src/lib/changelog"
+import {
+  type Changelog,
+  ENTRY_KEY,
+  ENTRY_ORIGIN,
+  MAIN_BRANCH,
+  joinEntries,
+  originOf,
+  pullRequestOf,
+  readChangelog,
+  unreleasedEntryProblems,
+} from "~/src/lib/changelog"
 
 const COMMIT_HASH = "0b9a1b9865859643bedbbb41c3f26b3ff6a1eede"
 const TRANSLATED_LOCALE = "de-DE"
+const MAIN_REF = `refs/heads/${MAIN_BRANCH}`
+const PULL_REQUEST_REF = "refs/pull/220/merge"
 
 const entry = (key: string) => ({ key, source: `- Change ${key}.\n` })
 
@@ -16,6 +28,9 @@ const writeEntries = (repository: GitRepository, keys: readonly string[]): void 
     repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, entry(key).source)
   }
 }
+
+const problemOf = (key: string, rule: string): string =>
+  `content/changelog/${key}.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; ${rule}. Delete the entry of a pull request that was closed without merging.`
 
 const readEnglish = (repository: GitRepository) => readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE })
 
@@ -76,8 +91,57 @@ describe("readChangelog", () => {
 })
 
 describe("joinEntries", () => {
-  it("joins the entries into one Markdown list", () => {
-    expect(joinEntries([entry("12"), { key: "11", source: "- First.\n- Second.\n\n" }])).toBe("- Change 12.\n- First.\n- Second.")
+  it("joins the entries into one Markdown list and ends each entry's last item with its reference", () => {
+    expect(joinEntries([entry("12"), { key: "11", source: "- First.\n- Second.\n\n" }], ({ key }) => `(#${key})`)).toBe(
+      "- Change 12. (#12)\n- First.\n- Second. (#11)",
+    )
+  })
+})
+
+describe("originOf", () => {
+  it.each([
+    { key: "1", origin: ENTRY_ORIGIN.PULL_REQUEST },
+    { key: "257", origin: ENTRY_ORIGIN.PULL_REQUEST },
+    { key: COMMIT_HASH, origin: ENTRY_ORIGIN.COMMIT },
+  ])("finds that entry $key came from a $origin", ({ key, origin }) => {
+    expect(originOf(key)).toBe(origin)
+  })
+})
+
+describe("unreleasedEntryProblems", () => {
+  const changelog: Changelog = {
+    days: [{ date: "2026-11-20", entries: [entry("218")] }],
+    unreleased: [entry("220"), entry("219")],
+  }
+
+  it("fails a pull request into main whose changelog lists another entry as unreleased, as #220 listed the closed #219", () => {
+    expect(unreleasedEntryProblems({ changelog, run: { baseRef: MAIN_BRANCH, ref: PULL_REQUEST_REF } })).toStrictEqual([
+      problemOf("219", "in pull request #220, only its own entry may wait for the merge"),
+    ])
+  })
+
+  it("passes a pull request into main whose own entry is the only one waiting for its merge", () => {
+    expect(
+      unreleasedEntryProblems({
+        changelog: { ...changelog, unreleased: [entry("220")] },
+        run: { baseRef: MAIN_BRANCH, ref: PULL_REQUEST_REF },
+      }),
+    ).toStrictEqual([])
+  })
+
+  it("fails main while any entry is unreleased", () => {
+    expect(unreleasedEntryProblems({ changelog, run: { baseRef: "", ref: MAIN_REF } })).toStrictEqual([
+      problemOf("220", "on main, no entry may"),
+      problemOf("219", "on main, no entry may"),
+    ])
+  })
+
+  it.each([
+    { run: { baseRef: "", ref: "" }, scope: "a local build" },
+    { run: { baseRef: "feat/changelog-pr-links", ref: PULL_REQUEST_REF }, scope: "a pull request into another pull request's branch" },
+    { run: { baseRef: "", ref: "refs/heads/feat/changelog-pr-links" }, scope: "a branch other than main" },
+  ])("lets $scope list unreleased entries", ({ run }) => {
+    expect(unreleasedEntryProblems({ changelog, run })).toStrictEqual([])
   })
 })
 

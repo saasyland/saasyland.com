@@ -1,10 +1,12 @@
 import { VFile } from "vfile"
-import { describe, expect, it } from "vite-plus/test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { type GitRepository, createGitRepository } from "~/src/platform/testing/lib/git-repository"
 
 import { addChangelogEntries, changelogEntries, listChangelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
+import { MAIN_BRANCH } from "~/src/lib/changelog"
 
 const PAGE = `content/docs/project/changelog.${I18N.DEFAULT_LOCALE}.mdx`
 const INTRODUCTION = "Each section lists the changes that reached `main` on that day."
@@ -30,19 +32,69 @@ const repositoryWithEntries = (): GitRepository => {
 const listIn = (repository: GitRepository, source: string) =>
   listChangelogEntries({ cwd: repository.path, path: `${repository.path}/${PAGE}`, source })
 
+const runIn = ({ baseRef, ref }: { baseRef: string; ref: string }): void => {
+  vi.stubEnv("GITHUB_BASE_REF", baseRef)
+  vi.stubEnv("GITHUB_REF", ref)
+}
+
+beforeEach(() => {
+  runIn({ baseRef: "", ref: "" })
+})
+
 describe("changelog entries", () => {
-  it("puts the entries in the page's locale where the page asks for them, under the day each reached main", async () => {
+  it("puts the entries in the page's locale where the page asks for them, under the day each reached main, each ending with its pull request", async () => {
     const sections = [
       INTRODUCTION,
       "## Unreleased",
-      "- Changelog entries.",
+      '- Changelog entries. <ChangelogLinks pullRequest="13" />',
       "## 2026-11-15",
-      "- The browser no longer downloads Drizzle.",
+      '- The browser no longer downloads Drizzle. <ChangelogLinks pullRequest="12" />',
       "## 2026-11-13",
-      "- Fixed: verification links keep the locale.\n- Fixed: so do reset links, at $<year>.\n- Courses: `/courses` lists them. See [Courses](/docs/features/courses).",
+      [
+        "- Fixed: verification links keep the locale.",
+        '- Fixed: so do reset links, at $<year>. <ChangelogLinks pullRequest="11" />',
+        '- Courses: `/courses` lists them. See [Courses](/docs/features/courses). <ChangelogLinks pullRequest="10" />',
+      ].join("\n"),
     ]
 
     await expect(listIn(repositoryWithEntries(), CHANGELOG_PAGE)).resolves.toBe(`${sections.join("\n\n")}\n`)
+  })
+
+  it("links an entry that reached main without a pull request to its commit", async () => {
+    const repository = repositoryWithEntries()
+    const commit = repository.commit("♻️ chore(deps): update packages", "2026-11-16T09:00:00Z")
+
+    repository.writeEntry(`${commit}.${I18N.DEFAULT_LOCALE}.mdx`, "- Dependencies updated.\n")
+
+    await expect(listIn(repository, CHANGELOG_PAGE)).resolves.toContain(
+      `## 2026-11-16\n\n- Dependencies updated. <ChangelogLinks commit="${commit}" />\n\n## 2026-11-15`,
+    )
+  })
+
+  it("fails the build of a pull request into main whose page would list another pull request's entry as unreleased", async () => {
+    const repository = repositoryWithEntries()
+
+    repository.writeEntry(`14.${I18N.DEFAULT_LOCALE}.mdx`, "- Pull request 14.\n")
+    runIn({ baseRef: MAIN_BRANCH, ref: "refs/pull/14/merge" })
+
+    await expect(listIn(repository, CHANGELOG_PAGE)).rejects.toThrow(
+      "content/changelog/13.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; in pull request #14, only its own entry may wait for the merge.",
+    )
+  })
+
+  it("builds a pull request into main whose own entry is the only one waiting for the merge", async () => {
+    runIn({ baseRef: MAIN_BRANCH, ref: "refs/pull/13/merge" })
+
+    await expect(listIn(repositoryWithEntries(), CHANGELOG_PAGE)).resolves.toContain("## Unreleased")
+  })
+
+  it("fails the build of main while an entry is unreleased, and leaves every other page alone", async () => {
+    runIn({ baseRef: "", ref: `refs/heads/${MAIN_BRANCH}` })
+
+    await expect(listIn(repositoryWithEntries(), CHANGELOG_PAGE)).rejects.toThrow(
+      "content/changelog/13.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; on main, no entry may.",
+    )
+    await expect(listIn(repositoryWithEntries(), INTRODUCTION)).resolves.toBe(INTRODUCTION)
   })
 
   it("leaves out the unreleased section when every entry has reached main", async () => {
@@ -51,7 +103,7 @@ describe("changelog entries", () => {
     repository.commit("📚 docs(changelog): give each change its own entry (#13)", "2026-11-16T04:00:00Z")
 
     await expect(listIn(repository, CHANGELOG_PAGE)).resolves.toContain(
-      `${INTRODUCTION}\n\n## 2026-11-16\n\n- Changelog entries.\n\n## 2026-11-15`,
+      `${INTRODUCTION}\n\n## 2026-11-16\n\n- Changelog entries. <ChangelogLinks pullRequest="13" />\n\n## 2026-11-15`,
     )
   })
 

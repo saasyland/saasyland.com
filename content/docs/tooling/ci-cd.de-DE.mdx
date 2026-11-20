@@ -21,7 +21,7 @@ Die Checkouts, die die Website bauen, in `e2e-reusable.yml` und `deploy-reusable
 
 Der Job `verify` in `ci.yml` führt `bun run check` (Klassennamen-Tabellen, i18n- und Inhaltsprüfungen, das [Ablaufinventar](/docs/tooling/test-coverage#flow-coverage), Formatierung, Linting und Typen) und `bun run test:coverage` aus und lädt anschließend den Abdeckungsbericht hoch. Der Job `e2e` führt `db:reset:test` und `build:test` aus, installiert den Browser und startet `bunx playwright test e2e/specs --project=chromium`. Bei fehlgeschlagenen E2E-Läufen wird der Playwright-Bericht hochgeladen.
 
-In einem Pull Request schlägt `bun run check` außerdem fehl, bis der Pull Request seinen [Changelog-Eintrag](/docs/conventions/git-workflow#changelog-entries) hinzufügt.
+In einem Pull Request schlägt `bun run check` außerdem fehl, bis der Pull Request seinen [Changelog-Eintrag](/docs/conventions/git-workflow#changelog-entries) hinzufügt. Der Build im Job `e2e` und in den Deploy-Jobs schlägt fehl, solange der Changelog einen Eintrag unter **Unveröffentlicht** aufführen würde, der nicht der des Pull Requests selbst ist, und auf `main`, solange er überhaupt einen aufführen würde.
 
 ## Deployments
 
@@ -42,7 +42,7 @@ Dependabot aktualisiert die GitHub Actions wöchentlich.
 
 Die Website wird kontinuierlich deployt, deshalb sind ihre Versionen Datumsangaben statt semantischer Versionen. Wenn ein Deployment in Produktion erfolgreich war, versieht der Job `release` in `ci.yml` den deployten Commit mit dem Tag `vYYYY.MM.DD` nach dem UTC-Datum und veröffentlicht dazu ein GitHub Release. Ein zweites Deployment in Produktion am selben Tag erhält den Tag `vYYYY.MM.DD.2`, das nächste `.3` und so weiter. Preview-Deployments erhalten nie einen Tag. Der Job `release` ist der einzige Job mit `contents: write`.
 
-Die Release Notes sind die Einträge im [Changelog](/docs/project/changelog), die an diesem Tag in `main` angekommen sind, sodass jede Änderung an genau einer Stelle beschrieben ist; ist an dem Tag keiner angekommen, verlinken die Notes auf den Changelog. `scripts/publish-release.ts` bestimmt Tag und Notes mit `src/lib/release.ts` und führt `gh release create` aus. Ein erneuter Lauf behält den Tag, den der Commit bereits hat, und überspringt ein bereits vorhandenes Release.
+Die Release Notes sind die Einträge im [Changelog](/docs/project/changelog), die an diesem Tag in `main` angekommen sind, jeweils mit `(#<number>)` am Ende, das GitHub auf den Pull Request verlinkt, sodass jede Änderung an genau einer Stelle beschrieben ist; ist an dem Tag keiner angekommen, verlinken die Notes auf den Changelog. `scripts/publish-release.ts` bestimmt Tag und Notes mit `src/lib/release.ts` und führt `gh release create` aus. Ein erneuter Lauf behält den Tag, den der Commit bereits hat, und überspringt ein bereits vorhandenes Release.
 
 Um die Produktion auf ein Release zurückzusetzen, mach in einem Pull Request alles nach seinem Tag rückgängig:
 

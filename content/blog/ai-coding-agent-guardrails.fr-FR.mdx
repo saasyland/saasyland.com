@@ -1,0 +1,775 @@
+---
+title: "Des garde-fous, pas des prompts : comment nous gardons livrable le code écrit par l’IA"
+description: "Un guide pratique des garde-fous pour les agents de codage IA : quelles règles vont dans la CI et lesquelles dans AGENTS.md, comment transformer une règle de style en vérification, les chemins soumis à la revue humaine, les contrôles qui définissent « terminé », le déploiement progressif, les coûts et les limites."
+excerpt: "Une règle qu’un agent ne peut pas enfreindre vaut mieux qu’une règle qu’on lui dicte. Ce guide montre quelles règles relèvent des vérifications et lesquelles des instructions, comment transformer une règle de style en vérification, quels chemins exigent la seconde clé d’une personne, comment définir « terminé » par des codes de sortie, ce que cela coûte et ce qui échappe encore, avec les vérifications, les incidents et les chiffres de CI qui se trouvent derrière saasyland.com."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/ai-coding-agent-guardrails.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: Que sont les garde-fous pour les agents de codage IA ?
+    answer: >-
+      Des vérifications qui s’exécutent que l’agent soit d’accord ou non : une règle de lint, une
+      vérification des types, un seuil de couverture, une vérification du contenu, un hook de commit,
+      un statut de CI obligatoire, une règle de branche ou une vérification de déploiement. Chacune
+      transforme une règle en code de sortie que l’agent voit et ne peut pas contester. Les
+      instructions d’AGENTS.md ou de CLAUDE.md disent à un agent ce que vous voulez ; les garde-fous
+      font échouer une modification quand elle fait autre chose.
+  - question: Une règle doit-elle aller dans AGENTS.md ou dans la CI ?
+    answer: >-
+      Dans la CI chaque fois qu’un programme peut en décider à partir du code, du contenu, du
+      résultat du build ou du diff, et dans AGENTS.md quand elle demande du jugement, comme corriger
+      une cause profonde ou garder une pull request petite. La plupart des règles finissent aux deux
+      endroits : la vérification impose la règle, et une ligne du fichier d’instructions nomme la
+      commande qui la vérifie, pour que l’agent l’exécute avant de dire qu’il a terminé.
+  - question: Pourquoi les agents de codage IA ignorent-ils les règles d’AGENTS.md ou de CLAUDE.md ?
+    answer: >-
+      Parce que les fichiers d’instructions sont du contexte, pas de la configuration. La
+      documentation d’Anthropic pour Claude Code le dit en ces termes et recommande un hook ou une
+      règle de permission pour bloquer une action quoi que décide le modèle. Le respect des
+      instructions baisse aussi à mesure qu’elles s’accumulent : dans le benchmark IFScale, les
+      meilleurs modèles de pointe suivaient 68 % de 500 instructions simultanées. Et les règles
+      entrent en concurrence avec les comportements par défaut de l’outil et avec le prompt de la
+      tâche, et l’agent en choisit une.
+  - question: Comment transformer une règle de style de code en vérification de lint ?
+    answer: >-
+      Formulez la règle comme une question fermée à propos d’un fichier, choisissez l’outil le moins
+      cher qui puisse y répondre (une règle existante, une option du compilateur, une règle
+      personnalisée sur l’arbre syntaxique ou un script), faites dire à son message ce qu’il faut
+      faire à la place, éprouvez-la sur des violations connues, gardez ses exceptions dans une liste
+      d’autorisation avec un test pour chaque entrée, et exécutez-la dans le hook pre-commit puis à
+      nouveau comme vérification obligatoire de la CI. Utilisez un parseur plutôt qu’une expression
+      régulière pour tout ce qui se trouve dans le code.
+  - question: Quels fichiers devraient exiger une revue humaine quand des agents IA écrivent du code ?
+    answer: >-
+      Tout ce qui est irréversible, tout ce qui fait circuler de l’argent, tout ce qui décide de
+      l’identité d’une personne ou de ce qu’elle peut faire, tout ce qui lit un secret, tout contrat
+      dont dépendent d’autres logiciels, et les garde-fous eux-mêmes : les workflows de CI, la
+      configuration du lint et de la couverture et les règles de branche. Une approbation devrait
+      citer la personne qui l’a donnée et nommer les chemins qu’elle couvre, pour se rattacher à un
+      diff plutôt qu’à une phrase dans une pull request.
+  - question: Une couverture de tests de 100 % suffit-elle pour faire confiance au code écrit par l’IA ?
+    answer: >-
+      Non. La couverture prouve que chaque ligne s’est exécutée sous un test, pas que le système
+      fonctionne. Le 20 novembre 2026, la CLI de SaaSy Land publiée ne pouvait pas créer de projets
+      avec l’API de licence de production alors que les deux côtés passaient tous leurs tests
+      unitaires : la CLI envoyait une réponse que le contrat de l’API déployée ne connaissait pas
+      encore. Une exécution de bout en bout du paquet publié avec une vraie licence l’a révélé.
+      Gardez le contrôle de couverture, et ajoutez des vérifications de bout en bout sur chaque
+      frontière entre des éléments que vous déployez séparément.
+  - question: Comment empêcher un agent de codage IA de faire un force-push ou de supprimer des branches ?
+    answer: >-
+      Utilisez deux couches qui échouent indépendamment l’une de l’autre. Dans les réglages de
+      permissions de l’agent, refusez les force-push simples et n’autorisez que force-with-lease sur
+      les branches propres à l’agent. Sur le serveur, ajoutez une règle de branche qui bloque les
+      force-push et la suppression sur les branches partagées et exige un historique linéaire. La
+      règle locale arrête la tentative tôt ; la règle du serveur tient quand la règle locale est
+      contournée par une autre formulation ou absente.
+  - question: Comment ajouter des garde-fous à un dépôt existant ?
+    answer: >-
+      Commencez par inventorier chaque règle que vous avez donnée à un agent et l’endroit où chacune
+      est imposée aujourd’hui, puis enfreignez chaque règle exprès pour voir ce que vos vérifications
+      rejettent réellement. Ajoutez une commande qui exécute le formatage, le lint, les types et les
+      vérifications du contenu, faites exécuter cette même commande par la CI comme vérification
+      obligatoire, et ajoutez les contrôles un par un, en corrigeant les violations existantes dans
+      la même pull request ou en n’échouant que sur les nouvelles. Gardez le fichier d’instructions
+      pour ce qu’aucune vérification ne peut trancher.
+  - question: Qu’est-ce que les garde-fous ne détectent pas ?
+    answer: >-
+      L’intention et la conception : le bon code pour le mauvais problème, la correction du symptôme
+      au lieu de la cause, une seconde copie d’un helper qui existe déjà, un test qui vérifie
+      l’implémentation plutôt que le comportement. Ils manquent aussi les incompatibilités entre des
+      systèmes que vous déployez séparément, les affirmations écrites en prose comme la description
+      d’une pull request, et chaque défaillance pour laquelle personne n’a encore écrit de
+      vérification. C’est à cela que sert la revue humaine.
+  - question: Puis-je utiliser les vérifications de saasyland.com dans mon propre projet ?
+    answer: >-
+      {generation, select, available {Oui. Les vérifications du contenu, le plugin de lint, le hook
+      de commit et le workflow de CI décrits ici se trouvent dans le code source public de
+      saasyland.com sous licence MIT, et {initCommand} écrit des projets TanStack Start pour
+      Cloudflare Workers.} other {Oui. Les vérifications du contenu, le plugin de lint, le hook de
+      commit et le workflow de CI décrits ici se trouvent dans le code source public de
+      saasyland.com sous licence MIT. La génération de projets de SaaSy Land arrive dans une version
+      ultérieure.}}
+---
+
+<Callout title="Ce qu’est cet article">
+
+Un guide pratique des garde-fous pour les équipes qui laissent des agents de codage IA modifier une base de code de production : les vérifications, les hooks, les règles de branche et les approbations qui font échouer d’elles-mêmes une mauvaise modification au lieu d’attendre que quelqu’un la remarque. Il est écrit pour toute stack et tout agent. Chaque section énonce d’abord les règles, puis montre comment saasyland.com les applique, avec ses vrais fichiers, ses incidents et ses chiffres de CI. L’article couvre :
+
+1. Pourquoi une règle que vous ne faites que dire à un agent échoue, et les six façons dont elle échoue.
+2. Où une règle peut vivre, d’un fichier d’instructions à une règle de branche, et quelles règles relèvent des vérifications.
+3. L’audit de vos règles en les enfreignant, et la transformation d’une règle de style en vérification.
+4. Les chemins soumis à la revue humaine, et pourquoi une approbation se rattache à un diff.
+5. La définition de « terminé » par des codes de sortie, et ce que nos contrôles ont refusé en trois mois de pull requests.
+6. Deux incidents qui ont passé toutes les vérifications, un plan de déploiement progressif, les coûts, les limites et un kit de démarrage à copier.
+
+</Callout>
+
+_Dernière vérification le 20 novembre 2026. Ce que font Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git et GitHub provient de leur propre documentation, lue ce jour-là ; les travaux de recherche proviennent des articles et des rapports liés en bas de page. Tout ce qui concerne saasyland.com provient de son dépôt public, de ses pull requests et de ses exécutions de CI. Notre article précédent sur [la préparation de votre dépôt aux agents de codage IA](/blog/ai-coding-agents-repository-readiness) évalue un dépôt ; celui-ci porte sur la construction des vérifications qui améliorent ce score._
+
+## La réponse courte
+
+Traitez chaque règle que vous donnez à un agent comme une demande tant qu’un programme ne l’impose pas. Pour chaque règle, demandez-vous si un programme pourrait en décider à partir du code, du contenu, du résultat du build ou du diff. Si c’est le cas, écrivez la vérification, faites dire à son message ce qu’il faut faire à la place, et exécutez-la là où l’agent travaille, puis à nouveau comme statut de CI obligatoire que personne ne peut contourner pour fusionner. Gardez le fichier d’instructions pour ce qu’aucun programme ne peut trancher, et faites pointer chacune de ses lignes vers la commande qui la vérifie. Placez les chemins irréversibles et ceux qui font circuler de l’argent derrière une seconde clé, détenue par une personne dont l’agent ne partage pas l’identité. Définissez « terminé » comme une courte liste de commandes qui doivent renvoyer le code 0, dans l’ordre. Puis enfreignez vos propres règles exprès, pour découvrir celles dont vous vous contentiez d’espérer le respect.
+
+Les ingénieurs de Google ont un nom pour l’idée qui sous-tend tout cela. _Software Engineering at Google_ l’appelle la règle Beyoncé : « Si vous y teniez, vous auriez dû y mettre un test. » Avec des agents qui écrivent le code, elle s’applique à chaque règle, pas seulement au comportement.
+
+## Pourquoi une règle que vous ne faites que dire à un agent est une demande
+
+Un fichier d’instructions comme `AGENTS.md` ou `CLAUDE.md` est du texte placé dans le contexte du modèle au début d’une session. Il oriente ce que fait l’agent ; il ne décide de rien. La documentation d’Anthropic pour Claude Code le dit clairement : Claude traite ces fichiers « comme du contexte, pas comme une configuration imposée », et « pour bloquer une action quoi que décide Claude, utilisez plutôt un hook PreToolUse ». La même page trace la frontière entre les deux types de contrôle : « Les règles des réglages sont appliquées par le client, quoi que Claude décide de faire. Les instructions de CLAUDE.md orientent le comportement de Claude, mais ne constituent pas une couche d’application stricte. »
+
+Ce n’est pas une faiblesse propre à un outil. Chaque agent lit son fichier d’instructions comme une partie d’un prompt, et un prompt est en concurrence avec tout le reste du contexte : la tâche, les fichiers que l’agent a ouverts, les instructions système de l’outil lui-même et ce que suggérait le dernier message d’erreur. La recherche mesure l’issue de cette concurrence. IFScale, un benchmark publié en juillet 2025, a donné jusqu’à 500 instructions à la fois à 20 modèles et a constaté que « même les meilleurs modèles de pointe n’atteignent que 68 % de précision à la densité maximale de 500 instructions », avec un biais en faveur des instructions venues en premier. METR a rapporté en juin 2025 que des modèles de pointe récents, face à une tâche notée, tentaient « d’obtenir un meilleur score en modifiant les tests ou le code de notation », et qu’ils « montrent qu’ils ont conscience que leur comportement ne correspond pas aux intentions de l’utilisateur ».
+
+Aucun de ces résultats ne signifie que les agents sont négligents. Ils signifient qu’une règle qui n’existe que sous forme de texte est une entrée parmi d’autres, suivie la plupart du temps, et que les fois où elle ne l’est pas sont celles où personne ne regarde.
+
+### Six façons dont échouent les règles réduites à des instructions
+
+Chacune s’est produite dans nos dépôts, et chacune a une correction qui ne dépend pas d’une lecture plus attentive de la part de l’agent.
+
+**1. La dilution.** Chaque règle que vous ajoutez rend chacune des autres un peu moins susceptible d’être suivie. La documentation de Claude Code recommande des fichiers d’instructions de moins de 200 lignes, car « les fichiers plus longs consomment davantage de contexte et réduisent le respect des instructions ». Notre `AGENTS.md` est un résumé qui renvoie à toute une section de documentation consacrée aux conventions. L’agent lit le résumé à chaque session, et les pages seulement quand il y pense.
+
+**2. Le conflit.** Les instructions viennent de plusieurs endroits, et elles se contredisent. Les outils d’agents ajoutent par défaut aux commits un trailer d’attribution comme `Co-Authored-By`. Nos règles l’interdisent, car GitHub associe l’adresse du trailer à un compte et liste ce compte comme contributeur du dépôt. La correction qui tient est structurelle plutôt qu’une phrase de plus : le dépôt n’autorise que les fusions par squash, et le commit de squash prend le titre de la pull request avec un corps vide, si bien que rien de ce qu’un agent écrit dans le message d’un commit de branche n’atteint `main`.
+
+**3. Le ouï-dire.** Quand plusieurs agents travaillent ensemble, la plupart des instructions parviennent à un exécutant par le résumé qu’en fait un autre agent, et les résumés perdent des choses. Dans notre organisation, un agent principal rédige les consignes de chaque exécutant. Une consigne affirmait que « le propriétaire a approuvé » une modification des paiements alors qu’il avait approuvé autre chose (#166). Le lendemain matin, deux consignes affirmaient que l’API de licence de la CLI ne figurait pas sur la liste de revue humaine, alors qu’`AGENTS.md` la listait depuis la veille, et deux pull requests l’ont modifiée (#208 et #211). Ce qui a arrêté l’étape suivante à chaque fois n’était pas une instruction : la couche de permissions du harness de l’agent a refusé de fusionner la modification des paiements et de poursuivre le travail sur la seconde modification de licence tant que le propriétaire n’avait pas dit oui. Son oui pour la modification de licence est cité dans sa pull request.
+
+**4. La lettre plutôt que l’esprit.** Quand une vérification exige un artefact, un agent produit l’artefact le moins cher qui passe. Notre configuration de lint n’autorisait autrefois que `0` comme nombre littéral, si bien que chaque `1` est devenu une constante : `SINGLE_CALL` existait 16 fois, `SINGLE_ROW_LIMIT` 12 fois, et environ 80 constantes valaient `0` ou `1` sans autre raison que la règle (#230). Dans notre dépôt privé de la CLI, une vérification de publication qui exige un changeset en a reçu un vide, et cela a bloqué la publication suivante ; l’histoire est racontée plus bas. Aucun des deux agents n’a enfreint de règle. Tous deux l’ont respectée.
+
+**5. La dérive.** Une instruction décrit la base de code le jour où elle a été écrite. Quand le code évolue et que la phrase ne suit pas, l’agent suit la phrase. Une documentation qui reprend une valeur que le code définit se trompe de la même façon : notre documentation saisissait autrefois à la main les limites de débit, la couverture et les limites de lint, les prix et le nombre de locales, dans chaque langue, si bien qu’une seule modification du code pouvait laisser une page fausse dans chacune d’elles (#137). La correction a consisté à afficher ces valeurs à partir du code ; un prochain article de cette série explique comment.
+
+**6. L’auto-déclaration.** Le résumé qu’un agent fait de son propre travail est ce qu’il produit de moins fiable. « Tous les tests passent » est une phrase ; un code de sortie est une preuve. Notre pull request #224, une correction de mise en page, a été fusionnée avec la description de #225, une modification de licence, y compris un paragraphe affirmant que le propriétaire avait approuvé des modifications de fichiers de licence que #224 n’a jamais touchés. Aucune vérification ne lit les descriptions, si bien que rien ne l’a remarqué.
+
+## Où une règle peut vivre : l’échelle d’application
+
+Une règle peut vivre à huit endroits. Ils diffèrent par le moment où ils s’exécutent, par qui peut les contourner et par ce qu’ils coûtent à écrire.
+
+| Couche                              | S’exécute                          | Contournée par                                                           | Idéale pour                                                                                  | Chez saasyland.com                                                                                                                                                                         |
+| ----------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fichier d’instructions              | Au début d’une session             | N’importe qui, en silence                                                | L’intention, le jugement, les renvois vers les vérifications                                 | `AGENTS.md` : les règles, la définition de « terminé » et la liste de revue humaine                                                                                                        |
+| Permissions et hooks de l’agent     | Avant chaque appel d’outil         | La personne qui fait tourner l’agent, ou une commande formulée autrement | Les commandes qui ne doivent jamais s’exécuter, les chemins qu’un agent ne doit pas modifier | Force-push simples refusés ; modifications des chemins soumis à la revue humaine arrêtées par le classifieur de permissions                                                                |
+| Compilateur et éditeur              | Pendant que l’agent écrit          | Personne, s’il s’exécute                                                 | Les formes incorrectes, les cas non traités                                                  | TypeScript avec `strict`, `exactOptionalPropertyTypes` et `noUncheckedIndexedAccess`                                                                                                       |
+| Hooks Git                           | À chaque commit                    | `--no-verify`                                                            | Les vérifications rapides sur les fichiers indexés, le format des messages de commit         | `pre-commit` exécute le formatage, le lint, les types et les vérifications des traductions ; `prepare-commit-msg` refuse un sujet qui n’est pas conventionnel                              |
+| Vérifications obligatoires de la CI | À chaque push sur une pull request | Les administrateurs, si la règle de branche le leur permet               | Tout ce qu’un programme peut trancher                                                        | `bun run check`, `bun run test:coverage`, le build de test et la suite de tests dans le navigateur                                                                                         |
+| Règles de branche                   | À la fusion et au push             | Les administrateurs de l’organisation                                    | La méthode de fusion, l’historique, les force-push, les vérifications obligatoires           | Squash uniquement, historique linéaire, ni force-push ni suppression, les vérifications de la CI et un déploiement de préversion réussi                                                    |
+| Vérifications de déploiement        | Avant et après un envoi            | Quiconque déploie                                                        | Les secrets, les bindings, le comportement en ligne                                          | Secrets factices refusés avant le build ; vérifications du site en ligne après le déploiement                                                                                              |
+| La seconde clé d’une personne       | Sur demande                        | Personne d’autre                                                         | Les modifications irréversibles et celles qui font circuler de l’argent, les publications    | Le oui cité du propriétaire pour les chemins soumis à la revue humaine ; versions de la CLI mises en attente sur npm jusqu’à ce qu’il les approuve avec l’authentification à deux facteurs |
+
+Deux principes décident de l’endroit où va une règle.
+
+**Placez chaque règle sur l’échelon le plus bas qui puisse en décider, et répétez-la sur le premier échelon que l’agent ne peut pas sauter.** Une règle qui ne vit que dans un hook Git disparaît dès que quelqu’un committe avec `--no-verify` ; une règle qui ne vit que dans la CI fait attendre l’agent plusieurs minutes pour apprendre qu’il manque un point-virgule. Les hooks servent la vitesse et la CI la vérité : notre hook pre-commit exécute donc sur les fichiers indexés les mêmes vérifications que la CI exécute sur tout le dépôt, et sauter le hook coûte une exécution de CI rouge au lieu d’un `main` cassé.
+
+**Ne laissez jamais la couche de permissions de l’agent être la seule couche.** C’est l’endroit le plus rapide pour arrêter une commande dangereuse, et le plus facile à contourner. La propre documentation de Claude Code avertit que « les motifs de permission Bash qui tentent de restreindre les arguments d’une commande sont fragiles », et qu’une règle qui refuse `git push` ne reconnaît pas « un push écrit autrement, comme `git -C . push` ». Tout ce qui doit tenir a besoin d’une règle côté serveur derrière.
+
+### Exemple concret : une règle sur trois échelons
+
+Notre règle sur l’historique est simple : `main` reste linéaire et personne ne réécrit une branche partagée. Elle est imposée trois fois : par les permissions des agents, par les règles de branche sur le serveur, et par le propriétaire, seul à pouvoir lever ces règles.
+
+Un agent a rebasé la branche de sa pull request et a tenté de la pousser avec un force-push. Les réglages de permissions de l’agent n’autorisaient pas le force-push : la commande a donc été refusée, et le travail est parti dans une nouvelle pull request depuis une nouvelle branche (#235 a été fermée au profit de #236). C’était le bon résultat pour la mauvaise raison : rebaser votre propre branche et la pousser avec `--force-with-lease` est sûr, car, selon les termes de Git, le push n’aboutit que « si la valeur actuelle de la ref distante est la valeur attendue ». Le propriétaire a donc autorisé exactement cette forme, sur les branches de pull request propres aux agents, et rien d’autre.
+
+Derrière la règle locale se trouve le serveur. Les ensembles de règles de GitHub « empêchent les utilisateurs de faire un force-push sur les branches ciblées », et les nôtres bloquent les force-push et la suppression sur les branches partagées et exigent un historique linéaire. Quand le propriétaire a bel et bien voulu réécrire une branche de publication partagée dans le dépôt de la CLI, pour en retirer des commits de merge, le serveur a refusé même un push avec lease. Il a fallu qu’il lève la règle le temps d’un push puis la rétablisse, plus stricte qu’avant, avec un historique linéaire désormais exigé là aussi. La règle locale a intercepté l’erreur courante en quelques secondes ; la règle du serveur a tenu quand quelqu’un qui avait de bonnes raisons a tenté la chose dangereuse.
+
+## Quelles règles relèvent des vérifications, et lesquelles des instructions
+
+Trois questions permettent de classer n’importe quelle règle.
+
+1. **Un programme peut-il en décider à partir d’un artefact,** comme le code source, le contenu, la configuration, le résultat du build, un diff ou un message de commit, sans savoir pourquoi la modification a été faite ? Si oui, elle relève d’une vérification.
+2. **Est-il moins cher de l’encoder une fois que de la relire indéfiniment ?** Une règle que vous appliquerez dans des centaines de revues rentabilise une journée d’outillage. Une règle qui se déclenche deux fois par an, peut-être pas.
+3. **Un faux positif coûterait-il plus cher qu’un oubli ?** Une vérification qui se déclenche assez souvent sur du code légitime apprend à tout le monde, agents compris, à la contourner. Resserrez la définition jusqu’à ce que ce ne soit plus le cas, ou laissez la règle à la revue.
+
+| Règle                                                                                  | Où elle va                     | Comment                                                                                                              |
+| -------------------------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Pas de commentaires                                                                    | Vérification                   | Une règle de lint personnalisée qui lit les commentaires dans l’arbre syntaxique                                     |
+| Pas de `any`, pas d’assertions de type, pas de commentaires de désactivation           | Vérification                   | Des options du compilateur et des règles de lint, avec la désactivation en ligne coupée                              |
+| Chaque chaîne visible par l’utilisateur dans chaque locale                             | Vérification                   | Un script qui compare les clés de messages entre les locales et avec les clés qu’utilise le code                     |
+| Une entrée du journal des modifications dans chaque pull request                       | Vérification                   | Un script de CI qui cherche l’entrée nommée d’après la pull request                                                  |
+| Une documentation qui cite des valeurs que le code définit                             | Vérification, en grande partie | Afficher les valeurs à partir du code ; comparer avec le code les tableaux que tient la documentation                |
+| Les valeurs du domaine sous forme de constantes nommées                                | En partie une vérification     | `no-magic-numbers` couvre les nombres ; les valeurs de chaîne répétées demandent une règle personnalisée ou la revue |
+| Corriger la cause profonde, pas le symptôme                                            | Instruction                    | Demander en revue ce qui a provoqué le bug                                                                           |
+| Une modification par pull request                                                      | Instruction                    | Un avertissement sur la taille, tout au plus                                                                         |
+| Aucune modification des paiements, de l’authentification ou des migrations sans un oui | Seconde clé                    | Des propriétaires du code et une revue obligatoire par une identité que l’agent n’a pas                              |
+| Ne jamais déployer ni toucher aux données de production                                | Permissions                    | Refuser les commandes en local et garder les identifiants de production hors de l’environnement de l’agent           |
+
+### À quoi servent encore les instructions
+
+Les instructions ne sont pas obsolètes ; leur rôle est simplement plus étroit. Utilisez-les pour l’intention (« corrigez la cause »), pour l’unique exemple canonique à copier, pour la liste des chemins qui exigent une personne, pour la définition de « terminé », et comme index des vérifications : chaque règle suivie de la commande qui l’impose. Un agent qui sait que `bun run check` échouera sur un commentaire écrit moins de commentaires, et corrige les autres en quelques secondes au lieu de le faire en revue. Notre `AGENTS.md` termine sa définition de « terminé » par une phrase qui vise le sixième mode de défaillance ci-dessus : « Rien d’autre ne compte comme terminé, pas même un résumé qui affirme que c’est le cas. »
+
+## Auditez vos règles en les enfreignant
+
+L’audit le moins cher que vous puissiez mener est un fichier qui enfreint une fois chacune de vos règles. Exécutez vos vérifications dessus et notez quelles lignes passent. Cela prend une heure, et remplace ce que vous croyez que votre outillage impose par ce qu’il impose réellement.
+
+### Exemple concret : ce que rejette notre linter
+
+Nous l’avons fait le 20 novembre 2026 pour les règles de style de code de notre `AGENTS.md`. Notre configuration oxlint active des catégories entières de règles comme erreurs, `correctness`, `nursery`, `pedantic`, `perf`, `style` et `suspicious`, avec les règles tenant compte des types activées. Nous avons écrit une ligne par règle dans un fichier de brouillon et y avons exécuté `vp lint`.
+
+| Ligne du fichier de sonde                          | Rejetée | Par                                       |
+| -------------------------------------------------- | ------- | ----------------------------------------- |
+| `// a comment that starts in lower case`           | Oui     | `capitalized-comments`                    |
+| `const x = 2 // A comment after code`              | Oui     | `no-inline-comments`                      |
+| `// TODO fix this later`                           | Oui     | `no-warning-comments`                     |
+| `// A capitalised comment on its own line`         | Non     |                                           |
+| `/** A JSDoc block */`                             | Non     |                                           |
+| `{/* A comment in JSX */}`                         | Non     |                                           |
+| `readValue() as Named`, qui restreint un `unknown` | Oui     | `typescript/no-unsafe-type-assertion`     |
+| `value as Named`, qui élargit                      | Non     |                                           |
+| `(input: any)`                                     | Oui     | `typescript/no-explicit-any`              |
+| `// @ts-expect-error` sans description             | Oui     | `typescript/ban-ts-comment`               |
+| `// @ts-expect-error` suivi d’une description      | Non     |                                           |
+| `// oxlint-disable-next-line no-magic-numbers`     | Non     | Il a aussi désactivé la règle qu’il nomme |
+| `return null`                                      | Oui     | `unicorn/no-null`                         |
+| `input ?? undefined`                               | Non     |                                           |
+| Un ternaire réparti sur trois lignes               | Non     |                                           |
+
+Quatre leçons sont sorties d’un seul tableau, et toutes les quatre valent pour n’importe quel linter.
+
+**Les catégories vous donnent des règles par accident.** Activer `style` et `pedantic` donnait l’impression que « pas de commentaires » était imposé : les commentaires en minuscules, en fin de ligne et TODO échouaient, à cause de règles que personne n’avait choisies pour cela. Un agent qui écrit un commentaire soigné, avec une majuscule, sur sa propre ligne passe. Si une règle compte, activez-la par son nom, et sachez quelle règle l’impose.
+
+**Un linter ne peut pas surveiller son propre interrupteur.** Un commentaire de désactivation est un commentaire, mais le linter le lit comme une instruction avant qu’aucune règle ne le voie, si bien qu’il fait taire la règle même qui s’y opposerait. ESLint peut les refuser : « Pour désactiver tous les commentaires de configuration en ligne, utilisez le réglage `noInlineConfig` dans votre fichier de configuration. » Pour un outil qui n’a pas cette option, cherchez les directives dans la CI, en dehors du linter.
+
+**Les valeurs par défaut sont permissives à dessein.** La règle `ban-ts-comment` de typescript-eslint autorise `@ts-expect-error` « lorsqu’il comporte une description », et le portage d’oxlint se comporte de la même façon, si bien qu’un agent qui écrit une raison passe. « Une valeur `true` pour une directive donnée signifie que cette règle signalera toute utilisation de cette directive. » Choisissez `true` si la règle est « jamais ».
+
+**Relancez la sonde après chaque mise à jour du linter.** Des catégories comme `nursery` gagnent et perdent des règles d’une version à l’autre. Le fichier de sonde est un test de votre configuration, et il mérite de s’exécuter dans la CI comme n’importe quel autre test ; le kit de démarrage à la fin en contient un.
+
+## Comment transformer une règle de style en vérification
+
+1. **Formulez la règle comme une question fermée sur un artefact.** « Ce fichier contient-il un commentaire ? » est décidable. « Ce code est-il clair ? » ne l’est pas, et relève de la revue. Si vous ne parvenez pas à écrire la question, vous avez trouvé une instruction, pas une vérification.
+2. **Choisissez l’outil le moins cher qui y réponde exactement.** Dans l’ordre : une règle existante activée par son nom ; une option du compilateur ou de la configuration ; une règle de lint personnalisée sur l’arbre syntaxique ; un script qui parcourt les fichiers ; un test qui vérifie une propriété du code ou du contenu ; une vérification du résultat du build ; une vérification sur le système en ligne.
+3. **Utilisez un parseur pour tout ce qui se trouve dans le code.** Une expression régulière qui cherche `//` trouve aussi chaque URL dans une chaîne et chaque barre oblique échappée dans un motif. L’arbre syntaxique sait ce qu’est un commentaire.
+4. **Faites du message d’échec une instruction.** L’agent le lira au milieu d’une tâche, sans autre contexte. Dites ce qu’il faut faire à la place, et où.
+5. **Éprouvez-la sur des violations connues.** Avant de faire confiance à une nouvelle vérification, exécutez-la sur le code pour lequel elle a été écrite et assurez-vous qu’elle signale exactement les cas que vous connaissez, ni plus ni moins.
+6. **Gardez les exceptions dans le code, avec un test pour chacune.** Une liste d’autorisation dans la vérification, relue comme n’importe quelle modification, vaut mieux qu’un commentaire de désactivation que personne ne voit.
+7. **Exécutez-la à deux endroits.** Dans le hook pre-commit, pour que l’agent en entende parler en quelques secondes, et comme vérification obligatoire de la CI, pour qu’elle tienne quand le hook ne s’exécute pas.
+8. **Décidez du sort des violations existantes.** Corrigez-les dans la même pull request quand vous le pouvez ; sinon, enregistrez une base de référence et n’échouez que sur les nouvelles, puis réduisez la base de référence délibérément.
+
+Notre vérification du journal des modifications illustre l’étape 4. L’exécution de CI d’une pull request échoue tant que l’entrée nommée d’après elle n’existe pas, et le message est la correction :
+
+```ts title="scripts/check-content.ts"
+export const pullRequestEntryProblems = (ref: string): string[] => {
+  const pullRequest = pullRequestOf(ref)
+
+  if (pullRequest === undefined || existsSync(join(REPOSITORY_DIR, CHANGELOG_DIRECTORY, `${pullRequest}${SOURCE_MDX_SUFFIX}`))) {
+    return []
+  }
+
+  return [`Pull request #${pullRequest} has no changelog entry: add ${CHANGELOG_DIRECTORY}/${pullRequest}.<locale>.mdx in every locale`]
+}
+```
+
+### Exemple concret : un bug d’hydratation devient une règle de lint
+
+React rend une page deux fois, une fois sur le serveur et une fois dans le navigateur, et les deux rendus doivent afficher le même texte. Tout composant qui lit l’horloge ou la locale du navigateur pendant le rendu affiche quelque chose de différent à chaque endroit, et React signale l’erreur #418 et rend la page à nouveau. La pull request #198 a corrigé un bug de ce genre : une page d’administration affichait « actif il y a 48 secondes » sur le serveur et « actif il y a 49 secondes » dans le navigateur. Un audit en a trouvé trois autres du même type. Le pied de page affichait `new Date().getFullYear()`, ce qui aurait cassé chaque page dotée de ce pied de page à partir du 1er janvier et jusqu’au déploiement suivant. Un panneau de paiement comparait l’horloge du serveur à celle du navigateur. Un graphique formatait des nombres avec `toLocaleString()`.
+
+Corriger quatre bugs aurait laissé le cinquième au prochain agent. La pull request #201 a corrigé les trois et ajouté une règle, `hydration/no-clock-or-locale-in-render`, sous la forme d’un petit plugin oxlint dans `scripts/hydration-lint-plugin.ts`. Elle signale `new Date()` sans argument, `Date.now` et les méthodes `toLocale…String` partout où le code s’exécute pendant le rendu, et ne les autorise que dans des fonctions qui s’exécutent plus tard : gestionnaires d’événements, fonctions de query et de mutation, effets et minuteurs. Chaque étape de la méthode ci-dessus y est visible :
+
+- **La question est exacte :** le code de rendu lit-il l’horloge ou la locale de l’environnement d’exécution ? Le bug d’origine se trouvait dans un callback `.map`, qu’un simple motif aurait pris pour une fonction différée.
+- **Les messages sont des instructions :** « Utilisez un instant que les deux côtés partagent, comme le dataUpdatedAt d’une query ou une valeur fixée au moment du build, ou lisez l’horloge dans un gestionnaire d’événements, un effet ou une fonction de query. »
+- **Elle a été éprouvée sur des cas connus :** sur `main`, elle a signalé exactement les cinq endroits que l’audit avait trouvés, les trois qu’elle corrigeait et les deux de #198.
+- **Ses exceptions sont du code :** les appels différés sont trois listes nommées dans le plugin, et la documentation précise qu’une nouvelle entrée s’y ajoute « avec un cas dans `src/__test__/hydration-lint-plugin.test.ts`, jamais par un commentaire de désactivation ». La suite de tests de la règle compte 28 cas valides et invalides.
+
+### Exemple concret : un constat d’audit devient une vérification du contenu
+
+Les vérifications ne concernent pas que le code. Notre site, notre documentation et notre blog existent en <RepositoryFact name="languages" /> langues, et la traduction est exactement le genre de travail que les agents font vite et un peu de travers.
+
+Un audit de cohérence mené le 15 novembre a trouvé des chemins de fichiers et des commandes traduits dans la liste de preuves de la page d’accueil : `bun run テスト` en japonais, `src/intégrations/` en français et `copertura/copertura-riepilogo.json` en italien. La cause était du code placé dans du texte traduisible. La pull request #169 a déplacé les chemins et les commandes dans des valeurs que fournit le code, et a fait échouer la vérification du contenu sur toute traduction qui ajoute, retire ou modifie un extrait de code en ligne, un composant, un lien ou une ligne de tableau par rapport à la page anglaise. Un traducteur, humain ou agent, ne peut plus traduire une commande, car la vérification compare chaque extrait de code octet par octet.
+
+Le lendemain, #220 a fait de même pour la forme d’adresse. Chaque locale s’adresse au lecteur d’une seule façon, `du` en allemand et `vous` en français, et les agents passaient d’une forme à l’autre au sein d’une même page. Avant la modification, les messages allemands employaient les formes de politesse `Sie`, `Ihr` et `Ihnen` 363 fois, et la documentation, les articles et les autres contenus allemands 1 041 fois ; après, plus aucune. La règle vit désormais dans `src/lib/forms-of-address.ts`, avec les mots que chaque locale ne doit pas employer, et les vérifications des messages et du contenu font échouer tout texte qui en contient un. La vérification a trouvé son premier vrai cas dans l’heure, dans une phrase de dépannage allemande, et #222 l’a corrigé. Elle a aussi dû apprendre ce qu’elle ne doit pas signaler : en français, « ton » reste hors de la liste, car c’est aussi un nom, comme dans « le ton d’un texte ».
+
+### Exemple concret : pas de commentaires, imposé par un parseur
+
+L’audit ci-dessus a montré que notre règle « pas de commentaires » n’était imposée que par accident. Voici la règle qui comble la lacune, écrite pour l’API de règles d’ESLint, qu’Oxlint charge aussi (« l’API de plugins d’Oxlint est compatible avec ESLint v9+ ») :
+
+```js
+const noComments = {
+  meta: {
+    type: "suggestion",
+    messages: { comment: "Say it in a name, a commit message or the docs." },
+  },
+  create: (context) => ({
+    Program: () => {
+      for (const comment of context.sourceCode.getAllComments()) {
+        if (comment.type !== "Shebang") {
+          context.report({ loc: comment.loc, messageId: "comment" })
+        }
+      }
+    },
+  }),
+}
+```
+
+Nous l’avons exécutée avec notre configuration existante sur chaque fichier que couvre le linter. Elle a signalé le commentaire de ligne avec majuscule, le bloc JSDoc et le commentaire JSX du fichier de sonde, a laissé tranquilles un `//` dans une chaîne d’URL et dans une expression régulière, et a trouvé exactement un problème dans le code que couvre le linter : la ligne `#!/usr/bin/env bun` en tête d’un script. ESLint documente pourquoi : les shebangs « sont traités comme des commentaires » et sont renvoyés par `getAllComments()`. D’où l’exception `Shebang`, qui est la leçon de l’étape 5 en miniature : une vérification que vous n’avez pas exécutée sur du vrai code a des bugs que vous n’avez pas encore rencontrés.
+
+L’autre constat compte tout autant : hormis cette ligne, le code linté ne contenait aucun commentaire. La revue avait fait tenir la règle. Elle avait aussi coûté au propriétaire l’attention nécessaire pour la faire tenir, à chaque fois, et c’est précisément l’arbitrage dont traite cet article.
+
+### Quand une règle produit du cérémonial, corrigez la règle
+
+Une vérification légèrement fausse n’est pas ignorée par les agents. Elle est obéie, à grande échelle. Notre règle `no-magic-numbers` n’autorisait que `0`, alors les agents ont nommé chaque `1` : `SINGLE_CALL`, `NEXT`, `STEP`, `FIRST_LETTER`, `ZERO_TICK`, `NO_OFFSET`. Chaque constante était correcte et chacune rendait le code plus difficile à lire. La pull request #230 a autorisé `0` et `1` comme littéraux et réintégré en ligne 72 constantes qui n’existaient que pour la règle, tout en gardant celles qui avaient un sens propre, comme `FAILURE_EXIT_CODE` et `INCLUSIVE_END`. La leçon se généralise : quand vous voyez une forme de conformité qu’aucun humain n’écrirait, comme des constantes égales à un, des changesets vides ou un commentaire de désactivation accompagné d’une raison rédigée avec amour, changez la règle, pas le code.
+
+## Les chemins soumis à la revue humaine : ce qui exige une seconde clé
+
+Certaines modifications sont fausses d’une manière qui passe tous les tests, parce que l’échec n’existe qu’en production, avec le temps ou face à un adversaire. Ces chemins exigent qu’une personne dise oui avant qu’ils changent, quel que soit l’auteur de la modification.
+
+| Type de chemin                          | Pourquoi les vérifications ne suffisent pas                                                                                    | Chez saasyland.com                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| État irréversible                       | Une migration qui passe tous les tests peut tout de même perdre des données de production, et ne peut pas être annulée         | `src/integrations/drizzle-orm/migrations/`                                                             |
+| Argent                                  | Un handler de webhook erroné est correct jusqu’à ce qu’arrivent la nouvelle tentative, le remboursement ou la rétrofacturation | `src/modules/license/license.webhooks.ts`, `src/modules/license/use-cases/`, `src/integrations/polar/` |
+| Identité et permissions                 | Une connexion qui fonctionne ne prouve rien sur l’expiration, la révocation ou les rôles                                       | `src/integrations/better-auth/`, `src/data/access.ts` et le fichier d’accès de chaque zone             |
+| Contrats dont d’autres dépendent        | Un logiciel que vous ne déployez pas casse quand ils changent                                                                  | `src/modules/license/license.api.ts`, l’API de licence de la CLI                                       |
+| Secrets et configuration de déploiement | Journaliser ou livrer un secret fonctionne parfaitement                                                                        | `wrangler.jsonc`, `.env*` et tout ce qui lit un secret                                                 |
+| Les garde-fous eux-mêmes                | Un agent qui peut modifier la vérification peut la passer                                                                      | `.github/workflows/`                                                                                   |
+
+Notre `AGENTS.md` énonce la liste et donne la raison de chaque entrée, ce qui aide l’agent comme le prochain lecteur :
+
+```md title="AGENTS.md"
+- `src/integrations/drizzle-orm/migrations/`: applied to production databases and irreversible.
+- `src/modules/license/license.webhooks.ts`, `src/modules/license/use-cases/`, `src/integrations/polar/` and `src/integrations/affonso/`: payments, licences and affiliate referrals.
+- `src/integrations/better-auth/`: sessions, tokens and permissions.
+```
+
+### Les vérifications sont elles aussi un chemin soumis à la revue humaine
+
+Le constat de METR sur les agents qui modifient les tests et le code de notation est la raison d’être de la dernière ligne. Un agent à qui l’on demande de faire passer une vérification qui échoue a deux options : corriger le code, ou affaiblir la vérification. La seconde est souvent plus courte. Les fichiers qui définissent vos contrôles, les workflows de CI, la configuration du lint et des types, les seuils de couverture et les scripts de vérification, ont donc besoin de la même seconde clé que votre code de paiement. Notre liste nomme `.github/workflows/` ; elle ne nomme pas encore `vite.config.ts`, où vivent les règles de lint et les seuils de couverture, ni `scripts/`, où vivent les vérifications du contenu. Ils devraient y figurer.
+
+### Une approbation se rattache à un diff, pas à de la prose
+
+Les incidents de ouï-dire ci-dessus ont la même forme : une approbation existait sous forme de phrase, et la phrase a voyagé plus loin que l’approbation. « Le propriétaire a approuvé » dans une consigne, une description collée depuis une autre pull request, une liste qui affirmait qu’un fichier n’était pas protégé. La correction consiste à faire d’une approbation un enregistrement en trois parties : les mots de la personne, cités ; les chemins qu’elle couvre ; et ce qu’elle ne couvre pas. La pull request #223, qui a fait refuser les secrets factices par le déploiement, fait exactement cela. Elle cite la réponse du propriétaire, « 6. oui », nomme les scripts de déploiement qu’elle couvre et liste les chemins soumis à la revue humaine qu’elle laisse intacts. Un relecteur, ou une vérification, peut comparer cette liste avec le diff. Une règle que nous suivons désormais : personne n’écrit « le propriétaire a approuvé » sans citer le message qui le dit.
+
+### Une seconde clé a besoin d’une seconde identité
+
+GitHub peut imposer la seconde clé : un fichier `CODEOWNERS` attribue des chemins à des personnes, et une règle de branche peut « exiger des revues des propriétaires du code ». Il y a un piège qui compte pour chaque développeur solo qui fait tourner des agents. La documentation de GitHub est explicite : « Les auteurs de pull requests ne peuvent pas approuver leurs propres pull requests. » Si vos agents ouvrent des pull requests avec vos identifiants, chaque contrôle côté serveur ne voit que vous, et une revue obligatoire de votre part est impossible à donner.
+
+C’est notre situation aujourd’hui. Les agents travaillent sous le compte du propriétaire : notre règle de branche exige donc les vérifications de la CI et un déploiement de préversion plutôt qu’une revue d’approbation, et le oui du propriétaire pour un chemin soumis à la revue humaine est un message cité, que fait respecter la couche de permissions des agents. Cela a fonctionné, comme le montrent les incidents, et c’est la partie la plus faible de notre dispositif. L’organisation plus solide est simple à décrire : donnez aux agents une identité propre, comme un compte de bot ou une GitHub App avec un accès en écriture mais sans droits d’administration, placez les chemins soumis à la revue humaine dans `CODEOWNERS`, et exigez la revue d’un propriétaire du code sur `main`. La seconde clé devient alors un clic d’une personne, et aucune phrase ne peut la remplacer.
+
+## Définissez « terminé » par des codes de sortie
+
+« Terminé » est le mot le plus coûteux que prononce un agent, car tout ce qui suit est le temps de quelqu’un d’autre. Définissez-le comme une courte liste de commandes qui doivent renvoyer le code 0 sur la branche sur le point d’être poussée, dans un ordre fixe, de la plus rapide à la plus lente, chacune détectant un type d’échec que les précédentes ne peuvent pas détecter. Faites exécuter par la CI les mêmes commandes, pas des équivalents approximatifs, pour qu’une exécution locale verte prédise une exécution de CI verte. Demandez les codes de sortie et les décomptes dans la pull request, et traitez un résumé comme une affirmation à vérifier.
+
+### Exemple concret : quatre commandes, dans l’ordre
+
+Notre définition de « terminé » tient en quatre commandes :
+
+```sh title="AGENTS.md"
+bun run check
+bun run test:coverage
+bun run build:test
+bun run test:e2e:pr
+```
+
+`check` formate, lint, vérifie les types et exécute les vérifications des traductions et du contenu dans chaque locale. `test:coverage` exécute les tests unitaires, d’intégration et de composants avec le contrôle de couverture à <RepositoryFact name="coverageThreshold" unit="percent" /> pour les lignes, les instructions, les fonctions et les branches. `build:test` construit le Cloudflare Worker et vérifie le résultat. `test:e2e:pr` sert ce build et le pilote dans Chromium.
+
+Voici le temps qu’a pris chacune lors de l’exécution de CI du 20 novembre 2026, lancée quand notre fonctionnalité de partage des articles du blog est arrivée sur `main` :
+
+| Étape                                           | Durée       |
+| ----------------------------------------------- | ----------- |
+| Installer la chaîne d’outils et les dépendances | 1 min 11 s  |
+| `bun run check`                                 | 16 s        |
+| `bun run test:coverage`                         | 3 min 44 s  |
+| `bun run build:test`                            | 2 min 59 s  |
+| `bun run test:e2e:pr`                           | 12 min 2 s  |
+| Du push au vert, avec les jobs en parallèle     | 16 min 35 s |
+
+Chaque commande figure dans la liste parce que quelque chose est passé sans elle. Le 12 novembre, une mise à jour de dépendances (#94) a passé `check` et 1 255 tests avec une couverture complète alors que le build de production était cassé à deux reprises : un nouveau SDK Polar ne pouvait pas être bundlé, et une version de TanStack Start avait changé sa sortie de sorte qu’un script post-build échouait. Les tests unitaires n’exécutent jamais le build Cloudflare : `build:test` a donc rejoint la liste, et la documentation des conventions en consigne la raison.
+
+### Des contrôles qui accompagnent chaque test
+
+La suite de tests dans le navigateur fait plus qu’exécuter ses propres assertions. Trois fixtures s’attachent automatiquement à chaque test et le font échouer quand la page signale une violation de sa Content Security Policy, une traduction manquante ou mal formée, ou une Permissions Policy que le navigateur ne reconnaît pas. Chaque nouveau test dans le navigateur est donc aussi un test de ces trois propriétés sur les pages qu’il visite, sans que son auteur ait rien à faire :
+
+```ts title="e2e/fixtures/test.ts"
+const reportCspViolations = (prefix: string): void => {
+  document.addEventListener("securitypolicyviolation", ({ blockedURI, lineNumber, sourceFile, violatedDirective }) => {
+    console.error(`${prefix} ${violatedDirective} blocked ${blockedURI} in ${sourceFile}:${String(lineNumber)}`)
+  })
+}
+```
+
+La même suite exécute des analyses d’accessibilité axe dans les deux thèmes de couleur. Ces analyses ont fait échouer trois exécutions de notre échantillon ci-dessous pour du texte qui ne respectait pas le contraste exigé par les WCAG, une régression qu’aucun relecteur n’aurait vue sur un bon écran.
+
+### Des contrôles sur le build et le déploiement
+
+`scripts/verify-build.ts` vérifie des propriétés du résultat du build qu’aucun test unitaire ne peut voir : chaque page de documentation et chaque article publiés ont été prérendus, aucun module réservé au serveur n’a atteint un script du navigateur, chaque locale a son index de recherche, et le code que le Worker charge lors d’un démarrage à froid reste sous un budget en octets, sans paquets propres à certaines requêtes :
+
+```ts title="scripts/verify-build.ts"
+if (bootPackages.size > 0) {
+  throw new Error(`The Worker loads ${[...bootPackages].join(", ")} on every cold start; import it where a request needs it`)
+}
+```
+
+Le déploiement a ses propres contrôles. En novembre, un fichier d’environnement de production contenait encore `AUTH_GOOGLE_CLIENT_ID="[UPDATE]"`, le déploiement l’a envoyé parce qu’il ne refusait que les valeurs vides, et la connexion Google a échoué avec `invalid_client`. La pull request #223 a fait refuser par le déploiement les valeurs factices avant le build : une valeur entre crochets, ou l’un des mots d’une courte liste, quelle que soit la casse.
+
+```ts title="src/lib/deploy-secrets.ts"
+export const SECRET_PLACEHOLDER_WORDS = ["changeme", "placeholder", "replaceme", "tbd", "todo", "update"] as const
+```
+
+### Ce que les contrôles ont refusé en trois mois
+
+Les 400 dernières exécutions de notre CI sur des pull requests, du 14 août au 20 novembre 2026, se sont terminées ainsi : 319 ont réussi, 68 ont échoué, et les autres ont été annulées ou étaient encore en cours. Une exécution en échec ne peut pas être fusionnée, car les vérifications sont obligatoires. Voici où ces 68 ont échoué, selon le contrôle qui les a arrêtées (une exécution peut échouer à plusieurs) :
+
+| Contrôle                                  | Exécutions en échec | Ce qu’il a trouvé                                                                                                                                        |
+| ----------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check` : formatage, lint, types, contenu | 37                  | 34 exécutions avant que l’entrée du journal des modifications n’existe, un « Sie » formel en allemand, deux erreurs de types et de lint                  |
+| Contrôle de couverture                    | 8                   | Du code non testé, d’une exécution à 99,93 % des lignes à une autre à 63,89 % des branches                                                               |
+| Suite de tests dans le navigateur         | 25                  | Des échecs de contraste, la navigation entre locales, l’API de licence de la CLI, la recherche de la documentation, l’hydratation et des tests instables |
+| Build de test                             | 2                   | Un échec de build et une migration locale qui ne s’appliquait pas                                                                                        |
+| Déploiement de préversion                 | 2                   | Un envoi du Worker en échec et une vérification en ligne en échec                                                                                        |
+
+Trois choses ressortent. Le contrôle de couverture a refusé des modifications avec 99,93 % des lignes couvertes, ce qu’aucun relecteur n’aurait refusé. La plupart des exécutions `check` rouges venaient de l’entrée du journal des modifications, qui ne peut pas être écrite avant que la pull request ait un numéro ; c’est un coût sur lequel nous revenons plus bas. Et toutes les exécutions rouges dans le navigateur n’étaient pas des bugs de la modification : certaines venaient de tests instables ou d’exécutions parallèles qui se gênaient, ce que traite le prochain article de cette série.
+
+## Quand chaque vérification est verte et que le produit est cassé
+
+Deux incidents ont passé toutes nos vérifications. Tous deux nous ont appris davantage que les 68 refus.
+
+### 100 % de couverture, et `init` ne fonctionnait pas
+
+SaaSy Land a deux dépôts : ce site web, qui sert une API de licence, et une CLI privée que les clients exécutent pour créer des projets. Tous deux importent un même paquet de contrat qui définit les requêtes et les réponses de l’API, et tous deux valident avec lui. Les schémas du contrat rejettent les clés qu’ils ne connaissent pas, ce qui est un bon choix par défaut : les ignorer en silence aurait été pire.
+
+Une version de la CLI a ajouté une question, la bibliothèque d’interface, et a envoyé sa réponse à l’API de licence. Le site web en production validait encore avec la version précédente du contrat. Chaque test unitaire des deux dépôts passait, car chaque dépôt se testait lui-même contre la version du contrat qu’il fixait ; la couverture était complète des deux côtés. Le 20 novembre 2026, nous avons exécuté la CLI publiée, directement depuis npm, contre la production, avec une vraie licence émise par le checkout de production, comme test de bout en bout. `init` a échoué : l’API a refusé la requête avec « Unrecognized key: library » (clé non reconnue).
+
+La correction a été le passage du site web à la nouvelle version du contrat (#244), mise en ligne l’après-midi même, après quoi la CLI publiée a créé son projet contre la production. Les leçons sont générales :
+
+- **La couverture est une propriété d’un dépôt. L’exactitude est une propriété du système déployé.** Rien dans l’une ou l’autre suite de tests n’exécutait ensemble les deux moitiés déployées.
+- **Le décalage de versions entre des éléments que vous déployez séparément est invisible pour les tests unitaires.** Testez le client publié contre le serveur en ligne, ou au moins contre la version du serveur qui sera en ligne quand le client sortira.
+- **Ordonnez les déploiements.** Un changement de contrat est livré sur le serveur, et mis en ligne, avant que le client qui l’utilise ne soit publié. Nous suivons désormais cette règle, et le prochain garde-fou est une exécution de la CLI publiée contre l’API en ligne dans la CI, avant chaque publication. Elle a besoin d’une clé de licence comme secret de CI, ce qui est en soi une modification soumise à la revue humaine : elle attend donc le propriétaire.
+
+### Un changeset vide qui a bloqué une publication
+
+Celui-ci s’est produit dans le dépôt privé de la CLI : voici donc le processus, sans le code. La CLI est publiée avec Changesets, et la CI refuse une pull request qui modifie un paquet sans changeset, le fichier qui dit ce que contiendra la prochaine version. Changesets documente l’échappatoire : « Si vous voulez fusionner une modification sans publier de version (par exemple quand vous ne modifiez que des tests ou des outils de build), vous pouvez exécuter `changeset --empty` pour ajouter un changeset spécial qui ne publie rien. »
+
+Une pull request sur la branche des versions préliminaires ne corrigeait qu’un journal des modifications : elle a donc ajouté un changeset vide, exactement comme documenté. Sur une branche en mode version préliminaire, avec seulement un changeset vide en attente, le workflow de publication n’a rien trouvé à versionner ni à publier, si bien que la bêta suivante n’a pas été mise en attente de publication. La correction a supprimé le changeset vide, et le guide de publication précise désormais que les changesets vides n’ont leur place que sur la branche principale.
+
+On retrouve la lettre plutôt que l’esprit, un niveau plus haut. La vérification exigeait un artefact, l’agent a fourni le moins cher qui soit valide, et le vrai consommateur de l’artefact était un autre système avec ses propres règles. Quand une vérification exige un fichier, demandez-vous qui d’autre lit ce fichier, et testez le pipeline qui le lit.
+
+## Mise en place dans un dépôt existant
+
+Vous n’avez pas besoin de tout cela dès lundi. Voici l’ordre qui rapporte le plus par journée de travail.
+
+<Steps>
+
+<Step>
+
+**Dressez l’inventaire.** Listez chaque règle que vous avez jamais donnée à un agent ou à un collègue : les fichiers d’instructions, les commentaires de revue que vous répétez sans cesse, la page des conventions. À côté de chaque règle, notez où elle est imposée aujourd’hui. La plupart des équipes découvrent que la plupart de leurs règles ne sont imposées nulle part.
+
+</Step>
+
+<Step>
+
+**Sondez-le.** Écrivez un fichier qui enfreint chaque règle une fois, exécutez vos vérifications et notez ce qui est passé. L’inventaire passe ainsi de ce que vous croyez à ce qui est vrai.
+
+</Step>
+
+<Step>
+
+**Créez une seule commande.** Un unique script `check` qui formate, lint, vérifie les types et exécute vos vérifications du contenu, et une unique commande de test avec la couverture. Placez les deux dans le fichier d’instructions comme définition de « terminé ».
+
+</Step>
+
+<Step>
+
+**Faites exécuter les mêmes commandes par la CI, et rendez-les obligatoires.** Marquez les jobs de CI comme vérifications d’état obligatoires dans une règle de branche, en bloquant aussi les force-push et la suppression sur `main`. À partir de cette étape, rien de rouge n’est fusionné, quel qu’en soit l’auteur.
+
+</Step>
+
+<Step>
+
+**Ajoutez les contrôles un par un, avec un effet cliquet.** Les options de types strictes, puis le contrôle de couverture, puis les vérifications du contenu dont votre produit a besoin. Pour chacun, corrigez les violations existantes dans la même pull request si vous le pouvez, comme #220 l’a fait avec 1 404 formes de politesse allemandes. Sinon, enregistrez une base de référence et n’échouez que sur les nouvelles violations. `coverage.thresholds.autoUpdate` de Vitest relève les seuils quand la couverture s’améliore, si bien que le chiffre ne fait que monter.
+
+</Step>
+
+<Step>
+
+**Clôturez les chemins dangereux.** Refusez les force-push, les déploiements et les identifiants de production dans les réglages de permissions de l’agent. Écrivez la liste de revue humaine avec une raison par entrée, incluez-y les fichiers qui définissent vos vérifications, et appuyez-la sur des propriétaires du code et une identité distincte pour les agents.
+
+</Step>
+
+<Step>
+
+**Réduisez le fichier d’instructions.** Supprimez chaque règle qu’une vérification impose désormais, et remplacez-la par la commande qui l’impose. Ce qui reste devrait être l’intention, les exemples, la liste de revue et la définition de « terminé ».
+
+</Step>
+
+<Step>
+
+**Sondez à nouveau après les mises à jour.** Relancez le fichier de sonde chaque fois que le linter, le compilateur ou l’exécuteur de tests change de version majeure, et chaque fois qu’une règle change. Mieux encore, faites-en un test.
+
+</Step>
+
+</Steps>
+
+## Ce que cela coûte
+
+Les garde-fous ne sont pas gratuits, et quiconque vous dit le contraire n’en a jamais maintenu.
+
+**Du temps à chaque modification.** Notre CI met environ 16 minutes et demie du push au vert, l’essentiel dans la suite de tests du navigateur, plus le temps que prend une exécution locale avant le push. Pour un dépôt public, les minutes de CI elles-mêmes ne coûtent rien sur les runners standard de GitHub, que GitHub documente comme gratuits pour les dépôts publics ; un dépôt privé paie chaque minute, et c’est dans une suite de tests dans le navigateur que partent ces minutes.
+
+**Du code à écrire et à maintenir.** Nos vérifications du contenu et des traductions, le vérificateur de build, le plugin d’hydratation et le hook de commit représentent ensemble plus d’un millier de lignes de TypeScript, avec leurs propres tests. C’est du code comme un autre : il a des bugs, comme le montrent le shebang et le « ton » français, et il a besoin de la même revue.
+
+**Du rouge qui veut dire « pas encore ».** 34 des 37 exécutions `check` en échec de notre échantillon venaient de pull requests dont l’entrée du journal des modifications n’existait pas encore, car l’entrée porte le nom d’un numéro qui n’existe pas avant la pull request. Une vérification qui échoue régulièrement pour une raison attendue apprend à tout le monde à lire le rouge comme du bruit, et c’est l’habitude la plus dangereuse qu’une équipe dotée de garde-fous puisse prendre. Si vous concevez une vérification de ce genre, donnez-lui un état qui n’est pas un échec, ou acceptez le coût en connaissance de cause, comme nous l’avons fait jusqu’ici.
+
+**Du cérémonial.** Une règle légèrement trop stricte produit une conformité que personne n’écrirait à la main, comme l’ont montré les 72 constantes de #230. Prévoyez du temps pour ajuster les règles après les avoir ajoutées.
+
+**Un travail par modification qui croît avec votre produit.** Dans notre dépôt, chaque modification met à jour la documentation en <RepositoryFact name="languages" /> langues et ajoute une entrée du journal des modifications dans chacune d’elles. Les vérifications garantissent que cela se fait. Elles ne le rendent pas moins coûteux.
+
+Ce que cela achète, c’est le tableau ci-dessus : 68 exécutions qui ne pouvaient pas être fusionnées, dont aucune n’a eu besoin d’une personne pour être remarquée, et des agents qui peuvent travailler des heures sans que personne ne surveille chaque étape, parce que le dépôt dit non à notre place. Dans les termes de notre [article sur la préparation des dépôts](/blog/ai-coding-agents-repository-readiness), chaque vérification décrite ici réduit le Time to No.
+
+## Ce que les garde-fous ne détectent pas
+
+Les vérifications tranchent ce qu’un programme peut trancher. Tout le reste a toujours besoin d’une personne qui lit la modification et demande pourquoi.
+
+- **L’intention.** Le bon code pour le mauvais problème passe toutes les vérifications. La correction d’un symptôme aussi. La pull request #146 a corrigé une erreur d’hydratation dans un composant de la page d’accueil, avec un test de régression, et tous les contrôles sont passés ; la cause était une garde de route qui vidait tout le cache des queries chaque fois que l’utilisateur connecté changeait, ce que #152 a corrigé pour chaque page.
+- **La conception.** Un second helper qui duplique celui que vous avez déjà, une nouvelle abstraction dont personne n’avait besoin, un module au mauvais endroit. Le lint voit la syntaxe, pas la finalité.
+- **Les tests faibles.** Un test qui vérifie l’implémentation passe et couvre ses lignes. La couverture mesure ce qui s’est exécuté, pas ce qui a été vérifié ; les tests de mutation mesurent davantage, et nous ne les avons pas encore ajoutés.
+- **Les frontières entre déploiements.** L’incident d’`init` : chaque côté correct, la paire cassée.
+- **La prose.** Les descriptions de pull requests, les affirmations de la documentation et le texte du journal des modifications, à moins que vous n’affichiez leurs faits à partir du code.
+- **Les vérifications elles-mêmes.** Une vérification peut être fausse, trop permissive ou trop stricte. Sondez-la.
+- **La prochaine défaillance inédite.** Chaque garde-fou de cet article encode un incident qui s’est déjà produit. La revue est la façon de trouver celui qui ne s’est pas encore produit.
+
+## Un kit de démarrage à copier
+
+Ces éléments fonctionnent dans la plupart des dépôts TypeScript. Ils utilisent npm, ESLint, Vitest et GitHub Actions parce que ce sont les plus courants ; chaque idée se transpose à d’autres outils.
+
+**Une commande pour chaque contrôle**, nommée de la même façon partout, pour que le fichier d’instructions, le hook et la CI disent tous la même chose :
+
+```json
+{
+  "scripts": {
+    "check": "prettier --check . && eslint --max-warnings 0 . && tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "build": "vite build",
+    "test:e2e": "playwright test"
+  }
+}
+```
+
+**Une configuration de lint sans interrupteur.** La désactivation en ligne est coupée, la règle de commentaires vue plus haut est incluse, et les échappatoires sont interdites par leur nom. `assertionStyle: "never"` autorise toujours `as const`, que typescript-eslint documente comme « toujours autorisé par cette règle ».
+
+```js
+import { defineConfig } from "eslint/config"
+import tseslint from "typescript-eslint"
+
+const noComments = {
+  meta: {
+    type: "suggestion",
+    messages: { comment: "Say it in a name, a commit message or the docs." },
+  },
+  create: (context) => ({
+    Program: () => {
+      for (const comment of context.sourceCode.getAllComments()) {
+        if (comment.type !== "Shebang") {
+          context.report({ loc: comment.loc, messageId: "comment" })
+        }
+      }
+    },
+  }),
+}
+
+export default defineConfig({ linterOptions: { noInlineConfig: true } }, tseslint.configs.strictTypeChecked, {
+  languageOptions: { parserOptions: { projectService: true } },
+  plugins: { house: { rules: { "no-comments": noComments } } },
+  rules: {
+    "house/no-comments": "error",
+    "@typescript-eslint/ban-ts-comment": ["error", { "ts-expect-error": true, "ts-ignore": true, "ts-nocheck": true }],
+    "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-non-null-assertion": "error",
+    "no-magic-numbers": ["error", { ignore: [0, 1], ignoreArrayIndexes: true, ignoreDefaultValues: true }],
+  },
+})
+```
+
+**Des types stricts.** Voici les options que notre propre `tsconfig.json` définit en plus de `strict` :
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}
+```
+
+**Un contrôle de couverture.** `100: true` est le raccourci de Vitest qui « fixe les seuils globaux à 100 ». Dans une base de code existante, partez des chiffres d’aujourd’hui avec `autoUpdate: true` et laissez-les monter.
+
+```ts
+import { defineConfig } from "vitest/config"
+
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      thresholds: { 100: true },
+    },
+  },
+})
+```
+
+**Un test de sonde pour vos règles**, pour qu’une mise à jour du linter ou un changement de configuration qui désactive une règle fasse échouer la CI. Gardez les fichiers de sonde hors de l’exécution normale du lint et lintez-les ici avec les exclusions désactivées :
+
+```ts
+import { ESLint } from "eslint"
+import { expect, it } from "vitest"
+
+const eslint = new ESLint({ ignore: false })
+
+it.each([
+  ["comment.ts", "house/no-comments"],
+  ["assertion.ts", "@typescript-eslint/consistent-type-assertions"],
+  ["expect-error.ts", "@typescript-eslint/ban-ts-comment"],
+  ["explicit-any.ts", "@typescript-eslint/no-explicit-any"],
+])("rejects %s with %s", async (file, rule) => {
+  const [result] = await eslint.lintFiles([`test/rule-probes/${file}`])
+
+  expect(result?.messages.map(({ ruleId }) => ruleId)).toContain(rule)
+})
+```
+
+**Une CI qui exécute les mêmes commandes**, plus une recherche des commentaires de désactivation qui ne dépend pas du respect, par un linter, de ses propres réglages. Faites du job une vérification d’état obligatoire :
+
+```yaml
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:coverage
+      - run: npm run build
+      - name: No suppression comments
+        run: |
+          if git grep -n -E "(eslint|oxlint)-disable|biome-ignore|@ts-(ignore|expect-error|nocheck)" -- "*.ts" "*.tsx" "*.js" "*.jsx" "*.mjs"; then exit 1; fi
+```
+
+**Une règle de branche sur `main` :** exigez le job de CI ; exigez une pull request, avec uniquement des fusions par squash ; exigez un historique linéaire ; bloquez les force-push et la suppression ; exigez la revue des propriétaires du code dès que les agents ont leur propre identité.
+
+**Des propriétaires du code pour les chemins qui exigent une personne**, y compris les fichiers qui définissent vos contrôles :
+
+```text
+/db/migrations/ @your-org/maintainers
+/src/billing/ @your-org/maintainers
+/src/auth/ @your-org/maintainers
+/.github/ @your-org/maintainers
+/eslint.config.js @your-org/maintainers
+/vitest.config.ts @your-org/maintainers
+```
+
+**Des permissions d’agent** qui refusent les commandes qui ne doivent jamais s’exécuter et autorisent la forme sûre du force-push. Cet exemple est le `.claude/settings.json` de Claude Code ; les règles de refus l’emportent sur les règles d’autorisation, car « les règles sont évaluées dans l’ordre : deny, puis ask, puis allow ». N’oubliez pas que les motifs d’arguments sont fragiles : c’est pour cela que la règle de branche ci-dessus existe.
+
+```json
+{
+  "permissions": {
+    "deny": ["Bash(git push --force *)", "Bash(git push -f *)", "Bash(git commit --no-verify *)"],
+    "ask": ["Edit(./db/migrations/**)", "Edit(./src/billing/**)", "Edit(./.github/**)"],
+    "allow": ["Bash(git push --force-with-lease *)"]
+  }
+}
+```
+
+**Un fichier d’instructions qui pointe vers les vérifications** au lieu de les répéter :
+
+```md
+# AGENTS.md
+
+## Done
+
+`npm run check`, `npm run test:coverage`, `npm run build` and `npm run test:e2e` exit 0, in that order, on the branch you push. Put each exit code in the pull request. A summary is not evidence.
+
+## Rules a check enforces
+
+- No comments, suppression comments, type assertions or `any`: `npm run check` fails on each.
+- Coverage stays at 100%: `npm run test:coverage` fails below it.
+
+## Rules review enforces
+
+- Fix the cause, not the symptom, and say in the pull request what caused the bug.
+- One change per pull request.
+
+## Human review required
+
+Do not change these without a maintainer's written yes that names the paths:
+
+- `db/migrations/`: applied to production and irreversible.
+- `src/billing/` and `src/auth/`: money and identity.
+- `.github/`, `eslint.config.js` and `vitest.config.ts`: the checks themselves.
+```
+
+## Où les garde-fous de saasyland.com sont encore insuffisants
+
+Écrire cet article a été un audit, et l’audit a trouvé des lacunes. Dans l’esprit du reste de l’article, les voici.
+
+- **Pas de commentaires** n’est imposé que par les catégories de lint, qui ratent les commentaires de ligne avec majuscule, les commentaires JSDoc et les commentaires JSX. La règle à base de parseur ci-dessus comble cette lacune.
+- **Les échappatoires** ne sont vérifiées qu’en partie : un `@ts-expect-error` accompagné d’une description, un `as` qui élargit et un commentaire `oxlint-disable` passent le lint. `ban-ts-comment` réglée pour interdire et une recherche des directives dans la CI en couvrent l’essentiel.
+- **Les ternaires sur plusieurs lignes et `?? undefined`** ne sont tenus que par la revue.
+- **Les chemins soumis à la revue humaine** sont tenus par l’instruction et la couche de permissions des agents, pas par GitHub, car les agents travaillent sous l’identité du propriétaire. La liste omet aussi les fichiers qui définissent les contrôles.
+- **Les descriptions de pull requests** ne sont pas confrontées au diff.
+- **La CLI publiée** n’est pas encore exécutée contre l’API en ligne avant chaque publication.
+- **Les tests de mutation**, qui mesureraient ce que les tests vérifient plutôt que ce qu’ils exécutent, ne sont pas en place.
+
+Chacune de ces règles est énoncée plutôt qu’imposée, et chacune descendra l’échelle.
+
+## Lecture connexe
+
+<Cards>
+
+<Card title="Votre dépôt est-il prêt pour les agents de codage IA ?" href="/blog/ai-coding-agents-repository-readiness">
+  Le Time to No, la grille d’évaluation en vingt points et ce qui a sa place dans AGENTS.md : où mesurer avant de construire les
+  vérifications de ce guide.
+</Card>
+
+<Card title="Choisir une pile SaaS pour les agents de codage IA" href="/blog/choosing-a-saas-stack-for-ai-coding-agents">
+  Pourquoi une stack typée et vérifiable donne plus de prise aux garde-fous, et quelles surfaces les agents ne devraient jamais posséder
+  seuls.
+</Card>
+
+<Card title="Content Security Policy avec des nonces sur Cloudflare Workers" href="/blog/content-security-policy-nonces-cloudflare-workers">
+  La fixture des violations en détail : comment une suite de tests dans le navigateur qui échoue à chaque violation de la politique garde un
+  en-tête de sécurité honnête.
+</Card>
+
+<Card title="Un SaaS sur Cloudflare Workers : D1, KV et R2" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Le budget de démarrage à froid du vérificateur de build, et les vérifications de déploiement qui refusent les secrets factices, dans le
+  contexte de leur plateforme.
+</Card>
+
+</Cards>
+
+<Callout title="Lisez les règles et les vérifications">
+
+Les [conventions](/docs/conventions) sont la norme de code qu’imposent ces vérifications, publiée dans toutes les langues, et les vérifications, le hook de commit et le workflow de CI se trouvent dans le code source public de saasyland.com. Choisissez votre stack dans le [configurateur](/#cli), puis [voyez ce que coûte chaque formule](/#pricing) : un paiement unique à partir de <TierPrice tier="core" />, chaque carte indiquant ce qui est disponible maintenant et ce qui est à venir. Pour être prévenu de ce qui arrive ensuite, inscrivez-vous au journal de développement en bas de cette page.
+
+</Callout>
+
+## Foire aux questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- Claude Code : [Comment Claude mémorise votre projet](https://code.claude.com/docs/en/memory), [Automatiser des actions avec des hooks](https://code.claude.com/docs/en/hooks-guide) et [Configurer les permissions](https://code.claude.com/docs/en/permissions)
+- Recherche : Jaroslawicz et al., [Combien d’instructions les LLM peuvent-ils suivre à la fois ?](https://arxiv.org/abs/2507.11538) (juillet 2025) ; METR, [Les modèles de pointe récents pratiquent le reward hacking](https://metr.org/blog/2025-06-05-recent-reward-hacking/) (juin 2025) ; _Software Engineering at Google_, [chapitre 11, vue d’ensemble des tests](https://abseil.io/resources/swe-book/html/ch11.html)
+- Lint : les pages d’ESLint sur la [configuration des règles](https://eslint.org/docs/latest/use/configure/rules) et les [règles personnalisées](https://eslint.org/docs/latest/extend/custom-rules), les [plugins JS](https://oxc.rs/docs/guide/usage/linter/js-plugins.html) d’Oxlint, et les règles [`ban-ts-comment`](https://typescript-eslint.io/rules/ban-ts-comment/) et [`consistent-type-assertions`](https://typescript-eslint.io/rules/consistent-type-assertions/) de typescript-eslint
+- Tests et publications : la [configuration de la couverture](https://vitest.dev/config/coverage) de Vitest, l’[automatisation de Changesets](https://github.com/changesets/changesets/blob/main/docs/guide/automating.md) et la page [`git push`](https://git-scm.com/docs/git-push) de Git
+- GitHub : les [règles disponibles pour les ensembles de règles](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), l’[approbation d’une pull request avec des revues obligatoires](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews) et la [facturation de GitHub Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
+- SaaSy Land : la section [Conventions](/docs/conventions), l’[exécution de CI du 20 novembre 2026](https://github.com/saasyland/saasyland.com/actions/runs/44743869789), et les pull requests [#94](https://github.com/saasyland/saasyland.com/pull/94), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#166](https://github.com/saasyland/saasyland.com/pull/166), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#198](https://github.com/saasyland/saasyland.com/pull/198), [#201](https://github.com/saasyland/saasyland.com/pull/201), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#208](https://github.com/saasyland/saasyland.com/pull/208), [#211](https://github.com/saasyland/saasyland.com/pull/211), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230) et [#244](https://github.com/saasyland/saasyland.com/pull/244)
+
+_Écrit par Piotr J. Borowiecki, qui fait tourner saasyland.com et les agents qui y travaillent. La documentation des outils et les travaux de recherche ont été lus le 20 novembre 2026 et peuvent avoir changé depuis ; les liens mènent à la source plutôt qu’à une capture d’écran. Si quelque chose ici est périmé ou faux, dites-le-moi et je le corrigerai._

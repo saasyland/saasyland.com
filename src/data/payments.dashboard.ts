@@ -1,3 +1,5 @@
+import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
+
 import { type AdminDashboardPanel, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
 
 import { RevenueChart, RevenueChartPending } from "~/src/presentation/components/custom/admin/payments/revenue-chart"
@@ -5,5 +7,13 @@ import { RevenueChart, RevenueChartPending } from "~/src/presentation/components
 const AREA = "payments"
 
 export const PAYMENTS_DASHBOARD = [
-  { Panel: RevenueChart, Pending: RevenueChartPending, area: AREA, key: "revenue", order: 10, placement: DASHBOARD_PLACEMENT.PANEL },
+  {
+    Panel: RevenueChart,
+    Pending: RevenueChartPending,
+    area: AREA,
+    key: "revenue",
+    order: 10,
+    placement: DASHBOARD_PLACEMENT.PANEL,
+    prefetch: (queryClient) => queryClient.query({ ...revenueQuery(), staleTime: "static" }),
+  },
 ] as const satisfies readonly AdminDashboardPanel[]

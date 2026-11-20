@@ -13,7 +13,7 @@ export const PRODUCTS_FLOWS = [
     area: FLOW_AREA.ADMIN_PRODUCTS,
     id: "admin-create-product",
     outcome: "The admin creates a product, and it appears in the product list",
-    reason: "The create page saves nothing: create-product.ts has no screen.",
+    reason: "There is no create screen: create-product.ts has no screen.",
     status: FLOW_STATUS.TO_BUILD,
   },
   {
@@ -48,7 +48,7 @@ export const PRODUCTS_FLOWS = [
     area: FLOW_AREA.ADMIN_PRODUCTS,
     id: "admin-pricing-models",
     outcome: "The admin sets up one-time and recurring pricing models for a product",
-    reason: "/admin/pricing-models shows sample data.",
+    reason: "There is no pricing screen; prices are declared in TIER_PRICES and on the Polar products.",
     status: FLOW_STATUS.TO_BUILD,
   },
   {

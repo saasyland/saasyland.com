@@ -4,6 +4,7 @@ import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
 import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
 import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
@@ -37,6 +38,8 @@ const userSortSchema = zod.object({
   id: zod.string().pipe(zod.enum(["user", "role", "status", "emailVerified", "twoFactorEnabled", "timezone", "createdAt", "updatedAt"])),
 })
 
+const getUserSignups = timeRangeSchema
+
 const getUsers = paginationSchema.extend({ sorting: zod.array(userSortSchema).max(MAX_SORT_COLUMNS).default([]) })
 
 const impersonateUser = userIdInput
@@ -69,6 +72,7 @@ export const userZodSchemas = {
   createUser,
   deleteUser,
   getUser,
+  getUserSignups,
   getUsers,
   impersonateUser,
   setUserPassword,

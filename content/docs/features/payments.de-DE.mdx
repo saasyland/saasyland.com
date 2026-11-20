@@ -1,6 +1,6 @@
 ---
 title: "Zahlungen"
-description: "Der Polar-Bereich: das Polar-Plugin für Better Auth, das Kundenportal, die Webhooks, die es an die Bereiche weitergibt, die D1-Kopien der Bestellungen und Abonnements von Polar und die Admin-Demo für Zahlungen."
+description: "Der Polar-Bereich: das Polar-Plugin für Better Auth, das Kundenportal, die Webhooks, die es an die Bereiche weitergibt, die D1-Kopien der Bestellungen und Abonnements von Polar und der Umsatz, den sie auf das Admin-Dashboard bringen."
 ---
 
 Zahlungen laufen über Polar mit dem Plugin `@polar-sh/better-auth`, das der Polar-Bereich in `src/data/polar.auth-plugins.ts` zu Better Auth hinzufügt:
@@ -73,15 +73,15 @@ Der Polar-Bereich hält Kopien der Bestellungen und Abonnements von Polar in zwe
 - Jeder Use Case nimmt den Datensatz von Polar, `models.Order` oder `models.Subscription`, und schreibt ihn in einer einzigen Anweisung: einem Insert unter der ID von Polar, der eine bereits vorhandene Zeile nur dann aktualisiert, wenn ihr gespeichertes `changed_at` nicht später liegt als das des Datensatzes. Eine neuere Version wird übernommen, eine ältere, die verspätet eintrifft, ändert nichts, und dieselbe Version wird, zweimal zugestellt, mit denselben Werten erneut geschrieben. Von zwei verschiedenen Zuständen mit demselben `modified_at` bleibt der zuletzt geschriebene, bis Polar den Datensatz erneut ändert.
 - Dieselbe Anweisung füllt `user_id` über `polarCustomerAccount` in `src/integrations/polar/polar.customers.ts`: das Konto, dessen ID die `external_id` des Kunden ist, die der verkaufende Bereich beim Checkout setzt, so wie es `startCheckout` im Lizenzbereich tut. Sie bleibt leer, wenn der Kunde keine `external_id` hat oder kein Konto diese ID trägt, etwa weil das Konto gelöscht wurde.
 - Auch der Lizenzbereich verarbeitet `order.paid` und `order.refunded`. Die Kopie übernimmt sie ebenfalls und hält so die Zahlung und die Rückerstattung fest, ob Polar dafür zusätzlich `order.updated` sendet oder nicht. `handlePolarEvent` führt beide Bereiche gleichzeitig aus; schlägt die Kopie fehl, antwortet die Zustellung mit 500, und der erneute Versuch von Polar wiederholt beide Schreibvorgänge, ohne zu ändern, was einer von ihnen bereits geschrieben hat.
-- Das Admin-Dashboard liest die Kopien der Bestellungen, um die bezahlten Lizenzbestellungen ohne Lizenz aufzulisten (siehe [Lizenzen](/docs/features/licences#orders-that-match-no-account)); die Kopien der Abonnements liest noch keine Seite.
+- Das Admin-Dashboard liest die Kopien der Bestellungen, um die bezahlten Lizenzbestellungen ohne Lizenz aufzulisten (siehe [Lizenzen](/docs/features/licences#orders-that-match-no-account)) und den Umsatz zu summieren (siehe [Umsatz im Dashboard](#revenue-on-the-dashboard)); die Kopien der Abonnements liest noch keine Seite.
 
 ## Kundenportal
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) öffnet das Polar-Kundenportal des angemeldeten Kontos. Die Lizenzkarte auf `/app/license` verlinkt darauf.
 
-## Admin-Ansicht (Demo)
+## Umsatz im Dashboard [#revenue-on-the-dashboard]
 
-`/admin/payments` rendert `RefundStats` und eine `DataTable` mit Rückerstattungen über `ADMIN_PAYMENT_ROWS` aus `src/data/admin-payments.ts`; ihre Schaltflächen sind nicht angebunden. Der Zahlungsbereich deklariert die Berechtigungs-Statements für `order` (`read`, `update`, `refund`) in `src/data/payments.access.ts`. `get-unlicensed-orders` im Lizenzbereich prüft `order: ["read"]`; kein Anwendungsfall aktualisiert oder erstattet Bestellungen.
+Der Zahlungsbereich deklariert die Berechtigungs-Statements für `order` (`read`, `update`, `refund`) in `src/data/payments.access.ts` und fügt dem Dashboard in `src/data/payments.dashboard.ts` das Panel **Umsatz** hinzu. Seine Query, `getRevenue` in `src/modules/order/use-cases/get-revenue.ts`, prüft `order: ["read"]` und summiert die Kopien der bezahlten Bestellungen eines Zeitraums pro Währung, abzüglich der Erstattungen; [Admin-Dashboard](/docs/features/admin-dashboard#revenue) beschreibt, was sie zählt. `get-unlicensed-orders` im Lizenzbereich prüft ebenfalls `order: ["read"]`. Kein Anwendungsfall aktualisiert oder erstattet Bestellungen, und der Admin-Bereich hat keine Zahlungsansicht: Erstattungen und Auszahlungen werden in Polar erledigt.
 
 ## Verwandte Seiten
 

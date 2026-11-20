@@ -12,8 +12,7 @@ import { cn } from "~/src/lib/cn"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
-import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 const PRODUCT_STATUS_COLORS: Record<ProductRow["status"], AdminStatusColor> = {
   [PRODUCT_STATUS.ARCHIVED]: "rose",
@@ -21,11 +20,9 @@ const PRODUCT_STATUS_COLORS: Record<ProductRow["status"], AdminStatusColor> = {
   [PRODUCT_STATUS.PUBLISHED]: "emerald",
 }
 
-const METRICS_PLACEHOLDER = "—"
-
 type ProductRow = Product["select"]
 
-const ProductHeader = ({ id }: { readonly id: "metrics" | "pricing" | "product" | "status" | "type" }): string => {
+const ProductHeader = ({ id }: { readonly id: "pricing" | "product" | "status" | "type" }): string => {
   const t = useTranslations("pages.admin.products.table.headers")
 
   return t(id)
@@ -82,10 +79,4 @@ export const productColumns = columnHelper.columns([
     header: () => <ProductHeader id="pricing" />,
   }),
   columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <ProductHeader id="status" /> }),
-  columnHelper.display({
-    cell: () => <span className="text-sm text-muted-foreground">{METRICS_PLACEHOLDER}</span>,
-    header: () => <ProductHeader id="metrics" />,
-    id: "metrics",
-  }),
-  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

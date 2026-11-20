@@ -15,9 +15,7 @@ import { pageHead } from "~/src/lib/seo"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
-import { DangerZoneCard } from "~/src/presentation/components/custom/admin/settings/danger-zone-card"
 import { SettingsPasswordForm } from "~/src/presentation/components/custom/admin/settings/password-form"
-import { ProfileCard } from "~/src/presentation/components/custom/admin/settings/profile-card"
 import { SettingsSessions } from "~/src/presentation/components/custom/admin/settings/sessions"
 import { SettingsTwoFactor } from "~/src/presentation/components/custom/admin/settings/two-factor"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
@@ -45,12 +43,8 @@ const SettingsPage = (): JSX.Element => {
           </TabsList>
         </div>
 
-        <TabsContent id="general" className="mt-8 space-y-6 outline-none">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <ProfileCard />
-            <PreferencesCard />
-          </div>
-          <DangerZoneCard />
+        <TabsContent id="general" className="mt-8 grid grid-cols-1 gap-6 outline-none lg:grid-cols-2">
+          <PreferencesCard />
         </TabsContent>
 
         <TabsContent id="security" className="mt-8 space-y-6 outline-none">

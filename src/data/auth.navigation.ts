@@ -1,12 +1,6 @@
 import { Home, Settings, Users } from "lucide-react"
 
-import {
-  ADMIN_NAVIGATION_GROUP,
-  FEATURE_STATUS,
-  FOOTER_COLUMN,
-  NAVIGATION_PLACEMENT,
-  type NavigationEntry,
-} from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -20,7 +14,6 @@ export const AUTH_NAVIGATION = [
     key: "dashboard",
     order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN,
   },
   {
@@ -30,7 +23,6 @@ export const AUTH_NAVIGATION = [
     key: "userManagement",
     order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN_USERS,
   },
   {
@@ -40,7 +32,6 @@ export const AUTH_NAVIGATION = [
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN_SETTINGS,
   },
   { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },

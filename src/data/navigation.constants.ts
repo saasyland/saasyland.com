@@ -67,7 +67,6 @@ interface AdminEntry extends Entry {
   readonly group: (typeof ADMIN_NAVIGATION_GROUPS)[number]
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.ADMIN
-  readonly status: FeatureStatus
 }
 
 interface AppEntry extends Entry {

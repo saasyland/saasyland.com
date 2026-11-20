@@ -16,11 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SiteMarketingRouteImport } from './routes/_site._marketing'
 import { Route as SiteDocsRouteImport } from './routes/_site.docs'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCoursesRouteImport } from './routes/admin.courses'
-import { Route as AdminLandingPageRouteImport } from './routes/admin.landing-page'
-import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
-import { Route as AdminPricingModelsRouteImport } from './routes/admin.pricing-models'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVideosRouteImport } from './routes/admin.videos'
@@ -46,18 +42,13 @@ import { Route as SiteMarketingRefundsRouteImport } from './routes/_site._market
 import { Route as SiteMarketingTermsRouteImport } from './routes/_site._marketing.terms'
 import { Route as SiteDocsIndexRouteImport } from './routes/_site.docs.index'
 import { Route as SiteDocsSplatRouteImport } from './routes/_site.docs.$'
-import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
-import { Route as AdminBlogCreateRouteImport } from './routes/admin.blog.create'
 import { Route as AdminCoursesIndexRouteImport } from './routes/admin.courses.index'
 import { Route as AdminCoursesCourseIdRouteImport } from './routes/admin.courses.$courseId'
 import { Route as AdminCoursesCreateRouteImport } from './routes/admin.courses.create'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin.products.index'
-import { Route as AdminProductsCreateRouteImport } from './routes/admin.products.create'
 import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
-import { Route as AdminUsersInvitationsRouteImport } from './routes/admin.users.invitations'
-import { Route as AdminUsersRolesRouteImport } from './routes/admin.users.roles'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
 import { Route as SiteMarketingBlogSplatRouteImport } from './routes/_site._marketing.blog.$'
@@ -105,29 +96,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminCoursesRoute = AdminCoursesRouteImport.update({
   id: '/courses',
   path: '/courses',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminLandingPageRoute = AdminLandingPageRouteImport.update({
-  id: '/landing-page',
-  path: '/landing-page',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPricingModelsRoute = AdminPricingModelsRouteImport.update({
-  id: '/pricing-models',
-  path: '/pricing-models',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -255,16 +226,6 @@ const SiteDocsSplatRoute = SiteDocsSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => SiteDocsRoute,
 } as any)
-const AdminBlogIndexRoute = AdminBlogIndexRouteImport.update({
-  id: '/blog/',
-  path: '/blog/',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminBlogCreateRoute = AdminBlogCreateRouteImport.update({
-  id: '/blog/create',
-  path: '/blog/create',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminCoursesIndexRoute = AdminCoursesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -285,11 +246,6 @@ const AdminProductsIndexRoute = AdminProductsIndexRouteImport.update({
   path: '/products/',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminProductsCreateRoute = AdminProductsCreateRouteImport.update({
-  id: '/products/create',
-  path: '/products/create',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -303,16 +259,6 @@ const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
 const AdminUsersAllRoute = AdminUsersAllRouteImport.update({
   id: '/all',
   path: '/all',
-  getParentRoute: () => AdminUsersRoute,
-} as any)
-const AdminUsersInvitationsRoute = AdminUsersInvitationsRouteImport.update({
-  id: '/invitations',
-  path: '/invitations',
-  getParentRoute: () => AdminUsersRoute,
-} as any)
-const AdminUsersRolesRoute = AdminUsersRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
   getParentRoute: () => AdminUsersRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -395,11 +341,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/docs': typeof SiteDocsRouteWithChildren
-  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/courses': typeof AdminCoursesRouteWithChildren
-  '/admin/landing-page': typeof AdminLandingPageRoute
-  '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/admin/videos': typeof AdminVideosRoute
@@ -424,17 +366,12 @@ export interface FileRoutesByFullPath {
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
   '/docs/$': typeof SiteDocsSplatRoute
-  '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
-  '/admin/products/create': typeof AdminProductsCreateRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
-  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
-  '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/docs/': typeof SiteDocsIndexRoute
-  '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
@@ -454,10 +391,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof SiteMarketingIndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/admin/analytics': typeof AdminAnalyticsRoute
-  '/admin/landing-page': typeof AdminLandingPageRoute
-  '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/videos': typeof AdminVideosRoute
   '/app/license': typeof AppLicenseRoute
@@ -479,17 +412,12 @@ export interface FileRoutesByTo {
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
   '/docs/$': typeof SiteDocsSplatRoute
-  '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
-  '/admin/products/create': typeof AdminProductsCreateRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
-  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
-  '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/docs': typeof SiteDocsIndexRoute
-  '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/courses': typeof AdminCoursesIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
@@ -514,11 +442,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteWithChildren
   '/_site/_marketing': typeof SiteMarketingRouteWithChildren
   '/_site/docs': typeof SiteDocsRouteWithChildren
-  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/courses': typeof AdminCoursesRouteWithChildren
-  '/admin/landing-page': typeof AdminLandingPageRoute
-  '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/admin/videos': typeof AdminVideosRoute
@@ -543,18 +467,13 @@ export interface FileRoutesById {
   '/_site/_marketing/refunds': typeof SiteMarketingRefundsRoute
   '/_site/_marketing/terms': typeof SiteMarketingTermsRoute
   '/_site/docs/$': typeof SiteDocsSplatRoute
-  '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
-  '/admin/products/create': typeof AdminProductsCreateRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
-  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
-  '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_site/_marketing/': typeof SiteMarketingIndexRoute
   '/_site/docs/': typeof SiteDocsIndexRoute
-  '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
@@ -579,11 +498,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/docs'
-    | '/admin/analytics'
     | '/admin/courses'
-    | '/admin/landing-page'
-    | '/admin/payments'
-    | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/users'
     | '/admin/videos'
@@ -608,17 +523,12 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/terms'
     | '/docs/$'
-    | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
-    | '/admin/products/create'
     | '/admin/users/$userId'
     | '/admin/users/all'
-    | '/admin/users/invitations'
-    | '/admin/users/roles'
     | '/api/auth/$'
     | '/docs/'
-    | '/admin/blog/'
     | '/admin/courses/'
     | '/admin/products/'
     | '/admin/users/'
@@ -638,10 +548,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/admin/analytics'
-    | '/admin/landing-page'
-    | '/admin/payments'
-    | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/videos'
     | '/app/license'
@@ -663,17 +569,12 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/terms'
     | '/docs/$'
-    | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
-    | '/admin/products/create'
     | '/admin/users/$userId'
     | '/admin/users/all'
-    | '/admin/users/invitations'
-    | '/admin/users/roles'
     | '/api/auth/$'
     | '/docs'
-    | '/admin/blog'
     | '/admin/courses'
     | '/admin/products'
     | '/admin/users'
@@ -697,11 +598,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_site/_marketing'
     | '/_site/docs'
-    | '/admin/analytics'
     | '/admin/courses'
-    | '/admin/landing-page'
-    | '/admin/payments'
-    | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/users'
     | '/admin/videos'
@@ -726,18 +623,13 @@ export interface FileRouteTypes {
     | '/_site/_marketing/refunds'
     | '/_site/_marketing/terms'
     | '/_site/docs/$'
-    | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
-    | '/admin/products/create'
     | '/admin/users/$userId'
     | '/admin/users/all'
-    | '/admin/users/invitations'
-    | '/admin/users/roles'
     | '/api/auth/$'
     | '/_site/_marketing/'
     | '/_site/docs/'
-    | '/admin/blog/'
     | '/admin/courses/'
     | '/admin/products/'
     | '/admin/users/'
@@ -817,39 +709,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/analytics': {
-      id: '/admin/analytics'
-      path: '/analytics'
-      fullPath: '/admin/analytics'
-      preLoaderRoute: typeof AdminAnalyticsRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/courses': {
       id: '/admin/courses'
       path: '/courses'
       fullPath: '/admin/courses'
       preLoaderRoute: typeof AdminCoursesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/landing-page': {
-      id: '/admin/landing-page'
-      path: '/landing-page'
-      fullPath: '/admin/landing-page'
-      preLoaderRoute: typeof AdminLandingPageRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/payments': {
-      id: '/admin/payments'
-      path: '/payments'
-      fullPath: '/admin/payments'
-      preLoaderRoute: typeof AdminPaymentsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/pricing-models': {
-      id: '/admin/pricing-models'
-      path: '/pricing-models'
-      fullPath: '/admin/pricing-models'
-      preLoaderRoute: typeof AdminPricingModelsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/settings': {
@@ -1027,20 +891,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteDocsSplatRouteImport
       parentRoute: typeof SiteDocsRoute
     }
-    '/admin/blog/': {
-      id: '/admin/blog/'
-      path: '/blog'
-      fullPath: '/admin/blog/'
-      preLoaderRoute: typeof AdminBlogIndexRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/blog/create': {
-      id: '/admin/blog/create'
-      path: '/blog/create'
-      fullPath: '/admin/blog/create'
-      preLoaderRoute: typeof AdminBlogCreateRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/courses/': {
       id: '/admin/courses/'
       path: '/'
@@ -1069,13 +919,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/products/create': {
-      id: '/admin/products/create'
-      path: '/products/create'
-      fullPath: '/admin/products/create'
-      preLoaderRoute: typeof AdminProductsCreateRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/users/': {
       id: '/admin/users/'
       path: '/'
@@ -1095,20 +938,6 @@ declare module '@tanstack/react-router' {
       path: '/all'
       fullPath: '/admin/users/all'
       preLoaderRoute: typeof AdminUsersAllRouteImport
-      parentRoute: typeof AdminUsersRoute
-    }
-    '/admin/users/invitations': {
-      id: '/admin/users/invitations'
-      path: '/invitations'
-      fullPath: '/admin/users/invitations'
-      preLoaderRoute: typeof AdminUsersInvitationsRouteImport
-      parentRoute: typeof AdminUsersRoute
-    }
-    '/admin/users/roles': {
-      id: '/admin/users/roles'
-      path: '/roles'
-      fullPath: '/admin/users/roles'
-      preLoaderRoute: typeof AdminUsersRolesRouteImport
       parentRoute: typeof AdminUsersRoute
     }
     '/api/auth/$': {
@@ -1314,16 +1143,12 @@ const AdminCoursesRouteWithChildren = AdminCoursesRoute._addFileChildren(
 interface AdminUsersRouteChildren {
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminUsersAllRoute: typeof AdminUsersAllRoute
-  AdminUsersInvitationsRoute: typeof AdminUsersInvitationsRoute
-  AdminUsersRolesRoute: typeof AdminUsersRolesRoute
   AdminUsersIndexRoute: typeof AdminUsersIndexRoute
 }
 
 const AdminUsersRouteChildren: AdminUsersRouteChildren = {
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
   AdminUsersAllRoute: AdminUsersAllRoute,
-  AdminUsersInvitationsRoute: AdminUsersInvitationsRoute,
-  AdminUsersRolesRoute: AdminUsersRolesRoute,
   AdminUsersIndexRoute: AdminUsersIndexRoute,
 }
 
@@ -1332,34 +1157,20 @@ const AdminUsersRouteWithChildren = AdminUsersRoute._addFileChildren(
 )
 
 interface AdminRouteChildren {
-  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminCoursesRoute: typeof AdminCoursesRouteWithChildren
-  AdminLandingPageRoute: typeof AdminLandingPageRoute
-  AdminPaymentsRoute: typeof AdminPaymentsRoute
-  AdminPricingModelsRoute: typeof AdminPricingModelsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRouteWithChildren
   AdminVideosRoute: typeof AdminVideosRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminBlogCreateRoute: typeof AdminBlogCreateRoute
-  AdminProductsCreateRoute: typeof AdminProductsCreateRoute
-  AdminBlogIndexRoute: typeof AdminBlogIndexRoute
   AdminProductsIndexRoute: typeof AdminProductsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminCoursesRoute: AdminCoursesRouteWithChildren,
-  AdminLandingPageRoute: AdminLandingPageRoute,
-  AdminPaymentsRoute: AdminPaymentsRoute,
-  AdminPricingModelsRoute: AdminPricingModelsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRouteWithChildren,
   AdminVideosRoute: AdminVideosRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminBlogCreateRoute: AdminBlogCreateRoute,
-  AdminProductsCreateRoute: AdminProductsCreateRoute,
-  AdminBlogIndexRoute: AdminBlogIndexRoute,
   AdminProductsIndexRoute: AdminProductsIndexRoute,
 }
 

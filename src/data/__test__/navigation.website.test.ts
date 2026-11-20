@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
-import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, FOOTER_COLUMN } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
@@ -10,12 +10,12 @@ import { ROUTES } from "~/src/routes"
 describe("the website's navigation", () => {
   it("arranges the website's navigation as before the areas contributed it", () => {
     expect(ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
-      [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN, ROUTES.ADMIN_ANALYTICS]],
-      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS, ROUTES.ADMIN_PRICING]],
-      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_BLOG, ROUTES.ADMIN_COURSES, ROUTES.ADMIN_VIDEOS, ROUTES.ADMIN_LANDING_PAGE]],
-      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_PAYMENTS, ROUTES.ADMIN_SETTINGS]],
+      [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
+      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
+      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES, ROUTES.ADMIN_VIDEOS]],
+      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
     ])
-    expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_PRODUCTS_CREATE])
+    expect(ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
     expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.APP, ROUTES.APP_LICENSE, ROUTES.APP_SETTINGS])
     expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME, ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS, ROUTES.SIGN_IN])
     expect(FOOTER_NAVIGATION.map(({ key, links }) => [key, links.map(({ to }) => to)])).toStrictEqual([
@@ -28,17 +28,7 @@ describe("the website's navigation", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
   })
 
-  it("counts only the admin sections that work on the landing page, not the demo screens", () => {
-    const working = ADMIN_NAVIGATION.flatMap(({ items }) => items).filter(({ status }) => status === FEATURE_STATUS.AVAILABLE)
-
-    expect(working.map(({ to }) => to)).toStrictEqual([
-      ROUTES.ADMIN,
-      ROUTES.ADMIN_PRODUCTS,
-      ROUTES.ADMIN_COURSES,
-      ROUTES.ADMIN_VIDEOS,
-      ROUTES.ADMIN_USERS,
-      ROUTES.ADMIN_SETTINGS,
-    ])
-    expect(REPOSITORY_FACTS.adminSections).toBe(working.length)
+  it("counts every admin section on the landing page", () => {
+    expect(REPOSITORY_FACTS.adminSections).toBe(ADMIN_NAVIGATION.flatMap(({ items }) => items).length)
   })
 })

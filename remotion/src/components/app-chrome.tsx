@@ -1,9 +1,5 @@
-import analytics from "../../../messages/en-US/navigation.analytics.json"
 import auth from "../../../messages/en-US/navigation.auth.json"
 import courses from "../../../messages/en-US/navigation.courses.json"
-import pageBuilder from "../../../messages/en-US/navigation.page-builder.json"
-import payments from "../../../messages/en-US/navigation.payments.json"
-import postEditor from "../../../messages/en-US/navigation.post-editor.json"
 import products from "../../../messages/en-US/navigation.products.json"
 import sidebar from "../../../messages/en-US/pages.admin.sidebar.json"
 import { ADMIN_NAVIGATION } from "../../../src/data/navigation"
@@ -19,9 +15,7 @@ export const RAIL_WIDTH = 300
 export const HEADER_HEIGHT = 84
 
 const AREA_LABELS = new Map(
-  Object.entries({ analytics, auth, courses, "page-builder": pageBuilder, payments, "post-editor": postEditor, products }).map(
-    ([area, labels]) => [area, new Map(Object.entries(labels.admin))],
-  ),
+  Object.entries({ auth, courses, products }).map(([area, labels]) => [area, new Map(Object.entries(labels.admin))]),
 )
 
 export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; reveal: (index: number) => number }>) {

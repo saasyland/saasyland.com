@@ -28,6 +28,7 @@ import {
   LOCALIZED_TEXT_MAX_LENGTH,
 } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
+import { DEFAULT_TIME_RANGE, TIME_RANGES } from "~/src/modules/_core/utils/time-series"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import {
   COURSE_DOCUMENT,
@@ -56,6 +57,7 @@ import {
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
+import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
@@ -176,6 +178,8 @@ const FACTS = {
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
+  dashboardRanges: TIME_RANGES,
+  defaultDashboardRange: DEFAULT_TIME_RANGE,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
@@ -209,6 +213,7 @@ const FACTS = {
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
+  revenueOrderStatuses: REVENUE_ORDER_STATUSES,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
   secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),

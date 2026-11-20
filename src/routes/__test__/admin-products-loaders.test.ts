@@ -10,8 +10,8 @@ import { getRouter } from "~/src/router"
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin catalog route loaders", () => {
-  it.each(["/admin/products", "/admin/products/create"])("loads localized metadata for an authorized administrator at %s", async (path) => {
-    expectLocalizedAdminPage(await loadAsAdmin(path))
+  it("loads localized metadata for an authorized administrator at /admin/products", async () => {
+    expectLocalizedAdminPage(await loadAsAdmin("/admin/products"))
   })
 
   it("populates required query data before rendering /admin/products", async () => {

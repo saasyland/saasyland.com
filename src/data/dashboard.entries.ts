@@ -1,4 +1,6 @@
 export { AUTH_DASHBOARD } from "~/src/data/auth.dashboard"
+export { COURSES_DASHBOARD } from "~/src/data/courses.dashboard"
 export { LICENSE_DASHBOARD } from "~/src/data/license.dashboard"
+export { NEWSLETTER_DASHBOARD } from "~/src/data/newsletter.dashboard"
 export { PAYMENTS_DASHBOARD } from "~/src/data/payments.dashboard"
 export { PRODUCTS_DASHBOARD } from "~/src/data/products.dashboard"

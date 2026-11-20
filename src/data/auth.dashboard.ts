@@ -1,15 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
+import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { type AdminDashboardStat, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
+import { type AdminDashboardEntry, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
+
+import { SignupsChart, SignupsChartPending } from "~/src/presentation/components/custom/admin/dashboard/signups-chart"
 
 const AREA = "auth"
 
 export const AUTH_DASHBOARD = [
   {
     area: AREA,
-    key: "activeUsers",
+    key: "registeredUsers",
     order: 10,
     placement: DASHBOARD_PLACEMENT.STAT,
     prefetch: (queryClient) => queryClient.query({ ...getUsersQuery, staleTime: "static" }),
@@ -23,4 +26,13 @@ export const AUTH_DASHBOARD = [
     prefetch: (queryClient) => queryClient.query({ ...getUsersQuery, staleTime: "static" }),
     useValue: () => useSuspenseQuery(getUsersQuery).data.pendingVerification,
   },
-] as const satisfies readonly AdminDashboardStat[]
+  {
+    Panel: SignupsChart,
+    Pending: SignupsChartPending,
+    area: AREA,
+    key: "signups",
+    order: 20,
+    placement: DASHBOARD_PLACEMENT.PANEL,
+    prefetch: (queryClient) => queryClient.query({ ...userSignupsQuery(), staleTime: "static" }),
+  },
+] as const satisfies readonly AdminDashboardEntry[]

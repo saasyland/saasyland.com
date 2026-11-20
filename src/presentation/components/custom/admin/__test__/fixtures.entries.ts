@@ -1,3 +1,6 @@
 export { seedAuthQueries } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
+export { seedCoursesQueries } from "~/src/presentation/components/custom/admin/__test__/courses.fixtures"
 export { seedLicenseQueries } from "~/src/presentation/components/custom/admin/__test__/license.fixtures"
+export { seedNewsletterQueries } from "~/src/presentation/components/custom/admin/__test__/newsletter.fixtures"
+export { seedPaymentsQueries } from "~/src/presentation/components/custom/admin/__test__/payments.fixtures"
 export { seedProductsQueries } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"

@@ -19,6 +19,18 @@ describe("user management tabs", () => {
     expectTypeOf<(typeof ENTRIES)[number]["to"]>().toExtend<FileRouteTypes["to"]>()
   })
 
+  it("orders the tabs of several areas by their order, not by their area", async () => {
+    const [allUsers] = AUTH_USER_TABS
+    const exports = { ...allUsers, area: "reports", key: "exports", order: allUsers.order - 1 }
+    vi.resetModules()
+    vi.doMock("~/src/data/user-tabs.entries", () => ({ AUTH_USER_TABS, REPORTS_USER_TABS: [exports] }))
+
+    const tabs = await import("~/src/data/user-tabs")
+
+    expect(tabs.USER_TABS.map(({ key }) => key)).toStrictEqual([exports.key, allUsers.key])
+    vi.doUnmock("~/src/data/user-tabs.entries")
+  })
+
   it("keeps only the auth area's tabs when no other area adds one", async () => {
     vi.resetModules()
     vi.doMock("~/src/data/user-tabs.entries", () => ({ AUTH_USER_TABS }))

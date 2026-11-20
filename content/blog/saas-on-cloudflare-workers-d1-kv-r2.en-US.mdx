@@ -1,0 +1,732 @@
+---
+title: "A SaaS on Cloudflare Workers: D1, KV and R2 in Production"
+description: "A practical guide to running a SaaS on Cloudflare Workers with D1, KV and R2: which data goes where, atomic writes without transactions, migrations without downtime, caching, signed file URLs, rate limits, cold starts, limits and costs, with saasyland.com’s code as the worked example."
+excerpt: "Workers, D1, KV and R2 can run a real SaaS, if you build to their shape: a SQLite database that answers one query at a time, a cache that is eventually consistent, buckets with no egress fees and a script that has to load before every cold request. This guide turns that shape into rules you can apply, and checks each one against the production code of saasyland.com, with its incidents, measurements and costs at today’s prices."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
+tags:
+  - architecture
+  - stack
+  - saas
+faq:
+  - question: Can you run a whole SaaS on Cloudflare Workers?
+    answer: >-
+      Yes, if your data fits the shape of D1. saasyland.com runs its pages, server functions, sign-in,
+      licence API, webhooks and video delivery in one Worker, with users, sessions, licences and
+      courses in D1, a cache in KV and private files in R2. The limits to check first are D1’s 10 GB
+      per database, its one query at a time per database, and the absence of transactions that stay
+      open while your code decides.
+  - question: Does Cloudflare D1 support transactions?
+    answer: >-
+      Only as batches. D1 runs statements in auto-commit mode, and its documentation says that
+      batched statements are SQL transactions: they execute and commit one after another, and a
+      failing statement rolls back the whole batch. There is no transaction you can open, read from,
+      decide on in your code and commit later, so a read-decide-write step has to be one SQL
+      statement or one batch.
+  - question: What are the limits of Cloudflare D1?
+    answer: >-
+      On Workers Paid, 10 GB per database, 1 TB per account and 1,000 queries per Worker invocation;
+      on Workers Free, 500 MB per database and 50 queries. On both plans a row, string or BLOB is at
+      most 2 MB, a statement 100 KB, a query takes at most 100 bound parameters and runs for at most
+      30 seconds, and each database processes its queries one at a time.
+  - question: Should I store sessions or rate limits in Workers KV?
+    answer: >-
+      No. KV is eventually consistent: Cloudflare says changes may take up to 60 seconds or more to
+      be visible in other locations, that lookups for missing keys are cached too, and that KV is not
+      ideal where you need atomic operations. One key accepts one write per second. Keep sessions,
+      counters and everything that decides access in D1 or Durable Objects, and use KV to cache data
+      that may be a minute old.
+  - question: How should I rate limit on Cloudflare Workers?
+    answer: >-
+      It depends on how exact the limit must be. The Workers Rate Limiting binding is approximate:
+      its counts are eventually consistent and apply separately in each Cloudflare location. For one
+      strict limit across all locations, Cloudflare points to Durable Objects. saasyland.com keeps its
+      counters in D1, which is exact and shared by every isolate at the cost of a written row per
+      counted request. KV is the wrong tool for counters.
+  - question: How much does it cost to run a SaaS on Cloudflare Workers?
+    answer: >-
+      Workers Paid costs $5 a month and includes 10 million requests, 30 million CPU milliseconds,
+      25 billion D1 rows read, 50 million rows written, 5 GB of D1 storage, 10 million KV reads and 1
+      million KV writes. R2 adds 10 GB of storage, 1 million Class A and 10 million Class B
+      operations free each month, then $0.015 per GB-month, with no egress fees. Requests for static
+      assets are free.
+  - question: How do you serve private videos or files from R2?
+    answer: >-
+      Through the Worker or through presigned URLs, never from a public bucket. saasyland.com checks
+      that the viewer may watch the lesson, then signs a path with an expiry and an HMAC; the Worker
+      verifies it, answers range requests and keeps whole files in the Workers cache of each data
+      centre. R2’s presigned URLs are the alternative that skips the Worker: they last up to 7 days
+      and work only on the S3 API domain.
+  - question: How are D1 migrations applied on deploy?
+    answer: >-
+      Before the new code goes live. The deploy applies the SQL files that drizzle-kit generated with
+      wrangler d1 migrations apply, which records each applied migration in a d1_migrations table, and
+      only then deploys the Worker. For a short time the previous Worker runs against the new schema,
+      so every migration must work with the code deployed before it.
+  - question: Can a D1 migration rebuild a table that has foreign keys?
+    answer: >-
+      Yes, but not by switching foreign keys off. D1 enforces foreign keys in every query and
+      migration, and each query runs in an implicit transaction, so the usual PRAGMA foreign_keys
+      switch does not help. D1’s documentation points to PRAGMA defer_foreign_keys, which checks the
+      constraints when the transaction ends, and PRAGMA foreign_key_check to find violations first.
+  - question: How large can a Cloudflare Worker be?
+    answer: >-
+      Since 4 September 2026, 64 MiB uncompressed on every plan, with no compressed limit; before
+      that, 3 MB compressed on Free and 10 MB on Paid. The global scope must run within 1 second.
+      Size still costs time: a new isolate has to load the whole script before the first request, so
+      saasyland.com moved its docs and blog content out of the Worker and more than halved its upload.
+  - question: Does SaaSy Land generate projects for Cloudflare Workers?
+    answer: >-
+      {generation, select, available {Yes. {initCommand} writes a TanStack Start project for
+      Cloudflare Workers with D1 through Drizzle, as you choose in the configurator.} other {Not yet.
+      Project generation arrives in a later release and starts with TanStack Start on Cloudflare
+      Workers. Today the CLI activates your licence, and the Worker described here is public under the
+      MIT licence.}}
+---
+
+<Callout title="What this article is">
+
+A practical guide to building a SaaS on Cloudflare Workers with D1, KV and R2, written for any team on the platform. Each section states the rules first and then shows how saasyland.com, which runs as one Worker, applies them in its public source. It covers:
+
+1. When the platform fits a SaaS, and which kind of data belongs in which product.
+2. Bindings, environments and secrets, and which requests should run your Worker at all.
+3. Cold starts: what a new isolate costs, and how to keep the code it loads small.
+4. D1: atomic writes without interactive transactions, round trips, indexes, and migrations that never take the site down.
+5. KV as a cache, R2 behind signed URLs, and rate limits that hold across every isolate.
+6. Deploys, logs, the limits that matter, what it all costs, and a checklist you can copy.
+
+</Callout>
+
+_Last checked 20 November 2026. Every limit and price of Cloudflare below was read on Cloudflare’s own documentation that day and is linked at the bottom. Everything about saasyland.com comes from its code, with real file paths and excerpts, and its measured values are printed from the code rather than typed. We sell a product built on this stack, so read the section on when to choose something else as carefully as the rest._
+
+## The short answer
+
+Cloudflare Workers with D1, KV and R2 can carry a production SaaS: saasyland.com serves its marketing pages, documentation, blog, sign-in, customer workspace, admin console, licence API, payment webhooks and course videos from one Worker. The platform rewards a few habits and punishes their absence:
+
+- **D1 is SQLite, and each database answers one query at a time.** A database holds up to 10 GB on Workers Paid, and there is no transaction you can keep open while your code decides. Write every read-decide-write step as one statement or one `batch()`.
+- **KV is a cache, not a database.** It is eventually consistent, so sessions, counters and permissions belong in D1 or Durable Objects.
+- **R2 has no egress fees**, which makes it a good home for video and downloads, as long as something you control decides who may read each file.
+- **The size of the Worker is latency.** A new isolate loads the whole script before it answers, so what you bundle shows up in the first byte of a cold request.
+- **Migrations run before the code that needs them.** Every schema change has to work with the release that is still live.
+
+The rest of this guide turns those five sentences into rules, and shows each one in production.
+
+## When Workers fits a SaaS, and when it does not
+
+Start with the shape of your product, not with the platform’s feature list. Workers fits well when:
+
+- **Your data is relational and moderate in size.** Users, accounts, subscriptions, licences, settings and content metadata sit comfortably in SQLite, and 10 GB per database is a lot of rows of that kind.
+- **Most requests are short.** Rendering a page, answering an API call, verifying a webhook and signing a URL take milliseconds of CPU, which is what Workers bills and what an isolate is good at.
+- **Your traffic is global or spiky.** There are no servers to size, and you pay per request rather than per idle hour.
+- **Your files are large and often read.** Video, downloads and build artifacts cost storage and operations in R2, never bandwidth.
+
+It fits badly when:
+
+- **Your data needs one large shared database.** Past 10 GB, D1 asks you to split data across databases, which suits data that is naturally per tenant and does not suit one dataset that every query joins.
+- **Your writes need long transactions or heavy concurrency on one database.** A workflow that must hold locks while it calls other services, or a write rate that one single-threaded database cannot absorb, is easier on a database server. Hyperdrive, which Cloudflare describes as global connection pooling and query caching for your existing databases, lets a Worker use one you already run.
+- **Your work is long or heavy CPU.** A request gets at most five minutes of CPU on Workers Paid and 128 MB of memory per isolate, so video encoding and large batch jobs belong somewhere else, or in pieces on Queues, which Cloudflare describes as sending and receiving messages "with guaranteed delivery".
+
+saasyland.com is the first kind of product: modest relational data, short requests, big files that are read often. Its one heavy job, encoding course videos, runs on the publisher’s machine before upload.
+
+## Put each kind of data where it belongs
+
+Most mistakes on this platform come from storing something in the product built for a different consistency model. This table is the decision we would make again for any SaaS:
+
+| Data                                                                         | Put it in             | Why                                                                               |
+| ---------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------- |
+| Users, sessions, orders, licences, permissions, anything that decides access | D1                    | Relational, consistent, queryable, and joined to the rest of your data            |
+| Counters and coordination that must be exact under high write rates          | Durable Objects       | A globally unique object with strongly consistent storage, built for coordination |
+| Copies of slow third-party answers, configuration, feature flags             | KV                    | Fast reads everywhere, and a minute of staleness harms no one                     |
+| Video, downloads, uploads, build artifacts, backups                          | R2                    | Large objects, no egress fees, private by default                                 |
+| Prerendered HTML, hashed scripts and styles, fonts, images                   | Workers static assets | Requests for static assets are free and unlimited                                 |
+| Responses to reuse within one data centre                                    | The Workers Cache API | Fast, but local: Cloudflare says its contents do not replicate to other centres   |
+
+The rules behind it: whatever decides access is stored somewhere consistent; whatever is large goes to R2; whatever can be computed at build time is a static asset; and KV only holds what you could throw away and fetch again.
+
+### Worked example: five bindings
+
+saasyland.com follows the table with five bindings, declared in `wrangler.jsonc`:
+
+| Binding   | Product               | What it holds                                                                                | Where in the code                                         |
+| --------- | --------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `ASSETS`  | Workers static assets | Prerendered pages, scripts, styles, fonts and images from the build                          | `src/server.ts`                                           |
+| `DB`      | D1                    | Users, sessions, licences, copies of Polar’s orders, courses, videos and rate-limit counters | `src/integrations/drizzle-orm/` and `src/modules/`        |
+| `CACHE`   | KV                    | Two cached answers from other services’ APIs                                                 | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
+| `MEDIA`   | R2                    | Course videos and lesson materials                                                           | `src/modules/video/`, `src/modules/lesson-attachment/`    |
+| `BUNDLES` | R2                    | The template bundle of each CLI release                                                      | `src/modules/license/`                                    |
+
+There is no Durable Object yet: every counter the site keeps lives in D1, as the rate-limit section shows.
+
+## Bindings, environments and secrets
+
+A Worker’s configuration file is the map of your whole system, and it is worth treating as code.
+
+**Do:**
+
+- **Give every stage its own resources.** Production should never share a database, namespace or bucket with preview. A preview deploy that runs a migration or deletes test data must not be able to touch customers.
+- **Keep one environment that runs entirely on local resources.** Browser tests need a database, a cache and buckets they can reset in seconds, without network access or credentials.
+- **Declare the secrets each environment needs**, and refuse to deploy while one is missing, empty or a placeholder such as `[UPDATE]`.
+- **Check the configuration before the build.** A missing binding or a placeholder ID is cheaper to find before a ten-minute build than after a failed deploy.
+
+**Don’t:**
+
+- **Don’t read secrets in global scope** or bake them into the build. Read them from the environment inside a request, so a rotated secret takes effect without a rebuild.
+- **Don’t sign different things with one key.** Derive a key per purpose from one secret, as the R2 section shows, so a signature for one kind of file can never be replayed for another.
+- **Don’t rely on IDs you typed by hand being right.** Compare them with what the deploy sees.
+
+### Worked example: four environments and two deploy checks
+
+`wrangler.jsonc` defines four environments with the same bindings: `production`, `preview`, `development`, which uses the preview resources remotely, and `test`, which keeps a local D1 database, KV namespace and buckets under `.wrangler/test` for the browser suite. Each environment lists the secrets it requires. Before any deploy, `scripts/verify-bindings.ts` fails when an environment lacks a binding, still has a placeholder D1 or KV ID, or when production shares its database, namespace or bucket with preview, and `scripts/prepare-deploy-secrets.ts` fails when a required secret is missing, empty or a placeholder, naming the key without printing its value.
+
+The second check came from a real mistake, recorded in [#223](https://github.com/saasyland/saasyland.com/pull/223). The production secrets file still held `[UPDATE]` as the Google OAuth client ID, the deploy uploaded it because the check then refused only empty values, and Google sign-in failed with `invalid_client`. The fix came in two layers: a live check after every deploy that starts a sign-in with each provider and validates the URL it is sent to, and a refusal of placeholder values before the build even starts. Each layer would have caught it alone; together they catch it twice.
+
+## Decide which requests run your Worker
+
+Requests for static assets are free and unlimited on Workers, and requests that run your Worker are billed. That makes the first architectural decision a routing one: which paths should reach your code at all?
+
+Run the Worker first when the response needs something only code can add:
+
+- **Headers that change per response**, such as a Content Security Policy with a fresh nonce.
+- **Per-visitor rewrites**, such as regional prices or a locale redirect.
+- **Access control** in front of files that are not public.
+
+Let the asset store answer directly when the response is the same for everyone: hashed scripts and styles, fonts, `robots.txt`. Remember one trap: Cloudflare’s documentation says that headers in a `_headers` file "are not applied to responses generated by your Worker code". If you set security headers in two places, the asset store’s rules and your Worker, keep them in one constant and test that they match.
+
+### Worked example: every page runs the Worker, on purpose
+
+saasyland.com runs its Worker in front of every path except the files that are the same for everyone:
+
+```jsonc title="wrangler.jsonc"
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "drop-trailing-slash",
+    "run_worker_first": ["/*", "!/assets/*", "!/fonts/*", "!/robots.txt", "!/llms.txt"],
+  },
+```
+
+`src/server.ts` then handles a request in this order:
+
+1. An area’s request handler takes the paths it claims: the courses area takes `/media/`, the licence area takes `/bundles/`.
+2. A non-canonical locale path is redirected.
+3. A `GET` or `HEAD` request is looked up in `ASSETS`, which holds every prerendered page; only a miss reaches TanStack Start.
+4. Every HTML response, prerendered or rendered, gets a nonce of its own for its Content Security Policy and is sent as `private, no-cache`; every response gets the security headers.
+5. The licence area’s document handler rewrites the page for regional pricing when the visitor’s country qualifies.
+
+Steps 4 and 5 are the reason: a static page cannot carry a fresh nonce, and it cannot know the visitor’s country. [Content Security Policy with nonces on Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) explains the nonce half in detail. The files that skip the Worker get the same security headers from `public/_headers`, and `src/__test__/server.test.ts` fails when that file and the constants in the code differ. The price is a billed request for every page view and every image, which the cost section puts into numbers.
+
+## Keep the cold path short
+
+A Worker runs in an isolate, which Cloudflare says "can start around a hundred times faster than a Node process on a container or virtual machine". That is true of the isolate. A new isolate still has to load your whole script before it handles its first request, and the limits page puts it plainly: "larger bundles and expensive initialization code in global scope increase startup time". Since 4 September 2026 the size limit is 64 MiB uncompressed on every plan, so a large Worker deploys; it is simply slower to start. And isolates are evicted: Cloudflare says two requests are not guaranteed to reach the same one, so a site with modest traffic sees cold starts all day.
+
+The rules that follow from it:
+
+1. **Treat the code your entry imports statically as a budget.** Everything the entry file imports, and everything those files import, is evaluated before the first request. Keep it to constants and small helpers.
+2. **Import heavy code where a request needs it.** A payment SDK, a database client or an email library loaded with `await import()` inside a handler costs nothing on requests that never call it.
+3. **Watch what your framework loads first.** A router that imports every route module, or a search route that imports all your content, puts that code on every cold request.
+4. **Move content out of the script.** Pages that are the same for everyone can be prerendered into static assets, and data that only changes at build time can be written as static files and read in the browser.
+5. **Measure the upload and the start.** Cloudflare’s limits page recommends `wrangler deploy --outdir bundled/ --dry-run` to see the uncompressed `Total Upload`, mentions `wrangler check startup` for a CPU profile of the global scope, and says Wrangler reports `startup_time_ms` when you deploy.
+6. **Measure cold requests on a real deployment.** A local server never starts cold the way an edge isolate does.
+
+### Worked example: a boot budget in the build
+
+`src/server.ts` and the area handlers it imports statically hold only constants and small helpers, and load the rest when a request needs it, like the courses area’s handler for `/media/`:
+
+```ts title="src/data/courses.worker.ts"
+export const COURSES_WORKER_HANDLERS = [
+  {
+    fetch: async (request) => {
+      if (isDownload(request)) {
+        const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
+        return serveAttachment(request)
+      }
+
+      const { serveMedia } = await import("~/src/modules/video/video.delivery")
+      return serveMedia(request)
+    },
+    kind: WORKER_HANDLER_KIND.REQUEST,
+    pathPrefix: `${MEDIA_PATH_PREFIX}/`,
+  },
+] as const satisfies readonly WorkerHandler[]
+```
+
+TanStack Start’s own handler is imported the same way, so a prerendered page never loads the server renderer. The build enforces the budget. `scripts/verify-build.ts` follows the static imports of the deployed Worker’s entry and fails when they reach the Polar SDK, Drizzle or Resend, or add up to more than its limit:
+
+```ts title="scripts/verify-build.ts"
+const BOOT_CLOSURE_MAX_BYTES = 51_200
+const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
+```
+
+The check exists because of a mistake. One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds, as the [performance convention](/docs/conventions/performance) records. The header names now live in a file that imports nothing heavy.
+
+### Worked example: two pull requests that halved the cold path
+
+**The route tree stopped importing content.** TanStack Start loads its route tree before it handles any request, a server function call included. Before [#236](https://github.com/saasyland/saasyland.com/pull/236), the route tree imported the docs search, which imported the compiled MDX of every docs page and blog post in every language. Loading each page’s MDX only when a request needed it, and the search code only when someone searched, took the route tree from 1,635 modules and 21.7 MiB to 296 modules and 4.9 MiB, and the first server function on a new isolate went from a median of 481 ms to 341 ms on the preview deployment.
+
+**The Worker stopped holding content at all.** [#239](https://github.com/saasyland/saasyland.com/pull/239), merged on 20 November 2026, turns the docs, the blog and the search index into files that the build writes under `/assets/`. Every docs page and blog post is prerendered, client navigations read those indexes in the browser, the Worker that is deployed resolves every import of a compiled page to a module that throws, and the build fails if any page’s content reaches it. The upload went from 30,115 KiB to 13,465 KiB, and on new isolates of the preview deployment the wait before the handler started fell from a median of 934 ms to 561 ms, and the time to first byte from 1,145 ms to 676 ms. A docs navigation now makes no Worker request at all, and the docs search, which had taken between 7 and 16 seconds on its first query while each isolate built an index, now answers in under two.
+
+What measuring taught us: the number that moved was not the code a request evaluates, which stayed about the same, but the size of the script Cloudflare had to load into a new isolate. Wrangler reported a Worker startup time of 2 ms, because only the small entry runs at startup; the wait came from loading the script into the new isolate. We matched each cold sample to `wrangler tail` by its `cf-ray` header to be sure which build and which isolate answered.
+
+## D1: design for SQLite at the edge
+
+D1 is SQLite with Cloudflare’s storage, replication and API around it. Design for that, and it is a pleasant database; design for Postgres, and it will fight you.
+
+### Know the shape of the database
+
+Two properties shape everything else.
+
+**Each database processes one query at a time.** Cloudflare’s documentation says "each individual D1 database is inherently single-threaded" and that "your maximum throughput is directly related to the duration of your queries". A query that takes 1 ms leaves room for many per second; a query that scans a table for 200 ms blocks everyone else for 200 ms. Short indexed queries and fewer round trips matter more here than on a server with a connection pool.
+
+**Scale comes from more databases, not a bigger one.** D1 "is designed for horizontal scale out across multiple, smaller (10 GB) databases", and Workers Paid includes the first 100,000 databases. If your data is naturally per tenant, one database per tenant is a supported design, and each one gets its own single thread. If it is one shared dataset, plan the day you outgrow 10 GB before you reach it.
+
+Reads can also scale out. D1’s read replication serves queries from replicas, and "you don’t pay extra storage or compute costs for read replicas", but it only works through the Sessions API: "to use read replication, you must use the D1 Sessions API", which keeps "sequential consistency for all queries in a session". Without a session, every query goes to the primary.
+
+### Atomic writes without interactive transactions
+
+D1 runs statements in auto-commit mode, and "batched statements are SQL transactions": a `batch()` runs its statements one after another, and if one fails, D1 "aborts or rolls back the entire sequence". What you cannot do is open a transaction, read a row into JavaScript, decide, and commit later. Every decision that must be atomic has to be made inside SQL. Five patterns cover almost every case:
+
+1. **One conditional statement.** An upsert, or an `UPDATE … WHERE` whose condition is the rule, decides and writes in one step. Read the number of changed rows to know which way it went.
+2. **Constraints as referees.** A unique index decides which of two simultaneous inserts wins; turn the losing insert’s error into a clean `409 Conflict` instead of a crash.
+3. **`INSERT … SELECT … WHERE`.** Insert a row only if a query finds the condition true, in one statement.
+4. **A batch for several statements.** When two writes must happen together, send them as one batch, and add any read that must be consistent with them to the same batch.
+5. **Versions for events that arrive out of order.** Webhooks retry and overtake each other; store the event’s own timestamp or version, and make the write conditional on it being newer.
+
+Avoid the pattern that feels natural from other databases: read a row, check it in your code, then write. Two requests can both read the old row before either writes.
+
+### Worked example: four atomic writes
+
+**A counter that cannot overshoot.** The rate limiter counts a request with one upsert per limit. The `setWhere` condition makes the database refuse to count a request that is already over its limit, so two isolates counting the same client at the same moment cannot both slip through:
+
+```ts title="src/lib/rate-limit.ts"
+const upsertCounter = (insert: CounterInsert, input: RateLimitInput, now: Date) => {
+  const expired = lte(rateLimit.expiresAt, now)
+
+  return insert
+    .onConflictDoUpdate({
+      set: {
+        attempts: sql`case when ${expired} then 1 else ${rateLimit.attempts} + 1 end`,
+        expiresAt: sql`case when ${expired} then ${windowEnd(input, now).getTime()} else ${rateLimit.expiresAt} end`,
+      },
+      setWhere: not(refuses(input, now)),
+      target: rateLimit.key,
+    })
+    .returning({ resetsAt: rateLimit.expiresAt })
+}
+```
+
+**A webhook copy that only moves forward.** saasyland.com keeps a copy of every Polar order. Polar may deliver an update before the event that created the order, or deliver one twice, so the upsert overwrites a row only with a copy that is at least as new:
+
+```ts title="src/modules/order/use-cases/record-order.ts"
+export const recordOrder = async (polarOrder: models.Order): Promise<void> => {
+  const copy = {
+    changedAt: new Date(polarOrder.modified_at ?? polarOrder.created_at),
+    currency: polarOrder.currency,
+    customerId: polarOrder.customer_id,
+    description: polarOrder.description,
+    invoiceNumber: polarOrder.invoice_number,
+    placedAt: new Date(polarOrder.created_at),
+    productId: polarOrder.product_id,
+    refundedAmount: polarOrder.refunded_amount,
+    status: polarOrder.status,
+    subscriptionId: polarOrder.subscription_id,
+    totalAmount: polarOrder.total_amount,
+    userId: polarCustomerAccount(polarOrder.customer),
+  }
+
+  await db
+    .insert(order)
+    .values({ id: polarOrder.id, ...copy })
+    .onConflictDoUpdate({ set: copy, setWhere: lte(order.changedAt, copy.changedAt), target: order.id })
+}
+```
+
+**A refund that a late grant cannot undo.** When an order is refunded, the licence is revoked and the order is remembered in an insert-only table, in one batch. If the event that grants the licence arrives after the refund, the grant finds that row and does nothing:
+
+```ts title="src/modules/license/use-cases/revoke-license.ts"
+export const revokeLicense = async ({ polarOrderId, status, userId }: RevokeLicenseInput): Promise<void> => {
+  const matchingOrder = and(eq(license.userId, userId), eq(license.polarOrderId, polarOrderId), ne(license.status, LICENSE_STATUS.REFUNDED))
+  await db.batch([
+    db.insert(revokedLicenseOrder).values({ polarOrderId, userId }).onConflictDoNothing(),
+    db.update(license).set({ status }).where(matchingOrder),
+  ])
+}
+```
+
+**A unique constraint as the referee.** Where two admins could create the same slug at once, the insert simply runs, and the unique index decides. `rethrowAsConflict` turns the loser’s error into the application’s `CONFLICT` code:
+
+```ts title="src/integrations/drizzle-orm/drizzle.errors.ts"
+export const rethrowAsConflict = (error: unknown): never => {
+  if (isUniqueViolation(error)) {
+    throw new AppError(ERROR_CODES.CONFLICT)
+  }
+
+  throw error
+}
+```
+
+### Fewer round trips, smaller statements
+
+Every query is a round trip from the Worker to the database, and on D1 it also occupies the database’s single thread. Three rules keep both costs down:
+
+- **Batch the reads a request needs.** A paged table needs a page and a total; send both in one `batch()`. saasyland.com’s admin lists do exactly that, and its CLI licence API sends the licence lookup and two rate-limit counters as one batch, so admitting a request costs a single trip to D1.
+- **Mind the per-invocation and per-query limits.** A Worker invocation may run 1,000 queries on Workers Paid and 50 on Free, and a query takes at most 100 bound parameters, so a multi-row insert into a table with ten columns fits ten rows per statement. Bulk imports become a batch of small inserts.
+- **Keep long work out of a single query.** A query runs for at most 30 seconds. A backfill over a large table should process a bounded slice per statement, as saasyland.com’s rate limiter does when it deletes at most a fixed number of expired counters per request instead of sweeping the table.
+
+### Indexes, and what a query costs
+
+D1 bills rows read and rows written, and "rows read measure how many rows a query reads (scans), regardless of the size of each row". A query without an index scans the table every time, which costs both money and the database’s single thread. Every query result tells you what it did: the result’s `meta` includes `rows_read`, "the number of rows read (scanned) by this query", and `rows_written`. Log them for your busiest queries before you guess.
+
+Indexes are not free either: "indexes will add an additional written row when writes include the indexed column". Cloudflare’s own advice is that the reduction in rows read will "in nearly all cases" offset it; still, count both sides for a table that is written on every request, such as a counter table.
+
+### Worked example: one schema, one database
+
+`src/integrations/drizzle-orm/drizzle.database.ts` creates a server-only Drizzle client over `env.DB`, and each table has its own module in `src/modules/<table>/`, with its schema, its Zod schemas and its use cases. IDs are UUID v7 strings, except in the tables that copy Polar’s orders and subscriptions under Polar’s own IDs, and dates are integer milliseconds. Better Auth writes its users, sessions, accounts, verification tokens and two-factor secrets to the same database through the Drizzle adapter, so the admin console joins them to licences and orders like any other table. The site has one database per environment, because its data is shared rather than per tenant and nowhere near 10 GB.
+
+## Migrations without downtime
+
+On Workers, a deploy is atomic for code and not for data: the new Worker replaces the old one at once, but the database is migrated by a separate step, before or after. Choose before, and then write every migration so that the release still live can run against it.
+
+**The rules:**
+
+- **Generate migrations from the schema, review the SQL, and commit both together.** A migration is code that runs once against production; read it like code.
+- **Apply migrations before deploying the code that uses them**, in the same pipeline, so a release never runs against a schema older than itself.
+- **Expand, then contract.** Add a nullable column, a table or an index in one release; ship the code that writes and reads it; remove the old shape in a later release. A rename is an add, a backfill, a switch and a drop, across releases.
+- **Never edit a migration that has run.** Wrangler records applied files and will not run a changed file again; write a new migration instead.
+- **Backfill in slices.** The 30-second query limit and the single thread both argue for many small updates rather than one large one.
+- **Mind foreign keys when a table is rebuilt.** SQLite changes some column definitions by creating a new table, copying the rows and swapping them. D1 says that "by default, D1 enforces that foreign key constraints are valid within all queries and migrations", and since each query runs in an implicit transaction, switching foreign keys off does not help. Its documentation points to `PRAGMA defer_foreign_keys = on`, which checks the constraints when the transaction ends, and `PRAGMA foreign_key_check` to find violations first. Read any generated migration that rebuilds a table with this in mind.
+- **Test every migration from an empty database in CI**, so a migration that only works on your machine fails before it reaches production.
+- **Plan the rollback before you need it.** Rolling back code is easy; rolling back data is not. D1’s Time Travel restores a database to an earlier point in time, up to 30 days back on Workers Paid and 7 on Free, which is your answer to a migration that damaged data, not to one that merely added a column.
+
+### Worked example: the pipeline and an additive change
+
+At saasyland.com, schemas live in the table modules. `bun run db:generate` turns a schema change into a timestamp-prefixed SQL file in `src/integrations/drizzle-orm/migrations/`, committed with the change, and Vitest applies every migration to an in-memory SQLite database before the integration tests run. Wrangler applies them to D1 and records each applied file in the `d1_migrations` table, so a deploy runs only the ones that are new:
+
+```json title="package.json"
+    "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
+```
+
+A pull request that passes the checks and the browser suite deploys to the preview environment, and a merge to `main` deploys to production. Both run the same steps: check the bindings, build, apply the environment’s migrations, then `wrangler deploy`. The database changes first, so for a short time the Worker that is still live runs against the new schema. The migration that added licence delivery records shows the kind of change that survives this: three nullable columns that the previous release simply ignored. It begins:
+
+```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
+ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
+ALTER TABLE `license` ADD `delivered_at` integer;--> statement-breakpoint
+```
+
+The same rule makes rollbacks safe. Production is rolled back by reverting the code in a pull request, and migrations are not reverted, so the older code runs against the newer schema it was already compatible with. The [CI/CD page](/docs/tooling/ci-cd) states it as a rule for every change: each schema change must work with the application deployed before it.
+
+## KV: a cache with a long memory
+
+KV is fast to read everywhere and slow to agree with itself. Cloudflare’s documentation says "changes may take up to 60 seconds or more to be visible in other global network locations", that "negative lookups indicating that the key does not exist are also cached, so the same delay exists", and that "KV is not ideal for applications where you need support for atomic operations". A key accepts one write per second, and `cacheTtl`, which sets how long a read stays cached near the reader, cannot go below 30 seconds.
+
+That makes KV excellent for some data and dangerous for the rest.
+
+**Good uses:** copies of slow third-party answers, configuration and feature flags that change by hand, precomputed data that is rebuilt now and then.
+
+**Bad uses:** sessions, because a revoked session that keeps working for a minute in another city is a security bug; counters, because two locations incrementing the same stale value lose updates; anything that decides access; anything written more than once a second per key. Better Auth’s Cloudflare guide reaches the same conclusion for its own data: KV "cannot meet the `secondaryStorage` contract".
+
+**Patterns that work:**
+
+- **Store the fetch time inside the value.** Instead of relying only on an expiration, keep `fetchedAt` with the data, so a reader can decide whether to serve it as it is, serve it and refresh in the background, or fetch again first.
+- **Refresh in the background with `waitUntil`.** The visitor gets the cached value now, and the refresh finishes after the response, within the 30 seconds `waitUntil()` allows.
+- **Validate on read.** A value written by an older release, or half-written by a failed one, should be treated as missing rather than trusted.
+- **Write only complete values.** If a refresh fails halfway, keep the old entry rather than storing a partial list.
+- **Keep nothing in Worker memory between requests.** Cloudflare can evict an isolate at any time, and two requests are not guaranteed to reach the same one, so a module-level cache is a cache that sometimes works.
+
+### Worked example: two entries, both disposable
+
+saasyland.com’s `CACHE` namespace holds exactly two entries:
+
+- **The GitHub star count** shown on the site, refreshed after <RepositoryFact name="starCountRefreshHours" unit="hour" />.
+- **Polar’s regional discounts**, the automatic percentage discounts that checkout applies by country, refreshed after <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
+
+Each entry stores its value with the time it was fetched, the reader validates it with Zod, and a missing or malformed entry is fetched again. Outdated discounts are fetched again before checkout continues, and a listing that fails is logged and not stored, while an outdated star count is served as it is and refreshed in the background:
+
+```ts title="src/lib/github.ts"
+export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {
+  const cached = cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data
+
+  if (cached === undefined) {
+    return fetchStarCount()
+  }
+
+  if (Date.now() - cached.fetchedAt >= STAR_COUNT_REFRESH_AFTER_MS) {
+    waitUntil(fetchStarCount())
+  }
+
+  return cached.count
+})
+```
+
+Sessions, rate limits, licences and everything else that decides access live in D1.
+
+## R2: private files behind the Worker
+
+R2 stores large objects with no egress fees, which changes the economics of video and downloads: the bill is storage and operations, never minutes watched. The design question is who decides which visitor may read which object.
+
+**Keep buckets private.** Public access and the `r2.dev` URL should stay off for anything you sell or anything personal. Then choose how to grant access:
+
+| Approach               | How it works                                                                                                                                     | Choose it when                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Worker-signed paths    | Your code signs a path with an expiry; the Worker checks the signature and reads the object through its binding                                  | You want your own domain, edge caching, range handling or custom headers, and a check on every read |
+| R2 presigned URLs      | A URL signed with your R2 API credentials, valid "from 1 second to 7 days" for `GET`, `HEAD`, `PUT` or `DELETE`; the client talks to R2 directly | You want uploads or downloads to bypass the Worker; note they "cannot be used with custom domains"  |
+| A Worker on every read | The Worker checks the session on each request and streams the object                                                                             | Files are small and few, or access changes minute by minute                                         |
+
+Whichever you choose, both kinds of URL are bearer tokens. R2’s documentation says to "treat presigned URLs as bearer tokens", and the same is true of a signed path: anyone holding it can use it until it expires. Check who may read when you issue the URL, keep expiries short, and never log full signed URLs.
+
+**Signing well:**
+
+- **Use an HMAC over everything that matters:** the object, the expiry, and anything else that must not change.
+- **Derive a key per purpose** from one secret with HKDF, so a video signature cannot be replayed as a download signature.
+- **Round the expiry up to a fixed step**, such as the hour, so URLs issued within that step are identical and caches can reuse them.
+- **Sign a prefix, not each file,** when a player fetches many files: HLS playlists that refer to segments by relative paths let one signed prefix cover the whole stream.
+
+**Serving well:**
+
+- **Answer `Range` requests** with `206`; players and download managers depend on them.
+- **Cache whole files at the edge under an unsigned key**, so every viewer shares one copy. The Workers Cache API is local, though: Cloudflare says "the contents of the cache do not replicate outside of the originating data center" and that `cache.put` "is not compatible with tiered caching", so each data centre reads each file from R2 once.
+
+**Uploading well:**
+
+- A request body to a Worker is limited to 100 MB on the Free and Pro plans and 200 MB on Business, so large uploads go to R2 directly, through a presigned `PUT` or a tool, not through your Worker.
+- **Do heavy processing before upload.** Encoding video inside a request is out of reach of a Worker’s CPU and memory limits.
+- **Store what you will need to know about an object as custom metadata** when you write it, so later requests can answer from `head()` without reading the object.
+
+### Worked example: course videos and CLI bundles
+
+saasyland.com keeps course videos and lesson materials in `MEDIA` and the CLI’s template bundles in `BUNDLES`, both private. A recording is encoded on the publisher’s machine with FFmpeg into adaptive HLS, with renditions up to <RepositoryFact name="videoTopRendition" />, segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, a poster, a storyboard for seek previews and captions per language, and uploaded with Wrangler. The Worker never accepts a video upload. A lesson in D1 points at a row of the `video` table, and a lesson whose video is marked as a placeholder is listed as being recorded instead of playing.
+
+When a visitor opens a lesson, `getLessonPlayback` loads it from D1, checks with `hasLessonAccess` that this viewer may watch it, and only then signs the paths:
+
+```ts title="src/modules/video/video.playback.ts"
+export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
+  const expires = signedExpiry({ now, ttlSeconds: PLAYBACK_TTL_SECONDS })
+  const signature = await signHmac({ info: SIGNING_INFO, message: signedMessage({ expires, videoId: video.id }), secret })
+  const base = `${MEDIA_PATH_PREFIX}/${expires}.${signature}/${video.id}`
+
+  return {
+    captions: video.captionLocales.map((locale) => ({ locale, src: `${base}/captions/${locale}.vtt` })),
+    poster: `${base}/${VIDEO_FILES.POSTER}`,
+    posterSmall: `${base}/${VIDEO_FILES.POSTER_SMALL}`,
+    src: `${base}/${VIDEO_FILES.MASTER_PLAYLIST}`,
+    storyboard: `${base}/${VIDEO_FILES.STORYBOARD_TRACK}`,
+  }
+}
+```
+
+The signature is an HMAC-SHA-256 with a key that HKDF derives from the auth secret for video playback alone. The expiry is at least <RepositoryFact name="signedMediaHours" unit="hour" /> ahead, rounded up to the hour. `serveMedia` checks the method, the file name and the signature, answers `Range` requests with `206` straight from R2, and keeps whole files in the Workers cache under a key without the signature. Lesson materials use the same scheme under `/media/downloads/`, with a key of their own and links valid for at least <RepositoryFact name="signedDownloadHours" unit="hour" />; they are the one upload the Worker accepts, up to <RepositoryFact name="attachmentMaxMegabytes" /> MB from an admin.
+
+The bundles show the metadata rule. Each CLI release uploads its template bundle with the SHA-256 of its content as R2 custom metadata, and the licence API answers a bundle request by reading that digest with `head()`, then signs a download URL valid for <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Before [#208](https://github.com/saasyland/saasyland.com/pull/208), the Worker downloaded, decompressed and hashed the archive on every request, about 31 ms of CPU for a 1.7 MB bundle in our local measurements; reading the metadata brought it to about 3 ms, whatever the bundle’s size.
+
+## Rate limiting that holds across isolates
+
+A rate limit is only as good as its counter. Requests for one client land on many isolates in many locations, so a counter in memory counts nothing. Four places can hold the count:
+
+| Option                        | Exactness                                                                        | Cost and trade-off                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Workers Rate Limiting binding | Approximate: counts "apply separately in each Cloudflare location"               | No storage to manage; windows of 10 or 60 seconds only                                |
+| D1 counters                   | Exact and shared, because one database decides                                   | A written row, and with an index two, per counted request; uses the database’s thread |
+| Durable Objects               | Exact; Cloudflare’s answer when "you need one strict limit across all locations" | One more product to run; built for exactly this kind of coordination                  |
+| KV                            | Wrong: eventually consistent, one write per second per key                       | Loses updates under the load you are trying to limit                                  |
+
+**Rules that apply to any of them:**
+
+- **Key on what you can trust.** On Cloudflare, the client address is the `cf-connecting-ip` header; add the account, the API key or the email address for limits that follow a person rather than a network.
+- **Hash identifiers you store.** A counter keyed by an email address does not need to contain the address.
+- **Count in the same round trip as the work** when you can, so a limit costs no extra latency.
+- **Decide what happens when the store is down.** Failing closed refuses traffic you could have served; failing open lets an attacker through exactly when you are weakest. Choose per endpoint, and write it down.
+- **Clean up in bounded steps**, never with a sweep that grows with your traffic.
+
+### Worked example: counters in D1, failing closed
+
+saasyland.com keeps every counter in one `rate_limit` table, shared by Better Auth’s limiter, the middleware of its server functions and the CLI licence API. Sensitive operations allow <RepositoryFact name="sensitiveRateLimit" /> calls and token redemptions <RepositoryFact name="tokenRateLimit" /> per <RepositoryFact name="rateLimitWindowSeconds" unit="second" /> per client and action, and verification and reset emails are limited to <RepositoryFact name="recipientEmailsPerHour" /> of each kind per address per hour, keyed on a SHA-256 hash of the address. Each counted request is the upsert shown above, sent in one batch with the read that finds a refusal and a bounded cleanup of expired counters. When D1 cannot be reached, the limiter refuses:
+
+```ts title="src/lib/rate-limit.ts"
+export const consumeRateLimit = async (input: RateLimitInput): Promise<RateLimitDecision> => {
+  try {
+    return await countRequest(input)
+  } catch (error) {
+    console.error("Rate-limit storage unavailable", error)
+    return { allowed: false, retryAfter: input.windowSeconds }
+  }
+}
+```
+
+Failing closed is the right default for sign-in, password resets and licence activations, where a refused request costs a retry and an accepted one can cost an account. The price of exact counters in D1 is writes: at two written rows per counted request, the 50 million rows included in Workers Paid cover about 25 million counted requests a month before the first extra dollar. When a limit needs more than that, or more writes per second than one database should take, Durable Objects are the next step.
+
+## Deploy, verify, observe
+
+A deploy on Workers takes seconds, which makes it tempting to skip the steps around it. Each step below runs in saasyland.com’s own deploy.
+
+1. **Check configuration and secrets** before building: bindings present, no placeholder IDs, production not sharing resources with preview, every required secret set.
+2. **Build, and check the build:** the cold-path budget, that every page that should be prerendered was, and that no server-only code reached the browser.
+3. **Migrate the target database.**
+4. **Deploy.**
+5. **Check the live site** with real requests: the pages answer, sign-in redirects to the right OAuth clients, and the headers are what you expect.
+
+Run previews through the same pipeline against their own resources. And know your blind spots: at saasyland.com, Cloudflare’s bot protection answers requests from CI runners with `403`, so the live check runs with local deploys, and CI deploys run everything else.
+
+**Logs.** Workers Logs needs `observability` enabled in your configuration; Cloudflare keeps logs for 3 days on Free and 7 on Paid, includes 20 million log events a month on Paid, then charges $0.60 per million, and moves to Cloudflare Observability pricing on 1 December 2026. `head_sampling_rate` lets a busy Worker keep a share of requests. Log the identifiers you need to correlate an incident, such as the request’s `cf-ray`, the user ID and the order ID, and never secrets, signed URLs or full email addresses.
+
+### Worked example: the deploy script
+
+The local production deploy chains the whole pipeline in one script, and stops at the first step that fails:
+
+```json title="package.json"
+    "deploy:production": "bun scripts/verify-bindings.ts production && bun scripts/prepare-deploy-secrets.ts production && bun scripts/run-deploy-checks.ts production && bun run build:production && bun run db:migrate:production && env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.production.json && bun scripts/verify-deployment.ts production",
+```
+
+One trade-off is deliberate: `wrangler.jsonc` sets `upload_source_maps` to `false`, because the Worker and its source maps together once exceeded what Cloudflare accepted in one upload. Production stack traces point into bundled code, and we have not turned the maps back on since the Worker shrank.
+
+## The limits that matter
+
+These are the limits a SaaS meets first, from Cloudflare’s limits pages on 20 November 2026:
+
+| Limit                                 | Workers Free        | Workers Paid                             |
+| ------------------------------------- | ------------------- | ---------------------------------------- |
+| D1 database size                      | 500 MB              | 10 GB                                    |
+| D1 storage per account                | 5 GB                | 1 TB                                     |
+| D1 queries per Worker invocation      | 50                  | 1,000                                    |
+| D1 row, string or BLOB                | 2 MB                | 2 MB                                     |
+| D1 bound parameters per query         | 100                 | 100                                      |
+| D1 query duration                     | 30 seconds          | 30 seconds                               |
+| D1 Time Travel                        | 7 days              | 30 days                                  |
+| KV writes to the same key             | 1 per second        | 1 per second                             |
+| KV value size                         | 25 MiB              | 25 MiB                                   |
+| Worker size                           | 64 MiB uncompressed | 64 MiB uncompressed                      |
+| Worker startup (global scope)         | 1 second            | 1 second                                 |
+| CPU time per HTTP request             | 10 ms               | 30 seconds by default, 5 minutes at most |
+| Memory per isolate                    | 128 MB              | 128 MB                                   |
+| `waitUntil()` after the response      | 30 seconds          | 30 seconds                               |
+| Static asset files per Worker version | 20,000              | 100,000                                  |
+| Size of one static asset file         | 25 MiB              | 25 MiB                                   |
+| Variables and secrets per Worker      | 64                  | 128                                      |
+
+Request bodies are limited by the zone’s plan rather than the Workers plan: 100 MB on Free and Pro, 200 MB on Business. And 10 ms of CPU on Workers Free is too little to render pages for paying customers, so plan on Workers Paid from the start.
+
+## What it costs
+
+Cloudflare’s prices on 20 November 2026:
+
+| Product       | Included                                                                 | Beyond that                                                                 |
+| ------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Workers Paid  | $5 a month: 10 million requests and 30 million CPU milliseconds          | $0.30 per million requests, $0.02 per million CPU milliseconds              |
+| Static assets | Every request, on every plan                                             | Free                                                                        |
+| D1            | 25 billion rows read, 50 million rows written, 5 GB a month              | $0.001 per million rows read, $1.00 per million written, $0.75 per GB-month |
+| KV            | 10 million reads, 1 million writes, deletes and lists, 1 GB a month      | $0.50 per million reads, $5.00 per million writes, $0.50 per GB-month       |
+| R2 Standard   | 10 GB-month, 1 million Class A and 10 million Class B operations a month | $0.015 per GB-month, $4.50 per million Class A, $0.36 per million Class B   |
+| R2 egress     | Free                                                                     | Free                                                                        |
+
+D1 charges no egress or compute of its own.
+
+We do not publish saasyland.com’s traffic, so instead of our invoice, here is the arithmetic for a month of one million Worker requests. On a site built like this one, that is fewer than a million page views, because every page and image runs the Worker, while scripts, styles and fonts do not:
+
+- **Workers:** one million requests is a tenth of the allowance, and the 30 million CPU milliseconds cover an average of 30 ms per request.
+- **D1:** even at 1,000 rows read and ten rows written per request, that is a billion rows read, 4% of the allowance, and ten million written, a fifth of it.
+- **KV:** at most one read per request is a tenth of the reads, and the writes happen about once per refresh interval.
+- **R2:** the first 10 GB are free; a library of 100 GB of video costs $1.35 a month to store, however often it is watched.
+
+So the bill for that month is $5, plus R2 storage beyond the free 10 GB. Multiply the traffic by ten and the 10 million requests are still covered; the first lines to grow are CPU time, at $0.02 per million milliseconds beyond the allowance, and D1 writes, at $1.00 per million rows. That is the practical reason to keep requests short and writes deliberate, and the reason a rate limiter that writes on every request deserves a second look as you grow.
+
+## A checklist you can lift
+
+**Configuration and environments**
+
+- Every stage has its own D1 database, KV namespace and buckets; production shares nothing with preview.
+- One environment runs on local resources only, for tests.
+- Each environment declares its required secrets, and the deploy refuses empty or placeholder values.
+- Keys for different purposes are derived separately from one secret.
+
+**The request path**
+
+- Hashed assets, fonts and other files that are the same for everyone skip the Worker.
+- Headers set by the Worker and by `_headers` come from one source and are tested to match.
+- HTML that carries per-response data is `private` and is never stored in a shared cache.
+
+**Cold starts**
+
+- The entry’s static imports are a budget, checked in the build.
+- SDKs, database clients and email libraries are imported where a request needs them.
+- Content that only changes at build time is prerendered or written as static files, not bundled into the Worker.
+- Cold requests are measured on a deployment, not locally.
+
+**D1**
+
+- Every read-decide-write is one statement or one batch.
+- Unique constraints referee races, and their errors become `409`, not `500`.
+- Webhook copies are written only when newer, and reversals leave a record that late events check.
+- Hot queries are indexed, and their `rows_read` has been looked at.
+- Multi-row inserts respect the 100-parameter limit.
+- The plan for outgrowing 10 GB is written down, even if it is "one database per tenant".
+
+**Migrations**
+
+- Migrations are generated, reviewed and committed with the code.
+- The pipeline migrates before it deploys.
+- Every migration works with the release before it; renames and drops take several releases.
+- Table rebuilds use `PRAGMA defer_foreign_keys`, not switching foreign keys off.
+- CI applies every migration to an empty database.
+- You know how to use Time Travel before the day you need it.
+
+**KV, R2 and rate limits**
+
+- KV holds nothing that decides access and nothing written more than once a second per key.
+- Cached values carry their fetch time and are validated on read.
+- Buckets are private; access is decided when a URL is issued, and URLs expire.
+- Large uploads bypass the Worker.
+- Facts about objects that requests need are stored as custom metadata.
+- Each rate limit has a store that matches its required exactness, and a written decision on failing open or closed.
+
+**Deploy and operations**
+
+- Configuration checks, build checks, migration, deploy and a live check run in that order.
+- Workers Logs is on, sampled if needed, and logs identifiers, never secrets or signed URLs.
+
+SaaSy Land’s CLI is in beta. Today it activates your licence; project generation arrives in a later release and starts with TanStack Start on Cloudflare Workers, and the [configurator](/#cli) shows which options will be offered. Until then, the Worker described here is public under the MIT licence, and the [Cloudflare Workers](/docs/integrations/cloudflare-workers), [D1](/docs/integrations/cloudflare-d1), [KV](/docs/integrations/cloudflare-kv) and [R2](/docs/integrations/cloudflare-r2) pages document every part of it.
+
+## Related reading
+
+<Cards>
+
+<Card title="Content Security Policy with nonces on Cloudflare Workers" href="/blog/content-security-policy-nonces-cloudflare-workers">
+  A fresh nonce on every page, prerendered or rendered, and the mistakes that make a policy useless.
+</Card>
+
+<Card title="TanStack Start vs Next.js for SaaS" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  Both frameworks as they stand in November 2026, including how each runs on Cloudflare Workers.
+</Card>
+
+<Card title="Better Auth vs Clerk vs Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
+  Why our users, sessions and rate limits are rows in D1 rather than records in someone else’s service.
+</Card>
+
+<Card title="Polar vs Stripe vs Lemon Squeezy" href="/blog/polar-vs-stripe-vs-lemon-squeezy">
+  The payment provider whose webhooks this Worker receives, and why we chose it.
+</Card>
+
+</Cards>
+
+<Callout title="Read the Worker before you build your own">
+
+Every file quoted here is in saasyland.com’s public source, and the [documentation](/docs) explains the rest. Pick your stack in the [configurator](/#cli), then [see what each tier costs](/#pricing): one payment from <TierPrice tier="core" />, with each card saying what is available now and what is arriving. To hear when project generation ships, sign up for the build log at the foot of this page.
+
+</Callout>
+
+## Frequently asked questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- Cloudflare Workers: [pricing](https://developers.cloudflare.com/workers/platform/pricing/), [limits](https://developers.cloudflare.com/workers/platform/limits/), [how Workers works](https://developers.cloudflare.com/workers/reference/how-workers-works/), [static assets billing](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/), [static assets headers](https://developers.cloudflare.com/workers/static-assets/headers/), the [Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/), the [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) and the [changelog entry on the 64 MiB size limit](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/)
+- Cloudflare D1: [limits](https://developers.cloudflare.com/d1/platform/limits/), [pricing](https://developers.cloudflare.com/d1/platform/pricing/), the [Worker API and `batch()`](https://developers.cloudflare.com/d1/worker-api/d1-database/), the [result object](https://developers.cloudflare.com/d1/worker-api/return-object/), [migrations](https://developers.cloudflare.com/d1/reference/migrations/), [foreign keys](https://developers.cloudflare.com/d1/sql-api/foreign-keys/) and [read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)
+- Cloudflare KV: [how KV works](https://developers.cloudflare.com/kv/concepts/how-kv-works/) and [limits](https://developers.cloudflare.com/kv/platform/limits/)
+- Cloudflare R2: [pricing](https://developers.cloudflare.com/r2/pricing/) and [presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
+- Other Cloudflare products: [Durable Objects](https://developers.cloudflare.com/durable-objects/), [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) and [Queues](https://developers.cloudflare.com/queues/)
+- Better Auth: the [Cloudflare guide](https://better-auth.com/docs/guides/cloudflare)
+- SaaSy Land: the [Cloudflare Workers](/docs/integrations/cloudflare-workers), [D1](/docs/integrations/cloudflare-d1), [KV](/docs/integrations/cloudflare-kv), [R2](/docs/integrations/cloudflare-r2), [Videos](/docs/features/videos) and [database migrations](/docs/tooling/database) pages, the [CI/CD](/docs/tooling/ci-cd) and [performance](/docs/conventions/performance) pages, and pull requests [#208](https://github.com/saasyland/saasyland.com/pull/208), [#236](https://github.com/saasyland/saasyland.com/pull/236) and [#239](https://github.com/saasyland/saasyland.com/pull/239) for the measurements
+
+_Written by Piotr J. Borowiecki, who runs saasyland.com on Cloudflare Workers. Cloudflare’s limits and prices were read from its documentation on 20 November 2026 and may have changed since; the links go to the source rather than to a screenshot. If anything here is out of date or wrong, tell me and I will correct it._

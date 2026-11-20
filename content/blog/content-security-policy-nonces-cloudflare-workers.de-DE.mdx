@@ -1,0 +1,594 @@
+---
+title: "Content Security Policy mit Nonces auf Cloudflare Workers"
+description: "Ein praktischer Leitfaden zu einer strikten, Nonce-basierten Content Security Policy: was sie stoppt, Nonces oder Hashes, strict-dynamic, Frameworks, statische Seiten, CDNs, die Skripte einfügen, Caching, Skripte von Drittanbietern, Einführung und Tests, mit dem Cloudflare Worker von saasyland.com als Praxisbeispiel."
+excerpt: "Eine Content Security Policy stoppt eingeschleuste Skripte nur, wenn deine eigenen Skripte beweisen können, dass sie dazugehören, und die meisten Richtlinien im Web können das nicht. Dieser Leitfaden erklärt, wie eine strikte, Nonce-basierte Richtlinie funktioniert, wie du zwischen Nonces und Hashes wählst, wie die Nonce in dein Framework, in statische Seiten und in Skripte von Drittanbietern kommt, wie du die Richtlinie einführst und testest und welche Fehler sie unbemerkt abschalten, mit dem Code, dem Vorfall und den Tests hinter der Richtlinie von saasyland.com auf Cloudflare Workers."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
+tags:
+  - security
+  - tanstack-start
+  - architecture
+faq:
+  - question: Was ist eine Nonce-basierte Content Security Policy?
+    answer: >-
+      Eine Richtlinie, deren script-src einen Zufallswert nennt, der sich mit jeder Antwort ändert,
+      während jedes Skript, mit dem die Seite ausgeliefert wird, denselben Wert in seinem Attribut
+      nonce trägt. Der Browser führt nur die Skripte aus, die ihn tragen, daher wird ein Skript, das
+      über eine Cross-Site-Scripting-Lücke eingeschleust wurde und den Wert nicht kennen kann,
+      blockiert. Die CSP3-Spezifikation verlangt jedes Mal, wenn eine Richtlinie gesendet wird, einen
+      neuen Wert von mindestens 128 Bit aus einem kryptografisch sicheren Zufallszahlengenerator.
+  - question: Sollte ich Nonces oder Hashes verwenden?
+    answer: >-
+      Nonces für Seiten, die pro Request gerendert werden, Hashes für Seiten, die gecacht und
+      unverändert ausgeliefert werden; so rät es auch web.dev. Auf Cloudflare gibt es einen weiteren
+      Grund, Nonces zu bevorzugen: Skripte, die Cloudflare am Edge einfügt, etwa die JavaScript
+      Detections des Bot Fight Mode, erhalten eine Nonce nur aus der Richtlinie im Antwort-Header,
+      nie aus einem Meta-Tag, und eine Hash-Richtlinie kann kein Skript abdecken, das sich ändert.
+      saasyland.com hat auf vorgerenderten Seiten mit Hashes begonnen und ist aus diesem Grund zu
+      Nonces gewechselt.
+  - question: Ist unsafe-inline in einer Nonce-Richtlinie unsicher?
+    answer: >-
+      Nicht, wenn eine Nonce oder ein Hash vorhanden ist: Jeder aktuelle Browser ignoriert
+      unsafe-inline, wenn die Richtlinie eines davon enthält, und auch strict-dynamic sorgt dafür,
+      dass es ignoriert wird. Es bleibt nur als Fallback für sehr alte Browser in der Richtlinie, die
+      keines von beidem verstehen. Allein, ohne Nonce oder Hash, lässt unsafe-inline jedes
+      Inline-Skript laufen, und die Richtlinie schützt nichts.
+  - question: Was macht strict-dynamic?
+    answer: >-
+      Es erlaubt einem Skript, dem du mit einer Nonce oder einem Hash vertraust, weitere Skripte zu
+      laden, etwa die Chunks deines Bundlers oder das Pixel eines Anbieters, ohne deren Hosts
+      aufzulisten. Im Gegenzug werden Allowlists für Hosts und Schemes, self und unsafe-inline
+      ignoriert, und Skripte, die der HTML-Parser einfügt, etwa die mit document.write geschriebenen,
+      gelten nicht als vertrauenswürdig.
+  - question: Kann ich eine HTML-Seite cachen, die eine Nonce trägt?
+    answer: >-
+      Nicht in einem gemeinsamen Cache und nicht mit Validatoren. Eine Nonce muss für jede Antwort
+      neu sein, und eine gecachte Seite wiederholt eine alte. saasyland.com sendet jede HTML-Antwort
+      mit private, no-cache und ohne ETag oder Last-Modified, sodass der Browser eine gespeicherte
+      Seite nie zu einem 304 revalidiert, der einen alten Body mit einer neuen Nonce kombiniert. Wenn
+      dein HTML in einem CDN gecacht werden muss, nutze Hashes oder füge die Nonce am Edge hinzu,
+      wenn jede Kopie den Cache verlässt.
+  - question: Kann ich die Richtlinie in ein Meta-Tag schreiben?
+    answer: >-
+      Für die meisten Direktiven ja, aber frame-ancestors, report-uri und sandbox werden in einem
+      meta-Element ignoriert, den Report-only-Modus gibt es dort nicht, und eine Nonce in einer
+      Meta-Richtlinie muss sich trotzdem mit jeder Antwort ändern. Auf Cloudflare unterstützt
+      JavaScript Detections keine Nonces, die über Meta-Tags gesetzt werden, daher würden die
+      Skripte blockiert, die es einfügt. Sende die Richtlinie als Antwort-Header.
+  - question: Wie führe ich eine Content Security Policy ein, ohne meine Website kaputtzumachen?
+    answer: >-
+      Sende sie zuerst als Content-Security-Policy-Report-Only, das Verstöße meldet, ohne etwas zu
+      blockieren, mit einem Endpunkt für Berichte, der in einem Header Reporting-Endpoints deklariert
+      und in der Direktive report-to genannt wird. Behebe, was die Berichte zeigen, und sende dann
+      dieselbe Richtlinie als Content-Security-Policy. Du kannst eine Report-only-Richtlinie neben
+      der durchgesetzten behalten, um die nächste Verschärfung auszuprobieren.
+  - question: Wie füge ich TanStack Start, Next.js oder React eine CSP-Nonce hinzu?
+    answer: >-
+      Erzeuge die Nonce dort, wo der Request ankommt, und gib sie an den Renderer weiter. Die
+      Streaming-Renderer von React nehmen eine Option nonce für die Skripte an, die sie ausgeben.
+      Next.js liest die Nonce aus dem Request-Header Content-Security-Policy, den sein Proxy setzt,
+      und verlangt dynamisches Rendering für Seiten, die eine verwenden. TanStack Start nimmt sie als
+      Request-Kontext entgegen und gibt sie dem Router als ssr.nonce, der damit seine Skripte
+      versieht und ein Meta-Tag csp-nonce schreibt, das der Router im Browser wieder ausliest.
+  - question: Brauche ich mit einer strikten CSP noch Trusted Types?
+    answer: >-
+      Sie lösen eine andere Hälfte des Problems. Eine strikte Richtlinie stoppt Skripte, die in die
+      Seite eingeschleust werden; Trusted Types, eingeschaltet mit require-trusted-types-for,
+      verhindern, dass Strings DOM-Sinks wie innerHTML erreichen. Laut web.dev ergänzen Trusted Types
+      eine strikte CSP sehr gut, und MDN führt die Direktive als 2026 neu in allen aktuellen Browsern
+      verfügbar.
+  - question: Wie teste ich eine Content Security Policy?
+    answer: >-
+      In einem echten Browser, gegen einen Produktions-Build. Die Browser-Suite von saasyland.com
+      zeichnet jedes Ereignis securitypolicyviolation auf und lässt jede Spec fehlschlagen, in der
+      eine Seite eines meldet, prüft, dass jede Antwort in ihrem Header und auf jedem Skript eine
+      andere Nonce trägt, und fügt zwei Skripte in eine ausgelieferte Seite ein, um zu beweisen, dass
+      das eine mit der Nonce des Headers läuft und das andere ohne sie blockiert wird.
+  - question: Kann ich die Richtlinie von saasyland.com in meinem eigenen Projekt verwenden?
+    answer: >-
+      {generation, select, available {Ja. Die Richtlinie, der Rewriter und die Browsertests stehen
+      im öffentlichen Quellcode von saasyland.com unter der MIT-Lizenz, und {initCommand} schreibt
+      TanStack-Start-Projekte für Cloudflare Workers, die Plattform, für die sie geschrieben sind.}
+      other {Ja. Die Richtlinie, der Rewriter und die Browsertests stehen im öffentlichen Quellcode
+      von saasyland.com unter der MIT-Lizenz. Die Projektgenerierung von SaaSy Land kommt mit einer
+      späteren Version und beginnt mit TanStack Start auf Cloudflare Workers, der Plattform, für die
+      sie geschrieben sind.}}
+---
+
+<Callout title="Was dieser Artikel ist">
+
+Ein praktischer Leitfaden für eine strikte Content Security Policy, für jedes Team, das HTML rendert: was eine Richtlinie stoppen kann und was nicht, wie du eine baust, die sich Browser nicht ausreden lassen, und wie sie weiter funktioniert, während sich deine Website und ihre Drittanbieter ändern. Jeder Abschnitt nennt zuerst die Regeln und zeigt dann, wie saasyland.com sie auf einem Cloudflare Worker umsetzt, mit echten Dateipfaden und Auszügen aus seinem öffentlichen Quellcode. Er behandelt:
+
+1. Was eine Richtlinie schützt und warum Allowlists dort scheitern, wo Nonces und Hashes funktionieren.
+2. Die Wahl zwischen Nonces und Hashes und den Aufbau einer strikten Richtlinie.
+3. Nonces richtig erzeugen und sie in React, Next.js und TanStack Start bringen.
+4. Vorgerenderte Seiten, CDNs, die Skripte einfügen, und das Cachen von Seiten, die eine Nonce tragen.
+5. Skripte von Drittanbietern, `eval` und die Bibliotheken, die es brauchen.
+6. Die Einführung im Report-only-Modus, Tests im Browser, die Fehler, die eine Richtlinie abschalten, sowie eine Richtlinie und eine Checkliste zum Übernehmen.
+
+</Callout>
+
+_Zuletzt geprüft am 20. November 2026. Was die Standards sagen, stammt aus der Spezifikation CSP Level 3, von MDN und von web.dev; was Cloudflare, React, Next.js, Stripe, Google Tag Manager und Polar tun, stammt aus deren eigener Dokumentation; alles wurde an diesem Tag gelesen und ist unten verlinkt. Alles über saasyland.com stammt aus seinem Code. Jedes hier beschriebene Detail ist in diesem Quellcode bereits öffentlich; es aufzuschreiben macht es leichter zu prüfen, nicht leichter anzugreifen._
+
+## Die kurze Antwort
+
+Sende die Richtlinie in einem Antwort-Header, nie nur in einem Meta-Tag. Erzeuge für jede HTML-Antwort eine neue zufällige Nonce von mindestens 128 Bit, setze sie zusammen mit `'strict-dynamic'` in `script-src` und setze denselben Wert auf jedes Skript, mit dem deine Seite ausgeliefert wird. Füge `object-src 'none'` und `base-uri 'none'` hinzu und `frame-ancestors 'none'`, es sei denn, deine Seiten müssen eingebettet werden können. Lass keinen gemeinsamen Cache das HTML speichern, denn eine gecachte Seite wiederholt eine alte Nonce. Führe die Richtlinie zuerst im Report-only-Modus ein und teste sie in einem Browser gegen einen Produktions-Build, wobei jeder Verstoß den Lauf fehlschlagen lässt.
+
+Das ist die Strict CSP von Google, die web.dev als `script-src 'nonce-{RANDOM}' 'strict-dynamic'; object-src 'none'; base-uri 'none';` schreibt. Der Rest dieses Leitfadens beschreibt, was nötig ist, damit das für jede Seite einer echten Anwendung gilt, auch für die Seiten, die statische Dateien sind, und für die Skripte, die du nicht selbst geschrieben hast.
+
+## Was eine Content Security Policy schützt und was nicht
+
+Eine Content Security Policy ist ein Header, der dem Browser sagt, welche Ressourcen eine Seite laden und ausführen darf. Ihre Hauptaufgabe ist es, Cross-Site-Scripting einzudämmen: Wenn es einem Angreifer gelingt, Markup in deine Seite zu bringen, über ein Template, das das Escaping vergessen hat, einen Markdown-Renderer, einen gespeicherten Kommentar oder eine verwundbare Abhängigkeit, hält eine gute Richtlinie den Browser davon ab, das eingeschleuste Skript auszuführen.
+
+Daraus folgen drei Dinge.
+
+**Eine Richtlinie ist eine zusätzliche Verteidigungslinie, keine Korrektur.** Sie beseitigt die Injektion nicht; sie macht sie viel schwerer auszunutzen. Escape weiterhin deine Ausgaben, bereinige HTML, das du von Nutzern annimmst, und halte deine Abhängigkeiten aktuell. Die Richtlinie rettet dich an dem Tag, an dem eines davon versagt.
+
+**Bei den Skripten entsteht der Schaden.** Ein eingeschleustes Skript kann die Seite lesen, als angemeldeter Nutzer handeln und alles, was es findet, irgendwohin schicken. Styles, Bilder und Verbindungen einzuschränken hilft auch, aber eine Richtlinie, die `script-src` richtig setzt, blockiert die Angriffe, die am meisten zählen, und eine Richtlinie, die es falsch setzt, blockiert fast nichts.
+
+**Injektion ohne Skripte gibt es weiterhin.** Die CSP3-Spezifikation behandelt Dangling-Markup-Angriffe („dangling markup attacks“), mit denen sich die legitimen Nonces einer Seite für Injektionen zweckentfremden lassen („can be used to repurpose a page’s legitimate nonces for injections“), und den Diebstahl von Nonces über CSS-Attributselektoren, dem Browser begegnen, indem sie die Nonce vor dem Inhaltsattribut des Elements verbergen und in einen internen Slot verschieben („hiding the nonce from the element’s content attribute and moving it into an internal slot“). Eine strikte Richtlinie verengt diese Angriffe; sie macht HTML-Injektion nicht harmlos.
+
+## Warum Allowlists scheitern und strikte Richtlinien funktionieren
+
+Die meisten Richtlinien im Web listen vertrauenswürdige Hosts auf: `script-src 'self' https://cdn.example.com https://analytics.example.com`. web.dev erklärt, warum das nicht reicht: Host-Allowlists lassen die Seite oft für XSS offen, weil sie sich in den meisten Konfigurationen umgehen lassen („often leave the page exposed to XSS because they can be bypassed in most configurations“). Jeder erlaubte Host, der JSONP-Endpunkte, alte Versionen von Bibliotheken mit bekannten Script-Gadgets oder von anderen Kunden hochgeladene Dateien ausliefert, wird zu einem Weg, unter deiner Richtlinie Code nach Wahl des Angreifers auszuführen. Und jeder Anbieter, den du hinzufügst, macht die Liste länger und die Richtlinie schwächer.
+
+Eine strikte Richtlinie vertraut Skripten statt Hosts. Jedes Skript, mit dem deine Seite ausgeliefert wird, trägt einen Nachweis, dass du es dort platziert hast: eine Nonce, also einen Wert, den der Angreifer nicht kennen kann, weil er sich mit jeder Antwort ändert, oder einen Hash, der nur auf genau das Skript passt, das du geschrieben hast. Skripte ohne diesen Nachweis laufen nicht, egal woher sie kommen.
+
+Das fehlende Stück sind die Skripte, die deine vertrauenswürdigen Skripte laden: Routen-Chunks, ein Pixel, ein Widget. Dafür ist `'strict-dynamic'` da. MDN beschreibt es so: Das Vertrauen, das einem im Markup vorhandenen Skript ausdrücklich durch eine Nonce oder einen Hash gegeben wird, soll auf alle Skripte übergehen, die dieses Wurzelskript lädt („the trust explicitly given to a script present in the markup, by accompanying it with a nonce or a hash, shall be propagated to all the scripts loaded by that root script“). Die CSP3-Spezifikation nennt den Preis: Mit `'strict-dynamic'` werden Host- und Scheme-Quellen, `'unsafe-inline'` und `'self'` beim Laden von Skripten ignoriert („will be ignored when loading script“), und nur Skripte, die nicht vom Parser eingefügt werden, gelten als vertrauenswürdig, ein mit `document.write()` geschriebenes Skript also nicht.
+
+## Nonces oder Hashes: eine Entscheidungshilfe
+
+Beide beweisen, dass ein Skript von dir stammt. Sie unterscheiden sich darin, wann der Nachweis entsteht.
+
+| Deine Seiten                                                                              | Verwende                                | Warum                                                                                                                |
+| ----------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Für jeden Request auf dem Server gerendert                                                | Nonces                                  | Ein frischer Wert pro Antwort kostet nichts und deckt Inline- und externe Skripte gleichermaßen ab                   |
+| Statische Dateien, unverändert ausgeliefert, ohne dass unterwegs jemand Skripte hinzufügt | Hashes                                  | Der Nachweis wird beim Build berechnet und bleibt gültig, solange die Datei es ist                                   |
+| Statische Dateien hinter einem CDN oder am Edge, wo Skripte hinzugefügt werden            | Nonces, am Edge pro Antwort hinzugefügt | Skripte, die du nicht geschrieben hast, lassen sich nicht im Voraus hashen, und am Edge lässt sich eine Nonce setzen |
+| HTML, das in einem CDN gecacht und geteilt werden muss                                    | Hashes                                  | Eine Nonce in einem gemeinsamen Cache wird wiederverwendet, und das hebelt sie aus                                   |
+
+web.dev fasst dieselbe Regel in je einer Zeile: Verwende eine Nonce-basierte CSP für HTML-Seiten, die auf dem Server gerendert werden („use a nonce-based CSP for HTML pages rendered on the server“), und eine Hash-basierte CSP für HTML-Seiten, die statisch ausgeliefert werden oder gecacht werden müssen („use a hash-based CSP for HTML pages served statically, or pages that need to be cached“).
+
+**Wie Hashes funktionieren.** Eine Hash-Quelle ist der Base64-kodierte SHA-256-, SHA-384- oder SHA-512-Hash des exakten Texts eines Inline-Skripts, in `script-src` als `'sha256-…'` aufgeführt. Ändere ein Zeichen des Skripts, und der Hash passt nicht mehr. Für externe Skripte erklärt MDN, dass ein Hash in der Richtlinie ein Skript nur erlaubt, wenn alle gültigen Hashwerte in seinem Attribut `integrity` mit den erlaubten Werten im CSP-Header übereinstimmen. Auf einer statischen Website ist das übliche Muster das, das web.dev beschreibt: ein gehashtes Inline-Skript, das die anderen dynamisch lädt, während `'strict-dynamic'` das Vertrauen weitergibt.
+
+**Die Abwägung beim Framework.** Nonces setzen einen Server im Weg jeder HTML-Antwort voraus. Next.js dokumentiert das unverblümt: Mit Nonces müssen alle Seiten dynamisch gerendert werden („all pages must be dynamically rendered“), statische Optimierung und Incremental Static Regeneration sind abgeschaltet, und Partial Prerendering (PPR) ist mit einer Nonce-basierten CSP nicht kompatibel („Partial Prerendering (PPR) is incompatible with nonce-based CSP“). Seine Alternative für statische Seiten ist die experimentelle Subresource Integrity, Hash-basiert und auf den App Router beschränkt. Welches Framework du auch nutzt, entscheide das, bevor du dein Caching entwirfst, nicht danach.
+
+## Aufbau einer strikten Richtlinie
+
+Diese Direktiven machen eine Richtlinie strikt. Die Werte sind die, die web.dev empfiehlt, plus `frame-ancestors`, das in fast jede Anwendung gehört.
+
+| Direktive und Wert                       | Was sie bewirkt                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `script-src 'nonce-…'` oder `'sha256-…'` | Nur Skripte mit der Nonce dieser Antwort oder mit einem aufgeführten Hash laufen, ob inline oder extern             |
+| `'strict-dynamic'`                       | Diese Skripte dürfen weitere Skripte laden, ohne dass Hosts aufgeführt werden                                       |
+| `'unsafe-inline' https:`                 | Fallbacks für Browser, die weder Nonces noch `'strict-dynamic'` unterstützen; jeder aktuelle Browser ignoriert sie  |
+| `object-src 'none'`                      | Keine Plugins über `<object>` oder `<embed>`                                                                        |
+| `base-uri 'none'`                        | Ein eingeschleustes `<base>`-Element kann die relativen Skript-URLs der Seite nicht auf einen anderen Host umbiegen |
+| `frame-ancestors 'none'`                 | Keine Website darf die Seite einbetten, was Clickjacking verhindert; das funktioniert nur in einem Header           |
+
+Die Fallbacks sehen alarmierend aus und sind es nicht. web.dev sagt, dass alle aktuellen Browser `unsafe-inline` ignorieren, wenn eine CSP-Nonce oder ein Hash vorhanden ist, und dass alle Browser, die `strict-dynamic` unterstützen, den Fallback `https:` ignorieren. MDN beschreibt die Kombination genau: In Browsern, die nur CSP1 unterstützen, wirkt sie wie `'unsafe-inline' https:`, in CSP2-Browsern wie `https:` mit der Nonce und in CSP3-Browsern wie die Nonce mit `'strict-dynamic'`. Alte Browser bekommen eine schwächere Richtlinie statt einer kaputten Seite.
+
+**Optional, und es lohnt sich:**
+
+- **`require-trusted-types-for 'script'`** schaltet Trusted Types ein, die laut MDN dafür sorgen, dass DOM-Sinks wie `innerHTML` nur nicht fälschbare, typisierte Werte annehmen, die von Trusted-Type-Richtlinien erzeugt wurden, und Strings ablehnen („only accept non-spoofable, typed values created by Trusted Type policies, and reject strings“). Laut web.dev ergänzen Trusted Types eine strikte CSP sehr gut („complements strict CSP very well“), und MDN kennzeichnet die Direktive mit „Baseline 2026, newly available“. Sie erfordert Arbeit in deinem Code und in Bibliotheken von Drittanbietern, also füge sie hinzu, wenn der Rest hält.
+- **`report-to`** schickt Berichte über Verstöße an einen Endpunkt, den du in einem Header `Reporting-Endpoints` deklarierst. MDN weist darauf hin, dass `report-uri` veraltet ist, es sich aber trotzdem lohnt, es daneben zu deklarieren, weil `report-to` noch nicht in allen Browsern vollständig unterstützt wird.
+- **`style-src`, `img-src`, `connect-src`, `font-src`, `frame-src`** schränken ein, was die Seite sonst laden darf und wohin sie Daten senden darf. Sie helfen, besonders `connect-src` gegen Datenabfluss, aber jede davon ist eine Liste, die du pflegen musst, während sich Anbieter ändern. Beginne mit den Skripten.
+
+### Praxisbeispiel: die Richtlinie von saasyland.com
+
+Die Werte liegen in einer einzigen Konstante, sodass der Worker, die Tests und die statische Header-Datei dieselben Strings lesen:
+
+```ts title="src/modules/_core/constants/api.ts"
+export const CONTENT_SECURITY_POLICY = {
+  BASE_URI: "base-uri 'none'",
+  FRAME_ANCESTORS: "frame-ancestors 'none'",
+  OBJECT_SRC: "object-src 'none'",
+  SCRIPT_FALLBACKS: "'strict-dynamic' 'unsafe-inline' https:",
+} as const
+```
+
+Jede HTML-Antwort erhält `documentPolicy(nonce)`, gebaut aus diesen Werten:
+
+```ts title="src/lib/content-security-policy.ts"
+export const documentPolicy = (nonce: string): string =>
+  [
+    `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    CONTENT_SECURITY_POLICY.OBJECT_SRC,
+    CONTENT_SECURITY_POLICY.BASE_URI,
+    CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
+  ].join("; ")
+```
+
+Antworten, die kein HTML sind, Weiterleitungen und die Dateien, die der Worker aus R2 streamt, erhalten eine Basis-Richtlinie mit nur `base-uri`, `frame-ancestors` und `object-src`. Die Richtlinie hört bewusst bei den Skripten auf: Sie hat kein `style-src`, `img-src`, `font-src` oder `connect-src`, keine Trusted Types und keinen Endpunkt für Berichte, und die Seite [Sicherheit](/docs/features/security) der Website führt diese Punkte als nicht implementiert auf.
+
+## Nonces richtig erzeugen und ausliefern
+
+Eine Nonce ist nur so stark wie die Art, wie du sie erzeugst. Die Regeln:
+
+- **Nutze einen kryptografisch sicheren Generator und mindestens 128 Bit.** Laut der CSP3-Spezifikation SOLLTE der Wert vor der Kodierung mindestens 128 Bit lang sein („SHOULD be at least 128 bits long (before encoding)“) und SOLLTE mit einem kryptografisch sicheren Zufallszahlengenerator erzeugt werden („SHOULD be generated via a cryptographically secure random number generator“). In einem Worker oder einem Browser ist das `crypto.getRandomValues`, in Node `crypto.randomBytes`. Nie `Math.random()`, ein Zeitstempel oder ein Zähler.
+- **Erzeuge für jede Antwort eine neue.** Laut der Spezifikation MUSS der Server jedes Mal, wenn er eine Richtlinie übermittelt, einen eindeutigen Wert erzeugen („the server MUST generate a unique value each time it transmits a policy“). MDN sagt es einfacher: jede Nonce nur einmal („nonce only once!“).
+- **Kodiere sie sicher.** Das Beispiel von MDN kodiert 16 zufällige Bytes als Base64; Hexadezimal funktioniert genauso gut, weil die Grammatik der Nonce Buchstaben und Ziffern akzeptiert und der Browser den Wert als einfachen String vergleicht, ohne ihn zu dekodieren.
+- **Sende sie im Header.** Die meisten Direktiven funktionieren in einer `<meta>`-Richtlinie, aber `frame-ancestors`, `report-uri` und `sandbox` nicht, den Report-only-Modus gibt es dort nicht, und manche CDN-Funktionen lesen die Nonce nur aus dem Header, wie der Abschnitt zu Cloudflare zeigt.
+- **Leite sie nie aus dem Request ab** und gib nie eine Nonce zurück, die in einem Request oder einem Cookie ankam.
+- **Setze nie Text, den ein Angreifer kontrolliert, in ein Skript mit Nonce.** web.dev zählt Injektionen direkt in den Body oder den Parameter `src` eines Skripts mit Nonce zu den Grenzen einer strikten Richtlinie: Die Nonce vertraut dem ganzen Element, einschließlich allem, was du hineininterpoliert hast.
+
+Browser schützen den Wert, sobald die Seite ihn hat. MDN erklärt, dass das Inhaltsattribut `nonce` verborgen ist: `getAttribute("nonce")` gibt einen leeren String zurück, und nur die Eigenschaft `nonce` des Elements enthält den Wert, sodass CSS-Selektoren ihn nicht aus der Seite auslesen können.
+
+### Praxisbeispiel: 128 Bit pro Antwort
+
+Die Nonce von saasyland.com besteht aus 32 Hexadezimalzeichen aus `crypto.getRandomValues`, also aus 16 zufälligen Bytes oder 128 Bit, erzeugt für jede HTML-Antwort:
+
+```ts title="src/lib/content-security-policy.ts"
+export const createNonce = (): string => randomHex(NONCE_LENGTH)
+```
+
+## Die Nonce in dein Framework bringen
+
+Die Nonce zu erzeugen ist die leichte Hälfte. Jedes `<script>`, das dein Framework schreibt, auch die kleinen Inline-Skripte mit den Hydration-Daten, muss sie tragen, und ebenso die Skripte, die dein Code später im Browser hinzufügt. Wie das funktioniert, hängt vom Framework ab:
+
+- **React.** `renderToReadableStream` nimmt eine Option `nonce` an, die React als Nonce-String dokumentiert, mit dem Skripte für die Content-Security-Policy-Direktive `script-src` erlaubt werden, und sie kann ein Objekt mit getrennten Werten für `script` und `style` sein.
+- **Next.js.** Sein Proxy erzeugt die Nonce und setzt den Header `Content-Security-Policy` auf dem Request; beim Server-Rendering parst Next.js den Header `Content-Security-Policy`, extrahiert die Nonce und hängt sie an Framework-Skripte, Seiten-Bundles und Inline-Skripte, die es erzeugt. Seiten, die Nonces verwenden, müssen dynamisch gerendert werden.
+- **TanStack Start.** Der Server-Einstiegspunkt übergibt die Nonce als Request-Kontext, der Router erhält sie als seine Option `ssr.nonce`, und TanStack Router setzt sie auf die Skripte, Styles und Links, die er rendert, und schreibt sie in ein Tag `<meta property="csp-nonce">`. Im Browser liest der Router dieses Tag bei der Hydration wieder aus, ein Verhalten, das mit [TanStack Router #5522](https://github.com/TanStack/router/pull/5522) hinzukam, sodass auch Skripte, die er später einfügt, die Nonce tragen.
+
+Zwei Regeln gelten für alle. **Finde jedes Skript, das du selbst renderst**, etwa ein Farbschema-Skript, das läuft, bevor die Seite gezeichnet wird, und gib ihm die Nonce aus derselben Quelle. Und **verlass dich bei Skripten, die im Browser hinzukommen, auf `'strict-dynamic'`**, statt die Nonce im Client-Code auszulesen, damit ein Skript, das die Nonce nie sieht, trotzdem die Chunks laden kann, die es braucht.
+
+### Praxisbeispiel: TanStack Start auf einem Worker
+
+`src/server.ts` ist der Einstiegspunkt des Workers. Für eine Seite, die TanStack Start rendert, erzeugt es die Nonce und übergibt sie dem Start-Handler als Request-Kontext; für eine vorgerenderte Seite aus dem Asset-Speicher tut es etwas anderes, das der nächste Abschnitt erklärt:
+
+```ts title="src/server.ts"
+const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> => {
+  if ((request.method === "GET" || request.method === "HEAD") && !shouldIgnorePath(new URL(request.url).pathname)) {
+    const asset = await env.ASSETS.fetch(request)
+    if (isDocument(asset)) {
+      const nonce = createNonce()
+      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+    }
+    if (asset.status !== HTTP_STATUS.NOT_FOUND) {
+      return { policy: BASE_POLICY, response: asset }
+    }
+  }
+  const { default: handler } = await import("@tanstack/react-start/server-entry")
+  const nonce = createNonce()
+  const response = await handler.fetch(request, { context: { nonce } })
+
+  if (import.meta.env.DEV) {
+    return { policy: BASE_POLICY, response }
+  }
+
+  return { policy: documentPolicy(nonce), response }
+}
+```
+
+Der Kontext ist an einer einzigen Stelle typisiert, sodass jeder serverseitige Lesezugriff darauf weiß, dass die Nonce ein String ist:
+
+```ts title="src/types/router.d.ts"
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: ReturnType<typeof getRouter>
+    server: { requestContext: { nonce: string } }
+  }
+  interface StaticDataRouteOption {
+    contentId?: string
+    dark?: boolean
+    namespaces?: readonly string[]
+    underHeader?: boolean
+  }
+}
+```
+
+`getRouter` in `src/router.tsx` übergibt den Start-Kontext des Requests mit `getGlobalStartContext() ?? {}` als Option `ssr` an den Router: Auf dem Server enthält er die Nonce, und im Browser findet der Router den Wert im Meta-Tag. Das einzige Skript im Dokument, das der Router nicht rendert, ist das Farbschema-Skript in `__root.tsx`, und es erhält dieselben `ssr`-Props, einschließlich der Nonce, sodass die Seite nie im falschen Farbschema aufblitzt und nie die Richtlinie bricht, um das zu vermeiden. `router.test.tsx` prüft, dass der Router die Nonce des Requests übernimmt, den er rendert, und außerhalb eines Requests keine.
+
+## Statische und vorgerenderte Seiten
+
+Prerendering ist gut für die Geschwindigkeit und schlecht für Nonces: Eine statische Datei ist für jeden Besucher gleich, also kann sie keinen frischen Wert enthalten. Du hast drei Möglichkeiten.
+
+1. **Hashe die Inline-Skripte beim Build** und sende die Richtlinie mit den Hashes, in einem Header, wenn dein Host einen pro Datei erlaubt, oder in einem Meta-Tag, wenn nicht. Das ist die richtige Wahl, wenn zwischen deinem Build und dem Browser nichts Skripte hinzufügt.
+2. **Füge am Edge eine Nonce hinzu, wenn die Datei ausgeliefert wird.** Eine Funktion vor der statischen Datei erzeugt eine Nonce, setzt den Header und schreibt das HTML beim Streamen um, wobei sie jedes Skript mit der Nonce versieht. Die Datei bleibt am Origin statisch und cachebar; nur die Kopie auf dem Weg zum Browser ändert sich.
+3. **Rendere diese Seiten pro Request**, statt sie vorzurendern, und nimm die Kosten in Kauf.
+
+### Praxisbeispiel: eine statische Datei mit einer eigenen Nonce
+
+Die meisten öffentlichen Seiten von saasyland.com, die Landingpage, die Dokumentation, der Blog und die Rechtstexte, werden beim Build vorgerendert und über das Binding `ASSETS` ausgeliefert. Der Worker nutzt Möglichkeit 2: Der erste Zweig von `render` oben gibt einer vorgerenderten HTML-Antwort eine neue Nonce und streamt ihren Body durch `withNonce`, einen `HTMLRewriter`:
+
+```ts title="src/lib/content-security-policy.ts"
+export const withNonce = (page: Response, nonce: string): Response => {
+  const nonceElement = {
+    element: (element: { setAttribute: (name: string, value: string) => unknown }): void => {
+      element.setAttribute(NONCE_ATTRIBUTE, nonce)
+    },
+  }
+
+  return new HTMLRewriter()
+    .on('script:not([type="application/ld+json"])', nonceElement)
+    .on('link[rel="modulepreload"]', nonceElement)
+    .on(`[${NONCE_ATTRIBUTE}]`, nonceElement)
+    .on('meta[property="csp-nonce"]', {
+      element: (meta) => {
+        meta.setAttribute("content", nonce)
+      },
+    })
+    .transform(page)
+}
+```
+
+Er setzt die Nonce auf jedes ausführbare Skript und auf den Modul-Preload des Einstiegspunkts, überschreibt jede Nonce, die das Prerendering auf einem Element hinterlassen hat, und schreibt den Wert in das Tag `csp-nonce` des Routers, sodass der Router im Browser mit dem Header übereinstimmt. JSON-LD-Blöcke sind Daten, kein Code, und der Browser führt sie nie aus, daher behalten sie ihr Markup. Cloudflare beschreibt `HTMLRewriter` als Zero-Copy-Streaming-Parser („zero-copy streaming parsing“), daher wird die Seite umgeschrieben, während sie streamt, statt zuerst gepuffert zu werden. Als wir diesen Entwurf in [#210](https://github.com/saasyland/saasyland.com/pull/210) mit Lighthouse gegen den Hash-Entwurf weiter unten verglichen haben, bewegten sich die Mediane von Time to First Byte, First Contentful Paint und Largest Contentful Paint um etwa zehn Millisekunden oder weniger in die eine oder andere Richtung, innerhalb der Streuung zwischen den Läufen.
+
+Damit das funktioniert, muss der Worker vor dem Asset-Speicher laufen, deshalb schickt `wrangler.jsonc` jeden Pfad außer gehashten Assets, Schriften, `robots.txt` und `llms.txt` zuerst an den Worker; [Ein SaaS auf Cloudflare Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) beschreibt, was das kostet.
+
+## CDNs und Edge-Funktionen, die Skripte hinzufügen
+
+Was immer zwischen deinem Server und dem Browser sitzt, kann dein HTML verändern. Fügt es ein Skript hinzu, muss deine Richtlinie dafür Platz machen, und wie, hängt von der Funktion ab. Bevor du eine Richtlinie durchsetzt, liste jede Funktion auf, die deine Seiten berührt, und prüfe, was jede braucht.
+
+Cloudflare veröffentlicht eine solche Liste. Seine Seite zu Content Security Policies nennt unter anderem:
+
+- **Rocket Loader**, das `script-src 'self' ajax.cloudflare.com` braucht.
+- **Scrape Shield**, das `script-src 'self' 'unsafe-inline'` braucht, was keine strikte Richtlinie erlauben sollte.
+- **Web Analytics**, das `script-src static.cloudflareinsights.com` und `connect-src cloudflareinsights.com` braucht.
+- **Zaraz**, das keine Änderungen braucht.
+- **Bot-Produkte**, für die auf die Dokumentation von JavaScript Detections verwiesen wird.
+
+Zwei Funktionen zählen für eine Nonce-basierte Richtlinie am meisten:
+
+- **JavaScript Detections**, Teil von Bot Fight Mode und anderen Bot-Produkten, fügt ein Skript in HTML-Antworten ein. Laut seiner Dokumentation fügt Cloudflare den Skripten, die es einfügt, diese Nonces hinzu, indem es den CSP-Header deiner Antwort parst („will add these nonces to the scripts it injects by parsing your CSP response header“), JavaScript Detections wird nicht unterstützt, wenn `nonce` über `<meta>`-Tags gesetzt wird, und für Kunden mit Bot Fight Mode ist JavaScript Detections automatisch aktiviert und lässt sich nicht deaktivieren („for Bot Fight Mode customers, JavaScript Detections is automatically enabled and cannot be disabled“).
+- **Speed Brain** lädt Seiten vorab, die ein Besucher wahrscheinlich öffnet, und laut Cloudflare funktioniert es nicht mit restriktiven Richtlinien („will not work with restrictive“), die `strict-dynamic` oder Nonces verwenden, und lädt auf Routen, die Workers ausführen, nichts vorab („will not prefetch on routes that run Workers“).
+
+Die Regeln, die daraus folgen: Schalte jede Edge-Funktion ab, die `'unsafe-inline'` braucht; bevorzuge Funktionen, die die Nonce aus deinem Header lesen; halte die Richtlinie im Header; und teste mit dem CDN im Weg, denn ein Staging-Setup ohne CDN zeigt dir dessen Skripte nicht.
+
+### Praxisbeispiel: der Hash-Entwurf, der in Produktion kaputtging
+
+Unsere erste Version in [#190](https://github.com/saasyland/saasyland.com/pull/190) folgte der Entscheidungstabelle aufs Wort. Seiten, die der Worker renderte, bekamen eine Nonce im Header. Vorgerenderte Seiten bekamen Hashes: Ein Build-Schritt hashte jedes Inline-Skript, ersetzte das Einstiegsskript durch einen kleinen gehashten Loader und schrieb die Richtlinie in ein Tag `<meta http-equiv="Content-Security-Policy">`. Damals wurden diese Seiten mit einem `ETag` gecacht, und das Umschreiben von Nonces in diese Seiten hätte die Revalidierung kaputtgemacht, also wirkten Hashes wie die vorsichtige Wahl. `frame-ancestors` blieb im Header, weil eine Meta-Richtlinie es ignoriert.
+
+Der Entwurf bestand jeden Test und ging in Produktion kaputt. Bot Fight Mode war eingeschaltet, also fügte JavaScript Detections sein Skript in jede HTML-Seite ein, und Cloudflare konnte diesem Skript eine Nonce nur aus einer Richtlinie im Header geben. Jede vorgerenderte Seite protokollierte einen Verstoß durch ein Skript, das wir nie geschrieben hatten; jede Seite, die der Worker renderte, war in Ordnung.
+
+[#210](https://github.com/saasyland/saasyland.com/pull/210) ersetzte den Hash-Entwurf durch den oben gezeigten Rewriter am Edge, sodass jede HTML-Antwort, vorgerendert oder gerendert, eine Nonce in der Richtlinie ihres Headers hat. Der Build-Schritt, die Meta-Richtlinie und der gehashte Loader wurden gelöscht. Die Browser-Suite bildet den Edge jetzt direkt nach, wie der Abschnitt über die Tests zeigt. Im Rückblick war der Fehler nicht die Wahl von Hashes; er bestand darin, die Richtlinie durchzusetzen, bevor wir gesehen hatten, was in Produktion am Edge hinzukommt. Eine Einführung im Report-only-Modus hätte das eingefügte Skript gezeigt, ohne es zu blockieren.
+
+## Eine Seite cachen, die eine Nonce trägt
+
+Eine Nonce muss jedes Mal neu sein, wenn eine Richtlinie gesendet wird, also darf eine HTML-Seite, die eine trägt, nie zweimal ausgeliefert werden. Das hat Folgen für jeden Cache zwischen dir und dem Leser:
+
+- **Gemeinsame Caches dürfen sie nicht speichern.** Ein CDN, das die Seite cacht, liefert jedem Besucher dieselbe Nonce aus, die ein Angreifer einmal lesen und wiederverwenden kann. Markiere die Antwort als `private` oder stell sicher, dass dein CDN kein HTML cacht.
+- **Der Browser darf sie nicht zu einem veralteten Body revalidieren.** Wenn die Antwort ein `ETag` oder `Last-Modified` trägt, kann der Browser später ein `304 Not Modified` erhalten und den gespeicherten Body, mit der Nonce vom letzten Mal auf seinen Skripten, unter einem frischen Header mit einer neuen Nonce wiederverwenden. Jedes Skript auf der Seite schlägt dann fehl. Sende `no-cache` und lass die Validatoren weg.
+- **Assets sind nicht betroffen.** Skripte, Styles und Schriften lassen sich weiterhin ein Jahr lang cachen: Die Nonce kommt auf das Tag, das sie lädt, nicht in die Dateien.
+
+Wenn dein HTML in einem CDN gecacht werden muss, sind die ehrlichen Optionen Hashes ohne Skripte, die am Edge eingefügt werden, oder eine Edge-Funktion, die jeder gecachten Kopie beim Ausliefern eine frische Nonce hinzufügt, und genau das tut der Rewriter oben mit vorgerenderten Dateien.
+
+### Praxisbeispiel: privat, ohne Validatoren
+
+`src/server.ts` macht jede HTML-Antwort privat und entfernt die Validatoren, die eine statische Datei sonst behalten würde:
+
+```ts title="src/server.ts"
+const DOCUMENT_CACHE_CONTROL = "private, no-cache"
+
+const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
+```
+
+`Content-Length` fällt ebenfalls weg, weil der Rewriter die Länge des Bodys ändert. Alles unter `/assets/` und `/fonts/` behält einen einjährigen, unveränderlichen `Cache-Control`.
+
+## Skripte von Drittanbietern
+
+Bei Drittanbietern werden strikte Richtlinien gewonnen oder verloren. Vier Muster decken die meisten ab.
+
+**Loader, die weitere Skripte hinzufügen.** Analytics, Tag-Manager und Pixel laden meist ein kleines Skript, das weitere hinzufügt. Gib dem ersten deine Nonce und lass `'strict-dynamic'` dem vertrauen, was es hinzufügt. Google dokumentiert das für Tag Manager: Setze die Nonce auf das Inline-Snippet, dann gibt Tag Manager die Nonce an alle Skripte weiter, die es der Seite hinzufügt („Tag Manager will then propagate the nonce to any scripts that it adds to the page“). Seine benutzerdefinierten JavaScript-Variablen sind die Ausnahme: Sie ergeben bei einer CSP `undefined`, sofern nicht die Direktive `'unsafe-eval'` angegeben ist, und Google empfiehlt stattdessen Custom Templates.
+
+**Widgets, die Frames und Verbindungen brauchen.** Zahlungsformulare und Karten laden Skripte und öffnen außerdem Frames und rufen APIs auf. Mit `'strict-dynamic'` werden die Host-Quellen in `script-src` ignoriert, aber `frame-src` und `connect-src` gelten weiterhin, wenn deine Richtlinie sie setzt. Der Sicherheitsleitfaden von Stripe nennt für Stripe.js `script-src` auf `https://js.stripe.com` und `https://*.js.stripe.com`, `frame-src` auf `https://js.stripe.com`, `https://*.js.stripe.com` und `https://hooks.stripe.com` sowie `connect-src` auf `https://api.stripe.com`; wenn du Frames oder Verbindungen einschränkst, kopiere diese Listen aus der aktuellen Dokumentation des Anbieters, nie aus einem alten Blogbeitrag.
+
+**Weiterleitungen statt Einbettungen.** Ein gehosteter Checkout oder eine Anmeldeseite auf der Domain des Anbieters führt keinen Code des Anbieters auf deiner Domain aus, also braucht deine Richtlinie überhaupt keine Ausnahme. Wenn ein Anbieter beides anbietet, ist die Weiterleitung aus Sicherheitssicht die einfachere Lösung.
+
+**Code, der unter einer strikten Richtlinie nicht funktionieren kann.** Inline-Event-Handler wie `onclick="…"` und `javascript:`-URLs werden blockiert; web.dev rät, sie in Skripte zu verschieben, die `addEventListener` aufrufen. Skripte, die mit `document.write` geschrieben werden, sind vom Parser eingefügt, also vertraut `'strict-dynamic'` ihnen nicht. Ein Drittanbieter-Tag, das von einem der beiden abhängt, muss ersetzt werden, statt eine Ausnahme zu bekommen.
+
+### Praxisbeispiel: eine Weiterleitung, ein Pixel und Cloudflare
+
+**Der Checkout von Polar braucht keine Ausnahme, weil er nie auf den Seiten von saasyland.com läuft.** Der Kundenbereich ruft die Server Function `startCheckout` auf, die mit der API von Polar einen Checkout erstellt, und der Browser wechselt zur gehosteten Seite von Polar:
+
+```tsx title="src/presentation/components/custom/app/checkout-consent.tsx"
+globalThis.location.href = checkout.url
+```
+
+Polar bietet auch einen eingebetteten Checkout an, ein Skript von jsDelivr oder das Paket `@polar-sh/checkout`, das den Checkout in einem iframe öffnet, während das eigene `frame-ancestors` von Polar entscheidet, welche Websites ihn einbetten dürfen, konfiguriert unter **Settings > Embedding**. Unter einer strikten Richtlinie ist das Paket Teil deines Bundles und braucht nichts, ein Script-Tag von einem CDN braucht die Nonce, und eine Richtlinie, die Frames einschränkt, braucht den Checkout-Origin von Polar in `frame-src`. Unsere Richtlinie schränkt keine Frames ein, und die Weiterleitung hält Zahlungsseiten ganz aus ihr heraus.
+
+**Das Empfehlungspixel lädt über `'strict-dynamic'`.** Bei einem Besuch mit einem Empfehlungsparameter rendert React das Pixel von Affonso nach der Hydration:
+
+```tsx title="src/presentation/components/custom/affiliate-referral.tsx"
+return <script async data-affonso={programId} data-cookie_duration={AFFILIATE_TERMS.COOKIE_DAYS} src={AFFONSO.PIXEL_URL} />
+```
+
+React fügt dieses Element aus einem Skript ein, das bereits mit der Nonce läuft, also wurde es nicht vom Parser eingefügt, und `'strict-dynamic'` lässt es laden, ohne dass der Host des Pixels in einer Allowlist steht. Dieselbe Regel deckt die Routen-Chunks ab, die TanStack Router importiert, und den Blob-Worker von canvas-confetti.
+
+**Die eigenen Skripte von Cloudflare übernehmen die Nonce des Headers,** wie oben beschrieben, und Speed Brain ist auf saasyland.com abgeschaltet. TanStack Router lädt Code und Daten eines Links bereits vorab, wenn der Mauszeiger darauf ruht.
+
+## `eval`, WebAssembly und Bibliotheken
+
+Eine strikte Richtlinie ohne `'unsafe-eval'` blockiert `eval()`, `new Function()` und String-Argumente für `setTimeout`. Lass es dabei: web.dev zählt Injektionen in `eval()` und `setTimeout()` zu den Angriffen, vor denen eine strikte Richtlinie nicht mehr schützt, sobald `'unsafe-eval'` hinzugefügt wird.
+
+- **Such zuerst nach einem Modus der Bibliothek, der ohne eval auskommt.** Validierungs- und Template-Bibliotheken kompilieren oft zur Laufzeit Code, um schneller zu sein, und bieten einen Modus, der das nicht tut.
+- **Erlaube `eval` in der Entwicklung nur, wenn deine Werkzeuge es brauchen.** Next.js erklärt, dass React in der Entwicklung `eval` nutzt, um erweiterte Debugging-Informationen bereitzustellen, und dass weder React noch Next.js in Produktion standardmäßig `eval` verwenden.
+- **WebAssembly braucht ein eigenes Schlüsselwort.** Laut dem Leitfaden von Next.js fügst du `'wasm-unsafe-eval'` hinzu, wenn du WebAssembly nutzt, und das ist enger gefasst als `'unsafe-eval'`.
+
+### Praxisbeispiel: Zod ohne `eval`
+
+Als wir #190 gebaut haben, kam der eine Verstoß auf jeder Seite von Zod, das prüft, ob es Validatoren mit `Function("")` kompilieren darf. Zod hat einen Modus, der das nie versucht:
+
+```ts title="src/integrations/zod/zod.config.ts"
+import zod from "zod/v4"
+
+zod.config({ jitless: true })
+```
+
+Dieser Aufruf muss laufen, bevor irgendein Schema gebaut wird, und der Bundler hat ihn zunächst hinter die Chunks gesetzt, die Schemas bauen, daher legt eine Build-Regel ihn jetzt in den eigenen Chunk von Zod, der zuerst lädt. Der Dev-Server ist die einzige Ausnahme von der Richtlinie: Vite fügt Inline-Skripte ein, die keine Nonce tragen, daher sendet der Worker in der Entwicklung nur die Basis-Richtlinie. Das ist der Grund, gegen einen Produktions-Build zu testen.
+
+## Einführen, ohne Produktion kaputtzumachen
+
+Eine Richtlinie, die ein Skript blockiert, das du brauchst, macht deine Website für alle gleichzeitig kaputt. Führe sie in Schritten ein:
+
+1. **Bestandsaufnahme.** Liste jedes Skript auf, das deine Seiten laden, jedes Inline-Skript, jeden Drittanbieter und jede Edge-Funktion, die HTML berührt.
+2. **Nur melden.** Sende die Richtlinie als `Content-Security-Policy-Report-Only`, was MDN als Möglichkeit beschreibt, Verstöße zu testen oder zu beheben, bevor eine bestimmte Content-Security-Policy angewendet und durchgesetzt wird („to test or repair violations before a specific Content-Security-Policy is applied and enforced“). Der Browser blockiert nichts und meldet alles.
+3. **Berichte sammeln.** Deklariere einen Endpunkt in einem Header `Reporting-Endpoints`, nenne ihn in `report-to` und behalte `report-uri` daneben für Browser ohne `report-to`. MDN weist darauf hin, dass die Direktive `report-to` angegeben sein muss, damit Berichte gesendet werden. Rechne mit Rauschen durch Browsererweiterungen; achte auf Muster über viele Besucher hinweg.
+4. **Behebe, was die Berichte zeigen.** Füge die Nonce hinzu, wo sie fehlt, verschiebe Inline-Handler in Skripte, ersetze Tags, die `'unsafe-inline'` oder `'unsafe-eval'` brauchen.
+5. **Durchsetzen.** Sende dieselbe Richtlinie als `Content-Security-Policy`. Behalte eine Report-only-Richtlinie daneben, um die nächste Verschärfung ohne Risiko auszuprobieren, etwa Trusted Types oder eine Liste für `connect-src`.
+6. **Beobachte nach jedem Release.** Neue Abhängigkeiten und neue Skripte von Anbietern sind die Stellen, an denen eine Richtlinie bricht; halte den Fluss der Berichte aufrecht und behalte die Browsertests unten in der CI.
+
+Die Schritte zur Einführung bei web.dev enden genauso: im Report-only-Modus deployen („in report-only mode“), dann durchsetzen, sobald du dir sicher bist. web.dev empfiehlt außerdem, das Ergebnis mit dem CSP Evaluator oder mit Lighthouse zu prüfen, dessen Audit unter Best Practices meldet, ob eine Richtlinie strikt genug ist.
+
+saasyland.com hat die Schritte 2 und 3 nicht gemacht, und der Vorfall oben ist das Ergebnis. Seine Browsertests haben jeden Verstoß gefunden, den die Anwendung selbst verursacht hat; nur eine Report-only-Phase in Produktion hätte das Skript gefunden, das am Edge hinzugefügt wurde.
+
+## Teste die Richtlinie wie Code
+
+Eine Richtlinie ist Konfiguration, die mit jedem Commit kaputtgehen kann, also teste sie wie Code, in einem echten Browser, gegen einen Produktions-Build.
+
+- **Lass jeden Browsertest bei jedem Verstoß fehlschlagen.** Lausche in jeder Seite auf `securitypolicyviolation`-Ereignisse und lass den Test fehlschlagen, der eines gesehen hat. Eine neue Seite, eine neue Abhängigkeit oder ein neues Drittanbieter-Skript, das die Richtlinie bricht, lässt dann den Test fehlschlagen, der die Stelle als Erster besucht.
+- **Prüfe die Nonce selbst.** Fordere eine Seite zweimal an und stelle sicher, dass sich der Header geändert hat und dass jedes ausführbare Skript den Wert des Headers trägt.
+- **Beweise, dass die Richtlinie blockiert.** Füge ein Skript ohne Nonce in eine ausgelieferte Seite ein und stelle sicher, dass es nicht lief und gemeldet wurde. Eine Richtlinie, die nichts blockiert, besteht jeden anderen Test.
+- **Bilde deinen Edge nach.** Wenn ein CDN Skripte hinzufügt, füge eines mit der Nonce des Headers ein und stelle sicher, dass es läuft.
+- **Nutze mehr als eine Engine.** Chromium und WebKit unterscheiden sich in Grenzfällen; in #190 zeigte sich zum Beispiel, dass Chromium unter einer Hash-Richtlinie einen dynamischen `import()`-Loader blockierte, den WebKit erlaubte.
+
+### Praxisbeispiel: drei Ebenen von Tests
+
+**Jede Spec schlägt bei jedem Verstoß fehl.** Die gemeinsame Fixture der Suite lauscht in jeder Seite auf `securitypolicyviolation`-Ereignisse und lässt die Spec am Ende fehlschlagen, wenn welche gemeldet wurden:
+
+```ts title="e2e/fixtures/test.ts"
+  cspViolations: [
+    async ({ context }, runWith) => {
+      const violations: string[] = []
+      context.on("console", (message) => {
+        if (message.text().startsWith(CSP_VIOLATION)) violations.push(message.text())
+      })
+      await context.addInitScript(reportCspViolations, CSP_VIOLATION)
+      await runWith(violations)
+      expect(violations, "No page may break its Content Security Policy").toEqual([])
+    },
+    { auto: true },
+  ],
+```
+
+**Eine eigene Spec prüft die Nonce.** `e2e/specs/content-security-policy.spec.ts` fragt drei vorgerenderte und zwei gerenderte Seiten je zweimal an. Sie prüft, dass der Header `documentPolicy(nonce)` entspricht, dass die zweite Antwort eine andere Nonce hat, dass jedes Skript und jeder Modul-Preload außer JSON-LD die Nonce des Headers trägt, dass das Tag `csp-nonce` übereinstimmt, dass es keine Meta-Richtlinie gibt und dass die Antwort `private, no-cache` ohne `ETag` ist. Danach meldet sie sich in der Admin-Konsole an und durchläuft unter der Richtlinie den Checkout eines Kunden.
+
+**Eine Spec spielt die Rolle des Edge.** `e2e/specs/edge-scripts.spec.ts` schreibt eine ausgelieferte Seite so um, wie Cloudflare es tun würde, und fügt ein Skript mit der Nonce des Headers und eines ohne hinzu:
+
+```ts title="e2e/specs/edge-scripts.spec.ts"
+for (const path of [ROUTES.HOME, ROUTES.SIGN_IN]) {
+  test(`on ${path}, a script the edge adds with the header's nonce runs, and one without the nonce is blocked`, async ({
+    appPage,
+    cspViolations,
+    page,
+  }) => {
+    await page.route(path, async (route) => {
+      const response = await route.fetch()
+      const nonce = NONCE.exec(response.headers()[POLICY_HEADER] ?? "")?.groups?.["nonce"] ?? ""
+      const scripts = `<script nonce="${nonce}">window.__edge = true</script><script>window.__injected = true</script>`
+      await route.fulfill({ body: (await response.text()).replace("</body>", `${scripts}</body>`), response })
+    })
+
+    await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    expect(await page.evaluate(() => [Reflect.get(window, "__edge"), Reflect.get(window, "__injected")])).toEqual([true, undefined])
+    await expect.poll(() => cspViolations.length).toBe(1)
+    expect(cspViolations.splice(0)).toEqual([expect.stringContaining("script-src")])
+  })
+}
+```
+
+Das erste Skript muss laufen, und das zweite muss blockiert und als Verstoß gegen `script-src` gemeldet werden, auf einer vorgerenderten und auf einer gerenderten Seite. Pull Requests führen die Suite in Chromium aus; jeder Push nach `main` führt sie in WebKit aus, und ein Zeitplan führt beide aus. Unit-Tests in `server.test.ts` und `content-security-policy.test.ts` decken die Strings der Richtlinie, eine frische Nonce pro Antwort und jeden Zweig des Rewriters ab.
+
+## Fehler, die eine Richtlinie unbemerkt abschalten
+
+1. **`'unsafe-inline'` ohne Nonce oder Hash.** Jedes Inline-Skript läuft, auch ein eingeschleustes. Mit einer Nonce ist es ein harmloser Fallback; ohne eine ist es die ganze Richtlinie, die aufgibt.
+2. **Eine Nonce wiederverwenden.** Eine Nonce, die in der Konfiguration festgelegt, in einen Build eingebacken oder mit einer gecachten Seite gespeichert ist, ist eine Konstante, die ein Angreifer einmal lesen und wiederverwenden kann.
+3. **Eine Host-Allowlist als einzige Verteidigung.** Jeder erlaubte Host mit einem JSONP-Endpunkt oder einer alten Bibliothek wird zum Einfallstor.
+4. **Eine Allowlist neben `'strict-dynamic'`.** Browser, die `'strict-dynamic'` unterstützen, ignorieren Host- und Scheme-Quellen, also schützt die Liste nichts und führt den nächsten Leser in die Irre.
+5. **Eine Meta-Richtlinie, wo am Edge Skripte eingefügt werden.** Das CDN kann deine Nonce nicht aus einem Meta-Tag lesen, und `frame-ancestors`, `report-uri` und `sandbox` bewirken dort nichts.
+6. **HTML mit Validatoren cachen.** Ein `304` verwendet den gespeicherten Body mit seiner alten Nonce unter einem neuen Header wieder, und jedes Skript auf der Seite schlägt fehl.
+7. **Nutzereingaben in ein Skript mit Nonce interpolieren.** Die Nonce vertraut dem ganzen Element, also läuft ein Wert, den du hineingesetzt hast, mit deinen Rechten.
+8. **`'unsafe-eval'` für eine einzige Bibliothek hinzufügen.** Suche zuerst nach der Einstellung der Bibliothek, wie `jitless` von Zod zeigt.
+9. **Inline-Event-Handler und `javascript:`-URLs behalten.** Eine strikte Richtlinie blockiert sie; verschiebe sie in Skripte.
+10. **Loadern mit `document.write` vertrauen.** Sie sind vom Parser eingefügt, also gibt `'strict-dynamic'` kein Vertrauen an sie weiter.
+11. **Durchsetzen, bevor gemeldet wurde.** Ohne eine Report-only-Phase in Produktion ist eine kaputte Seite das erste Zeichen eines übersehenen Skripts.
+12. **Nur in der Entwicklung testen.** Dev-Server können ihre eigenen Skripte oft nicht mit einer Nonce versehen. Teste den Produktions-Build und lass den Lauf bei jedem Verstoß fehlschlagen.
+
+## Eine Richtlinie und eine Checkliste zum Übernehmen
+
+Eine strikte Richtlinie für eine serverseitig gerenderte Anwendung, mit Berichten:
+
+```http
+Reporting-Endpoints: csp="https://example.com/csp-reports"
+Content-Security-Policy: script-src 'nonce-{RANDOM}' 'strict-dynamic' 'unsafe-inline' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; report-uri https://example.com/csp-reports; report-to csp
+```
+
+Ersetze `{RANDOM}` für jede Antwort durch einen neuen Wert aus mindestens 128 zufälligen Bits, setze denselben Wert auf jedes Skript und beginne mit derselben Richtlinie unter `Content-Security-Policy-Report-Only`.
+
+**Bevor du durchsetzt**
+
+- Jedes Skript, das der Server rendert, trägt die Nonce dieser Antwort, auch Inline-Daten und Farbschema-Skripte.
+- Skripte, die im Browser hinzukommen, laden über `'strict-dynamic'`, nicht über `document.write`.
+- Es gibt keine Inline-Event-Handler und keine `javascript:`-URLs mehr.
+- Jede Edge-Funktion, die HTML berührt, ist aufgelistet, und keine braucht `'unsafe-inline'`.
+- Skripte von Drittanbietern starten mit einem Loader, der die Nonce trägt, und ihre Frames und Verbindungen sind erlaubt, falls du diese einschränkst.
+- Keine Bibliothek braucht in Produktion `'unsafe-eval'`.
+- Die Richtlinie lief in Produktion im Report-only-Modus, und ihre Berichte sind verstanden.
+
+**Auslieferung**
+
+- Die Richtlinie ist ein Antwort-Header, nicht nur ein Meta-Tag.
+- Die Nonce ist für jede Antwort neu, stammt aus einem sicheren Generator und hat mindestens 128 Bit.
+- HTML mit einer Nonce ist `private` und trägt weder `ETag` noch `Last-Modified`.
+- Seiten, die statische Dateien sind, bekommen ihre Nonce am Edge oder eine Hash-Richtlinie, wobei unterwegs nichts hinzugefügt wird.
+
+**Tests**
+
+- Jeder Browsertest schlägt bei einem Verstoß fehl.
+- Ein Test prüft, dass zwei Antworten im Header und auf jedem Skript verschiedene Nonces tragen.
+- Ein Test fügt ein Skript ohne Nonce ein und stellt sicher, dass es blockiert wird.
+- Die Suite läuft gegen einen Produktions-Build, in mehr als einer Browser-Engine.
+
+## Was die Richtlinie von saasyland.com noch nicht tut
+
+Die Richtlinie handelt von Skripten. Sie schränkt keine Styles, Bilder, Schriften oder Verbindungen ein, sie hat keine Trusted Types, und sie sammelt keine Berichte über Verstöße aus den Browsern der Besucher, sodass ein Verstoß, den die Testsuite nicht erreicht, unbemerkt bliebe. Ein Endpunkt für Berichte ist der nützlichste nächste Schritt, danach Trusted Types; beides wird auf der Seite [Sicherheit](/docs/features/security) als nicht implementiert geführt.
+
+Die CLI von SaaSy Land ist in der Beta. Heute aktiviert sie deine Lizenz; die Projektgenerierung kommt mit einer späteren Version und beginnt mit TanStack Start auf Cloudflare Workers, und der [Konfigurator](/#cli) zeigt, welche Optionen angeboten werden. Bis dahin sind die Richtlinie, der Rewriter und die hier beschriebenen Tests unter der MIT-Lizenz öffentlich.
+
+## Weiterführende Artikel
+
+<Cards>
+
+<Card title="Ein SaaS auf Cloudflare Workers: D1, KV und R2" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Der Worker, in dem diese Richtlinie läuft, seine Bindings, Kaltstarts, Limits und Kosten.
+</Card>
+
+<Card title="TanStack Start vs. Next.js für SaaS" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  Das Framework, das diese Seiten rendert, und die Sicherheitsvorfälle, die beide Frameworks hatten.
+</Card>
+
+<Card title="Better Auth vs. Clerk vs. Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
+  Eine Anmeldung, die im selben Worker und unter derselben Richtlinie läuft, ohne gehostetes Widget, das erlaubt werden muss.
+</Card>
+
+<Card title="Ist dein Repository bereit für KI-Coding-Agenten?" href="/blog/ai-coding-agents-repository-readiness">
+  Warum automatische Prüfungen wie die Fixture für Verstöße mehr zählen, wenn Agenten Code schreiben.
+</Card>
+
+</Cards>
+
+<Callout title="Lies die Richtlinie und ihre Tests">
+
+Die Richtlinie, der Rewriter und die Browsertests stehen im öffentlichen Quellcode von saasyland.com, und die Seite [Sicherheit](/docs/features/security) dokumentiert jeden Header. Wähle deinen Stack im [Konfigurator](/#cli) und [sieh dir dann an, was jede Stufe kostet](/#pricing): eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt. Wenn du erfahren willst, wann die Projektgenerierung erscheint, trag dich unten auf dieser Seite in das Entwicklungsjournal ein.
+
+</Callout>
+
+## Häufig gestellte Fragen
+
+<PostFaq entries={frontmatter.faq} />
+
+### Quellen
+
+- Standards: der Arbeitsentwurf [Content Security Policy Level 3](https://www.w3.org/TR/CSP3/) vom 27. Oktober 2026; die Seiten von MDN zu [`script-src`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src), zum [Attribut `nonce`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/nonce), zu [`Content-Security-Policy-Report-Only`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only) und zu [`require-trusted-types-for`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/require-trusted-types-for); sowie [Cross-Site-Scripting mit einer strikten Content Security Policy eindämmen](https://web.dev/articles/strict-csp) von web.dev
+- Cloudflare: [Content Security Policies und die Produkte von Cloudflare](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/content-security-policies/), [JavaScript Detections](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/), [Speed Brain](https://developers.cloudflare.com/speed/optimization/content/speed-brain/) und [HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/)
+- Frameworks: [`renderToReadableStream`](https://react.dev/reference/react-dom/server/renderToReadableStream) von React, der [Leitfaden zur Content Security Policy](https://nextjs.org/docs/app/guides/content-security-policy) von Next.js und der [Pull Request von TanStack Router, der die Nonce bei der Hydration liest](https://github.com/TanStack/router/pull/5522)
+- Drittanbieter: der [Leitfaden von Google zu Tag Manager und Content Security Policy](https://developers.google.com/tag-platform/security/guides/csp), der [Sicherheitsleitfaden für Integrationen](https://docs.stripe.com/security/guide#content-security-policy) von Stripe und der [eingebettete Checkout](https://polar.sh/docs/features/checkout/embed) von Polar
+- SaaSy Land: die Seiten [Sicherheit](/docs/features/security) und [Cloudflare Workers](/docs/integrations/cloudflare-workers) sowie die Pull Requests [#190](https://github.com/saasyland/saasyland.com/pull/190) und [#210](https://github.com/saasyland/saasyland.com/pull/210)
+
+_Geschrieben von Piotr J. Borowiecki, der saasyland.com hinter dieser Richtlinie betreibt. Die Standards und die Dokumentation der Anbieter wurden am 20. November 2026 gelesen und können sich seitdem geändert haben; die Links führen zur Quelle und nicht zu einem Screenshot. Wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

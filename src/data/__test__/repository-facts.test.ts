@@ -200,7 +200,6 @@ describe("REPOSITORY_FACTS", () => {
       REPOSITORY_FACTS.authIntegrationPath,
       REPOSITORY_FACTS.ciWorkflowPath,
       REPOSITORY_FACTS.e2eSpecsPath,
-      REPOSITORY_FACTS.flowInventoryPath,
       REPOSITORY_FACTS.messagesPath,
     ]) {
       expect(existsSync(path)).toBe(true)

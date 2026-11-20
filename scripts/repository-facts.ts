@@ -25,7 +25,6 @@ const MESSAGES_PATH = "messages/"
 const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
 const COVERAGE_COMMAND = "bun run test:coverage"
 const FLOW_CHECK_COMMAND = "bun run check:flows"
-const FLOW_INVENTORY_PATH = "e2e/data/flows.entries.ts"
 const I18N_CHECK_COMMAND = "bun run check:i18n"
 const COVERAGE_SUMMARY_REPORTER = "json-summary"
 const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
@@ -205,7 +204,6 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     e2eSpecsPath,
     e2eTests: browserTests.length,
     flowCheckCommand: FLOW_CHECK_COMMAND,
-    flowInventoryPath: FLOW_INVENTORY_PATH,
     flows: FLOWS.length,
     flowsCovered: flowsWith(FLOW_STATUS.COVERED),
     flowsInJourney: FLOWS.filter((flow) => "journey" in flow).length,

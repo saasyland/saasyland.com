@@ -64,7 +64,6 @@ const EVIDENCE_CODE = [
   REPOSITORY_FACTS.coverageSummaryPath,
   REPOSITORY_FACTS.e2eSpecsPath,
   REPOSITORY_FACTS.flowCheckCommand,
-  REPOSITORY_FACTS.flowInventoryPath,
   REPOSITORY_FACTS.i18nCheckCommand,
   REPOSITORY_FACTS.messagesPath,
 ]
@@ -274,6 +273,7 @@ describe("marketing content and purchase links", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/% Branch\s+100/u)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: english.quality.cta })).toHaveAttribute("href", "#pricing")
+    expect(screen.getByRole("link", { name: english.quality.coverageLink })).toHaveAttribute("href", ROUTES.DOCS_TEST_COVERAGE)
   })
 
   it("keeps comparison choices, dimensions, and pricing navigation together", () => {

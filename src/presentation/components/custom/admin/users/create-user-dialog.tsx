@@ -8,6 +8,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { createUserMutation } from "~/src/modules/user/use-cases/create-user"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
@@ -55,10 +57,11 @@ export const CreateUserDialog = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: NEW_USER,
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       create.mutate(value)
     },
-    validators: { onChange: userZodSchemas.createUser, onSubmit: userZodSchemas.createUser },
+    validators: { onChange: userZodSchemas.createUser },
   })
 
   return (
@@ -76,8 +79,7 @@ export const CreateUserDialog = (): JSX.Element => {
         <form
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <FieldGroup>

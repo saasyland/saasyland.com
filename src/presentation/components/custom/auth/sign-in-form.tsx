@@ -12,7 +12,8 @@ import { signIn } from "~/src/integrations/better-auth/auth.client"
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
 import { AUTH_ERRORS, authErrorKey } from "~/src/integrations/better-auth/auth.errors"
 import { signInWithPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
@@ -58,10 +59,11 @@ export const SignInForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { email: "", password: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       signInRequest.mutate(value)
     },
-    validators: { onChange: signInWithPasswordSchema, onSubmit: signInWithPasswordSchema },
+    validators: { onChange: signInWithPasswordSchema },
   })
 
   return (
@@ -70,14 +72,13 @@ export const SignInForm = (): JSX.Element => {
       id="sign-in-form"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <FieldGroup>
         <form.Field name="email">
           {(field) => {
-            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            const isInvalid = isFieldInvalid(field)
 
             return (
               <Field data-invalid={isInvalid}>
@@ -113,7 +114,7 @@ export const SignInForm = (): JSX.Element => {
         </form.Field>
         <form.Field name="password">
           {(field) => {
-            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            const isInvalid = isFieldInvalid(field)
 
             return (
               <Field data-invalid={isInvalid}>

@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
@@ -53,10 +55,11 @@ export const PreferencesCard = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { timezone },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       updatePreferences.mutate(value)
     },
-    validators: { onChange: preferencesSchema, onSubmit: preferencesSchema },
+    validators: { onChange: preferencesSchema },
   })
 
   return (
@@ -70,8 +73,7 @@ export const PreferencesCard = (): JSX.Element => {
       <form
         noValidate
         onSubmit={(event) => {
-          event.preventDefault()
-          void form.handleSubmit()
+          void submitForm(event, form)
         }}
       >
         <CardContent className="pb-(--card-spacing)">

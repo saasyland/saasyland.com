@@ -5,6 +5,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
@@ -67,10 +69,11 @@ const useLessonForm = (lesson: Course["editorLesson"]) => {
 
   const form = useForm({
     defaultValues: toValues(lesson),
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       update.mutate({ ...value, lessonId: lesson.id })
     },
-    validators: { onChange: lessonFormSchema, onSubmit: lessonFormSchema },
+    validators: { onChange: lessonFormSchema },
   })
 
   return { form, isPending: update.isPending }
@@ -155,8 +158,7 @@ export const LessonForm = ({ lesson }: { readonly lesson: Course["editorLesson"]
     <form
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <Card>

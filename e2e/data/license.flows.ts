@@ -47,6 +47,20 @@ export const LICENSE_FLOWS = [
   },
   {
     area: FLOW_AREA.PURCHASE,
+    id: "tier-summary-on-sign-up",
+    outcome:
+      "Sign-up opened with a tier in its return path shows that tier, its price, the two steps to buying it and the refund terms in place of the description, and without a tier keeps the description",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "sign-up-order-summary.spec.ts",
+        title: "sign-up order summary › a tier in the redirect sums up the order with the price from TIER_PRICES in place of the description",
+      },
+      { spec: "sign-up-order-summary.spec.ts", title: "sign-up order summary › without a tier the page keeps the description" },
+    ],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
     id: "tier-from-landing-signed-in",
     outcome: "A signed-in admin or customer who picks a tier on the landing page goes straight to its offer",
     status: FLOW_STATUS.COVERED,

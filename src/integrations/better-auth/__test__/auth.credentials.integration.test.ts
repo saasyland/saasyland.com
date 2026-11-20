@@ -56,7 +56,7 @@ describe("auth email and password credentials", () => {
     const account = await signUp()
     await verifyEmail(account.email)
 
-    await expect(signIn({ email: account.email, password: "WrongPass1!" })).rejects.toThrow("Invalid email or password")
+    await expect(signIn({ email: account.email, password: "WrongPassword1!" })).rejects.toThrow("Invalid email or password")
   })
 
   it("signs out and clears the active session", async () => {

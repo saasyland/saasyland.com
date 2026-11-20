@@ -31,14 +31,13 @@ describe("reset-password", () => {
 
     await expect(
       executeMutation(resetPasswordMutation, {
-        confirmPassword: "Password1!",
-        password: "Password1!",
+        password: "NewPassword1!",
         token: RESET_TOKEN,
       }),
     ).resolves.toMatchObject(resetResult)
 
     expect(resetPasswordMock).toHaveBeenCalledWith({
-      body: { newPassword: "Password1!", token: RESET_TOKEN },
+      body: { newPassword: "NewPassword1!", token: RESET_TOKEN },
       headers: HEADERS,
     })
   })

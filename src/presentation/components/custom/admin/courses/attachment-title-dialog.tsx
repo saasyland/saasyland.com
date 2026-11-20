@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
+
 import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import { lessonAttachmentZodSchemas } from "~/src/modules/lesson-attachment/lesson-attachment.zod"
@@ -43,10 +46,11 @@ export const AttachmentTitleDialog = ({ attachment, trigger }: AttachmentTitleDi
 
   const form = useForm({
     defaultValues: { title: attachment.title },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       update.mutate({ attachmentId: attachment.id, title: value.title })
     },
-    validators: { onChange: titleSchema, onSubmit: titleSchema },
+    validators: { onChange: titleSchema },
   })
 
   return (
@@ -57,8 +61,7 @@ export const AttachmentTitleDialog = ({ attachment, trigger }: AttachmentTitleDi
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <DialogHeader>

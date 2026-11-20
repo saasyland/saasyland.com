@@ -25,23 +25,23 @@ Ogni form segue il pattern shadcn per TanStack Form con lo schema Zod del modulo
 ```tsx
 const form = useForm({
   defaultValues: { email: "" },
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
     subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
   },
-  validators: { onChange: emailSchema, onSubmit: emailSchema },
+  validators: { onChange: emailSchema },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
     <form.Field name="email">
       {(field) => {
-        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+        const isInvalid = isFieldInvalid(field)
 
         return (
           <Field data-invalid={isInvalid}>
@@ -74,6 +74,8 @@ return (
   </form>
 )
 ```
+
+L'unica differenza rispetto alla guida di shadcn è il momento in cui compare un errore. La guida segna un campo come non valido appena viene impostato `isTouched`, e TanStack Form lo imposta al primo tasto premuto; `isFieldInvalid` (`src/integrations/tanstack-form/form.fields.ts`) aspetta che il visitatore lasci il campo o provi a inviare, e `submitForm` (`src/integrations/tanstack-form/form.submit.ts`) mostra tutti gli errori e sposta il focus sul primo campo non valido quando l'invio non è valido. Le [convenzioni sui form](/docs/conventions/forms-and-tables) riportano la regola completa.
 
 I messaggi di Zod sono chiavi di traduzione. `fieldErrorMessage` (`src/integrations/tanstack-form/form.fields.ts`) estrae il primo errore, e `ValidationFieldError` lo traduce nel namespace indicato oppure ripiega su `errors.codes.VALIDATION`. Esempi completi: `src/presentation/components/custom/newsletter-form.tsx` e `src/presentation/components/custom/auth/sign-in-form.tsx`.
 

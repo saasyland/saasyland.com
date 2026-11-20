@@ -31,7 +31,6 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
   await authPage.nameField().fill("Test Buyer")
   await authPage.emailField().fill(email)
   await authPage.signUpPasswordField().fill(SIGN_UP_PASSWORD)
-  await authPage.confirmPasswordField().fill(SIGN_UP_PASSWORD)
   await authPage.signUpSubmitButton().click()
   await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
 

@@ -31,6 +31,7 @@ export const NewsletterForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { email: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value, formApi }) => {
       subscribe.mutate(
         { email: value.email, locale: getCurrentLocale() },
@@ -41,20 +42,19 @@ export const NewsletterForm = (): JSX.Element => {
         },
       )
     },
-    validators: { onChange: emailSchema, onSubmit: emailSchema },
+    validators: { onChange: emailSchema },
   })
 
   return (
     <form
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="email">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field data-invalid={isInvalid}>
@@ -97,12 +97,15 @@ export const NewsletterForm = (): JSX.Element => {
 ## Schema
 
 - Use o schema de `<table>.zod.ts` do módulo, ou de `src/integrations/better-auth/auth.zod.ts` nos formulários de autenticação. `.pick(...)` seleciona os campos exibidos pelo formulário; valores que o usuário não digita, como o idioma, são adicionados em `onSubmit`.
-- `onChange` valida enquanto o usuário digita; `onSubmit` valida todos os campos quando o formulário é enviado.
+- `validators: { onChange: emailSchema }` é o único validador. O TanStack Form o executa a cada alteração e de novo no envio; uma cópia separada em `onSubmit` deixaria vermelho um erro do momento do envio, como `passwordsMustMatch`, até que o próprio campo dele mudasse.
+- `listeners: { onBlur: validateOnBlur }` executa o mesmo validador quando um campo perde o foco, então um campo pelo qual o visitante passou com Tab mostra o seu erro assim que ele o deixa.
 - `noValidate` desativa a validação do navegador, para que as mensagens do Zod sejam os únicos erros.
 
 ## Erros
 
-- Um campo só mostra erros depois de ser tocado: `field.state.meta.isTouched && !field.state.meta.isValid`. Esse valor define `data-invalid` em `Field` e `aria-invalid` no input.
+- Um campo mostra o seu erro quando o visitante o deixou ou tentou enviar, nunca enquanto ainda está digitando: `isFieldInvalid(field)`, de `src/integrations/tanstack-form/form.fields.ts`, que é `field.state.meta.isBlurred && !field.state.meta.isValid`. Esse valor define `data-invalid` em `Field`, `aria-invalid` no input e se o erro é renderizado, então os três mudam juntos.
+- Depois que o erro aparece, cada alteração revalida o campo, então o erro some na tecla que corrige o valor. Não use `isTouched`: o TanStack Form o define na primeira tecla.
+- O retorno ao vivo que recompensa o progresso, como `PasswordRequirements`, lê os valores diretamente e é atualizado desde a primeira tecla.
 - O input sempre aponta `aria-describedby` para o id do seu erro, `<input id>-error`, e `ValidationFieldError` renderiza esse elemento com esse id só enquanto o campo é inválido. Os navegadores ignoram uma referência a um elemento inexistente, então o campo não tem descrição enquanto é válido.
 - As mensagens do Zod são chaves de tradução, como `emailInvalid`. `fieldErrorMessage` pega a primeira, e `ValidationFieldError` renderiza `<namespace>.<key>` com a entrada correspondente de `params`, por exemplo `{ max: 64 }` para `emailMaxLength`. Uma chave inexistente recorre a `errors.codes.VALIDATION`.
 - Os formulários passam `auth.validations`, que os layouts `auth` e `admin` pré-carregam e que a área da newsletter adiciona ao layout `_marketing` para o seu formulário, exceto os formulários de cursos da administração, que passam `course.validations` a partir do layout `admin.courses.tsx`. A rota precisa carregar o namespace que um formulário usa. `messages/` também tem um namespace `<table>.validations` para outros módulos, como `user.validations`, mas nenhum formulário ou rota os carrega.
@@ -110,8 +113,11 @@ export const NewsletterForm = (): JSX.Element => {
 
 ## Envio
 
+- O `onSubmit` do formulário chama `submitForm(event, form)`, de `src/integrations/tanstack-form/form.submit.ts`. Ele impede o envio do navegador e chama `form.handleSubmit()`; quando o formulário é inválido, marca todos os campos como deixados, para que todos os erros apareçam, e move o foco para o primeiro controle com `aria-invalid="true"`.
 - Envie pelas opções de mutation do caso de uso espalhadas em `useMutation`. `SignInForm` é a exceção: ele chama `signIn.email` do cliente do Better Auth no seu próprio `useMutation`, e o plugin de dois fatores do cliente trata `twoFactorRedirect`.
 - `<Button isPending={mutation.isPending} type="submit">` desativa o botão e anuncia o estado pendente enquanto a requisição está em andamento.
+- O botão de envio continua habilitado enquanto o formulário está incompleto; só `isPending` o desativa. Pressioná-lo com erros mostra todos os erros e coloca o foco no primeiro campo inválido.
+- Um erro do servidor que pertence a um campo, como `passwordCompromised` para uma senha encontrada em um vazamento de dados conhecido, vai abaixo desse campo com `showFieldError(formApi, { controlId, field, message })`, de `form.submit.ts`, em vez de um toast; ele some quando o campo muda.
 - Redefina o formulário ou navegue no `onSuccess` da mutation e invalide as queries do módulo que a mutation altera.
 
 Mais exemplos: `sign-in-form.tsx`, `sign-up-form.tsx`, `reset-password-form.tsx` e `two-factor-form.tsx` em `src/presentation/components/custom/auth/`.

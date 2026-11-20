@@ -11,44 +11,57 @@ description: "Кожна форма дотримується посібника 
 
 ```tsx
 const form = useForm({
-  defaultValues: course ?? NEW_COURSE,
+  defaultValues: course === undefined ? NEW_COURSE : toValues(course),
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
-    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
     if (course === undefined) {
-      create.mutate(fields)
+      create.mutate(value)
       return
     }
-    update.mutate({ ...fields, courseId: course.id })
+    update.mutate({ ...value, courseId: course.id })
   },
-  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+  validators: { onChange: courseZodSchemas.createCourse },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
 ```
 
 - **Схема — це схема сервера.** Валідатор — той самий `courseZodSchemas.createCourse`, яким розбирає дані серверна функція, або його `.pick(...)`, як це робить `chapter-dialog.tsx` з `chapterZodSchemas.updateChapter.pick({ title: true })`. Ніколи не пишіть другу схему лише для форми.
-- **Валідуйте під час зміни та під час надсилання.** Задано обидва валідатори: якщо є лише `onSubmit`, виправлене поле залишається червоним до наступного надсилання.
-- **`noValidate` і `preventDefault`.** Власну валідацію браузера вимкнено, тож кожне повідомлення походить зі схеми й має переклад.
+- **Один валідатор, `onChange`.** TanStack Form запускає його під час кожної зміни й ще раз під час надсилання. Не додавайте копію для `onSubmit`: помилка від валідатора надсилання зникає лише тоді, коли змінюється її власне поле, тож помилка, що стосується кількох полів, як-от `passwordsMustMatch`, залишалася червоною після того, як інше поле вже виправили.
+- **Валідуйте поле, яке залишає відвідувач.** `listeners: { onBlur: validateOnBlur }` запускає той самий валідатор, коли поле втрачає фокус, тож поле, через яке відвідувач лише пройшов, отримує свою помилку саме в цю мить, а не під час пізнішого натискання клавіші в іншому полі.
+- **Надсилайте через `submitForm`.** `submitForm(event, form)` з `src/integrations/tanstack-form/form.submit.ts` зупиняє власне надсилання браузера й викликає `form.handleSubmit()`. Якщо форма некоректна, він позначає кожне поле як залишене, тож усі помилки з’являються одразу, і переводить фокус на перший елемент керування з `aria-invalid="true"`.
+- **`noValidate`.** Власну валідацію браузера вимкнено, тож кожне повідомлення походить зі схеми й має переклад.
 - **Значення за замовчуванням типізовано через інтерфейс модуля**, як `NEW_COURSE: Course["createCourse"]`.
 - **Надсилайте через мутацію.** `onSubmit` викликає `mutate` з опцій мутації, а кнопка надсилання показує стан очікування: `<Button isPending={create.isPending || update.isPending} type="submit">`.
 
+### Коли з’являються помилки
+
+Помилки дотримуються правила «раннє заохочення, пізнє покарання» (reward early, punish late):
+
+- Поки відвідувач вводить текст у поле, поле не показує помилки й не має `aria-invalid`, навіть якщо значення ще некоректне.
+- Коли відвідувач залишає поле або намагається надіслати форму, поле показує свою помилку.
+- Відтоді поле повторно валідується під час кожної зміни, тож помилка зникає з тим натисканням клавіші, яке виправляє значення.
+- Зворотний зв’язок, що заохочує прогрес, як-от список вимог до пароля, оновлюється з першого натискання клавіші: це не помилка.
+- Помилки сервера, як-от уже зареєстрована електронна адреса, показуються як спливне сповіщення (toast).
+
+`isFieldInvalid(field)` з `src/integrations/tanstack-form/form.fields.ts` — єдине місце, яке це вирішує: `field.state.meta.isBlurred && !field.state.meta.isValid`. Не копіюйте перевірку `isTouched` із посібника shadcn: TanStack Form встановлює `isTouched` з першим натисканням клавіші, через що наполовину введений пароль ставав червоним.
+
 ### Поля
 
-Кожне поле — це `Field` із shadcn, позначене некоректним лише після того, як відвідувач його торкнувся. З `course-fields.tsx`:
+Кожне поле — це `Field` із shadcn, некоректний стан якого береться з `isFieldInvalid`. З `course-fields.tsx`:
 
 ```tsx
-<Field data-invalid={isInvalidField(field)}>
+<Field data-invalid={isFieldInvalid(field)}>
   <FieldLabel htmlFor={id}>{label}</FieldLabel>
   <Input
     aria-describedby={`${id}-error`}
-    aria-invalid={isInvalidField(field)}
+    aria-invalid={isFieldInvalid(field)}
     className={cn({ "font-mono": isCode })}
     id={id}
     lang={lang}
@@ -63,7 +76,8 @@ return (
 </Field>
 ```
 
-- `isInvalid` — це `field.state.meta.isTouched && !field.state.meta.isValid`.
+- `data-invalid`, `aria-invalid` і елемент помилки читають `isFieldInvalid(field)`, тож екранний зчитувач повідомляє, що поле некоректне, саме тоді, коли з’являється помилка, і ніколи — поки відвідувач ще вводить текст.
+- Кожен елемент керування викликає `field.handleBlur` в `onBlur`; засіб вибору файлу викликає його після того, як файл вибрано.
 - Поле введення завжди вказує в `aria-describedby` ідентифікатор своєї помилки. Елемент помилки рендериться лише поки поле некоректне, а посилання на відсутній елемент нічого не описує.
 - Помилки рендеряться через `ValidationFieldError` з `custom/validation-field-error.tsx`. Повідомлення Zod — це ключі перекладу, тож він шукає їх у просторі імен `<table>.validations` модуля й підставляє числа з `<MODULE>_VALIDATION_PARAMS`:
 
@@ -78,6 +92,30 @@ return (
 
 - Жодних написаних вручну елементів `<input>`, `<label>` чи `<button>` і жодного компонента-обгортки навколо одного поля для однієї форми. Компонент поля, спільний для кількох форм одного розділу, лежить в одному файлі, як `CourseTextField`, `CourseTextAreaField` і `CourseOptionField` для форм курсу, розділу й уроку.
 - Помилки сервера показуються через `toast.error(errorMessage(error))`, успіх — через перекладений `toast.success`.
+
+### Кнопки надсилання залишаються активними
+
+Кнопку надсилання ніколи не вимикають через те, що форму не заповнено: жодних `isDisabled`, `disabled` чи `aria-disabled`, поки значень бракує або вони некоректні. Приглушена кнопка не каже, що саме не так, і GOV.UK, NN/g та Adrian Roselli радять так не робити. Натискання на неї з помилками — звичайна спроба надсилання: `submitForm` показує всі помилки й переводить фокус на перше некоректне поле. Кнопку вимикає лише `isPending`, поки триває запит.
+
+`Button` із shadcn вмикає `preventFocusOnPress` для кнопки з `type="submit"`, тож натискання мишею чи пальцем залишає фокус у полі, яке редагують. Інакше помилка, що з’являється після виходу з цього поля, зсунула б кнопку до завершення натискання, і натискання нічого б не надіслало.
+
+### Помилки сервера в полі
+
+Коли сервер відхиляє одне поле, помилка має бути під цим полем, а не в сповіщенні. Форми реєстрації, скидання пароля й пароля в налаштуваннях роблять так для пароля, знайденого у відомому витоку даних, з `onError` мутації в `onSubmit`. З `sign-up-form.tsx`:
+
+```tsx
+onError: (error) => {
+  if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+    showFieldError(formApi, { controlId: "sign-up-password", field: "password", message: error.message })
+    return
+  }
+  toast.error(errorMessage(error))
+},
+```
+
+- `showFieldError` з `src/integrations/tanstack-form/form.submit.ts` зберігає ключ повідомлення як помилку надсилання поля, позначає поле як залишене, щоб `isFieldInvalid` її показав, і переводить фокус на елемент керування.
+- Ключ шукається так само, як будь-яке інше повідомлення валідації, тож йому потрібен запис у просторі імен валідації поля, тут `auth.validations.passwordCompromised`.
+- Помилка зникає з наступною зміною цього поля, а всі інші помилки сервера й далі показуються сповіщеннями.
 
 Найменший повний приклад — `src/presentation/components/custom/newsletter-form.tsx`; [посібник із форм](/docs/guides/forms-and-validation) крок за кроком показує, як побудувати таку форму.
 

@@ -1,6 +1,7 @@
 import { getRequest } from "@tanstack/react-start/server"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { failNextResendDelivery } from "~/src/platform/testing/lib/resend"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
@@ -18,7 +19,7 @@ import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { ROUTES } from "~/src/routes"
 
 const RESET_TOKEN = /\/reset-password\/(?<token>[^/]+)$/u
-const NEW_PASSWORD = "NewSecret1!"
+const NEW_PASSWORD = "NewSecretPass1!"
 
 const requestPasswordReset = async (email: string): Promise<void> => {
   await auth.api.requestPasswordReset({ body: { email, redirectTo: ROUTES.RESET_PASSWORD }, headers: browserHeaders() })
@@ -108,9 +109,7 @@ describe("auth password reset", () => {
     const { account } = await signUpAndVerify()
     await requestPasswordReset(account.email)
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      Response.json({ message: "Provider temporarily unavailable", name: "application_error", statusCode: 503 }, { status: 503 }),
-    )
+    failNextResendDelivery()
 
     await expect(
       auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: resetToken(account.email) }, headers: browserHeaders() }),

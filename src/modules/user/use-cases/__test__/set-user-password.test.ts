@@ -35,7 +35,7 @@ describe("set-user-password", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_USER_ID }))
     setUserPasswordMock.mockResolvedValue({ status: true })
 
-    await expect(executeMutation(setUserPasswordMutation, { newPassword: "Secret1!", userId: TARGET_USER_ID })).resolves.toMatchObject({
+    await expect(executeMutation(setUserPasswordMutation, { newPassword: "SecretPass1!", userId: TARGET_USER_ID })).resolves.toMatchObject({
       status: true,
     })
   })

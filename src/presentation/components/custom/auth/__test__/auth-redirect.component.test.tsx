@@ -30,7 +30,7 @@ const continueWith = (provider: string): string => authOauthMessages.continueWit
 const RETURN_TO = "/pl-PL/app/settings"
 const ENCODED_RETURN_TO = encodeURIComponent(RETURN_TO)
 const EMAIL = "ada@example.test"
-const PASSWORD = "Secret1!"
+const PASSWORD = "SecretPass1!"
 
 const signInEmailMock = vi.hoisted(() => vi.fn<typeof AuthClient.signIn.email>())
 const signInSocialMock = vi.hoisted(() => vi.fn<typeof AuthClient.authClient.signIn.social>())
@@ -132,7 +132,6 @@ describe("return path through the auth pages", () => {
     await user.type(screen.getByLabelText(/^name$/iu), "Ada Lovelace")
     await user.type(screen.getByLabelText(/email/iu), EMAIL)
     await user.type(screen.getByLabelText(/^password$/iu), PASSWORD)
-    await user.type(screen.getByLabelText(/confirm password/iu), PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {

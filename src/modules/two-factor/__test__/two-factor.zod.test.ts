@@ -27,7 +27,7 @@ describe("two-factor zod schemas", () => {
 
   it("accepts a non-empty password on enable two factor", () => {
     expect.hasAssertions()
-    expect(twoFactorZodSchemas.enableTwoFactor.safeParse({ password: "Secret1!" }).success).toBe(true)
+    expect(twoFactorZodSchemas.enableTwoFactor.safeParse({ password: "SecretPass1!" }).success).toBe(true)
   })
 
   it("rejects an empty password on enable two factor", () => {

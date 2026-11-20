@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+
 import { accountZodSchemas } from "~/src/modules/account/account.zod"
 
 describe("account zod schemas", () => {
@@ -10,25 +12,17 @@ describe("account zod schemas", () => {
     },
   )
 
-  it("accepts matching passwords on change password form", () => {
-    expect.hasAssertions()
+  it("accepts a new password of the minimum length on the change password form, without a confirmation", () => {
     expect(
-      accountZodSchemas.changePasswordForm.safeParse({
-        confirmNewPassword: "Secret1!",
-        currentPassword: "OldSecret1!",
-        newPassword: "Secret1!",
-      }).success,
+      accountZodSchemas.changePasswordForm.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH) })
+        .success,
     ).toBe(true)
   })
 
-  it("rejects mismatched new passwords on change password form", () => {
-    expect.hasAssertions()
+  it("rejects a new password shorter than the minimum length on the change password form", () => {
     expect(
-      accountZodSchemas.changePasswordForm.safeParse({
-        confirmNewPassword: "Secret2!",
-        currentPassword: "OldSecret1!",
-        newPassword: "Secret1!",
-      }).success,
+      accountZodSchemas.changePasswordForm.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH - 1) })
+        .success,
     ).toBe(false)
   })
 })

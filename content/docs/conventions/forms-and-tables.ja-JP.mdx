@@ -11,44 +11,57 @@ description: "すべてのフォームはモジュールの Zod スキーマと 
 
 ```tsx
 const form = useForm({
-  defaultValues: course ?? NEW_COURSE,
+  defaultValues: course === undefined ? NEW_COURSE : toValues(course),
+  listeners: { onBlur: validateOnBlur },
   onSubmit: ({ value }) => {
-    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
     if (course === undefined) {
-      create.mutate(fields)
+      create.mutate(value)
       return
     }
-    update.mutate({ ...fields, courseId: course.id })
+    update.mutate({ ...value, courseId: course.id })
   },
-  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+  validators: { onChange: courseZodSchemas.createCourse },
 })
 
 return (
   <form
     noValidate
     onSubmit={(event) => {
-      event.preventDefault()
-      void form.handleSubmit()
+      void submitForm(event, form)
     }}
   >
 ```
 
 - **スキーマはサーバーのスキーマと同じ。** バリデーターは、サーバー関数がパースに使うのと同じ `courseZodSchemas.createCourse` か、`chapter-dialog.tsx` が `chapterZodSchemas.updateChapter.pick({ title: true })` で行っているように、その `.pick(...)` です。フォーム専用の 2 つ目のスキーマを書いてはいけません。
-- **変更時と送信時の両方で検証する。** 両方のバリデーターを設定します。`onSubmit` だけでは、修正したフィールドが次に送信するまで赤いままになります。
-- **`noValidate` と `preventDefault`。** ブラウザー自身のバリデーションを無効にしているため、すべてのメッセージはスキーマから来て、翻訳されます。
+- **バリデーターは `onChange` の 1 つだけ。** TanStack Form は変更のたびに、そして送信時にもう一度これを実行します。`onSubmit` の複製を追加してはいけません。送信時のバリデーターが出したエラーは、そのフィールド自身が変更されたときにしか消えないため、`passwordsMustMatch` のようなフィールドをまたぐエラーが、もう一方のフィールドを修正した後も赤いままになっていました。
+- **訪問者が離れたフィールドを検証する。** `listeners: { onBlur: validateOnBlur }` は、フィールドがフォーカスを失ったときに同じバリデーターを実行します。そのため、訪問者が通り過ぎただけのフィールドにも、後で別のフィールドに入力したときではなく、その時点でエラーが表示されます。
+- **`submitForm` で送信する。** `src/integrations/tanstack-form/form.submit.ts` の `submitForm(event, form)` は、ブラウザー自身の送信を止めて `form.handleSubmit()` を呼び出します。フォームが無効な場合は、すべてのフィールドを離れた状態としてマークしてすべてのエラーを一度に表示し、`aria-invalid="true"` を持つ最初のコントロールにフォーカスを移します。
+- **`noValidate`。** ブラウザー自身のバリデーションを無効にしているため、すべてのメッセージはスキーマから来て、翻訳されます。
 - **デフォルト値はモジュールのインターフェースを通して型付けします。** `NEW_COURSE: Course["createCourse"]` のように書きます。
 - **ミューテーションで送信する。** `onSubmit` はミューテーションオプションから得た `mutate` を呼び出し、送信ボタンは処理中の状態を表示します（`<Button isPending={create.isPending || update.isPending} type="submit">`）。
 
+### エラーを表示するタイミング
+
+エラーは「早めに報い、遅めに罰する」（reward-early, punish-late）というルールに従います。
+
+- 訪問者がフィールドに入力している間は、値がまだ有効でなくても、そのフィールドにはエラーが表示されず、`aria-invalid` も付きません。
+- 訪問者がフィールドを離れるか、送信しようとすると、そのフィールドにエラーが表示されます。
+- それ以降、フィールドは変更のたびに再検証されるため、値を直したキー入力でエラーが消えます。
+- パスワードの要件リストのように進捗に報いるフィードバックは、最初のキー入力から更新されます。これはエラーではありません。
+- すでに登録済みのメールアドレスのようなサーバーのエラーは、トーストで表示します。
+
+これを判定するのは `src/integrations/tanstack-form/form.fields.ts` の `isFieldInvalid(field)` だけで、その中身は `field.state.meta.isBlurred && !field.state.meta.isValid` です。shadcn のガイドにある `isTouched` のチェックをコピーしてはいけません。TanStack Form は最初のキー入力で `isTouched` を設定するため、入力途中のパスワードが赤くなっていました。
+
 ### フィールド
 
-各フィールドは shadcn の `Field` で、訪問者が触れた後にだけ無効としてマークされます。`course-fields.tsx` の例です。
+各フィールドは shadcn の `Field` で、無効な状態は `isFieldInvalid` から得ます。`course-fields.tsx` の例です。
 
 ```tsx
-<Field data-invalid={isInvalidField(field)}>
+<Field data-invalid={isFieldInvalid(field)}>
   <FieldLabel htmlFor={id}>{label}</FieldLabel>
   <Input
     aria-describedby={`${id}-error`}
-    aria-invalid={isInvalidField(field)}
+    aria-invalid={isFieldInvalid(field)}
     className={cn({ "font-mono": isCode })}
     id={id}
     lang={lang}
@@ -63,7 +76,8 @@ return (
 </Field>
 ```
 
-- `isInvalid` は `field.state.meta.isTouched && !field.state.meta.isValid` です。
+- `data-invalid`、`aria-invalid`、エラー要素はすべて `isFieldInvalid(field)` を読み取ります。そのため、スクリーンリーダーがフィールドの無効を伝えるのはエラーが表示されるのとまったく同時で、訪問者がまだ入力している間に伝えることはありません。
+- すべてのコントロールは `onBlur` で `field.handleBlur` を呼び出します。ファイルピッカーは、ファイルが選ばれた後に呼び出します。
 - 入力は常に `aria-describedby` で自身のエラーの ID を参照します。エラー要素はフィールドが無効な間だけ描画され、存在しない要素への参照は何も説明しません。
 - エラーは `custom/validation-field-error.tsx` の `ValidationFieldError` で描画します。Zod のメッセージは翻訳キーなので、このコンポーネントはモジュールの `<table>.validations` 名前空間でキーを引き、`<MODULE>_VALIDATION_PARAMS` の数値を埋め込みます。
 
@@ -78,6 +92,30 @@ return (
 
 - `<input>`、`<label>`、`<button>` 要素を手書きせず、1 つのフォームの 1 つのフィールドを包むだけのラッパーコンポーネントも作りません。1 つのエリアの複数のフォームで共有するフィールドコンポーネントは、コース、チャプター、レッスンのフォームで使う `CourseTextField`、`CourseTextAreaField`、`CourseOptionField` のように、1 つのファイルに置きます。
 - サーバーのエラーは `toast.error(errorMessage(error))` で、成功は翻訳済みの `toast.success` で表示します。
+
+### 送信ボタンは有効なままにする
+
+フォームが未完成であることを理由に送信ボタンを無効化することはありません。値が欠けている間や無効な間も、`isDisabled`、`disabled`、`aria-disabled` は付けません。薄くなったボタンは何が問題なのかを伝えず、GOV.UK、NN/g、Adrian Roselli もこれを避けるよう勧めています。誤りがあるまま押すことは通常の送信の試みです。`submitForm` がすべてのエラーを表示し、最初の無効なフィールドにフォーカスを移します。ボタンを無効化するのは、リクエストの実行中の `isPending` だけです。
+
+shadcn の `Button` は `type="submit"` のボタンに `preventFocusOnPress` を設定するため、マウスや指で押しても、編集中のフィールドにフォーカスが残ります。そうしないと、そのフィールドを離れたときに表示されるエラーが押し終わる前にボタンを動かし、押しても何も送信されません。
+
+### フィールドに表示するサーバーのエラー
+
+サーバーが 1 つのフィールドを拒否した場合、そのエラーはトーストではなくそのフィールドの下に表示します。サインアップ、パスワードのリセット、設定のパスワードの各フォームは、既知のデータ漏洩に含まれるパスワードに対してこれを行い、`onSubmit` の中でミューテーションの `onError` から処理します。`sign-up-form.tsx` の例です。
+
+```tsx
+onError: (error) => {
+  if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+    showFieldError(formApi, { controlId: "sign-up-password", field: "password", message: error.message })
+    return
+  }
+  toast.error(errorMessage(error))
+},
+```
+
+- `src/integrations/tanstack-form/form.submit.ts` の `showFieldError` は、メッセージキーをフィールドの送信エラーとして保存し、`isFieldInvalid` がそれを表示するようにフィールドを離れた状態としてマークして、コントロールにフォーカスを移します。
+- キーはほかのバリデーションメッセージと同じように参照されるため、フィールドのバリデーション名前空間にエントリーが必要です。ここでは `auth.validations.passwordCompromised` です。
+- エラーはそのフィールドが次に変更されたときに消え、それ以外のサーバーのエラーはすべてトーストのままです。
 
 最小限の完全な例は `src/presentation/components/custom/newsletter-form.tsx` です。フォームの作り方は[フォームのガイド](/docs/guides/forms-and-validation)で順を追って説明しています。
 

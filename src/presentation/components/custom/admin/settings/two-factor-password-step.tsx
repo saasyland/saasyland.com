@@ -6,7 +6,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { twoFactorZodSchemas } from "~/src/modules/two-factor/two-factor.zod"
@@ -54,6 +55,7 @@ export const TwoFactorPasswordStep = ({
 
   const form = useForm({
     defaultValues: { password: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       if (isDisabling) {
         disableTwoFactor.mutate(value, { onSuccess: onDisabled })
@@ -70,21 +72,20 @@ export const TwoFactorPasswordStep = ({
         },
       })
     },
-    validators: { onChange: passwordSchema, onSubmit: passwordSchema },
+    validators: { onChange: passwordSchema },
   })
 
   return (
     <form
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <FieldGroup className="gap-4">
         <form.Field name="password">
           {(field) => {
-            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            const isInvalid = isFieldInvalid(field)
 
             return (
               <Field data-invalid={isInvalid}>

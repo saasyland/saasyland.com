@@ -8,7 +8,9 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { showFieldError, submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { resetPasswordMutation } from "~/src/modules/verification/use-cases/reset-password"
@@ -17,7 +19,7 @@ import { verificationZodSchemas } from "~/src/modules/verification/verification.
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
-import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
+import { Field, FieldLabel } from "~/src/presentation/components/shadcn/field"
 
 import { PasswordInput } from "~/src/presentation/components/custom/auth/password-input"
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
@@ -33,9 +35,6 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
 
   const resetPassword = useMutation({
     ...resetPasswordMutation,
-    onError: (error) => {
-      toast.error(errorMessage(error))
-    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
       toast.success(t("success"))
@@ -44,11 +43,23 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
   })
 
   const form = useForm({
-    defaultValues: { confirmPassword: "", password: "" },
-    onSubmit: ({ value }) => {
-      resetPassword.mutate({ ...value, token })
+    defaultValues: { password: "" },
+    listeners: { onBlur: validateOnBlur },
+    onSubmit: ({ formApi, value }) => {
+      resetPassword.mutate(
+        { ...value, token },
+        {
+          onError: (error) => {
+            if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
+              showFieldError(formApi, { controlId: "reset-password-password", field: "password", message: error.message })
+              return
+            }
+            toast.error(errorMessage(error))
+          },
+        },
+      )
     },
-    validators: { onChange: verificationZodSchemas.resetPasswordForm, onSubmit: verificationZodSchemas.resetPasswordForm },
+    validators: { onChange: verificationZodSchemas.resetPasswordForm },
   })
 
   return (
@@ -57,50 +68,45 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
       id="reset-password-form"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
-      <FieldGroup>
-        {(["password", "confirmPassword"] as const).map((name) => (
-          <form.Field key={name} name={name}>
-            {(field) => {
-              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+      <form.Field name="password">
+        {(field) => {
+          const isInvalid = isFieldInvalid(field)
 
-              return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel className="text-body-sm text-foreground" htmlFor={`reset-password-${name}`}>
-                    {t(name)}
-                  </FieldLabel>
-                  <PasswordInput
-                    aria-describedby={`reset-password-${name}-error`}
-                    aria-invalid={isInvalid}
-                    autoComplete="new-password"
-                    id={`reset-password-${name}`}
-                    name={field.name}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => {
-                      field.handleChange(event.target.value)
-                    }}
-                    value={field.state.value}
-                  />
-                  {isInvalid && (
-                    <ValidationFieldError
-                      id={`reset-password-${name}-error`}
-                      message={fieldErrorMessage(field.state.meta.errors)}
-                      namespace="auth.validations"
-                      params={AUTH_VALIDATION_PARAMS}
-                    />
-                  )}
-                </Field>
-              )
-            }}
-          </form.Field>
-        ))}
-      </FieldGroup>
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel className="text-body-sm text-foreground" htmlFor="reset-password-password">
+                {t("password")}
+              </FieldLabel>
+              <PasswordInput
+                aria-describedby="reset-password-password-error reset-password-requirements"
+                aria-invalid={isInvalid}
+                autoComplete="new-password"
+                id="reset-password-password"
+                name={field.name}
+                onBlur={field.handleBlur}
+                onChange={(event) => {
+                  field.handleChange(event.target.value)
+                }}
+                value={field.state.value}
+              />
+              {isInvalid && (
+                <ValidationFieldError
+                  id="reset-password-password-error"
+                  message={fieldErrorMessage(field.state.meta.errors)}
+                  namespace="auth.validations"
+                  params={AUTH_VALIDATION_PARAMS}
+                />
+              )}
+            </Field>
+          )
+        }}
+      </form.Field>
 
-      <form.Subscribe selector={(state) => state.values}>
-        {({ confirmPassword, password }) => <PasswordRequirements confirmPassword={confirmPassword} password={password} />}
+      <form.Subscribe selector={(state) => state.values.password}>
+        {(password) => <PasswordRequirements id="reset-password-requirements" password={password} />}
       </form.Subscribe>
 
       <Button

@@ -17,12 +17,15 @@ type ButtonProps = Omit<ButtonPrimitiveProps, "className"> &
     className?: string
   }
 
+const SUBMIT_PROPS = { preventFocusOnPress: true } as const
+
 const Button = ({ className, size = "default", variant = "default", ...props }: ButtonProps) => (
   <ButtonPrimitive
     className={cn(buttonVariants({ className, size, variant }))}
     data-size={size}
     data-slot="button"
     data-variant={variant}
+    {...(props.type === "submit" ? SUBMIT_PROPS : {})}
     {...props}
   />
 )

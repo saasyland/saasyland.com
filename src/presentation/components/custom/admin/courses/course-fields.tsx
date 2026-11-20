@@ -2,7 +2,7 @@ import type { JSX, ReactNode } from "react"
 
 import { Plus, X } from "lucide-react"
 
-import { type StringField, fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { type StringField, fieldErrorMessage, isFieldInvalid } from "~/src/integrations/tanstack-form/form.fields"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COURSE_VALIDATION_PARAMS } from "~/src/modules/course/course.constants"
@@ -26,10 +26,8 @@ interface TextFieldProps {
   readonly lang?: SupportedLocale
 }
 
-const isInvalidField = ({ state: { meta } }: StringField): boolean => meta.isTouched && !meta.isValid
-
 const FieldMessage = ({ field, id }: { readonly field: StringField; readonly id: string }): JSX.Element | undefined => {
-  if (!isInvalidField(field)) {
+  if (!isFieldInvalid(field)) {
     return undefined
   }
   return (
@@ -49,11 +47,11 @@ export const CourseTextField = ({
   label,
   lang,
 }: TextFieldProps & { readonly isCode?: boolean }): JSX.Element => (
-  <Field data-invalid={isInvalidField(field)}>
+  <Field data-invalid={isFieldInvalid(field)}>
     <FieldLabel htmlFor={id}>{label}</FieldLabel>
     <Input
       aria-describedby={`${id}-error`}
-      aria-invalid={isInvalidField(field)}
+      aria-invalid={isFieldInvalid(field)}
       className={cn({ "font-mono": isCode })}
       id={id}
       lang={lang}
@@ -69,11 +67,11 @@ export const CourseTextField = ({
 )
 
 export const CourseTextAreaField = ({ field, id, label, lang }: TextFieldProps): JSX.Element => (
-  <Field data-invalid={isInvalidField(field)}>
+  <Field data-invalid={isFieldInvalid(field)}>
     <FieldLabel htmlFor={id}>{label}</FieldLabel>
     <Textarea
       aria-describedby={`${id}-error`}
-      aria-invalid={isInvalidField(field)}
+      aria-invalid={isFieldInvalid(field)}
       id={id}
       lang={lang}
       name={field.name}
@@ -97,11 +95,11 @@ export const CourseRichTextField = ({ field, hint, id, label, lang, previewLabel
 
   return (
     <div className="flex flex-col gap-3">
-      <Field data-invalid={isInvalidField(field)}>
+      <Field data-invalid={isFieldInvalid(field)}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         <Textarea
           aria-describedby={`${id}-hint ${id}-error`}
-          aria-invalid={isInvalidField(field)}
+          aria-invalid={isFieldInvalid(field)}
           className="min-h-40 font-mono text-xs"
           id={id}
           lang={lang}
@@ -173,13 +171,13 @@ export const CourseCompactField = ({
   label,
   lang,
 }: TextFieldProps & { readonly isCode?: boolean }): JSX.Element => (
-  <Field className="min-w-0 flex-1" data-invalid={isInvalidField(field)}>
+  <Field className="min-w-0 flex-1" data-invalid={isFieldInvalid(field)}>
     <FieldLabel className="sr-only" htmlFor={id}>
       {label}
     </FieldLabel>
     <Input
       aria-describedby={`${id}-error`}
-      aria-invalid={isInvalidField(field)}
+      aria-invalid={isFieldInvalid(field)}
       className={cn({ "font-mono": isCode })}
       id={id}
       lang={lang}

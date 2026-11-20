@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -40,13 +41,14 @@ export const ForgotPasswordForm = (): JSX.Element => {
 
   const form = useForm({
     defaultValues: { email: "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       requestPasswordReset.mutate({
         email: value.email,
         redirectTo: localizePathname({ locale: getCurrentLocale(), pathname: ROUTES.RESET_PASSWORD }),
       })
     },
-    validators: { onChange: verificationZodSchemas.forgotPassword, onSubmit: verificationZodSchemas.forgotPassword },
+    validators: { onChange: verificationZodSchemas.forgotPassword },
   })
 
   return (
@@ -55,14 +57,13 @@ export const ForgotPasswordForm = (): JSX.Element => {
       id="forgot-password-form"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <FieldGroup>
         <form.Field name="email">
           {(field) => {
-            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            const isInvalid = isFieldInvalid(field)
 
             return (
               <Field data-invalid={isInvalid}>

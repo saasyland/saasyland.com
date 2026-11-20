@@ -8,10 +8,12 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 `src/integrations/better-auth/auth.server.ts` が Better Auth のインスタンスを作成します。
 
 - D1 上の Drizzle アダプター、UUID v7 の ID、Cookie プレフィックス `saasyland`、`development` と `test` 以外のモードでのセキュア Cookie、`appHostsForMode` によるモード別の許可ホスト。
-- メール確認が必須のメールとパスワード認証、大文字と記号を含む <RepositoryFact name="passwordMinLength" />〜<RepositoryFact name="passwordMaxLength" /> 文字のパスワード（`auth.constraints.ts`）、パスワードリセット時のセッション失効と、リセット後の「パスワードが変更されました」というメール（`onPasswordReset`）。確認とリセットのリンクは `EMAIL_LINK_LIFETIME_HOURS`（`auth.constants.ts`）の間有効です。この値は `emailVerification.expiresIn` と `resetPasswordTokenExpiresIn` の両方を設定し、メールにも記載されます。
+- メール確認が必須のメールとパスワード認証、OWASP と NIST SP 800-63B の求めに従って文字種の組み合わせルールを設けない <RepositoryFact name="passwordMinLength" />〜<RepositoryFact name="passwordMaxLength" /> 文字のパスワード（`auth.constraints.ts`）、パスワードリセット時のセッション失効と、リセット後の「パスワードが変更されました」というメール（`onPasswordReset`）。確認とリセットのリンクは `EMAIL_LINK_LIFETIME_HOURS`（`auth.constants.ts`）の間有効です。この値は `emailVerification.expiresIn` と `resetPasswordTokenExpiresIn` の両方を設定し、メールにも記載されます。
+
+- 認証のエリアが `src/data/auth.auth-plugins.ts` で追加する `haveIBeenPwned` は、サインアップ、パスワードのリセットと変更の際、そして管理者がユーザーを作成したりパスワードを設定したりする際に、Have I Been Pwned のデータセットに含まれる新しいパスワードを拒否します。Worker の外に出るのは、パスワードの SHA-1 ハッシュの先頭 5 文字だけです。サインアップ、リセット、設定の各フォームはパスワード欄の下に `passwordCompromised` を表示してそこにフォーカスを移し、管理画面のダイアログはそれをトーストで表示します。ブラウザテストと統合テストは `src/platform/testing/mocks/auth.providers.ts` のプロバイダーのダブルでこのチェックに応答し、このダブルは `e2e/data/accounts.ts` の `BREACHED_PASSWORD` を漏洩済みとして報告します。
 - `hooks.before` ミドルウェアの `enforceInputPolicy`（`auth.hooks.ts`）は、フォームのスキーマを Better Auth 自身のエンドポイントにも適用します。対象は登録、パスワードのリセットと変更、プロフィールとメールの変更、ユーザー作成やパスワード設定を行う管理エンドポイントです。`/api/auth` に直接送られたリクエストもルールを回避できず、`400 VALIDATION_ERROR` を返します。
 - アカウント連携と暗号化された OAuth トークンを備えた GitHub と Google のソーシャルプロバイダー。
-- プラグイン: `auth.access.ts` のアクセス制御とロールを使う `admin`、`twoFactor`、Polar（`checkout`、`portal`、`webhooks`）、`tanstackStartCookies`。
+- プラグイン: `auth.access.ts` のアクセス制御とロールを使う `admin`、`twoFactor`、`haveIBeenPwned`、Polar（`checkout`、`portal`、`webhooks`）、`tanstackStartCookies`。
 - D1 の `rate_limit` テーブルに保存されるレート制限。`/get-session`、`/sign-out`、Polar の Webhook は対象外です。
 - 追加のユーザーフィールド `timezone` と、確認メール付きのメールアドレス変更。
 
@@ -29,6 +31,10 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 | `/auth/verify-email`                            | `VerifyEmailForm`                         | [メール確認](/docs/features/email-verification)を参照。                                                                                                                                                     |
 | `/auth/forgot-password`、`/auth/reset-password` | `ForgotPasswordForm`、`ResetPasswordForm` | [パスワードリセット](/docs/features/password-reset)を参照。                                                                                                                                                 |
 | `/auth/two-factor`                              | `TwoFactorForm`                           | [二要素認証](/docs/features/two-factor)を参照。                                                                                                                                                             |
+
+`SignUpForm` は、<RepositoryFact name="nameMaxLength" /> 文字以内の名前、メールアドレス、1 つのパスワードを入力させます。目のボタンで入力した内容を確認できるため確認用の入力欄はなく、パスワード欄にはプレースホルダーがありません。`PasswordRequirements` は訪問者の入力に合わせて長さのルールにチェックを付け、続行したときに漏洩チェックが行われることを伝えます。メール欄を離れると、`EmailSuggestion` がドメインのつづりを誤ったアドレスに対して正しいと思われるアドレスを提案し（`src/lib/email-suggestion.ts` の `suggestEmail`、`src/data/email-domains.ts` の `EMAIL_DOMAINS` に基づきます）、提案を押すと欄に入力されます。サインアップに成功すると、受信トレイの確認を促すトーストとともに `/auth/verify-email` へ移動します。
+
+`/auth/sign-up` は、フォームの上に説明文の代わりとして、`SIGN_UP_INTROS`（`src/data/sign-up-intros.ts`）のうち `redirect` に当てはまる最初のエントリーを表示し、`SignUpPending` はそのエントリーのスケルトンを描画します。認証のエリアは何も追加せず（`AUTH_SIGN_UP_INTROS`）、ライセンスのエリアがランディングページで選んだプランの注文概要を追加します（[ライセンス](/docs/features/licences)）。
 
 サインインに成功すると、`useAuthRedirect` の `finishSignIn` がクエリキャッシュから前のユーザーのデータを削除し、ルーターキャッシュをクリアして、`redirect` を保持したまま `/auth/callback` へ移動します。`/auth/sign-in` に `?error=` として返された Better Auth のエラーは、対応する `auth.errors` のメッセージで表示されます。
 

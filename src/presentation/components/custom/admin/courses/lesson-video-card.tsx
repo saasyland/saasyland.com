@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
+
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
@@ -63,10 +66,11 @@ export const LessonVideoCard = ({ lesson }: { readonly lesson: Course["editorLes
 
   const form = useForm({
     defaultValues: { videoId: lesson.video?.id ?? "" },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       replace.mutate({ lessonId: lesson.id, videoId: value.videoId })
     },
-    validators: { onChange: replacementSchema, onSubmit: replacementSchema },
+    validators: { onChange: replacementSchema },
   })
 
   return (
@@ -83,8 +87,7 @@ export const LessonVideoCard = ({ lesson }: { readonly lesson: Course["editorLes
           className="flex flex-col gap-3"
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <form.Field name="videoId">

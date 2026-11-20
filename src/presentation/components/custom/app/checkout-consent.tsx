@@ -6,7 +6,8 @@ import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
@@ -85,10 +86,11 @@ export const CheckoutConsent = ({ onClose, tier }: CheckoutConsentProps): JSX.El
 
   const form = useForm({
     defaultValues: { withdrawalConsent: false },
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       mutate({ locale: getCurrentLocale(), tier, ...consentSchema.parse(value) })
     },
-    validators: { onChange: consentSchema, onSubmit: consentSchema },
+    validators: { onChange: consentSchema },
   })
 
   const name = tTier(`tiers.${tier}.name`)
@@ -98,13 +100,12 @@ export const CheckoutConsent = ({ onClose, tier }: CheckoutConsentProps): JSX.El
       className="flex flex-col gap-4"
       noValidate
       onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
+        void submitForm(event, form)
       }}
     >
       <form.Field name="withdrawalConsent">
         {(field) => {
-          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+          const isInvalid = isFieldInvalid(field)
 
           return (
             <Field className="rounded-lg border p-3" data-invalid={isInvalid} orientation="horizontal">

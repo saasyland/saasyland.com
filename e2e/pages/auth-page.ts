@@ -62,10 +62,6 @@ export class AuthPage extends BasePage {
     return this.page.locator("#sign-up-password")
   }
 
-  confirmPasswordField(): Locator {
-    return this.page.locator("#sign-up-confirmPassword")
-  }
-
   signUpSubmitButton(): Locator {
     return this.page.locator("#sign-up-form-submit-button")
   }

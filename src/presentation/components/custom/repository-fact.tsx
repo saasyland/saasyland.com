@@ -12,6 +12,7 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
+  NAME_MAX_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   TWO_FACTOR_CODE_LENGTH,
@@ -195,6 +196,7 @@ const FACTS = {
   localizedListItemMaxLength: LOCALIZED_LIST_ITEM_MAX_LENGTH,
   localizedListMaxItems: LOCALIZED_LIST_MAX_ITEMS,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
+  nameMaxLength: NAME_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
   oauthCallbackPath: oauthCallbackPath("<provider>"),

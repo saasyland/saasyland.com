@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { NAME_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import {
   callbackPathSchema,
   emailSchema,
@@ -33,37 +34,21 @@ describe("email schema component", () => {
 })
 
 describe("sign up with password schema component", () => {
-  it("accepts valid sign-up payload", () => {
-    expect.hasAssertions()
-    const result = signUpWithPasswordSchema.safeParse({
-      confirmPassword: "Secret1!",
-      email: "user@example.com",
-      name: "User",
-      password: "Secret1!",
-    })
-    expect(result.success).toBe(true)
+  const SIGN_UP = { email: "user@example.com", name: "User", password: "a".repeat(PASSWORD_MIN_LENGTH) }
+
+  it("accepts any password of the minimum length, without composition rules", () => {
+    expect(signUpWithPasswordSchema.safeParse(SIGN_UP).success).toBe(true)
   })
 
-  it("rejects mismatched passwords", () => {
-    expect.hasAssertions()
-    const result = signUpWithPasswordSchema.safeParse({
-      confirmPassword: "Secret2!",
-      email: "user@example.com",
-      name: "User",
-      password: "Secret1!",
-    })
-    expect(result.success).toBe(false)
+  it("rejects a password shorter than the minimum length with its translation key", () => {
+    const result = signUpWithPasswordSchema.safeParse({ ...SIGN_UP, password: "Secret1!Ab" })
+
+    expect(result.error?.issues.map(({ message }) => message)).toStrictEqual(["passwordMinLength"])
   })
 
-  it("rejects weak password", () => {
-    expect.hasAssertions()
-    const result = signUpWithPasswordSchema.safeParse({
-      confirmPassword: "weak",
-      email: "user@example.com",
-      name: "User",
-      password: "weak",
-    })
-    expect(result.success).toBe(false)
+  it("accepts a name of the maximum length and rejects a longer one", () => {
+    expect(signUpWithPasswordSchema.safeParse({ ...SIGN_UP, name: "a".repeat(NAME_MAX_LENGTH) }).success).toBe(true)
+    expect(signUpWithPasswordSchema.safeParse({ ...SIGN_UP, name: "a".repeat(NAME_MAX_LENGTH + 1) }).success).toBe(false)
   })
 })
 
@@ -93,7 +78,7 @@ describe("sign in with password schema component", () => {
     expect(
       signInWithPasswordSchema.safeParse({
         email: "not-an-email",
-        password: "Secret1!",
+        password: "SecretPass1!",
       }).success,
     ).toBe(false)
   })

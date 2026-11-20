@@ -13,7 +13,6 @@ export const PasswordInput = (props: Readonly<ComponentProps<typeof InputGroupIn
     <InputGroup className="h-11 rounded-lg border-input transition-[border-color,box-shadow] duration-200 ease-exp dark:bg-input/30">
       <InputGroupInput
         className="px-3 text-base text-foreground placeholder:text-muted-foreground md:text-sm"
-        placeholder={t("placeholderPassword")}
         type={isVisible ? "text" : "password"}
         {...props}
       />

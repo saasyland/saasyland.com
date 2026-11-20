@@ -7,7 +7,8 @@ import { FileTrigger } from "react-aria-components"
 import { toast } from "sonner"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
+import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
+import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
@@ -72,11 +73,12 @@ const useFileAttachmentForm = ({ lessonId, onSaved }: FileAttachmentFormOptions)
 
   const form = useForm({
     defaultValues: NEW_FILE,
+    listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
       const parsed = uploadSchema.parse(value)
       upload.mutate(uploadFormData({ file: parsed.file.file, lessonId, title: parsed.title }))
     },
-    validators: { onChange: uploadSchema, onSubmit: uploadSchema },
+    validators: { onChange: uploadSchema },
   })
 
   return { form, isPending: upload.isPending }
@@ -103,8 +105,7 @@ export const FileAttachmentDialog = ({ lessonId, trigger }: FileAttachmentDialog
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
+            void submitForm(event, form)
           }}
         >
           <DialogHeader>
@@ -120,7 +121,7 @@ export const FileAttachmentDialog = ({ lessonId, trigger }: FileAttachmentDialog
             </LocaleTabs>
             <form.Field name="file">
               {(field) => (
-                <Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}>
+                <Field data-invalid={isFieldInvalid(field)}>
                   <FieldLabel>{t("file")}</FieldLabel>
                   <div className="flex flex-wrap items-center gap-3">
                     <FileTrigger
@@ -130,7 +131,12 @@ export const FileAttachmentDialog = ({ lessonId, trigger }: FileAttachmentDialog
                         field.handleBlur()
                       }}
                     >
-                      <Button size="sm" variant="outline">
+                      <Button
+                        aria-describedby="file-attachment-file-error"
+                        aria-invalid={isFieldInvalid(field)}
+                        size="sm"
+                        variant="outline"
+                      >
                         <Upload aria-hidden className="size-4" />
                         {t("chooseFile")}
                       </Button>
@@ -144,8 +150,9 @@ export const FileAttachmentDialog = ({ lessonId, trigger }: FileAttachmentDialog
                   <FieldDescription>
                     {t("fileHint", { max: LESSON_ATTACHMENT_MAX_MEGABYTES, types: format.list(LESSON_ATTACHMENT_EXTENSIONS) })}
                   </FieldDescription>
-                  {field.state.meta.isTouched && (
+                  {isFieldInvalid(field) && (
                     <ValidationFieldError
+                      id="file-attachment-file-error"
                       message={fieldErrorMessage(field.state.meta.errors)}
                       namespace="course.validations"
                       params={COURSE_VALIDATION_PARAMS}

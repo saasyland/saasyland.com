@@ -43,7 +43,7 @@ describe("create-user", () => {
       executeMutation(createUserMutation, {
         email: "new@example.com",
         name: "New User",
-        password: "Password1!",
+        password: "Password1234!",
         role: ROLE_CODES.CUSTOMER,
       }),
     ).resolves.toMatchObject(mutationResult)
@@ -52,7 +52,7 @@ describe("create-user", () => {
       body: {
         email: "new@example.com",
         name: "New User",
-        password: "Password1!",
+        password: "Password1234!",
         role: ROLE_CODES.CUSTOMER,
       },
       headers: HEADERS,
@@ -69,7 +69,7 @@ describe("create-user", () => {
       executeMutation(createUserMutation, {
         email: "new@example.com",
         name: "New User",
-        password: "Password1!",
+        password: "Password1234!",
         role: ROLE_CODES.CUSTOMER,
       }),
     ).rejects.toThrow(ERROR_CODES.FORBIDDEN)

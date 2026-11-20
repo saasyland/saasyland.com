@@ -2,6 +2,7 @@ import { BetterFetchError } from "@better-fetch/fetch"
 import { BASE_ERROR_CODES } from "better-auth"
 import { APIError } from "better-auth/api"
 import { admin } from "better-auth/plugins/admin"
+import { haveIBeenPwned } from "better-auth/plugins/haveibeenpwned"
 import { TWO_FACTOR_ERROR_CODES } from "better-auth/plugins/two-factor"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -111,7 +112,12 @@ describe("auth error key from a redirect search param", () => {
 describe("installed Better Auth error codes", () => {
   it("maps only codes that Better Auth or an OAuth provider can produce", () => {
     expect.hasAssertions()
-    const tables = new Set([...Object.keys(BASE_ERROR_CODES), ...Object.keys(admin().$ERROR_CODES), ...Object.keys(TWO_FACTOR_ERROR_CODES)])
+    const tables = new Set([
+      ...Object.keys(BASE_ERROR_CODES),
+      ...Object.keys(admin().$ERROR_CODES),
+      ...Object.keys(haveIBeenPwned().$ERROR_CODES),
+      ...Object.keys(TWO_FACTOR_ERROR_CODES),
+    ])
     const sources = BETTER_AUTH_SOURCES.map((path) => readBetterAuthSource(path)).join("\n")
 
     for (const code of Object.keys(AUTH_ERRORS).filter((value) => !APP_FALLBACK_CODES.has(value) && !PROVIDER_CALLBACK_CODES.has(value))) {

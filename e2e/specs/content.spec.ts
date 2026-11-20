@@ -4,7 +4,8 @@ import englishChangelogLinks from "../../messages/en-US/components.custom.change
 import englishFumadocs from "../../messages/en-US/fumadocs.json" with { type: "json" }
 import polishFumadocs from "../../messages/pl-PL/fumadocs.json" with { type: "json" }
 import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
-import { CHANGELOG_DIRECTORY, ENTRY_ORIGIN, originOf } from "../../src/lib/changelog"
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
+import { CHANGELOG_DIRECTORY, ENTRY_ORIGIN, originOf, readChangelog } from "../../src/lib/changelog"
 import { APP_GITHUB_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
@@ -42,6 +43,10 @@ const entryLinkOf = (key: string): EntryLink => {
 }
 
 const byHref = (first: EntryLink, second: EntryLink): number => first.href.localeCompare(second.href)
+
+const releaseHrefOf = (release: string): string => `${APP_GITHUB_URL}/releases/tag/${release}`
+
+const byEntry = (first: { entry: string }, second: { entry: string }): number => first.entry.localeCompare(second.entry)
 
 const CHANGELOG_KEYS = readdirSync(CHANGELOG_DIRECTORY)
   .filter((file) => file.endsWith(ENGLISH_ENTRY))
@@ -92,6 +97,28 @@ test("the changelog ends every entry with a link to the pull request or commit i
     .locator(ENTRY_LINKS)
     .evaluateAll((anchors) => anchors.map((anchor) => ({ href: anchor.getAttribute("href") ?? "", name: anchor.getAttribute("aria-label") ?? "" })))
   expect(found.toSorted(byHref)).toStrictEqual(CHANGELOG_KEYS.map((key) => entryLinkOf(key)).toSorted(byHref))
+})
+
+test("the changelog links each released entry to the first release that shipped it, and no entry merged before the first release", async ({
+  appPage,
+  page,
+}) => {
+  const { days } = await readChangelog({ cwd: process.cwd(), locale: I18N.DEFAULT_LOCALE })
+  const merged = days.flatMap(({ entries }) => entries)
+  const firstRelease = merged.findLast(({ release }) => release !== undefined)?.release ?? ""
+  expect(firstRelease).not.toBe("")
+  expect(merged.at(-1)?.release).toBeUndefined()
+  await page.goto(CHANGELOG_PATH)
+  await appPage.waitForAppReady()
+  await expect(page.getByRole("link", { exact: true, name: englishChangelogLinks.release.replace("{tag}", firstRelease) }).first()).toHaveAttribute(
+    "href",
+    releaseHrefOf(firstRelease),
+  )
+  const links = await page.locator(ENTRY_LINKS).evaluateAll((anchors) =>
+    anchors.map((anchor) => ({ entry: anchor.getAttribute("href") ?? "", release: anchor.nextElementSibling?.getAttribute("href") ?? "" })),
+  )
+  const expected = merged.flatMap(({ key, release }) => (release === undefined ? [] : [{ entry: entryLinkOf(key).href, release: releaseHrefOf(release) }]))
+  expect(links.filter(({ release }) => release !== "").toSorted(byEntry)).toStrictEqual(expected.toSorted(byEntry))
 })
 
 test("blog opens a published article without browser errors", async ({ appPage, page }) => {

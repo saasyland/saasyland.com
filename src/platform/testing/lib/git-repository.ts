@@ -24,6 +24,7 @@ export interface GitRepository {
   readonly cloneShallow: () => string
   readonly commit: (subject: string, committedAt: string) => string
   readonly path: string
+  readonly tag: (name: string) => void
   readonly writeEntry: (file: string, source: string) => void
 }
 
@@ -53,6 +54,9 @@ export const createGitRepository = (): GitRepository => {
       return git(path, ["rev-parse", "HEAD"])
     },
     path,
+    tag: (name) => {
+      git(path, ["tag", name])
+    },
     writeEntry: (file, source) => {
       mkdirSync(join(path, CHANGELOG_DIRECTORY), { recursive: true })
       writeFileSync(join(path, CHANGELOG_DIRECTORY, file), source)

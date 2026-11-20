@@ -23,6 +23,15 @@ const REMOTION_SOURCES = "remotion/src/**/*.{ts,tsx}"
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
 const TRIGGER_PATH = /"(?<path>[^"]+)"/gu
 const CHECKOUT_OPTIONS = /uses: actions\/checkout@v\d+\n +with:\n(?<options>(?: {10}[\w-]+: .+\n)+)/gu
+const CHOOSE_RELEASE_TAG =
+  /- name: Choose the release tag\n +id: release-tag\n +if: inputs\.target == 'production'\n +run: bun scripts\/choose-release-tag\.ts "\$GITHUB_SHA" >> "\$GITHUB_OUTPUT"\n/u
+const BUILD_WITH_RELEASE_TAG =
+  /- name: Build Worker and verify artifacts\n +env:\n +RELEASE_TAG: \$\{\{ steps\.release-tag\.outputs\.tag \}\}\n/u
+const DEPLOY_JOB_RELEASE_TAG = /\n {4}outputs:\n {6}release-tag: \$\{\{ steps\.release-tag\.outputs\.tag \}\}\n/u
+const WORKFLOW_RELEASE_TAG =
+  /\n {4}outputs:\n {6}release-tag:\n {8}description: .+\n {8}value: \$\{\{ jobs\.deploy\.outputs\.release-tag \}\}\n/u
+const PUBLISH_RELEASE_TAG =
+  /RELEASE_TAG: \$\{\{ needs\.deploy-production\.outputs\.release-tag \}\}\n +run: bun scripts\/publish-release\.ts "\$GITHUB_SHA" "\$RELEASE_TAG"\n/u
 const ENVIRONMENT_URL = /url: \$\{\{ inputs\.target == '(?<target>[^']+)' && '(?<targetUrl>[^']+)' \|\| '(?<fallbackUrl>[^']+)' \}\}/u
 
 const entriesSchema = zod.object({ entries: zod.string() })
@@ -93,5 +102,21 @@ describe("checkouts that read the changelog", () => {
   ])("fetch every commit without its trees for $job, which dates the changelog entries", ({ checkouts }) => {
     expect(checkouts).toHaveLength(1)
     expect(checkouts.flat()).toEqual(expect.arrayContaining(WHOLE_COMMIT_HISTORY))
+  })
+})
+
+describe("the release tag of a production deploy", () => {
+  it("is chosen before the build, which shows it on the changelog's entries of that deploy", () => {
+    const chosen = DEPLOY.search(CHOOSE_RELEASE_TAG)
+    const built = DEPLOY.search(BUILD_WITH_RELEASE_TAG)
+
+    expect(chosen).toBeGreaterThan(0)
+    expect(built).toBeGreaterThan(chosen)
+  })
+
+  it("leaves the deploy as an output of the reusable workflow and becomes the tag the release job publishes", () => {
+    expect(DEPLOY).toMatch(DEPLOY_JOB_RELEASE_TAG)
+    expect(DEPLOY).toMatch(WORKFLOW_RELEASE_TAG)
+    expect(releaseJobOf(CI)).toMatch(PUBLISH_RELEASE_TAG)
   })
 })

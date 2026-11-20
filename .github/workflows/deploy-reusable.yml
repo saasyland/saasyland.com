@@ -7,6 +7,10 @@ on:
         description: Wrangler environment to deploy (preview or production).
         required: true
         type: string
+    outputs:
+      release-tag:
+        description: Tag that the release job gives a production deploy, chosen before the build so its changelog can show it.
+        value: ${{ jobs.deploy.outputs.release-tag }}
 
 permissions:
   contents: read
@@ -26,6 +30,8 @@ jobs:
       queue: max
     env:
       DEPLOY_TARGET: ${{ inputs.target }}
+    outputs:
+      release-tag: ${{ steps.release-tag.outputs.tag }}
 
     steps:
       - name: Checkout tested revision
@@ -55,7 +61,14 @@ jobs:
       - name: Verify Cloudflare bindings
         run: bun scripts/verify-bindings.ts "$DEPLOY_TARGET"
 
+      - name: Choose the release tag
+        id: release-tag
+        if: inputs.target == 'production'
+        run: bun scripts/choose-release-tag.ts "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Build Worker and verify artifacts
+        env:
+          RELEASE_TAG: ${{ steps.release-tag.outputs.tag }}
         run: |
           bun --env-file=.env.test run "build:$DEPLOY_TARGET"
           rm -f dist/server/.dev.vars

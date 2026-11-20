@@ -39,6 +39,7 @@ const runIn = ({ baseRef, ref }: { baseRef: string; ref: string }): void => {
 
 beforeEach(() => {
   runIn({ baseRef: "", ref: "" })
+  vi.stubEnv("RELEASE_TAG", "")
 })
 
 describe("changelog entries", () => {
@@ -69,6 +70,26 @@ describe("changelog entries", () => {
     await expect(listIn(repository, CHANGELOG_PAGE)).resolves.toContain(
       `## 2026-11-16\n\n- Dependencies updated. <ChangelogLinks commit="${commit}" />\n\n## 2026-11-15`,
     )
+  })
+
+  it("links each entry to the first release that shipped it, the production build's own entries to the release it is about to publish, and none before the first release", async () => {
+    const repository = repositoryWithEntries()
+
+    repository.tag("v2026.11.15")
+    repository.commit("📚 docs(changelog): give each change its own entry (#13)", "2026-11-16T04:00:00Z")
+    vi.stubEnv("RELEASE_TAG", "v2026.11.16")
+
+    const page = await listIn(repository, CHANGELOG_PAGE)
+
+    expect(page).toContain('- Changelog entries. <ChangelogLinks pullRequest="13" release="v2026.11.16" />')
+    expect(page).toContain('- The browser no longer downloads Drizzle. <ChangelogLinks pullRequest="12" release="v2026.11.15" />')
+    expect(page).toContain('at $<year>. <ChangelogLinks pullRequest="11" />')
+  })
+
+  it("refuses a release tag that the release job would not create", async () => {
+    vi.stubEnv("RELEASE_TAG", "v2.0.0")
+
+    await expect(listIn(repositoryWithEntries(), CHANGELOG_PAGE)).rejects.toThrow("RELEASE_TAG")
   })
 
   it("fails the build of a pull request into main whose page would list another pull request's entry as unreleased", async () => {

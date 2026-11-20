@@ -1,6 +1,7 @@
 export const BLOG_TAG = {
   AI_AGENTS: "ai-agents",
   ARCHITECTURE: "architecture",
+  AUTH: "auth",
   BOILERPLATE: "boilerplate",
   COMPARISON: "comparison",
   NEXTJS: "nextjs",
@@ -17,6 +18,7 @@ export const BLOG_TAG = {
 export const BLOG_TAGS = [
   BLOG_TAG.AI_AGENTS,
   BLOG_TAG.ARCHITECTURE,
+  BLOG_TAG.AUTH,
   BLOG_TAG.BOILERPLATE,
   BLOG_TAG.COMPARISON,
   BLOG_TAG.NEXTJS,

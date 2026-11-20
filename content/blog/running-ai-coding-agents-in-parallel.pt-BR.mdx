@@ -1,0 +1,592 @@
+---
+title: "Lições aprendidas ao rodar uma equipe de agentes de programação com IA em uma única base de código"
+description: "Como rodar vários agentes de programação com IA em paralelo em um único repositório de produção: worktrees, portas, uma fila de merge só com rebase, verificação, permissões e revisão."
+excerpt: "Cinco agentes em um repositório não são cinco vezes um agente. São uma equipe sem conversa de corredor, que divide uma máquina, uma branch principal e um host de preview. Este guia transforma 145 pull requests mesclados, e os incidentes entre eles, em regras que qualquer equipe pode aplicar já na segunda-feira."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/running-ai-coding-agents-in-parallel.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: Vários agentes de programação com IA podem trabalhar no mesmo repositório ao mesmo tempo?
+    answer: >-
+      Sim, se cada um tiver o seu próprio checkout, as suas próprias portas e o seu próprio banco de
+      dados, e todos chegarem à branch principal por uma única fila. Os agentes colidem em tudo o que
+      compartilham: arquivos, servidores, processos, arquivos temporários, ambientes de preview e a
+      branch principal. Dê a cada agente uma worktree do Git, atribua explicitamente os recursos
+      escassos, como as portas, faça o merge de um pull request por vez e limite quantos agentes
+      pesados rodam ao mesmo tempo.
+  - question: Cada agente de programação com IA deve ter a sua própria worktree do Git?
+    answer: >-
+      Sim. Uma worktree é um diretório de trabalho separado, na sua própria branch, que compartilha o
+      histórico do repositório, então um agente pode fazer o build e testar sem trocar a branch de um
+      checkout que você ou outro agente tem aberto. Por padrão, o Git se recusa a fazer checkout da
+      mesma branch em duas worktrees. Instale as dependências em cada worktree e, antes de confiar em
+      uma execução de testes, verifique em qual branch está o diretório que você testou.
+  - question: Por que a minha execução do Playwright testou outra branch?
+    answer: >-
+      Porque reuseExistingServer estava ativado e outra coisa já respondia na URL. O Playwright então
+      pula o próprio comando de servidor e roda todos os testes contra o que estiver escutando,
+      inclusive um servidor que outro agente iniciou a partir de outra worktree. Inicie o seu próprio
+      servidor a partir da sua worktree, em uma porta livre, verifique em qual diretório roda o
+      processo que escuta e aponte o Playwright para ele pela URL base.
+  - question: Os agentes de IA devem fazer rebase ou merge da main nas branches dos seus pull requests?
+    answer: >-
+      Rebase, e só nas branches que são deles. Commits de merge em branches escondem conflitos
+      resolvidos à mão, impedem o rebase da branch depois e ficam para sempre em qualquer branch de
+      longa duração a que chegam. Faça o squash da branch em um único commit antes de ela entrar na
+      fila, faça o rebase dela sobre a main atual, faça o push com force-with-lease e rode de novo
+      toda a definição de pronto.
+  - question: Quantos agentes de programação com IA podem rodar em paralelo em uma única máquina?
+    answer: >-
+      Conte os pesados, não os agentes. Um agente que faz o build da aplicação e conduz uma suíte de
+      navegador precisa de vários núcleos durante toda a execução; um agente que escreve, pesquisa ou
+      traduz quase não precisa de nenhum. Em um laptop de 10 núcleos, mantemos no máximo quatro
+      agentes pesados. Com sete, o load average chegou a 117 e os testes começaram a estourar o tempo
+      limite por motivos sem relação com o código deles.
+  - question: Um agente de programação com IA deve ter permissão para dar force-push ou fazer merge?
+    answer: >-
+      Force-push com lease, na branch do seu próprio pull request, sim. Na main, nunca: faça o
+      servidor recusar, porque as regras do harness comparam o texto do comando e não são uma
+      fronteira de segurança. O merge pode ser delegado a uma fila depois que as verificações
+      obrigatórias e o deploy de preview passam, mas mudanças em pagamentos, autenticação, migrações,
+      workflows e secrets precisam antes de um sim explícito de uma pessoa.
+  - question: Como saber se um agente de programação com IA realmente terminou?
+    answer: >-
+      Peça códigos de saída, não um resumo. Pronto significa que cada comando da sua definição de
+      pronto saiu com 0, em ordem, no commit para o qual o pull request aponta, e que a CI passou
+      nesse mesmo commit. Uma execução em segundo plano que não terminou não tem código de saída, um
+      commit que não foi enviado não está no pull request, e um rebase invalida todos os resultados
+      anteriores.
+  - question: O que o briefing de um agente de programação com IA deve conter?
+    answer: >-
+      O objetivo nas palavras do dono, a definição de pronto, o escopo e o que fica fora dele, o que
+      já foi descartado, onde trabalhar (worktree, base da branch, pasta temporária, porta), quais
+      caminhos precisam da aprovação de uma pessoa, o que nunca fazer, como verificar e o que relatar.
+      Aponte para arquivos em vez de colá-los. O briefing é o único contexto que o agente tem, então
+      cada lacuna nele vira um palpite.
+  - question: O que acontece quando os agentes atingem o limite de uso no meio de uma tarefa?
+    answer: >-
+      Eles param juntos, no meio de um passo, onde quer que estejam. Faça com que toda tarefa possa
+      ser retomada a partir do disco: faça commit do trabalho na branch cedo, mantenha o plano na
+      descrição do pull request e mantenha uma única lista de pendências, com status e próximo passo.
+      Quando o nosso limite semanal acabou, nenhum pull request foi mesclado por dois dias, e o
+      trabalho foi retomado a partir desses três lugares.
+---
+
+<Callout title="O que é este artigo">
+
+Um guia prático para rodar vários agentes de programação com IA em paralelo em um único repositório de produção, para qualquer equipe e qualquer agente. Cada seção apresenta primeiro a regra geral e depois o incidente do repositório público do saasyland.com que a ensinou, contado como sintoma, causa raiz, correção e regra. Ele aborda:
+
+1. O que muda quando há mais de um agente, e os recursos em que eles colidem.
+2. Isolamento: worktrees, portas, servidores, bancos de dados, processos, arquivos temporários e ambientes que você não consegue copiar.
+3. Coordenação: uma única fila de merge, commits squash, histórico linear e por que banimos os commits de merge.
+4. Verificação: por que um resumo nunca é evidência e o que “pronto” significa depois de um rebase.
+5. Limites de permissão, o briefing de um agente e a revisão do pull request dele.
+6. Carga, custo e limites de uso, o que dá errado e como se recuperar, e um playbook para copiar.
+
+</Callout>
+
+_Última verificação em 20 de novembro de 2026. Todos os fatos externos citados abaixo foram lidos nesse dia na própria fonte, com links no final. Todos os incidentes vêm do repositório público do saasyland.com; os pull requests, as execuções de CI e os commits têm links para que você possa conferi-los._
+
+## A resposta curta
+
+Rodar vários agentes em uma única base de código é um problema de operação antes de ser um problema de prompt. Entre 12 e 20 de novembro de 2026, fizemos o merge de 145 pull requests no saasyland.com, quase todos escritos por agentes e todos revisados por uma só pessoa, e quase todos os incidentes daquela semana foram colisões em algo que os agentes compartilhavam. O que se sustentou:
+
+- **Isole por padrão.** Uma worktree do Git por branch, uma porta por servidor em execução, um banco de dados por worktree, uma pasta temporária por agente. Não compartilhe nada em que um agente possa escrever, a menos que você tenha decidido como isso é compartilhado.
+- **Um único caminho até a main.** Uma única fila faz o merge de um pull request por vez, como um único commit squash; um pull request que está atrás da main passa por rebase e é verificado de novo antes do merge. Nenhum commit de merge em lugar nenhum.
+- **Pronto é um código de saída.** A definição de pronto é uma lista de comandos, e um agente termina quando cada um deles saiu com 0 no commit para o qual o pull request aponta, e a CI concorda. Um resumo que diz “pronto” é uma afirmação, não uma evidência.
+- **Os limites ficam no servidor.** As instruções dizem ao agente o que fazer, o harness pergunta antes de comandos arriscados e o servidor recusa o que nunca pode acontecer. Os passos irreversíveis continuam passando por uma pessoa.
+- **Faça o briefing como para um colega, revise como um auditor.** O briefing é tudo o que o agente sabe. A revisão confere as evidências antes do código.
+- **Limite o trabalho pesado.** A concorrência é limitada por núcleos, portas, minutos de CI, tokens e a atenção de quem revisa, mais ou menos na ordem da frequência com que cada um vira problema.
+
+## O que muda quando há mais de um agente
+
+Um agente é um colaborador rápido e sem memória. Vários agentes são uma equipe sem conversa de corredor: ninguém fica sabendo por acaso que outro está prestes a reiniciar o servidor de desenvolvimento, reescrever o changelog ou fazer o deploy do preview. Tudo o que eles teriam coordenado conversando precisa ser coordenado pela estrutura que você lhes dá.
+
+Comece listando o que os seus agentes compartilham. Em uma única máquina de desenvolvimento com um único repositório, é mais do que parece:
+
+| Recurso compartilhado                  | Como os agentes colidem nele                                                               | O que o isola                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| A árvore de trabalho                   | Um agente troca a branch debaixo de outro ou edita os arquivos dele                        | Uma worktree do Git por branch                                            |
+| Portas de rede                         | Um executor de testes encontra o servidor de outro agente e testa o build errado           | Portas atribuídas e uma verificação de quem é dono do processo que escuta |
+| Bancos de dados e caches locais        | Seeds e migrações de uma branch reiniciam os dados de outra branch                         | Estado dentro da worktree, nunca em um diretório compartilhado            |
+| Processos                              | Uma limpeza por nome mata tudo o que corresponde, inclusive as execuções de outros agentes | Parar pelo ID do processo, e só o que você iniciou                        |
+| Arquivos temporários                   | Um rascunho escrito por um agente é publicado por outro                                    | Uma pasta temporária por agente                                           |
+| A branch principal                     | Duas mudanças que passam sozinhas quebram o build juntas                                   | Uma fila de merge que faz rebase e roda as verificações de novo           |
+| Ambientes compartilhados               | Um host de preview mostra o último pull request que fez deploy                             | Ambientes por mudança, ou uma agenda para o compartilhado                 |
+| CPU, memória e disco                   | Os builds ficam lentos até que testes sem relação estourem o tempo limite                  | Um limite de agentes pesados                                              |
+| Tokens, limites de uso e minutos de CI | Todos os agentes param no mesmo momento, no meio de um passo                               | Tarefas retomáveis e um orçamento                                         |
+| A atenção de quem revisa               | Os pull requests esperam, ficam desatualizados e entram em conflito uns com os outros      | Menos pull requests, e menores, do que os agentes conseguiriam produzir   |
+
+Cada incidente deste artigo é uma linha dessa tabela. O restante do guia passa por elas na ordem da frequência com que nos custaram tempo.
+
+Um parêntese sobre a configuração, para que você possa relacioná-la com a sua. O saasyland.com é uma aplicação TanStack Start no Cloudflare Workers, com repositório público, um gate de cobertura de <RepositoryFact name="coverageThreshold" unit="percent" />, todos os textos e todas as páginas em <RepositoryFact name="languages" /> idiomas e uma suíte de navegador no Playwright. Os agentes eram sessões e subagentes do Claude Code em um único laptop de 10 núcleos, cada um na sua própria worktree, com briefing e revisão feitos por uma sessão líder e pelo dono. Nada do que vem a seguir depende desse agente ou desse stack: as mesmas colisões acontecem com qualquer agente capaz de rodar um shell.
+
+Se o seu repositório ainda não consegue dizer rapidamente a um agente que ele está errado, resolva isso primeiro; [Agentes de programação com IA para SaaS em 2026: por que o repositório decide](/blog/ai-coding-agents-repository-readiness) trata dessas verificações e atribui uma pontuação a uma base de código. Este artigo parte do princípio de que essas verificações existem e pergunta o que acontece quando vários agentes as executam ao mesmo tempo.
+
+## Isolamento: dê a cada agente o seu próprio mundo
+
+O padrão deve ser que os agentes não compartilhem nada em que possam escrever. Cada coisa compartilhada e gravável é uma decisão: quem pode escrever, quando, e como os outros ficam sabendo.
+
+### Uma worktree por branch
+
+Um checkout tem uma branch por vez. Dois agentes no mesmo checkout se revezam trocando a branch, e cada troca muda os arquivos debaixo do build que o outro está rodando. Mesmo um único agente no seu próprio checkout disputa com tudo o mais que o tem aberto: um editor que sincroniza, um observador de arquivos, um executor de testes em segundo plano.
+
+O Git já traz a resposta. Uma worktree é um segundo diretório de trabalho ligado ao mesmo repositório; a documentação do Git descreve a nova worktree como “compartilhando tudo, exceto os arquivos por worktree, como `HEAD`, `index` etc.”, e `git worktree add` se recusa a fazer checkout de uma branch que já está em checkout em outra worktree. Cada agente ganha o seu próprio diretório, a sua própria branch e as suas próprias dependências instaladas, e nada do que ele faz mexe nos arquivos de mais ninguém.
+
+**Nosso incidente.** Antes de usarmos worktrees, o checkout principal do saasyland.com foi trocado de volta para `main` duas vezes no meio de uma tarefa pela sincronização do Git do editor, uma delas logo depois de um merge feito ali. Os testes seguintes rodaram contra `main`, e não contra a branch em teste, e relataram resultados sobre um código que ninguém estava alterando.
+
+- **Sintoma:** resultados de testes que não correspondiam à mudança.
+- **Causa raiz:** um checkout que dois processos, o agente e o editor, acreditavam controlar.
+- **Correção:** cada branch ganha uma worktree; o checkout do dono fica em `main` e os agentes nunca trocam a branch dele.
+- **Regra:** antes de confiar em uma execução de testes, verifique `git branch --show-current` no diretório que você testou.
+
+As worktrees isolam arquivos, não tudo. Elas compartilham o diretório `.git`, então commits, branches e stashes ficam visíveis para todas as worktrees; um `git gc` ou a exclusão de uma branch em uma delas afeta todas. Arquivos ignorados pelo Git, como `.env`, não são copiados, então cada worktree precisa da sua própria etapa de configuração. A própria documentação do Claude Code diz isso com todas as letras: as worktrees “isolam as edições de arquivos”, e uma worktree nova é um checkout novo em que você inicializa o seu ambiente de desenvolvimento. Portas, processos e bancos de dados são problema seu.
+
+### Portas, servidores e bancos de dados
+
+Foi aqui que perdemos a maior parte das horas, porque um servidor que responde na porta errada não falha. Ele responde.
+
+**Nosso incidente.** Um agente rodou a suíte de navegador da sua branch, e os resultados descreviam um código que não estava nessa branch. A nossa configuração do Playwright faz o build e inicia a aplicação antes dos testes, a menos que um servidor já responda na URL:
+
+```ts title="playwright.config.ts"
+  webServer: {
+    command: isCI ? startCommand : `bun run db:reset:test && bun run build:test && ${startCommand}`,
+    reuseExistingServer: !isCI,
+    timeout: 600_000,
+    url: appUrl,
+  },
+```
+
+A documentação do Playwright diz que, com `reuseExistingServer` verdadeiro, “ele vai reutilizar um servidor existente na `port` ou na `url`, quando disponível”, e recomenda exatamente a configuração que tínhamos, `!process.env.CI`, para que um desenvolvedor possa manter um servidor de desenvolvimento rodando entre as execuções. Em uma máquina com um desenvolvedor, isso é uma comodidade. Em uma máquina com cinco agentes, outro agente tinha um servidor rodando a partir da sua própria worktree no mesmo endereço, então o Playwright pulou o build e a reinicialização do banco de dados e conduziu aquele outro build, com aquele outro banco de dados, durante a suíte inteira.
+
+- **Sintoma:** uma execução verde ou vermelha que não diz respeito à sua mudança, geralmente mais rápida do que uma execução real.
+- **Causa raiz:** uma porta conhecida e compartilhada, somada a um executor projetado para reutilizar o que quer que responda nela.
+- **Correção:** cada agente escolhe uma porta livre, faz ele mesmo o build e inicia o servidor a partir da sua própria worktree, verifica em qual diretório roda o processo que escuta e executa o Playwright com `PLAYWRIGHT_BASE_URL` apontando para esse servidor. O Playwright então reutiliza o servidor do próprio agente, que é o que ele deve testar. Quando a execução termina, o agente para esse servidor pelo ID do processo.
+- **Regra:** um resultado de teste só é evidência se você souber dizer contra qual build ele rodou.
+
+A correção mais forte, e a que recomendamos, é fazer o executor de testes provar isso: deixe o build de teste responder com uma identidade, como o commit a partir do qual foi compilado e o diretório em que roda, e faça a execução falhar em um setup global quando essa identidade não for o `HEAD` da worktree atual. Um procedimento é uma regra que um agente pode esquecer; uma asserção é uma regra que ele não pode esquecer.
+
+As portas tinham uma segunda restrição, que as transformou em uma fila. O build de teste do saasyland.com só aceita requisições destes hosts, porque o Better Auth e os links da newsletter verificam a origem: <RepositoryFact name="testServerHosts" />. Então só podem rodar ao mesmo tempo tantas suítes de navegador quantas portas essa lista tiver. Cinco agentes que querem rodar uma cada precisam esperar por uma porta livre. Tornamos a espera explícita. Durante um tempo, todo agente rodava a suíte de navegador por meio de um único script de lock compartilhado, que o plano de testes do #207 ainda registra; agora o briefing nomeia as portas que o agente pode usar, o agente verifica se a porta está livre antes de começar e nunca toma uma porta ocupada pelo servidor de outro agente.
+
+A lição geral: **o seu isolamento é limitado pelo recurso compartilhado mais escasso**, e muitas vezes ele é uma constante em um arquivo de configuração que você escreveu para um único desenvolvedor. Procure listas de origens permitidas, URLs de callback fixas, URIs de redirecionamento do OAuth, portas fixas em scripts e contêineres únicos com nome fixo. Ou torne-os por worktree, ou trate-os como um pool com lock.
+
+Os bancos de dados são a parte fácil, se você colocar o estado local dentro da worktree. O nosso banco D1 local de testes fica em `.wrangler/test` dentro de cada worktree, e `bun run db:reset:test` o recria e o popula com o seed ali mesmo, então cada worktree tem o seu próprio banco de dados de graça. O modo de falha a evitar é um banco de dados em um local compartilhado, como um único contêiner Docker ou um único arquivo no seu diretório home, que cada branch migra e popula, uma depois da outra. Se o seu stack precisa de um servidor de banco de dados, dê a cada worktree o seu próprio nome de banco, derivado da branch, e apague-o quando a worktree for removida.
+
+### Processos: pare só o que você iniciou
+
+**Nosso incidente.** Um agente terminou a sua execução no navegador, encontrou processos do Playwright ainda rodando e fez a limpeza com `pkill -f playwright`. A execução no navegador do pull request de outro agente (#240) morreu no meio da suíte.
+
+- **Sintoma:** uma execução que para no meio com falhas que não têm nada a ver com o código.
+- **Causa raiz:** `-f` compara o padrão com a linha de comando completa de todos os processos da máquina, como diz o manual do `pgrep`. Todo executor do Playwright, todo navegador e toda extensão de editor correspondem a `playwright`. No dia em que escrevemos isto, o editor do dono tinha um servidor de testes do Playwright rodando para outro projeto, iniciado 20 dias antes; o mesmo comando o teria derrubado também.
+- **Correção:** o agente registra os IDs de processo do que inicia e para exatamente esses. Limpeza por nome, padrão ou porta é proibida.
+- **Regra:** nunca mate um processo que você não iniciou. Se algo que você não iniciou estiver no seu caminho, relate.
+
+O problema inverso são os processos que ninguém para. Um servidor de desenvolvimento iniciado em segundo plano sobrevive à tarefa que o iniciou. Os nossos deixaram órfãos de duas formas: uma tarefa terminou sem parar o seu servidor, e parar o processo pai do `vp dev` deixou um processo filho do Vite ocupando a porta. Um servidor de preview de uma worktree já encerrada ocupou `127.0.0.1:3000` por dias. O agente que o encontrou não tinha permissão para matá-lo, pela regra acima e pelo harness, então o dono o parou à mão.
+
+Esse é o custo da regra, e vale a pena pagá-lo. A alternativa são agentes que matam o que estiver no caminho, e um dia isso é uma migração ou a sessão de depuração de alguém. Em vez disso, faça do encerramento limpo parte do pronto: uma tarefa está terminada quando os seus servidores estão parados e o `lsof` mostra que as portas que ela usou estão livres.
+
+### Arquivos temporários e rascunhos
+
+Os agentes escrevem rascunhos: descrições de pull requests, entradas do changelog, logs, capturas de tela. Se todos os gravam na mesma pasta com os mesmos nomes, um agente publica o rascunho de outro.
+
+**Nosso incidente.** O pull request #242 adicionou dois posts ao blog. O histórico de edições do GitHub mostra que ele foi aberto, às 18:20:56 UTC de 17 de novembro, com a descrição do #238, uma correção da navegação depois de um deploy, mesclada 29 segundos antes. A descrição foi corrigida às 20:04:09, 19 segundos antes do merge do #242.
+
+- **Sintoma:** um pull request cuja descrição descreve outra mudança.
+- **Causa raiz:** vários agentes gravavam os seus rascunhos com o mesmo nome de arquivo em uma única pasta temporária compartilhada, então o arquivo continha o texto do último que escreveu quando o agente seguinte o leu.
+- **Correção:** cada agente ganha a sua própria pasta temporária, indicada no briefing, e não grava nada fora dela e da sua worktree.
+- **Regra:** revise a descrição comparando-a com o diff, e não o contrário. Uma descrição é uma afirmação sobre o diff.
+
+### Ambientes que você não consegue copiar
+
+Algumas coisas não podem ser copiadas para cada agente: um banco de dados de staging, um sandbox de pagamentos, um host de preview com domínio fixo. Essas precisam de uma agenda.
+
+**Nosso incidente.** Todo pull request do repositório do saasyland.com faz deploy em um único ambiente de preview, e a nossa documentação diz isso: “O preview é compartilhado: cada deploy substitui o anterior e usa o mesmo banco de dados D1, o mesmo namespace KV e os mesmos buckets R2 de preview.” Quando o #244, uma mudança no configurador da CLI na landing page, ficou pronto, o dono abriu o host de preview para vê-lo e encontrou outro build, porque outro pull request tinha feito deploy depois dele.
+
+- **Sintoma:** quem revisa vê algo diferente da mudança em revisão.
+- **Causa raiz:** um único ambiente compartilhado, no qual a CI de cada pull request faz deploy no seu próprio ritmo.
+- **Correção:** antes de pedir uma revisão no preview, rode de novo o job de preview desse pull request, diga qual commit está no ar e segure os outros deploys de preview até a revisão terminar. A nossa fila de merge faz o mesmo antes de cada merge, porque o repositório exige um deploy de Preview bem-sucedido do pull request, e qualquer outro deploy o substitui.
+- **Regra:** um ambiente compartilhado é uma sala de reunião. Reserve, use e devolva.
+
+A correção estrutural é um preview por mudança. O Cloudflare Workers consegue servir cada versão enviada na sua própria URL em `workers.dev`, o que daria a cada pull request o seu próprio endereço. Ele ainda compartilharia o banco de dados de preview, e isso exige mudar a configuração de deploy, que está na nossa lista de arquivos que precisam da aprovação explícita do dono, então por enquanto usamos uma agenda. A sua plataforma provavelmente tem um equivalente; use-o antes de precisar dele.
+
+### Isolamento dentro da suíte de testes e do repositório
+
+A mesma regra vale um nível abaixo, onde quer que workers paralelos compartilhem estado.
+
+A nossa suíte de navegador roda os testes em paralelo. Dois testes que ativavam máquinas em uma mesma licença semeada rodavam ao mesmo tempo e contavam as máquinas um do outro, então falhavam de vez em quando. O #207 deu a cada worker paralelo do Playwright a sua própria licença semeada, porque o Playwright nunca dá o mesmo índice paralelo a dois workers em execução, e o pull request registra o antes e o depois: 21 falhas em 60 execuções repetidas antes, nenhuma depois.
+
+E o próprio repositório pode ser moldado para que pull requests paralelos não mexam nos mesmos arquivos. Cada pull request costumava acrescentar a sua linha aos mesmos nove arquivos de changelog, um por idioma, então quaisquer dois pull requests abertos entravam em conflito nos nove, e cada um adivinhava a própria data antes do merge. O #204 deu a cada pull request o seu próprio arquivo de entrada, com o nome do seu número, e tira a data do commit squash que o leva à main. Dois pull requests não conseguem mais entrar em conflito no changelog, porque nunca editam o mesmo arquivo.
+
+Procure as suas próprias versões desse arquivo: um registro ao qual toda funcionalidade acrescenta algo, um lockfile, uma árvore de rotas gerada, um arquivo de traduções por idioma, um único `CHANGELOG.md`. Cada um deles é um conflito garantido entre quaisquer duas branches. Divida-o, gere-o ou torne-o append-only, com um acréscimo por mudança.
+
+## Coordenação: um único caminho até a main
+
+O isolamento permite que os agentes trabalhem ao mesmo tempo. A coordenação decide a ordem em que o trabalho deles se torna real. A resposta que funcionou para nós é sem graça: uma única fila, um pull request por vez, cada um com um único commit, com rebase e nova verificação quando a main andou debaixo dele.
+
+### Por que banimos os commits de merge
+
+O repositório só permite merges com squash, e a branch principal exige histórico linear e recusa force-pushes. Os commits de merge são proibidos em todo lugar, inclusive nas branches de pull requests, o que é mais rigoroso do que a maioria das equipes precisa. Vale a pena conhecer os motivos, mesmo que você não chegue a tanto.
+
+1. **Um commit de merge pode esconder uma mudança.** Quando o merge de `main` em uma branch dá conflito, a resolução fica dentro do commit de merge, que os revisores raramente leem. O GitHub consegue sinalizar isso: o nosso ruleset exige aprovação adicional para mudanças que ninguém revisou, e ele bloqueou o #144 depois de um merge resolvido à mão. O trabalho voltou à main como o #149, um commit normal com o mesmo título, que um revisor conseguia ler linha por linha.
+2. **É difícil fazer rebase de uma branch que recebeu merge.** Depois que uma branch contém um merge vindo de `main`, fazer o rebase dela significa reaplicar esse merge também. As ferramentas que atualizam uma branch por rebase falham nela, então o primeiro merge obriga todas as atualizações seguintes a também serem merges.
+3. **As branches de longa duração os guardam para sempre.** O nosso repositório privado da CLI tem uma branch de pré-lançamento. As primeiras sincronizações da branch principal para essa branch foram merges, e tags de release já apontam para esse histórico, então removê-los significaria dar force-push em uma branch já lançada. Nós os deixamos lá e agora sincronizamos fazendo cherry-pick para uma branch e o merge dela com squash.
+4. **O histórico é um produto.** O dono lê `main` como o registro do que mudou para as pessoas que usam o código, uma linha por pull request. Isso só funciona se cada linha for uma mudança concluída.
+
+Uma fonte silenciosa de commits de merge são os padrões das ferramentas. A ajuda do `gh pr update-branch` diz: “O comportamento padrão é atualizar com um commit de merge”. Passe `--rebase`. O botão **Update branch** do GitHub também faz merge, a menos que você escolha **Update with rebase**.
+
+### Primeiro o squash, depois o rebase
+
+Um pull request deve chegar à fila como um único commit. Os nossos agentes fazem o squash da branch localmente antes do push e só mantêm commits separados quando cada um se sustenta sozinho, como o post e o seu changelog traduzido no próprio pull request deste artigo.
+
+**Nosso incidente.** O #244 foi aberto em 17 de novembro e esperou três dias, atravessando um limite de uso e outros merges. Quando ficou pronto, tinha oito commits: a funcionalidade, a sua entrada do changelog, uma atualização de dependência, uma refatoração, uma correção dos vídeos da landing page, opções compactas para celulares, uma correção de texto e um commit final cujo assunto diz que ele trazia as mudanças do README “para que o pull request seja mesclado sem conflitos”. Atualizá-lo por rebase reaplica os oito commits em cima da main, um por um, e os primeiros entraram em conflito com mudanças que tinham chegado desde então, embora a árvore final pudesse ser mesclada. A atualização não conseguiu passar.
+
+- **Sintoma:** um pull request que não consegue ser atualizado, com conflitos em commits que commits posteriores já tinham resolvido.
+- **Causa raiz:** o histórico da branch, e não o conteúdo dela. O rebase reaplica cada passo, e um passo obsoleto pode entrar em conflito.
+- **Correção:** faça o squash da branch em um único commit em cima da main atual, resolva os conflitos uma vez, dê force-push com lease na branch do próprio pull request e rode de novo toda a definição de pronto. O #244 foi mesclado como um único commit 17 minutos depois do force-push. O #249 passou pelo mesmo squash no mesmo dia.
+- **Regra:** um commit por pull request antes de ele entrar na fila. Se uma branch ganhar commits durante a revisão, faça o squash de novo antes de ela entrar.
+
+### Uma única fila de merge
+
+A nossa fila é um script curto, executado pelo agente líder, que recebe números de pull requests em ordem e, para cada um: espera as verificações obrigatórias e o deploy de preview no head atual; tenta o merge; se o GitHub disser que não pode, faz o rebase da branch sobre a main com `gh pr update-branch --rebase`, espera o novo head aparecer, espera de novo as verificações e o preview e faz o merge; e para a fila inteira no primeiro conflito, para que uma pessoa ou um agente o resolva.
+
+A fila faz o merge com um assunto montado a partir do título do pull request, passado pelo mesmo hook de commit que adiciona o emoji a todos os commits, mais o número. Esse último detalhe vem do #224, que chegou à main sem o seu emoji porque o GitHub usa o título do pull request como assunto do squash e o título não tinha nenhum. O seu commit squash é o título do seu pull request; valide-o como uma mensagem de commit.
+
+**Nossos incidentes com a própria fila:**
+
+- **Duas filas se bloqueiam.** Uma vez rodamos dois scripts de fila ao mesmo tempo. O repositório exige que o head do pull request seja o deploy de Preview ativo, então o novo deploy de preview de cada fila desativava o da outra, e as duas ficaram bloqueadas (#179 e #154). Existe uma fila, com todos os números de pull requests nela, em ordem.
+- **Uma fila que esperava por si mesma.** Um script que esperava, com `pgrep -f`, “a outra fila” terminar encontrava os próprios shells que estavam esperando, porque as linhas de comando deles continham o padrão. Três pull requests (#183, #184, #186) ficaram parados por cerca de 30 minutos. Espere por um ID de processo ou por um arquivo de lock, nunca por um padrão.
+- **Um merge que aconteceu pela metade.** O GitHub respondeu com um erro de API a um merge do #221, criou mesmo assim o commit squash em `main` e deixou o pull request aberto. Antes de tentar qualquer coisa de novo, a fila procura o número do pull request em `git log origin/main`.
+- **Um head desatualizado.** Logo depois de um push, a API ainda pode informar o head antigo por alguns segundos, e uma fila que começa a esperar nesse momento espera por um commit que ninguém vai compilar. Espere até a API mostrar o head que você enviou.
+
+Se o seu único gate é a CI, a própria fila de merge do GitHub faz esse trabalho: ela testa cada pull request contra a versão mais recente da branch de destino, junto com os pull requests à frente dele, e a sua configuração de concorrência de builds limita quantos desses builds rodam ao mesmo tempo. A nossa também exige um deploy do head exato no único ambiente de preview, e é por isso que um script a executa.
+
+### Conflitos semânticos: verdes sozinhos, vermelhos juntos
+
+Os conflitos do Git são o tipo fácil: o Git avisa você. O tipo perigoso são dois pull requests que mexem em arquivos diferentes, cada um passando sozinho, e que juntos quebram o build.
+
+**Nosso incidente.** O #220 adicionou uma verificação de que cada idioma se dirige ao leitor de uma única forma, o du informal no alemão. A branch do #221 tinha sido criada antes dele, e ele adicionou uma frase em alemão na forma formal. Os dois estavam verdes nas suas próprias branches. O #221 foi mesclado depois do #220, e `main` falhou na sua própria verificação: `bun run check:i18n` rejeitou a frase. Os deploys de produção param quando `main` está vermelha, então nada foi para o ar até o #222 mudar uma frase.
+
+- **Sintoma:** `main` falha em uma verificação na qual todos os pull requests mesclados passaram.
+- **Causa raiz:** as verificações do #221 rodaram contra uma `main` que ainda não continha o #220. As nossas verificações de status obrigatórias não exigem que a branch esteja atualizada antes do merge.
+- **Correção:** o #222 consertou `main`. Agora os agentes fazem rebase sobre a main atual e rodam de novo a definição de pronto completa logo antes de o pull request entrar na fila, e não só as verificações que parecem relevantes. A nossa própria fila só faz rebase quando o GitHub recusa um merge, o que um pull request que está apenas atrás não provoca; a fila do playbook mais abaixo faz rebase de todo pull request que está atrás, e essa é a versão que recomendamos.
+- **Regra:** um resultado vale para um par de commits, a branch e a main sobre a qual ela foi testada. Mude qualquer um dos dois e ele expira.
+
+Exigir que as branches estejam atualizadas é a resposta rigorosa; os rulesets do GitHub oferecem isso. O preço é a vazão. A mediana das nossas últimas 33 execuções bem-sucedidas de pull requests era de 21 minutos quando a medimos, em 20 de novembro, então uma fila estritamente serial, em que cada merge obriga o pull request seguinte a refazer o build, faz o merge de cerca de três pull requests por hora, na melhor das hipóteses. Os agentes produzem mais do que isso. Escolha de propósito: rigoroso e lento, uma fila de merge que agrupa, ou uma regra mais frouxa somada a uma verificação barata do que mudou na main desde que a CI da branch rodou.
+
+### Force-push, com lease, na sua própria branch
+
+Fazer rebase de uma branch já enviada significa dar force-push nela. Permita isso de forma restrita. Os nossos agentes podem executar `git push --force-with-lease`, e só nas branches dos seus próprios pull requests; nunca o `--force` simples, nunca em `main` nem em uma branch de release.
+
+O lease é uma proteção real com uma falha conhecida. A documentação do Git diz que o push só tem sucesso “se o valor atual da ref remota for o valor esperado”, e avisa que, sem um valor esperado explícito, ele “interage muito mal com qualquer coisa que execute implicitamente `git fetch` em segundo plano no remoto para o qual se vai enviar”. Editores que fazem fetch em segundo plano são exatamente isso. Combine-o com `--force-if-includes`, ou faça o push com um commit esperado explícito. E faça o servidor recusar force-pushes para `main`, não importa o que o cliente envie, como faz o nosso ruleset, porque uma regra no lado do cliente só é tão boa quanto o cliente.
+
+## Verificação: “pronto” é um código de saída
+
+O resumo de um agente é escrito pelo mesmo processo que fez o trabalho, no momento em que ele mais quer ter terminado. Trate-o como uma afirmação. Verifique-o com coisas que o agente não consegue escrever: códigos de saída, o commit para o qual um pull request aponta e as execuções de CI nesse commit.
+
+A nossa definição de pronto são quatro comandos, em ordem, todos saindo com 0 na branch prestes a ser enviada: `bun run check`, `bun run test:coverage`, `bun run build:test` e `bun run test:e2e:pr`. O AGENTS.md termina o parágrafo com a frase que mais importa: “Nada mais conta como pronto, inclusive um resumo que diga que está.”
+
+**Nosso incidente: pronto, mas ainda rodando.** Um agente relatou a tarefa como pronta, com três dos quatro comandos verdes e a suíte de navegador iniciada em segundo plano. A suíte não tinha terminado; ainda não tinha código de saída.
+
+- **Causa raiz:** um resumo escrito no fim do turno do agente, e não no fim do trabalho.
+- **Regra:** uma execução em segundo plano não é um resultado. Informe o código de saída, ou diga que ela ainda está rodando.
+
+**Nosso incidente: commit feito, push não.** A primeira execução de CI do #240 falhou com uma linha: `Pull request #240 has no changelog entry: add content/changelog/240.<locale>.mdx in every locale`. O agente tinha escrito a entrada e feito o commit dela, e relatado a tarefa como pronta, mas o commit nunca saiu da worktree. A segunda execução, 19 minutos depois, no commit enviado, passou.
+
+- **Causa raiz:** estado local relatado como estado remoto.
+- **Regra:** pronto inclui `git status -sb` não mostrar nada à frente do remoto e o commit head do pull request ser o que você testou.
+
+**Depois de um rebase, tudo volta a não estar verificado.** Um rebase produz commits novos. Os testes que você rodou antes dele rodaram em commits que não existem mais, contra uma main que andou. Os nossos agentes rodam de novo os quatro comandos depois de todo rebase, e a fila espera a CI no novo head; o #220 e o #221, acima, são o motivo.
+
+**A CI é o gate; as execuções locais são o filtro.** As execuções locais pegam a maioria dos problemas minutos antes da CI, e um agente nunca deve enviar algo que não rodou. Mas o resultado que conta é o do commit que você mescla, produzido por uma máquina que mais ninguém está usando. Algumas falhas só a CI ou o deploy conseguem encontrar: a nossa documentação diz a quem contribui para esperar também o deploy de preview, porque é a única etapa que envia o Worker, e o limite de upload da Cloudflare já fez falhar um deploy que tinha passado em todas as outras verificações.
+
+O que o relatório de um agente deve conter, para que você consiga verificá-lo em um minuto:
+
+- A branch, o commit que ele testou e se esse commit foi enviado.
+- Cada comando da definição de pronto com o seu código de saída, e onde está a saída completa.
+- O número do pull request e a execução de CI nesse commit head.
+- O que ele mudou, o que escolheu não mudar e qualquer coisa sobre a qual teve dúvida.
+- Tudo o que deixou de fora de propósito, e por quê.
+
+## Limites de permissão: o que os agentes podem e não podem fazer
+
+Pense nas permissões em quatro camadas, da mais fraca para a mais forte. Cada uma pega o que a anterior deixa passar.
+
+1. **Instruções.** O AGENTS.md e o briefing dizem o que um agente deve e não deve fazer. Eles definem a intenção, e um agente que segue uma instrução desatualizada ou ambígua a segue com convicção.
+2. **O harness.** O próprio sistema de permissões do agente pergunta antes de certos comandos ou os recusa. No Claude Code, as regras são avaliadas em ordem, primeiro deny, depois ask, depois allow, e a primeira correspondência decide. A nossa configuração também passa as ações por um classificador. Ele recusou, em momentos diferentes, um force-push na branch de um pull request que já tinha sido enviada, o merge de um pull request novo que ninguém tinha revisado e matar um processo que o agente não tinha iniciado. Quando o dono decidiu, mais tarde, que os agentes podem dar force-push com lease nas suas próprias branches, ele permitiu exatamente esse padrão de comando, e nada mais amplo.
+3. **O servidor.** A proteção de branch, as verificações obrigatórias e os deploys obrigatórios não se importam com a forma como um comando foi escrito. A documentação do Claude Code deixa explícito que uma regra de Bash compara o texto do comando, então uma regra contra `git push` não impede `git -C . push`, e “não é uma fronteira de segurança em torno do programa”. A nossa branch principal só aceita merges com squash de pull requests, exige histórico linear, recusa force-pushes e exclusão e exige duas verificações de status e um deploy de Preview bem-sucedido. Essa é a camada que se sustenta quando as outras duas falham.
+4. **Pessoas.** Alguns passos são irreversíveis ou gastam dinheiro ou confiança, e esses, de propósito, passam por uma pessoa: publicar um pacote no npm espera a aprovação do dono com autenticação de dois fatores, e deploys, migrações remotas e secrets são passos humanos.
+
+Para os nossos agentes, o resultado é este:
+
+| Os agentes podem                                                         | Os agentes não podem                                                           | Só com o sim explícito do dono                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Criar worktrees e branches a partir de `origin/main`                     | Fazer push para `main` ou dar force-push em qualquer branch que não seja deles | Alterar migrações, que são aplicadas em produção e irreversíveis          |
+| Fazer commit, enviar a sua branch e abrir pull requests                  | Usar `--no-verify` ou desativar uma regra de lint para passar nela             | Alterar pagamentos, licenças, autenticação ou declarações de permissão    |
+| Dar force-push com lease na branch do seu próprio pull request           | Matar um processo que não iniciaram                                            | Alterar workflows, a configuração do Wrangler, arquivos `.env` ou secrets |
+| Rodar todas as verificações locais, builds e suítes de navegador         | Apagar qualquer coisa fora da sua worktree e da sua pasta temporária           | Fazer deploy, aplicar migrações remotas ou publicar um pacote             |
+| Fazer merge pela fila do agente líder depois que a CI e o preview passam | Fazer merge de um pull request cujas verificações não passaram no head         | Reescrever o histórico de uma branch já lançada                           |
+
+Duas dessas linhas vieram de incidentes que nunca chegaram ao GitHub, e vale a pena contá-los.
+
+**Depurar não é autorização.** Enquanto investigava uma falha de teste, um agente apagou o diretório de uma ferramenta global na pasta home do dono. O shell dele carregava um arquivo desse diretório na inicialização, então todo terminal novo mostrava um erro e a ferramenta sumiu do `PATH`. Nada na tarefa tinha pedido qualquer coisa fora do repositório. Agora nada fora da worktree e da pasta temporária do agente pode ser apagado, e um agente que acha que a causa é o estado global diz isso e entrega o comando ao dono.
+
+**Corrija só o que você tocou.** Rodar `vp check --fix` sobre o repositório reescreveu as configurações compartilhadas do editor em `.vscode/settings.json` e colocou a mudança em stage. A nossa documentação agora diz para formatar e aplicar o lint apenas nos arquivos que você alterou, pelo nome. Um agente com um corretor para o repositório inteiro é um agente com um diff do repositório inteiro.
+
+Os caminhos que precisam do sim de uma pessoa estão listados no AGENTS.md, e a lista prevalece sobre qualquer coisa que um briefing diga. Um briefing que precisa de um desses arquivos cita a aprovação do dono para esse arquivo; sem ela, o agente para antes de alterá-lo e relata o que mudaria. Um “faça o que achar certo” genérico não conta, e o nosso harness se recusou a tratá-lo como aprovação. Esse atrito é justamente o objetivo: uma aprovação que nomeia a mudança é uma aprovação que o dono realmente deu.
+
+## Como fazer o briefing de um agente
+
+Um agente novo só sabe o que você coloca no briefing, e você só vê o resumo que ele devolve. As duas passagens perdem detalhes. O briefing é a única alavanca que você tem sobre a primeira, e o formato dele é a sua alavanca sobre a segunda.
+
+Um bom briefing responde, nesta ordem:
+
+- **O objetivo, nas palavras do dono.** Cite-as. Uma paráfrase perde a parte que importava para o dono.
+- **O que significa pronto.** Os comandos, em ordem, e o que relatar.
+- **Escopo e o que fica de fora.** O que mudar e o que não tocar, inclusive o trabalho que outro agente está fazendo em paralelo.
+- **O que já se sabe.** O que você descartou, o que tentou, onde estão as evidências. Um agente que recebe a sua hipótese tende a devolvê-la confirmada, então dê a ele fatos e arquivos, não a sua conclusão.
+- **Onde trabalhar.** O caminho da worktree e a branch de partida, a pasta temporária, as portas que ele pode usar.
+- **Limites.** Os caminhos que precisam de aprovação, os comandos que ele nunca deve rodar, os processos que ele nunca deve parar.
+- **O que fazer quando travar.** Parar e relatar, com o que ele teria feito.
+- **O relatório.** O que ele deve conter, como na lista da seção de verificação.
+
+Aponte para arquivos em vez de colá-los. “Leia `content/docs/conventions/testing.en-US.mdx` antes de escrever um teste” custa uma linha e continua verdadeiro quando o arquivo muda; um trecho colado fica desatualizado no dia em que alguém edita o original.
+
+Cada linha dos nossos briefings tem um incidente por trás, o que é uma boa forma de fazer o seu crescer:
+
+| Linha do briefing                                                                 | O incidente por trás dela                                                          |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Trabalhe nesta worktree, criada a partir de `origin/main`                         | Os testes rodaram contra `main` depois que o editor trocou a branch de um checkout |
+| Use só estas portas; verifique o diretório do processo que escuta antes de testar | O Playwright reutilizou o servidor de outra worktree                               |
+| Pare só os processos que você iniciou, pelos IDs deles                            | `pkill -f playwright` encerrou a execução de outro agente                          |
+| Grave rascunhos só na sua própria pasta temporária                                | O #242 foi aberto com a descrição do #238                                          |
+| Faça o squash em um único commit antes do push                                    | O #244, com oito commits, não conseguiu passar por rebase                          |
+| Rebase, nunca merge; force-push com lease, só na sua branch                       | Um commit de merge escondeu uma resolução; o #144 voltou à main como o #149        |
+| Informe os códigos de saída de todos os comandos, no commit enviado               | “Pronto” com a suíte de navegador ainda rodando; a entrada não enviada do #240     |
+| Nunca apague nada fora da sua worktree                                            | O diretório apagado de uma ferramenta global quebrou o shell do dono               |
+
+Quando vários agentes rodam ao mesmo tempo, conte a cada um sobre os outros onde o trabalho deles se toca. Este artigo foi escrito por um agente enquanto outro escrevia em paralelo o primeiro post da série, e o briefing dizia quais temas pertenciam ao outro post. Sem essa linha, os dois teriam escrito a mesma seção, e o segundo a ser mesclado teria entrado em conflito com o primeiro.
+
+## Como revisar o pull request de um agente
+
+Revise na ordem que falha mais rápido. A maioria dos problemas dos pull requests de agentes não está no código; está no que o pull request afirma sobre o código.
+
+1. **Evidências primeiro.** O commit head é o que o agente diz ter testado? A CI passou nesse commit, e não em um anterior? Se você revisa em um ambiente compartilhado, ele está mostrando este pull request?
+2. **Descrição contra o diff.** A descrição descreve este diff? O #242 é o motivo de verificarmos. O diff contém algo que a descrição não menciona?
+3. **Escopo.** Ele mudou o que foi pedido, e nada mais? Os agentes consertam coisas pelo caminho. Mudanças não pedidas pertencem a um pull request próprio, onde podem ser revisadas pelo que são.
+4. **Causa raiz ou paliativo.** A correção mudou onde o bug aparece, ou o que o faz acontecer? Um teste que espera mais, uma condição que pula o caso que falha ou uma nova tentativa em volta de uma condição de corrida é um paliativo até prova em contrário.
+5. **Testes que ficaram mais fáceis.** Olhe as asserções alteradas, os timeouts aumentados, os novos skips e os novos mocks. Quando testes unitários estouraram o tempo em uma máquina sobrecarregada, o #191 os corrigiu removendo o trabalho de que eles não precisavam, e a descrição dele diz isso: “Nenhum timeout foi aumentado e nenhum teste ganhou um timeout próprio.”
+6. **Caminhos protegidos.** O diff mexeu em algo da lista de revisão humana? Se sim, a aprovação do dono para esse arquivo está citada?
+7. **Tudo o que a mudança afeta.** Documentação, README, textos do site e changelog, em todos os idiomas. Uma regra que uma verificação impõe não precisa de revisão; uma regra que só um revisor impõe precisa deste passo.
+8. **Histórico.** Um commit, um título convencional que vai virar o assunto do squash, nenhuma linha de atribuição.
+
+Faça ao agente a pergunta que mais pega problemas: o que você decidiu não fazer, e por quê? Os agentes costumam responder com precisão, e a resposta é onde mora o próximo incidente. Um post posterior desta série se aprofunda na revisão: paliativos, aumento de escopo, escapes silenciosos do sistema de tipos e afirmações que precisam de evidência.
+
+## Carga e custo
+
+### Agentes pesados e leves
+
+Os agentes não custam todos o mesmo. Um agente que faz o build da aplicação e conduz uma suíte de navegador mantém vários núcleos ocupados durante a maior parte da execução. Um agente que pesquisa, escreve ou traduz espera um modelo e quase não toca a CPU. Conte os pesados.
+
+**Nosso incidente.** Com sete agentes pesados rodando ao mesmo tempo em um laptop de 10 núcleos, o load average passou de 49 e chegou a um pico de 117, e os testes começaram a falhar por estouro de tempo. Enquanto este artigo era escrito, o load average de um minuto chegou de novo a 108.
+
+- **Sintoma:** timeouts em testes sem relação com nenhuma mudança, builds que falham de forma intermitente.
+- **Causa raiz:** mais trabalho pronto para rodar do que núcleos, então os limites de tempo real disparam em trabalho que está apenas esperando.
+- **Correção:** no máximo quatro agentes pesados ao mesmo tempo nessa máquina; os agentes leves não entram na conta.
+- **Regra:** limite a concorrência pelo recurso local mais escasso, e meça-o pelo load average, não pelo número de agentes.
+
+A carga também é um teste do seu código, e ela encontrou dois bugs reais. Sob carga, a pré-renderização do build não conseguia se conectar ao seu próprio servidor de preview: o servidor escutava em `localhost`, que resolvia apenas para o endereço de loopback IPv6, e, quando o event loop sobrecarregado travava, o Node desistia da conexão IPv6 que estava prestes a dar certo e recorria a `127.0.0.1`, onde nada escutava. O #188 vincula o preview a `127.0.0.1` e se conecta pelo endereço. E os testes unitários mais lentos só atingiam os limites do Vitest em uma máquina sobrecarregada; o #191 os fez trabalhar menos em vez de lhes dar mais tempo. Os dois bugs teriam chegado, mais cedo ou mais tarde, a um runner de CI lento. Não aumente timeouts para fazer a carga sumir: descubra pelo que o código estava esperando.
+
+### Tokens, limites de uso e minutos de CI
+
+Agentes em paralelo custam mais do que um único agente fazendo o mesmo trabalho em sequência. A equipe de engenharia da Anthropic mediu que, no seu sistema de pesquisa, “os agentes normalmente usam cerca de 4× mais tokens do que as interações de chat, e os sistemas multiagente usam cerca de 15× mais tokens do que os chats”. Você paga a velocidade com tokens, e paga por cada agente cujo resultado você depois refaz. Crie um agente quando o trabalho for de fato independente, ou quando uma leitura nova valer mais do que o seu contexto; faça você mesmo as consultas pequenas.
+
+Os limites de uso param tudo de uma vez. Os planos pagos do Claude têm um limite de sessão que é zerado a cada cinco horas e limites semanais que “são zerados em um horário fixo a cada semana, atribuído à sua conta”. O nosso acabou no fim do dia 17 de novembro. O histórico de merges do saasyland.com mostra 33 merges em 16 de novembro, 17 em 17 de novembro, nenhum em 18 ou 19 de novembro e 7 em 20 de novembro até o momento em que escrevemos. Todos os agentes pararam no meio do que estavam fazendo.
+
+Os minutos de CI também acabam, e, em um repositório privado, em silêncio. Quando a nossa organização atingiu o limite de gastos do Actions, os jobs do repositório privado da CLI pararam de iniciar; um job que nunca inicia parece, na lista de execuções, um job que falhou. Leia as anotações do job antes de depurar o código. Mantenha a CI dos pull requests nos runners mais baratos e reserve os caros, como os de macOS, para a branch principal e as releases.
+
+### Quem revisa é o verdadeiro limite
+
+O último limite é a pessoa que revisa. Os agentes conseguem abrir pull requests mais rápido do que qualquer pessoa consegue lê-los, e um pull request não lido não é progresso; é estoque que fica desatualizado e entra em conflito com tudo o que é mesclado antes dele. O #244 esperou três dias e precisou ser refeito. O número certo de agentes é aquele cujo resultado você consegue revisar com cuidado no mesmo dia.
+
+## O que dá errado, e como se recuperar
+
+| Sintoma                                                                           | Causa provável                                                        | Recuperação                                                                                                               |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Resultados de testes que não correspondem à mudança                               | Branch errada no diretório, ou um servidor de outro lugar reutilizado | `git branch --show-current`; encontre o diretório do processo que escuta com `lsof`; rode de novo no seu próprio servidor |
+| Uma execução morre no meio com falhas sem relação                                 | Alguém matou processos pelo nome, ou a máquina está sobrecarregada    | Rode de novo sozinho; verifique o load average; descubra quem matou processos por padrão                                  |
+| Uma porta está ocupada e ninguém é dono dela                                      | Um servidor órfão ou um processo filho que sobreviveu ao pai          | Relate a quem o iniciou; nunca o mate você mesmo                                                                          |
+| A descrição do pull request descreve outra mudança                                | Um arquivo de rascunho compartilhado                                  | Reescreva-a a partir do diff; dê a cada agente a sua própria pasta temporária                                             |
+| O preview mostra outro build                                                      | Um deploy posterior no ambiente compartilhado                         | Faça de novo o deploy do preview deste pull request e depois revise                                                       |
+| A branch não pode ser atualizada por rebase                                       | Commits obsoletos que entram em conflito                              | Faça o squash sobre a main atual, resolva uma vez, dê force-push com lease, rode tudo de novo                             |
+| A main falha em uma verificação na qual todos os pull requests mesclados passaram | Um conflito semântico entre dois pull requests                        | Corrija para a frente com um pull request pequeno; faça a fila fazer rebase e rodar de novo                               |
+| A API de merge falhou, mas o commit está na main                                  | Um merge concluído pela metade                                        | Procure o número em `git log origin/main`; feche o pull request com uma nota                                              |
+| A CI falha em segundos, sem nenhuma etapa                                         | Jobs que não iniciam: limite de gastos ou cobrança                    | Leia as anotações do job; corrija o orçamento, não o código                                                               |
+| Todos os agentes pararam de uma vez                                               | Limite de uso                                                         | Retome a partir das branches, dos pull requests e da lista de pendências depois que o limite for zerado                   |
+
+### Torne toda tarefa retomável
+
+O limite de uso nos ensinou o hábito mais útil da semana: uma tarefa precisa poder ser retomada a partir do disco por alguém que não estava lá. Três lugares guardam o estado.
+
+- **A branch.** Os agentes fazem commit na sua branch assim que um passo funciona, mesmo antes de ele estar concluído. Uma worktree com commits sobrevive a tudo a que o agente não sobrevive.
+- **O pull request.** A descrição guarda o plano, as decisões e os resultados da verificação. Abra-o cedo e atualize-o à medida que o plano muda.
+- **A lista de pendências.** Um único arquivo lista todos os pedidos em aberto do dono, com o status, a branch ou o pull request e o próximo passo, atualizado no momento em que algo muda. Quando o limite foi zerado, em 20 de novembro, o trabalho foi retomado a partir desse arquivo: os pull requests na fila foram mesclados, o #244 passou por rebase e os agentes parados foram reiniciados com as suas branches e uma nota de onde tinham parado.
+
+### As releases precisam da mesma disciplina
+
+Duas lições de processo vieram das releases da CLI, um repositório privado separado, com os mesmos agentes e as mesmas regras. Descrevemos só o processo; o pipeline de release em si é tema de um post posterior desta série.
+
+- **Registre uma release depois que ela existe.** O workflow de release criava tags do Git e GitHub Releases quando colocava uma versão em staging no npm, antes de o dono aprovar a publicação. Uma versão em staging nunca foi publicada, então três GitHub Releases descreviam pacotes que o npm nunca serviu. Agora as tags e as releases são gravadas por uma execução separada, depois que o npm passa a servir a versão, e a que não foi publicada está marcada como tal.
+- **Entregue quem lê antes de quem escreve.** Quando a CLI e o site compartilham um contrato, uma mudança nele precisa chegar ao servidor antes de um cliente que a envie. Uma release da CLI enviou uma resposta que a API de licenças do site, ainda na versão anterior do contrato, recusou. A nossa própria verificação end-to-end da CLI publicada contra a produção encontrou o problema, e uma atualização do site o corrigiu no mesmo dia. Agora uma mudança de contrato vai primeiro para o site.
+
+## O playbook
+
+Copie o que servir. Cada parte pressupõe Git, um shell e um host no estilo do GitHub; troque os comandos pelos do seu stack.
+
+### Configuração do isolamento
+
+Uma worktree por branch, a partir da main atual:
+
+```sh
+git fetch origin
+git worktree add ../wt-fix-locale -b fix/locale-links origin/main
+cd ../wt-fix-locale
+bun install --frozen-lockfile
+git branch --show-current
+```
+
+Uma execução no navegador contra o seu próprio servidor, em uma porta que você verificou, e que para esse servidor pelo ID do processo quando termina:
+
+```sh
+PORT=3020
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN; then echo "port $PORT is taken"; exit 1; fi
+bun run db:reset:test
+bun run build:test
+bun run start:test --port "$PORT" > server.log 2>&1 &
+SERVER_PID=$!
+until curl -fsS "http://127.0.0.1:$PORT" > /dev/null; do sleep 1; done
+LISTENER=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t | head -1)
+test "$(lsof -a -p "$LISTENER" -d cwd -Fn | sed -n 's/^n//p')" = "$(pwd -P)" || exit 1
+PLAYWRIGHT_BASE_URL="http://127.0.0.1:$PORT" bun run test:e2e:pr
+echo "exit code $?"
+kill "$LISTENER" "$SERVER_PID"
+```
+
+Checklist do ambiente de cada agente:
+
+- Uma worktree e uma branch próprias, criadas a partir da `origin/main` atual, nunca o seu checkout.
+- Dependências instaladas na worktree, e os arquivos de configuração ignorados pelo Git copiados para ela.
+- Bancos de dados e caches locais dentro da worktree.
+- Portas atribuídas no briefing, verificadas antes do uso, com o diretório do processo que escuta conferido.
+- Uma pasta temporária própria para rascunhos, logs e capturas de tela.
+- Processos parados pelo ID no final, e as portas livres.
+
+### Uma fila de merge em poucas linhas
+
+Uma fila, um pull request por vez, na ordem dada, parando no primeiro problema:
+
+```sh
+set -euo pipefail
+for pr in "$@"; do
+  head=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+  behind=$(gh api "repos/{owner}/{repo}/compare/main...$head" --jq .behind_by)
+  if [ "$behind" -gt 0 ]; then
+    gh pr update-branch "$pr" --rebase
+    while [ "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$head" ]; do sleep 15; done
+    sleep 30
+  fi
+  gh pr checks "$pr" --watch --required --fail-fast
+  gh pr merge "$pr" --squash --subject "$(gh pr view "$pr" --json title --jq .title) (#$pr)"
+done
+```
+
+Acrescente o que o seu gate precisa: uma espera por um deploy obrigatório, uma verificação de que o título é um assunto de commit válido, uma consulta a `git log origin/main` antes de qualquer nova tentativa. Rode uma instância, nunca duas.
+
+### Modelo de briefing
+
+Preencha cada parte; não deixe nenhuma de fora.
+
+- **Objetivo:** o que alcançar e por quê, com as palavras do dono citadas.
+- **Pronto:** os comandos da definição de pronto, em ordem, e que cada um precisa sair com 0 no commit enviado.
+- **Escopo:** o que mudar; o que não mudar; o que outros agentes estão fazendo em paralelo e quais partes são deles.
+- **O que já se sabe:** o que foi descartado, o que foi tentado, quais arquivos e execuções guardam as evidências.
+- **Onde:** o caminho da worktree, a branch e a sua base, a pasta temporária, as portas.
+- **Limites:** os caminhos que precisam de aprovação, com a aprovação citada, se houver; os comandos que nunca devem ser executados; os processos que nunca devem ser parados.
+- **Quando travar:** pare e relate o que você faria e por quê.
+- **Relatório:** branch e commit, enviado ou não; cada comando com o seu código de saída e o seu log; número do pull request e execução de CI; o que mudou, o que ficou de fora e por quê, e sobre o que você teve dúvida.
+
+### Checklist de revisão
+
+- O commit head é o que o agente testou, e a CI passou nele.
+- O ambiente em que você revisa mostra este pull request.
+- A descrição corresponde ao diff, e o diff não contém nada que a descrição deixe de fora.
+- A mudança fica dentro do escopo; qualquer outra coisa é um pull request separado.
+- A correção trata uma causa, e não o lugar onde o sintoma aparece.
+- Nenhum teste ficou mais fácil: nenhuma asserção mais fraca, timeout aumentado, novo skip ou mock sem explicação.
+- Nenhum caminho protegido mudou sem uma aprovação citada.
+- Documentação, README, textos do site e changelog estão atualizados em todos os idiomas.
+- Um commit, um título convencional, nenhuma linha de atribuição.
+- Você perguntou o que o agente decidiu não fazer e leu a resposta.
+
+### Checklist de quem opera
+
+- Os agentes pesados são limitados pelo número de núcleos, e o load average é verificado antes de iniciar outro.
+- Roda uma única fila de merge, com todos os pull requests prontos em ordem.
+- Os ambientes compartilhados são reservados antes de uma revisão e liberados depois dela.
+- Uma lista de pendências reúne todas as tarefas em aberto, com status, branch e próximo passo.
+- A tarefa de cada agente pode ser retomada a partir da sua branch, do seu pull request e da lista de pendências.
+- Servidores órfãos e worktrees abandonadas são removidos por quem os iniciou.
+- Os pull requests são revisados no dia em que ficam prontos, senão os agentes desaceleram.
+
+## Leituras relacionadas
+
+<Cards>
+
+<Card
+  title="Agentes de programação com IA para SaaS em 2026: por que o repositório decide"
+  href="/blog/ai-coding-agents-repository-readiness"
+>
+  O Time to No e um scorecard que mostra se o seu repositório consegue rejeitar uma mudança errada antes que uma pessoa a veja.
+</Card>
+
+<Card
+  title="Como escolher um stack SaaS para agentes de programação com IA em 2026"
+  href="/blog/choosing-a-saas-stack-for-ai-coding-agents"
+>
+  Um teste de quatro perguntas para qualquer dependência, aplicado camada por camada ao stack em que estes agentes trabalham.
+</Card>
+
+<Card title="Um SaaS no Cloudflare Workers: D1, KV e R2 em produção" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Os ambientes, as verificações de deploy e o preview compartilhado em que os agentes deste artigo fazem deploy.
+</Card>
+
+</Cards>
+
+<Callout title="Leia o repositório em que os agentes trabalham">
+
+Cada pull request, execução de CI e commit citado aqui é público no repositório do saasyland.com, e a documentação descreve o [pipeline de CI/CD](/docs/tooling/ci-cd), a [suíte de navegador](/docs/tooling/playwright) e as [convenções de testes](/docs/conventions/testing) que os agentes seguem. Para ver quanto custa a base de código, [compare os planos](/#pricing): um pagamento a partir de <TierPrice tier="core" />, e o card de cada plano mostra o que está disponível agora e o que está a caminho.
+
+</Callout>
+
+## Perguntas frequentes
+
+<PostFaq entries={frontmatter.faq} />
+
+### Fontes
+
+- Git: [`git worktree`](https://git-scm.com/docs/git-worktree) e [`git push`](https://git-scm.com/docs/git-push), sobre `--force-with-lease` e `--force-if-includes`
+- GitHub: [como manter um pull request sincronizado com a branch base](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/keeping-your-pull-request-in-sync-with-the-base-branch), [métodos de merge](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/about-merge-methods-on-github), [regras disponíveis para rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) e [como gerenciar uma fila de merge](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
+- Playwright: [a opção de servidor web](https://playwright.dev/docs/test-webserver), sobre `reuseExistingServer`
+- Claude Code: [worktrees](https://code.claude.com/docs/en/worktrees) e [permissões](https://code.claude.com/docs/en/permissions); Claude Help Center: [como funcionam os limites de uso](https://support.claude.com/en/articles/11647753)
+- Anthropic: [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) (junho de 2025), sobre o uso de tokens
+- Cloudflare: [URLs de preview e de versão do Workers](https://developers.cloudflare.com/workers/configuration/previews/)
+- procps: [o manual do `pgrep` e do `pkill`](https://man7.org/linux/man-pages/man1/pgrep.1.html), sobre `-f`
+- saasyland.com: os pull requests [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) e a sua [primeira execução de CI](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244) e [#249](https://github.com/saasyland/saasyland.com/pull/249); as páginas [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) e [Depuração local](/docs/guides/local-debugging)
+
+_Escrito por Piotr J. Borowiecki, que coordena uma equipe de agentes de programação com IA no saasyland.com todos os dias. A documentação externa foi lida em 20 de novembro de 2026 e pode ter mudado desde então; os links levam à fonte. Se algo aqui estiver desatualizado ou errado, me avise e eu corrijo._

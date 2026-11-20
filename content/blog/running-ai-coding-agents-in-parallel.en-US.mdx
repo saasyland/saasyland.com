@@ -1,0 +1,578 @@
+---
+title: "Lessons From Running a Team of AI Coding Agents on One Codebase"
+description: "How to run several AI coding agents in parallel on one production repository: worktrees, ports, a rebase-only merge queue, verification, permissions and review."
+excerpt: "Five agents on one repository are not five times one agent. They are a team without a hallway, sharing one machine, one main branch and one preview host. This guide turns 145 merged pull requests, and the incidents between them, into rules any team can apply on Monday."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/running-ai-coding-agents-in-parallel.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: Can several AI coding agents work on the same repository at the same time?
+    answer: >-
+      Yes, if each one has its own checkout, its own ports and its own database, and all of them reach
+      the main branch through one queue. Agents collide on whatever they share: files, servers,
+      processes, scratch files, preview environments and the main branch. Give each agent a git
+      worktree, assign scarce resources such as ports explicitly, merge one pull request at a time,
+      and cap how many heavy agents run at once.
+  - question: Should each AI coding agent get its own git worktree?
+    answer: >-
+      Yes. A worktree is a separate working directory on its own branch that shares the repository’s
+      history, so an agent can build and test without switching a checkout that you or another agent
+      has open. Git refuses to check out one branch in two worktrees by default. Install dependencies
+      in each worktree, and before trusting a test run, check which branch the directory you tested is on.
+  - question: Why did my Playwright run test another branch?
+    answer: >-
+      Because reuseExistingServer was on and something else already answered at the URL. Playwright
+      then skips its own server command and runs every test against whatever is listening, including a
+      server another agent started from another worktree. Start your own server from your worktree on a
+      free port, check which directory the listening process runs in, and point Playwright at it with
+      its base URL.
+  - question: Should AI agents rebase or merge main into their pull request branches?
+    answer: >-
+      Rebase, and only branches they own. Merge commits on branches hide hand-resolved conflicts, make
+      the branch impossible to rebase later, and stay forever on any long-lived branch they reach.
+      Squash a branch into one commit before it enters the queue, rebase it onto the current main,
+      push with force-with-lease and run the whole definition of done again.
+  - question: How many AI coding agents can run in parallel on one machine?
+    answer: >-
+      Count the heavy ones, not the agents. An agent that builds the app and drives a browser suite
+      needs several cores for its whole run; an agent that writes, researches or translates needs
+      almost none. On a 10-core laptop we keep at most four heavy agents. With seven, the load average
+      climbed as high as 117 and tests began to time out for reasons unrelated to their code.
+  - question: Should an AI coding agent be allowed to force-push or merge?
+    answer: >-
+      Force-push with lease, on its own pull request branch, yes. On main, never: make the server
+      refuse it, because harness rules match command text and are not a security boundary. Merging
+      can be delegated to a queue once required checks and the preview deployment pass, but changes to
+      payments, auth, migrations, workflows and secrets need a person’s explicit yes first.
+  - question: How do I know an AI coding agent is really done?
+    answer: >-
+      Ask for exit codes, not a summary. Done means every command of your definition of done exited 0,
+      in order, on the commit the pull request points at, and CI passed on that same commit. A
+      background run that has not finished has no exit code, a commit that was not pushed is not in the
+      pull request, and a rebase invalidates every earlier result.
+  - question: What should a brief for an AI coding agent contain?
+    answer: >-
+      The goal in the owner’s words, the definition of done, the scope and what is out of it, what was
+      already ruled out, where to work (worktree, branch base, scratch folder, port), which paths need a
+      person’s approval, what never to do, how to verify and what to report. Point at files instead of
+      pasting them. The brief is the only context the agent has, so every gap in it becomes a guess.
+  - question: What happens when agents hit their usage limit in the middle of a task?
+    answer: >-
+      They stop together, mid-step, wherever they were. Make every task resumable from disk: commit
+      work to its branch early, keep the plan in the pull request description, and keep one ledger of
+      open tasks with status and next step. When our weekly limit ran out, no pull request merged for
+      two days, and work resumed from those three places.
+---
+
+<Callout title="What this article is">
+
+A practical guide to running several AI coding agents in parallel on one production repository, for any team and any agent. Each section gives the general rule first, then the incident from saasyland.com’s public repository that taught it, told as symptom, root cause, fix and rule. It covers:
+
+1. What changes when there is more than one agent, and the resources they collide on.
+2. Isolation: worktrees, ports, servers, databases, processes, scratch files and environments you cannot copy.
+3. Coordination: one merge queue, squash commits, linear history and why we banned merge commits.
+4. Verification: why a summary is never evidence and what “done” means after a rebase.
+5. Permission boundaries, briefing an agent and reviewing its pull request.
+6. Load, cost and usage limits, what goes wrong and how to recover, and a playbook to copy.
+
+</Callout>
+
+_Last checked 20 November 2026. Every external fact below was read on its source that day and is linked at the bottom. Every incident comes from the public repository of saasyland.com; the pull requests, CI runs and commits are linked so you can check them._
+
+## The short answer
+
+Running several agents on one codebase is an operations problem before it is a prompting problem. Between 12 and 20 November 2026, we merged 145 pull requests into saasyland.com, nearly all of them written by agents and every one reviewed by one person, and almost every incident in that week was a collision on something the agents shared. What held:
+
+- **Isolate by default.** One git worktree per branch, one port per running server, one database per worktree, one scratch folder per agent. Share nothing an agent can write to unless you have decided how it is shared.
+- **One way into main.** A single queue merges one pull request at a time, as one squashed commit; a pull request that is behind main is rebased and checked again before it merges. No merge commits anywhere.
+- **Done is an exit code.** The definition of done is a list of commands, and an agent is done when each exited 0 on the commit the pull request points at, and CI agrees. A summary saying “done” is a claim, not evidence.
+- **Boundaries live on the server.** Instructions tell an agent what to do, the harness asks before risky commands, and the server refuses what must never happen. Irreversible steps keep a person in the loop.
+- **Brief like a peer, review like an auditor.** The brief is all the agent knows. The review checks evidence before code.
+- **Cap the heavy work.** Concurrency is limited by cores, ports, CI minutes, tokens and the attention of whoever reviews, in roughly that order of how often it bites.
+
+## What changes when there is more than one agent
+
+One agent is a fast contributor with no memory. Several agents are a team without a hallway: nobody overhears that someone else is about to restart the dev server, rewrite the changelog or deploy the preview. Everything they would have coordinated in conversation has to be coordinated by the structure you give them.
+
+Start by listing what your agents share. On a single developer machine with one repository, it is more than it looks:
+
+| Shared resource                     | How agents collide on it                                             | What isolates it                                           |
+| ----------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------- |
+| The working tree                    | One agent switches the branch under another, or edits its files      | One git worktree per branch                                |
+| Network ports                       | A test runner finds another agent’s server and tests the wrong build | Assigned ports, and a check of who owns the listener       |
+| Local databases and caches          | Seeds and migrations from one branch reset another branch’s data     | State inside the worktree, never in a shared directory     |
+| Processes                           | A cleanup by name kills every match, including other agents’ runs    | Stop by process ID, and only what you started              |
+| Scratch files                       | A draft written by one agent is published by another                 | One scratch folder per agent                               |
+| The main branch                     | Two changes that pass alone break the build together                 | One merge queue that rebases and re-runs checks            |
+| Shared environments                 | One preview host shows whichever pull request deployed last          | Per-change environments, or a schedule for the shared one  |
+| CPU, memory and disk                | Builds slow down until unrelated tests time out                      | A cap on heavy agents                                      |
+| Tokens, usage limits and CI minutes | Every agent stops at the same moment, mid-step                       | Resumable tasks and a budget                               |
+| The reviewer’s attention            | Pull requests wait, go stale and conflict with each other            | Fewer, smaller pull requests than the agents could produce |
+
+Every incident in this article is one row of that table. The rest of the guide goes through them in order of how often they cost us time.
+
+A word on the setup, so you can map it to yours. saasyland.com is a TanStack Start application on Cloudflare Workers with a public repository, a coverage gate of <RepositoryFact name="coverageThreshold" unit="percent" />, every string and page in <RepositoryFact name="languages" /> languages, and a browser suite in Playwright. The agents were Claude Code sessions and subagents on one 10-core laptop, each in its own worktree, briefed and reviewed by a lead session and by the owner. Nothing below depends on that agent or that stack: the same collisions happen with any agent that can run a shell.
+
+If your repository cannot yet tell an agent quickly that it is wrong, fix that first; [AI Coding Agents for SaaS in 2026: Why the Repository Decides](/blog/ai-coding-agents-repository-readiness) covers the checks and scores a codebase. This article assumes those checks exist and asks what happens when several agents run them at once.
+
+## Isolation: give every agent its own world
+
+The default should be that agents share nothing they can write to. Each shared, writable thing is a decision: who may write, when, and how the others find out.
+
+### One worktree per branch
+
+A checkout has one branch at a time. Two agents in one checkout take turns switching it, and every switch changes the files under the other one’s running build. Even one agent in your own checkout races with whatever else has it open: an editor that syncs, a file watcher, a test runner in the background.
+
+Git has the answer built in. A worktree is a second working directory linked to the same repository; Git’s documentation describes the new worktree as “sharing everything except per-worktree files such as `HEAD`, `index`, etc.”, and `git worktree add` refuses to check out a branch that is already checked out in another worktree. Each agent gets its own directory, its own branch and its own installed dependencies, and nothing it does moves anyone else’s files.
+
+**Our incident.** Before we used worktrees, the main checkout of saasyland.com was switched back to `main` twice in the middle of a task by the editor’s Git sync, once right after a merge had been made there. The tests that followed ran against `main`, not the branch under test, and reported on code nobody was changing.
+
+- **Symptom:** test results that did not match the change.
+- **Root cause:** a checkout that two processes, the agent and the editor, both believed they controlled.
+- **Fix:** every branch gets a worktree; the owner’s checkout stays on `main` and agents never switch it.
+- **Rule:** before you trust a test run, check `git branch --show-current` in the directory you tested.
+
+Worktrees isolate files, not everything. They share the `.git` directory, so commits, branches and stashes are visible to every worktree; a `git gc` or a branch deletion in one affects all. Gitignored files such as `.env` are not copied, so each worktree needs its own setup step. Claude Code’s own documentation puts it plainly: worktrees “isolate file edits”, and a new worktree is a fresh checkout in which you initialize your development environment. Ports, processes and databases are your problem.
+
+### Ports, servers and databases
+
+This is where most of our lost hours went, because a server that answers on the wrong port does not fail. It answers.
+
+**Our incident.** An agent ran the browser suite for its branch, and the results described code that was not on that branch. Our Playwright configuration builds and starts the app before the tests, unless a server already answers at the URL:
+
+```ts title="playwright.config.ts"
+  webServer: {
+    command: isCI ? startCommand : `bun run db:reset:test && bun run build:test && ${startCommand}`,
+    reuseExistingServer: !isCI,
+    timeout: 600_000,
+    url: appUrl,
+  },
+```
+
+Playwright’s documentation says that with `reuseExistingServer` true “it will re-use an existing server on the `port` or `url` when available”, and recommends exactly the setting we had, `!process.env.CI`, so a developer can keep a dev server running between runs. On a machine with one developer that is a convenience. On a machine with five agents, another agent had a server running from its own worktree on the same address, so Playwright skipped the build and the database reset and drove that other build, with that other database, for the whole suite.
+
+- **Symptom:** a green or red run that is not about your change, usually faster than a real run.
+- **Root cause:** a shared, well-known port plus a runner designed to reuse whatever answers on it.
+- **Fix:** each agent picks a free port, builds and starts the server itself from its own worktree, checks which directory the listening process runs in, and runs Playwright with `PLAYWRIGHT_BASE_URL` pointing at that server. Playwright then reuses the agent’s own server, which is the one it should test. When the run ends, the agent stops that server by process ID.
+- **Rule:** a test result is evidence only if you can name the build it ran against.
+
+The stronger fix, and the one we recommend, is to make the test runner prove it: let the test build answer with an identity, such as the commit it was built from and the directory it runs in, and fail the run in a global setup when that identity is not the current worktree’s `HEAD`. A procedure is a rule an agent can forget; an assertion is a rule it cannot.
+
+Ports had a second constraint that turned them into a queue. The test build of saasyland.com accepts requests only from these hosts, because Better Auth and the newsletter links check the origin: <RepositoryFact name="testServerHosts" />. So only as many browser suites can run at once as that list has ports. Five agents that each want to run one must wait for a free port. We made the wait explicit. For a while every agent ran the browser suite through one shared lock script, which #207’s test plan still records; now the brief names the ports the agent may use, the agent checks that the port is free before starting, and it never takes over a port another agent’s server holds.
+
+The general lesson: **your isolation is capped by the scarcest shared resource**, and it is often a constant in a configuration file you wrote for one developer. Look for allow-lists of origins, fixed callback URLs, OAuth redirect URIs, fixed ports in scripts, and single named containers. Either make them per-worktree or treat them as a pool with a lock.
+
+Databases are the easy part if you put local state inside the worktree. Our local D1 database for tests lives in `.wrangler/test` within each worktree, and `bun run db:reset:test` recreates and seeds it there, so every worktree has its own database for free. The failure mode to avoid is a database in a shared location, such as one Docker container or one file in your home directory, that every branch migrates and seeds in turn. If your stack needs a database server, give each worktree its own database name, derived from the branch, and drop it when the worktree goes.
+
+### Processes: stop only what you started
+
+**Our incident.** An agent finished its browser run, found Playwright processes still around, and cleaned up with `pkill -f playwright`. The browser run of another agent’s pull request (#240) died in the middle of its suite.
+
+- **Symptom:** a run that stops partway with failures that have nothing to do with the code.
+- **Root cause:** `-f` matches the pattern against the full command line of every process on the machine, as the `pgrep` manual says. Every Playwright runner, browser and editor extension matches `playwright`. On the day we wrote this, the owner’s editor had a Playwright test server running for another project, started 20 days earlier; the same command would have taken it too.
+- **Fix:** an agent records the process IDs of what it starts and stops exactly those. Cleanup by name, pattern or port is forbidden.
+- **Rule:** never kill a process you did not start. If something you did not start is in your way, report it.
+
+The reverse problem is processes nobody stops. A dev server started in the background survives the task that started it. Ours left orphans in two ways: a task ended without stopping its server, and stopping the parent of `vp dev` left a child Vite process holding the port. One preview server from a finished worktree held `127.0.0.1:3000` for days. The agent that found it was not allowed to kill it, by the rule above and by the harness, so the owner stopped it by hand.
+
+That is the cost of the rule, and it is worth paying. The alternative is agents that kill whatever is in their way, and one day that is a migration or someone’s debugging session. Make ending clean part of done instead: a task is finished when its servers are stopped, and `lsof` shows the ports it used are free.
+
+### Scratch files and drafts
+
+Agents write drafts: pull request descriptions, changelog entries, logs, screenshots. If they all write them to the same folder with the same names, one agent publishes another’s draft.
+
+**Our incident.** Pull request #242 added two blog posts. GitHub’s edit history shows it was opened, at 18:20:56 UTC on 17 November, with the description of #238, a fix for navigation after a deploy that had merged 29 seconds earlier. It was corrected at 20:04:09, 19 seconds before #242 merged.
+
+- **Symptom:** a pull request whose description describes a different change.
+- **Root cause:** several agents wrote their drafts to the same file name in one shared scratch folder, so the file held the last writer’s text when the next agent read it.
+- **Fix:** every agent gets its own scratch folder, named in its brief, and writes nothing outside it and its worktree.
+- **Rule:** review the description against the diff, not the other way round. A description is a claim about the diff.
+
+### Environments you cannot copy
+
+Some things cannot be copied per agent: a staging database, a payment sandbox, a preview host with a fixed domain. These need a schedule.
+
+**Our incident.** Every pull request from the saasyland.com repository deploys to one preview environment, and our documentation says so: “The preview is shared: each deployment replaces the previous one and uses the same preview D1 database, KV namespace and R2 buckets.” When #244, a change to the CLI configurator on the landing page, was ready, the owner opened the preview host to look at it and saw a different build, because another pull request had deployed after it.
+
+- **Symptom:** the reviewer sees something other than the change under review.
+- **Root cause:** one shared environment, deployed by every pull request’s CI on its own schedule.
+- **Fix:** before asking for a review on the preview, redeploy that pull request’s preview job, say which commit is live, and hold other preview deploys until the review is done. Our merge queue does the same before each merge, because the repository requires a successful Preview deployment of the pull request, and any other deploy replaces it.
+- **Rule:** a shared environment is a meeting room. Book it, use it, give it back.
+
+The structural fix is a preview per change. Cloudflare Workers can serve each uploaded version at its own URL on `workers.dev`, which would give each pull request its own address. It would still share the preview database, and it means changing the deployment configuration, which is on our list of files that need the owner’s explicit approval, so for now we schedule. Your platform probably has an equivalent; use it before you need it.
+
+### Isolation inside the test suite and the repository
+
+The same rule applies one level down, wherever parallel workers share state.
+
+Our browser suite runs tests in parallel. Two tests that activated machines on one seeded licence ran at the same time and counted each other’s machines, so they failed now and then. #207 gave each parallel Playwright worker a seeded licence of its own, because Playwright never gives one parallel index to two running workers, and its pull request records the before and after: 21 failures in 60 repeated runs before, none after.
+
+And the repository itself can be shaped so that parallel pull requests do not touch the same files. Every pull request used to add its line to the same nine changelog files, one per language, so any two open pull requests conflicted in all nine and each guessed its own date before it merged. #204 gave every pull request its own entry file named after its number, and takes the date from the squash commit that lands it. Two pull requests can no longer conflict in the changelog, because they never edit the same file.
+
+Look for your own versions of that file: a registry that every feature appends to, a lockfile, a generated route tree, a translations file per language, a single `CHANGELOG.md`. Each one is a guaranteed conflict between any two branches. Split it, generate it, or make it append-only per change.
+
+## Coordination: one way into main
+
+Isolation lets agents work at the same time. Coordination decides the order in which their work becomes real. The answer that held for us is boring: a single queue, one pull request at a time, each one a single commit, rebased and checked again when main has moved under it.
+
+### Why we banned merge commits
+
+The repository allows only squash merges, and the main branch requires linear history and refuses force-pushes. Merge commits are banned everywhere, including on pull request branches, which is stricter than most teams need. The reasons are worth knowing even if you stop short of it.
+
+1. **A merge commit can hide a change.** When merging `main` into a branch conflicts, the resolution lives inside the merge commit, which reviewers rarely read. GitHub can flag this: our ruleset requires extra approval for changes nobody reviewed, and it blocked #144 after a hand-resolved merge. The work was re-landed as #149, one normal commit with the same title, which a reviewer could read line by line.
+2. **A merged branch is hard to rebase.** Once a branch contains a merge from `main`, rebasing it means replaying that merge too. Tools that update a branch by rebasing fail on it, so the first merge forces every later update to be a merge as well.
+3. **Long-lived branches keep them forever.** Our private CLI repository has a prerelease branch. Early syncs from its main branch into that branch were merges, and release tags already point into that history, so removing them would mean force-pushing a released branch. We left them and now sync by cherry-picking onto a branch and squash-merging it.
+4. **The history is a product.** The owner reads `main` as the record of what changed for the people using the code, one line per pull request. That only works if every line is one finished change.
+
+A quiet source of merge commits is the tooling’s defaults. `gh pr update-branch` says in its help: “The default behavior is to update with a merge commit”. Pass `--rebase`. GitHub’s **Update branch** button merges too, unless you choose **Update with rebase**.
+
+### Squash first, then rebase
+
+A pull request should reach the queue as one commit. Our agents squash their branch locally before they push, and keep separate commits only when each stands on its own, as the post and its translated changelog do in this article’s own pull request.
+
+**Our incident.** #244 was opened on 17 November and waited three days, through a usage limit and other merges. By the time it was ready, it had eight commits: the feature, its changelog entry, a dependency bump, a refactor, a fix for the landing videos, compact options for phones, a copy fix and a final commit whose subject says it carried the README’s changes “so the pull request merges without conflicts”. Updating it by rebase replays all eight commits on top of main, one by one, and the early ones conflicted with changes that had landed since, although the final tree could merge. The update could not go through.
+
+- **Symptom:** a pull request that cannot be brought up to date, with conflicts in commits that later commits already resolved.
+- **Root cause:** the branch’s history, not its content. Rebasing replays each step, and an obsolete step can conflict.
+- **Fix:** squash the branch into one commit on top of the current main, resolve the conflicts once, force-push with lease to the pull request’s own branch, and run the whole definition of done again. #244 merged as one commit 17 minutes after the force-push. #249 was squashed the same way the same day.
+- **Rule:** one commit per pull request before it enters the queue. If a branch grows commits during review, squash it again before it goes in.
+
+### A single merge queue
+
+Our queue is a short script, run by the lead agent, that takes pull request numbers in order and for each one: waits for the required checks and the preview deployment on its current head; tries to merge; if GitHub says it cannot, rebases the branch onto main with `gh pr update-branch --rebase`, waits until the new head appears, waits for the checks and the preview again, and merges; and stops the whole queue at the first conflict, for a person or an agent to resolve.
+
+The queue merges with a subject built from the pull request title, put through the same commit hook that adds the emoji to every commit, plus the number. That last detail comes from #224, which landed without its emoji because GitHub uses the pull request title as the squash subject and the title had none. Your squash commit is your pull request title; validate it like a commit message.
+
+**Our incidents with the queue itself:**
+
+- **Two queues block each other.** We once ran two queue scripts at the same time. The repository requires the pull request’s head to be the active Preview deployment, so each queue’s preview redeploy deactivated the other’s, and both sat blocked (#179 and #154). There is one queue, with every pull request number in it, in order.
+- **A queue that waited for itself.** A script that waited for “the other queue” to finish with `pgrep -f` matched the shells that were waiting, because their own command lines contained the pattern. Three pull requests (#183, #184, #186) stalled for about 30 minutes. Wait on a process ID or a lock file, never on a pattern.
+- **A merge that half happened.** GitHub answered an API error to a merge of #221, created the squash commit on `main` anyway and left the pull request open. Before a queue retries anything, it checks `git log origin/main` for the pull request’s number.
+- **A stale head.** Right after a push, the API can still report the old head for a few seconds, and a queue that starts waiting then waits on a commit nobody will build. Wait until the API shows the head you pushed.
+
+If your only gate is CI, GitHub’s own merge queue does this job: it tests each pull request against the latest target branch together with the pull requests ahead of it, and its build concurrency setting caps how many of those builds run at once. Ours also requires a deployment of the exact head to the single preview environment, which is why a script runs it.
+
+### Semantic conflicts: green alone, red together
+
+Git conflicts are the easy kind: Git tells you. The dangerous kind is two pull requests that touch different files, each passing on its own, that break the build together.
+
+**Our incident.** #220 added a check that each language addresses the reader in one form only, the informal du in German. #221 was branched before it and added a German sentence in the formal form. Both were green on their own branches. #221 merged after #220, and `main` failed its own check: `bun run check:i18n` rejected the sentence. Production deploys stop when `main` is red, so nothing shipped until #222 changed one sentence.
+
+- **Symptom:** `main` fails a check that every merged pull request passed.
+- **Root cause:** #221’s checks ran against a `main` that did not yet contain #220. Our required status checks do not require a branch to be up to date before merging.
+- **Fix:** #222 repaired `main`. Agents now rebase onto the current main and run the full definition of done again right before their pull request enters the queue, not only the checks that look relevant. Our own queue rebases only when GitHub refuses a merge, which a pull request that is merely behind does not trigger; the queue in the playbook below rebases every pull request that is behind, and that is the version we recommend.
+- **Rule:** a result is valid for one pair of commits, the branch and the main it was tested on. Change either and it expires.
+
+Requiring branches to be up to date is the strict answer; GitHub’s rulesets offer it. Its price is throughput. The median of our last 33 successful pull request runs was 21 minutes when we measured it on 20 November, so a strictly serial queue in which every merge forces the next pull request to rebuild merges about three pull requests an hour, at best. Agents produce more than that. Choose deliberately: strict and slow, a merge queue that batches, or a looser rule plus a cheap check of what changed on main since the branch’s CI ran.
+
+### Force-push, with a lease, on your own branch
+
+Rebasing a pushed branch means force-pushing it. Allow it narrowly. Our agents may run `git push --force-with-lease`, and only on their own pull request branches; never plain `--force`, never on `main` or a release branch.
+
+The lease is a real protection with a known hole. Git’s documentation says the push succeeds only “if the current value of the remote ref is the expected value”, and warns that without an explicit expected value it “interacts very badly with anything that implicitly runs `git fetch` on the remote to be pushed to in the background”. Editors that fetch in the background are exactly that. Pair it with `--force-if-includes`, or push with an explicit expected commit. And make the server refuse force-pushes to `main` regardless of what the client sends, as our ruleset does, because a client-side rule is only as good as the client.
+
+## Verification: “done” is an exit code
+
+An agent’s summary is written by the same process that did the work, at the moment it most wants to be finished. Treat it as a claim. Verify it with things the agent cannot write: exit codes, the commit a pull request points at, and CI runs on that commit.
+
+Our definition of done is four commands, in order, all exiting 0 on the branch about to be pushed: `bun run check`, `bun run test:coverage`, `bun run build:test` and `bun run test:e2e:pr`. AGENTS.md ends the paragraph with the sentence that matters most: “Nothing else counts as done, including a summary that says it is.”
+
+**Our incident: done while still running.** An agent reported its task done, with three of the four commands green and the browser suite started in the background. The suite had not finished; it had no exit code yet.
+
+- **Root cause:** a summary written at the end of the agent’s turn, not at the end of the work.
+- **Rule:** a run in the background is not a result. Report the exit code, or say that it is still running.
+
+**Our incident: committed, not pushed.** #240’s first CI run failed with one line: `Pull request #240 has no changelog entry: add content/changelog/240.<locale>.mdx in every locale`. The agent had written and committed the entry, and reported the task done, but the commit never left the worktree. The second run, 19 minutes later on the pushed commit, passed.
+
+- **Root cause:** local state reported as remote state.
+- **Rule:** done includes `git status -sb` showing nothing ahead of the remote, and the pull request’s head commit being the one you tested.
+
+**After a rebase, everything is unverified again.** A rebase produces new commits. The tests you ran before it ran on commits that no longer exist, against a main that has moved. Our agents re-run all four commands after every rebase, and the queue waits for CI on the new head; #220 and #221 above are why.
+
+**CI is the gate; local runs are the filter.** Local runs catch most problems minutes before CI would, and an agent should never push something it has not run. But the result that counts is the one on the commit you merge, produced by a machine nobody else is using. Some failures only CI or the deploy can find: our documentation tells contributors to wait for the preview deployment as well, because it is the only step that uploads the Worker, and Cloudflare’s upload limit once failed a deployment that every other check had passed.
+
+What an agent’s report should contain, so that you can verify it in a minute:
+
+- The branch, the commit it tested, and whether that commit is pushed.
+- Each command of the definition of done with its exit code, and where the full output is.
+- The pull request number and the CI run on that head commit.
+- What it changed, what it chose not to change, and anything it was unsure about.
+- Anything it left out on purpose, and why.
+
+## Permission boundaries: what agents may and may not do
+
+Think of permissions in four layers, from weakest to strongest. Each catches what the one before misses.
+
+1. **Instructions.** AGENTS.md and the brief say what an agent should and should not do. They set intent, and an agent following a stale or ambiguous instruction follows it confidently.
+2. **The harness.** The agent’s own permission system asks before or refuses certain commands. In Claude Code, rules are evaluated in order, deny, then ask, then allow, and the first match decides. Our setup also runs a classifier over actions. It refused, at different times, a force-push to a pull request branch that had already been pushed, the merge of a new pull request nobody had reviewed, and killing a process the agent had not started. When the owner later decided agents may force-push with lease on their own branches, he allowed exactly that command pattern and nothing wider.
+3. **The server.** Branch protection, required checks and required deployments do not care how a command was spelled. Claude Code’s documentation is explicit that a Bash rule matches the command text, so a rule against `git push` does not stop `git -C . push`, and “isn’t a security boundary around the program”. Our main branch accepts only squash merges of pull requests, requires linear history, refuses force-pushes and deletion, and requires two status checks and a successful Preview deployment. That is the layer that holds when the other two do not.
+4. **People.** Some steps are irreversible or spend money or trust, and those keep a person in the loop by design: publishing a package to npm waits for the owner’s approval with two-factor authentication, and deploys, remote migrations and secrets are human steps.
+
+Here is how that comes out for our agents:
+
+| Agents may                                                  | Agents may not                                                | Only with the owner’s explicit yes                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Create worktrees and branches from `origin/main`            | Push to `main`, or force-push any branch they do not own      | Change migrations, which are applied to production and irreversible |
+| Commit, push their branch and open pull requests            | Run `--no-verify`, or disable a lint rule to pass it          | Change payments, licences, auth or permission statements            |
+| Force-push with lease to their own pull request branch      | Kill a process they did not start                             | Change workflows, Wrangler configuration, `.env` files or secrets   |
+| Run every local check, build and browser suite              | Delete anything outside their worktree and scratch folder     | Deploy, apply remote migrations or publish a package                |
+| Merge through the lead’s queue once CI and the preview pass | Merge a pull request whose checks have not passed on its head | Rewrite the history of a released branch                            |
+
+Two of those lines came from incidents that never reached GitHub, and they are worth telling.
+
+**Debugging is not authorization.** While chasing a test failure, an agent deleted a global tool directory in the owner’s home folder. His shell sourced a file from it at startup, so every new terminal printed an error and the tool fell off the `PATH`. Nothing in the task had asked for anything outside the repository. Now nothing outside the worktree and the agent’s scratch folder may be deleted, and an agent that thinks global state is the cause says so and hands the owner the command.
+
+**Fix only what you touched.** Running `vp check --fix` over the repository rewrote the shared editor settings in `.vscode/settings.json` and staged the change. Our documentation now says to format and lint only the files you changed, by name. An agent with a repository-wide fixer is an agent with a repository-wide diff.
+
+The paths that need a person’s yes are listed in AGENTS.md, and the list wins over anything a brief says. A brief that needs one of those files quotes the owner’s approval for that file; without it, the agent stops before changing it and reports what it would change. A general “do what you think is right” does not count, and our harness refused to treat it as approval. That friction is the point: an approval that names the change is one the owner actually gave.
+
+## How to brief an agent
+
+A fresh agent knows only what you put in the brief, and you see only the summary it sends back. Both handoffs lose detail. The brief is the only lever you have on the first one, and its format is your lever on the second.
+
+A good brief answers, in this order:
+
+- **The goal, in the owner’s words.** Quote them. Paraphrase loses the part the owner cared about.
+- **What done means.** The commands, in order, and what to report.
+- **Scope and non-goals.** What to change, and what to leave alone, including work another agent is doing in parallel.
+- **What is already known.** What you ruled out, what you tried, where the evidence is. An agent handed your hypothesis tends to return it confirmed, so give it facts and files, not your conclusion.
+- **Where to work.** The worktree path and the branch to start from, the scratch folder, the ports it may use.
+- **Boundaries.** Paths that need approval, commands it must never run, processes it must never stop.
+- **What to do when blocked.** Stop and report, with what it would have done.
+- **The report.** What it must contain, as in the list in the verification section.
+
+Point at files instead of pasting them. “Read `content/docs/conventions/testing.en-US.mdx` before writing a test” costs one line and stays true when the file changes; a pasted excerpt is stale the day someone edits the original.
+
+Every line in our briefs has an incident behind it, which is a good way to grow yours:
+
+| Line in the brief                                                   | The incident behind it                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Work in this worktree, created from `origin/main`                   | Tests ran against `main` after the editor switched a checkout      |
+| Use only these ports; check the listener’s directory before testing | Playwright reused another worktree’s server                        |
+| Stop only the processes you started, by their IDs                   | `pkill -f playwright` ended another agent’s run                    |
+| Write drafts only in your own scratch folder                        | #242 opened with #238’s description                                |
+| Squash into one commit before you push                              | #244 could not be rebased with eight commits                       |
+| Rebase, never merge; force-push with lease, your branch only        | A merge commit hid a resolution; #144 was re-landed as #149        |
+| Report exit codes for every command, on the pushed commit           | “Done” with the browser suite still running; #240’s unpushed entry |
+| Never delete anything outside your worktree                         | A deleted global tool directory broke the owner’s shell            |
+
+When several agents run at once, tell each one about the others where their work touches. This article was written by one agent while another wrote the first post of the series in parallel, and the brief said which topics belonged to the other post. Without that line, both would have written the same section, and the second one to merge would have conflicted with the first.
+
+## How to review an agent’s pull request
+
+Review in the order that fails fastest. Most problems with agent pull requests are not in the code; they are in what the pull request claims about the code.
+
+1. **Evidence first.** Is the head commit the one the agent says it tested? Did CI pass on that commit, not on an earlier one? If you review on a shared environment, is it showing this pull request?
+2. **Description against diff.** Does the description describe this diff? #242 is why we check. Does the diff contain anything the description does not mention?
+3. **Scope.** Did it change what it was asked to, and nothing else? Agents fix things on the way. Unrequested changes belong in their own pull request, where they can be reviewed for what they are.
+4. **Root cause or workaround.** Did the fix change where the bug shows, or what makes it happen? A test that waits longer, a condition that skips the failing case or a retry around a race is a workaround until proven otherwise.
+5. **Tests that got easier.** Look at changed assertions, raised timeouts, new skips and new mocks. When unit tests ran out of time on a busy machine, #191 fixed them by removing the work they did not need, and its description says it: “No timeout was raised and no test got its own timeout.”
+6. **Protected paths.** Did the diff touch anything on the human-review list? If so, is the owner’s approval for that file quoted?
+7. **Everything the change affects.** Documentation, README, copy and changelog, in every language. A rule that a check enforces does not need review; a rule that only a reviewer enforces needs this step.
+8. **History.** One commit, a conventional title that will become the squash subject, no attribution lines.
+
+Ask the agent the question that catches the most: what did you decide not to do, and why? Agents usually answer it accurately, and the answer is where the next incident lives. A later post in this series goes further into review: workarounds, scope creep, quiet type escapes and claims that need evidence.
+
+## Load and cost
+
+### Heavy and light agents
+
+Agents are not equally expensive. An agent that builds the app and drives a browser suite keeps several cores busy for most of its run. An agent that researches, writes or translates waits on a model and barely touches the CPU. Count the heavy ones.
+
+**Our incident.** With seven heavy agents running at once on a 10-core laptop, the load average climbed past 49 and peaked at 117, and tests began to fail by timing out. While this article was being written, the one-minute load average reached 108 again.
+
+- **Symptom:** timeouts in tests unrelated to any change, builds that fail intermittently.
+- **Root cause:** more runnable work than cores, so wall-clock limits fire on work that is merely waiting.
+- **Fix:** at most four heavy agents at once on that machine; light agents are not counted.
+- **Rule:** cap concurrency by the scarcest local resource, and measure it with the load average, not the number of agents.
+
+Load is also a test of your code, and it found two real bugs. Under load, the build’s prerendering failed to connect to its own preview server: the server listened on `localhost`, which resolved to the IPv6 loopback address only, and when the busy event loop stalled, Node gave up on the IPv6 connection that was about to succeed and fell back to `127.0.0.1`, where nothing listened. #188 binds the preview to `127.0.0.1` and connects by address. And the slowest unit tests hit Vitest’s limits only on a busy machine; #191 made them do less instead of giving them more time. Both bugs would have reached a slow CI runner sooner or later. Do not raise timeouts to make load go away: find out what the code was waiting for.
+
+### Tokens, usage limits and CI minutes
+
+Parallel agents cost more than one agent doing the same work in sequence. Anthropic’s engineering team measured that in their research system “agents typically use about 4× more tokens than chat interactions, and multi-agent systems use about 15× more tokens than chats”. You pay for speed with tokens, and you pay for every agent whose result you then redo. Spawn an agent when work is truly independent, or when a fresh read is worth more than your context; do small lookups yourself.
+
+Usage limits stop everything at once. Paid Claude plans have a session limit that resets every five hours and weekly limits that “reset at a fixed time each week that is assigned to your account”. Ours ran out late on 17 November. The merge log of saasyland.com shows 33 merges on 16 November, 17 on 17 November, none on 18 or 19 November and 7 on 20 November by the time of writing. Every agent stopped in the middle of whatever it was doing.
+
+CI minutes run out too, and on a private repository, quietly. When our organization reached its Actions spending limit, jobs in the private CLI repository stopped starting; a job that never starts looks, in the run list, like a job that failed. Read the job’s annotations before you debug the code. Keep pull request CI on the cheapest runners and save expensive ones, such as macOS, for the main branch and releases.
+
+### The reviewer is the real limit
+
+The last limit is the person who reviews. Agents can open pull requests faster than anyone can read them, and an unread pull request is not progress; it is inventory that goes stale and conflicts with everything that merges before it. #244 waited three days and needed rebuilding. The right number of agents is the number whose output you can review carefully the same day.
+
+## What goes wrong, and how to recover
+
+| Symptom                                               | Likely cause                                                     | Recovery                                                                                         |
+| ----------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Test results that do not match the change             | Wrong branch in the directory, or a reused server from elsewhere | `git branch --show-current`; find the listener’s directory with `lsof`; rerun on your own server |
+| A run dies partway with unrelated failures            | Someone killed processes by name, or the machine is overloaded   | Rerun alone; check the load average; find who ran a pattern kill                                 |
+| A port is taken and nobody owns it                    | An orphaned server or a child process that survived its parent   | Report it to whoever started it; never kill it yourself                                          |
+| The pull request description describes another change | A shared draft file                                              | Rewrite it from the diff; give each agent its own scratch folder                                 |
+| The preview shows another build                       | A later deploy to the shared environment                         | Redeploy this pull request’s preview, then review                                                |
+| The branch cannot be updated by rebase                | Obsolete commits that conflict                                   | Squash onto current main, resolve once, force-push with lease, rerun everything                  |
+| Main fails a check every merged pull request passed   | A semantic conflict between two pull requests                    | Fix forward with a small pull request; make the queue rebase and rerun                           |
+| The merge API failed but the commit is on main        | A half-completed merge                                           | Check `git log origin/main` for the number; close the pull request with a note                   |
+| CI fails in seconds with no steps                     | Jobs not starting: spending limit or billing                     | Read the job annotations; fix the budget, not the code                                           |
+| Every agent stopped at once                           | Usage limit                                                      | Resume from branches, pull requests and the ledger after the reset                               |
+
+### Make every task resumable
+
+The usage limit taught us the most useful habit of the week: a task must be resumable from disk by someone who was not there. Three places hold the state.
+
+- **The branch.** Agents commit to their branch as soon as a step works, even before it is finished. A worktree with commits survives anything the agent does not.
+- **The pull request.** The description holds the plan, the decisions and the verification results. Open it early, and update it as the plan changes.
+- **The ledger.** One file lists every open request from the owner, with its status, the branch or pull request, and the next step, updated the moment something changes. When the limit reset on 20 November, work resumed from that file: the queued pull requests merged, #244 was rebased, and the stopped agents were restarted with their branches and a note of where they had stopped.
+
+### Releases need the same discipline
+
+Two process lessons came from releasing the CLI, a separate private repository with the same agents and the same rules. We describe the process only; the release pipeline itself is a later post in this series.
+
+- **Record a release after it exists.** The release workflow used to create Git tags and GitHub Releases when it staged a version on npm, before the owner approved the publication. One staged version was never published, so three GitHub Releases described packages npm never served. Now tags and releases are written by a separate run after npm serves the version, and the unpublished one is labelled as such.
+- **Ship the reader before the writer.** When the CLI and the website share a contract, a change to it has to reach the server before a client that sends it. One CLI release sent an answer that the website’s licence API, still on the previous version of the contract, refused. Our own end-to-end check of the published CLI against production found it, and a website update fixed it the same day. A contract change now ships on the website first.
+
+## The playbook
+
+Copy what fits. Each part assumes Git, a shell and a GitHub-style host; replace the commands with your stack’s.
+
+### Isolation setup
+
+One worktree per branch, from the current main:
+
+```sh
+git fetch origin
+git worktree add ../wt-fix-locale -b fix/locale-links origin/main
+cd ../wt-fix-locale
+bun install --frozen-lockfile
+git branch --show-current
+```
+
+A browser run on your own server, on a port you checked, stopped by its process ID when it ends:
+
+```sh
+PORT=3020
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN; then echo "port $PORT is taken"; exit 1; fi
+bun run db:reset:test
+bun run build:test
+bun run start:test --port "$PORT" > server.log 2>&1 &
+SERVER_PID=$!
+until curl -fsS "http://127.0.0.1:$PORT" > /dev/null; do sleep 1; done
+LISTENER=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t | head -1)
+test "$(lsof -a -p "$LISTENER" -d cwd -Fn | sed -n 's/^n//p')" = "$(pwd -P)" || exit 1
+PLAYWRIGHT_BASE_URL="http://127.0.0.1:$PORT" bun run test:e2e:pr
+echo "exit code $?"
+kill "$LISTENER" "$SERVER_PID"
+```
+
+Checklist for each agent’s environment:
+
+- Its own worktree and branch, created from the current `origin/main`, never your checkout.
+- Dependencies installed in the worktree, and any gitignored setup files copied in.
+- Local databases and caches inside the worktree.
+- Ports assigned in the brief, checked before use, with the listener’s directory verified.
+- Its own scratch folder for drafts, logs and screenshots.
+- Processes stopped by ID at the end, and the ports free.
+
+### A merge queue in a few lines
+
+One queue, one pull request at a time, in the order given, stopping at the first problem:
+
+```sh
+set -euo pipefail
+for pr in "$@"; do
+  head=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+  behind=$(gh api "repos/{owner}/{repo}/compare/main...$head" --jq .behind_by)
+  if [ "$behind" -gt 0 ]; then
+    gh pr update-branch "$pr" --rebase
+    while [ "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$head" ]; do sleep 15; done
+    sleep 30
+  fi
+  gh pr checks "$pr" --watch --required --fail-fast
+  gh pr merge "$pr" --squash --subject "$(gh pr view "$pr" --json title --jq .title) (#$pr)"
+done
+```
+
+Add what your gate needs: a wait for a required deployment, a check that the title is a valid commit subject, a check of `git log origin/main` before any retry. Run one instance, never two.
+
+### Briefing template
+
+Fill in each part; leave none out.
+
+- **Goal:** what to achieve and why, with the owner’s words quoted.
+- **Done:** the commands of the definition of done, in order, and that each must exit 0 on the pushed commit.
+- **Scope:** what to change; what not to change; what other agents are doing in parallel and which parts are theirs.
+- **Known:** what was ruled out, what was tried, which files and runs hold the evidence.
+- **Where:** the worktree path, the branch and its base, the scratch folder, the ports.
+- **Boundaries:** the paths that need approval, with the approval quoted if given; commands never to run; processes never to stop.
+- **When blocked:** stop, and report what you would do and why.
+- **Report:** branch and commit, pushed or not; each command with its exit code and log; pull request number and CI run; what changed, what was left out and why, and what you were unsure of.
+
+### Review checklist
+
+- The head commit is the one the agent tested, and CI passed on it.
+- The environment you review on shows this pull request.
+- The description matches the diff, and the diff contains nothing the description leaves out.
+- The change stays in scope; anything else is a separate pull request.
+- The fix addresses a cause, not where the symptom shows.
+- No test got easier: no weaker assertion, raised timeout, new skip or unexplained mock.
+- No protected path changed without a quoted approval.
+- Documentation, README, copy and changelog are updated in every language.
+- One commit, a conventional title, no attribution lines.
+- You asked what the agent decided not to do, and read the answer.
+
+### Operator’s checklist
+
+- Heavy agents are capped by cores, and the load average is checked before starting another.
+- One merge queue runs, with every ready pull request in order.
+- Shared environments are booked before a review and released after it.
+- A ledger lists every open task with status, branch and next step.
+- Every agent’s task is resumable from its branch, its pull request and the ledger.
+- Orphaned servers and stale worktrees are cleaned up by whoever started them.
+- Pull requests are reviewed the day they are ready, or the agents slow down.
+
+## Related reading
+
+<Cards>
+
+<Card title="AI Coding Agents for SaaS in 2026: Why the Repository Decides" href="/blog/ai-coding-agents-repository-readiness">
+  Time to No, and a scorecard for whether your repository can reject a wrong change before a person sees it.
+</Card>
+
+<Card title="Choosing a SaaS Stack for AI Coding Agents in 2026" href="/blog/choosing-a-saas-stack-for-ai-coding-agents">
+  A four-question test for any dependency, applied layer by layer to the stack these agents work on.
+</Card>
+
+<Card title="A SaaS on Cloudflare Workers: D1, KV and R2 in Production" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  The environments, deploy checks and shared preview that the agents in this article deploy to.
+</Card>
+
+</Cards>
+
+<Callout title="Read the repository the agents work in">
+
+Every pull request, CI run and commit named here is public in saasyland.com’s repository, and the documentation describes the [CI/CD pipeline](/docs/tooling/ci-cd), the [browser suite](/docs/tooling/playwright) and the [testing conventions](/docs/conventions/testing) the agents follow. To see what the codebase costs, [compare the tiers](/#pricing): one payment from <TierPrice tier="core" />, with each card saying what is available now and what is arriving.
+
+</Callout>
+
+## Frequently asked questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- Git: [`git worktree`](https://git-scm.com/docs/git-worktree) and [`git push`](https://git-scm.com/docs/git-push), on `--force-with-lease` and `--force-if-includes`
+- GitHub: [keeping a pull request in sync with its base branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/keeping-your-pull-request-in-sync-with-the-base-branch), [merge methods](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/about-merge-methods-on-github), [rules for rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) and [managing a merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
+- Playwright: [the web server option](https://playwright.dev/docs/test-webserver), on `reuseExistingServer`
+- Claude Code: [worktrees](https://code.claude.com/docs/en/worktrees) and [permissions](https://code.claude.com/docs/en/permissions); Claude Help Center: [how usage limits work](https://support.claude.com/en/articles/11647753)
+- Anthropic: [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) (June 2025), on token use
+- Cloudflare: [preview and version URLs for Workers](https://developers.cloudflare.com/workers/configuration/previews/)
+- procps: [the `pgrep` and `pkill` manual](https://man7.org/linux/man-pages/man1/pgrep.1.html), on `-f`
+- saasyland.com: pull requests [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) and its [first CI run](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244) and [#249](https://github.com/saasyland/saasyland.com/pull/249); the [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) and [local debugging](/docs/guides/local-debugging) pages
+
+_Written by Piotr J. Borowiecki, who runs a team of AI coding agents on saasyland.com every day. External documentation was read on 20 November 2026 and may have changed since; the links go to the source. If anything here is out of date or wrong, tell me and I will correct it._

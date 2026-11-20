@@ -9,7 +9,6 @@ L’application expose ces routes HTTP, déclarées avec `server.handlers` sur `
 | -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api`                                       | GET               | Renvoie `{ "runtime": "cloudflare-workers" }`.                                                                                                                                                    |
 | `/api/auth/$`                                | GET, POST         | Better Auth : connexion, retours OAuth, `/api/auth/verify-email`, ainsi que les points de terminaison du plugin Polar `/api/auth/polar/webhooks` et `/api/auth/customer/portal`.                  |
-| `/api/search`                                | GET               | Recherche Fumadocs (`fumadocs.search.ts`).                                                                                                                                                        |
 | <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | L’[API de licence de la CLI](/docs/features/cli-licence-api) : `licenseApiHandlers` (`license.api.ts`) lisent la licence et activent, vérifient et libèrent des machines pour la CLI `saasyland`. |
 
 ```ts
@@ -24,14 +23,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Des fonctions serveur plutôt que REST
 
-Les opérations de l’application sont des fonctions `createServerFn` dans `src/modules/<table>/use-cases`. Les autres se trouvent dans `src/lib` (`getStarCount` dans `github.ts`), dans une intégration (`getCurrentSession` dans `auth.session.ts`, `getDocsPage` dans `fumadocs.docs.ts`) ou directement dans l’unique route qui les utilise (`getBlogPosts` dans `_site._marketing.blog.index.tsx`). TanStack Start les appelle en RPC sous `/_serverFn`, avec des middlewares pour les sessions, les permissions et les limites de débit. N’ajoutez pas de point de terminaison REST pour une opération que seule cette application appelle ; ajoutez une route HTTP uniquement pour les appelants externes comme les webhooks et la CLI, et vérifiez les signatures des webhooks dans l’intégration du fournisseur.
+Les opérations de l’application sont des fonctions `createServerFn` dans `src/modules/<table>/use-cases`. Les autres se trouvent dans `src/lib` (`getStarCount` dans `github.ts`), dans une intégration (`getCurrentSession` dans `auth.session.ts`) ou directement dans l’unique route qui les utilise. TanStack Start les appelle en RPC sous `/_serverFn`, avec des middlewares pour les sessions, les permissions et les limites de débit. N’ajoutez pas de point de terminaison REST pour une opération que seule cette application appelle ; ajoutez une route HTTP uniquement pour les appelants externes comme les webhooks et la CLI, et vérifiez les signatures des webhooks dans l’intégration du fournisseur.
 
 ## Comportement
 
 - Le Worker n’applique pas de redirection de langue à `/api` ni à `/_serverFn`. Leurs URL ne portent aucune langue, donc `getCurrentLocale()` renvoie `en-US` pour elles côté serveur ; le code qui a besoin d’une langue la reçoit en entrée ou la lit dans un `callbackURL`.
 - Le build ne prérend pas `/api`.
 - `/media/*` n’est pas une route TanStack Start : le Worker l’envoie à `serveMedia` avant la gestion de la langue. Voir [Cloudflare R2](/docs/integrations/cloudflare-r2). `/bundles/*` non plus : le Worker l’envoie à `serveBundle` ; voir [API de licence de la CLI](/docs/features/cli-licence-api#template-bundles).
-- Les tests des gestionnaires se trouvent dans `src/routes/api/__test__/`, un fichier par gestionnaire : `auth.test.ts`, `search.test.ts` et `index.test.ts`. `cli.v1.test.ts` couvre les fichiers de route de l’API de licence de la CLI, dont le comportement est testé dans `src/modules/license/__test__/license.api.integration.test.ts` et, pour les bundles, dans `license.bundles.integration.test.ts`.
+- Les tests des gestionnaires se trouvent dans `src/routes/api/__test__/`, un fichier par gestionnaire : `auth.test.ts` et `index.test.ts`. `cli.v1.test.ts` couvre les fichiers de route de l’API de licence de la CLI, dont le comportement est testé dans `src/modules/license/__test__/license.api.integration.test.ts` et, pour les bundles, dans `license.bundles.integration.test.ts`.
 
 ## Guides associés
 

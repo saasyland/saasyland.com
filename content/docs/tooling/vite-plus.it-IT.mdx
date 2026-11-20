@@ -19,17 +19,18 @@ Vite+ (`vite-plus`, comando `vp`) riunisce Vite, Vitest, oxlint e oxfmt dietro u
 
 ## Configurazione
 
-`vite.config.ts` non nomina alcun plugin: carica in modo lazy i plugin che ogni area dichiara in `src/data/<area>.vite.ts`, che `src/data/vite.entries.ts` riunisce e `vitePlugins` in `src/data/vite.ts` ordina secondo il loro `order` (vedi [Cosa aggiungono le aree](/docs/architecture/platform-layer#what-the-areas-add)). Sotto Vitest vengono caricate solo le voci marcate con `vitest`, cioè `repositoryFacts()` e `@vitejs/plugin-react`; negli altri casi lo stack è:
+`vite.config.ts` non nomina alcun plugin: carica in modo lazy i plugin che ogni area dichiara in `src/data/<area>.vite.ts`, che `src/data/vite.entries.ts` riunisce e `vitePlugins` in `src/data/vite.ts` ordina secondo il loro `order` (vedi [Cosa aggiungono le aree](/docs/architecture/platform-layer#what-the-areas-add)). Sotto Vitest vengono caricate solo le voci marcate con `vitest`, cioè `repositoryFacts()`, `contentIndexes()` e `@vitejs/plugin-react`; negli altri casi lo stack è:
 
 - `@cloudflare/vite-plugin`: esegue il Worker nell'ambiente SSR, rende persistente lo stato locale (in `.wrangler/test` per la modalità `test`) e usa binding remoti per `development`.
 - `fumadocs-mdx`: compila le collezioni della documentazione e del blog.
+- `contentIndexes` (`scripts/content-indexes.ts`): serve `virtual:content-indexes` e `virtual:docs-search`, gli indici della documentazione, del blog e di ricerca che `fumadocs.indexes.ts` costruisce da `content/docs` e `content/blog`; vedi [Fumadocs](/docs/integrations/fumadocs#content-indexes).
 - `saasyland:fumadocs-bundled`: tiene `fumadocs-core` e `@fumadocs/base-ui` nel bundle del server (`resolve.noExternal`).
 - `repositoryFacts` (`scripts/repository-facts.ts`): serve il modulo `virtual:repository-facts`: i conteggi, le versioni e le impostazioni degli strumenti che la landing page e la documentazione stampano, letti dal repository al momento della build; vedi [Traduzioni e contenuti](/docs/conventions/translations).
 - `unused-primitives` (`scripts/unused-primitives.ts`): prima di Tailwind, esclude le classi di ogni primitiva shadcn che nessun sorgente dell'applicazione importa; vedi [Componenti shadcn](/docs/ui/shadcn-components).
 - `@tailwindcss/vite`: Tailwind CSS 4.
 - `tanstackStart`: routing, code splitting e prerendering delle pagine pubbliche.
 - `@vitejs/plugin-react`.
-- `deployedWorker` (`scripts/deployed-worker.ts`): dopo il prerendering ricompila il Worker senza l'MDX renderizzato e senza le traduzioni della landing e delle pagine legali; vedi [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+- `deployedWorker` (`scripts/deployed-worker.ts`): dopo il prerendering ricompila il Worker senza le pagine compilate della documentazione e del blog e senza le traduzioni della landing e delle pagine legali; vedi [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 - `saasyland:polar-sdk-optional-peers`: segna come esterne le dipendenze peer opzionali di `@polar-sh/sdk` non installate (`build.rolldownOptions.external`); vedi [Dipendenze](/docs/conventions/dependencies).
 
 Il server di sviluppo resta in ascolto su `localhost:3000` e non si avvia se la porta è occupata. `resolve.tsconfigPaths` fornisce l'alias di import `~/`. Lo stesso file contiene le sezioni `fmt`, `lint`, `staged` e `test`; vedi [Lint e formattazione](/docs/tooling/lint-format) e [Test](/docs/tooling/testing).

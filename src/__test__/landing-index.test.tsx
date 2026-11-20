@@ -25,10 +25,7 @@ vi.mock(import("~/src/lib/github"), async (importOriginal) => {
   return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock } }
 })
 
-vi.mock("collections/server", () => ({
-  blog: [],
-  docs: { toFumadocsSource: () => ({ files: [] }) },
-}))
+vi.mock("virtual:content-indexes", () => ({ loadBlogIndex: () => Promise.resolve([]) }))
 
 const createLandingRouter = () => {
   const router = getRouter()

@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, a light route tree, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, early skeletons, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, a light route tree, no docs or blog content in the Worker, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, early skeletons, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -28,13 +28,11 @@ One static import of a header name from a module that also imported the Polar cl
 
 ## Keep the route tree light
 
-The Worker hands every request that is neither a prerendered page nor a static file to TanStack Start, and Start loads the route tree before it does anything else, for a server function call as much as for a page it renders: `src/routeTree.gen.ts` and every module the route files import statically, including the handlers of server routes such as `/api/search`. A Worker isolate evaluates it on its first such request, and a server function loads its own chunk on its first call. Both happen while a visitor waits for a client navigation, so everything they import is part of the wait on a new isolate.
+The Worker hands every request that is neither a prerendered page nor a static file to TanStack Start, and Start loads the route tree before it does anything else, for a server function call as much as for a page it renders: `src/routeTree.gen.ts` and every module the route files import statically, including the handlers of server routes such as `/api/auth/$`. A Worker isolate evaluates it on its first such request, and a server function loads its own chunk on its first call. Both happen while a visitor waits for a client navigation, so everything they import is part of the wait on a new isolate.
 
 The docs and blog collections used to be eager: `.source/server.ts` imported the compiled MDX of every docs page and blog post in every locale, 1,305 modules with each page's headings and search text, and the Lucide icons plugin added the whole icon set for the few icons the docs meta files name. The docs layout, the docs pages, the landing page and the blog read that source through their server functions, and `/api/search` imported it statically, which put it in the route tree. On saasyland.com, a client navigation from `/` to `/docs` waited about 1.3 seconds for its two server functions on a new isolate, and about 25 ms on a warm one; the landing page and the blog paid the same on their first navigation.
 
-- `fumadocs.config.ts` makes both collections `async`. The source holds each page's frontmatter, and `page.data.load()` imports one page's compiled MDX when a request needs its headings or search text. The page tree and `getDocsPage` read frontmatter only; the landing page loads the posts it shows, the blog index the posts of one locale, a blog post itself, and `/api/search` every page on its first request.
-- `/api/search` imports `fumadocs.search.ts` in its handler, so the search index stays out of the route tree.
-- `fumadocs.icons.ts` imports only the icons the meta files name, and `fumadocs.icons.test.ts` fails when a meta file names an icon it does not import or it imports one that no meta file names.
+The collections became `async`, so the source kept each page's frontmatter and imported a page's compiled MDX only when a request needed its headings or search text, and `/api/search` imported its index in its handler. The next section took the content out of the Worker altogether. `fumadocs.icons.ts` imports only the icons the meta files name, and `fumadocs.icons.test.ts` fails when a meta file names an icon it does not import or it imports one that no meta file names.
 
 The sizes are what each part imports statically in the `bun run build:test` Worker, and the times are the median of five interleaved runs on a laptop:
 
@@ -47,7 +45,34 @@ The sizes are what each part imports statically in the `bun run build:test` Work
 | Evaluating the Fumadocs source in Node                                        | 375 ms                  | 24 ms                 |
 | First navigation from `/` to the `/docs` heading on a new `vp preview` Worker | 260 ms                  | 198 ms                |
 
-`scripts/verify-build.ts` follows the static imports of the route tree and of every server function in `dist/server` and fails the build when they reach a compiled docs or blog page. Most of what the route tree still loads, about 3 MiB, is Better Auth and the modules it imports, which `/api/auth/$`, the search schema of the auth pages and the CLI licence API import statically.
+Most of what the route tree still loads, about 3 MiB, is Better Auth and the modules it imports, which `/api/auth/$`, the search schema of the auth pages and the CLI licence API import statically.
+
+## The Worker holds no docs or blog content
+
+After the change above, the Worker still bundled the docs and blog: the compiled MDX of 1,305 pages, about 14.6 MiB of a 27.5 MiB upload, kept for `/api/search`, for the tables of contents and reading times of blog posts, and beside the frontmatter that the server functions of the docs, the blog and the landing page read. A request on a new isolate waited 1 to 2 seconds before any code ran, a client navigation through the docs on saasyland.com took 1.3 to 2.0 seconds on a new isolate and about 270 ms on a warm one, and a docs search took 9 to 18 seconds.
+
+Every build now turns the content into data the app imports as static files. `scripts/content-indexes.ts`, a Vite plugin, loads `fumadocs.indexes.ts` with Vite's module runner, which reads `content/docs` and `content/blog` with the collection schemas and Fumadocs' `loader` and builds, for each locale:
+
+- the docs index: the page tree, and the pages by slug with their title, description, section and MDX file;
+- the blog index: the published posts, newest first, with their frontmatter, table of contents and reading time;
+- the search index: Fumadocs' exported search database of the docs pages, which the build writes to `/assets/search-index-<locale>-<hash>.json`.
+
+`loadDocsIndex` and `loadBlogIndex` from `virtual:content-indexes` import a locale's docs or blog index, a chunk of its own under `/assets/`. The docs layout and pages, the blog, its posts and the landing page read them in their loaders, which run in the browser on a client navigation and on the server while prerendering, and a page's compiled MDX comes from its browser chunk as before. `run_worker_first` leaves `/assets/*` to Cloudflare's static assets, so a client navigation through the docs or the blog requests no Worker at all. The docs search downloads its locale's index on the first query and searches it in the browser (see [Docs site](/docs/features/docs-site#search)); `/api/search` is gone.
+
+The deployed Worker serves every docs page and blog post prerendered, so `scripts/deployed-worker.ts` resolves every import of a compiled page to one module that throws, and the build compiles none of them. `scripts/verify-build.ts` fails the build when any file of the deployed Worker holds a docs or blog module, when a locale has no search index, or when a locale's index does not hold exactly that locale's docs pages under their titles.
+
+The sizes come from the `bun run build:test` Worker, and the timings from the preview deployment, with headless Chromium and each sample on a new isolate, matched to the Worker's logs by its `cf-ray`:
+
+| Measure                                                                             | Before                        | After                         |
+| ----------------------------------------------------------------------------------- | ----------------------------- | ----------------------------- |
+| Worker upload, `wrangler deploy --dry-run`                                          | 30,115 KiB, 7,201 KiB gzipped | 13,465 KiB, 3,148 KiB gzipped |
+| Files in `dist/server`                                                              | 3,021                         | 1,590                         |
+| Compiled docs and blog pages in the deployed Worker                                 | 1,341                         | none                          |
+| Wait before the Worker's handler runs, first HTML request on a new isolate (median) | 934 ms                        | 561 ms                        |
+| Worker requests of a client navigation from `/` to `/docs` and on to a docs page    | 2 (0.9–2.6 s)                 | none                          |
+| Docs search, from the query to the first results                                    | 7.3–15.5 s                    | 0.8–1.8 s                     |
+
+`e2e/specs/content.spec.ts` checks that client navigations through the docs and the blog request nothing but static files, and that the docs search downloads the index of the page's locale only once someone searches.
 
 ## A slow navigation shows its skeleton at once
 
@@ -57,7 +82,7 @@ The sizes are what each part imports statically in the `bun run build:test` Work
 - A navigation that is still loading after the delay shows its route's skeleton for exactly as long as it keeps loading: `defaultPendingMinMs` is <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, so the router removes the skeleton the moment the page is ready instead of holding it on screen.
 - The docs pages have skeletons of their own, `DocsIndexPending` and `DocsPagePending`, which fill the article and table of contents beside the sidebar, so a slow navigation between docs pages shows the shape of the next page instead of leaving the previous one in place.
 
-`e2e/specs/content.spec.ts` holds the server functions of a navigation to `/docs` and of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they answer. These tests turn on data saver first, so the header does not load the docs before the click.
+`e2e/specs/content.spec.ts` holds the docs index of a navigation to `/docs` and the compiled MDX of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they arrive. These tests turn on data saver first, so the header does not load the docs before the click.
 
 ## The header's pages load before a click
 

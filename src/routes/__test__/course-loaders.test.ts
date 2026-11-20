@@ -21,8 +21,6 @@ import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 const load = async (path: string) => {
   const router = getRouter()
   router.options.context.queryClient.setDefaultOptions({ queries: { retry: false } })

@@ -5,8 +5,6 @@ import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin route loaders", () => {

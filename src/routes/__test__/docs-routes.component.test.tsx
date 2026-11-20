@@ -34,7 +34,6 @@ const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
   tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } },
 }
 
-vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: {} }))
 vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => ({
   ...(await original<typeof docsIntegration>()),
   loadDocsPage: vi.fn(),

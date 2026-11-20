@@ -11,30 +11,30 @@ import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const { getPage, getPageTree, preload } = vi.hoisted(() => ({
-  getPage: vi.fn<
-    (slugs: string[], locale: string) => { data: { title: string; description?: string }; path: string; url: string } | undefined
-  >(() => ({
-    data: { description: "Start your project", title: "Getting started" },
-    path: "getting-started.mdx",
-    url: "/docs/getting-started",
-  })),
-  getPageTree: vi.fn(() => ({
-    $id: "root",
-    children: [
-      {
-        $id: "getting-started",
-        children: [{ $id: "page", name: "Getting started", type: "page" as const, url: "/docs/getting-started" }],
-        name: "Basics",
-        type: "folder" as const,
-      },
-    ],
-    name: "Docs",
-  })),
-  preload: vi.fn<(path: string) => Promise<void>>(() => Promise.resolve()),
-}))
+const { loadDocsIndex, preload } = vi.hoisted(() => {
+  const page = {
+    description: "Start your project",
+    path: "getting-started.en-US.mdx",
+    pathname: "/docs/getting-started",
+    section: "Basics",
+    title: "Getting started",
+  }
 
-vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: { getPage, getPageTree } }))
+  return {
+    loadDocsIndex: vi.fn((locale: string) =>
+      Promise.resolve({
+        pages: {
+          "": { description: "", locale, path: `index.${locale}.mdx`, pathname: "/docs", section: undefined, title: "Docs" },
+          "getting-started": { ...page, locale },
+        },
+        tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Docs" } },
+      }),
+    ),
+    preload: vi.fn<(path: string) => Promise<void>>(() => Promise.resolve()),
+  }
+})
+
+vi.mock("virtual:content-indexes", () => ({ loadDocsIndex }))
 vi.mock("~/src/presentation/components/custom/docs-content", () => ({ docsContent: { preload } }))
 
 afterEach(() => {
@@ -42,38 +42,33 @@ afterEach(() => {
 })
 
 describe("documentation loader", () => {
-  it("loads the requested page and preloads its MDX content", async () => {
-    await expect(loadDocsPage("getting-started")).resolves.toEqual({
+  it("finds the requested page in the locale's docs index and preloads its MDX content", async () => {
+    await expect(loadDocsPage("getting-started")).resolves.toStrictEqual({
       description: "Start your project",
       locale: "en-US",
-      path: "getting-started.mdx",
+      path: "getting-started.en-US.mdx",
       pathname: "/docs/getting-started",
       section: "Basics",
       title: "Getting started",
     })
-    expect(getPage).toHaveBeenCalledExactlyOnceWith(["getting-started"], "en-US")
-    expect(getPageTree).toHaveBeenCalledExactlyOnceWith("en-US")
-    expect(preload).toHaveBeenCalledExactlyOnceWith("getting-started.mdx")
+    expect(loadDocsIndex).toHaveBeenCalledExactlyOnceWith("en-US")
+    expect(preload).toHaveBeenCalledExactlyOnceWith("getting-started.en-US.mdx")
   })
 
-  it("loads the docs index and normalizes a missing description", async () => {
-    getPage.mockReturnValueOnce({ data: { title: "Docs" }, path: "index.mdx", url: "/docs" })
+  it("loads the docs home without a splat", async () => {
     await expect(loadDocsPage()).resolves.toMatchObject({ description: "", pathname: "/docs", section: undefined, title: "Docs" })
-    expect(getPage).toHaveBeenCalledExactlyOnceWith([], "en-US")
+    expect(preload).toHaveBeenCalledExactlyOnceWith("index.en-US.mdx")
   })
 
-  it("returns not found without preloading a missing document", async () => {
-    getPage.mockReturnValueOnce(undefined)
-    await expect(loadDocsPage("missing")).rejects.toMatchObject({ isNotFound: true })
+  it.each(["missing", "constructor", "getting-started/extra"])("returns not found for %s without preloading", async (splat) => {
+    await expect(loadDocsPage(splat)).rejects.toMatchObject({ isNotFound: true })
     expect(preload).not.toHaveBeenCalled()
   })
 
-  it("loads the page's locale when the server function request carries another locale's cookie", async () => {
-    vi.mocked(getRequest)
-      .mockReturnValueOnce(new Request("http://127.0.0.1:3000/pl-PL/docs/getting-started"))
-      .mockReturnValue(new Request("http://127.0.0.1:3000/_serverFn/docs-page", { headers: { cookie: `${I18N.COOKIE_NAME}=en-US` } }))
+  it("loads the docs index of the page's locale", async () => {
+    vi.mocked(getRequest).mockReturnValueOnce(new Request("http://127.0.0.1:3000/pl-PL/docs/getting-started"))
     await expect(loadDocsPage("getting-started")).resolves.toMatchObject({ locale: "pl-PL" })
-    expect(getPage).toHaveBeenCalledExactlyOnceWith(["getting-started"], "pl-PL")
+    expect(loadDocsIndex).toHaveBeenCalledExactlyOnceWith("pl-PL")
   })
 })
 

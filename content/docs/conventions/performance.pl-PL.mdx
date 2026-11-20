@@ -1,6 +1,6 @@
 ---
 title: "Wydajność"
-description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, lekkie drzewo tras, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, wczesne szkielety, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
+description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, lekkie drzewo tras, brak treści dokumentacji i bloga w Workerze, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, wczesne szkielety, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
 ---
 
 Każda reguła na tej stronie wynika z pomiaru, a kilka z nich zastąpiło intuicyjną poprawkę, która pogorszyła sytuację. Zmieniaj kod stojący za którąkolwiek z nich tylko wtedy, gdy nowy pomiar wypadnie lepiej.
@@ -28,13 +28,11 @@ Jeden statyczny import nazwy nagłówka z modułu, który importował też klien
 
 ## Lekkie drzewo tras [#keep-the-route-tree-light]
 
-Worker przekazuje do TanStack Start każde żądanie, które nie jest ani prerenderowaną stroną, ani plikiem statycznym, a Start, zanim zrobi cokolwiek innego, ładuje drzewo tras, zarówno przy wywołaniu funkcji serwerowej, jak i przy renderowaniu strony: `src/routeTree.gen.ts` i każdy moduł, który pliki tras importują statycznie, w tym handlery tras serwerowych, takich jak `/api/search`. Izolat Workera wykonuje je przy pierwszym takim żądaniu, a funkcja serwerowa ładuje własny chunk przy pierwszym wywołaniu. Jedno i drugie dzieje się wtedy, gdy odwiedzający czeka na nawigację po stronie klienta, więc wszystko, co importują, jest na nowym izolacie częścią tego oczekiwania.
+Worker przekazuje do TanStack Start każde żądanie, które nie jest ani prerenderowaną stroną, ani plikiem statycznym, a Start, zanim zrobi cokolwiek innego, ładuje drzewo tras, zarówno przy wywołaniu funkcji serwerowej, jak i przy renderowaniu strony: `src/routeTree.gen.ts` i każdy moduł, który pliki tras importują statycznie, w tym handlery tras serwerowych, takich jak `/api/auth/$`. Izolat Workera wykonuje je przy pierwszym takim żądaniu, a funkcja serwerowa ładuje własny chunk przy pierwszym wywołaniu. Jedno i drugie dzieje się wtedy, gdy odwiedzający czeka na nawigację po stronie klienta, więc wszystko, co importują, jest na nowym izolacie częścią tego oczekiwania.
 
 Kolekcje dokumentacji i bloga były wcześniej ładowane z góry: `.source/server.ts` importował skompilowany MDX każdej strony dokumentacji i każdego wpisu na blogu we wszystkich językach, 1305 modułów z nagłówkami i tekstem do wyszukiwania każdej strony, a plugin ikon Lucide dodawał cały zestaw ikon dla kilku ikon wymienionych w plikach meta dokumentacji. Layout dokumentacji, strony dokumentacji, strona główna i blog czytały to źródło przez swoje funkcje serwerowe, a `/api/search` importował je statycznie, co umieszczało je w drzewie tras. Na saasyland.com nawigacja po stronie klienta z `/` na `/docs` czekała na swoje dwie funkcje serwerowe około 1,3 sekundy na nowym izolacie i około 25 ms na rozgrzanym; strona główna i blog płaciły tyle samo przy swojej pierwszej nawigacji.
 
-- `fumadocs.config.ts` ustawia obie kolekcje jako `async`. Źródło przechowuje frontmatter każdej strony, a `page.data.load()` importuje skompilowany MDX jednej strony, gdy żądanie potrzebuje jej nagłówków lub tekstu do wyszukiwania. Drzewo stron i `getDocsPage` czytają tylko frontmatter; strona główna ładuje wpisy, które pokazuje, indeks bloga wpisy w jednym języku, strona wpisu tylko ten wpis, a `/api/search` wszystkie strony przy swoim pierwszym żądaniu.
-- `/api/search` importuje `fumadocs.search.ts` w swoim handlerze, więc indeks wyszukiwania nie trafia do drzewa tras.
-- `fumadocs.icons.ts` importuje tylko ikony wymienione w plikach meta, a `fumadocs.icons.test.ts` kończy się błędem, gdy plik meta wymienia ikonę, której ten plik nie importuje, albo gdy importuje on ikonę, której nie wymienia żaden plik meta.
+Kolekcje stały się `async`, więc źródło przechowywało frontmatter każdej strony i importowało skompilowany MDX strony dopiero wtedy, gdy żądanie potrzebowało jej nagłówków lub tekstu do wyszukiwania, a `/api/search` importował swój indeks w handlerze. Zmiana opisana w następnej sekcji całkowicie usunęła treść z Workera. `fumadocs.icons.ts` importuje tylko ikony wymienione w plikach meta, a `fumadocs.icons.test.ts` kończy się błędem, gdy plik meta wymienia ikonę, której ten plik nie importuje, albo gdy importuje on ikonę, której nie wymienia żaden plik meta.
 
 Rozmiary obejmują to, co każda z części importuje statycznie w Workerze zbudowanym przez `bun run build:test`, a czasy są medianą pięciu naprzemiennych przebiegów na laptopie:
 
@@ -47,7 +45,34 @@ Rozmiary obejmują to, co każda z części importuje statycznie w Workerze zbud
 | Wykonanie źródła Fumadocs w Node                                            | 375 ms                 | 24 ms                |
 | Pierwsza nawigacja z `/` do nagłówka `/docs` na nowym Workerze `vp preview` | 260 ms                 | 198 ms               |
 
-`scripts/verify-build.ts` śledzi statyczne importy drzewa tras i każdej funkcji serwerowej w `dist/server` i przerywa build, gdy docierają one do skompilowanej strony dokumentacji lub wpisu na blogu. Większość tego, co drzewo tras nadal ładuje, około 3 MiB, to Better Auth i importowane przez niego moduły; statycznie importują je `/api/auth/$`, schemat parametrów wyszukiwania stron uwierzytelniania i API licencji CLI.
+Większość tego, co drzewo tras nadal ładuje, około 3 MiB, to Better Auth i importowane przez niego moduły; statycznie importują je `/api/auth/$`, schemat parametrów wyszukiwania stron uwierzytelniania i API licencji CLI.
+
+## Worker nie zawiera treści dokumentacji ani bloga [#the-worker-holds-no-docs-or-blog-content]
+
+Po opisanej wyżej zmianie Worker nadal zawierał w bundlu dokumentację i blog: skompilowany MDX 1305 stron, około 14,6 MiB z 27,5 MiB przesyłanego pakietu, trzymany dla `/api/search`, dla spisów treści i czasu czytania wpisów na blogu oraz obok frontmattera, który czytały funkcje serwerowe dokumentacji, bloga i strony głównej. Żądanie na nowym izolacie czekało od 1 do 2 sekund, zanim wykonał się jakikolwiek kod, nawigacja po stronie klienta w dokumentacji na saasyland.com trwała od 1,3 do 2,0 sekundy na nowym izolacie i około 270 ms na rozgrzanym, a wyszukiwanie w dokumentacji trwało od 9 do 18 sekund.
+
+Teraz każdy build zamienia treść w dane, które aplikacja importuje jako pliki statyczne. `scripts/content-indexes.ts`, plugin Vite, ładuje `fumadocs.indexes.ts` przez module runner Vite, a ten czyta `content/docs` i `content/blog` za pomocą schematów kolekcji i funkcji `loader` z Fumadocs i buduje dla każdego języka:
+
+- indeks dokumentacji: drzewo stron oraz strony według sluga, z ich tytułem, opisem, sekcją i plikiem MDX;
+- indeks bloga: opublikowane wpisy, od najnowszego, z ich frontmatterem, spisem treści i czasem czytania;
+- indeks wyszukiwania: wyeksportowaną bazę wyszukiwania Fumadocs ze stronami dokumentacji, którą build zapisuje w `/assets/search-index-<locale>-<hash>.json`.
+
+`loadDocsIndex` i `loadBlogIndex` z `virtual:content-indexes` importują indeks dokumentacji lub bloga danego języka, osobny chunk pod `/assets/`. Layout i strony dokumentacji, blog, jego wpisy i strona główna czytają je w swoich loaderach, które działają w przeglądarce przy nawigacji po stronie klienta i na serwerze podczas prerenderingu; skompilowany MDX strony pochodzi, tak jak wcześniej, z jej chunka przeglądarkowego. `run_worker_first` zostawia `/assets/*` zasobom statycznym Cloudflare, więc nawigacja po stronie klienta w dokumentacji lub na blogu nie wysyła do Workera żadnego żądania. Wyszukiwarka dokumentacji pobiera indeks swojego języka przy pierwszym zapytaniu i przeszukuje go w przeglądarce (zobacz [Serwis dokumentacji](/docs/features/docs-site#search)); `/api/search` zniknął.
+
+Wdrażany Worker serwuje każdą stronę dokumentacji i każdy wpis na blogu jako prerenderowane, więc `scripts/deployed-worker.ts` rozwiązuje każdy import skompilowanej strony do jednego modułu, który rzuca wyjątek, a build nie kompiluje żadnej z tych stron. `scripts/verify-build.ts` przerywa build, gdy którykolwiek plik wdrażanego Workera zawiera moduł dokumentacji lub bloga, gdy dla któregoś języka brakuje indeksu wyszukiwania albo gdy indeks danego języka nie zawiera dokładnie stron dokumentacji w tym języku pod ich tytułami.
+
+Rozmiary pochodzą z Workera zbudowanego przez `bun run build:test`, a czasy z wdrożenia preview, zmierzone w Chromium w trybie headless, każda próbka na nowym izolacie, dopasowana do logów Workera po jej `cf-ray`:
+
+| Pomiar                                                                                               | Przed                                  | Po                                     |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------- |
+| Przesyłany pakiet Workera, `wrangler deploy --dry-run`                                               | 30 115 KiB, 7201 KiB po kompresji gzip | 13 465 KiB, 3148 KiB po kompresji gzip |
+| Pliki w `dist/server`                                                                                | 3021                                   | 1590                                   |
+| Skompilowane strony dokumentacji i bloga we wdrażanym Workerze                                       | 1341                                   | brak                                   |
+| Oczekiwanie na uruchomienie handlera Workera, pierwsze żądanie HTML na nowym izolacie (mediana)      | 934 ms                                 | 561 ms                                 |
+| Żądania do Workera przy nawigacji po stronie klienta z `/` do `/docs` i dalej do strony dokumentacji | 2 (0,9–2,6 s)                          | brak                                   |
+| Wyszukiwanie w dokumentacji, od zapytania do pierwszych wyników                                      | 7,3–15,5 s                             | 0,8–1,8 s                              |
+
+`e2e/specs/content.spec.ts` sprawdza, że nawigacje po stronie klienta w dokumentacji i na blogu pobierają wyłącznie pliki statyczne oraz że wyszukiwarka dokumentacji pobiera indeks języka strony dopiero wtedy, gdy ktoś zacznie szukać.
 
 ## Wolna nawigacja od razu pokazuje szkielet [#a-slow-navigation-shows-its-skeleton-at-once]
 
@@ -57,7 +82,7 @@ Rozmiary obejmują to, co każda z części importuje statycznie w Workerze zbud
 - Nawigacja, która po upływie opóźnienia nadal się ładuje, pokazuje szkielet swojej trasy dokładnie tak długo, jak trwa ładowanie: `defaultPendingMinMs` wynosi <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, więc router usuwa szkielet w chwili, gdy strona jest gotowa, zamiast trzymać go na ekranie.
 - Strony dokumentacji mają własne szkielety, `DocsIndexPending` i `DocsPagePending`, które wypełniają artykuł i spis treści obok paska bocznego, więc wolna nawigacja między stronami dokumentacji pokazuje kształt następnej strony, zamiast zostawiać na miejscu poprzednią.
 
-`e2e/specs/content.spec.ts` wstrzymuje funkcje serwerowe nawigacji do `/docs` i nawigacji między stronami dokumentacji i sprawdza, że dopóki nie odpowiedzą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny. Testy najpierw włączają oszczędzanie danych, żeby nagłówek nie załadował dokumentacji przed kliknięciem.
+`e2e/specs/content.spec.ts` wstrzymuje indeks dokumentacji przy nawigacji do `/docs` i skompilowany MDX przy nawigacji między stronami dokumentacji i sprawdza, że dopóki nie dotrą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny. Testy najpierw włączają oszczędzanie danych, żeby nagłówek nie załadował dokumentacji przed kliknięciem.
 
 ## Strony nagłówka ładują się przed kliknięciem [#the-headers-pages-load-before-a-click]
 

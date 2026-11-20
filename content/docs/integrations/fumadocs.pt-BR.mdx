@@ -3,19 +3,29 @@ title: "Fumadocs"
 description: "Coleções MDX para a documentação e o blog, fontes localizadas e busca."
 ---
 
-O Fumadocs transforma `content/docs` e `content/blog` em árvores de páginas localizadas. `bun run content` executa `fumadocs-mdx` e grava `.source/`; `dev`, `typegen` e todos os scripts de build o executam antes. As duas coleções são `async`: o Worker guarda o frontmatter de todas as páginas e importa o MDX compilado de uma página com `page.data.load()` quando uma requisição precisa dos títulos ou do texto de busca dela (veja [Desempenho](/docs/conventions/performance#keep-the-route-tree-light)).
+O Fumadocs transforma `content/docs` e `content/blog` em páginas localizadas. `bun run content` executa `fumadocs-mdx` e grava `.source/`; `dev`, `typegen` e todos os scripts de build o executam antes. O app lê o MDX compilado de uma página em `.source/browser.ts`, no navegador e durante a pré-renderização, e todo o resto sobre o conteúdo nos índices descritos abaixo, então o Worker do deploy não contém nenhum conteúdo (veja [Desempenho](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)).
 
 | Arquivo                 | Finalidade                                                                                                                                                                                                       |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fumadocs.config.ts`    | As coleções `docs` e `blog`, ambas `async`, o schema de frontmatter do blog, e os temas e substituições de cor do realce de código                                                                               |
+| `fumadocs.config.ts`    | As coleções `docs` e `blog`, ambas `async`, e os temas e substituições de cor do realce de código                                                                                                                |
+| `fumadocs.schema.ts`    | O schema de frontmatter do blog                                                                                                                                                                                  |
 | `fumadocs.i18n.ts`      | Os locales de `I18N`, `en-US` como padrão e fallback, o parser `dot` para `<slug>.<locale>.mdx`, prefixo de locale oculto                                                                                        |
-| `fumadocs.source.ts`    | `source` em `/docs` com os ícones de `docsIcon`, `blogSource` em `/blog`, `getPublishedBlogPages`, e `getPublishedBlogPosts` com tempo de leitura                                                                |
+| `fumadocs.indexes.ts`   | Roda no build: lê `content/docs` e `content/blog` e monta o índice da documentação, o índice do blog e o índice de busca de cada locale                                                                          |
 | `fumadocs.icons.ts`     | `DOCS_ICONS`, os ícones Lucide que os arquivos meta nomeiam, e `docsIcon`, que transforma o `icon` de um arquivo meta no ícone correspondente                                                                    |
-| `fumadocs.docs.ts`      | A server function `getDocsPage`, `loadDocsPage` e `docsHead` para a rota `docs.$`                                                                                                                                |
-| `fumadocs.search.ts`    | O índice de busca servido por `/api/search`                                                                                                                                                                      |
+| `fumadocs.docs.ts`      | `loadDocsPage` e `docsHead` para a rota `docs.$`                                                                                                                                                                 |
+| `fumadocs.blog.ts`      | `toBlogPostSummary`, que formata o título de um post e localiza a URL dele                                                                                                                                       |
 | `fumadocs.changelog.ts` | O plugin `changelogEntries`, que substitui `<ChangelogEntries unreleased="…" />` na página do changelog pelas entradas de `content/changelog` no locale da página, sob o dia UTC em que cada uma chegou à `main` |
 
 O prefixo de locale fica oculto nas URLs do Fumadocs porque o roteador o adiciona. O frontmatter do blog exige `title`, `authorName` e `date` e aceita `description`, `excerpt`, `faq`, `featured`, `image`, `published`, `tags`, `updated` e `authorImage`.
+
+## Índices de conteúdo [#content-indexes]
+
+`scripts/content-indexes.ts` é um plugin do Vite que carrega `fumadocs.indexes.ts` com o module runner do Vite e serve o que ele monta como módulos virtuais, no build e no servidor de desenvolvimento, onde uma edição em `content/` os monta de novo:
+
+- `virtual:content-indexes`: `loadDocsIndex(locale)` retorna a árvore de páginas serializada de um locale e as páginas dele por slug, cada uma com título, descrição, seção e arquivo MDX; `loadBlogIndex(locale)` retorna os posts publicados de um locale, dos mais recentes para os mais antigos, com o frontmatter, o sumário e o tempo de leitura de cada um. O índice de cada locale é um chunk próprio, que um loader importa na primeira vez que precisa dele.
+- `virtual:docs-search`: `SEARCH_INDEXES` retorna a URL do índice de busca de cada locale. O build grava cada índice em `/assets/search-index-<locale>-<hash>.json` com o `createSearchAPI("advanced")` do Fumadocs, a partir dos títulos e do texto que o `structure` do Fumadocs lê de cada página, com as entradas do changelog na página do changelog e as trilhas de navegação que a própria busca do Fumadocs daria a ela.
+
+`fumadocs.indexes.ts` valida o frontmatter de cada página com o schema da coleção e monta as árvores com o `loader` do Fumadocs, as configurações de i18n de `fumadocs.i18n.ts` e os ícones de `docsIcon`. O sumário de um post do blog vem de `getTableOfContents`, e o tempo de leitura dele, das palavras do seu texto, contadas com `Intl.Segmenter` para o seu idioma.
 
 ## Componentes
 

@@ -12,8 +12,6 @@ import { user } from "~/src/modules/user/user.schema"
 import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
 import { Route as UsersIndexRoute } from "~/src/routes/admin.users.index"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin user route loaders", () => {

@@ -25,7 +25,6 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVideosRouteImport } from './routes/admin.videos'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
-import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppLicenseRouteImport } from './routes/app.license'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
@@ -149,11 +148,6 @@ const AdminVideosRoute = AdminVideosRouteImport.update({
 const ApiIndexRoute = ApiIndexRouteImport.update({
   id: '/api/',
   path: '/api/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSearchRoute = ApiSearchRouteImport.update({
-  id: '/api/search',
-  path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -409,7 +403,6 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/admin/videos': typeof AdminVideosRoute
-  '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -467,7 +460,6 @@ export interface FileRoutesByTo {
   '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/videos': typeof AdminVideosRoute
-  '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -530,7 +522,6 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/admin/videos': typeof AdminVideosRoute
-  '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -596,7 +587,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/users'
     | '/admin/videos'
-    | '/api/search'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -654,7 +644,6 @@ export interface FileRouteTypes {
     | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/videos'
-    | '/api/search'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -716,7 +705,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/users'
     | '/admin/videos'
-    | '/api/search'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -772,7 +760,6 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
-  ApiSearchRoute: typeof ApiSearchRoute
   ApiIndexRoute: typeof ApiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCliV1ActivationsRoute: typeof ApiCliV1ActivationsRouteWithChildren
@@ -891,13 +878,6 @@ declare module '@tanstack/react-router' {
       path: '/api'
       fullPath: '/api/'
       preLoaderRoute: typeof ApiIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/search': {
-      id: '/api/search'
-      path: '/api/search'
-      fullPath: '/api/search'
-      preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -1453,7 +1433,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-  ApiSearchRoute: ApiSearchRoute,
   ApiIndexRoute: ApiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCliV1ActivationsRoute: ApiCliV1ActivationsRouteWithChildren,

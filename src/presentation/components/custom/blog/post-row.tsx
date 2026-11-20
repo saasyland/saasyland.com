@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 
 import { HighlightItem } from "~/src/presentation/components/custom/highlight"
 

@@ -1,10 +1,12 @@
 import { Transpiler, YAML } from "bun"
+import { staticClient } from "fumadocs-core/search/client/orama-static"
 import { accessSync, existsSync, globSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import process from "node:process"
+import { pathToFileURL } from "node:url"
 import { z } from "zod/v4"
 
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
@@ -22,9 +24,8 @@ const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
 const SERVER_DIR = "dist/server"
 const WORKER_ENTRY_MODULE = "// src/server.ts"
 const ROUTE_TREE_MODULE = "// src/routeTree.gen.ts"
-const SERVER_FUNCTION_RESOLVER_MODULE = String.raw`// \0%23tanstack-start-server-fn-resolver`
-const SERVER_FUNCTION_IMPORTER = /importer: \(\) => import\("(?<chunk>\.\/[^"]+)"\)/gu
-const COMPILED_CONTENT_MODULE = /^\/\/ content\/.+\.mdx\?collection=[\w-]+$/mu
+const CONTENT_MODULE = /^\/\/ content\/.+\?collection=[\w-]+/mu
+const SEARCH_INDEX = /^search-index-(?<locale>[a-zA-Z-]+)-[\da-f]+\.json$/u
 const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 const CLIENT_ENTRY_SCRIPT = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/(?<entry>assets\/[^"]+)")[^>]*>/u
@@ -37,8 +38,9 @@ const SEO_LINKS = localeLinks({ origin: "", pathname: ROUTES.HOME })
 const CANONICAL_LINKS = SEO_LINKS.filter(({ rel }) => rel === "canonical").length
 const ALTERNATE_LINKS = SEO_LINKS.filter(({ rel }) => rel === "alternate").length
 
+const DOCS_DIRECTORY = "content/docs"
 const CONTENT_ROUTES = [
-  { directory: "content/docs", route: ROUTES.DOCS },
+  { directory: DOCS_DIRECTORY, route: ROUTES.DOCS },
   { directory: "content/blog", route: ROUTES.BLOG },
 ]
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
@@ -49,14 +51,19 @@ const deploymentSchema = z.object({ configPath: z.string() })
 const workerConfigSchema = z.object({ name: z.string() })
 const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })
 const frontmatterSchema = z.object({ yaml: z.string() })
-const serverFunctionSchema = z.object({ chunk: z.string() })
+const searchIndexSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES) })
 const publicationSchema = z.object({ published: z.boolean().default(true) })
+const titleSchema = z.object({ title: z.string() })
+const PAGE_RESULT = "page"
+const ALL_RESULTS = { limit: Number.MAX_SAFE_INTEGER }
 
-const isPublished = (file: string): boolean => {
+const frontmatterOf = (file: string): unknown => {
   const { yaml } = frontmatterSchema.parse(FRONTMATTER.exec(readFileSync(file, "utf8"))?.groups)
 
-  return publicationSchema.parse(YAML.parse(yaml)).published
+  return YAML.parse(yaml)
 }
+
+const isPublished = (file: string): boolean => publicationSchema.parse(frontmatterOf(file)).published
 
 const environment = environmentSchema.parse(process.argv[SCRIPT_ARGUMENTS_START])
 const deployment = deploymentSchema.parse(JSON.parse(readFileSync(DEPLOY_CONFIG_PATH, "utf8")))
@@ -205,28 +212,51 @@ if (bootBytes > BOOT_CLOSURE_MAX_BYTES) {
   throw new Error(`The Worker loads ${String(bootBytes)} bytes on every cold start, more than BOOT_CLOSURE_MAX_BYTES`)
 }
 
-const routeTree = chunkOf(ROUTE_TREE_MODULE)
-const resolver = chunkOf(SERVER_FUNCTION_RESOLVER_MODULE)
-const serverFunctions = [...readFileSync(resolver, "utf8").matchAll(SERVER_FUNCTION_IMPORTER)].map(({ groups }) =>
-  resolve(dirname(resolver), serverFunctionSchema.parse(groups).chunk),
-)
+const contentChunks = serverChunks.filter((file) => CONTENT_MODULE.test(readFileSync(file, "utf8")))
 
-if (serverFunctions.length === 0) {
-  throw new Error(`${relative(process.cwd(), resolver)} lists no server functions`)
+if (contentChunks.length > 0) {
+  throw new Error(
+    `The deployed Worker holds docs or blog content in ${contentChunks.map((file) => relative(process.cwd(), file)).join(", ")}; it serves those pages prerendered and reads the content indexes`,
+  )
 }
 
-for (const entry of [routeTree, ...serverFunctions]) {
-  const pages = staticClosureOf(entry).filter((file) => COMPILED_CONTENT_MODULE.test(readFileSync(file, "utf8")))
+const searchIndexes = readdirSync(ASSETS_DIR).flatMap((name) => {
+  const groups = SEARCH_INDEX.exec(name)?.groups
 
-  if (pages.length > 0) {
+  return groups === undefined ? [] : [{ locale: searchIndexSchema.parse(groups).locale, name }]
+})
+
+const docsPage = (file: string): string => {
+  const { slug } = contentPageSchema.parse(CONTENT_PAGE.exec(file)?.groups)
+  const { title } = titleSchema.parse(frontmatterOf(join(DOCS_DIRECTORY, file)))
+
+  return `${[ROUTES.DOCS, slug].filter(Boolean).join("/")} ${title}`
+}
+
+const verifySearchIndex = async (locale: SupportedLocale): Promise<void> => {
+  const indexes = searchIndexes.filter((index) => index.locale === locale)
+
+  if (indexes.length !== 1) {
+    throw new Error(`Expected one docs search index for ${locale} in ${ASSETS_DIR}, found ${String(indexes.length)}`)
+  }
+
+  const from = pathToFileURL(resolve(ASSETS_DIR, indexes[0]?.name ?? "")).href
+  const results = await staticClient({ from, search: ALL_RESULTS }).search("")
+  const indexed = results.filter(({ type }) => type === PAGE_RESULT).map(({ content, url }) => `${url} ${content}`)
+  const pages = globSync(`**/*.${locale}.mdx`, { cwd: DOCS_DIRECTORY }).map((file) => docsPage(file))
+
+  if (indexed.toSorted().join("\n") !== pages.toSorted().join("\n")) {
     throw new Error(
-      `${relative(process.cwd(), entry)} loads the compiled MDX of ${String(pages.length)} docs and blog pages on its first request; load a page when a request needs it`,
+      `The ${locale} docs search index does not hold exactly the ${String(pages.length)} pages of ${DOCS_DIRECTORY} under their ${locale} titles`,
     )
   }
 }
 
-const routeTreeBytes = bytesOf(staticClosureOf(routeTree))
+await Promise.all(I18N.SUPPORTED_LOCALES.map((locale) => verifySearchIndex(locale)))
+
+const serverBytes = bytesOf(serverChunks)
+const routeTreeBytes = bytesOf(staticClosureOf(chunkOf(ROUTE_TREE_MODULE)))
 
 process.stdout.write(
-  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, the ${String(bootBytes)} bytes the Worker loads on a cold start, and the ${String(routeTreeBytes)} bytes of the route tree and the ${String(serverFunctions.length)} server functions, none of which loads a compiled docs or blog page.\n`,
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, the ${String(bootBytes)} bytes the Worker loads on a cold start, the ${String(routeTreeBytes)} bytes of the route tree, a Worker of ${String(serverChunks.length)} files and ${String(serverBytes)} bytes without any docs or blog content, and one docs search index per locale with every docs page of that locale.\n`,
 )

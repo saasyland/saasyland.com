@@ -1,6 +1,6 @@
 ---
 title: "Rendimiento"
-description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, un árbol de rutas ligero, ningún ORM en el navegador, mensajes cargados bajo demanda, sugerencias de precarga eliminadas, la ubicación de los proveedores, esqueletos tempranos, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
+description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, un árbol de rutas ligero, ningún contenido de la documentación ni del blog en el Worker, ningún ORM en el navegador, mensajes cargados bajo demanda, sugerencias de precarga eliminadas, la ubicación de los proveedores, esqueletos tempranos, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
 ---
 
 Cada regla de esta página salió de una medición, y varias sustituyeron una solución intuitiva que empeoraba las cosas. Cambia el código que hay detrás de una de ellas solo con una nueva medición que la supere.
@@ -28,13 +28,11 @@ Una vez, una sola importación estática del nombre de una cabecera desde un mó
 
 ## Mantén ligero el árbol de rutas [#keep-the-route-tree-light]
 
-El Worker pasa a TanStack Start cada petición que no es ni una página prerenderizada ni un archivo estático, y Start carga el árbol de rutas antes de hacer nada más, tanto para la llamada a una función de servidor como para una página que renderiza: `src/routeTree.gen.ts` y todos los módulos que los archivos de ruta importan de forma estática, incluidos los handlers de las rutas de servidor como `/api/search`. Un isolate del Worker lo evalúa en su primera petición de ese tipo, y una función de servidor carga su propio chunk en su primera llamada. Ambas cosas ocurren mientras un visitante espera una navegación en el cliente, así que todo lo que importan forma parte de la espera en un isolate nuevo.
+El Worker pasa a TanStack Start cada petición que no es ni una página prerenderizada ni un archivo estático, y Start carga el árbol de rutas antes de hacer nada más, tanto para la llamada a una función de servidor como para una página que renderiza: `src/routeTree.gen.ts` y todos los módulos que los archivos de ruta importan de forma estática, incluidos los handlers de las rutas de servidor como `/api/auth/$`. Un isolate del Worker lo evalúa en su primera petición de ese tipo, y una función de servidor carga su propio chunk en su primera llamada. Ambas cosas ocurren mientras un visitante espera una navegación en el cliente, así que todo lo que importan forma parte de la espera en un isolate nuevo.
 
 Antes, las colecciones de la documentación y del blog se cargaban enteras de entrada: `.source/server.ts` importaba el MDX compilado de todas las páginas de la documentación y de todas las entradas del blog en todos los idiomas, 1305 módulos con los encabezados y el texto de búsqueda de cada página, y el plugin de iconos de Lucide añadía el conjunto completo de iconos para los pocos que nombran los archivos meta de la documentación. El layout de la documentación, las páginas de la documentación, la página de inicio y el blog leían esa fuente a través de sus funciones de servidor, y `/api/search` la importaba de forma estática, lo que la metía en el árbol de rutas. En saasyland.com, una navegación en el cliente de `/` a `/docs` esperaba unos 1,3 segundos a sus dos funciones de servidor en un isolate nuevo, y unos 25 ms en uno ya caliente; la página de inicio y el blog pagaban lo mismo en su primera navegación.
 
-- `fumadocs.config.ts` hace `async` las dos colecciones. La fuente guarda el frontmatter de cada página, y `page.data.load()` importa el MDX compilado de una página cuando una petición necesita sus encabezados o su texto de búsqueda. El árbol de páginas y `getDocsPage` solo leen el frontmatter; la página de inicio carga las entradas que muestra, el índice del blog las entradas de un idioma, una entrada del blog a sí misma, y `/api/search` todas las páginas en su primera petición.
-- `/api/search` importa `fumadocs.search.ts` dentro de su handler, así que el índice de búsqueda queda fuera del árbol de rutas.
-- `fumadocs.icons.ts` importa solo los iconos que nombran los archivos meta, y `fumadocs.icons.test.ts` falla cuando un archivo meta nombra un icono que no importa o cuando importa uno que ningún archivo meta nombra.
+Las colecciones pasaron a ser `async`, así que la fuente guardaba el frontmatter de cada página e importaba el MDX compilado de una página solo cuando una petición necesitaba sus encabezados o su texto de búsqueda, y `/api/search` importaba su índice dentro de su handler. La sección siguiente sacó el contenido del Worker por completo. `fumadocs.icons.ts` importa solo los iconos que nombran los archivos meta, y `fumadocs.icons.test.ts` falla cuando un archivo meta nombra un icono que no importa o cuando importa uno que ningún archivo meta nombra.
 
 Los tamaños son lo que cada parte importa de forma estática en el Worker de `bun run build:test`, y los tiempos son la mediana de cinco ejecuciones intercaladas en un portátil:
 
@@ -47,7 +45,34 @@ Los tamaños son lo que cada parte importa de forma estática en el Worker de `b
 | Evaluar la fuente de Fumadocs en Node                                                   | 375 ms                  | 24 ms                   |
 | Primera navegación de `/` al encabezado de `/docs` en un Worker nuevo de `vp preview`   | 260 ms                  | 198 ms                  |
 
-`scripts/verify-build.ts` sigue las importaciones estáticas del árbol de rutas y de cada función de servidor en `dist/server`, y hace fallar el build cuando llegan a una página compilada de la documentación o del blog. La mayor parte de lo que el árbol de rutas todavía carga, unos 3 MiB, es Better Auth y los módulos que importa, que `/api/auth/$`, el esquema de los parámetros de búsqueda de las páginas de autenticación y la API de licencias de la CLI importan de forma estática.
+La mayor parte de lo que el árbol de rutas todavía carga, unos 3 MiB, es Better Auth y los módulos que importa, que `/api/auth/$`, el esquema de los parámetros de búsqueda de las páginas de autenticación y la API de licencias de la CLI importan de forma estática.
+
+## El Worker no contiene contenido de la documentación ni del blog [#the-worker-holds-no-docs-or-blog-content]
+
+Tras el cambio anterior, el Worker seguía empaquetando la documentación y el blog: el MDX compilado de 1305 páginas, unos 14,6 MiB de una subida de 27,5 MiB, que se conservaba para `/api/search` y para las tablas de contenidos y los tiempos de lectura de las entradas del blog, junto al frontmatter que leían las funciones de servidor de la documentación, del blog y de la página de inicio. Una petición en un isolate nuevo esperaba de 1 a 2 segundos antes de que se ejecutara ningún código, una navegación en el cliente por la documentación en saasyland.com tardaba de 1,3 a 2,0 segundos en un isolate nuevo y unos 270 ms en uno ya caliente, y una búsqueda en la documentación tardaba de 9 a 18 segundos.
+
+Ahora cada build convierte el contenido en datos que la aplicación importa como archivos estáticos. `scripts/content-indexes.ts`, un plugin de Vite, carga `fumadocs.indexes.ts` con el module runner de Vite; ese módulo lee `content/docs` y `content/blog` con los esquemas de las colecciones y el `loader` de Fumadocs y construye, para cada idioma:
+
+- el índice de la documentación: el árbol de páginas y las páginas por slug, con su título, su descripción, su sección y su archivo MDX;
+- el índice del blog: las entradas publicadas, de la más reciente a la más antigua, con su frontmatter, su tabla de contenidos y su tiempo de lectura;
+- el índice de búsqueda: la base de datos de búsqueda que Fumadocs exporta a partir de las páginas de la documentación, y que el build escribe en `/assets/search-index-<locale>-<hash>.json`.
+
+`loadDocsIndex` y `loadBlogIndex` de `virtual:content-indexes` importan el índice de la documentación o del blog de un idioma, un chunk propio bajo `/assets/`. El layout y las páginas de la documentación, el blog, sus entradas y la página de inicio los leen en sus loaders, que se ejecutan en el navegador en una navegación en el cliente y en el servidor durante el prerenderizado, y el MDX compilado de una página sale de su chunk del navegador como antes. `run_worker_first` deja `/assets/*` a los assets estáticos de Cloudflare, así que una navegación en el cliente por la documentación o el blog no hace ninguna petición al Worker. La búsqueda de la documentación descarga el índice de su idioma con la primera consulta y busca en él dentro del navegador (consulta [Sitio de documentación](/docs/features/docs-site#search)); `/api/search` ya no existe.
+
+El Worker desplegado sirve prerenderizadas todas las páginas de la documentación y todas las entradas del blog, así que `scripts/deployed-worker.ts` resuelve cada importación de una página compilada a un único módulo que lanza un error, y el build no compila ninguna. `scripts/verify-build.ts` hace fallar el build cuando algún archivo del Worker desplegado contiene un módulo de la documentación o del blog, cuando un idioma no tiene índice de búsqueda o cuando el índice de un idioma no contiene exactamente las páginas de la documentación de ese idioma con sus títulos.
+
+Los tamaños salen del Worker de `bun run build:test`, y los tiempos, del despliegue de preview, con Chromium headless y cada muestra en un isolate nuevo, emparejada con los logs del Worker por su `cf-ray`:
+
+| Medida                                                                                                          | Antes                         | Después                       |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------- |
+| Subida del Worker, `wrangler deploy --dry-run`                                                                  | 30.115 KiB, 7201 KiB con gzip | 13.465 KiB, 3148 KiB con gzip |
+| Archivos en `dist/server`                                                                                       | 3021                          | 1590                          |
+| Páginas compiladas de la documentación y del blog en el Worker desplegado                                       | 1341                          | ninguna                       |
+| Espera antes de que se ejecute el handler del Worker, primera petición HTML en un isolate nuevo (mediana)       | 934 ms                        | 561 ms                        |
+| Peticiones al Worker de una navegación en el cliente de `/` a `/docs` y de ahí a una página de la documentación | 2 (0,9–2,6 s)                 | ninguna                       |
+| Búsqueda en la documentación, de la consulta a los primeros resultados                                          | 7,3–15,5 s                    | 0,8–1,8 s                     |
+
+`e2e/specs/content.spec.ts` comprueba que las navegaciones en el cliente por la documentación y el blog no piden nada más que archivos estáticos, y que la búsqueda de la documentación descarga el índice del idioma de la página solo cuando alguien busca.
 
 ## Una navegación lenta muestra su esqueleto enseguida [#a-slow-navigation-shows-its-skeleton-at-once]
 
@@ -57,7 +82,7 @@ Los tamaños son lo que cada parte importa de forma estática en el Worker de `b
 - Una navegación que sigue cargando pasado el retardo muestra el esqueleto de su ruta exactamente mientras sigue cargando: `defaultPendingMinMs` es <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, así que el router quita el esqueleto en cuanto la página está lista en lugar de retenerlo en pantalla.
 - Las páginas de la documentación tienen esqueletos propios, `DocsIndexPending` y `DocsPagePending`, que ocupan el artículo y la tabla de contenidos junto a la barra lateral, así que una navegación lenta entre páginas de la documentación muestra la forma de la página siguiente en lugar de dejar la anterior en su sitio.
 
-`e2e/specs/content.spec.ts` retiene las funciones de servidor de una navegación a `/docs` y de otra entre páginas de la documentación, y comprueba que cada una muestra su esqueleto, y la barra lateral en la segunda, hasta que responden. Estas pruebas activan antes el ahorro de datos, para que la cabecera no cargue la documentación antes del clic.
+`e2e/specs/content.spec.ts` retiene el índice de la documentación de una navegación a `/docs` y el MDX compilado de otra entre páginas de la documentación, y comprueba que cada una muestra su esqueleto, y la barra lateral en la segunda, hasta que llegan. Estas pruebas activan antes el ahorro de datos, para que la cabecera no cargue la documentación antes del clic.
 
 ## Las páginas de la cabecera cargan antes del clic [#the-headers-pages-load-before-a-click]
 

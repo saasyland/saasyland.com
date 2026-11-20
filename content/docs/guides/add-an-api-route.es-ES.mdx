@@ -10,7 +10,6 @@ Las rutas de API son handlers de servidor de TanStack Start en `src/routes/api/`
 | Archivo                      | Ruta                                         | Propósito                                                                                                    |
 | ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: inicio de sesión, callbacks de OAuth, verificación de correo, el portal y los webhooks de Polar |
-| `src/routes/api/search.ts`   | `/api/search`                                | Búsqueda de Fumadocs para la documentación                                                                   |
 | `src/routes/api/index.ts`    | `/api`                                       | Comprobación del entorno de ejecución que devuelve `{ "runtime": "cloudflare-workers" }`                     |
 | `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | La [API de licencias de la CLI](/docs/features/cli-licence-api) a la que llama la CLI `saasyland`            |
 
@@ -23,12 +22,13 @@ Declara los métodos en `server.handlers`. Cada handler recibe la `Request` web 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
 
-import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/search")({
+export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: ({ request }) => search.GET(request),
+      GET: ({ request }) => auth.handler(request),
+      POST: ({ request }) => auth.handler(request),
     },
   },
 })
@@ -45,9 +45,9 @@ Dentro de un handler:
 ## Reglas de enrutamiento
 
 - Las rutas `/api` nunca llevan prefijo de idioma, y el Worker omite para ellas la búsqueda de recursos estáticos y las redirecciones de idioma.
-- Las URL de `/api` no llevan idioma, así que `getCurrentLocale()` devuelve ahí el idioma por defecto. Una respuesta localizada toma el idioma de la petición, como hace `/api/search` con su parámetro de query `locale`.
+- Las URL de `/api` no llevan idioma, así que `getCurrentLocale()` devuelve ahí el idioma por defecto. Una respuesta localizada toma el idioma de la petición, por ejemplo de un parámetro de query `locale`.
 - `/api` queda fuera del prerenderizado.
 
 ## Test
 
-Llama al handler a través de las opciones de la ruta, como hace `src/routes/api/__test__/search.test.ts` con `Route.options.server.handlers`, y simula el proveedor al que reenvía la petición.
+Llama al handler a través de las opciones de la ruta, como hace `src/routes/api/__test__/auth.test.ts` con `Route.options.server.handlers`, y simula el proveedor al que reenvía la petición.

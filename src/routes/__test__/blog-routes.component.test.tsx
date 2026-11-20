@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 
-import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
@@ -74,7 +74,6 @@ const MINIMAL: BlogPostSummary = {
   url: "/blog/minimal",
 }
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
 }))

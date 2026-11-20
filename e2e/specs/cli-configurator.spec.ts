@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
+import { STACK_CHOICES, STACK_EXTRAS, stackArguments, stackZodSchemas } from "@saasyland/stack"
 
-import { CLI_CHOICES, CLI_EXEC, CLI_EXTRAS } from "../../src/data/cli"
+import { CLI_EXEC } from "../../src/data/cli"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 
 import landing from "../../messages/en-US/pages.landing.json" with { type: "json" }
@@ -13,6 +14,10 @@ const { choices, coming } = landing.cli
 const PRESS_MS = 120
 const EDGE_INSET_PX = 1
 const HYDRATION_CPU_SLOWDOWN = 4
+const PHONES = [
+  { height: 780, width: 360 },
+  { height: 844, width: 390 },
+] as const
 
 interface Box {
   readonly height: number
@@ -36,6 +41,9 @@ const question = (page: Page, label: string): Locator => configurator(page).getB
 const extras = (page: Page): Locator => configurator(page).getByRole("toolbar", { name: choices.extras.label, exact: true })
 
 const command = (page: Page): Locator => configurator(page).locator("code").first()
+
+const rowsOf = async (options: Locator): Promise<number> =>
+  new Set(await options.evaluateAll((radios) => radios.map((radio) => Math.round(radio.getBoundingClientRect().top)))).size
 
 const optionBoxes = async (page: Page): Promise<string[]> =>
   configurator(page)
@@ -63,10 +71,11 @@ for (const { name, point } of PRESS_POINTS) {
   test(`every available option answers one press at its ${name}, and no press moves any option`, async ({ landingPage, page }) => {
     await landingPage.goto()
 
-    for (const choice of CLI_CHOICES) {
+    for (const choice of STACK_CHOICES) {
       const options = question(page, choices[choice.id].label).getByRole("radio")
       await expect(options).toHaveCount(choice.options.length)
-      for (const [index, { flag }] of choice.options.entries()) {
+      for (const [index, { id }] of choice.options.entries()) {
+        const flag = stackArguments(stackZodSchemas.flags.out.parse({ [choice.id]: id })).join(" ")
         const option = options.nth(index)
         if (await option.isEnabled()) {
           const before = await optionBoxes(page)
@@ -78,7 +87,8 @@ for (const { name, point } of PRESS_POINTS) {
       }
     }
 
-    for (const [index, { flag }] of CLI_EXTRAS.entries()) {
+    for (const [index, { id }] of STACK_EXTRAS.entries()) {
+      const flag = stackArguments({ extras: [id] }).join(" ")
       const option = extras(page).getByRole("button").nth(index)
       if (await option.isEnabled()) {
         const before = await optionBoxes(page)
@@ -96,24 +106,50 @@ test("pressing an option the templates do not generate yet changes nothing, and 
   page,
 }) => {
   await landingPage.goto()
+  const library = question(page, choices.library.label)
   const framework = question(page, choices.framework.label)
+  const angular = library.getByRole("radio", { name: choices.library.options.angular, exact: true })
   const next = framework.getByRole("radio", { name: choices.framework.options.next, exact: true })
+  const analog = framework.getByRole("radio", { name: choices.framework.options.analog, exact: true })
   const polar = question(page, choices.billing.label).getByRole("radio", { name: choices.billing.options.polar, exact: true })
   const builder = extras(page).getByRole("button", { name: choices.extras.options["page-builder"], exact: true })
+  await expect(command(page)).toContainText("--library react")
   await expect(command(page)).toContainText("--no-billing")
   const before = await command(page).textContent()
   const boxes = await optionBoxes(page)
 
-  for (const option of [next, polar, builder]) {
+  for (const option of [angular, next, polar, builder]) {
     await press(page, option, PRESS_POINTS[0].point)
     await expect(option).toBeDisabled()
     await expect(option).toHaveAccessibleDescription(coming)
   }
+  await press(page, analog, PRESS_POINTS[0].point)
+  await expect(analog).toBeDisabled()
+  await expect(analog).toHaveAccessibleDescription(`${coming} ${choices.framework.note}`)
+  await expect(library).toMatchAriaSnapshot(`
+    - radiogroup "${choices.library.label}":
+      - radio "${choices.library.options.react}" [checked]
+      - radio "${choices.library.options.angular}" [disabled]
+      - radio "${choices.library.options.vue}" [disabled]
+      - radio "${choices.library.options.svelte}" [disabled]
+      - radio "${choices.library.options.solid}" [disabled]
+  `)
   await expect(framework).toMatchAriaSnapshot(`
     - radiogroup "${choices.framework.label}":
-      - radio "${choices.framework.options.tanstack}" [checked]
-      - radio "${choices.framework.options.next}" [disabled]
-      - radio "${choices.framework.options["react-router"]}" [disabled]
+      - group "${choices.library.options.react}":
+        - radio "${choices.framework.options.tanstack}" [checked]
+        - radio "${choices.framework.options.next}" [disabled]
+        - radio "${choices.framework.options["react-router"]}" [disabled]
+      - group "${choices.library.options.angular}":
+        - radio "${choices.framework.options.analog}" [disabled]
+        - radio "${choices.framework.options["angular-ssr"]}" [disabled]
+      - group "${choices.library.options.vue}":
+        - radio "${choices.framework.options.nuxt}" [disabled]
+      - group "${choices.library.options.svelte}":
+        - radio "${choices.framework.options.sveltekit}" [disabled]
+      - group "${choices.library.options.solid}":
+        - radio "${choices.framework.options["solid-start"]}" [disabled]
+        - text: ${landing.cli.shared.replace("{option}", choices.framework.options.tanstack)}
   `)
   await expect(builder).toHaveAttribute("aria-pressed", "false")
   await expect(command(page)).toHaveText(before ?? "")
@@ -160,9 +196,12 @@ test("an option that is coming and that another answer rules out stays in place,
 }) => {
   await landingPage.goto()
   const bun = question(page, choices.runtime.label).getByRole("radio", { name: choices.runtime.options.bun, exact: true })
+  const deno = question(page, choices.runtime.label).getByRole("radio", { name: choices.runtime.options.deno, exact: true })
 
   await expect(bun).toBeDisabled()
   await expect(bun).toHaveAccessibleDescription(`${coming} ${choices.runtime.note}`)
+  await expect(deno).toBeDisabled()
+  await expect(deno).toHaveAccessibleDescription(`${coming} ${choices.runtime.note}`)
   await expect(configurator(page).getByText(choices.runtime.note, { exact: true })).toBeVisible()
   await expect(configurator(page).getByText(coming, { exact: true })).toBeVisible()
 })
@@ -223,5 +262,24 @@ for (const colorScheme of COLOR_SCHEMES) {
     await question(page, choices.auth.label).getByRole("radio", { name: choices.auth.options.none, exact: true }).click()
 
     expect(await accessibilityViolations(page)).toEqual([])
+  })
+}
+
+for (const phone of PHONES) {
+  test.describe(`the configurator on a ${String(phone.width)} px phone`, () => {
+    test.use({ viewport: phone })
+
+    test("lays the UI library options out on one row, and the frameworks of each library on one row", async ({ landingPage, page }) => {
+      await landingPage.goto()
+      const libraries = question(page, choices.library.label).getByRole("radio")
+      const groups = question(page, choices.framework.label).getByRole("group")
+
+      await expect(libraries).toHaveCount(Object.keys(choices.library.options).length)
+      expect(await rowsOf(libraries)).toBe(1)
+      await expect(groups).toHaveCount(Object.keys(choices.library.options).length)
+      for (const group of await groups.all()) {
+        expect(await rowsOf(group.getByRole("radio"))).toBe(1)
+      }
+    })
   })
 }

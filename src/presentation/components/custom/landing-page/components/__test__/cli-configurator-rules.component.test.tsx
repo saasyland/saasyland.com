@@ -1,3 +1,4 @@
+import { STACK_CHOICES } from "@saasyland/stack"
 import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
@@ -8,7 +9,7 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { CLI_CHOICES, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { SCAFFOLD_TARGET } from "~/src/data/cli"
 
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 
@@ -16,22 +17,23 @@ import english from "~/messages/en-US/pages.landing.json"
 
 vi.mock(import("~/src/data/cli"), async (importOriginal) => {
   const actual = await importOriginal()
+  const stack = await import("@saasyland/stack")
 
   return {
     ...actual,
     CLI_TEMPLATE_SUPPORT: {
       choices: {
         ...actual.CLI_TEMPLATE_SUPPORT.choices,
-        ...Object.fromEntries(actual.CLI_CHOICES.map((choice) => [choice.id, choice.options.map((option) => option.id)])),
+        ...Object.fromEntries(stack.STACK_CHOICES.map((choice) => [choice.id, choice.options.map((option) => option.id)])),
       },
-      extras: actual.CLI_EXTRAS.map((extra) => extra.id),
+      extras: stack.STACK_EXTRAS.map((extra) => extra.id),
     },
   }
 })
 
 const { choices, coming } = english.cli
 
-const OPTION_COUNT = CLI_CHOICES.reduce((count, choice) => count + choice.options.length, 0)
+const OPTION_COUNT = STACK_CHOICES.reduce((count, choice) => count + choice.options.length, 0)
 
 const renderConfigurator = (): UserEvent => {
   render(
@@ -118,6 +120,60 @@ describe("CLI configurator once the templates generate every option", () => {
     await user.click(answer(choices.architecture.label, choices.architecture.options.monolith))
     expect(within(question(choices.api.label)).queryByRole("radio", { checked: true })).not.toBeInTheDocument()
     expect(command()).not.toContain("--api")
+  })
+
+  it("enables only the frameworks of the chosen UI library and moves the framework answer with the library", async () => {
+    const user = renderConfigurator()
+
+    expect(answer(choices.library.label, choices.library.options.react)).toBeChecked()
+    expect(answer(choices.framework.label, choices.framework.options.tanstack)).toBeChecked()
+    for (const framework of [choices.framework.options.analog, choices.framework.options.nuxt, choices.framework.options["solid-start"]]) {
+      expect(answer(choices.framework.label, framework)).toBeDisabled()
+      expect(answer(choices.framework.label, framework)).not.toHaveClass("line-through")
+      expect(answer(choices.framework.label, framework)).toHaveAccessibleDescription(choices.framework.note)
+    }
+
+    await user.click(answer(choices.library.label, choices.library.options.angular))
+    expect(answer(choices.framework.label, choices.framework.options.analog)).toBeChecked()
+    expect(answer(choices.framework.label, choices.framework.options["angular-ssr"])).toBeEnabled()
+    expect(answer(choices.framework.label, choices.framework.options.tanstack)).toBeDisabled()
+    expect(answer(choices.framework.label, choices.framework.options.tanstack)).toHaveAccessibleDescription(choices.framework.note)
+    expect(command()).toMatch(/--library angular.+--framework analog/u)
+  })
+
+  it("keeps TanStack Start for Solid, whose frameworks the arrow keys reach across the library groups", async () => {
+    const user = renderConfigurator()
+
+    await user.click(answer(choices.library.label, choices.library.options.solid))
+    expect(answer(choices.framework.label, choices.framework.options.tanstack)).toBeChecked()
+    expect(answer(choices.framework.label, choices.framework.options.tanstack)).not.toHaveAccessibleDescription()
+    expect(answer(choices.framework.label, choices.framework.options.next)).toBeDisabled()
+    await user.click(answer(choices.framework.label, choices.framework.options.tanstack))
+    await user.keyboard("{ArrowRight}")
+    expect(answer(choices.framework.label, choices.framework.options["solid-start"])).toHaveFocus()
+    await user.keyboard(" ")
+    expect(answer(choices.framework.label, choices.framework.options["solid-start"])).toBeChecked()
+    expect(command()).toMatch(/--library solid.+--framework solid-start/u)
+    expect(optionCount()).toBe(OPTION_COUNT)
+  })
+
+  it("rules Deno out on Cloudflare and Vercel and Bun out on Cloudflare only", async () => {
+    const user = renderConfigurator()
+
+    expect(answer(choices.runtime.label, choices.runtime.options.deno)).toBeDisabled()
+    expect(answer(choices.runtime.label, choices.runtime.options.deno)).toHaveAccessibleDescription(choices.runtime.note)
+
+    await user.click(answer(choices.deployment.label, choices.deployment.options.vercel))
+    expect(answer(choices.runtime.label, choices.runtime.options.bun)).toBeEnabled()
+    expect(answer(choices.runtime.label, choices.runtime.options.deno)).toBeDisabled()
+
+    await user.click(answer(choices.deployment.label, choices.deployment.options.self))
+    await user.click(answer(choices.runtime.label, choices.runtime.options.deno))
+    expect(command()).toContain("--runtime deno")
+
+    await user.click(answer(choices.deployment.label, choices.deployment.options.vercel))
+    expect(answer(choices.runtime.label, choices.runtime.options.node)).toBeChecked()
+    expect(command()).not.toContain("--runtime deno")
   })
 
   it("toggles extras and drops one from the command when another answer rules it out", async () => {

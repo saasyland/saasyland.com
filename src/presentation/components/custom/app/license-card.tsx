@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from "react"
 
+import { CLI_VARIABLE } from "@saasyland/stack/cli"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
@@ -7,7 +8,7 @@ import { useTranslations } from "use-intl/react"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
+import { CLI_LICENSE_COMMANDS, cliCommand } from "~/src/data/cli"
 
 import { buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
@@ -29,7 +30,7 @@ const CHANGE_TIER_TAGS = {
 
 const CI_TAGS = {
   code: (chunks: ReactNode) => <code className="font-mono text-foreground">{chunks}</code>,
-  variable: CLI_LICENSE_KEY_VARIABLE,
+  variable: CLI_VARIABLE.LICENSE_KEY,
 }
 
 const AGREEMENT_TAGS = {

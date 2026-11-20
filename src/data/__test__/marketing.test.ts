@@ -1,8 +1,8 @@
+import { NONE, STACK_CHOICES, type Stack } from "@saasyland/stack"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
-import { NONE } from "~/src/data/cli"
 import {
   ANGULARPROJECTS_ACCESS,
   ANGULARPROJECTS_FACTS,
@@ -30,8 +30,8 @@ const coreStatuses = async ({
   vi.resetModules()
   vi.doMock(import("~/src/data/cli"), async (importOriginal) => {
     const actual = await importOriginal()
-    const everyOption = Object.fromEntries(actual.CLI_CHOICES.map((choice) => [choice.id, choice.options.map((option) => option.id)]))
-    const generated = billingProviders ? everyOption : { billing: [NONE] }
+    const everyOption = Object.fromEntries(STACK_CHOICES.map((choice) => [choice.id, choice.options.map((option) => option.id)]))
+    const generated = billingProviders ? everyOption : ({ billing: [NONE] } satisfies Partial<Stack["support"]["choices"]>)
 
     return {
       ...actual,

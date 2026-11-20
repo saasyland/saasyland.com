@@ -1,71 +1,121 @@
-import { CHOICE_GROUP, STACK_DEFAULTS } from "@saasyland/stack"
+import {
+  ARCHITECTURE,
+  AUTH,
+  CHOICE_GROUP,
+  CONTENT,
+  DATABASE,
+  DEPLOYMENT,
+  EMAIL,
+  FRAMEWORK,
+  LIBRARY,
+  NONE,
+  ORM,
+  PROVIDER,
+  RUNTIME,
+  STACK_CHOICES,
+  STACK_EXTRAS,
+  STACK_MODULES,
+  TENANCY,
+} from "@saasyland/stack"
 import stack from "@saasyland/stack/package.json" with { type: "json" }
+import { posix } from "node:path"
 import { expect, it } from "vite-plus/test"
 
 import {
-  CLI_CHOICES,
   CLI_COMMAND,
-  CLI_EXTRAS,
   CLI_GENERATION,
   CLI_GENERATION_VALUES,
   CLI_INIT_COMMAND,
-  CLI_MODULES,
   CLI_PACKAGE,
   CLI_PACKAGE_SPEC,
   CLI_RELEASE_CHANNEL,
   CLI_TEMPLATE_SUPPORT,
-  NONE,
   NPM_DIST_TAG,
   PACKAGE_MANAGER,
   SCAFFOLD_DIR,
+  resolveCliAnswers,
 } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import english from "~/messages/en-US/pages.landing.json"
+import root from "~/package.json"
+import motion from "~/remotion/package.json"
+import motionTypes from "~/remotion/tsconfig.json"
 
 const PRERELEASE = /^\d+\.\d+\.\d+-(?<channel>[a-z]+)\.\d+$/u
+
+const INIT_YES_ANSWERS = {
+  architecture: ARCHITECTURE.MONOLITH,
+  auth: AUTH.BETTER_AUTH,
+  billing: NONE,
+  content: CONTENT.MDX,
+  database: DATABASE.SQLITE,
+  deployment: DEPLOYMENT.CLOUDFLARE,
+  email: EMAIL.RESEND,
+  [CHOICE_GROUP.EXTRAS]: [],
+  framework: FRAMEWORK.TANSTACK,
+  library: LIBRARY.REACT,
+  orm: ORM.DRIZZLE,
+  provider: PROVIDER.D1,
+  runtime: RUNTIME.NODE,
+  tenancy: TENANCY.SINGLE,
+}
 
 interface RuledOption {
   readonly id: string
   readonly unavailableWhen?: Readonly<Record<string, readonly string[]>>
+  readonly visibleWhen?: Readonly<Record<string, readonly string[]>>
 }
 
-const ruled = (options: readonly RuledOption[]): string[] => options.flatMap((option) => Object.keys(option.unavailableWhen ?? {}))
+const ruled = (options: readonly RuledOption[]): string[] =>
+  options.flatMap((option) => [...Object.keys(option.unavailableWhen ?? {}), ...Object.keys(option.visibleWhen ?? {})])
 
-it("keeps scaffold choices and option identifiers unambiguous", () => {
-  expect(new Set(CLI_CHOICES.map((choice) => choice.id)).size).toBe(CLI_CHOICES.length)
-  for (const choice of CLI_CHOICES) {
-    expect(new Set(choice.options.map((option) => option.id)).size).toBe(choice.options.length)
-    for (const option of choice.options) {
-      expect(option.flag).toMatch(/^--[a-z0-9-]+(?: [a-z0-9-]+)?$/u)
-    }
+const sorted = (ids: readonly string[]): string[] => ids.toSorted()
+
+const installed = (entry: string): string => `./${posix.join("node_modules", stack.name, entry)}`
+
+it("labels every question, option and extra of the stack in the configurator's messages", () => {
+  for (const choice of STACK_CHOICES) {
+    expect(sorted(Object.keys(english.cli.choices[choice.id].options))).toStrictEqual(sorted(choice.options.map((option) => option.id)))
   }
+  expect(sorted(Object.keys(english.cli.choices.extras.options))).toStrictEqual(sorted(STACK_EXTRAS.map((extra) => extra.id)))
 })
+
 it("counts a CLI module as optional only when its question can be answered with none", () => {
-  const optionalChoices = CLI_MODULES.flatMap((module) => ("choiceId" in module ? [module.choiceId] : []))
+  const optionalChoices = STACK_MODULES.flatMap((module) => ("choiceId" in module ? [module.choiceId] : []))
   for (const choiceId of optionalChoices) {
-    expect(CLI_CHOICES.find((choice) => choice.id === choiceId)?.options.map((option) => option.id)).toContain(NONE)
+    expect(STACK_CHOICES.find((choice) => choice.id === choiceId)?.options.map((option) => option.id)).toContain(NONE)
   }
   expect(REPOSITORY_FACTS).toMatchObject({
-    cliExtras: CLI_EXTRAS.length,
-    cliModules: CLI_MODULES.length,
+    cliExtras: STACK_EXTRAS.length,
+    cliModules: STACK_MODULES.length,
     cliOptionalModules: optionalChoices.length,
   })
 })
 
 it("rules an option out only by answers to earlier questions, and explains every rule beside its question", () => {
   const asked: string[] = []
-  for (const choice of CLI_CHOICES) {
+  for (const choice of STACK_CHOICES) {
     for (const choiceId of ruled(choice.options)) {
       expect(asked).toContain(choiceId)
     }
     expect("note" in english.cli.choices[choice.id]).toBe(ruled(choice.options).length > 0)
     asked.push(choice.id)
   }
-  for (const choiceId of ruled(CLI_EXTRAS)) {
+  for (const choiceId of ruled(STACK_EXTRAS)) {
     expect(asked).toContain(choiceId)
   }
   expect(english.cli.choices.extras.note).not.toBe("")
+})
+
+it("opens on the answers init --yes resolves, and re-resolves only the answers a changed answer rules out", () => {
+  expect(resolveCliAnswers({}, CLI_TEMPLATE_SUPPORT.choices)).toStrictEqual(INIT_YES_ANSWERS)
+  expect(resolveCliAnswers({ ...INIT_YES_ANSWERS, deployment: DEPLOYMENT.VERCEL }, CLI_TEMPLATE_SUPPORT.choices)).toStrictEqual({
+    ...INIT_YES_ANSWERS,
+    database: DATABASE.POSTGRES,
+    deployment: DEPLOYMENT.VERCEL,
+    provider: PROVIDER.NEON,
+  })
 })
 
 it("runs the CLI from the npm tag that the installed @saasyland/stack release was published on", () => {
@@ -73,31 +123,18 @@ it("runs the CLI from the npm tag that the installed @saasyland/stack release wa
   expect(CLI_PACKAGE_SPEC).toBe(`${CLI_PACKAGE}@${CLI_RELEASE_CHANNEL}`)
 })
 
-it("marks as supported by the templates only options and extras that the configurator offers", () => {
-  for (const choice of CLI_CHOICES) {
-    const offered: readonly string[] = choice.options.map((option) => option.id)
-
-    for (const optionId of CLI_TEMPLATE_SUPPORT.choices[choice.id]) {
-      expect(offered).toContain(optionId)
-    }
-  }
-  const extras: readonly string[] = CLI_EXTRAS.map((extra) => extra.id)
-  for (const extraId of CLI_TEMPLATE_SUPPORT.extras) {
-    expect(extras).toContain(extraId)
-  }
-})
-
-it("lists first in each question the default that init --yes picks when the templates generate it", () => {
-  const { [CHOICE_GROUP.EXTRAS]: defaultExtras, ...defaultChoices } = STACK_DEFAULTS
-  const firstOptions = Object.fromEntries(
-    CLI_CHOICES.filter((choice) => choice.id in defaultChoices).map((choice) => [choice.id, choice.options[0].id]),
-  )
-
-  expect(firstOptions).toStrictEqual(defaultChoices)
-  expect(defaultExtras).toStrictEqual([])
-})
-
 it("passes the generation status and the npm init command to the copy that depends on them", () => {
   expect(CLI_INIT_COMMAND).toBe(`${PACKAGE_MANAGER.NPM.exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFOLD_DIR}`)
   expect(CLI_GENERATION_VALUES).toStrictEqual({ generation: CLI_GENERATION, initCommand: CLI_INIT_COMMAND })
+})
+
+it("pins the landing videos, which import this file, to the same @saasyland/stack and points their types at its entry points", () => {
+  const motionDependencies: Readonly<Record<string, string>> = motion.dependencies
+  const rootDependencies: Readonly<Record<string, string>> = root.dependencies
+
+  expect(motionDependencies[stack.name]).toBe(rootDependencies[stack.name])
+  expect(motionTypes.compilerOptions.paths).toMatchObject({
+    [stack.name]: [installed(stack.exports["."].types)],
+    [`${stack.name}/cli`]: [installed(stack.exports["./cli"].types)],
+  })
 })

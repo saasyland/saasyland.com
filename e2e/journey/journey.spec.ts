@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 
 import type { APIRequestContext, Page, TestInfo } from "@playwright/test"
 import type { models } from "@polar-sh/sdk/2026-10"
+import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli"
 import * as zod from "zod"
 
 import { expect, test as base } from "../fixtures/auth"
@@ -23,14 +24,7 @@ import {
   type LicenseTier,
 } from "../../src/modules/license/license.constants"
 
-import {
-  CLI_COMMAND,
-  CLI_CREDENTIALS_FILE_MODE,
-  CLI_EXIT_CODE,
-  CLI_LICENSE_COMMANDS,
-  CLI_LICENSE_KEY_VARIABLE,
-  cliCommand,
-} from "../../src/data/cli"
+import { CLI_COMMAND, CLI_LICENSE_COMMANDS, cliCommand } from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
 import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
@@ -165,7 +159,7 @@ const issuedKey = async (pages: Pages, tier: LicenseTier): Promise<string> => {
   await expect(page.getByRole("heading", { exact: true, level: 2, name: TIER_NAMES[tier] })).toBeVisible()
   await expect(page.getByText("Activate the key with the SaaSy Land CLI on each machine you build on. Keep the key private.")).toBeVisible()
   await Promise.all(CLI_LICENSE_COMMANDS.map((command) => expect(page.getByText(cliCommand(command), { exact: true })).toBeVisible()))
-  await expect(page.getByText(`In CI, store the key as a secret in ${CLI_LICENSE_KEY_VARIABLE}.`)).toBeVisible()
+  await expect(page.getByText(`In CI, store the key as a secret in ${CLI_VARIABLE.LICENSE_KEY}.`)).toBeVisible()
   await expect(page.getByText(usage(0, tier))).toBeVisible()
   await expect(page.getByText("No machines have used this key yet.")).toBeVisible()
 
@@ -226,23 +220,23 @@ for (const tier of LICENSE_TIERS) {
 
     const activationId = await test.step("activate this machine with the key", async () => {
       expect(await runCli(workstation, [CLI_COMMAND.ACTIVATE, key, "--label", label])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.SUCCESS,
+        exitCode: EXIT_CODE.SUCCESS,
         output: { license: { machineLimit: limit, machinesUsed: WORKSTATION_SLOT, tier }, result: CLI_RESULT.ACTIVATED },
       })
       const stored = await storedCredentials(workstation)
       assert(stored !== undefined)
-      expect(stored).toMatchObject({ credentials: { key }, mode: CLI_CREDENTIALS_FILE_MODE })
+      expect(stored).toMatchObject({ credentials: { key }, mode: CREDENTIALS_STORE.FILE_MODE })
 
       return stored.credentials.activationId
     })
 
     await test.step("activating again keeps the same slot, and whoami shows it", async () => {
       expect(await runCli(workstation, [CLI_COMMAND.ACTIVATE])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.SUCCESS,
+        exitCode: EXIT_CODE.SUCCESS,
         output: { activationId, license: { machinesUsed: WORKSTATION_SLOT }, result: CLI_RESULT.ALREADY_ACTIVATED },
       })
       expect(await runCli(workstation, [CLI_COMMAND.WHOAMI])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.SUCCESS,
+        exitCode: EXIT_CODE.SUCCESS,
         output: {
           activationId,
           license: { machineLimit: limit, machinesUsed: WORKSTATION_SLOT, tier },
@@ -255,12 +249,12 @@ for (const tier of LICENSE_TIERS) {
     await test.step(`CI machines fill the ${String(limit)} slots and the next one is refused`, async () => {
       for (const [index, machine] of ci.entries()) {
         expect(await runCli(machine, [CLI_COMMAND.ACTIVATE])).toMatchObject({
-          exitCode: CLI_EXIT_CODE.SUCCESS,
+          exitCode: EXIT_CODE.SUCCESS,
           output: { license: { machinesUsed: WORKSTATION_SLOT + index + 1 }, result: CLI_RESULT.ACTIVATED },
         })
       }
       expect(await runCli(overflow, [CLI_COMMAND.ACTIVATE])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.NO_PERMISSION,
+        exitCode: EXIT_CODE.NO_PERMISSION,
         output: {
           api: { code: CLI_ERROR.ACTIVATION_LIMIT_REACHED, license: { machineLimit: limit, machinesUsed: limit, tier } },
           reason: CLI_ERROR.ACTIVATION_LIMIT_REACHED,
@@ -285,23 +279,23 @@ for (const tier of LICENSE_TIERS) {
       await expect(page.getByText(usage(limit - 1, tier))).toBeVisible()
 
       expect(await runCli(freed, [CLI_COMMAND.WHOAMI])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.NO_PERMISSION,
+        exitCode: EXIT_CODE.NO_PERMISSION,
         output: { reason: CLI_ERROR.ACTIVATION_NOT_FOUND },
       })
       expect(await runCli(overflow, [CLI_COMMAND.ACTIVATE])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.SUCCESS,
+        exitCode: EXIT_CODE.SUCCESS,
         output: { license: { machinesUsed: limit }, result: CLI_RESULT.ACTIVATED },
       })
     })
 
     await test.step("deactivate frees this machine and removes its credentials", async () => {
       expect(await runCli(workstation, [CLI_COMMAND.DEACTIVATE])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.SUCCESS,
+        exitCode: EXIT_CODE.SUCCESS,
         output: { activationId, license: { machinesUsed: limit - 1 }, result: CLI_RESULT.DEACTIVATED },
       })
       expect(await storedCredentials(workstation)).toBeUndefined()
       expect(await runCli(workstation, [CLI_COMMAND.WHOAMI])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.NO_PERMISSION,
+        exitCode: EXIT_CODE.NO_PERMISSION,
         output: { reason: CLI_ERROR.NOT_ACTIVATED },
       })
     })
@@ -317,7 +311,7 @@ for (const tier of LICENSE_TIERS) {
       expect(await accountOrders(buyer.userId)).toMatchObject([{ status: POLAR_ORDER_STATUS.REFUNDED }])
 
       expect(await runCli(overflow, [CLI_COMMAND.WHOAMI])).toMatchObject({
-        exitCode: CLI_EXIT_CODE.NO_PERMISSION,
+        exitCode: EXIT_CODE.NO_PERMISSION,
         output: { reason: CLI_ERROR.LICENSE_REFUNDED },
       })
       expect(await storedCredentials(overflow)).toBeUndefined()

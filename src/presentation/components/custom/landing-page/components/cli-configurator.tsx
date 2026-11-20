@@ -1,5 +1,17 @@
-import { Fragment, type JSX, useEffect, useId, useState } from "react"
+import { Fragment, type JSX, type ReactNode, useEffect, useId, useState } from "react"
 
+import {
+  CHOICE,
+  CHOICE_GROUP,
+  NONE,
+  STACK_CHOICES,
+  STACK_EXTRAS,
+  STACK_MODULES,
+  type Stack,
+  isOptionAvailable,
+  isOptionVisible,
+  stackArguments,
+} from "@saasyland/stack"
 import { Hourglass } from "lucide-react"
 import { AnimatePresence, animate, useMotionValue, useTransform } from "motion/react"
 import * as m from "motion/react-m"
@@ -9,21 +21,11 @@ import { useTranslations } from "use-intl/react"
 import { EXP, EXP_FAST } from "~/src/integrations/motion/motion.tokens"
 
 import {
-  CLI_CHOICES,
-  CLI_EXTRAS,
   CLI_GENERATION_VALUES,
-  CLI_GROUPS,
-  CLI_MODULES,
   CLI_TEMPLATE_SUPPORT,
-  type CliAnswers,
-  type CliOption,
-  NONE,
   PACKAGE_MANAGERS,
   SCAFFOLD_DIR,
   SCAFFOLD_TARGET,
-  cliFlags,
-  isCliOptionAvailable,
-  isCliOptionSelectable,
   resolveCliAnswers,
 } from "~/src/data/cli"
 
@@ -34,29 +36,81 @@ import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shad
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
 
-type CliExtra = (typeof CLI_EXTRAS)[number]
+type StackExtra = (typeof STACK_EXTRAS)[number]
 
-const EXTRAS_GROUP = "extras"
+interface OptionGroup {
+  readonly id: string
+  readonly options: readonly Stack["option"][]
+  readonly shared: readonly Stack["option"][]
+}
+
+const GROUPS = [...new Set(STACK_CHOICES.map(({ group }) => group)), CHOICE_GROUP.EXTRAS]
+
+const LISTED_UNDER: Readonly<Record<string, string>> = { [CHOICE.FRAMEWORK]: CHOICE.LIBRARY }
 
 const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
 const OPTION_CLASSNAME =
-  "h-auto cursor-pointer gap-2 rounded-md border border-border px-3 py-1.5 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground"
+  "h-auto cursor-pointer gap-0.5 rounded-md border border-border px-1.5 py-1 text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground"
 
-const keepExtras = (extras: readonly CliExtra[], answers: CliAnswers): readonly CliExtra[] =>
-  extras.filter((extra) => isCliOptionSelectable(extra, CLI_TEMPLATE_SUPPORT.extras, answers))
+const keepExtras = (extras: readonly StackExtra[], answers: Stack["partialAnswers"]): readonly StackExtra[] =>
+  extras.filter((extra) => CLI_TEMPLATE_SUPPORT.extras.includes(extra.id) && isOptionAvailable(extra, answers))
 
 const DEFAULT_STACK = resolveCliAnswers({}, CLI_TEMPLATE_SUPPORT.choices)
 
-const ComingMark = (): JSX.Element => <Hourglass aria-hidden className="size-3.5 shrink-0" />
+const ComingMark = (): JSX.Element => <Hourglass aria-hidden className="size-2.5 shrink-0" />
+
+const isRuled = (option: Stack["option"]): boolean => option.unavailableWhen !== undefined || option.visibleWhen !== undefined
+
+const isListedUnder = (option: Stack["option"], parent: Stack["choice"], parentOptionIds: readonly string[]): boolean =>
+  parentOptionIds.some((id) => isOptionVisible(option, { [parent.id]: id }))
+
+const groupsOf = (options: readonly Stack["option"][], parent: Stack["choice"]): readonly OptionGroup[] =>
+  parent.options.map(({ id }, index) => {
+    const earlier = parent.options.slice(0, index).map((option) => option.id)
+    const members = options.filter((option) => isListedUnder(option, parent, [id]))
+
+    return {
+      id,
+      options: members.filter((option) => !isListedUnder(option, parent, earlier)),
+      shared: members.filter((option) => isListedUnder(option, parent, earlier)),
+    }
+  })
+
+interface OptionGroupRowProps {
+  readonly children: ReactNode
+  readonly label: string
+  readonly shared: readonly string[]
+}
+
+const OptionGroupRow = ({ children, label, shared }: OptionGroupRowProps): JSX.Element => {
+  const t = useTranslations("pages.landing.cli")
+  const labelId = useId()
+
+  return (
+    <div aria-labelledby={labelId} className="grid gap-1.5 sm:col-span-2 sm:grid-cols-subgrid sm:items-baseline" role="group">
+      <span className="font-mono text-label text-muted-foreground" id={labelId}>
+        {label}
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {children}
+        {shared.map((name) => (
+          <span className="text-spec text-muted-foreground" key={name}>
+            {t("shared", { option: name })}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 interface ChoiceRowProps extends Pick<ToggleButtonGroupProps, "disallowEmptySelection" | "onSelectionChange" | "selectionMode"> {
-  readonly answers: CliAnswers
+  readonly answers: Stack["partialAnswers"]
   readonly choiceId: string
   readonly comingId: string
-  readonly options: readonly CliOption[]
-  readonly picked: readonly CliOption[]
+  readonly options: readonly Stack["option"][]
+  readonly picked: readonly Stack["option"][]
   readonly supported: readonly string[]
 }
 
@@ -64,34 +118,55 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
   const t = useTranslations("pages.landing.cli")
   const labelId = useId()
   const noteId = useId()
+  const parent = STACK_CHOICES.find((choice) => choice.id === LISTED_UNDER[choiceId])
+
+  const optionItem = (option: Stack["option"]): JSX.Element => {
+    const isComing = !supported.includes(option.id)
+    const isHidden = !isOptionVisible(option, answers)
+    const isRuledOut = !isOptionAvailable(option, answers) || (isHidden && parent === undefined)
+    const describedBy = [isComing && comingId, (isRuledOut || isHidden) && noteId].filter((id) => id !== false).join(" ")
+
+    return (
+      <ToggleGroupItem
+        className={cn(OPTION_CLASSNAME, { "line-through": isRuledOut })}
+        id={option.id}
+        isDisabled={isComing || isRuledOut || isHidden}
+        key={option.id}
+        {...(describedBy !== "" && { "aria-describedby": describedBy })}
+      >
+        {t(`choices.${choiceId}.options.${option.id}`)}
+        {isComing && <ComingMark />}
+      </ToggleGroupItem>
+    )
+  }
 
   return (
-    <div className="grid gap-x-5 gap-y-3 px-5 py-3.5 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-4">
+    <div className="grid gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-3.5">
       <dt className="font-mono text-label text-muted-foreground uppercase" id={labelId}>
         {t(`choices.${choiceId}.label`)}
       </dt>
       <dd className="grid gap-3">
-        <ToggleGroup aria-labelledby={labelId} className="flex-wrap gap-2.5" selectedKeys={picked.map(({ id }) => id)} {...selection}>
-          {options.map((option) => {
-            const isComing = !supported.includes(option.id)
-            const isRuledOut = !isCliOptionAvailable(option, answers)
-            const describedBy = [isComing && comingId, isRuledOut && noteId].filter((id) => id !== false).join(" ")
-
-            return (
-              <ToggleGroupItem
-                className={cn(OPTION_CLASSNAME, { "line-through": isRuledOut })}
-                id={option.id}
-                isDisabled={isComing || isRuledOut}
-                key={option.id}
-                {...(describedBy !== "" && { "aria-describedby": describedBy })}
-              >
-                {t(`choices.${choiceId}.options.${option.id}`)}
-                {isComing && <ComingMark />}
-              </ToggleGroupItem>
-            )
+        <ToggleGroup
+          aria-labelledby={labelId}
+          className={cn("flex-wrap gap-1.5", {
+            "grid w-full gap-y-3 sm:grid-cols-[auto_1fr] sm:gap-x-3 sm:gap-y-1.5": parent !== undefined,
           })}
+          selectedKeys={picked.map(({ id }) => id)}
+          {...selection}
+        >
+          {parent === undefined && options.map((option) => optionItem(option))}
+          {parent !== undefined &&
+            groupsOf(options, parent).map((group) => (
+              <OptionGroupRow
+                key={group.id}
+                label={t(`choices.${parent.id}.options.${group.id}`)}
+                shared={group.shared.map((option) => t(`choices.${choiceId}.options.${option.id}`))}
+              >
+                {group.options.map((option) => optionItem(option))}
+              </OptionGroupRow>
+            ))}
         </ToggleGroup>
-        {options.some(({ unavailableWhen }) => unavailableWhen !== undefined) && (
+        {options.some((option) => isRuled(option)) && (
           <p className="text-body-sm text-pretty text-muted-foreground" id={noteId}>
             {t(`choices.${choiceId}.note`)}
           </p>
@@ -109,7 +184,7 @@ const CommandBlock = ({ lines }: Readonly<{ lines: readonly string[] }>): JSX.El
   const t = useTranslations("pages.landing.cli")
 
   return (
-    <div className="flex-1 px-5 py-6 md:px-7 md:py-7">
+    <div className="flex-1 px-4 py-6 md:px-7 md:py-7">
       <div className="flex items-center justify-between gap-4">
         <PaneLabel>{t("commandLabel")}</PaneLabel>
         <CopyButton copiedLabel={t("copied")} copyLabel={t("copy")} value={lines.join(" \\\n  ")} />
@@ -150,7 +225,7 @@ const RunOutput = ({ modules }: Readonly<{ modules: readonly string[] }>): JSX.E
   const t = useTranslations("pages.landing.cli")
 
   return (
-    <div className="w-full flex-1 px-5 py-6 md:px-7 md:py-7">
+    <div className="w-full flex-1 px-4 py-6 md:px-7 md:py-7">
       <PaneLabel>{t("run.label")}</PaneLabel>
 
       <ul className="mt-4 grid w-fit grid-cols-2 gap-x-14 gap-y-3 font-mono text-spec text-muted-foreground">
@@ -187,7 +262,7 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
 
   return (
-    <div className="w-full flex-1 px-5 py-6 md:px-7 md:py-7">
+    <div className="w-full flex-1 px-4 py-6 md:px-7 md:py-7">
       <PaneLabel>{t("nextLabel")}</PaneLabel>
       <code className="mt-4 block font-mono text-spec leading-relaxed text-muted-foreground">
         <span className="block">
@@ -216,14 +291,14 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
 export const CliConfigurator = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
   const comingId = useId()
-  const [answers, setAnswers] = useState<CliAnswers>(DEFAULT_STACK)
-  const [extras, setExtras] = useState<readonly CliExtra[]>([])
+  const [answers, setAnswers] = useState<Stack["partialAnswers"]>(DEFAULT_STACK)
+  const [extras, setExtras] = useState<readonly StackExtra[]>([])
   const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
 
-  const rows = CLI_CHOICES.map((choice) => ({ choice, picked: choice.options.filter((option) => option.id === answers[choice.id]) }))
-  const lines = [`${runner.exec} ${SCAFFOLD_TARGET}`, ...cliFlags(answers), ...extras.map((extra) => extra.flag)]
+  const rows = STACK_CHOICES.map((choice) => ({ choice, picked: choice.options.filter((option) => option.id === answers[choice.id]) }))
+  const lines = [`${runner.exec} ${SCAFFOLD_TARGET}`, ...stackArguments({ ...answers, extras: extras.map(({ id }) => id) })]
   const modules = [
-    ...CLI_MODULES.filter((module) => !("choiceId" in module) || answers[module.choiceId] !== NONE).map((module) => module.id),
+    ...STACK_MODULES.filter((module) => !("choiceId" in module) || answers[module.choiceId] !== NONE).map((module) => module.id),
     ...extras.map((extra) => extra.module),
   ]
 
@@ -234,10 +309,10 @@ export const CliConfigurator = (): JSX.Element => {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
+    <div className="overflow-hidden border-y border-border sm:rounded-xl sm:border-x">
       <div className="flex flex-wrap items-center gap-x-6 border-b border-border bg-card px-3 md:px-5">
         <RunnerTabs className="w-auto border-b-0 py-2" onSelect={setRunner} taken={runner.id} />
-        <p className="flex items-center gap-2 px-2.5 pb-2.5 text-body-sm text-muted-foreground md:ml-auto md:pb-0">
+        <p className="flex items-center gap-1.5 px-2.5 pb-2.5 text-spec text-muted-foreground md:ml-auto md:pb-0">
           <ComingMark />
           <span id={comingId}>{t("coming")}</span>
         </p>
@@ -245,9 +320,9 @@ export const CliConfigurator = (): JSX.Element => {
 
       <div className="grid divide-y divide-border lg:grid-cols-[1.45fr_1fr] lg:divide-x lg:divide-y-0">
         <div className="divide-y divide-border">
-          {CLI_GROUPS.map((group) => (
+          {GROUPS.map((group) => (
             <Fragment key={group}>
-              <div className="bg-muted/25 px-5 py-2 font-mono text-label text-muted-foreground uppercase md:px-7">
+              <div className="bg-muted/25 px-4 py-2 font-mono text-label text-muted-foreground uppercase md:px-7">
                 {t(`groups.${group}`)}
               </div>
               <dl className="divide-y divide-border">
@@ -273,20 +348,20 @@ export const CliConfigurator = (): JSX.Element => {
                       supported={CLI_TEMPLATE_SUPPORT.choices[choice.id]}
                     />
                   ))}
-                {group === EXTRAS_GROUP && (
+                {group === CHOICE_GROUP.EXTRAS && (
                   <ChoiceRow
                     answers={answers}
-                    choiceId={EXTRAS_GROUP}
+                    choiceId={CHOICE_GROUP.EXTRAS}
                     comingId={comingId}
                     onSelectionChange={(keys) => {
                       setExtras(
                         keepExtras(
-                          CLI_EXTRAS.filter((extra) => keys.has(extra.id)),
+                          STACK_EXTRAS.filter((extra) => keys.has(extra.id)),
                           answers,
                         ),
                       )
                     }}
-                    options={CLI_EXTRAS}
+                    options={STACK_EXTRAS}
                     picked={extras}
                     selectionMode="multiple"
                     supported={CLI_TEMPLATE_SUPPORT.extras}
@@ -304,7 +379,7 @@ export const CliConfigurator = (): JSX.Element => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground md:px-7">
+      <div className="flex flex-col gap-2 border-t border-border bg-card px-4 py-4 text-body-sm text-pretty text-muted-foreground md:px-7">
         <p className="text-foreground">{t("generates", CLI_GENERATION_VALUES)}</p>
         <p>{t("choicesLabel")}</p>
       </div>

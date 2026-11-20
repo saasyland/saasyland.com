@@ -1,3 +1,4 @@
+import { STACK_CHOICES, STACK_EXTRAS, stackArguments, stackZodSchemas } from "@saasyland/stack"
 import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
@@ -8,7 +9,7 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { CLI_CHOICES, CLI_EXTRAS, CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
 
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 
@@ -17,6 +18,7 @@ import english from "~/messages/en-US/pages.landing.json"
 const { choices, coming } = english.cli
 
 const INIT_YES_ANSWERS = [
+  { label: choices.library.label, option: choices.library.options.react },
   { label: choices.framework.label, option: choices.framework.options.tanstack },
   { label: choices.architecture.label, option: choices.architecture.options.monolith },
   { label: choices.deployment.label, option: choices.deployment.options.cloudflare },
@@ -31,11 +33,16 @@ const INIT_YES_ANSWERS = [
   { label: choices.content.label, option: choices.content.options.mdx },
 ]
 
-const COMING_OPTIONS = CLI_CHOICES.flatMap((choice) => {
+const answerArgument = (choiceId: string, optionId: string): string =>
+  stackArguments(stackZodSchemas.flags.out.parse({ [choiceId]: optionId })).join(" ")
+
+const COMING_OPTIONS = STACK_CHOICES.flatMap((choice) => {
   const supported: readonly string[] = CLI_TEMPLATE_SUPPORT.choices[choice.id]
   const names: Readonly<Record<string, string>> = choices[choice.id].options
 
-  return choice.options.filter((option) => !supported.includes(option.id)).map((option) => ({ flag: option.flag, name: names[option.id] }))
+  return choice.options
+    .filter((option) => !supported.includes(option.id))
+    .map((option) => ({ flag: answerArgument(choice.id, option.id), name: names[option.id] }))
 })
 
 const EXTRA_NAMES: Readonly<Record<string, string>> = choices.extras.options
@@ -56,6 +63,8 @@ const renderConfigurator = (): UserEvent => {
 
 const question = (label: string): HTMLElement => screen.getByRole("radiogroup", { name: label })
 
+const libraryGroup = (library: string): HTMLElement => within(question(choices.framework.label)).getByRole("group", { name: library })
+
 const answer = (label: string, option: string): HTMLElement => within(question(label)).getByRole("radio", { name: option })
 
 const extra = (name: string): HTMLElement =>
@@ -71,7 +80,7 @@ describe("CLI configurator", () => {
   it("opens on the answers init --yes resolves from what the templates generate, and its command holds only those", () => {
     renderConfigurator()
 
-    for (const choice of CLI_CHOICES) {
+    for (const choice of STACK_CHOICES) {
       expect(within(question(choices[choice.id].label)).getAllByRole("radio")).toHaveLength(choice.options.length)
     }
     for (const { label, option } of INIT_YES_ANSWERS) {
@@ -80,12 +89,13 @@ describe("CLI configurator", () => {
       expect(answer(label, option)).not.toHaveAccessibleDescription()
     }
     expect(within(question(choices.api.label)).queryByRole("radio", { checked: true })).not.toBeInTheDocument()
+    expect(command()).toMatch(/--library react.+--framework tanstack/u)
     expect(command()).toContain("--no-billing")
     for (const { flag } of COMING_OPTIONS) {
       expect(command()).not.toContain(flag)
     }
-    for (const { flag } of CLI_EXTRAS) {
-      expect(command()).not.toContain(flag)
+    for (const { id } of STACK_EXTRAS) {
+      expect(command()).not.toContain(stackArguments({ extras: [id] }).join(" "))
     }
   })
 
@@ -99,7 +109,7 @@ describe("CLI configurator", () => {
       expect(option).not.toBeChecked()
     }
     const comingExtras = screen.getAllByRole("button", { description: isComing })
-    expect(comingExtras.map((option) => option.textContent)).toStrictEqual(CLI_EXTRAS.map(({ id }) => EXTRA_NAMES[id]))
+    expect(comingExtras.map((option) => option.textContent)).toStrictEqual(STACK_EXTRAS.map(({ id }) => EXTRA_NAMES[id]))
     for (const option of comingExtras) {
       expect(option).toBeDisabled()
       expect(option).toHaveAttribute("aria-pressed", "false")
@@ -113,6 +123,7 @@ describe("CLI configurator", () => {
     renderConfigurator()
 
     expect(answer(choices.runtime.label, choices.runtime.options.bun)).toHaveAccessibleDescription(`${coming} ${choices.runtime.note}`)
+    expect(answer(choices.runtime.label, choices.runtime.options.deno)).toHaveAccessibleDescription(`${coming} ${choices.runtime.note}`)
     for (const option of within(question(choices.api.label)).getAllByRole("radio")) {
       expect(option).toBeDisabled()
       expect(option).toHaveAccessibleDescription(`${coming} ${choices.api.note}`)
@@ -183,5 +194,40 @@ describe("CLI configurator", () => {
     expect(copied).toContain("--no-billing")
     expect(copied).not.toContain("--with")
     expect(screen.getByText(PACKAGE_MANAGER.PNPM.dev)).toBeVisible()
+  })
+})
+
+describe("CLI configurator UI library", () => {
+  it("asks for the UI library first and lists every framework under the library it runs on, with TanStack Start under React and Solid", () => {
+    renderConfigurator()
+
+    expect(screen.getAllByRole("term")[0]).toHaveTextContent(choices.library.label)
+    for (const library of [choices.library.options.angular, choices.library.options.vue, choices.library.options.svelte]) {
+      expect(answer(choices.library.label, library)).toBeDisabled()
+      expect(answer(choices.library.label, library)).toHaveAccessibleDescription(coming)
+    }
+    expect(
+      within(libraryGroup(choices.library.options.react))
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toStrictEqual([choices.framework.options.tanstack, choices.framework.options.next, choices.framework.options["react-router"]])
+    expect(
+      within(libraryGroup(choices.library.options.angular))
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toStrictEqual([choices.framework.options.analog, choices.framework.options["angular-ssr"]])
+    expect(within(libraryGroup(choices.library.options.vue)).getByRole("radio")).toHaveTextContent(choices.framework.options.nuxt)
+    expect(within(libraryGroup(choices.library.options.svelte)).getByRole("radio")).toHaveTextContent(choices.framework.options.sveltekit)
+    expect(within(libraryGroup(choices.library.options.solid)).getByRole("radio")).toHaveTextContent(
+      choices.framework.options["solid-start"],
+    )
+    expect(libraryGroup(choices.library.options.solid)).toHaveTextContent(
+      english.cli.shared.replace("{option}", choices.framework.options.tanstack),
+    )
+    expect(answer(choices.framework.label, choices.framework.options.analog)).toHaveAccessibleDescription(
+      `${coming} ${choices.framework.note}`,
+    )
+    expect(answer(choices.framework.label, choices.framework.options.next)).toHaveAccessibleDescription(coming)
+    expect(screen.getByText(choices.framework.note)).toBeVisible()
   })
 })

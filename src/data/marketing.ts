@@ -1,6 +1,8 @@
+import { NONE } from "@saasyland/stack"
+
 import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 
-import { CLI_GENERATION, CLI_TEMPLATE_SUPPORT, NONE } from "~/src/data/cli"
+import { CLI_GENERATION, CLI_TEMPLATE_SUPPORT } from "~/src/data/cli"
 import { FEATURE_STATUS, type FeatureStatus, MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 export const FOOTER_SECTIONS = [MARKETING_SECTION_IDS.FOUNDATION, MARKETING_SECTION_IDS.PRICING, MARKETING_SECTION_IDS.FAQ] as const

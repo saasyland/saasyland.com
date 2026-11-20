@@ -5,20 +5,12 @@ import { join, sep } from "node:path"
 import process from "node:process"
 
 import { API_ERROR, API_FAILURE, CI_REPOSITORY_VARIABLE, apiZodSchemas } from "@saasyland/stack/api"
+import { CLI_NAME, CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli"
 import * as zod from "zod"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 
-import {
-  CLI_API_URL_VARIABLE,
-  CLI_CREDENTIALS_FILE,
-  CLI_EXIT_CODE,
-  CLI_LICENSE_KEY_VARIABLE,
-  CLI_LOCALE_VARIABLE,
-  CLI_PACKAGE,
-  CLI_PACKAGE_SPEC,
-  PACKAGE_MANAGER,
-} from "../../src/data/cli"
+import { CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
 
 export const CLI_RESULT = {
   ACTIVATED: "activated",
@@ -37,7 +29,7 @@ const CLI_STATUS = {
   SUCCESS: "success",
 } as const
 
-const CREDENTIALS_PATH = join(CLI_PACKAGE, CLI_CREDENTIALS_FILE)
+const CREDENTIALS_PATH = join(CLI_NAME, CREDENTIALS_STORE.FILE)
 const PERMISSION_BITS = 0o777
 
 const outputSchema = zod.discriminatedUnion("status", [
@@ -87,11 +79,11 @@ export const createMachine = async ({ apiUrl, home, licenseKey, npmCache, reposi
     env: {
       HOME: home,
       PATH: process.env["PATH"] ?? "",
-      [CLI_API_URL_VARIABLE]: apiUrl,
-      [CLI_LOCALE_VARIABLE]: I18N.DEFAULT_LOCALE,
+      [CLI_VARIABLE.API_URL]: apiUrl,
+      [CLI_VARIABLE.LOCALE]: I18N.DEFAULT_LOCALE,
       npm_config_cache: npmCache,
       npm_config_update_notifier: String(false),
-      ...(licenseKey === undefined ? {} : { [CLI_LICENSE_KEY_VARIABLE]: licenseKey }),
+      ...(licenseKey === undefined ? {} : { [CLI_VARIABLE.LICENSE_KEY]: licenseKey }),
       ...(repository === undefined ? {} : { [CI_REPOSITORY_VARIABLE]: repository }),
     },
     home,
@@ -117,7 +109,7 @@ export const runCli = async ({ env, home }: Machine, inputs: readonly string[]):
   child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
   const [code] = await once(child, "close")
   const exitCode = zod.int().nullable().parse(code)
-  const printed = Buffer.concat(exitCode === CLI_EXIT_CODE.SUCCESS ? stdout : stderr).toString("utf8")
+  const printed = Buffer.concat(exitCode === EXIT_CODE.SUCCESS ? stdout : stderr).toString("utf8")
   const output = outputSchema.safeParse(parsedJson(lastLine(printed)))
 
   if (!output.success) {

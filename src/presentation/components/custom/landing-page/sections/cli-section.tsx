@@ -29,7 +29,7 @@ export const CliSection = (): JSX.Element => {
           </p>
         </Reveal>
 
-        <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS} variant="quiet">
+        <Reveal className="-mx-6 mt-14 sm:mx-0 md:mt-20" delay={FRAME_DELAY_MS} variant="quiet">
           <Suspense>
             <CliConfigurator />
           </Suspense>

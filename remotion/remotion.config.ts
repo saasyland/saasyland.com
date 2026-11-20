@@ -9,6 +9,7 @@ Config.overrideBundlerConfig((config) => ({
   ...config,
   resolve: {
     ...config.resolve,
+    modules: ["node_modules", path.resolve(process.cwd(), "node_modules")],
     alias: {
       ...config.resolve?.alias,
       "lucide-react": path.resolve(process.cwd(), "node_modules/lucide-react"),

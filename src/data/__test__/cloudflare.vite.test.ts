@@ -27,17 +27,16 @@ describe("Cloudflare Vite plugins", () => {
     })
   })
 
-  it.each([
-    { environment: ENVIRONMENT.DEVELOPMENT, remoteBindings: true },
-    { environment: ENVIRONMENT.PREVIEW, remoteBindings: false },
-    { environment: ENVIRONMENT.PRODUCTION, remoteBindings: false },
-  ])("uses remote bindings in $environment: $remoteBindings", async ({ environment, remoteBindings }) => {
-    vi.stubEnv("CLOUDFLARE_ENV", environment)
+  it.each([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])(
+    "keeps the state of %s in .wrangler/state and never connects a remote binding",
+    async (environment) => {
+      vi.stubEnv("CLOUDFLARE_ENV", environment)
 
-    await worker.plugins(environment)
+      await worker.plugins(environment)
 
-    expect(cloudflare).toHaveBeenLastCalledWith(expect.objectContaining({ persistState: true, remoteBindings }))
-  })
+      expect(cloudflare).toHaveBeenLastCalledWith(expect.objectContaining({ persistState: true, remoteBindings: false }))
+    },
+  )
 
   it("builds the deployed Worker after prerendering, and neither plugin runs under Vitest", async () => {
     const [plugin] = await deployedWorker.plugins()

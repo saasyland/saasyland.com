@@ -1,0 +1,133 @@
+import { spawn } from "bun"
+import { and, eq } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/sqlite-proxy"
+import process from "node:process"
+import { z } from "zod/v4"
+
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
+import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
+
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { user } from "~/src/modules/user/user.schema"
+
+const SCRIPT_ARGUMENTS_START = 2
+const DATABASE_BINDING = "DB"
+const PARAMETER = "?"
+const SQLITE_TRUE = 1
+const USAGE = "Usage: bun run admin:grant:<local|preview|production> <email>"
+
+const environmentSchema = z.enum([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
+const sqlParameterSchema = z.union([z.string(), z.number()])
+const accountSchema = z.object({
+  banned: z.number(),
+  email: z.string(),
+  email_verified: z.number(),
+  id: z.string(),
+  role: z.string(),
+})
+const statementResultSchema = z.object({ results: z.array(z.unknown()) })
+const outputSchema = z.array(statementResultSchema).min(1)
+
+type Account = z.infer<typeof accountSchema>
+
+const [environmentArgument, emailArgument = ""] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const environment = environmentSchema.safeParse(environmentArgument)
+const email = emailSchema.safeParse(emailArgument.trim().toLowerCase())
+if (!environment.success || !email.success) {
+  throw new Error(USAGE)
+}
+
+const location = environment.data === ENVIRONMENT.DEVELOPMENT ? "--local" : "--remote"
+const proxy = drizzle(() => Promise.resolve({ rows: [] }))
+
+const sqlLiteral = (value: unknown): string => {
+  const parameter = sqlParameterSchema.parse(value)
+  return typeof parameter === "number" ? String(parameter) : `'${parameter.replaceAll("'", "''")}'`
+}
+
+const inline = ({ params, sql }: { params: unknown[]; sql: string }): string => {
+  const pending = [...params]
+  return sql.replaceAll(PARAMETER, () => sqlLiteral(pending.shift()))
+}
+
+const execute = async (statement: string): Promise<unknown[]> => {
+  const child = spawn(
+    [
+      "vp",
+      "exec",
+      "wrangler",
+      "d1",
+      "execute",
+      DATABASE_BINDING,
+      "--env",
+      environment.data,
+      location,
+      "--json",
+      "--yes",
+      "--command",
+      statement,
+    ],
+    { stderr: "inherit", stdin: "inherit", stdout: "pipe" },
+  )
+  const [output, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited])
+  if (exitCode !== 0) {
+    throw new Error(
+      `wrangler d1 execute failed on the ${environment.data} database. Run wrangler login with an account that can write to it.`,
+    )
+  }
+
+  return outputSchema.parse(JSON.parse(output)).flatMap(({ results }) => results)
+}
+
+const findAccount = async (): Promise<Account | undefined> => {
+  const query = proxy
+    .select({ banned: user.banned, email: user.email, emailVerified: user.emailVerified, id: user.id, role: user.role })
+    .from(user)
+    .where(eq(user.email, email.data))
+    .toSQL()
+  const [row] = await execute(inline(query))
+
+  return row === undefined ? undefined : accountSchema.parse(row)
+}
+
+const describeAccount = ({ email_verified: verified, email: address, id, role }: Account): string =>
+  `${address} (${id}), role ${role}, email ${verified === SQLITE_TRUE ? "verified" : "not verified"}`
+
+const refuseUnless = (account: Account | undefined): Account => {
+  if (account === undefined) {
+    throw new Error(`No account in ${environment.data} uses ${email.data}. Sign up on the site and verify the address first.`)
+  }
+  if (account.email_verified !== SQLITE_TRUE) {
+    throw new Error(`${email.data} has not verified its email address. Open the link in the verification email, then run this again.`)
+  }
+  if (account.banned === SQLITE_TRUE) {
+    throw new Error(`${email.data} is banned. Lift the ban before granting the ${ROLE_CODES.ADMIN} role.`)
+  }
+
+  return account
+}
+
+const grantAdmin = async (): Promise<void> => {
+  process.stdout.write(`Granting the ${ROLE_CODES.ADMIN} role in the ${environment.data} database\n`)
+
+  const found = await findAccount()
+  if (found !== undefined) {
+    process.stdout.write(`Before: ${describeAccount(found)}\n`)
+  }
+  const before = refuseUnless(found)
+  if (before.role === ROLE_CODES.ADMIN) {
+    process.stdout.write(`Nothing to change: ${email.data} is already an ${ROLE_CODES.ADMIN}.\n`)
+    return
+  }
+
+  const grantable = and(eq(user.id, before.id), eq(user.emailVerified, true), eq(user.banned, false))
+  await execute(inline(proxy.update(user).set({ role: ROLE_CODES.ADMIN }).where(grantable).toSQL()))
+
+  const after = await findAccount()
+  if (after?.role !== ROLE_CODES.ADMIN) {
+    throw new Error(`The role of ${email.data} did not change. Check the account and run this again.`)
+  }
+  process.stdout.write(`After: ${describeAccount(after)}\n`)
+}
+
+await grantAdmin()

@@ -48,16 +48,16 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 
 `wrangler.jsonc` は 4 つの環境を定義します。`vp dev` と `vp build` で使う環境は `CLOUDFLARE_ENV` で選択します。
 
-| 環境          | バインディング                           | 使用箇所                                        |
-| ------------- | ---------------------------------------- | ----------------------------------------------- |
-| `development` | リモートのプレビュー用 D1、KV、R2        | `bun run dev`                                   |
-| `preview`     | プレビュー用 D1、KV、R2                  | `bun run build:preview`、`deploy:preview`       |
-| `production`  | 本番用 D1、KV、R2                        | `bun run build:production`、`deploy:production` |
-| `test`        | `.wrangler/test` 内のローカル D1、KV、R2 | `bun run build:test`、Playwright                |
+| 環境          | バインディング                            | 使用箇所                                        |
+| ------------- | ----------------------------------------- | ----------------------------------------------- |
+| `development` | `.wrangler/state` 内のローカル D1、KV、R2 | `bun run dev`                                   |
+| `preview`     | プレビュー用 D1、KV、R2                   | `bun run build:preview`、`deploy:preview`       |
+| `production`  | 本番用 D1、KV、R2                         | `bun run build:production`、`deploy:production` |
+| `test`        | `.wrangler/test` 内のローカル D1、KV、R2  | `bun run build:test`、Playwright                |
 
 各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトは空の値やプレースホルダーの値を拒否したうえで、宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。`production` は SaaSy Land のプログラム ID を、`test` はダミー ID を設定しています。1 つのモジュールのシークレットはまとめて、`.env.example`（`test` では `.env.test`）と同じ順序で並びます。そのため、エリアはシークレットを 1 つのまとまりとして追加できます。`src/__test__/wrangler.test.ts` は名前を順序どおりに比較し、異なると失敗します。まとまりの間の空行は読みやすさのためだけのもので、フォーマッターが削除することもあるため、テストは空行を比較しません。
 
-エリアのバインディングも独立したブロックになります。R2 バケットはエリアのもので、`MEDIA` はコースの、`BUNDLES` はライセンス販売のエリアのものです。そのため、各環境で `r2_buckets` は最後に置かれてエリアごとに 1 つのエントリーを持ち、あるエリアのないプロジェクトではそのエントリーがありません。`wrangler.test.ts` は、`development` と異なる D1 データベース、KV 名前空間、R2 バケットをバインドする環境があっても失敗し、`scripts/verify-bindings.ts` はどのバインディングも名指しせずに、対象環境が宣言するすべてのバインディングをチェックします。
+エリアのバインディングも独立したブロックになります。R2 バケットはエリアのもので、`MEDIA` はコースの、`BUNDLES` はライセンス販売のエリアのものです。そのため、各環境で `r2_buckets` は最後に置かれてエリアごとに 1 つのエントリーを持ち、あるエリアのないプロジェクトではそのエントリーがありません。`wrangler.test.ts` は、`development` と異なる D1 データベース、KV 名前空間、R2 バケットをバインドする環境があるとき、`development` のバインディングがリモートのとき、`development` が `preview` または `production` とリソースを共有するときにも失敗し、`scripts/verify-bindings.ts` はどのバインディングも名指しせずに、対象環境が宣言するすべてのバインディングをチェックします。
 
 ## 型
 

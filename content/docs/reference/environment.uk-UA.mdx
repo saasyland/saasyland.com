@@ -8,7 +8,7 @@ description: "Файли середовища, секрети й прив'язк
 | Файл               | У репозиторії | Хто використовує                                                                                                                                 |
 | ------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `.env.example`     | Так           | Перелічує всі секрети з порожніми значеннями                                                                                                     |
-| `.env.development` | Ні            | `bun run dev`, `polar:verify:development`, `db:studio:development`, `db:introspect:development`                                                  |
+| `.env.development` | Ні            | `bun run dev`, `polar:verify:development`, `db:seed:local` (`LOCAL_ADMIN_PASSWORD`)                                                              |
 | `.env.preview`     | Ні            | `deploy:preview` (оголошені секрети), `auth:verify:preview`, `polar:verify:preview`, `db:studio:preview`, `db:introspect:preview`                |
 | `.env.production`  | Ні            | `deploy:production` (оголошені секрети), `auth:verify:production`, `polar:verify:production`, `db:studio:production`, `db:introspect:production` |
 | `.env.test`        | Так           | Vitest і середовище Wrangler `test`; лише фіктивні значення                                                                                      |
@@ -35,21 +35,22 @@ description: "Файли середовища, секрети й прив'язк
 | `CLOUDFLARE_DATABASE_ID`    | HTTP-драйвер D1 для Drizzle Kit                                                                                                                                           |
 | `CLOUDFLARE_ACCESS_TOKEN`   | HTTP-драйвер D1 для Drizzle Kit                                                                                                                                           |
 | `AFFONSO_PROGRAM_ID`        | Необов'язковий публічний ID програми Affonso, потрібний для відстеження партнерських рекомендацій, поки програма відкрита                                                 |
+| `LOCAL_ADMIN_PASSWORD`      | Необов'язковий пароль локального адміністратора, якого створює `bun run db:seed:local`; ніколи не є секретом Worker                                                       |
 | `FFMPEG`, `FFPROBE`         | Необов'язкові виконувані файли FFmpeg і ffprobe для `scripts/publish-video.ts`; типово `ffmpeg` і `ffprobe`                                                               |
 
 Кожне середовище в `wrangler.jsonc` перелічує потрібні йому секрети в `secrets.required`; середовище `test` не містить трьох змінних Cloudflare. `AFFONSO_PROGRAM_ID` не є секретом: він з'являється в тегу script сторінки, тому це змінна Worker у `vars`, яку задають лише для середовища, що приймає справжні платежі. `production` задає ID програми SaaSy Land, а `test` — фіктивний ID для браузерних тестів. Відстеження працює лише тоді, коли Worker має цей ID і програма відкрита: сьогодні `AFFILIATE_PROGRAM` дорівнює <RepositoryFact name="affiliateProgram" /> ([Відкриття програми](/docs/features/affiliates#opening-the-programme)). `FFMPEG` і `FFPROBE` — необов'язкові змінні оболонки для `scripts/publish-video.ts`, а не секрети Worker. Код Worker читає їх з `env` у `cloudflare:workers`, а типи для них задають `src/types/worker-configuration.d.ts`, який генерує `bun run cf-typegen` із `wrangler.jsonc`, і файли розділів у `src/types`. Змінних `VITE_` немає: публічна URL-адреса та домен — це константи в `src/presentation/branding`.
 
 ## Прив'язки
 
-| Прив'язка | Тип              | `development`                   | `preview` | `production` | `test`                             |
-| --------- | ---------------- | ------------------------------- | --------- | ------------ | ---------------------------------- |
-| `DB`      | D1               | Віддалена база preview          | Preview   | Production   | Локальна `saasyland_test`          |
-| `CACHE`   | KV               | Віддалений простір імен preview | Preview   | Production   | Локальний                          |
-| `MEDIA`   | R2               | Віддалений бакет preview        | Preview   | Production   | Локальний `saasyland-test`         |
-| `BUNDLES` | R2               | Віддалений бакет preview        | Preview   | Production   | Локальний `saasyland-bundles-test` |
-| `ASSETS`  | Статичні ресурси | Так                             | Так       | Так          | Так                                |
+| Прив'язка | Тип              | `development`                       | `preview` | `production` | `test`                             |
+| --------- | ---------------- | ----------------------------------- | --------- | ------------ | ---------------------------------- |
+| `DB`      | D1               | Локальна `saasyland_local`          | Preview   | Production   | Локальна `saasyland_test`          |
+| `CACHE`   | KV               | Локальний                           | Preview   | Production   | Локальний                          |
+| `MEDIA`   | R2               | Локальний `saasyland-local`         | Preview   | Production   | Локальний `saasyland-test`         |
+| `BUNDLES` | R2               | Локальний `saasyland-bundles-local` | Preview   | Production   | Локальний `saasyland-bundles-test` |
+| `ASSETS`  | Статичні ресурси | Так                                 | Так       | Так          | Так                                |
 
-Скрипти розгортання preview і production спершу запускають `scripts/verify-bindings.ts`, який завершується помилкою, доки середовищу бракує прив'язки або воно ще має заглушкові ідентифікатори D1 чи KV, а також коли production використовує спільний ресурс із preview. Бакети R2 прив'язуються за назвою (`saasyland-preview` для development і preview, `saasyland` для production) і мають існувати до розгортання.
+Скрипти розгортання preview і production спершу запускають `scripts/verify-bindings.ts`, який завершується помилкою, доки середовищу бракує прив'язки або воно ще має заглушкові ідентифікатори D1 чи KV, а також коли production використовує спільний ресурс із preview. Бакети R2 прив'язуються за назвою (`saasyland-preview` для preview, `saasyland` для production) і мають існувати до розгортання; бакети `development` і `test` локальні й налаштування не потребують.
 
 ## Пов'язані сторінки
 

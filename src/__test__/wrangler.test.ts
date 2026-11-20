@@ -38,6 +38,33 @@ const bindingNames = (environment: string): Record<string, string[]> => {
   return Object.fromEntries(Object.entries(bindings).map(([kind, entries]) => [kind, entries.map(({ binding }) => binding)]))
 }
 
+const remoteFlag = zod.boolean()
+const databaseSchema = zod.object({ database_id: zod.string(), remote: remoteFlag })
+const namespaceSchema = zod.object({ id: zod.string(), remote: remoteFlag })
+const bucketSchema = zod.object({ bucket_name: zod.string(), remote: remoteFlag })
+const resourceSchema = zod.object({
+  d1_databases: zod.array(databaseSchema),
+  kv_namespaces: zod.array(namespaceSchema),
+  r2_buckets: zod.array(bucketSchema),
+})
+
+const resourcesOf = (environment: string) => {
+  const {
+    d1_databases: databases,
+    kv_namespaces: namespaces,
+    r2_buckets: buckets,
+  } = resourceSchema.parse(getNodeValue(nodeAt(["env", environment])))
+
+  return {
+    ids: [
+      ...databases.map(({ database_id: id }) => id),
+      ...namespaces.map(({ id }) => id),
+      ...buckets.map(({ bucket_name: name }) => name),
+    ],
+    remote: [...databases, ...namespaces, ...buckets].map(({ remote }) => remote),
+  }
+}
+
 const variableNames = (file: string): string[] => readFileSync(file, "utf8").match(VARIABLE_NAME) ?? []
 
 const programId = (environment: string): unknown => getNodeValue(nodeAt(["env", environment, "vars", AFFONSO_PROGRAM_ID]))
@@ -58,6 +85,19 @@ describe("wrangler.jsonc", () => {
     "binds the D1 databases, KV namespaces and R2 buckets of development in %s",
     (environment) => {
       expect(bindingNames(environment)).toStrictEqual(bindingNames(ENVIRONMENT.DEVELOPMENT))
+    },
+  )
+
+  it("runs bun run dev on a local D1 database, KV namespace and R2 buckets, never a remote one", () => {
+    expect(resourcesOf(ENVIRONMENT.DEVELOPMENT).remote.every((remote) => !remote)).toBe(true)
+  })
+
+  it.each([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])(
+    "shares no database, namespace or bucket between development and %s",
+    (environment) => {
+      const deployed = new Set(resourcesOf(environment).ids)
+
+      expect(resourcesOf(ENVIRONMENT.DEVELOPMENT).ids.filter((id) => deployed.has(id))).toStrictEqual([])
     },
   )
 

@@ -6,8 +6,9 @@ const SITEMAP_NAMESPACE = "http://www.sitemaps.org/schemas/sitemap/0.9"
 const XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml"
 
 const NOINDEX = /\b(?:noindex|none)\b/iu
+const W3C_DATE_LENGTH = "YYYY-MM-DD".length
 
-type SitemapPage = Pick<PageHead, "alternates" | "canonical">
+type SitemapPage = Pick<PageHead, "alternates" | "canonical" | "modified">
 
 const escapeXml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;")
@@ -35,10 +36,11 @@ const findProblems = (pages: readonly SitemapPage[]): string[] => {
   ]
 }
 
-const urlEntry = ({ alternates, canonical }: SitemapPage): string =>
+const urlEntry = ({ alternates, canonical, modified }: SitemapPage): string =>
   [
     "  <url>",
     `    <loc>${escapeXml(canonical)}</loc>`,
+    ...(modified === undefined ? [] : [`    <lastmod>${modified.slice(0, W3C_DATE_LENGTH)}</lastmod>`]),
     ...alternates.map(
       ({ href, hreflang }) => `    <xhtml:link rel="alternate" hreflang="${escapeXml(hreflang)}" href="${escapeXml(href)}"/>`,
     ),

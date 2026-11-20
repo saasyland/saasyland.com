@@ -57,7 +57,8 @@ export const BlogPostPending = (): JSX.Element => (
 
       <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm">
         <span className="size-1.25 shrink-0 rounded-xs bg-border" />
-        <Skeleton className="h-lh w-32 scale-y-70" />
+        <Skeleton className="h-lh w-52 scale-y-70" />
+        <Skeleton className="h-lh w-52 scale-y-70" />
         <Skeleton className="h-lh w-28 scale-y-70" />
         <Skeleton className="h-lh w-20 scale-y-70" />
         <Skeleton className="h-lh w-56 scale-y-70" />

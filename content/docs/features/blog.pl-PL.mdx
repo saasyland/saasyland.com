@@ -7,6 +7,16 @@ description: "Zlokalizowane wpisy MDX w content/blog, ładowane przez kolekcję 
 
 Wpisy znajdują się w `content/blog/<slug>.<locale>.mdx`, po jednym pliku na język. Schemat frontmattera w `src/integrations/fumadocs/fumadocs.schema.ts` wymaga pól `title`, `authorName` i `date` oraz przyjmuje `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (domyślnie `true`), `tags` i `updated`. Tag to jedna z wartości `BLOG_TAGS` z `src/data/blog.ts`, a schemat odrzuca każdą inną; `PostRow` i `PostMeta` pokazują każdy tag pod jego etykietą z `tags` w `pages.blog`, więc tagi są w języku strony.
 
+## Daty [#dates]
+
+`date` to dzień pierwszej publikacji wpisu i nigdy się nie zmienia. `updated` to dzień, w którym ostatnio zmieniły się fakty lub treść merytoryczna wpisu, na przykład cena, wydana funkcja albo porównanie, które przestało być aktualne; nie przesuwa się go z powodu literówki, formatowania ani poprawki tłumaczenia. Obie daty zapisuje się jako `YYYY-MM-DD`, a każdy język wpisu ma te same dwie, bo datują wpis, a nie jego tłumaczenie. Indeks bloga przechowuje obie dla każdego wpisu i to z nich biorą się wszystkie daty, które widzą czytelnicy i wyszukiwarki:
+
+- `PostMeta` pokazuje datę publikacji oraz, gdy `updated` jest późniejsze niż `date`, datę aktualizacji, każdą w osobnym elemencie `<time>` z atrybutem `dateTime`, sformatowaną formatem `calendarDate` dla języka strony. Etykiety to komunikaty ICU `post.published` i `post.updated` w `pages.blog`, które przyjmują sformatowaną datę jako `{date}`. `PostRow` na liście wpisów bloga i w sekcji Notes na stronie głównej pokazuje tylko datę publikacji: dzięki temu lista pozostaje zwarta, a to według tej daty jest posortowana.
+- JSON-LD `BlogPosting` podaje `date` jako `datePublished`, a `updated`, lub `date`, gdy go brak, jako `dateModified`.
+- `buildPageHead` zapisuje te same dwie daty jako `article:published_time` i `article:modified_time`, a `sitemap.xml` nadaje adresowi URL wpisu w każdym języku jego `article:modified_time` jako `<lastmod>`; zobacz [Podglądy w wyszukiwarkach i mediach społecznościowych](/docs/features/seo).
+
+Schemat frontmattera odrzuca datę w każdym innym formacie i `updated` wcześniejsze niż `date`, więc `bun run dev` i build zatrzymują się na takim wpisie, a `scripts/check-content.ts` zgłasza błąd, gdy `date` lub `updated` tłumaczenia różni się od angielskiego wpisu.
+
 ## Wartości z kodu
 
 Wpis wyświetla wartości, które definiuje kod, zamiast je wpisywać: `<RepositoryFact>` dla liczników, progu pokrycia (`coverageThreshold`), głównej wersji Reacta (`reactMajor`), przykładowej stawki godzinowej (`illustrativeHourlyRate`, z `unit="currency"`) i liczby godzin, którym odpowiada cena planu Podstawa (`corePriceInHours`, z `unit="hour"`), oraz `<TierPrice>`, `<ActivationLimit>` i `<HeadStartTable />` dla cen, limitów maszyn i przewagi na starcie. `title` oraz pytania i odpowiedzi w `faq` to komunikaty ICU: `formatPostText` w `src/lib/post-text.ts` formatuje je z `REPOSITORY_FACTS` oraz wartościami `<tier>Price` i `<tier>Machines` każdego pakietu. `formatPostText` przekazuje też `CLI_GENERATION_VALUES` z `src/data/cli.ts`, więc zdanie, które zmienia się wraz z udostępnieniem generowania projektów, zapisuje się raz jako `{generation, select, available {…} other {…}}`, a `post-faq.test.ts` renderuje je dla obu statusów. Przekazuje też `billingGeneration` (`BILLING_GENERATION` w `src/data/marketing.ts`), `affiliateProgram` i `affiliateHoldDays` z `src/data/affiliates.ts` oraz `refundWithdrawalDays` (`REFUND_TERMS.WITHDRAWAL_DAYS`), a ten sam test renderuje wybory według `billingGeneration` i `affiliateProgram` z oboma statusami. `toBlogPostSummary` formatuje tytuł, a `<PostFaq entries={frontmatter.faq} />` wyświetla FAQ, które czyta też JSON-LD FAQPage wpisu. `post-faq.test.ts` formatuje tytuł, pytania i odpowiedzi każdego wpisu w jego języku.
@@ -29,4 +39,4 @@ Sekcja Notes na stronie głównej pokazuje trzy wpisy z indeksu bloga, najpierw 
 
 ## Kontrole
 
-Po dodaniu wpisu uruchom `bun run content`. `bun scripts/check-content.ts` sprawdza, czy istnieją wszystkie języki, czy tytuły, opisy i zajawki są przetłumaczone i czy bloki kodu są identyczne.
+Po dodaniu wpisu uruchom `bun run content`. `bun scripts/check-content.ts` sprawdza, czy istnieją wszystkie języki, czy tytuły, opisy i zajawki są przetłumaczone, czy bloki kodu są identyczne i czy każdy język wpisu ma te same `date` i `updated`.

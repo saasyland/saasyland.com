@@ -45,10 +45,17 @@ describe("readPageHead", () => {
       canonical: `${APP_URL}/ja-JP${DOCS_PAGE}`,
       image: `${APP_URL}/images/og/ja-JP${DOCS_PAGE}.${SOCIAL_IMAGE.FORMAT}`,
       lang: "ja-JP",
+      modified: undefined,
       robots: undefined,
       section: "規約",
       title: "ファイルと命名",
     })
+  })
+
+  it("reads the time a blog post was last modified", () => {
+    const head = buildPageHead({ dates: { date: "2026-08-15", updated: "2026-11-17" }, pathname: `${ROUTES.BLOG}/post`, type: "article" })
+
+    expect(readPageHead(renderDocument(head, "en-US")).modified).toBe("2026-11-17T00:00:00.000Z")
   })
 
   it("decodes the characters React escapes in attribute values", () => {

@@ -24,6 +24,7 @@ const CONTENT_DIR = join(REPOSITORY_DIR, "content")
 const SOURCE_MDX_SUFFIX = `.${I18N.DEFAULT_LOCALE}.mdx`
 const SOURCE_META_SUFFIX = `.${I18N.DEFAULT_LOCALE}.json`
 const TRANSLATED_FIELDS = ["title", "description", "excerpt", "unreleased"]
+const DATE_FIELDS = ["date", "updated"] as const
 const CHANGELOG_PREFIX = `${relative(CONTENT_DIR, join(REPOSITORY_DIR, CHANGELOG_DIRECTORY))}/`
 
 const CODE_BLOCK_PATTERN = /^(?<fence>`{3,}|~{3,})[^\n]*\n[\s\S]*?^\k<fence>\s*$/gmu
@@ -49,6 +50,7 @@ const DOCS_PREFIX = "docs/"
 const frontmatterSchema = z.record(z.string(), z.unknown())
 const packageSchema = z.object({ scripts: z.record(z.string(), z.string()) })
 const metaSchema = z.object({ pages: z.array(z.string()).optional() })
+const datesSchema = z.object({ date: z.string().optional(), updated: z.string().optional() })
 
 interface Translation {
   readonly label: string
@@ -260,6 +262,17 @@ const untranslatedFieldProblems = ({ label, source, target }: Translation): stri
   }).map((field) => `Untranslated ${field} in ${label}`)
 }
 
+const dateOf = (field: string, value: string | undefined): string => (value === undefined ? `no ${field}` : `${field} ${value}`)
+
+const dateProblems = ({ label, source, target }: Translation): string[] => {
+  const expected = datesSchema.parse(readFrontmatter(source))
+  const found = datesSchema.parse(readFrontmatter(target))
+
+  return DATE_FIELDS.filter((field) => found[field] !== expected[field]).map(
+    (field) => `${label} has ${dateOf(field, found[field])} where the English page has ${dateOf(field, expected[field])}`,
+  )
+}
+
 const titleProblems = ({ label, target }: Translation): string[] => {
   const { title } = readFrontmatter(target)
 
@@ -303,7 +316,7 @@ export const mdxProblems = (translation: Translation): string[] => {
 
   problems.push(...structureProblems(translation), ...untranslatedParagraphProblems(translation))
 
-  return isChangelogEntry ? problems : [...problems, ...untranslatedFieldProblems(translation)]
+  return isChangelogEntry ? problems : [...problems, ...untranslatedFieldProblems(translation), ...dateProblems(translation)]
 }
 
 const metaProblems = ({ label, source, target }: Translation): string[] => {

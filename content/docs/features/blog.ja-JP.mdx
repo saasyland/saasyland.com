@@ -7,6 +7,16 @@ description: "content/blog にあるローカライズされた MDX 記事。Fum
 
 記事は言語ごとに 1 ファイルずつ `content/blog/<slug>.<locale>.mdx` に置きます。`src/integrations/fumadocs/fumadocs.schema.ts` のフロントマタースキーマでは `title`、`authorName`、`date` が必須で、`description`、`authorImage`、`excerpt`、`faq`、`featured`、`image`、`published`（既定値 `true`）、`tags`、`updated` を指定できます。タグは `src/data/blog.ts` の `BLOG_TAGS` のいずれかで、スキーマはそれ以外の値を拒否します。`PostRow` と `PostMeta` は各タグを `pages.blog` の `tags` にあるラベルで表示するため、タグはページの言語で読めます。
 
+## 日付 [#dates]
+
+`date` は記事を最初に公開した日で、変わることはありません。`updated` は記事の事実や内容が最後に変わった日です。価格、リリースされた機能、成り立たなくなった比較などがこれに当たり、誤字、書式、翻訳の修正では動かしません。どちらも `YYYY-MM-DD` で書き、記事のすべての言語で同じ 2 つを持ちます。日付が示すのは記事そのものであり、翻訳ではないからです。ブログのインデックスはすべての記事についてこの 2 つを保持し、読み手と検索エンジンが目にする日付はすべて、この 2 つから決まります。
+
+- `PostMeta` は公開日と、`updated` が `date` より後のときは更新日を、それぞれ `dateTime` を持つ独自の `<time>` 要素に入れ、ページの言語に合わせた `calendarDate` 形式で表示します。ラベルは `pages.blog` の ICU メッセージ `post.published` と `post.updated` で、書式を整えた日付を `{date}` として受け取ります。ブログ一覧とランディングページの Notes にある `PostRow` は公開日だけを表示します。一覧をコンパクトに保てるうえ、一覧の並び順もこの日付で決まるからです。
+- `BlogPosting` の JSON-LD は、`date` を `datePublished` に、`updated`（ない場合は `date`）を `dateModified` にします。
+- `buildPageHead` は同じ 2 つを `article:published_time` と `article:modified_time` として書き出し、`sitemap.xml` はすべての言語で記事の URL に、その `article:modified_time` を `<lastmod>` として付けます。[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照してください。
+
+フロントマターのスキーマは、ほかの形式の日付と、`date` より前の `updated` を拒否します。そのため、そうした記事では `bun run dev` もビルドも止まります。また、翻訳の `date` または `updated` が英語の記事と異なると、`scripts/check-content.ts` が失敗します。
+
 ## コードから取る値
 
 記事はコードが定義する値を手で書かずに表示します。件数、カバレッジのしきい値（`coverageThreshold`）、React のメジャーバージョン（`reactMajor`）、例示用の時給（`illustrativeHourlyRate`、`unit="currency"` 付き）、Core の価格に相当する時間（`corePriceInHours`、`unit="hour"` 付き）には `<RepositoryFact>` を、価格、端末数の上限、先行時間には `<TierPrice>`、`<ActivationLimit>`、`<HeadStartTable />` を使います。`title` と `faq` の質問と回答は ICU メッセージで、`src/lib/post-text.ts` の `formatPostText` が `REPOSITORY_FACTS` と各プランの `<tier>Price`、`<tier>Machines` で整形します。`formatPostText` は `src/data/cli.ts` の `CLI_GENERATION_VALUES` も渡すため、プロジェクト生成の提供開始で変わる文は `{generation, select, available {…} other {…}}` として一度だけ書き、`post-faq.test.ts` が両方の状態で表示を確認します。`billingGeneration`（`src/data/marketing.ts` の `BILLING_GENERATION`）、`src/data/affiliates.ts` の `affiliateProgram` と `affiliateHoldDays`、`refundWithdrawalDays`（`REFUND_TERMS.WITHDRAWAL_DAYS`）も渡し、同じテストが `billingGeneration` と `affiliateProgram` による分岐を両方のステータスで表示します。`toBlogPostSummary` がタイトルを整形し、`<PostFaq entries={frontmatter.faq} />` が FAQ を表示します。記事の FAQPage JSON-LD も同じ FAQ を読みます。`post-faq.test.ts` は各記事のタイトル、質問、回答をその言語で整形します。
@@ -29,4 +39,4 @@ description: "content/blog にあるローカライズされた MDX 記事。Fum
 
 ## チェック
 
-記事を追加したら `bun run content` を実行します。`bun scripts/check-content.ts` は、すべての言語のファイルがあること、タイトル・説明・抜粋が翻訳されていること、コードブロックが同一であることを確認します。
+記事を追加したら `bun run content` を実行します。`bun scripts/check-content.ts` は、すべての言語のファイルがあること、タイトル・説明・抜粋が翻訳されていること、コードブロックが同一であること、記事のすべての言語で `date` と `updated` が同じであることを確認します。

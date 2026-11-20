@@ -11,6 +11,7 @@ Every page describes itself to search engines and link previews through its rout
 
 - the title, with the locale's separator and `APP_NAME`, the description, the canonical URL and an `alternate` link with `hreflang` for every locale and for `x-default`;
 - Open Graph: `og:site_name`, `og:title` (the page title without the site name, as Open Graph expects), `og:description`, `og:type`, `og:url`, `og:locale` and, for a page that belongs to a section, `article:section`;
+- for a blog post, `article:published_time` and `article:modified_time`, from the `date` and `updated` of its frontmatter;
 - the social image: `og:image`, `og:image:type`, `og:image:width` and `og:image:height` (<RepositoryFact name="socialImageWidth" /> by <RepositoryFact name="socialImageHeight" /> pixels) and `og:image:alt`, with `twitter:card` set to `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` and `twitter:image:alt`.
 
 The root route adds `og:locale:alternate` for the other locales. In every build mode except `production` it also adds the `robots` directive `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`), which keeps preview and test deployments out of search results.
@@ -49,14 +50,14 @@ To change the design, edit `social-card.tsx`, run `bun run build:test` and open 
 1. Writes `dist/client/sitemap.xml` with every page whose `robots` directive allows indexing and whose path `robots.txt` does not disallow (`listedPages` and `buildSitemap` in `src/lib/sitemap.ts`, with the RFC 9309 matching of `src/lib/robots.ts`). Each `<url>` lists the page's own `alternate` links as `xhtml:link` entries, `x-default` included. The build fails when a page names an alternate that the sitemap does not list, or when a URL appears twice. `ROBOTS.NON_PRODUCTION` does not count as a page's own directive, so every build mode writes the same sitemap.
 2. Renders the site card and every page's card into `dist/client/images/og`, and fails when two pages name the same image.
 
-It prints how many pages the sitemap lists, how many cards it rendered and how long it took. The sitemap has no `lastmod`, because docs pages carry no reliable modification date. Course pages are not in it: they are read from D1 on each request, and the sitemap is a file written by the build.
+It prints how many pages the sitemap lists, how many cards it rendered and how long it took. A blog post's `<url>` carries a `<lastmod>`: `readPageHead` reads the post's `article:modified_time`, and `buildSitemap` writes its day as `YYYY-MM-DD`, in every locale. No other page has one, because docs, landing and legal pages carry no reliable modification date, and the time of the build would claim changes that never happened. Course pages are not in it: they are read from D1 on each request, and the sitemap is a file written by the build.
 
 The Worker does not change. Takumi and the script run only at build time, and `src/server.ts` serves `sitemap.xml` and the cards from static assets like any other file, with the cache policy `public/_headers` sets for `/images/*`.
 
 ## Tests
 
 - `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` and `robots.test.ts` in `src/lib/__test__` cover the tags and the structured data, reading the tags back, the sitemap and the robots rules. `takumi.render.test.ts` renders cards in English, German, Ukrainian and Japanese and checks their size.
-- `e2e/specs/seo.spec.ts` compares the served sitemap with the prerendered pages that allow indexing, requests every URL in it and expects `200` without a redirect, and opens the home page, a docs page and a blog post in English and Japanese to check their social tags and the image they name. It also checks that the prerendered home page carries the organisation's structured data.
+- `e2e/specs/seo.spec.ts` compares the served sitemap with the prerendered pages that allow indexing, checks that the `<lastmod>` of every published post in every locale is its `updated`, or its `date` when there is none, and that no other URL has one, requests every URL in it and expects `200` without a redirect, and opens the home page, a docs page and a blog post in English and Japanese to check their social tags and the image they name. It also checks that the prerendered home page carries the organisation's structured data.
 - After a deploy, `verify-deployment.ts` requests <RepositoryFact name="liveSiteCheckPaths" />, the sitemap and the site card among them.
 
 ## Related pages

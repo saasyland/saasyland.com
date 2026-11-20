@@ -60,6 +60,7 @@ const { loadBlogIndex } = vi.hoisted(() => {
           { depth: 2, title: "Introduction", url: "#intro" },
           { depth: 3, title: "Deploy", url: "#deploy" },
         ],
+        updated: "2025-07-01",
       }),
       post("featured", { date: "2025-01-01", featured: true, title: "Featured" }),
       post("minimal", { authorName: " ", date: "2024-01-01", summary: undefined, tags: [], title: "Minimal" }),
@@ -178,7 +179,13 @@ describe("blog post loader", () => {
       },
       section: pagesBlogMessages.metadata.title,
     })
-    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: pagesBlogMessages.metadata.title, property: "article:section" })
+    expect(router.state.matches.at(-1)?.meta).toStrictEqual(
+      expect.arrayContaining([
+        { content: pagesBlogMessages.metadata.title, property: "article:section" },
+        { content: "2025-06-01T00:00:00.000Z", property: "article:published_time" },
+        { content: "2025-07-01T00:00:00.000Z", property: "article:modified_time" },
+      ]),
+    )
   })
 
   it("loads an article without a summary, image or frequently asked questions", async () => {

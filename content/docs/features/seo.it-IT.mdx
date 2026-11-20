@@ -11,6 +11,7 @@ Ogni pagina si descrive ai motori di ricerca e alle anteprime dei link tramite l
 
 - il titolo, con il separatore della lingua e `APP_NAME`, la descrizione, l’URL canonico e un link `alternate` con `hreflang` per ogni lingua e per `x-default`;
 - Open Graph: `og:site_name`, `og:title` (il titolo della pagina senza il nome del sito, come si aspetta Open Graph), `og:description`, `og:type`, `og:url`, `og:locale` e, per una pagina che appartiene a una sezione, `article:section`;
+- per un articolo del blog, `article:published_time` e `article:modified_time`, da `date` e `updated` del suo frontmatter;
 - l’immagine social: `og:image`, `og:image:type`, `og:image:width` e `og:image:height` (<RepositoryFact name="socialImageWidth" /> per <RepositoryFact name="socialImageHeight" /> pixel) e `og:image:alt`, con `twitter:card` impostato su `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` e `twitter:image:alt`.
 
 La rotta radice aggiunge `og:locale:alternate` per le altre lingue. In ogni modalità di build tranne `production` aggiunge anche la direttiva `robots` `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`), che tiene i deploy di preview e di test fuori dai risultati di ricerca.
@@ -49,14 +50,14 @@ Per cambiare il design, modifica `social-card.tsx`, esegui `bun run build:test` 
 1. Scrive `dist/client/sitemap.xml` con ogni pagina la cui direttiva `robots` consente l’indicizzazione e il cui percorso non è vietato da `robots.txt` (`listedPages` e `buildSitemap` in `src/lib/sitemap.ts`, con la corrispondenza RFC 9309 di `src/lib/robots.ts`). Ogni `<url>` elenca i link `alternate` della pagina stessa come voci `xhtml:link`, `x-default` compreso. La build fallisce quando una pagina indica un’alternativa che la sitemap non elenca o quando un URL compare due volte. `ROBOTS.NON_PRODUCTION` non conta come direttiva propria della pagina, quindi ogni modalità di build scrive la stessa sitemap.
 2. Genera la card del sito e quella di ogni pagina in `dist/client/images/og`, e fallisce quando due pagine indicano la stessa immagine.
 
-Stampa quante pagine elenca la sitemap, quante card ha generato e quanto tempo ha impiegato. La sitemap non ha `lastmod`, perché le pagine della documentazione non hanno una data di modifica affidabile. Le pagine dei corsi non ci sono: vengono lette da D1 a ogni richiesta, mentre la sitemap è un file scritto dalla build.
+Stampa quante pagine elenca la sitemap, quante card ha generato e quanto tempo ha impiegato. Il `<url>` di un articolo del blog ha un `<lastmod>`: `readPageHead` legge il valore `article:modified_time` dell’articolo e `buildSitemap` ne scrive il giorno come `YYYY-MM-DD`, in ogni lingua. Nessun’altra pagina ne ha uno, perché le pagine della documentazione, la landing page e le pagine legali non hanno una data di modifica affidabile, e l’ora della build dichiarerebbe modifiche mai avvenute. Le pagine dei corsi non ci sono: vengono lette da D1 a ogni richiesta, mentre la sitemap è un file scritto dalla build.
 
 Il Worker non cambia. Takumi e lo script vengono eseguiti solo durante la build, e `src/server.ts` serve `sitemap.xml` e le card dagli asset statici come qualsiasi altro file, con la policy di cache che `public/_headers` imposta per `/images/*`.
 
 ## Test
 
 - `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` e `robots.test.ts` in `src/lib/__test__` coprono i tag e i dati strutturati, la rilettura dei tag, la sitemap e le regole di robots. `takumi.render.test.ts` genera card in inglese, tedesco, ucraino e giapponese e ne controlla le dimensioni.
-- `e2e/specs/seo.spec.ts` confronta la sitemap servita con le pagine prerenderizzate che consentono l’indicizzazione, richiede ogni URL che contiene aspettandosi `200` senza redirect, e apre la home, una pagina della documentazione e un articolo del blog in inglese e giapponese per controllarne i tag social e l’immagine che indicano. Controlla anche che la home prerenderizzata contenga i dati strutturati dell’organizzazione.
+- `e2e/specs/seo.spec.ts` confronta la sitemap servita con le pagine prerenderizzate che consentono l’indicizzazione, controlla che il `<lastmod>` di ogni articolo pubblicato in ogni lingua sia il suo `updated`, o il suo `date` se manca, e che nessun altro URL ne abbia uno, richiede ogni URL che contiene aspettandosi `200` senza redirect, e apre la home, una pagina della documentazione e un articolo del blog in inglese e giapponese per controllarne i tag social e l’immagine che indicano. Controlla anche che la home prerenderizzata contenga i dati strutturati dell’organizzazione.
 - Dopo un deploy, `verify-deployment.ts` richiede <RepositoryFact name="liveSiteCheckPaths" />, tra cui la sitemap e la card del sito.
 
 ## Pagine correlate

@@ -1,16 +1,33 @@
 ---
-title: "Migrazioni del database"
-description: "Generare, applicare e ispezionare le migrazioni D1."
+title: "Database"
+description: "Database D1 separati per locale, preview e produzione: migrazioni, Drizzle Studio, il seed locale e il primo amministratore."
 ---
 
 Gli schemi si trovano nei moduli delle tabelle e vengono raccolti da `src/integrations/drizzle-orm/drizzle.schemas.ts`. Le migrazioni sono file SQL con prefisso di timestamp in `src/integrations/drizzle-orm/migrations/`, versionati insieme alla modifica dello schema.
 
-## Flusso di lavoro
+## Tre database [#three-databases]
+
+Ogni ambiente Wrangler ha il proprio database D1, e nessuno script o server raggiunge i dati di un altro ambiente:
+
+| Ambiente      | Database                                      | Usato da                                         | I suoi dati                               |
+| ------------- | --------------------------------------------- | ------------------------------------------------ | ----------------------------------------- |
+| `development` | `saasyland_local` locale in `.wrangler/state` | `bun run dev` e gli script `:local`              | Tuoi; `db:seed:local` lo popola           |
+| `preview`     | `saasyland_com_preview` remoto                | `preview.saasyland.com` e gli script `:preview`  | Acquisti di prova con la sandbox di Polar |
+| `production`  | `saasyland_com_production` remoto             | `saasyland.com` e gli script `:production`       | Clienti                                   |
+| `test`        | `saasyland_test` locale in `.wrangler/test`   | Playwright, la preview isolata e `db:reset:test` | `db:seed:test` lo popola                  |
+
+`bun run dev` non legge né scrive mai un database remoto. Ogni binding dell'ambiente `development` in `wrangler.jsonc` ha `remote: false`, il plugin Vite di Cloudflare gira con `remoteBindings: false` (`src/data/cloudflare.vite.ts`), e `src/__test__/wrangler.test.ts` fallisce quando un binding di sviluppo diventa remoto o condivide un database, un namespace o un bucket con `preview` o `production`. Gli altri binding sono locali per lo stesso motivo:
+
+- `CACHE` (KV) contiene solo cache che il Worker riempie di nuovo, il conteggio delle stelle GitHub e gli sconti regionali del checkout, quindi un namespace locale parte vuoto e funziona subito.
+- `MEDIA` e `BUNDLES` (R2) sono i bucket locali `saasyland-local` e `saasyland-bundles-local`. Le righe che puntano ai loro file, cioè video, materiali delle lezioni e bundle di template, sono in D1, quindi un database locale con bucket remoti mostrerebbe i file della preview a righe che non esistono e lascerebbe file orfani nei bucket della preview.
+- Better Auth tiene utenti, sessioni, token di verifica e rate limit in D1, quindi registrazione, accesso e amministrazione funzionano in locale. Le email partono comunque tramite Resend con la chiave in `.env.development`, e le chiamate a Polar vanno alla sandbox indicata da `POLAR_SERVER`.
+
+## Migrazioni
 
 1. Modifica `src/modules/<table>/<table>.schema.ts`.
 2. Esegui `bun run db:generate` e rivedi l'SQL generato.
-3. Applicala in locale ed esegui i test; Vitest applica ogni migrazione al proprio database in memoria.
-4. Esegui il deploy: gli script di deploy e la CI la applicano al database di preview o di produzione prima che il nuovo Worker vada online. Applicala tu stesso al database di sviluppo.
+3. Applicala in locale con `bun run db:migrate:local` ed esegui i test; Vitest applica ogni migrazione al proprio database in memoria.
+4. Esegui il deploy: gli script di deploy e la CI la applicano al database di preview o di produzione prima che il nuovo Worker vada online.
 
 ```sh
 bun run db:generate
@@ -18,31 +35,84 @@ bun run db:migrate:local
 bun run db:migrate:test
 ```
 
+L'installazione delle dipendenze e la build non migrano mai un database.
+
 ## Comandi
 
-| Comando                               | Destinazione                                                                                                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run db:generate`                 | Nuova migrazione a partire dal diff dello schema (drizzle-kit)                                                                                             |
-| `bun run db:migrate:local`            | Database locale dell'ambiente `development`                                                                                                                |
-| `bun run db:migrate:test`             | Database di test locale in `.wrangler/test`                                                                                                                |
-| `bun run db:seed:test`                | Account di test, una licenza, un video di test, un corso con quattro lezioni e un bundle di template della CLI nel database di test locale e nei bucket R2 |
-| `bun run db:reset:test`               | Elimina `.wrangler/test`, poi esegue `db:migrate:test` e `db:seed:test`                                                                                    |
-| `bun run db:migrate:development`      | Database remoto di `development`, che per impostazione predefinita è quello di preview                                                                     |
-| `bun run db:migrate:preview`          | Database di preview remoto                                                                                                                                 |
-| `bun run db:migrate:production`       | Database di produzione remoto                                                                                                                              |
-| `bun run db:migrations:<environment>` | Migrazioni non ancora applicate a `development`, `preview` o `production`; non modifica nulla                                                              |
-| `bun run db:studio:<environment>`     | Drizzle Studio per `development`, `preview` o `production`                                                                                                 |
-| `bun run db:introspect:<environment>` | Introspezione con drizzle-kit per `development`, `preview` o `production`                                                                                  |
+| Comando                                                             | Database                          | Cosa fa                                                                                                            |
+| ------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `bun run db:generate`                                               | nessuno                           | Una nuova migrazione a partire dal diff dello schema (drizzle-kit)                                                 |
+| `bun run db:migrate:local`                                          | `development` locale              | Applica le migrazioni                                                                                              |
+| `bun run db:migrations:local`                                       | `development` locale              | Elenca le migrazioni non ancora applicate; non modifica nulla                                                      |
+| `bun run db:reset:local`                                            | `development` locale              | Elimina `.wrangler/state/v3/d1`, poi applica ogni migrazione: un database vuoto                                    |
+| `bun run db:seed:local`                                             | `development` locale              | L'amministratore locale, il programma dei corsi, delle licenze e un ordine; vedi [Il seed locale](#the-local-seed) |
+| `bun run db:studio:local`                                           | `development` locale              | Drizzle Studio sul file SQLite locale                                                                              |
+| `bun run admin:grant:local`                                         | `development` locale              | Rende amministratore un account verificato; vedi [Il primo amministratore](#the-first-admin)                       |
+| `bun run db:migrate:test`                                           | `test` locale in `.wrangler/test` | Applica le migrazioni                                                                                              |
+| `bun run db:seed:test`                                              | `test` locale                     | Account di test, una licenza, un video, un corso con quattro lezioni e un bundle di template della CLI             |
+| `bun run db:reset:test`                                             | `test` locale                     | Elimina `.wrangler/test`, poi esegue `db:migrate:test` e `db:seed:test`                                            |
+| `bun run db:migrate:preview`, `bun run db:migrate:production`       | Remoto                            | Applica le migrazioni                                                                                              |
+| `bun run db:migrations:preview`, `bun run db:migrations:production` | Remoto                            | Elenca le migrazioni non ancora applicate; non modifica nulla                                                      |
+| `bun run db:studio:preview`, `bun run db:studio:production`         | Remoto                            | Drizzle Studio tramite l'API HTTP di D1                                                                            |
+| `bun run db:introspect:preview`, `bun run db:introspect:production` | Remoto                            | Introspezione con drizzle-kit tramite l'API HTTP di D1                                                             |
+| `bun run admin:grant:preview`, `bun run admin:grant:production`     | Remoto                            | Rende amministratore un account verificato; vedi [Il primo amministratore](#the-first-admin)                       |
 
-Studio e l'introspezione usano l'API HTTP di D1 con `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` dal file di ambiente corrispondente. L'applicazione invece usa sempre il binding `DB`.
+`deploy:preview`, `deploy:production` e il deploy in CI eseguono `db:migrate:preview` o `db:migrate:production` prima di `wrangler deploy`. Nulla popola un database remoto.
 
-Il server di sviluppo usa binding remoti, quindi `db:migrate:local` non ha effetto su di esso; `db:migrate:development` sì. `deploy:preview`, `deploy:production` e il deploy in CI applicano `db:migrate:preview` o `db:migrate:production` prima di `wrangler deploy`. L'installazione delle dipendenze e la build non migrano mai un database remoto.
+## Drizzle Studio
 
-## Account amministratore
+`bun run db:studio:local` esegue `scripts/studio-local.ts`. Miniflare tiene il database locale in un unico file SQLite in `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/`, il cui nome deriva da un hash dell'ID del database in `wrangler.jsonc`; lo script ricava il nome come fa Miniflare, fallisce con un suggerimento quando il file non esiste ancora e apre Drizzle Studio su di esso con `src/integrations/drizzle-orm/drizzle.local.config.ts`, che legge il file tramite `@libsql/client`. Studio e il server di sviluppo possono girare contemporaneamente.
 
-Non esiste alcun seed al di fuori del database di test. Per inizializzare un'installazione, registrati, verifica l'indirizzo email e poi imposta il `role` di quell'utente su `admin` in Drizzle Studio.
+`bun run db:studio:preview` e `bun run db:studio:production` usano l'API HTTP di D1 con `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` di `.env.preview` o `.env.production`, tramite `src/integrations/drizzle-orm/drizzle.config.ts`. Ogni modifica fatta lì è una modifica ai dati reali di quell'ambiente.
+
+## Il seed locale [#the-local-seed]
+
+```sh
+bun run db:reset:local
+bun run db:seed:local
+bun run dev
+```
+
+Ferma il server di sviluppo prima di `db:reset:local`. `db:seed:local` (`scripts/seed-local.ts`) avvia i binding locali dell'ambiente `development` con `getPlatformProxy` di Wrangler, scrive quanto segue e può essere rieseguito in qualsiasi momento; modifica solo ciò che differisce:
+
+- Un amministratore, <RepositoryFact name="localAdminEmail" />, con un indirizzo email verificato. La sua password è `LOCAL_ADMIN_PASSWORD` di `.env.development`, oppure <RepositoryFact name="localAdminPassword" /> quando non è impostata, e deve rispettare le regole della registrazione. Ogni esecuzione imposta di nuovo la password. Usa una password che esiste solo sulla tua macchina, mai una di produzione: il seed scrive solo il database locale.
+- Il programma dei corsi di `content/courses/saasy-land-courses.json`, importato con `planCourseImport` e `applyCourseImport` di `src/modules/course/course.transfer.ts`, lo stesso codice di **Importa** nell'amministrazione. Le sue lezioni non hanno ancora un video, quindi risultano [in registrazione](/docs/features/courses#being-recorded).
+- Le licenze, l'ordine senza licenza e il bundle di template della CLI del seed di test (`e2e/data/license.seed.ts`), così il cruscotto di amministrazione e le pagine delle licenze hanno dati con una forma reale. I loro account cliente usano la password <RepositoryFact name="testPassword" />.
+
+Accedi su http://localhost:3000/auth/sign-in con l'amministratore e apri `/admin/courses` per vedere i corsi.
+
+## I dati dei corsi in ogni ambiente [#course-data-in-each-environment]
+
+- Locale: `bun run db:seed:local` importa il programma dei corsi.
+- Preview e produzione: un amministratore importa `content/courses/saasy-land-courses.json` nell'amministrazione. Accedi come amministratore, apri **Admin → Corsi**, scegli **Importa**, seleziona il file, esegui **Controlla il file**, leggi il piano, poi **Importa**. Importare di nuovo lo stesso file non cambia nulla. Vedi [Importazione ed esportazione](/docs/features/courses#import-and-export).
+
+Nessuno script scrive dati dei corsi in un database remoto.
+
+## Il primo amministratore [#the-first-admin]
+
+L'applicazione non ha alcun endpoint, seed o variabile che assegni il ruolo `admin`. Su preview e in produzione, il primo amministratore viene creato con uno script, e questo è l'unico modo:
+
+```sh
+bunx wrangler login
+bun run admin:grant:production you@example.com
+```
+
+1. Registrati sul sito con l'indirizzo e apri il link nell'email di verifica.
+2. Accedi a Wrangler con un account Cloudflare che può scrivere nel database D1 dell'ambiente.
+3. Esegui `bun run admin:grant:preview <email>` o `bun run admin:grant:production <email>`.
+
+`scripts/grant-admin.ts` legge l'account con `wrangler d1 execute --remote`, lo stampa e rifiuta un indirizzo senza account, un account la cui email non è verificata e un account bloccato. Poi imposta `role` su `admin` in quell'unica riga, legge di nuovo l'account e lo stampa. Un account che è già amministratore resta com'è.
+
+È sicuro per tre motivi:
+
+- Solo chi può scrivere nel database D1 di quell'account Cloudflare può eseguirlo, con il proprio `wrangler login`. Una persona del genere potrebbe comunque modificare qualsiasi riga nella dashboard di Cloudflare; lo script non aggiunge nessuna nuova via d'accesso.
+- Modifica una sola colonna di un solo account che ha dimostrato di possedere il proprio indirizzo email.
+- L'applicazione applica i ruoli sul server: `requireAdmin` protegge `/admin`, e ogni funzione server di amministrazione verifica il proprio permesso con `authorized(...)` in `auth.middleware.ts`. Vedi [Ruoli e permessi](/docs/guides/roles-and-permissions).
+
+Gli amministratori successivi li nomina un amministratore esistente in **Admin → Gestione degli utenti**: apri l'utente, poi **Cambia ruolo**. `bun run admin:grant:local <email>` fa lo stesso per un account con cui ti sei registrato in locale.
 
 ## Guide correlate
 
 - [D1 e Drizzle](/docs/integrations/cloudflare-d1)
 - [Guida alle migrazioni del database](/docs/guides/database-migrations)
+- [Ambiente e binding](/docs/tooling/environment)

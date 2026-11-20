@@ -5,10 +5,10 @@ description: "ローカル環境を選び、サーバーエラーを読み、デ
 
 ## 環境を選ぶ
 
-| 環境           | コマンド                                    | データ                                                               | プロバイダー                                  |
-| -------------- | ------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
-| 分離プレビュー | `db:reset:test`、`build:test`、`start:test` | `.wrangler/test` にあるローカルの D1、KV、R2、シード済みのアカウント | インターセプトされるため、アカウントは不要    |
-| 開発           | `db:migrate:development`、`dev`             | リモートのプレビュー用 D1、KV、R2                                    | 実際のプロバイダー（`.env.development` から） |
+| 環境           | コマンド                                    | データ                                                                    | プロバイダー                                  |
+| -------------- | ------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| 分離プレビュー | `db:reset:test`、`build:test`、`start:test` | `.wrangler/test` にあるローカルの D1、KV、R2、シード済みのアカウント      | インターセプトされるため、アカウントは不要    |
+| 開発           | `db:reset:local`、`db:seed:local`、`dev`    | `.wrangler/state` にあるローカルの D1、KV、R2、シード済みの管理者とコース | 実際のプロバイダー（`.env.development` から） |
 
 ```sh
 bun run db:reset:test
@@ -19,13 +19,13 @@ bun run start:test
 分離プレビューは、ビルドを `http://127.0.0.1:3000` で配信します。ソースの変更を反映するには再ビルドしてください。[初回起動](/docs/getting-started/first-run)に一覧があるシード済みのアカウントのいずれかで、`e2e/data/accounts.ts` にあるパスワードを使ってサインインします。メールは送信されずにキャプチャされます。認証リンクを含むメールを読むには、`/__test/emails?to=<address>` を開きます。
 
 ```sh
-bunx wrangler login
 cp .env.example .env.development
-bun run db:migrate:development
+bun run db:reset:local
+bun run db:seed:local
 bun run dev
 ```
 
-開発サーバーは `http://localhost:3000` でホットリロード付きで動作します。その `DB`、`CACHE`、`MEDIA`、`BUNDLES` のバインディングはリモートのプレビュー用リソースであるため、書き込みとマイグレーションは共有のプレビュー用データベースに影響します。`POLAR_SERVER=sandbox` を使ってください。
+開発サーバーは `http://localhost:3000` でホットリロード付きで動作します。その `DB`、`CACHE`、`MEDIA`、`BUNDLES` のバインディングはローカルのものであるため、何をしてもプレビューや本番のデータには届きません。[ローカルのシード](/docs/tooling/database#the-local-seed)にあるシード済みの管理者でサインインします。`POLAR_SERVER=sandbox` を使ってください。
 
 ## サーバーエラーを読む
 
@@ -36,7 +36,7 @@ bun run dev
 
 ## データを確認する
 
-- Drizzle Studio：`bun run db:studio:development`（`:preview` と `:production` もあります）。対応する環境ファイルに `CLOUDFLARE_*` 変数が必要です。
+- Drizzle Studio：ローカルのデータベースには `bun run db:studio:local`。`:preview` と `:production` には、対応する環境ファイルに `CLOUDFLARE_*` 変数が必要です。
 - ローカルのテスト用データベース：`bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`。
 
 ## 生成されたファイルを修正する

@@ -21,7 +21,7 @@ Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfm
 
 `vite.config.ts` 自体はプラグインを1つも指定しません。各エリアが `src/data/<area>.vite.ts` で宣言したプラグインを遅延読み込みし、`src/data/vite.entries.ts` がそれらをまとめ、`src/data/vite.ts` の `vitePlugins` が `order` の順に並べます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。Vitest の実行中は `vitest` が指定されたエントリー、つまり `repositoryFacts()`、`contentIndexes()`、`@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
 
-- `@cloudflare/vite-plugin`: SSR 環境で Worker を実行し、ローカルの状態を永続化し（`test` モードでは `.wrangler/test` 内）、`development` ではリモートバインディングを使います。
+- `@cloudflare/vite-plugin`: SSR 環境で Worker を実行し、ローカルの状態を永続化します（`test` モードでは `.wrangler/test` 内、それ以外では `.wrangler/state` 内）。`remoteBindings: false` で動作するため、どの環境の開発サーバーやビルドもリモートのバインディングに接続しません。
 - `fumadocs-mdx`: ドキュメントとブログのコレクションをコンパイルします。
 - `contentIndexes`（`scripts/content-indexes.ts`）: `fumadocs.indexes.ts` が `content/docs` と `content/blog` から作るドキュメント、ブログ、検索のインデックスを、`virtual:content-indexes` と `virtual:docs-search` として提供します。[Fumadocs](/docs/integrations/fumadocs#content-indexes) を参照してください。
 - `saasyland:fumadocs-bundled`: `fumadocs-core` と `@fumadocs/base-ui` をサーバーバンドルに含めます（`resolve.noExternal`）。
@@ -41,7 +41,7 @@ Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfm
 
 ## Git フック
 
-`bun install` は `prepare` を実行し、`prepare` は `vp config --no-agent` を呼び出して `.vite-hooks/` 用のフックディスパッチャーをインストールします。`pre-commit` は `bun run check:pre-commit` を実行し、`prepare-commit-msg` は `scripts/commit-msg.ts` を実行します（[Conventional Commits](/docs/tooling/conventional-commits) を参照）。クローンでフックが有効かどうかは `vp hooks status` で確認できます。
+`bun install` は `prepare` を実行し、`prepare` は `vp config --no-agent` を呼び出して `.vite-hooks/` 用のフックディスパッチャーをインストールします。`pre-commit` は `bun run check:pre-commit` を実行し、`prepare-commit-msg` は `scripts/commit-msg.ts` を実行します（[Conventional Commits](/docs/tooling/conventional-commits) を参照）。`post-merge`、`post-checkout`、`post-rewrite` は、`bun.lock` が変わったときに `bun install --frozen-lockfile` を実行します。そのため、プル、リベース、ブランチの切り替えの後に `node_modules` が古いまま残ることはありません。クローンでフックが有効かどうかは `vp hooks status` で確認できます。
 
 基本的にはパッケージのスクリプトを使ってください。特定のパスだけをフォーマットまたはリントするなど、対象を絞って実行したい場合は `vp` を直接呼び出します。
 

@@ -4,6 +4,7 @@ import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
 import { EMAIL_PURPOSE } from "../../src/integrations/resend/resend.constants"
+import { APP_NAME } from "../../src/presentation/branding"
 import { expect } from "./test"
 
 const sentEmailsSchema = zod.array(
@@ -44,6 +45,53 @@ export const expectVerificationEmail = async (
   expect(verificationUrl.searchParams.get("token")).toBeTruthy()
   expect(email.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${createHash("sha256").update(verificationUrl.searchParams.get("token") ?? "").digest("hex")}`)
   return verificationUrl
+}
+
+const emailsFor = async (request: APIRequestContext, recipient: string, purpose: string): Promise<zod.infer<typeof sentEmailsSchema>> =>
+  (await getSentEmails(request, recipient)).filter(({ idempotencyKey }) => idempotencyKey.startsWith(`${purpose}/`))
+
+const latestEmail = async (request: APIRequestContext, recipient: string, purpose: string, expectedCount: number) => {
+  await expect.poll(async () => (await emailsFor(request, recipient, purpose)).length).toBe(expectedCount)
+
+  const email = (await emailsFor(request, recipient, purpose)).at(-1)
+  if (!email) throw new Error(`No ${purpose} email was sent to ${recipient}`)
+
+  expect(email.to).toEqual([recipient])
+  return email
+}
+
+const linkTo = (html: string, path: string): URL => {
+  const link = [...html.matchAll(/href="([^"]+)"/gu)].map(([, href]) => href ?? "").find((href) => new URL(href.replaceAll("&amp;", "&")).pathname.includes(path))
+  if (link === undefined) throw new Error(`The email has no link to ${path}`)
+
+  return new URL(link.replaceAll("&amp;", "&"))
+}
+
+export const expectExistingAccountEmail = async (
+  request: APIRequestContext,
+  recipient: string,
+  expectedCount = 1,
+): Promise<{ resetPasswordUrl: URL; signInUrl: URL }> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.EXISTING_ACCOUNT, expectedCount)
+
+  expect(email.subject).toBe(`You already have a ${APP_NAME} account`)
+  expect(email.html).toContain('lang="en-US"')
+  expect(email.html).not.toContain("/auth/verify-email")
+  return { resetPasswordUrl: linkTo(email.html, "/auth/forgot-password"), signInUrl: linkTo(email.html, "/auth/sign-in") }
+}
+
+export const expectResetPasswordEmail = async (request: APIRequestContext, recipient: string, expectedCount = 1): Promise<URL> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.RESET_PASSWORD, expectedCount)
+
+  expect(email.subject).toBe("Reset your password")
+  return linkTo(email.html, "/auth/reset-password")
+}
+
+export const expectPasswordChangedEmail = async (request: APIRequestContext, recipient: string): Promise<void> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.PASSWORD_CHANGED, 1)
+
+  expect(email.subject).toBe(`Your ${APP_NAME} password was changed`)
+  expect(email.html).toContain("/auth/forgot-password")
 }
 
 export const expectPurchaseConfirmation = async (request: APIRequestContext, recipient: string): Promise<string> => {

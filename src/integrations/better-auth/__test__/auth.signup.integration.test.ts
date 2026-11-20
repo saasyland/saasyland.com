@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import * as zod from "zod"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
@@ -26,6 +27,8 @@ const RESEND_LIMIT = 256
 const A_MINUTE_MS = 60_000
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
+
+const signUpResponseSchema = zod.object({ token: zod.null(), user: zod.record(zod.string(), zod.unknown()) })
 
 const createSignUp = () => ({
   callbackURL: "/pl-PL/app",
@@ -206,9 +209,11 @@ describe("production signup verification delivery", () => {
     expect(session.token).toBeTypeOf("string")
     expect(session.user).toMatchObject({ email: body.email, emailVerified: true, id: first.user.id })
   })
+})
 
-  it("keeps the generic signup response without sending verification to an already verified account", async () => {
-    const body = createSignUp()
+describe("repeated sign-up of an existing account", () => {
+  it("keeps the generic signup response and tells an already verified account, in the sign-up page's locale, how to sign in", async () => {
+    const body = { ...createSignUp(), callbackURL: "/pl-PL/auth/callback?redirect=%2Fpl-PL%2Fapp%2Fsettings" }
     const first = await signUp(body)
     await db.update(user).set({ emailVerified: true }).where(eq(user.id, first.user.id))
     aMinuteLater()
@@ -216,9 +221,78 @@ describe("production signup verification delivery", () => {
     const repeated = await signUp(body)
 
     expect(repeated.token).toBeNull()
-    expect(repeated.user.email).toBe(body.email)
+    expect(repeated.user).toMatchObject({ email: body.email, emailVerified: false })
     expect(repeated.user.id).not.toBe(first.user.id)
-    expect(getSentEmails(body.email)).toHaveLength(1)
+    const deliveries = getSentEmails(body.email)
+    expect(deliveries).toHaveLength(2)
+    expect(deliveries[1]).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: "Masz już konto w SaaSy Land", to: [body.email] })
+    expect(deliveries[1]?.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.EXISTING_ACCOUNT}/[0-9a-f]{64}$`, "u"))
+    expect(deliveries[1]?.html).toContain('lang="pl-PL"')
+    expect(deliveries[1]?.html).toContain(`href="${ORIGIN}/pl-PL/auth/sign-in?redirect=%2Fpl-PL%2Fapp%2Fsettings"`)
+    expect(deliveries[1]?.html).toContain(`href="${ORIGIN}/pl-PL/auth/forgot-password"`)
+    expect(deliveries[1]?.html).not.toContain("/auth/verify-email")
+  })
+
+  it("answers a new, an existing verified and an existing unverified email with the same response", async () => {
+    const verified = createSignUp()
+    const unverified = createSignUp()
+    const verifiedAccount = await signUp(verified)
+    await db.update(user).set({ emailVerified: true }).where(eq(user.id, verifiedAccount.user.id))
+    await signUp(unverified)
+    aMinuteLater()
+    const postSignUp = async ({ callbackURL, email, name, password }: ReturnType<typeof createSignUp>, client: number) => {
+      const request = new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`, {
+        body: JSON.stringify({ callbackURL, email, name, password }),
+        headers: { [IP_ADDRESS_HEADER]: `203.0.113.${String(client)}`, "content-type": "application/json", origin: ORIGIN },
+        method: "POST",
+      })
+      vi.mocked(getRequest).mockReturnValue(request)
+      const response = await auth.handler(request)
+      await flushWaitUntil()
+      const json: unknown = await response.json()
+      return { json, setCookie: response.headers.get("set-cookie"), status: response.status }
+    }
+
+    const answers = []
+    for (const [client, body] of [createSignUp(), verified, unverified].entries()) {
+      answers.push(await postSignUp(body, client + 20))
+    }
+
+    const shapes = answers.map(({ json, setCookie, status }) => ({
+      keys: Object.keys(signUpResponseSchema.parse(json).user).toSorted(),
+      setCookie,
+      status,
+      token: signUpResponseSchema.parse(json).token,
+    }))
+    expect(shapes[1]).toStrictEqual(shapes[0])
+    expect(shapes[2]).toStrictEqual(shapes[0])
+    expect(shapes[0]).toMatchObject({ setCookie: null, status: 200, token: null })
+    expect(getSentEmails(verified.email).map(({ idempotencyKey }) => idempotencyKey?.split("/")[0])).toStrictEqual([
+      EMAIL_PURPOSE.VERIFY_EMAIL,
+      EMAIL_PURPOSE.EXISTING_ACCOUNT,
+    ])
+    expect(getSentEmails(unverified.email).map(({ idempotencyKey }) => idempotencyKey?.split("/")[0])).toStrictEqual([
+      EMAIL_PURPOSE.VERIFY_EMAIL,
+      EMAIL_PURPOSE.VERIFY_EMAIL,
+    ])
+  })
+
+  it("tells an already verified account at most three times an hour, however often someone signs up with it", async () => {
+    const body = createSignUp()
+    const first = await signUp(body)
+    await db.update(user).set({ emailVerified: true }).where(eq(user.id, first.user.id))
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      aMinuteLater()
+      await signUp(body)
+    }
+
+    const notices = getSentEmails(body.email).filter(
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.EXISTING_ACCOUNT}/`) === true,
+    )
+    expect(notices).toHaveLength(3)
+    expect(consoleWarn).toHaveBeenCalledWith("[email] existing account email not sent: the recipient reached the hourly limit")
   })
 })
 

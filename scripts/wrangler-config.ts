@@ -4,7 +4,7 @@ import { z } from "zod/v4"
 
 const WRANGLER_CONFIG = "wrangler.jsonc"
 
-const databaseSchema = z.object({ binding: z.string(), database_id: z.string() })
+const databaseSchema = z.object({ binding: z.string(), database_id: z.string(), preview_database_id: z.string().optional() })
 const namespaceSchema = z.object({ binding: z.string(), id: z.string() })
 const bucketSchema = z.object({ binding: z.string(), bucket_name: z.string() })
 const secretsSchema = z.object({ required: z.array(z.string()) })

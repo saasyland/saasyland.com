@@ -10,7 +10,7 @@ export const CLOUDFLARE_VITE_PLUGINS = [
         cloudflare({
           inspectorPort: false,
           persistState: mode === "test" ? { path: ".wrangler/test" } : true,
-          remoteBindings: mode !== "test" && process.env["CLOUDFLARE_ENV"] === "development",
+          remoteBindings: false,
           viteEnvironment: { name: "ssr" },
         }),
       ]

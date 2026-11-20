@@ -3,7 +3,7 @@ import { waitUntil } from "cloudflare:workers"
 import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
+import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS, EMAIL_LINK_LIFETIME_SECONDS } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
@@ -11,6 +11,8 @@ import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
+
+import { SECONDS_PER_HOUR } from "~/src/lib/duration"
 
 import { APP_SLUG } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -47,6 +49,14 @@ describe("Cloudflare auth configuration", () => {
   it("preserves verification and session revocation on password reset", () => {
     expect(auth.options.emailAndPassword.requireEmailVerification).toBe(true)
     expect(auth.options.emailAndPassword.revokeSessionsOnPasswordReset).toBe(true)
+  })
+  it("sends a fresh verification link when an unverified account signs in", () => {
+    expect(auth.options.emailVerification).toMatchObject({ sendOnSignIn: true, sendOnSignUp: true })
+  })
+  it("gives verification and reset links the lifetime the emails state", () => {
+    expect(auth.options.emailVerification.expiresIn).toBe(EMAIL_LINK_LIFETIME_SECONDS)
+    expect(auth.options.emailAndPassword.resetPasswordTokenExpiresIn).toBe(EMAIL_LINK_LIFETIME_SECONDS)
+    expect(EMAIL_LINK_LIFETIME_SECONDS).toBe(EMAIL_LINK_LIFETIME_HOURS * SECONDS_PER_HOUR)
   })
   it("retains both OAuth providers and encrypted tokens", () => {
     expect(Object.keys(auth.options.socialProviders)).toEqual([AUTH_PROVIDER.GITHUB, AUTH_PROVIDER.GOOGLE])

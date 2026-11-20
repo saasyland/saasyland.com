@@ -21,7 +21,7 @@ Vite+ (`vite-plus`, comando `vp`) reúne Vite, Vitest, oxlint y oxfmt en una sol
 
 `vite.config.ts` no nombra ningún plugin: carga de forma diferida los plugins que cada área declara en `src/data/<area>.vite.ts`, que `src/data/vite.entries.ts` reúne y `vitePlugins` en `src/data/vite.ts` ordena según su `order` (consulta [Lo que aportan las áreas](/docs/architecture/platform-layer#what-the-areas-add)). Con Vitest solo se cargan las entradas marcadas con `vitest`, es decir, `repositoryFacts()`, `contentIndexes()` y `@vitejs/plugin-react`; en los demás casos, la pila es:
 
-- `@cloudflare/vite-plugin`: ejecuta el Worker en el entorno de SSR, conserva el estado local (en `.wrangler/test` para el modo `test`) y usa bindings remotos para `development`.
+- `@cloudflare/vite-plugin`: ejecuta el Worker en el entorno de SSR y conserva el estado local (en `.wrangler/test` para el modo `test`, en `.wrangler/state` en los demás), con `remoteBindings: false`, así que ni el servidor de desarrollo ni la compilación de ningún entorno se conectan a un binding remoto.
 - `fumadocs-mdx`: compila las colecciones de documentación y de blog.
 - `contentIndexes` (`scripts/content-indexes.ts`): sirve `virtual:content-indexes` y `virtual:docs-search`, los índices de la documentación, del blog y de búsqueda que `fumadocs.indexes.ts` construye a partir de `content/docs` y `content/blog`; consulta [Fumadocs](/docs/integrations/fumadocs#content-indexes).
 - `saasyland:fumadocs-bundled`: mantiene `fumadocs-core` y `@fumadocs/base-ui` dentro del bundle del servidor (`resolve.noExternal`).
@@ -41,7 +41,7 @@ El servidor de desarrollo escucha en `localhost:3000` y falla si el puerto está
 
 ## Hooks de Git
 
-`bun install` ejecuta `prepare`, que llama a `vp config --no-agent` para instalar el despachador de hooks de `.vite-hooks/`. `pre-commit` ejecuta `bun run check:pre-commit`, y `prepare-commit-msg` ejecuta `scripts/commit-msg.ts` (consulta [Commits convencionales](/docs/tooling/conventional-commits)). `vp hooks status` muestra si los hooks están activos en un clon.
+`bun install` ejecuta `prepare`, que llama a `vp config --no-agent` para instalar el despachador de hooks de `.vite-hooks/`. `pre-commit` ejecuta `bun run check:pre-commit`, y `prepare-commit-msg` ejecuta `scripts/commit-msg.ts` (consulta [Commits convencionales](/docs/tooling/conventional-commits)). `post-merge`, `post-checkout` y `post-rewrite` ejecutan `bun install --frozen-lockfile` cuando `bun.lock` ha cambiado, así que un pull, un rebase o un cambio de rama nunca dejan `node_modules` desactualizado. `vp hooks status` muestra si los hooks están activos en un clon.
 
 Dé preferencia a los scripts del paquete; llame a `vp` directamente para ejecuciones concretas, como formatear o analizar rutas específicas.
 

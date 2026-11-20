@@ -3,11 +3,11 @@ title: "Підтвердження електронної пошти"
 description: "Обов’язкове підтвердження адреси з локалізованими посиланнями та формою повторного надсилання."
 ---
 
-Better Auth працює з увімкненими `requireEmailVerification`, `sendOnSignUp` і `autoSignInAfterVerification`, тому новий обліковий запис має підтвердити адресу, перш ніж зможе увійти.
+Better Auth працює з увімкненими `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` і `autoSignInAfterVerification`, тому новий обліковий запис має підтвердити адресу, перш ніж зможе увійти, а кожен вхід із правильним паролем до того надсилає нове посилання. Посилання діє `EMAIL_LINK_LIFETIME_HOURS` (`emailVerification.expiresIn`), і лист про це повідомляє.
 
 ## Надсилання
 
-`emailVerification.sendVerificationEmail` в `auth.server.ts` передає лист відправникам листів автентифікації, і відправник Resend — це `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, доданий у `src/data/resend.auth-emails.ts`). Він формує посилання на `/auth/verify-email` на цьому сайті з мовою та `redirect`, узятими з `callbackURL` сценарію, а також із `token`, і надсилає шаблон `VerifyEmail` (див. [Транзакційні листи](/docs/features/email)). Він обмежує кількість листів підтвердження на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" /> (`withinRecipientRateLimit`); подальші запити нічого не надсилають і отримують звичайну відповідь. Коли хтось повторно реєструється з непідтвердженою адресою, `onExistingUserSignUp` надсилає нове посилання замість того, щоб розкривати, що обліковий запис існує.
+`emailVerification.sendVerificationEmail` в `auth.server.ts` передає лист відправникам листів автентифікації, і відправник Resend — це `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, доданий у `src/data/resend.auth-emails.ts`). Він формує посилання на `/auth/verify-email` на цьому сайті з мовою та `redirect`, узятими з `callbackURL` сценарію, а також із `token`, і надсилає шаблон `VerifyEmail` (див. [Транзакційні листи](/docs/features/email)). Він обмежує кількість листів підтвердження на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" /> (`withinRecipientRateLimit`); подальші запити нічого не надсилають і отримують звичайну відповідь. Коли хтось повторно реєструється з непідтвердженою адресою, `onExistingUserSignUp` надсилає нове посилання замість того, щоб розкривати, що обліковий запис існує; з підтвердженою адресою він натомість надсилає лист про наявний обліковий запис (див. [Реєстрація з відомою адресою](/docs/features/authentication#signing-up-with-a-known-address)). Посилання, яке надсилає вхід, бере мову та `redirect` зі сторінки входу.
 
 ## Підтвердження
 
@@ -19,4 +19,4 @@ Better Auth працює з увімкненими `requireEmailVerification`, `
 
 ## Повторне надсилання
 
-`VerifyEmailForm` заповнює адресу з `?email=`, який реєстрація та вхід додають під час перенаправлення сюди. Форма викликає серверну функцію `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), обмежену `RATE_LIMITS.SENSITIVE`.
+`VerifyEmailForm` заповнює адресу з `?email=`, який реєстрація та вхід додають під час перенаправлення сюди. Вхід також додає `?unverified=true`, і тоді сторінка замість загального тексту реєстрації повідомляє, що нове посилання надіслано. Форма викликає серверну функцію `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), обмежену `RATE_LIMITS.SENSITIVE`.

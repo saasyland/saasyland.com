@@ -21,7 +21,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) зберігає к�
 ## Вхід
 
 1. `SignInForm` викликає `signIn.email` клієнта Better Auth.
-2. Непідтверджений обліковий запис отримує помилку `EMAIL_NOT_VERIFIED` і переходить на `/auth/verify-email` зі своєю адресою пошти та `redirect`.
+2. Непідтверджений обліковий запис отримує помилку `EMAIL_NOT_VERIFIED`, Better Auth надсилає нове посилання для підтвердження (`sendOnSignIn`) мовою сторінки входу та з її `redirect`, а форма відкриває `/auth/verify-email` з адресою пошти, `redirect` і `unverified`.
 3. Обліковий запис із двофакторною автентифікацією отримує `twoFactorRedirect`; `SignInForm` відкриває `/auth/two-factor`, зберігаючи `redirect`.
 4. Після успіху `finishSignIn` з `useAuthRedirect` видаляє дані попереднього користувача з кешу запитів, очищає кеш роутера та переходить на `/auth/callback`, який веде далі на `redirect` або до робочого простору відповідно до ролі.
 
@@ -30,7 +30,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) зберігає к�
 ## Реєстрація та підтвердження пошти
 
 1. `SignUpForm` валідує `signUpWithPasswordSchema` і викликає `signUpWithPasswordMutation` — серверну функцію з обмеженням запитів, що викликає `auth.api.signUpEmail`.
-2. Better Auth створює користувача й викликає `sendVerifyEmail` з `callbackURL` форми — локалізованим `/auth/callback` з `redirect`. Лист містить посилання на `/auth/verify-email` на цьому сайті, мовою callback-адреси та з її `redirect`, а також `token`. Повторна реєстрація з непідтвердженою адресою надсилає нове посилання. Кількість листів підтвердження на одну адресу за годину обмежено до <RepositoryFact name="recipientEmailsPerHour" />; подальші запити нічого не надсилають.
+2. Better Auth створює користувача й викликає `sendVerifyEmail` з `callbackURL` форми — локалізованим `/auth/callback` з `redirect`. Лист містить посилання на `/auth/verify-email` на цьому сайті, мовою callback-адреси та з її `redirect`, а також `token`. Повторна реєстрація з непідтвердженою адресою надсилає нове посилання, а з підтвердженою — лист про наявний обліковий запис, тоді як відповідь і наступний екран лишаються тими самими. Кількість листів підтвердження на одну адресу за годину обмежено до <RepositoryFact name="recipientEmailsPerHour" />; подальші запити нічого не надсилають.
 3. Форма переходить на `/auth/verify-email?email=…`, де `VerifyEmailForm` може надіслати посилання ще раз через `sendVerificationEmailMutation`, яка також має обмеження запитів.
 4. Відкриття посилання: `beforeLoad` маршруту передає токен на `/api/auth/verify-email`. Better Auth перевіряє його, виконує вхід користувача й повертає на `/auth/verify-email?verified=true`, звідки відбувається перенаправлення на `/auth/callback` зі збереженням `redirect`. Недійсне чи прострочене посилання повертається з `error`, і сторінка пропонує нове.
 
@@ -40,7 +40,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) зберігає к�
 
 1. `/auth/forgot-password`: `ForgotPasswordForm` викликає `requestPasswordResetMutation` з `redirectTo`, що вказує на локалізований `/auth/reset-password`.
 2. Better Auth викликає `sendResetPasswordEmail`, який обмежує кількість листів скидання на одну адресу за годину до <RepositoryFact name="recipientEmailsPerHour" />. Посилання з листа проходить через Better Auth, який перенаправляє на `/auth/reset-password?token=…` або з `error`, якщо токен недійсний чи прострочений.
-3. `ResetPasswordForm` надсилає новий пароль через `resetPasswordMutation`. Better Auth відкликає всі наявні сесії (`revokeSessionsOnPasswordReset: true`), а форма переходить на сторінку входу.
+3. `ResetPasswordForm` надсилає новий пароль через `resetPasswordMutation`. Better Auth відкликає всі наявні сесії (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` надсилає повідомлення про зміну пароля, а форма переходить на сторінку входу.
 
 ## Двофакторна автентифікація
 

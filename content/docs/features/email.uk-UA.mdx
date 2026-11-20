@@ -12,6 +12,8 @@ description: "Шаблони React Email у src/presentation/emails, які на
 | `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (хук Better Auth)                                    |
 | `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (хук Better Auth)                             |
 | `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (хук Better Auth)                   |
+| `ExistingAccountEmail`         | `emails.existing-account-email`          | `sendExistingAccountEmail` (`onExistingUserSignUp` з Better Auth)      |
+| `PasswordChangedEmail`         | `emails.password-changed-email`          | `sendPasswordChangedEmail` (`onPasswordReset` з Better Auth)           |
 | `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                                |
 | `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, на `CONTACT_EMAIL`                    |
 | `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail` (`order.paid` від Polar)               |
@@ -22,6 +24,8 @@ description: "Шаблони React Email у src/presentation/emails, які на
 ```tsx
 const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
 ```
+
+Листи облікового запису починаються з `EmailBrandHeader`, назви застосунку, а під кнопкою містять `EmailFallbackLink`: те саме посилання звичайним текстом для поштових клієнтів, які приховують кнопки. Листи підтвердження адреси, скидання пароля й зміни пошти вказують, скільки діє їхнє посилання, з `EMAIL_LINK_LIFETIME_HOURS` — значення, з яким налаштовано Better Auth.
 
 ## Надсилання
 
@@ -49,9 +53,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) надсилає через Resend з адреси `RESEND_EMAIL_FROM`, якщо не вказано `from` (сповіщення власнику та сповіщення про замовлення без облікового запису використовують `NOTIFICATIONS_EMAIL`), передає ключ ідемпотентності й кидає помилку в разі невдачі.
 
-Листи облікового запису використовують мову сторінки, на якій почався сценарій, прочитану з `callbackURL` у посиланні листа; для повторної реєстрації вона береться з `callbackURL` запиту реєстрації. Листи розсилки використовують мову, передану з формою; сповіщення власнику завжди надсилається мовою `en-US`. Підтвердження покупки використовує мову, яку `startCheckout` зберіг у метаданих замовлення, а якщо її немає — англійську; воно підтверджує згоду покупця на негайне надання на довговічному носії, див. [Ліцензії](/docs/features/licences#purchase-confirmation). Сповіщення про замовлення без облікового запису, яке повідомляє сайт про оплачене замовлення ліцензії, клієнт якого не відповідає жодному обліковому запису, надсилається мовою `I18N.DEFAULT_LOCALE`, див. [Ліцензії](/docs/features/licences#orders-that-match-no-account).
+Листи облікового запису використовують мову сторінки, на якій почався сценарій, прочитану з `callbackURL` у посиланні листа; для повторної реєстрації вона береться з `callbackURL` запиту реєстрації. Сценарій, у якому немає callback-адреси, тобто вхід у непідтверджений обліковий запис або скидання пароля, бере мову й `redirect` зі сторінки, що надіслала запит (з її `Referer`, якщо вона на цьому сайті). Листи розсилки використовують мову, передану з формою; сповіщення власнику завжди надсилається мовою `en-US`. Підтвердження покупки використовує мову, яку `startCheckout` зберіг у метаданих замовлення, а якщо її немає — англійську; воно підтверджує згоду покупця на негайне надання на довговічному носії, див. [Ліцензії](/docs/features/licences#purchase-confirmation). Сповіщення про замовлення без облікового запису, яке повідомляє сайт про оплачене замовлення ліцензії, клієнт якого не відповідає жодному обліковому запису, надсилається мовою `I18N.DEFAULT_LOCALE`, див. [Ліцензії](/docs/features/licences#orders-that-match-no-account).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) обмежує кількість листів кожного виду (підтвердження адреси, скидання пароля й підтвердження розсилки) на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" />, з підрахунком у таблиці `rate_limit` за хешем SHA-256 адреси. Понад ліміт лист пропускається, а запит усе одно отримує звичайну відповідь. Підтвердження зміни пошти, сповіщення власнику, підтвердження покупки й сповіщення про замовлення без облікового запису не обмежено; два останні запускає вебхук Polar, а не відвідувач, один раз на замовлення.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) обмежує кількість листів кожного виду (підтвердження адреси, скидання пароля, наявний обліковий запис і підтвердження розсилки) на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" />, з підрахунком у таблиці `rate_limit` за хешем SHA-256 адреси. Понад ліміт лист пропускається, а запит усе одно отримує звичайну відповідь. Підтвердження зміни пошти, повідомлення про зміну пароля, сповіщення власнику, підтвердження покупки й сповіщення про замовлення без облікового запису не обмежено; для зміни пароля потрібен токен скидання, а два останні запускає вебхук Polar, а не відвідувач, один раз на замовлення.
 
 ## Пов’язані посібники
 

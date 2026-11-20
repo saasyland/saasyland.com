@@ -8,7 +8,7 @@ description: "Arquivos de ambiente, secrets e bindings do Cloudflare para cada a
 | Arquivo            | Versionado | Usado por                                                                                                                                            |
 | ------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `.env.example`     | Sim        | Lista todos os secrets com valor vazio                                                                                                               |
-| `.env.development` | Não        | `bun run dev`, `polar:verify:development`, `db:studio:development`, `db:introspect:development`                                                      |
+| `.env.development` | Não        | `bun run dev`, `polar:verify:development`, `db:seed:local` (`LOCAL_ADMIN_PASSWORD`)                                                                  |
 | `.env.preview`     | Não        | `deploy:preview` (os secrets declarados), `auth:verify:preview`, `polar:verify:preview`, `db:studio:preview`, `db:introspect:preview`                |
 | `.env.production`  | Não        | `deploy:production` (os secrets declarados), `auth:verify:production`, `polar:verify:production`, `db:studio:production`, `db:introspect:production` |
 | `.env.test`        | Sim        | O Vitest e o ambiente Wrangler `test`; apenas valores fictícios                                                                                      |
@@ -35,21 +35,22 @@ description: "Arquivos de ambiente, secrets e bindings do Cloudflare para cada a
 | `CLOUDFLARE_DATABASE_ID`    | O driver HTTP do D1 usado pelo Drizzle Kit                                                                                                                                                                   |
 | `CLOUDFLARE_ACCESS_TOKEN`   | O driver HTTP do D1 usado pelo Drizzle Kit                                                                                                                                                                   |
 | `AFFONSO_PROGRAM_ID`        | ID público opcional do programa no Affonso de que o rastreamento de indicações de afiliados precisa enquanto o programa está aberto                                                                          |
+| `LOCAL_ADMIN_PASSWORD`      | Senha opcional do administrador local que `bun run db:seed:local` cria; nunca é um secret do Worker                                                                                                          |
 | `FFMPEG`, `FFPROBE`         | Binários opcionais do FFmpeg e do ffprobe para `scripts/publish-video.ts`; por padrão, `ffmpeg` e `ffprobe`                                                                                                  |
 
 Cada ambiente em `wrangler.jsonc` lista os secrets de que precisa em `secrets.required`; o ambiente `test` omite as três variáveis do Cloudflare. `AFFONSO_PROGRAM_ID` não é um secret: ele aparece na tag de script da página, então é uma variável do Worker em `vars`, definida apenas para o ambiente que recebe pagamentos reais. `production` define o ID de programa do SaaSy Land, e `test`, um ID fictício para os testes no navegador. O rastreamento só funciona quando o Worker tem o ID e o programa está aberto: hoje `AFFILIATE_PROGRAM` vale <RepositoryFact name="affiliateProgram" /> ([Abrir o programa](/docs/features/affiliates#opening-the-programme)). `FFMPEG` e `FFPROBE` são variáveis de shell opcionais para `scripts/publish-video.ts`, e não secrets do Worker. O código do Worker as lê de `env` em `cloudflare:workers`, com os tipos definidos em `src/types/worker-configuration.d.ts`, que `bun run cf-typegen` gera a partir de `wrangler.jsonc`, e nos arquivos de área em `src/types`. Não existem variáveis `VITE_`: a URL pública e o domínio são constantes em `src/presentation/branding`.
 
 ## Bindings
 
-| Binding   | Tipo             | `development`                | `preview` | `production` | `test`                         |
-| --------- | ---------------- | ---------------------------- | --------- | ------------ | ------------------------------ |
-| `DB`      | D1               | Banco de preview, remoto     | Preview   | Produção     | `saasyland_test` local         |
-| `CACHE`   | KV               | Namespace de preview, remoto | Preview   | Produção     | Local                          |
-| `MEDIA`   | R2               | Bucket de preview, remoto    | Preview   | Produção     | `saasyland-test` local         |
-| `BUNDLES` | R2               | Bucket de preview, remoto    | Preview   | Produção     | `saasyland-bundles-test` local |
-| `ASSETS`  | Assets estáticos | Sim                          | Sim       | Sim          | Sim                            |
+| Binding   | Tipo             | `development`                   | `preview` | `production` | `test`                         |
+| --------- | ---------------- | ------------------------------- | --------- | ------------ | ------------------------------ |
+| `DB`      | D1               | `saasyland_local` local         | Preview   | Produção     | `saasyland_test` local         |
+| `CACHE`   | KV               | Local                           | Preview   | Produção     | Local                          |
+| `MEDIA`   | R2               | `saasyland-local` local         | Preview   | Produção     | `saasyland-test` local         |
+| `BUNDLES` | R2               | `saasyland-bundles-local` local | Preview   | Produção     | `saasyland-bundles-test` local |
+| `ASSETS`  | Assets estáticos | Sim                             | Sim       | Sim          | Sim                            |
 
-Os scripts de deploy de preview e de produção executam primeiro `scripts/verify-bindings.ts`, que falha enquanto um ambiente não tiver um binding ou ainda tiver IDs provisórios de D1 ou KV, e quando a produção compartilha um recurso com o preview. Os buckets do R2 são vinculados pelo nome (`saasyland-preview` para desenvolvimento e preview, `saasyland` para produção) e precisam existir antes de um deploy.
+Os scripts de deploy de preview e de produção executam primeiro `scripts/verify-bindings.ts`, que falha enquanto um ambiente não tiver um binding ou ainda tiver IDs provisórios de D1 ou KV, e quando a produção compartilha um recurso com o preview. Os buckets do R2 são vinculados pelo nome (`saasyland-preview` para preview, `saasyland` para produção) e precisam existir antes de um deploy; os buckets de `development` e de `test` são locais e não precisam de configuração.
 
 ## Páginas relacionadas
 

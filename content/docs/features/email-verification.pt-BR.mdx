@@ -3,11 +3,11 @@ title: "Verificação de e-mail"
 description: "Verificação de e-mail obrigatória com links localizados e um formulário de reenvio."
 ---
 
-O Better Auth roda com `requireEmailVerification`, `sendOnSignUp` e `autoSignInAfterVerification` ativados, então uma conta nova precisa confirmar o endereço antes de conseguir fazer login.
+O Better Auth roda com `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` e `autoSignInAfterVerification` ativados, então uma conta nova precisa confirmar o endereço antes de conseguir fazer login, e cada login com a senha certa antes disso envia um link novo. Um link funciona por `EMAIL_LINK_LIFETIME_HOURS` (`emailVerification.expiresIn`), e o e-mail informa isso.
 
 ## Envio
 
-`emailVerification.sendVerificationEmail` em `auth.server.ts` passa o e-mail aos remetentes de e-mails de autenticação, e o do Resend é `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, reunido em `src/data/resend.auth-emails.ts`). Ele monta um link para `/auth/verify-email` neste site com o idioma e o `redirect` do `callbackURL` do fluxo, além do `token`, e envia o template `VerifyEmail` (veja [E-mail transacional](/docs/features/email)). Ele envia no máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de verificação por endereço por hora (`withinRecipientRateLimit`); as solicitações seguintes não enviam nada e recebem a resposta normal. Quando alguém se cadastra de novo com um endereço não verificado, `onExistingUserSignUp` envia um link novo em vez de revelar que a conta existe.
+`emailVerification.sendVerificationEmail` em `auth.server.ts` passa o e-mail aos remetentes de e-mails de autenticação, e o do Resend é `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, reunido em `src/data/resend.auth-emails.ts`). Ele monta um link para `/auth/verify-email` neste site com o idioma e o `redirect` do `callbackURL` do fluxo, além do `token`, e envia o template `VerifyEmail` (veja [E-mail transacional](/docs/features/email)). Ele envia no máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de verificação por endereço por hora (`withinRecipientRateLimit`); as solicitações seguintes não enviam nada e recebem a resposta normal. Quando alguém se cadastra de novo com um endereço não verificado, `onExistingUserSignUp` envia um link novo em vez de revelar que a conta existe; com um endereço verificado, ele envia o e-mail de conta existente (veja [Cadastro com um endereço já conhecido](/docs/features/authentication#signing-up-with-a-known-address)). Um link enviado pelo login usa o idioma e o `redirect` da página de login.
 
 ## Verificação
 
@@ -19,4 +19,4 @@ O Better Auth roda com `requireEmailVerification`, `sendOnSignUp` e `autoSignInA
 
 ## Reenvio
 
-`VerifyEmailForm` preenche o endereço a partir de `?email=`, que o cadastro e o login definem ao redirecionar para cá. Ele chama a função de servidor `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), limitada por `RATE_LIMITS.SENSITIVE`.
+`VerifyEmailForm` preenche o endereço a partir de `?email=`, que o cadastro e o login definem ao redirecionar para cá. O login também define `?unverified=true`, e então a página informa que um link novo foi enviado, em vez do texto genérico do cadastro. Ele chama a função de servidor `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), limitada por `RATE_LIMITS.SENSITIVE`.

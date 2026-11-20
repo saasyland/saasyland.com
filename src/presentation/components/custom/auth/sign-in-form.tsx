@@ -43,7 +43,7 @@ export const SignInForm = (): JSX.Element => {
         const errorKey = authErrorKey(error)
         toast.error(t(`auth.errors.${errorKey}`))
         if (errorKey === AUTH_ERRORS.EMAIL_NOT_VERIFIED) {
-          await router.navigate({ search: { email, redirect }, to: ROUTES.VERIFY_EMAIL })
+          await router.navigate({ search: { email, redirect, unverified: true }, to: ROUTES.VERIFY_EMAIL })
         }
         return
       }

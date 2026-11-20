@@ -103,28 +103,31 @@ This serves a built test application; rebuild it to see source changes. It uses 
 
 ### Develop with Cloudflare and provider integrations
 
-The development server supports hot reload at <http://localhost:3000>. Its `DB`, `CACHE`, `MEDIA`, and `BUNDLES` bindings connect to **remote preview resources**. Consequently, development database writes and `db:migrate:development` affect that preview database.
+The development server supports hot reload at <http://localhost:3000>. Its `DB`, `CACHE`, `MEDIA`, and `BUNDLES` bindings are **local**, under `.wrangler/state`: development never reads or writes the preview or production data, and it needs no Cloudflare login. Local, preview, and production each have their own D1 database.
 
-1. Sign in to Cloudflare and copy the environment template:
+1. Copy the environment template and generate a secret:
 
    ```sh
-   bunx wrangler login
    cp .env.example .env.development
    openssl rand -base64 48
    ```
 
-2. Set the generated value as `AUTH_SECRET` in `.env.development`, then fill in the [integration settings](#configuration-and-integrations). Use `POLAR_SERVER=sandbox` for development.
-3. If using your own Cloudflare account, [provision D1, KV, and R2](#provision-cloudflare-resources) and replace the development and preview binding IDs and bucket names before continuing. The checked-in values belong to the existing deployment.
-4. Apply the migrations and start the server:
+2. Set the generated value as `AUTH_SECRET` in `.env.development`, then fill in the [integration settings](#configuration-and-integrations). Use `POLAR_SERVER=sandbox` for development. Optionally set `LOCAL_ADMIN_PASSWORD`, the password of the local admin; without it the seed uses a default that it prints and the [Database guide](content/docs/tooling/database.en-US.mdx#the-local-seed) lists.
+3. Create, migrate, and seed the local database, then start the server:
 
    ```sh
-   bun run db:migrate:development
+   bun run db:reset:local
+   bun run db:seed:local
    bun run dev
    ```
 
+4. Sign in as `hello@saasyland.com` and open `/admin/courses`. `bun run db:studio:local` opens the same data in Drizzle Studio.
+
+The seed creates that admin, imports the course curriculum from `content/courses/saasy-land-courses.json` with the same code as the admin's **Import**, and adds the licences, the order without a licence, and the CLI template bundle of the test seed. Run it again at any time; it changes only what differs.
+
 Email/password signup requires a functioning Resend configuration because accounts must verify their email before signing in. GitHub/Google sign-in and checkout require their respective provider configuration. Use the isolated preview when you only need to inspect the UI without those services.
 
-There is no development admin seed. To bootstrap an installation, create and verify your account, then use D1 or Drizzle Studio to set that account's `user.role` to `admin` in the intended database. The test seed only populates the isolated test database.
+On preview and production, the first admin is created with `bun run admin:grant:preview <email>` or `bun run admin:grant:production <email>`; see [The first admin](#the-first-admin).
 
 ## Configuration and integrations
 
@@ -241,7 +244,7 @@ Use `bun run test` to invoke the configured Vite+ test runner. Running `bun test
 
 | Command                                                                     | Purpose                                                                                                                         |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run dev`                                                               | Generate content/class-name tables and start development with remote preview bindings.                                          |
+| `bun run dev`                                                               | Generate content/class-name tables and start development with local bindings.                                                   |
 | `bun run typegen`                                                           | Generate Worker declarations, class-name tables, and Fumadocs content/types.                                                    |
 | `bun run check`                                                             | Generate class-name tables; check localization/content, the flow inventory, formatting, lint, and types.                        |
 | `bun run check:flows`                                                       | Fail when a flow in `e2e/data/<area>.flows.ts` names a browser test that is gone or skipped, or does not say why it is missing. |
@@ -308,7 +311,7 @@ bunx wrangler r2 bucket create saasyland-preview
 bunx wrangler r2 bucket create saasyland-bundles-preview
 ```
 
-Replace `database_id`, `database_name`, the KV namespace `id`, and the `bucket_name` of `MEDIA` and `BUNDLES` under both `development` and `preview` in `wrangler.jsonc`. Keep the binding names `DB`, `CACHE`, `MEDIA`, and `BUNDLES`, and preserve `migrations_dir`. These two environments share resources by default. Update Worker names and custom-domain routes for your account.
+Replace `database_id`, `database_name`, the KV namespace `id`, and the `bucket_name` of `MEDIA` and `BUNDLES` under `preview` in `wrangler.jsonc`. Keep the binding names `DB`, `CACHE`, `MEDIA`, and `BUNDLES`, and preserve `migrations_dir`. The `development` environment binds local resources and needs no change. Update Worker names and custom-domain routes for your account.
 
 Create separate production resources with `saasyland_com_production`, `bunx wrangler kv namespace create CACHE --env production`, `bunx wrangler r2 bucket create saasyland`, and `bunx wrangler r2 bucket create saasyland-bundles`, then update the `production` bindings. The `BUNDLES` buckets hold the CLI's template bundles, each with the SHA-256 of its content as its `sha256` custom metadata, which the licence API answers with instead of reading the archive; the CLI repository's release uploads them to both; see [Publishing bundles](content/docs/features/cli-licence-api.en-US.mdx#publishing-bundles). The deployment guard rejects missing bindings, placeholder IDs, and a production environment that shares its database, namespace, or bucket with preview; it does not verify that the existing IDs belong to your account or that the R2 buckets exist, and a deploy fails while a bound bucket is missing.
 
@@ -320,18 +323,34 @@ Module schemas are collected by [`drizzle.schemas.ts`](src/integrations/drizzle-
 bun run db:generate
 ```
 
-Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` with their schema changes. The deployment scripts and CI apply the target's migrations before deploying; apply them to the development and local databases yourself.
+Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` with their schema changes. The deployment scripts and CI apply the target's migrations before deploying; apply them to the local databases yourself.
 
-| Command                          | Database affected                                                                      |
-| -------------------------------- | -------------------------------------------------------------------------------------- |
-| `bun run db:migrate:test`        | Local test database in `.wrangler/test`.                                               |
-| `bun run db:reset:test`          | Deletes `.wrangler/test`, then migrates and seeds the local test database.             |
-| `bun run db:migrate:local`       | Local development database; the regular development server still uses remote bindings. |
-| `bun run db:migrate:development` | Remote database configured for development, shared with preview by default.            |
-| `bun run db:migrate:preview`     | Remote preview database.                                                               |
-| `bun run db:migrate:production`  | Remote production database.                                                            |
+| Command                         | Database affected                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `bun run db:migrate:local`      | Local development database under `.wrangler/state`, used by `bun run dev`.               |
+| `bun run db:reset:local`        | Deletes the local development database, then migrates it.                                |
+| `bun run db:seed:local`         | Seeds the local development database: the admin, the curriculum, licences, and an order. |
+| `bun run db:migrate:test`       | Local test database in `.wrangler/test`.                                                 |
+| `bun run db:reset:test`         | Deletes `.wrangler/test`, then migrates and seeds the local test database.               |
+| `bun run db:migrate:preview`    | Remote preview database.                                                                 |
+| `bun run db:migrate:production` | Remote production database.                                                              |
 
-`db:migrations:development`, `db:migrations:preview`, and `db:migrations:production` list the migrations each remote database has not applied yet, without changing anything. `db:studio:development`, `db:studio:preview`, and `db:studio:production` open Drizzle Studio using the corresponding environment file. The matching `db:introspect:*` scripts introspect D1 through its HTTP API. Set the three `CLOUDFLARE_*` credentials to the target account/database for these tools.
+`db:migrations:local`, `db:migrations:preview`, and `db:migrations:production` list the migrations each database has not applied yet, without changing anything. `db:studio:local` opens Drizzle Studio on the local SQLite file that the dev server uses, which `scripts/studio-local.ts` locates under `.wrangler/state/v3/d1/`. `db:studio:preview` and `db:studio:production` open it on a remote database using the corresponding environment file, and the matching `db:introspect:*` scripts introspect D1 through its HTTP API; set the three `CLOUDFLARE_*` credentials to the target account/database for these tools. The full guide is [Database](content/docs/tooling/database.en-US.mdx).
+
+### Course data
+
+Locally, `bun run db:seed:local` imports `content/courses/saasy-land-courses.json`. On preview and production an admin imports the same file: **Content → Courses**, **Import**, choose the file, **Check file**, then **Import**. Importing it twice changes nothing. No script writes course data to a remote database.
+
+### The first admin
+
+The application has no endpoint, seed, or variable that grants the `admin` role. On preview and production, create the first admin with:
+
+```sh
+bunx wrangler login
+bun run admin:grant:production you@example.com
+```
+
+Sign up on the site with that address and verify it first. [`scripts/grant-admin.ts`](scripts/grant-admin.ts) reads the account with `wrangler d1 execute --remote`, prints it before and after, refuses an unknown, unverified, or banned account, and changes only that account's `role`. It is the only way to create the first admin, and it is safe: only someone who can write to that Cloudflare account's D1 database can run it, with their own `wrangler login`; the application enforces roles on the server (`requireAdmin` and `authorized(...)` on every admin server function); and later admins are granted in **Administration → User Management** with **Change role** by an existing admin.
 
 ### Automatic GitHub deployments
 

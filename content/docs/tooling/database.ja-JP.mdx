@@ -1,16 +1,33 @@
 ---
-title: "データベースのマイグレーション"
-description: "D1 マイグレーションの生成、適用、確認です。"
+title: "データベース"
+description: "ローカル、プレビュー、本番で分かれた D1 データベースと、そのマイグレーション、Drizzle Studio、ローカルのシード、最初の管理者です。"
 ---
 
 スキーマはテーブルのモジュールに置かれ、`src/integrations/drizzle-orm/drizzle.schemas.ts` で集約されます。マイグレーションは `src/integrations/drizzle-orm/migrations/` にあるタイムスタンプ付きの SQL ファイルで、スキーマの変更と一緒にコミットします。
 
-## ワークフロー
+## 3 つのデータベース [#three-databases]
+
+Wrangler の各環境はそれぞれ専用の D1 データベースを持ち、別の環境のデータに届くスクリプトやサーバーはありません。
+
+| 環境          | データベース                                       | 使用元                                             | データ                                     |
+| ------------- | -------------------------------------------------- | -------------------------------------------------- | ------------------------------------------ |
+| `development` | `.wrangler/state` 内のローカルの `saasyland_local` | `bun run dev` と `:local` のスクリプト             | 自分のデータ。`db:seed:local` が投入します |
+| `preview`     | リモートの `saasyland_com_preview`                 | `preview.saasyland.com` と `:preview` のスクリプト | Polar のサンドボックスでのテスト購入       |
+| `production`  | リモートの `saasyland_com_production`              | `saasyland.com` と `:production` のスクリプト      | 顧客                                       |
+| `test`        | `.wrangler/test` 内のローカルの `saasyland_test`   | Playwright、隔離されたプレビュー、`db:reset:test`  | `db:seed:test` が投入します                |
+
+`bun run dev` がリモートのデータベースを読み書きすることはありません。`wrangler.jsonc` の `development` 環境のすべてのバインディングは `remote: false` を持ち、Cloudflare Vite プラグインは `remoteBindings: false` で動作します（`src/data/cloudflare.vite.ts`）。さらに、開発用のバインディングがリモートになるか、`preview` または `production` とデータベース、名前空間、バケットを共有すると、`src/__test__/wrangler.test.ts` が失敗します。ほかのバインディングも同じ理由でローカルです。
+
+- `CACHE`（KV）が保持するのは、Worker が再び埋めるキャッシュ、つまり GitHub のスター数と地域ごとのチェックアウト割引だけです。そのため、ローカルの名前空間は空の状態で始まり、すぐに動作します。
+- `MEDIA` と `BUNDLES`（R2）は、ローカルのバケット `saasyland-local` と `saasyland-bundles-local` です。そのファイル（動画、レッスンの資料、テンプレートバンドル）を指す行は D1 にあるため、ローカルのデータベースにリモートのバケットを組み合わせると、存在しない行に対してプレビューのファイルが見えてしまい、プレビューのバケットには孤立したファイルが残ります。
+- Better Auth はユーザー、セッション、確認トークン、レート制限を D1 に保持するため、サインアップ、サインイン、管理画面はローカルで動作します。メールは引き続き `.env.development` のキーを使って Resend から送信され、Polar の呼び出しは `POLAR_SERVER` で指定したサンドボックスに送られます。
+
+## マイグレーション
 
 1. `src/modules/<table>/<table>.schema.ts` を変更します。
 2. `bun run db:generate` を実行し、生成された SQL を確認します。
-3. ローカルに適用してテストを実行します。Vitest はすべてのマイグレーションをインメモリのデータベースに適用します。
-4. デプロイします。新しい Worker が稼働を始める前に、デプロイスクリプトと CI がプレビューまたは本番のデータベースにマイグレーションを適用します。開発用データベースには自分で適用してください。
+3. `bun run db:migrate:local` でローカルに適用し、テストを実行します。Vitest はすべてのマイグレーションをインメモリのデータベースに適用します。
+4. デプロイします。新しい Worker が稼働を始める前に、デプロイスクリプトと CI がプレビューまたは本番のデータベースにマイグレーションを適用します。
 
 ```sh
 bun run db:generate
@@ -18,31 +35,84 @@ bun run db:migrate:local
 bun run db:migrate:test
 ```
 
+依存関係のインストールやビルドで、データベースがマイグレーションされることはありません。
+
 ## コマンド
 
-| コマンド                              | 対象                                                                                                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run db:generate`                 | スキーマの差分から新しいマイグレーションを作成（drizzle-kit）                                                                                              |
-| `bun run db:migrate:local`            | `development` 環境のローカルデータベース                                                                                                                   |
-| `bun run db:migrate:test`             | `.wrangler/test` 内のローカルのテスト用データベース                                                                                                        |
-| `bun run db:seed:test`                | ローカルのテスト用データベースと R2 の各バケットに、テストアカウント、ライセンス、テスト動画、4 つのレッスンを持つコース、CLI のテンプレートバンドルを投入 |
-| `bun run db:reset:test`               | `.wrangler/test` を削除してから、`db:migrate:test` と `db:seed:test` を実行                                                                                |
-| `bun run db:migrate:development`      | `development` のリモートデータベース。デフォルトではプレビュー用データベースです                                                                           |
-| `bun run db:migrate:preview`          | リモートのプレビュー用データベース                                                                                                                         |
-| `bun run db:migrate:production`       | リモートの本番用データベース                                                                                                                               |
-| `bun run db:migrations:<environment>` | `development`、`preview`、`production` にまだ適用されていないマイグレーション。何も変更しません                                                            |
-| `bun run db:studio:<environment>`     | `development`、`preview`、`production` 用の Drizzle Studio                                                                                                 |
-| `bun run db:introspect:<environment>` | `development`、`preview`、`production` に対する drizzle-kit のイントロスペクション                                                                         |
+| コマンド                                                            | データベース                           | 内容                                                                                               |
+| ------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `bun run db:generate`                                               | なし                                   | スキーマの差分から新しいマイグレーションを作成（drizzle-kit）                                      |
+| `bun run db:migrate:local`                                          | ローカルの `development`               | マイグレーションを適用                                                                             |
+| `bun run db:migrations:local`                                       | ローカルの `development`               | まだ適用されていないマイグレーションを一覧表示。何も変更しません                                   |
+| `bun run db:reset:local`                                            | ローカルの `development`               | `.wrangler/state/v3/d1` を削除してから、すべてのマイグレーションを適用。空のデータベースになります |
+| `bun run db:seed:local`                                             | ローカルの `development`               | ローカルの管理者、カリキュラム、ライセンス、注文を投入。[ローカルのシード](#the-local-seed)を参照  |
+| `bun run db:studio:local`                                           | ローカルの `development`               | ローカルの SQLite ファイルに対する Drizzle Studio                                                  |
+| `bun run admin:grant:local`                                         | ローカルの `development`               | メールアドレスを確認済みのアカウントを管理者にする。[最初の管理者](#the-first-admin)を参照         |
+| `bun run db:migrate:test`                                           | `.wrangler/test` 内のローカルの `test` | マイグレーションを適用                                                                             |
+| `bun run db:seed:test`                                              | ローカルの `test`                      | テストアカウント、ライセンス、動画、4 つのレッスンを持つコース、CLI のテンプレートバンドルを投入   |
+| `bun run db:reset:test`                                             | ローカルの `test`                      | `.wrangler/test` を削除してから、`db:migrate:test` と `db:seed:test` を実行                        |
+| `bun run db:migrate:preview`、`bun run db:migrate:production`       | リモート                               | マイグレーションを適用                                                                             |
+| `bun run db:migrations:preview`、`bun run db:migrations:production` | リモート                               | まだ適用されていないマイグレーションを一覧表示。何も変更しません                                   |
+| `bun run db:studio:preview`、`bun run db:studio:production`         | リモート                               | D1 HTTP API 経由の Drizzle Studio                                                                  |
+| `bun run db:introspect:preview`、`bun run db:introspect:production` | リモート                               | D1 HTTP API 経由の drizzle-kit のイントロスペクション                                              |
+| `bun run admin:grant:preview`、`bun run admin:grant:production`     | リモート                               | メールアドレスを確認済みのアカウントを管理者にする。[最初の管理者](#the-first-admin)を参照         |
 
-Studio とイントロスペクションは D1 HTTP API を使い、対応する環境ファイルの `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` で接続します。アプリケーション自体は常に `DB` バインディングを使います。
+`deploy:preview`、`deploy:production`、CI のデプロイは、`wrangler deploy` の前に `db:migrate:preview` または `db:migrate:production` を実行します。リモートのデータベースにシードを投入するものはありません。
 
-開発サーバーはリモートバインディングを使うため、`db:migrate:local` は開発サーバーに影響しません。影響するのは `db:migrate:development` です。`deploy:preview`、`deploy:production`、CI のデプロイでは、`wrangler deploy` の前に `db:migrate:preview` または `db:migrate:production` を適用します。依存関係のインストールやビルドで、リモートのデータベースがマイグレーションされることはありません。
+## Drizzle Studio
 
-## 管理者アカウント
+`bun run db:studio:local` は `scripts/studio-local.ts` を実行します。Miniflare はローカルのデータベースを `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` 内の 1 つの SQLite ファイルとして保持し、そのファイル名は `wrangler.jsonc` のデータベース ID のハッシュから決まります。スクリプトは Miniflare と同じ方法でその名前を求め、ファイルがまだ存在しない場合はヒントを示して失敗し、`src/integrations/drizzle-orm/drizzle.local.config.ts` でそのファイルを対象に Drizzle Studio を開きます。この設定は `@libsql/client` を通じてファイルを読み込みます。Studio と開発サーバーは同時に実行できます。
 
-テスト用データベース以外にシードはありません。インストールを初期化するには、サインアップしてメールアドレスを認証し、Drizzle Studio でそのユーザーの `role` を `admin` に設定します。
+`bun run db:studio:preview` と `bun run db:studio:production` は、`src/integrations/drizzle-orm/drizzle.config.ts` を通じて、`.env.preview` または `.env.production` の `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` で D1 HTTP API を使います。そこでの編集はすべて、その環境の実データの編集になります。
+
+## ローカルのシード [#the-local-seed]
+
+```sh
+bun run db:reset:local
+bun run db:seed:local
+bun run dev
+```
+
+`db:reset:local` の前に開発サーバーを停止してください。`db:seed:local`（`scripts/seed-local.ts`）は Wrangler の `getPlatformProxy` で `development` 環境のローカルバインディングを起動し、次のものを書き込みます。いつでも再実行でき、変更するのは差分だけです。
+
+- メールアドレスを確認済みの管理者 <RepositoryFact name="localAdminEmail" />。パスワードは `.env.development` の `LOCAL_ADMIN_PASSWORD`、設定されていない場合は <RepositoryFact name="localAdminPassword" /> で、サインアップのルールを満たす必要があります。実行するたびにパスワードが設定し直されます。自分のマシンにだけ存在するパスワードを使い、本番のパスワードは決して使わないでください。シードが書き込むのはローカルのデータベースだけです。
+- `content/courses/saasy-land-courses.json` のカリキュラム。管理画面の **インポート** と同じコードである、`src/modules/course/course.transfer.ts` の `planCourseImport` と `applyCourseImport` でインポートします。レッスンにはまだ動画がないため、[収録中](/docs/features/courses#being-recorded)として表示されます。
+- テストのシード（`e2e/data/license.seed.ts`）にあるライセンス、ライセンスのない注文、CLI のテンプレートバンドル。これにより、管理画面のダッシュボードとライセンスのページに実際と同じ形のデータが入ります。それらの顧客アカウントのパスワードは <RepositoryFact name="testPassword" /> です。
+
+管理者として http://localhost:3000/auth/sign-in からサインインし、`/admin/courses` を開くとコースが表示されます。
+
+## 各環境のコースデータ [#course-data-in-each-environment]
+
+- ローカル: `bun run db:seed:local` がカリキュラムをインポートします。
+- プレビューと本番: 管理者が管理画面で `content/courses/saasy-land-courses.json` をインポートします。管理者としてサインインし、**管理画面 → コース** を開いて **インポート** を選び、ファイルを選択して **ファイルを確認** を実行し、計画を読んでから **インポート** します。同じファイルをもう一度インポートしても何も変わりません。[インポートとエクスポート](/docs/features/courses#import-and-export)を参照してください。
+
+リモートのデータベースにコースデータを書き込むスクリプトはありません。
+
+## 最初の管理者 [#the-first-admin]
+
+アプリケーションには、`admin` ロールを付与するエンドポイント、シード、変数はありません。プレビューと本番では、最初の管理者をスクリプトで作成します。これが唯一の方法です。
+
+```sh
+bunx wrangler login
+bun run admin:grant:production you@example.com
+```
+
+1. そのメールアドレスでサイトにサインアップし、確認メールのリンクを開きます。
+2. その環境の D1 データベースに書き込める Cloudflare アカウントで Wrangler にサインインします。
+3. `bun run admin:grant:preview <email>` または `bun run admin:grant:production <email>` を実行します。
+
+`scripts/grant-admin.ts` は `wrangler d1 execute --remote` でアカウントを読み取って表示し、アカウントのないアドレス、メールアドレスが確認されていないアカウント、利用停止中のアカウントを拒否します。続いて、その 1 行の `role` を `admin` に設定し、アカウントをもう一度読み取って表示します。すでに管理者のアカウントはそのままにします。
+
+これが安全な理由は 3 つあります。
+
+- 実行できるのは、その Cloudflare アカウントの D1 データベースに書き込める人だけで、その人自身の `wrangler login` が必要です。そうした人はいずれにせよ Cloudflare のダッシュボードで任意の行を変更できるため、このスクリプトが新しい入り口を加えることはありません。
+- 変更するのは、メールアドレスの所有を証明した 1 つのアカウントの 1 つの列だけです。
+- アプリケーションはサーバー側でロールを強制します。`requireAdmin` が `/admin` を保護し、すべての管理用サーバー関数は `auth.middleware.ts` の `authorized(...)` で権限を確認します。[ロールと権限](/docs/guides/roles-and-permissions)を参照してください。
+
+2 人目以降の管理者は、既存の管理者が **管理画面 → ユーザー管理** で作成します。ユーザーを開き、**ロールを変更** を選びます。`bun run admin:grant:local <email>` は、ローカルでサインアップしたアカウントに対して同じことを行います。
 
 ## 関連ガイド
 
 - [D1 と Drizzle](/docs/integrations/cloudflare-d1)
 - [データベースのマイグレーションガイド](/docs/guides/database-migrations)
+- [環境とバインディング](/docs/tooling/environment)

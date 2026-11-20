@@ -48,16 +48,16 @@ La base ajoute une liste vide à chaque barrel que seules des zones facultatives
 
 `wrangler.jsonc` définit quatre environnements. `CLOUDFLARE_ENV` en sélectionne un pour `vp dev` et `vp build`.
 
-| Environnement | Bindings                                  | Utilisé par                                     |
-| ------------- | ----------------------------------------- | ----------------------------------------------- |
-| `development` | D1, KV et R2 de preview distants          | `bun run dev`                                   |
-| `preview`     | D1, KV et R2 de preview                   | `bun run build:preview`, `deploy:preview`       |
-| `production`  | D1, KV et R2 de production                | `bun run build:production`, `deploy:production` |
-| `test`        | D1, KV et R2 locaux dans `.wrangler/test` | `bun run build:test`, Playwright                |
+| Environnement | Bindings                                   | Utilisé par                                     |
+| ------------- | ------------------------------------------ | ----------------------------------------------- |
+| `development` | D1, KV et R2 locaux dans `.wrangler/state` | `bun run dev`                                   |
+| `preview`     | D1, KV et R2 de preview                    | `bun run build:preview`, `deploy:preview`       |
+| `production`  | D1, KV et R2 de production                 | `bun run build:production`, `deploy:production` |
+| `test`        | D1, KV et R2 locaux dans `.wrangler/test`  | `bun run build:test`, Playwright                |
 
 Chaque environnement liste ses secrets obligatoires sous `secrets.required`. Les valeurs proviennent du fichier `.env.<environment>` correspondant ; les scripts de déploiement refusent une valeur vide ou un espace réservé et écrivent les clés déclarées dans `.wrangler/secrets.<environment>.json` et transmettent ce fichier à Wrangler avec `--secrets-file`. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée et les valeurs factices versionnées dans `.env.test`. `AFFONSO_PROGRAM_ID` est public : c'est donc une simple variable de Worker sous `vars` et non un secret ; `production` définit l'identifiant de programme de SaaSy Land et `test` un identifiant factice. Les secrets d'un module restent groupés, dans l'ordre de `.env.example`, et de `.env.test` pour `test`, si bien qu'une zone apporte ses secrets en un seul groupe ; `src/__test__/wrangler.test.ts` compare les noms dans l'ordre et échoue lorsqu'ils diffèrent. Une ligne vide entre deux groupes ne sert qu'à la lecture, car un formateur peut la supprimer, si bien que le test l'ignore.
 
-Les bindings d'une zone forment aussi un bloc à part. Les buckets R2 appartiennent à des zones, `MEDIA` aux cours et `BUNDLES` à la vente de licences : `r2_buckets` vient donc en dernier dans chaque environnement, avec une entrée par zone, et un projet sans une zone omet son entrée. `wrangler.test.ts` échoue aussi lorsqu'un environnement lie d'autres bases D1, espaces de noms KV ou buckets R2 que `development`, et `scripts/verify-bindings.ts` vérifie chaque binding que déclare l'environnement cible sans en nommer aucun.
+Les bindings d'une zone forment aussi un bloc à part. Les buckets R2 appartiennent à des zones, `MEDIA` aux cours et `BUNDLES` à la vente de licences : `r2_buckets` vient donc en dernier dans chaque environnement, avec une entrée par zone, et un projet sans une zone omet son entrée. `wrangler.test.ts` échoue aussi lorsqu'un environnement lie d'autres bases D1, espaces de noms KV ou buckets R2 que `development`, lorsqu'un binding de `development` est distant et lorsque `development` partage une ressource avec `preview` ou `production`, et `scripts/verify-bindings.ts` vérifie chaque binding que déclare l'environnement cible sans en nommer aucun.
 
 ## Types
 

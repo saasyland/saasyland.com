@@ -130,9 +130,8 @@ test("a user the admin adds verifies their email, signs in and is signed out whe
   const customerPage = await customerContext.newPage()
   const customerAuth = new AuthPage(customerPage)
   await customerAuth.signIn(email)
-  await expect(customerPage).toHaveURL(/\/auth\/verify-email\?/u)
+  await expect(customerPage).toHaveURL(/\/auth\/verify-email\?.*unverified=true/u)
   await customerAuth.waitForAppReady()
-  await customerAuth.verifyEmailResendButton().click()
   await customerPage.goto((await expectVerificationEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await expect(customerPage).toHaveURL(/\/app\/?$/u)
 

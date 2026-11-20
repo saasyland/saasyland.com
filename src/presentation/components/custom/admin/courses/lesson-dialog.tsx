@@ -1,7 +1,7 @@
 import { type JSX, type ReactNode, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -9,19 +9,14 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { idField } from "~/src/modules/_core/utils/zod-fields"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
-import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS, LESSON_ACCESS_LEVELS, LESSON_STATUS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
-import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
-import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
-import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
-
-import { formatClock } from "~/src/lib/duration"
+import { useVideoLibrary } from "~/src/hooks/use-video-library"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
@@ -32,9 +27,7 @@ import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/l
 
 const NO_VIDEO = "none"
 
-const lessonFormSchema = lessonZodSchemas.updateLesson.omit({ lessonId: true }).extend({ videoId: idField })
-
-type EditorLesson = Course["editor"]["chapters"][number]["lessons"][number]
+const lessonFormSchema = lessonZodSchemas.createLesson.omit({ chapterId: true }).extend({ videoId: idField })
 
 type LessonFormValues = Omit<Lesson["createLesson"], "chapterId" | "videoId"> & { videoId: string }
 
@@ -47,29 +40,19 @@ const NEW_LESSON: LessonFormValues = {
   videoId: NO_VIDEO,
 }
 
-const toValues = (lesson: EditorLesson): LessonFormValues => ({
-  access: lesson.access,
-  slug: lesson.slug,
-  status: lesson.status,
-  summary: lesson.summary,
-  title: lesson.title,
-  videoId: lesson.video?.id ?? NO_VIDEO,
-})
-
 interface LessonDialogProps {
   readonly chapterId: string
-  readonly lesson?: EditorLesson
   readonly trigger: ReactNode
 }
 
-export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps): JSX.Element => {
+export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Element => {
   const t = useTranslations("pages.admin.courses.lesson")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
   const [isOpen, setOpen] = useState(false)
 
   const { holders } = useCourseAccessNames()
-  const { data: videos } = useQuery({ ...getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }), enabled: isOpen })
+  const library = useVideoLibrary(isOpen)
 
   const onSuccess = async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
@@ -80,25 +63,17 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
     toast.error(errorMessage(error))
   }
   const create = useMutation({ ...createLessonMutation, onError, onSuccess })
-  const update = useMutation({ ...updateLessonMutation, onError, onSuccess })
 
   const form = useForm({
-    defaultValues: lesson === undefined ? NEW_LESSON : toValues(lesson),
+    defaultValues: NEW_LESSON,
     onSubmit: ({ value: { videoId, ...fields } }) => {
       const video = videoId === NO_VIDEO ? {} : { videoId }
-      if (lesson === undefined) {
-        create.mutate({ ...fields, ...video, chapterId })
-        return
-      }
-      update.mutate({ ...fields, ...video, lessonId: lesson.id })
+      create.mutate({ ...fields, ...video, chapterId })
     },
     validators: { onChange: lessonFormSchema, onSubmit: lessonFormSchema },
   })
 
-  const videoLabels = new Map([
-    [NO_VIDEO, t("noVideo")],
-    ...(videos?.rows.map((video): [string, string] => [video.id, `${video.title} · ${formatClock(video.durationMs)}`]) ?? []),
-  ])
+  const videoLabels = new Map([[NO_VIDEO, t("noVideo")], ...library])
 
   return (
     <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
@@ -113,7 +88,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
           }}
         >
           <DialogHeader>
-            <DialogTitle>{t(lesson === undefined ? "add" : "edit")}</DialogTitle>
+            <DialogTitle>{t("add")}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
             <LocaleTabs label={t("textLanguages")}>
@@ -166,7 +141,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
             </div>
           </FieldGroup>
           <DialogFooter>
-            <Button isPending={create.isPending || update.isPending} type="submit">
+            <Button isPending={create.isPending} type="submit">
               {t("save")}
             </Button>
           </DialogFooter>

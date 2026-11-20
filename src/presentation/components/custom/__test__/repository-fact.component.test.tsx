@@ -47,7 +47,7 @@ import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
 import { TEST_ACCOUNTS } from "~/e2e/data/accounts"
-import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
+import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
 import { ROUTES } from "~/src/routes"
 
@@ -275,6 +275,7 @@ describe("RepositoryTable", () => {
     expect(tableRows().slice(1)).toEqual([
       ...TEST_ACCOUNTS.map(({ email, role }) => [email, role, ""]),
       [TEST_LICENSED_ACCOUNT.email, TEST_LICENSED_ACCOUNT.role, TEST_LICENSE.tier],
+      [TEST_COURSE_LICENSE.user.email, TEST_COURSE_LICENSE.user.role, TEST_COURSE_LICENSE.tier],
     ])
   })
 

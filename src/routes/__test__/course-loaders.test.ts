@@ -9,8 +9,9 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { IDS, LESSON_IDS, USERS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
+import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
 import { ROBOTS, buildTitle } from "~/src/lib/seo"
@@ -79,6 +80,21 @@ describe("course route loaders", () => {
         lessonPlaybackQuery({ courseSlug: "the-walkthrough", lessonSlug: "boundaries" }).queryKey,
       ),
     ).toHaveProperty("src")
+    expect(
+      router.options.context.queryClient.getQueryData(
+        lessonQuery({ courseSlug: "the-walkthrough", lessonSlug: "boundaries", locale: "en-US" }).queryKey,
+      ),
+    ).toHaveProperty("lesson.slug", "boundaries")
+  })
+
+  it("does not sign a stream for a lesson on the placeholder video", async () => {
+    signOut()
+    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+
+    const router = await load("/courses/the-walkthrough/boundaries")
+
+    expect(router.state.matches.at(-1)?.status).toBe("success")
+    expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: LESSON_QUERY_KEYS.PLAYBACK })).toStrictEqual([])
   })
 
   it.each([
@@ -90,7 +106,7 @@ describe("course route loaders", () => {
     const router = await load(path)
 
     expect(router.state.matches.at(-1)?.status).toBe("success")
-    expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: LESSON_QUERY_KEYS.ALL })).toStrictEqual([])
+    expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: LESSON_QUERY_KEYS.PLAYBACK })).toStrictEqual([])
   })
 
   it.each(["/courses/missing", "/courses/unreleased", "/courses/the-walkthrough/missing"])(

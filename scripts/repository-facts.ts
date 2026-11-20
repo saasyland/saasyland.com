@@ -5,7 +5,7 @@ import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
-import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
+import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
@@ -111,6 +111,7 @@ export type CliApiTables = Awaited<ReturnType<typeof collectCliApiTables>>
 export const collectSeededAccounts = () => [
   ...TEST_ACCOUNTS.map(({ email, role }) => [email, role, []] as const),
   [TEST_LICENSED_ACCOUNT.email, TEST_LICENSED_ACCOUNT.role, [TEST_LICENSE.tier]] as const,
+  [TEST_COURSE_LICENSE.user.email, TEST_COURSE_LICENSE.user.role, [TEST_COURSE_LICENSE.tier]] as const,
 ]
 
 export type SeededAccounts = ReturnType<typeof collectSeededAccounts>

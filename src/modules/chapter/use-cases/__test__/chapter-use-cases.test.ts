@@ -18,6 +18,7 @@ import { updateChapterMutation } from "~/src/modules/chapter/use-cases/update-ch
 import { IDS, USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 
+const SUMMARY = { "en-US": "Ship the first release.", "pl-PL": "Wydaj pierwszą wersję." }
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
 const TITLE = { "en-US": "Third", "pl-PL": "Trzeci" }
 
@@ -42,7 +43,7 @@ describe("createChapter", () => {
   it("adds the chapter after the course's last one", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    const { id } = await executeMutation(createChapterMutation, { courseId: IDS.COURSE, title: TITLE })
+    const { id } = await executeMutation(createChapterMutation, { courseId: IDS.COURSE, summary: {}, title: TITLE })
 
     await expect(chapterOrder(IDS.COURSE)).resolves.toStrictEqual([IDS.CHAPTER_ONE, IDS.CHAPTER_TWO, id])
   })
@@ -50,7 +51,7 @@ describe("createChapter", () => {
   it("starts a course's curriculum at the first position", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    const { id } = await executeMutation(createChapterMutation, { courseId: IDS.TUTORIAL, title: TITLE })
+    const { id } = await executeMutation(createChapterMutation, { courseId: IDS.TUTORIAL, summary: {}, title: TITLE })
 
     await expect(db.select({ position: chapter.position }).from(chapter).where(eq(chapter.id, id))).resolves.toStrictEqual([
       { position: 1 },
@@ -60,31 +61,47 @@ describe("createChapter", () => {
   it("rejects a missing course", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(createChapterMutation, { courseId: MISSING_ID, title: TITLE })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(createChapterMutation, { courseId: MISSING_ID, summary: {}, title: TITLE })).rejects.toThrow(
+      ERROR_CODES.NOT_FOUND,
+    )
   })
 
   it("is for staff only", async () => {
     signInAs(ROLE_CODES.CUSTOMER)
 
-    await expect(executeMutation(createChapterMutation, { courseId: IDS.COURSE, title: TITLE })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
+    await expect(executeMutation(createChapterMutation, { courseId: IDS.COURSE, summary: {}, title: TITLE })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
   })
 })
 
 describe("updateChapter", () => {
-  it("renames the chapter", async () => {
+  it("renames the chapter and changes its summary", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(updateChapterMutation, { chapterId: IDS.CHAPTER_TWO, title: TITLE })
+    await executeMutation(updateChapterMutation, { chapterId: IDS.CHAPTER_TWO, summary: SUMMARY, title: TITLE })
 
-    await expect(db.select({ title: chapter.title }).from(chapter).where(eq(chapter.id, IDS.CHAPTER_TWO))).resolves.toStrictEqual([
-      { title: TITLE },
+    await expect(
+      db.select({ summary: chapter.summary, title: chapter.title }).from(chapter).where(eq(chapter.id, IDS.CHAPTER_TWO)),
+    ).resolves.toStrictEqual([{ summary: SUMMARY, title: TITLE }])
+  })
+
+  it("keeps a summary optional and trims it", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const { id } = await executeMutation(createChapterMutation, { courseId: IDS.COURSE, summary: { "pl-PL": " Wstęp " }, title: TITLE })
+
+    await expect(db.select({ summary: chapter.summary }).from(chapter).where(eq(chapter.id, id))).resolves.toStrictEqual([
+      { summary: { "pl-PL": "Wstęp" } },
     ])
   })
 
   it("rejects a missing chapter", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(updateChapterMutation, { chapterId: MISSING_ID, title: TITLE })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(updateChapterMutation, { chapterId: MISSING_ID, summary: {}, title: TITLE })).rejects.toThrow(
+      ERROR_CODES.NOT_FOUND,
+    )
   })
 })
 

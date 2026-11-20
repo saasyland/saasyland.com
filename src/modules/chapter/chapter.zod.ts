@@ -1,23 +1,25 @@
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedTextSchema, optionalLocalizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
 
 const chapterIdInput = zod.object({
   chapterId: idField,
 })
 
-const createChapter = zod.object({
-  courseId: idField,
+const chapterFields = zod.object({
+  summary: optionalLocalizedTextSchema,
   title: localizedTextSchema,
 })
+
+const createChapter = chapterFields.extend({ courseId: idField })
 
 const deleteChapter = chapterIdInput
 
 const moveChapter = chapterIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
 
-const updateChapter = chapterIdInput.extend({ title: localizedTextSchema })
+const updateChapter = chapterFields.extend(chapterIdInput.shape)
 
 export const chapterZodSchemas = {
   createChapter,

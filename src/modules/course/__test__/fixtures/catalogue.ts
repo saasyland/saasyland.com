@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm"
+
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { chapter } from "~/src/modules/chapter/chapter.schema"
@@ -14,6 +16,7 @@ export const IDS = {
   CHAPTER_TWO: "01960000-0000-7000-8000-00000000c102",
   COURSE: "01960000-0000-7000-8000-00000000c001",
   DRAFT_COURSE: "01960000-0000-7000-8000-00000000c002",
+  PLACEHOLDER_VIDEO: "01960000-0000-7000-8000-00000000f002",
   TUTORIAL: "01960000-0000-7000-8000-00000000c003",
   VIDEO: "01960000-0000-7000-8000-00000000f001",
 } as const
@@ -32,6 +35,7 @@ export const USERS = {
 } as const
 
 const DURATION_MS = 125_000
+const PLACEHOLDER_DURATION_MS = 10_000
 
 export const seedCatalogue = async (): Promise<void> => {
   await db.delete(course)
@@ -39,9 +43,18 @@ export const seedCatalogue = async (): Promise<void> => {
   await db.delete(user)
 
   await db.insert(user).values(Object.values(USERS).map((id) => ({ email: `${id}@example.test`, id, name: "Learner" })))
-  await db
-    .insert(video)
-    .values({ captionLocales: ["en-US"], durationMs: DURATION_MS, height: 1080, id: IDS.VIDEO, sizeBytes: 1, title: "Lesson", width: 1920 })
+  await db.insert(video).values([
+    { captionLocales: ["en-US"], durationMs: DURATION_MS, height: 1080, id: IDS.VIDEO, sizeBytes: 1, title: "Lesson", width: 1920 },
+    {
+      durationMs: PLACEHOLDER_DURATION_MS,
+      height: 1080,
+      id: IDS.PLACEHOLDER_VIDEO,
+      placeholder: true,
+      sizeBytes: 1,
+      title: "Being recorded",
+      width: 1920,
+    },
+  ])
   await db.insert(course).values([
     {
       id: IDS.COURSE,
@@ -129,3 +142,5 @@ export const seedCatalogue = async (): Promise<void> => {
 
 export const recordProgress = (values: { completedAt?: Date; lessonId: string; positionMs: number; userId: string }) =>
   db.insert(lessonProgress).values(values)
+
+export const playLessonOn = (lessonId: string, videoId: string) => db.update(lesson).set({ videoId }).where(eq(lesson.id, lessonId))

@@ -1,25 +1,42 @@
 ---
 title: "コース"
-description: "無料、アカウントが必要、ライセンスが必要のいずれかのレッスンで構成されるコースの公開カタログ、進捗を保存するプレーヤー、コース、チャプター、レッスンを作成する管理画面。"
+description: "無料、アカウントが必要、ライセンスが必要のいずれかのレッスンで構成されるコースの公開カタログ、進捗を保存するプレーヤー、同じアクセスルールで守られるレッスンの資料、コースのあらゆる部分を作成する管理画面。"
 ---
 
-コース、チュートリアル、プロジェクトは D1 に保存され、`/courses` で視聴します。各レッスンは[動画](/docs/features/videos)のライブラリにある動画を再生し、レッスンのアクセスレベルによって誰が視聴できるかが決まります。
+コース、チュートリアル、プロジェクトは D1 に保存され、`/courses` で視聴します。各レッスンは[動画](/docs/features/videos)のライブラリにある動画を再生し、レッスンのアクセスレベルによって誰が視聴でき、その資料をダウンロードできるかが決まります。
+
+コースを編集する場所は管理画面だけです。タイトル、概要、レベル、アイコン、到達目標、前提条件、チャプター、レッスン、説明、主要な場面、動画、資料はすべて D1 の行で、`/admin/courses` がすべてのロケールで編集します。コースのコンテンツがソースコードに書かれることはありません。コードが決めるのは管理画面が提供する選択肢だけで、種類、レベル、状態、アクセスレベル、アイコン名は名前付き定数です。
 
 ## データモデル
 
-各テーブルは `src/modules` に専用のモジュールを持ち、マイグレーション `20261113004409_salty_slipstream.sql` で作成されます。
+各テーブルは `src/modules` に専用のモジュールを持ちます。マイグレーション `20261113004409_salty_slipstream.sql` が最初の 4 つを作成し、`20261117161820_safe_stardust.sql` が `lesson_attachment` と _新規_ と記した列を追加しました。どの列にも既定値があるため、既存の行はそのまま有効です。
 
-| テーブル          | 列                                                                                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `course`          | `slug`（一意）、`kind`（`course`、`tutorial`、`project`）、`status`（`draft`、`published`）、`position`、`title`、`summary`                         |
-| `chapter`         | `course_id`、`position`、`title`                                                                                                                    |
-| `lesson`          | `course_id`、`chapter_id`、`slug`（コース内で一意）、`access`（`preview`、`account`、`paid`）、`status`、`position`、`title`、`summary`、`video_id` |
-| `lesson_progress` | `user_id` と `lesson_id`（主キー）、`position_ms`、`completed_at`                                                                                   |
+| テーブル            | 列                                                                                                                                                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `course`            | `slug`（一意）、`kind`（`course`、`tutorial`、`project`）、`status`（`draft`、`published`）、`position`、`title`、`summary`、_新規_: `level`（既定は `beginner`）、`icon`（既定は `book-open`）、`outcomes` と `prerequisites`（既定は `{}`） |
+| `chapter`           | `course_id`、`position`、`title`、_新規_: `summary`（既定は `{}`）                                                                                                                                                                            |
+| `lesson`            | `course_id`、`chapter_id`、`slug`（コース内で一意）、`access`（`preview`、`account`、`paid`）、`status`、`position`、`title`、`summary`、`video_id`、_新規_: `description`（既定は `{}`）と `key_moments`（既定は `[]`）                      |
+| `lesson_attachment` | _新規_: `lesson_id`、`position`、`title`、`kind`（`file`、`link`）、ファイルの場合は `object_key`、`size_bytes`、`content_type`、リンクの場合は `url`                                                                                         |
+| `lesson_progress`   | `user_id` と `lesson_id`（主キー）、`position_ms`、`completed_at`                                                                                                                                                                             |
 
-- `title` と `summary` は、`{"en-US": "Billing", "pl-PL": "Płatności"}` のようにロケールをキーとする JSON を保持します（`src/modules/_core/utils/localized-text.ts` の `LocalizedText`）。`localize()` は訪問者のロケールの値を返し、ない場合は `en-US` にフォールバックするため、`en-US` は必ず入力してください。管理画面では入力が必須ですが、D1 に直接挿入した行はチェックされません。
+- `title`、`summary`、`description` は、`{"en-US": "Billing", "pl-PL": "Płatności"}` のようにロケールをキーとする JSON を保持します（`src/modules/_core/utils/localized-text.ts` の `LocalizedText`）。`localize()` は訪問者のロケールの値を返し、ない場合は `en-US` にフォールバックするため、`en-US` は必ず入力してください。管理画面ではタイトルと概要の入力が必須ですが、チャプターの概要とレッスンの説明は空のままでもかまいません。D1 に直接挿入した行はチェックされません。
+- `outcomes` と `prerequisites` は、`{"en-US": ["Deploy to Cloudflare"]}` のようにロケールごとに 1 つのリストを保持します（`LocalizedList`）。`localizeList()` は訪問者のロケールのリストを返し、それがないか空の場合は英語のリストを返します。リストの項目は最大 <RepositoryFact name="localizedListMaxItems" /> 個で、各項目は最大 <RepositoryFact name="localizedListItemMaxLength" /> 文字です。
+- `level` は <RepositoryFact name="courseLevels" /> のいずれか（`COURSE_LEVEL`）、`icon` は <RepositoryFact name="courseIcons" /> のいずれか（`COURSE_ICON`）です。各名前を lucide のアイコンに対応付けるのは、`src/data/course-icons.ts` の `COURSE_ICON_COMPONENTS` だけです。
+- レッスンの `description` は、ロケールごとに最大 <RepositoryFact name="lessonDescriptionMaxLength" /> 文字のプレーンテキストです。空行で新しい段落が始まり、バッククォートで囲んだテキストはコードになります。`parseRichText`（`src/lib/rich-text.ts`）がそれを段落とコードスパンに分割し、`RichText`（`src/presentation/components/custom/rich-text.tsx`）が React 要素として描画するため、保存されたテキストが HTML として解析されることはありません。
+- `key_moments` は `{ "seconds": 135, "label": { "en-US": "Install the CLI" } }` のリストで、最大 <RepositoryFact name="lessonKeyMomentsMaxItems" /> 個まで、時間順に保持されます。管理画面では時間を `2:15` や `1:02:15` の形で入力し、`updateLesson` が秒数を保存します。
 - 新しい行は `draft`、新しいレッスンは `paid` になります。一覧表示や配信の対象になるのは `published` のコースとレッスンだけで、それ以外のスラッグでは Not Found ページが表示されます。
 - コースは `position` 順、チャプターはコース内の `position` 順、レッスンはチャプター内の `position` 順に並びます。レッスン番号はコース全体を通して振られます。
-- `video_id` は `video` テーブルを参照し、動画が削除されると `NULL` になります。コースやチャプターを削除するとそのレッスンが削除され、レッスンやユーザーを削除するとその進捗が削除されます。
+- `video_id` は `video` テーブルを参照し、動画が削除されると `NULL` になります。コースやチャプターを削除するとそのレッスンが削除され、レッスンを削除するとその資料が削除されます。レッスンやユーザーを削除するとその進捗が削除されます。
+
+## 収録中 [#being-recorded]
+
+動画がないレッスンや、動画がプレースホルダー（[動画ライブラリ](/docs/features/videos#placeholder-videos)で設定する `video.placeholder`）のレッスンは収録中です。このようなレッスンはカリキュラムに表示され、開くこともできますが、再生されることはありません。収録中を表すレッスンの状態はありません。公開側の読み取りは、プレースホルダーを除外する `playableVideo`（`src/modules/lesson/lesson.playable.ts`）でレッスンを動画と結合するため、収録中のレッスンについては次のようになります。
+
+- `getCourse` と `getLesson` は `recording: true` と `durationMs: null` を返し、`getLesson` は字幕のロケールを返しません。
+- `getLessonPlayback` は `NOT_FOUND` を返すため、署名済みのストリームは存在しません。
+- `getCatalogue` と `getCourseShowcase` はそのレッスンをコースの長さに含めず、ランディングページのコースブロックがそのレッスンを無料レッスンとして示すことはありません。
+
+レッスンエディターから、またはライブラリでプレースホルダーのフラグを外して動画を実際の録画に置き換えると、ほかに何も変えなくても、そのレッスンはどこでも一斉に再生されるようになります。
 
 ## アクセスレベル
 
@@ -33,11 +50,21 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 - `getCatalogue`（公開）は、公開済みのコースを、レッスン数、動画の合計時間、無料プレビューの数とともに返します。
 - `getCourseShowcase`（公開）は、ランディングページ用に、公開済みの最初の <RepositoryFact name="courseShowcaseCourses" /> つのコース（`COURSE_SHOWCASE`）を、それぞれのレッスン数、動画の合計時間、無料プレビューの数、動画のある最初の無料プレビューとともに返します。視聴者のセッションは読みません。
-- `getCourse`（公開）は、公開済みのコースを、そのチャプターと公開済みのレッスンとともに訪問者のロケールで返します。各レッスンには視聴者ごとの `locked`、`completed`、`positionMs` が付きます。
-- `getLessonPlayback`（公開）は、`createPlayback` による署名付きの再生パスを返します。レッスンを視聴できない場合、ゲストには `UNAUTHORIZED`、サインイン済みのユーザーには `FORBIDDEN` を返し、未公開のレッスンや動画のないレッスンには `NOT_FOUND` を返します。
+- `getCourse`（公開）は、公開済みのコースを訪問者のロケールで返します。種類、レベル、アイコン、到達目標、前提条件、概要付きのチャプター、公開済みのレッスンを含み、各レッスンには視聴者ごとの `locked`、`recording`、`durationMs`、`completed`、`positionMs` が付きます。アウトラインは `readCourseOutline`（`src/modules/course/course.outline.ts`）から取得し、`getLesson` も同じものを使います。
+- `getLesson`（公開）は、レッスンページに表示するものすべてを 1 回の呼び出しで返します。同じアウトライン、説明・主要な場面・字幕のロケール・資料を含むレッスン、前後のレッスンです。未公開のコースやレッスンには `NOT_FOUND` を返します。
+- `getLessonPlayback`（公開）は、`createPlayback` による署名付きの再生パスを返します。レッスンを視聴できない場合、ゲストには `UNAUTHORIZED`、サインイン済みのユーザーには `FORBIDDEN` を返し、未公開のレッスンや[収録中](#being-recorded)のレッスンには `NOT_FOUND` を返します。レッスンページはこれを 1 時間新しいままの別のクエリとして保持するため、再生中にプレーヤーのアドレスが変わることはありません。
 - `saveLessonProgress` はセッションを必要とし、書き込む前に同じアクセス判定を行います。
 
 コースアクセスは、コースのエリアが自分で定義するリストです。コースアクセスを販売するエリアは `src/data/<area>.course-access.ts` で `CourseAccessGrant` を宣言し、`src/data/course-access.entries.ts` がそれらをまとめます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。付与は、ユーザーがアクセスを持つかどうか（`holds`、サーバー専用の関数）、何に含まれるか（`includedWith`、ライセンスページが挙げる名前のメッセージキー）、どこで入手するか（`unlock`、サインイン中の視聴者用とゲスト用のリンク 1 つずつ）を示します。ライセンスのエリアの `LICENSE_COURSE_ACCESS`（`src/data/license.course-access.ts`）は、Complete または Agency の `active` なライセンスにアクセスを与え、サインイン中の視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションに案内します。付与が 1 つもなければ、有料レッスンを視聴できるのはスタッフだけで、ロックされたパネルにはリンクが表示されません。コースの文言はティアを名指しせず、付与からさらに 2 つの名前を受け取ります。アクセスの表示、解放のパネル、カタログの説明では `unlock` のリンクが販売するもの（`offer`）を、管理画面の有料アクセスレベルではアクセスを持つ人（`holders`）を使います。ライセンスは Complete と `components.custom.pricing` の `courseAccess.holders` の文言を渡すので、ページの表示はこれまでと同じです。
+
+## 資料 [#materials]
+
+レッスンの資料は `lesson_attachment` にあるファイルとリンクで、`position` 順に並びます。
+
+- ファイルは `MEDIA` バケットの `attachments/<attachmentId>/<fileName>` に保存されます（`lesson-attachment.files.ts` の `attachmentObjectKey`）。アップロードできるのは、最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB の <RepositoryFact name="attachmentFileTypes" /> ファイルです（`LESSON_ATTACHMENT_FILE_TYPES`、`LESSON_ATTACHMENT_MAX_MEGABYTES`）。コンテンツタイプはブラウザーからではなく常に拡張子から決まり、ファイル名には英字、数字、ドット、ハイフン、アンダースコアだけが残ります。
+- リンクは、`/docs/getting-started` のようなドキュメントのパスか、`https://` のアドレスです。
+- `getLesson` は、各資料のタイトルと種類、ファイルの場合はその名前とサイズを返します。`href` を加えるのは、視聴者がレッスンを開ける場合だけです。この判定にはレッスン自身の `locked` を使い、`hasLessonAccess` が一度だけ計算します。ファイルの場合、`href` は署名済みのパス `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`（`lesson-attachment.download.ts` の `signDownload`）で、少なくとも <RepositoryFact name="signedDownloadHours" unit="hour" />有効です。`serveAttachment`（`lesson-attachment.delivery.ts`）は署名を確認し、`Content-Disposition: attachment` を付けてファイルを配信します。署名が不正または期限切れの場合は `403` が返ります。署名済みパスは、期限が切れるまでベアラーリンクとして機能します。
+- 資料、レッスン、チャプター、コースのいずれかを削除すると、行とともにアップロードされたファイルも削除されます。
 
 ## ページ
 
@@ -45,7 +72,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 - `/courses`: 公開済みのコースごとに 1 枚のカードを表示し、種類、レッスン数、分数、無料レッスンの数を示します。公開済みのコースがない場合は、最初の講座を収録中であることを伝え、フッターの開発日誌への登録を案内します。最初の一文はランディングページの講座ブロックと同じです。
 - `/courses/<course>`: 概要、サインイン済みの視聴者向けの進捗バー、次に視聴するレッスンへの **講座を始める** または **…の続きから** のリンク、チャプターごとのカリキュラムを表示します。カリキュラムには **無料プレビュー** バッジ、再生時間、鍵と完了のアイコンが付きます。ロックされたレッスンがある場合は、**すべてのレッスンがCompleteに含まれます** パネルが料金セクションに、サインイン済みの視聴者には Complete があらかじめ選択された `/app/license?tier=complete` にリンクします。
-- `/courses/<course>/<lesson>`: プレーヤー、またはロックのパネルを表示します。パネルには、サインイン後に `redirect` でレッスンに戻る **サインインして視聴** か、**Completeを入手** が表示されます。動画のないレッスンでは、録画が近日公開であることを示します。その下にアクセスレベル、サインイン済みの視聴者向けの **完了にする**、前後のレッスンへのリンクが並び、広い画面ではコースの内容が横に表示され続けます。
+- `/courses/<course>/<lesson>`: プレーヤー、またはロックのパネルを表示します。パネルには、サインイン後に `redirect` でレッスンに戻る **サインインして視聴** か、**Completeを入手** が表示されます。[収録中](#being-recorded)のレッスンでは、録画が近日公開であることを示します。その下にアクセスレベル、レッスンを開ける視聴者にだけリンクとダウンロードを提供する **資料**、サインイン済みの視聴者向けの **完了にする**、前後のレッスンへのリンクが並び、広い画面ではコースの内容が横に表示され続けます。ページは 1 回の `getLesson` 呼び出しで読み込まれます。
 
 ## ランディングページ
 
@@ -63,7 +90,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 ## レッスンと動画
 
-レッスンは自身の動画ファイルを持ちません。録画は `bun run video:publish:<environment>` で公開し（[動画](/docs/features/videos)を参照）、管理画面のレッスンの **動画** フィールドで選択すると `video_id` が設定されます。複数のレッスンで同じ動画を使えます。カタログとカリキュラムの再生時間は `video.duration_ms` から取得します。
+レッスンは自身の動画ファイルを持ちません。録画は `bun run video:publish:<environment>` で公開し（[動画](/docs/features/videos)を参照）、レッスンエディターの **動画** カードで選ぶと `video_id` が設定されます。複数のレッスンで同じ動画を使うことができ、どのレッスンも自身の録画ができるまでは、共有の 1 本のプレースホルダー動画で始められます。カタログとカリキュラムの再生時間は `video.duration_ms` から取得し、収録中のレッスンには再生時間がありません。
 
 ## コースを管理する
 
@@ -72,10 +99,11 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - `/admin/courses`（`admin.courses.index.tsx`）は、下書きを含むすべてのコースを `position` 順に一覧表示します。表示するのは、タイトルと `/courses/<slug>` のパス、種類、状態、レッスン数、最終更新日です。各行には、コースを上下に移動する矢印、編集リンク、削除ボタンがあります。**新しいコース** でフォームを開きます。
 - `/admin/courses/create`（`admin.courses.create.tsx`）は空のコースフォームを表示します。**コースを作成** でコースを保存し、そのエディターを開きます。
 - `/admin/courses/<courseId>`（`admin.courses.$courseId.tsx`）は、**詳細を保存** を備えたコースフォーム、**カリキュラム**、**コースを表示** を表示します。**コースを表示** は `/courses/<slug>` を新しいタブで開きます。下書きは公開されないため、**コースを表示** はコースを公開してから表示されます。
+- `/admin/courses/<courseId>/lessons/<lessonId>`（`admin.courses.$courseId_.lessons.$lessonId.tsx`）はレッスンエディターで、レッスンのテキスト、主要な場面、動画、資料を扱います。**レッスンを表示** は、コースとレッスンが公開されると表示されます。コースエディターと同じ `courseEditorQuery` を読むため、行き来してもリクエストは発生しません。
 
 新しいコースはほかのコースの後ろに追加されます。一覧の矢印で公開カタログの並び順を決めます（`moveCourse`）。
 
-### コースの詳細
+### コースの詳細 [#course-details]
 
 コースフォーム（`course-form.tsx`）には次のフィールドがあります。
 
@@ -83,14 +111,17 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - **URLスラッグ**: 小文字、数字、単独のハイフンのみ、最大 <RepositoryFact name="slugMaxLength" /> 文字で、コース全体で一意です。
 - **種類**: **コース**、**チュートリアル**、**プロジェクト** のいずれか。
 - **状態**: 既定の **下書き** または **公開**。`/courses` に表示されるのは公開済みのコースだけです。
+- **レベル**: 既定の **初級**、**中級**、**上級** のいずれか。
+- **アイコン**: 名前付きのアイコンのいずれか。フィールドの横に表示されます。
+- **受講者ができるようになること** と **前提条件**。ロケールごとにタブがあります。**到達目標を追加** と **前提条件を追加** で行を追加し、行の横のバツ印でその行を削除します。空の行は受け付けられません。
 
 ### カリキュラム
 
 カリキュラムエディター（`curriculum-editor.tsx`）は、チャプターを順に表示し、それぞれのレッスンを並べます。
 
-- **章を追加** は `chapter-dialog.tsx` を開き、ロケールごとに **章のタイトル** を入力します。各チャプターには、上下に移動する、タイトルを編集する、削除するためのボタンがあります。
-- チャプターのレッスンの下にある **レッスンを追加** は `lesson-dialog.tsx` を開きます。レッスンの編集にも同じダイアログを使います。
-- 各レッスンには、スラッグ、動画と再生時間（ない場合は **動画なし**）、アクセスレベル、状態が表示され、チャプター内で上下に移動する、編集する、削除するためのボタンがあります。レッスンを別のチャプターに移動することはできません。
+- **章を追加** は `chapter-dialog.tsx` を開き、ロケールごとに **章のタイトル** と任意の **概要** を入力します。各チャプターはタイトルの下に概要を表示し、上下に移動する、編集する、削除するためのボタンがあります。
+- チャプターのレッスンの下にある **レッスンを追加** は、レッスンを作成する `lesson-dialog.tsx` を開きます。
+- 各レッスンには、スラッグ、動画と再生時間（ない場合は **動画なし**）、動画がないかプレースホルダーの場合の **収録中**、アクセスレベル、状態が表示され、チャプター内で上下に移動する、レッスンエディターで開く、削除するためのボタンがあります。レッスンを別のチャプターに移動することはできません。
 
 レッスンのダイアログには次のフィールドがあります。
 
@@ -98,38 +129,53 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - **URLスラッグ**。コース内で一意です。
 - **視聴できる人**: **誰でも（無料プレビュー）**（`preview`）、**サインイン済みの訪問者**（`account`）、または既定の **CompleteとAgencyのライセンス**（`paid`）。
 - **状態**: 既定の **下書き** または **公開**。
-- **動画**: ライブラリで最近公開された <RepositoryFact name="videoLibraryPageSize" /> 本の動画（`VIDEO_LIBRARY_PAGE_SIZE`）と、その再生時間。**動画はまだありません** を選ぶと、レッスンに動画を設定しないか、設定済みの動画を外します。
+- **動画**: ライブラリで最近公開された <RepositoryFact name="videoLibraryPageSize" /> 本の動画（`VIDEO_LIBRARY_PAGE_SIZE`）と、その再生時間。プレースホルダーの動画には **プレースホルダー** が付きます。**動画はまだありません** を選ぶと、動画なしでレッスンを作成します。
+
+### レッスンエディター [#lesson-editor]
+
+レッスンエディターには 3 つのカードがあります。
+
+- **レッスン**（`lesson-form.tsx`）: ロケールごとの **レッスンのタイトル**、**概要**、**説明**、そして **URLスラッグ**、**視聴できる人**、**状態**、**主要な場面**。説明には、受講者に表示されるとおりの段落とコードのプレビューが表示されます。各主要な場面は、`2:15` のような時間とロケールごとのラベルで構成されます。**主要な場面を追加** で追加し、バツ印で削除し、**レッスンを保存** で時間順に保存します。
+- **動画**（`lesson-video-card.tsx`）: レッスンの動画、それが再生されるか収録中か、そしてライブラリの動画から選ぶ **置き換え先**。**動画を置き換え** は、ほかには何も保存せずに、選んだ動画を 1 回の操作でレッスンに設定します（`replaceLessonVideo`）。
+- **資料**（`lesson-materials.tsx`）: レッスンのファイルとリンクを順に表示します。それぞれにファイル名とサイズ、またはアドレスが付き、移動、編集、削除のボタンがあります。**ファイルをアップロード** ではロケールごとのタイトルとファイルを、**リンクを追加** ではロケールごとのタイトルとアドレスを入力します。リンクの編集ではタイトルとアドレスを変更し、ファイルの編集では名前を変更します。
 
 ### 削除
 
 削除はどれも、実行前に確認を求めます。
 
-- コースを削除すると、そのチャプター、レッスン、およびそれらに対する全ユーザーの進捗が削除されます。
-- チャプターを削除すると、そのレッスンとその進捗が削除されます。
-- レッスンを削除すると、その進捗が削除されます。
+- コースを削除すると、そのチャプター、レッスン、それらの資料、およびそれらに対する全ユーザーの進捗が削除されます。
+- チャプターを削除すると、そのレッスンと、その資料と進捗が削除されます。
+- レッスンを削除すると、その資料と進捗が削除されます。
+- 資料を削除すると、その資料はレッスンから取り除かれます。
 
-これは外部キーの `ON DELETE CASCADE` によって行われます。コース、チャプター、レッスンと一緒に動画が削除されることはなく、動画はライブラリに残ります。
+行は外部キーの `ON DELETE CASCADE` によって削除され、アップロードされたファイルは削除のユースケースが R2 から削除します（`lesson-attachment.objects.ts` の `attachmentObjectKeys` と `removeAttachmentObjects`）。コース、チャプター、レッスンと一緒に動画が削除されることはなく、動画はライブラリに残ります。
 
 ### サーバー関数
 
-| モジュール | ユースケース                                                     | 権限                 |
-| ---------- | ---------------------------------------------------------------- | -------------------- |
-| `course`   | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
-| `course`   | `createCourse`                                                   | `course: ["create"]` |
-| `course`   | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
-| `course`   | `deleteCourse`                                                   | `course: ["delete"]` |
-| `chapter`  | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
-| `lesson`   | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+| モジュール          | ユースケース                                                                                                                   | 権限                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| `course`            | `getCourses`, `getCourseEditor`                                                                                                | `course: ["read"]`   |
+| `course`            | `createCourse`                                                                                                                 | `course: ["create"]` |
+| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]` |
+| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]` |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]` |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]` |
+| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]` |
+| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]` |
 
-- レッスンのダイアログの動画一覧は `getVideos` から取得し、これには `video: ["read"]` が必要です。
+- `getCourseEditor` は、すべてのレッスンを説明、主要な場面、動画（プレースホルダーのフラグ付き）、資料とともに返すため、コースエディターとレッスンエディターは 1 つのクエリを共有します。
+- `uploadLessonAttachment` は `FormData`（ファイル、レッスン、ロケールごとのタイトル。`uploadFormData` が組み立てます）を受け取り、さらに `withRateLimit` でアップロードを 1 アドレスあたり 1 分に <RepositoryFact name="attachmentUploadsPerMinute" /> 回までに制限します。行を書き込んでからファイルを書き込み、R2 がファイルを拒否した場合は行を削除します。
+- `setVideoPlaceholder` はレッスンが再生されるかどうかを決めるため、受講者が視聴できるものを変えるほかの書き込みと同じく `course: ["update"]` をチェックします。
+- レッスンのダイアログとレッスンエディターの動画一覧は `getVideos` から取得し、これには `video: ["read"]` が必要です。
 - すでに使われているスラッグには `CONFLICT` を返します。`rethrowAsConflict`（`src/integrations/drizzle-orm/drizzle.errors.ts`）が D1 の一意制約エラーを `AppError` に変換します。どの行にも一致しない ID には `NOT_FOUND` を返します。
 - 新しいコース、チャプター、レッスンは、同じ階層の行の中で最大の `position` に 1 を足した値を取ります（`nextPosition`）。移動では行を隣の行と入れ替え、同じ階層の行を 1 から番号付けし直します（`reorder`）。これは 1 回の `db.batch` で行います。どちらの関数も `src/modules/_core/utils/ordering.ts` にあり、方向は `src/modules/_core/constants/ordering.ts` の `MOVE_DIRECTION` です。
-- すべての書き込みで、タイトルと概要を `localizedTextSchema` で検証します。`en-US` は必須で、各テキストは最大 <RepositoryFact name="localizedTextMaxLength" /> 文字です。スラッグは最大 <RepositoryFact name="slugMaxLength" /> 文字です。フォームのメッセージは `course.validations` の `defaultLocaleRequired`、`textTooLong`、`slugInvalid`、`slugTooLong` で、上限値は `COURSE_VALIDATION_PARAMS`（`course.constants.ts`）が渡します。
+- すべての書き込みで、タイトルと概要を `localizedTextSchema` で検証します。`en-US` は必須で、各テキストは最大 <RepositoryFact name="localizedTextMaxLength" /> 文字です。スラッグは最大 <RepositoryFact name="slugMaxLength" /> 文字です。フォームのメッセージは `defaultLocaleRequired`、`textTooLong`、`slugInvalid`、`itemRequired`、`timeInvalid`、`urlInvalid`、`fileTooLarge` などで、`course.validations` にあります。上限値は `COURSE_VALIDATION_PARAMS`（`course.constants.ts`）が渡します。
+- コースのスラッグと、コース内のレッスンのスラッグは一意であるため、データベースをまたいでコースとレッスンを特定できます。コースのカリキュラムは、そのチャプターを順に並べたものです。
 - `courseEditorQuery` は公開側のコースのクエリと同じく `staleTime: COURSE_STALE_MS` を保ち、変更のたびに `course` のクエリが無効化されるため、一覧とエディターが再取得されます。
 
 ## テスト
 
-`scripts/seed-test.ts` は、`e2e/specs/courses.spec.ts` のブラウザテスト用に、1 つのチャプターと 4 つのレッスンを持つ公開済みのコースを投入します。`e2e/specs/course-admin.spec.ts` では、管理者がコース、チャプター、シード済みの動画を使う無料レッスンを作成し、別のブラウザページの訪問者がそのレッスンを視聴し、最後に管理者がコースを削除します。`e2e/specs/landing.spec.ts` は、ランディングページがシード済みのコースとその無料レッスンにリンクし、無料レッスンを開き、講座ページの紹介動画を再生できること、そしてコースが届いたときも読み込めなかったときも、コースブロックが高さを保ち何も動かさないことを確認します。`e2e/specs/course-access.spec.ts` は、ライセンスのない顧客としてサインインし、有料レッスンが `/app/license?tier=complete` へのリンク付きで Complete を案内することと、概要ページがライセンスの案内の横にロックされたコースを表示することを確認します。
+`scripts/seed-test.ts` は、レベル、アイコン、到達目標、前提条件を持つ公開済みのコースを 1 つ投入します。コースには概要付きのチャプターが 1 つと 4 つのレッスンがあり、無料のレッスンには説明、主要な場面 1 つ、PDF、ドキュメントへのリンクが、有料のレッスンには PDF があり、最後のレッスンはシード済みのプレースホルダー動画を使います。また、有効な Complete のライセンスを持つ `learner@example.test` も投入します。`e2e/specs/courses.spec.ts` のブラウザテストはこれらのレッスンを視聴します。`e2e/specs/course-admin.spec.ts` では、管理者がコース、チャプター、シード済みの動画を使う無料レッスンを作成し、別のブラウザページの訪問者がそのレッスンを視聴し、最後に管理者がコースを削除します。2 つ目のテストは、レッスンの説明と主要な場面を書き、レッスンをプレースホルダー動画に設定し、ファイルをアップロードしてリンクを追加し、訪問者にはレッスンが収録中として表示されファイルをダウンロードできることを確認し、動画を録画に置き換えて訪問者のページで再生されるようにし、コースを削除するとファイルも削除されることを確認します。`e2e/specs/course-materials.spec.ts` はダウンロードのアクセスルールを確認します。訪問者は無料レッスンのファイルを署名済みのパスでダウンロードでき、偽造したパスには `403` が返ります。訪問者と Complete を持たない顧客には有料レッスンの資料がリンクなしで表示され、Complete のライセンスの保有者はそれらをダウンロードでき、プレースホルダー動画を使うレッスンはストリームを要求せずに収録中として表示されます。`e2e/specs/landing.spec.ts` は、ランディングページがシード済みのコースとその無料レッスンにリンクし、無料レッスンを開き、講座ページの紹介動画を再生できること、そしてコースが届いたときも読み込めなかったときも、コースブロックが高さを保ち何も動かさないことを確認します。`e2e/specs/course-access.spec.ts` は、ライセンスのない顧客としてサインインし、有料レッスンが `/app/license?tier=complete` へのリンク付きで Complete を案内することと、概要ページがライセンスの案内の横にロックされたコースを表示することを確認します。
 
 ## 関連ページ
 

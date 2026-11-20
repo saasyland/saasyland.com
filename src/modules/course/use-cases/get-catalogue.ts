@@ -11,6 +11,7 @@ import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
@@ -21,9 +22,11 @@ export const getCatalogue = createServerFn({ method: "GET" })
     const rows = await db
       .select({
         durationMs: sql<number>`coalesce(sum(${video.durationMs}), 0)`,
+        icon: course.icon,
         id: course.id,
         kind: course.kind,
         lessons: count(lesson.id),
+        level: course.level,
         paid: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PAID}), 0)`,
         previews: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PREVIEW}), 0)`,
         slug: course.slug,
@@ -32,16 +35,18 @@ export const getCatalogue = createServerFn({ method: "GET" })
       })
       .from(course)
       .leftJoin(lesson, and(eq(lesson.courseId, course.id), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
-      .leftJoin(video, eq(video.id, lesson.videoId))
+      .leftJoin(video, playableVideo)
       .where(eq(course.status, COURSE_STATUS.PUBLISHED))
       .groupBy(course.id)
       .orderBy(asc(course.position), asc(course.id))
 
     return rows.map((row) => ({
       durationMs: row.durationMs,
+      icon: row.icon,
       id: row.id,
       kind: row.kind,
       lessons: row.lessons,
+      level: row.level,
       paid: row.paid,
       previews: row.previews,
       slug: row.slug,

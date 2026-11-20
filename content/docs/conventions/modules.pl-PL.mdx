@@ -5,7 +5,7 @@ description: "Moduł to jedna tabela bazy danych: jej schemat, stałe, schematy 
 
 `src/modules/<table>/` istnieje tylko dla rzeczywistej tabeli bazy danych. Folder odzwierciedla schemat Drizzle, więc jego utworzenie oznacza, że tabela istnieje. Kod, który obsługuje funkcję bez własnej tabeli, trafia gdzie indziej: funkcja serwerowa czytająca GitHub lub kolekcję dokumentacji znajduje się w `src/lib/<topic>.ts` lub w jedynej trasie, która jej używa, a konfiguracja dostawcy w `src/integrations/<vendor>`.
 
-Moduły to `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` i `video`. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
+Moduły to `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` i `video`. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
 
 ## Budowa
 
@@ -28,9 +28,19 @@ Wzorcem jest `src/modules/course`. Moduł zawiera następujące pliki, wszystkie
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -197,7 +216,11 @@ Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czyst
 
 | Plik                                                    | Zagadnienie                                                               |
 | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `course/course.outline.ts`                              | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`    |
 | `lesson/lesson.access.ts`                               | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach   |
+| `lesson/lesson.playable.ts`                             | Złączenie z wideo lekcji, które pomija filmy zastępcze                    |
+| `lesson-attachment/lesson-attachment.download.ts`       | Podpisywanie adresów URL do pobierania materiałów lekcji                  |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | Handler Workera dla podpisanych żądań `/media/downloads/`                 |
 | `lesson/lesson.viewer.ts`                               | Ustala na serwerze zalogowanego widza i jego dostęp do kursów             |
 | `license/license.webhooks.ts`                           | Handlery webhooków Polar, wywoływane przez `license.polar-events.ts`      |
 | `license/license.api.ts`                                | Handlery API licencji CLI, obsługiwane przez `src/routes/api/cli.v1.*.ts` |
@@ -210,7 +233,7 @@ Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czyst
 | `video/video.delivery.ts`                               | Handler Workera dla podpisanych żądań `/media/`                           |
 | `video/video.playback.ts`, `video/video.files.ts`       | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości   |
 
-Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
+Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
 
 ## Dodawanie modułu
 

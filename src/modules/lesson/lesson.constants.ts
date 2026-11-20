@@ -13,8 +13,17 @@ export const LESSON_ACCESS_LEVELS = [LESSON_ACCESS.PREVIEW, LESSON_ACCESS.ACCOUN
 
 export const LESSON_STATUSES = [LESSON_STATUS.DRAFT, LESSON_STATUS.PUBLISHED] as const
 
+export const LESSON_DESCRIPTION_MAX_LENGTH = 10_000
+
+export const LESSON_KEY_MOMENTS_MAX_ITEMS = 40
+
+export const LESSON_KEY_MOMENT_MAX_SECONDS = 86_400
+
+export const LESSON_STALE_MS = 60_000
+
 export const LESSON_QUERY_KEYS = {
   ALL: ["lesson"],
+  DETAIL: ["lesson", "getLesson"],
   PLAYBACK: ["lesson", "getLessonPlayback"],
 } as const
 
@@ -22,5 +31,6 @@ export const LESSON_MUTATION_KEYS = {
   CREATE: ["lesson", "createLesson"],
   DELETE: ["lesson", "deleteLesson"],
   MOVE: ["lesson", "moveLesson"],
+  REPLACE_VIDEO: ["lesson", "replaceLessonVideo"],
   UPDATE: ["lesson", "updateLesson"],
 } as const

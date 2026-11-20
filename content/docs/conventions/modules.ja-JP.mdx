@@ -5,7 +5,7 @@ description: "モジュールは 1 つのデータベーステーブルです。
 
 `src/modules/<table>/` は、実在するデータベーステーブルのためだけに存在します。このフォルダーは Drizzle のスキーマを映したものなので、フォルダーを作ることは、テーブルが存在すると宣言することになります。独自のテーブルを持たない機能のためのコードは別の場所に置きます。GitHub やドキュメントのコレクションを読むサーバー関数は `src/lib/<topic>.ts` か、それを使う唯一のルートに置き、ベンダーのセットアップは `src/integrations/<vendor>` に置きます。
 
-モジュールは `account`、`category`、`chapter`、`course`、`lesson`、`lesson-progress`、`license`、`newsletter-subscriber`、`order`、`product`、`rate-limit`、`session`、`subscription`、`two-factor`、`user`、`verification`、`video` です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを所有します。`_core` はモジュールではなく、すべてのモジュールが共有するエラーコード、カタログ、Zod のフィールドを保持します。
+モジュールは `account`、`category`、`chapter`、`course`、`lesson`、`lesson-attachment`、`lesson-progress`、`license`、`newsletter-subscriber`、`order`、`product`、`rate-limit`、`session`、`subscription`、`two-factor`、`user`、`verification`、`video` です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを所有します。`_core` はモジュールではなく、すべてのモジュールが共有するエラーコード、カタログ、Zod のフィールドを保持します。
 
 ## 構成
 
@@ -28,9 +28,19 @@ description: "モジュールは 1 つのデータベーステーブルです。
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -195,22 +214,26 @@ export interface Lesson {
 
 ユースケースでも純粋なヘルパーでもないロジックがテーブルに必要な場合は、関心事ごとに 1 つのファイルを作り、`<table>.<concern>.ts` と命名します。
 
-| ファイル                                                | 関心事                                                                   |
-| ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `lesson/lesson.access.ts`                               | 誰がレッスンを視聴できるか。純粋な関数で、サーバーとテストで使う         |
-| `lesson/lesson.viewer.ts`                               | サインイン中の視聴者とそのコースアクセスをサーバー上で解決する           |
-| `license/license.webhooks.ts`                           | Polar の Webhook ハンドラー。`license.polar-events.ts` が呼び出す        |
-| `license/license.api.ts`                                | CLI ライセンス API のハンドラー。`src/routes/api/cli.v1.*.ts` が提供する |
-| `license/license.bundles.ts`                            | CLI のテンプレートバンドルの URL の署名、そのオブジェクトキー            |
-| `license/license.delivery.ts`                           | 署名付きの `/bundles/` リクエスト用の Worker ハンドラー                  |
-| `license/license.ppp.ts`                                | チェックアウト用の地域別価格の割引                                       |
-| `license/license.pricing.ts`                            | 地域別価格の区分と適用を外すクッキー。純粋な値と関数                     |
-| `license/license.refunds.ts`                            | 購入を返金できるかどうか。購入の記録から求める純粋な関数                 |
-| `newsletter-subscriber/newsletter-subscriber.server.ts` | サーバー専用のリクエストチェック                                         |
-| `video/video.delivery.ts`                               | 署名付きの `/media/` リクエスト用の Worker ハンドラー                    |
-| `video/video.playback.ts`、`video/video.files.ts`       | 再生 URL の署名、オブジェクトキーとコンテンツタイプ                      |
+| ファイル                                                | 関心事                                                                      |
+| ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `course/course.outline.ts`                              | 視聴者向けの公開済みコースのアウトライン。`getCourse` と `getLesson` が使う |
+| `lesson/lesson.access.ts`                               | 誰がレッスンを視聴できるか。純粋な関数で、サーバーとテストで使う            |
+| `lesson/lesson.playable.ts`                             | レッスンの動画との結合。プレースホルダーを除外する                          |
+| `lesson-attachment/lesson-attachment.download.ts`       | レッスンの資料のダウンロード URL の署名                                     |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | 署名付きの `/media/downloads/` リクエスト用の Worker ハンドラー             |
+| `lesson/lesson.viewer.ts`                               | サインイン中の視聴者とそのコースアクセスをサーバー上で解決する              |
+| `license/license.webhooks.ts`                           | Polar の Webhook ハンドラー。`license.polar-events.ts` が呼び出す           |
+| `license/license.api.ts`                                | CLI ライセンス API のハンドラー。`src/routes/api/cli.v1.*.ts` が提供する    |
+| `license/license.bundles.ts`                            | CLI のテンプレートバンドルの URL の署名、そのオブジェクトキー               |
+| `license/license.delivery.ts`                           | 署名付きの `/bundles/` リクエスト用の Worker ハンドラー                     |
+| `license/license.ppp.ts`                                | チェックアウト用の地域別価格の割引                                          |
+| `license/license.pricing.ts`                            | 地域別価格の区分と適用を外すクッキー。純粋な値と関数                        |
+| `license/license.refunds.ts`                            | 購入を返金できるかどうか。購入の記録から求める純粋な関数                    |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | サーバー専用のリクエストチェック                                            |
+| `video/video.delivery.ts`                               | 署名付きの `/media/` リクエスト用の Worker ハンドラー                       |
+| `video/video.playback.ts`、`video/video.files.ts`       | 再生 URL の署名、オブジェクトキーとコンテンツタイプ                         |
 
-ブラウザーのバンドルに決して含まれてはいけないファイルは、`lesson.viewer.ts`、`license.webhooks.ts`、`license.api.ts`、`license.delivery.ts`、`newsletter-subscriber.server.ts`、`video.delivery.ts`、`license.utils.ts`（Worker の環境から Polar の商品の ID である `POLAR_PRODUCT_IDS` を読み取る）のように `import "@tanstack/react-start/server-only"` で始めます。`lesson.access.ts` や `course.utils.ts` のような純粋なファイルはサーバー側のものを何もインポートしないため、コンポーネントやテストから使えます。
+ブラウザーのバンドルに決して含まれてはいけないファイルは、`course.outline.ts`、`lesson.viewer.ts`、`lesson-attachment.delivery.ts`、`lesson-attachment.objects.ts`、`license.webhooks.ts`、`license.api.ts`、`license.delivery.ts`、`newsletter-subscriber.server.ts`、`video.delivery.ts`、`license.utils.ts`（Worker の環境から Polar の商品の ID である `POLAR_PRODUCT_IDS` を読み取る）のように `import "@tanstack/react-start/server-only"` で始めます。`lesson.access.ts` や `course.utils.ts` のような純粋なファイルはサーバー側のものを何もインポートしないため、コンポーネントやテストから使えます。
 
 ## モジュールを追加する
 

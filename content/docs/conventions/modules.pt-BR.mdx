@@ -5,7 +5,7 @@ description: "Um módulo é uma tabela do banco de dados: seu schema, suas const
 
 `src/modules/<table>/` existe apenas para uma tabela real do banco de dados. A pasta espelha o schema do Drizzle, então criar uma pasta afirma que uma tabela existe. O código que atende a um recurso sem tabela própria vai para outro lugar: uma server function que lê o GitHub ou a coleção da documentação fica em `src/lib/<topic>.ts` ou na única rota que a usa, e a configuração de fornecedores fica em `src/integrations/<vendor>`.
 
-Os módulos são `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` e `video`. `license` é dono de duas tabelas, `license` e `revoked_license_order`. `_core` não é um módulo: ele contém os códigos de erro, os catálogos e os campos Zod que todos os módulos compartilham.
+Os módulos são `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` e `video`. `license` é dono de duas tabelas, `license` e `revoked_license_order`. `_core` não é um módulo: ele contém os códigos de erro, os catálogos e os campos Zod que todos os módulos compartilham.
 
 ## Anatomia
 
@@ -28,9 +28,19 @@ Os módulos são `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -195,22 +214,26 @@ Um caso de uso que roda apenas no servidor, chamado por um hook do Better Auth o
 
 Quando uma tabela precisa de uma lógica que não é nem um caso de uso nem um helper puro, ela ganha um arquivo por aspecto, chamado `<table>.<concern>.ts`:
 
-| Arquivo                                                 | Aspecto                                                                          |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `lesson/lesson.access.ts`                               | Quem pode assistir a uma aula; puro, usado no servidor e nos testes              |
-| `lesson/lesson.viewer.ts`                               | Resolve no servidor o espectador autenticado e o acesso dele aos cursos          |
-| `license/license.webhooks.ts`                           | Handlers de webhooks do Polar, chamados por `license.polar-events.ts`            |
-| `license/license.api.ts`                                | Os handlers da API de licenças da CLI, servidos por `src/routes/api/cli.v1.*.ts` |
-| `license/license.bundles.ts`                            | Assinatura das URLs dos pacotes de templates da CLI; as chaves de objeto deles   |
-| `license/license.delivery.ts`                           | O handler do Worker para as requisições `/bundles/` assinadas                    |
-| `license/license.ppp.ts`                                | Descontos de preço regional no checkout                                          |
-| `license/license.pricing.ts`                            | Faixas de preços regionais e o cookie de recusa; puro                            |
-| `license/license.refunds.ts`                            | Se uma compra pode ser reembolsada, a partir dos registros dela; puro            |
-| `newsletter-subscriber/newsletter-subscriber.server.ts` | Verificações de requisição exclusivas do servidor                                |
-| `video/video.delivery.ts`                               | O handler do Worker para as requisições `/media/` assinadas                      |
-| `video/video.playback.ts`, `video/video.files.ts`       | Assinatura das URLs de reprodução; chaves de objeto e tipos de conteúdo          |
+| Arquivo                                                 | Aspecto                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `course/course.outline.ts`                              | A estrutura de um curso publicado para um espectador, para `getCourse` e `getLesson` |
+| `lesson/lesson.access.ts`                               | Quem pode assistir a uma aula; puro, usado no servidor e nos testes                  |
+| `lesson/lesson.playable.ts`                             | O join com o vídeo de uma aula que deixa de fora os vídeos provisórios               |
+| `lesson-attachment/lesson-attachment.download.ts`       | Assinatura das URLs de download dos materiais das aulas                              |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | O handler do Worker para as requisições `/media/downloads/` assinadas                |
+| `lesson/lesson.viewer.ts`                               | Resolve no servidor o espectador autenticado e o acesso dele aos cursos              |
+| `license/license.webhooks.ts`                           | Handlers de webhooks do Polar, chamados por `license.polar-events.ts`                |
+| `license/license.api.ts`                                | Os handlers da API de licenças da CLI, servidos por `src/routes/api/cli.v1.*.ts`     |
+| `license/license.bundles.ts`                            | Assinatura das URLs dos pacotes de templates da CLI; as chaves de objeto deles       |
+| `license/license.delivery.ts`                           | O handler do Worker para as requisições `/bundles/` assinadas                        |
+| `license/license.ppp.ts`                                | Descontos de preço regional no checkout                                              |
+| `license/license.pricing.ts`                            | Faixas de preços regionais e o cookie de recusa; puro                                |
+| `license/license.refunds.ts`                            | Se uma compra pode ser reembolsada, a partir dos registros dela; puro                |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | Verificações de requisição exclusivas do servidor                                    |
+| `video/video.delivery.ts`                               | O handler do Worker para as requisições `/media/` assinadas                          |
+| `video/video.playback.ts`, `video/video.files.ts`       | Assinatura das URLs de reprodução; chaves de objeto e tipos de conteúdo              |
 
-Um arquivo que nunca pode chegar ao bundle do navegador começa com `import "@tanstack/react-start/server-only"`, como fazem `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` e `license.utils.ts` (que lê os IDs de produto do Polar, `POLAR_PRODUCT_IDS`, do ambiente do Worker). Arquivos puros como `lesson.access.ts` e `course.utils.ts` não importam nada do lado do servidor, então os componentes e os testes podem usá-los.
+Um arquivo que nunca pode chegar ao bundle do navegador começa com `import "@tanstack/react-start/server-only"`, como fazem `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` e `license.utils.ts` (que lê os IDs de produto do Polar, `POLAR_PRODUCT_IDS`, do ambiente do Worker). Arquivos puros como `lesson.access.ts` e `course.utils.ts` não importam nada do lado do servidor, então os componentes e os testes podem usá-los.
 
 ## Adicionar um módulo
 

@@ -18,13 +18,13 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
 
-import { CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
+import { CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
 import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
 
-const chapterSchema = chapterZodSchemas.updateChapter.pick({ title: true })
+const chapterSchema = chapterZodSchemas.updateChapter.pick({ summary: true, title: true })
 
 interface ChapterDialogProps {
-  readonly chapter?: { readonly id: string; readonly title: LocalizedText }
+  readonly chapter?: { readonly id: string; readonly summary: LocalizedText; readonly title: LocalizedText }
   readonly courseId: string
   readonly trigger: ReactNode
 }
@@ -47,13 +47,13 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const update = useMutation({ ...updateChapterMutation, onError, onSuccess })
 
   const form = useForm({
-    defaultValues: { title: chapter?.title ?? { [I18N.DEFAULT_LOCALE]: "" } },
+    defaultValues: { summary: chapter?.summary ?? {}, title: chapter?.title ?? { [I18N.DEFAULT_LOCALE]: "" } },
     onSubmit: ({ value }) => {
       if (chapter === undefined) {
-        create.mutate({ courseId, title: value.title })
+        create.mutate({ ...value, courseId })
         return
       }
-      update.mutate({ chapterId: chapter.id, title: value.title })
+      update.mutate({ ...value, chapterId: chapter.id })
     },
     validators: { onChange: chapterSchema, onSubmit: chapterSchema },
   })
@@ -73,11 +73,16 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
           <DialogHeader>
             <DialogTitle>{t(chapter === undefined ? "add" : "edit")}</DialogTitle>
           </DialogHeader>
-          <LocaleTabs label={t("titleLanguages")}>
+          <LocaleTabs label={t("textLanguages")}>
             {(locale) => (
-              <form.Field name={`title.${locale}`}>
-                {(field) => <CourseTextField field={field} id={`chapter-title-${locale}`} label={t("title")} lang={locale} />}
-              </form.Field>
+              <div className="flex flex-col gap-4">
+                <form.Field name={`title.${locale}`}>
+                  {(field) => <CourseTextField field={field} id={`chapter-title-${locale}`} label={t("title")} lang={locale} />}
+                </form.Field>
+                <form.Field name={`summary.${locale}`}>
+                  {(field) => <CourseTextAreaField field={field} id={`chapter-summary-${locale}`} label={t("summary")} lang={locale} />}
+                </form.Field>
+              </div>
             )}
           </LocaleTabs>
           <DialogFooter>

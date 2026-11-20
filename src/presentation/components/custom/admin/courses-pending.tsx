@@ -137,14 +137,69 @@ export const AdminCourseEditorPending = (): JSX.Element => (
   </div>
 )
 
+const LESSON_FORM_FIELDS = ["title", "summary", "description", "slug"] as const
+const LESSON_SIDE_CARDS = ["video", "materials"] as const
+
+export const AdminLessonEditorPending = (): JSX.Element => (
+  <div aria-busy="true" className="flex w-full flex-col space-y-8">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <Skeleton className="h-lh w-32 scale-y-70 text-sm" />
+        <TitlePending />
+        <DescriptionPending />
+      </div>
+      <Skeleton className="h-9 w-32 rounded-lg" />
+    </div>
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-lh w-32 scale-y-70 text-base" />
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {LESSON_FORM_FIELDS.map((field) => (
+            <FieldPending key={field} />
+          ))}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FieldPending />
+            <FieldPending />
+          </div>
+        </CardContent>
+      </Card>
+      <div className="flex flex-col gap-6">
+        {LESSON_SIDE_CARDS.map((card) => (
+          <Card key={card}>
+            <CardHeader>
+              <Skeleton className="h-lh w-28 scale-y-70 text-base" />
+              <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-sm" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-16 w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  </div>
+)
+
 const COURSE_PAGES = new Map<string, () => JSX.Element>([
   [ROUTES.ADMIN_COURSES, AdminCoursesPending],
   [ROUTES.ADMIN_COURSES_CREATE, AdminCourseCreatePending],
 ])
 
+const LESSON_EDITOR_PATH = new RegExp(`^${ROUTES.ADMIN_COURSES}/[^/]+/lessons/[^/]+$`, "u")
+
+const sectionPage = (pathname: string): (() => JSX.Element) => {
+  if (LESSON_EDITOR_PATH.test(pathname)) {
+    return AdminLessonEditorPending
+  }
+
+  return COURSE_PAGES.get(pathname) ?? AdminCourseEditorPending
+}
+
 export const AdminCourseSectionPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = COURSE_PAGES.get(pathname) ?? AdminCourseEditorPending
+  const Page = sectionPage(pathname)
 
   return <Page />
 }
@@ -155,6 +210,7 @@ const VIDEO_DETAIL_COLUMNS = [
   { id: "resolution", width: "w-20" },
   { id: "size", width: "w-10" },
   { id: "captions", width: "w-16" },
+  { id: "placeholder", width: "w-8" },
   { id: "published", width: "w-18" },
 ] as const
 const VIDEO_PUBLISH_STEPS = ["ffmpeg", "keys", "publish"] as const

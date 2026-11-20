@@ -12,7 +12,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
-import { COURSE_KIND, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
@@ -20,6 +20,9 @@ import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-edi
 import { getCoursesPageQuery } from "~/src/modules/course/use-cases/get-courses"
 import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 import { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
+import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
+import { attachmentObjectKey } from "~/src/modules/lesson-attachment/lesson-attachment.files"
+import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
@@ -27,7 +30,11 @@ import { video } from "~/src/modules/video/video.schema"
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
 
 const NEW_COURSE = {
+  icon: COURSE_ICON.ROCKET,
   kind: COURSE_KIND.PROJECT,
+  level: COURSE_LEVEL.INTERMEDIATE,
+  outcomes: { "en-US": ["Deploy to Cloudflare", "Sell a licence"], "pl-PL": ["Wdróż na Cloudflare"] },
+  prerequisites: { "en-US": ["TypeScript"] },
   slug: "build-a-saas",
   status: COURSE_STATUS.DRAFT,
   summary: { "en-US": "From zero." },
@@ -91,8 +98,48 @@ describe("getCourseEditor", () => {
       [IDS.CHAPTER_ONE, ["boundaries", "sessions"]],
       [IDS.CHAPTER_TWO, ["billing", "coverage", "unfinished"]],
     ])
-    expect(editor.chapters[1]?.lessons[0]?.video).toStrictEqual({ durationMs: 125_000, id: IDS.VIDEO, title: "Lesson" })
+    expect(editor.chapters[1]?.lessons[0]?.video).toStrictEqual({ durationMs: 125_000, id: IDS.VIDEO, placeholder: false, title: "Lesson" })
     expect(editor.chapters[1]?.lessons[1]?.video).toBeNull()
+  })
+
+  it("returns each lesson's text, key moments and materials for editing", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+    const description = { "en-US": "Read the code.", "pl-PL": "Przeczytaj kod." }
+    const keyMoments = [{ label: { "en-US": "Start" }, seconds: 3 }]
+    const fileId = "01960000-0000-7000-8000-00000000d001"
+    await db.update(lesson).set({ description, keyMoments }).where(eq(lesson.id, LESSON_IDS.PAID))
+    await db.insert(lessonAttachment).values([
+      {
+        id: "01960000-0000-7000-8000-00000000d101",
+        kind: LESSON_ATTACHMENT_KIND.LINK,
+        lessonId: LESSON_IDS.PAID,
+        position: 2,
+        title: { "en-US": "Docs" },
+        url: "/docs",
+      },
+      {
+        contentType: LESSON_ATTACHMENT_FILE_TYPES.zip,
+        id: fileId,
+        kind: LESSON_ATTACHMENT_KIND.FILE,
+        lessonId: LESSON_IDS.PAID,
+        objectKey: attachmentObjectKey({ attachmentId: fileId, fileName: "starter.zip" }),
+        position: 1,
+        sizeBytes: 2048,
+        title: { "en-US": "Starter" },
+      },
+    ])
+
+    const editor = await executeQuery(courseEditorQuery({ courseId: IDS.COURSE }))
+
+    expect(editor.chapters[1]?.lessons[0]).toMatchObject({
+      attachments: [
+        { fileName: "starter.zip", id: fileId, kind: LESSON_ATTACHMENT_KIND.FILE, lessonId: LESSON_IDS.PAID, position: 1, sizeBytes: 2048 },
+        { kind: LESSON_ATTACHMENT_KIND.LINK, position: 2, title: { "en-US": "Docs" }, url: "/docs" },
+      ],
+      description,
+      keyMoments,
+    })
+    expect(editor.chapters[0]?.lessons[0]?.attachments).toStrictEqual([])
   })
 
   it("returns an empty curriculum for a course without chapters", async () => {
@@ -103,11 +150,15 @@ describe("getCourseEditor", () => {
 
   it("keeps a chapter that has no lessons yet", async () => {
     signInAs(ROLE_CODES.ADMIN)
-    await db.insert(chapter).values({ courseId: IDS.TUTORIAL, id: MISSING_ID, position: 1, title: { "en-US": "Empty" } })
+    await db
+      .insert(chapter)
+      .values({ courseId: IDS.TUTORIAL, id: MISSING_ID, position: 1, summary: { "en-US": "Soon." }, title: { "en-US": "Empty" } })
 
     const editor = await executeQuery(courseEditorQuery({ courseId: IDS.TUTORIAL }))
 
-    expect(editor.chapters).toStrictEqual([{ id: MISSING_ID, lessons: [], position: 1, title: { "en-US": "Empty" } }])
+    expect(editor.chapters).toStrictEqual([
+      { id: MISSING_ID, lessons: [], position: 1, summary: { "en-US": "Soon." }, title: { "en-US": "Empty" } },
+    ])
   })
 
   it("rejects a missing course", async () => {
@@ -141,6 +192,7 @@ describe("createCourse", () => {
 
   it.each([
     { input: { ...NEW_COURSE, slug: "Not a slug" }, name: "an invalid slug" },
+    { input: { ...NEW_COURSE, outcomes: { "en-US": [" "] } }, name: "an empty outcome" },
     { input: { ...NEW_COURSE, title: { "pl-PL": "Tylko po polsku" } }, name: "a title without English" },
   ])("rejects $name", async ({ input }) => {
     signInAs(ROLE_CODES.ADMIN)
@@ -186,7 +238,7 @@ describe("deleteCourse", () => {
     await expect(db.select().from(chapter)).resolves.toHaveLength(0)
     await expect(db.select().from(lesson)).resolves.toHaveLength(0)
     await expect(db.select().from(lessonProgress)).resolves.toHaveLength(0)
-    await expect(db.select().from(video)).resolves.toHaveLength(1)
+    await expect(db.select().from(video)).resolves.toHaveLength(2)
   })
 
   it("rejects a missing course", async () => {

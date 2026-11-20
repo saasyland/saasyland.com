@@ -12,4 +12,5 @@ export interface Video {
   getVideoPlayback: zod.input<typeof videoZodSchemas.getVideoPlayback>
   getVideos: zod.input<typeof videoZodSchemas.getVideos>
   registerVideo: zod.input<typeof videoZodSchemas.registerVideo>
+  setVideoPlaceholder: zod.input<typeof videoZodSchemas.setVideoPlaceholder>
 }

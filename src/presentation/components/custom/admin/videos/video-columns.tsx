@@ -11,12 +11,13 @@ import { formatClock } from "~/src/lib/duration"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { DeleteVideoButton } from "~/src/presentation/components/custom/admin/videos/delete-video-button"
+import { VideoPlaceholderSwitch } from "~/src/presentation/components/custom/admin/videos/video-placeholder-switch"
 import { VideoPreviewButton } from "~/src/presentation/components/custom/admin/videos/video-preview-button"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type VideoRow = Video["select"]
 
-type VideoHeaderId = "captions" | "duration" | "published" | "resolution" | "size" | "title"
+type VideoHeaderId = "captions" | "duration" | "placeholder" | "published" | "resolution" | "size" | "title"
 
 const VideoHeader = ({ id }: { readonly id: VideoHeaderId }): string => {
   const t = useTranslations("pages.admin.videos.table.headers")
@@ -68,6 +69,10 @@ const CaptionsCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Vid
   )
 }
 
+const PlaceholderCell = ({ row }: CellContext<DataTableFeatures, VideoRow, boolean>): JSX.Element => (
+  <VideoPlaceholderSwitch placeholder={row.original.placeholder} title={row.original.title} videoId={row.original.id} />
+)
+
 const PublishedCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Date>): JSX.Element => {
   const format = useFormatter()
 
@@ -89,6 +94,7 @@ export const videoColumns = columnHelper.columns([
   columnHelper.accessor("height", { cell: ResolutionCell, enableSorting: false, header: () => <VideoHeader id="resolution" /> }),
   columnHelper.accessor("sizeBytes", { cell: SizeCell, enableSorting: false, header: () => <VideoHeader id="size" /> }),
   columnHelper.accessor("captionLocales", { cell: CaptionsCell, enableSorting: false, header: () => <VideoHeader id="captions" /> }),
+  columnHelper.accessor("placeholder", { cell: PlaceholderCell, enableSorting: false, header: () => <VideoHeader id="placeholder" /> }),
   columnHelper.accessor("createdAt", { cell: PublishedCell, enableSorting: false, header: () => <VideoHeader id="published" /> }),
   columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

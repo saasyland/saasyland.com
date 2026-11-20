@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test"
 
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_VIDEO } from "../data/videos"
+import { TEST_SPARE_VIDEO, TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -48,6 +48,25 @@ test.describe("video library", () => {
 
     const forged = await page.request.get(response.url().replace(/\.[\da-f]{64}\//u, `.${FORGED_SIGNATURE}/`))
     expect(forged.status()).toBe(403)
+  })
+
+  test("an administrator marks a video as the placeholder for lessons being recorded and clears it", async ({ appPage, authPage, page }) => {
+    await signIn(page, authPage, admin)
+    await page.goto("/admin/videos", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    const placeholder = page.getByRole("switch", { name: `Use ${TEST_SPARE_VIDEO.title} as the placeholder for lessons being recorded` })
+    const placeholderToggle = page.locator("[data-slot=switch-button]").filter({ has: placeholder })
+    await expect(placeholder).not.toBeChecked()
+    await placeholderToggle.click()
+    await expect(page.getByText(`“${TEST_SPARE_VIDEO.title}” is now a placeholder: lessons on it show as being recorded`)).toBeVisible()
+    await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(placeholder).toBeChecked()
+
+    await placeholderToggle.click()
+    await expect(page.getByText(`“${TEST_SPARE_VIDEO.title}” is no longer a placeholder: lessons on it play`)).toBeVisible()
+    await expect(placeholder).not.toBeChecked()
   })
 
   test("a customer cannot open the library or stream without a signed path", async ({ authPage, page }) => {

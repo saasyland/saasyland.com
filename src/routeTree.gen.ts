@@ -69,6 +69,7 @@ import { Route as ApiCliV1ActivationsRouteImport } from './routes/api/cli.v1.act
 import { Route as ApiCliV1LicenseRouteImport } from './routes/api/cli.v1.license'
 import { Route as SiteMarketingCoursesCourseIndexRouteImport } from './routes/_site._marketing.courses.$course.index'
 import { Route as SiteMarketingCoursesCourseLessonRouteImport } from './routes/_site._marketing.courses.$course.$lesson'
+import { Route as AdminCoursesCourseIdLessonsLessonIdRouteImport } from './routes/admin.courses.$courseId_.lessons.$lessonId'
 import { Route as ApiCliV1ActivationsActivationIdRouteImport } from './routes/api/cli.v1.activations.$activationId'
 import { Route as ApiCliV1ActivationsActivationIdBundlesRouteImport } from './routes/api/cli.v1.activations.$activationId.bundles'
 
@@ -375,6 +376,12 @@ const SiteMarketingCoursesCourseLessonRoute =
     path: '/$course/$lesson',
     getParentRoute: () => SiteMarketingCoursesRoute,
   } as any)
+const AdminCoursesCourseIdLessonsLessonIdRoute =
+  AdminCoursesCourseIdLessonsLessonIdRouteImport.update({
+    id: '/$courseId_/lessons/$lessonId',
+    path: '/$courseId/lessons/$lessonId',
+    getParentRoute: () => AdminCoursesRoute,
+  } as any)
 const ApiCliV1ActivationsActivationIdRoute =
   ApiCliV1ActivationsActivationIdRouteImport.update({
     id: '/$activationId',
@@ -446,6 +453,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof SiteMarketingBlogIndexRoute
   '/courses/': typeof SiteMarketingCoursesIndexRoute
   '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
+  '/admin/courses/$courseId/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
   '/courses/$course/': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
@@ -501,6 +509,7 @@ export interface FileRoutesByTo {
   '/blog': typeof SiteMarketingBlogIndexRoute
   '/courses': typeof SiteMarketingCoursesIndexRoute
   '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
+  '/admin/courses/$courseId/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
   '/courses/$course': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
@@ -566,6 +575,7 @@ export interface FileRoutesById {
   '/_site/_marketing/blog/': typeof SiteMarketingBlogIndexRoute
   '/_site/_marketing/courses/': typeof SiteMarketingCoursesIndexRoute
   '/_site/_marketing/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
+  '/admin/courses/$courseId_/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
   '/_site/_marketing/courses/$course/': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
@@ -630,6 +640,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/courses/'
     | '/courses/$course/$lesson'
+    | '/admin/courses/$courseId/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
     | '/courses/$course/'
     | '/api/cli/v1/activations/$activationId/bundles'
@@ -685,6 +696,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/courses'
     | '/courses/$course/$lesson'
+    | '/admin/courses/$courseId/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
     | '/courses/$course'
     | '/api/cli/v1/activations/$activationId/bundles'
@@ -749,6 +761,7 @@ export interface FileRouteTypes {
     | '/_site/_marketing/blog/'
     | '/_site/_marketing/courses/'
     | '/_site/_marketing/courses/$course/$lesson'
+    | '/admin/courses/$courseId_/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
     | '/_site/_marketing/courses/$course/'
     | '/api/cli/v1/activations/$activationId/bundles'
@@ -1188,6 +1201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteMarketingCoursesCourseLessonRouteImport
       parentRoute: typeof SiteMarketingCoursesRoute
     }
+    '/admin/courses/$courseId_/lessons/$lessonId': {
+      id: '/admin/courses/$courseId_/lessons/$lessonId'
+      path: '/$courseId/lessons/$lessonId'
+      fullPath: '/admin/courses/$courseId/lessons/$lessonId'
+      preLoaderRoute: typeof AdminCoursesCourseIdLessonsLessonIdRouteImport
+      parentRoute: typeof AdminCoursesRoute
+    }
     '/api/cli/v1/activations/$activationId': {
       id: '/api/cli/v1/activations/$activationId'
       path: '/$activationId'
@@ -1296,12 +1316,15 @@ interface AdminCoursesRouteChildren {
   AdminCoursesCourseIdRoute: typeof AdminCoursesCourseIdRoute
   AdminCoursesCreateRoute: typeof AdminCoursesCreateRoute
   AdminCoursesIndexRoute: typeof AdminCoursesIndexRoute
+  AdminCoursesCourseIdLessonsLessonIdRoute: typeof AdminCoursesCourseIdLessonsLessonIdRoute
 }
 
 const AdminCoursesRouteChildren: AdminCoursesRouteChildren = {
   AdminCoursesCourseIdRoute: AdminCoursesCourseIdRoute,
   AdminCoursesCreateRoute: AdminCoursesCreateRoute,
   AdminCoursesIndexRoute: AdminCoursesIndexRoute,
+  AdminCoursesCourseIdLessonsLessonIdRoute:
+    AdminCoursesCourseIdLessonsLessonIdRoute,
 }
 
 const AdminCoursesRouteWithChildren = AdminCoursesRoute._addFileChildren(

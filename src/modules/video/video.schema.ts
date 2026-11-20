@@ -16,6 +16,7 @@ export const video = sqliteTable(
     durationMs: integer("duration_ms").notNull(),
     height: integer("height").notNull(),
     id: text("id").primaryKey(),
+    placeholder: integer("placeholder", { mode: "boolean" }).notNull().default(false),
     sizeBytes: integer("size_bytes").notNull(),
     title: text("title", { length: VIDEO_TITLE_MAX_LENGTH }).notNull(),
     width: integer("width").notNull(),

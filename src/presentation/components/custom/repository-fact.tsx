@@ -20,10 +20,21 @@ import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tansta
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
-import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
+import {
+  LOCALIZED_LIST_ITEM_MAX_LENGTH,
+  LOCALIZED_LIST_MAX_ITEMS,
+  LOCALIZED_TEXT_MAX_LENGTH,
+} from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_LEVELS, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
+import {
+  LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+  LESSON_ATTACHMENT_EXTENSIONS,
+  LESSON_ATTACHMENT_MAX_MEGABYTES,
+  LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
+} from "~/src/modules/lesson-attachment/lesson-attachment.constants"
+import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
@@ -113,6 +124,9 @@ const FACTS = {
   affiliateProgram: AFFILIATE_PROGRAM,
   affonsoReferralParams: AFFONSO.REFERRAL_PARAMS,
   angularprojectsAccess: ANGULARPROJECTS_ACCESS,
+  attachmentFileTypes: LESSON_ATTACHMENT_EXTENSIONS,
+  attachmentMaxMegabytes: LESSON_ATTACHMENT_MAX_MEGABYTES,
+  attachmentUploadsPerMinute: LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
@@ -149,17 +163,23 @@ const FACTS = {
   cliReleaseChannel: CLI_RELEASE_CHANNEL,
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
   corePriceInHours: CORE_PRICE_IN_HOURS,
+  courseIcons: COURSE_ICONS,
+  courseLevels: COURSE_LEVELS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   idleFallbackDelayMs: IDLE_FALLBACK_DELAY_MS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
+  lessonDescriptionMaxLength: LESSON_DESCRIPTION_MAX_LENGTH,
+  lessonKeyMomentsMaxItems: LESSON_KEY_MOMENTS_MAX_ITEMS,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   licenseWithdrawalConsentField: LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT,
   liveSiteCheckPaths: [...new Set(LIVE_SITE_CHECKS.map(({ path }) => path))],
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
+  localizedListItemMaxLength: LOCALIZED_LIST_ITEM_MAX_LENGTH,
+  localizedListMaxItems: LOCALIZED_LIST_MAX_ITEMS,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
@@ -184,6 +204,7 @@ const FACTS = {
   secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
   secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
+  signedDownloadHours: LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS / SECONDS_PER_HOUR,
   signedMediaHours: PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR,
   slugMaxLength: SLUG_MAX_LENGTH,
   socialImageHeight: SOCIAL_IMAGE.HEIGHT,

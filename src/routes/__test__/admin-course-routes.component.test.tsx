@@ -21,7 +21,14 @@ import type { createChapterMutation } from "~/src/modules/chapter/use-cases/crea
 import type { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
 import type { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
 import type { updateChapterMutation } from "~/src/modules/chapter/use-cases/update-chapter"
-import { COURSE_KIND, COURSE_MUTATION_KEYS, COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import {
+  COURSE_ICON,
+  COURSE_KIND,
+  COURSE_LEVEL,
+  COURSE_MUTATION_KEYS,
+  COURSE_QUERY_KEYS,
+  COURSE_STATUS,
+} from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import type { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
 import type { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
@@ -33,7 +40,6 @@ import { LESSON_ACCESS, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/module
 import type { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import type { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import type { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
-import type { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
 import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
@@ -50,6 +56,7 @@ import {
   AdminCourseEditorPending,
   AdminCourseSectionPending,
   AdminCoursesPending,
+  AdminLessonEditorPending,
   AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/courses-pending"
 
@@ -71,7 +78,6 @@ const mutations = vi.hoisted(() => ({
   moveLesson: vi.fn<NonNullable<typeof moveLessonMutation.mutationFn>>(),
   updateChapter: vi.fn<NonNullable<typeof updateChapterMutation.mutationFn>>(),
   updateCourse: vi.fn<NonNullable<typeof updateCourseMutation.mutationFn>>(),
-  updateLesson: vi.fn<NonNullable<typeof updateLessonMutation.mutationFn>>(),
 }))
 
 vi.mock(import("~/src/modules/course/use-cases/create-course"), () => ({
@@ -101,9 +107,6 @@ vi.mock(import("~/src/modules/chapter/use-cases/move-chapter"), () => ({
 vi.mock(import("~/src/modules/lesson/use-cases/create-lesson"), () => ({
   createLessonMutation: { mutationFn: mutations.createLesson, mutationKey: LESSON_MUTATION_KEYS.CREATE },
 }))
-vi.mock(import("~/src/modules/lesson/use-cases/update-lesson"), () => ({
-  updateLessonMutation: { mutationFn: mutations.updateLesson, mutationKey: LESSON_MUTATION_KEYS.UPDATE },
-}))
 vi.mock(import("~/src/modules/lesson/use-cases/delete-lesson"), () => ({
   deleteLessonMutation: { mutationFn: mutations.deleteLesson, mutationKey: LESSON_MUTATION_KEYS.DELETE },
 }))
@@ -122,6 +125,7 @@ const VIDEO: Video["select"] = {
   durationMs: 125_000,
   height: 1080,
   id: "01960000-0000-7000-8000-00000000f001",
+  placeholder: false,
   sizeBytes: 1,
   title: "Boundaries take",
   updatedAt: UPDATED_AT,
@@ -130,9 +134,13 @@ const VIDEO: Video["select"] = {
 
 const COURSE: Course["select"] = {
   createdAt: UPDATED_AT,
+  icon: COURSE_ICON.ROCKET,
   id: COURSE_ID,
   kind: COURSE_KIND.COURSE,
+  level: COURSE_LEVEL.BEGINNER,
+  outcomes: { "en-US": ["Ship it"] },
   position: 1,
+  prerequisites: {},
   slug: "the-walkthrough",
   status: COURSE_STATUS.PUBLISHED,
   summary: { "en-US": "How it works." },
@@ -140,14 +148,13 @@ const COURSE: Course["select"] = {
   updatedAt: UPDATED_AT,
 }
 
-const editorLesson = (
-  slug: string,
-  title: string,
-  overrides: Partial<Course["editor"]["chapters"][number]["lessons"][number]> = {},
-): Course["editor"]["chapters"][number]["lessons"][number] => ({
+const editorLesson = (slug: string, title: string, overrides: Partial<Course["editorLesson"]> = {}): Course["editorLesson"] => ({
   access: LESSON_ACCESS.PAID,
+  attachments: [],
   chapterId: "chapter-one",
+  description: {},
   id: `lesson-${slug}`,
+  keyMoments: [],
   position: 1,
   slug,
   status: LESSON_STATUS.PUBLISHED,
@@ -164,14 +171,19 @@ const EDITOR: Course["editor"] = {
       lessons: [
         editorLesson("boundaries", "Boundaries", {
           access: LESSON_ACCESS.PREVIEW,
-          video: { durationMs: VIDEO.durationMs, id: VIDEO.id, title: VIDEO.title },
+          video: { durationMs: VIDEO.durationMs, id: VIDEO.id, placeholder: false, title: VIDEO.title },
         }),
         editorLesson("sessions", "Sessions", { position: 2, status: LESSON_STATUS.DRAFT }),
+        editorLesson("billing", "Billing", {
+          position: 3,
+          video: { durationMs: 10_000, id: "placeholder", placeholder: true, title: "Being recorded" },
+        }),
       ],
       position: 1,
+      summary: { "en-US": "Where everything starts." },
       title: { "en-US": "Foundations" },
     },
-    { id: "chapter-two", lessons: [], position: 2, title: { "en-US": "Product" } },
+    { id: "chapter-two", lessons: [], position: 2, summary: {}, title: { "en-US": "Product" } },
   ],
   course: COURSE,
 }
@@ -295,7 +307,6 @@ beforeEach(() => {
   mutations.moveChapter.mockResolvedValue({ chapterId: "chapter-one" })
   mutations.moveCourse.mockResolvedValue({ courseId: COURSE_ID })
   mutations.createLesson.mockResolvedValue({ id: "lesson-new" })
-  mutations.updateLesson.mockResolvedValue({ id: "lesson-sessions" })
   mutations.deleteLesson.mockResolvedValue({ id: "lesson-sessions" })
   mutations.moveLesson.mockResolvedValue({ lessonId: "lesson-boundaries" })
 })
@@ -401,7 +412,11 @@ describe("admin course creation", () => {
     })
     expect(mutations.createCourse).toHaveBeenCalledWith(
       {
+        icon: COURSE_ICON.BOOK_OPEN,
         kind: COURSE_KIND.PROJECT,
+        level: COURSE_LEVEL.BEGINNER,
+        outcomes: {},
+        prerequisites: {},
         slug: "build-a-saas",
         status: COURSE_STATUS.DRAFT,
         summary: { "en-US": "From zero." },
@@ -410,6 +425,40 @@ describe("admin course creation", () => {
       expect.anything(),
     )
     expect(toast.success).toHaveBeenCalledWith(labels.form.created)
+  })
+
+  it("sets the level, the icon, the outcomes and the prerequisites in each language", async () => {
+    const { user } = await renderAdminCourses("/admin/courses/create")
+
+    await fill(user, screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
+    await fill(user, screen.getByLabelText(labels.form.summary), "From zero.")
+    await fill(user, screen.getByLabelText(labels.form.slug), "build-a-saas")
+    await chooseOption(user, labels.form.level, labels.form.levels.advanced)
+    await chooseOption(user, labels.form.icon, labels.form.icons.rocket)
+    await user.click(screen.getByRole("button", { name: labels.form.outcomes.add }))
+    await user.click(screen.getByRole("button", { name: labels.form.outcomes.add }))
+    await fill(user, screen.getByLabelText("Outcome 1"), "Deploy")
+    await user.click(screen.getByRole("button", { name: labels.form.create }))
+    expect(await screen.findByText(validations.itemRequired)).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Remove outcome 2" }))
+    await user.click(within(screen.getByRole("tablist", { name: labels.form.outcomes.languages })).getByRole("tab", { name: "pl-PL" }))
+    await user.click(screen.getByRole("button", { name: labels.form.outcomes.add }))
+    await fill(user, screen.getByLabelText("Outcome 1"), "Wdróż")
+    await user.click(screen.getByRole("button", { name: labels.form.prerequisites.add }))
+    await fill(user, screen.getByLabelText("Prerequisite 1"), "TypeScript")
+    await user.click(screen.getByRole("button", { name: labels.form.create }))
+
+    await waitFor(() => {
+      expect(mutations.createCourse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          icon: COURSE_ICON.ROCKET,
+          level: COURSE_LEVEL.ADVANCED,
+          outcomes: { "en-US": ["Deploy"], "pl-PL": ["Wdróż"] },
+          prerequisites: { "en-US": ["TypeScript"] },
+        }),
+        expect.anything(),
+      )
+    })
   })
 
   it("ignores an empty selection from the native select", async () => {
@@ -473,7 +522,11 @@ describe("admin course editor", () => {
     expect(mutations.updateCourse).toHaveBeenCalledWith(
       {
         courseId: COURSE_ID,
+        icon: COURSE.icon,
         kind: COURSE.kind,
+        level: COURSE.level,
+        outcomes: COURSE.outcomes,
+        prerequisites: COURSE.prerequisites,
         slug: COURSE.slug,
         status: COURSE_STATUS.DRAFT,
         summary: COURSE.summary,
@@ -521,7 +574,10 @@ describe("admin course chapters", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()
     })
-    expect(mutations.createChapter).toHaveBeenCalledWith({ courseId: COURSE_ID, title: { "en-US": "Launch" } }, expect.anything())
+    expect(mutations.createChapter).toHaveBeenCalledWith(
+      { courseId: COURSE_ID, summary: {}, title: { "en-US": "Launch" } },
+      expect.anything(),
+    )
     expect(toast.success).toHaveBeenCalledWith(labels.chapter.saved)
 
     await user.click(within(chapterSection("Product")).getByRole("button", { name: "Edit Product" }))
@@ -529,10 +585,14 @@ describe("admin course chapters", () => {
     expect(within(rename).getByRole("heading", { name: labels.chapter.edit })).toBeVisible()
     await user.clear(within(rename).getByLabelText(labels.chapter.title))
     await fill(user, within(rename).getByLabelText(labels.chapter.title), "Shipping")
+    await fill(user, within(rename).getByLabelText(labels.chapter.summary), "Getting paid.")
     await user.click(within(rename).getByRole("button", { name: labels.chapter.save }))
 
     await waitFor(() => {
-      expect(mutations.updateChapter).toHaveBeenCalledWith({ chapterId: "chapter-two", title: { "en-US": "Shipping" } }, expect.anything())
+      expect(mutations.updateChapter).toHaveBeenCalledWith(
+        { chapterId: "chapter-two", summary: { "en-US": "Getting paid." }, title: { "en-US": "Shipping" } },
+        expect.anything(),
+      )
     })
   })
 
@@ -614,41 +674,46 @@ describe("admin course lessons", () => {
     )
   })
 
-  it("edits a lesson and detaches its video", async () => {
+  it("adds a lesson without a video and explains a failed save", async () => {
+    mutations.createLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(within(lessonRow("Boundaries")).getByRole("button", { name: "Edit Boundaries" }))
+    await user.click(within(chapterSection("Product")).getByRole("button", { name: labels.curriculum.addLesson }))
     const dialog = await screen.findByRole("dialog")
-    expect(within(dialog).getByLabelText(labels.lesson.slug)).toHaveValue("boundaries")
-    await chooseOption(user, labels.lesson.video, labels.lesson.noVideo)
+    await fill(user, within(dialog).getByLabelText(labels.lesson.title), "Checkout")
+    await fill(user, within(dialog).getByLabelText(labels.lesson.summary), "Paying.")
+    await fill(user, within(dialog).getByLabelText(labels.lesson.slug), "checkout")
     await user.click(within(dialog).getByRole("button", { name: labels.lesson.save }))
-
-    await waitFor(() => {
-      expect(mutations.updateLesson).toHaveBeenCalledWith(
-        {
-          access: LESSON_ACCESS.PREVIEW,
-          lessonId: "lesson-boundaries",
-          slug: "boundaries",
-          status: LESSON_STATUS.PUBLISHED,
-          summary: { "en-US": "Boundaries summary." },
-          title: { "en-US": "Boundaries" },
-        },
-        expect.anything(),
-      )
-    })
-  })
-
-  it("explains a failed lesson save and keeps the dialog open", async () => {
-    mutations.updateLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
-    const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
-
-    await user.click(within(lessonRow("Sessions")).getByRole("button", { name: "Edit Sessions" }))
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: labels.lesson.save }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.CONFLICT)
     })
+    expect(mutations.createLesson).toHaveBeenCalledWith(
+      {
+        access: LESSON_ACCESS.PAID,
+        chapterId: "chapter-two",
+        slug: "checkout",
+        status: LESSON_STATUS.DRAFT,
+        summary: { "en-US": "Paying." },
+        title: { "en-US": "Checkout" },
+      },
+      expect.anything(),
+    )
     expect(screen.getByRole("dialog")).toBeVisible()
+  })
+
+  it("opens each lesson in its editor and marks the lessons that are being recorded", async () => {
+    await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
+
+    expect(within(lessonRow("Sessions")).getByRole("link", { name: "Edit Sessions" })).toHaveAttribute(
+      "href",
+      `/admin/courses/${COURSE_ID}/lessons/lesson-sessions`,
+    )
+    expect(within(lessonRow("Sessions")).getByText(labels.curriculum.recording)).toBeVisible()
+    expect(within(lessonRow("Billing")).getByText(labels.curriculum.recording)).toBeVisible()
+    expect(within(lessonRow("Billing")).getByText(`Being recorded · 0:10 · ${labels.lesson.placeholder}`)).toBeVisible()
+    expect(within(lessonRow("Boundaries")).queryByText(labels.curriculum.recording)).toBeNull()
+    expect(screen.getByText("Where everything starts.")).toBeVisible()
   })
 
   it("moves and deletes lessons", async () => {
@@ -690,6 +755,7 @@ describe("admin course skeletons", () => {
     ["/admin/courses", AdminCourseSectionPending, AdminCoursesPending],
     ["/pl-PL/admin/courses/create", AdminCourseSectionPending, AdminCourseCreatePending],
     [`/admin/courses/${COURSE_ID}`, AdminCourseSectionPending, AdminCourseEditorPending],
+    [`/admin/courses/${COURSE_ID}/lessons/lesson-sessions`, AdminCourseSectionPending, AdminLessonEditorPending],
   ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
     const page = markupOf(<Page />)
     const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })

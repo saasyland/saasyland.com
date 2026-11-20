@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo i paczki szablonów CLI, które Worker serwuje przez podpisane, wygasające ścieżki."
+description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo i materiałów lekcji oraz paczki szablonów CLI, które Worker serwuje przez podpisane, wygasające ścieżki."
 ---
 
 Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview i lokalnego trybu deweloperskiego oraz lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera. Obszar licencji wiąże drugi bucket, `BUNDLES`, na paczki szablonów CLI (zobacz [Paczki szablonów](#template-bundles)).
@@ -8,6 +8,8 @@ Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland
 ## Układ obiektów
 
 Pliki każdego filmu znajdują się pod `videos/<videoId>/`, gdzie `videoId` to id wiersza `video`. Klucze budują `videoObjectKey` i `videoDirectory` w `src/modules/video/video.files.ts`, a `mediaContentType` wymienia jedyne nazwy plików, które wolno przesłać lub serwować, wraz z ich typami mediów. Wszystko inne jest odrzucane.
+
+Każdy przesłany materiał lekcji znajduje się pod `attachments/<attachmentId>/<fileName>`, gdzie `attachmentId` to id wiersza `lesson_attachment`, a `fileName` to przesłana nazwa ograniczona do liter, cyfr, kropek, myślników i podkreśleń. `attachmentObjectKey` i `attachmentContentType` w `src/modules/lesson-attachment/lesson-attachment.files.ts` budują klucz i podają typ mediów dla rozszerzeń <RepositoryFact name="attachmentFileTypes" />, które wolno przesłać lub serwować.
 
 ## Podpisane dostarczanie
 
@@ -30,9 +32,13 @@ Odtwarzacz nigdy nie widzi klucza obiektu w buckecie. Funkcja serwerowa wywołuj
 
 Podpisane ścieżki działają jak linki na okaziciela, dopóki nie wygasną: każdy, kto ma taki link, może odtworzyć ten film. Sprawdzenie, kto może oglądać, odbywa się w chwili wydania ścieżki.
 
+Materiały lekcji korzystają z tego samego schematu pod `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, z własnym kluczem i okresem ważności wynoszącym co najmniej <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` podpisuje je tylko dla widza, który może otworzyć lekcję. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) otrzymuje od obsługi `/media/` żądania pod `/media/downloads/` zamiast `serveMedia`, przyjmuje tylko `GET` i `HEAD`, odpowiada `403` na wygasły lub błędny podpis i `404` na plik, którego nie ma, a plik serwuje z nagłówkami `Content-Disposition: attachment` i `Cache-Control: private, no-store`.
+
 ## Przesyłanie plików
 
-Worker nie przyjmuje przesyłanych plików. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
+Worker nie przyjmuje przesyłanych filmów. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
+
+Materiały lekcji to jedyne pliki, które Worker przyjmuje: `uploadLessonAttachment` przyjmuje od administratora plik o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB i zapisuje go przez binding. Usunięcie materiału albo lekcji, rozdziału lub kursu, do którego należy, usuwa jego obiekt; zobacz [Kursy](/docs/features/courses#materials).
 
 ## Paczki szablonów [#template-bundles]
 
@@ -44,7 +50,7 @@ Przechowuje on jeden obiekt na każde wydanie CLI, czyli paczkę szablonów wyda
 
 ## Testy
 
-W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia bucket w pamięci dla każdego bindingu R2 środowiska `test`, `MEDIA` i `BUNDLES`, z metodami `get` (także z zakresami), `head`, `put` dla tekstu lub bajtów z własnymi metadanymi, `delete` i stronicowanym `list`. `src/platform/testing/mocks/cache.ts` zastępuje cache Workers zaślepką. Build testowy używa lokalnych bucketów `saasyland-test` i `saasyland-bundles-test` w `.wrangler/test`.
+W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia bucket w pamięci dla każdego bindingu R2 środowiska `test`, `MEDIA` i `BUNDLES`, z metodami `get` (także z zakresami), `head`, `put` dla tekstu, bajtów lub pliku z własnymi metadanymi, `delete` i stronicowanym `list`. `src/platform/testing/mocks/cache.ts` zastępuje cache Workers zaślepką. Build testowy używa lokalnych bucketów `saasyland-test` i `saasyland-bundles-test` w `.wrangler/test`.
 
 ## Powiązane strony
 

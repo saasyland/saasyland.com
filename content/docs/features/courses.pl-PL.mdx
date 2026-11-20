@@ -1,25 +1,42 @@
 ---
 title: "Kursy"
-description: "Publiczny katalog kursów, których lekcje są darmowe, wymagają konta albo licencji, odtwarzacz zapisujący postępy oraz ekrany administracji do pisania kursów, rozdziałów i lekcji."
+description: "Publiczny katalog kursów, których lekcje są darmowe, wymagają konta albo licencji, odtwarzacz zapisujący postępy, materiały lekcji objęte tą samą zasadą dostępu oraz administracja, w której powstaje każda część kursu."
 ---
 
-Kursy, samouczki i projekty są przechowywane w D1 i oglądane pod `/courses`. Każda lekcja odtwarza film z biblioteki funkcji [Wideo](/docs/features/videos), a jej poziom dostępu decyduje, kto może ją obejrzeć.
+Kursy, samouczki i projekty są przechowywane w D1 i oglądane pod `/courses`. Każda lekcja odtwarza film z biblioteki funkcji [Wideo](/docs/features/videos), a jej poziom dostępu decyduje, kto może ją obejrzeć i pobrać jej materiały.
+
+Administracja to jedyne miejsce edycji kursów. Wszystkie tytuły, opisy, poziomy, ikony, umiejętności, wymagania wstępne, rozdziały, lekcje, szczegółowe opisy, kluczowe momenty, filmy i materiały to wiersze w D1, które `/admin/courses` edytuje w każdym locale; w kodzie źródłowym nie ma żadnej treści kursów. Kod ustala tylko wybory, które oferuje administracja: rodzaje, poziomy, statusy, poziomy dostępu i nazwy ikon to nazwane stałe.
 
 ## Model danych
 
-Każda tabela ma własny moduł w `src/modules` i jest tworzona przez migrację `20261113004409_salty_slipstream.sql`:
+Każda tabela ma własny moduł w `src/modules`. Migracja `20261113004409_salty_slipstream.sql` utworzyła pierwsze cztery, a `20261117161820_safe_stardust.sql` dodała `lesson_attachment` i kolumny oznaczone jako _nowe_, każdą z wartością domyślną, więc istniejące wiersze pozostają poprawne:
 
-| Tabela            | Kolumny                                                                                                                                                     |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `course`          | `slug` (unikalny), `kind` (`course`, `tutorial`, `project`), `status` (`draft`, `published`), `position`, `title`, `summary`                                |
-| `chapter`         | `course_id`, `position`, `title`                                                                                                                            |
-| `lesson`          | `course_id`, `chapter_id`, `slug` (unikalny w obrębie kursu), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
-| `lesson_progress` | `user_id` i `lesson_id` (klucz główny), `position_ms`, `completed_at`                                                                                       |
+| Tabela              | Kolumny                                                                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `course`            | `slug` (unikalny), `kind` (`course`, `tutorial`, `project`), `status` (`draft`, `published`), `position`, `title`, `summary`, _nowe_: `level` (domyślnie `beginner`), `icon` (domyślnie `book-open`), `outcomes` i `prerequisites` (domyślnie `{}`) |
+| `chapter`           | `course_id`, `position`, `title`, _nowe_: `summary` (domyślnie `{}`)                                                                                                                                                                                |
+| `lesson`            | `course_id`, `chapter_id`, `slug` (unikalny w obrębie kursu), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id`, _nowe_: `description` (domyślnie `{}`) i `key_moments` (domyślnie `[]`)                |
+| `lesson_attachment` | _nowe_: `lesson_id`, `position`, `title`, `kind` (`file`, `link`), `object_key`, `size_bytes` i `content_type` dla pliku, `url` dla linku                                                                                                           |
+| `lesson_progress`   | `user_id` i `lesson_id` (klucz główny), `position_ms`, `completed_at`                                                                                                                                                                               |
 
-- `title` i `summary` przechowują JSON z locale jako kluczami, na przykład `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` w `src/modules/_core/utils/localized-text.ts`). `localize()` zwraca tekst w locale odwiedzającego, a gdy go brakuje, wraca do `en-US`, więc zawsze uzupełniaj `en-US`. Administracja tego wymaga; wiersze wstawione bezpośrednio do D1 nie są sprawdzane.
+- `title`, `summary` i `description` przechowują JSON z locale jako kluczami, na przykład `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` w `src/modules/_core/utils/localized-text.ts`). `localize()` zwraca tekst w locale odwiedzającego, a gdy go brakuje, wraca do `en-US`, więc zawsze uzupełniaj `en-US`. Administracja wymaga tego dla tytułów i opisów; opis rozdziału i szczegółowy opis lekcji mogą pozostać puste. Wiersze wstawione bezpośrednio do D1 nie są sprawdzane.
+- `outcomes` i `prerequisites` przechowują jedną listę na każde locale, na przykład `{"en-US": ["Deploy to Cloudflare"]}` (`LocalizedList`). `localizeList()` zwraca listę odwiedzającego albo angielską, gdy jej brakuje lub jest pusta. Limit pozycji listy wynosi <RepositoryFact name="localizedListMaxItems" />, a limit znaków każdej pozycji <RepositoryFact name="localizedListItemMaxLength" />.
+- `level` to jedna z wartości <RepositoryFact name="courseLevels" /> (`COURSE_LEVEL`), a `icon` jedna z wartości <RepositoryFact name="courseIcons" /> (`COURSE_ICON`). `COURSE_ICON_COMPONENTS` w `src/data/course-icons.ts` to jedyne miejsce, które przypisuje każdej nazwie jej ikonę lucide.
+- `description` lekcji to zwykły tekst, którego limit znaków w każdym locale wynosi <RepositoryFact name="lessonDescriptionMaxLength" />: pusty wiersz zaczyna nowy akapit, a tekst między grawisami to kod. `parseRichText` (`src/lib/rich-text.ts`) dzieli go na akapity i fragmenty kodu, a `RichText` (`src/presentation/components/custom/rich-text.tsx`) renderuje je jako elementy React, więc żaden zapisany tekst nigdy nie jest parsowany jako HTML.
+- `key_moments` to lista obiektów `{ "seconds": 135, "label": { "en-US": "Install the CLI" } }` w kolejności czasu, której limit elementów wynosi <RepositoryFact name="lessonKeyMomentsMaxItems" />. W administracji czasy wpisuje się jako `2:15` lub `1:02:15`; `updateLesson` zapisuje sekundy.
 - Nowe wiersze mają status `draft`, a nowe lekcje dostęp `paid`. Wyświetlane i serwowane są tylko kursy i lekcje `published`; każdy inny slug pokazuje stronę „nie znaleziono”.
 - Kursy są sortowane według `position`, rozdziały według `position` w obrębie kursu, a lekcje według `position` w obrębie rozdziału. Lekcje są numerowane w całym kursie.
-- `video_id` wskazuje na tabelę `video` i zmienia się na `NULL`, gdy film zostanie usunięty. Usunięcie kursu lub rozdziału usuwa jego lekcje, a usunięcie lekcji lub użytkownika usuwa związane z nimi postępy.
+- `video_id` wskazuje na tabelę `video` i zmienia się na `NULL`, gdy film zostanie usunięty. Usunięcie kursu lub rozdziału usuwa jego lekcje, a usunięcie lekcji usuwa jej materiały; usunięcie lekcji lub użytkownika usuwa związane z nimi postępy.
+
+## W trakcie nagrywania [#being-recorded]
+
+Lekcja jest w trakcie nagrywania, gdy nie ma filmu albo jej film jest zastępczy (`video.placeholder`, ustawiane w [bibliotece filmów](/docs/features/videos#placeholder-videos)). Taka lekcja jest wymieniona w programie i można ją otworzyć, ale nigdy się nie odtwarza. Nie ma dla niej osobnego statusu lekcji: publiczne odczyty łączą lekcję z jej filmem przez `playableVideo` (`src/modules/lesson/lesson.playable.ts`), które pomija filmy zastępcze, więc dla lekcji w trakcie nagrywania:
+
+- `getCourse` i `getLesson` zwracają `recording: true` i `durationMs: null`, a `getLesson` nie zwraca żadnych locale napisów;
+- `getLessonPlayback` odpowiada `NOT_FOUND`, więc nie istnieje żaden podpisany strumień;
+- `getCatalogue` i `getCourseShowcase` nie wliczają jej do długości kursu, a blok kursów na stronie głównej nigdy nie proponuje jej jako darmowej lekcji.
+
+Zastąpienie filmu prawdziwym nagraniem, w edytorze lekcji albo przez wyłączenie flagi filmu zastępczego w bibliotece, sprawia, że lekcja od razu odtwarza się wszędzie, bez żadnej innej zmiany.
 
 ## Poziomy dostępu
 
@@ -33,11 +50,21 @@ Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą ogl�
 
 - `getCatalogue` (publiczna) zwraca opublikowane kursy z liczbą lekcji, łącznym czasem filmów i liczbą darmowych podglądów.
 - `getCourseShowcase` (publiczna) zwraca na potrzeby strony głównej <RepositoryFact name="courseShowcaseCourses" /> pierwsze opublikowane kursy (`COURSE_SHOWCASE`), każdy z liczbą lekcji, łącznym czasem filmów, liczbą darmowych podglądów i pierwszym darmowym podglądem, który ma film. Nie czyta sesji widza.
-- `getCourse` (publiczna) zwraca opublikowany kurs z rozdziałami i opublikowanymi lekcjami w locale odwiedzającego, każdą z `locked`, `completed` i `positionMs` dla widza.
-- `getLessonPlayback` (publiczna) zwraca podpisane ścieżki odtwarzania z `createPlayback`. Gościowi bez dostępu odpowiada `UNAUTHORIZED`, a zalogowanemu użytkownikowi bez dostępu `FORBIDDEN`; dla nieopublikowanej lekcji lub lekcji bez filmu zwraca `NOT_FOUND`.
+- `getCourse` (publiczna) zwraca opublikowany kurs w locale odwiedzającego: jego rodzaj, poziom, ikonę, umiejętności i wymagania wstępne, rozdziały z ich opisami oraz opublikowane lekcje, każdą z `locked`, `recording`, `durationMs`, `completed` i `positionMs` dla widza. Konspekt pochodzi z `readCourseOutline` (`src/modules/course/course.outline.ts`), z którego korzysta też `getLesson`.
+- `getLesson` (publiczna) zwraca w jednym wywołaniu wszystko, co pokazuje strona lekcji: ten sam konspekt, lekcję z jej szczegółowym opisem, kluczowymi momentami, locale napisów i materiałami oraz poprzednią i następną lekcję. Dla nieopublikowanego kursu lub lekcji odpowiada `NOT_FOUND`.
+- `getLessonPlayback` (publiczna) zwraca podpisane ścieżki odtwarzania z `createPlayback`. Gościowi bez dostępu odpowiada `UNAUTHORIZED`, a zalogowanemu użytkownikowi bez dostępu `FORBIDDEN`; dla nieopublikowanej lekcji lub lekcji [w trakcie nagrywania](#being-recorded) zwraca `NOT_FOUND`. Strona lekcji trzyma je jako osobne zapytanie, które pozostaje świeże przez godzinę, więc adres odtwarzacza nie zmienia się w trakcie odtwarzania.
 - `saveLessonProgress` wymaga sesji i przed zapisem sprawdza ten sam dostęp.
 
 Dostęp do kursów to własna lista obszaru kursów: obszar, który go sprzedaje, deklaruje `CourseAccessGrant` w `src/data/<area>.course-access.ts`, a `src/data/course-access.entries.ts` je łączy (zobacz [Co dodają obszary](/docs/architecture/platform-layer#what-the-areas-add)). Przyznanie mówi, czy użytkownik ma dostęp (`holds`, funkcja wyłącznie serwerowa), co go obejmuje (`includedWith`, klucze komunikatów z nazwami, które wymienia strona licencji) i gdzie go zdobyć (`unlock`, jeden link dla zalogowanego widza i jeden dla gościa). `LICENSE_COURSE_ACCESS` obszaru licencji (`src/data/license.course-access.ts`) przyznaje go licencji `active` na poziomie Komplet lub Agencja i kieruje zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej. Bez żadnego przyznania płatne lekcje są tylko dla zespołu, a ich zablokowane panele nie oferują linku. Teksty kursów biorą z przyznań jeszcze dwie nazwy, zamiast wymieniać poziom: `offer`, czyli to, co sprzedają linki `unlock`, w etykiecie dostępu, panelach odblokowania i opisie katalogu, oraz `holders`, czyli kto ma dostęp, w płatnym poziomie dostępu w panelu administracyjnym. Licencja podaje Komplet i tekst `courseAccess.holders` z `components.custom.pricing`, więc strony brzmią tak jak wcześniej.
+
+## Materiały [#materials]
+
+Materiały lekcji to pliki i linki w `lesson_attachment`, uporządkowane według `position`.
+
+- Plik jest przechowywany w buckecie `MEDIA` pod `attachments/<attachmentId>/<fileName>` (`attachmentObjectKey` w `lesson-attachment.files.ts`). Przesłać można pliki <RepositoryFact name="attachmentFileTypes" /> o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB (`LESSON_ATTACHMENT_FILE_TYPES`, `LESSON_ATTACHMENT_MAX_MEGABYTES`). Typ zawartości wynika z rozszerzenia, nigdy z przeglądarki, a w nazwie pliku zostają tylko litery, cyfry, kropki, myślniki i podkreślenia.
+- Link to ścieżka dokumentacji, na przykład `/docs/getting-started`, albo adres `https://`.
+- `getLesson` zwraca tytuł i rodzaj każdego materiału, a dla pliku także jego nazwę i rozmiar. Dodaje `href` tylko wtedy, gdy widz może otworzyć lekcję: decyduje o tym własne `locked` lekcji, obliczane raz przez `hasLessonAccess`. Dla pliku `href` to podpisana ścieżka `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>` (`signDownload` w `lesson-attachment.download.ts`), ważna co najmniej przez <RepositoryFact name="signedDownloadHours" unit="hour" />. `serveAttachment` (`lesson-attachment.delivery.ts`) sprawdza podpis i serwuje plik z `Content-Disposition: attachment`; błędny lub wygasły podpis dostaje `403`. Podpisana ścieżka działa jak link na okaziciela, dopóki nie wygaśnie.
+- Usunięcie materiału, lekcji, rozdziału lub kursu usuwa przesłane pliki razem z wierszami.
 
 ## Strony
 
@@ -45,7 +72,7 @@ Layout `/courses` (`_site._marketing.courses.tsx`) znajduje się w tych samych l
 
 - `/courses`: jedna karta na każdy opublikowany kurs z jego rodzajem, liczbą lekcji, minutami i darmowymi lekcjami. Gdy nie ma opublikowanego kursu, strona mówi, że pierwsze kursy są właśnie nagrywane, i odsyła do zapisu na dziennik budowy w stopce; jej pierwsze zdanie jest takie samo jak w bloku kursów na stronie głównej.
 - `/courses/<course>`: opis, pasek postępu dla zalogowanych widzów, link **Zacznij kurs** albo **Kontynuuj: …** do następnej lekcji do obejrzenia oraz program według rozdziałów z oznaczeniami **Darmowy podgląd**, czasem trwania i ikonami kłódki i ukończenia. Gdy któraś lekcja jest zablokowana, panel **Każda lekcja jest w pakiecie Komplet** prowadzi do sekcji cennika, a zalogowanego widza do `/app/license?tier=complete`, gdzie plan Komplet jest już wybrany.
-- `/courses/<course>/<lesson>`: odtwarzacz albo panel blokady z przyciskiem **Zaloguj się i oglądaj**, który po zalogowaniu wraca do lekcji dzięki `redirect`, albo **Wybierz Komplet**. Lekcja bez filmu informuje, że nagranie pojawi się wkrótce. Pod spodem są poziom dostępu, **Oznacz jako ukończoną** dla zalogowanych widzów i linki do poprzedniej i następnej lekcji; na szerokich ekranach spis treści kursu pozostaje obok.
+- `/courses/<course>/<lesson>`: odtwarzacz albo panel blokady z przyciskiem **Zaloguj się i oglądaj**, który po zalogowaniu wraca do lekcji dzięki `redirect`, albo **Wybierz Komplet**. Lekcja [w trakcie nagrywania](#being-recorded) informuje, że nagranie pojawi się wkrótce. Pod spodem są poziom dostępu, **Materiały**, które prowadzą do plików i pozwalają je pobrać tylko widzowi mogącemu otworzyć lekcję, **Oznacz jako ukończoną** dla zalogowanych widzów i linki do poprzedniej i następnej lekcji; na szerokich ekranach spis treści kursu pozostaje obok. Strona wczytuje się jednym wywołaniem `getLesson`.
 
 ## Na stronie głównej
 
@@ -63,7 +90,7 @@ Dla zalogowanego widza odtwarzacz zaczyna od zapisanej `position_ms`, a `useLess
 
 ## Lekcje i filmy
 
-Lekcja nie przechowuje własnych plików wideo. Opublikuj nagranie przez `bun run video:publish:<environment>` (zobacz [Wideo](/docs/features/videos)), a potem wybierz je w polu **Wideo** lekcji w administracji, które ustawia `video_id`. Kilka lekcji może korzystać z tego samego filmu. Czas trwania w katalogu i w programie pochodzi z `video.duration_ms`.
+Lekcja nie przechowuje własnych plików wideo. Opublikuj nagranie przez `bun run video:publish:<environment>` (zobacz [Wideo](/docs/features/videos)), a potem wybierz je na karcie **Wideo** edytora lekcji, która ustawia `video_id`. Kilka lekcji może korzystać z tego samego filmu, a każda lekcja może zacząć od jednego wspólnego filmu zastępczego, dopóki nie powstanie jej własne nagranie. Czas trwania w katalogu i w programie pochodzi z `video.duration_ms`, a lekcja w trakcie nagrywania go nie ma.
 
 ## Zarządzanie kursami
 
@@ -72,10 +99,11 @@ Lekcja nie przechowuje własnych plików wideo. Opublikuj nagranie przez `bun ru
 - `/admin/courses` (`admin.courses.index.tsx`) wyświetla wszystkie kursy, łącznie ze szkicami, w kolejności `position`: tytuł ze ścieżką `/courses/<slug>`, rodzaj, status, liczbę lekcji i datę ostatniej zmiany. Każdy wiersz ma strzałki przesuwające kurs w górę lub w dół, link do edycji i przycisk usuwania. **Nowy kurs** otwiera formularz.
 - `/admin/courses/create` (`admin.courses.create.tsx`) pokazuje pusty formularz kursu. **Utwórz kurs** zapisuje kurs i otwiera jego edytor.
 - `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) pokazuje formularz kursu z przyciskiem **Zapisz szczegóły**, **Program** oraz **Zobacz kurs**, który otwiera `/courses/<slug>` w nowej karcie. **Zobacz kurs** pojawia się dopiero po opublikowaniu kursu, bo szkice nie są publicznie dostępne.
+- `/admin/courses/<courseId>/lessons/<lessonId>` (`admin.courses.$courseId_.lessons.$lessonId.tsx`) to edytor lekcji: tekst lekcji, jej kluczowe momenty, wideo i materiały. **Zobacz lekcję** pojawia się, gdy kurs i lekcja są opublikowane. Edytor czyta to samo `courseEditorQuery` co edytor kursu, więc przechodzenie tam i z powrotem nie kosztuje żadnego żądania.
 
 Nowy kurs jest dodawany po pozostałych. Strzałki na liście ustalają kolejność publicznego katalogu (`moveCourse`).
 
-### Szczegóły kursu
+### Szczegóły kursu [#course-details]
 
 Formularz kursu (`course-form.tsx`) ma następujące pola:
 
@@ -83,14 +111,17 @@ Formularz kursu (`course-form.tsx`) ma następujące pola:
 - **Slug w adresie URL**: małe litery, cyfry i pojedyncze myślniki, unikalny wśród kursów; maksymalna liczba znaków: <RepositoryFact name="slugMaxLength" />.
 - **Rodzaj**: **Kurs**, **Tutorial** albo **Projekt**.
 - **Status**: **Szkic**, domyślnie, albo **Opublikowany**. Pod `/courses` pojawiają się tylko opublikowane kursy.
+- **Poziom**: **Początkujący**, domyślnie, **Średnio zaawansowany** albo **Zaawansowany**.
+- **Ikona**: jedna z nazwanych ikon, wyświetlana obok pola.
+- **Co będą umieć uczestnicy** i **Wymagania wstępne**, z jedną kartą na każde locale: **Dodaj umiejętność** i **Dodaj wymaganie** dodają wiersz, a krzyżyk obok wiersza go usuwa. Pusty wiersz jest odrzucany.
 
 ### Program
 
 Edytor programu (`curriculum-editor.tsx`) pokazuje rozdziały po kolei, każdy z jego lekcjami.
 
-- **Dodaj rozdział** otwiera `chapter-dialog.tsx`, który prosi o **Tytuł rozdziału** w każdym locale. Każdy rozdział ma przyciski do przesunięcia go w górę lub w dół, edycji tytułu i usunięcia.
-- **Dodaj lekcję**, pod lekcjami rozdziału, otwiera `lesson-dialog.tsx`. To samo okno służy do edycji lekcji.
-- Każda lekcja pokazuje swój slug, film z czasem trwania albo **Bez wideo**, poziom dostępu i status, z przyciskami do przesunięcia jej w górę lub w dół w obrębie rozdziału, edycji i usunięcia. Lekcji nie można przenieść do innego rozdziału.
+- **Dodaj rozdział** otwiera `chapter-dialog.tsx`, który prosi o **Tytuł rozdziału** i opcjonalny **Opis** w każdym locale. Każdy rozdział pokazuje swój opis pod tytułem i ma przyciski do przesunięcia go w górę lub w dół, edycji i usunięcia.
+- **Dodaj lekcję**, pod lekcjami rozdziału, otwiera `lesson-dialog.tsx`, w którym tworzy się lekcję.
+- Każda lekcja pokazuje swój slug, film z czasem trwania albo **Bez wideo**, **W trakcie nagrywania**, gdy nie ma filmu albo ma film zastępczy, poziom dostępu i status, z przyciskami do przesunięcia jej w górę lub w dół w obrębie rozdziału, otwarcia w edytorze lekcji i usunięcia. Lekcji nie można przenieść do innego rozdziału.
 
 Okno lekcji ma następujące pola:
 
@@ -98,38 +129,53 @@ Okno lekcji ma następujące pola:
 - **Slug w adresie URL**, unikalny w obrębie kursu.
 - **Kto może oglądać**: **Wszyscy (darmowy podgląd)** (`preview`), **Zalogowani odwiedzający** (`account`) albo **Licencje Komplet i Agencja** (`paid`, domyślnie).
 - **Status**: **Szkic**, domyślnie, albo **Opublikowany**.
-- **Wideo**: <RepositoryFact name="videoLibraryPageSize" /> ostatnio opublikowanych filmów z biblioteki (`VIDEO_LIBRARY_PAGE_SIZE`) z ich czasem trwania. **Jeszcze bez wideo** zostawia lekcję bez filmu albo odłącza ten, który ma.
+- **Wideo**: <RepositoryFact name="videoLibraryPageSize" /> ostatnio opublikowanych filmów z biblioteki (`VIDEO_LIBRARY_PAGE_SIZE`) z ich czasem trwania i dopiskiem **Zastępcze** przy filmie zastępczym. **Jeszcze bez wideo** tworzy lekcję bez filmu.
+
+### Edytor lekcji [#lesson-editor]
+
+Edytor lekcji ma trzy karty:
+
+- **Lekcja** (`lesson-form.tsx`): **Tytuł lekcji**, **Opis** i **Szczegółowy opis** w każdym locale, **Slug w adresie URL**, **Kto może oglądać**, **Status** i **Kluczowe momenty**. Szczegółowy opis pokazuje podgląd swoich akapitów i kodu tak, jak zobaczą je uczestnicy. Każdy kluczowy moment to czas, na przykład `2:15`, i etykieta w każdym locale; **Dodaj kluczowy moment** dodaje moment, krzyżyk go usuwa, a **Zapisz lekcję** zapisuje je w kolejności czasu.
+- **Wideo** (`lesson-video-card.tsx`): film lekcji, informacja, czy się odtwarza, czy jest w trakcie nagrywania, oraz **Zastąp przez**, czyli wybór spośród filmów z biblioteki. **Zastąp wideo** przypisuje wybrany film do lekcji jedną operacją (`replaceLessonVideo`), niczego więcej nie zapisując.
+- **Materiały** (`lesson-materials.tsx`): pliki i linki lekcji w kolejności, każdy z nazwą pliku i rozmiarem albo z adresem, oraz przyciski do przesunięcia, edycji i usunięcia. **Wyślij plik** prosi o tytuł w każdym locale i plik; **Dodaj link** prosi o tytuł w każdym locale i adres. Edycja linku zmienia jego tytuł i adres; edycja pliku zmienia jego nazwę.
 
 ### Usuwanie
 
 Każde usunięcie najpierw prosi o potwierdzenie.
 
-- Usunięcie kursu usuwa jego rozdziały, lekcje i postępy wszystkich użytkowników w nich.
-- Usunięcie rozdziału usuwa jego lekcje i związane z nimi postępy.
-- Usunięcie lekcji usuwa jej postępy.
+- Usunięcie kursu usuwa jego rozdziały, lekcje, ich materiały i postępy wszystkich użytkowników w nich.
+- Usunięcie rozdziału usuwa jego lekcje, ich materiały i związane z nimi postępy.
+- Usunięcie lekcji usuwa jej materiały i postępy.
+- Usunięcie materiału usuwa go z lekcji.
 
-Robią to klucze obce z `ON DELETE CASCADE`. Filmy nigdy nie są usuwane razem z kursem, rozdziałem ani lekcją: zostają w bibliotece.
+Wiersze usuwają klucze obce z `ON DELETE CASCADE`, a przesłane pliki usuwają z R2 przypadki użycia usuwania (`attachmentObjectKeys` i `removeAttachmentObjects` w `lesson-attachment.objects.ts`). Filmy nigdy nie są usuwane razem z kursem, rozdziałem ani lekcją: zostają w bibliotece.
 
 ### Funkcje serwerowe
 
-| Moduł     | Przypadki użycia                                                 | Uprawnienie          |
-| --------- | ---------------------------------------------------------------- | -------------------- |
-| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
-| `course`  | `createCourse`                                                   | `course: ["create"]` |
-| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
-| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
-| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
-| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+| Moduł               | Przypadki użycia                                                                                                               | Uprawnienie          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| `course`            | `getCourses`, `getCourseEditor`                                                                                                | `course: ["read"]`   |
+| `course`            | `createCourse`                                                                                                                 | `course: ["create"]` |
+| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]` |
+| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]` |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]` |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]` |
+| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]` |
+| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]` |
 
-- Lista filmów w oknie lekcji pochodzi z `getVideos`, które wymaga `video: ["read"]`.
+- `getCourseEditor` zwraca każdą lekcję z jej szczegółowym opisem, kluczowymi momentami, filmem (z flagą filmu zastępczego) i materiałami, więc edytor kursu i edytor lekcji współdzielą jedno zapytanie.
+- `uploadLessonAttachment` przyjmuje `FormData` (plik, lekcję i tytuł w każdym locale, zbudowane przez `uploadFormData`) i uruchamia też `withRateLimit`, którego limit przesłań z jednego adresu na minutę wynosi <RepositoryFact name="attachmentUploadsPerMinute" />. Zapisuje wiersz, potem plik, a jeśli R2 odrzuci plik, ponownie usuwa wiersz.
+- `setVideoPlaceholder` decyduje, czy lekcje się odtwarzają, więc sprawdza `course: ["update"]`, tak jak inne zapisy, które zmieniają to, co mogą oglądać uczestnicy.
+- Lista filmów w oknie lekcji i w edytorze lekcji pochodzi z `getVideos`, które wymaga `video: ["read"]`.
 - Zajęty już slug daje odpowiedź `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) zamienia błąd ograniczenia unikalności z D1 na `AppError`. Identyfikator, który nie pasuje do żadnego wiersza, daje odpowiedź `NOT_FOUND`.
 - Nowy kurs, rozdział lub lekcja dostaje najwyższą `position` wśród rodzeństwa plus jeden (`nextPosition`). Przesunięcie zamienia wiersz z sąsiadem i numeruje rodzeństwo od nowa od 1 (`reorder`) w jednym `db.batch`. Obie funkcje są w `src/modules/_core/utils/ordering.ts`, a kierunki to `MOVE_DIRECTION` w `src/modules/_core/constants/ordering.ts`.
-- Każdy zapis waliduje tytuły i opisy przez `localizedTextSchema`: `en-US` jest wymagane, a limit znaków każdego tekstu wynosi <RepositoryFact name="localizedTextMaxLength" />. Limit znaków sluga wynosi <RepositoryFact name="slugMaxLength" />. Komunikaty formularzy to `defaultLocaleRequired`, `textTooLong`, `slugInvalid` i `slugTooLong` w `course.validations`, a ich limity podaje `COURSE_VALIDATION_PARAMS` (`course.constants.ts`).
+- Każdy zapis waliduje tytuły i opisy przez `localizedTextSchema`: `en-US` jest wymagane, a limit znaków każdego tekstu wynosi <RepositoryFact name="localizedTextMaxLength" />. Limit znaków sluga wynosi <RepositoryFact name="slugMaxLength" />. Komunikaty formularzy, takie jak `defaultLocaleRequired`, `textTooLong`, `slugInvalid`, `itemRequired`, `timeInvalid`, `urlInvalid` i `fileTooLarge`, są w `course.validations`, a ich limity podaje `COURSE_VALIDATION_PARAMS` (`course.constants.ts`).
+- Slug kursu i slug lekcji w obrębie jej kursu są unikalne, więc identyfikują kurs i lekcję w różnych bazach danych; program kursu to jego rozdziały w kolejności.
 - `courseEditorQuery` zachowuje `staleTime: COURSE_STALE_MS`, tak jak publiczne zapytania kursów, a każda zmiana unieważnia zapytania `course`, więc lista i edytor pobierają dane ponownie.
 
 ## Testy
 
-`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs. `e2e/specs/landing.spec.ts` sprawdza, że strona główna linkuje do testowego kursu i jego darmowej lekcji, otwiera darmową lekcję i odtwarza przegląd stron kursu oraz że blok kursów zachowuje wysokość i niczego nie przesuwa, gdy kursy dotrą albo nie uda się ich wczytać. `e2e/specs/course-access.spec.ts` loguje klienta bez licencji i sprawdza, że płatna lekcja proponuje plan Komplet z linkiem do `/app/license?tier=complete`, a przegląd pokazuje zablokowany kurs obok oferty licencji.
+`scripts/seed-test.ts` tworzy opublikowany kurs z poziomem, ikoną, umiejętnościami i wymaganiami wstępnymi, jednym rozdziałem z opisem i czterema lekcjami: darmowa ma szczegółowy opis, kluczowy moment, plik PDF i link do dokumentacji; płatna ma plik PDF; ostatnia korzysta z testowego filmu zastępczego. Tworzy też konto `learner@example.test` z aktywną licencją Komplet. Testy przeglądarkowe w `e2e/specs/courses.spec.ts` oglądają lekcje. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs; drugi test pisze szczegółowy opis i kluczowe momenty lekcji, przypisuje jej film zastępczy, przesyła plik i dodaje link, sprawdza, że odwiedzający widzi lekcję jako będącą w trakcie nagrywania i pobiera plik, zastępuje film nagraniem, tak że strona odwiedzającego je odtwarza, i sprawdza, że usunięcie kursu usuwa plik. `e2e/specs/course-materials.spec.ts` sprawdza zasadę dostępu do plików do pobrania: odwiedzający pobiera plik darmowej lekcji przez podpisaną ścieżkę i dostaje `403` dla podrobionej, odwiedzający i klient bez planu Komplet widzą materiały płatnej lekcji bez linków, a posiadacz licencji Komplet je pobiera i widzi lekcję z filmem zastępczym jako będącą w trakcie nagrywania, bez żądania strumienia. `e2e/specs/landing.spec.ts` sprawdza, że strona główna linkuje do testowego kursu i jego darmowej lekcji, otwiera darmową lekcję i odtwarza przegląd stron kursu oraz że blok kursów zachowuje wysokość i niczego nie przesuwa, gdy kursy dotrą albo nie uda się ich wczytać. `e2e/specs/course-access.spec.ts` loguje klienta bez licencji i sprawdza, że płatna lekcja proponuje plan Komplet z linkiem do `/app/license?tier=complete`, a przegląd pokazuje zablokowany kurs obok oferty licencji.
 
 ## Powiązane strony
 

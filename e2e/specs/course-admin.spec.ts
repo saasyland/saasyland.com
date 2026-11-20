@@ -1,7 +1,8 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_VIDEO } from "../data/videos"
+import { TEST_MATERIALS } from "../data/courses"
+import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -70,4 +71,97 @@ test("an administrator builds a course whose free lesson visitors can watch", as
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByText("“Shipping the first release” was deleted")).toBeVisible()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
+})
+
+test("an administrator writes a lesson, swaps its video and adds materials that visitors download", async ({
+  appPage,
+  authPage,
+  browser,
+  page,
+}) => {
+  const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+  const lessonPath = `/courses/${slug}/first-look`
+  await signInAsAdmin(page, authPage)
+
+  await page.goto("/admin/courses/create", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByLabel("Title", { exact: true }).fill("Materials and recordings")
+  await page.getByLabel("Summary", { exact: true }).fill("A course to try the lesson editor.")
+  await page.getByLabel("URL slug").fill(slug)
+  await choose(page.locator("form"), "Status", "Published")
+  await choose(page.locator("form"), "Level", "Intermediate")
+  await page.getByRole("button", { name: "Add an outcome" }).click()
+  await page.getByLabel("Outcome 1", { exact: true }).fill("Edit every part of a lesson")
+  await page.getByRole("button", { name: "Create course" }).click()
+  await expect(page).toHaveURL(/\/admin\/courses\/[\da-f-]{36}$/u)
+
+  await page.getByRole("button", { name: "Add chapter" }).click()
+  const chapterDialog = page.getByRole("dialog")
+  await chapterDialog.getByLabel("Chapter title").fill("Getting started")
+  await chapterDialog.getByLabel("Summary", { exact: true }).fill("What the course covers.")
+  await chapterDialog.getByRole("button", { name: "Save chapter" }).click()
+  await expect(page.getByText("What the course covers.")).toBeVisible()
+
+  await page.getByRole("button", { name: "Add lesson" }).click()
+  const lessonDialog = page.getByRole("dialog")
+  await lessonDialog.getByLabel("Lesson title").fill("A first look")
+  await lessonDialog.getByLabel("Summary", { exact: true }).fill("What you are about to build.")
+  await lessonDialog.getByLabel("URL slug").fill("first-look")
+  await choose(lessonDialog, "Who can watch", "Everyone (free preview)")
+  await choose(lessonDialog, "Status", "Published")
+  await choose(lessonDialog, "Video", `${TEST_VIDEO.title} · 0:02`)
+  await lessonDialog.getByRole("button", { name: "Save lesson" }).click()
+  await expect(lessonDialog).toBeHidden()
+
+  await page.getByRole("link", { name: "Edit A first look" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "A first look" })).toBeVisible()
+  await page.getByLabel("Description", { exact: true }).fill("Open `src/modules` first.\n\nThen follow one table.")
+  await expect(page.getByRole("region", { name: "Description preview" }).locator("code")).toHaveText("src/modules")
+  await page.getByRole("button", { name: "Add a key moment" }).click()
+  await page.getByLabel("Time of moment 1", { exact: true }).fill("0:01")
+  await page.getByLabel("Label of moment 1", { exact: true }).fill("The modules folder")
+  await page.getByRole("button", { name: "Save lesson" }).click()
+  await expect(page.getByText("Lesson saved")).toBeVisible()
+
+  await choose(page.locator("form").filter({ hasText: "Replace with" }), "Replace with", `${TEST_PLACEHOLDER_VIDEO.title} · 0:02 · Placeholder`)
+  await page.getByRole("button", { name: "Replace video" }).click()
+  await expect(page.getByText("Video replaced")).toBeVisible()
+
+  await page.getByRole("button", { name: "Upload a file" }).click()
+  const uploadDialog = page.getByRole("dialog")
+  await uploadDialog.getByLabel("Title", { exact: true }).fill("Workbook")
+  await uploadDialog.locator("input[type=file]").setInputFiles(TEST_MATERIALS[0].file)
+  await uploadDialog.getByRole("button", { name: "Save material" }).click()
+  await expect(uploadDialog).toBeHidden()
+  await expect(page.getByText("workbook.pdf ·")).toBeVisible()
+
+  await page.getByRole("button", { name: "Add a link" }).click()
+  const linkDialog = page.getByRole("dialog")
+  await linkDialog.getByLabel("Title", { exact: true }).fill("Course docs")
+  await linkDialog.getByLabel("Link", { exact: true }).fill("/docs/features/courses")
+  await linkDialog.getByRole("button", { name: "Save material" }).click()
+  await expect(linkDialog).toBeHidden()
+
+  const visitor = await browser.newPage()
+  await visitor.goto(lessonPath, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await expect(visitor.getByText("The recording for this lesson is on its way.")).toBeVisible()
+  const download = await visitor.getByRole("region", { name: "Materials" }).getByRole("link", { name: "Workbook" }).getAttribute("href")
+  expect((await visitor.request.get(download ?? "")).status()).toBe(200)
+  await expect(visitor.getByRole("link", { name: "Course docs" })).toHaveAttribute("href", "/docs/features/courses")
+
+  await choose(page.locator("form").filter({ hasText: "Replace with" }), "Replace with", `${TEST_VIDEO.title} · 0:02`)
+  await page.getByRole("button", { name: "Replace video" }).click()
+  await expect(page.getByText("Plays for everyone who may open the lesson")).toBeVisible()
+
+  const playlist = visitor.waitForResponse((response) => response.url().endsWith(`/${TEST_VIDEO.id}/master.m3u8`))
+  await visitor.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  expect((await playlist).status()).toBe(200)
+  await visitor.close()
+
+  await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Materials and recordings" }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
+  await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
+  expect((await page.request.get(download ?? "")).status()).toBe(404)
 })

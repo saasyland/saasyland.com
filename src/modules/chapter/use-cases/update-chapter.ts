@@ -15,7 +15,11 @@ export const updateChapter = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Chapter["updateChapter"]) => chapterZodSchemas.updateChapter.parse(input))
   .handler(async ({ data }) => {
-    const [row] = await db.update(chapter).set({ title: data.title }).where(eq(chapter.id, data.chapterId)).returning({ id: chapter.id })
+    const [row] = await db
+      .update(chapter)
+      .set({ summary: data.summary, title: data.title })
+      .where(eq(chapter.id, data.chapterId))
+      .returning({ id: chapter.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

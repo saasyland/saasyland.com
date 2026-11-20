@@ -16,13 +16,17 @@ import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { TEST_COURSE_ACCESS } from "~/src/modules/course/__test__/fixtures/course-access"
 import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
-import { COURSE_KIND, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
+import { courseLessons, locateLesson } from "~/src/modules/course/course.utils"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
+import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/lesson-progress.constants"
 import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
+import type { Lesson } from "~/src/modules/lesson/lesson.types"
+import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import type { Video } from "~/src/modules/video/video.types"
 
@@ -71,6 +75,36 @@ vi.mock(import("~/src/modules/course/use-cases/get-course"), async (importOrigin
   }
 })
 
+const materials = vi.hoisted(() => new Map<string, Lesson["attachment"][]>())
+
+const lessonPageOf = (source: Course["page"], slug: string): Lesson["page"] | undefined => {
+  const { lesson: entry, next, previous } = locateLesson(courseLessons(source), slug)
+  if (entry === undefined) {
+    return undefined
+  }
+  return {
+    ...source,
+    lesson: { ...entry, attachments: materials.get(slug) ?? [], captionLocales: [], description: "", keyMoments: [] },
+    next,
+    previous,
+  }
+}
+
+vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    lessonQuery: (input: Lesson["getLesson"]) => ({
+      ...actual.lessonQuery(input),
+      queryFn: () => {
+        const source = coursePages.get("current")
+        const lessonPage = source === undefined ? undefined : lessonPageOf(source, input.lessonSlug)
+        return lessonPage === undefined ? Promise.reject(new Error("No lesson page")) : Promise.resolve(lessonPage)
+      },
+    }),
+  }
+})
+
 vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
 vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), () => ({
@@ -99,6 +133,7 @@ const lesson = (slug: string, title: string, overrides: Partial<Course["pageLess
   id: `lesson-${slug}`,
   locked: false,
   positionMs: 0,
+  recording: overrides.durationMs === null,
   slug,
   summary: `${title} summary.`,
   title,
@@ -113,10 +148,20 @@ const page = ({
   readonly viewer: Course["page"]["viewer"]
 }): Course["page"] => ({
   chapters: [
-    { id: "chapter-one", lessons: lessons.slice(0, 2), title: "Foundations" },
-    { id: "chapter-two", lessons: lessons.slice(2), title: "Product" },
+    { id: "chapter-one", lessons: lessons.slice(0, 2), summary: "", title: "Foundations" },
+    { id: "chapter-two", lessons: lessons.slice(2), summary: "", title: "Product" },
   ],
-  course: { id: "course", kind: COURSE_KIND.COURSE, slug: COURSE_SLUG, summary: "How it works.", title: "The walkthrough" },
+  course: {
+    icon: COURSE_ICON.BOOK_OPEN,
+    id: "course",
+    kind: COURSE_KIND.COURSE,
+    level: COURSE_LEVEL.BEGINNER,
+    outcomes: [],
+    prerequisites: [],
+    slug: COURSE_SLUG,
+    summary: "How it works.",
+    title: "The walkthrough",
+  },
   viewer,
 })
 
@@ -160,9 +205,11 @@ const completeLesson = (source: Course["page"], slug: string): Course["page"] =>
 const CATALOGUE: Course["catalogue"] = [
   {
     durationMs: 375_000,
+    icon: COURSE_ICON.BOOK_OPEN,
     id: "course",
     kind: COURSE_KIND.COURSE,
     lessons: 4,
+    level: COURSE_LEVEL.BEGINNER,
     paid: 2,
     previews: 1,
     slug: COURSE_SLUG,
@@ -171,9 +218,11 @@ const CATALOGUE: Course["catalogue"] = [
   },
   {
     durationMs: 0,
+    icon: COURSE_ICON.BOOK_OPEN,
     id: "tutorial",
     kind: COURSE_KIND.TUTORIAL,
     lessons: 0,
+    level: COURSE_LEVEL.BEGINNER,
     paid: 0,
     previews: 0,
     slug: "one-off",
@@ -201,6 +250,7 @@ const createCourseRouter = ({
   coursePages.set("current", data)
   for (const { slug } of data.chapters.flatMap((chapter) => chapter.lessons)) {
     queryClient.setQueryData(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: slug }).queryKey, PLAYBACK)
+    queryClient.setQueryData(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug: slug, locale }).queryKey, lessonPageOf(data, slug))
   }
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   const metadata = { locale, metadata: messages.metadata }
@@ -266,6 +316,7 @@ beforeEach(() => {
   vi.stubGlobal("CSS", { supports: () => true })
   player.clear()
   coursePages.clear()
+  materials.clear()
   save.mockImplementation(({ completed, lessonId }) => Promise.resolve({ completed, lessonId }))
 })
 
@@ -390,6 +441,7 @@ describe("lesson page", () => {
     await waitFor(() => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.DETAIL })
     })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: LESSON_QUERY_KEYS.DETAIL })
     expect(save.mock.calls[1]?.[0]).toStrictEqual({ completed: true, lessonId: "lesson-sessions", positionMs: 0 })
     expect(await screen.findByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
   })
@@ -456,11 +508,46 @@ describe("lesson page", () => {
     expect(container.querySelector(".aspect-video[data-slot='skeleton']")).not.toBeNull()
   })
 
-  it("shows the not-found page for an unknown lesson", async () => {
-    await renderCourses({ path: "/courses/the-walkthrough/missing" })
+  it("shows a lesson on a placeholder video as being recorded and never plays it", async () => {
+    const recording = page({
+      lessons: [lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null })],
+      viewer: { signedIn: false },
+    })
+    await renderCourses({ data: recording, path: "/courses/the-walkthrough/boundaries" })
 
+    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
     expect(screen.queryByTestId("video-player")).toBeNull()
-    expect(screen.queryByRole("heading", { level: 1, name: "Boundaries" })).toBeNull()
+  })
+
+  it("lists the materials, with downloads and links only for a lesson the viewer may open", async () => {
+    materials.set("boundaries", [
+      {
+        contentType: LESSON_ATTACHMENT_FILE_TYPES.pdf,
+        fileName: "slides.pdf",
+        href: "/media/downloads/a.b/attachment/slides.pdf",
+        id: "file",
+        kind: LESSON_ATTACHMENT_KIND.FILE,
+        sizeBytes: 2_500_000,
+        title: "Slides",
+      },
+      { href: "/docs/features/courses", id: "link", kind: LESSON_ATTACHMENT_KIND.LINK, title: "Course docs" },
+    ])
+    materials.set("billing", [{ href: undefined, id: "locked", kind: LESSON_ATTACHMENT_KIND.LINK, title: "Pricing sheet" }])
+    await renderCourses({ path: "/courses/the-walkthrough/boundaries" })
+
+    const list = within(screen.getByRole("region", { name: messages.lesson.materials.title }))
+    expect(list.getByRole("link", { name: "Slides" })).toHaveAttribute("href", "/media/downloads/a.b/attachment/slides.pdf")
+    expect(list.getByRole("link", { name: "Slides" })).toHaveAttribute("download", "slides.pdf")
+    expect(list.getByText("2.5 MB")).toBeVisible()
+    expect(list.getByRole("link", { name: "Course docs" })).toHaveAttribute("href", "/docs/features/courses")
+
+    cleanup()
+    await renderCourses({ path: "/courses/the-walkthrough/billing" })
+
+    const locked = within(screen.getByRole("region", { name: messages.lesson.materials.title }))
+    expect(locked.getByText("Pricing sheet")).toBeVisible()
+    expect(locked.queryByRole("link")).toBeNull()
+    expect(locked.getByText(messages.lesson.materials.locked)).toBeInTheDocument()
   })
 })
 

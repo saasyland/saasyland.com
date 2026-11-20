@@ -1,6 +1,6 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -17,12 +17,7 @@ export const updateLesson = createServerFn({ method: "POST" })
   .validator((input: Lesson["updateLesson"]) => lessonZodSchemas.updateLesson.parse(input))
   .handler(async ({ data }) => {
     const { lessonId, ...fields } = data
-    const [row] = await db
-      .update(lesson)
-      .set({ ...fields, videoId: fields.videoId ?? sql`null` })
-      .where(eq(lesson.id, lessonId))
-      .returning({ id: lesson.id })
-      .catch(rethrowAsConflict)
+    const [row] = await db.update(lesson).set(fields).where(eq(lesson.id, lessonId)).returning({ id: lesson.id }).catch(rethrowAsConflict)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

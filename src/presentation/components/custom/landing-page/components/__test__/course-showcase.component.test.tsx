@@ -7,7 +7,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { COURSE_KIND, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"
@@ -64,9 +64,11 @@ const approach = (): void => {
 const WALKTHROUGH: ShowcaseCourse = {
   durationMs: 1_500_000,
   freeLesson: { slug: "boundaries", title: "Lesson boundaries" },
+  icon: COURSE_ICON.BOOK_OPEN,
   id: "walkthrough",
   kind: COURSE_KIND.COURSE,
   lessonCount: 8,
+  level: COURSE_LEVEL.BEGINNER,
   previewCount: 1,
   slug: "the-walkthrough",
   title: "The walkthrough",
@@ -75,9 +77,11 @@ const WALKTHROUGH: ShowcaseCourse = {
 const TUTORIAL: ShowcaseCourse = {
   durationMs: 0,
   freeLesson: undefined,
+  icon: COURSE_ICON.BOOK_OPEN,
   id: "tutorial",
   kind: COURSE_KIND.TUTORIAL,
   lessonCount: 0,
+  level: COURSE_LEVEL.BEGINNER,
   previewCount: 0,
   slug: "one-off",
   title: "One-off tutorial",
@@ -86,9 +90,11 @@ const TUTORIAL: ShowcaseCourse = {
 const UNRECORDED: ShowcaseCourse = {
   durationMs: 0,
   freeLesson: undefined,
+  icon: COURSE_ICON.BOOK_OPEN,
   id: "project",
   kind: COURSE_KIND.PROJECT,
   lessonCount: 2,
+  level: COURSE_LEVEL.BEGINNER,
   previewCount: 1,
   slug: "unrecorded",
   title: "Unrecorded project",

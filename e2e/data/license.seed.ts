@@ -10,7 +10,14 @@ import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing
 import { bundleObjectKey } from "../../src/modules/license/license.bundles"
 import { BUNDLE_BINDING, BUNDLE_CONTENT_TYPE, BUNDLE_METADATA } from "../../src/modules/license/license.constants"
 import { accountStatements, userStatement } from "./auth.seed"
-import { TEST_BUNDLE, TEST_CLI_LICENSES, TEST_LICENSED_ACCOUNT, TEST_LICENSES, TEST_UNLICENSED_ORDER } from "./licenses"
+import {
+  TEST_BUNDLE,
+  TEST_CLI_LICENSES,
+  TEST_COURSE_LEARNER,
+  TEST_LICENSED_ACCOUNT,
+  TEST_LICENSES,
+  TEST_UNLICENSED_ORDER,
+} from "./licenses"
 import { TEST_PRODUCT_IDS } from "./polar-settings"
 import { type TestSeed, literal } from "./seed"
 
@@ -32,7 +39,7 @@ export const licenseSeed = async (): Promise<TestSeed> => {
       { binding: BUNDLE_BINDING, file, key: bundleKey, metadata: { [BUNDLE_METADATA.SHA256]: digest }, type: BUNDLE_CONTENT_TYPE },
     ],
     statements: [
-      ...(await accountStatements([TEST_LICENSED_ACCOUNT])),
+      ...(await accountStatements([TEST_LICENSED_ACCOUNT, TEST_COURSE_LEARNER])),
       ...TEST_CLI_LICENSES.map(({ user }) => userStatement(user)),
       ...TEST_LICENSES.map(
         ({ id, key, polarCustomerId, polarLicenseKeyId, polarOrderId, status, tier, user }) =>

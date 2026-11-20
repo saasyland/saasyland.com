@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeQuery } from "~/src/platform/testing/lib/query"
@@ -12,8 +13,9 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
-import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
-import { COURSE_KIND } from "~/src/modules/course/course.constants"
+import { IDS, LESSON_IDS, USERS, playLessonOn, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/course.constants"
+import { course } from "~/src/modules/course/course.schema"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 
@@ -49,9 +51,11 @@ describe("getCatalogue", () => {
     expect(courses).toStrictEqual([
       {
         durationMs: 375_000,
+        icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.COURSE,
         kind: COURSE_KIND.COURSE,
         lessons: 4,
+        level: COURSE_LEVEL.BEGINNER,
         paid: 2,
         previews: 1,
         slug: "the-walkthrough",
@@ -60,9 +64,11 @@ describe("getCatalogue", () => {
       },
       {
         durationMs: 0,
+        icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.TUTORIAL,
         kind: COURSE_KIND.TUTORIAL,
         lessons: 0,
+        level: COURSE_LEVEL.BEGINNER,
         paid: 0,
         previews: 0,
         slug: "one-off",
@@ -70,6 +76,15 @@ describe("getCatalogue", () => {
         title: "One-off tutorial",
       },
     ])
+  })
+
+  it("leaves lessons on the placeholder video out of the length", async () => {
+    signOut()
+    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+
+    const [walkthrough] = await executeQuery(catalogueQuery({ locale: "en-US" }))
+
+    expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4 })
   })
 
   it("localizes titles and falls back to English", async () => {
@@ -91,8 +106,12 @@ describe("getCourse", () => {
     const page = await executeQuery(courseQuery({ locale: "pl-PL", slug: "the-walkthrough" }))
 
     expect(page.course).toStrictEqual({
+      icon: COURSE_ICON.BOOK_OPEN,
       id: IDS.COURSE,
       kind: COURSE_KIND.COURSE,
+      level: COURSE_LEVEL.BEGINNER,
+      outcomes: [],
+      prerequisites: [],
       slug: "the-walkthrough",
       summary: "Jak to działa.",
       title: "Przewodnik",
@@ -101,9 +120,45 @@ describe("getCourse", () => {
       ["Pierwszy", ["boundaries", "sessions"]],
       ["Second", ["billing", "coverage"]],
     ])
-    expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: 125_000, title: "Granice" })
-    expect(page.chapters[1]?.lessons[1]).toMatchObject({ durationMs: null })
+    expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: 125_000, recording: false, title: "Granice" })
+    expect(page.chapters[1]?.lessons[1]).toMatchObject({ durationMs: null, recording: true })
     expect(page.viewer).toStrictEqual({ signedIn: false })
+  })
+
+  it("returns the course's level, icon, outcomes, prerequisites and chapter summaries in the visitor's language", async () => {
+    signOut()
+    await db
+      .update(course)
+      .set({
+        icon: COURSE_ICON.ROCKET,
+        level: COURSE_LEVEL.ADVANCED,
+        outcomes: { "en-US": ["Ship it", "Sell it"], "pl-PL": ["Wdróż"] },
+        prerequisites: { "en-US": ["TypeScript"] },
+      })
+      .where(eq(course.id, IDS.COURSE))
+    await db
+      .update(chapter)
+      .set({ summary: { "en-US": "The basics.", "pl-PL": "Podstawy." } })
+      .where(eq(chapter.id, IDS.CHAPTER_ONE))
+
+    const page = await executeQuery(courseQuery({ locale: "pl-PL", slug: "the-walkthrough" }))
+
+    expect(page.course).toMatchObject({
+      icon: COURSE_ICON.ROCKET,
+      level: COURSE_LEVEL.ADVANCED,
+      outcomes: ["Wdróż"],
+      prerequisites: ["TypeScript"],
+    })
+    expect(page.chapters.map(({ summary }) => summary)).toStrictEqual(["Podstawy.", ""])
+  })
+
+  it("lists a lesson on the placeholder video as being recorded, with no length", async () => {
+    signOut()
+    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+
+    const page = await executeQuery(courseQuery({ locale: "en-US", slug: "the-walkthrough" }))
+
+    expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: null, locked: false, recording: true, slug: "boundaries" })
   })
 
   it.each([
@@ -166,6 +221,6 @@ describe("getCourse", () => {
     const upcoming = await executeQuery(courseQuery({ locale: "en-US", slug: "one-off" }))
 
     expect(empty.chapters).toStrictEqual([])
-    expect(upcoming.chapters).toStrictEqual([{ id: "01960000-0000-7000-8000-00000000c199", lessons: [], title: "Soon" }])
+    expect(upcoming.chapters).toStrictEqual([{ id: "01960000-0000-7000-8000-00000000c199", lessons: [], summary: "", title: "Soon" }])
   })
 })

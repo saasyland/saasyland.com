@@ -11,7 +11,8 @@ Un module n'existe que pour une vraie table de la base de données. Chaque table
 | `chapter`               | `chapter`                          | `create-chapter`, `update-chapter`, `delete-chapter`, `move-chapter`                                                                                                                                                  |
 | `course`                | `course`                           | `get-catalogue`, `get-course`, `get-course-showcase`, `get-courses`, `get-course-editor`, `create-course`, `update-course`, `move-course`, `delete-course`                                                            |
 | `category`              | `category`                         | `get-categories`, `get-category`, `create-category`, `update-category`, `delete-category`                                                                                                                             |
-| `lesson`                | `lesson`                           | `get-lesson-playback`, `create-lesson`, `update-lesson`, `delete-lesson`, `move-lesson`                                                                                                                               |
+| `lesson`                | `lesson`                           | `get-lesson`, `get-lesson-playback`, `create-lesson`, `update-lesson`, `replace-lesson-video`, `delete-lesson`, `move-lesson`                                                                                         |
+| `lesson-attachment`     | `lesson_attachment`                | `create-lesson-attachment`, `upload-lesson-attachment`, `update-lesson-attachment`, `move-lesson-attachment`, `delete-lesson-attachment`                                                                              |
 | `lesson-progress`       | `lesson_progress`                  | `save-lesson-progress`                                                                                                                                                                                                |
 | `license`               | `license`, `revoked_license_order` | `get-current-license`, `get-current-license-activations`, `get-license`, `get-user-license`, `get-unlicensed-orders`, `start-checkout`, `deactivate-license`, `grant-license`, `revoke-license`, `attach-license-key` |
 | `newsletter-subscriber` | `newsletter_subscriber`            | `subscribe-to-newsletter`, `confirm-newsletter-subscription`, `unsubscribe-from-newsletter`, `get-newsletter-subscription`, `set-newsletter-subscription`                                                             |
@@ -23,7 +24,7 @@ Un module n'existe que pour une vraie table de la base de données. Chaque table
 | `two-factor`            | `two_factor`                       | `enable-two-factor`, `disable-two-factor`, `verify-totp`, `verify-backup-code`                                                                                                                                        |
 | `user`                  | `user`                             | `get-users`, `get-user`, `create-user`, `update-user`, `update-preferences`, `delete-user`, `ban-user`, `unban-user`, `set-user-role`, `set-user-password`, `impersonate-user`, `stop-impersonating-user`             |
 | `verification`          | `verification`                     | `send-verification-email`, `send-verify-email`, `request-password-reset`, `reset-password`, `send-reset-password-email`                                                                                               |
-| `video`                 | `video`                            | `get-videos`, `get-video-playback`, `delete-video`                                                                                                                                                                    |
+| `video`                 | `video`                            | `get-videos`, `get-video-playback`, `set-video-placeholder`, `delete-video`                                                                                                                                           |
 
 `_core` ne possède aucune table. Il contient les codes d'erreur, les catalogues et les utilitaires partagés décrits dans [Noyau partagé](/docs/architecture/core).
 
@@ -31,7 +32,13 @@ Un module n'existe que pour une vraie table de la base de données. Chaque table
 
 La plupart des modules ne contiennent que `<table>.schema.ts`, `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` et `use-cases/`. Quelques-uns en comptent davantage :
 
+- `course/course.outline.ts` : `readCourseOutline`, les chapitres et les leçons d'un cours publié pour un spectateur, partagés par `get-course` et `get-lesson`
 - `lesson/lesson.access.ts` : `hasLessonAccess` et le type `Viewer`
+- `lesson/lesson.playable.ts` : `playableVideo`, la jointure avec la vidéo d'une leçon qui écarte les vidéos provisoires, si bien qu'une leçon sans vidéo lisible est en cours d'enregistrement
+- `lesson-attachment/lesson-attachment.files.ts` : les clés d'objet R2 des fichiers téléversés, leurs noms sûrs et les types de contenu qui peuvent être téléversés et servis
+- `lesson-attachment/lesson-attachment.download.ts` : les chemins de téléchargement signés (`signDownload`, `verifyDownload`)
+- `lesson-attachment/lesson-attachment.delivery.ts` : `serveAttachment`, qui répond aux requêtes `/media/downloads/` depuis R2
+- `lesson-attachment/lesson-attachment.objects.ts` : les fichiers téléversés des leçons en cours de suppression, et leur suppression de R2
 - `lesson/lesson.viewer.ts` : `resolveViewer`, qui construit le spectateur à partir de la session, du rôle et de l’accès aux cours qu’accordent d’autres zones
 - `license/license.webhooks.ts` : les handlers de webhooks Polar transmis à Better Auth
 - `license/license.api.ts` : `licenseApiHandlers`, l'API de licence de la CLI que servent `src/routes/api/cli.v1.*.ts`

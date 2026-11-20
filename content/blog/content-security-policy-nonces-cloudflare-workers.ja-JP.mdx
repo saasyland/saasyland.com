@@ -1,0 +1,543 @@
+---
+title: "Cloudflare Workers での nonce を使った Content Security Policy"
+description: "nonce を使った厳格な Content Security Policy のための実践ガイドです。ポリシーが止めるもの、nonce とハッシュの比較、strict-dynamic、フレームワーク、静的なページ、スクリプトを挿入する CDN、キャッシュ、サードパーティのスクリプト、導入とテストを、saasyland.com の Cloudflare Worker を実例として説明します。"
+excerpt: "Content Security Policy が挿入されたスクリプトを止められるのは、自分のスクリプトが正当なものだと証明できる場合だけで、ウェブ上のポリシーのほとんどはそれができません。このガイドでは、nonce を使った厳格なポリシーの仕組み、nonce とハッシュの選び方、フレームワーク、静的なページ、サードパーティのスクリプトへの nonce の受け渡し、導入とテストの方法、そしてポリシーを知らないうちに無効にしてしまうミスを、Cloudflare Workers 上の saasyland.com のポリシーを支えるコード、インシデント、テストとともに説明します。"
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
+tags:
+  - security
+  - tanstack-start
+  - architecture
+faq:
+  - question: nonce を使った Content Security Policy とは何ですか？
+    answer: >-
+      script-src にレスポンスごとに変わるランダムな値を列挙し、ページが配信時に含むすべてのスクリプトの nonce 属性に同じ値を持たせるポリシーです。ブラウザーはその値を持つスクリプトだけを実行するので、値を知り得ないクロスサイトスクリプティングのバグを通じて挿入されたスクリプトはブロックされます。CSP3 の仕様は、ポリシーを送るたびに新しい値を使うこと、そしてその値を暗号論的に安全な乱数生成器による 128 ビット以上のものにすることを求めています。
+  - question: nonce とハッシュのどちらを使うべきですか？
+    answer: >-
+      リクエストごとにレンダリングするページには nonce、キャッシュされて変更なしに配信されるページにはハッシュを使います。これは web.dev の助言でもあります。Cloudflare では nonce を選ぶ理由がもう 1 つあります。Bot Fight Mode の JavaScript Detections のようにエッジが挿入するスクリプトは、レスポンスヘッダーのポリシーからしか nonce を受け取れず、meta タグからは決して受け取れません。また、ハッシュのポリシーでは内容が変わるスクリプトをカバーできません。saasyland.com はプリレンダリング済みのページでハッシュを使うところから始め、この理由で nonce に移行しました。
+  - question: nonce のポリシーで unsafe-inline は危険ですか？
+    answer: >-
+      nonce かハッシュがあれば危険ではありません。ポリシーにそれがあると、最近のブラウザーはすべて unsafe-inline を無視し、strict-dynamic によっても無視されます。unsafe-inline がポリシーに残っているのは、どちらも理解しない非常に古いブラウザーのためのフォールバックとしてだけです。nonce もハッシュもなく unsafe-inline だけがあると、あらゆるインラインスクリプトが実行でき、ポリシーは何も守りません。
+  - question: strict-dynamic は何をしますか？
+    answer: >-
+      nonce かハッシュで信頼したスクリプトが、たとえばバンドラーのチャンクやベンダーのピクセルといったさらなるスクリプトを、そのホストを列挙せずに読み込めるようにします。その代わり、ホストとスキームの許可リスト、self、unsafe-inline は無視され、document.write で書き込まれたものなど、HTML パーサーが挿入したスクリプトは信頼されません。
+  - question: nonce を含む HTML ページをキャッシュできますか？
+    answer: >-
+      共有キャッシュには保存できず、検証子を付けることもできません。nonce はレスポンスごとに新しくなければならず、キャッシュされたページは古い nonce を繰り返すからです。saasyland.com はすべての HTML レスポンスを private, no-cache で、ETag も Last-Modified も付けずに送ります。そのため、ブラウザーが保存したページを再検証して、古い本文と新しい nonce を組み合わせる 304 を受け取ることはありません。HTML を CDN でキャッシュしなければならない場合は、ハッシュを使うか、各コピーがキャッシュから送り出されるときにエッジで nonce を加えてください。
+  - question: ポリシーを meta タグに書けますか？
+    answer: >-
+      ほとんどのディレクティブは書けますが、frame-ancestors、report-uri、sandbox は meta 要素では無視され、レポート専用モードもそこには存在しません。また、meta のポリシーでも nonce はレスポンスごとに変えなければなりません。Cloudflare では、JavaScript Detections が meta タグで設定された nonce に対応していないため、それが挿入するスクリプトはブロックされてしまいます。ポリシーはレスポンスヘッダーとして送ってください。
+  - question: サイトを壊さずに Content Security Policy を導入するにはどうすればよいですか？
+    answer: >-
+      まず Content-Security-Policy-Report-Only として送ります。これは何もブロックせずに違反を報告するもので、レポートのエンドポイントを Reporting-Endpoints ヘッダーで宣言し、report-to ディレクティブでその名前を指定します。レポートが示す問題を直してから、同じポリシーを Content-Security-Policy として送ります。強制しているポリシーの横にレポート専用のポリシーを置いておけば、次の締め付けを試せます。
+  - question: TanStack Start、Next.js、React に CSP の nonce を追加するにはどうすればよいですか？
+    answer: >-
+      リクエストが届く場所で nonce を作り、レンダラーに渡します。React のストリーミングレンダラーは、出力するスクリプトのための nonce オプションを受け取ります。Next.js は、プロキシが設定する Content-Security-Policy リクエストヘッダーから nonce を読み取り、nonce を使うページには動的レンダリングを必要とします。TanStack Start は nonce をリクエストコンテキストとして受け取り、ssr.nonce としてルーターに渡します。ルーターはそれを自身のスクリプトに付けて csp-nonce の meta タグに書き込み、ブラウザーでそのタグを読み戻します。
+  - question: 厳格な CSP があっても Trusted Types は必要ですか？
+    answer: >-
+      Trusted Types は、問題のもう半分を解決します。厳格なポリシーはページに挿入されたスクリプトを止め、require-trusted-types-for で有効にする Trusted Types は、文字列が innerHTML などの DOM シンクに届くのを止めます。web.dev は Trusted Types が厳格な CSP を非常によく補完するとしており、MDN はこのディレクティブを、2026年に現在のブラウザーで新たに利用可能になったものとしています。
+  - question: Content Security Policy はどうテストしますか？
+    answer: >-
+      本番ビルドに対して、実際のブラウザーでテストします。saasyland.com のブラウザーテストのスイートは、すべての securitypolicyviolation イベントを記録してページが 1 つでも報告したスペックを失敗させ、レスポンスごとに異なる nonce がヘッダーとすべてのスクリプトに付いていることを確認し、配信されたページに 2 つのスクリプトを挿入して、ヘッダーの nonce を持つものは実行され、持たないものはブロックされることを証明します。
+  - question: saasyland.com のポリシーを自分のプロジェクトで使えますか？
+    answer: >-
+      {generation, select, available {はい。ポリシー、リライター、ブラウザーテストは MIT ライセンスで saasyland.com の公開ソースにあり、{initCommand} は、それらが前提とするプラットフォームである Cloudflare Workers 向けに TanStack Start のプロジェクトを書き出します。} other {はい。ポリシー、リライター、ブラウザーテストは MIT ライセンスで saasyland.com の公開ソースにあります。SaaSy Land のプロジェクト生成は今後のリリースで提供予定で、それらが前提とするプラットフォームである Cloudflare Workers 上の TanStack Start から始まります。}}
+---
+
+<Callout title="この記事の内容">
+
+HTML をレンダリングするあらゆるチームに向けた、厳格な Content Security Policy を導入するための実践ガイドです。ポリシーが止められるものと止められないもの、ブラウザーに回避されないポリシーの作り方、そしてサイトとそのサードパーティが変わっても機能し続けるようにする方法を説明します。各セクションでは、まずルールを示し、次に saasyland.com が Cloudflare Worker 上でそれをどう適用しているかを、公開ソースの実際のファイルパスと抜粋とともに示します。次の内容を扱います。
+
+1. ポリシーが守るものと、nonce やハッシュが機能する場面で許可リストが失敗する理由。
+2. nonce とハッシュの選び方と、厳格なポリシーの構造。
+3. nonce の正しい生成と、React、Next.js、TanStack Start への受け渡し。
+4. プリレンダリング済みのページ、スクリプトを挿入する CDN、nonce を含むページのキャッシュ。
+5. サードパーティのスクリプト、`eval`、そしてそれを必要とするライブラリ。
+6. レポート専用モードでの導入、ブラウザーでのテスト、ポリシーを無効にしてしまうミス、そしてそのまま使えるポリシーとチェックリスト。
+
+</Callout>
+
+_最終確認日：2026年11月20日。標準の内容は CSP Level 3 の仕様、MDN、web.dev に、Cloudflare、React、Next.js、Stripe、Google Tag Manager、Polar の動作はそれぞれ自身のドキュメントに基づいており、いずれも同日に確認して出典を末尾にリンクしています。saasyland.com に関する記述はすべて、そのコードに基づいています。ここで説明する詳細はすべて、すでにそのソースで公開されているものです。書き出すことでレビューしやすくはなりますが、攻撃しやすくなるわけではありません。_
+
+## 結論から
+
+ポリシーはレスポンスヘッダーで送り、決して meta タグだけで済ませないでください。HTML レスポンスごとに 128 ビット以上の新しいランダムな nonce を生成し、`'strict-dynamic'` と一緒に `script-src` に入れ、ページが配信時に含むすべてのスクリプトに同じ値を付けます。`object-src 'none'` と `base-uri 'none'` を追加し、ページをフレームに埋め込ませる必要がない限り `frame-ancestors 'none'` も追加します。キャッシュされたページは古い nonce を繰り返すので、共有キャッシュに HTML を保存させてはいけません。まずレポート専用モードで導入し、本番ビルドに対してブラウザーでテストし、違反が 1 つでもあれば実行を失敗させてください。
+
+これが Google の strict CSP で、web.dev はこれを `script-src 'nonce-{RANDOM}' 'strict-dynamic'; object-src 'none'; base-uri 'none';` と書いています。このガイドの残りでは、静的ファイルであるページや自分で書いていないスクリプトも含め、実際のアプリケーションのすべてのページでこれを実現するために必要なことを説明します。
+
+## Content Security Policy が守るものと守らないもの
+
+Content Security Policy は、ページがどのリソースを読み込んで実行してよいかをブラウザーに伝えるヘッダーです。主な役割はクロスサイトスクリプティングの封じ込めです。エスケープし忘れたテンプレート、Markdown のレンダラー、保存されたコメント、脆弱な依存関係などを通じて、攻撃者がページにマークアップを入れ込むことに成功したとき、良いポリシーは、挿入されたスクリプトをブラウザーが実行するのを止めます。
+
+ここから 3 つのことが言えます。
+
+**ポリシーは修正ではなく多層防御です。** 挿入そのものを取り除くのではなく、挿入を悪用することをはるかに難しくします。出力のエスケープ、ユーザーから受け取る HTML のサニタイズ、依存関係の更新は続けてください。そのどれかが失敗した日に助けてくれるのがポリシーです。
+
+**被害が生じるのはスクリプトです。** 挿入されたスクリプトは、ページを読み、サインイン中のユーザーとして振る舞い、見つけたものをどこにでも送れます。スタイル、画像、接続の制限も役に立ちますが、`script-src` を正しく設定したポリシーは最も重要な攻撃を防ぎ、それを誤ったポリシーはほとんど何も防ぎません。
+
+**スクリプトを使わない挿入もあります。** CSP3 の仕様は、「ページの正当な nonce を挿入に転用するために使われうる」「ダングリングマークアップ攻撃」と、CSS の属性セレクターによる nonce の窃取を取り上げています。後者に対してブラウザーは、「nonce を要素のコンテンツ属性から隠し、内部スロットに移す」ことで対抗しています。厳格なポリシーはこれらの攻撃の余地を狭めますが、HTML の挿入を無害にするわけではありません。
+
+## 許可リストが失敗し、厳格なポリシーが機能する理由
+
+ウェブ上のポリシーの多くは、`script-src 'self' https://cdn.example.com https://analytics.example.com` のように信頼するホストを列挙しています。web.dev は、それでは不十分な理由を説明しています。ホストの許可リストは「ほとんどの構成で回避できるため、ページを XSS にさらしたままにすることが多い」のです。JSONP のエンドポイント、既知のスクリプトガジェットを持つ古いバージョンのライブラリ、ほかの顧客がアップロードしたファイルを配信する許可済みのホストは、どれも攻撃者が選んだコードをポリシーのもとで実行する手段になります。そして、ベンダーを追加するたびにリストは長くなり、ポリシーは弱くなります。
+
+厳格なポリシーは、ホストではなくスクリプトを信頼します。ページが配信時に含む各スクリプトは、あなたがそこに置いたという証拠を持っています。レスポンスごとに変わるので攻撃者が知り得ない値である nonce か、自分が書いたスクリプトそのものにしか一致しないハッシュです。その証拠を持たないスクリプトは、どこから来たものであっても実行されません。
+
+残る課題は、信頼したスクリプトが読み込むスクリプト、つまりルートのチャンク、ピクセル、ウィジェットです。そのためにあるのが `'strict-dynamic'` です。MDN はこれを、「nonce やハッシュを添えることでマークアップ内のスクリプトに明示的に与えた信頼は、そのルートスクリプトが読み込むすべてのスクリプトに伝播する」と説明しています。CSP3 の仕様はその代償を付け加えています。`'strict-dynamic'` があると、ホストとスキームのソース、`'unsafe-inline'`、`'self'` は「スクリプトを読み込む際に無視され」、パーサー以外の手段で挿入されたスクリプトだけが信頼されます。そのため、`document.write()` で書き込まれたスクリプトは信頼されません。
+
+## nonce かハッシュか：判断のためのガイド
+
+どちらも、スクリプトが自分のものであることを証明します。違いは、その証明がいつ作られるかです。
+
+| ページの種類                                                     | 使うもの                             | 理由                                                                                                             |
+| ---------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| リクエストごとにサーバーでレンダリングする                       | nonce                                | レスポンスごとの新しい値には何のコストもかからず、インラインのスクリプトにも外部のスクリプトにも同じように使える |
+| 途中で誰もスクリプトを追加しない、変更なしに配信する静的ファイル | ハッシュ                             | 証明はビルド時に計算され、ファイルが変わらない限り有効                                                           |
+| スクリプトを追加する CDN やエッジの背後にある静的ファイル        | レスポンスごとにエッジで加える nonce | 自分が書いていないスクリプトのハッシュは事前に計算できず、エッジは nonce を付けられる                            |
+| CDN でキャッシュして共有しなければならない HTML                  | ハッシュ                             | 共有キャッシュに保存された nonce は再利用され、意味をなさなくなる                                                |
+
+web.dev も同じルールをそれぞれ 1 行で示しています。「サーバーでレンダリングする HTML ページには nonce ベースの CSP を使う」、そして「静的に配信する HTML ページやキャッシュが必要なページにはハッシュベースの CSP を使う」というものです。
+
+**ハッシュの仕組み。** ハッシュソースは、インラインスクリプトのテキストそのものの SHA-256、SHA-384、SHA-512 を base64 でエンコードしたもので、`script-src` に `'sha256-…'` として列挙します。スクリプトを 1 文字でも変えれば、ハッシュはもう一致しません。外部スクリプトについて MDN は、ポリシー内のハッシュがスクリプトを許可するのは「その `integrity` 属性の有効なハッシュ値がすべて、CSP ヘッダーで許可された値と一致する場合」だけだと説明しています。静的サイトでよく使われるのは web.dev が説明するパターンで、ハッシュを付けた 1 つのインラインスクリプトがほかのスクリプトを動的に読み込み、`'strict-dynamic'` が信頼を引き継ぎます。
+
+**フレームワークとのトレードオフ。** nonce を使うには、すべての HTML レスポンスの経路にサーバーが必要です。Next.js はこれを率直に書いています。nonce を使うと「すべてのページを動的にレンダリングしなければならず」、静的最適化と Incremental Static Regeneration は無効になり、「Partial Prerendering（PPR）は nonce ベースの CSP と互換性がない」のです。静的なページ向けの代替は実験的な Subresource Integrity で、ハッシュベースであり、App Router に限られます。どのフレームワークを使うにしても、これはキャッシュを設計した後ではなく、前に決めてください。
+
+## 厳格なポリシーの構造
+
+次のディレクティブがポリシーを厳格にします。値は web.dev が推奨するものに、ほぼすべてのアプリケーションに入れるべき `frame-ancestors` を加えたものです。
+
+| ディレクティブと値                         | 役割                                                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `script-src 'nonce-…'` または `'sha256-…'` | インラインでも外部でも、このレスポンスの nonce を持つスクリプトか、列挙したハッシュに一致するスクリプトだけが実行される |
+| `'strict-dynamic'`                         | それらのスクリプトは、ホストを列挙しなくてもさらにスクリプトを読み込める                                                |
+| `'unsafe-inline' https:`                   | nonce にも `'strict-dynamic'` にも対応しないブラウザーのためのフォールバック。現在のブラウザーはすべてこれらを無視する  |
+| `object-src 'none'`                        | `<object>` や `<embed>` によるプラグインを禁止する                                                                      |
+| `base-uri 'none'`                          | 挿入された `<base>` 要素が、ページの相対的なスクリプト URL を別のホストに向け直すことを防ぐ                             |
+| `frame-ancestors 'none'`                   | どのサイトもページをフレームに埋め込めないようにして、クリックジャッキングを防ぐ。ヘッダーでのみ機能する                |
+
+フォールバックは危なそうに見えますが、そうではありません。web.dev には「CSP の nonce かハッシュがあれば、最近のブラウザーはすべて `unsafe-inline` を無視する」こと、そして「`strict-dynamic` に対応するブラウザーはすべて `https:` のフォールバックを無視する」ことが書かれています。MDN はまさにこの組み合わせを説明しています。CSP1 にしか対応しないブラウザーでは `'unsafe-inline' https:` のように、CSP2 のブラウザーでは nonce 付きの `https:` のように、CSP3 のブラウザーでは `'strict-dynamic'` 付きの nonce のように動作します。古いブラウザーでは、ページが壊れるのではなく、ポリシーが弱くなるだけです。
+
+**任意だが、価値のあるもの：**
+
+- **`require-trusted-types-for 'script'`** は Trusted Types を有効にします。MDN の説明によれば、Trusted Types は `innerHTML` などの DOM シンクが「Trusted Type のポリシーが作成した、偽装できない型付きの値だけを受け付け、文字列を拒否する」ようにします。web.dev は Trusted Types が「厳格な CSP を非常によく補完する」としており、MDN はこのディレクティブを「Baseline 2026、新たに利用可能」としています。自分のコードとサードパーティのライブラリの両方で対応が必要なので、ほかの部分が機能するようになってから追加してください。
+- **`report-to`** は、`Reporting-Endpoints` ヘッダーで宣言したエンドポイントに違反のレポートを送ります。MDN によれば `report-uri` は非推奨ですが、「`report-to` はまだすべてのブラウザーで完全にはサポートされていない」ため、並べて宣言しておく価値があります。
+- **`style-src`、`img-src`、`connect-src`、`font-src`、`frame-src`** は、ページがほかに何を読み込めるか、どこにデータを送れるかを絞り込みます。特にデータの持ち出しに対しては `connect-src` が役に立ちますが、どれもベンダーが変わるたびに保守しなければならないリストです。まずはスクリプトから始めてください。
+
+### 実例：saasyland.com のポリシー
+
+値は 1 つの定数にまとめてあるので、Worker、テスト、静的なヘッダーファイルは同じ文字列を読みます。
+
+```ts title="src/modules/_core/constants/api.ts"
+export const CONTENT_SECURITY_POLICY = {
+  BASE_URI: "base-uri 'none'",
+  FRAME_ANCESTORS: "frame-ancestors 'none'",
+  OBJECT_SRC: "object-src 'none'",
+  SCRIPT_FALLBACKS: "'strict-dynamic' 'unsafe-inline' https:",
+} as const
+```
+
+すべての HTML レスポンスには、これらの値から組み立てた `documentPolicy(nonce)` が付きます。
+
+```ts title="src/lib/content-security-policy.ts"
+export const documentPolicy = (nonce: string): string =>
+  [
+    `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    CONTENT_SECURITY_POLICY.OBJECT_SRC,
+    CONTENT_SECURITY_POLICY.BASE_URI,
+    CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
+  ].join("; ")
+```
+
+HTML 以外のレスポンス、リダイレクト、Worker が R2 からストリーミングするファイルには、`base-uri`、`frame-ancestors`、`object-src` だけの基本のポリシーが付きます。このポリシーは意図的にスクリプトまでにとどめています。`style-src`、`img-src`、`font-src`、`connect-src` も、Trusted Types も、レポートのエンドポイントもなく、サイトの[セキュリティ](/docs/features/security)のページではこれらを未実装として挙げています。
+
+## nonce を正しく生成して届ける
+
+nonce の強さは、その作り方で決まります。ルールは次のとおりです。
+
+- **暗号論的に安全な生成器を使い、128 ビット以上にする。** CSP3 の仕様には、値は「（エンコード前に）少なくとも 128 ビットの長さであるべき（SHOULD）」で、「暗号論的に安全な乱数生成器によって生成されるべき（SHOULD）」とあります。Worker やブラウザーでは `crypto.getRandomValues`、Node では `crypto.randomBytes` です。`Math.random()`、タイムスタンプ、カウンターは決して使わないでください。
+- **レスポンスごとに新しく作る。** 仕様には「サーバーはポリシーを送信するたびに一意の値を生成しなければならない（MUST）」とあります。MDN はもっと簡潔に「nonce は一度だけ！」と書いています。
+- **安全にエンコードする。** MDN の例は 16 バイトのランダムな値を base64 でエンコードしていますが、16 進数でもまったく問題ありません。nonce の文法は英字と数字を受け付け、ブラウザーは値をデコードせずに単なる文字列として比較するからです。
+- **ヘッダーで送る。** ほとんどのディレクティブは `<meta>` のポリシーでも機能しますが、`frame-ancestors`、`report-uri`、`sandbox` は機能せず、レポート専用モードもそこには存在しません。また、Cloudflare のセクションで示すように、CDN の機能の中にはヘッダーからしか nonce を読み取らないものがあります。
+- **nonce を決してリクエストから導出せず**、リクエストや Cookie で届いた nonce をそのまま返すことも決してしないでください。
+- **攻撃者が制御できるテキストを nonce 付きのスクリプトの中に決して入れない。** web.dev は、nonce 付きのスクリプトの「本文や `src` パラメーターへの直接の」挿入を、厳格なポリシーの限界の 1 つとして挙げています。nonce は要素全体を信頼するので、そこに埋め込んだものも信頼されてしまいます。
+
+ページが値を受け取ったあとは、ブラウザーがそれを守ります。MDN の説明によれば、「`nonce` コンテンツ属性は隠される」ため、`getAttribute("nonce")` は空文字列を返し、値を保持するのは要素の `nonce` プロパティだけです。そのため、CSS セレクターでページから値を読み出すことはできません。
+
+### 実例：レスポンスごとに 128 ビット
+
+saasyland.com の nonce は、HTML レスポンスごとに `crypto.getRandomValues` から作る 32 文字の 16 進数で、16 バイト、つまり 128 ビットのランダムな値です。
+
+```ts title="src/lib/content-security-policy.ts"
+export const createNonce = (): string => randomHex(NONCE_LENGTH)
+```
+
+## フレームワークに nonce を渡す
+
+nonce の生成は簡単なほうの半分です。ハイドレーション用のデータを運ぶ小さなインラインスクリプトも含め、フレームワークが書き出すすべての `<script>` に nonce が必要で、コードがあとからブラウザーで追加するスクリプトにも必要です。その仕組みはフレームワークによって異なります。
+
+- **React。** `renderToReadableStream` は `nonce` オプションを受け取ります。React のドキュメントはこれを「`script-src` の Content-Security-Policy でスクリプトを許可するための nonce の文字列」と説明しており、`script` と `style` の値を別々に持つオブジェクトにもできます。
+- **Next.js。** プロキシが nonce を生成し、リクエストに `Content-Security-Policy` ヘッダーを設定します。サーバーレンダリングの間、「Next.js は `Content-Security-Policy` ヘッダーを解析して nonce を取り出し」、フレームワークのスクリプト、ページのバンドル、自身が生成するインラインスクリプトにそれを付けます。nonce を使うページは動的にレンダリングしなければなりません。
+- **TanStack Start。** サーバーのエントリーが nonce をリクエストコンテキストとして渡し、ルーターはそれを `ssr.nonce` オプションとして受け取り、TanStack Router はレンダリングするスクリプト、スタイル、リンクにそれを付けて、`<meta property="csp-nonce">` タグに書き込みます。ブラウザーでは、ルーターがハイドレーション時にこのタグを読み戻すので（[TanStack Router #5522](https://github.com/TanStack/router/pull/5522) で追加された動作です）、あとから挿入するスクリプトにも nonce が付きます。
+
+どれにも 2 つのルールが当てはまります。ページが描画される前に実行されるテーマスクリプトのように、**自分でレンダリングするスクリプトをすべて見つけ**、同じソースから nonce を渡してください。そして、クライアントのコードで nonce を読むのではなく、**ブラウザーで追加するスクリプトには `'strict-dynamic'` を頼りにしてください**。そうすれば、nonce を一度も目にしないスクリプトでも、必要なチャンクを読み込めます。
+
+### 実例：Worker 上の TanStack Start
+
+`src/server.ts` は Worker のエントリーです。TanStack Start がレンダリングするページでは、ここで nonce を作り、リクエストコンテキストとして Start のハンドラーに渡します。アセットストアで見つかったプリレンダリング済みのページでは別のことを行います。これは次のセクションで説明します。
+
+```ts title="src/server.ts"
+const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> => {
+  if ((request.method === "GET" || request.method === "HEAD") && !shouldIgnorePath(new URL(request.url).pathname)) {
+    const asset = await env.ASSETS.fetch(request)
+    if (isDocument(asset)) {
+      const nonce = createNonce()
+      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+    }
+    if (asset.status !== HTTP_STATUS.NOT_FOUND) {
+      return { policy: BASE_POLICY, response: asset }
+    }
+  }
+  const { default: handler } = await import("@tanstack/react-start/server-entry")
+  const nonce = createNonce()
+  const response = await handler.fetch(request, { context: { nonce } })
+
+  if (import.meta.env.DEV) {
+    return { policy: BASE_POLICY, response }
+  }
+
+  return { policy: documentPolicy(nonce), response }
+}
+```
+
+コンテキストには一度だけ型を付けているので、サーバー側でそれを読むすべてのコードは、nonce が文字列であることを知っています。
+
+```ts title="src/types/router.d.ts"
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: ReturnType<typeof getRouter>
+    server: { requestContext: { nonce: string } }
+  }
+  interface StaticDataRouteOption {
+    contentId?: string
+    dark?: boolean
+    namespaces?: readonly string[]
+    underHeader?: boolean
+  }
+}
+```
+
+`src/router.tsx` の `getRouter` は、`getGlobalStartContext() ?? {}` によって、リクエストの Start のコンテキストを `ssr` オプションとしてルーターに渡します。サーバーではこのコンテキストが nonce を持っており、ブラウザーではルーターが meta タグから値を見つけます。ドキュメントの中でルーターがレンダリングしない唯一のスクリプトは `__root.tsx` のテーマスクリプトで、これも nonce を含む同じ `ssr` の props を受け取ります。そのため、ページが一瞬誤ったテーマで表示されることはなく、それを避けるためにポリシーを破ることもありません。`router.test.tsx` は、ルーターがレンダリングするリクエストの nonce を受け取ること、そしてリクエストの外では nonce を受け取らないことを確認します。
+
+## 静的なページとプリレンダリング済みのページ
+
+プリレンダリングは速度には良く、nonce には悪いものです。静的ファイルはどの訪問者にも同じなので、新しい値を含めることはできません。選択肢は 3 つあります。
+
+1. **ビルド時にインラインスクリプトのハッシュを計算し**、ハッシュを含むポリシーを送ります。ホスティングでファイルごとにヘッダーを設定できるならヘッダーで、できなければ meta タグで送ります。ビルドとブラウザーの間で何もスクリプトを追加しないなら、これが正しい選択です。
+2. **ファイルが送り出されるときにエッジで nonce を加える。** 静的ファイルの前にある関数が nonce を作り、ヘッダーを設定し、HTML をストリーミングしながら書き換えて、すべてのスクリプトに nonce を付けます。ファイルはオリジンでは静的なままでキャッシュでき、変わるのはブラウザーへ向かう途中のコピーだけです。
+3. そうしたページをプリレンダリングせず、**リクエストごとにレンダリングし**、そのコストを受け入れます。
+
+### 実例：専用の nonce を持つ静的ファイル
+
+saasyland.com の公開ページの大部分、つまりランディングページ、ドキュメント、ブログ、法務ページは、ビルド時にプリレンダリングされ、`ASSETS` バインディングから配信されます。Worker は選択肢 2 を使っています。上の `render` の最初の分岐が、プリレンダリング済みの HTML レスポンスに新しい nonce を与え、その本文を `HTMLRewriter` である `withNonce` に通してストリーミングします。
+
+```ts title="src/lib/content-security-policy.ts"
+export const withNonce = (page: Response, nonce: string): Response => {
+  const nonceElement = {
+    element: (element: { setAttribute: (name: string, value: string) => unknown }): void => {
+      element.setAttribute(NONCE_ATTRIBUTE, nonce)
+    },
+  }
+
+  return new HTMLRewriter()
+    .on('script:not([type="application/ld+json"])', nonceElement)
+    .on('link[rel="modulepreload"]', nonceElement)
+    .on(`[${NONCE_ATTRIBUTE}]`, nonceElement)
+    .on('meta[property="csp-nonce"]', {
+      element: (meta) => {
+        meta.setAttribute("content", nonce)
+      },
+    })
+    .transform(page)
+}
+```
+
+このリライターは、実行可能なすべてのスクリプトとエントリーのモジュールプリロードに nonce を付け、プリレンダリングによって要素に残った nonce を上書きし、その値をルーターの `csp-nonce` タグに書き込むので、ルーターのブラウザー側もヘッダーと一致します。JSON-LD のブロックはコードではなくデータで、ブラウザーが実行することはないので、マークアップはそのままです。Cloudflare は `HTMLRewriter` を「ゼロコピーのストリーミング解析」と説明しているので、ページは先にバッファーされるのではなく、ストリーミングされながら書き換えられます。[#210](https://github.com/saasyland/saasyland.com/pull/210) でこの設計と後述のハッシュの設計を Lighthouse で比較したところ、Time to First Byte、First Contentful Paint、Largest Contentful Paint の中央値の変化はどちらの方向にも約 10 ミリ秒以下で、実行ごとのばらつきの範囲内でした。
+
+これが機能するには、Worker がアセットストアの前で実行される必要があるので、`wrangler.jsonc` はハッシュ付きのアセット、フォント、`robots.txt`、`llms.txt` を除くすべてのパスをまず Worker に送ります。そのコストについては [Cloudflare Workers で動く SaaS](/blog/saas-on-cloudflare-workers-d1-kv-r2) で説明しています。
+
+## スクリプトを追加する CDN とエッジの機能
+
+サーバーとブラウザーの間にあるものは、HTML を変更する可能性があります。それがスクリプトを追加するなら、ポリシーにはその余地が必要で、その方法は機能によって異なります。ポリシーを強制する前に、ページに手を加えるすべての機能を列挙し、それぞれに何が必要かを確認してください。
+
+Cloudflare はそのような一覧を公開しています。Content Security Policy に関するそのページでは、たとえば次のものが挙げられています。
+
+- **Rocket Loader**：`script-src 'self' ajax.cloudflare.com` が必要。
+- **Scrape Shield**：`script-src 'self' 'unsafe-inline'` が必要で、厳格なポリシーなら決して許可すべきではないもの。
+- **Web Analytics**：`script-src static.cloudflareinsights.com` と `connect-src cloudflareinsights.com` が必要。
+- **Zaraz**：変更は不要。
+- **ボット対策のプロダクト**：JavaScript Detections のドキュメントを参照するよう案内している。
+
+nonce ベースのポリシーにとって最も重要な機能は 2 つです。
+
+- **JavaScript Detections** は、Bot Fight Mode などのボット対策のプロダクトの一部で、HTML レスポンスにスクリプトを挿入します。そのドキュメントによれば、Cloudflare は「CSP のレスポンスヘッダーを解析して、挿入するスクリプトにこれらの nonce を付け」、JavaScript Detections は「`<meta>` タグで設定された `nonce` ではサポートされず」、「Bot Fight Mode の利用者では、JavaScript Detections は自動的に有効になり、無効にできない」とされています。
+- **Speed Brain** は訪問者が開きそうなページをプリフェッチする機能で、Cloudflare によれば、`strict-dynamic` や nonce を使う「制限の厳しい」ポリシーでは「動作せず」、「Workers を実行するルートではプリフェッチしない」とされています。
+
+ここから導かれるルールは次のとおりです。`'unsafe-inline'` を必要とするエッジの機能はオフにし、ヘッダーの nonce を読む機能を選び、ポリシーはヘッダーに置き、CDN を経路に含めてテストしてください。CDN を通さないステージング環境では、CDN が追加するスクリプトは見えないからです。
+
+### 実例：本番環境で壊れたハッシュの設計
+
+[#190](https://github.com/saasyland/saasyland.com/pull/190) での最初のバージョンは、判断のための表に忠実に従いました。Worker がレンダリングするページは、ヘッダーで nonce を受け取りました。プリレンダリング済みのページはハッシュを受け取りました。ビルドステップがすべてのインラインスクリプトのハッシュを計算し、エントリースクリプトをハッシュ付きの小さなローダーに置き換え、ポリシーを `<meta http-equiv="Content-Security-Policy">` タグに書き込んだのです。当時、それらのページは `ETag` 付きでキャッシュされており、nonce を書き込むと再検証が壊れてしまうため、ハッシュが慎重な選択に見えました。`frame-ancestors` はヘッダーに残しました。meta のポリシーではこれが無視されるからです。
+
+この設計はすべてのテストに合格し、本番環境で壊れました。Bot Fight Mode がオンだったので、JavaScript Detections がすべての HTML ページにスクリプトを挿入し、Cloudflare はヘッダーのポリシーからしかそのスクリプトに nonce を付けられませんでした。プリレンダリング済みのページはどれも、私たちが書いたことのないスクリプトについて違反を記録し、Worker がレンダリングしたページはすべて問題ありませんでした。
+
+[#210](https://github.com/saasyland/saasyland.com/pull/210) はハッシュの設計を上で示したエッジのリライターに置き換えたので、プリレンダリングされたものもレンダリングされたものも含め、すべての HTML レスポンスがヘッダーのポリシーに nonce を持つようになりました。ビルドステップ、meta のポリシー、ハッシュ付きのローダーは削除しました。テストのセクションで示すとおり、ブラウザーテストのスイートは現在エッジを直接再現しています。振り返ると、ミスはハッシュを選んだことではなく、本番環境のエッジが何を追加するかを確かめる前にポリシーを強制したことでした。レポート専用での導入なら、挿入されたスクリプトをブロックせずに示してくれたはずです。
+
+## nonce を含むページのキャッシュ
+
+nonce はポリシーを送るたびに新しくなければならないので、nonce を含む HTML ページを 2 回配信してはいけません。これは、あなたと読者の間にあるすべてのキャッシュに影響します。
+
+- **共有キャッシュに保存させない。** ページをキャッシュする CDN は、すべての訪問者に同じ nonce を配信し、攻撃者はそれを一度読めば再利用できます。レスポンスを `private` にするか、CDN が HTML をキャッシュしないようにしてください。
+- **ブラウザーに再検証で古い本文を使わせない。** レスポンスに `ETag` や `Last-Modified` があると、ブラウザーはあとで `304 Not Modified` を受け取り、スクリプトに前回の nonce が付いた保存済みの本文を、新しい nonce を持つ新しいヘッダーのもとで再利用することがあります。そうなると、ページ上のすべてのスクリプトが失敗します。`no-cache` を送り、検証子を取り除いてください。
+- **アセットには影響しない。** スクリプト、スタイル、フォントは引き続き 1 年間キャッシュできます。nonce はファイルの中ではなく、それを読み込むタグに付くからです。
+
+HTML を CDN でキャッシュしなければならない場合、現実的な選択肢は、エッジがスクリプトを挿入しない環境でのハッシュか、キャッシュされた各コピーが送り出されるときに新しい nonce を加えるエッジ関数です。後者は、上のリライターがプリレンダリング済みのファイルに対して行っていることです。
+
+### 実例：private で、検証子なし
+
+`src/server.ts` はすべての HTML レスポンスを private にし、静的ファイルなら残るはずの検証子を取り除きます。
+
+```ts title="src/server.ts"
+const DOCUMENT_CACHE_CONTROL = "private, no-cache"
+
+const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
+```
+
+リライターが本文の長さを変えるので、`Content-Length` も取り除きます。`/assets/` と `/fonts/` 配下のものはすべて、1 年間有効な immutable の `Cache-Control` を保ちます。
+
+## サードパーティのスクリプト
+
+厳格なポリシーの成否は、サードパーティで決まります。ほとんどは次の 4 つのパターンでまかなえます。
+
+**さらにスクリプトを追加するローダー。** アナリティクス、タグマネージャー、ピクセルは、たいていほかのスクリプトを追加する小さなスクリプトを読み込みます。最初のスクリプトに nonce を渡し、それが追加するものは `'strict-dynamic'` に信頼させます。Google は Tag Manager についてこれを説明しています。インラインのスニペットに nonce を設定すれば、「Tag Manager はページに追加するすべてのスクリプトにその nonce を伝播する」というものです。例外はカスタム JavaScript 変数で、これは「`'unsafe-eval'` ディレクティブが指定されない限り、CSP があると `undefined` と評価される」ため、Google は代わりにカスタムテンプレートを勧めています。
+
+**フレームと接続を必要とするウィジェット。** 決済フォームや地図はスクリプトを読み込むだけでなく、フレームを開き、API を呼び出します。`'strict-dynamic'` があると `script-src` のホストのソースは無視されますが、ポリシーで `frame-src` と `connect-src` を設定していれば、それらは引き続き適用されます。Stripe のセキュリティガイドは、Stripe.js について、`https://js.stripe.com` と `https://*.js.stripe.com` の `script-src`、`https://js.stripe.com`、`https://*.js.stripe.com`、`https://hooks.stripe.com` の `frame-src`、そして `https://api.stripe.com` の `connect-src` を挙げています。フレームや接続を制限するなら、こうしたリストは古いブログ記事からではなく、必ずベンダーの最新のドキュメントから写してください。
+
+**埋め込みではなくリダイレクト。** ベンダーのドメインにあるホスト型のチェックアウトやサインインのページなら、ベンダーのコードがあなたのドメインで実行されることはないので、ポリシーに例外はまったく必要ありません。ベンダーが両方を提供しているなら、セキュリティの面ではリダイレクトのほうが単純です。
+
+**厳格なポリシーのもとでは動作しないコード。** `onclick="…"` のようなインラインのイベントハンドラーや `javascript:` URL はブロックされます。web.dev は、それらを `addEventListener` を呼ぶスクリプトに移すよう助言しています。`document.write` で書き込まれるスクリプトはパーサーが挿入したものなので、`'strict-dynamic'` は信頼しません。どちらかに依存するサードパーティのタグには、例外ではなく置き換えが必要です。
+
+### 実例：リダイレクト、ピクセル、Cloudflare
+
+**Polar のチェックアウトに例外は不要です。saasyland.com のページ上では決して実行されないからです。** ワークスペースが `startCheckout` サーバー関数を呼び出し、この関数が Polar の API でチェックアウトを作成すると、ブラウザーは Polar がホストするページへ移動します。
+
+```tsx title="src/presentation/components/custom/app/checkout-consent.tsx"
+globalThis.location.href = checkout.url
+```
+
+Polar は埋め込み型のチェックアウトも提供しています。jsDelivr のスクリプトか `@polar-sh/checkout` パッケージがチェックアウトを iframe で開き、どのサイトがそれを埋め込めるかは Polar 自身の `frame-ancestors` が決めます。これは **Settings > Embedding** で設定します。厳格なポリシーのもとでは、パッケージはバンドルの一部なので何も必要なく、CDN の script タグには nonce が必要で、フレームを制限するポリシーには `frame-src` に Polar のチェックアウトのオリジンが必要です。私たちのポリシーはフレームを一切制限しておらず、リダイレクトによって決済ページはそもそもポリシーの外にあります。
+
+**アフィリエイトのピクセルは `'strict-dynamic'` を通じて読み込まれます。** 紹介パラメーター付きの訪問では、React がハイドレーションの後に Affonso のピクセルをレンダリングします。
+
+```tsx title="src/presentation/components/custom/affiliate-referral.tsx"
+return <script async data-affonso={programId} data-cookie_duration={AFFILIATE_TERMS.COOKIE_DAYS} src={AFFONSO.PIXEL_URL} />
+```
+
+React はすでに nonce 付きで実行されているスクリプトからこの要素を挿入するので、これはパーサーが挿入したものではなく、`'strict-dynamic'` によって、ピクセルのホストを許可リストに載せなくても読み込めます。TanStack Router がインポートするルートのチャンクや、canvas-confetti の blob ワーカーにも同じルールが適用されます。
+
+上で説明したとおり、**Cloudflare 自身のスクリプトはヘッダーの nonce を使い**、saasyland.com では Speed Brain をオフにしています。TanStack Router は、ポインターがリンクの上にとどまったときに、すでにそのリンクのコードとデータをプリロードしています。
+
+## `eval`、WebAssembly、ライブラリ
+
+`'unsafe-eval'` のない厳格なポリシーは、`eval()`、`new Function()`、`setTimeout` への文字列の引数をブロックします。そのままにしておいてください。web.dev は、`'unsafe-eval'` を追加すると厳格なポリシーが防げなくなる攻撃として、`eval()` と `setTimeout()` への挿入を挙げています。
+
+- **まずライブラリの eval を使わないモードを探す。** バリデーションやテンプレートのライブラリは、速度のために実行時にコードをコンパイルすることが多く、そうしないモードを用意しています。
+- **`eval` は、ツールが必要とする場合に開発環境でだけ許可する。** Next.js の説明によれば、開発環境では「React はより充実したデバッグ情報を提供するために `eval` を使う」一方、「React も Next.js も、デフォルトでは本番環境で `eval` を使わない」とされています。
+- **WebAssembly には専用のキーワードが必要。** Next.js のガイドは、WebAssembly を使うなら `'wasm-unsafe-eval'` を追加するよう求めています。これは `'unsafe-eval'` より範囲が狭いものです。
+
+### 実例：`eval` を使わない Zod
+
+#190 を作っている間、すべてのページで発生していた唯一の違反は Zod によるもので、Zod は `Function("")` でバリデーターをコンパイルできるかどうかを確認します。Zod には、それを一切試みないモードがあります。
+
+```ts title="src/integrations/zod/zod.config.ts"
+import zod from "zod/v4"
+
+zod.config({ jitless: true })
+```
+
+この呼び出しはスキーマが作られる前に実行される必要がありますが、バンドラーは当初、これをスキーマを作るチャンクの後に配置していました。そこで現在は、ビルドのルールによって、最初に読み込まれる Zod 専用のチャンクにこれを入れています。開発サーバーは、このポリシーの唯一の例外です。Vite は nonce を持たないインラインスクリプトを挿入するので、開発中の Worker は基本のポリシーだけを送ります。本番ビルドに対してテストするのはそのためです。
+
+## 本番環境を壊さずに導入する
+
+必要なスクリプトをブロックするポリシーは、すべての人に対して一度にサイトを壊します。段階的に導入してください。
+
+1. **棚卸し。** ページが読み込むすべてのスクリプト、すべてのインラインスクリプト、すべてのサードパーティ、HTML に手を加えるすべてのエッジの機能を列挙します。
+2. **レポートのみ。** ポリシーを `Content-Security-Policy-Report-Only` として送ります。MDN はこれを、「特定の Content-Security-Policy を適用して強制する前に、違反をテストしたり修正したりする」ための方法と説明しています。ブラウザーは何もブロックせず、すべてを報告します。
+3. **レポートを集める。** `Reporting-Endpoints` ヘッダーでエンドポイントを宣言し、`report-to` でその名前を指定し、`report-to` に対応しないブラウザーのために `report-uri` も並べておきます。MDN によれば、「レポートを送るには `report-to` ディレクティブを指定しなければならない」とされています。ブラウザーの拡張機能によるノイズは避けられないので、多くの訪問者に共通するパターンを探してください。
+4. **レポートが示す問題を直す。** 足りない場所に nonce を加え、インラインのハンドラーをスクリプトに移し、`'unsafe-inline'` や `'unsafe-eval'` を必要とするタグを置き換えます。
+5. **強制する。** 同じポリシーを `Content-Security-Policy` として送ります。その横にレポート専用のポリシーを置いておけば、Trusted Types や `connect-src` のリストといった次の締め付けを、リスクなしに試せます。
+6. **リリースのたびに見守る。** ポリシーが壊れるのは、新しい依存関係や新しいベンダーのスクリプトです。レポートを受け取り続け、後述のブラウザーテストを CI に残しておいてください。
+
+web.dev の導入手順も同じように締めくくられています。まず「レポート専用モードで」デプロイし、確信が持てたら強制します。また、結果を CSP Evaluator か Lighthouse で確認するよう勧めています。Lighthouse の Best Practices の監査は、ポリシーが十分に厳格かどうかを報告します。
+
+saasyland.com は手順 2 と 3 を行わず、その結果が上のインシデントです。ブラウザーテストは、アプリケーション自身が引き起こした違反はすべて捕まえました。エッジが追加したスクリプトを捕まえられたのは、本番環境でのレポート専用の段階だけだったはずです。
+
+## ポリシーをコードと同じようにテストする
+
+ポリシーはどのコミットでも退行しうる設定なので、コードと同じように、実際のブラウザーで、本番ビルドに対してテストしてください。
+
+- **違反が 1 つでもあれば、どのブラウザーテストも失敗させる。** すべてのページで `securitypolicyviolation` イベントを監視し、それを検知したテストを失敗させます。そうすれば、ポリシーを破る新しいページ、依存関係、サードパーティのスクリプトは、それを最初に訪れたテストを失敗させます。
+- **nonce そのものを確認する。** ページを 2 回リクエストし、ヘッダーが変わったこと、そして実行可能なすべてのスクリプトがヘッダーの値を持つことを検証します。
+- **ポリシーがブロックすることを証明する。** 配信されたページに nonce のないスクリプトを挿入し、それが実行されず、報告されたことを検証します。何もブロックしないポリシーは、ほかのテストにはすべて合格してしまいます。
+- **エッジを再現する。** CDN がスクリプトを追加するなら、ヘッダーの nonce を持つスクリプトを挿入し、それが実行されることを検証します。
+- **複数のエンジンで実行する。** Chromium と WebKit は細かなケースで挙動が異なります。たとえば #190 では、WebKit が許可したハッシュのポリシーのもとで、Chromium が動的な `import()` のローダーをブロックすることがわかりました。
+
+### 実例：3 層のテスト
+
+**違反が 1 つでもあれば、どのスペックも失敗します。** スイートの共有フィクスチャは、すべてのページで `securitypolicyviolation` イベントを監視し、報告されたものがあれば最後にスペックを失敗させます。
+
+```ts title="e2e/fixtures/test.ts"
+  cspViolations: [
+    async ({ context }, runWith) => {
+      const violations: string[] = []
+      context.on("console", (message) => {
+        if (message.text().startsWith(CSP_VIOLATION)) violations.push(message.text())
+      })
+      await context.addInitScript(reportCspViolations, CSP_VIOLATION)
+      await runWith(violations)
+      expect(violations, "No page may break its Content Security Policy").toEqual([])
+    },
+    { auto: true },
+  ],
+```
+
+**専用のスペックが nonce を確認します。** `e2e/specs/content-security-policy.spec.ts` は、プリレンダリング済みのページ 3 つとレンダリングされるページ 2 つを、それぞれ 2 回ずつリクエストします。そして、ヘッダーが `documentPolicy(nonce)` と等しいこと、2 回目のレスポンスの nonce が異なること、JSON-LD を除くすべてのスクリプトとモジュールプリロードがヘッダーの nonce を持つこと、`csp-nonce` タグが一致すること、meta のポリシーがないこと、レスポンスが `ETag` なしの `private, no-cache` であることを確認します。続いて、このポリシーのもとで管理コンソールにサインインし、顧客のチェックアウトを最後まで進めます。
+
+**エッジの役を演じるスペックもあります。** `e2e/specs/edge-scripts.spec.ts` は、配信されたページを Cloudflare と同じように書き換え、ヘッダーの nonce を持つスクリプトと持たないスクリプトを 1 つずつ追加します。
+
+```ts title="e2e/specs/edge-scripts.spec.ts"
+for (const path of [ROUTES.HOME, ROUTES.SIGN_IN]) {
+  test(`on ${path}, a script the edge adds with the header's nonce runs, and one without the nonce is blocked`, async ({
+    appPage,
+    cspViolations,
+    page,
+  }) => {
+    await page.route(path, async (route) => {
+      const response = await route.fetch()
+      const nonce = NONCE.exec(response.headers()[POLICY_HEADER] ?? "")?.groups?.["nonce"] ?? ""
+      const scripts = `<script nonce="${nonce}">window.__edge = true</script><script>window.__injected = true</script>`
+      await route.fulfill({ body: (await response.text()).replace("</body>", `${scripts}</body>`), response })
+    })
+
+    await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    expect(await page.evaluate(() => [Reflect.get(window, "__edge"), Reflect.get(window, "__injected")])).toEqual([true, undefined])
+    await expect.poll(() => cspViolations.length).toBe(1)
+    expect(cspViolations.splice(0)).toEqual([expect.stringContaining("script-src")])
+  })
+}
+```
+
+プリレンダリング済みのページでもレンダリングされるページでも、1 つ目のスクリプトは実行され、2 つ目はブロックされて `script-src` の違反として報告されなければなりません。プルリクエストではこのスイートを Chromium で実行し、`main` へのプッシュのたびに WebKit で実行し、スケジュールで両方を実行します。`server.test.ts` と `content-security-policy.test.ts` のユニットテストは、ポリシーの文字列、レスポンスごとの新しい nonce、リライターのすべての分岐をカバーしています。
+
+## ポリシーを知らないうちに無効にしてしまうミス
+
+1. **nonce もハッシュもない `'unsafe-inline'`。** 挿入されたものも含め、あらゆるインラインスクリプトが実行されます。nonce があれば無害なフォールバックですが、なければポリシー全体が役目を放棄しているのと同じです。
+2. **nonce の再利用。** 設定で固定された nonce、ビルドに焼き込まれた nonce、キャッシュされたページとともに保存された nonce は、攻撃者が一度読めば再利用できる定数です。
+3. **唯一の防御としてのホストの許可リスト。** JSONP のエンドポイントや古いライブラリを持つ許可済みのホストは、どれも侵入口になります。
+4. **`'strict-dynamic'` と並べた許可リスト。** `'strict-dynamic'` に対応するブラウザーはホストとスキームのソースを無視するので、そのリストは何も守らず、次に読む人を誤解させます。
+5. **エッジがスクリプトを挿入する環境での meta のポリシー。** CDN は meta タグから nonce を読み取れず、`frame-ancestors`、`report-uri`、`sandbox` もそこでは何の効果もありません。
+6. **検証子付きでの HTML のキャッシュ。** `304` は古い nonce を持つ保存済みの本文を新しいヘッダーのもとで再利用し、ページ上のすべてのスクリプトが失敗します。
+7. **nonce 付きのスクリプトへのユーザー入力の埋め込み。** nonce は要素全体を信頼するので、そこに埋め込んだ値はあなたの権限で実行されます。
+8. **1 つのライブラリのための `'unsafe-eval'` の追加。** Zod の `jitless` が示すように、まずライブラリの設定を探してください。
+9. **インラインのイベントハンドラーと `javascript:` URL を残すこと。** 厳格なポリシーはこれらをブロックします。スクリプトに移してください。
+10. **`document.write` のローダーを信頼すること。** これらはパーサーが挿入したものなので、`'strict-dynamic'` は信頼を引き継ぎません。
+11. **レポートより先の強制。** 本番環境でのレポート専用の段階がなければ、見落としたスクリプトの最初の兆候は壊れたページです。
+12. **開発環境だけでのテスト。** 開発サーバーは、自身のスクリプトに nonce を付けられないことがよくあります。本番ビルドをテストし、違反が 1 つでもあれば実行を失敗させてください。
+
+## そのまま使えるポリシーとチェックリスト
+
+サーバーでレンダリングするアプリケーションのための、レポート付きの厳格なポリシーです。
+
+```http
+Reporting-Endpoints: csp="https://example.com/csp-reports"
+Content-Security-Policy: script-src 'nonce-{RANDOM}' 'strict-dynamic' 'unsafe-inline' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; report-uri https://example.com/csp-reports; report-to csp
+```
+
+`{RANDOM}` はレスポンスごとに 128 ビット以上のランダムな新しい値に置き換え、同じ値をすべてのスクリプトに付け、まずは同じポリシーを `Content-Security-Policy-Report-Only` で送るところから始めてください。
+
+**強制する前に**
+
+- インラインのデータやテーマスクリプトも含め、サーバーがレンダリングするすべてのスクリプトがこのレスポンスの nonce を持っている
+- ブラウザーで追加するスクリプトは、`document.write` ではなく `'strict-dynamic'` を通じて読み込まれる
+- インラインのイベントハンドラーや `javascript:` URL が残っていない
+- HTML に手を加えるエッジの機能がすべて列挙され、どれも `'unsafe-inline'` を必要としない
+- サードパーティのスクリプトは nonce 付きのローダーから始まり、フレームや接続を制限している場合はそれらが許可されている
+- 本番環境で `'unsafe-eval'` を必要とするライブラリがない
+- ポリシーを本番環境のレポート専用モードで動かし、そのレポートを理解している
+
+**配信**
+
+- ポリシーは meta タグだけでなく、レスポンスヘッダーで送られている
+- nonce はレスポンスごとに新しく、安全な生成器から作られ、128 ビット以上ある
+- nonce を含む HTML は `private` で、`ETag` も `Last-Modified` も持たない
+- 静的ファイルであるページは、エッジで nonce を受け取るか、途中で何も追加されない状態でハッシュのポリシーを使う
+
+**テスト**
+
+- 違反があれば、どのブラウザーテストも失敗する
+- 2 つのレスポンスが、ヘッダーとすべてのスクリプトで異なる nonce を持つことをテストで確認している
+- nonce のないスクリプトを挿入し、それがブロックされることを検証するテストがある
+- スイートは本番ビルドに対して、複数のブラウザーエンジンで実行される
+
+## saasyland.com のポリシーがまだ行っていないこと
+
+このポリシーはスクリプトのためのものです。スタイル、画像、フォント、接続は制限せず、Trusted Types もなく、訪問者のブラウザーから違反のレポートを収集しないので、テストスイートが到達しない違反は気づかれないままになります。最も役に立つ次の一歩はレポートのエンドポイントで、その次が Trusted Types です。どちらも[セキュリティ](/docs/features/security)のページで未実装として管理しています。
+
+SaaSy Land の CLI はベータ版です。現在はライセンスを有効化します。プロジェクト生成は今後のリリースで提供予定で、Cloudflare Workers 上の TanStack Start から始まり、どのオプションが提供されるかは[コンフィギュレーター](/#cli)で確認できます。それまでの間も、ここで説明したポリシー、リライター、テストは MIT ライセンスで公開されています。
+
+## 関連記事
+
+<Cards>
+
+<Card title="Cloudflare Workers で動く SaaS：D1、KV、R2" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  このポリシーが動く Worker と、そのバインディング、コールドスタート、上限、コスト。
+</Card>
+
+<Card title="SaaS のための TanStack Start と Next.js の比較" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  これらのページをレンダリングするフレームワークと、両フレームワークが経験したセキュリティインシデント。
+</Card>
+
+<Card title="Better Auth、Clerk、Auth.js の比較" href="/blog/better-auth-vs-clerk-vs-authjs">
+  同じ Worker と同じポリシーの中で動き、許可すべきホスト型のウィジェットがないサインイン。
+</Card>
+
+<Card title="AI コーディングエージェントに向けたリポジトリの準備" href="/blog/ai-coding-agents-repository-readiness">
+  エージェントがコードを書くとき、違反のフィクスチャのような自動チェックがより重要になる理由。
+</Card>
+
+</Cards>
+
+<Callout title="ポリシーとそのテストを読んでください">
+
+ポリシー、リライター、ブラウザーテストは saasyland.com の公開ソースにあり、[セキュリティ](/docs/features/security)のページがすべてのヘッダーを説明しています。[コンフィギュレーター](/#cli)でスタックを選び、[各プランの料金を確認してください](/#pricing)。<TierPrice tier="core" /> からの一回払いで、各カードに今すぐ使えるものと提供予定のものが示されています。プロジェクト生成の提供開始を知りたい場合は、このページの下部にある開発日誌に登録してください。
+
+</Callout>
+
+## よくある質問
+
+<PostFaq entries={frontmatter.faq} />
+
+### 出典
+
+- 標準：[Content Security Policy Level 3](https://www.w3.org/TR/CSP3/) の 2026年10月27日付けのワーキングドラフト、MDN の [`script-src`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src)、[`nonce` 属性](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/nonce)、[`Content-Security-Policy-Report-Only`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only)、[`require-trusted-types-for`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/require-trusted-types-for) のページ、web.dev の[厳格な Content Security Policy でクロスサイトスクリプティングを軽減する](https://web.dev/articles/strict-csp)
+- Cloudflare：[Content Security Policy と Cloudflare のプロダクト](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/content-security-policies/)、[JavaScript Detections](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/)、[Speed Brain](https://developers.cloudflare.com/speed/optimization/content/speed-brain/)、[HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/)
+- フレームワーク：React の [`renderToReadableStream`](https://react.dev/reference/react-dom/server/renderToReadableStream)、Next.js の [Content Security Policy のガイド](https://nextjs.org/docs/app/guides/content-security-policy)、TanStack Router の[ハイドレーション時に nonce を読み取るプルリクエスト](https://github.com/TanStack/router/pull/5522)
+- サードパーティ：Google の [Tag Manager と Content Security Policy のガイド](https://developers.google.com/tag-platform/security/guides/csp)、Stripe の[インテグレーションのセキュリティガイド](https://docs.stripe.com/security/guide#content-security-policy)、Polar の[埋め込み型のチェックアウト](https://polar.sh/docs/features/checkout/embed)
+- SaaSy Land：[セキュリティ](/docs/features/security)と [Cloudflare Workers](/docs/integrations/cloudflare-workers) のページ、そして [#190](https://github.com/saasyland/saasyland.com/pull/190) と [#210](https://github.com/saasyland/saasyland.com/pull/210) のプルリクエスト
+
+_執筆者は、このポリシーのもとで saasyland.com を運営している Piotr J. Borowiecki です。標準と各ベンダーのドキュメントは 2026年11月20日に読み取ったもので、その後変更されている可能性があります。リンクはスクリーンショットではなく出典を指しています。古くなっている情報や誤りがあればお知らせください。修正します。_

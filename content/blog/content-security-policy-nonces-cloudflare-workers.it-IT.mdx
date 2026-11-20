@@ -1,0 +1,592 @@
+---
+title: "Content Security Policy con nonce su Cloudflare Workers"
+description: "Una guida pratica a una Content Security Policy rigorosa basata sui nonce: cosa blocca, nonce o hash, strict-dynamic, framework, pagine statiche, CDN che iniettano script, cache, script di terze parti, introduzione graduale e test, con il Cloudflare Worker di saasyland.com come esempio concreto."
+excerpt: "Una Content Security Policy blocca gli script iniettati solo se i tuoi script possono dimostrare di appartenere alla pagina, e la maggior parte delle policy sul web non ci riesce. Questa guida spiega come funziona una policy rigorosa basata sui nonce, come scegliere tra nonce e hash, come portare il nonce nel tuo framework, nelle pagine statiche e negli script di terze parti, come introdurla e testarla, e quali errori la disattivano senza che nessuno se ne accorga, con il codice, l’incidente e i test che stanno dietro la policy di saasyland.com su Cloudflare Workers."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
+tags:
+  - security
+  - tanstack-start
+  - architecture
+faq:
+  - question: Cos’è una Content Security Policy basata sui nonce?
+    answer: >-
+      Una policy il cui script-src elenca un valore casuale che cambia a ogni risposta, mentre ogni
+      script con cui viene servita la pagina porta lo stesso valore nel suo attributo nonce. Il
+      browser esegue solo gli script che lo portano, quindi uno script iniettato tramite un bug di
+      cross-site scripting, che non può conoscere il valore, viene bloccato. La specifica CSP3
+      richiede un valore nuovo ogni volta che una policy viene inviata, di almeno 128 bit e
+      prodotto da un generatore di numeri casuali crittograficamente sicuro.
+  - question: Dovrei usare i nonce o gli hash?
+    answer: >-
+      I nonce per le pagine renderizzate a ogni richiesta, gli hash per le pagine messe in cache e
+      servite senza modifiche, che è anche il consiglio di web.dev. Su Cloudflare c’è un motivo in
+      più per preferire i nonce: gli script che l’edge inietta, come le JavaScript Detections di Bot
+      Fight Mode, ricevono un nonce solo dalla policy nell’header della risposta, mai da un meta
+      tag, e una policy basata sugli hash non può coprire uno script che cambia. saasyland.com è
+      partito con gli hash sulle pagine prerenderizzate ed è passato ai nonce proprio per questo.
+  - question: unsafe-inline è davvero insicuro in una policy con nonce?
+    answer: >-
+      Non quando è presente un nonce o un hash: ogni browser recente ignora unsafe-inline quando la
+      policy ne ha uno, e anche strict-dynamic lo fa ignorare. Resta nella policy solo come fallback
+      per browser molto vecchi che non capiscono né l’uno né l’altro. Da solo, senza un nonce o un
+      hash, unsafe-inline lascia eseguire qualsiasi script inline e la policy non protegge nulla.
+  - question: Cosa fa strict-dynamic?
+    answer: >-
+      Permette a uno script a cui hai dato fiducia con un nonce o un hash di caricare altri script,
+      per esempio i chunk del tuo bundler o il pixel di un fornitore, senza elencarne gli host. In
+      cambio, le allowlist di host e di schema, self e unsafe-inline vengono ignorati, e gli script
+      inseriti dal parser HTML, come quelli scritti con document.write, non sono considerati
+      attendibili.
+  - question: Posso mettere in cache una pagina HTML che porta un nonce?
+    answer: >-
+      Non in una cache condivisa, e non con i validatori. Un nonce deve essere nuovo a ogni
+      risposta, e una pagina in cache ne ripete uno vecchio. saasyland.com invia ogni risposta HTML
+      con private, no-cache e senza ETag né Last-Modified, così il browser non rivalida mai una
+      pagina salvata ottenendo un 304 che abbina un vecchio corpo a un nuovo nonce. Se il tuo HTML
+      deve essere messo in cache su una CDN, usa gli hash, oppure aggiungi il nonce sull’edge mentre
+      ogni copia esce dalla cache.
+  - question: Posso mettere la policy in un meta tag?
+    answer: >-
+      Per la maggior parte delle direttive sì, ma frame-ancestors, report-uri e sandbox vengono
+      ignorati in un elemento meta, lì la modalità report-only non esiste, e un nonce in una policy
+      meta deve comunque cambiare a ogni risposta. Su Cloudflare, JavaScript Detections non supporta
+      i nonce impostati tramite meta tag, quindi gli script che inietta verrebbero bloccati. Invia la
+      policy come header della risposta.
+  - question: Come introduco una Content Security Policy senza rompere il mio sito?
+    answer: >-
+      Inviala prima come Content-Security-Policy-Report-Only, che segnala le violazioni senza
+      bloccare nulla, con un endpoint per i report dichiarato in un header Reporting-Endpoints e
+      indicato nella direttiva report-to. Correggi ciò che mostrano i report, poi invia la stessa
+      policy come Content-Security-Policy. Puoi tenere una policy report-only accanto a quella
+      applicata per provare la stretta successiva.
+  - question: Come aggiungo un nonce CSP a TanStack Start, Next.js o React?
+    answer: >-
+      Crea il nonce dove arriva la richiesta e passalo al renderer. I renderer in streaming di React
+      accettano un’opzione nonce per gli script che emettono. Next.js legge il nonce dall’header di
+      richiesta Content-Security-Policy impostato dal suo proxy, e richiede il rendering dinamico per
+      le pagine che ne usano uno. TanStack Start lo riceve come contesto della richiesta e lo passa
+      al router come ssr.nonce, che lo applica agli script del router e lo scrive in un meta tag
+      csp-nonce che il router rilegge nel browser.
+  - question: Mi servono ancora i Trusted Types con una CSP rigorosa?
+    answer: >-
+      Risolvono un’altra metà del problema. Una policy rigorosa blocca gli script iniettati nella
+      pagina; i Trusted Types, attivati con require-trusted-types-for, impediscono alle stringhe di
+      arrivare ai sink del DOM come innerHTML. web.dev dice che i Trusted Types completano molto bene
+      una CSP rigorosa, e MDN indica la direttiva come disponibile da poco in tutti i browser attuali
+      nel 2026.
+  - question: Come si testa una Content Security Policy?
+    answer: >-
+      In un browser vero, su una build di produzione. La suite nel browser di saasyland.com
+      registra ogni evento securitypolicyviolation e fa fallire ogni spec in cui una pagina ne
+      segnala uno, verifica che ogni risposta porti un nonce diverso nel suo header e su ogni
+      script, e inietta due script in una pagina servita per dimostrare che quello con il nonce
+      dell’header viene eseguito e quello senza viene bloccato.
+  - question: Posso usare la policy di saasyland.com nel mio progetto?
+    answer: >-
+      {generation, select, available {Sì. La policy, il rewriter e i test nel browser sono nel
+      codice sorgente pubblico di saasyland.com con licenza MIT, e {initCommand} scrive progetti
+      TanStack Start per Cloudflare Workers, la piattaforma per cui sono stati scritti.} other {Sì.
+      La policy, il rewriter e i test nel browser sono nel codice sorgente pubblico di
+      saasyland.com con licenza MIT. La generazione dei progetti di SaaSy Land arriva in una
+      versione successiva e parte da TanStack Start su Cloudflare Workers, la piattaforma per cui
+      sono stati scritti.}}
+---
+
+<Callout title="Che cos’è questo articolo">
+
+Una guida pratica per distribuire una Content Security Policy rigorosa, per qualsiasi team che renderizza HTML: cosa può e non può bloccare una policy, come costruirne una che il browser non si lasci convincere ad aggirare, e come mantenerla funzionante mentre il tuo sito e le sue terze parti cambiano. Ogni sezione enuncia prima le regole e poi mostra come le applica saasyland.com su un Cloudflare Worker, con percorsi di file ed estratti reali dal suo codice sorgente pubblico. Tratta:
+
+1. Cosa protegge una policy, e perché le allowlist falliscono dove nonce e hash funzionano.
+2. Come scegliere tra nonce e hash, e l’anatomia di una policy rigorosa.
+3. Come generare correttamente i nonce e portarli in React, Next.js e TanStack Start.
+4. Pagine prerenderizzate, CDN che iniettano script e cache delle pagine che portano un nonce.
+5. Script di terze parti, `eval` e le librerie che ne hanno bisogno.
+6. L’introduzione graduale con la modalità report-only, i test nel browser, gli errori che disattivano una policy, e una policy e una checklist da copiare.
+
+</Callout>
+
+_Ultima verifica: 20 novembre 2026. Ciò che dicono gli standard proviene dalla specifica CSP Level 3, da MDN e da web.dev; ciò che fanno Cloudflare, React, Next.js, Stripe, Google Tag Manager e Polar proviene dalla loro documentazione; tutte queste fonti sono state lette quel giorno e sono linkate in fondo. Tutto ciò che riguarda saasyland.com proviene dal suo codice. Ogni dettaglio descritto qui è già pubblico in quel codice sorgente; metterlo per iscritto lo rende più facile da revisionare, non da attaccare._
+
+## La risposta breve
+
+Invia la policy in un header della risposta, mai solo in un meta tag. Genera un nuovo nonce casuale di almeno 128 bit per ogni risposta HTML, mettilo in `script-src` insieme a `'strict-dynamic'`, e metti lo stesso valore su ogni script con cui viene servita la tua pagina. Aggiungi `object-src 'none'` e `base-uri 'none'`, e `frame-ancestors 'none'` a meno che le tue pagine non debbano essere incluse in un frame. Non lasciare che una cache condivisa memorizzi l’HTML, perché una pagina in cache ripete un vecchio nonce. Introducila prima in modalità report-only, e testala in un browser su una build di produzione, facendo fallire l’esecuzione a ogni violazione.
+
+È la strict CSP di Google, che web.dev scrive come `script-src 'nonce-{RANDOM}' 'strict-dynamic'; object-src 'none'; base-uri 'none';`. Il resto di questa guida racconta cosa serve per renderla vera per ogni pagina di un’applicazione reale, comprese le pagine che sono file statici e gli script che non hai scritto tu.
+
+## Cosa protegge una Content Security Policy, e cosa no
+
+Una Content Security Policy è un header che dice al browser quali risorse una pagina può caricare ed eseguire. Il suo compito principale è contenere il cross-site scripting: quando un attaccante riesce a inserire del markup nella tua pagina, tramite un template che ha dimenticato l’escape, un renderer Markdown, un commento salvato o una dipendenza vulnerabile, una buona policy impedisce al browser di eseguire lo script che ha iniettato.
+
+Ne seguono tre cose.
+
+**Una policy è difesa in profondità, non una correzione.** Non elimina l’iniezione; la rende molto più difficile da sfruttare. Continua a fare l’escape dell’output, a sanificare l’HTML che accetti dagli utenti e ad aggiornare le dipendenze. La policy è ciò che ti salva il giorno in cui una di queste cose fallisce.
+
+**Il danno sta negli script.** Uno script iniettato può leggere la pagina, agire come l’utente che ha effettuato l’accesso e inviare ovunque ciò che trova. Limitare stili, immagini e connessioni aiuta, ma una policy che imposta bene `script-src` blocca gli attacchi che contano di più, e una policy che lo imposta male non blocca quasi nulla.
+
+**L’iniezione senza script esiste comunque.** La specifica CSP3 discute gli «attacchi di dangling markup», che «possono essere usati per riutilizzare i nonce legittimi di una pagina per delle iniezioni», e il furto del nonce tramite i selettori di attributo CSS, che i browser contrastano «nascondendo il nonce dall’attributo di contenuto dell’elemento e spostandolo in uno slot interno». Una policy rigorosa restringe questi attacchi; non rende innocua l’iniezione di HTML.
+
+## Perché le allowlist falliscono e le policy rigorose funzionano
+
+La maggior parte delle policy sul web elenca host fidati: `script-src 'self' https://cdn.example.com https://analytics.example.com`. web.dev spiega perché non basta: le allowlist di host «spesso lasciano la pagina esposta all’XSS perché nella maggior parte delle configurazioni possono essere aggirate». Qualsiasi host consentito che serve endpoint JSONP, vecchie versioni di librerie con script gadget noti o file caricati da altri clienti diventa un modo per eseguire codice scelto dall’attaccante sotto la tua policy. E ogni fornitore che aggiungi allunga la lista e indebolisce la policy.
+
+Una policy rigorosa si fida degli script invece che degli host. Ogni script con cui viene servita la tua pagina porta la prova che ce l’hai messo tu: un nonce, un valore che l’attaccante non può conoscere perché cambia a ogni risposta, oppure un hash, che corrisponde solo allo script esatto che hai scritto. Gli script senza quella prova non vengono eseguiti, da qualunque parte arrivino.
+
+Il pezzo mancante sono gli script che caricano i tuoi script fidati: chunk delle route, un pixel, un widget. A questo serve `'strict-dynamic'`. MDN lo descrive così: «la fiducia data esplicitamente a uno script presente nel markup, accompagnandolo con un nonce o un hash, deve essere propagata a tutti gli script caricati da quello script radice». La specifica CSP3 aggiunge il prezzo: con `'strict-dynamic'`, le sorgenti di host e di schema, `'unsafe-inline'` e `'self'` «verranno ignorate durante il caricamento degli script», e sono considerati attendibili solo gli script inseriti con mezzi diversi dal parser, quindi uno script scritto con `document.write()` non lo è.
+
+## Nonce o hash: una guida alla scelta
+
+Entrambi dimostrano che uno script è tuo. Differiscono nel momento in cui viene prodotta la prova.
+
+| Le tue pagine                                                                             | Usa                                           | Perché                                                                                                    |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Renderizzate sul server per ogni richiesta                                                | I nonce                                       | Un valore nuovo per ogni risposta non costa nulla, e copre allo stesso modo script inline ed esterni      |
+| File statici serviti senza modifiche, senza nessuno che aggiunga script lungo il percorso | Gli hash                                      | La prova viene calcolata in fase di build e resta valida finché il file non cambia                        |
+| File statici, dietro una CDN o un edge che aggiunge script                                | I nonce, aggiunti sull’edge per ogni risposta | Degli script che non hai scritto non si può calcolare l’hash in anticipo, e l’edge può applicare un nonce |
+| HTML che deve essere messo in cache e condiviso su una CDN                                | Gli hash                                      | Un nonce salvato in una cache condivisa viene riutilizzato, il che lo rende inutile                       |
+
+web.dev dà la stessa regola in una riga ciascuna: «usa una CSP basata sui nonce per le pagine HTML renderizzate sul server» e «usa una CSP basata sugli hash per le pagine HTML servite staticamente, o per le pagine che devono essere messe in cache».
+
+**Come funzionano gli hash.** Una sorgente hash è lo SHA-256, SHA-384 o SHA-512 codificato in base64 del testo esatto di uno script inline, elencato in `script-src` come `'sha256-…'`. Cambia un solo carattere dello script e l’hash non corrisponde più. Per gli script esterni, MDN spiega che un hash nella policy consente uno script solo «se tutti i valori hash validi nel suo attributo `integrity` corrispondono ai valori consentiti nell’header CSP». Su un sito statico, lo schema abituale è quello descritto da web.dev: un solo script inline con hash che carica gli altri in modo dinamico, con `'strict-dynamic'` che trasmette la fiducia.
+
+**Il compromesso del framework.** I nonce richiedono un server sul percorso di ogni risposta HTML. Next.js lo documenta senza giri di parole: con i nonce, «tutte le pagine devono essere renderizzate dinamicamente», l’ottimizzazione statica e l’Incremental Static Regeneration vengono disattivate, e «il Partial Prerendering (PPR) è incompatibile con una CSP basata sui nonce». La sua alternativa per le pagine statiche è la Subresource Integrity sperimentale, basata sugli hash e limitata all’App Router. Qualunque sia il tuo framework, prendi questa decisione prima di progettare la cache, non dopo.
+
+## Anatomia di una policy rigorosa
+
+Queste direttive rendono rigorosa una policy. I valori sono quelli raccomandati da web.dev, più `frame-ancestors`, che va in quasi ogni applicazione.
+
+| Direttiva e valore                    | Cosa fa                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `script-src 'nonce-…'` o `'sha256-…'` | Vengono eseguiti solo gli script con il nonce di questa risposta, o con un hash elencato, inline o esterni    |
+| `'strict-dynamic'`                    | Quegli script possono caricare altri script, senza elencare host                                              |
+| `'unsafe-inline' https:`              | Fallback per i browser che non supportano né i nonce né `'strict-dynamic'`; ogni browser attuale li ignora    |
+| `object-src 'none'`                   | Nessun plugin tramite `<object>` o `<embed>`                                                                  |
+| `base-uri 'none'`                     | Un elemento `<base>` iniettato non può far puntare a un altro host gli URL relativi degli script della pagina |
+| `frame-ancestors 'none'`              | Nessun sito può includere la pagina in un frame, il che blocca il clickjacking; funziona solo in un header    |
+
+I fallback sembrano allarmanti e non lo sono. web.dev dice che «tutti i browser recenti ignorano `unsafe-inline` se è presente un nonce o un hash CSP» e che «tutti i browser che supportano `strict-dynamic` ignorano il fallback `https:`». MDN descrive esattamente la combinazione: si comporta come `'unsafe-inline' https:` nei browser che supportano solo CSP1, come `https:` con il nonce nei browser CSP2 e come il nonce con `'strict-dynamic'` nei browser CSP3. I browser vecchi ottengono una policy più debole anziché una pagina rotta.
+
+**Facoltative, e ne vale la pena:**
+
+- **`require-trusted-types-for 'script'`** attiva i Trusted Types, che secondo MDN fanno sì che i sink del DOM come `innerHTML` «accettino solo valori tipizzati non falsificabili creati dalle policy Trusted Type, e rifiutino le stringhe». web.dev dice che i Trusted Types «completano molto bene una CSP rigorosa», e MDN indica la direttiva come «Baseline 2026, disponibile da poco». Richiede lavoro nel tuo codice e nelle librerie di terze parti, quindi aggiungila dopo che il resto regge.
+- **`report-to`** invia i report delle violazioni a un endpoint che dichiari in un header `Reporting-Endpoints`. MDN fa notare che `report-uri` è deprecato ma vale ancora la pena dichiararlo accanto, «perché `report-to` non ha ancora un supporto completo su tutti i browser».
+- **`style-src`, `img-src`, `connect-src`, `font-src`, `frame-src`** restringono cos’altro la pagina può caricare e dove può inviare dati. Aiutano, soprattutto `connect-src` contro l’esfiltrazione, ma ciascuna è una lista che dovrai mantenere man mano che i fornitori cambiano. Comincia dagli script.
+
+### Esempio concreto: la policy di saasyland.com
+
+I valori vivono in un’unica costante, così il Worker, i test e il file statico degli header leggono le stesse stringhe:
+
+```ts title="src/modules/_core/constants/api.ts"
+export const CONTENT_SECURITY_POLICY = {
+  BASE_URI: "base-uri 'none'",
+  FRAME_ANCESTORS: "frame-ancestors 'none'",
+  OBJECT_SRC: "object-src 'none'",
+  SCRIPT_FALLBACKS: "'strict-dynamic' 'unsafe-inline' https:",
+} as const
+```
+
+Ogni risposta HTML riceve `documentPolicy(nonce)`, costruita a partire da quei valori:
+
+```ts title="src/lib/content-security-policy.ts"
+export const documentPolicy = (nonce: string): string =>
+  [
+    `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    CONTENT_SECURITY_POLICY.OBJECT_SRC,
+    CONTENT_SECURITY_POLICY.BASE_URI,
+    CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
+  ].join("; ")
+```
+
+Le risposte che non sono HTML, i reindirizzamenti e i file che il Worker trasmette in streaming da R2 ricevono una policy di base con solo `base-uri`, `frame-ancestors` e `object-src`. La policy si ferma di proposito agli script: non ha `style-src`, `img-src`, `font-src` né `connect-src`, né Trusted Types né un endpoint per i report, e la pagina [Sicurezza](/docs/features/security) del sito li elenca come non implementati.
+
+## Genera e consegna correttamente i nonce
+
+Un nonce è forte solo quanto il modo in cui lo crei. Le regole:
+
+- **Usa un generatore crittograficamente sicuro e almeno 128 bit.** La specifica CSP3 dice che il valore «DOVREBBE essere lungo almeno 128 bit (prima della codifica)» e «DOVREBBE essere generato tramite un generatore di numeri casuali crittograficamente sicuro». In un Worker o in un browser è `crypto.getRandomValues`; in Node, `crypto.randomBytes`. Mai `Math.random()`, un timestamp o un contatore.
+- **Creane uno nuovo per ogni risposta.** La specifica dice che «il server DEVE generare un valore univoco ogni volta che trasmette una policy». MDN lo dice in modo più semplice: «il nonce, una volta sola!»
+- **Codificalo in modo sicuro.** L’esempio di MDN è di 16 byte casuali in base64; l’esadecimale funziona altrettanto bene, perché la grammatica del nonce accetta lettere e cifre e il browser confronta il valore come una semplice stringa senza decodificarlo.
+- **Invialo nell’header.** La maggior parte delle direttive funziona in una policy `<meta>`, ma `frame-ancestors`, `report-uri` e `sandbox` no, lì la modalità report-only non esiste, e alcune funzionalità delle CDN leggono il nonce solo dall’header, come mostra la sezione su Cloudflare.
+- **Non derivarlo mai dalla richiesta,** e non rimandare mai indietro un nonce arrivato in una richiesta o in un cookie.
+- **Non mettere mai testo controllato dall’attaccante dentro uno script con nonce.** web.dev elenca le iniezioni «direttamente nel corpo o nel parametro `src`» di uno script con nonce tra i limiti di una policy rigorosa: il nonce rende attendibile l’intero elemento, compreso tutto ciò che vi hai interpolato.
+
+I browser proteggono il valore una volta che la pagina lo ha ricevuto. MDN spiega che «l’attributo di contenuto `nonce` è nascosto»: `getAttribute("nonce")` restituisce una stringa vuota, e solo la proprietà `nonce` dell’elemento contiene il valore, quindi i selettori CSS non possono estrarlo dalla pagina.
+
+### Esempio concreto: 128 bit per risposta
+
+Il nonce di saasyland.com è composto da 32 caratteri esadecimali ottenuti da `crypto.getRandomValues`, cioè 16 byte casuali, 128 bit, creati per ogni risposta HTML:
+
+```ts title="src/lib/content-security-policy.ts"
+export const createNonce = (): string => randomHex(NONCE_LENGTH)
+```
+
+## Portare il nonce nel tuo framework
+
+Generare il nonce è la metà facile. Ogni `<script>` che il tuo framework scrive, compresi i piccoli script inline che trasportano i dati di idratazione, deve portarlo, e lo stesso vale per gli script che il tuo codice aggiunge in seguito nel browser. Come funziona dipende dal framework:
+
+- **React.** `renderToReadableStream` accetta un’opzione `nonce`, che React documenta come «una stringa nonce per consentire gli script per la Content-Security-Policy `script-src`», e può essere un oggetto con valori separati per `script` e `style`.
+- **Next.js.** Il suo proxy genera il nonce e imposta l’header `Content-Security-Policy` sulla richiesta; durante il rendering sul server, «Next.js analizza l’header `Content-Security-Policy` ed estrae il nonce» e lo applica agli script del framework, ai bundle delle pagine e agli script inline che genera. Le pagine che usano i nonce devono essere renderizzate dinamicamente.
+- **TanStack Start.** L’entry del server passa il nonce come contesto della richiesta, il router lo riceve come opzione `ssr.nonce`, e TanStack Router lo mette sugli script, sugli stili e sui link che renderizza e lo scrive in un tag `<meta property="csp-nonce">`. Nel browser, il router rilegge quel tag durante l’idratazione, un comportamento aggiunto in [TanStack Router #5522](https://github.com/TanStack/router/pull/5522), così anche gli script che inserisce in seguito portano il nonce.
+
+Due regole valgono per tutti. **Trova ogni script che renderizzi da solo**, come uno script del tema che gira prima che la pagina venga disegnata, e dagli il nonce dalla stessa fonte. E **affidati a `'strict-dynamic'` per gli script aggiunti nel browser** invece di leggere il nonce nel codice client, così uno script che non vede mai il nonce può comunque caricare i chunk di cui ha bisogno.
+
+### Esempio concreto: TanStack Start su un Worker
+
+`src/server.ts` è l’entry point del Worker. Per una pagina che renderizza TanStack Start, crea il nonce e lo passa all’handler di Start come contesto della richiesta; per una pagina prerenderizzata trovata nell’archivio dei file statici fa qualcos’altro, spiegato nella sezione successiva:
+
+```ts title="src/server.ts"
+const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> => {
+  if ((request.method === "GET" || request.method === "HEAD") && !shouldIgnorePath(new URL(request.url).pathname)) {
+    const asset = await env.ASSETS.fetch(request)
+    if (isDocument(asset)) {
+      const nonce = createNonce()
+      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+    }
+    if (asset.status !== HTTP_STATUS.NOT_FOUND) {
+      return { policy: BASE_POLICY, response: asset }
+    }
+  }
+  const { default: handler } = await import("@tanstack/react-start/server-entry")
+  const nonce = createNonce()
+  const response = await handler.fetch(request, { context: { nonce } })
+
+  if (import.meta.env.DEV) {
+    return { policy: BASE_POLICY, response }
+  }
+
+  return { policy: documentPolicy(nonce), response }
+}
+```
+
+Il contesto è tipizzato una volta sola, così ogni sua lettura lato server sa che il nonce è una stringa:
+
+```ts title="src/types/router.d.ts"
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: ReturnType<typeof getRouter>
+    server: { requestContext: { nonce: string } }
+  }
+  interface StaticDataRouteOption {
+    contentId?: string
+    dark?: boolean
+    namespaces?: readonly string[]
+    underHeader?: boolean
+  }
+}
+```
+
+`getRouter` in `src/router.tsx` passa al router il contesto di Start della richiesta come opzione `ssr`, con `getGlobalStartContext() ?? {}`: sul server contiene il nonce, e nel browser il router trova il valore nel meta tag. L’unico script del documento che il router non renderizza è lo script del tema in `__root.tsx`, che riceve le stesse props `ssr`, nonce compreso, così la pagina non mostra mai per un istante il tema sbagliato e non viola mai la policy per evitarlo. `router.test.tsx` verifica che il router prenda il nonce della richiesta che renderizza, e nessun nonce al di fuori di una richiesta.
+
+## Pagine statiche e prerenderizzate
+
+Il prerendering fa bene alla velocità e male ai nonce: un file statico è uguale per ogni visitatore, quindi non può contenere un valore nuovo. Hai tre opzioni.
+
+1. **Calcola gli hash degli script inline in fase di build** e invia la policy con gli hash, in un header se il tuo host ti permette di impostarne uno per file, o in un meta tag se non lo permette. È la scelta giusta quando niente tra la tua build e il browser aggiunge script.
+2. **Aggiungi un nonce sull’edge mentre il file esce.** Una funzione davanti al file statico crea un nonce, imposta l’header e riscrive l’HTML mentre viene trasmesso, applicando il nonce a ogni script. Il file resta statico e memorizzabile in cache all’origine; cambia solo la copia diretta al browser.
+3. **Renderizza quelle pagine a ogni richiesta** invece di prerenderizzarle, e accetta il costo.
+
+### Esempio concreto: un file statico con un proprio nonce
+
+La maggior parte delle pagine pubbliche di saasyland.com, cioè la landing page, la documentazione, il blog e le pagine legali, viene prerenderizzata in fase di build e servita dal binding `ASSETS`. Il Worker usa l’opzione 2: il primo ramo di `render` qui sopra dà a una risposta HTML prerenderizzata un nuovo nonce e ne trasmette il corpo in streaming attraverso `withNonce`, un `HTMLRewriter`:
+
+```ts title="src/lib/content-security-policy.ts"
+export const withNonce = (page: Response, nonce: string): Response => {
+  const nonceElement = {
+    element: (element: { setAttribute: (name: string, value: string) => unknown }): void => {
+      element.setAttribute(NONCE_ATTRIBUTE, nonce)
+    },
+  }
+
+  return new HTMLRewriter()
+    .on('script:not([type="application/ld+json"])', nonceElement)
+    .on('link[rel="modulepreload"]', nonceElement)
+    .on(`[${NONCE_ATTRIBUTE}]`, nonceElement)
+    .on('meta[property="csp-nonce"]', {
+      element: (meta) => {
+        meta.setAttribute("content", nonce)
+      },
+    })
+    .transform(page)
+}
+```
+
+Imposta il nonce su ogni script eseguibile e sul preload di modulo dell’entry, sovrascrive qualsiasi nonce che il prerendering ha lasciato su un elemento e scrive il valore nel tag `csp-nonce` del router, così il lato browser del router concorda con l’header. I blocchi JSON-LD sono dati, non codice, e il browser non li esegue mai, quindi mantengono il loro markup. Cloudflare descrive `HTMLRewriter` come un «parsing in streaming zero-copy», quindi la pagina viene riscritta mentre viene trasmessa anziché essere prima caricata per intero in un buffer. Quando abbiamo confrontato con Lighthouse questo design e quello basato sugli hash descritto più sotto, nella [#210](https://github.com/saasyland/saasyland.com/pull/210), le mediane di time to first byte, first contentful paint e largest contentful paint si sono spostate di una decina di millisecondi o meno in un senso o nell’altro, entro la variabilità tra un’esecuzione e l’altra.
+
+Perché questo funzioni, il Worker deve girare davanti all’archivio dei file statici, quindi `wrangler.jsonc` manda prima al Worker ogni percorso tranne gli asset con hash nel nome, i font, `robots.txt` e `llms.txt`; [Un SaaS su Cloudflare Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) spiega quanto costa.
+
+## CDN e funzionalità dell’edge che aggiungono script
+
+Qualunque cosa stia tra il tuo server e il browser può modificare il tuo HTML. Se aggiunge uno script, la tua policy deve fargli spazio, e il modo dipende dalla funzionalità. Prima di applicare una policy, elenca ogni funzionalità che tocca le tue pagine e verifica di cosa ha bisogno ciascuna.
+
+Cloudflare pubblica un elenco del genere. La sua pagina sulle Content Security Policy cita, tra gli altri:
+
+- **Rocket Loader**, che richiede `script-src 'self' ajax.cloudflare.com`.
+- **Scrape Shield**, che richiede `script-src 'self' 'unsafe-inline'`, cosa che nessuna policy rigorosa dovrebbe consentire.
+- **Web Analytics**, che richiede `script-src static.cloudflareinsights.com` e `connect-src cloudflareinsights.com`.
+- **Zaraz**, che non richiede modifiche.
+- **I prodotti contro i bot**, che rimandano alla documentazione di JavaScript Detections.
+
+Due funzionalità contano più di tutte per una policy basata sui nonce:
+
+- **JavaScript Detections**, parte di Bot Fight Mode e di altri prodotti contro i bot, inietta uno script nelle risposte HTML. La sua documentazione dice che Cloudflare «aggiungerà questi nonce agli script che inietta analizzando l’header CSP della tua risposta», che JavaScript Detections «non è supportato con un `nonce` impostato tramite tag `<meta>`», e che «per i clienti di Bot Fight Mode, JavaScript Detections è attivato automaticamente e non può essere disattivato».
+- **Speed Brain** precarica le pagine che un visitatore probabilmente aprirà, e Cloudflare dice che «non funzionerà con policy restrittive» che usano `strict-dynamic` o i nonce, e che «non effettuerà il prefetch sulle route che eseguono Workers».
+
+Le regole che ne derivano: disattiva qualsiasi funzionalità dell’edge che richieda `'unsafe-inline'`; preferisci le funzionalità che leggono il nonce del tuo header; tieni la policy nell’header; e testa con la CDN sul percorso, perché un ambiente di staging senza di essa non ti mostrerà i suoi script.
+
+### Esempio concreto: il design con gli hash che si è rotto in produzione
+
+La nostra prima versione, nella [#190](https://github.com/saasyland/saasyland.com/pull/190), seguiva alla lettera la tabella di scelta. Le pagine renderizzate dal Worker ricevevano un nonce nell’header. Le pagine prerenderizzate ricevevano gli hash: un passaggio di build calcolava l’hash di ogni script inline, sostituiva lo script di entry con un piccolo loader identificato dal suo hash e scriveva la policy in un tag `<meta http-equiv="Content-Security-Policy">`. All’epoca quelle pagine venivano messe in cache con un `ETag`, e riscriverci dentro i nonce avrebbe rotto la rivalidazione, quindi gli hash sembravano la scelta prudente. `frame-ancestors` restava nell’header, perché una policy meta lo ignora.
+
+Superava ogni test e si è rotto in produzione. Bot Fight Mode era attivo, quindi JavaScript Detections iniettava il suo script in ogni pagina HTML, e Cloudflare poteva dare a quello script un nonce solo da una policy nell’header. Ogni pagina prerenderizzata registrava una violazione per uno script che non avevamo mai scritto; ogni pagina renderizzata dal Worker andava bene.
+
+La [#210](https://github.com/saasyland/saasyland.com/pull/210) ha sostituito il design basato sugli hash con il rewriter sull’edge mostrato sopra, così ogni risposta HTML, prerenderizzata o renderizzata, ha un nonce nella policy del suo header. Il passaggio di build, la policy meta e il loader con hash sono stati eliminati. La suite nel browser ora riproduce direttamente l’edge, come mostra la sezione sui test. Col senno di poi, l’errore non è stato scegliere gli hash; è stato applicare la policy prima di vedere cosa aggiungeva l’edge in produzione. Un’introduzione in modalità report-only avrebbe mostrato lo script iniettato senza bloccarlo.
+
+## Mettere in cache una pagina che porta un nonce
+
+Un nonce deve essere nuovo ogni volta che una policy viene inviata, quindi una pagina HTML che ne porta uno non deve mai essere servita due volte. Questo ha conseguenze per ogni cache tra te e chi legge:
+
+- **Le cache condivise non devono salvarla.** Una CDN che mette in cache la pagina serve a ogni visitatore lo stesso nonce, che un attaccante può leggere una volta e riutilizzare. Contrassegna la risposta come `private`, o assicurati che la tua CDN non metta in cache l’HTML.
+- **Il browser non deve rivalidarla ottenendo un corpo obsoleto.** Se la risposta porta un `ETag` o un `Last-Modified`, il browser può in seguito ricevere un `304 Not Modified` e riutilizzare il corpo salvato, con il nonce dell’ultima volta sui suoi script, sotto un header nuovo con un nonce nuovo. A quel punto ogni script della pagina fallisce. Invia `no-cache` ed elimina i validatori.
+- **Gli asset non sono toccati.** Script, stili e font si possono ancora mettere in cache per un anno: il nonce va sul tag che li carica, non dentro i file.
+
+Se il tuo HTML deve essere messo in cache su una CDN, le opzioni oneste sono gli hash senza script iniettati sull’edge, oppure una funzione edge che aggiunge un nonce nuovo a ogni copia in cache mentre esce, che è ciò che fa il rewriter visto sopra con i file prerenderizzati.
+
+### Esempio concreto: private, senza validatori
+
+`src/server.ts` rende privata ogni risposta HTML e rimuove i validatori che un file statico altrimenti conserverebbe:
+
+```ts title="src/server.ts"
+const DOCUMENT_CACHE_CONTROL = "private, no-cache"
+
+const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
+```
+
+Anche `Content-Length` viene rimosso, perché il rewriter cambia la lunghezza del corpo. Tutto ciò che sta sotto `/assets/` e `/fonts/` mantiene un `Cache-Control` immutabile di un anno.
+
+## Script di terze parti
+
+Le terze parti sono il punto in cui le policy rigorose si vincono o si perdono. Quattro schemi coprono la maggior parte dei casi.
+
+**Loader che aggiungono altri script.** Analytics, tag manager e pixel di solito caricano un piccolo script che ne aggiunge altri. Dai al primo il tuo nonce e lascia che `'strict-dynamic'` renda attendibile ciò che aggiunge. Google lo documenta per Tag Manager: imposta il nonce sullo snippet inline, e «Tag Manager propagherà poi il nonce a tutti gli script che aggiunge alla pagina». Le sue variabili JavaScript personalizzate sono l’eccezione: «restituiranno `undefined` in presenza di una CSP a meno che non venga indicata la direttiva `'unsafe-eval'`», e Google consiglia invece i Custom Templates.
+
+**Widget che hanno bisogno di frame e connessioni.** I moduli di pagamento e le mappe caricano script e in più aprono frame e chiamano API. Con `'strict-dynamic'`, le sorgenti di host in `script-src` vengono ignorate, ma `frame-src` e `connect-src` continuano ad applicarsi se la tua policy le imposta. La guida alla sicurezza di Stripe elenca, per Stripe.js, `script-src` su `https://js.stripe.com` e `https://*.js.stripe.com`, `frame-src` su `https://js.stripe.com`, `https://*.js.stripe.com` e `https://hooks.stripe.com`, e `connect-src` su `https://api.stripe.com`; se limiti frame o connessioni, copia quegli elenchi dalla documentazione attuale del fornitore, mai da un vecchio articolo di blog.
+
+**Reindirizzamenti invece di incorporamenti.** Un checkout o una pagina di accesso ospitati sul dominio del fornitore non eseguono nessun codice del fornitore sul tuo, quindi la tua policy non ha bisogno di alcuna eccezione. Quando un fornitore offre entrambe le cose, il reindirizzamento è la scelta più semplice dal punto di vista della sicurezza.
+
+**Codice che non può funzionare con una policy rigorosa.** I gestori di eventi inline come `onclick="…"` e gli URL `javascript:` vengono bloccati; il consiglio di web.dev è spostarli in script che chiamano `addEventListener`. Gli script scritti con `document.write` sono inseriti dal parser, quindi `'strict-dynamic'` non li considera attendibili. Un tag di terze parti che dipende dall’una o dall’altra cosa va sostituito, non giustificato con un’eccezione.
+
+### Esempio concreto: un reindirizzamento, un pixel e Cloudflare
+
+**Il checkout di Polar non ha bisogno di eccezioni, perché non gira mai sulle pagine di saasyland.com.** L’area clienti chiama la server function `startCheckout`, che crea un checkout con l’API di Polar, e il browser passa alla pagina ospitata da Polar:
+
+```tsx title="src/presentation/components/custom/app/checkout-consent.tsx"
+globalThis.location.href = checkout.url
+```
+
+Polar offre anche un checkout incorporato, uno script da jsDelivr o il pacchetto `@polar-sh/checkout` che apre il checkout in un iframe, mentre è il `frame-ancestors` di Polar stessa a decidere quali siti possono includerlo in un frame, configurato in **Settings > Embedding**. Con una policy rigorosa, il pacchetto fa parte del tuo bundle e non ha bisogno di nulla, un tag script da una CDN ha bisogno del nonce, e una policy che limita i frame ha bisogno dell’origine del checkout di Polar in `frame-src`. La nostra policy non limita alcun frame, e il reindirizzamento ne tiene del tutto fuori le pagine di pagamento.
+
+**Il pixel degli affiliati si carica tramite `'strict-dynamic'`.** In una visita con un parametro di referral, React renderizza il pixel di Affonso dopo l’idratazione:
+
+```tsx title="src/presentation/components/custom/affiliate-referral.tsx"
+return <script async data-affonso={programId} data-cookie_duration={AFFILIATE_TERMS.COOKIE_DAYS} src={AFFONSO.PIXEL_URL} />
+```
+
+React inserisce quell’elemento da uno script che gira già con il nonce, quindi non è inserito dal parser, e `'strict-dynamic'` gli permette di caricarsi senza che l’host del pixel sia in un’allowlist. La stessa regola copre i chunk delle route che TanStack Router importa e il blob worker di canvas-confetti.
+
+**Gli script di Cloudflare stessa prendono il nonce dell’header,** come descritto sopra, e su saasyland.com Speed Brain è disattivato. TanStack Router precarica già il codice e i dati di un link quando il puntatore si ferma sopra di esso.
+
+## `eval`, WebAssembly e librerie
+
+Una policy rigorosa senza `'unsafe-eval'` blocca `eval()`, `new Function()` e gli argomenti stringa di `setTimeout`. Lasciala così: web.dev elenca le iniezioni in `eval()` e `setTimeout()` tra gli attacchi da cui una policy rigorosa smette di proteggere quando si aggiunge `'unsafe-eval'`.
+
+- **Cerca prima la modalità senza eval di una libreria.** Le librerie di validazione e di templating spesso compilano codice a runtime per velocità e offrono una modalità che non lo fa.
+- **Consenti `eval` in sviluppo solo se i tuoi strumenti ne hanno bisogno.** Next.js spiega che in sviluppo «React usa `eval` per fornire informazioni di debug più ricche», e che «né React né Next.js usano `eval` in produzione per impostazione predefinita».
+- **WebAssembly ha bisogno di una parola chiave propria.** La guida di Next.js dice di aggiungere `'wasm-unsafe-eval'` se usi WebAssembly, che è più ristretta di `'unsafe-eval'`.
+
+### Esempio concreto: Zod senza `eval`
+
+Mentre costruivamo la #190, l’unica violazione su ogni pagina veniva da Zod, che controlla se può compilare i validatori con `Function("")`. Zod ha una modalità in cui non ci prova mai:
+
+```ts title="src/integrations/zod/zod.config.ts"
+import zod from "zod/v4"
+
+zod.config({ jitless: true })
+```
+
+Quella chiamata deve essere eseguita prima che venga costruito qualsiasi schema, e inizialmente il bundler l’aveva messa dopo i chunk che costruiscono gli schemi, quindi ora una regola di build la mette nel chunk di Zod stesso, che si carica per primo. Il server di sviluppo è l’unica eccezione alla policy: Vite inietta script inline che non portano alcun nonce, quindi in sviluppo il Worker invia solo la policy di base. È per questo che si testa su una build di produzione.
+
+## Introdurla senza rompere la produzione
+
+Una policy che blocca uno script di cui hai bisogno rompe il tuo sito per tutti nello stesso momento. Introducila per gradi:
+
+1. **Inventario.** Elenca ogni script che caricano le tue pagine, ogni script inline, ogni terza parte e ogni funzionalità dell’edge che tocca l’HTML.
+2. **Solo report.** Invia la policy come `Content-Security-Policy-Report-Only`, che MDN descrive come un modo «per testare o correggere le violazioni prima che una specifica Content-Security-Policy venga applicata e imposta». Il browser non blocca nulla e segnala tutto.
+3. **Raccogli i report.** Dichiara un endpoint in un header `Reporting-Endpoints`, indicalo in `report-to` e tieni accanto `report-uri` per i browser che non supportano `report-to`. MDN fa notare che «la direttiva `report-to` deve essere specificata perché i report vengano inviati». Aspettati rumore dalle estensioni del browser; cerca gli schemi che si ripetono tra molti visitatori.
+4. **Correggi ciò che mostrano i report.** Aggiungi il nonce dove manca, sposta i gestori inline negli script, sostituisci i tag che richiedono `'unsafe-inline'` o `'unsafe-eval'`.
+5. **Applica.** Invia la stessa policy come `Content-Security-Policy`. Tieni accanto una policy report-only per provare senza rischi la stretta successiva, come i Trusted Types o una lista `connect-src`.
+6. **Osserva dopo ogni release.** Le nuove dipendenze e i nuovi script dei fornitori sono il punto in cui una policy si rompe; mantieni il flusso dei report e tieni nella CI i test nel browser descritti qui sotto.
+
+I passaggi di adozione di web.dev finiscono allo stesso modo: distribuire la policy «in modalità report-only», poi applicarla una volta che sei sicuro. web.dev consiglia anche di verificare il risultato con CSP Evaluator o con Lighthouse, il cui audit Best Practices segnala se una policy è abbastanza rigorosa.
+
+saasyland.com non ha fatto i passaggi 2 e 3, e l’incidente descritto sopra ne è il risultato. I suoi test nel browser intercettavano ogni violazione causata dall’applicazione stessa; solo una fase report-only in produzione avrebbe intercettato lo script aggiunto dall’edge.
+
+## Testa la policy come codice
+
+Una policy è configurazione che può regredire con qualsiasi commit, quindi testala come codice, in un browser vero, su una build di produzione.
+
+- **Fai fallire ogni test nel browser a qualsiasi violazione.** Ascolta gli eventi `securitypolicyviolation` in ogni pagina e fai fallire il test che ne ha visto uno. Così una nuova pagina, una nuova dipendenza o un nuovo script di terze parti che viola la policy fa fallire il primo test che la visita.
+- **Verifica il nonce stesso.** Richiedi una pagina due volte e verifica che l’header sia cambiato e che ogni script eseguibile porti il valore dell’header.
+- **Dimostra che la policy blocca.** Inietta in una pagina servita uno script senza il nonce e verifica che non sia stato eseguito e che sia stato segnalato. Una policy che non blocca nulla supera ogni altro test.
+- **Riproduci il tuo edge.** Se una CDN aggiunge script, iniettane uno con il nonce dell’header e verifica che venga eseguito.
+- **Usa più di un motore.** Chromium e WebKit differiscono nei casi limite; la #190 ha scoperto, per esempio, che Chromium bloccava un loader con `import()` dinamico sotto una policy basata sugli hash che WebKit consentiva.
+
+### Esempio concreto: tre livelli di test
+
+**Ogni spec fallisce a qualsiasi violazione.** La fixture condivisa della suite ascolta gli eventi `securitypolicyviolation` in ogni pagina e alla fine fa fallire la spec se ne è stato segnalato qualcuno:
+
+```ts title="e2e/fixtures/test.ts"
+  cspViolations: [
+    async ({ context }, runWith) => {
+      const violations: string[] = []
+      context.on("console", (message) => {
+        if (message.text().startsWith(CSP_VIOLATION)) violations.push(message.text())
+      })
+      await context.addInitScript(reportCspViolations, CSP_VIOLATION)
+      await runWith(violations)
+      expect(violations, "No page may break its Content Security Policy").toEqual([])
+    },
+    { auto: true },
+  ],
+```
+
+**Una spec dedicata verifica il nonce.** `e2e/specs/content-security-policy.spec.ts` richiede due volte ciascuna tre pagine prerenderizzate e due renderizzate. Verifica che l’header sia uguale a `documentPolicy(nonce)`, che la seconda risposta abbia un nonce diverso, che ogni script e ogni preload di modulo porti il nonce dell’header, tranne il JSON-LD, che il tag `csp-nonce` corrisponda, che non ci sia una policy meta e che la risposta sia `private, no-cache` senza un `ETag`. Poi accede alla console di amministrazione e completa il checkout di un cliente sotto la policy.
+
+**Una spec fa la parte dell’edge.** `e2e/specs/edge-scripts.spec.ts` riscrive una pagina servita come farebbe Cloudflare, aggiungendo uno script con il nonce dell’header e uno senza:
+
+```ts title="e2e/specs/edge-scripts.spec.ts"
+for (const path of [ROUTES.HOME, ROUTES.SIGN_IN]) {
+  test(`on ${path}, a script the edge adds with the header's nonce runs, and one without the nonce is blocked`, async ({
+    appPage,
+    cspViolations,
+    page,
+  }) => {
+    await page.route(path, async (route) => {
+      const response = await route.fetch()
+      const nonce = NONCE.exec(response.headers()[POLICY_HEADER] ?? "")?.groups?.["nonce"] ?? ""
+      const scripts = `<script nonce="${nonce}">window.__edge = true</script><script>window.__injected = true</script>`
+      await route.fulfill({ body: (await response.text()).replace("</body>", `${scripts}</body>`), response })
+    })
+
+    await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    expect(await page.evaluate(() => [Reflect.get(window, "__edge"), Reflect.get(window, "__injected")])).toEqual([true, undefined])
+    await expect.poll(() => cspViolations.length).toBe(1)
+    expect(cspViolations.splice(0)).toEqual([expect.stringContaining("script-src")])
+  })
+}
+```
+
+Il primo script deve essere eseguito e il secondo deve essere bloccato e segnalato come violazione di `script-src`, su una pagina prerenderizzata e su una renderizzata. Le pull request eseguono la suite in Chromium; ogni push su `main` la esegue in WebKit, e un’esecuzione pianificata la esegue in entrambi. I test unitari in `server.test.ts` e `content-security-policy.test.ts` coprono le stringhe della policy, un nonce nuovo per ogni risposta e ogni ramo del rewriter.
+
+## Errori che disattivano una policy senza che nessuno se ne accorga
+
+1. **`'unsafe-inline'` senza un nonce o un hash.** Qualsiasi script inline viene eseguito, compreso uno iniettato. Con un nonce presente è un fallback innocuo; senza, è l’intera policy che si arrende.
+2. **Riutilizzare un nonce.** Un nonce fissato nella configurazione, incorporato in una build o salvato con una pagina in cache è una costante che un attaccante può leggere una volta e riutilizzare.
+3. **Un’allowlist di host come unica difesa.** Qualsiasi host consentito con un endpoint JSONP o una vecchia libreria diventa una porta d’ingresso.
+4. **Un’allowlist accanto a `'strict-dynamic'`.** I browser che supportano `'strict-dynamic'` ignorano le sorgenti di host e di schema, quindi l’elenco non protegge nulla e inganna chi legge il codice dopo di te.
+5. **Una policy meta dove l’edge inietta script.** La CDN non può leggere il tuo nonce da un meta tag, e `frame-ancestors`, `report-uri` e `sandbox` lì non fanno nulla.
+6. **Mettere in cache l’HTML con i validatori.** Un `304` riutilizza il corpo salvato con il suo vecchio nonce sotto un header nuovo, e ogni script della pagina fallisce.
+7. **Interpolare input dell’utente in uno script con nonce.** Il nonce rende attendibile l’intero elemento, quindi un valore che ci hai inserito viene eseguito con la tua autorità.
+8. **Aggiungere `'unsafe-eval'` per una sola libreria.** Cerca prima l’impostazione della libreria, come mostra `jitless` di Zod.
+9. **Mantenere gestori di eventi inline e URL `javascript:`.** Una policy rigorosa li blocca; spostali negli script.
+10. **Fidarsi dei loader con `document.write`.** Sono inseriti dal parser, quindi `'strict-dynamic'` non trasmette loro la fiducia.
+11. **Applicare la policy prima di raccogliere i report.** Senza una fase report-only in produzione, il primo segnale di uno script dimenticato è una pagina rotta.
+12. **Testare solo in sviluppo.** I server di sviluppo spesso non possono mettere un nonce sui propri script. Testa la build di produzione, e fai fallire l’esecuzione a ogni violazione.
+
+## Una policy e una checklist da riutilizzare
+
+Una policy rigorosa per un’applicazione renderizzata sul server, con i report:
+
+```http
+Reporting-Endpoints: csp="https://example.com/csp-reports"
+Content-Security-Policy: script-src 'nonce-{RANDOM}' 'strict-dynamic' 'unsafe-inline' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; report-uri https://example.com/csp-reports; report-to csp
+```
+
+Sostituisci `{RANDOM}` con un valore nuovo di almeno 128 bit casuali per ogni risposta, metti lo stesso valore su ogni script, e comincia con la stessa policy sotto `Content-Security-Policy-Report-Only`.
+
+**Prima di applicarla**
+
+- Ogni script renderizzato dal server porta il nonce di questa risposta, compresi gli script inline di dati e quelli del tema.
+- Gli script aggiunti nel browser si caricano tramite `'strict-dynamic'`, non tramite `document.write`.
+- Non restano gestori di eventi inline né URL `javascript:`.
+- Ogni funzionalità dell’edge che tocca l’HTML è elencata, e nessuna richiede `'unsafe-inline'`.
+- Gli script di terze parti partono da un loader con nonce, e i loro frame e le loro connessioni sono consentiti se li limiti.
+- Nessuna libreria richiede `'unsafe-eval'` in produzione.
+- La policy ha girato in modalità report-only in produzione, e i suoi report sono stati compresi.
+
+**Consegna**
+
+- La policy è un header della risposta, non solo un meta tag.
+- Il nonce è nuovo per ogni risposta, prodotto da un generatore sicuro, di almeno 128 bit.
+- L’HTML con un nonce è `private` e non porta né `ETag` né `Last-Modified`.
+- Le pagine che sono file statici ricevono il loro nonce sull’edge, oppure una policy basata sugli hash senza nulla aggiunto lungo il percorso.
+
+**Test**
+
+- Ogni test nel browser fallisce in caso di violazione.
+- Un test verifica che due risposte portino nonce diversi nell’header e su ogni script.
+- Un test inietta uno script senza il nonce e verifica che venga bloccato.
+- La suite gira su una build di produzione, in più di un motore di browser.
+
+## Cosa la policy di saasyland.com non fa ancora
+
+La policy riguarda gli script. Non limita stili, immagini, font o connessioni, non ha Trusted Types e non raccoglie report delle violazioni dai browser dei visitatori, quindi una violazione che la suite di test non raggiunge passerebbe inosservata. Un endpoint per i report è il passo successivo più utile, poi i Trusted Types; entrambi sono indicati come non implementati nella pagina [Sicurezza](/docs/features/security).
+
+La CLI di SaaSy Land è in beta. Oggi attiva la tua licenza; la generazione dei progetti arriva in una versione successiva e parte da TanStack Start su Cloudflare Workers, e il [configuratore](/#cli) mostra quali opzioni verranno offerte. Fino ad allora, la policy, il rewriter e i test descritti qui sono pubblici con licenza MIT.
+
+## Letture correlate
+
+<Cards>
+
+<Card title="Un SaaS su Cloudflare Workers: D1, KV e R2" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Il Worker in cui gira questa policy, i suoi binding, gli avvii a freddo, i limiti e i costi.
+</Card>
+
+<Card title="TanStack Start vs Next.js per un SaaS" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  Il framework che renderizza queste pagine, e gli incidenti di sicurezza che hanno avuto entrambi i framework.
+</Card>
+
+<Card title="Better Auth vs Clerk vs Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
+  Un accesso che gira nello stesso Worker e sotto la stessa policy, senza widget ospitati da autorizzare.
+</Card>
+
+<Card title="Il tuo repository è pronto per gli agenti di programmazione AI?" href="/blog/ai-coding-agents-repository-readiness">
+  Perché i controlli automatici come la fixture delle violazioni contano di più quando il codice lo scrivono gli agenti.
+</Card>
+
+</Cards>
+
+<Callout title="Leggi la policy e i suoi test">
+
+La policy, il rewriter e i test nel browser sono nel codice sorgente pubblico di saasyland.com, e la pagina [Sicurezza](/docs/features/security) documenta ogni header. Scegli il tuo stack nel [configuratore](/#cli), poi [scopri quanto costa ogni piano](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, con ogni scheda che indica cosa è disponibile ora e cosa è in arrivo. Per sapere quando arriva la generazione dei progetti, iscriviti al diario di sviluppo in fondo a questa pagina.
+
+</Callout>
+
+## Domande frequenti
+
+<PostFaq entries={frontmatter.faq} />
+
+### Fonti
+
+- Standard: la bozza di lavoro [Content Security Policy Level 3](https://www.w3.org/TR/CSP3/) del 27 ottobre 2026; le pagine di MDN su [`script-src`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src), sull’[attributo `nonce`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/nonce), su [`Content-Security-Policy-Report-Only`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only) e su [`require-trusted-types-for`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/require-trusted-types-for); e l’articolo di web.dev [Mitigare il cross-site scripting con una Content Security Policy rigorosa](https://web.dev/articles/strict-csp)
+- Cloudflare: [le Content Security Policy e i prodotti Cloudflare](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/content-security-policies/), [JavaScript Detections](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/), [Speed Brain](https://developers.cloudflare.com/speed/optimization/content/speed-brain/) e [HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/)
+- Framework: [`renderToReadableStream`](https://react.dev/reference/react-dom/server/renderToReadableStream) di React, la [guida alla Content Security Policy](https://nextjs.org/docs/app/guides/content-security-policy) di Next.js e la [pull request di TanStack Router che legge il nonce durante l’idratazione](https://github.com/TanStack/router/pull/5522)
+- Terze parti: la [guida di Google su Tag Manager e Content Security Policy](https://developers.google.com/tag-platform/security/guides/csp), la [guida alla sicurezza dell’integrazione](https://docs.stripe.com/security/guide#content-security-policy) di Stripe e il [checkout incorporato](https://polar.sh/docs/features/checkout/embed) di Polar
+- SaaSy Land: le pagine [Sicurezza](/docs/features/security) e [Cloudflare Workers](/docs/integrations/cloudflare-workers), e le pull request [#190](https://github.com/saasyland/saasyland.com/pull/190) e [#210](https://github.com/saasyland/saasyland.com/pull/210)
+
+_Scritto da Piotr J. Borowiecki, che fa girare saasyland.com dietro questa policy. Gli standard e la documentazione dei fornitori sono stati letti il 20 novembre 2026 e potrebbero essere cambiati da allora; i link portano alla fonte e non a uno screenshot. Se qualcosa qui è obsoleto o sbagliato, dimmelo e lo correggerò._

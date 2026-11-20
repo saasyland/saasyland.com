@@ -17,8 +17,17 @@ describe("deployment hosts by build mode", () => {
     expect(appHostsForMode(mode)).toEqual(["localhost:3000", "127.0.0.1:3000"])
   })
 
-  it("also trusts the second test server port in test mode, for a browser suite run beside a dev server", () => {
-    expect(appHostsForMode(ENVIRONMENT.TEST)).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
+  it("also trusts the test server ports in test mode, so worktrees can run browser suites side by side", () => {
+    expect(appHostsForMode(ENVIRONMENT.TEST)).toEqual(
+      [3000, 3020, 3021, 3022, 3023, 3024, 3025, 3026, 3027, 3028, 3029].flatMap((port) => [
+        `localhost:${String(port)}`,
+        `127.0.0.1:${String(port)}`,
+      ]),
+    )
+  })
+
+  it.each(["127.0.0.1:3019", "127.0.0.1:3030", "0.0.0.0:3027"])("does not trust %s in test mode", (host) => {
+    expect(appHostsForMode(ENVIRONMENT.TEST)).not.toContain(host)
   })
 
   it("returns a fresh list each time so callers can extend it", () => {

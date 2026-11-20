@@ -1,11 +1,19 @@
 import { defineConfig, devices } from "@playwright/test"
 
-import { LOCAL_SERVER, LOCAL_SERVER_ORIGIN } from "./src/data/local-server.ts"
+import { LOCAL_SERVER, LOCAL_SERVER_ORIGIN, TEST_HOSTS, TEST_SERVER_PORTS } from "./src/data/local-server.ts"
 
 const isCI = Boolean(process.env["CI"])
 const appUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? LOCAL_SERVER_ORIGIN
-const startCommand = `bun run start:test --port ${new URL(appUrl).port || String(LOCAL_SERVER.PORT)}`
+const { host, port } = new URL(appUrl)
+const startCommand = `bun run start:test --port ${port}`
 
+if (!TEST_HOSTS.includes(host)) {
+  throw new Error(
+    `The test build does not trust ${host}. Set PLAYWRIGHT_BASE_URL to http://${LOCAL_SERVER.HOST}:<port>, with port ${String(LOCAL_SERVER.PORT)} or a free port from ${String(TEST_SERVER_PORTS.FIRST)} to ${String(TEST_SERVER_PORTS.LAST)}.`,
+  )
+}
+
+export const SERVER_PORT = port
 export const CI_RETRIES = 2
 export const DEV_RETRIES = 0
 export const CI_WORKERS = 2
@@ -18,6 +26,7 @@ export default defineConfig({
   },
   forbidOnly: isCI,
   fullyParallel: true,
+  globalSetup: "./e2e/global-setup.ts",
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },

@@ -19,6 +19,7 @@ describe("newsletter request origin", () => {
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://localhost:3000" },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3000" },
     { mode: ENVIRONMENT.TEST, origin: "http://127.0.0.1:3020" },
+    { mode: ENVIRONMENT.TEST, origin: "http://localhost:3029" },
   ])("accepts $origin, a host the $mode build trusts", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 
@@ -34,6 +35,7 @@ describe("newsletter request origin", () => {
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3020" },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "https://example.test" },
     { mode: ENVIRONMENT.TEST, origin: "ftp://localhost:3000" },
+    { mode: ENVIRONMENT.TEST, origin: "http://127.0.0.1:3030" },
   ])("rejects $origin in the $mode build", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 

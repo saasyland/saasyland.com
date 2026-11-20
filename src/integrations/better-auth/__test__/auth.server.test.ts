@@ -7,7 +7,7 @@ import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS, EMAIL_LINK_LIFETIME_SECONDS }
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { ENVIRONMENT, IP_ADDRESS_HEADER, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
@@ -82,7 +82,7 @@ describe("Cloudflare auth configuration", () => {
     expect(authCookies.sessionToken.name).toBe(`${APP_SLUG}.session_token`)
   })
   it("trusts only the local hosts in test mode", () => {
-    expect(auth.options.baseURL.allowedHosts).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
+    expect(auth.options.baseURL.allowedHosts).toEqual(appHostsForMode(ENVIRONMENT.TEST))
     expect(auth.options.baseURL.allowedHosts.some((host) => host.includes("*") || host.includes("workers.dev"))).toBe(false)
   })
   it("serves its endpoints under the auth routes' base path", () => {

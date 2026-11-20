@@ -54,7 +54,7 @@ export const TIER_FEATURES = {
   [LICENSE_TIER.AGENCY]: [
     { id: "complete", status: FEATURE_STATUS.AVAILABLE },
     { id: "call", status: FEATURE_STATUS.AVAILABLE },
-    { id: "clientProjects", status: FEATURE_STATUS.ARRIVING },
+    { id: "clientProjects", status: CLI_GENERATION },
     { id: "seats", status: FEATURE_STATUS.ARRIVING },
     { id: "discord", status: FEATURE_STATUS.ARRIVING },
     { id: "figma", status: FEATURE_STATUS.ARRIVING },

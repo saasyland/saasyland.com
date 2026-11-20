@@ -261,9 +261,9 @@ const TABLES = {
   coveredFlowTable: flowTables.covered,
   flowAreaTable: flowTables.areas,
   formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
-    const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+    const { clauseOpeners, form, never, neverEndingSentence, neverInsideSentence, neverStartingClause } = FORMS_OF_ADDRESS[locale]
 
-    return [locale, form, never, neverInsideSentence, neverEndingSentence] as const
+    return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
   missingFlowTable: flowTables.missing,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),

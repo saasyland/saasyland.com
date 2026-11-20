@@ -167,7 +167,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
             ))}
         </ToggleGroup>
         {options.some((option) => isRuled(option)) && (
-          <p className="text-body-sm text-pretty text-muted-foreground" id={noteId}>
+          <p className="text-spec text-pretty text-muted-foreground" id={noteId}>
             {t(`choices.${choiceId}.note`)}
           </p>
         )}

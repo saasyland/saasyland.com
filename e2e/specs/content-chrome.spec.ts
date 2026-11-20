@@ -23,8 +23,16 @@ const WIDE_VIEWPORTS = [
   { height: 900, width: 1440 },
   { height: 900, width: 1583 },
   { height: 1000, width: 1870 },
+  { height: 1080, width: 1920 },
+  { height: 1440, width: 2560 },
 ] as const
 const PIXEL_TOLERANCE = 1
+const SITE_WIDTH = "--container-site"
+const DOCS_WIDTH = "--container-docs"
+const DOCS_FRAME = "#nd-docs-layout"
+const DOCS_ARTICLE = "#nd-page"
+const READING_MEASURE = 80
+const MEASURE_SAMPLE = 100
 const DOCS_SIDEBAR = "#nd-sidebar"
 const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
 const DOCS_PAGE = `${ROUTES.DOCS}/features/authentication`
@@ -106,6 +114,31 @@ const edgesOf = (locator: Locator): Promise<{ bottom: number; left: number; righ
     const { bottom, left, right, top } = element.getBoundingClientRect()
     return { bottom, left, right, top }
   })
+
+const tokenWidth = (page: Page, token: string): Promise<number> =>
+  page.evaluate((name) => {
+    const probe = document.createElement("div")
+    probe.style.width = `var(${name})`
+    document.body.appendChild(probe)
+    const { width } = probe.getBoundingClientRect()
+    probe.remove()
+    return width
+  }, token)
+
+const measureOf = (page: Page): Promise<number> =>
+  page
+    .locator(`${DOCS_ARTICLE} p`)
+    .nth(1)
+    .evaluate((paragraph, sample) => {
+      const zeros = document.createElement("span")
+      zeros.style.font = getComputedStyle(paragraph).font
+      zeros.style.position = "absolute"
+      zeros.textContent = "0".repeat(sample)
+      document.body.appendChild(zeros)
+      const characterWidth = zeros.getBoundingClientRect().width / sample
+      zeros.remove()
+      return paragraph.getBoundingClientRect().width / characterWidth
+    }, MEASURE_SAMPLE)
 
 const stickyBars = (page: Page): Promise<{ count: number; covered: number }> =>
   page.evaluate(() => {
@@ -190,7 +223,7 @@ for (const locale of LOCALES) {
 
 test.describe("docs on a wide screen", () => {
   for (const viewport of WIDE_VIEWPORTS) {
-    test(`line the sidebar and the table of contents up with the site header and keep the sidebar under it at ${String(viewport.width)} px`, async ({
+    test(`give the docs the header's frame, wider than the site's on a wide screen, and line the sidebar and the table of contents up with the header at ${String(viewport.width)} px`, async ({
       page,
     }) => {
       const { sidebar } = fumadocsSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "fumadocs"))
@@ -201,18 +234,34 @@ test.describe("docs on a wide screen", () => {
       const logo = await edgesOf(banner.getByRole("link", { exact: true, name: APP_NAME }))
       const callToAction = await edgesOf(banner.getByRole("link", { exact: true, name: getStarted }))
 
+      const header = await edgesOf(banner)
+      const navigation = await edgesOf(banner.getByRole("navigation"))
+      const frame = await edgesOf(page.locator(DOCS_FRAME))
+      const siteWidth = await tokenWidth(page, SITE_WIDTH)
+      const docsWidth = await tokenWidth(page, DOCS_WIDTH)
+      const headerWidth = header.right - header.left
+      const navigationWidth = navigation.right - navigation.left
+      expect(Math.abs(frame.left - navigation.left)).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      expect(Math.abs(frame.right - navigation.right)).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      expect(Math.abs(navigationWidth - Math.min(docsWidth, headerWidth))).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      expect(navigationWidth > siteWidth).toBe(headerWidth > siteWidth)
+      expect(await measureOf(page)).toBeLessThanOrEqual(READING_MEASURE)
+
       const expectLinedUp = async (moment: string): Promise<void> => {
-        const header = await edgesOf(banner)
         const docsSidebar = await edgesOf(page.locator(DOCS_SIDEBAR))
         const tableOfContents = await edgesOf(page.locator(DOCS_TABLE_OF_CONTENTS))
         await expect(page.locator(DOCS_SIDEBAR), moment).toBeInViewport()
         expect(Math.abs(docsSidebar.left - logo.left), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
         expect(Math.abs(tableOfContents.right - callToAction.right), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
         expect(Math.abs(docsSidebar.top - header.bottom), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+        const article = await edgesOf(page.locator(DOCS_ARTICLE))
+        expect(Math.abs(article.left - docsSidebar.right - (tableOfContents.left - article.right)), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
       }
 
       await expectLinedUp("at the top of the page")
-      await page.locator(`#${DOCS_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
+      await page.evaluate(() => {
+        window.scrollTo({ behavior: "instant", top: window.innerHeight / 2 })
+      })
       expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
       await expectLinedUp("after scrolling")
       await expect(page.locator(DOCS_SIDEBAR).getByRole("button", { exact: true, name: sidebar.collapse })).toHaveCount(0)

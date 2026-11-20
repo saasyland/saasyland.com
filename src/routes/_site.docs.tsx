@@ -50,8 +50,9 @@ const LINKS = [
 ]
 
 const CONTAINER = {
+  "data-docs-frame": "",
   className:
-    "mx-auto w-full max-w-site pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
+    "mx-auto w-full max-w-docs pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
 } as const
 const THEME = { enabled: false } as const
 const SEARCH = { SearchDialog: DocsSearchDialog }

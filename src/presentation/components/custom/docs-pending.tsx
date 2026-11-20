@@ -61,7 +61,7 @@ const DocsContentPending = ({ breadcrumb }: { readonly breadcrumb: boolean }): J
     <main aria-busy="true" className="grid justify-items-center [grid-area:main]">
       <DocsArticle breadcrumb={breadcrumb} />
     </main>
-    <div className="sticky top-(--fd-docs-row-1) flex h-[calc(var(--fd-docs-height)-var(--fd-docs-row-1))] w-(--fd-toc-width) flex-col pe-4 pt-12 pb-2 text-sm [grid-area:toc] max-xl:hidden xl:layout:[--fd-toc-width:268px]">
+    <div className="sticky top-(--fd-docs-row-1) flex h-[calc(var(--fd-docs-height)-var(--fd-docs-row-1))] w-(--fd-toc-width) flex-col pe-4 pt-12 pb-2 text-sm [grid-area:toc] max-xl:hidden xl:layout:[--fd-toc-width:268px] 2xl:layout:[--fd-toc-width:var(--container-docs-rail)]">
       <DocsTableOfContents />
     </div>
   </>
@@ -75,8 +75,8 @@ export const DocsPending = (): JSX.Element => {
   const isIndex = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.DOCS })
 
   return (
-    <div aria-busy="true" className="mx-auto flex min-h-dvh w-full max-w-site pt-header md:px-10">
-      <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col border-x border-sidebar-border bg-sidebar md:flex">
+    <div aria-busy="true" className="mx-auto flex min-h-dvh w-full max-w-docs pt-header md:px-10" data-docs-frame>
+      <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col border-x border-sidebar-border bg-sidebar md:flex 2xl:w-docs-rail">
         <div className="flex flex-col gap-3 p-4 pb-2">
           <div className="flex h-lh items-center text-[0.9375rem]">
             <Skeleton className="h-lh w-20 scale-y-70" />
@@ -112,7 +112,7 @@ export const DocsPending = (): JSX.Element => {
         </div>
         <DocsArticle breadcrumb={!isIndex} />
       </div>
-      <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col pt-12 pr-4 text-sm xl:flex">
+      <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col pt-12 pr-4 text-sm xl:flex 2xl:w-docs-rail">
         <DocsTableOfContents />
       </div>
     </div>

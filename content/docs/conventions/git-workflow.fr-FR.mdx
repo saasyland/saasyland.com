@@ -1,6 +1,6 @@
 ---
 title: "Git et pull requests"
-description: "Des commits conventionnels avec le hook d'émojis, un worktree par branche, le merge plutôt que le force-push, de petites pull requests qui mettent à jour chaque documentation concernée, et aucune attribution à une IA."
+description: "Des commits conventionnels avec le hook d'émojis, un worktree par branche avec ses propres hooks, un historique linéaire tenu par rebase, de petites pull requests qui mettent à jour chaque documentation concernée, et aucune attribution à une IA."
 ---
 
 L'historique de `main` fait partie du produit : chaque pull request fusionnée par squash y forme une ligne qui dit ce qui a changé pour les personnes qui utilisent le code.
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - Avant de vous fier à une exécution des tests, vérifiez `git branch --show-current` dans le répertoire que vous avez testé.
-- Mettez à jour la branche d'une pull request en y fusionnant `main`. Ne faites pas de rebase d'une branche déjà poussée suivi d'un force-push : les pull requests sont fusionnées par squash, l'historique de la branche n'atteint donc jamais `main`, et un force-push ne fait que détruire l'historique de la revue.
+
+### Les hooks dans chaque worktree [#hooks-in-every-worktree]
+
+Git lit `core.hooksPath` dans la configuration que partagent tous les worktrees d'un dépôt, et Vite+ lui donne le chemin relatif `.vite-hooks/_` : Git exécute donc le répartiteur de hooks du worktree dans lequel vous committez. Le répartiteur est généré et n'est jamais committé, si bien que chaque worktree a besoin du sien, et là où il manque, Git saute les hooks sans prévenir. Deux étapes l'installent :
+
+- `git worktree add` exécute le hook `post-checkout` du checkout depuis lequel vous lancez la commande, et `.vite-hooks/post-checkout` installe le répartiteur du nouveau worktree avec `vp hooks enable`. Un commit fait avant `bun install` échoue alors dans le hook `pre-commit` au lieu de le sauter.
+- `bun install` exécute `prepare`, qui renouvelle le répartiteur avec `vp config --no-agent` puis exécute `scripts/verify-git-hooks.ts`. L'installation échoue quand `core.hooksPath` ne vaut pas `.vite-hooks/_` ou quand il manque au répartiteur un hook de `.vite-hooks/`, et l'erreur affiche la commande qui le répare.
+
+Ne donnez jamais une autre valeur à `core.hooksPath` et ne passez jamais `-c core.hooksPath` à Git. Tant que ce réglage contenait le chemin absolu du répartiteur du checkout principal, `vp config` n'a installé aucun répartiteur dans les autres worktrees, et quand le `bun install` suivant dans le checkout principal a rétabli le chemin relatif, les commits de ces worktrees se sont faits sans hooks. `vp hooks status` indique si les hooks sont actifs dans un worktree.
+
+## Historique linéaire [#linear-history]
+
+Le ruleset qui protège `main` sur GitHub exige un historique linéaire, n'accepte que les fusions par squash et refuse les force-push : chaque pull request arrive donc sur `main` en un seul commit. Les branches des pull requests restent elles aussi linéaires :
+
+- Ne créez jamais de commit de merge, ni sur `main` ni sur une branche de pull request : ne fusionnez pas `main` dans une branche et ne résolvez pas de conflits dans un commit de merge.
+- Mettez une branche à jour en la rebasant sur `main`, avec `gh pr update-branch --rebase` ou avec `git fetch origin` et `git rebase origin/main`.
+- Quand GitHub ne peut pas rebaser une pull request de plusieurs commits, intégrez-la de nouveau en un seul commit au-dessus de `main` : regroupez la branche en un commit sur sa base de merge, puis rebasez ce commit, pour ne résoudre chaque conflit qu'une fois :
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- Poussez une branche réécrite avec `git push --force-with-lease`, et seulement votre propre branche de pull request. Ne faites jamais de force-push sur `main` ou sur la branche de quelqu'un d'autre, et n'utilisez jamais un simple `--force`, qui écrase les commits poussés depuis votre dernier fetch.
 
 ## Pull requests
 

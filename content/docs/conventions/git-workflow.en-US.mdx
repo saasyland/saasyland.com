@@ -1,6 +1,6 @@
 ---
 title: "Git and pull requests"
-description: "Conventional commits with the emoji hook, one worktree per branch, merge instead of force-push, small pull requests that update every doc they affect, and no AI attribution."
+description: "Conventional commits with the emoji hook, one worktree per branch with its own hooks, a linear history kept by rebasing, small pull requests that update every doc they affect, and no AI attribution."
 ---
 
 The history of `main` is part of the product: every squash-merged pull request is one line that says what changed for the people using the code.
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - Before trusting a test run, check `git branch --show-current` in the directory you tested.
-- Bring a pull request branch up to date by merging `main` into it. Do not rebase a pushed branch and force-push it: pull requests are squash-merged, so the branch history never reaches `main`, and a force-push only destroys the review history.
+
+### Hooks in every worktree
+
+Git reads `core.hooksPath` from the configuration that every worktree of a repository shares, and Vite+ sets it to the relative path `.vite-hooks/_`, so Git runs the hook dispatcher of the worktree you commit in. The dispatcher is generated and never committed, so each worktree needs its own, and where it is missing Git skips the hooks without a warning. Two steps install it:
+
+- `git worktree add` runs the `post-checkout` hook of the checkout you run it from, and `.vite-hooks/post-checkout` installs the dispatcher of the new worktree with `vp hooks enable`. A commit made before `bun install` then fails in the `pre-commit` hook instead of skipping it.
+- `bun install` runs `prepare`, which refreshes the dispatcher with `vp config --no-agent` and then runs `scripts/verify-git-hooks.ts`. The install fails when `core.hooksPath` is not `.vite-hooks/_` or when the dispatcher lacks a hook from `.vite-hooks/`, and the error prints the command that repairs it.
+
+Never set `core.hooksPath` to another value and never pass `-c core.hooksPath` to Git. While it held the absolute path of the main checkout's dispatcher, `vp config` installed no dispatcher in the other worktrees, and once the next `bun install` in the main checkout set the relative path back, commits in those worktrees ran no hooks. `vp hooks status` shows whether the hooks are active in a worktree.
+
+## Linear history
+
+The ruleset that protects `main` on GitHub requires a linear history, accepts only squash merges and rejects force-pushes, so each pull request reaches `main` as one commit. Pull request branches stay linear too:
+
+- Never create a merge commit, on `main` or on a pull request branch: do not merge `main` into a branch, and do not resolve conflicts in a merge commit.
+- Bring a branch up to date by rebasing it onto `main`, with `gh pr update-branch --rebase` or with `git fetch origin` and `git rebase origin/main`.
+- When GitHub cannot rebase a pull request with several commits, land it again as one commit on top of `main`: squash the branch into one commit at its merge base, then rebase that commit, so you resolve each conflict once:
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- Push a rewritten branch with `git push --force-with-lease`, and only your own pull request branch. Never force-push `main` or anyone else's branch, and never use a plain `--force`, which overwrites commits pushed since your last fetch.
 
 ## Pull requests
 

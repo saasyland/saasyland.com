@@ -1,6 +1,6 @@
 ---
 title: "Git とプルリクエスト"
-description: "絵文字フック付きの Conventional Commits、ブランチごとに 1 つのワークツリー、force-push ではなくマージ、影響するすべてのドキュメントを更新する小さなプルリクエスト、そして AI の帰属表示の禁止。"
+description: "絵文字フック付きの Conventional Commits、専用のフックを持つブランチごとに 1 つのワークツリー、リベースで保つ線形の履歴、影響するすべてのドキュメントを更新する小さなプルリクエスト、そして AI の帰属表示の禁止。"
 ---
 
 `main` の履歴はプロダクトの一部です。スカッシュマージされたプルリクエストはそれぞれ 1 行になり、コードを使う人にとって何が変わったのかを伝えます。
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - テストの実行結果を信用する前に、テストしたディレクトリで `git branch --show-current` を確認します。
-- プルリクエストのブランチを最新にするには、そこに `main` をマージします。プッシュ済みのブランチをリベースして force-push してはいけません。プルリクエストはスカッシュマージされるため、ブランチの履歴が `main` に入ることはなく、force-push はレビューの履歴を壊すだけです。
+
+### すべてのワークツリーのフック [#hooks-in-every-worktree]
+
+Git は `core.hooksPath` を、リポジトリのすべてのワークツリーが共有する設定から読み取ります。Vite+ はこの値を相対パス `.vite-hooks/_` に設定するため、Git はコミットしたワークツリーのフックディスパッチャーを実行します。ディスパッチャーは生成されるファイルでコミットされないため、ワークツリーごとに専用のものが必要で、存在しないワークツリーでは Git が警告なしにフックを飛ばします。次の 2 つの仕組みでインストールします。
+
+- `git worktree add` は、コマンドを実行したチェックアウトの `post-checkout` フックを実行し、`.vite-hooks/post-checkout` が `vp hooks enable` で新しいワークツリーのディスパッチャーをインストールします。そのため、`bun install` の前にコミットすると、フックが飛ばされるのではなく `pre-commit` フックで失敗します。
+- `bun install` は `prepare` を実行し、`prepare` は `vp config --no-agent` でディスパッチャーを更新してから `scripts/verify-git-hooks.ts` を実行します。`core.hooksPath` が `.vite-hooks/_` でない場合や、`.vite-hooks/` のフックがディスパッチャーに欠けている場合はインストールが失敗し、エラーに修復するコマンドが表示されます。
+
+`core.hooksPath` をほかの値に設定したり、Git に `-c core.hooksPath` を渡したりしてはいけません。この値がメインのチェックアウトのディスパッチャーを指す絶対パスだった間、`vp config` はほかのワークツリーにディスパッチャーをインストールせず、メインのチェックアウトで次に実行した `bun install` が相対パスに戻したとき、それらのワークツリーのコミットはフックなしで作成されました。ワークツリーでフックが有効かどうかは `vp hooks status` で確認できます。
+
+## 線形の履歴 [#linear-history]
+
+GitHub で `main` を保護するルールセットは線形の履歴を必須とし、スカッシュマージだけを受け付け、force-push を拒否します。そのため、各プルリクエストは 1 つのコミットとして `main` に入ります。プルリクエストのブランチも線形に保ちます。
+
+- `main` でもプルリクエストのブランチでも、マージコミットは作成しません。ブランチに `main` をマージせず、コンフリクトをマージコミットで解決しないでください。
+- ブランチを最新にするには、`gh pr update-branch --rebase`、または `git fetch origin` と `git rebase origin/main` で `main` にリベースします。
+- 複数のコミットを持つプルリクエストを GitHub がリベースできない場合は、`main` の上に 1 つのコミットとして入れ直します。ブランチをマージベースで 1 つのコミットにまとめてからそのコミットをリベースすると、各コンフリクトを一度解決するだけで済みます。
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- 書き換えたブランチは `git push --force-with-lease` でプッシュし、対象は自分のプルリクエストのブランチだけにします。`main` やほかの人のブランチに force-push してはいけません。また、最後の fetch 以降にプッシュされたコミットを上書きする単なる `--force` は使用しないでください。
 
 ## プルリクエスト
 

@@ -33,6 +33,7 @@ This repository is the saasyland.com website: the marketing pages, docs, blog, c
 ## Pull requests
 
 - One fix, feature or refactor per pull request. The title uses the commit format and becomes the squash commit on `main`.
+- Keep the history linear: bring your branch up to date by rebasing it onto `main`, never by merging `main` into it, and push the rebased branch with `git push --force-with-lease`.
 - Fill in the template: what changed and why, the checks you ran, and the docs you updated.
 - Update everything the change makes inaccurate: the README and the docs in all nine locales.
 - Once the pull request has its number, add its [changelog entry](https://saasyland.com/docs/conventions/git-workflow#changelog-entries): `content/changelog/<number>.<locale>.mdx` in all nine locales, without a date. The changelog dates it by the day the pull request reaches `main`, and CI fails a pull request without one.

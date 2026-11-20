@@ -1,6 +1,6 @@
 ---
 title: "Git y pull requests"
-description: "Commits convencionales con el hook de emojis, un worktree por rama, merge en lugar de force-push, pull requests pequeñas que actualizan toda la documentación afectada y ninguna atribución a la IA."
+description: "Commits convencionales con el hook de emojis, un worktree por rama con sus propios hooks, un historial lineal que se mantiene con rebase, pull requests pequeñas que actualizan toda la documentación afectada y ninguna atribución a la IA."
 ---
 
 El historial de `main` forma parte del producto: cada pull request fusionada con squash es una línea que dice qué ha cambiado para quienes usan el código.
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - Antes de fiarte de una ejecución de pruebas, comprueba `git branch --show-current` en el directorio en el que has probado.
-- Pon al día la rama de una pull request fusionando `main` en ella. No hagas rebase de una rama ya subida ni force-push: las pull requests se fusionan con squash, así que el historial de la rama nunca llega a `main`, y un force-push solo destruye el historial de la revisión.
+
+### Hooks en cada worktree [#hooks-in-every-worktree]
+
+Git lee `core.hooksPath` de la configuración que comparten todos los worktrees de un repositorio, y Vite+ le asigna la ruta relativa `.vite-hooks/_`, así que Git ejecuta el despachador de hooks del worktree en el que haces commit. El despachador se genera y nunca se incluye en un commit, de modo que cada worktree necesita el suyo, y donde falta, Git se salta los hooks sin avisar. Dos pasos lo instalan:
+
+- `git worktree add` ejecuta el hook `post-checkout` del checkout desde el que lanzas el comando, y `.vite-hooks/post-checkout` instala el despachador del nuevo worktree con `vp hooks enable`. Así, un commit hecho antes de `bun install` falla en el hook `pre-commit` en lugar de saltárselo.
+- `bun install` ejecuta `prepare`, que renueva el despachador con `vp config --no-agent` y después ejecuta `scripts/verify-git-hooks.ts`. La instalación falla cuando `core.hooksPath` no es `.vite-hooks/_` o cuando al despachador le falta un hook de `.vite-hooks/`, y el error muestra el comando que lo repara.
+
+No asignes nunca otro valor a `core.hooksPath` ni pases `-c core.hooksPath` a Git. Mientras contenía la ruta absoluta del despachador del checkout principal, `vp config` no instaló ningún despachador en los demás worktrees, y cuando el siguiente `bun install` del checkout principal restableció la ruta relativa, los commits de esos worktrees se hicieron sin hooks. `vp hooks status` muestra si los hooks están activos en un worktree.
+
+## Historial lineal [#linear-history]
+
+El ruleset que protege `main` en GitHub exige un historial lineal, solo acepta fusiones con squash y rechaza los force-push, así que cada pull request llega a `main` como un solo commit. Las ramas de las pull requests también se mantienen lineales:
+
+- No crees nunca un commit de merge, ni en `main` ni en la rama de una pull request: no fusiones `main` en una rama y no resuelvas conflictos en un commit de merge.
+- Pon al día una rama haciendo rebase sobre `main`, con `gh pr update-branch --rebase` o con `git fetch origin` y `git rebase origin/main`.
+- Cuando GitHub no puede hacer rebase de una pull request con varios commits, vuelve a integrarla como un solo commit sobre `main`: junta la rama en un commit en su base de merge y después haz rebase de ese commit, de modo que resuelves cada conflicto una sola vez:
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- Sube una rama reescrita con `git push --force-with-lease`, y solo tu propia rama de pull request. No hagas nunca force-push de `main` ni de la rama de otra persona, y no uses nunca un `--force` simple, que sobrescribe los commits subidos desde tu último fetch.
 
 ## Pull requests
 

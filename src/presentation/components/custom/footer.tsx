@@ -38,7 +38,7 @@ export const Footer = (): JSX.Element => {
 
   return (
     <footer className="relative z-10 border-t border-border bg-background">
-      <div className="mx-auto w-full max-w-site px-6 md:px-10">
+      <div className="mx-auto w-full max-w-page px-6 md:px-10">
         <div className="grid gap-x-16 gap-y-8 border-b border-border py-14 md:grid-cols-2 md:items-end md:py-16">
           <div>
             <h2 className="text-headline-support text-foreground">{t("buildLog.title")}</h2>

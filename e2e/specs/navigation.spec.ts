@@ -17,11 +17,24 @@ import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/b
 const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
 const SERVER_FUNCTION = "**/_serverFn/**"
 const MOBILE_VIEWPORT = { height: 844, width: 390 }
-const HEADER_VIEWPORTS = [MOBILE_VIEWPORT, { height: 900, width: 1280 }, { height: 900, width: 1440 }, { height: 1000, width: 1870 }]
+const WIDEST_VIEWPORT = { height: 1440, width: 2560 }
+const HEADER_VIEWPORTS = [
+  MOBILE_VIEWPORT,
+  { height: 900, width: 1280 },
+  { height: 900, width: 1440 },
+  { height: 1000, width: 1870 },
+  { height: 1080, width: 1920 },
+  WIDEST_VIEWPORT,
+]
 const HEADER_LINE_WIDTH = "1px"
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
 const MINIMUM_TARGET = 24
 const HEADER_MARK = "__sameHeader"
+const HEADER_FRAMES = "__headerFrames"
+const SITE_WIDTH = "--container-site"
+const DOCS_WIDTH = "--container-docs"
+const DOCS_FRAME = "[data-docs-frame]"
+const PIXEL_TOLERANCE = 1
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
 
@@ -40,6 +53,7 @@ const PUBLIC_PAGES = [
 ]
 
 const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS]
+const MARKETING_HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG]
 
 const POLISH_PAGES = HEADER_PAGES.map((pathname) => localizePathname({ locale: POLISH, pathname }))
 
@@ -52,6 +66,12 @@ const CURRENT_ENTRIES = [
   { current: ["Docs"], path: DOCS_PAGE },
   { current: [], path: ROUTES.LICENCE },
 ]
+
+interface HeaderFrame {
+  frame: number[]
+  header: number
+  navigation: number[]
+}
 
 interface Box {
   bottom: number
@@ -90,6 +110,22 @@ const headerPlacement = async (page: Page): Promise<{ header: Box; logo: Box; na
     navigation: await header.getByRole("navigation").evaluate(boxOf),
   }
 }
+
+const rowOf = ({ header, logo, navigation }: Awaited<ReturnType<typeof headerPlacement>>) => ({
+  header,
+  logo: { bottom: logo.bottom, top: logo.top },
+  navigation: { bottom: navigation.bottom, top: navigation.top },
+})
+
+const tokenWidth = (page: Page, token: string): Promise<number> =>
+  page.evaluate((name) => {
+    const probe = document.createElement("div")
+    probe.style.width = `var(${name})`
+    document.body.appendChild(probe)
+    const { width } = probe.getBoundingClientRect()
+    probe.remove()
+    return width
+  }, token)
 
 const headerLine = async (page: Page): Promise<{ color: string; width: string }> =>
   page.getByRole("banner").evaluate((header) => {
@@ -188,10 +224,77 @@ test.describe("one site header", () => {
         placements.set(path, top.placement)
       }
 
-      const [landing] = placements.values()
+      const landing = placements.get(ROUTES.HOME)
       for (const [path, placement] of placements) {
-        expect(placement, `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
+        expect(rowOf(placement), `${path} at ${String(viewport.width)} px`).toStrictEqual(landing && rowOf(landing))
       }
+      for (const path of MARKETING_HEADER_PAGES) {
+        expect(placements.get(path), `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
+      }
+      const siteWidth = await tokenWidth(page, SITE_WIDTH)
+      const headerWidth = (landing?.header.right ?? 0) - (landing?.header.left ?? 0)
+      const navigationWidth = (landing?.navigation.right ?? 0) - (landing?.navigation.left ?? 0)
+      expect(Math.abs(navigationWidth - Math.min(siteWidth, headerWidth)), `${String(viewport.width)} px`).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+    }
+  })
+
+  test("widens the header to the docs frame in the same frame as the docs appear, and narrows it with them on the way back", async ({ page }) => {
+    await page.setViewportSize(WIDEST_VIEWPORT)
+    await visit(page, ROUTES.HOME)
+    const header = page.getByRole("banner")
+    await new BasePage(page).waitForHydration(header)
+    const siteWidth = await tokenWidth(page, SITE_WIDTH)
+    const docsWidth = await tokenWidth(page, DOCS_WIDTH)
+    await page.evaluate(
+      ({ frameSelector, key }) => {
+        const frames: HeaderFrame[] = []
+        Reflect.set(window, key, frames)
+        const edges = (element: Element | null): number[] => {
+          const box = element?.getBoundingClientRect()
+          return box === undefined ? [] : [box.left, box.right]
+        }
+        const record = (): void => {
+          const banner = document.querySelector("header")
+          frames.push({
+            frame: edges(document.querySelector(frameSelector)),
+            header: banner?.getBoundingClientRect().width ?? 0,
+            navigation: edges(banner?.querySelector("nav") ?? null),
+          })
+          requestAnimationFrame(record)
+        }
+        requestAnimationFrame(record)
+      },
+      { frameSelector: DOCS_FRAME, key: HEADER_FRAMES },
+    )
+
+    await header.getByRole("link", { exact: true, name: "Docs" }).click()
+    await expect(page).toHaveURL(ROUTES.DOCS)
+    await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
+    await header.getByRole("link", { exact: true, name: "SaaSy Land" }).click()
+    await expect(page).toHaveURL(ROUTES.HOME)
+    await expect(page.locator(DOCS_FRAME)).toHaveCount(0)
+
+    const frames: HeaderFrame[] = await page.evaluate(
+      (key) =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              resolve(Reflect.get(window, key))
+            })
+          })
+        }),
+      HEADER_FRAMES,
+    )
+    const docsFrames = frames.filter(({ frame }) => frame.length > 0)
+    expect(docsFrames.length).toBeGreaterThan(0)
+    expect(frames.at(-1)?.frame).toStrictEqual([])
+    for (const { frame, header: headerWidth, navigation } of frames) {
+      const [left = 0, right = 0] = navigation
+      const expected = Math.min(frame.length > 0 ? docsWidth : siteWidth, headerWidth)
+      expect(Math.abs(right - left - expected), JSON.stringify({ frame, navigation })).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+    }
+    for (const { frame, navigation } of docsFrames) {
+      expect(frame.map((edge, index) => Math.abs(edge - (navigation[index] ?? 0)) <= PIXEL_TOLERANCE)).toStrictEqual([true, true])
     }
   })
 

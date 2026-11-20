@@ -1,7 +1,6 @@
 import type { JSX } from "react"
 
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router"
-import { PlusCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 import * as zod from "zod"
 
@@ -18,7 +17,6 @@ import { ADMIN_PRODUCT_TABS } from "~/src/data/admin-products"
 import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
@@ -53,7 +51,7 @@ const ProductsPage = (): JSX.Element => {
       </div>
 
       <Tabs selectedKey={tab} className="w-full">
-        <div className="flex flex-col gap-4 border-b border-border sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-b border-border">
           <TabsList variant="line" className="no-scrollbar flex-1 justify-start gap-6 overflow-x-auto">
             {ADMIN_PRODUCT_TABS.map((id) => (
               <TabsTrigger className="flex-none px-0 text-sm" href={`${ROUTES.ADMIN_PRODUCTS}?tab=${id}`} id={id} key={id}>
@@ -61,12 +59,6 @@ const ProductsPage = (): JSX.Element => {
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="shrink-0 pb-3 sm:pb-0">
-            <LinkButton className="h-9 w-full gap-2 sm:w-auto" href={ROUTES.ADMIN_PRODUCTS_CREATE} size="sm">
-              <PlusCircle aria-hidden className="size-4" />
-              {t("actions.create")}
-            </LinkButton>
-          </div>
         </div>
 
         <TabsContent id={tab} className="mt-6 space-y-4 outline-none">

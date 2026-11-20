@@ -35,6 +35,7 @@ export const SUBSCRIPTION_RESULT = {
 
 export const NEWSLETTER_SUBSCRIBER_QUERY_KEYS = {
   ALL: ["newsletter-subscriber"],
+  SUBSCRIBERS: ["newsletter-subscriber", "getNewsletterSubscribers"],
   SUBSCRIPTION: ["newsletter-subscriber", "getNewsletterSubscription"],
 } as const
 

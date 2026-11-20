@@ -14,10 +14,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { ItemName } from "~/src/presentation/components/custom/admin/products/product-columns"
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
-import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
-
-const ITEMS_PLACEHOLDER = "0"
+import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type CategoryRow = Category["select"]
 
@@ -33,7 +30,7 @@ const NameHeader = ({ kind }: { readonly kind: CategoryKind }): string => {
   return t("categories.table.headers.category")
 }
 
-const CategoryHeader = ({ id }: { readonly id: "items" | "lastUpdated" | "visibility" }): string => {
+const CategoryHeader = ({ id }: { readonly id: "lastUpdated" | "visibility" }): string => {
   const t = useTranslations("pages.admin.products")
 
   return t(`categories.table.headers.${id}`)
@@ -58,16 +55,6 @@ const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow
   )
 }
 
-const ItemsCell = (): JSX.Element => {
-  const t = useTranslations("pages.admin.products.categories.table")
-
-  return (
-    <div className="text-sm font-medium text-foreground">
-      {ITEMS_PLACEHOLDER} <span className="font-normal text-muted-foreground">{t("itemsUnit")}</span>
-    </div>
-  )
-}
-
 const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, Date>): JSX.Element => {
   const format = useFormatter()
 
@@ -84,9 +71,7 @@ const columnsFor = (kind: CategoryKind) =>
       header: () => <NameHeader kind={kind} />,
     }),
     columnHelper.accessor("visibility", { cell: VisibilityCell, enableSorting: false, header: () => <CategoryHeader id="visibility" /> }),
-    columnHelper.display({ cell: ItemsCell, header: () => <CategoryHeader id="items" />, id: "items" }),
     columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CategoryHeader id="lastUpdated" /> }),
-    columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
   ])
 
 export const categoryColumns = {

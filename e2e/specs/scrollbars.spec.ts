@@ -94,7 +94,7 @@ test("an admin page keeps its content in place whether or not it scrolls, and th
   authPage,
   page,
 }) => {
-  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN_SETTINGS)
+  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN)
   await expectPageToStayWhenItFits(page, page.locator("[data-page-scroller]"))
   expect(await boxOf(page.locator("body"))).toEqual({ left: 0, width: WINDOW.width })
 })

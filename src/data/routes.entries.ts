@@ -1,4 +1,3 @@
-export { ADMIN_ANALYTICS } from "~/src/data/analytics.routes"
 export {
   ADMIN,
   ADMIN_SETTINGS,
@@ -24,9 +23,5 @@ export { ADMIN_COURSES, ADMIN_COURSES_CREATE, ADMIN_VIDEOS, COURSES } from "~/sr
 export { AFFILIATES, LICENCE, PRIVACY, REFUNDS, TERMS } from "~/src/data/legal.routes"
 export { APP_LICENSE } from "~/src/data/license.routes"
 export { NEWSLETTER, NEWSLETTER_CONFIRM, NEWSLETTER_UNSUBSCRIBE } from "~/src/data/newsletter.routes"
-export { ADMIN_LANDING_PAGE } from "~/src/data/page-builder.routes"
-export { ADMIN_PAYMENTS, ADMIN_PRICING } from "~/src/data/payments.routes"
 export { API_AUTH_CUSTOMER_PORTAL, API_AUTH_POLAR } from "~/src/data/polar.routes"
-export { ADMIN_BLOG, ADMIN_BLOG_CREATE } from "~/src/data/post-editor.routes"
-export { ADMIN_PRODUCTS, ADMIN_PRODUCTS_CREATE } from "~/src/data/products.routes"
-export { ADMIN_USERS_INVITATIONS, ADMIN_USERS_ROLES } from "~/src/data/team.routes"
+export { ADMIN_PRODUCTS } from "~/src/data/products.routes"

@@ -1,0 +1,119 @@
+import type { Locator, Page } from "@playwright/test"
+
+import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { TEST_ACCOUNTS } from "../data/accounts"
+import { TEST_REVENUE } from "../data/payments"
+import { expect, test } from "../fixtures/auth"
+import { AuthPage } from "../pages"
+import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
+import authDashboardMessages from "../../messages/en-US/dashboard.auth.json" with { type: "json" }
+import coursesDashboardMessages from "../../messages/en-US/dashboard.courses.json" with { type: "json" }
+import paymentsDashboardMessages from "../../messages/en-US/dashboard.payments.json" with { type: "json" }
+import notFoundMessages from "../../messages/en-US/errors.not-found.json" with { type: "json" }
+import pagesAdminDashboardMessages from "../../messages/en-US/pages.admin.dashboard.json" with { type: "json" }
+import pagesAdminSidebarMessages from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
+
+const [admin, customer] = TEST_ACCOUNTS
+
+const REMOVED_SCREENS = [
+  "/admin/analytics",
+  "/admin/blog",
+  "/admin/blog/create",
+  "/admin/landing-page",
+  "/admin/payments",
+  "/admin/pricing-models",
+  "/admin/products/create",
+  "/admin/users/invitations",
+  "/admin/users/roles",
+] as const
+
+const REMOVED_LABELS = /analytics|pricing models|payments|blog|landing page|invitations|roles/iu
+
+const revenue = paymentsDashboardMessages.revenue
+const ranges = pagesAdminDashboardMessages.chart.range
+
+const panel = (page: Page, title: string): Locator =>
+  page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: title }) })
+
+const figure = (scope: Locator, name: string): Locator => scope.getByText(name, { exact: true }).locator("xpath=following-sibling::dd")
+
+const signInAsAdmin = async (page: Page): Promise<void> => {
+  await new AuthPage(page).signIn(admin.email)
+  await expect(page).toHaveURL(/\/admin\/?$/u)
+  await new BasePage(page).waitForAppReady()
+}
+
+test("the dashboard totals the seeded orders per currency, refunds subtracted, and follows the period", async ({ page }) => {
+  await signInAsAdmin(page)
+
+  const revenuePanel = panel(page, revenue.title)
+  await expect(revenuePanel.getByRole("radio", { name: ranges["30d"] })).toBeChecked()
+  await revenuePanel.getByRole("tab", { exact: true, name: "GBP" }).click()
+  await expect(figure(revenuePanel, revenue.net)).toHaveText(TEST_REVENUE.last30Days.net)
+  await expect(figure(revenuePanel, revenue.orders)).toHaveText(TEST_REVENUE.last30Days.orders)
+  await expect(figure(revenuePanel, revenue.refunded)).toHaveText(TEST_REVENUE.last30Days.refunded)
+  await expect(revenuePanel.getByRole("tab", { exact: true, name: "EUR" })).toHaveCount(0)
+
+  await revenuePanel.getByRole("radio", { name: ranges["12m"] }).click()
+  await expect(revenuePanel.getByRole("radio", { name: ranges["12m"] })).toBeChecked()
+  await revenuePanel.getByRole("tab", { exact: true, name: "EUR" }).click()
+  await expect(figure(revenuePanel, revenue.net)).toHaveText(TEST_REVENUE.last12MonthsEuro.net)
+  await expect(figure(revenuePanel, revenue.orders)).toHaveText(TEST_REVENUE.last12MonthsEuro.orders)
+  await expect(revenuePanel.getByRole("table", { name: revenue.series })).toBeAttached()
+
+  const signups = panel(page, authDashboardMessages.signups.title)
+  await expect(signups.getByText(/^\d[\d,]* new users?$/u)).toBeVisible()
+  await expect(panel(page, coursesDashboardMessages.progress.title).getByRole("table")).toBeVisible()
+  await expect(page.getByText("Revenue Overview")).toHaveCount(0)
+})
+
+test("the dashboard counts the accounts and links the newest to their profiles", async ({ page }) => {
+  await signInAsAdmin(page)
+
+  const registered = page.getByText(authDashboardMessages.registeredUsers, { exact: true }).locator("xpath=following-sibling::dd")
+  await expect(registered).toHaveText(/^[1-9][\d,]*$/u)
+  const newest = panel(page, pagesAdminDashboardMessages.users.title)
+  const profiles = newest.getByRole("table").getByRole("link")
+  await expect(profiles).not.toHaveCount(0)
+  for (const profile of await profiles.all()) {
+    await expect(profile).toHaveAttribute("href", /^\/admin\/users\/[^/]+$/u)
+  }
+})
+
+test("the admin menu and the command palette list only working screens", async ({ page }) => {
+  await signInAsAdmin(page)
+
+  const sidebar = page.getByRole("navigation", { name: pagesAdminSidebarMessages.navigationLabel })
+  const sections = await sidebar.getByRole("link").allTextContents()
+  expect(sections.length).toBeGreaterThan(0)
+  expect(sections.filter((section) => REMOVED_LABELS.test(section))).toStrictEqual([])
+
+  await page.keyboard.press("ControlOrMeta+k")
+  const palette = page.getByRole("dialog")
+  await expect(palette.getByRole("menuitem")).toHaveCount(sections.length)
+  expect(await palette.getByRole("menuitem").allTextContents()).toStrictEqual(sections)
+})
+
+for (const path of REMOVED_SCREENS) {
+  test(`${path} is gone and answers 404 to an admin`, async ({ page }) => {
+    await signInAsAdmin(page)
+
+    const response = await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await new BasePage(page).waitForAppReady()
+
+    expect(response?.status()).toBe(HTTP_STATUS.NOT_FOUND)
+    await expect(page.getByRole("heading", { level: 1, name: notFoundMessages.metadata.title })).toBeVisible()
+  })
+}
+
+test("a customer is sent to the workspace and never sees the dashboard's figures", async ({ page }) => {
+  await new AuthPage(page).signIn(customer.email)
+  await expect(page).toHaveURL(/\/app\/?$/u)
+
+  await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await new BasePage(page).waitForAppReady()
+
+  await expect(page).toHaveURL(/\/app\/?$/u)
+  await expect(page.getByRole("heading", { name: revenue.title })).toHaveCount(0)
+  await expect(page.getByText(TEST_REVENUE.last30Days.net)).toHaveCount(0)
+})

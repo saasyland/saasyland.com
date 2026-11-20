@@ -1,3 +1,5 @@
+import authNavigation from "../../../messages/en-US/navigation.auth.json"
+import { ADMIN_NAVIGATION } from "../../../src/data/navigation"
 import { AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame } from "remotion"
 
 import { Header, Panel, Rail } from "../components/app-chrome"
@@ -24,16 +26,7 @@ const ROWS = [
   { email: "rafael@santos.br", name: "Rafael Santos", role: "Customer", state: "active" },
 ] as const
 
-const KPIS = [
-  { label: "Total MRR", value: "$124,500" },
-  { label: "Active users", value: "45,231" },
-  { label: "Churn rate", value: "1.2%" },
-  { label: "Avg. revenue / user", value: "$42.50" },
-] as const
-
-const BARS = [0.45, 0.35, 0.62, 0.5, 0.4, 0.7, 0.86, 0.55, 0.45, 0.3, 0.66, 0.76, 0.92, 0.8, 0.6, 0.51, 0.71, 0.42] as const
-
-const TOUR_TO_ANALYTICS = 1.4 * FPS
+const TOUR_TO_USERS = 1.4 * FPS
 const TOUR_TO_DASHBOARD = 5.2 * FPS
 
 const FADE = 0.22 * FPS
@@ -42,37 +35,11 @@ const GAP = 0.34 * FPS
 const HIGHLIGHT_FROM = 6.4 * FPS
 const HIGHLIGHT_STEP = 0.5 * FPS
 
-const CATMULL_ROM_TO_BEZIER = 6
+const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
 
-interface Point {
-  readonly x: number
-  readonly y: number
-}
+const DASHBOARD_ROW = ADMIN_ITEMS.findIndex(({ key }) => key === "dashboard")
 
-function pointAt(index: number): Point {
-  return { x: (index / (SERIES.length - 1)) * CHART_W, y: CHART_H - (SERIES[index] ?? 0) * CHART_H }
-}
-
-function seriesPath(close: boolean): string {
-  const points = SERIES.map((_, index) => pointAt(index))
-  const segments: string[] = [`M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`]
-
-  for (let index = 0; index < points.length - 1; index++) {
-    const previous = points[Math.max(0, index - 1)]
-    const current = points[index]
-    const next = points[index + 1]
-    const after = points[Math.min(points.length - 1, index + 2)]
-    const c1 = {
-      x: current.x + (next.x - previous.x) / CATMULL_ROM_TO_BEZIER,
-      y: current.y + (next.y - previous.y) / CATMULL_ROM_TO_BEZIER,
-    }
-    const c2 = { x: next.x - (after.x - current.x) / CATMULL_ROM_TO_BEZIER, y: next.y - (after.y - current.y) / CATMULL_ROM_TO_BEZIER }
-    segments.push(`C${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${next.x.toFixed(2)} ${next.y.toFixed(2)}`)
-  }
-
-  const path = segments.join(" ")
-  return close ? `${path} L${CHART_W} ${CHART_H} L0 ${CHART_H} Z` : path
-}
+const USERS_ROW = ADMIN_ITEMS.findIndex(({ key }) => key === "userManagement")
 
 function StatPlate() {
   return (
@@ -125,33 +92,24 @@ function DashboardScreen({ highlighted }: Readonly<{ highlighted: number }>) {
       <StatPlate />
 
       <Panel style={{ padding: 26 }}>
-        <div style={{ color: THEME.foreground, fontFamily: SANS, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>
-          Revenue Overview
+        <div style={{ color: THEME.foreground, fontFamily: SANS, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>Revenue</div>
+        <div style={{ color: THEME.mutedForeground, fontFamily: SANS, fontSize: 15, lineHeight: 1.45, marginTop: 4, maxWidth: 900 }}>
+          Orders Polar reports as paid in the period, counted by the UTC day or month they were placed. Amounts include tax, and each refund
+          is subtracted from the order it refunds.
         </div>
-        <div style={{ color: THEME.mutedForeground, fontFamily: SANS, fontSize: 15, marginTop: 4 }}>
-          Monthly recurring revenue over the last 12 months
-        </div>
-        <svg height={CHART_H} style={{ marginTop: 18 }} viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W}>
-          <defs>
-            <linearGradient id="tourFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor={THEME.accent} stopOpacity={0.24} />
-              <stop offset="100%" stopColor={THEME.accent} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          {[0, 1, 2, 3].map((line) => (
-            <line
-              key={line}
-              stroke={THEME.hairline}
-              strokeWidth={1}
-              x1={0}
-              x2={CHART_W}
-              y1={(line / 3) * CHART_H}
-              y2={(line / 3) * CHART_H}
+        <div style={{ alignItems: "flex-end", display: "flex", gap: 14, height: CHART_H, marginTop: 18, width: CHART_W }}>
+          {SERIES.map((value, index) => (
+            <div
+              key={index}
+              style={{
+                backgroundColor: index === SERIES.length - 1 ? THEME.accent : THEME.accentMuted,
+                borderRadius: 4,
+                flexGrow: 1,
+                height: `${(value * 100).toFixed(2)}%`,
+              }}
             />
           ))}
-          <path d={seriesPath(true)} fill="url(#tourFill)" />
-          <path d={seriesPath(false)} fill="none" stroke={THEME.accent} strokeLinecap="round" strokeWidth={3} />
-        </svg>
+        </div>
       </Panel>
 
       <Panel>
@@ -166,7 +124,7 @@ function DashboardScreen({ highlighted }: Readonly<{ highlighted: number }>) {
             padding: "18px 26px",
           }}
         >
-          User Management
+          Newest users
         </div>
         {ROWS.map((row, index) => (
           <div
@@ -233,50 +191,60 @@ function DashboardScreen({ highlighted }: Readonly<{ highlighted: number }>) {
   )
 }
 
-function AnalyticsScreen({ activeBar }: Readonly<{ activeBar: number }>) {
+function UsersScreen() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(4, 1fr)" }}>
-        {KPIS.map((kpi) => (
-          <Panel key={kpi.label} style={{ padding: "22px 24px" }}>
-            <div style={{ color: THEME.mutedForeground, fontFamily: SANS, fontSize: 16 }}>{kpi.label}</div>
-            <div
-              style={{
-                color: THEME.foreground,
-                fontFamily: SANS,
-                fontSize: 36,
-                fontVariantNumeric: "tabular-nums",
-                fontWeight: 600,
-                letterSpacing: "-0.03em",
-                marginTop: 12,
-              }}
-            >
-              {kpi.value}
-            </div>
-          </Panel>
-        ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <div>
+        <div style={{ color: THEME.foreground, fontFamily: SANS, fontSize: 28, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          User Management
+        </div>
+        <div style={{ color: THEME.mutedForeground, fontFamily: SANS, fontSize: 16, marginTop: 6 }}>
+          Manage your team members, permissions, and customer accounts.
+        </div>
       </div>
-
-      <Panel style={{ padding: 26 }}>
-        <div style={{ color: THEME.foreground, fontFamily: SANS, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>
-          Revenue Overview
+      <div style={{ borderBottom: `1px solid ${THEME.hairline}`, display: "flex", fontFamily: SANS, fontSize: 16 }}>
+        <span style={{ borderBottom: `2px solid ${THEME.foreground}`, color: THEME.foreground, paddingBottom: 10 }}>
+          {authNavigation.userTabs.allUsers}
+        </span>
+      </div>
+      <Panel>
+        <div
+          style={{
+            borderBottom: `1px solid ${THEME.hairline}`,
+            color: THEME.foreground,
+            display: "grid",
+            fontFamily: MONO,
+            fontSize: 13,
+            gridTemplateColumns: "1fr 160px 140px",
+            letterSpacing: "0.09em",
+            padding: "16px 26px",
+            textTransform: "uppercase",
+          }}
+        >
+          <span>User</span>
+          <span>Role</span>
+          <span>Status</span>
         </div>
-        <div style={{ color: THEME.mutedForeground, fontFamily: SANS, fontSize: 15, marginTop: 4 }}>
-          Daily revenue generated over the last 30 days
-        </div>
-        <div style={{ alignItems: "flex-end", display: "flex", gap: 12, height: 300, marginTop: 22 }}>
-          {BARS.map((bar, index) => (
-            <div
-              key={index}
-              style={{
-                backgroundColor: index === activeBar ? THEME.accent : THEME.accentDim,
-                borderRadius: 4,
-                flexGrow: 1,
-                height: `${bar * 100}%`,
-              }}
-            />
-          ))}
-        </div>
+        {ROWS.map((row, index) => (
+          <div
+            key={row.email}
+            style={{
+              alignItems: "center",
+              borderBottom: index === ROWS.length - 1 ? "none" : `1px solid ${THEME.hairline}`,
+              display: "grid",
+              fontFamily: SANS,
+              gridTemplateColumns: "1fr 160px 140px",
+              padding: "16px 26px",
+            }}
+          >
+            <span>
+              <span style={{ color: THEME.foreground, display: "block", fontSize: 17, fontWeight: 500 }}>{row.name}</span>
+              <span style={{ color: THEME.mutedForeground, display: "block", fontSize: 14 }}>{row.email}</span>
+            </span>
+            <span style={{ color: THEME.mutedForeground, fontSize: 15 }}>{row.role}</span>
+            <span style={{ color: row.state === "active" ? THEME.accent : THEME.mutedForeground, fontSize: 15 }}>{row.state}</span>
+          </div>
+        ))}
       </Panel>
     </div>
   )
@@ -287,28 +255,27 @@ export function AppTour() {
 
   const dashboardOpacity = interpolate(
     frame,
-    [TOUR_TO_ANALYTICS, TOUR_TO_ANALYTICS + FADE, TOUR_TO_DASHBOARD + GAP, TOUR_TO_DASHBOARD + GAP + FADE],
+    [TOUR_TO_USERS, TOUR_TO_USERS + FADE, TOUR_TO_DASHBOARD + GAP, TOUR_TO_DASHBOARD + GAP + FADE],
     [1, 0, 0, 1],
     { easing: Easing.bezier(0.4, 0, 0.2, 1), extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   )
-  const analyticsOpacity = interpolate(
+  const usersOpacity = interpolate(
     frame,
-    [TOUR_TO_ANALYTICS + GAP, TOUR_TO_ANALYTICS + GAP + FADE, TOUR_TO_DASHBOARD, TOUR_TO_DASHBOARD + FADE],
+    [TOUR_TO_USERS + GAP, TOUR_TO_USERS + GAP + FADE, TOUR_TO_DASHBOARD, TOUR_TO_DASHBOARD + FADE],
     [0, 1, 1, 0],
     { easing: Easing.bezier(0.4, 0, 0.2, 1), extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   )
-  const showAnalytics = frame >= TOUR_TO_ANALYTICS + GAP && frame < TOUR_TO_DASHBOARD + GAP
+  const showUsers = frame >= TOUR_TO_USERS + GAP && frame < TOUR_TO_DASHBOARD + GAP
 
   const highlighted = Math.floor((frame - HIGHLIGHT_FROM) / HIGHLIGHT_STEP)
-  const activeBar = 6 + (Math.floor((frame - TOUR_TO_ANALYTICS) / (0.55 * FPS)) % 4)
 
   return (
     <Plate ground={THEME.background} seam={false}>
       <AbsoluteFill style={{ flexDirection: "row" }}>
-        <Rail activeIndex={showAnalytics ? 1 : 0} reveal={() => 1} />
+        <Rail activeIndex={showUsers ? USERS_ROW : DASHBOARD_ROW} reveal={() => 1} />
 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 }}>
-          <Header crumb={showAnalytics ? "Analytics" : "Dashboard"} opacity={1} />
+          <Header crumb={showUsers ? authNavigation.admin.userManagement : authNavigation.admin.dashboard} opacity={1} />
 
           <div style={{ flexGrow: 1, position: "relative" }}>
             <Interactive.Div
@@ -325,16 +292,16 @@ export function AppTour() {
             </Interactive.Div>
 
             <Interactive.Div
-              name="Analytics"
+              name="Users"
               style={{
                 inset: 0,
-                opacity: analyticsOpacity,
+                opacity: usersOpacity,
                 padding: PAD,
                 position: "absolute",
-                translate: `0px ${((1 - analyticsOpacity) * 10).toFixed(2)}px`,
+                translate: `0px ${((1 - usersOpacity) * 10).toFixed(2)}px`,
               }}
             >
-              <AnalyticsScreen activeBar={activeBar} />
+              <UsersScreen />
             </Interactive.Div>
           </div>
         </div>

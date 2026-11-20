@@ -21,10 +21,10 @@ import { UserWidget } from "~/src/presentation/components/custom/admin/user-widg
 
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
+import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
-import { APP_DOMAIN, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -44,6 +44,14 @@ describe("admin navigation", () => {
     expect(screen.getByRole("link", { name: navigationAuthMessages.admin.settings })).toHaveAttribute("href", "/admin/settings")
     expect(breadcrumbDividers(container)).toHaveLength(1)
     expect(container.querySelector('[aria-current="page"]')).toBeNull()
+  })
+
+  it("names a sub-page in the breadcrumbs when its area does", () => {
+    const { container } = renderAdmin(<AdminBreadcrumbs />, { path: "/admin/courses/create" })
+
+    expect(screen.getByRole("link", { name: navigationCoursesMessages.admin.courses })).toHaveAttribute("href", "/admin/courses")
+    expect(screen.getByText(navigationCoursesMessages.breadcrumbs.create)).toHaveAttribute("aria-current", "page")
+    expect(breadcrumbDividers(container)).toHaveLength(2)
   })
 
   it.each(["/", "/app"])("does not show admin breadcrumbs outside admin at %s", (path) => {
@@ -100,11 +108,10 @@ describe("general workspace settings", () => {
     expect(screen.getByLabelText(pagesAdminSettingsMessages.security.password.current)).toHaveValue("")
   })
 
-  it("shows the workspace fields and the admin's own saved time zone", () => {
+  it("shows only the admin's own saved time zone, with no unconnected workspace controls", () => {
     renderAdminPage(SettingsRoute.options.component)
-    expect(screen.getByDisplayValue(APP_NAME)).toBeVisible()
-    expect(screen.getByDisplayValue(CONTACT_EMAIL)).toBeVisible()
-    expect(screen.getByText(`${APP_DOMAIN}/`)).toBeVisible()
+    expect(screen.queryByRole("textbox")).toBeNull()
+    expect(screen.queryByRole("button", { name: /delete/iu })).toBeNull()
     expect(screen.getByRole("heading", { name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(screen.queryByRole("switch")).toBeNull()

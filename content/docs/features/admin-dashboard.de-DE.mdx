@@ -1,25 +1,71 @@
 ---
 title: "Admin-Dashboard"
-description: "Die /admin-Shell und das Dashboard: Live-Zähler, bezahlte Lizenzbestellungen ohne Lizenz und Benutzertabelle, statisches Umsatzdiagramm."
+description: "Die /admin-Shell und das Dashboard: Zähler, Umsatz, neue Benutzer, Kursfortschritt, bezahlte Lizenzbestellungen ohne Lizenz und die neuesten Benutzer, alles aus D1 gelesen, und die Lint-Regel, die Demo-Daten aus dem Admin-Bereich fernhält."
 ---
 
-## Admin-Shell
+## Admin-Shell [#admin-shell]
 
 `src/routes/admin.tsx` schützt jede Admin-Seite mit `requireAdmin` und lädt die gemeinsamen Admin-Namespaces vorab. Das Layout rendert:
 
-- `AdminSidebar`, `AdminBreadcrumbs` und `AdminCommandPalette` (Öffnen mit ⌘K), alle aufgebaut aus `ADMIN_NAVIGATION` in `src/data/navigation.ts`, das die Einträge der Bereiche samt Icon gruppiert: Überblick (Dashboard, Analytik), Angebote (Produkte, Preismodelle), Inhalte (Blog, Kurse, Videos, Landingpage) und Verwaltung (Benutzerverwaltung, Zahlungen, Einstellungen).
+- `AdminSidebar`, `AdminBreadcrumbs` und `AdminCommandPalette` (Öffnen mit ⌘K), alle aufgebaut aus `ADMIN_NAVIGATION` in `src/data/navigation.ts`, das die Einträge der Bereiche samt Icon gruppiert: Überblick (Dashboard), Angebote (Produkte), Inhalte (Kurse, Videos) und Verwaltung (Benutzerverwaltung, Einstellungen). Jeder Eintrag öffnet eine funktionierende Ansicht; eine Ansicht ohne echte Datenquelle hat keine Route, keinen Menüeintrag und keinen Eintrag in der Befehlspalette (siehe [Nur echte Daten](#real-data-only)).
 - Das Benutzer-Widget im Fußbereich der Seitenleiste mit einem Link zu den Einstellungen und `SignOutButton`.
 
-## Dashboard
+## Dashboard [#dashboard]
 
-`/admin` (`src/routes/admin.index.tsx`) lädt im Loader `getUsersQuery` und, über ihr `prefetch`, die Query jeder Dashboard-Statistik und jedes Panels, das Daten liest, vorab und setzt die Widgets aus `src/presentation/components/custom/admin/dashboard` mit den Panels zusammen, die die Bereiche hinzufügen:
+`/admin` (`src/routes/admin.index.tsx`) lädt `getUsersQuery` und, über ihr `prefetch`, die Query jeder Dashboard-Statistik und jedes Panels vorab und setzt die Widgets aus `src/presentation/components/custom/admin/dashboard` mit den Panels zusammen, die die Bereiche hinzufügen:
 
-- `DashboardActions`: ein Link für jeden Eintrag von `ADMIN_DASHBOARD_ACTIONS`, nach seinem `order` sortiert, etwa **Produkt hinzufügen** aus `src/data/products.navigation.ts`, beschriftet aus `navigation.products.json`.
-- `DashboardStats` (live): die Statistiken von `ADMIN_DASHBOARD_STATS`, die Einträge der `src/data/<area>.dashboard.ts` mit der Platzierung `DASHBOARD_PLACEMENT.STAT`, nach ihrem `order` sortiert: die Anzahl der Benutzer und die Benutzer, deren E-Mail-Bestätigung noch aussteht, aus `src/data/auth.dashboard.ts` sowie die Anzahl der Produkte aus `src/data/products.dashboard.ts`, jeweils beschriftet aus der `dashboard.<area>.json` ihres Bereichs.
-- Die Panels von `ADMIN_DASHBOARD_PANELS`, die Einträge mit der Platzierung `DASHBOARD_PLACEMENT.PANEL`, nach ihrem `order` sortiert, jeweils mit dem Skeleton, das `AdminDashboardPending` dafür zeigt:
-  - Der Lizenzbereich fügt in `src/data/license.dashboard.ts` `UnlicensedOrders` (live) hinzu: die bezahlten Lizenzbestellungen ohne Lizenz, jede mit einem Link zur Bestellung in Polar, oder eine Zeile, die sagt, dass es keine gibt, beschriftet aus `dashboard.license.json` (siehe [Lizenzen](/docs/features/licences#orders-that-match-no-account)).
-  - Der Zahlungsbereich fügt in `src/data/payments.dashboard.ts` `RevenueChart` (Demo) hinzu, ein statisches SVG mit festen Achsen, beschriftet aus `dashboard.payments.json`; die Zeitraum-Schaltflächen haben keine Funktion.
-- Eine Benutzerkarte (live): die neuesten Benutzer mit Suche und Statusfiltern, <RepositoryFact name="adminPreviewPageSize" /> Zeilen pro Seite. Jeder Name verlinkt auf das Profil des Benutzers, wo die Aktionen liegen.
+- `DashboardActions`: ein Link für jeden Eintrag von `ADMIN_DASHBOARD_ACTIONS`, nach seinem `order` sortiert, beschriftet aus der `navigation.<area>.json` seines Bereichs. Heute fügt kein Bereich einen hinzu, daher zeigt das Dashboard keine Aktionsschaltflächen.
+- `DashboardStats`: die Statistiken von `ADMIN_DASHBOARD_STATS`, die Einträge der `src/data/<area>.dashboard.ts` mit der Platzierung `DASHBOARD_PLACEMENT.STAT`, nach ihrem `order` sortiert, jeweils beschriftet aus der `dashboard.<area>.json` ihres Bereichs und für die Sprache der Seite formatiert.
+- Die Panels von `ADMIN_DASHBOARD_PANELS`, die Einträge mit der Platzierung `DASHBOARD_PLACEMENT.PANEL`, nach ihrem `order` sortiert, jeweils mit dem Skeleton, das `AdminDashboardPending` dafür zeigt.
+- Eine Benutzerkarte: die neuesten Konten, <RepositoryFact name="adminPreviewPageSize" /> Zeilen pro Seite, mit Suche und Statusfiltern. Jeder Name verlinkt auf das Profil des Benutzers, wo die Aktionen liegen.
+
+| Statistik                        | Bereich      | Quelle                                                                                                       |
+| -------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| Registrierte Benutzer            | `auth`       | `total` von `getUsersQuery`: jede Zeile von `user`                                                           |
+| Produkte im Katalog              | `products`   | `total` von `getProductsQuery`: jede Zeile von `product`                                                     |
+| Ausstehende E-Mail-Verifizierung | `auth`       | `pendingVerification` von `getUsersQuery`: Konten, die weder bestätigt noch gesperrt sind                    |
+| Lernende                         | `courses`    | `learners` von `courseProgressQuery`: Konten mit gespeichertem Fortschritt in einer veröffentlichten Lektion |
+| Videos                           | `courses`    | `total` von `getVideosQuery`: jede Zeile von `video`                                                         |
+| Newsletter-Abonnenten            | `newsletter` | `newsletterSubscribersQuery`: Zeilen von `newsletter_subscriber`, deren Status `subscribed` ist              |
+
+| Panel                             | Bereich    | Quelle                                                                                                                             |
+| --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Bezahlte Bestellungen ohne Lizenz | `license`  | `unlicensedOrdersQuery` (siehe [Lizenzen](/docs/features/licences#orders-that-match-no-account))                                   |
+| Umsatz                            | `payments` | `revenueQuery` in `src/modules/order/use-cases/get-revenue.ts`, siehe [Umsatz](#revenue)                                           |
+| Neue Benutzer                     | `auth`     | `userSignupsQuery` in `src/modules/user/use-cases/get-user-signups.ts`, siehe [Neue Benutzer](#new-users)                          |
+| Kursfortschritt                   | `courses`  | `courseProgressQuery` in `src/modules/lesson-progress/use-cases/get-course-progress.ts`, siehe [Kursfortschritt](#course-progress) |
+
+Jede Query führt eine Server Function hinter `authorized(...)` mit einer Berechtigung aus, die die Bereiche bereits deklarieren, sodass ein angemeldetes Konto ohne diese Berechtigung einen Fehler erhält, niemals die Zahlen.
+
+### Zeiträume [#periods]
+
+Die Panels für Umsatz und neue Benutzer bieten die Zeiträume <RepositoryFact name="dashboardRanges" /> aus `TIME_RANGES` in `src/modules/_core/utils/time-series.ts` an und öffnen mit <RepositoryFact name="defaultDashboardRange" />. `timeSeries(range, now)` zerlegt einen Zeitraum in seine Abschnitte: die letzten Tage bis einschließlich heute oder die letzten Monate bis einschließlich des laufenden, in UTC. Die Server Function liest die Uhr und gibt jeden Abschnitt zurück, sodass der Browser genau das zeichnet, was der Server gezählt hat. `bucketOf` in `src/integrations/drizzle-orm/drizzle.time-series.ts` gruppiert die Zeilen mit dem `strftime` von SQLite in UTC, und `pointsOf` legt jede Summe in ihren Abschnitt und füllt die Abschnitte ohne Zeilen mit null.
+
+Jedes Panel hält seinen Zeitraum im Komponentenzustand. `RangePicker` ändert ihn in einer Transition, sodass das Panel die aktuellen Zahlen auf dem Bildschirm behält, entfärbt und mit `aria-busy` markiert, bis der nächste Zeitraum geladen ist. `TimeSeriesChart` (`src/presentation/components/custom/admin/dashboard/time-series-chart.tsx`) zeichnet die Reihe mit Recharts über `ChartContainer` als Balkendiagramm; das Diagramm ist vor assistiven Technologien verborgen, und eine visuell versteckte Tabelle listet jeden Tag oder Monat mit seinem Wert auf.
+
+### Umsatz [#revenue]
+
+`getRevenue` (`order: ["read"]`) liest die D1-Kopien der Bestellungen von Polar (siehe [Zahlungen](/docs/features/payments#orders-and-subscriptions-in-d1)):
+
+- Gezählt werden die Bestellungen, deren Status einer von <RepositoryFact name="revenueOrderStatuses" /> ist (`REVENUE_ORDER_STATUSES` in `src/modules/order/order.constants.ts`) und die im Zeitraum aufgegeben wurden. Entwürfe sowie ausstehende und stornierte Bestellungen sind kein Umsatz.
+- Für jede Währung gibt die Funktion die Bestellungen zurück, `gross` (die Summe von `total_amount`), `refunded` (die Summe von `refunded_amount`), `net` (brutto abzüglich der Erstattungen) und `points`, den Nettobetrag jedes Abschnitts. Die Beträge sind in der Haupteinheit der Währung angegeben, mit `fromMinorUnits` umgerechnet, und enthalten die Steuern, wie Polar sie berechnet hat.
+- Eine Erstattung wird von der Bestellung abgezogen, die sie erstattet, im Abschnitt des Tages, an dem die Bestellung aufgegeben wurde, weil die Kopie den erstatteten Betrag enthält, nicht aber den Zeitpunkt der Erstattung.
+- Währungen werden nie zusammengezählt. Das Panel zeigt einen Tab pro Währung, die mit den meisten Bestellungen zuerst, mit ihrem Betrag nach Erstattungen, ihren Bestellungen und ihren Erstattungen über ihrem Diagramm.
+- Gibt es im Zeitraum keine bezahlte Bestellung, sagt das Panel das und zeichnet kein Diagramm.
+
+### Neue Benutzer [#new-users]
+
+`getUserSignups` (`user: ["list"]`) zählt die Zeilen von `user` nach dem Abschnitt ihres `created_at` und gibt die Reihe und ihre Summe zurück. Das Panel zeigt die Summe und das Diagramm oder sagt, dass im Zeitraum kein Konto erstellt wurde.
+
+### Kursfortschritt [#course-progress]
+
+`getCourseProgress` (`course: ["read"]`) listet jeden Kurs in der Reihenfolge des Admin-Bereichs (`position`) mit seinen veröffentlichten Lektionen, den Konten, die in einer davon Fortschritt gespeichert haben, den Konten, die alle abgeschlossen haben, und der Gesamtzahl abgeschlossener Lektionen. Fortschritt in Lektionsentwürfen wird nicht gezählt, und jedes Konto zählt, auch die von Admins. `learners`, die Anzahl der Konten mit gespeichertem Fortschritt in irgendeinem Kurs, ist die Statistik **Lernende**. Das Panel listet die Kurse in einer `DataTable` (`course-progress-columns.tsx`) auf oder sagt, dass es noch keinen Kurs gibt.
+
+### Newsletter-Abonnenten [#newsletter-subscribers]
+
+`getNewsletterSubscribers` (`admin: ["access"]`) zählt die Abonnenten, die ihre Adresse bestätigt und sich nicht abgemeldet haben. Ausstehende Bestätigungen und abgemeldete Adressen werden nicht gezählt.
+
+### Benutzerkarte [#users-card]
 
 ```tsx
 <DataTable
@@ -38,9 +84,21 @@ description: "Die /admin-Shell und das Dashboard: Live-Zähler, bezahlte Lizenzb
 />
 ```
 
-Die Tabelle arbeitet im Browser mit der ersten Seite von `getUsersQuery` (<RepositoryFact name="defaultPageSize" /> Benutzer). **Alle anzeigen** verlinkt auf `/admin/users`. **Produkt hinzufügen**, der Eintrag des Produktbereichs in `ADMIN_DASHBOARD_ACTIONS`, verlinkt auf `/admin/products/create`.
+Die Tabelle arbeitet im Browser mit der ersten Seite von `getUsersQuery` (<RepositoryFact name="defaultPageSize" /> Benutzer, die neuesten zuerst). Ihre Spalte **Registriert** ist das `created_at` des Kontos. **Alle anzeigen** verlinkt auf `/admin/users`.
 
-## Verwandte Anleitungen
+## Nur echte Daten [#real-data-only]
+
+Jede Zahl und jede Zeile, die der Admin-Bereich zeigt, wird von einem Anwendungsfall eines Moduls hinter `authorized(...)` aus D1 gelesen. Die Lint-Regel `admin-data/no-literal-data` in `scripts/admin-data-lint-plugin.ts` sorgt dafür, dass das so bleibt: `bun run check` schlägt fehl, wenn eine Datei unter `src/routes/admin*.tsx`, `src/presentation/components/custom/admin/`, `src/data/admin*.ts` oder `src/data/*.dashboard.ts` Folgendes deklariert:
+
+- eine Liste aus zwei oder mehr Zahlen, also eine fest codierte Reihe;
+- eine Liste aus zwei oder mehr Datensätzen, die eine Zahl enthalten, außer ihrer Sortierposition (`order`);
+- eine E-Mail-Adresse, ein ISO-Datum oder einen SVG-Pfad, der aus Zahlen gezeichnet ist;
+- eine Konstante, die nach Demo-, Dummy-, Fake-, Lorem-, Mock- oder Beispieldaten benannt ist, oder eine Konstante in Großbuchstaben, die einen Platzhalter benennt;
+- eine Dashboard-Statistik, deren `useValue` keine Query mit `useSuspenseQuery` oder `useQuery` liest.
+
+Tests bauen ihre eigenen Zeilen, daher ist die Regel für sie abgeschaltet. `src/__test__/admin-data-lint-plugin.test.ts` listet auf, was sie akzeptiert und was sie ablehnt. Eine Ansicht, deren Daten noch keine Quelle haben, wird erst gebaut, wenn die Quelle existiert.
+
+## Verwandte Anleitungen [#related-guides]
 
 - [Admin-Seite hinzufügen](/docs/guides/add-an-admin-page)
 - [DataTable](/docs/ui/data-table)

@@ -1,25 +1,71 @@
 ---
 title: "Admin dashboard"
-description: "The /admin shell and dashboard: live counters, paid licence orders without a licence and users table, static revenue chart."
+description: "The /admin shell and dashboard: counters, revenue, new users, course progress, paid licence orders without a licence and the newest users, all read from D1, and the lint rule that keeps demo data out of the admin."
 ---
 
 ## Admin shell
 
 `src/routes/admin.tsx` guards every admin page with `requireAdmin` and preloads the shared admin namespaces. The layout renders:
 
-- `AdminSidebar`, `AdminBreadcrumbs` and `AdminCommandPalette` (opened with ⌘K), all built from `ADMIN_NAVIGATION` in `src/data/navigation.ts`, which groups the entries the areas contribute, each with its icon: Overview (Dashboard, Analytics), Offerings (Products, Pricing models), Content (Blog, Courses, Videos, Landing page) and Administration (User management, Payments, Settings).
+- `AdminSidebar`, `AdminBreadcrumbs` and `AdminCommandPalette` (opened with ⌘K), all built from `ADMIN_NAVIGATION` in `src/data/navigation.ts`, which groups the entries the areas contribute, each with its icon: Overview (Dashboard), Offerings (Products), Content (Courses, Videos) and Administration (User management, Settings). Every entry opens a working screen; a screen with no real source of data has no route, no menu entry and no palette entry (see [Real data only](#real-data-only)).
 - The user widget in the sidebar footer, with a link to settings and `SignOutButton`.
 
 ## Dashboard
 
-`/admin` (`src/routes/admin.index.tsx`) preloads `getUsersQuery` and, through their `prefetch`, the query of every dashboard statistic and of every panel that reads data in its loader, and composes the widgets of `src/presentation/components/custom/admin/dashboard` with the panels the areas add:
+`/admin` (`src/routes/admin.index.tsx`) preloads `getUsersQuery` and, through their `prefetch`, the query of every dashboard statistic and panel, and composes the widgets of `src/presentation/components/custom/admin/dashboard` with the panels the areas add:
 
-- `DashboardActions`: a link for each entry of `ADMIN_DASHBOARD_ACTIONS` by its `order`, such as **Add product** from `src/data/products.navigation.ts`, labelled by `navigation.products.json`.
-- `DashboardStats` (live): the statistics of `ADMIN_DASHBOARD_STATS`, the entries of `src/data/<area>.dashboard.ts` placed as `DASHBOARD_PLACEMENT.STAT`, by their `order`: the number of users and the users waiting for email verification from `src/data/auth.dashboard.ts`, and the number of products from `src/data/products.dashboard.ts`, each labelled by its area's `dashboard.<area>.json`.
-- The panels of `ADMIN_DASHBOARD_PANELS`, the entries placed as `DASHBOARD_PLACEMENT.PANEL`, by their `order`, each with the skeleton that `AdminDashboardPending` shows for it:
-  - the licence area adds `UnlicensedOrders` (live) in `src/data/license.dashboard.ts`: the paid licence orders that have no licence, each linked to the order in Polar, or a line saying there are none, labelled by `dashboard.license.json` (see [Licences](/docs/features/licences#orders-that-match-no-account));
-  - the payments area adds `RevenueChart` (demo) in `src/data/payments.dashboard.ts`, a static SVG with fixed axes labelled by `dashboard.payments.json`; the range buttons do nothing.
-- A users card (live): the newest users with search and status filters, <RepositoryFact name="adminPreviewPageSize" /> rows per page. Each name links to the user's profile, where the actions are.
+- `DashboardActions`: a link for each entry of `ADMIN_DASHBOARD_ACTIONS` by its `order`, labelled by its area's `navigation.<area>.json`. No area adds one today, so the dashboard shows no action buttons.
+- `DashboardStats`: the statistics of `ADMIN_DASHBOARD_STATS`, the entries of `src/data/<area>.dashboard.ts` placed as `DASHBOARD_PLACEMENT.STAT`, by their `order`, each labelled by its area's `dashboard.<area>.json` and formatted for the page's locale.
+- The panels of `ADMIN_DASHBOARD_PANELS`, the entries placed as `DASHBOARD_PLACEMENT.PANEL`, by their `order`, each with the skeleton that `AdminDashboardPending` shows for it.
+- A users card: the newest accounts, <RepositoryFact name="adminPreviewPageSize" /> rows per page, with search and status filters. Each name links to the user's profile, where the actions are.
+
+| Statistic                  | Area         | Source                                                                                     |
+| -------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
+| Registered users           | `auth`       | `total` of `getUsersQuery`: every row of `user`                                            |
+| Products in catalog        | `products`   | `total` of `getProductsQuery`: every row of `product`                                      |
+| Pending email verification | `auth`       | `pendingVerification` of `getUsersQuery`: accounts neither verified nor banned             |
+| Learners                   | `courses`    | `learners` of `courseProgressQuery`: accounts with saved progress in a published lesson    |
+| Videos                     | `courses`    | `total` of `getVideosQuery`: every row of `video`                                          |
+| Newsletter subscribers     | `newsletter` | `newsletterSubscribersQuery`: rows of `newsletter_subscriber` whose status is `subscribed` |
+
+| Panel                         | Area       | Source                                                                                                                           |
+| ----------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Paid orders without a licence | `license`  | `unlicensedOrdersQuery` (see [Licences](/docs/features/licences#orders-that-match-no-account))                                   |
+| Revenue                       | `payments` | `revenueQuery` in `src/modules/order/use-cases/get-revenue.ts`, see [Revenue](#revenue)                                          |
+| New users                     | `auth`     | `userSignupsQuery` in `src/modules/user/use-cases/get-user-signups.ts`, see [New users](#new-users)                              |
+| Course progress               | `courses`  | `courseProgressQuery` in `src/modules/lesson-progress/use-cases/get-course-progress.ts`, see [Course progress](#course-progress) |
+
+Every query runs a server function behind `authorized(...)` with a permission the areas already declare, so a signed-in account without it gets an error, never the numbers.
+
+### Periods
+
+The revenue and new-user panels offer the periods <RepositoryFact name="dashboardRanges" /> from `TIME_RANGES` in `src/modules/_core/utils/time-series.ts`, and open on <RepositoryFact name="defaultDashboardRange" />. `timeSeries(range, now)` turns a period into its buckets: the last days up to and including today, or the last months up to and including this one, in UTC. The server function reads the clock and returns every bucket, so the browser draws exactly what the server counted. `bucketOf` in `src/integrations/drizzle-orm/drizzle.time-series.ts` groups the rows with SQLite's `strftime` in UTC, and `pointsOf` puts each total in its bucket and fills the buckets without rows with zero.
+
+Each panel keeps its period in component state. `RangePicker` changes it in a transition, so the panel keeps the current numbers on screen, drained of colour and marked `aria-busy`, until the next period has loaded. `TimeSeriesChart` (`src/presentation/components/custom/admin/dashboard/time-series-chart.tsx`) draws the series as a bar chart with Recharts through `ChartContainer`; the chart is hidden from assistive technology, and a visually hidden table lists every day or month with its value.
+
+### Revenue
+
+`getRevenue` (`order: ["read"]`) reads the D1 copies of Polar's orders (see [Payments](/docs/features/payments#orders-and-subscriptions-in-d1)):
+
+- It counts the orders whose status is one of <RepositoryFact name="revenueOrderStatuses" /> (`REVENUE_ORDER_STATUSES` in `src/modules/order/order.constants.ts`) and that were placed in the period. Draft, pending and void orders are not revenue.
+- For each currency it returns the orders, `gross` (the sum of `total_amount`), `refunded` (the sum of `refunded_amount`), `net` (gross minus refunded) and `points`, the net amount of each bucket. Amounts are in the currency's major units, converted with `fromMinorUnits`, and include tax as Polar charged it.
+- A refund is subtracted from the order it refunds, in the bucket of the day the order was placed, because the copy holds the refunded amount but not the moment of the refund.
+- Currencies are never added together. The panel shows a tab per currency, the one with the most orders first, with its amount after refunds, its orders and its refunds above its chart.
+- With no paid order in the period, the panel says so and draws no chart.
+
+### New users
+
+`getUserSignups` (`user: ["list"]`) counts the rows of `user` by the bucket of their `created_at` and returns the series and its total. The panel shows the total and the chart, or says that no account was created in the period.
+
+### Course progress
+
+`getCourseProgress` (`course: ["read"]`) lists every course in the admin's order (`position`) with its published lessons, the accounts that saved progress in one of them, the accounts that completed every one of them, and the lessons completed in all. Progress on draft lessons is not counted, and every account counts, admins included. `learners`, the number of accounts with saved progress in any course, is the **Learners** statistic. The panel lists the courses in a `DataTable` (`course-progress-columns.tsx`), or says that there is no course yet.
+
+### Newsletter subscribers
+
+`getNewsletterSubscribers` (`admin: ["access"]`) counts the subscribers who confirmed their address and have not unsubscribed. Pending confirmations and unsubscribed addresses are not counted.
+
+### Users card
 
 ```tsx
 <DataTable
@@ -38,7 +84,19 @@ description: "The /admin shell and dashboard: live counters, paid licence orders
 />
 ```
 
-The table works on the first page of `getUsersQuery` (<RepositoryFact name="defaultPageSize" /> users) in the browser. **View all** links to `/admin/users`. **Add product**, the products area's entry in `ADMIN_DASHBOARD_ACTIONS`, links to `/admin/products/create`.
+The table works on the first page of `getUsersQuery` (<RepositoryFact name="defaultPageSize" /> users, newest first) in the browser. Its **Joined** column is the account's `created_at`. **View all** links to `/admin/users`.
+
+## Real data only
+
+Every number and row the admin shows is read from D1 by a module use case behind `authorized(...)`. The lint rule `admin-data/no-literal-data` in `scripts/admin-data-lint-plugin.ts` keeps it that way: `bun run check` fails when a file under `src/routes/admin*.tsx`, `src/presentation/components/custom/admin/`, `src/data/admin*.ts` or `src/data/*.dashboard.ts` declares
+
+- a list of two or more numbers, which is a hardcoded series;
+- a list of two or more records that carry a number, other than their sort position (`order`);
+- an e-mail address, an ISO date or an SVG path drawn from numbers;
+- a constant named after demo, dummy, fake, lorem, mock or sample data, or an upper-case constant that names a placeholder;
+- a dashboard statistic whose `useValue` reads no query with `useSuspenseQuery` or `useQuery`.
+
+Tests build their own rows, so the rule is off for them. `src/__test__/admin-data-lint-plugin.test.ts` lists what it accepts and what it rejects. A screen whose data has no source yet is not built until the source exists.
 
 ## Related guides
 

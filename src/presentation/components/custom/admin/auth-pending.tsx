@@ -126,20 +126,6 @@ export const AdminDashboardPending = (): JSX.Element => (
   </div>
 )
 
-const ProfileCardHeaderPending = (): JSX.Element => (
-  <CardHeader className="border-b border-border p-5">
-    <Skeleton className="mb-1 h-lh w-36 scale-y-70 text-base" />
-    <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-xs" />
-  </CardHeader>
-)
-
-const SettingsFieldPending = (): JSX.Element => (
-  <div className="flex w-full flex-col gap-2">
-    <Skeleton className="h-lh w-24 scale-y-70 text-xs" />
-    <Skeleton className="h-8 w-full rounded-lg" />
-  </div>
-)
-
 export const AdminSettingsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
     <div>
@@ -154,58 +140,8 @@ export const AdminSettingsPending = (): JSX.Element => (
           ))}
         </div>
       </div>
-      <div className="mt-8 space-y-6 text-sm">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card className="overflow-hidden">
-            <ProfileCardHeaderPending />
-            <CardContent className="flex-1 space-y-6 p-5">
-              <div className="flex items-center gap-6">
-                <Skeleton className="size-16 shrink-0 rounded-xl" />
-                <div>
-                  <div className="mb-2 flex gap-3">
-                    <Skeleton className="h-8 w-22 rounded-lg" />
-                    <Skeleton className="h-8 w-18 rounded-lg" />
-                  </div>
-                  <div className="flex flex-col text-xs">
-                    <Skeleton className="h-lh w-60 max-w-full scale-y-70" />
-                    <Skeleton className="h-lh w-10 scale-y-70 sm:hidden" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex w-full flex-col gap-4">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <SettingsFieldPending />
-                  <SettingsFieldPending />
-                </div>
-                <div className="flex w-full flex-col gap-2">
-                  <Skeleton className="h-lh w-24 scale-y-70 text-xs" />
-                  <Skeleton className="h-8 w-full rounded-lg" />
-                  <Skeleton className="h-lh w-72 max-w-full scale-y-70 text-xs" />
-                </div>
-              </div>
-            </CardContent>
-            <div className="flex justify-end border-t border-border bg-muted/40 p-4">
-              <Skeleton className="h-8 w-28 rounded-lg" />
-            </div>
-          </Card>
-          <PreferencesCardPending />
-        </div>
-        <Card className="overflow-hidden border-destructive/20 bg-destructive/5">
-          <CardHeader className="border-b border-destructive/10 p-5">
-            <Skeleton className="mb-1 h-lh w-28 scale-y-70 text-base" />
-            <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-xs" />
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Skeleton className="mb-1 h-lh w-36 scale-y-70 text-sm" />
-              <div className="flex flex-col text-xs">
-                <Skeleton className="h-lh w-96 max-w-full scale-y-70" />
-                <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-              </div>
-            </div>
-            <Skeleton className="h-8 w-full shrink-0 rounded-lg sm:w-36" />
-          </CardContent>
-        </Card>
+      <div className="mt-8 grid grid-cols-1 gap-6 text-sm lg:grid-cols-2">
+        <PreferencesCardPending />
       </div>
     </div>
   </div>

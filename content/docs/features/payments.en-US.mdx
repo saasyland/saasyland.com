@@ -1,6 +1,6 @@
 ---
 title: "Payments"
-description: "The polar area: the Better Auth Polar plugin, the customer portal, the webhooks it hands to the areas, the D1 copies of Polar's orders and subscriptions, and the admin payments demo."
+description: "The polar area: the Better Auth Polar plugin, the customer portal, the webhooks it hands to the areas, the D1 copies of Polar's orders and subscriptions, and the revenue they put on the admin dashboard."
 ---
 
 Payments run through Polar with the `@polar-sh/better-auth` plugin, which the polar area adds to Better Auth in `src/data/polar.auth-plugins.ts`:
@@ -73,15 +73,15 @@ The polar area keeps copies of Polar's orders and subscriptions in two D1 tables
 - Each use case takes Polar's record, `models.Order` or `models.Subscription`, and writes it in one statement: an insert under Polar's ID that, when the row already exists, updates it only if the stored `changed_at` is not later than the record's. A newer version applies, an older one that arrives late changes nothing, and the same version delivered twice is written again with the same values. Of two different states with the same `modified_at`, the one written last stays until Polar changes the record again.
 - The same statement fills `user_id` through `polarCustomerAccount` in `src/integrations/polar/polar.customers.ts`: the account whose ID is the customer's `external_id`, which the area that sells sets at checkout, as the licence area's `startCheckout` does. It stays empty when the customer has no `external_id` or when no account has that ID, for instance because the account was deleted.
 - The licence area handles `order.paid` and `order.refunded` too. The copy takes them as well, so it holds the payment and the refund whether or not Polar also sends `order.updated` for them. `handlePolarEvent` runs both areas at once; when the copy fails, the delivery answers 500, and Polar's retry repeats both writes without changing what one of them already wrote.
-- The admin dashboard reads the order copies to list the paid licence orders that have no licence (see [Licences](/docs/features/licences#orders-that-match-no-account)); no page reads the subscription copies yet.
+- The admin dashboard reads the order copies to list the paid licence orders that have no licence (see [Licences](/docs/features/licences#orders-that-match-no-account)) and to total the revenue (see [Revenue on the dashboard](#revenue-on-the-dashboard)); no page reads the subscription copies yet.
 
 ## Customer portal
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) opens the Polar customer portal of the signed-in account. The licence card on `/app/license` links to it.
 
-## Admin screen (demo)
+## Revenue on the dashboard
 
-`/admin/payments` renders `RefundStats` and a refunds `DataTable` over `ADMIN_PAYMENT_ROWS` from `src/data/admin-payments.ts`; its buttons are not wired. The payments area declares the `order` permission statements (`read`, `update`, `refund`) in `src/data/payments.access.ts`. The licence area's `get-unlicensed-orders` checks `order: ["read"]`; no use case updates or refunds orders.
+The payments area declares the `order` permission statements (`read`, `update`, `refund`) in `src/data/payments.access.ts` and adds the **Revenue** panel to the dashboard in `src/data/payments.dashboard.ts`. Its query, `getRevenue` in `src/modules/order/use-cases/get-revenue.ts`, checks `order: ["read"]` and totals the paid order copies of a period per currency, refunds subtracted; [Admin dashboard](/docs/features/admin-dashboard#revenue) describes what it counts. The licence area's `get-unlicensed-orders` checks `order: ["read"]` too. No use case updates or refunds orders, and the admin has no payments screen: refunds and payouts are done in Polar.
 
 ## Related pages
 

@@ -1,6 +1,6 @@
 ---
 title: "Pagamenti"
-description: "L’area Polar: il plugin Polar di Better Auth, il portale clienti, i webhook che passa alle aree, le copie in D1 degli ordini e degli abbonamenti di Polar e la demo dei pagamenti nell’amministrazione."
+description: "L’area Polar: il plugin Polar di Better Auth, il portale clienti, i webhook che passa alle aree, le copie in D1 degli ordini e degli abbonamenti di Polar e i ricavi che portano nella dashboard di amministrazione."
 ---
 
 I pagamenti passano da Polar tramite il plugin `@polar-sh/better-auth`, che l’area Polar aggiunge a Better Auth in `src/data/polar.auth-plugins.ts`:
@@ -73,15 +73,15 @@ L’area Polar conserva copie degli ordini e degli abbonamenti di Polar in due t
 - Ogni caso d’uso riceve il record di Polar, `models.Order` o `models.Subscription`, e lo scrive con un’unica istruzione: un inserimento con l’ID di Polar che, se la riga esiste già, la aggiorna solo quando il suo `changed_at` salvato non è successivo a quello del record. Una versione più recente viene applicata, una più vecchia che arriva in ritardo non cambia nulla e la stessa versione consegnata due volte viene riscritta con gli stessi valori. Tra due stati diversi con lo stesso `modified_at` resta l’ultimo scritto, finché Polar non modifica di nuovo il record.
 - La stessa istruzione compila `user_id` con `polarCustomerAccount`, in `src/integrations/polar/polar.customers.ts`: l’account il cui ID è l’`external_id` del cliente, che l’area che vende imposta al checkout, come fa `startCheckout` nell’area delle licenze. Resta vuoto quando il cliente non ha un `external_id` o nessun account ha quell’ID, per esempio perché l’account è stato eliminato.
 - Anche l’area delle licenze gestisce `order.paid` e `order.refunded`. La copia li riceve a sua volta, quindi registra il pagamento e il rimborso sia che Polar invii anche `order.updated` per essi sia che non lo faccia. `handlePolarEvent` esegue le due aree insieme; se la copia fallisce, la consegna risponde 500 e il nuovo tentativo di Polar ripete entrambe le scritture senza cambiare ciò che una delle due ha già scritto.
-- La dashboard di amministrazione legge le copie degli ordini per elencare gli ordini di licenza pagati che non hanno una licenza (vedi [Licenze](/docs/features/licences#orders-that-match-no-account)); nessuna pagina legge ancora le copie degli abbonamenti.
+- La dashboard di amministrazione legge le copie degli ordini per elencare gli ordini di licenza pagati che non hanno una licenza (vedi [Licenze](/docs/features/licences#orders-that-match-no-account)) e per totalizzare i ricavi (vedi [Ricavi nella dashboard](#revenue-on-the-dashboard)); nessuna pagina legge ancora le copie degli abbonamenti.
 
 ## Portale clienti
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) apre il portale clienti Polar dell’account che ha effettuato l’accesso. La scheda della licenza su `/app/license` rimanda a questo portale.
 
-## Schermata di amministrazione (demo)
+## Ricavi nella dashboard [#revenue-on-the-dashboard]
 
-`/admin/payments` mostra `RefundStats` e un `DataTable` dei rimborsi su `ADMIN_PAYMENT_ROWS` di `src/data/admin-payments.ts`; i suoi pulsanti non sono collegati. L’area dei pagamenti definisce le dichiarazioni di permesso `order` (`read`, `update`, `refund`) in `src/data/payments.access.ts`. `get-unlicensed-orders` dell’area delle licenze controlla `order: ["read"]`; nessun caso d’uso aggiorna o rimborsa ordini.
+L’area dei pagamenti definisce le dichiarazioni di permesso `order` (`read`, `update`, `refund`) in `src/data/payments.access.ts` e aggiunge il pannello **Ricavi** alla dashboard in `src/data/payments.dashboard.ts`. La sua query, `getRevenue` in `src/modules/order/use-cases/get-revenue.ts`, controlla `order: ["read"]` e totalizza per valuta le copie degli ordini pagati di un periodo, al netto dei rimborsi; [Dashboard di amministrazione](/docs/features/admin-dashboard#revenue) descrive cosa conta. Anche `get-unlicensed-orders` dell’area delle licenze controlla `order: ["read"]`. Nessun caso d’uso aggiorna o rimborsa ordini, e l’amministrazione non ha una schermata dei pagamenti: rimborsi e payout si gestiscono in Polar.
 
 ## Pagine correlate
 

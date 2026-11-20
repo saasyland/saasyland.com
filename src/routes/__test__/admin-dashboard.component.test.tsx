@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
+import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
+import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
 
@@ -14,6 +18,12 @@ import { adminUser } from "~/src/presentation/components/custom/admin/__test__/a
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
+import authDashboardMessages from "~/messages/en-US/dashboard.auth.json"
+import coursesDashboardMessages from "~/messages/en-US/dashboard.courses.json"
+import licenseDashboardMessages from "~/messages/en-US/dashboard.license.json"
+import newsletterDashboardMessages from "~/messages/en-US/dashboard.newsletter.json"
+import paymentsDashboardMessages from "~/messages/en-US/dashboard.payments.json"
+import productsDashboardMessages from "~/messages/en-US/dashboard.products.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
 
 afterEach(() => vi.restoreAllMocks())
@@ -43,11 +53,14 @@ describe("admin dashboard", () => {
     )
   })
 
-  it("links a dashboard user to their profile and shows their identity, avatar and last activity date", () => {
+  it("links a dashboard user to their profile and shows their identity, avatar and join date", () => {
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getUsersQuery.queryKey, {
       pendingVerification: 0,
-      rows: [adminUser(), adminUser({ id: "grace", image: "https://example.com/grace.png", name: "Grace Hopper" })],
+      rows: [
+        adminUser({ updatedAt: new Date("2026-11-20T12:00:00Z") }),
+        adminUser({ id: "grace", image: "https://example.com/grace.png", name: "Grace Hopper" }),
+      ],
       total: 2,
     })
     renderAdminPage(DashboardRoute.options.component, { queryClient })
@@ -59,7 +72,38 @@ describe("admin dashboard", () => {
     expect(within(adaRow).queryByRole("button")).toBeNull()
     expect(adaRow).toHaveTextContent("ada@example.com")
     expect(adaRow).toHaveTextContent("Jan 1, 2025")
+    expect(adaRow).not.toHaveTextContent("Nov 20, 2026")
     expect(adaRow).toHaveTextContent("AL")
+  })
+
+  it("reads every statistic from its query and shows only real panels", () => {
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 3, rows: [adminUser()], total: 12_345 })
+    queryClient.setQueryData(getProductsQuery.queryKey, { rows: [], total: 2 })
+    queryClient.setQueryData(courseProgressQuery.queryKey, { learners: 41, rows: [] })
+    queryClient.setQueryData(getVideosQuery.queryKey, { rows: [], total: 7 })
+    queryClient.setQueryData(newsletterSubscribersQuery.queryKey, { total: 1500 })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+
+    const stats = [...document.querySelectorAll("dl:first-of-type > div")].map((stat) => stat.textContent)
+    expect(stats).toStrictEqual([
+      `${authDashboardMessages.registeredUsers}12,345`,
+      `${productsDashboardMessages.totalProducts}2`,
+      `${authDashboardMessages.pendingVerification}3`,
+      `${coursesDashboardMessages.learners}41`,
+      `${coursesDashboardMessages.videos}7`,
+      `${newsletterDashboardMessages.subscribers}1,500`,
+    ])
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toStrictEqual([
+      licenseDashboardMessages.unlicensedOrders.title,
+      paymentsDashboardMessages.revenue.title,
+      authDashboardMessages.signups.title,
+      coursesDashboardMessages.progress.title,
+      pagesAdminDashboardMessages.users.title,
+    ])
+    expect(screen.getByText(paymentsDashboardMessages.revenue.empty)).toBeVisible()
+    expect(screen.getByText(authDashboardMessages.signups.empty)).toBeVisible()
+    expect(screen.getByText(coursesDashboardMessages.progress.empty)).toBeVisible()
   })
 
   it("replaces the route's pending UI when the dashboard loader finishes", async () => {

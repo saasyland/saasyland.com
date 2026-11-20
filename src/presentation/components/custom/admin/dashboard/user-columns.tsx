@@ -18,7 +18,7 @@ import type { DataTableFeatures } from "~/src/presentation/components/custom/dat
 
 type DashboardUser = User["select"]
 
-const ColumnHeader = ({ id }: { readonly id: "lastActive" | "role" | "status" | "user" }): string => {
+const ColumnHeader = ({ id }: { readonly id: "joined" | "role" | "status" | "user" }): string => {
   const t = useTranslations("pages.admin.dashboard.users.table.columns")
 
   return t(id)
@@ -36,7 +36,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, 
   )
 }
 
-const LastActiveCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, Date>): JSX.Element => {
+const JoinedCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, Date>): JSX.Element => {
   const format = useFormatter()
 
   return <span className="text-xs text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
@@ -82,10 +82,10 @@ export const dashboardUserColumns = columnHelper.columns([
     header: () => <ColumnHeader id="status" />,
     id: "status",
   }),
-  columnHelper.accessor("updatedAt", {
-    cell: LastActiveCell,
-    header: () => <ColumnHeader id="lastActive" />,
-    id: "lastActive",
+  columnHelper.accessor("createdAt", {
+    cell: JoinedCell,
+    header: () => <ColumnHeader id="joined" />,
+    id: "joined",
     sortFn: "datetime",
   }),
 ])

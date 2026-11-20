@@ -1,6 +1,6 @@
 ---
 title: "Płatności"
-description: "Obszar Polar: wtyczka Polar dla Better Auth, portal klienta, webhooki, które przekazuje obszarom, kopie zamówień i subskrypcji z Polar w D1 i demonstracyjny ekran płatności w panelu administracyjnym."
+description: "Obszar Polar: wtyczka Polar dla Better Auth, portal klienta, webhooki, które przekazuje obszarom, kopie zamówień i subskrypcji z Polar w D1 i przychody, które pokazują one na pulpicie administracyjnym."
 ---
 
 Płatności przechodzą przez Polar za pomocą wtyczki `@polar-sh/better-auth`, którą obszar Polar dodaje do Better Auth w `src/data/polar.auth-plugins.ts`:
@@ -73,15 +73,15 @@ Obszar Polar przechowuje kopie zamówień i subskrypcji z Polar w dwóch tabelac
 - Każdy przypadek użycia przyjmuje rekord Polar, `models.Order` lub `models.Subscription`, i zapisuje go jedną instrukcją: wstawieniem pod identyfikatorem Polar, które istniejący już wiersz aktualizuje tylko wtedy, gdy zapisany w nim `changed_at` nie jest późniejszy niż w rekordzie. Nowsza wersja zostaje zastosowana, starsza, która przychodzi z opóźnieniem, niczego nie zmienia, a ta sama wersja dostarczona dwa razy zostaje zapisana ponownie z tymi samymi wartościami. Z dwóch różnych stanów o tym samym `modified_at` zostaje ten zapisany jako ostatni, dopóki Polar znowu nie zmieni rekordu.
 - Ta sama instrukcja wypełnia `user_id` za pomocą `polarCustomerAccount` z `src/integrations/polar/polar.customers.ts`: to konto, którego identyfikatorem jest `external_id` klienta, ustawiany przy zakupie przez obszar, który sprzedaje, tak jak robi to `startCheckout` w obszarze licencji. Pole pozostaje puste, gdy klient nie ma `external_id` albo żadne konto nie ma tego identyfikatora, na przykład dlatego, że konto usunięto.
 - Obszar licencji również obsługuje `order.paid` i `order.refunded`. Kopia też je przyjmuje, więc odzwierciedla płatność i zwrot niezależnie od tego, czy Polar wysyła dla nich także `order.updated`. `handlePolarEvent` uruchamia oba obszary jednocześnie; gdy zapis kopii się nie powiedzie, dostarczenie kończy się odpowiedzią 500, a ponowna próba Polar powtarza oba zapisy, nie zmieniając tego, co jeden z nich już zapisał.
-- Pulpit administracyjny odczytuje kopie zamówień, aby wyświetlić opłacone zamówienia licencji, które nie mają licencji (zobacz [Licencje](/docs/features/licences#orders-that-match-no-account)); żadna strona nie odczytuje jeszcze kopii subskrypcji.
+- Pulpit administracyjny odczytuje kopie zamówień, aby wyświetlić opłacone zamówienia licencji, które nie mają licencji (zobacz [Licencje](/docs/features/licences#orders-that-match-no-account)) oraz aby zsumować przychody (zobacz [Przychody na pulpicie](#revenue-on-the-dashboard)); żadna strona nie odczytuje jeszcze kopii subskrypcji.
 
 ## Portal klienta
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) otwiera portal klienta Polar zalogowanego konta. Prowadzi do niego karta licencji na `/app/license`.
 
-## Ekran administracyjny (demonstracyjny)
+## Przychody na pulpicie [#revenue-on-the-dashboard]
 
-`/admin/payments` wyświetla `RefundStats` i `DataTable` zwrotów z danymi `ADMIN_PAYMENT_ROWS` z `src/data/admin-payments.ts`; jego przyciski nie są podłączone. Obszar płatności deklaruje uprawnienia `order` (`read`, `update`, `refund`) w `src/data/payments.access.ts`. `get-unlicensed-orders` z obszaru licencji sprawdza `order: ["read"]`; żaden przypadek użycia nie aktualizuje zamówień ani ich nie zwraca.
+Obszar płatności deklaruje uprawnienia `order` (`read`, `update`, `refund`) w `src/data/payments.access.ts` i dodaje panel **Przychody** do pulpitu w `src/data/payments.dashboard.ts`. Jego zapytanie, `getRevenue` w `src/modules/order/use-cases/get-revenue.ts`, sprawdza `order: ["read"]` i sumuje kopie opłaconych zamówień z danego okresu według waluty, po odjęciu zwrotów; [Panel administracyjny](/docs/features/admin-dashboard#revenue) opisuje, co jest liczone. `get-unlicensed-orders` z obszaru licencji również sprawdza `order: ["read"]`. Żaden przypadek użycia nie aktualizuje zamówień ani ich nie zwraca, a panel administracyjny nie ma ekranu płatności: zwroty i wypłaty obsługuje się w Polar.
 
 ## Powiązane strony
 

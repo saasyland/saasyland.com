@@ -1,6 +1,6 @@
 ---
 title: "Paiements"
-description: "La zone Polar : le plugin Polar de Better Auth, le portail client, les webhooks qu’elle transmet aux zones, les copies dans D1 des commandes et des abonnements de Polar et la démo des paiements de l’administration."
+description: "La zone Polar : le plugin Polar de Better Auth, le portail client, les webhooks qu’elle transmet aux zones, les copies dans D1 des commandes et des abonnements de Polar et les revenus qu’elles affichent sur le tableau de bord d’administration."
 ---
 
 Les paiements passent par Polar avec le plugin `@polar-sh/better-auth`, que la zone Polar ajoute à Better Auth dans `src/data/polar.auth-plugins.ts` :
@@ -73,15 +73,15 @@ La zone Polar conserve des copies des commandes et des abonnements de Polar dans
 - Chaque cas d’usage reçoit l’enregistrement de Polar, `models.Order` ou `models.Subscription`, et l’écrit en une seule instruction : une insertion sous l’identifiant de Polar qui, si la ligne existe déjà, ne la met à jour que si son `changed_at` enregistré n’est pas postérieur à celui de l’enregistrement. Une version plus récente s’applique, une version plus ancienne qui arrive en retard ne change rien, et la même version livrée deux fois est réécrite avec les mêmes valeurs. De deux états différents portant le même `modified_at`, le dernier écrit reste jusqu’à ce que Polar modifie à nouveau l’enregistrement.
 - La même instruction remplit `user_id` avec `polarCustomerAccount`, dans `src/integrations/polar/polar.customers.ts` : le compte dont l’identifiant est le `external_id` du client, que la zone qui vend définit au paiement, comme le fait `startCheckout` dans la zone des licences. Il reste vide quand le client n’a pas de `external_id` ou qu’aucun compte ne porte cet identifiant, par exemple parce que le compte a été supprimé.
 - La zone des licences traite aussi `order.paid` et `order.refunded`. La copie les reçoit également, si bien qu’elle reflète le paiement et le remboursement, que Polar envoie aussi `order.updated` pour eux ou non. `handlePolarEvent` exécute les deux zones en même temps ; si la copie échoue, la livraison répond 500, et la nouvelle tentative de Polar répète les deux écritures sans changer ce que l’une d’elles a déjà écrit.
-- Le tableau de bord d’administration lit les copies des commandes pour lister les commandes de licence payées qui n’ont pas de licence (voir [Licences](/docs/features/licences#orders-that-match-no-account)) ; aucune page ne lit encore les copies des abonnements.
+- Le tableau de bord d’administration lit les copies des commandes pour lister les commandes de licence payées qui n’ont pas de licence (voir [Licences](/docs/features/licences#orders-that-match-no-account)) et pour totaliser les revenus (voir [Revenus sur le tableau de bord](#revenue-on-the-dashboard)) ; aucune page ne lit encore les copies des abonnements.
 
 ## Portail client
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) ouvre le portail client Polar du compte connecté. La carte de licence de `/app/license` y renvoie.
 
-## Écran d’administration (démo)
+## Revenus sur le tableau de bord [#revenue-on-the-dashboard]
 
-`/admin/payments` affiche `RefundStats` et un `DataTable` de remboursements sur `ADMIN_PAYMENT_ROWS` de `src/data/admin-payments.ts` ; ses boutons ne sont pas branchés. La zone des paiements définit les déclarations de permission `order` (`read`, `update`, `refund`) dans `src/data/payments.access.ts`. `get-unlicensed-orders`, dans la zone des licences, vérifie `order: ["read"]` ; aucun cas d’usage ne modifie ni ne rembourse de commandes.
+La zone des paiements définit les déclarations de permission `order` (`read`, `update`, `refund`) dans `src/data/payments.access.ts` et ajoute le panneau **Revenus** au tableau de bord dans `src/data/payments.dashboard.ts`. Sa requête, `getRevenue` dans `src/modules/order/use-cases/get-revenue.ts`, vérifie `order: ["read"]` et totalise par devise les copies des commandes payées d’une période, remboursements déduits ; [Tableau de bord d’administration](/docs/features/admin-dashboard#revenue) décrit ce qu’elle compte. `get-unlicensed-orders`, dans la zone des licences, vérifie aussi `order: ["read"]`. Aucun cas d’usage ne modifie ni ne rembourse de commandes, et l’administration n’a pas d’écran des paiements : les remboursements et les versements se font dans Polar.
 
 ## Pages associées
 

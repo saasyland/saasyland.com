@@ -21,8 +21,6 @@ export const IconPending = (): JSX.Element => <Skeleton className="size-4 shrink
 
 export const CheckboxPending = (): JSX.Element => <Skeleton className="size-4 rounded-[4px]" />
 
-export const SwitchPending = (): JSX.Element => <Skeleton className="h-[18.4px] w-8 shrink-0 rounded-full" />
-
 export const SortableHeadPending = (): JSX.Element => (
   <div className="flex items-center gap-1.5">
     <Skeleton className="h-lh w-12 scale-y-70" />
@@ -51,13 +49,5 @@ export const FieldPending = (): JSX.Element => (
   <div className="flex w-full flex-col gap-2">
     <Skeleton className="h-lh w-28 scale-y-70 text-sm leading-snug" />
     <Skeleton className="h-8 w-full rounded-lg" />
-  </div>
-)
-
-export const UploadZonePending = (): JSX.Element => (
-  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8">
-    <Skeleton className="mb-3 size-12 rounded-full" />
-    <Skeleton className="mb-1 h-lh w-24 scale-y-70 text-sm" />
-    <Skeleton className="h-lh w-44 scale-y-70 text-xs" />
   </div>
 )

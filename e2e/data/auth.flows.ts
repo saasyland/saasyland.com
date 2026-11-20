@@ -303,14 +303,31 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ADMIN_USERS,
     id: "admin-dashboard-users",
     outcome: "The dashboard counts the users and lists the newest accounts, each linked to its profile",
-    reason: "The specs open /admin and compare its dates with the server's; none checks the counts or the list.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
     tests: [
+      { spec: "admin-dashboard.spec.ts", title: "the dashboard counts the accounts and links the newest to their profiles" },
       {
         spec: "admin-users.spec.ts",
         title: "a browser whose clock and time zone are not the server's › hydrates the dashboard and a user's sessions as the server printed them",
       },
     ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-only-working-screens",
+    outcome: "The admin menu and the command palette list only working screens, and the removed demo screens answer 404",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "admin-dashboard.spec.ts", title: "the admin menu and the command palette list only working screens" },
+      { spec: "admin-dashboard.spec.ts", title: "/admin/analytics is gone and answers 404 to an admin" },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-dashboard-refused",
+    outcome: "A customer who opens /admin is sent to the workspace and sees none of the dashboard's figures",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-dashboard.spec.ts", title: "a customer is sent to the workspace and never sees the dashboard's figures" }],
   },
   {
     area: FLOW_AREA.ADMIN_USERS,

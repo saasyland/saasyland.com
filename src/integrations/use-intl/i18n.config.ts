@@ -13,7 +13,6 @@ const CALENDAR_TIMEZONE = "UTC"
 const FORMATS = {
   dateTime: {
     calendarDate: { day: "numeric", month: "short", timeZone: CALENDAR_TIMEZONE, year: "numeric" },
-    calendarDay: { day: "numeric", month: "long", timeZone: CALENDAR_TIMEZONE },
     calendarMonth: { month: "short", timeZone: CALENDAR_TIMEZONE },
     date: { day: "numeric", month: "short", year: "numeric" },
     time: { hour: "numeric", minute: "2-digit", timeZoneName: "short" },

@@ -5,9 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
+import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
-import { collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
+import { FLOWS } from "~/scripts/check-flows"
+import { collectCoverageScope, collectFlowTables, collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
 
 const configWith = ({
   hookTimeout = 4000,
@@ -23,7 +25,13 @@ const configWith = ({
     },
   },
   test: {
-    coverage: { reporter, reportsDirectory: "./reports", thresholds: { branches: 90, functions: 90, lines, statements: 90 } },
+    coverage: {
+      exclude: ["src/generated/**"],
+      include: ["src/**/*.ts"],
+      reporter,
+      reportsDirectory: "./reports",
+      thresholds: { branches: 90, functions: 90, lines, statements: 90 },
+    },
     projects: [{ test: { name: "node" } }, { test: { hookTimeout, name: "integration", testTimeout: 4000 } }],
   },
 })
@@ -35,11 +43,11 @@ afterEach(() => {
 describe("collectRepositoryFacts", () => {
   it("takes the year the build runs in, in UTC, so every machine prints the same year", () => {
     vi.useFakeTimers({ now: new Date("2032-01-01T01:00:00Z"), toFake: ["Date"] })
-    expect(collectRepositoryFacts(configWith()).buildYear).toBe(2032)
+    expect(collectRepositoryFacts(configWith(), []).buildYear).toBe(2032)
   })
 
   it("reads the coverage threshold, lint limits, formatter widths and test timeout from the Vite config", () => {
-    expect(collectRepositoryFacts(configWith())).toMatchObject({
+    expect(collectRepositoryFacts(configWith(), [])).toMatchObject({
       coverageThreshold: 90,
       integrationTestTimeoutSeconds: 4,
       maxLines: 500,
@@ -51,7 +59,7 @@ describe("collectRepositoryFacts", () => {
   })
 
   it("reads the CLI licence API's path, header, label limit, bundle URL lifetime and rate limits from the contract", () => {
-    expect(collectRepositoryFacts(configWith())).toMatchObject({
+    expect(collectRepositoryFacts(configWith(), [])).toMatchObject({
       cliApiBasePath: API_BASE_PATH,
       cliApiBundleUrlTtlSeconds: API_LIMIT.BUNDLE_URL_TTL_SECONDS,
       cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
@@ -62,24 +70,43 @@ describe("collectRepositoryFacts", () => {
     })
   })
 
+  it("counts the browser tests that Playwright lists", () => {
+    const tests = [
+      { skipped: false, spec: "a.spec.ts", title: "one" },
+      { skipped: true, spec: "a.spec.ts", title: "two" },
+    ]
+
+    expect(collectRepositoryFacts(configWith(), tests).e2eTests).toBe(2)
+  })
+
+  it("counts the flows of the inventory by status, and the missing ones the journey suite performs", () => {
+    const facts = collectRepositoryFacts(configWith(), [])
+
+    expect(facts.flows).toBe(FLOWS.length)
+    expect(facts.flowsCovered + facts.flowsMissing + facts.flowsToBuild).toBe(facts.flows)
+    expect(facts.flowsCovered).toBe(FLOWS.filter(({ status }) => status === FLOW_STATUS.COVERED).length)
+    expect(facts.flowsToBuild).toBe(FLOWS.filter(({ status }) => status === FLOW_STATUS.TO_BUILD).length)
+    expect(facts.flowsInJourney).toBe(FLOWS.filter((flow) => "journey" in flow).length)
+  })
+
   it("prints the password of the seeded accounts from the browser test data", () => {
-    expect(collectRepositoryFacts(configWith()).testPassword).toBe(TEST_PASSWORD)
+    expect(collectRepositoryFacts(configWith(), []).testPassword).toBe(TEST_PASSWORD)
   })
 
   it("finds the coverage summary in the configured reports directory", () => {
-    expect(collectRepositoryFacts(configWith()).coverageSummaryPath).toBe("reports/coverage-summary.json")
+    expect(collectRepositoryFacts(configWith(), []).coverageSummaryPath).toBe("reports/coverage-summary.json")
   })
 
   it("refuses a coverage configuration that does not write the summary the landing page cites", () => {
-    expect(() => collectRepositoryFacts(configWith({ reporter: ["text"] }))).toThrow("coverage summary report")
+    expect(() => collectRepositoryFacts(configWith({ reporter: ["text"] }), [])).toThrow("coverage summary report")
   })
 
   it("refuses coverage thresholds that the docs could not state as one number", () => {
-    expect(() => collectRepositoryFacts(configWith({ lines: 95 }))).toThrow("one coverage threshold")
+    expect(() => collectRepositoryFacts(configWith({ lines: 95 }), [])).toThrow("one coverage threshold")
   })
 
   it("refuses test and hook timeouts that the docs could not state as one duration", () => {
-    expect(() => collectRepositoryFacts(configWith({ hookTimeout: 8000 }))).toThrow("one timeout")
+    expect(() => collectRepositoryFacts(configWith({ hookTimeout: 8000 }), [])).toThrow("one timeout")
   })
 })
 
@@ -104,7 +131,63 @@ describe("collectSeededAccounts", () => {
   })
 })
 
+describe("collectCoverageScope", () => {
+  it("names the files the coverage gate measures and leaves out, and the Vitest projects whose tests count toward it", () => {
+    expect(collectCoverageScope(configWith())).toStrictEqual({
+      exclude: ["src/generated/**"],
+      include: ["src/**/*.ts"],
+      projects: ["node", "integration"],
+    })
+  })
+})
+
+describe("collectFlowTables", () => {
+  it("puts every flow in the table of its status once, grouped by area", () => {
+    const { covered, missing, toBuild } = collectFlowTables()
+    const areas = Object.values(FLOW_AREA)
+    const rows = [...covered, ...missing, ...toBuild]
+
+    expect(rows.map(([id]) => id).toSorted()).toStrictEqual(FLOWS.map(({ id }) => id).toSorted())
+    for (const table of [covered, missing, toBuild]) {
+      const order = table.map(([, area]) => areas.indexOf(area))
+      expect(order).toStrictEqual(order.toSorted((first, second) => first - second))
+    }
+  })
+
+  it("names the tests that prove a covered flow and the partial evidence of a missing one", () => {
+    const { covered, missing } = collectFlowTables()
+
+    expect(covered).toContainEqual([
+      "sign-up-and-verify",
+      FLOW_AREA.ACCOUNT,
+      expect.any(String),
+      ["auth.spec.ts › auth › signup sends a verification email whose link signs the new account into the app"],
+    ])
+    expect(missing).toContainEqual([
+      "refund-revokes",
+      FLOW_AREA.AFTER_SALE,
+      expect.any(String),
+      expect.any(String),
+      ["journey.spec.ts › a refund in the Polar sandbox stops the key and removes the credentials"],
+    ])
+  })
+
+  it("counts each area's flows by status", () => {
+    const { areas } = collectFlowTables()
+
+    expect(areas.map(([area]) => area)).toStrictEqual(Object.values(FLOW_AREA))
+    for (const [area, total, covered, missing, toBuild] of areas) {
+      expect(covered + missing + toBuild).toBe(total)
+      expect(total).toBe(FLOWS.filter((flow) => flow.area === area).length)
+    }
+  })
+})
+
 describe("REPOSITORY_FACTS", () => {
+  it("counts at least one browser test in every spec file", () => {
+    expect(REPOSITORY_FACTS.e2eTests).toBeGreaterThanOrEqual(REPOSITORY_FACTS.e2eSpecs)
+  })
+
   it("reads the toolchain versions from .nvmrc and packageManager", () => {
     expect(readFileSync(".nvmrc", "utf8").trim()).toBe(REPOSITORY_FACTS.nodeVersion)
     expect(packageJson.packageManager).toBe(`bun@${REPOSITORY_FACTS.bunVersion}`)
@@ -123,6 +206,8 @@ describe("REPOSITORY_FACTS", () => {
     }
     expect(commands).toContain(REPOSITORY_FACTS.coverageCommand)
     expect(commands).toContain(REPOSITORY_FACTS.i18nCheckCommand)
+    expect(commands).toContain(REPOSITORY_FACTS.flowCheckCommand)
+    expect(packageJson.scripts.check).toContain(REPOSITORY_FACTS.flowCheckCommand)
     expect(readFileSync(REPOSITORY_FACTS.ciWorkflowPath, "utf8")).toContain(REPOSITORY_FACTS.coverageCommand)
   })
 

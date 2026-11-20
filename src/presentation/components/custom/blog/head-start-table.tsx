@@ -4,6 +4,7 @@ import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { HEAD_START_HIGH_HOURS, HEAD_START_LOW_HOURS, HEAD_START_ROWS } from "~/src/data/head-start"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 export const HeadStartTable = (): JSX.Element => {
   const format = useFormatter()
@@ -21,7 +22,7 @@ export const HeadStartTable = (): JSX.Element => {
       <tbody>
         {HEAD_START_ROWS.map(({ high, id, layers, low }) => (
           <tr key={id}>
-            <td>{t(`rows.${id}`)}</td>
+            <td>{t(`rows.${id}`, { coverageThreshold: REPOSITORY_FACTS.coverageThreshold })}</td>
             <td>{format.list(layers.map((layer) => <code key={layer}>{layer}</code>))}</td>
             <td>{t("hours", { high, low })}</td>
           </tr>

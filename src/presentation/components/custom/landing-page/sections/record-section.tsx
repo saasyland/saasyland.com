@@ -9,7 +9,7 @@ import { HighlightGroup, HighlightItem } from "~/src/presentation/components/cus
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-const RECORD_ITEMS = ["coverage", "gate", "suites", "locales", "auth", "author"] as const
+const RECORD_ITEMS = ["coverage", "gate", "suites", "flows", "locales", "auth", "author"] as const
 
 const LEDGER_DELAY_MS = 100
 

@@ -1,0 +1,77 @@
+---
+title: "Pokrycie testami"
+description: "Czego dowodzi każda warstwa testów i ile z tego jest mierzone: pokrycie kodu, przepływy testowane end-to-end, zestaw testów ścieżki klienta i to, co jest w planach."
+---
+
+Jedna liczba nie powie, czego dowodzą testy, dlatego repozytorium podaje każdą warstwę osobno, a każda liczba na tej stronie jest wyświetlana na podstawie kodu.
+
+| Warstwa                       | Czego dowodzi                                                                                                                       | Dziś                                                                                            | Bramka                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Pokrycie kodu                 | Każda linia, instrukcja, funkcja i gałąź mierzonego kodu aplikacji wykonuje się w teście jednostkowym, integracyjnym lub komponentu | <RepositoryFact name="coverageThreshold" unit="percent" />                                      | `bun run test:coverage` kończy się błędem poniżej progu                           |
+| Pokrycie przepływów           | Test w przeglądarce wykonuje przepływ użytkownika lub administratora end-to-end na zbudowanym Workerze i sprawdza jego wynik        | <RepositoryFact name="flowsCovered" /> z <RepositoryFact name="flows" /> przepływów             | `bun run check` kończy się błędem, gdy przepływ wskazuje test, którego już nie ma |
+| Zestaw testów ścieżki klienta | Prawdziwa płatność w sandboksie Polar, klucze wydawane przez Polar i opublikowane CLI na preview                                    | Uruchamiany ręcznie; wykonuje <RepositoryFact name="flowsInJourney" /> z brakujących przepływów | Na razie brak                                                                     |
+| Testy mutacyjne               | Że testy kończą się błędem, gdy zmienia się kod, który pokrywają                                                                    | W planach                                                                                       | Brak                                                                              |
+| Pokrycie kodu w przeglądarce  | Który kod aplikacji uruchamia zestaw testów przeglądarkowych                                                                        | W planach                                                                                       | Brak                                                                              |
+
+## Pokrycie kodu [#code-coverage]
+
+`bun run test:coverage` uruchamia projekty Vitest <RepositoryFact name="vitestProjects" /> i kończy się błędem, gdy pokrycie linii, instrukcji, funkcji lub gałęzi spadnie poniżej <RepositoryFact name="coverageThreshold" unit="percent" /> dla <RepositoryFact name="coverageInclude" />. Pomija <RepositoryFact name="coverageExclude" />. CI uruchamia go przy każdym pull requeście i każdym pushu do `main`.
+
+Zestaw testów przeglądarkowych nie wlicza się do tej liczby: Playwright steruje zbudowanym testowym Workerem i nie zbiera tam pokrycia. Pełne pokrycie kodu oznacza, że każda mierzona linia wykonała się w teście, który coś sprawdził. Nie oznacza, że poszczególne części działają razem przez Workera, D1, przeglądarkę i dostawców: specyfikacja paczki w API licencji CLI wysyła tylko domyślne odpowiedzi, więc żądanie paczki z inną odpowiedzią mogłoby zawieść na produkcji, choć każda linia handlera jest pokryta. Na to drugie pytanie odpowiada pokrycie przepływów.
+
+## Pokrycie przepływów [#flow-coverage]
+
+Spis przepływów wymienia każdy przepływ witryny, panelu klienta i konsoli administracyjnej. Każdy obszar deklaruje swoje przepływy w `e2e/data/<area>.flows.ts`, a łączy je `e2e/data/flows.entries.ts`, z typami i stałymi w `e2e/data/flows.ts`, tak jak obszary deklarują swoje strony i dane testowej bazy. Przepływ ma identyfikator, obszar, wynik, który test musi sprawdzić, i jeden z trzech statusów:
+
+- **pokryty**: test Playwright wykonuje przepływ end-to-end i sprawdza jego wynik. Przepływ wskazuje specyfikację i pełny tytuł każdego takiego testu.
+- **brakujący**: funkcja istnieje, ale żaden test w przeglądarce nie wykonuje jej end-to-end. Przepływ opisuje, czego brakuje, oraz wskazuje testy, które wykonują jego część, i krok zestawu testów ścieżki klienta, który go wykonuje, jeśli takie są.
+- **do zbudowania**: funkcja jeszcze nie istnieje, np. ekrany administracyjne produktów, cen i rabatów, które pokazują przykładowe dane. Przepływ opisuje, co jest na jego miejscu.
+
+`bun run check` uruchamia `bun run check:flows`, który wypisuje zestaw testów przeglądarkowych przez `playwright test --list` w Chromium, tak jak uruchamiają go pull requesty, i kończy się błędem, gdy:
+
+- przepływ wskazuje specyfikację albo tytuł testu, których zestaw nie zawiera, co dzieje się po zmianie nazwy lub usunięciu testu;
+- przepływ wskazuje pominięty test;
+- dwa przepływy mają ten sam identyfikator;
+- brakujący przepływ albo przepływ do zbudowania nie podaje powodu;
+- przepływ wskazuje krok, którego zestaw testów ścieżki klienta nie ma.
+
+Dlatego pokryty przepływ traci swój test tylko wtedy, gdy ten sam pull request zmienia jego status i zapisuje powód.
+
+Dziś przepływy dzielą się tak: pokryte (<RepositoryFact name="flowsCovered" />), brakujące (<RepositoryFact name="flowsMissing" />) i jeszcze do zbudowania (<RepositoryFact name="flowsToBuild" />), razem <RepositoryFact name="flows" />. Zestaw testów przeglądarkowych ma testy (<RepositoryFact name="e2eTests" />) w plikach specyfikacji (<RepositoryFact name="e2eSpecs" />).
+
+<RepositoryTable columns={["Obszar", "Przepływy", "Pokryte", "Brakujące", "Do zbudowania"]} name="flowAreaTable" />
+
+Wiele brakujących przepływów jest już testowanych w procesie testowym: [zestawy testów integracyjnych](/docs/architecture/testing-architecture#integration-suites) dostarczają webhooki dwukrotnie, w złej kolejności i z błędnymi podpisami, zwracają pieniądze za licencje i je cofają oraz wyczerpują limity żądań API licencji CLI. Przepływ liczy się jako pokryty dopiero wtedy, gdy test w przeglądarce wykona go na zbudowanym Workerze, więc do tego czasu te przepływy liczą się jako brakujące.
+
+Poniższe tabele wyświetlają spis tak, jak deklaruje go `e2e/data`, po angielsku, czyli w języku tytułów testów.
+
+### Pokryte przepływy [#covered-flows]
+
+<RepositoryTable columns={["Przepływ", "Obszar", "Wynik", "Testy"]} name="coveredFlowTable" />
+
+### Brakujące przepływy [#missing-flows]
+
+<RepositoryTable columns={["Przepływ", "Obszar", "Wynik", "Czego brakuje", "Częściowo wykonane przez"]} name="missingFlowTable" />
+
+### Przepływy do zbudowania [#flows-to-build]
+
+<RepositoryTable columns={["Przepływ", "Obszar", "Wynik", "Dlaczego"]} name="toBuildFlowTable" />
+
+## Zestaw testów ścieżki klienta [#journey-suite]
+
+[Zestaw testów ścieżki klienta](/docs/tooling/playwright#journey-suite) kupuje każdy plan na preview w sandboksie Polar testową kartą Stripe, czeka, aż webhooki wydadzą klucz, używa opublikowanego CLI na tylu maszynach, na ile pozwala plan, i zwraca pieniądze za zamówienie. Wykonuje <RepositoryFact name="flowsInJourney" /> z brakujących przepływów, które tabela brakujących przepływów wymienia w ostatniej kolumnie, ale nie uruchamia go żaden workflow CI, więc te przepływy liczą się jako brakujące. Uruchamianie go w CI wymaga trzech kroków, które może wykonać tylko właściciel:
+
+1. **Sekrety.** Środowisko GitHub `Preview` przechowuje `POLAR_ACCESS_TOKEN`, token sandboksa z zakresami `orders:read` i `refunds:write`; `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`, produkty sandboksa; oraz `RESEND_API_KEY`, klucz z pełnym dostępem, który może czytać e-maile wysyłane przez preview. `POLAR_SERVER` ma wartość `sandbox` i nie potrzebuje sekretu.
+2. **Sandbox.** Organizacja w sandboksie zgadza się z kodem, co sprawdza `bun run polar:verify:preview`, a jej webhook wskazuje na preview.
+3. **Workflow.** Zadanie uruchamia `bun run test:journey` z zainstalowanym Chromium po zadaniu **Deploy preview**, które wdraża gałąź pull requesta na preview. W tym repozytorium workflowy wymagają przeglądu przez człowieka, więc zadanie jest zaproponowane, a nie dodane.
+
+## W planach [#planned]
+
+- **Testy mutacyjne.** Narzędzie do testów mutacyjnych zmienia testowany kod, po jednym operatorze lub warunku naraz, i liczy zmiany, których nie zauważa żaden test. Mierzy, czy testy sprawdzają wyniki, czy tylko wykonują linie. Zaczęłoby od kodu licencji, płatności, cen, dostępu do kursów i uwierzytelniania. Nic nie jest jeszcze skonfigurowane.
+- **Pokrycie kodu w przeglądarce.** Zbieranie pokrycia V8 podczas uruchamiania zbudowanej aplikacji przez zestaw testów przeglądarkowych pokazałoby, do którego kodu nie dociera żaden test w przeglądarce. Byłoby podawane obok liczby z Vitest, a nie do niej doliczane, i nie byłoby bramką. Nic nie jest jeszcze skonfigurowane.
+
+## Powiązane strony [#related-pages]
+
+- [Testy](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Konwencje testów](/docs/conventions/testing)

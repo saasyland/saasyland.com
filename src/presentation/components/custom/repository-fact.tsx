@@ -5,7 +5,7 @@ import { CI_PROVIDER, CI_PROVIDERS, CI_REPOSITORY_VARIABLE, PLATFORM } from "@sa
 import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
-import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
+import { cliApiTables, commitEmojis, coverageScope, flowTables, seededAccounts } from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
@@ -174,6 +174,8 @@ const FACTS = {
   courseImportsPerMinute: COURSE_IMPORTS_PER_MINUTE,
   courseLevels: COURSE_LEVELS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
+  coverageExclude: coverageScope.exclude,
+  coverageInclude: coverageScope.include,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
@@ -233,6 +235,7 @@ const FACTS = {
   videoQualityCrf: VIDEO_QUALITY_CRF,
   videoSegmentSeconds: SEGMENT_SECONDS,
   videoTopRendition: renditionName(MAX_RENDITION_HEIGHT),
+  vitestProjects: coverageScope.projects,
 } satisfies Record<string, Value>
 
 const TABLES = {
@@ -248,13 +251,17 @@ const TABLES = {
   ],
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
+  coveredFlowTable: flowTables.covered,
+  flowAreaTable: flowTables.areas,
   formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
     const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
 
     return [locale, form, never, neverInsideSentence, neverEndingSentence] as const
   }),
+  missingFlowTable: flowTables.missing,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
+  toBuildFlowTable: flowTables.toBuild,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {

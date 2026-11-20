@@ -1,0 +1,77 @@
+---
+title: "Testabdeckung"
+description: "Was jede Testebene beweist und wie viel davon gemessen wird: die Codeabdeckung, die End-to-End getesteten Abläufe, die Journey-Suite und was geplant ist."
+---
+
+Eine einzige Zahl kann nicht sagen, was die Tests beweisen. Deshalb weist das Repository jede Ebene für sich aus, und jede Zahl auf dieser Seite wird aus dem Code ausgegeben.
+
+| Ebene                 | Was sie beweist                                                                                                                                           | Heute                                                                                         | Gate                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Codeabdeckung         | Jede Zeile, jede Anweisung, jede Funktion und jede Verzweigung des gemessenen Anwendungscodes läuft unter einem Unit-, Integrations- oder Komponententest | <RepositoryFact name="coverageThreshold" unit="percent" />                                    | `bun run test:coverage` schlägt unterhalb der Schwelle fehl                            |
+| Ablaufabdeckung       | Ein Browsertest durchläuft einen Nutzer- oder Admin-Ablauf End-to-End gegen den gebauten Worker und prüft sein Ergebnis                                   | <RepositoryFact name="flowsCovered" /> von <RepositoryFact name="flows" /> Abläufen           | `bun run check` schlägt fehl, wenn ein Ablauf einen Test nennt, den es nicht mehr gibt |
+| Journey-Suite         | Eine echte Zahlung in der Polar-Sandbox, die Schlüssel, die Polar ausstellt, und die veröffentlichte CLI gegen Preview                                    | Läuft von Hand; sie durchläuft <RepositoryFact name="flowsInJourney" /> der fehlenden Abläufe | Noch keines                                                                            |
+| Mutationstests        | Dass die Tests fehlschlagen, wenn sich der Code ändert, den sie abdecken                                                                                  | Geplant                                                                                       | Keines                                                                                 |
+| Browser-Codeabdeckung | Welchen Anwendungscode die Browser-Suite ausführt                                                                                                         | Geplant                                                                                       | Keines                                                                                 |
+
+## Codeabdeckung [#code-coverage]
+
+`bun run test:coverage` führt die Vitest-Projekte <RepositoryFact name="vitestProjects" /> aus und schlägt fehl, wenn Zeilen, Anweisungen, Funktionen oder Verzweigungen unter <RepositoryFact name="coverageThreshold" unit="percent" /> von <RepositoryFact name="coverageInclude" /> fallen. Es lässt <RepositoryFact name="coverageExclude" /> aus. Die CI führt es bei jedem Pull Request und bei jedem Push auf `main` aus.
+
+Die Browser-Suite zählt für diese Zahl nicht: Playwright steuert den gebauten Test-Worker, und dort wird keine Abdeckung erfasst. Volle Codeabdeckung bedeutet, dass jede gemessene Zeile unter einem Test lief, der etwas geprüft hat. Sie bedeutet nicht, dass die Teile über den Worker, D1, den Browser und die Anbieter hinweg zusammenarbeiten: Die Bundle-Spec der CLI-Lizenz-API sendet nur die Standardantworten, sodass eine Bundle-Anfrage mit einer anderen Antwort in Produktion fehlschlagen könnte, obwohl jede Zeile des Handlers abgedeckt ist. Diese zweite Frage misst die Ablaufabdeckung.
+
+## Ablaufabdeckung [#flow-coverage]
+
+Das Ablaufinventar listet jeden Ablauf der Website, des Kundenbereichs und der Admin-Konsole. Jeder Bereich deklariert seine Abläufe in `e2e/data/<area>.flows.ts`, zusammengeführt von `e2e/data/flows.entries.ts`, mit den Typen und Konstanten in `e2e/data/flows.ts`, so wie die Bereiche ihre Seiten und Seeds deklarieren. Ein Ablauf hat eine ID, einen Bereich, das Ergebnis, das ein Test prüfen muss, und einen von drei Status:
+
+- **abgedeckt**: Ein Playwright-Test durchläuft den Ablauf End-to-End und prüft sein Ergebnis. Der Ablauf nennt die Spec und den vollständigen Titel jedes solchen Tests.
+- **fehlend**: Die Funktion existiert, aber kein Browsertest durchläuft sie End-to-End. Der Ablauf sagt, was fehlt, und nennt die Tests, die einen Teil davon erledigen, sowie, falls vorhanden, den Schritt der Journey-Suite, der ihn durchläuft.
+- **zu bauen**: Die Funktion existiert noch nicht, etwa die Admin-Ansichten für Produkte, Preise und Rabatte, die Beispieldaten zeigen. Der Ablauf sagt, was an ihrer Stelle steht.
+
+`bun run check` führt `bun run check:flows` aus. Das Skript listet die Browser-Suite mit `playwright test --list` in Chromium auf, so wie Pull Requests sie ausführen, und schlägt fehl, wenn:
+
+- ein Ablauf eine Spec oder einen Testtitel nennt, den die Suite nicht hat, was beim Umbenennen oder Löschen des Tests passiert;
+- ein Ablauf einen Test nennt, der übersprungen wird;
+- zwei Abläufe dieselbe ID haben;
+- ein fehlender oder noch zu bauender Ablauf nicht sagt, warum;
+- ein Ablauf einen Schritt nennt, den die Journey-Suite nicht hat.
+
+Ein abgedeckter Ablauf verliert seinen Test deshalb nur, wenn derselbe Pull Request seinen Status ändert und aufschreibt, warum.
+
+Von <RepositoryFact name="flows" /> Abläufen sind heute <RepositoryFact name="flowsCovered" /> abgedeckt, <RepositoryFact name="flowsMissing" /> fehlen und <RepositoryFact name="flowsToBuild" /> sind noch zu bauen. Die Browser-Suite hat <RepositoryFact name="e2eTests" /> Tests in <RepositoryFact name="e2eSpecs" /> Spec-Dateien.
+
+<RepositoryTable columns={["Bereich", "Abläufe", "Abgedeckt", "Fehlend", "Zu bauen"]} name="flowAreaTable" />
+
+Viele fehlende Abläufe werden bereits im Prozess getestet: Die [Integrations-Suites](/docs/architecture/testing-architecture#integration-suites) stellen Webhooks doppelt, in falscher Reihenfolge und mit ungültigen Signaturen zu, erstatten und widerrufen Lizenzen und lösen die Rate-Limits der CLI-Lizenz-API aus. Ein Ablauf zählt erst dann als abgedeckt, wenn ein Browsertest ihn gegen den gebauten Worker durchläuft, deshalb zählen diese als fehlend, bis einer das tut.
+
+Die Tabellen unten geben das Inventar so aus, wie `e2e/data` es deklariert, auf Englisch, der Sprache der Testtitel.
+
+### Abgedeckte Abläufe
+
+<RepositoryTable columns={["Ablauf", "Bereich", "Ergebnis", "Tests"]} name="coveredFlowTable" />
+
+### Fehlende Abläufe
+
+<RepositoryTable columns={["Ablauf", "Bereich", "Ergebnis", "Was fehlt", "Teilweise erledigt von"]} name="missingFlowTable" />
+
+### Noch zu bauende Abläufe
+
+<RepositoryTable columns={["Ablauf", "Bereich", "Ergebnis", "Warum"]} name="toBuildFlowTable" />
+
+## Journey-Suite [#journey-suite]
+
+Die [Journey-Suite](/docs/tooling/playwright#journey-suite) kauft jede Stufe auf Preview in der Polar-Sandbox mit der Testkarte von Stripe, wartet, bis die Webhooks den Schlüssel ausstellen, nutzt die veröffentlichte CLI auf so vielen Geräten, wie die Stufe erlaubt, und erstattet die Bestellung. Sie durchläuft <RepositoryFact name="flowsInJourney" /> der fehlenden Abläufe, die die Tabelle der fehlenden Abläufe in ihrer letzten Spalte nennt, aber kein CI-Workflow führt sie aus, deshalb zählen diese Abläufe als fehlend. Um sie in der CI auszuführen, braucht es drei Schritte, die nur der Inhaber erledigen kann:
+
+1. **Secrets.** Die GitHub-Umgebung `Preview` enthält `POLAR_ACCESS_TOKEN`, ein Sandbox-Token mit den Scopes `orders:read` und `refunds:write`; `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` und `POLAR_PRODUCT_ID_AGENCY`, die Sandbox-Produkte; und `RESEND_API_KEY`, einen Schlüssel mit vollem Zugriff, der die E-Mails lesen kann, die Preview sendet. `POLAR_SERVER` ist `sandbox` und braucht kein Secret.
+2. **Sandbox.** Die Sandbox-Organisation passt zum Code, was `bun run polar:verify:preview` prüft, und ihr Webhook zeigt auf Preview.
+3. **Workflow.** Ein Job führt `bun run test:journey` mit installiertem Chromium nach dem Job **Deploy preview** aus, der den Branch eines Pull Requests auf Preview deployt. Workflows brauchen in diesem Repository das Review einer Person, deshalb wird der Job vorgeschlagen statt hinzugefügt.
+
+## Geplant [#planned]
+
+- **Mutationstests.** Ein Mutationswerkzeug ändert den getesteten Code, einen Operator oder eine Bedingung nach der anderen, und zählt die Änderungen, die kein Test bemerkt. Es misst, ob die Tests Ergebnisse prüfen oder nur Zeilen ausführen. Beginnen würde es mit dem Code für Lizenzen, Zahlungen, Preise, Kurszugang und Authentifizierung. Noch ist nichts eingerichtet.
+- **Browser-Codeabdeckung.** V8-Abdeckung zu erfassen, während die Browser-Suite die gebaute Anwendung ausführt, würde zeigen, welchen Code kein Browsertest erreicht. Sie würde neben der Vitest-Zahl ausgewiesen, nicht zu ihr addiert, und nicht als Gate geprüft. Noch ist nichts eingerichtet.
+
+## Verwandte Seiten [#related-pages]
+
+- [Testen](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Testkonventionen](/docs/conventions/testing)

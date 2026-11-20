@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import { ArrowRight, Check } from "lucide-react"
+import { Link } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
@@ -8,6 +9,8 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+
+import { ROUTES } from "~/src/routes"
 
 const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 
@@ -72,6 +75,13 @@ export const QualitySection = (): JSX.Element => {
               </li>
             ))}
           </ul>
+
+          <Link
+            className="mt-4 flex w-fit rounded-sm font-mono text-spec text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+            href={ROUTES.DOCS_TEST_COVERAGE}
+          >
+            {t("coverageLink")}
+          </Link>
 
           <a
             className="group mt-10 inline-flex items-center gap-2 rounded-sm text-body-sm font-medium text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"

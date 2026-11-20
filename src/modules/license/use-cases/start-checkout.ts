@@ -27,7 +27,7 @@ import { ROUTES } from "~/src/routes"
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: License["startCheckout"]) => licenseZodSchemas.startCheckout.parse(input))
-  .handler(async ({ context, data: { locale, tier, withdrawalConsent } }) => {
+  .handler(async ({ context, data: { locale, redirect, tier, withdrawalConsent } }) => {
     const { user } = context.auth
     const current = await getLicense(user.id)
     if (current?.status === LICENSE_STATUS.ACTIVE) {
@@ -35,8 +35,9 @@ export const startCheckout = createServerFn({ method: "POST" })
     }
 
     const discountId = await pppDiscountId(context.requestHeaders, POLAR_PRODUCT_IDS[tier])
+    const returnTo = redirect === undefined ? "" : `&${new URLSearchParams({ redirect }).toString()}`
     const successUrl = new URL(
-      `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
+      `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}${returnTo}`,
       getRequest().url,
     )
     const { url } = await polar.checkouts.create({

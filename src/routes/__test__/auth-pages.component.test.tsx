@@ -9,8 +9,10 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
+import { getRequest } from "@tanstack/react-start/server"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
@@ -18,6 +20,8 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
+import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
@@ -46,7 +50,7 @@ import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import pagesAuthTwoFactorMessages from "~/messages/en-US/pages.auth.two-factor.json"
 import pagesAuthVerifyEmailMessages from "~/messages/en-US/pages.auth.verify-email.json"
-import { APP_NAME } from "~/src/presentation/branding"
+import { APP_NAME, APP_SLUG } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const sessionRequest = vi.hoisted(() => vi.fn())
@@ -111,7 +115,7 @@ const renderAuth = async (path: string) => {
 
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(JSON_NULL)
-  sendVerificationEmail.mockReset().mockResolvedValue({ status: true })
+  sendVerificationEmail.mockReset().mockResolvedValue({ sent: true })
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
   vi.stubGlobal(
     "matchMedia",
@@ -182,7 +186,7 @@ describe("authentication routes", () => {
     [ROUTES.FORGOT_PASSWORD, "forgot-password", pagesAuthForgotPasswordMessages.form.title],
     [ROUTES.RESET_PASSWORD, "reset-password", pagesAuthResetPasswordMessages.form.title],
     [ROUTES.TWO_FACTOR, "two-factor", pagesAuthTwoFactorMessages.form.title],
-    [ROUTES.VERIFY_EMAIL, "verify-email", pagesAuthVerifyEmailMessages.form.title],
+    [ROUTES.VERIFY_EMAIL, "verify-email", pagesAuthVerifyEmailMessages.pending.title],
   ] as const)("renders %s with its translated heading, navigation, and route metadata", async (path, namespace, title) => {
     const { queryClient, router } = await renderAuth(path)
     expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible()
@@ -218,11 +222,47 @@ describe("authentication routes", () => {
     expect(sessionRequest).toHaveBeenCalledOnce()
   })
 
-  it("sends an expired callback session back to sign in", async () => {
+  it("sends a visitor without a session from the callback to sign in without saying a session ended", async () => {
     const { router } = await renderAuth(ROUTES.AUTH_CALLBACK)
     expect(await screen.findByRole("heading", { name: pagesAuthSignInMessages.form.title })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
     expect(router.options.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
+    expect(screen.queryByText(pagesAuthSignInMessages.sessionEnded)).not.toBeInTheDocument()
+  })
+})
+
+describe("sessions that ended", () => {
+  it("says the session ended, and names the page it returns to, when a signed-in visitor's session expires", async () => {
+    sessionRequest.mockResolvedValueOnce(createAuthSessionFixture())
+    const { router } = await renderAuth(ROUTES.HOME)
+    await act(() => router.options.context.queryClient.query(getCurrentSessionQuery))
+
+    await act(() => router.navigate({ search: { redirect: ROUTES.APP_SETTINGS }, to: ROUTES.AUTH_CALLBACK }))
+
+    expect(await screen.findByRole("status")).toHaveTextContent(pagesAuthSignInMessages.sessionEndedTo.replace("{page}", "Settings"))
+    expect(router.state.location.search).toEqual({ error: SESSION_EXPIRED_CODE, redirect: ROUTES.APP_SETTINGS })
+  })
+
+  it("says the session ended without naming a page it cannot name, when the browser still holds the session cookie", async () => {
+    vi.mocked(getRequest).mockReturnValue(
+      new Request("http://127.0.0.1:3000/", { headers: { cookie: `${APP_SLUG}.session_token=expired` } }),
+    )
+    await renderAuth(`${ROUTES.AUTH_CALLBACK}?redirect=%2Fcourses`)
+
+    expect(await screen.findByRole("status")).toHaveTextContent(pagesAuthSignInMessages.sessionEnded)
+  })
+
+  it("says the session ended without naming a page when the link carries no return path", async () => {
+    await renderAuth(`${ROUTES.SIGN_IN}?error=${SESSION_EXPIRED_CODE}`)
+
+    expect(await screen.findByRole("status")).toHaveTextContent(pagesAuthSignInMessages.sessionEnded)
+  })
+})
+
+describe("verification routes", () => {
+  it("uses the new-account headline beside the verify page", async () => {
+    await renderAuth(ROUTES.VERIFY_EMAIL)
+    expect(await screen.findByText(authGateMessages.signUpHeadline)).toBeInTheDocument()
   })
 
   it.each(["", "?error=INVALID_TOKEN", "?error=Call%20%2B1%20555%200100&token=otherwise-valid"])(
@@ -303,6 +343,21 @@ describe("authentication routes", () => {
     expect(redirect.searchParams.get("callbackURL")).toBe(`${ROUTES.VERIFY_EMAIL}?verified=true`)
   })
 
+  it("carries the address a verification token names into the callback, so an expired link can offer a new one", async () => {
+    const payload = btoa(JSON.stringify({ email: "person@example.com" })).replaceAll("=", "")
+    const { router } = createAuthRouter(`${ROUTES.VERIFY_EMAIL}?token=header.${payload}.signature&redirect=%2Fapp`)
+    const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
+    await router.load()
+    const redirect = new URL(navigate.mock.calls.at(0)?.[0]?.href ?? "", "https://example.com")
+    expect(redirect.searchParams.get("callbackURL")).toBe(`${ROUTES.VERIFY_EMAIL}?email=person%40example.com&redirect=%2Fapp&verified=true`)
+  })
+
+  it("tells a signed-out visitor whose link was already used that the address is confirmed", async () => {
+    const { router } = await renderAuth(`${ROUTES.VERIFY_EMAIL}?verified=true&email=person%40example.com`)
+    expect(await screen.findByRole("heading", { name: pagesAuthVerifyEmailMessages.confirmed.title })).toBeVisible()
+    expect(router.state.location.pathname).toBe(ROUTES.VERIFY_EMAIL)
+  })
+
   it("redirects verified accounts through the guarded callback", async () => {
     sessionRequest.mockResolvedValue(createAuthSessionFixture())
     const { router } = await renderAuth(`${ROUTES.VERIFY_EMAIL}?verified=true`)
@@ -312,11 +367,10 @@ describe("authentication routes", () => {
 
   it("keeps a rejected verification link on the recovery panel", async () => {
     const { router } = await renderAuth(`${ROUTES.VERIFY_EMAIL}?verified=true&error=expired&email=person%40example.com`)
-    expect(await screen.findByRole("heading", { name: pagesAuthVerifyEmailMessages.form.title })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: pagesAuthVerifyEmailMessages.invalid.title })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.VERIFY_EMAIL)
-    expect(screen.getByText(pagesAuthVerifyEmailMessages.form.invalidToken)).toBeVisible()
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
-    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.form.resend }))
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.invalid.send }))
     await waitFor(() => {
       expect(sendVerificationEmail).toHaveBeenCalledExactlyOnceWith(
         { callbackURL: ROUTES.AUTH_CALLBACK, email: "person@example.com" },
@@ -327,14 +381,20 @@ describe("authentication routes", () => {
 })
 
 describe("verification page guidance", () => {
+  const verifyEmailText = createTranslator({ locale: "en-US", messages: pagesAuthVerifyEmailMessages })
+  const linkFacts = { address: (chunks: string) => chunks, email: "person@example.com", hours: EMAIL_LINK_LIFETIME_HOURS }
+
   it.each([
-    { message: pagesAuthVerifyEmailMessages.form.pendingDescription, search: "?email=person%40example.com" },
-    { message: pagesAuthVerifyEmailMessages.form.unverifiedDescription, search: "?email=person%40example.com&unverified=true" },
-    { message: pagesAuthVerifyEmailMessages.form.pendingDescription, search: "?unverified=yes" },
+    { message: verifyEmailText.markup("pending.description", linkFacts), search: "?email=person%40example.com" },
+    { message: verifyEmailText.markup("pending.unverified", linkFacts), search: "?email=person%40example.com&unverified=true" },
+    {
+      message: verifyEmailText.markup("invalid.description", linkFacts),
+      search: "?email=person%40example.com&error=INVALID_TOKEN&unverified=true",
+    },
+    { message: verifyEmailText("pending.askEmail", { hours: EMAIL_LINK_LIFETIME_HOURS }), search: "?unverified=yes" },
   ])("tells a visitor arriving with $search what to do next", async ({ message, search }) => {
     await renderAuth(`${ROUTES.VERIFY_EMAIL}${search}`)
 
-    expect(await screen.findByText(message)).toBeVisible()
-    expect(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.form.resend })).toBeVisible()
+    expect(await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === message)).toBeVisible()
   })
 })

@@ -1,59 +1,32 @@
 import type { JSX } from "react"
 
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
+import { redirectIfVerified } from "~/src/integrations/better-auth/auth.routes"
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { cn } from "~/src/lib/cn"
+import { readUnverifiedJwtPayload } from "~/src/lib/jwt"
 import { searchFlag, searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { VerifyEmailPending } from "~/src/presentation/components/custom/auth/auth-pending"
-import { VerifyEmailForm } from "~/src/presentation/components/custom/auth/verify-email-form"
+import { VerifyEmailForm, VerifyEmailHeading } from "~/src/presentation/components/custom/auth/verify-email-form"
 
 import { ROUTES } from "~/src/routes"
 
-interface VerifyEmailState {
-  readonly error?: string | undefined
-  readonly unverified?: boolean | undefined
-}
-
-type VerifyEmailMessage = "form.invalidToken" | "form.pendingDescription" | "form.unverifiedDescription"
-
-const verifyEmailMessage = ({ error, unverified }: VerifyEmailState): VerifyEmailMessage => {
-  if (error !== undefined) {
-    return "form.invalidToken"
-  }
-  if (unverified === true) {
-    return "form.unverifiedDescription"
-  }
-  return "form.pendingDescription"
-}
-
-const VerifyEmailPage = (): JSX.Element => {
-  const t = useTranslations("pages.auth.verify-email")
-  const message = Route.useSearch({ select: verifyEmailMessage })
-  const isInvalidLink = message === "form.invalidToken"
-
-  return (
-    <>
-      <h1 className="text-headline-support text-balance text-foreground">{t("form.title")}</h1>
-      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description")}</p>
-
-      <div className="mt-10 flex flex-col gap-6">
-        <p className={cn("text-body text-pretty", { "text-destructive": isInvalidLink, "text-muted-foreground": !isInvalidLink })}>
-          {t(message)}
-        </p>
-        <VerifyEmailForm />
-      </div>
-    </>
-  )
-}
+const VerifyEmailPage = (): JSX.Element => (
+  <>
+    <VerifyEmailHeading />
+    <VerifyEmailForm />
+  </>
+)
 
 const NAMESPACE = "pages.auth.verify-email"
+
+const tokenPayloadSchema = zod.object({ email: zod.email() })
 
 export const Route = createFileRoute("/auth/verify-email")({
   validateSearch: authSearchSchema.extend({
@@ -63,18 +36,21 @@ export const Route = createFileRoute("/auth/verify-email")({
     unverified: searchFlag(),
     verified: searchFlag(),
   }),
-  beforeLoad: ({ buildLocation, preload, search }) => {
+  beforeLoad: async (context) => {
+    const { buildLocation, preload, search } = context
     if (preload) {
       return
     }
     if (search.token !== undefined) {
-      const { publicHref: callbackURL } = buildLocation({ search: { redirect: search.redirect, verified: true }, to: ROUTES.VERIFY_EMAIL })
+      const email = readUnverifiedJwtPayload(search.token, tokenPayloadSchema)?.email
+      const { publicHref: callbackURL } = buildLocation({
+        search: { email, redirect: search.redirect, verified: true },
+        to: ROUTES.VERIFY_EMAIL,
+      })
       const query = new URLSearchParams({ callbackURL, token: search.token })
       throw redirect({ href: `${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`, reloadDocument: true, replace: true })
     }
-    if (search.verified === true && search.error === undefined) {
-      throw redirect({ replace: true, search: { redirect: search.redirect }, to: ROUTES.AUTH_CALLBACK })
-    }
+    await redirectIfVerified(context)
   },
   component: VerifyEmailPage,
   head: pageHead(ROUTES.VERIFY_EMAIL),

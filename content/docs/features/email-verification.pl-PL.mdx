@@ -1,22 +1,50 @@
 ---
 title: "Weryfikacja e-maila"
-description: "Obowiązkowa weryfikacja adresu e-mail ze zlokalizowanymi linkami i formularzem ponownej wysyłki."
+description: "Rejestracja i płatność od razu; potwierdzony adres odblokowuje klucz licencyjny, portal klienta i płatne lekcje."
 ---
 
-Better Auth działa z włączonymi `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` i `autoSignInAfterVerification`, więc nowe konto musi potwierdzić adres, zanim będzie mogło się zalogować, a każde logowanie z poprawnym hasłem przed potwierdzeniem wysyła nowy link. Link działa przez `EMAIL_LINK_LIFETIME_HOURS` (`emailVerification.expiresIn`), co podaje e-mail.
+Nowe konto z e-mailem i hasłem jest zalogowane od razu po rejestracji, więc kupujący przechodzi z formularza rejestracji do płatności bez zaglądania do skrzynki. Dopiero potwierdzenie adresu odblokowuje to, co go wymaga: klucz licencyjny, portal klienta Polar i płatne lekcje. Ponowne logowanie hasłem nadal wymaga potwierdzonego adresu, a każde logowanie z poprawnym hasłem przed potwierdzeniem wysyła nowy link. Konta GitHub i Google są potwierdzone od początku.
+
+## Rejestracja [#signing-up]
+
+Better Auth działa z `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` i `autoSignInAfterVerification`. Przy `requireEmailVerification` Better Auth odpowiada na rejestrację tak samo bez względu na to, czy adres ma już konto, i nie loguje odwiedzającego. Następnie `signInNewAccount` (`auth.hooks.ts`), middleware `hooks.after`, loguje tylko konto utworzone przez rejestrację: gdy użytkownik wskazany w odpowiedzi istnieje w D1, tworzy sesję i ustawia jej ciasteczko, tak jak zrobiłoby to wbudowane `autoSignIn` z Better Auth. Rejestracja na adres, który ma już konto, nie dostaje sesji; odwiedzający trafia na `/auth/verify-email`, a `onExistingUserSignUp` wysyła wiadomość na ten adres (zobacz [Rejestracja ze znanym adresem](/docs/features/authentication#signing-up-with-a-known-address)). Funkcja serwerowa `signUpWithPassword` zwraca `signedIn` odczytane z ciasteczka sesji w odpowiedzi, a nigdy sam token sesji.
+
+`SignUpForm` prowadzi zalogowane konto przez `/auth/callback` do `redirect`, na przykład `/app?tier=complete`, więc kupujący od razu trafia do płatności.
 
 ## Wysyłka
 
-`emailVerification.sendVerificationEmail` w `auth.server.ts` przekazuje e-mail funkcjom wysyłającym e-maile uwierzytelniania, a funkcją Resend jest `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, dołączona w `src/data/resend.auth-emails.ts`). Tworzy link do `/auth/verify-email` w tej witrynie z językiem i `redirect` odczytanymi z `callbackURL` przepływu, a także z `token`, i wysyła szablon `VerifyEmail` (zobacz [E-maile transakcyjne](/docs/features/email)). Limit e-maili weryfikacyjnych na adres na godzinę wynosi <RepositoryFact name="recipientEmailsPerHour" /> (`withinRecipientRateLimit`); kolejne żądania niczego nie wysyłają i dostają zwykłą odpowiedź. Gdy ktoś ponownie rejestruje się na niezweryfikowany adres, `onExistingUserSignUp` wysyła nowy link, zamiast ujawniać, że konto istnieje; przy zweryfikowanym adresie wysyła zamiast tego e-mail o istniejącym koncie (zobacz [Rejestracja ze znanym adresem](/docs/features/authentication#signing-up-with-a-known-address)). Link wysłany przy logowaniu bierze język i `redirect` ze strony logowania.
+`emailVerification.sendVerificationEmail` w `auth.server.ts` przekazuje e-mail funkcjom wysyłającym e-maile uwierzytelniania, a funkcją Resend jest `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, dołączona w `src/data/resend.auth-emails.ts`). Tworzy link do `/auth/verify-email` w tej witrynie z językiem i `redirect` odczytanymi z `callbackURL` przepływu, a także z `token`, i wysyła szablon `VerifyEmail` (zobacz [E-maile transakcyjne](/docs/features/email)). Czas ważności linku to <RepositoryFact name="emailLinkHours" unit="hour" /> (`EMAIL_LINK_LIFETIME_HOURS` w `auth.constants.ts`, czyli `emailVerification.expiresIn` w Better Auth), co podaje e-mail. Limit e-maili weryfikacyjnych na adres na godzinę wynosi <RepositoryFact name="recipientEmailsPerHour" /> (`withinRecipientRateLimit`). Gdy ktoś ponownie rejestruje się na niezweryfikowany adres, `onExistingUserSignUp` wysyła nowy link; przy zweryfikowanym adresie wysyła zamiast tego e-mail o istniejącym koncie. Link wysłany przy logowaniu bierze język i `redirect` ze strony logowania.
 
-## Weryfikacja
+## Co czeka na potwierdzony adres [#what-waits-for-the-confirmed-address]
+
+| Co               | Gdzie jest odmowa                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Klucz licencyjny | `getCurrentLicense` nigdy nie zwraca klucza, a `getCurrentLicenseKey` zwraca go tylko sesji, której adres e-mail jest potwierdzony                                   |
+| Portal Polar     | `requireVerifiedEmail` (`auth.hooks.ts`), które obszar Polar uruchamia przed każdym endpointem `/customer/`, odpowiada `403 EMAIL_NOT_VERIFIED`                      |
+| Płatne lekcje    | `resolveViewer` przyznaje dostęp do kursów tylko potwierdzonemu adresowi, więc `getLesson`, `getLessonPlayback` i pliki do pobrania traktują lekcję jako zablokowaną |
+
+Sama płatność pozostaje otwarta: Polar pobiera należność i wysyła potwierdzenie na ten adres, a licencja jest przyznawana przy `order.paid` jak każdemu kupującemu. API licencji CLI nie potrzebuje własnej kontroli, bo przed potwierdzeniem adresu klucz nie trafia z tej witryny do nikogo, a Polar pokazuje go tylko komuś, kto czyta tę skrzynkę.
+
+## Potwierdzanie w aplikacji
+
+`EmailVerificationBanner` wyświetla się nad każdą stroną `/app`, dopóki adres nie jest potwierdzony. Podaje adres, wysyła nowy link (`sendVerificationEmail`) i oferuje **Użyj innego adresu e-mail**, co od razu zmienia adres niepotwierdzonego konta (`changeEmail` z `user.changeEmail.updateEmailWithoutVerification`) i wysyła tam link. `useEmailVerification` sprawdza sesję co <RepositoryFact name="verificationPollSeconds" unit="second" /> oraz wtedy, gdy karta odzyska fokus, dopóki adres jest niepotwierdzony, więc link otwarty na telefonie odblokowuje klucz na laptopie: baner informuje, że adres jest potwierdzony, i odświeża zapytania użytkownika. `LicenseCard` zamiast klucza pokazuje, dokąd poszedł link, i ukrywa link do portalu. Blokada płatnej lekcji mówi **Potwierdź adres e-mail, aby oglądać**, wysyła link ponownie i odblokowuje lekcję na miejscu.
+
+## Strona weryfikacji
 
 `/auth/verify-email` obsługuje link w `beforeLoad`:
 
-- Z `?token=` przeładowuje dokument pod `/api/auth/verify-email` z `callbackURL` równym `/auth/verify-email?verified=true` w tym samym języku, zachowując `redirect`.
-- Z `?verified=true` i bez `error` przekierowuje do `/auth/callback` z `redirect`, który kieruje użytkownika tam albo do `/admin` lub `/app`.
-- W pozostałych przypadkach wyświetla stronę; z `?error=` pokazuje komunikat o nieprawidłowym linku.
+- Z `?token=` odczytuje adres z ładunku tokenu, nie ufając mu, a potem przeładowuje dokument pod `/api/auth/verify-email` z `callbackURL` równym `/auth/verify-email?verified=true` w tym samym języku, zachowując `redirect` i adres.
+- `redirectIfVerified` kieruje sesję z potwierdzonym adresem do `redirect` albo do `/admin` lub `/app`.
+- W pozostałych przypadkach wyświetla jeden z trzech stanów:
 
-## Ponowna wysyłka
+| Stan          | Kiedy                                       | Na pierwszym planie                                                                              |
+| ------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Oczekujący    | Link został wysłany                         | **Wyślij link ponownie** z podanym adresem; **Użyj innego adresu e-mail**; **Wróć do logowania** |
+| Nieprawidłowy | `?error=`: link wygasł lub został już użyty | **Wyślij nowy link** na adres zapisany w linku albo pole do jego wpisania                        |
+| Potwierdzony  | `?verified=true` i brak sesji               | **Zaloguj się i kontynuuj** z zachowaniem adresu i `redirect`                                    |
 
-`VerifyEmailForm` wypełnia adres na podstawie `?email=`, który rejestracja i logowanie ustawiają przy przekierowaniu na tę stronę. Logowanie ustawia też `?unverified=true`, a strona informuje wtedy, że wysłano nowy link, zamiast pokazywać ogólny tekst rejestracji. Formularz wywołuje funkcję serwerową `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), ograniczaną przez `RATE_LIMITS.SENSITIVE`.
+`VerifyEmailForm` bierze adres z sesji albo z `?email=`, który rejestracja i logowanie ustawiają przy przekierowaniu na tę stronę. Logowanie ustawia też `?unverified=true`, a strona informuje wtedy, że nowy link został wysłany na ten adres. Zalogowany odwiedzający widzi adres konta i zmienia go w `ChangeEmailForm`; niezalogowany wpisuje inny adres. Dopóki adres jest niepotwierdzony, strona sprawdza sesję i przechodzi do `redirect`, gdy tylko link zostanie gdziekolwiek otwarty. Każdy link na stronie zachowuje `redirect`. Panel powitalny obok używa nagłówka rejestracji.
+
+## Uczciwa ponowna wysyłka
+
+Funkcje serwerowe `sendVerificationEmail` i `requestPasswordReset`, ograniczane przez `RATE_LIMITS.SENSITIVE`, najpierw odczytują godzinny limit adresu (`recipientAllowance` w `src/lib/rate-limit.ts`) bez naliczania. Gdy adres wykorzystał już ten limit (<RepositoryFact name="recipientEmailsPerHour" />), niczego nie wysyłają i zwracają `{ sent: false, retryAfterSeconds }`, a `ResendLinkStatus` o tym informuje i podaje godzinę, o której można spróbować ponownie. Po wysyłce `useEmailLinkResend` odczekuje <RepositoryFact name="resendCooldownSeconds" unit="second" />, zanim pozwoli na kolejną, i pokazuje odliczanie na przycisku. Niezalogowanemu odwiedzającemu wysyłka jest potwierdzana słowami, które nie zdradzają, czy adres ma konto.

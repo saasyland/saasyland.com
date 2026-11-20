@@ -17,6 +17,7 @@ import { ROUTES } from "~/src/routes"
 const AuthLayout = (): JSX.Element => {
   const t = useTranslations("auth")
   const isSignUp = useMatch({ from: ROUTES.SIGN_UP, shouldThrow: false }) !== undefined
+  const isVerifyEmail = useMatch({ from: ROUTES.VERIFY_EMAIL, shouldThrow: false }) !== undefined
 
   return (
     <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground antialiased [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
@@ -45,7 +46,9 @@ const AuthLayout = (): JSX.Element => {
         <div aria-hidden className="field-grid pointer-events-none absolute inset-0" />
 
         <div className="relative row-start-2 flex flex-col justify-between gap-12 py-12">
-          <p className="max-w-md text-display-gate text-balance text-foreground">{t(isSignUp ? "gate.signUpHeadline" : "gate.headline")}</p>
+          <p className="max-w-md text-display-gate text-balance text-foreground">
+            {t(isSignUp || isVerifyEmail ? "gate.signUpHeadline" : "gate.headline")}
+          </p>
 
           <ul className="flex flex-col gap-5">
             {AUTH_ASSURANCES.map((id) => (

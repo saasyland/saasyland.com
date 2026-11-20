@@ -40,7 +40,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token },
+    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

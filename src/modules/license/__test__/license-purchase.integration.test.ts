@@ -21,7 +21,13 @@ import {
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
-import { browserHeaders, createTestAccount, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
+import {
+  browserHeaders,
+  createTestAccount,
+  signUpAndVerify,
+  signUpSignedIn,
+  verifyEmail,
+} from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
@@ -48,6 +54,7 @@ import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
+import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -80,10 +87,15 @@ const actAs = ({ headers }: Buyer, { cookie, country = "US" }: BrowserState = {}
 
 const startCheckout = async (
   buyer: Buyer,
-  { locale = "en-US", tier, ...browser }: BrowserState & { readonly locale?: SupportedLocale; readonly tier: LicenseTier },
+  {
+    locale = "en-US",
+    redirect,
+    tier,
+    ...browser
+  }: BrowserState & { readonly locale?: SupportedLocale; readonly redirect?: string; readonly tier: LicenseTier },
 ): Promise<models.Checkout> => {
   actAs(buyer, browser)
-  const started = await executeMutation(startCheckoutMutation, { locale, tier, withdrawalConsent: true })
+  const started = await executeMutation(startCheckoutMutation, { locale, redirect, tier, withdrawalConsent: true })
   if ("alreadyActive" in started) {
     throw new Error("The account already holds an active licence, so no checkout started")
   }
@@ -116,8 +128,8 @@ const paidOrder = async (buyer: Buyer, tier: LicenseTier = LICENSE_TIER.CORE): P
 
 const currentLicense = async (buyer: Buyer) => {
   actAs(buyer)
-  const { license } = await executeQuery(currentLicenseQuery)
-  return license
+  const [{ license }, { key }] = await Promise.all([executeQuery(currentLicenseQuery), executeQuery(currentLicenseKeyQuery)])
+  return license && { ...license, key }
 }
 
 const listPrice = (tier: LicenseTier): number => toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
@@ -154,6 +166,24 @@ describe("checkout", () => {
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
     })
+  })
+
+  it("comes back from Polar with the page the buyer started from, such as the lesson they want to watch", async () => {
+    const buyer = await signUpAndVerify()
+
+    const checkout = await startCheckout(buyer, { redirect: "/courses/the-walkthrough/billing", tier: LICENSE_TIER.COMPLETE })
+
+    expect(checkout.success_url).toBe(
+      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling`,
+    )
+  })
+
+  it("lets a buyer who has not confirmed their email yet pay straight away", async () => {
+    const buyer = await signUpSignedIn()
+
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
+
+    expect(checkout).toMatchObject({ customer_email: buyer.account.email, external_customer_id: buyer.userId })
   })
 
   it("fills in the signed-in buyer's email and name and passes the buyer's address, so the checkout form asks for neither", async () => {
@@ -361,6 +391,26 @@ describe("Polar webhooks", () => {
     await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant))
 
     expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
+  })
+})
+
+describe("a buyer who has not confirmed their email", () => {
+  it("pays and holds an active licence, sees its key only after confirming the address, and never in between", async () => {
+    const buyer = await signUpSignedIn()
+    const order = await paidOrder(buyer, LICENSE_TIER.CORE)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
+    const grant = grantPolarLicenseKey(order)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)
+
+    expect(await currentLicense(buyer)).toMatchObject({
+      key: undefined,
+      polarLicenseKeyId: polarLicenseKeyOf(grant).id,
+      status: LICENSE_STATUS.ACTIVE,
+    })
+
+    await verifyEmail(buyer.account.email)
+
+    expect(await currentLicense(buyer)).toMatchObject({ key: polarLicenseKeyOf(grant).key })
   })
 })
 

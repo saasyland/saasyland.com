@@ -8,6 +8,8 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 
 import { sendVerificationEmailMutation } from "~/src/modules/verification/use-cases/send-verification-email"
 
+import * as rateLimits from "~/src/lib/rate-limit"
+
 const HEADERS = new Headers()
 
 type AuthApi = typeof auth.api
@@ -29,10 +31,20 @@ describe("send-verification-email", () => {
 
     await expect(
       executeMutation(sendVerificationEmailMutation, { callbackURL: "https://example.com/en/app", email: "ada@example.com" }),
-    ).resolves.toMatchObject({ status: true })
+    ).resolves.toStrictEqual({ sent: true })
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       body: { callbackURL: "https://example.com/en/app", email: "ada@example.com" },
       headers: HEADERS,
     })
+  })
+
+  it("sends nothing, and says when to try again, once the address has had its emails for the hour", async () => {
+    vi.spyOn(rateLimits, "recipientAllowance").mockResolvedValue({ allowed: false, retryAfter: 1200 })
+    const send = vi.spyOn(authServer.auth.api, "sendVerificationEmail")
+
+    await expect(
+      executeMutation(sendVerificationEmailMutation, { callbackURL: "https://example.com/en/app", email: "ada@example.com" }),
+    ).resolves.toStrictEqual({ retryAfterSeconds: 1200, sent: false })
+    expect(send).not.toHaveBeenCalled()
   })
 })

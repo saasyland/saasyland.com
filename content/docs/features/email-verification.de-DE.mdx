@@ -1,22 +1,50 @@
 ---
 title: "E-Mail-Bestätigung"
-description: "Verpflichtende E-Mail-Bestätigung mit lokalisierten Links und einem Formular zum erneuten Senden."
+description: "Sofort registrieren und bezahlen; die bestätigte Adresse schaltet den Lizenzschlüssel, das Kundenportal und die kostenpflichtigen Lektionen frei."
 ---
 
-Better Auth läuft mit aktiviertem `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` und `autoSignInAfterVerification`, sodass ein neues Konto seine Adresse bestätigen muss, bevor eine Anmeldung möglich ist, und jede Anmeldung mit dem richtigen Passwort bis dahin einen neuen Link sendet. Ein Link gilt `EMAIL_LINK_LIFETIME_HOURS` lang (`emailVerification.expiresIn`), und die E-Mail nennt diese Dauer.
+Ein neues Konto mit E-Mail und Passwort ist direkt nach der Registrierung angemeldet, sodass ein Käufer vom Registrierungsformular zum Checkout gelangt, ohne sein Postfach zu öffnen. Erst die Bestätigung der Adresse schaltet frei, was sie voraussetzt: den Lizenzschlüssel, das Polar-Kundenportal und die kostenpflichtigen Lektionen. Für eine erneute Anmeldung mit Passwort ist weiterhin eine bestätigte Adresse nötig, und jede Anmeldung mit dem richtigen Passwort sendet bis dahin einen neuen Link. GitHub- und Google-Konten kommen bereits bestätigt an.
+
+## Registrierung [#signing-up]
+
+Better Auth läuft mit `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` und `autoSignInAfterVerification`. Mit `requireEmailVerification` beantwortet Better Auth eine Registrierung gleich, ob zur Adresse schon ein Konto gehört oder nicht, und meldet den Besucher nicht an. Danach meldet `signInNewAccount` (`auth.hooks.ts`), eine `hooks.after`-Middleware, nur das Konto an, das die Registrierung angelegt hat: Wenn der Benutzer, den die Antwort nennt, in D1 existiert, erstellt sie eine Sitzung und setzt deren Cookie, wie es das eigene `autoSignIn` von Better Auth tun würde. Eine Registrierung für eine Adresse, zu der schon ein Konto gehört, erhält keine Sitzung; der Besucher landet auf `/auth/verify-email`, und `onExistingUserSignUp` schreibt der Adresse eine E-Mail (siehe [Registrierung mit einer bekannten Adresse](/docs/features/authentication#signing-up-with-a-known-address)). Die Serverfunktion `signUpWithPassword` gibt `signedIn` zurück, gelesen aus dem Sitzungs-Cookie der Antwort, und niemals das Sitzungstoken selbst.
+
+`SignUpForm` führt ein angemeldetes Konto über `/auth/callback` weiter zu `redirect`, etwa `/app?tier=complete`, sodass der Käufer sofort beim Checkout ankommt.
 
 ## Versand
 
-`emailVerification.sendVerificationEmail` in `auth.server.ts` übergibt die E-Mail an die Sender der Auth-E-Mails, und der von Resend ist `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, eingebunden in `src/data/resend.auth-emails.ts`). Es erstellt einen Link zu `/auth/verify-email` auf dieser Website mit der Locale und dem `redirect` der `callbackURL` des Ablaufs, dazu das `token`, und sendet die Vorlage `VerifyEmail` (siehe [Transaktions-E-Mails](/docs/features/email)). Es sendet höchstens <RepositoryFact name="recipientEmailsPerHour" /> Bestätigungs-E-Mails pro Adresse und Stunde (`withinRecipientRateLimit`); weitere Anfragen versenden nichts und erhalten die normale Antwort. Registriert sich jemand erneut mit einer unbestätigten Adresse, sendet `onExistingUserSignUp` einen neuen Link, statt zu verraten, dass das Konto existiert; bei einer bestätigten Adresse sendet es stattdessen die E-Mail zum bestehenden Konto (siehe [Registrierung mit einer bekannten Adresse](/docs/features/authentication#signing-up-with-a-known-address)). Ein Link, den die Anmeldung sendet, übernimmt seine Locale und seinen `redirect` von der Anmeldeseite.
+`emailVerification.sendVerificationEmail` in `auth.server.ts` übergibt die E-Mail an die Sender der Auth-E-Mails, und der von Resend ist `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, eingebunden in `src/data/resend.auth-emails.ts`). Es erstellt einen Link zu `/auth/verify-email` auf dieser Website mit der Locale und dem `redirect` der `callbackURL` des Ablaufs, dazu das `token`, und sendet die Vorlage `VerifyEmail` (siehe [Transaktions-E-Mails](/docs/features/email)). Der Link gilt <RepositoryFact name="emailLinkHours" unit="hour" /> (`EMAIL_LINK_LIFETIME_HOURS` in `auth.constants.ts`, das `emailVerification.expiresIn` von Better Auth), und die E-Mail nennt diese Dauer. Es sendet höchstens <RepositoryFact name="recipientEmailsPerHour" /> Bestätigungs-E-Mails pro Adresse und Stunde (`withinRecipientRateLimit`). Registriert sich jemand erneut mit einer unbestätigten Adresse, sendet `onExistingUserSignUp` einen neuen Link; bei einer bestätigten Adresse sendet es stattdessen die E-Mail zum bestehenden Konto. Ein Link, den die Anmeldung sendet, übernimmt seine Locale und seinen `redirect` von der Anmeldeseite.
 
-## Bestätigung
+## Was auf die bestätigte Adresse wartet [#what-waits-for-the-confirmed-address]
+
+| Was                        | Wo es abgelehnt wird                                                                                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lizenzschlüssel            | `getCurrentLicense` gibt den Schlüssel nie zurück, und `getCurrentLicenseKey` gibt ihn nur an eine Sitzung heraus, deren E-Mail-Adresse bestätigt ist          |
+| Polar-Portal               | `requireVerifiedEmail` (`auth.hooks.ts`), das der Polar-Bereich vor jedem `/customer/`-Endpunkt ausführt, antwortet mit `403 EMAIL_NOT_VERIFIED`               |
+| Kostenpflichtige Lektionen | `resolveViewer` gewährt Kurszugang nur einer bestätigten Adresse, sodass `getLesson`, `getLessonPlayback` und die Downloads die Lektion als gesperrt behandeln |
+
+Der Checkout selbst ist offen: Polar zieht die Zahlung ein und schickt den Beleg an die Adresse, und die Lizenz wird bei `order.paid` vergeben wie bei jedem Käufer. Die CLI-Lizenz-API braucht keine eigene Prüfung, denn von dieser Website aus erreicht der Schlüssel niemanden, bevor die Adresse bestätigt ist, und Polar zeigt ihn nur jemandem, der dieses Postfach liest.
+
+## Bestätigung in der App
+
+`EmailVerificationBanner` steht über jeder Seite von `/app`, solange die Adresse nicht bestätigt ist. Es nennt die Adresse, sendet einen neuen Link (`sendVerificationEmail`) und bietet **Andere E-Mail-Adresse verwenden** an, womit sich die Adresse des unbestätigten Kontos sofort ändert (`changeEmail` mit `user.changeEmail.updateEmailWithoutVerification`) und der Link dorthin geht. `useEmailVerification` fragt die Sitzung alle <RepositoryFact name="verificationPollSeconds" unit="second" /> ab und zusätzlich, wenn der Tab wieder den Fokus erhält, solange die Adresse unbestätigt ist. So schaltet ein auf dem Handy geöffneter Link den Schlüssel auf dem Laptop frei: Das Banner meldet, dass die Adresse bestätigt ist, und aktualisiert die Queries des Benutzers. `LicenseCard` zeigt statt des Schlüssels, wohin der Link ging, und blendet den Portal-Link aus. Das Schloss einer kostenpflichtigen Lektion zeigt **Bestätige deine E-Mail-Adresse, um zuzusehen**, sendet den Link erneut und schaltet die Lektion direkt an Ort und Stelle frei.
+
+## Die Bestätigungsseite
 
 `/auth/verify-email` löst den Link in `beforeLoad` auf:
 
-- Mit `?token=` lädt die Route das Dokument unter `/api/auth/verify-email` neu, mit einer `callbackURL` von `/auth/verify-email?verified=true` in derselben Locale, wobei `redirect` erhalten bleibt.
-- Mit `?verified=true` und ohne `error` leitet sie mit `redirect` zu `/auth/callback` weiter, das den Benutzer dorthin oder zu `/admin` oder `/app` schickt.
-- Andernfalls rendert sie die Seite; mit `?error=` zeigt sie die Meldung für einen ungültigen Link.
+- Mit `?token=` liest die Route die Adresse aus der Nutzlast des Tokens, ohne ihr zu vertrauen, und lädt dann das Dokument unter `/api/auth/verify-email` neu, mit einer `callbackURL` von `/auth/verify-email?verified=true` in derselben Locale, wobei `redirect` und die Adresse erhalten bleiben.
+- `redirectIfVerified` schickt eine Sitzung mit bestätigter Adresse zu `redirect` oder zu `/admin` oder `/app`.
+- Andernfalls rendert sie einen von drei Zuständen:
 
-## Erneut senden
+| Zustand    | Wann                                                        | Im Vordergrund                                                                                               |
+| ---------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Ausstehend | Ein Link wurde gesendet                                     | **Link erneut senden**, mit genannter Adresse; **Andere E-Mail-Adresse verwenden**; **Zur Anmeldung zurück** |
+| Ungültig   | `?error=`: Der Link ist abgelaufen oder wurde schon benutzt | **Neuen Link senden** an die Adresse, die der Link enthielt, oder ein Feld dafür                             |
+| Bestätigt  | `?verified=true` und keine Sitzung                          | **Anmelden und weitermachen**, wobei Adresse und `redirect` erhalten bleiben                                 |
 
-`VerifyEmailForm` füllt die Adresse aus `?email=` vor, das Registrierung und Anmeldung bei der Weiterleitung hierher setzen. Die Anmeldung setzt außerdem `?unverified=true`, und die Seite sagt dann statt des allgemeinen Registrierungstexts, dass ein neuer Link gesendet wurde. Das Formular ruft die Serverfunktion `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`) auf, die mit `RATE_LIMITS.SENSITIVE` begrenzt ist.
+`VerifyEmailForm` übernimmt die Adresse aus der Sitzung oder aus `?email=`, das Registrierung und Anmeldung bei der Weiterleitung hierher setzen. Die Anmeldung setzt außerdem `?unverified=true`, und die Seite sagt dann, dass ein neuer Link an die Adresse gegangen ist. Ein angemeldeter Besucher sieht die Adresse des Kontos und ändert sie mit `ChangeEmailForm`; ein abgemeldeter Besucher gibt eine andere Adresse ein. Solange die Adresse unbestätigt ist, fragt die Seite die Sitzung ab und geht weiter zu `redirect`, sobald der Link irgendwo geöffnet wird. Jeder Link auf der Seite behält `redirect` bei. Das Gate-Panel daneben verwendet die Überschrift der Registrierung.
+
+## Ehrlich erneut senden
+
+Die Serverfunktionen `sendVerificationEmail` und `requestPasswordReset`, begrenzt mit `RATE_LIMITS.SENSITIVE`, lesen zuerst das stündliche Kontingent der Adresse (`recipientAllowance` in `src/lib/rate-limit.ts`), ohne mitzuzählen. Hat die Adresse ihre <RepositoryFact name="recipientEmailsPerHour" /> E-Mails schon erhalten, senden sie nichts und geben `{ sent: false, retryAfterSeconds }` zurück, und `ResendLinkStatus` sagt das, zusammen mit der Uhrzeit für den nächsten Versuch. Nach einem Versand wartet `useEmailLinkResend` <RepositoryFact name="resendCooldownSeconds" unit="second" />, bevor es einen weiteren erlaubt, und zeigt den Countdown auf der Schaltfläche. Einem abgemeldeten Besucher wird ein Versand mit Worten bestätigt, die nicht verraten, ob zur Adresse ein Konto gehört.

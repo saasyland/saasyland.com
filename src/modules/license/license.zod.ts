@@ -1,10 +1,13 @@
 import zod from "zod/v4"
 
+import { callbackPathSchema } from "~/src/integrations/better-auth/auth.zod"
+
 import { idField, localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 const startCheckout = zod.object({
   locale: localeField,
+  redirect: callbackPathSchema.optional(),
   tier: zod.enum(LICENSE_TIERS),
   withdrawalConsent: zod.literal(true, { message: "withdrawalConsentRequired" }),
 })

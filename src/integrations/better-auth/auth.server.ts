@@ -6,6 +6,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createEmailVerificationToken } from "better-auth/api"
+import { lastLoginMethod } from "better-auth/plugins"
 import { admin } from "better-auth/plugins/admin"
 import { twoFactor } from "better-auth/plugins/two-factor"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
@@ -13,9 +14,9 @@ import { v7 as uuidv7 } from "uuid"
 import zod from "zod/v4"
 
 import { ROLES, ac } from "~/src/integrations/better-auth/auth.access"
-import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_SECONDS } from "~/src/integrations/better-auth/auth.constants"
+import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_SECONDS, LAST_LOGIN_METHOD_COOKIE } from "~/src/integrations/better-auth/auth.constants"
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
-import { enforceInputPolicy } from "~/src/integrations/better-auth/auth.hooks"
+import { enforceInputPolicy, signInNewAccount } from "~/src/integrations/better-auth/auth.hooks"
 import { DEFAULT_ROLE_CODE, ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
@@ -134,11 +135,12 @@ export const auth = betterAuth({
     sendVerificationEmail: ({ token, url, user }) =>
       AUTH_EMAILS.sendVerification({ callbackURL: readVerificationCallbackURL(url), token, user }),
   },
-  hooks: { before: enforceInputPolicy },
+  hooks: { after: signInNewAccount, before: enforceInputPolicy },
   onAPIError: { errorURL: ROUTES.SIGN_IN },
   plugins: [
     admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),
     twoFactor({ issuer: APP_NAME }),
+    lastLoginMethod({ cookieName: LAST_LOGIN_METHOD_COOKIE }),
     ...AUTH_PLUGINS,
     tanstackStartCookies(),
   ],
@@ -171,6 +173,7 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       sendChangeEmailConfirmation: AUTH_EMAILS.sendChangeEmailConfirmation,
+      updateEmailWithoutVerification: true,
     },
   },
   verification: { storeIdentifier: "hashed" },

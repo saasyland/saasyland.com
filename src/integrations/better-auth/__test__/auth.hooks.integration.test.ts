@@ -101,4 +101,13 @@ describe("auth input policy on Better Auth's own endpoints", () => {
 
     expect(response.status).toBe(HTTP_STATUS.UNAUTHORIZED)
   })
+
+  it("signs in only an account the sign-up created, not a sign-up Better Auth refused", async () => {
+    const created = await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody())
+    const refused = await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody({ timezone: "Mars/Olympus_Mons" }))
+
+    expect(created.headers.getSetCookie().some((cookie) => cookie.includes("session_token="))).toBe(true)
+    expect(refused.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(refused.headers.getSetCookie().some((cookie) => cookie.includes("session_token="))).toBe(false)
+  })
 })

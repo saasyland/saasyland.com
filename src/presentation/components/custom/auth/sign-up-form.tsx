@@ -37,22 +37,34 @@ const TEXT_FIELDS = [
   { describedBy: `sign-up-email-error ${EMAIL_SUGGESTION_ID}`, name: "email", type: "email" },
 ] as const
 
-export const SignUpForm = (): JSX.Element => {
-  const t = useTranslations()
+const useSignUp = () => {
+  const t = useTranslations("pages.auth.sign-up.form")
   const router = useRouter()
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
 
-  const { hrefWithRedirect, redirect } = useAuthRedirect()
+  const { finishSignIn, redirect } = useAuthRedirect()
 
-  const signUp = useMutation({
+  return useMutation({
     ...signUpWithPasswordMutation,
-    onSuccess: async (_, { email }) => {
+    onSuccess: async ({ signedIn }, { email }) => {
+      if (signedIn) {
+        await finishSignIn()
+        toast.success(t("created", { email }))
+        return
+      }
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
       await router.navigate({ search: { email, redirect }, to: ROUTES.VERIFY_EMAIL })
-      toast.success(t("pages.auth.sign-up.form.successCheckEmail"))
+      toast.success(t("successCheckEmail"))
     },
   })
+}
+
+export const SignUpForm = (): JSX.Element => {
+  const t = useTranslations()
+  const errorMessage = useErrorMessage()
+  const signUp = useSignUp()
+
+  const { hrefWithRedirect } = useAuthRedirect()
 
   const form = useForm({
     defaultValues: { email: "", name: "", password: "" },

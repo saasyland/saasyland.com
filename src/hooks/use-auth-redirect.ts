@@ -8,7 +8,7 @@ import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { ROUTES } from "~/src/routes"
 
-type AuthPage = typeof ROUTES.AUTH_CALLBACK | typeof ROUTES.SIGN_IN
+type AuthPage = typeof ROUTES.AUTH_CALLBACK | typeof ROUTES.RESET_PASSWORD | typeof ROUTES.SIGN_IN
 
 export const useAuthRedirect = () => {
   const queryClient = useQueryClient()

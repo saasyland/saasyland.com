@@ -88,9 +88,12 @@ describe("the licence's names in the course copy", () => {
     ["en-US", "This lesson comes with Complete", "Get Complete"],
     ["pl-PL", "Ta lekcja jest w pakiecie Komplet", "Wybierz Komplet"],
   ] as const)("offers Complete on a locked paid lesson in %s", (locale, title, cta) => {
-    renderIn(locale, <LockedLesson access={LESSON_ACCESS.PAID} signedIn />)
+    renderIn(locale, <LockedLesson access={LESSON_ACCESS.PAID} mustConfirmEmail={false} signedIn />)
 
     expect(screen.getByRole("heading", { name: title })).toBeVisible()
-    expect(screen.getByRole("link", { name: cta })).toHaveAttribute("href", `${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}`)
+    expect(screen.getByRole("link", { name: cta })).toHaveAttribute(
+      "href",
+      `${ROUTES.APP_LICENSE}?redirect=%2F&tier=${LICENSE_TIER.COMPLETE}`,
+    )
   })
 })

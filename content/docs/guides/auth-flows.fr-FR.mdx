@@ -21,7 +21,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) stocke les utilisate
 ## Connexion
 
 1. `SignInForm` appelle `signIn.email` du client Better Auth.
-2. Un compte non vérifié reçoit l'erreur `EMAIL_NOT_VERIFIED`, Better Auth envoie un nouveau lien de vérification (`sendOnSignIn`) dans la langue de la page de connexion et avec son `redirect`, et le formulaire ouvre `/auth/verify-email` avec l'adresse e-mail, `redirect` et `unverified`.
+2. Un refus reste affiché au-dessus du bouton jusqu'à la tentative suivante. Pour un e-mail ou un mot de passe erroné, il renvoie vers `/auth/forgot-password` avec l'adresse saisie et `redirect`, et propose GitHub et Google. Un compte dont l'adresse n'est pas confirmée reçoit `EMAIL_NOT_VERIFIED`, Better Auth envoie un nouveau lien de vérification (`sendOnSignIn`) dans la langue de la page de connexion et avec son `redirect`, et le formulaire ouvre `/auth/verify-email` avec l'adresse e-mail, `redirect` et `unverified`.
 3. Un compte avec double authentification reçoit `twoFactorRedirect` ; `SignInForm` ouvre `/auth/two-factor` en conservant `redirect`.
 4. En cas de succès, `finishSignIn` de `useAuthRedirect` supprime du cache des queries les données de l'utilisateur précédent, vide le cache du routeur, puis navigue vers `/auth/callback`, qui continue vers `redirect` ou vers l'espace du rôle.
 
@@ -30,17 +30,17 @@ Les erreurs que Better Auth signale par redirection arrivent sous la forme `?err
 ## Inscription et vérification de l'e-mail
 
 1. `SignUpForm` valide `signUpWithPasswordSchema` et appelle `signUpWithPasswordMutation`, une fonction serveur limitée en débit qui appelle `auth.api.signUpEmail`.
-2. Better Auth crée l'utilisateur et appelle `sendVerifyEmail` avec le `callbackURL` du formulaire, c'est-à-dire `/auth/callback` localisé avec `redirect`. L'e-mail renvoie vers `/auth/verify-email` sur ce site, dans la langue du callback et avec son `redirect`, plus le `token`. Une nouvelle inscription avec une adresse non vérifiée envoie un nouveau lien, et avec une adresse vérifiée l'e-mail de compte existant, tandis que la réponse et l'écran suivant restent les mêmes. Au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails de vérification partent vers une même adresse par heure ; les demandes suivantes n'envoient rien.
-3. Le formulaire navigue vers `/auth/verify-email?email=…`, où `VerifyEmailForm` peut renvoyer le lien via `sendVerificationEmailMutation`, lui aussi limité en débit.
-4. À l'ouverture du lien, le `beforeLoad` de la route transmet le jeton à `/api/auth/verify-email`. Better Auth le vérifie, connecte l'utilisateur et revient sur `/auth/verify-email?verified=true`, qui redirige vers `/auth/callback` en conservant `redirect`. Un lien invalide ou expiré revient avec `error` et la page en propose un nouveau.
+2. Better Auth crée l'utilisateur et appelle `sendVerifyEmail` avec le `callbackURL` du formulaire, c'est-à-dire `/auth/callback` localisé avec `redirect`. L'e-mail renvoie vers `/auth/verify-email` sur ce site, dans la langue du callback et avec son `redirect`, plus le `token`. Une nouvelle inscription avec une adresse non vérifiée envoie un nouveau lien, et avec une adresse vérifiée l'e-mail de compte existant. Au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails de vérification partent vers une même adresse par heure ; les demandes suivantes n'envoient rien.
+3. `signInNewAccount` connecte le nouveau compte, et le formulaire continue par `/auth/callback` jusqu'à `redirect`. Une inscription pour une adresse qui a déjà un compte n'est pas connectée et va vers `/auth/verify-email?email=…`, le même écran que son adresse soit confirmée ou non.
+4. À l'ouverture du lien, le `beforeLoad` de la route transmet le jeton à `/api/auth/verify-email`. Better Auth le vérifie, connecte l'utilisateur et revient sur `/auth/verify-email?verified=true`, qui continue vers `redirect`. Un lien invalide ou expiré revient avec `error` et la page en propose un nouveau à l'adresse qu'il portait.
 
-La connexion reste bloquée tant que l'e-mail n'est pas vérifié (`requireEmailVerification: true`).
+La clé de licence, le portail client Polar et les leçons payantes attendent l'adresse confirmée, et une nouvelle connexion avec un mot de passe l'exige (`requireEmailVerification: true`). Voir [Vérification de l'e-mail](/docs/features/email-verification).
 
 ## Réinitialisation du mot de passe
 
-1. `/auth/forgot-password` : `ForgotPasswordForm` appelle `requestPasswordResetMutation` avec `redirectTo` pointant vers `/auth/reset-password` localisé.
+1. `/auth/forgot-password` : `ForgotPasswordForm` appelle `requestPasswordResetMutation` avec `redirectTo` pointant vers `/auth/reset-password` localisé, en conservant `redirect`, puis affiche une confirmation qui nomme l'adresse.
 2. Better Auth appelle `sendResetPasswordEmail`, qui envoie au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails de réinitialisation à une même adresse par heure. Le lien envoyé passe par Better Auth, qui redirige vers `/auth/reset-password?token=…`, ou avec `error` si le jeton est invalide ou expiré.
-3. `ResetPasswordForm` envoie le nouveau mot de passe via `resetPasswordMutation`. Better Auth révoque toutes les sessions existantes (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` envoie par e-mail l'avis de changement de mot de passe, et le formulaire navigue vers la connexion.
+3. `ResetPasswordForm` envoie le nouveau mot de passe via `resetPasswordMutation`. Better Auth révoque toutes les sessions existantes (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` envoie par e-mail l'avis de changement de mot de passe, et le formulaire navigue vers la connexion, en conservant `redirect`.
 
 ## Double authentification
 
@@ -49,23 +49,24 @@ La connexion reste bloquée tant que l'e-mail n'est pas vérifié (`requireEmail
 
 ## OAuth
 
-`OAuthButtons` appelle `authClient.signIn.social` pour Google ou GitHub avec `callbackURL` pointant vers `/auth/callback` localisé et `errorCallbackURL` vers `/auth/sign-in` localisé, tous deux en conservant `redirect`. Les fournisseurs sont configurés dans `socialProviders` ; enregistrez chez eux <RepositoryFact name="oauthCallbackUrls" />. Les comptes ayant le même e-mail sont liés automatiquement et les jetons des fournisseurs sont stockés chiffrés.
+`OAuthButtons` appelle `authClient.signIn.social` pour GitHub ou Google avec `callbackURL` pointant vers `/auth/callback` localisé et `errorCallbackURL` vers `/auth/sign-in` localisé, tous deux en conservant `redirect`. Les fournisseurs sont configurés dans `socialProviders` ; enregistrez chez eux <RepositoryFact name="oauthCallbackUrls" />. Les comptes ayant le même e-mail sont liés automatiquement et les jetons des fournisseurs sont stockés chiffrés.
 
 ## Chemin de retour [#return-path]
 
 Un visiteur qui ouvre une page protégée sans être connecté doit arriver sur cette page après s'être connecté. Pour cela, chaque page d'authentification accepte un paramètre de recherche `redirect`, déclaré une seule fois comme `authSearchSchema` dans `auth.zod.ts`. Ce doit être un chemin interne (`callbackPathSchema`) ; tout le reste est ignoré.
 
 - `requireSignedIn` envoie le visiteur vers `/auth/sign-in?redirect=` avec la page qu'il a ouverte.
-- Les pages d'authentification conservent `redirect` dans les liens entre connexion et inscription, sur le chemin vers `/auth/two-factor` et `/auth/verify-email`, dans les callbacks OAuth et dans l'e-mail de vérification.
+- Les pages d'authentification conservent `redirect` dans les liens entre connexion et inscription, sur le chemin vers `/auth/two-factor`, `/auth/verify-email` et `/auth/forgot-password`, dans les e-mails de réinitialisation et de vérification, au retour à la connexion après une réinitialisation et dans les callbacks OAuth.
+- Quand la session d'un visiteur connecté prend fin, `requireSignedIn` ajoute `error=SESSION_EXPIRED`, et la page de connexion affiche **Votre session a pris fin** et nomme la page de `redirect` d'après le menu client ou d'administration.
 - `/auth/callback` continue vers `redirect`, ou vers l'espace du rôle s'il n'y en a pas. Un visiteur connecté qui ouvre la connexion ou l'inscription suit le même chemin.
 
 Les composants d'authentification l'obtiennent de `useAuthRedirect` dans `src/hooks/use-auth-redirect.ts` :
 
-| Membre                   | Utilisation                                                                                                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `redirect`               | La page où arriver après la connexion, pour les liens et la navigation entre les pages d'authentification                                                                              |
-| `hrefWithRedirect(page)` | Une URL localisée vers `/auth/callback` ou `/auth/sign-in` qui conserve `redirect`, transmise à Better Auth comme `callbackURL` et `errorCallbackURL`                                  |
-| `finishSignIn()`         | Supprime du cache des queries les données de l'utilisateur précédent, vide le cache du routeur et continue vers `/auth/callback` après la connexion ou la vérification à deux facteurs |
+| Membre                   | Utilisation                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect`               | La page où arriver après la connexion, pour les liens et la navigation entre les pages d'authentification                                                                                   |
+| `hrefWithRedirect(page)` | Une URL localisée vers `/auth/callback`, `/auth/sign-in` ou `/auth/reset-password` qui conserve `redirect`, transmise à Better Auth comme `callbackURL`, `errorCallbackURL` et `redirectTo` |
+| `finishSignIn()`         | Supprime du cache des queries les données de l'utilisateur précédent, vide le cache du routeur et continue vers `/auth/callback` après la connexion ou la vérification à deux facteurs      |
 
 ## Déconnexion
 

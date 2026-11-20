@@ -88,6 +88,8 @@ export const AUTH_ERRORS = {
 
 export type AuthErrorMessageKey = (typeof AUTH_ERRORS)[keyof typeof AUTH_ERRORS]
 
+export const SESSION_EXPIRED_CODE = "SESSION_EXPIRED" satisfies keyof typeof AUTH_ERRORS
+
 const AUTH_ERROR_BY_CODE = new Map<string, AuthErrorMessageKey>(Object.entries(AUTH_ERRORS))
 
 const property = (value: unknown, name: string): unknown => {

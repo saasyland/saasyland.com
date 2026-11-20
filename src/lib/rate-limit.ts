@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only"
 
-import { type SQL, count, eq, gt, gte, inArray, lte, not, or, sql } from "drizzle-orm"
+import { type SQL, and, count, eq, gt, gte, inArray, lte, not, or, sql } from "drizzle-orm"
 import type { BatchResponse } from "drizzle-orm/batch"
 import type { SQLiteInsertBase } from "drizzle-orm/sqlite-core"
 
@@ -15,6 +15,7 @@ import { sha256Hex } from "~/src/lib/hex"
 const FIRST_LIMIT = "first_limit"
 const REFUSALS = "refusals"
 const RECIPIENT_KEY_PREFIX = "recipient:"
+const SINGLE_ROW = 1
 
 export interface RateLimitInput {
   readonly key: string
@@ -127,9 +128,29 @@ export const withinRateLimit = async (input: RateLimitInput): Promise<boolean> =
   return allowed
 }
 
-export const withinRecipientRateLimit = async ({ kind, recipient }: Readonly<{ kind: string; recipient: string }>): Promise<boolean> =>
-  withinRateLimit({
-    key: `${RECIPIENT_KEY_PREFIX}${kind}:${await sha256Hex(recipient.trim().toLowerCase())}`,
-    limit: RECIPIENT_EMAILS_PER_HOUR,
-    windowSeconds: SECONDS_PER_HOUR,
-  })
+interface Recipient {
+  readonly kind: string
+  readonly recipient: string
+}
+
+const recipientKey = async ({ kind, recipient }: Recipient): Promise<string> =>
+  `${RECIPIENT_KEY_PREFIX}${kind}:${await sha256Hex(recipient.trim().toLowerCase())}`
+
+export const withinRecipientRateLimit = async (recipient: Recipient): Promise<boolean> =>
+  withinRateLimit({ key: await recipientKey(recipient), limit: RECIPIENT_EMAILS_PER_HOUR, windowSeconds: SECONDS_PER_HOUR })
+
+export const recipientAllowance = async (recipient: Recipient): Promise<RateLimitDecision> => {
+  const now = new Date()
+  const key = await recipientKey(recipient)
+  const [counter] = await db
+    .select({ attempts: rateLimit.attempts, resetsAt: rateLimit.expiresAt })
+    .from(rateLimit)
+    .where(and(eq(rateLimit.key, key), gt(rateLimit.expiresAt, now)))
+    .limit(SINGLE_ROW)
+
+  if (counter === undefined || counter.attempts < RECIPIENT_EMAILS_PER_HOUR) {
+    return { allowed: true, retryAfter: 0 }
+  }
+
+  return { allowed: false, retryAfter: secondsUntil(counter, now) }
+}

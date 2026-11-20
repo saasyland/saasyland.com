@@ -1,22 +1,50 @@
 ---
 title: "Email verification"
-description: "Required email verification with localized links and a resend form."
+description: "Sign up and pay straight away; the confirmed address unlocks the licence key, the customer portal and paid lessons."
 ---
 
-Better Auth runs with `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` and `autoSignInAfterVerification` enabled, so a new account must confirm its address before it can sign in, and each sign-in with the right password before then sends a fresh link. A link works for `EMAIL_LINK_LIFETIME_HOURS` (`emailVerification.expiresIn`), and the email says so.
+A new email and password account is signed in as soon as it signs up, so a buyer goes from the sign-up form to the checkout without visiting the inbox. Confirming the address is what unlocks the things that need it: the licence key, the Polar customer portal and paid lessons. Signing in again with a password still requires a confirmed address, and each sign-in with the right password before then sends a fresh link. GitHub and Google accounts arrive confirmed.
+
+## Signing up
+
+Better Auth runs with `requireEmailVerification`, `sendOnSignUp`, `sendOnSignIn` and `autoSignInAfterVerification`. With `requireEmailVerification`, Better Auth answers a sign-up the same way whether or not the address already has an account, and does not sign the visitor in. `signInNewAccount` (`auth.hooks.ts`), a `hooks.after` middleware, then signs in only the account the sign-up created: when the user the response names exists in D1, it creates a session and sets its cookie, as Better Auth's own `autoSignIn` would. A sign-up for an address that already has an account gets no session; the visitor goes to `/auth/verify-email`, and `onExistingUserSignUp` emails the address (see [Signing up with a known address](/docs/features/authentication#signing-up-with-a-known-address)). The `signUpWithPassword` server function returns `signedIn`, read from the session cookie in the response, and never the session token itself.
+
+`SignUpForm` continues a signed-in account through `/auth/callback` to `redirect`, such as `/app?tier=complete`, so the buyer reaches the checkout at once.
 
 ## Sending
 
-`emailVerification.sendVerificationEmail` in `auth.server.ts` passes the email to the auth email senders, and Resend's is `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, joined in `src/data/resend.auth-emails.ts`). It builds a link to `/auth/verify-email` on this site with the locale and the `redirect` of the flow's `callbackURL`, plus the `token`, and sends the `VerifyEmail` template (see [Transactional email](/docs/features/email)). It sends at most <RepositoryFact name="recipientEmailsPerHour" /> verification emails per address per hour (`withinRecipientRateLimit`); further requests send nothing and get the normal response. When someone signs up again with an unverified address, `onExistingUserSignUp` sends a fresh link instead of revealing that the account exists; with a verified address it sends the existing-account email instead (see [Signing up with a known address](/docs/features/authentication#signing-up-with-a-known-address)). A link that sign-in sends takes its locale and `redirect` from the sign-in page.
+`emailVerification.sendVerificationEmail` in `auth.server.ts` passes the email to the auth email senders, and Resend's is `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`, joined in `src/data/resend.auth-emails.ts`). It builds a link to `/auth/verify-email` on this site with the locale and the `redirect` of the flow's `callbackURL`, plus the `token`, and sends the `VerifyEmail` template (see [Transactional email](/docs/features/email)). The link works for <RepositoryFact name="emailLinkHours" unit="hour" /> (`EMAIL_LINK_LIFETIME_HOURS` in `auth.constants.ts`, Better Auth's `emailVerification.expiresIn`), and the email says so. It sends at most <RepositoryFact name="recipientEmailsPerHour" /> verification emails per address per hour (`withinRecipientRateLimit`). When someone signs up again with an unverified address, `onExistingUserSignUp` sends a fresh link; with a verified address it sends the existing-account email instead. A link that sign-in sends takes its locale and `redirect` from the sign-in page.
 
-## Verifying
+## What waits for the confirmed address
+
+| What         | Where it is refused                                                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Licence key  | `getCurrentLicense` never returns the key, and `getCurrentLicenseKey` returns it only to a session whose email is confirmed                        |
+| Polar portal | `requireVerifiedEmail` (`auth.hooks.ts`), which the polar area runs before every `/customer/` endpoint, answers `403 EMAIL_NOT_VERIFIED`           |
+| Paid lessons | `resolveViewer` grants course access only to a confirmed address, so `getLesson`, `getLessonPlayback` and the downloads treat the lesson as locked |
+
+The checkout itself is open: Polar collects the payment and sends its receipt to the address, and the licence is granted on `order.paid` as for any buyer. The CLI licence API needs no check of its own, because the key reaches no one from this site before the address is confirmed, and Polar shows it only to someone who reads that inbox.
+
+## Confirming in the app
+
+`EmailVerificationBanner` sits above every page of `/app` while the address is not confirmed. It names the address, sends a new link (`sendVerificationEmail`) and offers **Use a different email**, which changes the address of the unconfirmed account at once (`changeEmail` with `user.changeEmail.updateEmailWithoutVerification`) and sends the link there. `useEmailVerification` polls the session every <RepositoryFact name="verificationPollSeconds" unit="second" /> and when the tab regains focus while the address is unconfirmed, so a link opened on a phone unlocks the key on the laptop: the banner says the address is confirmed and refreshes the user's queries. `LicenseCard` shows where the link went instead of the key, and hides the portal link. A paid lesson's lock says **Confirm your email to watch**, resends the link and unlocks the lesson in place.
+
+## The verify page
 
 `/auth/verify-email` resolves the link in `beforeLoad`:
 
-- With `?token=`, it reloads the document at `/api/auth/verify-email` with a `callbackURL` of `/auth/verify-email?verified=true` in the same locale, keeping `redirect`.
-- With `?verified=true` and no `error`, it redirects to `/auth/callback` with `redirect`, which sends the user there, or to `/admin` or `/app`.
-- Otherwise it renders the page; with `?error=` it shows the invalid-link message.
+- With `?token=`, it reads the address from the token's payload without trusting it, then reloads the document at `/api/auth/verify-email` with a `callbackURL` of `/auth/verify-email?verified=true` in the same locale, keeping `redirect` and the address.
+- `redirectIfVerified` sends a session whose address is confirmed to `redirect`, or to `/admin` or `/app`.
+- Otherwise it renders one of three states:
 
-## Resending
+| State     | When                                    | Leads with                                                                              |
+| --------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Pending   | A link was sent                         | **Resend link**, with the address named; **Use a different email**; **Back to sign in** |
+| Invalid   | `?error=`: the link expired or was used | **Send a new link** to the address the link carried, or a field for it                  |
+| Confirmed | `?verified=true` and no session         | **Sign in to continue**, keeping the address and `redirect`                             |
 
-`VerifyEmailForm` prefills the address from `?email=`, which sign-up and sign-in set when they redirect here. Sign-in also sets `?unverified=true`, and the page then says that a fresh link was sent instead of the generic sign-up text. It calls the `sendVerificationEmail` server function (`src/modules/verification/use-cases/send-verification-email.ts`), rate limited with `RATE_LIMITS.SENSITIVE`.
+`VerifyEmailForm` takes the address from the session, or from `?email=`, which sign-up and sign-in set when they redirect here. Sign-in also sets `?unverified=true`, and the page then says that a fresh link went to the address. A signed-in visitor sees the account's address and changes it with `ChangeEmailForm`; a signed-out visitor types another address. While the address is unconfirmed, the page polls the session and continues to `redirect` once the link is opened anywhere. Every link on the page keeps `redirect`. The gate panel beside it uses the sign-up headline.
+
+## Resending honestly
+
+The `sendVerificationEmail` and `requestPasswordReset` server functions, rate limited with `RATE_LIMITS.SENSITIVE`, first read the address's hourly allowance (`recipientAllowance` in `src/lib/rate-limit.ts`) without counting. When the address has had its <RepositoryFact name="recipientEmailsPerHour" /> emails, they send nothing and return `{ sent: false, retryAfterSeconds }`, and `ResendLinkStatus` says so with the time to try again. After a send, `useEmailLinkResend` waits <RepositoryFact name="resendCooldownSeconds" unit="second" /> before it allows another and shows the countdown on the button. To a signed-out visitor, a send is confirmed in words that do not reveal whether the address has an account.

@@ -1,6 +1,7 @@
 import "@tanstack/react-start/server-only"
 
-import { APIError, createAuthMiddleware } from "better-auth/api"
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
+import { setSessionCookie } from "better-auth/cookies"
 import zod from "zod/v4"
 
 import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
@@ -27,11 +28,42 @@ const INPUT_POLICY: Readonly<Record<string, zod.ZodType>> = {
   [ROUTES.API_AUTH.UPDATE_USER]: zod.object({ image: imageUrlSchema.nullish(), name: nameSchema.optional() }),
 }
 
+const signUpResponseSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
 export const enforceInputPolicy = createAuthMiddleware(async ({ body, path }) => {
   const policy = INPUT_POLICY[path]
   const result = policy === undefined ? undefined : await policy.safeParseAsync(body)
 
   if (result?.success === false) {
     throw APIError.from("BAD_REQUEST", { code: "VALIDATION_ERROR", message: "The request does not meet the input policy" })
+  }
+})
+
+export const signInNewAccount = createAuthMiddleware(async (ctx) => {
+  if (ctx.path !== ROUTES.API_AUTH.SIGN_UP_EMAIL) {
+    return
+  }
+
+  const response = signUpResponseSchema.safeParse(ctx.context.returned)
+
+  if (!response.success) {
+    return
+  }
+
+  const created = await ctx.context.internalAdapter.findUserById(response.data.user.id)
+
+  if (created === null) {
+    return
+  }
+
+  const session = await ctx.context.internalAdapter.createSession(created.id)
+  await setSessionCookie(ctx, { session, user: created })
+})
+
+export const requireVerifiedEmail = createAuthMiddleware(async (ctx) => {
+  const session = await getSessionFromCtx(ctx)
+
+  if (session?.user.emailVerified === false) {
+    throw APIError.from("FORBIDDEN", { code: "EMAIL_NOT_VERIFIED", message: "Confirm the email address of this account first" })
   }
 })

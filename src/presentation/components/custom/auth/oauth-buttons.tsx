@@ -11,9 +11,11 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
+import { useLastLoginMethod } from "~/src/hooks/use-last-login-method"
 
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 
+import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { Github, Google } from "~/src/presentation/components/custom/icons"
@@ -22,15 +24,17 @@ import { ROUTES } from "~/src/routes"
 
 const ICONS = { [AUTH_PROVIDER.GITHUB]: Github, [AUTH_PROVIDER.GOOGLE]: Google } as const
 
+type Provider = (typeof OAUTH_PROVIDERS)[number]["id"]
+
 const signInSocial = createClientOnlyFn((data: Parameters<typeof authClient.signIn.social>[0]) => authClient.signIn.social(data))
 
-export const OAuthButtons = (): JSX.Element => {
+const useSocialSignIn = () => {
   const t = useTranslations("auth")
 
   const { hrefWithRedirect } = useAuthRedirect()
 
-  const signInWithProvider = useMutation({
-    mutationFn: (provider: (typeof OAUTH_PROVIDERS)[number]["id"]) =>
+  return useMutation({
+    mutationFn: (provider: Provider) =>
       signInSocial({
         callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK),
         errorCallbackURL: hrefWithRedirect(ROUTES.SIGN_IN),
@@ -45,6 +49,22 @@ export const OAuthButtons = (): JSX.Element => {
         provider,
       }),
   })
+}
+
+export const LastUsedBadge = (): JSX.Element => {
+  const t = useTranslations("auth.oauth")
+
+  return (
+    <Badge className="ml-auto font-mono text-label uppercase" variant="secondary">
+      {t("lastUsed")}
+    </Badge>
+  )
+}
+
+export const OAuthButtons = (): JSX.Element => {
+  const t = useTranslations("auth")
+  const { isLastUsed } = useLastLoginMethod()
+  const signInWithProvider = useSocialSignIn()
 
   return (
     <div className="flex flex-col gap-3">
@@ -65,9 +85,34 @@ export const OAuthButtons = (): JSX.Element => {
             {isPending && <Loader2 aria-hidden className="size-4 animate-spin" strokeWidth={1.5} />}
             {!isPending && <Icon className="size-4" />}
             {t("oauth.continueWith", { provider: name })}
+            {isLastUsed(id) && <LastUsedBadge />}
           </Button>
         )
       })}
     </div>
+  )
+}
+
+export const OAuthLinks = (): JSX.Element => {
+  const t = useTranslations("auth")
+  const signInWithProvider = useSocialSignIn()
+
+  return (
+    <>
+      {OAUTH_PROVIDERS.map(({ id, name }) => (
+        <li key={id}>
+          <Button
+            className="h-auto min-h-10 border-0 px-0 text-body-sm font-medium text-foreground underline underline-offset-4"
+            isPending={signInWithProvider.isPending && signInWithProvider.variables === id}
+            onPress={() => {
+              signInWithProvider.mutate(id)
+            }}
+            variant="link"
+          >
+            {t("oauth.continueWith", { provider: name })}
+          </Button>
+        </li>
+      ))}
+    </>
   )
 }

@@ -12,13 +12,25 @@ import { accountZodSchemas } from "~/src/modules/account/account.zod"
 export const signUpWithPassword = createServerFn({ method: "POST" })
   .middleware([withRateLimit("sign-up", RATE_LIMITS.SENSITIVE)])
   .validator((input: Account["signUpWithPassword"]) => accountZodSchemas.signUpWithPassword.parse(input))
-  .handler(({ context, data }) => {
+  .handler(async ({ context, data }) => {
     const request = new Request(getRequest().url, {
       body: JSON.stringify(data),
       headers: context.requestHeaders,
       method: "POST",
     })
-    return auth.api.signUpEmail({ asResponse: false, body: data, headers: context.requestHeaders, request })
+    const { headers, response } = await auth.api.signUpEmail({
+      asResponse: false,
+      body: data,
+      headers: context.requestHeaders,
+      request,
+      returnHeaders: true,
+    })
+    const { authCookies } = await auth.$context
+
+    return {
+      signedIn: headers.getSetCookie().some((cookie) => cookie.startsWith(`${authCookies.sessionToken.name}=`)),
+      user: response.user,
+    }
   })
 
 export const signUpWithPasswordMutation = mutationOptions({

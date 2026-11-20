@@ -2,8 +2,8 @@ import type { JSX } from "react"
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
-import * as zod from "zod"
 
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -21,7 +21,7 @@ import { ROUTES } from "~/src/routes"
 const ResetPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password")
 
-  const { error, token } = Route.useSearch()
+  const { error, redirect, token } = Route.useSearch()
 
   const resetToken = error === undefined ? token : undefined
 
@@ -40,6 +40,7 @@ const ResetPasswordPage = (): JSX.Element => {
                 buttonVariants(),
                 "h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]",
               )}
+              search={{ redirect }}
               to={ROUTES.FORGOT_PASSWORD}
             >
               {t("form.requestNewLink")}
@@ -54,7 +55,7 @@ const ResetPasswordPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.reset-password"
 
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     error: searchText(),
     token: searchText(),
   }),

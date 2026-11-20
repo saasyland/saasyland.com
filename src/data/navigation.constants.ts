@@ -92,6 +92,7 @@ interface FooterEntry extends Entry {
 interface HeaderEntry extends Entry {
   readonly hash?: string
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
+  readonly signedIn?: Pick<Entry, "key" | "to">
 }
 
 export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | DashboardEntry | FooterEntry | HeaderEntry

@@ -77,6 +77,7 @@ export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],
   ALL: ["license"],
   CURRENT: ["license", "current"],
+  KEY: ["license", "key"],
   UNLICENSED_ORDERS: ["license", "getUnlicensedOrders"],
   USER: ["license", "getUserLicense"],
 } as const

@@ -8,7 +8,7 @@ import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, coverageScope, flowTables, seededAccounts } from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
-import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
+import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
@@ -60,6 +60,7 @@ import {
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
+import { RESEND_COOLDOWN_SECONDS, VERIFICATION_POLL_MS } from "~/src/modules/verification/verification.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
   AUDIO_BITRATE,
@@ -182,6 +183,7 @@ const FACTS = {
   dashboardRanges: TIME_RANGES,
   defaultDashboardRange: DEFAULT_TIME_RANGE,
   defaultPageSize: DEFAULT_PAGE_SIZE,
+  emailLinkHours: EMAIL_LINK_LIFETIME_HOURS,
   googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   idleFallbackDelayMs: IDLE_FALLBACK_DELAY_MS,
@@ -215,6 +217,7 @@ const FACTS = {
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
+  resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
@@ -236,6 +239,7 @@ const FACTS = {
   tokenRateLimit: RATE_LIMITS.TOKEN.max,
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
   unlistedRoutes: UNLISTED_ROUTES,
+  verificationPollSeconds: VERIFICATION_POLL_MS / MILLISECONDS_PER_SECOND,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
   videoLibraryPageSize: VIDEO_LIBRARY_PAGE_SIZE,
   videoLowerRenditions: LOWER_RENDITION_HEIGHTS.map((height) => renditionName(height)),

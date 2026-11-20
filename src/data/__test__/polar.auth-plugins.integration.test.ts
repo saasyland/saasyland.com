@@ -8,7 +8,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { type PolarProduct, polarCustomer, polarOrder, signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 
-import { postJson } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
+import { browserHeaders, postJson, signUpSignedIn } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
@@ -36,6 +36,8 @@ const PRODUCT = {
   price: { amount: 1000, currency: DEFAULT_CURRENCY_CODE },
   recurringInterval: JSON_NULL,
 } as const satisfies PolarProduct
+
+const portal = (headers: Headers) => auth.handler(new Request(new URL(ROUTES.API_AUTH_CUSTOMER_PORTAL, TEST_APP_URL), { headers }))
 
 const deliver = async (type: models.WebhookEventType): Promise<number> => {
   const order = polarOrder({
@@ -98,5 +100,15 @@ describe("the polar area's Polar plugin", () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID)).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+  })
+
+  it("refuses the customer portal, which shows licence keys, to a customer whose email is not confirmed", async () => {
+    const unconfirmed = await signUpSignedIn()
+
+    const refused = await portal(unconfirmed.headers)
+    expect(refused.status).toBe(HTTP_STATUS.FORBIDDEN)
+    expect(await refused.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" })
+    const signedOut = await portal(browserHeaders())
+    expect(signedOut.status).toBe(HTTP_STATUS.UNAUTHORIZED)
   })
 })

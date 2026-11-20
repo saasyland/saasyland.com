@@ -11,6 +11,7 @@ import { layoutNamespaces } from "~/src/data/namespaces"
 import { SidebarInset, SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
+import { EmailVerificationBanner } from "~/src/presentation/components/custom/app/email-verification-banner"
 import { AppHeader } from "~/src/presentation/components/custom/app/header"
 import { ImpersonationBanner } from "~/src/presentation/components/custom/app/impersonation-banner"
 import { AppSidebar } from "~/src/presentation/components/custom/app/sidebar"
@@ -28,6 +29,7 @@ const AppLayout = (): JSX.Element => (
         data-page-scroller
       >
         <div className="mx-auto w-full max-w-5xl">
+          <EmailVerificationBanner />
           <Outlet />
         </div>
       </div>

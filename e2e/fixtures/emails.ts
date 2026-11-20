@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
@@ -24,14 +22,17 @@ const getSentEmails = async (request: APIRequestContext, recipient: string): Pro
   return sentEmailsSchema.parse(await response.json())
 }
 
+const emailsFor = async (request: APIRequestContext, recipient: string, purpose: string): Promise<zod.infer<typeof sentEmailsSchema>> =>
+  (await getSentEmails(request, recipient)).filter(({ idempotencyKey }) => idempotencyKey.startsWith(`${purpose}/`))
+
 export const expectVerificationEmail = async (
   request: APIRequestContext,
   recipient: string,
   expectedCount = 1,
 ): Promise<URL> => {
-  await expect.poll(async () => (await getSentEmails(request, recipient)).length).toBe(expectedCount)
+  await expect.poll(async () => (await emailsFor(request, recipient, EMAIL_PURPOSE.VERIFY_EMAIL)).length).toBe(expectedCount)
 
-  const emails = await getSentEmails(request, recipient)
+  const emails = await emailsFor(request, recipient, EMAIL_PURPOSE.VERIFY_EMAIL)
   const email = emails.at(-1)
   if (!email) throw new Error(`No verification email was sent to ${recipient}`)
 
@@ -43,12 +44,9 @@ export const expectVerificationEmail = async (
 
   const verificationUrl = new URL(verificationLink.replaceAll("&amp;", "&"))
   expect(verificationUrl.searchParams.get("token")).toBeTruthy()
-  expect(email.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${createHash("sha256").update(verificationUrl.searchParams.get("token") ?? "").digest("hex")}`)
+  expect(email.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
   return verificationUrl
 }
-
-const emailsFor = async (request: APIRequestContext, recipient: string, purpose: string): Promise<zod.infer<typeof sentEmailsSchema>> =>
-  (await getSentEmails(request, recipient)).filter(({ idempotencyKey }) => idempotencyKey.startsWith(`${purpose}/`))
 
 const latestEmail = async (request: APIRequestContext, recipient: string, purpose: string, expectedCount: number) => {
   await expect.poll(async () => (await emailsFor(request, recipient, purpose)).length).toBe(expectedCount)

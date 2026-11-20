@@ -5,6 +5,7 @@ import { ArrowUpRight, Menu, X } from "lucide-react"
 import { Dialog, DialogTrigger, Modal, ModalOverlay } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
+import { headerDestination, useSignedInVisitor } from "~/src/hooks/use-header-navigation"
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
 import { CTA_CLASSES } from "~/src/data/cta"
@@ -24,6 +25,7 @@ export const MobileMenu = (): JSX.Element => {
 
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
+  const signedIn = useSignedInVisitor()
   const startBuilding = useLinkProps({
     hash: MARKETING_SECTION_IDS.PRICING,
     onClick: () => {
@@ -62,9 +64,9 @@ export const MobileMenu = (): JSX.Element => {
                           {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
                           className="group flex items-center justify-between gap-6 py-4 text-[1.0625rem] font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
                           onClick={close}
-                          to={entry.to}
+                          to={headerDestination(entry, signedIn).to}
                         >
-                          {navigationLabel(entry)}
+                          {navigationLabel({ area: entry.area, key: headerDestination(entry, signedIn).key, placement: entry.placement })}
                           <ArrowUpRight
                             aria-hidden
                             className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"

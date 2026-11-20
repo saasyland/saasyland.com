@@ -12,6 +12,7 @@ import { ROUTES } from "~/src/routes"
 
 export const licenseSearchSchema = zod.object({
   checkoutId: searchParam(zod.uuid()),
+  redirect: searchParam(callbackPathSchema),
   tier: searchParam(zod.enum(LICENSE_TIER)),
 })
 

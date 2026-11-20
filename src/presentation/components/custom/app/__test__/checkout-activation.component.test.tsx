@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { renderWithRouter } from "~/src/platform/testing/lib/render"
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
@@ -46,14 +46,14 @@ const grantedLicense: License["select"] = {
 
 const SERVER_CLOCK_AHEAD_MS = 300_000
 
-const renderActivation = ({ serverReadAt = Date.now() }: { serverReadAt?: number } = {}) => {
+const renderActivation = ({ path = "/app", serverReadAt = Date.now() }: { path?: string; serverReadAt?: number } = {}) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined }, { updatedAt: serverReadAt })
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <CheckoutActivation checkoutId={CHECKOUT_ID} />
     </IntlProvider>,
-    { queryClient },
+    { queryClient, router: createTestRouter(path) },
   )
 }
 
@@ -86,9 +86,20 @@ describe("checkout activation", () => {
 
     expect(screen.getByRole("heading", { name: activation.active.title })).toBeVisible()
     expect(screen.getByText(`Thank you for buying ${pricingMessages.tiers.complete.name}.`)).toBeVisible()
+    expect(screen.queryByRole("link", { name: activation.active.continue })).toBeNull()
 
     await advance(ACTIVATION_TIMEOUT_MS)
     expect(currentLicenseMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("offers the way back to the page the buyer came from once the licence is active", async () => {
+    const lesson = "/courses/the-walkthrough/billing"
+    renderActivation({ path: `/app?checkoutId=${CHECKOUT_ID}&redirect=${encodeURIComponent(lesson)}` })
+    currentLicenseMock.mockResolvedValue({ license: grantedLicense })
+
+    await advance(ACTIVATION_POLL_MS)
+
+    expect(screen.getByRole("link", { name: activation.active.continue })).toHaveAttribute("href", lesson)
   })
 
   it("stops polling after the timeout and tells the buyer how to get help", async () => {

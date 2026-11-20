@@ -3,22 +3,22 @@ title: "認証とセキュリティ"
 description: "Better Auth のセッション、ルートガード、サーバー関数のミドルウェア、ロールです。"
 ---
 
-Better Auth は、ユーザー、アカウント、セッション、検証トークンを Drizzle アダプター経由で D1 に保存します。メールアドレスとパスワードによるサインアップ（メール認証必須）、GitHub と Google によるサインイン、パスワードリセット、メールアドレスの変更、TOTP による二要素認証、管理者によるユーザー管理、Polar のチェックアウトを提供します。HTTP API は `src/routes/api/auth.$.ts` から提供されます。`auth.server.ts` と `auth.client.ts` は、Better Auth の `basePath` をこのファイルが提供するパス `ROUTES.API_AUTH_BASE` に設定します。そのため、サーバーとブラウザのクライアントは 1 つの定数からパスを取得します。
+Better Auth は、ユーザー、アカウント、セッション、検証トークンを Drizzle アダプター経由で D1 に保存します。メールアドレスとパスワードによるサインアップ（新しいアカウントはすぐにサインインし、確認済みのアドレスが必要なものは後回しにします）、GitHub と Google によるサインイン、パスワードリセット、メールアドレスの変更、TOTP による二要素認証、管理者によるユーザー管理、Polar のチェックアウトを提供します。HTTP API は `src/routes/api/auth.$.ts` から提供されます。`auth.server.ts` と `auth.client.ts` は、Better Auth の `basePath` をこのファイルが提供するパス `ROUTES.API_AUTH_BASE` に設定します。そのため、サーバーとブラウザのクライアントは 1 つの定数からパスを取得します。
 
 ## ファイル
 
-| ファイル                                               | 役割                                                                                                                                                                                            |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | `betterAuth` インスタンス。プロバイダー、`admin`・`twoFactor`・`tanstackStartCookies` の各プラグインとエリアが追加するプラグイン、許可するホスト、D1 によるレート制限、メールフックを設定します |
-| `auth.client.ts`                                       | `authClient` とそのメソッド（`signIn`、`signUp`、`signOut`、`useSession`、`twoFactor` など）                                                                                                    |
-| `auth.routes.ts`                                       | `beforeLoad` 用のルートガード                                                                                                                                                                   |
-| `auth.middleware.ts`                                   | サーバー関数のミドルウェア: `withRequest`、`authorized`、`withRateLimit`、`RATE_LIMITS`                                                                                                         |
-| `auth.access.ts`                                       | エリアが宣言する権限ステートメントと付与から組み立てる `ac`、`ROLES`、`hasPermission`                                                                                                           |
-| `auth.roles.ts`                                        | `ROLE_CODES`、`ROLE_VALUES`、`DEFAULT_ROLE_CODE`、`isRole`                                                                                                                                      |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`：メールとパスワードのプロバイダー（`credential`）と OAuth プロバイダーの ID                                                                                                     |
-| `auth.session.ts`                                      | `getRequestSession`、`getCurrentSession` サーバー関数、`getCurrentSessionQuery`                                                                                                                 |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | エラーキー、フォームのスキーマ、パスワードの制限                                                                                                                                                |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`：フォームのスキーマを Better Auth のエンドポイントに適用                                                                                                                   |
+| ファイル                                               | 役割                                                                                                                                                                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth.server.ts`                                       | `betterAuth` インスタンス。プロバイダー、`admin`・`twoFactor`・`lastLoginMethod`・`tanstackStartCookies` の各プラグインとエリアが追加するプラグイン、許可するホスト、D1 によるレート制限、メールフックを設定します |
+| `auth.client.ts`                                       | `authClient` とそのメソッド（`signIn`、`signUp`、`signOut`、`useSession`、`twoFactor` など）                                                                                                                       |
+| `auth.routes.ts`                                       | `beforeLoad` 用のルートガード                                                                                                                                                                                      |
+| `auth.middleware.ts`                                   | サーバー関数のミドルウェア: `withRequest`、`authorized`、`withRateLimit`、`RATE_LIMITS`                                                                                                                            |
+| `auth.access.ts`                                       | エリアが宣言する権限ステートメントと付与から組み立てる `ac`、`ROLES`、`hasPermission`                                                                                                                              |
+| `auth.roles.ts`                                        | `ROLE_CODES`、`ROLE_VALUES`、`DEFAULT_ROLE_CODE`、`isRole`                                                                                                                                                         |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`：メールとパスワードのプロバイダー（`credential`）と OAuth プロバイダーの ID。**前回使用** バッジ用の `LOGIN_METHOD` と `LAST_LOGIN_METHOD_COOKIE`                                                  |
+| `auth.session.ts`                                      | `getRequestSession`、`getCurrentSession` サーバー関数、`getCurrentSessionQuery`                                                                                                                                    |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | エラーキー、フォームのスキーマ、パスワードの制限                                                                                                                                                                   |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`：フォームのスキーマを Better Auth のエンドポイントに適用。`signInNewAccount`：新しいアカウントのセッション。`requireVerifiedEmail`：確認済みのアドレスが必要なものへのゲート                  |
 
 ## ルートガード
 
@@ -28,6 +28,7 @@ Better Auth は、ユーザー、アカウント、セッション、検証ト�
 | `requireAdmin`       | `/admin`                         | さらに `admin: ["access"]` 権限を要求し、持っていなければ `/app` へリダイレクトします            |
 | `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | サインイン済みのユーザーを `redirect`、またはロールに応じて `/admin` か `/app` へ送ります        |
 | `redirectAfterAuth`  | `/auth/callback`                 | セッションを要求し、`redirect` またはロールに対応するワークスペースへリダイレクトします          |
+| `redirectIfVerified` | `/auth/verify-email`             | アドレスが確認済みのセッションを `redirect`、またはロールに応じて `/admin` か `/app` へ送ります  |
 
 ガードはクエリキャッシュを通じてセッションを読み込み、サインイン中のユーザーが変わると、`auth.session.ts` の `removeUserData` で、公開クエリ以外のキャッシュ済みのクエリをすべて削除します。
 

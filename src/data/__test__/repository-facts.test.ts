@@ -161,7 +161,7 @@ describe("collectFlowTables", () => {
       "sign-up-and-verify",
       FLOW_AREA.ACCOUNT,
       expect.any(String),
-      ["auth.spec.ts › auth › signup sends a verification email whose link signs the new account into the app"],
+      ["auth.spec.ts › auth › signs a new account in straight away, and its link confirms the address"],
     ])
     expect(missing).toContainEqual([
       "refund-revokes",

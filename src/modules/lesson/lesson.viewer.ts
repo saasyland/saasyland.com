@@ -15,9 +15,12 @@ export const resolveViewer = async (): Promise<Viewer> => {
     return GUEST
   }
 
+  const holdsAccess = await holdsCourseAccess(session.user.id)
+
   return {
-    entitled: await holdsCourseAccess(session.user.id),
+    entitled: holdsAccess && session.user.emailVerified,
     isStaff: hasPermission({ permission: { course: ["read"] }, role: session.user.role }),
+    mustConfirmEmail: holdsAccess && !session.user.emailVerified,
     userId: session.user.id,
   }
 }

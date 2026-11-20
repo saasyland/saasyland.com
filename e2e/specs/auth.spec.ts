@@ -103,45 +103,49 @@ test.describe("auth", () => {
     await expect(authPage.emailField()).toBeVisible()
   })
 
-  test("signup sends a verification email whose link signs the new account into the app", async ({ authPage, page, request }) => {
+  test("signs a new account in straight away, and its link confirms the address", async ({ authPage, context, page, request }) => {
     const id = crypto.randomUUID()
     const email = `signup.${id}@example.test`
     await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${id.slice(0, 4)}::` })
     await completeSignUp(authPage, email)
 
-    await expect(page).toHaveURL(new RegExp(`\/auth\/verify-email\\?email=${encodeURIComponent(email)}`, "u"))
-    await expect(authPage.verifyEmailResendButton()).toBeVisible()
-    await expect(authPage.emailField()).toHaveCount(0)
+    await expect(page).toHaveURL(/\/app\/?$/u)
+    await authPage.waitForAppReady()
+    await expect(page.getByRole("region", { name: "Confirm your email" })).toContainText(email)
+    const unconfirmed = await page.request.get("/api/auth/get-session")
+    expect(await unconfirmed.json()).toMatchObject({ user: { email, emailVerified: false } })
     const verificationUrl = await expectVerificationEmail(request, email)
     expect(verificationUrl.origin).toBe(new URL(page.url()).origin)
-
-    await page.getByRole("link", { name: "Back to sign in", exact: true }).click()
-    await expect(page).toHaveURL(/\/auth\/sign-in$/u)
-    await expect(authPage.signInSubmitButton()).toBeVisible()
 
     await page.goto(verificationUrl.toString())
     await expect(page).toHaveURL(/\/app\/?$/u)
     const session = await page.request.get("/api/auth/get-session")
     expect(await session.json()).toMatchObject({ user: { email, emailVerified: true } })
-
     await authPage.waitForAppReady()
-    await page.getByRole("button", { exact: true, name: "Sign out" }).click()
-    await expect(page).toHaveURL(/\/auth\/sign-in$/u)
-    await expect(authPage.signInSubmitButton()).toBeVisible()
+    await expect(page.getByRole("region", { name: "Confirm your email" })).toHaveCount(0)
+
+    await context.clearCookies()
     await page.goto(verificationUrl.toString())
-    await expect(page).toHaveURL(/\/auth\/sign-in$/u)
+    await expect(page).toHaveURL(/\/auth\/verify-email\?/u)
+    await expect(page.getByRole("heading", { level: 1, name: "Your email is confirmed" })).toBeVisible()
     const replaySession = await page.request.get("/api/auth/get-session")
     expect(await replaySession.json()).toBeNull()
   })
 
-  test("repeating signup for an unverified email sends another verification email and resend still works", async ({ authPage, page, request }) => {
+  test("repeating signup for an unconfirmed email sends another link to the inbox and resend still works", async ({
+    authPage,
+    context,
+    page,
+    request,
+  }) => {
     const id = crypto.randomUUID()
     const email = `repeat-signup.${id}@example.test`
     await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${id.slice(0, 4)}::` })
     await completeSignUp(authPage, email)
-    await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
+    await expect(page).toHaveURL(/\/app\/?$/u)
     await expectVerificationEmail(request, email)
     const firstEmailDeliveredBy = Date.now()
+    await context.clearCookies()
 
     await completeSignUp(authPage, email)
     await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
@@ -159,7 +163,7 @@ test.describe("auth", () => {
     await expect(page).toHaveURL(/\/app\/?$/u)
   })
 
-  test("sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in", async ({
+  test("sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in", async ({
     authPage,
     baseURL,
     browser,
@@ -172,20 +176,21 @@ test.describe("auth", () => {
     const fromNewAddress = (target: Page): Promise<void> =>
       target.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
     const sessionOf = async (target: Page): Promise<unknown> => (await target.request.get("/api/auth/get-session")).json()
+    const unconfirmedNotice = verifyEmailMessages.pending.unverified.slice(0, verifyEmailMessages.pending.unverified.indexOf("<address>"))
 
     await fromNewAddress(page)
     await completeSignUp(authPage, existing)
-    await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
-    await expect(page.getByText(verifyEmailMessages.form.pendingDescription, { exact: true })).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/?$/u)
+    expect(await sessionOf(page)).toMatchObject({ user: { email: existing, emailVerified: false } })
     await page.goto((await expectVerificationEmail(request, existing)).toString())
     await expect(page).toHaveURL(/\/app\/?$/u)
-    expect(await sessionOf(page)).toMatchObject({ user: { email: existing } })
+    expect(await sessionOf(page)).toMatchObject({ user: { email: existing, emailVerified: true } })
 
     const visitorContext = await browser.newContext(baseURL === undefined ? {} : { baseURL })
     await visitorContext.addInitScript(recordRenderedLocations, RENDERED_LOCATION_KEY)
     const visitorPage = await visitorContext.newPage()
     const visitor = new AuthPage(visitorPage)
-    const nextScreen = visitorPage.getByText(verifyEmailMessages.form.pendingDescription, { exact: true })
+    const nextScreen = visitorPage.getByRole("heading", { level: 1, name: verifyEmailMessages.pending.title })
 
     await fromNewAddress(visitorPage)
     await completeSignUp(visitor, existing)
@@ -196,8 +201,9 @@ test.describe("auth", () => {
 
     await fromNewAddress(visitorPage)
     await completeSignUp(visitor, pending)
-    await expect(nextScreen).toBeVisible()
+    await expect(visitorPage).toHaveURL(/\/app\/?$/u)
     await expectVerificationEmail(request, pending)
+    await visitorContext.clearCookies()
     await fromNewAddress(visitorPage)
     await completeSignUp(visitor, pending)
     await expect(visitorPage).toHaveURL(/\/auth\/verify-email\?email=/u)
@@ -210,7 +216,7 @@ test.describe("auth", () => {
     await visitor.passwordField().fill(SIGN_UP_PASSWORD)
     await visitor.signInSubmitButton().click()
     await expect(visitorPage).toHaveURL(/\/auth\/verify-email\?.*unverified=true/u)
-    await expect(visitorPage.getByText(verifyEmailMessages.form.unverifiedDescription, { exact: true })).toBeVisible()
+    await expect(visitorPage.getByText(unconfirmedNotice)).toBeVisible()
     await expect(visitor.verifyEmailResendButton()).toBeVisible()
     await expectVerificationEmail(request, pending, 3)
 
@@ -281,17 +287,17 @@ test.describe("auth", () => {
     await expect(page).toHaveURL(/\/auth\/sign-up/u)
   })
 
-  test("verify-email page renders pending state", async ({ authPage }) => {
+  test("verify-email page renders pending state", async ({ authPage, page }) => {
     await authPage.gotoVerifyEmail()
 
-    await expect(authPage.signInHeading()).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Check your inbox" })).toBeVisible()
     await expect(authPage.verifyEmailResendButton()).toBeVisible()
   })
 
   test("verify-email page with an invalid token offers sign-in and resend recovery", async ({ authPage, page }) => {
     await authPage.gotoVerifyEmail("", "?token=test-token")
 
-    await expect(page.getByText("This verification link is invalid or has expired.", { exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "This link no longer works" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Back to sign in", exact: true })).toBeVisible()
     await expect(authPage.emailField()).toBeVisible()
     await expect(authPage.verifyEmailResendButton()).toBeVisible()
@@ -302,7 +308,7 @@ test.describe("auth", () => {
     const email = `localized.${id}@example.test`
     await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${id.slice(0, 4)}::` })
     await completeSignUp(authPage, email)
-    await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
+    await expect(page).toHaveURL(/\/app\/?$/u)
     const verificationUrl = await expectVerificationEmail(request, email)
     verificationUrl.pathname = "/pl-PL/auth/verify-email"
 
@@ -322,7 +328,7 @@ test.describe("auth", () => {
         url.searchParams.get("error") === "INVALID_TOKEN" &&
         !url.searchParams.has("callbackURL"),
     )
-    await expect(page.getByText("Ten link weryfikacyjny jest nieprawidłowy lub wygasł.", { exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Ten link już nie działa" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Wróć do logowania", exact: true })).toHaveAttribute("href", "/pl-PL/auth/sign-in")
     await expect(authPage.verifyEmailResendButton()).toBeVisible()
     const session = await page.request.get("/api/auth/get-session")
@@ -332,7 +338,8 @@ test.describe("auth", () => {
   test("a verification success marker cannot authenticate a signed-out visitor", async ({ page }) => {
     await page.goto("/pl-PL/auth/verify-email?verified=true&callbackURL=https%3A%2F%2Fexample.org")
 
-    await expect(page).toHaveURL(/\/pl-PL\/auth\/sign-in$/u)
+    await expect(page.getByRole("heading", { level: 1, name: "Adres e-mail jest potwierdzony" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Zaloguj się i kontynuuj" })).toHaveAttribute("href", "/pl-PL/auth/sign-in")
     const session = await page.request.get("/api/auth/get-session")
     expect(await session.json()).toBeNull()
   })

@@ -37,10 +37,10 @@ type Lesson = Course["pageLesson"]
 interface LessonStageProps {
   readonly courseSlug: string
   readonly lesson: Lesson
-  readonly signedIn: boolean
+  readonly viewer: Course["page"]["viewer"]
 }
 
-const LessonStage = ({ courseSlug, lesson, signedIn }: LessonStageProps): JSX.Element => {
+const LessonStage = ({ courseSlug, lesson, viewer }: LessonStageProps): JSX.Element => {
   const t = useTranslations("pages.courses.lesson")
 
   if (lesson.recording) {
@@ -52,10 +52,10 @@ const LessonStage = ({ courseSlug, lesson, signedIn }: LessonStageProps): JSX.El
   }
 
   if (lesson.locked) {
-    return <LockedLesson access={lesson.access} signedIn={signedIn} />
+    return <LockedLesson access={lesson.access} mustConfirmEmail={viewer.mustConfirmEmail} signedIn={viewer.signedIn} />
   }
 
-  return <LessonPlayer courseSlug={courseSlug} lesson={lesson} signedIn={signedIn} />
+  return <LessonPlayer courseSlug={courseSlug} lesson={lesson} signedIn={viewer.signedIn} />
 }
 
 const CompletionControl = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
@@ -117,7 +117,7 @@ const LessonPage = (): JSX.Element => {
     <section className="relative">
       <div className="mx-auto grid w-full max-w-site gap-12 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[1fr_22rem]">
         <div className="min-w-0">
-          <LessonStage courseSlug={data.course.slug} lesson={lesson} signedIn={data.viewer.signedIn} />
+          <LessonStage courseSlug={data.course.slug} lesson={lesson} viewer={data.viewer} />
 
           <Link
             className="mt-8 inline-flex items-center gap-2 rounded-md font-mono text-label text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"

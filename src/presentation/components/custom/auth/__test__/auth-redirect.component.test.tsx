@@ -24,7 +24,7 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
 import { ROUTES } from "~/src/routes"
 
-const [, githubProvider] = OAUTH_PROVIDERS
+const [githubProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
 
 const RETURN_TO = "/pl-PL/app/settings"
@@ -85,12 +85,19 @@ const signInWith = async (user: ReturnType<typeof userEvent.setup>): Promise<voi
   await user.click(screen.getByTestId("sign-in-form-submit-button"))
 }
 
+const signUpWith = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.type(screen.getByLabelText(/^name$/iu), "Ada Lovelace")
+  await user.type(screen.getByLabelText(/email/iu), EMAIL)
+  await user.type(screen.getByLabelText(/^password$/iu), PASSWORD)
+  await user.click(screen.getByRole("button", { name: "Continue" }))
+}
+
 beforeEach(() => {
   signInEmailMock
     .mockReset()
     .mockResolvedValue({ data: { redirect: false, token: "token", user: createAuthSessionFixture().user }, error: null })
   signInSocialMock.mockReset().mockResolvedValue({ data: { redirect: true, url: "https://github.com/login/oauth" }, error: null })
-  signUpMock.mockReset().mockResolvedValue({ token: null, user: createAuthSessionFixture().user })
+  signUpMock.mockReset().mockResolvedValue({ signedIn: true, user: createAuthSessionFixture().user })
 })
 
 describe("return path through the auth pages", () => {
@@ -126,21 +133,30 @@ describe("return path through the auth pages", () => {
     })
   })
 
-  it("asks Better Auth to verify a new account through the auth callback that carries the return path", async () => {
+  it("continues a new account straight to the return path, and asks Better Auth to confirm the address through the same callback", async () => {
     const { navigate, user } = renderOnPage(ROUTES.SIGN_UP, <SignUpForm />)
 
-    await user.type(screen.getByLabelText(/^name$/iu), "Ada Lovelace")
-    await user.type(screen.getByLabelText(/email/iu), EMAIL)
-    await user.type(screen.getByLabelText(/^password$/iu), PASSWORD)
-    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await signUpWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO }, to: ROUTES.VERIFY_EMAIL })
+      expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: RETURN_TO }, to: ROUTES.AUTH_CALLBACK })
     })
+    expect(navigate).not.toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.VERIFY_EMAIL }))
     expect(signUpMock).toHaveBeenCalledWith(
       expect.objectContaining({ callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}?redirect=${ENCODED_RETURN_TO}` }),
       expect.anything(),
     )
+  })
+
+  it("keeps the return path on the way to the inbox when sign-up does not sign the visitor in", async () => {
+    signUpMock.mockResolvedValueOnce({ signedIn: false, user: createAuthSessionFixture().user })
+    const { navigate, user } = renderOnPage(ROUTES.SIGN_UP, <SignUpForm />)
+
+    await signUpWith(user)
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO }, to: ROUTES.VERIFY_EMAIL })
+    })
   })
 
   it("sends OAuth back through the auth callback, and failures back to sign-in, keeping the return path", async () => {
@@ -156,6 +172,17 @@ describe("return path through the auth pages", () => {
         }),
       )
     })
+  })
+
+  it("carries the typed email and the return path to the forgot-password page", async () => {
+    const { user } = renderOnPage(ROUTES.SIGN_IN, <SignInForm />)
+
+    await user.type(screen.getByLabelText(/email/iu), EMAIL)
+
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
+      "href",
+      `/pl-PL${ROUTES.FORGOT_PASSWORD}?email=${encodeURIComponent(EMAIL)}&redirect=${ENCODED_RETURN_TO}`,
+    )
   })
 
   it("keeps the return path on the links between sign-in and sign-up", () => {

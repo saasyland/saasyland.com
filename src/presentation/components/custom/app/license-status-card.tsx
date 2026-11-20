@@ -13,12 +13,12 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 
 import { ROUTES } from "~/src/routes"
 
-const licenseStatus = (license: License["select"]): License["select"]["status"] | "pending" => {
+const licenseStatus = (license: Pick<License["select"], "polarLicenseKeyId" | "status">): License["select"]["status"] | "pending" => {
   if (license.status !== LICENSE_STATUS.ACTIVE) {
     return license.status
   }
 
-  if (typeof license.key === "string" && license.key.length > 0) {
+  if (typeof license.polarLicenseKeyId === "string" && license.polarLicenseKeyId.length > 0) {
     return LICENSE_STATUS.ACTIVE
   }
 

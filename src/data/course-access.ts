@@ -8,7 +8,8 @@ export interface CourseAccessGrant {
   readonly includedWith: readonly string[]
   readonly key: string
   readonly offer: string
-  readonly unlock: Readonly<Record<"signedIn" | "signedOut", LinkOptions>>
+  readonly price: number
+  readonly unlock: (redirect: string) => LinkOptions
 }
 
 const AREAS: Readonly<Record<string, readonly CourseAccessGrant[]>> = AREA_COURSE_ACCESS

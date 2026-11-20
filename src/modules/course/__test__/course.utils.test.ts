@@ -43,7 +43,7 @@ describe("course utils", () => {
           summary: "",
           title: "",
         },
-        viewer: { signedIn: false },
+        viewer: { mustConfirmEmail: false, signedIn: false },
       }).map(({ slug }) => slug),
     ).toStrictEqual(["a", "b", "c"])
   })

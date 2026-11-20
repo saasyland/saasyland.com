@@ -14,6 +14,7 @@ import { LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/lice
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { REFUND_TERMS } from "~/src/data/refunds"
@@ -63,6 +64,8 @@ export const CheckoutConsent = ({ onClose, tier }: CheckoutConsentProps): JSX.El
   const errorMessage = useErrorMessage()
   const checkboxId = useId()
 
+  const { redirect } = useAuthRedirect()
+
   const refreshLicense = () => queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
 
   const { isPending, mutate } = useMutation({
@@ -88,7 +91,7 @@ export const CheckoutConsent = ({ onClose, tier }: CheckoutConsentProps): JSX.El
     defaultValues: { withdrawalConsent: false },
     listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
-      mutate({ locale: getCurrentLocale(), tier, ...consentSchema.parse(value) })
+      mutate({ locale: getCurrentLocale(), redirect, tier, ...consentSchema.parse(value) })
     },
     validators: { onChange: consentSchema },
   })

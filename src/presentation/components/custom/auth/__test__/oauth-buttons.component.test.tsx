@@ -14,13 +14,13 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 
-import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { OAuthButtons, OAuthLinks } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
 import { ROUTES } from "~/src/routes"
 
-const [googleProvider, githubProvider] = OAUTH_PROVIDERS
+const [githubProvider, googleProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
 
 const signInSocialMock = vi.hoisted(() => vi.fn<typeof AuthClient.authClient.signIn.social>())
@@ -99,6 +99,31 @@ describe("OAuth buttons", () => {
     })
     expect(github.querySelector(".animate-spin")).not.toBeInTheDocument()
     expect(signInSocialMock).toHaveBeenCalledOnce()
+  })
+
+  it("marks only the provider link being started among the recovery links", async () => {
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof signInSocialMock>>>()
+    signInSocialMock.mockReturnValueOnce(pending.promise)
+    renderWithRouter(
+      <IntlProvider locale="en-US" messages={{ auth: { errors: authErrorsMessages, oauth: authOauthMessages } }}>
+        <ul>
+          <OAuthLinks />
+        </ul>
+      </IntlProvider>,
+    )
+
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: continueWith(googleProvider.name) }))
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: continueWith(googleProvider.name) })).toHaveAttribute("aria-disabled", "true")
+    })
+    expect(screen.getByRole("button", { name: continueWith(githubProvider.name) })).not.toHaveAttribute("aria-disabled")
+    expect(signInSocialMock).toHaveBeenCalledWith(expect.objectContaining({ provider: AUTH_PROVIDER.GOOGLE }))
+
+    await act(async () => {
+      pending.resolve({ data: { redirect: true, url: "https://accounts.google.com" }, error: null })
+      await pending.promise
+    })
   })
 
   it("asks the visitor to wait when Better Auth rate-limits the start of OAuth", async () => {

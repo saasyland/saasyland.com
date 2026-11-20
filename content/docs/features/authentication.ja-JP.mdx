@@ -8,12 +8,11 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 `src/integrations/better-auth/auth.server.ts` が Better Auth のインスタンスを作成します。
 
 - D1 上の Drizzle アダプター、UUID v7 の ID、Cookie プレフィックス `saasyland`、`development` と `test` 以外のモードでのセキュア Cookie、`appHostsForMode` によるモード別の許可ホスト。
-- メール確認が必須のメールとパスワード認証、OWASP と NIST SP 800-63B の求めに従って文字種の組み合わせルールを設けない <RepositoryFact name="passwordMinLength" />〜<RepositoryFact name="passwordMaxLength" /> 文字のパスワード（`auth.constraints.ts`）、パスワードリセット時のセッション失効と、リセット後の「パスワードが変更されました」というメール（`onPasswordReset`）。確認とリセットのリンクは `EMAIL_LINK_LIFETIME_HOURS`（`auth.constants.ts`）の間有効です。この値は `emailVerification.expiresIn` と `resetPasswordTokenExpiresIn` の両方を設定し、メールにも記載されます。
-
+- メールとパスワードによる認証（新しいアカウントは登録時にサインイン済みになり、再度のサインインと、確認済みのアドレスで利用可能になるものの受け取りには確認済みのアドレスが必要です。[メール確認](/docs/features/email-verification)を参照）、大文字と記号を含む <RepositoryFact name="passwordMinLength" />〜<RepositoryFact name="passwordMaxLength" /> 文字のパスワード（`auth.constraints.ts`）、パスワードリセット時のセッション失効と、リセット後の「パスワードが変更されました」というメール（`onPasswordReset`）。確認とリセットのリンクは `EMAIL_LINK_LIFETIME_HOURS`（`auth.constants.ts`）の間有効です。この値は `emailVerification.expiresIn` と `resetPasswordTokenExpiresIn` の両方を設定し、メールにも記載されます。
 - 認証のエリアが `src/data/auth.auth-plugins.ts` で追加する `haveIBeenPwned` は、サインアップ、パスワードのリセットと変更の際、そして管理者がユーザーを作成したりパスワードを設定したりする際に、Have I Been Pwned のデータセットに含まれる新しいパスワードを拒否します。Worker の外に出るのは、パスワードの SHA-1 ハッシュの先頭 5 文字だけです。サインアップ、リセット、設定の各フォームはパスワード欄の下に `passwordCompromised` を表示してそこにフォーカスを移し、管理画面のダイアログはそれをトーストで表示します。ブラウザテストと統合テストは `src/platform/testing/mocks/auth.providers.ts` のプロバイダーのダブルでこのチェックに応答し、このダブルは `e2e/data/accounts.ts` の `BREACHED_PASSWORD` を漏洩済みとして報告します。
-- `hooks.before` ミドルウェアの `enforceInputPolicy`（`auth.hooks.ts`）は、フォームのスキーマを Better Auth 自身のエンドポイントにも適用します。対象は登録、パスワードのリセットと変更、プロフィールとメールの変更、ユーザー作成やパスワード設定を行う管理エンドポイントです。`/api/auth` に直接送られたリクエストもルールを回避できず、`400 VALIDATION_ERROR` を返します。
+- `hooks.after` ミドルウェアの `signInNewAccount`（`auth.hooks.ts`）は、登録で作成されたアカウントをサインインさせます。`hooks.before` ミドルウェアの `enforceInputPolicy` は、フォームのスキーマを Better Auth 自身のエンドポイントにも適用します。対象は登録、パスワードのリセットと変更、プロフィールとメールの変更、ユーザー作成やパスワード設定を行う管理エンドポイントです。`/api/auth` に直接送られたリクエストもルールを回避できず、`400 VALIDATION_ERROR` を返します。
 - アカウント連携と暗号化された OAuth トークンを備えた GitHub と Google のソーシャルプロバイダー。
-- プラグイン: `auth.access.ts` のアクセス制御とロールを使う `admin`、`twoFactor`、`haveIBeenPwned`、Polar（`checkout`、`portal`、`webhooks`）、`tanstackStartCookies`。
+- プラグイン: `auth.access.ts` のアクセス制御とロールを使う `admin`、`twoFactor`、`haveIBeenPwned`、ブラウザが最後に使ったサインイン方法を記憶する `lastLoginMethod`、Polar（`portal`、`webhooks`）、`tanstackStartCookies`。
 - D1 の `rate_limit` テーブルに保存されるレート制限。`/get-session`、`/sign-out`、Polar の Webhook は対象外です。
 - 追加のユーザーフィールド `timezone` と、確認メール付きのメールアドレス変更。
 
@@ -23,16 +22,16 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 
 `/auth` レイアウトは `auth.*` 名前空間をプリロードし、すべての認証ページを同じグリッドに配置します。`lg` ブレークポイント以上では、共通のヘッダー行の下に 2 つの列が並び、左に見出しと約束事項を載せた案内パネル、右にフォームを置きます。ワードマークと見出しは左端がそろい、見出しとフォームは同じ高さから始まるため、認証ページ間を移動してもフォームの見出しの位置は変わりません。`lg` 未満では案内パネルを隠し、ワードマーク、**ホームへ戻る** リンク、フォームを、フォームと同じ幅の中央寄せの 1 列に並べます。`AuthPending` は読み込み中も同じグリッドを描画し、`e2e/specs/auth-layout.spec.ts` が 4 つのウィンドウサイズで配置を確認します。入力欄、プロバイダーのボタン、主要なボタンの高さは、サイトの CTA ボタンと同じです。
 
-| ルート                                          | コンポーネント                            | 動作                                                                                                                                                                                                        |
-| ----------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/auth/sign-in`                                 | `OAuthButtons`、`SignInForm`              | Better Auth の `signIn.email` でサインインします。未確認のメールには新しい確認リンクが送られ、`unverified` 付きで `/auth/verify-email` へ進みます。2FA が有効なアカウントは `/auth/two-factor` へ進みます。 |
-| `/auth/sign-up`                                 | `OAuthButtons`、`SignUpForm`              | サーバー関数 `signUpWithPassword` を呼び出し、アドレスにかかわらず `/auth/verify-email` へ移動します。[既知のアドレスでのサインアップ](#signing-up-with-a-known-address)を参照。                            |
-| `/auth/callback`                                | なし                                      | `redirectAfterAuth` が訪問者を `redirect` へ、それがなければ管理者を `/admin` へ、それ以外を `/app` へ送ります。                                                                                            |
-| `/auth/verify-email`                            | `VerifyEmailForm`                         | [メール確認](/docs/features/email-verification)を参照。                                                                                                                                                     |
-| `/auth/forgot-password`、`/auth/reset-password` | `ForgotPasswordForm`、`ResetPasswordForm` | [パスワードリセット](/docs/features/password-reset)を参照。                                                                                                                                                 |
-| `/auth/two-factor`                              | `TwoFactorForm`                           | [二要素認証](/docs/features/two-factor)を参照。                                                                                                                                                             |
+| ルート                                          | コンポーネント                            | 動作                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/auth/sign-in`                                 | `OAuthButtons`、`SignInForm`              | Better Auth の `signIn.email` でサインインします。拒否されたときのメッセージはボタンの上に表示されたままになり、パスワードが違う場合はパスワードリセットと GitHub、Google を案内します。未確認のアドレスには新しいリンクが送られ、`unverified` 付きで `/auth/verify-email` へ進みます。2FA が有効なアカウントは `/auth/two-factor` へ進みます。 |
+| `/auth/sign-up`                                 | `OAuthButtons`、`SignUpForm`              | サーバー関数 `signUpWithPassword` を呼び出して `redirect` へ進みます。アカウントが作成されなかった場合は `/auth/verify-email` へ進みます。[既知のアドレスでのサインアップ](#signing-up-with-a-known-address)を参照。                                                                                                                            |
+| `/auth/callback`                                | なし                                      | `redirectAfterAuth` が訪問者を `redirect` へ、それがなければ管理者を `/admin` へ、それ以外を `/app` へ送ります。                                                                                                                                                                                                                                |
+| `/auth/verify-email`                            | `VerifyEmailForm`                         | [メール確認](/docs/features/email-verification)を参照。                                                                                                                                                                                                                                                                                         |
+| `/auth/forgot-password`、`/auth/reset-password` | `ForgotPasswordForm`、`ResetPasswordForm` | [パスワードリセット](/docs/features/password-reset)を参照。                                                                                                                                                                                                                                                                                     |
+| `/auth/two-factor`                              | `TwoFactorForm`                           | [二要素認証](/docs/features/two-factor)を参照。                                                                                                                                                                                                                                                                                                 |
 
-`SignUpForm` は、<RepositoryFact name="nameMaxLength" /> 文字以内の名前、メールアドレス、1 つのパスワードを入力させます。目のボタンで入力した内容を確認できるため確認用の入力欄はなく、パスワード欄にはプレースホルダーがありません。`PasswordRequirements` は訪問者の入力に合わせて長さのルールにチェックを付け、続行したときに漏洩チェックが行われることを伝えます。メール欄を離れると、`EmailSuggestion` がドメインのつづりを誤ったアドレスに対して正しいと思われるアドレスを提案し（`src/lib/email-suggestion.ts` の `suggestEmail`、`src/data/email-domains.ts` の `EMAIL_DOMAINS` に基づきます）、提案を押すと欄に入力されます。サインアップに成功すると、受信トレイの確認を促すトーストとともに `/auth/verify-email` へ移動します。
+`SignUpForm` は、<RepositoryFact name="nameMaxLength" /> 文字以内の名前、メールアドレス、1 つのパスワードを入力させます。目のボタンで入力した内容を確認できるため確認用の入力欄はなく、パスワード欄にはプレースホルダーがありません。`PasswordRequirements` は訪問者の入力に合わせて長さのルールにチェックを付け、続行したときに漏洩チェックが行われることを伝えます。メール欄を離れると、`EmailSuggestion` がドメインのつづりを誤ったアドレスに対して正しいと思われるアドレスを提案し（`src/lib/email-suggestion.ts` の `suggestEmail`、`src/data/email-domains.ts` の `EMAIL_DOMAINS` に基づきます）、提案を押すと欄に入力されます。アカウントを作成したサインアップはそのままログインして `redirect` へ進み、すでにアカウントがあるアドレスでのサインアップは、受信トレイの確認を促すトーストとともに `/auth/verify-email` へ移動します。
 
 `/auth/sign-up` は、フォームの上に説明文の代わりとして、`SIGN_UP_INTROS`（`src/data/sign-up-intros.ts`）のうち `redirect` に当てはまる最初のエントリーを表示し、`SignUpPending` はそのエントリーのスケルトンを描画します。認証のエリアは何も追加せず（`AUTH_SIGN_UP_INTROS`）、ライセンスのエリアがランディングページで選んだプランの注文概要を追加します（[ライセンス](/docs/features/licences)）。
 
@@ -40,23 +39,23 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 
 ## 既知のアドレスでのサインアップ [#signing-up-with-a-known-address]
 
-サインアップ画面は、アドレスにアカウントがあるかどうかを決して明かしません（アカウント列挙に対する OWASP の推奨）。Better Auth はすべてのサインアップに同じ応答、つまり `token: null` とセッションのないユーザーを返し、フォームは常に `/auth/verify-email` へ移動します。このページには「受信トレイをご確認ください。メールアドレスを確認するためのリンク、またはすでにアカウントをお持ちの場合はログイン用のリンクをお送りしました。」と表示されます。受信トレイに届くものはアドレスによって異なります。
+サインアップ画面は、確認済みのアカウントと未確認のアカウントの違いを決して明かしません（アカウント列挙に対する OWASP の推奨）。Better Auth はすべてのサインアップに同じ応答、つまり `token: null` とユーザーを返し、サインアップで作成されたアカウントだけがセッションを受け取って（`signInNewAccount`。[メール確認](/docs/features/email-verification#signing-up)を参照）`redirect` へ進みます。すでにアカウントがあるアドレスの場合、フォームは `/auth/verify-email` へ移動します。このページには「… にメールを送信しました。メール内のリンクを開くと、中断したところから続けられます。」と表示されます。受信トレイに届くものはアドレスによって異なります。
 
 | アドレス                   | 結果                                                                                                                                                                                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| アカウントがない           | Better Auth がユーザーを作成し、`sendVerifyEmail` が確認リンクを送ります。                                                                                                                                                                                         |
+| アカウントがない           | Better Auth がユーザーを作成し、`signInNewAccount` がサインインさせ、`sendVerifyEmail` が確認リンクを送ります。                                                                                                                                                    |
 | 確認済みのアカウントのもの | 何も作成されません。`onExistingUserSignUp` が `sendExistingAccountEmail` を呼び出し、「SaaSy Landのアカウントはすでにお持ちです」というメールで、アカウントが持つサインイン方法、`redirect` を保持したサインインリンク、パスワードをリセットするリンクを送ります。 |
 | 未確認のアカウントのもの   | 何も作成されません。`onExistingUserSignUp` が `sendVerifyEmail` で新しい確認リンクを送ります。                                                                                                                                                                     |
 
-どちらの通知もサインアップページのロケールで送られ、1 つのアドレスにつき 1 時間あたり <RepositoryFact name="recipientEmailsPerHour" /> 通までに制限されます。Better Auth は既知のアドレスでも送信されたパスワードをハッシュ化し、`onExistingUserSignUp` を `waitUntil` でバックグラウンド実行します。そのため、サインイン方法の検索もメールも応答を遅らせることはなく、新しいアドレスへの応答との違いは、書き込む 2 行だけです。
+どちらの通知もサインアップページのロケールで送られ、1 つのアドレスにつき 1 時間あたり <RepositoryFact name="recipientEmailsPerHour" /> 通までに制限されます。Better Auth は既知のアドレスでも送信されたパスワードをハッシュ化し、`onExistingUserSignUp` を `waitUntil` でバックグラウンド実行します。そのため、サインイン方法の検索もメールも応答を遅らせません。新しいアドレスへの応答は、書き込む行と、そのアカウントをサインインさせるセッション Cookie の点で異なります。これは、受信トレイを経由せずに購入者をチェックアウトへ進めるための代償です。サインアップは引き続き `RATE_LIMITS.SENSITIVE` でレート制限されます。
 
-未確認のアカウントへのサインインは `EMAIL_NOT_VERIFIED` を返し、`emailVerification.sendOnSignIn` が、リクエスト元のサインインページのロケールと `redirect` で新しいリンクを送ります。`SignInForm` は `/auth/verify-email?unverified=true` へ移動し、このページは新しいリンクを送信中であることを伝えて **確認メールを再送信** を表示します。パスワードが間違っている場合は通常どおり `INVALID_EMAIL_OR_PASSWORD` が返り、何も送信されません。
+未確認のアカウントへのサインインは `EMAIL_NOT_VERIFIED` を返し、`emailVerification.sendOnSignIn` が、リクエスト元のサインインページのロケールと `redirect` で新しいリンクを送ります。`SignInForm` は `/auth/verify-email?unverified=true` へ移動し、このページはそのアドレスに新しいリンクを送信したことを伝えて **リンクを再送信** を表示します。パスワードが間違っている場合は通常どおり `INVALID_EMAIL_OR_PASSWORD` が返り、何も送信されません。
 
 ## ルートガード
 
 `src/integrations/better-auth/auth.routes.ts` は `beforeLoad` で使うガードをエクスポートします。
 
-- `requireSignedIn` は `/app` を保護し、ページを `redirect` として `/auth/sign-in` へリダイレクトします。
+- `requireSignedIn` は `/app` を保護し、ページを `redirect` として `/auth/sign-in` へリダイレクトします。ブラウザにセッションがあった場合は `error=SESSION_EXPIRED` を付け、サインインページはセッションが終了したことと戻り先のページを表示します。
 - `requireAdmin` は `/admin` を保護します。`admin: ["access"]` 権限のないサインイン済みユーザーは `/app` へ移動します。
 - `redirectIfSignedIn` は、サインインと登録の画面を開いたサインイン済みユーザーを `redirect` または自分のワークスペースへ送ります。
 - `redirectAfterAuth` は `/auth/callback` を処理します。

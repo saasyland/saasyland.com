@@ -1,10 +1,13 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query"
-import { createServerFn, createServerOnlyFn } from "@tanstack/react-start"
+import { createIsomorphicFn, createServerFn, createServerOnlyFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
+import { getSessionCookie } from "better-auth/cookies"
 
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
+
+import { APP_SLUG } from "~/src/presentation/branding"
 
 declare module "@tanstack/react-query" {
   interface Register {
@@ -44,7 +47,15 @@ export const getCurrentSessionQuery = queryOptions({
   staleTime: SESSION_STALE_TIME_MS,
 })
 
+export const hasSessionCookie = createIsomorphicFn()
+  .server(() => getSessionCookie(getRequest(), { cookiePrefix: APP_SLUG }) !== null)
+  .client(() => false)
+
+const isUserData = ({ meta }: { readonly meta?: { readonly public?: true } | undefined }): boolean => meta?.public !== true
+
 export const removeUserData = (queryClient: QueryClient): void => {
   queryClient.getMutationCache().clear()
-  queryClient.removeQueries({ predicate: ({ meta }) => meta?.public !== true })
+  queryClient.removeQueries({ predicate: isUserData })
 }
+
+export const refreshUserData = (queryClient: QueryClient): Promise<void> => queryClient.invalidateQueries({ predicate: isUserData })

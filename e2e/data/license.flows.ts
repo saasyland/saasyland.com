@@ -2,7 +2,7 @@ import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
 
 const BUY_COMPLETE = {
   spec: "checkout-funnel.spec.ts",
-  title: "checkout funnel › a tier picked on the landing page survives sign-up, opens checkout once the buyer consents, and activates",
+  title: "checkout funnel › a tier picked on the landing page goes from sign-up straight to checkout, and the key, invoices and paid lessons wait for the confirmed email",
 } as const
 
 const SECOND_CHECKOUT = {
@@ -41,7 +41,7 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.PURCHASE,
     id: "tier-from-landing-survives-sign-up",
-    outcome: "A signed-out visitor who picks a tier on the landing page signs up, verifies the address and lands on the offer of that tier",
+    outcome: "A signed-out visitor who picks a tier on the landing page signs up and lands on the offer of that tier at once, without visiting the inbox",
     status: FLOW_STATUS.COVERED,
     tests: [BUY_COMPLETE],
   },
@@ -83,6 +83,14 @@ export const LICENSE_FLOWS = [
         title: "checkout funnel › checkout starts only once the buyer ticks the consent to immediate supply, and the dialog says why",
       },
     ],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "unconfirmed-buyer-gates",
+    outcome:
+      "A buyer who paid before confirming the address sees no key, no invoices link and no paid lesson until the link is opened, and the portal refuses them",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUY_COMPLETE],
   },
   {
     area: FLOW_AREA.PURCHASE,

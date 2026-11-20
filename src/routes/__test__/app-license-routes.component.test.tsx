@@ -40,6 +40,7 @@ import { LicenseCard } from "~/src/presentation/components/custom/app/license-ca
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
 import commonMessages from "~/messages/en-US/common.json"
+import bannerMessages from "~/messages/en-US/components.custom.email-verification-banner.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
@@ -61,6 +62,7 @@ const SECTION_NAME = vi.hoisted(() => "Included with every tier")
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicenseMock = vi.hoisted(() => vi.fn<() => Promise<{ license: License["select"] | undefined }>>())
+const licenseKeyMock = vi.hoisted(() => vi.fn<() => Promise<{ key: string | null | undefined }>>())
 const activationsMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCurrentLicenseActivations>>())
 const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
@@ -74,6 +76,13 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock } }
+})
+vi.mock(import("~/src/modules/license/use-cases/get-current-license-key"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    currentLicenseKeyQuery: { ...actual.currentLicenseKeyQuery, queryFn: licenseKeyMock },
+  }
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -188,6 +197,7 @@ beforeAll(async () => {
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicenseMock.mockReset().mockResolvedValue({ license: undefined })
+  licenseKeyMock.mockReset().mockResolvedValue({ key: LICENSE_KEY })
   activationsMock.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
   sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
@@ -386,6 +396,21 @@ describe("a tier chosen on the pricing page", () => {
     )
   })
 
+  it("carries the page the buyer came from, such as a lesson, into the checkout", async () => {
+    checkoutMock.mockReturnValue(new Promise(() => {}))
+    const lesson = "/courses/the-walkthrough/billing"
+    const { user } = await renderApp(`${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}&redirect=${encodeURIComponent(lesson)}`)
+
+    const card = await screen.findByRole("region", { name: `Continue with ${pricingMessages.tiers.complete.name}` })
+    await user.click(within(card).getByRole("button", { name: chosen.continue }))
+    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
+
+    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
+      { locale: "en-US", redirect: lesson, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true },
+      expect.anything(),
+    )
+  })
+
   it("ignores a tier the app does not sell", async () => {
     await renderApp(`${ROUTES.APP}?tier=enterprise`)
 
@@ -414,6 +439,7 @@ describe("returning from checkout", () => {
 
   it("thanks the buyer once the license is active and shows it", async () => {
     currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL } })
+    licenseKeyMock.mockResolvedValue({ key: JSON_NULL })
     await renderApp(`${ROUTES.APP_LICENSE}?checkoutId=${CHECKOUT_ID}`)
 
     expect(await screen.findByRole("heading", { name: activation.active.title })).toBeVisible()
@@ -441,7 +467,7 @@ describe("returning from checkout", () => {
 describe("owning a license", () => {
   it.each([
     { license: ownedLicense, status: statusCard.active },
-    { license: { ...ownedLicense, key: JSON_NULL }, status: statusCard.pending },
+    { license: { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL }, status: statusCard.pending },
   ])("shows the purchased tier and $status state on the overview without the key or the offer", async ({ license, status }) => {
     currentLicenseMock.mockResolvedValue({ license })
     await renderApp(ROUTES.APP)
@@ -460,6 +486,22 @@ describe("owning a license", () => {
 
     expect(await screen.findByText(statusCard[status])).toBeVisible()
     expect(await offer()).toBeVisible()
+  })
+
+  it("withholds the key and the invoices until the buyer confirms their email, and says where the link went", async () => {
+    const confirmed = createAuthSessionFixture()
+    sessionRequest.mockResolvedValue({ ...confirmed, user: { ...confirmed.user, emailVerified: false } })
+    currentLicenseMock.mockResolvedValue({ license: ownedLicense })
+    licenseKeyMock.mockResolvedValue({ key: undefined })
+    await renderApp(ROUTES.APP_LICENSE)
+
+    expect(await screen.findAllByText(confirmed.user.email, { selector: "p > strong" })).toHaveLength(2)
+    expect(
+      screen.getByText((_, element) => element?.tagName === "P" && element.textContent.startsWith("Your key appears here")),
+    ).toBeVisible()
+    expect(screen.queryByText(LICENSE_KEY)).toBeNull()
+    expect(screen.queryByRole("link", { name: pagesLicenseMessages.manage })).toBeNull()
+    expect(screen.getByRole("region", { name: bannerMessages.title })).toBeVisible()
   })
 
   it("shows the key, invoices and how to change tier, and refreshes the machine list after freeing a slot", async () => {
@@ -521,6 +563,7 @@ describe("owning a license", () => {
 
   it("shows a pending key honestly, without a machine list before provisioning", async () => {
     currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL } })
+    licenseKeyMock.mockResolvedValue({ key: JSON_NULL })
     await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByText(pagesLicenseMessages.pending)).toBeVisible()
@@ -569,6 +612,7 @@ describe("license cards", () => {
   ] as const)("renders no %s for an account without a license", (_, Card) => {
     const queryClient = new QueryClient()
     queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined })
+    queryClient.setQueryData(LICENSE_QUERY_KEYS.KEY, { key: undefined })
 
     const { container } = renderWithRouter(
       <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">

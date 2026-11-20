@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "~/src/integrations/better-auth/auth.constants"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
@@ -16,6 +18,7 @@ import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.co
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
@@ -24,6 +27,13 @@ interface ResizeEntry {
 }
 
 const pageLabel = getNavigationLabel("en-US")
+
+const sessionRequest = vi.hoisted(() => vi.fn())
+
+vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
+})
 
 const browserWindow: Window = globalThis.window
 const resizeCallbacks: ((entries: ResizeEntry[]) => void)[] = []
@@ -386,5 +396,36 @@ describe("header preloading", () => {
 
     expect(cancelIdle).toHaveBeenCalledOnce()
     expect(preloadRoute).not.toHaveBeenCalled()
+  })
+})
+
+describe("signed-in visitors", () => {
+  const accountLabel = navigationAuthMessages.header.account
+  const signInLabel = navigationAuthMessages.header.signIn
+
+  afterEach(() => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+  })
+
+  it("asks a browser that has signed in before for its session, and offers its account instead of sign-in", async () => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
+    sessionRequest.mockResolvedValue(createAuthSessionFixture())
+    renderNavigation()
+    const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
+
+    expect(await within(nav).findByRole("link", { name: accountLabel })).toHaveAttribute("href", ROUTES.APP)
+    expect(within(nav).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
+    await userEvent.setup({ delay: null }).click(menuButton())
+    expect(within(menu()).getByRole("link", { name: accountLabel })).toHaveAttribute("href", ROUTES.APP)
+  })
+
+  it("keeps sign-in, and asks for no session, in a browser that has never signed in", () => {
+    sessionRequest.mockResolvedValue(createAuthSessionFixture())
+    renderNavigation()
+
+    expect(
+      within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).getByRole("link", { name: signInLabel }),
+    ).toBeVisible()
+    expect(sessionRequest).not.toHaveBeenCalled()
   })
 })

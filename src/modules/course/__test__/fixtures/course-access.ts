@@ -13,6 +13,7 @@ export const TEST_COURSE_ACCESS = [
     includedWith: ["coursePass"],
     key: "test",
     offer: "coursePass",
-    unlock: { signedIn: linkOptions({ to: ROUTES.APP }), signedOut: linkOptions({ to: ROUTES.SIGN_UP }) },
+    price: 100,
+    unlock: (redirect: string) => linkOptions({ search: { redirect }, to: ROUTES.APP_LICENSE }),
   },
 ] as const satisfies readonly CourseAccessGrant[]

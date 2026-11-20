@@ -123,7 +123,7 @@ describe("getLesson", () => {
     })
     expect(data.previous?.slug).toBe("boundaries")
     expect(data.next?.slug).toBe("billing")
-    expect(data.viewer).toStrictEqual({ signedIn: false })
+    expect(data.viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: false })
   })
 
   it("lists the materials in order with their titles, kinds and sizes", async () => {

@@ -1,3 +1,4 @@
+import { CLI_VARIABLE } from "@saasyland/stack/cli"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRoute, createRouter } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
@@ -30,7 +31,7 @@ import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
 
-import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
+import { CLI_LICENSE_COMMANDS, cliCommand } from "~/src/data/cli"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -500,9 +501,9 @@ describe("owning a license", () => {
     expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual(
       CLI_LICENSE_COMMANDS.map((command) => pagesLicenseMessages.commands[command]),
     )
-    expect(screen.getByText(CLI_LICENSE_KEY_VARIABLE).tagName).toBe("CODE")
-    expect(screen.getByText(CLI_LICENSE_KEY_VARIABLE).parentElement).toHaveTextContent(
-      pagesLicenseMessages.ci.replace("<code>{variable}</code>", CLI_LICENSE_KEY_VARIABLE),
+    expect(screen.getByText(CLI_VARIABLE.LICENSE_KEY).tagName).toBe("CODE")
+    expect(screen.getByText(CLI_VARIABLE.LICENSE_KEY).parentElement).toHaveTextContent(
+      pagesLicenseMessages.ci.replace("<code>{variable}</code>", CLI_VARIABLE.LICENSE_KEY),
     )
   })
 

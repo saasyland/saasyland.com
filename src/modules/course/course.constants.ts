@@ -76,9 +76,28 @@ export const COURSE_QUERY_KEYS = {
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  EXPORT: ["course", "exportCourses"],
+  IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
   UPDATE: ["course", "updateCourse"],
 } as const
+
+export const COURSE_DOCUMENT = {
+  FORMAT: "courses",
+  VERSION: 1,
+} as const
+
+export const COURSE_DOCUMENT_ENTITIES = ["courses", "chapters", "lessons", "links"] as const
+
+export type CourseDocumentEntity = (typeof COURSE_DOCUMENT_ENTITIES)[number]
+
+export const COURSE_DOCUMENT_MAX_LENGTH = 2_000_000
+
+export const COURSE_DOCUMENT_MEDIA_TYPE = "application/json"
+
+export const COURSE_IMPORTS_PER_MINUTE = 10
+
+export const COURSE_IMPORT_PROBLEMS_MAX = 20
 
 export const COURSE_VALIDATION_PARAMS: Record<string, Record<string, number>> = {
   descriptionTooLong: { max: LESSON_DESCRIPTION_MAX_LENGTH },

@@ -15,6 +15,8 @@ import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
 import { AdminCoursesPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { courseColumns } from "~/src/presentation/components/custom/admin/courses/course-columns"
+import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
+import { ImportCoursesDialog } from "~/src/presentation/components/custom/admin/courses/import-courses-dialog"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"
@@ -29,10 +31,14 @@ const CoursesPage = (): JSX.Element => {
           <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
-        <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
-          <PlusCircle aria-hidden className="size-4" />
-          {t("actions.create")}
-        </LinkButton>
+        <div className="flex flex-wrap gap-2">
+          <ImportCoursesDialog />
+          <ExportCoursesButton />
+          <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+            <PlusCircle aria-hidden className="size-4" />
+            {t("actions.create")}
+          </LinkButton>
+        </div>
       </div>
 
       <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />

@@ -4,8 +4,11 @@ type Lesson = Course["pageLesson"]
 
 export const courseLessons = (page: Course["page"]): Lesson[] => page.chapters.flatMap(({ lessons }) => lessons)
 
-export const nextLessonToWatch = (lessons: readonly Lesson[]): Lesson | undefined =>
-  lessons.find((lesson) => !lesson.locked && !lesson.completed) ?? lessons.find((lesson) => !lesson.locked)
+export const nextLessonToWatch = (lessons: readonly Lesson[]): Lesson | undefined => {
+  const playable = lessons.filter((lesson) => !lesson.locked && !lesson.recording)
+
+  return playable.find((lesson) => !lesson.completed) ?? playable[0]
+}
 
 export const locateLesson = (lessons: readonly Lesson[], slug: string) => {
   const index = lessons.findIndex((lesson) => lesson.slug === slug)

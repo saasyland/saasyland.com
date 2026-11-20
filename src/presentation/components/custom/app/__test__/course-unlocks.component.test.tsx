@@ -34,6 +34,7 @@ const course = (id: string, paid: number): Course["catalogue"][number] => ({
   level: COURSE_LEVEL.BEGINNER,
   paid,
   previews: 1,
+  recorded: 0,
   slug: id,
   summary: id,
   title: `Course ${id}`,

@@ -5,7 +5,7 @@ description: "Un catálogo público de cursos cuyas lecciones son gratuitas, req
 
 Los cursos, tutoriales y proyectos viven en D1 y se ven en `/courses`. Cada lección reproduce un vídeo de la biblioteca de [Vídeos](/docs/features/videos), y su nivel de acceso decide quién puede verla y descargar sus materiales.
 
-La administración es el único lugar donde se editan los cursos. Cada título, resumen, nivel, icono, objetivo, requisito previo, capítulo, lección, descripción, momento clave, vídeo y material es una fila de D1 que `/admin/courses` edita en todos los locales; ningún contenido de los cursos se escribe en el código fuente. El código solo fija las opciones que ofrece la administración: los tipos, niveles, estados, niveles de acceso y nombres de iconos son constantes con nombre.
+La administración es el único lugar donde se editan los cursos. Cada título, resumen, nivel, icono, objetivo, requisito previo, capítulo, lección, descripción, momento clave, vídeo y material es una fila de D1 que `/admin/courses` edita en todos los locales; ningún contenido de los cursos se escribe en el código fuente. El código solo fija las opciones que ofrece la administración: los tipos, niveles, estados, niveles de acceso y nombres de iconos son constantes con nombre. Para cambiar muchos cursos a la vez, la administración exporta los cursos a un archivo JSON e importa el archivo editado; consulta [Importar y exportar](#import-and-export).
 
 ## Modelo de datos
 
@@ -34,7 +34,14 @@ Una lección está en grabación cuando no tiene vídeo o su vídeo es provision
 
 - `getCourse` y `getLesson` devuelven `recording: true` y `durationMs: null`, y `getLesson` no devuelve ningún locale de subtítulos;
 - `getLessonPlayback` responde `NOT_FOUND`, así que no existe ningún stream firmado;
-- `getCatalogue` y `getCourseShowcase` la dejan fuera de la duración del curso, y la muestra de cursos nunca la ofrece como lección gratuita.
+- `getCatalogue` y `getCourseShowcase` la dejan fuera de la duración del curso y cuentan solo las lecciones que se reproducen (`recorded` y `recordedCount`), y la muestra de cursos nunca la ofrece como lección gratuita.
+
+Un curso se puede publicar mientras sus lecciones están en grabación, y las páginas lo dicen en lugar de vender lo que todavía no se reproduce:
+
+- La tarjeta del catálogo y el bloque de cursos de la página de inicio muestran **En grabación** en lugar de los minutos mientras no se reproduce ninguna de las lecciones del curso.
+- La página del curso dice que el curso está en grabación y que cada lección se reproducirá en cuanto se publique su grabación, y no ofrece ningún enlace **Empezar el curso**. Cuando algunas lecciones ya se reproducen, **Empezar el curso** y **Continuar con …** llevan solo a una lección que se reproduce (`nextLessonToWatch` en `course.utils.ts`).
+- El temario muestra **En grabación** donde iría la duración de una lección.
+- Una lección en grabación dice que su grabación llegará pronto, aunque esté bloqueada, así que su página nunca pide al visitante que compre una lección que no se puede ver, y no ofrece **Marcar como completada**.
 
 Sustituir el vídeo por una grabación real, desde el editor de la lección o desmarcando el vídeo provisional en la biblioteca, hace que la lección se reproduzca en todas partes a la vez, sin ningún otro cambio.
 
@@ -70,16 +77,16 @@ Los materiales de una lección son archivos y enlaces de `lesson_attachment`, or
 
 El layout `/courses` (`_site._marketing.courses.tsx`) está dentro de los mismos layouts `_site` y `_marketing` que el blog, por lo que tiene la misma cabecera y el mismo pie de página. Las páginas leen D1 para cada espectador, así que no se prerenderizan: `courses.routes.ts` incluye `ROUTES.COURSES` en `COURSES_UNLISTED_ROUTES`. Tampoco están en el sitemap, y comparten la tarjeta del sitio para las vistas previas de enlaces; consulta [Búsqueda y vistas previas en redes sociales](/docs/features/seo).
 
-- `/courses`: una tarjeta por curso publicado con su tipo, número de lecciones, minutos y lecciones gratuitas. Sin cursos publicados, dice que se están grabando los primeros y remite a la suscripción al diario de desarrollo del pie de página; su primera frase coincide con la del bloque de cursos de la página de inicio.
-- `/courses/<course>`: el resumen, una barra de progreso para los espectadores con sesión, un enlace **Empezar el curso** o **Continuar con …** a la siguiente lección por ver y el temario por capítulos con insignias de **Vista previa gratuita**, duraciones e iconos de candado y de completada. Cuando hay una lección bloqueada, el panel **Todas las lecciones se incluyen con Complete** enlaza a la sección de precios o, para un espectador con sesión, a `/app/license?tier=complete`, donde Complete ya está elegido.
-- `/courses/<course>/<lesson>`: el reproductor, o un panel de bloqueo con **Iniciar sesión para ver**, que vuelve a la lección tras iniciar sesión mediante `redirect`, u **Obtener Complete**. Una lección [en grabación](#being-recorded) indica que su grabación llegará pronto. Debajo aparecen el nivel de acceso, los **Materiales**, que solo enlazan y se descargan para un espectador que puede abrir la lección, **Marcar como completada** para los espectadores con sesión y enlaces a la lección anterior y a la siguiente; el contenido del curso permanece al lado en pantallas anchas. La página se carga con una sola llamada a `getLesson`.
+- `/courses`: una tarjeta por curso publicado con su tipo, número de lecciones, minutos o **En grabación**, y lecciones gratuitas. Sin cursos publicados, dice que se están grabando los primeros y remite a la suscripción al diario de desarrollo del pie de página; su primera frase coincide con la del bloque de cursos de la página de inicio.
+- `/courses/<course>`: el resumen, una barra de progreso para los espectadores con sesión, un enlace **Empezar el curso** o **Continuar con …** a la siguiente lección que se reproduce, o una nota de que el curso está en grabación, y el temario por capítulos con insignias de **Vista previa gratuita**, duraciones o **En grabación**, e iconos de candado y de completada. Cuando hay una lección bloqueada, el panel **Todas las lecciones se incluyen con Complete** enlaza a la sección de precios o, para un espectador con sesión, a `/app/license?tier=complete`, donde Complete ya está elegido.
+- `/courses/<course>/<lesson>`: el reproductor, o un panel de bloqueo con **Iniciar sesión para ver**, que vuelve a la lección tras iniciar sesión mediante `redirect`, u **Obtener Complete**. Una lección [en grabación](#being-recorded) indica que su grabación llegará pronto, esté bloqueada o no. Debajo aparecen el nivel de acceso, los **Materiales**, que solo enlazan y se descargan para un espectador que puede abrir la lección, **Marcar como completada** para los espectadores con sesión de una lección que se reproduce y enlaces a la lección anterior y a la siguiente; el contenido del curso permanece al lado en pantallas anchas. La página se carga con una sola llamada a `getLesson`.
 
 ## En la página de inicio
 
 El bloque de cursos de la sección **Conjunto de herramientas** de la página de inicio (`course-showcase.tsx` en `src/presentation/components/custom/landing-page/components/`) muestra lo que hay en D1, así que nunca lista un curso o una lección que no exista:
 
 - La página de inicio está prerenderizada, así que su HTML contiene el encabezado del bloque, el recorrido por las páginas del curso y marcadores de posición. Cuando el bloque queda a menos de una pantalla del área visible, el navegador llama una vez a `getCourseShowcase` mediante `courseShowcaseQuery` y lo completa. Los visitantes que no se desplazan hasta ahí no envían ninguna petición.
-- Cada curso es una columna de tres líneas: su título, que enlaza a su página; su tipo, número de lecciones y minutos; y su primera vista previa gratuita que tiene vídeo, que abre la lección, o su número de lecciones gratuitas cuando no se puede ver ninguna. Las columnas van una al lado de otra a partir del punto de corte `md` y, por debajo, se desplazan en horizontal.
+- Cada curso es una columna de tres líneas: su título, que enlaza a su página; su tipo, número de lecciones y minutos, o **En grabación** mientras no se reproduce ninguna de sus lecciones; y su primera vista previa gratuita que tiene vídeo, que abre la lección, o su número de lecciones gratuitas cuando no se puede ver ninguna. Las columnas van una al lado de otra a partir del punto de corte `md` y, por debajo, se desplazan en horizontal.
 - El bloque conserva el tamaño de su marcador de posición sea cual sea la respuesta. El título, los datos y la vista previa gratuita ocupan cada uno una sola línea y se recortan, el marcador de posición dibuja las mismas líneas con la misma tipografía, y los mensajes para cuando no hay cursos publicados y para cuando la petición falla se muestran en un marco del tamaño de una columna. Cuando llegan los cursos, nada de lo que hay bajo el bloque se mueve, en ningún ancho. `landing.spec.ts` lo comprueba en un escritorio y en un teléfono.
 - Si no hay cursos publicados, el bloque lo indica; si la petición falla, remite al catálogo de cursos. **Ver todos los cursos** enlaza siempre a `/courses`.
 - El recorrido por las páginas del curso es el vídeo de la composición `course-tour` del proyecto `remotion/`. Es un archivo estático en `src/presentation/assets/motion/` con pósteres AVIF y WebP, y al pulsarlo se reproduce en su sitio con los controles del navegador. No usa la biblioteca de vídeos.
@@ -91,6 +98,14 @@ Para un espectador con sesión, el reproductor empieza en la `position_ms` guard
 ## Lecciones y vídeos
 
 Una lección no almacena archivos de vídeo propios. Publica la grabación con `bun run video:publish:<environment>` (consulta [Vídeos](/docs/features/videos)) y elígela después en la tarjeta **Vídeo** del editor de la lección, que rellena `video_id`. Varias lecciones pueden usar el mismo vídeo, y todas las lecciones pueden empezar con un mismo vídeo provisional compartido hasta que exista su propia grabación. Las duraciones del catálogo y del temario salen de `video.duration_ms`, y una lección en grabación no tiene ninguna.
+
+Para dar su vídeo real a una lección en grabación:
+
+1. Publica la grabación con `bun run video:publish:production <file> --title "…"`. Aparece al principio de `/admin/videos`.
+2. Abre la lección en el editor de la lección, elige la grabación en **Sustituir por** de la tarjeta **Vídeo** y pulsa **Sustituir vídeo**.
+3. La lección se reproduce en todas las páginas a la vez, su duración cuenta para el curso y **En grabación** desaparece.
+
+Las lecciones importadas de un archivo sin vídeo, como el temario de más abajo, no tienen ningún vídeo, así que también están [en grabación](#being-recorded); los mismos tres pasos les dan uno.
 
 ## Gestionar cursos
 
@@ -150,18 +165,86 @@ Toda eliminación pide confirmación antes.
 
 Las claves foráneas eliminan las filas con `ON DELETE CASCADE`, y los casos de uso de eliminación borran de R2 los archivos subidos (`attachmentObjectKeys` y `removeAttachmentObjects` en `lesson-attachment.objects.ts`). Los vídeos nunca se eliminan con un curso, un capítulo o una lección: se quedan en la biblioteca.
 
+### Importar y exportar [#import-and-export]
+
+La lista de cursos tiene **Importar** y **Exportar todo**, y el editor del curso tiene **Exportar** para su propio curso. La exportación escribe un archivo JSON, `courses-<date>.json` o `<slug>-<date>.json`, y la importación lee uno. Los componentes son `import-courses-dialog.tsx` y `export-courses-button.tsx`, y el trabajo se hace en `src/modules/course/course.transfer.ts`.
+
+El archivo contiene todos los cursos en el orden de los cursos, con sus capítulos, sus lecciones en orden, su texto en todos los locales, los niveles de acceso, los estados, las descripciones, los momentos clave, los enlaces y el id del vídeo de cada lección:
+
+```json
+{
+  "courses": [
+    {
+      "chapters": [
+        {
+          "lessons": [
+            {
+              "access": "preview",
+              "description": {},
+              "keyMoments": [{ "at": "2:15", "label": { "en-US": "Install the CLI" } }],
+              "links": [{ "title": { "en-US": "Getting started" }, "url": "/docs/getting-started" }],
+              "slug": "what-you-will-build",
+              "status": "published",
+              "summary": { "en-US": "The finished application." },
+              "title": { "en-US": "What you'll build" },
+              "videoId": "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b"
+            }
+          ],
+          "summary": {},
+          "title": { "en-US": "Start" }
+        }
+      ],
+      "icon": "rocket",
+      "kind": "course",
+      "level": "beginner",
+      "outcomes": { "en-US": ["Deploy to Cloudflare"] },
+      "prerequisites": { "en-US": ["TypeScript and React"] },
+      "slug": "empty-folder-to-production",
+      "status": "published",
+      "summary": { "en-US": "From an empty folder to production." },
+      "title": { "en-US": "Empty folder to production" }
+    }
+  ],
+  "format": "courses",
+  "version": 1
+}
+```
+
+- `format` es <RepositoryFact name="courseDocumentFormat" /> y `version` es <RepositoryFact name="courseDocumentVersion" /> (`COURSE_DOCUMENT`). Cada curso, capítulo, lección y enlace se comprueba con los esquemas que usan los formularios de la administración (`createCourse`, `createChapter`, `updateLesson` y `createLessonAttachment`), reunidos en `courseDocument` en `course.zod.ts`. Un campo que el formato no tiene se rechaza, así que una clave mal escrita no puede perderse en silencio.
+- Los archivos subidos no viajan en el archivo: solo lleva enlaces, y el diálogo lo indica. Los archivos subidos se quedan en sus lecciones cuando se importa un archivo.
+- Una lección sin `videoId` conserva el vídeo que tiene, y una nueva empieza sin vídeo, así que está [en grabación](#being-recorded). Una importación nunca quita el vídeo a una lección. Un `videoId` que la biblioteca de esta base de datos no tiene, como ocurre tras exportar desde otro entorno, deja el vídeo de la lección como está y aparece como advertencia.
+
+**Importar** abre un diálogo: elige el archivo y pulsa **Comprobar archivo**. La comprobación es una ejecución de prueba (`importCourses` con `dryRun: true`) que no escribe nada y muestra, para cursos, capítulos, lecciones y enlaces, cuántos añade la importación, cuántos actualiza, cuántos deja sin cambios, cuántos elimina y cuántos conserva aunque el archivo no los tenga, cuántos archivos subidos borra la eliminación, y las advertencias. Después, **Importar** ejecuta el mismo plan de verdad. Un archivo que incumple una regla muestra en su lugar sus problemas, cada uno con la ruta del campo, como `courses.0.chapters.1.lessons.2.slug`, y el mensaje que mostraría el formulario de la administración; se listan los <RepositoryFact name="courseImportProblemsMax" /> primeros y el resto se cuenta. No se importa nada mientras el archivo tenga algún problema.
+
+La importación reconoce lo que ya hay en la base de datos por claves naturales, nunca por ids de fila:
+
+- Un curso por su slug, y una lección por su slug dentro de su curso, así que una lección puede pasar a otro capítulo.
+- Un capítulo por su orden dentro de su curso: el primer capítulo del archivo actualiza el primer capítulo del curso.
+- Un enlace por su orden entre los enlaces de la lección.
+
+Solo escribe lo que difiere, así que importar el mismo archivo dos veces no cambia nada la segunda vez. Los cursos nuevos van después de los existentes, en el orden del archivo. Las lecciones de un capítulo toman el orden del archivo; las lecciones que el archivo omite quedan detrás de ellas. Todas las escrituras de una importación se ejecutan en un solo `db.batch`, una única transacción de D1, así que una importación se aplica entera o no se aplica.
+
+La opción **Eliminar lo que el archivo no contiene** está desmarcada por defecto. Cuando se marca, la importación también elimina los cursos, capítulos, lecciones y enlaces que faltan en el archivo, con el progreso de todos en ellos, y borra de R2 los archivos subidos de las lecciones eliminadas. Exportar un curso e importarlo con esta opción elimina todos los demás cursos, y la comprobación lo muestra antes de que se escriba nada.
+
+`importCourses` ejecuta `withRateLimit` con <RepositoryFact name="courseImportsPerMinute" /> comprobaciones o importaciones por dirección y minuto y exige `course: ["create", "update", "delete"]`, porque un solo archivo puede hacer las tres cosas. Lee el archivo como texto de como máximo <RepositoryFact name="courseDocumentMaxLength" /> caracteres; divide un catálogo más grande en varios archivos. `exportCourses` exige `course: ["read"]`.
+
+Tras una importación, la base de datos es la fuente de verdad: edita los cursos en la administración y, para cambiar muchas lecciones a la vez, exporta, edita el archivo e impórtalo.
+
+`content/courses/saasy-land-courses.json` es el temario de saasyland.com en todos los locales, publicado, con todas las lecciones en grabación. Es el archivo que se importa en una base de datos nueva, no datos que lea la aplicación: los cursos solo existen cuando un administrador lo importa. `course-curriculum.test.ts` comprueba que la importación lo acepta.
+
 ### Funciones de servidor
 
-| Módulo              | Casos de uso                                                                                                                   | Permiso              |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| `course`            | `getCourses`, `getCourseEditor`                                                                                                | `course: ["read"]`   |
-| `course`            | `createCourse`                                                                                                                 | `course: ["create"]` |
-| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]` |
-| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]` |
-| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]` |
-| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]` |
-| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]` |
-| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]` |
+| Módulo              | Casos de uso                                                                                                                   | Permiso                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
+| `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
+| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
+| `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]`                     |
+| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]`                     |
+| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]`                     |
 
 - `getCourseEditor` devuelve cada lección con su descripción, sus momentos clave, su vídeo (con su marca de provisional) y sus materiales, así que el editor del curso y el editor de la lección comparten una sola consulta.
 - `uploadLessonAttachment` recibe `FormData` (el archivo, la lección y el título por locale, que construye `uploadFormData`) y además ejecuta `withRateLimit` con <RepositoryFact name="attachmentUploadsPerMinute" /> subidas por dirección y minuto. Escribe la fila, después el archivo, y vuelve a quitar la fila si R2 rechaza el archivo.
@@ -175,7 +258,9 @@ Las claves foráneas eliminan las filas con `ON DELETE CASCADE`, y los casos de 
 
 ## Pruebas
 
-`scripts/seed-test.ts` crea un curso publicado con su nivel, icono, objetivos y requisitos previos, un capítulo con resumen y cuatro lecciones: la gratuita tiene una descripción, un momento clave, un PDF y un enlace a la documentación; la de pago tiene un PDF; la última usa el vídeo provisional sembrado. También siembra `learner@example.test` con una licencia Complete activa. Las pruebas de navegador de `e2e/specs/courses.spec.ts` ven las lecciones. En `e2e/specs/course-admin.spec.ts`, un administrador crea un curso, un capítulo y una lección gratuita con el vídeo sembrado, un visitante en otra página del navegador ve la lección y el administrador elimina el curso; una segunda prueba escribe la descripción y los momentos clave de una lección, le pone el vídeo provisional, sube un archivo y añade un enlace, comprueba que un visitante ve la lección en grabación y descarga el archivo, sustituye el vídeo por la grabación para que la página del visitante lo reproduzca, y comprueba que eliminar el curso elimina el archivo. `e2e/specs/course-materials.spec.ts` comprueba la regla de acceso de las descargas: un visitante descarga el archivo de una lección gratuita mediante una ruta firmada y recibe `403` con una falsificada, un visitante y un cliente sin Complete ven los materiales de una lección de pago sin enlaces, y el titular de la licencia Complete los descarga y ve en grabación la lección con el vídeo provisional, sin que se pida ningún stream. `e2e/specs/landing.spec.ts` comprueba que la página de inicio enlaza el curso sembrado y su lección gratuita, abre la lección gratuita y reproduce el recorrido por las páginas del curso, y que el bloque de cursos conserva su altura y no mueve nada cuando los cursos llegan o no se pueden cargar. `e2e/specs/course-access.spec.ts` inicia sesión como un cliente sin licencia y comprueba que una lección de pago ofrece Complete con un enlace a `/app/license?tier=complete` y que el resumen muestra el curso bloqueado junto a la oferta de licencias.
+`scripts/seed-test.ts` crea un curso publicado con su nivel, icono, objetivos y requisitos previos, un capítulo con resumen y cuatro lecciones: la gratuita tiene una descripción, un momento clave, un PDF y un enlace a la documentación; la de pago tiene un PDF; la última usa el vídeo provisional sembrado. También siembra `learner@example.test` con una licencia Complete activa. Las pruebas de navegador de `e2e/specs/courses.spec.ts` ven las lecciones. En `e2e/specs/course-admin.spec.ts`, un administrador crea un curso, un capítulo y una lección gratuita con el vídeo sembrado, un visitante en otra página del navegador ve la lección y el administrador elimina el curso; una segunda prueba escribe la descripción y los momentos clave de una lección, le pone el vídeo provisional, sube un archivo y añade un enlace, comprueba que un visitante ve la lección en grabación y descarga el archivo, sustituye el vídeo por la grabación para que la página del visitante lo reproduzca, y comprueba que eliminar el curso elimina el archivo. `e2e/specs/course-materials.spec.ts` comprueba la regla de acceso de las descargas: un visitante descarga el archivo de una lección gratuita mediante una ruta firmada y recibe `403` con una falsificada, un visitante y un cliente sin Complete ven los materiales de una lección de pago sin enlaces, y el titular de la licencia Complete los descarga y ve en grabación la lección con el vídeo provisional, sin que se pida ningún stream. `e2e/specs/landing.spec.ts` comprueba que la página de inicio enlaza el curso sembrado y su lección gratuita, abre la lección gratuita y reproduce el recorrido por las páginas del curso, y que el bloque de cursos conserva su altura y no mueve nada cuando los cursos llegan o no se pueden cargar. `e2e/specs/course-access.spec.ts` inicia sesión como un cliente sin licencia y comprueba que una lección de pago ofrece Complete con un enlace a `/app/license?tier=complete` y que el resumen muestra el curso bloqueado junto a la oferta de licencias. En `e2e/specs/course-import.spec.ts`, un administrador importa `content/courses/saasy-land-courses.json` mediante el diálogo, un visitante encuentra sus cursos en `/courses` con el primero en grabación, y una segunda comprobación del mismo archivo no encuentra nada que importar.
+
+`course-import.test.ts` y `course-transfer.test.ts` ejecutan la importación contra la base de datos de prueba: la ejecución de prueba del temario, su importación, una segunda importación que no cambia nada y una exportación que devuelve el mismo documento; las actualizaciones, los movimientos y las filas nuevas de una exportación editada; lo que borra la eliminación, incluidos los archivos subidos; las referencias a vídeos; y los problemas que muestra un archivo roto.
 
 ## Páginas relacionadas
 

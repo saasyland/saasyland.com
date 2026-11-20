@@ -39,7 +39,21 @@ const LessonState = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
     )
   }
 
+  if (lesson.recording) {
+    return <span aria-hidden className="size-3 shrink-0" data-slot="lesson-recording" />
+  }
+
   return <Play aria-hidden className="size-3 shrink-0 fill-current text-ring" strokeWidth={0} />
+}
+
+const LessonLength = ({ durationMs }: { readonly durationMs: number | null }): JSX.Element => {
+  const t = useTranslations("pages.courses.lesson")
+
+  if (durationMs === null) {
+    return <span className="shrink-0 font-mono text-spec text-muted-foreground">{t("recording")}</span>
+  }
+
+  return <span className="font-mono text-spec text-muted-foreground tabular-nums">{formatClock(durationMs)}</span>
 }
 
 interface CurriculumProps {
@@ -76,9 +90,7 @@ export const Curriculum = ({ chapters, courseSlug }: CurriculumProps): JSX.Eleme
                       </span>
                     )}
                   </span>
-                  {lesson.durationMs !== null && (
-                    <span className="font-mono text-spec text-muted-foreground tabular-nums">{formatClock(lesson.durationMs)}</span>
-                  )}
+                  <LessonLength durationMs={lesson.durationMs} />
                   <LessonState lesson={lesson} />
                 </Link>
               </li>

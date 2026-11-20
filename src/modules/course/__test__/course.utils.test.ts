@@ -56,6 +56,11 @@ describe("course utils", () => {
     expect(nextLessonToWatch([lesson("a", { locked: true }), lesson("b", { completed: true })])?.slug).toBe("b")
   })
 
+  it("skips lessons that are being recorded", () => {
+    expect(nextLessonToWatch([lesson("a", { durationMs: null, recording: true }), lesson("b")])?.slug).toBe("b")
+    expect(nextLessonToWatch([lesson("a", { durationMs: null, recording: true })])).toBeUndefined()
+  })
+
   it("has nothing to watch when every lesson is locked", () => {
     expect(nextLessonToWatch([lesson("a", { locked: true })])).toBeUndefined()
   })

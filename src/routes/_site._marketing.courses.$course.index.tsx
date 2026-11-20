@@ -73,6 +73,7 @@ const CoursePage = (): JSX.Element => {
   const lessons = courseLessons(data)
   const next = nextLessonToWatch(lessons)
   const hasLockedLessons = lessons.some((lesson) => lesson.locked)
+  const isRecording = lessons.every((lesson) => lesson.recording)
 
   return (
     <section className="relative">
@@ -93,6 +94,11 @@ const CoursePage = (): JSX.Element => {
           <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{data.course.summary}</p>
 
           {data.viewer.signedIn && <CourseProgress lessons={lessons} />}
+          {isRecording && (
+            <p className="mt-8 max-w-2xl rounded-lg border border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground">
+              {t("course.recording")}
+            </p>
+          )}
           {next !== undefined && (
             <StartLink courseSlug={data.course.slug} next={next} started={lessons.some((lesson) => lesson.completed)} />
           )}

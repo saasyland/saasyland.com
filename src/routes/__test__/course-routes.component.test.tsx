@@ -212,6 +212,7 @@ const CATALOGUE: Course["catalogue"] = [
     level: COURSE_LEVEL.BEGINNER,
     paid: 2,
     previews: 1,
+    recorded: 3,
     slug: COURSE_SLUG,
     summary: "How it works.",
     title: "The walkthrough",
@@ -225,6 +226,7 @@ const CATALOGUE: Course["catalogue"] = [
     level: COURSE_LEVEL.BEGINNER,
     paid: 0,
     previews: 0,
+    recorded: 0,
     slug: "one-off",
     summary: "A short one.",
     title: "One-off tutorial",
@@ -340,6 +342,7 @@ describe("course catalogue", () => {
     expect(within(card).getByText("6 min")).toBeVisible()
     expect(within(card).getByText("1 free lesson")).toBeVisible()
     expect(screen.getByRole("link", { name: /One-off tutorial/u })).toHaveTextContent(messages.kinds.tutorial)
+    expect(screen.getByRole("link", { name: /One-off tutorial/u })).toHaveTextContent(messages.catalogue.recording)
   })
 
   it("says the first courses are being recorded and points to the build log when nothing is published", async () => {
@@ -379,6 +382,8 @@ describe("course page", () => {
     expect(screen.getByRole("link", { name: /Sessions/u })).toHaveTextContent(messages.access.account)
     expect(screen.getByRole("link", { name: /Coverage/u })).toHaveTextContent("04")
     expect(screen.getByRole("link", { name: /Coverage/u })).not.toHaveTextContent(":")
+    expect(screen.getByRole("link", { name: /Coverage/u })).toHaveTextContent(messages.lesson.recording)
+    expect(screen.queryByText(messages.course.recording)).toBeNull()
   })
 
   it("shows a learner's progress and continues where they stopped", async () => {
@@ -395,6 +400,36 @@ describe("course page", () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
     expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute("href", unlock.signedIn.to)
+  })
+
+  it("says a course is being recorded and offers no start link while no lesson plays", async () => {
+    const recording = page({
+      lessons: [
+        lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null }),
+        lesson("billing", "Billing", { durationMs: null, locked: true }),
+      ],
+      viewer: { signedIn: false },
+    })
+    await renderCourses({ data: recording, path: "/courses/the-walkthrough" })
+
+    expect(screen.getByText(messages.course.recording)).toBeVisible()
+    expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
+    expect(screen.getAllByText(messages.lesson.recording)).toHaveLength(2)
+    expect(screen.getByRole("link", { name: /Boundaries/u }).querySelector("[data-slot=lesson-recording]")).not.toBeNull()
+  })
+
+  it("starts a learner on the first lesson that plays", async () => {
+    const partly = page({
+      lessons: [
+        lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null }),
+        lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
+      ],
+      viewer: { signedIn: true },
+    })
+    await renderCourses({ data: partly, path: "/courses/the-walkthrough" })
+
+    expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
+    expect(screen.queryByText(messages.course.recording)).toBeNull()
   })
 
   it("offers no start link when every lesson is locked", async () => {
@@ -446,16 +481,22 @@ describe("lesson page", () => {
     expect(await screen.findByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
   })
 
-  it("marks a lesson without a recording complete from the button", async () => {
+  it("marks a lesson complete from the button", async () => {
     const user = userEvent.setup({ delay: null })
-    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/coverage" })
+    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/sessions" })
 
-    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
     await user.click(screen.getByRole("button", { name: messages.lesson.markComplete }))
 
     await waitFor(() => {
-      expect(save).toHaveBeenCalledWith({ completed: true, lessonId: "lesson-coverage", positionMs: 0 }, expect.anything())
+      expect(save).toHaveBeenCalledWith({ completed: true, lessonId: "lesson-sessions", positionMs: 0 }, expect.anything())
     })
+  })
+
+  it("offers nothing to complete on a lesson that is being recorded", async () => {
+    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/coverage" })
+
+    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
+    expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
     const neighbours = within(screen.getByRole("navigation", { name: messages.lesson.contents }))
     expect(neighbours.getByRole("link", { name: /Billing/u })).toHaveTextContent(messages.lesson.previous)
   })
@@ -507,7 +548,9 @@ describe("lesson page", () => {
     expect(screen.queryByTestId("video-player")).toBeNull()
     expect(container.querySelector(".aspect-video[data-slot='skeleton']")).not.toBeNull()
   })
+})
 
+describe("lesson page while recording, and its materials", () => {
   it("shows a lesson on a placeholder video as being recorded and never plays it", async () => {
     const recording = page({
       lessons: [lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null })],
@@ -517,6 +560,13 @@ describe("lesson page", () => {
 
     expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
     expect(screen.queryByTestId("video-player")).toBeNull()
+  })
+
+  it("says a locked lesson is being recorded instead of selling it", async () => {
+    await renderCourses({ path: "/courses/the-walkthrough/coverage" })
+
+    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
+    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
   })
 
   it("lists the materials, with downloads and links only for a lesson the viewer may open", async () => {

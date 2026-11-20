@@ -1,4 +1,6 @@
-import { Resend } from "resend"
+import { setTimeout as delay } from "node:timers/promises"
+
+import { type ErrorResponse, Resend } from "resend"
 import * as zod from "zod"
 
 import { expect } from "../fixtures/test"
@@ -9,13 +11,29 @@ const RECENT_EMAILS = 100
 const DELIVERY_TIMEOUT_MS = 120_000
 const POLL_INTERVALS_MS = [2000, 5000]
 const VERIFICATION_LINK = /href="(?<link>[^"]*\/auth\/verify-email\?[^"]*token=[^"]+)"/u
+const RATE_LIMITED: ErrorResponse["name"] = "rate_limit_exceeded"
+const RATE_LIMIT_PAUSE_MS = 1000
 
 const resend = new Resend(JOURNEY_SETTINGS.RESEND_API_KEY)
 
 export const inboxAddress = (label: string): string => `delivered+${label}@resend.dev`
 
+const withinRateLimit = async <Reply extends { readonly error: ErrorResponse | null }>(
+  request: () => Promise<Reply>,
+): Promise<Reply> => {
+  const response = await request()
+
+  if (response.error?.name !== RATE_LIMITED) {
+    return response
+  }
+
+  await delay(RATE_LIMIT_PAUSE_MS)
+
+  return withinRateLimit(request)
+}
+
 const sentEmailId = async (recipient: string, subject: string): Promise<string | undefined> => {
-  const { data, error } = await resend.emails.list({ limit: RECENT_EMAILS })
+  const { data, error } = await withinRateLimit(async () => resend.emails.list({ limit: RECENT_EMAILS }))
 
   if (error) {
     throw new Error(`Resend did not list the sent emails: ${error.message}`)
@@ -29,7 +47,8 @@ const deliveredHtml = async (recipient: string, subject: string): Promise<string
     .poll(async () => sentEmailId(recipient, subject), { intervals: POLL_INTERVALS_MS, timeout: DELIVERY_TIMEOUT_MS })
     .toEqual(expect.any(String))
 
-  const { data, error } = await resend.emails.get(zod.string().parse(await sentEmailId(recipient, subject)))
+  const id = zod.string().parse(await sentEmailId(recipient, subject))
+  const { data, error } = await withinRateLimit(async () => resend.emails.get(id))
 
   if (error) {
     throw new Error(`Resend did not return the email "${subject}" sent to ${recipient}: ${error.message}`)

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -158,13 +158,13 @@ Le regole che ci stanno dietro: tutto ciò che decide l’accesso viene salvato 
 
 saasyland.com segue la tabella con cinque binding, dichiarati in `wrangler.jsonc`:
 
-| Binding   | Prodotto                | Cosa contiene                                                                                            | Dove si trova nel codice                                  |
-| --------- | ----------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ASSETS`  | File statici di Workers | Pagine prerenderizzate, script, stili, font e immagini della build                                       | `src/server.ts`                                           |
-| `DB`      | D1                      | Utenti, sessioni, licenze, copie degli ordini di Polar, corsi, video e contatori dei limiti di richieste | `src/integrations/drizzle-orm/` e `src/modules/`          |
-| `CACHE`   | KV                      | Due risposte in cache dalle API di altri servizi                                                         | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
-| `MEDIA`   | R2                      | Video dei corsi e materiali delle lezioni                                                                | `src/modules/video/`, `src/modules/lesson-attachment/`    |
-| `BUNDLES` | R2                      | Il bundle di template di ogni release della CLI                                                          | `src/modules/license/`                                    |
+| Binding   | Prodotto                | Cosa contiene                                                                                            | Dove si trova nel codice                               |
+| --------- | ----------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ASSETS`  | File statici di Workers | Pagine prerenderizzate, script, stili, font e immagini della build                                       | `src/server.ts`                                        |
+| `DB`      | D1                      | Utenti, sessioni, licenze, copie degli ordini di Polar, corsi, video e contatori dei limiti di richieste | `src/integrations/drizzle-orm/` e `src/modules/`       |
+| `CACHE`   | KV                      | Una risposta in cache dall’API di un altro servizio                                                      | `src/lib/github.ts`                                    |
+| `MEDIA`   | R2                      | Video dei corsi e materiali delle lezioni                                                                | `src/modules/video/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                      | Il bundle di template di ogni release della CLI                                                          | `src/modules/license/`                                 |
 
 Non c’è ancora alcun Durable Object: ogni contatore che il sito tiene vive in D1, come mostra la sezione sui limiti di richieste.
 
@@ -443,14 +443,11 @@ Questo rende KV eccellente per alcuni dati e pericoloso per il resto.
 - **Scrivi solo valori completi.** Se un aggiornamento fallisce a metà, tieni la vecchia voce invece di salvare una lista parziale.
 - **Non tenere nulla nella memoria del Worker tra una richiesta e l’altra.** Cloudflare può rimuovere un isolate in qualsiasi momento, e non è garantito che due richieste arrivino allo stesso, quindi una cache a livello di modulo è una cache che a volte funziona.
 
-### Esempio concreto: due voci, entrambe sacrificabili
+### Esempio concreto: una voce sacrificabile
 
-Il namespace `CACHE` di saasyland.com contiene esattamente due voci:
+Il namespace `CACHE` di saasyland.com contiene esattamente una voce: il conteggio delle stelle GitHub mostrato sul sito, aggiornato dopo <RepositoryFact name="starCountRefreshHours" unit="hour" />.
 
-- **Il conteggio delle stelle GitHub** mostrato sul sito, aggiornato dopo <RepositoryFact name="starCountRefreshHours" unit="hour" />.
-- **Gli sconti regionali di Polar**, gli sconti percentuali automatici che il checkout applica in base al paese, aggiornati dopo <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
-
-Ogni voce memorizza il proprio valore insieme all’istante in cui è stato recuperato, chi la legge la valida con Zod, e una voce mancante o malformata viene recuperata di nuovo. Gli sconti non più aggiornati vengono recuperati di nuovo prima che il checkout prosegua, e un elenco che fallisce viene registrato nei log e non salvato, mentre un conteggio delle stelle non più aggiornato viene servito così com’è e aggiornato in background:
+La voce memorizza il proprio valore insieme all’istante in cui è stato recuperato, chi la legge la valida con Zod, e una voce mancante o malformata viene recuperata di nuovo. Un conteggio delle stelle non più aggiornato viene servito così com’è e aggiornato in background:
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

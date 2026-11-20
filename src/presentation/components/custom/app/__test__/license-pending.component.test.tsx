@@ -28,7 +28,8 @@ const SELECTORS = {
   SECTION: "[data-section=included]",
   SETUP_STEP: ".size-6.rounded-full",
   STATUS_BADGE: "[data-slot=card-action]",
-  TIER_COLUMN: "[class~='@container'] > div > div",
+  TIER_COLUMN: "[class~='@container'] > .overflow-hidden > div",
+  UPGRADE: "[class*='lg:grid-cols-[1fr_18rem]']",
 } as const
 
 const license = (overrides: Partial<License["select"]> = {}): License["select"] => ({
@@ -97,11 +98,20 @@ describe("license skeletons", () => {
   it.each([
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
-  ])("adds the chosen tier above the grid at %s", (path, Page) => {
+  ])("adds the chosen tier and folds the tier grid away at %s", (path, Page) => {
     const container = renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`)
 
     expect(container.querySelector(SELECTORS.CHOSEN_TIER)).not.toBeNull()
-    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(LICENSE_TIERS.length)
+    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(0)
+  })
+
+  it.each([
+    ["/app", AppOverviewPending],
+    ["/app/license", AppLicensePending],
+  ])("mirrors the upgrade card of a license owner who picks a tier at %s", (path, Page) => {
+    expect(renderAt(<Page />, path, { owned: license() }).querySelector(SELECTORS.UPGRADE)).toBeNull()
+    cleanup()
+    expect(renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`, { owned: license() }).querySelector(SELECTORS.UPGRADE)).not.toBeNull()
   })
 
   it.each([

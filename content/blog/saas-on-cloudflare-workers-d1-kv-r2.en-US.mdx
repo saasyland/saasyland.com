@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -151,13 +151,13 @@ The rules behind it: whatever decides access is stored somewhere consistent; wha
 
 saasyland.com follows the table with five bindings, declared in `wrangler.jsonc`:
 
-| Binding   | Product               | What it holds                                                                                | Where in the code                                         |
-| --------- | --------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ASSETS`  | Workers static assets | Prerendered pages, scripts, styles, fonts and images from the build                          | `src/server.ts`                                           |
-| `DB`      | D1                    | Users, sessions, licences, copies of Polar’s orders, courses, videos and rate-limit counters | `src/integrations/drizzle-orm/` and `src/modules/`        |
-| `CACHE`   | KV                    | Two cached answers from other services’ APIs                                                 | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
-| `MEDIA`   | R2                    | Course videos and lesson materials                                                           | `src/modules/video/`, `src/modules/lesson-attachment/`    |
-| `BUNDLES` | R2                    | The template bundle of each CLI release                                                      | `src/modules/license/`                                    |
+| Binding   | Product               | What it holds                                                                                | Where in the code                                      |
+| --------- | --------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ASSETS`  | Workers static assets | Prerendered pages, scripts, styles, fonts and images from the build                          | `src/server.ts`                                        |
+| `DB`      | D1                    | Users, sessions, licences, copies of Polar’s orders, courses, videos and rate-limit counters | `src/integrations/drizzle-orm/` and `src/modules/`     |
+| `CACHE`   | KV                    | One cached answer from another service’s API                                                 | `src/lib/github.ts`                                    |
+| `MEDIA`   | R2                    | Course videos and lesson materials                                                           | `src/modules/video/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                    | The template bundle of each CLI release                                                      | `src/modules/license/`                                 |
 
 There is no Durable Object yet: every counter the site keeps lives in D1, as the rate-limit section shows.
 
@@ -436,14 +436,11 @@ That makes KV excellent for some data and dangerous for the rest.
 - **Write only complete values.** If a refresh fails halfway, keep the old entry rather than storing a partial list.
 - **Keep nothing in Worker memory between requests.** Cloudflare can evict an isolate at any time, and two requests are not guaranteed to reach the same one, so a module-level cache is a cache that sometimes works.
 
-### Worked example: two entries, both disposable
+### Worked example: one disposable entry
 
-saasyland.com’s `CACHE` namespace holds exactly two entries:
+saasyland.com’s `CACHE` namespace holds exactly one entry: the GitHub star count shown on the site, refreshed after <RepositoryFact name="starCountRefreshHours" unit="hour" />.
 
-- **The GitHub star count** shown on the site, refreshed after <RepositoryFact name="starCountRefreshHours" unit="hour" />.
-- **Polar’s regional discounts**, the automatic percentage discounts that checkout applies by country, refreshed after <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
-
-Each entry stores its value with the time it was fetched, the reader validates it with Zod, and a missing or malformed entry is fetched again. Outdated discounts are fetched again before checkout continues, and a listing that fails is logged and not stored, while an outdated star count is served as it is and refreshed in the background:
+The entry stores its value with the time it was fetched, the reader validates it with Zod, and a missing or malformed entry is fetched again. An outdated star count is served as it is and refreshed in the background:
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

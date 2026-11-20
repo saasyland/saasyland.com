@@ -36,7 +36,6 @@ const CUSTOMER = polarCustomer("organization-billing", "billing-customer")
 const ORDER = polarOrder({
   checkoutId: JSON_NULL,
   customer: CUSTOMER,
-  discount: JSON_NULL,
   metadata: {},
   product: PRODUCT,
   status: POLAR_ORDER_STATUS.PAID,

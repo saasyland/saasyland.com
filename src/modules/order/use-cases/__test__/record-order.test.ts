@@ -36,7 +36,6 @@ const placedOrder = (externalId: string | null): models.Order => {
   const placed = polarOrder({
     checkoutId: JSON_NULL,
     customer: { ...polarCustomer(env.POLAR_ORGANIZATION_ID, "buyer"), external_id: externalId },
-    discount: JSON_NULL,
     metadata: {},
     product: PRODUCT,
     status: POLAR_ORDER_STATUS.PENDING,

@@ -13,6 +13,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { CLI_GENERATION, CLI_GENERATION_VALUES, CLI_INIT_COMMAND } from "~/src/data/cli"
+import { BILLING_GENERATION } from "~/src/data/marketing"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -47,6 +48,8 @@ const plain = (message: string): string =>
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
     accent: (chunks: string) => chunks,
+    billing: BILLING_GENERATION,
+    code: (chunks: string) => chunks,
     strong: (chunks: string) => chunks,
   })
 

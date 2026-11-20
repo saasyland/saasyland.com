@@ -4,9 +4,11 @@ import { and, eq } from "drizzle-orm"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
+import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { license, revokedLicenseOrder } from "~/src/modules/license/license.schema"
+import { upgradeOrigin } from "~/src/modules/license/license.upgrades"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
@@ -51,6 +53,13 @@ export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId
 
   if (order.product_id === null || licenseTierForProduct(order.product_id) === undefined) {
     console.error(`[license] license key ${polarLicenseKeyId} was granted for order ${polarOrderId}, which is not a license purchase`)
+    return
+  }
+
+  const origin = upgradeOrigin(order.metadata)
+
+  if (origin !== undefined && origin.order === current?.polarOrderId) {
+    await polar.licenseKeys.update(polarLicenseKeyId, { status: POLAR_LICENSE_KEY_STATUS.DISABLED })
     return
   }
 

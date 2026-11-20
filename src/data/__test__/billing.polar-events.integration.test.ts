@@ -57,7 +57,6 @@ describe("the billing area's copies of Polar's records, through Polar's webhook 
     const placed = polarOrder({
       checkoutId: JSON_NULL,
       customer: polarCustomer(env.POLAR_ORGANIZATION_ID, buyer.userId),
-      discount: JSON_NULL,
       metadata: {},
       product: ONE_TIME,
       status: POLAR_ORDER_STATUS.PENDING,

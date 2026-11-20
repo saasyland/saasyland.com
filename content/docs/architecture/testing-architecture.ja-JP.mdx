@@ -24,10 +24,10 @@ description: "Vitest のプロジェクト、カバレッジのゲート、Playw
 
 `src/platform/testing/setup.ts` は各テストの前に `fetch` を置き換えます。そのため、アプリ自身の Resend と Polar の SDK クライアントは、本物のリクエストを `src/platform/testing/mocks/resend.ts` と `src/platform/testing/mocks/polar.ts` に送信します。
 
-- プロバイダーと同じ項目をチェックします。API キーまたはアクセストークン、エンドポイントとメソッド、ボディまたはクエリを、SDK 自身のリクエストモデル（`EmailApiOptions`、`models.CheckoutCreate`、`models.LicenseKeyDeactivate`）に合わせて型付けした厳密な Zod スキーマで検証します。Polar のテストダブルは、組織に存在しない商品や割引も拒否します。
+- プロバイダーと同じ項目をチェックします。API キーまたはアクセストークン、エンドポイントとメソッド、ボディまたはクエリを、SDK 自身のリクエストモデル（`EmailApiOptions`、`models.CheckoutCreate`、`models.LicenseKeyDeactivate`）に合わせて型付けした厳密な Zod スキーマで検証します。Polar のテストダブルは、組織に存在しない商品も、別の商品に付けたチェックアウト価格や Polar の最低価格を下回るチェックアウト価格も拒否します。
 - プロバイダーと同じように応答します。Resend は、同じ `Idempotency-Key` が繰り返されると二重に送信せずに最初の結果を返し、そのキーが別のメールとともに再び届くと 409 を返します。Polar は完全な `models.Checkout`、`models.Order`、`models.LicenseKeyWithActivations` オブジェクトを返し、保持していない注文やキーには 404 を返します。
-- Polar のテストダブルは、各エリアが投入する商品、割引、ライセンスキーの特典を返します。各エリアはモジュール内の `__test__/fixtures/<area>.polar-catalogue.ts` から投入し、`src/platform/testing/mocks/polar-catalogue.entries.ts` がそれらをまとめます。商品は ID、名前、通貨の最小単位で表した価格とその通貨、請求間隔からなり、買い切りの商品には請求間隔がありません。テストダブルはリセットのたびにカタログを投入し直すため、テストが `seedPolarCatalogue` で追加した月額プランなどの商品は、次のテストには残りません。
-- ライセンスのエリアのカタログはコードから作られます。プランごとの商品は ID を `POLAR_PRODUCT_IDS`、価格を `TIER_PRICES` から取り、商品ごとのライセンスキーの特典はアクティベーション数の上限を `LICENSE_ACTIVATION_LIMITS` から取り、`PPP_PERCENTS_OFF` の値ごとに自動のパーセント割引を 1 つ用意します。
+- Polar のテストダブルは、各エリアが投入する商品とライセンスキーの特典を返します。各エリアはモジュール内の `__test__/fixtures/<area>.polar-catalogue.ts` から投入し、`src/platform/testing/mocks/polar-catalogue.entries.ts` がそれらをまとめます。商品は ID、名前、通貨の最小単位で表した価格とその通貨、請求間隔からなり、買い切りの商品には請求間隔がありません。テストダブルはリセットのたびにカタログを投入し直すため、テストが `seedPolarCatalogue` で追加した月額プランなどの商品は、次のテストには残りません。
+- ライセンスのエリアのカタログはコードから作られます。プランごとの商品は ID を `POLAR_PRODUCT_IDS`、価格を `TIER_PRICES` から取り、商品ごとのライセンスキーの特典はアクティベーション数の上限を `LICENSE_ACTIVATION_LIMITS` から取ります。チェックアウトは `prices` に商品の固定価格を独自に指定でき、注文ではその価格が請求されます。
 - プロバイダーが拒否するリクエストや、アプリが呼び出さないエンドポイントへのリクエストは記録され、アプリがそのエラーを捕捉した場合でも、共通の `afterEach` がテストを失敗させます。
 
 ## 統合テストのスイート [#integration-suites]
@@ -35,7 +35,7 @@ description: "Vitest のプロジェクト、カバレッジのゲート、Playw
 `*.integration.test.ts` ファイルは、インメモリの D1 とプロバイダーのテストダブルを相手に、サーバー側のフロー全体を検証します。
 
 - Better Auth のスイートは、`auth.server.ts` の本物の `auth` に対して実行され、そのプラグイン、フック、レート制限、メール送信処理もすべて含まれます。`__test__/fixtures/auth.harness.ts` は、ブラウザが送るのと同じヘッダーでサインアップ、メール認証、サインインを行い、各トークンを Resend のテストダブルが配信したメールから読み取ります。
-- `license-purchase.integration.test.ts` は決済とライセンスをカバーします。購入セッションの作成（プラン、国別の地域割引、同意と言語、紹介情報のメタデータ、有効なライセンスがある場合の拒否）、続いて Better Auth の Polar エンドポイントを通る署名付きの `order.paid`、`benefit_grant.created`、`order.refunded`（一部返金と全額返金）、`benefit_grant.revoked` Webhook（順序の入れ替わり、二重配信、不正な署名を含む）、購入確認メール、そしてライセンスのアクティベーションの一覧表示と解除です。
+- `license-purchase.integration.test.ts` は決済とライセンスをカバーします。購入セッションの作成（プラン、国ごとの、ドル未満を切り捨てた地域価格、同意と言語、紹介情報のメタデータ、有効なライセンスがある場合の拒否）、アップグレード（支払い済みの額を差し引いた価格、差額の購入セッション、同じキーでのプランとアクティベーション数の上限の変更、アップグレードの注文自体のキーの無効化、返金されたアップグレードの巻き戻し）、続いて Better Auth の Polar エンドポイントを通る署名付きの `order.paid`、`benefit_grant.created`、`order.refunded`（一部返金と全額返金）、`benefit_grant.revoked` Webhook（順序の入れ替わり、二重配信、不正な署名を含む）、購入確認メール、そしてライセンスのアクティベーションの一覧表示と解除です。
 - `license.api.integration.test.ts` は [CLI ライセンス API](/docs/features/cli-licence-api) をカバーします。本物の Webhook ハンドラーを通じて購入したライセンスについて、D1 と Polar のテストダブルを相手にすべてのエンドポイントを検証し、端末のアクティベーションの再利用、アクティベーション数の上限、返金済みと取り消し済みのライセンス、アドレスごととキーごとのレート制限、Polar の障害を扱います。すべてのレスポンスをコントラクトの `readApiResponse` で読み取り、`e2e/specs/cli-licence-api.spec.ts` は CLI と同じ方法でビルド済みの Worker を呼び出します。
 
 ## カバレッジ

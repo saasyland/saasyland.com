@@ -33,6 +33,8 @@ export const PPP_KEYS: readonly number[] = [
 
 export const pppMultiplierKey = (countryCode: string | undefined): number => Math.round(getPppMultiplier(countryCode) * PPP_PERCENT)
 
+export const regionalPrice = (amount: number, multiplierKey: number): number => Math.floor((amount * multiplierKey) / PPP_PERCENT)
+
 export const PPP_COOKIE = "regional_pricing"
 
 export const PPP_DECLINED = "off"

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -111,13 +111,13 @@ saasyland.com は最初の種類のプロダクトです。ほどほどのリレ
 
 saasyland.com は、`wrangler.jsonc` で宣言した 5 つのバインディングでこの表に従っています。
 
-| バインディング | プロダクト             | 保持するもの                                                                                 | コード内の場所                                            |
-| -------------- | ---------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ASSETS`       | Workers の静的アセット | ビルドで生成されたプリレンダリング済みのページ、スクリプト、スタイル、フォント、画像         | `src/server.ts`                                           |
-| `DB`           | D1                     | ユーザー、セッション、ライセンス、Polar の注文のコピー、コース、動画、レート制限のカウンター | `src/integrations/drizzle-orm/` と `src/modules/`         |
-| `CACHE`        | KV                     | ほかのサービスの API からの 2 つのキャッシュ済みの応答                                       | `src/lib/github.ts`、`src/modules/license/license.ppp.ts` |
-| `MEDIA`        | R2                     | コースの動画とレッスンの資料                                                                 | `src/modules/video/`、`src/modules/lesson-attachment/`    |
-| `BUNDLES`      | R2                     | CLI の各リリースのテンプレートバンドル                                                       | `src/modules/license/`                                    |
+| バインディング | プロダクト             | 保持するもの                                                                                 | コード内の場所                                         |
+| -------------- | ---------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ASSETS`       | Workers の静的アセット | ビルドで生成されたプリレンダリング済みのページ、スクリプト、スタイル、フォント、画像         | `src/server.ts`                                        |
+| `DB`           | D1                     | ユーザー、セッション、ライセンス、Polar の注文のコピー、コース、動画、レート制限のカウンター | `src/integrations/drizzle-orm/` と `src/modules/`      |
+| `CACHE`        | KV                     | ほかのサービスの API からの 1 つのキャッシュ済みの応答                                       | `src/lib/github.ts`                                    |
+| `MEDIA`        | R2                     | コースの動画とレッスンの資料                                                                 | `src/modules/video/`、`src/modules/lesson-attachment/` |
+| `BUNDLES`      | R2                     | CLI の各リリースのテンプレートバンドル                                                       | `src/modules/license/`                                 |
 
 Durable Object はまだありません。レート制限のセクションで示すとおり、このサイトが持つカウンターはすべて D1 にあります。
 
@@ -396,14 +396,11 @@ KV はどこでも読み取りが速い一方、全体の値が揃うまでに�
 - **完全な値だけを書き込む。** 更新が途中で失敗したら、不完全な一覧を保存せず、古いエントリーを残します。
 - **リクエストの間で Worker のメモリに何も保持しない。** Cloudflare はいつでもアイソレートを破棄でき、2 つのリクエストが同じアイソレートに届く保証はないので、モジュールレベルのキャッシュは、ときどきしか機能しないキャッシュです。
 
-### 実例：どちらも捨てられる 2 つのエントリー
+### 実例：捨てられる 1 つのエントリー
 
-saasyland.com の `CACHE` 名前空間が保持するエントリーはちょうど 2 つです。
+saasyland.com の `CACHE` 名前空間が保持するエントリーはちょうど 1 つ、サイトに表示する GitHub のスター数で、<RepositoryFact name="starCountRefreshHours" unit="hour" />が過ぎると更新されます。
 
-- **GitHub のスター数**。サイトに表示するもので、<RepositoryFact name="starCountRefreshHours" unit="hour" />が過ぎると更新されます。
-- **Polar の地域割引**。チェックアウトが国ごとに適用する自動のパーセント割引で、<RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />が過ぎると更新されます。
-
-各エントリーは値を取得時刻とともに保存し、読み取る側はそれを Zod で検証し、存在しないエントリーや不正なエントリーは取得し直します。古くなった割引はチェックアウトを続ける前に取得し直し、一覧の取得に失敗した場合はログに記録して保存しません。一方、古くなったスター数はそのまま返して、バックグラウンドで更新します。
+このエントリーは値を取得時刻とともに保存し、読み取る側はそれを Zod で検証し、存在しないエントリーや不正なエントリーは取得し直します。古くなったスター数はそのまま返して、バックグラウンドで更新します。
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

@@ -1,23 +1,26 @@
 import { type ComponentType, type JSX, type ReactNode, useId } from "react"
 
-import { useHydrated } from "@tanstack/react-router"
-import { Check, CircleDashed } from "lucide-react"
+import { Link, useHydrated } from "@tanstack/react-router"
+import { BadgeCheck, Check, CircleDashed, FlaskConical, Receipt, RotateCcw } from "lucide-react"
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
-import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/license/license.pricing"
+import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { COURSE_PLATFORM_VALUES, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
+
+import { ROUTES } from "~/src/routes"
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 
@@ -33,7 +36,7 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
     <>
       {PPP_KEYS.map((key) => (
         <span className={`pv pv-${String(key)}`} key={key}>
-          {formatter.number((amount * key) / PPP_PERCENT, CURRENCY_FORMAT)}
+          {formatter.number(regionalPrice(amount, key), CURRENCY_FORMAT)}
         </span>
       ))}
       <s className="pv pv-regional ms-[0.3em] text-[max(0.45em,0.875rem)] font-normal text-muted-foreground">
@@ -123,7 +126,7 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
       id={tier}
     >
       <div className={cn("flex h-10 items-center border-b border-border px-7 @2xl:px-8", { "border-t-2 border-t-ring": isFeatured })}>
-        {isFeatured && <span className="font-mono text-spec tracking-[0.1em] text-ring uppercase">{t("mostPopular")}</span>}
+        {isFeatured && <span className="font-mono text-spec tracking-[0.1em] text-ring uppercase">{t("recommended")}</span>}
       </div>
 
       <div className="flex flex-1 flex-col p-7 @2xl:p-8">
@@ -143,11 +146,11 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
           {t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}
         </p>
 
-        <TierFeatures tier={tier} />
-
-        <div className="mt-auto pt-10 @2xl:pt-12">
+        <div className="mt-7 @2xl:order-last @2xl:mt-auto @2xl:pt-12">
           <Action featured={isFeatured} tier={tier} />
         </div>
+
+        <TierFeatures tier={tier} />
       </div>
     </HighlightItem>
   )
@@ -173,6 +176,41 @@ const RegionalPricing = (): JSX.Element => {
   )
 }
 
+const TRUST_TAGS = {
+  days: REFUND_TERMS.WITHDRAWAL_DAYS,
+  refunds: (chunks: ReactNode) => (
+    <Link
+      className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      to={ROUTES.REFUNDS}
+    >
+      {chunks}
+    </Link>
+  ),
+}
+
+export const PRICING_TRUST_ITEMS = ["merchant", "tax", "refund", "beta"] as const
+
+const TRUST_ICONS = { beta: FlaskConical, merchant: BadgeCheck, refund: RotateCcw, tax: Receipt } as const
+
+const PricingTrust = (): JSX.Element => {
+  const t = useTranslations("components.custom.pricing.trust")
+
+  return (
+    <ul className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+      {PRICING_TRUST_ITEMS.map((id) => {
+        const Icon = TRUST_ICONS[id]
+
+        return (
+          <li className="flex items-start gap-3" key={id}>
+            <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ring" strokeWidth={1.75} />
+            <span className="text-body-sm text-pretty text-muted-foreground">{t.rich(id, TRUST_TAGS)}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export const PricingTiers = ({ Action }: Readonly<{ Action: TierAction }>): JSX.Element => (
   <div className="@container">
     <HighlightGroup className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3" name="pricing-highlight">
@@ -182,5 +220,6 @@ export const PricingTiers = ({ Action }: Readonly<{ Action: TierAction }>): JSX.
     </HighlightGroup>
 
     <RegionalPricing />
+    <PricingTrust />
   </div>
 )

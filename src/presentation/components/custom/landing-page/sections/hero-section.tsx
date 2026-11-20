@@ -5,18 +5,25 @@ import { useTranslations } from "use-intl/react"
 
 import { CLI_GENERATION_VALUES, PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { CTA_CLASSES } from "~/src/data/cta"
+import { BILLING_GENERATION } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
+import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 
 const HERO_TAGS = {
   accent: (chunks: ReactNode) => <Accent id="hero">{chunks}</Accent>,
+  billing: BILLING_GENERATION,
+  code: (chunks: ReactNode) => <code className="font-mono text-[0.9em] text-foreground">{chunks}</code>,
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
 }
+
+const ANCHOR_TAGS = { ...PRICE_TAGS, days: REFUND_TERMS.WITHDRAWAL_DAYS }
 
 const HERO_IMAGE_SIZES =
   "(min-width: 80rem) calc(80rem - 5rem - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), (min-width: 40rem) calc((100vw - 3rem - 2px) * 1.35), calc((100vw - 3rem - 2px) * 1.9)"
@@ -73,6 +80,10 @@ export const HeroSection = (): JSX.Element => {
             />
           </a>
         </div>
+
+        <p className="mt-5 font-mono text-spec text-pretty text-muted-foreground sm:[--rise-delay:250ms] sm:motion-safe:animate-rise">
+          {t.rich("anchor", ANCHOR_TAGS)}
+        </p>
 
         <div className="mt-16 overflow-hidden rounded-xl border border-border bg-card sm:[--rise-delay:300ms] sm:[--rise-distance:1rem] sm:[--rise-duration:1000ms] sm:motion-safe:animate-rise md:mt-20">
           <InstallCommand />

@@ -11,6 +11,7 @@ export interface License {
   userLicense: Awaited<ReturnType<typeof getUserLicense>>["license"]
   unlicensedOrder: Awaited<ReturnType<typeof getUnlicensedOrders>>["rows"][number]
   deactivateLicense: zod.input<typeof licenseZodSchemas.deactivateLicense>
+  getUpgradePrice: zod.input<typeof licenseZodSchemas.getUpgradePrice>
   getUserLicense: zod.input<typeof licenseZodSchemas.getUserLicense>
   startCheckout: zod.input<typeof licenseZodSchemas.startCheckout>
 }

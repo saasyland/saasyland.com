@@ -1,9 +1,9 @@
 ---
 title: "ライセンス"
-description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、地域価格、ライセンスを付与して取り消す Webhook、購入確認メール、どのアカウントにも対応しない支払い済み注文のアラートと管理画面の一覧、顧客のライセンス画面。"
+description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、ドル未満を切り捨てた地域価格、差額の支払いによる上位プランへのアップグレード、ライセンスの付与、アップグレード、取り消しを行う Webhook、購入確認メール、どのアカウントにも対応しない支払い済み注文のアラートと管理画面の一覧、顧客のライセンス画面。"
 ---
 
-ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、割引を説明しています。
+ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、同意のチェックボックスを説明しています。
 
 ## 購入
 
@@ -15,26 +15,34 @@ description: "ライセンスのプランを販売する Polar の購入処理�
 
 `CheckoutButton`（`src/presentation/components/custom/app/checkout.tsx`）は、押されるとすぐに独自のダイアログなしで購入を開始し、ブラウザーが Polar に移動するまでほかのプランのボタンを無効にします。同じファイルの `CheckoutNotice` は、プランのカードの下と選んだプランの下で、Polar が Merchant of Record であり支払いページで同意を求めること、プロジェクトを生成するか有料レッスンを開くまでは <RepositoryFact name="refundWithdrawalDays" unit="day" />の間は全額返金を受けられることを事前に伝え、返金ポリシー、利用規約、商用ライセンスにリンクします。
 
-### 購入の開始
+### 購入の開始 [#starting-the-checkout]
 
 `startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, returnPath, tier }` を受け取ります。`returnPath` は購入者がボタンを押したページで、サイト内にとどまるよう `callbackPathSchema` で検証します。そのうえで次の処理を行います。
 
-1. アカウントにすでに `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
-2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、`findRegionalDiscount`（`src/integrations/polar/polar.discounts.ts`）が Polar で現在利用できる自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
-3. `polar.checkouts.create` でプランの Polar チェックアウトを作成します。チェックアウトはアカウントに紐付け（`external_customer_id`）、そのメールアドレスと名前（`customer_email`、`customer_name`）を入力済みにするため、チェックアウトのフォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`。Better Auth の `getIP` で読み取り）、無効にした割引コード、`metadata` の `locale`（`LICENSE_CHECKOUT_METADATA`）に入れた購入者の言語（訪問者がアフィリエイトリンクから来た場合はアフィリエイトの紹介情報も。[アフィリエイトプログラム](/docs/features/affiliates)を参照）、`polarCheckoutLanguage` で決めた Polar のページの言語を入れた `locale`、Polar が戻るボタンを表示するよう `return_url` にした `returnPath` のページ、購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）を渡します。Polar はメタデータと購入者が与えた同意を注文にコピーし、`{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
+1. アカウントにすでに同じプランか上位プランの `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
+2. `buyerTierPrice`（`license.ppp.ts`）でプランの価格を決めます。`TIER_PRICES` の金額に、`regional_pricing` Cookie が `off` でない限り `PPP_TIERS` にある `cf-ipcountry` の国の倍率を掛け、`regionalPrice`（`license.pricing.ts`）でドル未満を切り捨てます。`regionalPrice` は、プランのカードが価格の表示に使うのと同じ関数です。有効なライセンスのプランがより下位のアカウントでは、代わりに[アップグレード](#upgrades)の価格になります。
+3. `polar.checkouts.create` でプランの Polar チェックアウトを作成します。チェックアウトはアカウントに紐付け（`external_customer_id`）、そのメールアドレスと名前（`customer_email`、`customer_name`）を入力済みにするため、チェックアウトのフォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`。Better Auth の `getIP` で読み取り）、無効にした割引コード、`TIER_PRICES` と異なる場合にこのチェックアウトに限って有効なプランの商品の固定価格として `prices` に入れた手順 2 の価格、`metadata` の `locale`（`LICENSE_CHECKOUT_METADATA`）に入れた購入者の言語（アップグレードでは `upgrade_from_order` と `upgrade_from_tier` に入れたアップグレード元の注文とプランも。訪問者がアフィリエイトリンクから来た場合はアフィリエイトの紹介情報も。[アフィリエイトプログラム](/docs/features/affiliates)を参照）、`polarCheckoutLanguage` で決めた Polar のページの言語を入れた `locale`、Polar が戻るボタンを表示するよう `return_url` にした `returnPath` のページ、購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）を渡します。Polar はメタデータと購入者が与えた同意を注文にコピーし、`{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。
 
 返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
 
 `POLAR_CHECKOUT_LANGUAGES`（`src/data/polar.ts`）は、サイトの各言語を Polar のチェックアウトが翻訳されている言語に対応付けます。対応する言語がない場合、`polarCheckoutLanguage` は英語である `POLAR_CHECKOUT_DEFAULT_LANGUAGE` を使い、その言語では `isPolarCheckoutTranslated` によって `CheckoutNotice` が支払いページは英語で開くことを書き添えます。Polar がその言語でページを表示するのは、組織でチェックアウトのローカライズがオンになっている間だけで、`polar:verify` がこれを確認します（[Polar のセットアップ](/docs/getting-started/polar-setup#checkout-language)）。
 
-### アップグレード
+### アップグレード [#upgrades]
 
-アカウントが持つライセンスは 1 つだけで、新しい支払い済みの注文は古い注文のプランを置き換えます（`grantLicense`）。Polar の商品にはアップグレード用の価格がないため、セルフサービスでアップグレードすると最初の購入に加えて上位プランの全額が請求され、下位プランを購入するとライセンスがダウングレードされてしまいます。そのため、ライセンスが有効な間は購入を拒否し、`LicenseCard` ではプランを変更したい場合はサポートにメールするよう所有者に案内します。2 回目の購入を許可する前に、Polar でアップグレード用の商品か割引を作成してください。
+アカウントが持つライセンスは 1 つだけで、所有者は差額を支払ってライセンスを上位のプランに移します。`LicenseCard` は、ライセンスのプランより上位の各プランについて `/app/license?tier=<tier>` にリンクします（`license.upgrades.ts` の `higherTiers`）。有効なライセンスがあり、`tier` がそれより上位のプランの場合、`/app` と `/app/license` は `UpgradeOffer`（`src/presentation/components/custom/app/upgrade-offer.tsx`）を表示します。支払う金額、その内訳、アップグレードの前と後にキーで有効化できる端末数、そして `CheckoutButton` とその下の `CheckoutNotice` です。`upgradePriceQuery`（`get-upgrade-price.ts`）は、金額を `upgradePrice`（`license.upgrade-price.ts`）から読み取ります。
+
+- この購入者にとっての上位プランの価格。`buyerTierPrice` から求め、地域価格を含みます。
+- そこからクレジットを差し引きます。クレジットは、`polar.orders.list` で一覧取得した Polar の顧客の、`DEFAULT_CURRENCY_CODE` 建ての支払い済みまたは一部返金済みのライセンス注文すべてについて、請求した価格（`subtotal_amount` から `discount_amount` を引いた額）から、`refunded_amount` と、価格が税込みだった場合はあわせて返金された `refunded_tax_amount` を引いた額です。`net_amount` では EU の価格に含まれる VAT が抜け、購入者が支払った額より少なく差し引くことになります。
+- 残りが Polar の米ドルでの最低価格である `POLAR_MINIMUM_PRICE_AMOUNT`（`polar.constants.ts`）未満なら、無料になります。Polar は無料のチェックアウトは受け付けますが、それより小さい価格は受け付けないためです。
+
+`startCheckout` は上位プランの商品に対してその金額を請求し、`metadata` にライセンスの注文とプランを記します。有効でないライセンスや、まだ Polar の注文やキーがないライセンスはアップグレードできず、購入も拒否されたままです。下位プランへの変更は、引き続きサポートを通じて行います。
+
+アップグレードの注文が支払われると、`onOrderPaid` は `grantLicense` の代わりに `upgradeLicense`（`use-cases/upgrade-license.ts`）を呼び出します。ライセンスが `upgrade_from_order` の注文でまだ有効な間は、`polar.licenseKeys.update` でライセンスの Polar キーのアクティベーション数の上限を新しいプランの `LICENSE_ACTIVATION_LIMITS` に引き上げ、新しいプランを設定します。そのため、キー、そのアクティベーション、最初の注文とその記録はそのまま残ります。Polar はアップグレードの注文にも独自のキーを付与しますが、`onBenefitGrantCreated` がそれを Polar で無効にするため、顧客が持つキーは 1 つのままです。その間にライセンスが返金、取り消し、または置き換えられていたアップグレードの注文は、独立したライセンスとして付与されます。アップグレードの注文が全額返金されると `revertLicenseUpgrade` が呼ばれ、ライセンスがまだアップグレード後のプランである間は、以前のプランとアクティベーション数の上限に戻します。最初の注文の返金では、これまでどおりライセンスを取り消します。
 
 ### サインアップ前に選んだプラン
 
-ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれ、このボタンも同じ購入を開始し、その下に `CheckoutNotice` を表示します。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらも購入案内の上に `ChosenTier` を表示します。プラン、その地域価格、**決済に進む** ボタンが含まれ、このボタンも同じ購入を開始し、その下に `CheckoutNotice` を表示します。プランが選ばれている場合、購入案内はプランのカードを **パッケージを比較** の折りたたみ表示（`license-offer.tsx` の `ComparedTiers`）にまとめるため、目に入るのは選んだプランのボタンになります。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete`（Core の所有者にはそこで[アップグレード](#upgrades)が表示されます）に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
 
 サインアップページの時点でプランが示されます。ライセンスのエリアは `src/data/license.sign-up-intros.ts` で `SignUpOrderSummary`（`custom/app/sign-up-order-summary.tsx`）を `SIGN_UP_INTROS` に追加し、`redirectTierSchema`（`src/data/license.ts`）がロケールの接頭辞の有無にかかわらず `/app` または `/app/license` への `redirect` から `LICENSE_TIER` を読み取ると、ページは説明文の代わりにこれを表示します。概要には、プラン名と `TIER_PRICES` の金額、訪問者がいま `PURCHASE_STEP` のどのステップにいるか（アカウント作成の次に Polar での支払い）、そして未使用の購入なら `REFUND_TERMS.WITHDRAWAL_DAYS` 日以内に全額返金されることが、返金ポリシーへのリンク付きで表示されます。サインアップページには地域別価格の選択肢がないため、概要には定価が表示され、訪問者が辞退していなければ決済時に地域別の割引が適用されます。`SignUpPending` は同じリダイレクトに対して `SignUpOrderSummaryPending` を描画し、それ以外の `redirect` では説明文がそのまま表示されます。
 
@@ -58,9 +66,9 @@ UUID ではない `checkoutId` は無視されます。
 
 `src/data/license.polar-events.ts` は、`LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントでライセンスのエリアを Polar のイベントに追加し（[決済](/docs/features/payments#webhooks)を参照）、そのうち注文のイベントには `POLAR_WEBHOOK_EVENT` の値を使います。このファイルの `handle` は、各イベントを `licenseWebhookHandlers` の同じ名前のハンドラーに渡します。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。イベントには Polar がイベントを作成した時点で記録していた顧客が含まれ、再配信でも同じ内容が送られます。そのため、その `external_id` がどのアカウントも指していない場合、`onOrderPaid` と `onBenefitGrantCreated` は `polar.orders.get` で注文を読み直し、注文の現在の顧客で照合します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
-- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。続いて `sendPurchaseConfirmationEmail` が購入を確認します（[購入確認](#purchase-confirmation)を参照）。送信に失敗するとハンドラーも失敗するため、Polar がイベントを再送します。ライセンスではない商品の注文はログに記録するだけです。顧客がどのアカウントにも対応しないライセンスの注文は、ログに記録したうえで通知します（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。
-- `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
-- `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
+- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。メタデータに `upgrade_from_order` がある注文は代わりに `upgradeLicense` に渡り、アップグレード元のライセンスがもう有効でない場合にだけ付与されます（[アップグレード](#upgrades)）。続いて `sendPurchaseConfirmationEmail` が購入を確認します（[購入確認](#purchase-confirmation)を参照）。送信に失敗するとハンドラーも失敗するため、Polar がイベントを再送します。ライセンスではない商品の注文はログに記録するだけです。顧客がどのアカウントにも対応しないライセンスの注文は、ログに記録したうえで通知します（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。
+- `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。ライセンスが元のキーを保ったアップグレードの注文では、代わりに注文自体のキーを Polar で無効にします（`POLAR_LICENSE_KEY_STATUS.DISABLED`）。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
+- `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。アップグレードの注文では、まず `revertLicenseUpgrade` が以前のプランとアクティベーション数の上限に戻します。
 - `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
 
 `revokeLicense` は、その注文で購入したライセンスのステータスを設定し、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。`refunded` を置き換えることはありません。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるためです。[CLI ライセンス API](/docs/features/cli-licence-api) は、このステータスに応じて `licenseRefunded` または `licenseRevoked` を返します。
@@ -139,7 +147,7 @@ Polar がイベントを再配信できるのは、そのイベントのペイ�
 
 ## 顧客向け画面
 
-`/app/license` は `LicenseCard` を表示します。有効なライセンスでは、プラン、キー、`CLI_KEY_LINES` のコマンド（キーの有効化、プロジェクトの生成、端末の表示と解放）をそれぞれコピーボタン付きで、キーの発行中は `licenseKeySetupQuery` がキーの到着時にキーと置き換える行を、さらに `/api/auth/customer/portal` の Polar カスタマーポータルへのリンクと、プラン変更の連絡先となるサポートのメールアドレスを表示します。キーとポータルはアドレスが確認されるまで表示されません（[メール確認](/docs/features/email-verification#what-waits-for-the-confirmed-address)を参照）。返金済みまたは取り消されたライセンスでは、キー、コマンド、端末を表示せず、ステータス、その下の購入案内へのリンク、サポートへのリンクを表示します。キーのある有効なライセンスの下には `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar がそのアクティベーションをもう保持していない場合、`deactivateLicense` は `NOT_FOUND` を返します。CLI は [CLI ライセンス API](/docs/features/cli-licence-api) を通じてアクティベーションを追加、削除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
+`/app/license` は `LicenseCard` を表示します。有効なライセンスでは、プラン、キー、`CLI_KEY_LINES` のコマンド（キーの有効化、プロジェクトの生成、端末の表示と解放）をそれぞれコピーボタン付きで、キーの発行中は `licenseKeySetupQuery` がキーの到着時にキーと置き換える行を、さらに `/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、上位の各プランへの **…にアップグレード** リンク（[アップグレード](#upgrades)）、下位プランへの変更の連絡先となるサポートのメールアドレスを表示します。キーとポータルはアドレスが確認されるまで表示されません（[メール確認](/docs/features/email-verification#what-waits-for-the-confirmed-address)を参照）。返金済みまたは取り消されたライセンスでは、キー、コマンド、端末を表示せず、ステータス、その下の購入案内へのリンク、サポートへのリンクを表示します。キーのある有効なライセンスの下には `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar がそのアクティベーションをもう保持していない場合、`deactivateLicense` は `NOT_FOUND` を返します。CLI は [CLI ライセンス API](/docs/features/cli-licence-api) を通じてアクティベーションを追加、削除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
 
 ## 関連ページ
 

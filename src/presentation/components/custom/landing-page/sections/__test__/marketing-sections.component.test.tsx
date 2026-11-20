@@ -28,6 +28,7 @@ import {
   TIER_FEATURES,
 } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
@@ -44,6 +45,7 @@ import { RallySection } from "~/src/presentation/components/custom/landing-page/
 import { RecordSection } from "~/src/presentation/components/custom/landing-page/sections/record-section"
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
+import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricing"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
@@ -55,6 +57,7 @@ const withFacts = (message: string): string =>
     ...REPOSITORY_FACTS,
     ...COURSE_PLATFORM_VALUES,
     ...CLI_GENERATION_VALUES,
+    days: REFUND_TERMS.WITHDRAWAL_DAYS,
   })
 
 const EVIDENCE_CODE = [
@@ -118,12 +121,47 @@ describe("regional pricing", () => {
     expect(container.querySelector("#gate s.pv-regional")).toHaveTextContent("Regular price $249")
   })
 
+  it("anchors the price under the hero's buttons, with the refund period, and keeps one destination per call-to-action label", () => {
+    renderSection(
+      <>
+        <HeroSection />
+        <RallySection />
+      </>,
+    )
+
+    const line = screen.getByText((_, element) => element?.tagName === "P" && element.textContent.startsWith("From $249"))
+    expect(
+      line.textContent.endsWith(
+        ` once · lifetime updates · full refund within ${String(REFUND_TERMS.WITHDRAWAL_DAYS)} days before first use`,
+      ),
+    ).toBe(true)
+    expect(line.querySelector(".pv-100")).toHaveTextContent("$249")
+    expect(line.querySelector("s.pv-regional")).toHaveTextContent("Regular price $249")
+    expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
+    expect(screen.getByRole("link", { name: english.rally.ctaPrimary })).toHaveAttribute("href", "#cli")
+    expect(english.rally.ctaPrimary).not.toBe(english.hero.ctaPrimary)
+    expect(screen.getByText(`${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`, { selector: "p code" })).toBeVisible()
+  })
+
+  it("says under the tiers who sells, how tax works, when the refund ends and that the CLI is in beta", () => {
+    renderSection(<PricingSection />)
+
+    const t = createTranslator({ locale: "en-US", messages: pricing.trust })
+    for (const item of PRICING_TRUST_ITEMS) {
+      const text = t.markup(item, { days: REFUND_TERMS.WITHDRAWAL_DAYS, refunds: (chunks: string) => chunks })
+      expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === text)).toBeVisible()
+    }
+    expect(screen.getByRole("link", { name: "Refund Policy" })).toHaveAttribute("href", ROUTES.REFUNDS)
+    expect(screen.getAllByText(pricing.recommended)).toHaveLength(1)
+    expect(screen.queryByText("Most popular")).toBeNull()
+  })
+
   it("pairs every regional price with the struck-through regular price", () => {
     const { container } = renderSection(<PricingSection />)
     const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => element.textContent)
 
     expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $249"])
-    for (const price of ["$199.20", "$174.30", "$149.40", "$124.50", "$279.30", "$629.30"]) {
+    for (const price of ["$199", "$174", "$149", "$124", "$279", "$629"]) {
       expect(screen.getAllByText(price).length).toBeGreaterThan(0)
     }
     expect(container.querySelectorAll(".pv-regional.basis-full")).toHaveLength(3)
@@ -208,7 +246,7 @@ describe("marketing content and purchase links", () => {
     ] as const) {
       await user.click(screen.getByRole("radio", { name: runner }))
       expect(screen.getByRole("radio", { name: runner })).toBeChecked()
-      expect(screen.getByText(`${command} ${SCAFFOLD_TARGET}`)).toBeVisible()
+      expect(screen.getByText(`${command} ${SCAFFOLD_TARGET}`, { selector: ".truncate" })).toBeVisible()
     }
     await user.click(screen.getByRole("button", { name: english.hero.surface.copy }))
     expect(await navigator.clipboard.readText()).toBe(`${PACKAGE_MANAGER.YARN.exec} ${SCAFFOLD_TARGET}`)
@@ -226,7 +264,7 @@ describe("marketing content and purchase links", () => {
         expect(screen.getAllByText(withFacts(feature)).length).toBeGreaterThan(0)
       }
     }
-    expect(screen.getAllByText(pricing.mostPopular)).toHaveLength(1)
+    expect(screen.getAllByText(pricing.recommended)).toHaveLength(1)
     expect(screen.getByRole("link", { name: english.pricing.consulting.cta })).toHaveAttribute(
       "href",
       "mailto:hello@saasyland.com?subject=Architecture%20call",

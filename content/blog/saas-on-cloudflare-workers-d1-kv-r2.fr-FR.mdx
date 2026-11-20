@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -160,13 +160,13 @@ Les règles qui le sous-tendent : ce qui décide de l’accès est stocké dans 
 
 saasyland.com suit ce tableau avec cinq bindings, déclarés dans `wrangler.jsonc` :
 
-| Binding   | Produit                         | Ce qu’il contient                                                                                                                          | Où dans le code                                           |
-| --------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `ASSETS`  | Ressources statiques de Workers | Les pages prérendues, les scripts, les styles, les polices et les images issus du build                                                    | `src/server.ts`                                           |
-| `DB`      | D1                              | Les utilisateurs, les sessions, les licences, les copies des commandes de Polar, les cours, les vidéos et les compteurs de limite de débit | `src/integrations/drizzle-orm/` et `src/modules/`         |
-| `CACHE`   | KV                              | Deux réponses mises en cache des API d’autres services                                                                                     | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
-| `MEDIA`   | R2                              | Les vidéos des cours et les ressources des leçons                                                                                          | `src/modules/video/`, `src/modules/lesson-attachment/`    |
-| `BUNDLES` | R2                              | Le bundle de modèles de chaque version de la CLI                                                                                           | `src/modules/license/`                                    |
+| Binding   | Produit                         | Ce qu’il contient                                                                                                                          | Où dans le code                                        |
+| --------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `ASSETS`  | Ressources statiques de Workers | Les pages prérendues, les scripts, les styles, les polices et les images issus du build                                                    | `src/server.ts`                                        |
+| `DB`      | D1                              | Les utilisateurs, les sessions, les licences, les copies des commandes de Polar, les cours, les vidéos et les compteurs de limite de débit | `src/integrations/drizzle-orm/` et `src/modules/`      |
+| `CACHE`   | KV                              | Une réponse mise en cache de l’API d’un autre service                                                                                      | `src/lib/github.ts`                                    |
+| `MEDIA`   | R2                              | Les vidéos des cours et les ressources des leçons                                                                                          | `src/modules/video/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                              | Le bundle de modèles de chaque version de la CLI                                                                                           | `src/modules/license/`                                 |
 
 Il n’y a pas encore de Durable Object : chaque compteur que tient le site réside dans D1, comme le montre la section sur les limites de débit.
 
@@ -445,14 +445,11 @@ KV est donc excellent pour certaines données et dangereux pour les autres.
 - **N’écrivez que des valeurs complètes.** Si une actualisation échoue en cours de route, gardez l’ancienne entrée plutôt que de stocker une liste partielle.
 - **Ne gardez rien dans la mémoire du Worker entre les requêtes.** Cloudflare peut évincer un isolat à tout moment, et rien ne garantit que deux requêtes atteignent le même : un cache au niveau du module est un cache qui fonctionne parfois.
 
-### Exemple concret : deux entrées, toutes deux jetables
+### Exemple concret : une entrée jetable
 
-L’espace de noms `CACHE` de saasyland.com contient exactement deux entrées :
+L’espace de noms `CACHE` de saasyland.com contient exactement une entrée : le nombre d’étoiles GitHub affiché sur le site, actualisé au bout de <RepositoryFact name="starCountRefreshHours" unit="hour" />.
 
-- **Le nombre d’étoiles GitHub** affiché sur le site, actualisé au bout de <RepositoryFact name="starCountRefreshHours" unit="hour" />.
-- **Les remises régionales de Polar**, les remises automatiques en pourcentage que le paiement applique selon le pays, actualisées au bout de <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
-
-Chaque entrée stocke sa valeur avec l’heure à laquelle elle a été récupérée, le lecteur la valide avec Zod, et une entrée absente ou mal formée est récupérée à nouveau. Des remises périmées sont récupérées à nouveau avant que le paiement ne continue, et un listage qui échoue est journalisé et non stocké, tandis qu’un nombre d’étoiles périmé est servi tel quel et actualisé en arrière-plan :
+L’entrée stocke sa valeur avec l’heure à laquelle elle a été récupérée, le lecteur la valide avec Zod, et une entrée absente ou mal formée est récupérée à nouveau. Un nombre d’étoiles périmé est servi tel quel et actualisé en arrière-plan :
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

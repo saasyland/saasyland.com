@@ -302,6 +302,18 @@ describe("license webhooks on keys, refunds and revocations", () => {
     expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
   })
 
+  it.each([
+    { order: "a product this app does not sell", payload: orderPayload(UNKNOWN_PRODUCT_ID, USER_ID, POLAR_ORDER_STATUS.REFUNDED) },
+    { order: "no product", payload: orderPayload(JSON_NULL, USER_ID, POLAR_ORDER_STATUS.REFUNDED) },
+  ])("leaves the licence alone when an order for $order is refunded", async ({ payload }) => {
+    expect.hasAssertions()
+    resetUseCases()
+
+    await licenseWebhookHandlers.onOrderRefunded(payload)
+
+    expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
+  })
+
   it("leaves anonymous revocations alone", async () => {
     expect.hasAssertions()
     resetUseCases()

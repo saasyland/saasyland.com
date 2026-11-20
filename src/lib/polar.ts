@@ -1,17 +1,9 @@
 import { PolarClientError } from "@polar-sh/sdk"
 import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
-import { createDiscountsService } from "@polar-sh/sdk/2026-10/services/discounts"
 import { createOrganizationsService } from "@polar-sh/sdk/2026-10/services/organizations"
 import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
 import * as zod from "zod"
-
-import {
-  BASIS_POINTS_PER_PERCENT,
-  findRegionalDiscount,
-  isAutomaticPercentage,
-  toRegionalDiscount,
-} from "~/src/integrations/polar/polar.discounts"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
@@ -23,7 +15,6 @@ import {
   LICENSE_TIERS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
-import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_SERVER } from "~/src/data/polar"
@@ -59,8 +50,13 @@ export const POLAR_WEBHOOK_FORMAT = {
   SLACK: "slack",
 } as const satisfies Record<string, models.WebhookFormat>
 
+export const POLAR_TAX_BEHAVIOR = {
+  EXCLUSIVE: "exclusive",
+  INCLUSIVE: "inclusive",
+  LOCATION: "location",
+} as const satisfies Record<string, models.TaxBehaviorOption>
+
 export const POLAR_SCOPE = {
-  DISCOUNTS: "discounts:read",
   ORGANIZATIONS: "organizations:read",
   PRODUCTS: "products:read",
   WEBHOOKS: "webhooks:read",
@@ -104,7 +100,6 @@ interface Source {
 }
 
 interface PolarState {
-  readonly discounts: readonly models.Discount[]
   readonly endpoints: readonly models.WebhookEndpoint[]
   readonly organizations: readonly models.Organization[]
   readonly products: readonly models.Product[]
@@ -169,21 +164,18 @@ const readPolar = async (settings: Settings, source: Source): Promise<PolarState
   const polar = createPolarCore({ accessToken: settings.POLAR_ACCESS_TOKEN, environment: source.server })
   const query = { limit: PAGE_SIZE, organization_id: settings.POLAR_ORGANIZATION_ID }
 
-  const [products, discounts, endpoints, organizations] = await Promise.all([
+  const [products, endpoints, organizations] = await Promise.all([
     listAll(createProductsService(polar).iterList(query), POLAR_SCOPE.PRODUCTS, source),
-    listAll(createDiscountsService(polar).iterList(query), POLAR_SCOPE.DISCOUNTS, source),
     listAll(createWebhooksService(polar).iterListWebhookEndpoints(query), POLAR_SCOPE.WEBHOOKS, source),
     readOne(createOrganizationsService(polar).get(settings.POLAR_ORGANIZATION_ID), POLAR_SCOPE.ORGANIZATIONS, source),
   ])
-  const refusals = new Set(
-    [products.refusal, discounts.refusal, endpoints.refusal, organizations.refusal].filter((refusal) => refusal !== undefined),
-  )
+  const refusals = new Set([products.refusal, endpoints.refusal, organizations.refusal].filter((refusal) => refusal !== undefined))
 
   if (refusals.size > 0) {
     throw new Error([`Polar ${source.server} could not be read with the token in ${source.file}:`, ...refusals].join("\n"))
   }
 
-  return { discounts: discounts.items, endpoints: endpoints.items, organizations: organizations.items, products: products.items }
+  return { endpoints: endpoints.items, organizations: organizations.items, products: products.items }
 }
 
 const organizationProblems = (organizations: readonly models.Organization[]): string[] =>
@@ -191,6 +183,10 @@ const organizationProblems = (organizations: readonly models.Organization[]): st
     [
       !organizations.some((organization) => organization.feature_settings?.checkout_localization_enabled === true),
       "Checkout localization is off for the organisation, so Polar opens every checkout in English whatever locale startCheckout sends (POLAR_CHECKOUT_LANGUAGES); turn it on.",
+    ],
+    [
+      !organizations.some((organization) => organization.default_tax_behavior === POLAR_TAX_BEHAVIOR.LOCATION),
+      `The organisation's default tax behaviour is not ${POLAR_TAX_BEHAVIOR.LOCATION}, which the pricing note promises: VAT included in the EU, sales tax added at checkout in the US, Canada and India; set it to location-based.`,
     ],
   ])
 
@@ -282,23 +278,6 @@ const productProblems = (tier: LicenseTier, settings: Settings, products: readon
   ]
 }
 
-const discountProblems = (settings: Settings, discounts: readonly models.Discount[], now: number): string[] => {
-  const regionalDiscounts = discounts.filter((discount) => isAutomaticPercentage(discount)).map((discount) => toRegionalDiscount(discount))
-
-  return PPP_PERCENTS_OFF.flatMap((percentOff) => {
-    const uncovered = LICENSE_TIERS.filter(
-      (tier) => findRegionalDiscount(regionalDiscounts, { now, percentOff, productId: settings[PRODUCT_ID_KEYS[tier]] }) === undefined,
-    )
-
-    return failing([
-      [
-        uncovered.length > 0,
-        `No automatic ${String(percentOff)}% discount (${String(percentOff * BASIS_POINTS_PER_PERCENT)} basis points, no code) is redeemable for ${uncovered.join(", ")}.`,
-      ],
-    ])
-  })
-}
-
 interface WebhookContext {
   readonly endpoints: readonly models.WebhookEndpoint[]
   readonly file: string
@@ -346,13 +325,12 @@ export const verifyPolar = async ({
 }): Promise<string> => {
   const source = { file: `.env.${environment}`, server: POLAR_SERVER_BY_ENVIRONMENT[environment] }
   const settings = readSettings(values, source)
-  const { discounts, endpoints, organizations, products } = await readPolar(settings, source)
+  const { endpoints, organizations, products } = await readPolar(settings, source)
   const webhookUrls = ownWebhookUrls(environment)
 
   const problems = [
     ...organizationProblems(organizations),
     ...LICENSE_TIERS.flatMap((tier) => productProblems(tier, settings, products)),
-    ...discountProblems(settings, discounts, Date.now()),
     ...webhookUrls.flatMap((url) => ownWebhookProblems(url, { endpoints, file: source.file, secret: settings.POLAR_WEBHOOK_SECRET })),
     ...foreignWebhookProblems(source.server, endpoints),
   ]
@@ -362,9 +340,8 @@ export const verifyPolar = async ({
   }
 
   const checked = [
-    "checkout localization",
+    "checkout localization and tax behaviour",
     `${String(LICENSE_TIERS.length)} products with their prices, licence keys and consent field`,
-    `${String(PPP_PERCENTS_OFF.length)} regional discounts`,
     ...webhookUrls.map((url) => `the webhook at ${url}`),
   ]
 

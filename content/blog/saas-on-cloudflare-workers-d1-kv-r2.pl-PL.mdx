@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -155,13 +155,13 @@ Zasady, które za nią stoją: to, co decyduje o dostępie, przechowuj w spójny
 
 saasyland.com stosuje tę tabelę za pomocą pięciu bindingów zadeklarowanych w `wrangler.jsonc`:
 
-| Binding   | Produkt                  | Co przechowuje                                                                             | Gdzie w kodzie                                            |
-| --------- | ------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `ASSETS`  | Zasoby statyczne Workers | Prerenderowane strony, skrypty, style, czcionki i obrazy z builda                          | `src/server.ts`                                           |
-| `DB`      | D1                       | Użytkowników, sesje, licencje, kopie zamówień Polar, kursy, filmy i liczniki limitów żądań | `src/integrations/drizzle-orm/` i `src/modules/`          |
-| `CACHE`   | KV                       | Dwie odpowiedzi z API innych usług zapisane w cache                                        | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
-| `MEDIA`   | R2                       | Filmy kursów i materiały lekcji                                                            | `src/modules/video/`, `src/modules/lesson-attachment/`    |
-| `BUNDLES` | R2                       | Paczkę szablonów każdego wydania CLI                                                       | `src/modules/license/`                                    |
+| Binding   | Produkt                  | Co przechowuje                                                                             | Gdzie w kodzie                                         |
+| --------- | ------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `ASSETS`  | Zasoby statyczne Workers | Prerenderowane strony, skrypty, style, czcionki i obrazy z builda                          | `src/server.ts`                                        |
+| `DB`      | D1                       | Użytkowników, sesje, licencje, kopie zamówień Polar, kursy, filmy i liczniki limitów żądań | `src/integrations/drizzle-orm/` i `src/modules/`       |
+| `CACHE`   | KV                       | Jedna odpowiedź z API innej usługi zapisana w cache                                        | `src/lib/github.ts`                                    |
+| `MEDIA`   | R2                       | Filmy kursów i materiały lekcji                                                            | `src/modules/video/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                       | Paczkę szablonów każdego wydania CLI                                                       | `src/modules/license/`                                 |
 
 Nie ma jeszcze żadnego Durable Object: każdy licznik, który prowadzi serwis, żyje w D1, co pokazuje sekcja o limitach żądań.
 
@@ -440,14 +440,11 @@ Dlatego KV świetnie nadaje się do niektórych danych i jest niebezpieczny dla 
 - **Zapisuj tylko kompletne wartości.** Jeśli odświeżanie zawiedzie w połowie, zachowaj stary wpis, zamiast zapisywać niepełną listę.
 - **Nie trzymaj niczego w pamięci Workera między żądaniami.** Cloudflare może w każdej chwili usunąć izolat, a dwa żądania nie muszą trafić do tego samego, więc cache na poziomie modułu to cache, który czasem działa.
 
-### Przykład z praktyki: dwa wpisy, oba do wyrzucenia
+### Przykład z praktyki: jeden wpis do wyrzucenia
 
-Przestrzeń nazw `CACHE` w saasyland.com przechowuje dokładnie dwa wpisy:
+Przestrzeń nazw `CACHE` w saasyland.com przechowuje dokładnie jeden wpis: liczbę gwiazdek na GitHubie wyświetlaną w serwisie, odświeżaną, gdy jest starsza niż <RepositoryFact name="starCountRefreshHours" unit="hour" />.
 
-- **Liczba gwiazdek na GitHubie** wyświetlana w serwisie, odświeżana, gdy jest starsza niż <RepositoryFact name="starCountRefreshHours" unit="hour" />.
-- **Rabaty regionalne Polar**, czyli automatyczne rabaty procentowe, które checkout stosuje według kraju, odświeżane, gdy są starsze niż <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
-
-Każdy wpis przechowuje swoją wartość razem z czasem pobrania, kod, który go czyta, waliduje ją przez Zod, a brakujący lub uszkodzony wpis jest pobierany ponownie. Nieaktualne rabaty są pobierane ponownie, zanim checkout przejdzie dalej, a nieudane pobranie listy jest logowane i nie jest zapisywane, natomiast nieaktualna liczba gwiazdek jest serwowana bez zmian i odświeżana w tle:
+Wpis przechowuje swoją wartość razem z czasem pobrania, kod, który go czyta, waliduje ją przez Zod, a brakujący lub uszkodzony wpis jest pobierany ponownie. Nieaktualna liczba gwiazdek jest serwowana bez zmian i odświeżana w tle:
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

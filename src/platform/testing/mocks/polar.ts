@@ -5,24 +5,25 @@ import * as zod from "zod"
 
 import {
   type PolarCatalogue,
-  type PolarDiscount,
   type PolarLicenseKeyBenefit,
   type PolarProduct,
   polarCheckoutProduct,
   polarCustomer,
-  polarDiscount,
-  polarDiscountAmount,
   polarLicenseKey,
   polarLicenseKeyGrant,
   polarOrder,
-  polarOrderProduct,
   polarProductPrice,
 } from "~/src/platform/testing/lib/polar"
 import * as AREA_POLAR_CATALOGUES from "~/src/platform/testing/mocks/polar-catalogue.entries"
 import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_LICENSE_KEY_STATUS, POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_CHECKOUT_ID_PLACEHOLDER,
+  POLAR_LICENSE_KEY_STATUS,
+  POLAR_MINIMUM_PRICE_AMOUNT,
+  POLAR_ORDER_STATUS,
+} from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
@@ -34,12 +35,12 @@ const METADATA_KEY_MAX_LENGTH = 40
 const METADATA_VALUE_MAX_LENGTH = 500
 const CHECKOUT_LIFETIME_MS = 3_600_000
 const LICENSE_KEY_PATH = /^\/v1\/license-keys\/(?<id>[^/]+)$/u
+const AD_HOC_CURRENCY = "usd" satisfies models.PresentmentCurrency
 const ORDER_PATH = /^\/v1\/orders\/(?<id>[^/]+)$/u
 
 const AREAS: Readonly<Record<string, PolarCatalogue>> = AREA_POLAR_CATALOGUES
 
 const products = new Map<string, PolarProduct>()
-const discounts = new Map<string, PolarDiscount>()
 const licenseKeyBenefits = new Map<string, PolarLicenseKeyBenefit>()
 const checkouts = new Map<string, models.Checkout>()
 const orders = new Map<string, models.Order>()
@@ -51,9 +52,6 @@ export const seedPolarCatalogue = (catalogue: PolarCatalogue): void => {
   for (const product of catalogue.products) {
     products.set(product.id, product)
   }
-  for (const discount of catalogue.discounts) {
-    discounts.set(discount.id, discount)
-  }
   for (const benefit of catalogue.licenseKeyBenefits) {
     for (const { id } of benefit.products) {
       licenseKeyBenefits.set(id, benefit)
@@ -63,7 +61,6 @@ export const seedPolarCatalogue = (catalogue: PolarCatalogue): void => {
 
 const resetPolar = (): void => {
   products.clear()
-  discounts.clear()
   licenseKeyBenefits.clear()
   checkouts.clear()
   orders.clear()
@@ -83,11 +80,6 @@ const found = <Value>(value: Value | null | undefined, kind: string, id: string)
 }
 
 const productOf = (productId: string): PolarProduct => found(products.get(productId), "product", productId)
-
-const discountOf = (discountId: string | null): models.DiscountPercentageOnceForeverDurationBase | null => {
-  const discount = [...discounts.values()].find(({ id }) => id === discountId)
-  return discount === undefined ? null : polarDiscount(env.POLAR_ORGANIZATION_ID, discount)
-}
 
 const saveCustomer = (customer: models.CustomerIndividual): models.CustomerIndividual => {
   customers.set(customer.id, customer)
@@ -123,7 +115,6 @@ export const createPolarOrder = (
   const order = polarOrder({
     checkoutId: null,
     customer: customerFor(externalCustomerId),
-    discount: null,
     metadata: {},
     product: productOf(productId),
     status: POLAR_ORDER_STATUS.PAID,
@@ -145,7 +136,6 @@ export const createGuestPolarOrder = ({
     polarOrder({
       checkoutId: null,
       customer,
-      discount: null,
       metadata: {},
       product: productOf(productId),
       status: POLAR_ORDER_STATUS.PAID,
@@ -167,8 +157,9 @@ export const setPolarCustomerExternalId = (customerId: string, externalId: strin
 export const payPolarCheckout = (checkoutId: string, customFieldData: models.Order["custom_field_data"] = {}): models.Order => {
   const checkout = found(checkouts.get(checkoutId), "checkout", checkoutId)
   const externalCustomerId = found(checkout.external_customer_id, "external customer of checkout", checkoutId)
-  const product = productOf(found(checkout.product_id, "product of checkout", checkoutId))
-  const unticked = (product.requiredCheckboxes ?? []).filter((slug) => customFieldData[slug] !== true)
+  const catalogueProduct = productOf(found(checkout.product_id, "product of checkout", checkoutId))
+  const product = { ...catalogueProduct, price: { ...catalogueProduct.price, amount: checkout.amount } }
+  const unticked = (catalogueProduct.requiredCheckboxes ?? []).filter((slug) => customFieldData[slug] !== true)
   if (unticked.length > 0) {
     throw new Error(`Polar refuses to confirm checkout ${checkoutId}: the buyer must tick ${unticked.join(", ")}`)
   }
@@ -176,7 +167,6 @@ export const payPolarCheckout = (checkoutId: string, customFieldData: models.Ord
   const order = polarOrder({
     checkoutId,
     customer: customerFor(externalCustomerId),
-    discount: discountOf(checkout.discount_id),
     metadata: checkout.metadata,
     product,
     status: POLAR_ORDER_STATUS.PAID,
@@ -294,27 +284,31 @@ const metadataSchema = zod
 
 const customFieldDataSchema = zod.record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean(), zod.null()]))
 
-const checkoutCreateSchema = zod.strictObject({
-  allow_discount_codes: zod.boolean(),
-  custom_field_data: customFieldDataSchema.optional(),
-  customer_email: zod.email(),
-  customer_ip_address: zod.union([zod.ipv4(), zod.ipv6()]).nullable(),
-  customer_name: zod.string(),
-  discount_id: zod.uuid().optional(),
-  external_customer_id: zod.string().min(1),
-  locale: zod.string().min(1).optional(),
-  metadata: metadataSchema,
-  products: zod.tuple([zod.string()]),
-  return_url: zod.url().optional(),
-  success_url: zod.url(),
-} satisfies RequestSchema<models.CheckoutCreate>)
-
-const discountsQuerySchema = zod.strictObject({
-  limit: zod.coerce.number().int().min(1).max(MAX_PAGE_SIZE),
-  organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
-  page: zod.coerce.number().int().min(1),
-  sorting: zod.literal("-created_at" satisfies models.DiscountSortProperty),
+const adHocPriceSchema = zod.strictObject({
+  amount_type: zod.literal("fixed"),
+  price_amount: zod.int().refine((amount) => amount === 0 || amount >= POLAR_MINIMUM_PRICE_AMOUNT, "below the minimum price"),
+  price_currency: zod.literal(AD_HOC_CURRENCY),
 })
+
+const checkoutCreateSchema = zod
+  .strictObject({
+    allow_discount_codes: zod.boolean(),
+    custom_field_data: customFieldDataSchema.optional(),
+    customer_email: zod.email(),
+    customer_ip_address: zod.union([zod.ipv4(), zod.ipv6()]).nullable(),
+    customer_name: zod.string(),
+    external_customer_id: zod.string().min(1),
+    locale: zod.string().min(1).optional(),
+    metadata: metadataSchema,
+    prices: zod.record(zod.string(), zod.tuple([adHocPriceSchema])).optional(),
+    products: zod.tuple([zod.string()]),
+    return_url: zod.url().optional(),
+    success_url: zod.url(),
+  } satisfies RequestSchema<models.CheckoutCreate>)
+  .refine(({ prices = {}, products: [productId] }) => Object.keys(prices).every((pricedProductId) => pricedProductId === productId), {
+    message: "Product is not set on that checkout.",
+    path: ["prices"],
+  })
 
 const activationDataSchema = zod
   .record(
@@ -331,19 +325,25 @@ const licenseKeyActivateSchema = zod.strictObject({
   organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
 } satisfies RequestSchema<models.LicenseKeyActivate>)
 
+const licenseKeyUpdateSchema = zod.strictObject({
+  limit_activations: zod.int().positive().optional(),
+  status: zod.enum(POLAR_LICENSE_KEY_STATUS).optional(),
+} satisfies RequestSchema<models.LicenseKeyUpdate>)
+
+const ordersQuerySchema = zod.strictObject({
+  customer_id: zod.string().min(1),
+  limit: zod.coerce.number().int().min(1).max(MAX_PAGE_SIZE),
+  organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
+  page: zod.coerce.number().int().min(1),
+  product_id: zod.array(zod.string().min(1)).min(1),
+  sorting: zod.literal("-created_at" satisfies models.OrderSortProperty),
+})
+
 const licenseKeyDeactivateSchema = zod.strictObject({
   activation_id: zod.uuid(),
   key: zod.string().min(1),
   organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
 } satisfies RequestSchema<models.LicenseKeyDeactivate>)
-
-const checkoutDiscount = (discount: models.DiscountPercentageOnceForeverDurationBase | null): models.Checkout["discount"] => {
-  if (discount === null) {
-    return null
-  }
-  const { basis_points: basisPoints, code, duration, id, name, type } = discount
-  return { basis_points: basisPoints, code, duration, id, name, type }
-}
 
 const createCheckout = async (request: Request) => {
   const body = checkoutCreateSchema.safeParse(await request.json())
@@ -355,16 +355,11 @@ const createCheckout = async (request: Request) => {
   if (catalogueProduct === undefined) {
     return invalid("body.products", `${productId} is not a product of the organization`)
   }
-  const discount = discountOf(body.data.discount_id ?? null)
-  if (body.data.discount_id !== undefined && discount === null) {
-    return invalid("body.discount_id", `${body.data.discount_id} is not a discount of the organization`)
-  }
   const id = crypto.randomUUID()
   const createdAt = new Date()
   const product = polarCheckoutProduct(env.POLAR_ORGANIZATION_ID, catalogueProduct)
   const price = polarProductPrice(catalogueProduct)
-  const { amount } = catalogueProduct.price
-  const discountAmount = polarDiscountAmount(amount, discount)
+  const amount = body.data.prices?.[productId]?.[0].price_amount ?? catalogueProduct.price.amount
   const checkout: models.Checkout = {
     active_trial_interval: null,
     active_trial_interval_count: null,
@@ -392,9 +387,9 @@ const createCheckout = async (request: Request) => {
     customer_metadata: {},
     customer_name: body.data.customer_name,
     customer_tax_id: null,
-    discount: checkoutDiscount(discount),
-    discount_amount: discountAmount,
-    discount_id: discount?.id ?? null,
+    discount: null,
+    discount_amount: 0,
+    discount_id: null,
     embed_origin: null,
     expires_at: new Date(createdAt.getTime() + CHECKOUT_LIFETIME_MS).toISOString(),
     external_customer_id: body.data.external_customer_id,
@@ -410,7 +405,7 @@ const createCheckout = async (request: Request) => {
     metadata: body.data.metadata,
     min_units: null,
     modified_at: null,
-    net_amount: amount - discountAmount,
+    net_amount: amount,
     organization_id: env.POLAR_ORGANIZATION_ID,
     payment_method_type: null,
     payment_processor: "stripe",
@@ -428,7 +423,7 @@ const createCheckout = async (request: Request) => {
     success_url: body.data.success_url,
     tax_amount: null,
     tax_behavior: null,
-    total_amount: amount - discountAmount,
+    total_amount: amount,
     trial_end: null,
     trial_interval: null,
     trial_interval_count: null,
@@ -437,24 +432,6 @@ const createCheckout = async (request: Request) => {
   }
   checkouts.set(id, checkout)
   return respond(HTTP_STATUS.CREATED, checkout)
-}
-
-const listedDiscount = (discount: PolarDiscount): models.Discount => ({
-  ...polarDiscount(env.POLAR_ORGANIZATION_ID, discount),
-  products: discount.products.map((product) => polarOrderProduct(env.POLAR_ORGANIZATION_ID, product)),
-})
-
-const listDiscounts = (url: URL) => {
-  const query = discountsQuerySchema.safeParse(Object.fromEntries(url.searchParams))
-  if (!query.success) {
-    return invalid("query", zod.prettifyError(query.error))
-  }
-  const { limit, page } = query.data
-  const items = [...discounts.values()].map((discount) => listedDiscount(discount))
-  return respond(HTTP_STATUS.OK, {
-    items: items.slice((page - 1) * limit, page * limit),
-    pagination: { max_page: Math.max(1, Math.ceil(items.length / limit)), total_count: items.length },
-  } satisfies models.ListResourceDiscount)
 }
 
 const activateLicenseKey = async (request: Request) => {
@@ -494,6 +471,40 @@ const deactivateLicenseKey = async (request: Request) => {
   return respond(HTTP_STATUS.NO_CONTENT)
 }
 
+const updateLicenseKey = async (licenseKeyId: string, request: Request) => {
+  const body = licenseKeyUpdateSchema.safeParse(await request.json())
+  if (!body.success) {
+    return invalid("body", zod.prettifyError(body.error))
+  }
+  const licenseKey = licenseKeys.get(licenseKeyId)
+  if (licenseKey === undefined) {
+    return notFound()
+  }
+  const updated = {
+    ...licenseKey,
+    ...(body.data.limit_activations === undefined ? {} : { limit_activations: body.data.limit_activations }),
+    ...(body.data.status === undefined ? {} : { status: body.data.status }),
+  }
+  licenseKeys.set(licenseKeyId, updated)
+  const { activations: _activations, ...read } = updated
+  return respond(HTTP_STATUS.OK, read satisfies models.LicenseKeyRead)
+}
+
+const listOrders = (url: URL) => {
+  const query = ordersQuerySchema.safeParse({ ...Object.fromEntries(url.searchParams), product_id: url.searchParams.getAll("product_id") })
+  if (!query.success) {
+    return invalid("query", zod.prettifyError(query.error))
+  }
+  const { customer_id: customerId, limit, page, product_id: productIds } = query.data
+  const items = [...orders.values()].filter(
+    (order) => order.customer_id === customerId && order.product_id !== null && productIds.includes(order.product_id),
+  )
+  return respond(HTTP_STATUS.OK, {
+    items: items.slice((page - 1) * limit, page * limit),
+    pagination: { max_page: Math.max(1, Math.ceil(items.length / limit)), total_count: items.length },
+  } satisfies models.ListResourceOrder)
+}
+
 const read = (value: models.LicenseKeyWithActivations | models.Order | undefined): Response =>
   value === undefined ? notFound() : respond(HTTP_STATUS.OK, value)
 
@@ -502,14 +513,19 @@ const currentOrder = (orderId: string): models.Order | undefined => {
   return order === undefined ? undefined : { ...order, customer: customerOf(order) }
 }
 
+const routeLicenseKey = (request: Request, url: URL) => {
+  const licenseKeyId = LICENSE_KEY_PATH.exec(url.pathname)?.groups?.["id"]
+  if (licenseKeyId !== undefined && request.method === "PATCH") {
+    return updateLicenseKey(licenseKeyId, request)
+  }
+  return licenseKeyId !== undefined && request.method === "GET" ? read(licenseKeys.get(licenseKeyId)) : undefined
+}
+
 const route = (request: Request) => {
   const url = new URL(request.url)
   const endpoint = `${request.method} ${url.pathname}`
   if (endpoint === "POST /v1/checkouts/") {
     return createCheckout(request)
-  }
-  if (endpoint === "GET /v1/discounts/") {
-    return listDiscounts(url)
   }
   if (endpoint === "POST /v1/license-keys/activate") {
     return activateLicenseKey(request)
@@ -517,9 +533,12 @@ const route = (request: Request) => {
   if (endpoint === "POST /v1/license-keys/deactivate") {
     return deactivateLicenseKey(request)
   }
-  const licenseKeyId = request.method === "GET" ? LICENSE_KEY_PATH.exec(url.pathname)?.groups?.["id"] : undefined
-  if (licenseKeyId !== undefined) {
-    return read(licenseKeys.get(licenseKeyId))
+  if (endpoint === "GET /v1/orders/") {
+    return listOrders(url)
+  }
+  const licenseKey = routeLicenseKey(request, url)
+  if (licenseKey !== undefined) {
+    return licenseKey
   }
   const orderId = request.method === "GET" ? ORDER_PATH.exec(url.pathname)?.groups?.["id"] : undefined
   if (orderId !== undefined) {

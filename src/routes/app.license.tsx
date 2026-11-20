@@ -23,6 +23,7 @@ import { LicenseActivations } from "~/src/presentation/components/custom/app/lic
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
 import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
+import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-offer"
 
 import { ROUTES } from "~/src/routes"
 
@@ -45,6 +46,7 @@ const LicensePage = (): JSX.Element => {
       </header>
       {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
+      {hasActiveLicense && tier !== undefined && <UpgradeOffer tier={tier} />}
       {showsLicense && <LicenseCard />}
       {hasActiveLicense && license.polarLicenseKeyId !== null && <LicenseActivations />}
       {isBuying && <LicenseOffer />}

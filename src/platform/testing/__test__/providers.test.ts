@@ -10,6 +10,7 @@ import { takeProviderRefusals } from "~/src/platform/testing/mocks/providers"
 import { getSentEmails, resendApi } from "~/src/platform/testing/mocks/resend"
 
 import { polar } from "~/src/integrations/polar/polar.config"
+import { POLAR_FIXED_PRICE, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_PRICE_CURRENCY } from "~/src/integrations/polar/polar.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -42,6 +43,8 @@ const checkoutBody = (productId: string) => ({
   products: [productId],
   success_url: "http://localhost:3000/app",
 })
+
+const adHocPrice = (amount: number) => ({ amount_type: POLAR_FIXED_PRICE, price_amount: amount, price_currency: POLAR_PRICE_CURRENCY })
 
 const post = (url: string, body: unknown, token: string): Promise<Response> =>
   fetch(url, {
@@ -106,7 +109,7 @@ describe("Resend test double", () => {
 
 describe("Polar test double", () => {
   beforeEach(() => {
-    seedPolarCatalogue({ discounts: [], licenseKeyBenefits: [], products: [STARTER_KIT, MONTHLY_PLAN] })
+    seedPolarCatalogue({ licenseKeyBenefits: [], products: [STARTER_KIT, MONTHLY_PLAN] })
   })
 
   it("serves an order through the Polar SDK", async () => {
@@ -156,8 +159,9 @@ describe("Polar test double", () => {
 
   it.each([
     ["a checkout without the buyer's account", { external_customer_id: undefined }, "body"],
-    ["a checkout with a discount the organization does not have", { discount_id: crypto.randomUUID() }, "body.discount_id"],
     ["a checkout with a field Polar does not know", { coupon: "LAUNCH" }, "body"],
+    ["a checkout priced for a product it does not sell", { prices: { [MONTHLY_PLAN.id]: [adHocPrice(STARTER_KIT.price.amount)] } }, "body"],
+    ["a checkout priced under Polar's minimum", { prices: { [STARTER_KIT.id]: [adHocPrice(POLAR_MINIMUM_PRICE_AMOUNT - 1)] } }, "body"],
   ])("answers 422 to %s and records the refusal", async (_case, change, location) => {
     const response = await post(POLAR_CHECKOUTS, { ...checkoutBody(STARTER_KIT.id), ...change }, env.POLAR_ACCESS_TOKEN)
 

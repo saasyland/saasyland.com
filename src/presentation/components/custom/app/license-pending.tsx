@@ -17,7 +17,8 @@ import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/co
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
-import { FEATURED_TIER, tierFeaturesWith } from "~/src/presentation/components/custom/pricing"
+import { UpgradeOfferPending } from "~/src/presentation/components/custom/app/upgrade-offer"
+import { FEATURED_TIER, PRICING_TRUST_ITEMS, tierFeaturesWith } from "~/src/presentation/components/custom/pricing"
 
 const usePendingLicenseView = () => {
   const queryClient = useQueryClient()
@@ -36,6 +37,7 @@ const usePendingLicenseView = () => {
     isBuying,
     showsChosenTier: isBuying && search.tier !== undefined,
     showsLicense,
+    showsUpgrade: hasActiveLicense && search.tier !== undefined,
   }
 }
 
@@ -114,28 +116,45 @@ const TierColumnPending = ({ featured, tier }: Readonly<{ featured: boolean; tie
       <TextLines className="mt-1.5 text-body-sm @2xl:min-h-12" />
       <Skeleton className="mt-7 h-lh w-28 scale-y-70 text-price" />
       <TextLines className="mt-3 text-body-sm @2xl:min-h-12" />
-      <TierFeaturesPending tier={tier} />
-      <div className="mt-auto pt-10 @2xl:pt-12">
+      <div className="mt-7 @2xl:order-last @2xl:mt-auto @2xl:pt-12">
         <Skeleton className="h-11 w-full rounded-lg" />
       </div>
+      <TierFeaturesPending tier={tier} />
     </div>
   </div>
 )
 
-const LicenseOfferPending = (): JSX.Element => (
+const PricingTrustPending = (): JSX.Element => (
+  <div className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+    {PRICING_TRUST_ITEMS.map((item) => (
+      <div className="flex items-start gap-3" key={item}>
+        <Skeleton className="mt-0.5 size-4 shrink-0" />
+        <TextLines className="text-body-sm" />
+      </div>
+    ))}
+  </div>
+)
+
+const TiersPending = (): JSX.Element => (
+  <div className="@container">
+    <div className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3">
+      {LICENSE_TIERS.map((tier) => (
+        <TierColumnPending featured={tier === FEATURED_TIER} key={tier} tier={tier} />
+      ))}
+    </div>
+    <PricingTrustPending />
+  </div>
+)
+
+const LicenseOfferPending = ({ hasChosenTier }: Readonly<{ hasChosenTier: boolean }>): JSX.Element => (
   <div className="flex flex-col gap-6">
     <div className="flex flex-col gap-1.5">
       <Skeleton className="h-lh w-48 scale-y-70 text-title" />
       <TextLines className="text-body-sm" />
     </div>
-    <div className="@container">
-      <div className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3">
-        {LICENSE_TIERS.map((tier) => (
-          <TierColumnPending featured={tier === FEATURED_TIER} key={tier} tier={tier} />
-        ))}
-      </div>
-    </div>
-    <CheckoutNoticePending />
+    {!hasChosenTier && <TiersPending />}
+    {!hasChosenTier && <CheckoutNoticePending />}
+    {hasChosenTier && <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />}
     {LICENSE_OFFER_SECTIONS.map(({ key, Pending }) => (
       <Pending key={key} />
     ))}
@@ -261,9 +280,10 @@ export const LicenseOverviewPending = (): JSX.Element => {
       {view.isAwaitingPayment && <ActivationPending />}
       {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
+      {view.showsUpgrade && <UpgradeOfferPending />}
       {view.showsLicense && <LicenseStatusCardPending />}
       {view.hasActiveLicense && !view.isAwaitingPayment && <GetStartedPending />}
-      {view.isBuying && <LicenseOfferPending />}
+      {view.isBuying && <LicenseOfferPending hasChosenTier={view.showsChosenTier} />}
     </>
   )
 }
@@ -277,9 +297,10 @@ export const AppLicensePending = (): JSX.Element => {
       {view.isAwaitingPayment && <ActivationPending />}
       {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
+      {view.showsUpgrade && <UpgradeOfferPending />}
       {view.showsLicense && <LicenseCardPending isActive={view.hasActiveLicense} />}
       {view.hasActivations && <LicenseActivationsPending />}
-      {view.isBuying && <LicenseOfferPending />}
+      {view.isBuying && <LicenseOfferPending hasChosenTier={view.showsChosenTier} />}
       <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
     </div>
   )

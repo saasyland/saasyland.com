@@ -20,8 +20,13 @@ const getUserLicense = zod.object({
   userId: idField,
 })
 
+const getUpgradePrice = zod.object({
+  tier: zod.enum(LICENSE_TIERS),
+})
+
 export const licenseZodSchemas = {
   deactivateLicense,
+  getUpgradePrice,
   getUserLicense,
   startCheckout,
 }

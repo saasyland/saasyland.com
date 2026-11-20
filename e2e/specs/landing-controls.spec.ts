@@ -28,7 +28,8 @@ test("hero install command follows the selected package manager", async ({ landi
   await landingPage.goto()
   const hero = page.locator("#floor")
   await hero.getByRole("radio", { name: "pnpm", exact: true }).click()
-  await expect(hero.locator("code")).toContainText(`${PACKAGE_MANAGER.PNPM.exec} ${CLI_PACKAGE_SPEC}`)
+  const command = hero.getByRole("button", { name: "Copy the install command" }).locator("..").locator("code")
+  await expect(command).toContainText(`${PACKAGE_MANAGER.PNPM.exec} ${CLI_PACKAGE_SPEC}`)
   await expect(hero.getByRole("radio", { name: "pnpm", exact: true })).toBeChecked()
 })
 

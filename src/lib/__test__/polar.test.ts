@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
-import { BASIS_POINTS_PER_PERCENT, POLAR_DISCOUNT_TYPE } from "~/src/integrations/polar/polar.discounts"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
@@ -15,7 +14,6 @@ import {
   LICENSE_WEBHOOK_EVENTS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
-import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_SERVER } from "~/src/data/polar"
@@ -27,6 +25,7 @@ import {
   POLAR_CUSTOM_FIELD_TYPE,
   POLAR_PRICE_TYPE,
   POLAR_SCOPE,
+  POLAR_TAX_BEHAVIOR,
   POLAR_WEBHOOK_FORMAT,
   type PolarEnvironment,
   WITHDRAWAL_CONSENT_FIELD,
@@ -196,38 +195,6 @@ const product = (tier: LicenseTier, fields: Partial<models.Product> = {}): model
   ...fields,
 })
 
-const discountProduct = (tier: LicenseTier): models.DiscountProduct => ({ ...PRODUCT_FIELDS, id: PRODUCT_IDS[tier], name: tier })
-
-const DISCOUNT_FIELDS = {
-  code: JSON_NULL,
-  created_at: CREATED_AT,
-  duration: "once",
-  ends_at: JSON_NULL,
-  max_redemptions: JSON_NULL,
-  max_redemptions_per_customer: JSON_NULL,
-  metadata: {},
-  modified_at: JSON_NULL,
-  organization_id: ORGANIZATION_ID,
-  redemptions_count: 0,
-  starts_at: JSON_NULL,
-} as const
-
-const regionalDiscount = (
-  percentOff: number,
-  fields: Partial<models.DiscountPercentageOnceForeverDuration> = {},
-): models.DiscountPercentageOnceForeverDuration => ({
-  ...DISCOUNT_FIELDS,
-  basis_points: percentOff * BASIS_POINTS_PER_PERCENT,
-  id: `regional-${String(percentOff)}`,
-  name: `Regional ${String(percentOff)}%`,
-  products: LICENSE_TIERS.map((tier) => discountProduct(tier)),
-  type: POLAR_DISCOUNT_TYPE.PERCENTAGE,
-  ...fields,
-})
-
-const noDiscount = (percentOff: number, tiers: string): string =>
-  `No automatic ${String(percentOff)}% discount (${String(percentOff * BASIS_POINTS_PER_PERCENT)} basis points, no code) is redeemable for ${tiers}.`
-
 const webhookEndpoint = (url: string, fields: Partial<models.WebhookEndpoint> = {}): models.WebhookEndpoint => ({
   api_version: "2026-10",
   created_at: CREATED_AT,
@@ -243,7 +210,10 @@ const webhookEndpoint = (url: string, fields: Partial<models.WebhookEndpoint> = 
   ...fields,
 })
 
-const organization = (featureSettings: models.Organization["feature_settings"]): models.Organization => ({
+const organization = (
+  featureSettings: models.Organization["feature_settings"],
+  taxBehavior: models.Organization["default_tax_behavior"] = POLAR_TAX_BEHAVIOR.LOCATION,
+): models.Organization => ({
   account_id: JSON_NULL,
   allow_customer_updates: true,
   avatar_url: JSON_NULL,
@@ -274,7 +244,7 @@ const organization = (featureSettings: models.Organization["feature_settings"]):
   },
   customer_portal_settings: { subscription: { update_plan: true, update_seats: true }, usage: { show: true } },
   default_presentment_currency: DEFAULT_CURRENCY_CODE.toLowerCase(),
-  default_tax_behavior: "location",
+  default_tax_behavior: taxBehavior,
   details_submitted_at: CREATED_AT,
   dispute_settings: { auto_accept_below_amount: JSON_NULL },
   email: JSON_NULL,
@@ -301,18 +271,18 @@ const organization = (featureSettings: models.Organization["feature_settings"]):
 })
 
 interface PolarOrganisation {
-  readonly discounts: readonly models.Discount[]
   readonly endpoints: readonly models.WebhookEndpoint[]
   readonly organization: models.Organization
   readonly products: readonly models.Product[]
 }
 
 const MATCHING_ORGANISATION: PolarOrganisation = {
-  discounts: PPP_PERCENTS_OFF.map((percentOff) => regionalDiscount(percentOff)),
   endpoints: [webhookEndpoint(PREVIEW_WEBHOOK)],
   organization: organization({ checkout_localization_enabled: true }),
   products: LICENSE_TIERS.map((tier) => product(tier)),
 }
+
+const TAX_NOT_LOCATION_BASED = `The organisation's default tax behaviour is not ${POLAR_TAX_BEHAVIOR.LOCATION}, which the pricing note promises: VAT included in the EU, sales tax added at checkout in the US, Canada and India; set it to location-based.`
 
 const LOCALIZATION_OFF =
   "Checkout localization is off for the organisation, so Polar opens every checkout in English whatever locale startCheckout sends (POLAR_CHECKOUT_LANGUAGES); turn it on."
@@ -331,9 +301,8 @@ const paginate = (items: readonly unknown[], url: URL): Response => {
 const ORGANIZATION_PATH = `/v1/organizations/${ORGANIZATION_ID}`
 
 const serve = (organisation: Partial<PolarOrganisation> = {}, refusals: Readonly<Record<string, Response>> = {}): void => {
-  const { discounts, endpoints, organization: settings, products } = { ...MATCHING_ORGANISATION, ...organisation }
+  const { endpoints, organization: settings, products } = { ...MATCHING_ORGANISATION, ...organisation }
   const lists: Readonly<Record<string, readonly unknown[]>> = {
-    "/v1/discounts/": discounts,
     "/v1/products/": products,
     "/v1/webhooks/endpoints": endpoints,
   }
@@ -398,12 +367,11 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.PREVIEW)).resolves.toBe(
-      `Polar sandbox matches the code for preview: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PREVIEW_WEBHOOK}.`,
+      `Polar sandbox matches the code for preview: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field; the webhook at ${PREVIEW_WEBHOOK}.`,
     )
     expect(new Set(requestedUrls().map(({ host, pathname }) => `${host}${pathname}`))).toStrictEqual(
       new Set([
         "sandbox-api.polar.sh/v1/products/",
-        "sandbox-api.polar.sh/v1/discounts/",
         "sandbox-api.polar.sh/v1/webhooks/endpoints",
         `sandbox-api.polar.sh${ORGANIZATION_PATH}`,
       ]),
@@ -430,7 +398,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve({ endpoints: [webhookEndpoint(PRODUCTION_WEBHOOK)] })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).resolves.toBe(
-      `Polar production matches the code for production: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PRODUCTION_WEBHOOK}.`,
+      `Polar production matches the code for production: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field; the webhook at ${PRODUCTION_WEBHOOK}.`,
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.PRODUCTION])).toBe(true)
   })
@@ -439,14 +407,13 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.DEVELOPMENT)).resolves.toBe(
-      "Polar sandbox matches the code for development: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts.",
+      "Polar sandbox matches the code for development: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field.",
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.SANDBOX])).toBe(true)
   })
 
-  it("accepts other benefits next to the licence key, other checkout fields, archived prices and a regional discount for every product", async () => {
+  it("accepts other benefits next to the licence key, other checkout fields and archived prices", async () => {
     serve({
-      discounts: PPP_PERCENTS_OFF.map((percentOff) => regionalDiscount(percentOff, { products: [] })),
       products: LICENSE_TIERS.map((tier) =>
         product(tier, {
           attached_custom_fields: [attached(textField("company"), false), attached(consentField())],
@@ -503,13 +470,13 @@ describe("verifyPolar when Polar refuses the token", () => {
 
   it("names each scope the token lacks, in the order it reads them", async () => {
     const insufficientScope = Response.json({ error: "insufficient_scope" }, { status: HTTP_STATUS.FORBIDDEN })
-    serve({}, { "/v1/discounts/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope, [ORGANIZATION_PATH]: insufficientScope })
+    serve({}, { "/v1/products/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope, [ORGANIZATION_PATH]: insufficientScope })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).rejects.toThrow(
       new Error(
         [
           "Polar production could not be read with the token in .env.production:",
-          `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.DISCOUNTS} scope.`,
+          `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.PRODUCTS} scope.`,
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.WEBHOOKS} scope.`,
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.ORGANIZATIONS} scope.`,
         ].join("\n"),
@@ -643,52 +610,6 @@ describe("verifyPolar on the consent checkout field", () => {
   })
 })
 
-describe("verifyPolar on the regional discounts", () => {
-  const [first = 0, ...others] = PPP_PERCENTS_OFF
-  const othersOffered = others.map((percentOff) => regionalDiscount(percentOff))
-
-  it("reports a regional percentage with no automatic discount, naming every tier it misses", async () => {
-    await expectPreviewProblems(
-      { discounts: othersOffered },
-      "No automatic 20% discount (2000 basis points, no code) is redeemable for core, complete, agency.",
-    )
-  })
-
-  it("names only the tiers a discount does not apply to", async () => {
-    await expectPreviewProblems(
-      { discounts: [regionalDiscount(first, { products: [discountProduct(LICENSE_TIER.COMPLETE)] }), ...othersOffered] },
-      noDiscount(first, "core, agency"),
-    )
-  })
-
-  it.each([
-    ["a discount code", { code: "REGIONAL" }],
-    ["an end date that has passed", { ends_at: new Date(NOW).toISOString() }],
-    ["a start date still to come", { starts_at: new Date(NOW + 1).toISOString() }],
-    ["no redemptions left", { max_redemptions: 10, redemptions_count: 10 }],
-  ])("does not count a discount with %s, as checkout would not apply it", async (_case, fields) => {
-    await expectPreviewProblems(
-      { discounts: [regionalDiscount(first, fields), ...othersOffered] },
-      noDiscount(first, "core, complete, agency"),
-    )
-  })
-
-  it("does not count a fixed-amount discount", async () => {
-    const fixed: models.DiscountFixedOnceForeverDuration = {
-      ...DISCOUNT_FIELDS,
-      amount: 5000,
-      amounts: { usd: 5000 },
-      currency: "usd",
-      id: "fixed",
-      name: "Launch",
-      products: LICENSE_TIERS.map((tier) => discountProduct(tier)),
-      type: POLAR_DISCOUNT_TYPE.FIXED,
-    }
-
-    await expectPreviewProblems({ discounts: [fixed, ...othersOffered] }, noDiscount(first, "core, complete, agency"))
-  })
-})
-
 describe("verifyPolar on the webhook endpoints", () => {
   it("reports a missing webhook for the environment's host", async () => {
     await expectPreviewProblems({ endpoints: [] }, `No webhook endpoint posts to ${PREVIEW_WEBHOOK}.`)
@@ -760,21 +681,27 @@ describe("verifyPolar on the organisation", () => {
   ])("reports an organisation with %s, whose checkout ignores the buyer's language", async (_case, featureSettings) => {
     await expectPreviewProblems({ organization: organization(featureSettings) }, LOCALIZATION_OFF)
   })
+
+  it.each([POLAR_TAX_BEHAVIOR.INCLUSIVE, POLAR_TAX_BEHAVIOR.EXCLUSIVE])(
+    "reports an organisation whose default tax behaviour is %s, which the pricing note does not describe",
+    async (taxBehavior) => {
+      await expectPreviewProblems(
+        { organization: organization({ checkout_localization_enabled: true }, taxBehavior) },
+        TAX_NOT_LOCATION_BASED,
+      )
+    },
+  )
 })
 
-it("lists every problem at once, in the order organisation, products, discounts, webhooks", async () => {
-  const [missing = 0, ...offered] = PPP_PERCENTS_OFF
-
+it("lists every problem at once, in the order organisation, products, webhooks", async () => {
   await expectPreviewProblems(
     {
-      discounts: offered.map((percentOff) => regionalDiscount(percentOff)),
       endpoints: [],
       organization: organization({ checkout_localization_enabled: false }),
       products: LICENSE_TIERS.map((tier) => product(tier, { is_archived: tier === LICENSE_TIER.CORE })),
     },
     LOCALIZATION_OFF,
     "The core product (POLAR_PRODUCT_ID_CORE) is archived.",
-    noDiscount(missing, "core, complete, agency"),
     `No webhook endpoint posts to ${PREVIEW_WEBHOOK}.`,
   )
 })

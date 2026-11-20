@@ -1,9 +1,9 @@
 ---
 title: "Configuración de Polar"
-description: "Las organizaciones, el token, los productos, las claves de licencia, la casilla de consentimiento, los descuentos regionales y los webhooks de Polar que espera el código, y cómo los comprueba polar:verify."
+description: "Las organizaciones, el token, los productos, las claves de licencia, la casilla de consentimiento, el idioma del pago, el comportamiento fiscal y los webhooks de Polar que espera el código, cómo fija el pago los precios regionales y cómo los comprueba polar:verify."
 ---
 
-Polar vende los tres niveles, emite sus claves de licencia y aplica los descuentos regionales. El código espera una configuración precisa en Polar, y Polar no avisa cuando ambos dejan de coincidir: un producto sin un beneficio de clave de licencia sigue aceptando el pago, pero no emite ninguna clave. `bun run polar:verify:<environment>` compara Polar con el código, y los scripts de despliegue lo ejecutan antes de cada despliegue manual.
+Polar vende los tres niveles a los precios que envía el pago, emite sus claves de licencia y cobra los impuestos. El código espera una configuración precisa en Polar, y Polar no avisa cuando ambos dejan de coincidir: un producto sin un beneficio de clave de licencia sigue aceptando el pago, pero no emite ninguna clave. `bun run polar:verify:<environment>` compara Polar con el código, y los scripts de despliegue lo ejecutan antes de cada despliegue manual.
 
 ## Producción y sandbox
 
@@ -26,18 +26,17 @@ En el sandbox y, después, en producción:
 1. Crea una organización y copia su ID, que figura en los ajustes de la organización, en `POLAR_ORGANIZATION_ID`. Da a las dos organizaciones el slug de `POLAR_ORGANIZATION_SLUG` (`src/data/polar.ts`), o cambia la constante por su slug: el [aviso y la lista de administración de los pedidos que no corresponden a ninguna cuenta](/docs/features/licences#orders-that-match-no-account) enlazan cada pedido al panel de Polar con ese slug.
 2. En los ajustes de la organización, crea un token de acceso de organización con estos ámbitos, y ningún otro, y cópialo en `POLAR_ACCESS_TOKEN`.
 
-| Ámbito                    | Lo necesita                                                                                                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `checkouts:write`         | `startCheckout`, que crea el pago mediante el plugin de Polar para Better Auth                                                                                              |
-| `customer_sessions:write` | El enlace al portal de cliente, `/api/auth/customer/portal`                                                                                                                 |
-| `discounts:read`          | La búsqueda del descuento regional en el pago (`pppDiscountId`) y `polar:verify`                                                                                            |
-| `license_keys:write`      | Leer una clave y sus activaciones, activar un dispositivo y eliminar una activación (`deactivateLicense` y la [API de licencias de la CLI](/docs/features/cli-licence-api)) |
-| `orders:read`             | Los handlers de los webhooks, que leen el pedido que hay detrás de una licencia y el cliente actual de un pedido cuyo evento no corresponde a ninguna cuenta                |
-| `organizations:read`      | `polar:verify`, que lee si la localización del pago está activada                                                                                                           |
-| `products:read`           | `polar:verify`                                                                                                                                                              |
-| `webhooks:read`           | `polar:verify`                                                                                                                                                              |
+| Ámbito                    | Lo necesita                                                                                                                                                                                                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, que crea el pago mediante el plugin de Polar para Better Auth                                                                                                                                                                                                                            |
+| `customer_sessions:write` | El enlace al portal de cliente, `/api/auth/customer/portal`                                                                                                                                                                                                                                               |
+| `license_keys:write`      | Leer una clave y sus activaciones, activar un dispositivo y eliminar una activación (`deactivateLicense` y la [API de licencias de la CLI](/docs/features/cli-licence-api)) y, en una mejora, elevar el límite de activaciones de la clave y desactivar la clave que Polar emite para el pedido de mejora |
+| `orders:read`             | Los handlers de los webhooks, que leen el pedido que hay detrás de una licencia y el cliente actual de un pedido cuyo evento no corresponde a ninguna cuenta, y el precio de la mejora, que suma lo que el cliente ha pagado por licencias                                                                |
+| `organizations:read`      | `polar:verify`, que lee si la localización del pago está activada y el comportamiento fiscal predeterminado                                                                                                                                                                                               |
+| `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                            |
+| `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                            |
 
-Un ámbito de escritura incluye la lectura, así que `license_keys:write` también cubre la lectura de claves. Un token de organización ya actúa en nombre de su propia organización. Aun así, `polar:verify` envía `POLAR_ORGANIZATION_ID` como parámetro de consulta `organization_id`, igual que la búsqueda de descuentos en el pago, así que un ID de otra organización se manifiesta como productos que faltan.
+Un ámbito de escritura incluye la lectura, así que `license_keys:write` también cubre la lectura de claves. Un token de organización ya actúa en nombre de su propia organización. Aun así, `polar:verify` envía `POLAR_ORGANIZATION_ID` como parámetro de consulta `organization_id`, igual que el listado de pedidos para una mejora, así que un ID de otra organización se manifiesta como productos que faltan.
 
 ## Productos
 
@@ -80,16 +79,13 @@ Crear el campo y vincularlo a un producto requiere los ámbitos `custom_fields:w
 
 Polar muestra su pago en el idioma que pide `startCheckout` solo mientras la localización del pago esté activada en la organización; si no, todos los pagos se abren en inglés. Actívala en los ajustes de la organización. La [guía de localización del pago](https://polar.sh/docs/features/checkout/localization) de Polar la llama feature flag, y la API la devuelve como `feature_settings.checkout_localization_enabled` en la organización. `POLAR_CHECKOUT_LANGUAGES` en `src/data/polar.ts` enumera los idiomas que pide el código, y `polar:verify` falla mientras la localización esté desactivada.
 
-## Descuentos regionales
+## Comportamiento fiscal [#tax-behaviour]
 
-El proceso de pago aplica un precio regional mediante un descuento automático de Polar (consulta [Licencias](/docs/features/licences)). Crea un descuento porcentual para cada tramo de `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Cada descuento debe:
+Las tarjetas de precios indican que los precios están en dólares estadounidenses, que el IVA está incluido en la UE y que el impuesto sobre ventas se añade en el pago en Estados Unidos, Canadá e India. Polar cobra los impuestos así cuando el comportamiento fiscal predeterminado de la organización se basa en la ubicación, así que configúralo de esa forma en los ajustes de la organización. La API lo devuelve como `default_tax_behavior` en la organización, y `polar:verify` falla mientras no sea `location` (`POLAR_TAX_BEHAVIOR.LOCATION` en `src/lib/polar.ts`).
 
-- descontar un porcentaje; Polar lo guarda en puntos básicos, es decir, en centésimas de punto porcentual;
-- no tener código, para que el pago pueda aplicarlo sin que el comprador escriba ninguno;
-- aplicarse a los tres productos o a ningún producto en concreto;
-- poder canjearse ahora: sin fecha de inicio en el futuro, sin fecha de fin en el pasado y, si tiene un límite de canjes, con canjes disponibles.
+## Precios regionales [#regional-prices]
 
-`findRegionalDiscount`, en `src/integrations/polar/polar.discounts.ts`, decide qué descuento aplica el pago, y `polar:verify` consulta esa misma función.
+Los precios regionales no necesitan nada en Polar. Para un comprador de un país de `PPP_TIERS` (`src/modules/license/license.pricing.ts`), cuyos tramos descuentan <RegionalDiscounts />, `startCheckout` envía el propio precio: `regionalPrice` redondea a la baja el precio del nivel a dólares enteros, el importe que muestran las tarjetas de niveles, y el pago lo lleva en `prices` como precio fijo del producto del nivel que solo vale para ese pago, de modo que el producto conserva su precio de `TIER_PRICES`. Una [mejora](/docs/features/licences#upgrades) envía su precio de la misma forma. Los descuentos que creó una configuración anterior ya no se usan, y puedes eliminarlos.
 
 ## Webhook
 
@@ -127,14 +123,13 @@ bun run polar:verify:preview
 bun run polar:verify:production
 ```
 
-Cada script lee las claves de Polar de `.env.<environment>` y solo envía peticiones GET a la API que indica `POLAR_SERVER`: enumera los productos, los descuentos y los endpoints de webhook de la organización, y no modifica nada. Comprueba que:
+Cada script lee las claves de Polar de `.env.<environment>` y solo envía peticiones GET a la API que indica `POLAR_SERVER`: lee la organización y enumera sus productos y endpoints de webhook, y no modifica nada. Comprueba que:
 
 - el archivo de entorno define todas las claves de Polar, con `POLAR_SERVER=sandbox` para desarrollo y preview y `POLAR_SERVER=production` para producción;
-- la localización del pago está activada en la organización;
+- la localización del pago está activada en la organización, y su comportamiento fiscal predeterminado se basa en la ubicación;
 - cada `POLAR_PRODUCT_ID_*` corresponde a un producto de la organización que no está archivado ni es una suscripción, y cuyos precios son fijos, están en `DEFAULT_CURRENCY_CODE` y son iguales a `TIER_PRICES`;
 - cada producto tiene exactamente un beneficio de clave de licencia con el límite del nivel según `LICENSE_ACTIVATION_LIMITS`, sin caducidad y sin límite de uso;
 - cada producto exige el campo de casilla <RepositoryFact name="licenseWithdrawalConsentField" /> con la etiqueta de `WITHDRAWAL_CONSENT_FIELD`;
-- para cada tramo de `PPP_TIERS`, hay un descuento porcentual automático que puede canjearse en el producto de cada nivel, según la regla que usa el pago;
 - preview y producción tienen un endpoint raw activado en su URL de webhook, firmado con `POLAR_WEBHOOK_SECRET` y suscrito exactamente a `POLAR_EVENTS`;
 - ningún endpoint envía eventos al host de un entorno que usa el otro servicio de Polar.
 
@@ -156,9 +151,10 @@ Un fallo detiene el despliegue antes de que se compile, se migre o se suba nada.
 - **`rejects POLAR_ACCESS_TOKEN`**: el token no es válido, se ha revocado o es del otro servicio, como un token de producción en `.env.preview`.
 - **`lacks the … scope`**: crea un token con los ámbitos indicados más arriba.
 - **`names no product of the organisation`**: el ID de producto o `POLAR_ORGANIZATION_ID` es incorrecto, o pertenece al otro servicio.
-- **Un precio, una clave de licencia o un descuento**: cámbialo en Polar para que coincida con el código. Cuando un valor de negocio cambie a propósito, cambia primero `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` o `PPP_TIERS` y después Polar.
+- **Un precio o una clave de licencia**: cámbialo en Polar para que coincida con el código. Cuando un valor de negocio cambie a propósito, cambia primero `TIER_PRICES` o `LICENSE_ACTIVATION_LIMITS` y después Polar.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` o `label differs`**: crea, vincula o corrige la [casilla de consentimiento](#consent-checkbox). Cuando la redacción cambie a propósito, cambia primero `WITHDRAWAL_CONSENT_FIELD.label` y después la etiqueta en Polar.
 - **`Checkout localization is off`**: activa la [localización del pago](#checkout-language) en la organización.
+- **`default tax behaviour is not location`**: configura el [comportamiento fiscal](#tax-behaviour) de la organización para que se base en la ubicación.
 - **Un endpoint de webhook**: corrige el endpoint que indica el mensaje o elimina un endpoint que envíe eventos al host de otro entorno.
 
 ## Páginas relacionadas

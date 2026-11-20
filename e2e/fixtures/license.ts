@@ -22,6 +22,7 @@ const checkoutsSchema = zod.array(
     metadata: zod.record(zod.string(), zod.unknown()),
     product_id: zod.string(),
     return_url: zod.string(),
+    id: zod.string(),
     total_amount: zod.int(),
   }),
 )
@@ -43,7 +44,6 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
   const paid = polarOrder({
     checkoutId: null,
     customer: polarCustomer(TEST_POLAR.POLAR_ORGANIZATION_ID, userId),
-    discount: null,
     metadata: {},
     product: licensePolarProduct(tier, TEST_PRODUCT_IDS[tier]),
     status: POLAR_ORDER_STATUS.PAID,
@@ -71,4 +71,15 @@ export const startedCheckouts = async (request: APIRequestContext, customer: str
   const response = await request.get("/__test/polar/checkouts", { params: { customer } })
   expect(response.ok()).toBe(true)
   return checkoutsSchema.parse(await response.json())
+}
+
+const paymentSchema = zod.object({ grantCreated: signedWebhookSchema, orderPaid: signedWebhookSchema })
+
+export const payCheckout = async (request: APIRequestContext, checkout: string): Promise<void> => {
+  const response = await request.get("/__test/polar/pay", { params: { checkout } })
+  expect(response.ok()).toBe(true)
+  const { grantCreated, orderPaid } = paymentSchema.parse(await response.json())
+
+  await post(request, orderPaid)
+  await post(request, grantCreated)
 }

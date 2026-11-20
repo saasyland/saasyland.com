@@ -7,6 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { loadBlogIndex } from "virtual:content-indexes"
 
 import { type BlogPostSummary, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -108,7 +109,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     loaderData,
     match,
   }: {
-    loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined
+    loaderData?: { locale: SupportedLocale; post: BlogPostSummary & Pick<BlogPost, "updated">; section: string } | undefined
     match: { error: unknown }
   }) => {
     if (isNotFound(match.error)) {
@@ -116,6 +117,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     }
 
     return buildPageHead({
+      dates: loaderData?.post,
       description: loaderData?.post.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.post.url ?? ROUTES.BLOG,

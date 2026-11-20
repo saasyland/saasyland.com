@@ -7,6 +7,16 @@ description: "Localized MDX posts in content/blog, loaded through a Fumadocs col
 
 Posts live in `content/blog/<slug>.<locale>.mdx`, one file per locale. The frontmatter schema in `src/integrations/fumadocs/fumadocs.schema.ts` requires `title`, `authorName` and `date`, and accepts `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (default `true`), `tags` and `updated`. A tag is one of `BLOG_TAGS` in `src/data/blog.ts`, and the schema rejects any other value; `PostRow` and `PostMeta` show each tag by its label under `tags` in `pages.blog`, so tags read in the page's language.
 
+## Dates
+
+`date` is the day a post was first published, and it never changes. `updated` is the day the post's facts or substance last changed, such as a price, a feature that shipped or a comparison that no longer holds; it does not move for a typo, formatting or a fix to a translation. Both are written `YYYY-MM-DD`, and every locale of a post carries the same two, because they date the post, not its translation. The blog index keeps both for every post, and they drive every date that readers and search engines see:
+
+- `PostMeta` shows the publication date and, when `updated` is later than `date`, the update date, each in its own `<time>` element with a `dateTime`, formatted with the `calendarDate` format for the page's locale. The labels are the ICU messages `post.published` and `post.updated` in `pages.blog`, which take the formatted date as `{date}`. `PostRow`, on the blog index and in the landing page's Notes, shows only the publication date, which keeps the list compact and is the date the list is sorted by.
+- The `BlogPosting` JSON-LD gives `date` as `datePublished`, and `updated`, or `date` when there is none, as `dateModified`.
+- `buildPageHead` writes the same two as `article:published_time` and `article:modified_time`, and `sitemap.xml` gives the post's URL in every locale its `article:modified_time` as `<lastmod>`; see [Search and social previews](/docs/features/seo).
+
+The frontmatter schema refuses a date in any other format and an `updated` earlier than `date`, so `bun run dev` and the build stop on such a post, and `scripts/check-content.ts` fails when a translation's `date` or `updated` differs from the English post's.
+
 ## Figures from the code
 
 A post prints the values the code defines instead of typing them: `<RepositoryFact>` for counts, the coverage threshold (`coverageThreshold`), React's major version (`reactMajor`), the illustrative hourly rate (`illustrativeHourlyRate`, with `unit="currency"`) and the hours the Core price buys (`corePriceInHours`, with `unit="hour"`), and `<TierPrice>`, `<ActivationLimit>` and `<HeadStartTable />` for prices, machine limits and the head start. The `title` and the `faq` questions and answers are ICU messages: `formatPostText` in `src/lib/post-text.ts` formats them with `REPOSITORY_FACTS` and each tier's `<tier>Price` and `<tier>Machines`. `formatPostText` also passes `CLI_GENERATION_VALUES` from `src/data/cli.ts`, so a sentence that changes when project generation ships is written once as `{generation, select, available {…} other {…}}`, and `post-faq.test.ts` renders it with both statuses. It also passes `billingGeneration` (`BILLING_GENERATION` in `src/data/marketing.ts`), `affiliateProgram` and `affiliateHoldDays` from `src/data/affiliates.ts`, and `refundWithdrawalDays` (`REFUND_TERMS.WITHDRAWAL_DAYS`), and the same test renders the selects on `billingGeneration` and `affiliateProgram` with both statuses. `toBlogPostSummary` formats the title, and `<PostFaq entries={frontmatter.faq} />` renders the FAQ that the post's FAQPage JSON-LD also reads. `post-faq.test.ts` formats every post's title, questions and answers in its locale.
@@ -29,4 +39,4 @@ The landing page Notes section shows three posts of the blog index, featured one
 
 ## Checks
 
-Run `bun run content` after adding a post. `bun scripts/check-content.ts` verifies that every locale exists, that titles, descriptions and excerpts are translated, and that code blocks are identical.
+Run `bun run content` after adding a post. `bun scripts/check-content.ts` verifies that every locale exists, that titles, descriptions and excerpts are translated, that code blocks are identical, and that every locale of a post has the same `date` and `updated`.

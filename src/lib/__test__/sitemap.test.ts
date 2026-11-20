@@ -60,6 +60,19 @@ describe("buildSitemap", () => {
     )
   })
 
+  it("dates a page that names its last modification and leaves the others undated", () => {
+    const sitemap = buildSitemap([{ ...page("/blog/post"), modified: "2026-11-17T00:00:00.000Z" }, page("/docs")])
+
+    expect(sitemap).toContain(
+      [
+        `    <loc>${APP_URL}/blog/post</loc>`,
+        "    <lastmod>2026-11-17</lastmod>",
+        `    <xhtml:link rel="alternate" hreflang="en-US" href="${APP_URL}/blog/post"/>`,
+      ].join("\n"),
+    )
+    expect(sitemap.match(/<lastmod>/gu)).toHaveLength(1)
+  })
+
   it("escapes the characters XML reserves", () => {
     expect(buildSitemap([page(`/search?q="a"&b='c'<d>`)])).toContain(
       `<loc>${APP_URL}/search?q=&quot;a&quot;&amp;b=&apos;c&apos;&lt;d&gt;</loc>`,

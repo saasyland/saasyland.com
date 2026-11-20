@@ -11,6 +11,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 - タイトル（言語ごとの区切り文字と `APP_NAME` 付き）、説明、正規 URL、そしてすべての言語と `x-default` に対する `hreflang` 付きの `alternate` リンク
 - Open Graph: `og:site_name`、`og:title`（Open Graph の想定どおり、サイト名を含まないページタイトル）、`og:description`、`og:type`、`og:url`、`og:locale`、そしてセクションに属するページでは `article:section`
+- ブログ記事では、フロントマターの `date` と `updated` から作る `article:published_time` と `article:modified_time`
 - ソーシャル画像: `og:image`、`og:image:type`、`og:image:width` と `og:image:height`（<RepositoryFact name="socialImageWidth" /> × <RepositoryFact name="socialImageHeight" /> ピクセル）、`og:image:alt`、そして `summary_large_image` に設定した `twitter:card`、`twitter:title`、`twitter:description`、`twitter:image`、`twitter:image:alt`
 
 ルートルートは、ほかの言語の `og:locale:alternate` を追加します。`production` 以外のすべてのビルドモードでは、`robots` ディレクティブ `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）も追加し、プレビューとテストのデプロイが検索結果に表示されないようにします。
@@ -49,14 +50,14 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 1. `robots` ディレクティブがインデックスを許可し、かつ `robots.txt` がそのパスを禁止していないすべてのページを載せた `dist/client/sitemap.xml` を書き出します（`src/lib/sitemap.ts` の `listedPages` と `buildSitemap`。照合には `src/lib/robots.ts` の RFC 9309 に沿ったマッチングを使います）。各 `<url>` には、そのページ自身の `alternate` リンクを `x-default` も含めて `xhtml:link` エントリーとして列挙します。サイトマップに載っていない代替ページをページが指定している場合や、同じ URL が 2 回現れる場合、ビルドは失敗します。`ROBOTS.NON_PRODUCTION` はページ自身のディレクティブとは見なされないため、どのビルドモードでも同じサイトマップが書き出されます。
 2. サイトカードとすべてのページのカードを `dist/client/images/og` に描画します。2 つのページが同じ画像を指定している場合は失敗します。
 
-スクリプトは、サイトマップに載せたページ数、描画したカードの数、かかった時間を出力します。ドキュメントページには信頼できる更新日がないため、サイトマップに `lastmod` はありません。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
+スクリプトは、サイトマップに載せたページ数、描画したカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
 
 Worker は変わりません。Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml` とカードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
 
 ## テスト
 
 - `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`robots.test.ts` は、タグと構造化データの生成、タグの読み取り、サイトマップ、robots のルールをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語でカードを描画し、そのサイズを確認します。
-- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。また、プリレンダリング済みのホームページに組織の構造化データが含まれていることも確認します。
+- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、公開済みのすべての記事の `<lastmod>` がすべての言語でその `updated`（ない場合は `date`）であり、ほかの URL には付いていないことを確認し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。また、プリレンダリング済みのホームページに組織の構造化データが含まれていることも確認します。
 - デプロイ後、`verify-deployment.ts` は <RepositoryFact name="liveSiteCheckPaths" /> をリクエストします。サイトマップとサイトカードもこれに含まれます。
 
 ## 関連ページ

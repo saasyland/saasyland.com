@@ -11,6 +11,7 @@ Cada página se describe ante los motores de búsqueda y las vistas previas de e
 
 - el título, con el separador del idioma y `APP_NAME`, la descripción, la URL canónica y un enlace `alternate` con `hreflang` para cada idioma y para `x-default`;
 - Open Graph: `og:site_name`, `og:title` (el título de la página sin el nombre del sitio, como espera Open Graph), `og:description`, `og:type`, `og:url`, `og:locale` y, en una página que pertenece a una sección, `article:section`;
+- en una entrada del blog, `article:published_time` y `article:modified_time`, a partir de `date` y `updated` de su frontmatter;
 - la imagen social: `og:image`, `og:image:type`, `og:image:width` y `og:image:height` (<RepositoryFact name="socialImageWidth" /> por <RepositoryFact name="socialImageHeight" /> píxeles) y `og:image:alt`, con `twitter:card` establecido en `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` y `twitter:image:alt`.
 
 La ruta raíz añade `og:locale:alternate` para los demás idiomas. En todos los modos de build salvo `production` también añade la directiva `robots` `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`), que mantiene los despliegues de preview y de pruebas fuera de los resultados de búsqueda.
@@ -49,14 +50,14 @@ Para cambiar el diseño, edita `social-card.tsx`, ejecuta `bun run build:test` y
 1. Escribe `dist/client/sitemap.xml` con cada página cuya directiva `robots` permite la indexación y cuya ruta no está bloqueada en `robots.txt` (`listedPages` y `buildSitemap` en `src/lib/sitemap.ts`, con la coincidencia de RFC 9309 de `src/lib/robots.ts`). Cada `<url>` enumera los enlaces `alternate` de la propia página como entradas `xhtml:link`, `x-default` incluido. El build falla cuando una página nombra una alternativa que el sitemap no incluye o cuando una URL aparece dos veces. `ROBOTS.NON_PRODUCTION` no cuenta como directiva propia de una página, así que todos los modos de build escriben el mismo sitemap.
 2. Renderiza la tarjeta del sitio y la de cada página en `dist/client/images/og`, y falla cuando dos páginas nombran la misma imagen.
 
-Muestra cuántas páginas incluye el sitemap, cuántas tarjetas ha renderizado y cuánto ha tardado. El sitemap no tiene `lastmod`, porque las páginas de la documentación no llevan una fecha de modificación fiable. Las páginas de los cursos no están en él: se leen de D1 en cada petición, y el sitemap es un archivo que escribe el build.
+Muestra cuántas páginas incluye el sitemap, cuántas tarjetas ha renderizado y cuánto ha tardado. El `<url>` de una entrada del blog lleva un `<lastmod>`: `readPageHead` lee el `article:modified_time` de la entrada y `buildSitemap` escribe su día como `YYYY-MM-DD`, en cada idioma. Ninguna otra página lo tiene, porque las páginas de la documentación, la de inicio y las legales no llevan una fecha de modificación fiable, y la hora del build afirmaría cambios que nunca ocurrieron. Las páginas de los cursos no están en él: se leen de D1 en cada petición, y el sitemap es un archivo que escribe el build.
 
 El Worker no cambia. Takumi y el script solo se ejecutan durante el build, y `src/server.ts` sirve `sitemap.xml` y las tarjetas desde los recursos estáticos como cualquier otro archivo, con la política de caché que `public/_headers` define para `/images/*`.
 
 ## Pruebas
 
 - `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` y `robots.test.ts`, en `src/lib/__test__`, cubren las etiquetas y los datos estructurados, la lectura posterior de las etiquetas, el sitemap y las reglas de robots. `takumi.render.test.ts` renderiza tarjetas en inglés, alemán, ucraniano y japonés y comprueba su tamaño.
-- `e2e/specs/seo.spec.ts` compara el sitemap servido con las páginas prerenderizadas que permiten la indexación, solicita cada URL que contiene y espera `200` sin redirección, y abre la página de inicio, una página de la documentación y una entrada del blog en inglés y en japonés para comprobar sus etiquetas sociales y la imagen que indican. También comprueba que la página de inicio prerenderizada incluye los datos estructurados de la organización.
+- `e2e/specs/seo.spec.ts` compara el sitemap servido con las páginas prerenderizadas que permiten la indexación, comprueba que el `<lastmod>` de cada entrada publicada en cada idioma es su `updated`, o su `date` si no lo hay, y que ninguna otra URL lo tiene, solicita cada URL que contiene y espera `200` sin redirección, y abre la página de inicio, una página de la documentación y una entrada del blog en inglés y en japonés para comprobar sus etiquetas sociales y la imagen que indican. También comprueba que la página de inicio prerenderizada incluye los datos estructurados de la organización.
 - Después de un despliegue, `verify-deployment.ts` solicita <RepositoryFact name="liveSiteCheckPaths" />, entre ellas el sitemap y la tarjeta del sitio.
 
 ## Páginas relacionadas

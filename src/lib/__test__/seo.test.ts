@@ -106,6 +106,32 @@ it("leaves og:locale:alternate to the root document, because route heads keep on
   expect(meta).not.toContainEqual(expect.objectContaining({ property: "og:locale:alternate" }))
 })
 
+describe("article times", () => {
+  it("names when a post was published and last modified", () => {
+    const { meta } = buildPageHead({ dates: { date: "2026-08-15", updated: "2026-11-17" }, pathname: "/blog/a-post", type: "article" })
+
+    expect(meta).toStrictEqual(
+      expect.arrayContaining([
+        { content: "2026-08-15T00:00:00.000Z", property: "article:published_time" },
+        { content: "2026-11-17T00:00:00.000Z", property: "article:modified_time" },
+      ]),
+    )
+  })
+
+  it("dates the last modification at the publication when the post was never updated", () => {
+    const { meta } = buildPageHead({ dates: { date: "2026-08-15" }, pathname: "/blog/a-post", type: "article" })
+
+    expect(meta).toContainEqual({ content: "2026-08-15T00:00:00.000Z", property: "article:modified_time" })
+  })
+
+  it("leaves both out of a page without dates", () => {
+    const { meta } = buildPageHead({ pathname: ROUTES.DOCS, type: "article" })
+
+    expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:published_time" }))
+    expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:modified_time" }))
+  })
+})
+
 const imageUrl = (path: string): string => `${APP_URL}/images/og${path}.${SOCIAL_IMAGE.FORMAT}`
 
 describe("social preview", () => {

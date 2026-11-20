@@ -10,11 +10,17 @@ const EXAMPLE_LABEL = "docs/example.de-DE.mdx"
 const JAPANESE_LABEL = "docs/example.ja-JP.mdx"
 const MERGED_PULL_REQUEST = "201"
 const ENTRY_LABEL = "changelog/202.de-DE.mdx"
+const POST_LABEL = "blog/example.de-DE.mdx"
 const ENGLISH_ENTRY = "- Fixed: the checkout keeps the buyer's email address when they return from Polar.\n"
 
 const readApiSurface = (locale: string): string => readFileSync(`${API_SURFACE}.${locale}.mdx`, "utf8")
 
 const page = (body: string): string => `---\ntitle: "Page"\n---\n\n${body}\n`
+
+const post = (dates: Readonly<Record<string, string>>): string =>
+  `---\ntitle: "Post"\n${Object.entries(dates)
+    .map(([field, value]) => `${field}: ${value}\n`)
+    .join("")}---\n\nBody.\n`
 
 const problemsOf = ({ source, target }: { source: string; target: string }): string[] =>
   mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(source), target: page(target) })
@@ -184,5 +190,27 @@ describe("check-content forms of address", () => {
     const code = "\n\n```sh\necho Sie\n```"
 
     expect(problemsOf({ source: `Run \`echo Sie\` before you push.${code}`, target: `${prose}${code}` })).toEqual(problems)
+  })
+})
+
+describe("check-content post dates", () => {
+  it.each([
+    {
+      problem: `${POST_LABEL} has date 2026-08-16 where the English page has date 2026-08-15`,
+      target: { date: "2026-08-16", updated: "2026-11-17" },
+    },
+    {
+      problem: `${POST_LABEL} has updated 2026-11-18 where the English page has updated 2026-11-17`,
+      target: { date: "2026-08-15", updated: "2026-11-18" },
+    },
+    {
+      problem: `${POST_LABEL} has no updated where the English page has updated 2026-11-17`,
+      target: { date: "2026-08-15" },
+    },
+  ])("fails a post whose translation is dated differently: $problem", ({ problem, target }) => {
+    const source = post({ date: "2026-08-15", updated: "2026-11-17" })
+
+    expect(mdxProblems({ label: POST_LABEL, locale: "de-DE", source, target: post(target) })).toEqual([problem])
+    expect(mdxProblems({ label: POST_LABEL, locale: "de-DE", source, target: source })).toEqual([])
   })
 })

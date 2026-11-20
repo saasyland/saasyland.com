@@ -224,6 +224,43 @@ describe("blog routes", () => {
     expect(screen.getByRole("button", { name: plPagesBlogMessages.post.contents })).toBeInTheDocument()
   })
 
+  it("shows only the publication date of a post that was never updated", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const published = screen.getByText("September 1, 2026", { selector: "time" })
+    expect(published).toHaveAttribute("datetime", "2026-09-01T00:00:00.000Z")
+    expect(published.parentElement).toHaveTextContent(/^Published September 1, 2026$/u)
+    expect(screen.queryByText(/^Updated /u)).not.toBeInTheDocument()
+    expect(document.querySelectorAll("article time")).toHaveLength(1)
+  })
+
+  it("leaves the update out when the post was updated on the day it was published", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide", post: { ...GUIDE, updated: GUIDE.date } })
+    expect(document.querySelectorAll("article time")).toHaveLength(1)
+  })
+
+  it.each([
+    { locale: "en-US" as const, post: GUIDE, published: "Published September 1, 2026", updated: "Updated November 17, 2026" },
+    {
+      locale: "pl-PL" as const,
+      post: POLISH_GUIDE,
+      published: "Opublikowano 1 września 2026",
+      updated: "Zaktualizowano 17 listopada 2026",
+    },
+  ])(
+    "shows when a $locale post was published and when it was updated, each in its own time element",
+    async ({ locale, post, ...labels }) => {
+      await renderBlog({ locale, path: post.url, post: { ...post, updated: "2026-11-17" } })
+      const times = Array.from(document.querySelectorAll("article time"), (time) => ({
+        dateTime: time.getAttribute("datetime"),
+        label: time.parentElement?.textContent,
+      }))
+      expect(times).toStrictEqual([
+        { dateTime: "2026-09-01T00:00:00.000Z", label: labels.published },
+        { dateTime: "2026-11-17T00:00:00.000Z", label: labels.updated },
+      ])
+    },
+  )
+
   it("renders summaries, tags and reading times without empty placeholders", async () => {
     await renderBlog({ locale: "en-US", path: "/blog", posts: [GUIDE, MINIMAL] })
     const ledger = within(section(screen.getByRole("heading", { level: 1, name: pagesBlogMessages.index.title }), "section"))

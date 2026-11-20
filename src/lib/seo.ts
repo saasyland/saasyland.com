@@ -69,7 +69,29 @@ const socialImage = ({
   return { alt: text.join(TITLE_SEPARATORS[locale]), path: socialImagePath(canonicalPath) }
 }
 
+type PostDates = Readonly<{
+  date: string | Date
+  updated?: string | Date | undefined
+}>
+
+const toIsoDate = (value: string | Date): string => new Date(value).toISOString()
+
+const postDates = ({ date, updated = date }: PostDates): { readonly modified: string; readonly published: string } => ({
+  modified: toIsoDate(updated),
+  published: toIsoDate(date),
+})
+
+const articleTimes = (dates: PostDates): { readonly content: string; readonly property: string }[] => {
+  const { modified, published } = postDates(dates)
+
+  return [
+    { content: published, property: "article:published_time" },
+    { content: modified, property: "article:modified_time" },
+  ]
+}
+
 export const buildPageHead = ({
+  dates,
   description = "",
   locale = I18N.DEFAULT_LOCALE,
   pathname,
@@ -77,6 +99,7 @@ export const buildPageHead = ({
   title,
   type = "website",
 }: {
+  readonly dates?: PostDates | undefined
   readonly description?: string | undefined
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
@@ -102,6 +125,7 @@ export const buildPageHead = ({
       { content: `${APP_URL}${canonicalPath}`, property: "og:url" },
       { content: toOpenGraphLocale(locale), property: "og:locale" },
       ...(section === undefined ? [] : [{ content: section, property: "article:section" }]),
+      ...(dates === undefined ? [] : articleTimes(dates)),
       { content: imageUrl, property: "og:image" },
       { content: SOCIAL_IMAGE.TYPE, property: "og:image:type" },
       { content: String(SOCIAL_IMAGE.WIDTH), property: "og:image:width" },
@@ -126,17 +150,16 @@ export const pageHead =
   ({ loaderData }: { loaderData?: PageLoaderData | undefined }) =>
     buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname })
 
-type PostStructuredDataInput = Readonly<{
-  authorName: string
-  baseUrl: string
-  date: string | Date
-  description?: string | undefined
-  faq?: readonly { answer: string; question: string }[] | undefined
-  image?: string | undefined
-  title: string
-  updated?: string | Date | undefined
-  url: string
-}>
+type PostStructuredDataInput = PostDates &
+  Readonly<{
+    authorName: string
+    baseUrl: string
+    description?: string | undefined
+    faq?: readonly { answer: string; question: string }[] | undefined
+    image?: string | undefined
+    title: string
+    url: string
+  }>
 
 type StructuredDataNode = Record<string, unknown>
 
@@ -161,18 +184,16 @@ const toStructuredDataHtml = (data: StructuredDataNode): { __html: string } => (
 
 export const ORGANIZATION_STRUCTURED_DATA_HTML = toStructuredDataHtml({ "@context": SCHEMA_CONTEXT, ...ORGANIZATION })
 
-const toIsoDate = (value: string | Date): string => new Date(value).toISOString()
-
 const absoluteUrl = (baseUrl: string, path: string): string => new URL(path, baseUrl).toString()
 
 export const buildBlogPostStructuredData = (input: PostStructuredDataInput): PostStructuredData => {
   const canonical = absoluteUrl(input.baseUrl, input.url)
-  const published = toIsoDate(input.date)
+  const { modified, published } = postDates(input)
 
   const article: StructuredDataNode = {
     "@type": "BlogPosting",
     author: { "@type": "Person", name: input.authorName },
-    dateModified: input.updated === undefined ? published : toIsoDate(input.updated),
+    dateModified: modified,
     datePublished: published,
     headline: input.title,
     mainEntityOfPage: { "@id": canonical, "@type": "WebPage" },

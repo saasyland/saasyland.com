@@ -43,6 +43,8 @@ import motion from "~/remotion/package.json"
 import motionTypes from "~/remotion/tsconfig.json"
 
 const PRERELEASE = /^\d+\.\d+\.\d+-(?<channel>[a-z]+)\.\d+$/u
+const CARET_RANGE = /^\^/u
+const VIDEO_SHARED_PACKAGES = ["lucide-react", "react", "react-dom"] as const
 
 const INIT_YES_ANSWERS = {
   architecture: ARCHITECTURE.MONOLITH,
@@ -137,4 +139,10 @@ it("pins the landing videos, which import this file, to the same @saasyland/stac
     [stack.name]: [installed(stack.exports["."].types)],
     [`${stack.name}/cli`]: [installed(stack.exports["./cli"].types)],
   })
+})
+
+it("pins lucide-react, React and React DOM in the landing videos, which render the website's navigation and its icons, to the lowest versions the website accepts", () => {
+  expect(VIDEO_SHARED_PACKAGES.map((name) => motion.dependencies[name])).toStrictEqual(
+    VIDEO_SHARED_PACKAGES.map((name) => root.dependencies[name].replace(CARET_RANGE, "")),
+  )
 })

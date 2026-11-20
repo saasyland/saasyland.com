@@ -293,16 +293,32 @@ describe("RepositoryTable", () => {
   })
 
   it("prints the form of address of every translated locale with the forms its check rejects", () => {
-    const columns = ["Locale", "Form", "Never", "Never inside a sentence", "Never ending a sentence"]
+    const columns = [
+      "Locale",
+      "Form",
+      "Never",
+      "Never inside a sentence",
+      "Never ending a sentence",
+      "Never starting a clause",
+      "Clause openers",
+    ]
 
     renderInLocale("en-US", <RepositoryTable columns={columns} name="formsOfAddress" />)
 
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(columns)
     expect(tableRows().slice(1)).toEqual(
       I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
-        const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+        const { clauseOpeners, form, never, neverEndingSentence, neverInsideSentence, neverStartingClause } = FORMS_OF_ADDRESS[locale]
 
-        return [locale, form, englishList(never), englishList(neverInsideSentence), englishList(neverEndingSentence)]
+        return [
+          locale,
+          form,
+          englishList(never),
+          englishList(neverInsideSentence),
+          englishList(neverEndingSentence),
+          englishList(neverStartingClause),
+          englishList(clauseOpeners),
+        ]
       }),
     )
   })

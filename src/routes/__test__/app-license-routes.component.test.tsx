@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -180,6 +180,10 @@ const consentAndContinue = async (user: ReturnType<typeof userEvent.setup>, tier
   await user.click(await within(dialog).findByRole("checkbox", { name: consentLabel(tier) }))
   await user.click(within(dialog).getByRole("button", { name: buy.consent.continue }))
 }
+
+beforeAll(async () => {
+  await import("~/src/presentation/components/custom/app/checkout-consent")
+})
 
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())

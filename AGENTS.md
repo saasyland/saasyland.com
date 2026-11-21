@@ -15,7 +15,7 @@ bun run build:test
 bun run test:e2e:pr
 ```
 
-Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreates and seeds the local test database that the browser suite uses. Format and lint only the files you changed with `bunx vp fmt <files>` and `bunx vp lint --fix <files>`; never run `bun run check:fix` or `vp check --fix` over the repository. The formatter keeps `package.json` scripts sorted by name, and `vp check` fails when one is out of order.
+Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreates and seeds the local test database that the browser suite uses. Other worktrees run browser suites on this machine too, so run yours on a free port from 3020 to 3029, the range the test build trusts: `lsof -nP -iTCP:3027 -sTCP:LISTEN` prints nothing for a free port, then `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr`. Never stop or reuse a server you did not start; the run stops before the first test when the server on its port belongs to another worktree. Format and lint only the files you changed with `bunx vp fmt <files>` and `bunx vp lint --fix <files>`; never run `bun run check:fix` or `vp check --fix` over the repository. The formatter keeps `package.json` scripts sorted by name, and `vp check` fails when one is out of order.
 
 ## Definition of done
 

@@ -27,7 +27,7 @@ bun run test:journey
 
 ## Configuración
 
-`playwright.config.ts` ejecuta las specs de `e2e/specs/`, define los proyectos `chromium` (Desktop Chrome) y `webkit` (Desktop Safari) y usa `PLAYWRIGHT_BASE_URL` o `http://127.0.0.1:3000` (`LOCAL_SERVER_ORIGIN` de `src/data/local-server.ts`). En local, el comando del servidor web ejecuta `db:reset:test`, `build:test` y `start:test`, y reutiliza un servidor que ya responda en esa URL, así que detén primero cualquier otro servidor en `127.0.0.1:3000`. En CI, el flujo de trabajo prepara la compilación y Playwright solo inicia el servidor.
+`playwright.config.ts` ejecuta las specs de `e2e/specs/`, define los proyectos `chromium` (Desktop Chrome) y `webkit` (Desktop Safari) y usa `PLAYWRIGHT_BASE_URL` o `http://127.0.0.1:3000` (`LOCAL_SERVER_ORIGIN` de `src/data/local-server.ts`). En local, el comando del servidor web ejecuta `db:reset:test`, `build:test` y `start:test`, y reutiliza un servidor que ya responda en esa URL. En CI, el flujo de trabajo prepara la compilación y Playwright solo inicia el servidor.
 
 | Ajuste     | Local                                            | CI                                            |
 | ---------- | ------------------------------------------------ | --------------------------------------------- |
@@ -36,6 +36,21 @@ bun run test:journey
 | Trazas     | Se conservan si falla                            | En el primer reintento                        |
 | Vídeos     | Desactivados                                     | Se conservan si falla                         |
 | Reporter   | Lista y HTML                                     | GitHub y HTML                                 |
+
+## Ejecutar junto a otros worktrees [#running-beside-other-worktrees]
+
+La build de pruebas solo acepta peticiones de los hosts en los que confía en modo de pruebas, porque Better Auth y los enlaces del boletín comprueban el host de la petición: `127.0.0.1:3000` y `localhost:3000`, y `127.0.0.1` y `localhost` en los puertos <RepositoryFact name="testServerFirstPort" /> a <RepositoryFact name="testServerLastPort" />, definidos por `TEST_SERVER_PORTS` en `src/data/local-server.ts`. En cualquier otro puerto fallan las páginas de inicio de sesión y de cursos, por eso `playwright.config.ts` se detiene antes de compilar nada cuando `PLAYWRIGHT_BASE_URL` indica otro host.
+
+`PLAYWRIGHT_BASE_URL` es el único ajuste que elige el puerto: Playwright abre esa URL e inicia `start:test` en su puerto. Cuando otros worktrees ejecutan sus suites al mismo tiempo, da a cada worktree su propio puerto del rango. Comprueba que nada escucha en él y ejecuta la suite allí:
+
+```sh
+lsof -nP -iTCP:3027 -sTCP:LISTEN
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr
+```
+
+`lsof` no imprime nada cuando el puerto está libre. Si imprime un proceso, elige otro puerto y no toques ese servidor: detén solo los servidores que iniciaste tú.
+
+En local, Playwright reutiliza un servidor que ya responde en la URL y entonces se salta el reinicio de la base de datos y la compilación, de modo que la suite nunca debe llegar al servidor de otro worktree. `e2e/global-setup.ts` lo garantiza: antes de la primera prueba busca con `lsof` los procesos que escuchan en el puerto y detiene la ejecución cuando alguno se ejecuta en un directorio distinto de este worktree. Un servidor que iniciaste desde este worktree pasa la comprobación y se reutiliza tal cual; detenlo cuando la suite deba probar una compilación nueva.
 
 ## Estructura
 
@@ -46,6 +61,7 @@ bun run test:journey
 - `e2e/data/videos.ts` y `e2e/data/courses.ts`: el vídeo de prueba precargado, cuyos archivos están en `e2e/fixtures/video/`, y el curso precargado: un capítulo con una vista previa gratuita, una lección para cuentas y dos lecciones de pago, una de ellas sin vídeo.
 - `e2e/data/<area>.pages.ts` y `e2e/data/<area>.seed.ts`: las páginas de cada área, que visitan `accessibility.spec.ts` y `workspaces.spec.ts`, y sus filas y archivos multimedia en la base de datos de pruebas, reunidos por `pages.entries.ts` y `seed.entries.ts`.
 - `e2e/data/<area>.flows.ts`: los flujos de cada área, cada uno con la prueba que lo demuestra de principio a fin o el motivo por el que falta, reunidos por `flows.entries.ts`; consulta [Cobertura de pruebas](/docs/tooling/test-coverage).
+- `e2e/global-setup.ts`: la configuración global, que detiene la ejecución cuando el servidor del puerto de la suite se ejecuta desde otro worktree.
 - `e2e/journey/`: la [suite del recorrido del cliente](#journey-suite), con su propia configuración.
 
 El Worker de pruebas ejecuta lo que las áreas declaran en `e2e/data/<area>.worker.ts`, reunido por `worker.entries.ts`: el área de licencias siembra las claves de licencia de prueba en el doble de Polar, Resend expone `/__test/emails` para leer los correos capturados y el área del boletín, `/__test/newsletter` para leer el estado de un suscriptor.

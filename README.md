@@ -283,7 +283,13 @@ bun run test:e2e:install
 bun run test:e2e
 ```
 
-Locally, Playwright recreates the test database with `db:reset:test`, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
+Locally, Playwright recreates the test database with `db:reset:test`, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000` and is the one place to choose the port. The test build trusts port 3000 and ports 3020 to 3029 (`TEST_SERVER_PORTS` in [`src/data/local-server.ts`](src/data/local-server.ts)), and `playwright.config.ts` refuses any other before it builds. To run the suite beside other worktrees, pick a port in that range on which `lsof -nP -iTCP:3027 -sTCP:LISTEN` prints nothing, and run it there:
+
+```sh
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr
+```
+
+Leave a server you did not start alone and take another port. [`e2e/global-setup.ts`](e2e/global-setup.ts) stops the run before the first test when the server on the port runs from another directory, so Playwright never reuses another worktree's server. See [Running beside other worktrees](content/docs/tooling/playwright.en-US.mdx#running-beside-other-worktrees).
 
 `bun run test:journey` runs the journey suite in [`e2e/journey/`](e2e/journey/) by hand against the preview deployment instead: it signs up through Resend's test inbox, buys each tier on the Polar sandbox checkout with Stripe's test card, and activates, fills, frees and deactivates machines with the published CLI until a refund ends the licence. It reads the Polar sandbox token and product IDs and a full-access Resend key from the environment or `.env.preview`; see [Journey suite](content/docs/tooling/playwright.en-US.mdx#journey-suite).
 

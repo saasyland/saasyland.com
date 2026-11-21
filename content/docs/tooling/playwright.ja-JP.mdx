@@ -27,7 +27,7 @@ bun run test:journey
 
 ## 設定
 
-`playwright.config.ts` は `e2e/specs/` のスペックを実行し、`chromium`（Desktop Chrome）と `webkit`（Desktop Safari）のプロジェクトを定義し、`PLAYWRIGHT_BASE_URL` または `http://127.0.0.1:3000`（`src/data/local-server.ts` の `LOCAL_SERVER_ORIGIN`） を使います。ローカルでは、Web サーバーのコマンドが `db:reset:test`、`build:test`、`start:test` を実行します。その URL ですでに応答しているサーバーがあれば再利用するため、先に `127.0.0.1:3000` で動いている他のサーバーを停止してください。CI ではワークフローがビルドを準備し、Playwright はサーバーを起動するだけです。
+`playwright.config.ts` は `e2e/specs/` のスペックを実行し、`chromium`（Desktop Chrome）と `webkit`（Desktop Safari）のプロジェクトを定義し、`PLAYWRIGHT_BASE_URL` または `http://127.0.0.1:3000`（`src/data/local-server.ts` の `LOCAL_SERVER_ORIGIN`） を使います。ローカルでは、Web サーバーのコマンドが `db:reset:test`、`build:test`、`start:test` を実行し、その URL ですでに応答しているサーバーがあれば再利用します。CI ではワークフローがビルドを準備し、Playwright はサーバーを起動するだけです。
 
 | 設定       | ローカル                                         | CI                                            |
 | ---------- | ------------------------------------------------ | --------------------------------------------- |
@@ -36,6 +36,21 @@ bun run test:journey
 | トレース   | 失敗時に保持                                     | 最初のリトライ時                              |
 | ビデオ     | オフ                                             | 失敗時に保持                                  |
 | レポーター | List と HTML                                     | GitHub と HTML                                |
+
+## 他のワークツリーと並行して実行する [#running-beside-other-worktrees]
+
+Better Auth とニュースレターのリンクがリクエストのホストを確認するため、テストビルドはテストモードで信頼するホストからのリクエストだけを受け付けます。対象は `127.0.0.1:3000` と `localhost:3000`、およびポート <RepositoryFact name="testServerFirstPort" /> から <RepositoryFact name="testServerLastPort" /> までの `127.0.0.1` と `localhost` で、この範囲は `src/data/local-server.ts` の `TEST_SERVER_PORTS` が決めます。それ以外のポートではサインインとコースのページが失敗するため、`PLAYWRIGHT_BASE_URL` が別のホストを指していると、`playwright.config.ts` は何かをビルドする前に停止します。
+
+ポートを選ぶ設定は `PLAYWRIGHT_BASE_URL` だけです。Playwright はその URL を開き、そのポートで `start:test` を起動します。他のワークツリーが同時にスイートを実行するときは、ワークツリーごとに範囲内の専用ポートを割り当てます。そのポートで何も待ち受けていないことを確認してから、そこでスイートを実行します。
+
+```sh
+lsof -nP -iTCP:3027 -sTCP:LISTEN
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr
+```
+
+ポートが空いていれば、`lsof` は何も出力しません。プロセスが表示されたら別のポートを使い、そのサーバーには手を触れないでください。停止してよいのは、自分で起動したサーバーだけです。
+
+ローカルの Playwright は、URL ですでに応答しているサーバーを再利用し、その場合はデータベースのリセットとビルドを省略します。そのため、スイートが別のワークツリーのサーバーに接続することがあってはなりません。`e2e/global-setup.ts` がこれを保証します。最初のテストの前に、ポートで待ち受けているプロセスを `lsof` で調べ、そのいずれかがこのワークツリー以外のディレクトリで動いていれば実行を停止します。このワークツリーから自分で起動したサーバーは確認を通り、そのまま再利用されます。新しいビルドをテストしたいときは、そのサーバーを停止してください。
 
 ## 構成
 
@@ -46,6 +61,7 @@ bun run test:journey
 - `e2e/data/videos.ts` と `e2e/data/courses.ts`: シードされるテスト動画（ファイルは `e2e/fixtures/video/`）と、シードされるコース。コースは 1 つのチャプターに、無料プレビュー、アカウント用レッスン、有料レッスン 2 つ（うち 1 つは動画なし）を持ちます。
 - `e2e/data/<area>.pages.ts` と `e2e/data/<area>.seed.ts`: 各エリアのページ（`accessibility.spec.ts` と `workspaces.spec.ts` が訪れます）と、テスト用データベースに入るそのエリアの行とメディア。`pages.entries.ts` と `seed.entries.ts` がまとめます。
 - `e2e/data/<area>.flows.ts`: 各エリアのフロー。それぞれに、そのフローをエンドツーエンドで証明するテスト、またはテストがない理由を記載し、`flows.entries.ts` がまとめます。[テストカバレッジ](/docs/tooling/test-coverage)を参照してください。
+- `e2e/global-setup.ts`: スイートのポートで動いているサーバーが別のワークツリーのものであれば実行を止める、グローバルセットアップ。
 - `e2e/journey/`: 独自の設定を持つ[ジャーニースイート](#journey-suite)。
 
 テスト用 Worker は、各エリアが `e2e/data/<area>.worker.ts` で宣言し、`worker.entries.ts` がまとめたものを実行します。ライセンスのエリアは Polar のモックにテスト用のライセンスキーを登録し、Resend はキャプチャしたメールを読み取る `/__test/emails` を、ニュースレターのエリアは購読者の状態を読み取る `/__test/newsletter` を公開します。

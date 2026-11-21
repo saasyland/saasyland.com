@@ -21,7 +21,6 @@ import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/bette
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import {
   LOCALIZED_LIST_ITEM_MAX_LENGTH,
@@ -96,6 +95,7 @@ import {
 } from "~/src/data/cli"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
@@ -241,7 +241,8 @@ const FACTS = {
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
   storyboardMaxTiles: STORYBOARD_MAX_FRAMES,
   supportedLocales: I18N.SUPPORTED_LOCALES,
-  testServerHosts: appHostsForMode(ENVIRONMENT.TEST),
+  testServerFirstPort: String(TEST_SERVER_PORTS.FIRST),
+  testServerLastPort: String(TEST_SERVER_PORTS.LAST),
   tokenRateLimit: RATE_LIMITS.TOKEN.max,
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
   unlistedRoutes: UNLISTED_ROUTES,

@@ -32,6 +32,7 @@ import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_KEY_LINES, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { LOCAL_SERVER, TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
@@ -519,11 +520,14 @@ describe("live site checks", () => {
 })
 
 describe("local test servers", () => {
-  it("prints every host the test build accepts requests from, in the order the app allows them", () => {
-    renderInLocale("en-US", <RepositoryFact name="testServerHosts" />)
+  it.each([
+    { name: "testServerFirstPort", port: TEST_SERVER_PORTS.FIRST },
+    { name: "testServerLastPort", port: TEST_SERVER_PORTS.LAST },
+  ] as const)("prints $name as a port, without the digit grouping of a number", ({ name, port }) => {
+    renderInLocale("en-US", <RepositoryFact name={name} />)
 
-    const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
-    expect(printed).toStrictEqual(appHostsForMode(ENVIRONMENT.TEST))
+    expect(screen.getByTestId("fact")).toContainHTML(`<code>${String(port)}</code>`)
+    expect(appHostsForMode(ENVIRONMENT.TEST)).toContain(`${LOCAL_SERVER.HOST}:${String(port)}`)
   })
 })
 

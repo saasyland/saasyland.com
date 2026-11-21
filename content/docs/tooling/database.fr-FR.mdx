@@ -56,8 +56,9 @@ L'installation des dépendances et le build ne migrent jamais une base de donné
 | `bun run db:studio:preview`, `bun run db:studio:production`         | Distante                            | Drizzle Studio via l'API HTTP de D1                                                                                  |
 | `bun run db:introspect:preview`, `bun run db:introspect:production` | Distante                            | Introspection drizzle-kit via l'API HTTP de D1                                                                       |
 | `bun run admin:grant:preview`, `bun run admin:grant:production`     | Distante                            | Fait d'un compte vérifié un administrateur ; voir [Le premier administrateur](#the-first-admin)                      |
+| `bun run courses:sync:preview`                                      | Distante `preview`                  | Copie les cours publiés de la production ; voir [Copier les cours en préversion](#copying-the-courses-to-preview)    |
 
-`deploy:preview`, `deploy:production` et le déploiement en CI exécutent `db:migrate:preview` ou `db:migrate:production` avant `wrangler deploy`. Rien n'alimente une base de données distante.
+`deploy:preview`, `deploy:production` et le déploiement en CI exécutent `db:migrate:preview` ou `db:migrate:production` avant `wrangler deploy`. Aucun déploiement n'alimente une base de données distante.
 
 ## Drizzle Studio
 
@@ -84,9 +85,24 @@ Connectez-vous sur http://localhost:3000/auth/sign-in avec l'administrateur et o
 ## Les données des cours dans chaque environnement [#course-data-in-each-environment]
 
 - En local : `bun run db:seed:local` importe le programme des cours.
-- En préversion et en production : un administrateur importe `content/courses/saasy-land-courses.json` dans l'administration. Connectez-vous en tant qu'administrateur, ouvrez **Administration → Cours**, choisissez **Importer**, sélectionnez le fichier, lancez **Vérifier le fichier**, lisez le plan, puis **Importer**. Importer de nouveau le même fichier ne change rien. Voir [Import et export](/docs/features/courses#import-and-export).
+- En production : un administrateur importe `content/courses/saasy-land-courses.json` dans l'administration. Connectez-vous en tant qu'administrateur, ouvrez **Administration → Cours**, choisissez **Importer**, sélectionnez le fichier, lancez **Vérifier le fichier**, lisez le plan, puis **Importer**. Importer de nouveau le même fichier ne change rien. Voir [Import et export](/docs/features/courses#import-and-export).
+- En préversion : `bun run courses:sync:preview` copie les cours publiés de la production, si bien que la préversion montre le même catalogue que la production.
 
-Aucun script n'écrit de données de cours dans une base de données distante.
+### Copier les cours en préversion [#copying-the-courses-to-preview]
+
+```sh
+bunx wrangler login
+bun run courses:sync:preview
+```
+
+`scripts/sync-courses.ts` atteint D1 comme `admin:grant:*`, par `wrangler d1 execute --remote` et le module partagé `scripts/d1-execute.ts`. Il n'envoie à la production que des requêtes `SELECT` et écrit en préversion en une seule exécution `--file`. Il copie, ligne par ligne, avec leurs identifiants et leurs horodatages :
+
+- chaque cours publié, avec ses chapitres, ses leçons et leurs pièces jointes de type lien ; une ligne que la préversion possède déjà est mise à jour par son identifiant, si bien qu'une deuxième exécution ne change rien que la production n'ait changé ;
+- les lignes `video` qu'utilisent ces leçons, comme vidéos provisoires. Les fichiers d'une vidéo sont dans le bucket `MEDIA` de la production et ne sont pas copiés : en préversion, ses leçons apparaissent donc [en cours d'enregistrement](/docs/features/courses#being-recorded) au lieu d'échouer à la lecture. Une ligne `video` que la préversion possède déjà garde son indicateur de vidéo provisoire.
+
+Dans les cours qu'il copie, il supprime les chapitres, les leçons et les pièces jointes de type lien que la production n'a plus, avec la progression de la préversion sur ces leçons, et il supprime un cours de la préversion que la production ne publie plus. Il ne copie aucune pièce jointe de type fichier, dont les fichiers sont dans le bucket de la production, ni rien en dehors de ces tables : ni utilisateurs, ni sessions, ni licences, ni commandes, ni abonnements, ni progression. Une leçon que vous faites pointer vers une autre vidéo dans l'éditeur de leçons de la préversion pointe de nouveau vers la vidéo de la production après l'exécution suivante.
+
+Il s'arrête avant d'écrire si un cours de la préversion porte le slug d'un cours de la production avec un autre identifiant, par exemple un cours importé depuis le fichier du programme ; supprimez ce cours dans l'administration de la préversion, puis relancez-le. Il affiche ce qu'il a créé, mis à jour et supprimé dans chaque table, puis compte les lignes de la préversion et échoue si elles diffèrent de celles de la production.
 
 ## Le premier administrateur [#the-first-admin]
 

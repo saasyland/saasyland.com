@@ -266,7 +266,7 @@ const ShowcasePending = (): JSX.Element => (
 const ShowcaseMessage = ({ message }: { readonly message: "empty" | "error" }): JSX.Element => {
   const t = useTranslations("pages.landing.studio.masterclass")
 
-  return <p className="col-start-1 row-start-1 flex items-center text-body text-pretty text-muted-foreground">{t(message)}</p>
+  return <p className="text-body text-pretty text-muted-foreground">{t(message)}</p>
 }
 
 const ShowcaseCourses = ({ courses }: { readonly courses: Course["showcase"] }): JSX.Element => {
@@ -275,7 +275,7 @@ const ShowcaseCourses = ({ courses }: { readonly courses: Course["showcase"] }):
   }
 
   return (
-    <ul className={cn(COURSE_GRID, "col-start-1 row-start-1 self-start")}>
+    <ul className={COURSE_GRID}>
       {courses.map((course) => (
         <ShowcaseCourse course={course} key={course.id} />
       ))}
@@ -289,14 +289,10 @@ export const CourseShowcase = (): JSX.Element => {
   const article = useRef<HTMLElement>(null)
   const isNear = useInView(article, { margin: NEAR_VIEWPORT, once: true })
 
-  const { data, isError } = useQuery({ ...courseShowcaseQuery({ locale }), enabled: isNear })
+  const { data, isError, isPending } = useQuery({ ...courseShowcaseQuery({ locale }), enabled: isNear })
 
   return (
-    <article
-      ref={article}
-      aria-busy={isNear && data === undefined && !isError}
-      className="overflow-hidden rounded-lg border border-border bg-card"
-    >
+    <article ref={article} aria-busy={isNear && isPending} className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="p-7 md:p-9">
         <h3 className="text-headline-support text-balance text-foreground">{t("title")}</h3>
         <p className="mt-3 max-w-[68ch] text-body text-pretty text-muted-foreground">{t("body")}</p>
@@ -312,10 +308,12 @@ export const CourseShowcase = (): JSX.Element => {
         </div>
       </div>
 
-      <div className="grid px-7 py-8 md:px-9 md:py-10">
-        <div aria-hidden className={cn("col-start-1 row-start-1", { invisible: isError || data !== undefined })}>
-          <ShowcasePending />
-        </div>
+      <div className="px-7 py-8 md:px-9 md:py-10">
+        {isPending && (
+          <div aria-hidden>
+            <ShowcasePending />
+          </div>
+        )}
         {isError && <ShowcaseMessage message="error" />}
         {data !== undefined && <ShowcaseCourses courses={data} />}
       </div>

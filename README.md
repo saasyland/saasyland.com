@@ -343,12 +343,15 @@ Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` wit
 | `bun run db:reset:test`         | Deletes `.wrangler/test`, then migrates and seeds the local test database.               |
 | `bun run db:migrate:preview`    | Remote preview database.                                                                 |
 | `bun run db:migrate:production` | Remote production database.                                                              |
+| `bun run courses:sync:preview`  | Remote preview database: copies production's published courses.                          |
 
 `db:migrations:local`, `db:migrations:preview`, and `db:migrations:production` list the migrations each database has not applied yet, without changing anything. `db:studio:local` opens Drizzle Studio on the local SQLite file that the dev server uses, which `scripts/studio-local.ts` locates under `.wrangler/state/v3/d1/`. `db:studio:preview` and `db:studio:production` open it on a remote database using the corresponding environment file, and the matching `db:introspect:*` scripts introspect D1 through its HTTP API; set the three `CLOUDFLARE_*` credentials to the target account/database for these tools. The full guide is [Database](content/docs/tooling/database.en-US.mdx).
 
 ### Course data
 
-Locally, `bun run db:seed:local` imports `content/courses/saasy-land-courses.json`. On preview and production an admin imports the same file: **Content → Courses**, **Import**, choose the file, **Check file**, then **Import**. Importing it twice changes nothing. No script writes course data to a remote database.
+Locally, `bun run db:seed:local` imports `content/courses/saasy-land-courses.json`. On production an admin imports the same file: **Content → Courses**, **Import**, choose the file, **Check file**, then **Import**. Importing it twice changes nothing.
+
+Preview gets production's courses from `bun run courses:sync:preview` (after `bunx wrangler login`). [`scripts/sync-courses.ts`](scripts/sync-courses.ts) reads production with `SELECT` statements only and copies every published course with its chapters, lessons, link attachments and the video rows they use, by id, so running it again changes only what production changed. Videos arrive as placeholders, because their files stay in production's bucket; file attachments, users, sessions, licences, orders, subscriptions and progress are never copied. See [Copying the courses to preview](content/docs/tooling/database.en-US.mdx#copying-the-courses-to-preview).
 
 ### The first admin
 

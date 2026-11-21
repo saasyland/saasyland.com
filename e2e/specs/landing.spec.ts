@@ -13,11 +13,24 @@ const BROWSER_TIME = new Date("2099-01-01T00:05:00+14:00")
 const SERVER_FUNCTION = /\/_serverFn\//u
 const LAYOUT_SHIFTS_KEY = "__layoutShifts"
 const COURSES_FAILED_TIMEOUT_MS = 20_000
+const NO_COURSES = /^No course is published yet/u
+const SHOWCASE_FIELD = '"lessonCount"'
 
 const COURSE_BLOCK_VIEWPORTS = [
-  { name: "desktop", viewport: { height: 720, width: 1280 } },
-  { name: "phone", viewport: { height: 844, width: 390 } },
+  { maxEmptyLines: 1, name: "desktop", viewport: { height: 720, width: 1280 } },
+  { maxEmptyLines: 3, name: "phone", viewport: { height: 844, width: 390 } },
 ] as const
+
+const answerNoCourses = async (request: Route): Promise<void> => {
+  const response = await request.fetch()
+  const body = await response.text()
+  if (body.includes(SHOWCASE_FIELD)) {
+    await request.fulfill({ json: { result: [] } })
+    return
+  }
+
+  await request.fulfill({ response })
+}
 
 const COURSE_BLOCK_OUTCOMES = [
   {
@@ -30,7 +43,28 @@ const COURSE_BLOCK_OUTCOMES = [
     name: "the courses cannot be loaded",
     settle: async (request: Route) => request.abort(),
   },
+  {
+    filled: (showcase: Locator) => showcase.getByText(NO_COURSES),
+    name: "no course is published",
+    settle: answerNoCourses,
+  },
 ] as const
+
+const measureCourses = (article: Element) => {
+  const section = article.children.item(2)
+  const content = section?.firstElementChild
+  if (!section || !content) {
+    return undefined
+  }
+
+  const style = getComputedStyle(section)
+  return {
+    children: section.childElementCount,
+    content: content.getBoundingClientRect().height,
+    inner: section.getBoundingClientRect().height - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom),
+    line: Number.parseFloat(getComputedStyle(content).lineHeight),
+  }
+}
 
 const recordLayoutShifts = (key: string): void => {
   const shifts: number[] = []
@@ -141,47 +175,91 @@ test.describe("landing page", () => {
   })
 })
 
+const holdCourses = async (page: Page, settle: (request: Route) => Promise<void>) => {
+  const requested = Promise.withResolvers<void>()
+  const released = Promise.withResolvers<void>()
+  await page.route(SERVER_FUNCTION, async (route) => {
+    requested.resolve()
+    await released.promise
+    await settle(route)
+  })
+
+  return { release: released.resolve, requested: requested.promise }
+}
+
 test.describe("the course block", () => {
-  for (const { name, viewport } of COURSE_BLOCK_VIEWPORTS) {
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "wait" })
+  })
+
+  for (const { maxEmptyLines, name, viewport } of COURSE_BLOCK_VIEWPORTS) {
     for (const outcome of COURSE_BLOCK_OUTCOMES) {
-      test(`keeps its height and moves nothing on a ${name} when ${outcome.name}`, async ({ browserName, landingPage, page }) => {
-        test.skip(browserName !== "chromium", "Layout shift entries are a Chromium API")
+      test(`is as tall as what it shows on a ${name} when ${outcome.name}`, async ({ landingPage, page }) => {
         await page.setViewportSize(viewport)
-        await page.addInitScript(recordLayoutShifts, LAYOUT_SHIFTS_KEY)
         await landingPage.goto()
         const showcase = landingPage.courseShowcase()
-        const requested = Promise.withResolvers<void>()
-        const released = Promise.withResolvers<void>()
-        await page.route(SERVER_FUNCTION, async (route) => {
-          requested.resolve()
-          await released.promise
-          await outcome.settle(route)
-        })
+        const courses = await holdCourses(page, outcome.settle)
 
         await showcase.evaluate((article) => {
           window.scrollTo({ behavior: "instant", top: window.scrollY + article.getBoundingClientRect().bottom - window.innerHeight / 2 })
         })
-        await requested.promise
+        await courses.requested
         await expect(showcase).toHaveAttribute("aria-busy", "true")
-        await afterTwoFrames(page)
-        const pending = await showcase.boundingBox()
-        const since = await page.evaluate(() => performance.now())
 
-        released.resolve()
+        courses.release()
         await expect(outcome.filled(showcase)).toBeVisible({ timeout: COURSES_FAILED_TIMEOUT_MS })
         await expect(showcase).toHaveAttribute("aria-busy", "false")
         await afterTwoFrames(page)
-        const filled = await showcase.boundingBox()
-        const shifts = await page.evaluate(
-          ({ key, start }) => Reflect.get(window, key).filter((time: number) => time >= start),
-          { key: LAYOUT_SHIFTS_KEY, start: since },
-        )
+        const filled = await showcase.evaluate(measureCourses)
 
-        assert(pending && filled)
-        expect(filled.height).toBeCloseTo(pending.height, 1)
-        expect(shifts).toEqual([])
+        assert(filled)
+        expect(filled.children).toBe(1)
+        expect(filled.inner).toBeCloseTo(filled.content, 1)
       })
     }
+
+    test(`says in at most ${String(maxEmptyLines)} lines of text on a ${name} that no course is published`, async ({ landingPage, page }) => {
+      await page.setViewportSize(viewport)
+      await landingPage.goto()
+      const showcase = landingPage.courseShowcase()
+      await page.route(SERVER_FUNCTION, answerNoCourses)
+
+      await showcase.scrollIntoViewIfNeeded()
+      await expect(showcase.getByText(NO_COURSES)).toBeVisible()
+      const empty = await showcase.evaluate(measureCourses)
+
+      assert(empty)
+      const lines = Math.round(empty.inner / empty.line)
+      expect(empty.inner).toBeCloseTo(empty.line * lines, 1)
+      expect(lines).toBeGreaterThan(0)
+      expect(lines).toBeLessThanOrEqual(maxEmptyLines)
+    })
+
+    test(`moves nothing on a ${name} screen when the courses fill the block below it`, async ({ browserName, landingPage, page }) => {
+      test.skip(browserName !== "chromium", "Layout shift entries are a Chromium API")
+      await page.setViewportSize(viewport)
+      await page.addInitScript(recordLayoutShifts, LAYOUT_SHIFTS_KEY)
+      await landingPage.goto()
+      const showcase = landingPage.courseShowcase()
+      const courses = await holdCourses(page, async (request) => request.continue())
+
+      await showcase.evaluate((article) => {
+        window.scrollTo({ behavior: "instant", top: window.scrollY + article.getBoundingClientRect().top - window.innerHeight + 1 })
+      })
+      await courses.requested
+      await afterTwoFrames(page)
+      const since = await page.evaluate(() => performance.now())
+
+      courses.release()
+      await expect(showcase).toHaveAttribute("aria-busy", "false")
+      await afterTwoFrames(page)
+      const shifts = await page.evaluate(
+        ({ key, start }) => Reflect.get(window, key).filter((time: number) => time >= start),
+        { key: LAYOUT_SHIFTS_KEY, start: since },
+      )
+
+      expect(shifts).toEqual([])
+    })
   }
 })
 

@@ -56,8 +56,9 @@ L'installazione delle dipendenze e la build non migrano mai un database.
 | `bun run db:studio:preview`, `bun run db:studio:production`         | Remoto                            | Drizzle Studio tramite l'API HTTP di D1                                                                            |
 | `bun run db:introspect:preview`, `bun run db:introspect:production` | Remoto                            | Introspezione con drizzle-kit tramite l'API HTTP di D1                                                             |
 | `bun run admin:grant:preview`, `bun run admin:grant:production`     | Remoto                            | Rende amministratore un account verificato; vedi [Il primo amministratore](#the-first-admin)                       |
+| `bun run courses:sync:preview`                                      | Remoto `preview`                  | Copia i corsi pubblicati della produzione; vedi [Copiare i corsi su preview](#copying-the-courses-to-preview)      |
 
-`deploy:preview`, `deploy:production` e il deploy in CI eseguono `db:migrate:preview` o `db:migrate:production` prima di `wrangler deploy`. Nulla popola un database remoto.
+`deploy:preview`, `deploy:production` e il deploy in CI eseguono `db:migrate:preview` o `db:migrate:production` prima di `wrangler deploy`. Nessun deploy popola un database remoto.
 
 ## Drizzle Studio
 
@@ -84,9 +85,24 @@ Accedi su http://localhost:3000/auth/sign-in con l'amministratore e apri `/admin
 ## I dati dei corsi in ogni ambiente [#course-data-in-each-environment]
 
 - Locale: `bun run db:seed:local` importa il programma dei corsi.
-- Preview e produzione: un amministratore importa `content/courses/saasy-land-courses.json` nell'amministrazione. Accedi come amministratore, apri **Admin → Corsi**, scegli **Importa**, seleziona il file, esegui **Controlla il file**, leggi il piano, poi **Importa**. Importare di nuovo lo stesso file non cambia nulla. Vedi [Importazione ed esportazione](/docs/features/courses#import-and-export).
+- Produzione: un amministratore importa `content/courses/saasy-land-courses.json` nell'amministrazione. Accedi come amministratore, apri **Admin → Corsi**, scegli **Importa**, seleziona il file, esegui **Controlla il file**, leggi il piano, poi **Importa**. Importare di nuovo lo stesso file non cambia nulla. Vedi [Importazione ed esportazione](/docs/features/courses#import-and-export).
+- Preview: `bun run courses:sync:preview` copia i corsi pubblicati della produzione, così preview mostra lo stesso catalogo della produzione.
 
-Nessuno script scrive dati dei corsi in un database remoto.
+### Copiare i corsi su preview [#copying-the-courses-to-preview]
+
+```sh
+bunx wrangler login
+bun run courses:sync:preview
+```
+
+`scripts/sync-courses.ts` raggiunge D1 come `admin:grant:*`, tramite `wrangler d1 execute --remote` e il modulo condiviso `scripts/d1-execute.ts`. Alla produzione invia solo istruzioni `SELECT`, e scrive su preview in un'unica esecuzione con `--file`. Copia, riga per riga e con i loro id e timestamp:
+
+- ogni corso pubblicato, con i suoi capitoli, le sue lezioni e i loro allegati di tipo link; una riga che preview ha già viene aggiornata tramite il suo id, così una seconda esecuzione non cambia nulla che non sia cambiato in produzione;
+- le righe di `video` che usano quelle lezioni, come segnaposto. I file di un video sono nel bucket `MEDIA` della produzione e non vengono copiati, quindi su preview le sue lezioni appaiono [in registrazione](/docs/features/courses#being-recorded) invece di non riuscire a partire. Una riga di `video` che preview ha già mantiene il suo flag di segnaposto.
+
+Nei corsi che copia, elimina i capitoli, le lezioni e gli allegati di tipo link che la produzione non ha più, insieme ai progressi di preview su quelle lezioni, ed elimina un corso di preview che la produzione non pubblica più. Non copia allegati di tipo file, i cui file sono nel bucket della produzione, né nulla al di fuori di queste tabelle: né utenti, né sessioni, né licenze, né ordini, né abbonamenti, né progressi. Una lezione che punti a un altro video nell'editor delle lezioni di preview torna a puntare al video della produzione dopo l'esecuzione successiva.
+
+Si ferma prima di scrivere se un corso di preview ha lo slug di un corso della produzione con un altro id, come uno importato dal file del programma; elimina quel corso nell'amministrazione di preview, poi eseguilo di nuovo. Stampa ciò che ha creato, aggiornato e rimosso in ogni tabella, poi conta le righe su preview e fallisce se sono diverse da quelle della produzione.
 
 ## Il primo amministratore [#the-first-admin]
 

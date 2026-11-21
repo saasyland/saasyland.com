@@ -143,13 +143,19 @@ const showcaseLoaded = async (): Promise<void> => {
   })
 }
 
-const expectCourseFrame = (message: string): void => {
-  const text = screen.getByText(message)
-  const frame = text.previousElementSibling
+const FIVE_COURSES: ShowcaseCourse[] = [
+  WALKTHROUGH,
+  TUTORIAL,
+  UNRECORDED,
+  RECORDED,
+  { ...WALKTHROUGH, id: "sequel", slug: "sequel", title: "The sequel" },
+]
 
-  expect(frame).toHaveClass("invisible")
-  expect(frame).toHaveAttribute("aria-hidden", "true")
-  expect(frame?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(COURSE_SHOWCASE.COURSES * SKELETONS_PER_COURSE)
+const expectOnly = (content: Element | null): void => {
+  const section = content?.parentElement
+
+  expect(section?.children).toHaveLength(1)
+  expect(section?.querySelector('[data-slot="skeleton"], .invisible')).toBeNull()
 }
 
 const playButton = () => screen.getByRole("button", { name: copy.tour.play })
@@ -198,7 +204,7 @@ describe("course showcase data", () => {
     expect(screen.getByText("Billing").parentElement).toHaveTextContent(withOffer(meta.locked.paid))
     expect(screen.getByRole("link", { name: "+ 5 more lessons" })).toHaveAttribute("href", "/courses/code-walkthrough")
     expect(container.querySelector('img[src="/images/courses/code-walkthrough.webp"]')).toHaveAttribute("alt", "")
-    expect(container.querySelector('[aria-hidden="true"].invisible [data-slot="skeleton"]')).not.toBeNull()
+    expect(container.querySelector('[data-slot="skeleton"]')).toBeNull()
   })
 
   it("sets every lesson title above its tag and its state, locked or open", async () => {
@@ -245,23 +251,44 @@ describe("course showcase data", () => {
     expect(screen.getAllByText(meta.coming).length).toBeGreaterThan(1)
   })
 
-  it("says in the frame of the course tiles when no course is published", async () => {
+  it("shows the placeholder tiles while the courses load", () => {
+    loadShowcase.mockReturnValue(Promise.withResolvers<Course["showcase"]>().promise)
+    const { container } = renderShowcase()
+    approach()
+
+    expect(screen.getByRole("article")).toHaveAttribute("aria-busy", "true")
+    expect(container.querySelectorAll('[aria-hidden="true"] [data-slot="skeleton"]')).toHaveLength(
+      COURSE_SHOWCASE.COURSES * SKELETONS_PER_COURSE,
+    )
+    expect(container.querySelector(".invisible [data-slot='skeleton']")).toBeNull()
+  })
+
+  it("says in one line, with nothing reserved around it, when no course is published", async () => {
     loadShowcase.mockResolvedValue([])
     renderShowcase()
     await showcaseLoaded()
 
-    expectCourseFrame(copy.empty)
+    expectOnly(screen.getByText(copy.empty))
     expect(screen.queryByRole("list")).not.toBeInTheDocument()
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
   })
 
-  it("points to the courses page in the same frame when the courses cannot be loaded", async () => {
+  it.each([1, 2, 5])("fits %i courses with no placeholder left below them", async (count) => {
+    loadShowcase.mockResolvedValue(FIVE_COURSES.slice(0, count))
+    renderShowcase()
+    await showcaseLoaded()
+
+    expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(count)
+    expectOnly(screen.getByRole("link", { name: WALKTHROUGH.title }).closest("ul"))
+  })
+
+  it("points to the courses page in one line when the courses cannot be loaded", async () => {
     loadShowcase.mockRejectedValue(new Error("offline"))
     renderShowcase()
     approach()
 
     expect(await screen.findByText(copy.error)).toBeVisible()
-    expectCourseFrame(copy.error)
+    expectOnly(screen.getByText(copy.error))
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
   })
 })

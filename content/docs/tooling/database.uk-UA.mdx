@@ -56,8 +56,9 @@ bun run db:migrate:test
 | `bun run db:studio:preview`, `bun run db:studio:production`         | Віддалена                          | Drizzle Studio через HTTP API D1                                                                                  |
 | `bun run db:introspect:preview`, `bun run db:introspect:production` | Віддалена                          | Інтроспекція drizzle-kit через HTTP API D1                                                                        |
 | `bun run admin:grant:preview`, `bun run admin:grant:production`     | Віддалена                          | Робить підтверджений обліковий запис адміністратором; див. [Перший адміністратор](#the-first-admin)               |
+| `bun run courses:sync:preview`                                      | Віддалена `preview`                | Копіює опубліковані курси production; див. [Копіювання курсів на preview](#copying-the-courses-to-preview)        |
 
-`deploy:preview`, `deploy:production` і розгортання в CI запускають `db:migrate:preview` або `db:migrate:production` перед `wrangler deploy`. Віддалену базу даних ніщо не заповнює початковими даними.
+`deploy:preview`, `deploy:production` і розгортання в CI запускають `db:migrate:preview` або `db:migrate:production` перед `wrangler deploy`. Жодне розгортання не заповнює віддалену базу даних початковими даними.
 
 ## Drizzle Studio
 
@@ -84,9 +85,24 @@ bun run dev
 ## Дані курсів у кожному середовищі [#course-data-in-each-environment]
 
 - Локально: `bun run db:seed:local` імпортує програму курсів.
-- Preview і production: адміністратор імпортує `content/courses/saasy-land-courses.json` в адмінпанелі. Увійдіть як адміністратор, відкрийте **Зміст → Курси**, виберіть **Імпортувати**, виберіть файл, натисніть **Перевірити файл**, прочитайте план, а потім натисніть **Імпортувати**. Повторний імпорт того самого файлу нічого не змінює. Див. [Імпорт і експорт](/docs/features/courses#import-and-export).
+- Production: адміністратор імпортує `content/courses/saasy-land-courses.json` в адмінпанелі. Увійдіть як адміністратор, відкрийте **Зміст → Курси**, виберіть **Імпортувати**, виберіть файл, натисніть **Перевірити файл**, прочитайте план, а потім натисніть **Імпортувати**. Повторний імпорт того самого файлу нічого не змінює. Див. [Імпорт і експорт](/docs/features/courses#import-and-export).
+- Preview: `bun run courses:sync:preview` копіює опубліковані курси production, тож preview показує той самий каталог, що й production.
 
-Жоден скрипт не записує дані курсів у віддалену базу даних.
+### Копіювання курсів на preview [#copying-the-courses-to-preview]
+
+```sh
+bunx wrangler login
+bun run courses:sync:preview
+```
+
+`scripts/sync-courses.ts` звертається до D1 так само, як `admin:grant:*`: через `wrangler d1 execute --remote` і спільний `scripts/d1-execute.ts`. До production він надсилає лише інструкції `SELECT`, а на preview записує одним запуском із `--file`. Він копіює рядок за рядком, разом з їхніми id і часовими мітками:
+
+- кожен опублікований курс із його розділами, уроками та їхніми вкладеннями-посиланнями; рядок, який preview вже має, оновлюється за id, тож другий запуск не змінює нічого, що не змінилося в production;
+- рядки `video`, які використовують ці уроки, як заповнювачі. Файли відео лежать у бакеті `MEDIA` production і не копіюються, тож на preview його уроки показуються як [уроки, що записуються](/docs/features/courses#being-recorded), замість того щоб не відтворюватися. Рядок `video`, який preview вже має, зберігає свій прапорець заповнювача.
+
+У скопійованих курсах він видаляє розділи, уроки та вкладення-посилання, яких production більше не має, разом із прогресом preview у цих уроках, і видаляє курс preview, який production більше не публікує. Він не копіює вкладення-файли, бо їхні файли лежать у бакеті production, і нічого поза цими таблицями: жодних користувачів, сесій, ліцензій, замовлень, підписок чи прогресу. Урок, якому в редакторі уроків preview призначено інше відео, після наступного запуску знову вказує на відео production.
+
+Він зупиняється до запису, якщо курс preview має slug курсу production з іншим id, наприклад імпортований із файлу програми; видаліть цей курс в адмінці preview і запустіть знову. Він виводить, що створив, оновив і видалив у кожній таблиці, потім рахує рядки на preview і завершується помилкою, якщо вони відрізняються від рядків production.
 
 ## Перший адміністратор [#the-first-admin]
 

@@ -142,6 +142,15 @@ describe("check-content", () => {
     ])
   })
 
+  it.each(["Behoben: Der Checkout behält die E-Mail-Adresse.\n", "- Behoben: Der Checkout\n  behält die E-Mail-Adresse.\n"])(
+    "fails a changelog entry that is not a list of one-line bullets: %j",
+    (target) => {
+      expect(mdxProblems({ label: ENTRY_LABEL, locale: "de-DE", source: ENGLISH_ENTRY, target })).toEqual([
+        `${ENTRY_LABEL} must be a list of one-line bullets, each starting with "- ", because the changelog ends every bullet with its pull request and release`,
+      ])
+    },
+  )
+
   it("fails a bare URL that runs into the text after it, as the Japanese preview deploy page's did", () => {
     const sentence = "ホスト（https://preview.saasyland.com）が応答することを確認します。"
 

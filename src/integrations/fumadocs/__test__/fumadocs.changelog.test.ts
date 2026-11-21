@@ -43,7 +43,7 @@ beforeEach(() => {
 })
 
 describe("changelog entries", () => {
-  it("puts the entries in the page's locale where the page asks for them, under the day each reached main, each ending with its pull request", async () => {
+  it("puts the entries in the page's locale where the page asks for them, under the day each reached main, every bullet ending with its pull request", async () => {
     const sections = [
       INTRODUCTION,
       "## Unreleased",
@@ -52,7 +52,7 @@ describe("changelog entries", () => {
       '- The browser no longer downloads Drizzle. <ChangelogLinks pullRequest="12" />',
       "## 2026-11-13",
       [
-        "- Fixed: verification links keep the locale.",
+        '- Fixed: verification links keep the locale. <ChangelogLinks pullRequest="11" />',
         '- Fixed: so do reset links, at $<year>. <ChangelogLinks pullRequest="11" />',
         '- Courses: `/courses` lists them. See [Courses](/docs/features/courses). <ChangelogLinks pullRequest="10" />',
       ].join("\n"),

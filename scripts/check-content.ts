@@ -9,7 +9,7 @@ import { canonicalizePathname, deLocalizePathname } from "~/src/integrations/use
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
-import { CHANGELOG_DIRECTORY, ENTRY_KEY, pullRequestOf } from "~/src/lib/changelog"
+import { CHANGELOG_DIRECTORY, ENTRY_KEY, entryItems, pullRequestOf } from "~/src/lib/changelog"
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 
 import { readWranglerEnvironment } from "./wrangler-config"
@@ -279,11 +279,20 @@ const titleProblems = ({ label, target }: Translation): string[] => {
   return typeof title === "string" && title.trim().length > 0 ? [] : [`Missing title in ${label}`]
 }
 
+const ENTRY_ITEM = /^- \S/u
+
 const entryKeyProblems = ({ label, locale }: Translation): string[] => {
   const key = label.slice(CHANGELOG_PREFIX.length, -`.${locale}.mdx`.length)
 
   return ENTRY_KEY.test(key) ? [] : [`${label} is named after neither a pull request number nor a full commit hash`]
 }
+
+const entryItemProblems = ({ label, target }: Translation): string[] =>
+  entryItems(target).every((line) => ENTRY_ITEM.test(line))
+    ? []
+    : [
+        `${label} must be a list of one-line bullets, each starting with "- ", because the changelog ends every bullet with its pull request and release`,
+      ]
 
 const addressProblems = ({ label, locale, target }: Translation): string[] =>
   formOfAddressProblems({ locale, text: target.replaceAll(CODE_BLOCK_PATTERN, "").replaceAll(INLINE_CODE_PATTERN, "") }).map(
@@ -293,7 +302,7 @@ const addressProblems = ({ label, locale, target }: Translation): string[] =>
 export const mdxProblems = (translation: Translation): string[] => {
   const { label, locale, source, target } = translation
   const isChangelogEntry = label.startsWith(CHANGELOG_PREFIX)
-  const problems = isChangelogEntry ? entryKeyProblems(translation) : titleProblems(translation)
+  const problems = isChangelogEntry ? [...entryKeyProblems(translation), ...entryItemProblems(translation)] : titleProblems(translation)
 
   if (JSON.stringify(codeBlocks(source)) !== JSON.stringify(codeBlocks(target))) {
     problems.push(`Changed code examples in ${label}`)

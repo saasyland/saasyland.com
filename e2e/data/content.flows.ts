@@ -27,11 +27,11 @@ export const CONTENT_FLOWS = [
     tests: [
       {
         spec: "content.spec.ts",
-        title: "the changelog ends every entry with a link to the pull request or commit it came from, named for screen readers",
+        title: "the changelog ends every bullet with a link to the pull request or commit it came from, named for screen readers",
       },
       {
         spec: "content.spec.ts",
-        title: "the changelog links each released entry to the first release that shipped it, and no entry merged before the first release",
+        title: "the changelog links every bullet of a released entry to the first release that shipped it, and no entry merged before the first release",
       },
     ],
   },

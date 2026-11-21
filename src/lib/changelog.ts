@@ -171,8 +171,14 @@ export const readChangelog = async ({
 
 export const originOf = (key: string): EntryOrigin => (PULL_REQUEST_KEY.test(key) ? ENTRY_ORIGIN.PULL_REQUEST : ENTRY_ORIGIN.COMMIT)
 
+export const entryItems = (source: string): string[] =>
+  source
+    .trim()
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+
 export const joinEntries = <Entry extends ChangelogEntry>(entries: readonly Entry[], reference: (entry: Entry) => string): string =>
-  entries.map((entry) => `${entry.source.trim()} ${reference(entry)}`).join("\n")
+  entries.flatMap((entry) => entryItems(entry.source).map((item) => `${item} ${reference(entry)}`)).join("\n")
 
 export const pullRequestOf = (ref: string): string | undefined => PULL_REQUEST_REF.exec(ref)?.groups?.["number"]
 

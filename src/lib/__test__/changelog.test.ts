@@ -153,9 +153,9 @@ describe("readChangelog", () => {
 })
 
 describe("joinEntries", () => {
-  it("joins the entries into one Markdown list and ends each entry's last item with its reference", () => {
-    expect(joinEntries([entry("12"), { key: "11", source: "- First.\n- Second.\n\n" }], ({ key }) => `(#${key})`)).toBe(
-      "- Change 12. (#12)\n- First.\n- Second. (#11)",
+  it("joins the entries into one Markdown list and ends every item with its entry's reference", () => {
+    expect(joinEntries([entry("12"), { key: "11", source: "- First.\n\n- Second.\n\n" }], ({ key }) => `(#${key})`)).toBe(
+      "- Change 12. (#12)\n- First. (#11)\n- Second. (#11)",
     )
   })
 })

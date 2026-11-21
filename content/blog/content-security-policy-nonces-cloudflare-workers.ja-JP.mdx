@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
 tags:
   - security
@@ -140,19 +140,20 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-すべての HTML レスポンスには、これらの値から組み立てた `documentPolicy(nonce)` が付きます。
+すべての HTML レスポンスには、これらの値と、デプロイが使う Polar サーバーに対応する Polar のチェックアウトのオリジンから組み立てた `documentPolicy(nonce, polarServer)` が付きます。
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string): string =>
+export const documentPolicy = (nonce: string, polarServer: Environment): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    `frame-src ${polarCheckoutOrigin(polarServer)}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
   ].join("; ")
 ```
 
-HTML 以外のレスポンス、リダイレクト、Worker が R2 からストリーミングするファイルには、`base-uri`、`frame-ancestors`、`object-src` だけの基本のポリシーが付きます。このポリシーは意図的にスクリプトまでにとどめています。`style-src`、`img-src`、`font-src`、`connect-src` も、Trusted Types も、レポートのエンドポイントもなく、サイトの[セキュリティ](/docs/features/security)のページではこれらを未実装として挙げています。
+HTML 以外のレスポンス、リダイレクト、Worker が R2 からストリーミングするファイルには、`base-uri`、`frame-ancestors`、`object-src` だけの基本のポリシーが付きます。スクリプト以外でポリシーが制限するのはフレームだけで、その対象は、サードパーティのスクリプトの節で説明する埋め込み型のチェックアウトが必要とする Polar のチェックアウトです。`style-src`、`img-src`、`font-src`、`connect-src` も、Trusted Types も、レポートのエンドポイントもなく、サイトの[セキュリティ](/docs/features/security)のページではこれらを未実装として挙げています。
 
 ## nonce を正しく生成して届ける
 
@@ -195,7 +196,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -209,7 +210,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce), response }
+  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
 }
 ```
 
@@ -330,15 +331,17 @@ const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
 
 **厳格なポリシーのもとでは動作しないコード。** `onclick="…"` のようなインラインのイベントハンドラーや `javascript:` URL はブロックされます。web.dev は、それらを `addEventListener` を呼ぶスクリプトに移すよう助言しています。`document.write` で書き込まれるスクリプトはパーサーが挿入したものなので、`'strict-dynamic'` は信頼しません。どちらかに依存するサードパーティのタグには、例外ではなく置き換えが必要です。
 
-### 実例：リダイレクト、ピクセル、Cloudflare
+### 実例：埋め込み、ピクセル、Cloudflare
 
-**Polar のチェックアウトに例外は不要です。saasyland.com のページ上では決して実行されないからです。** ワークスペースが `startCheckout` サーバー関数を呼び出し、この関数が Polar の API でチェックアウトを作成すると、ブラウザーは Polar がホストするページへ移動します。
+**Polar のチェックアウトに必要なのは、そのフレームのための 1 つのディレクティブです。** ワークスペースが `startCheckout` サーバー関数を呼び出し、この関数が Polar の API でチェックアウトを作成して、ページのオリジンをその `embed_origin` に指定します。購入ボタンは Polar の `@polar-sh/checkout` パッケージでチェックアウトをページの上に開きます。ページがこのパッケージをインポートするのは、購入者がボタンを押したときだけです。
 
-```tsx title="src/presentation/components/custom/app/checkout.tsx"
-globalThis.location.href = checkout.url
+```ts title="src/lib/checkout-overlay.ts"
+const showOverlay = async ({ onUnavailable, title, url, ...outcome }: CheckoutOverlay): Promise<void> => {
+  const { PolarEmbedCheckout } = await import("@polar-sh/checkout/embed")
+  const opening = PolarEmbedCheckout.create(url, { theme: siteTheme() })
 ```
 
-Polar は埋め込み型のチェックアウトも提供しています。jsDelivr のスクリプトか `@polar-sh/checkout` パッケージがチェックアウトを iframe で開き、どのサイトがそれを埋め込めるかは Polar 自身の `frame-ancestors` が決めます。これは **Settings > Embedding** で設定します。厳格なポリシーのもとでは、パッケージはバンドルの一部なので何も必要なく、CDN の script タグには nonce が必要で、フレームを制限するポリシーには `frame-src` に Polar のチェックアウトのオリジンが必要です。私たちのポリシーはフレームを一切制限しておらず、リダイレクトによって決済ページはそもそもポリシーの外にあります。
+パッケージはバンドルの一部なので、`'strict-dynamic'` はそのチャンクをほかのルートのチャンクと同じように信頼し、`script-src` にはそのための指定が何も要りません。jsDelivr から読み込む Polar の script タグなら、代わりに nonce が必要になります。パッケージは Polar のチェックアウトを表示する iframe を追加し、私たちのポリシーはいまではフレームをその 1 つのオリジンに制限しています。本番では `frame-src https://polar.sh`、サンドボックスが支払いを受け付ける環境では `frame-src https://sandbox.polar.sh` です。どのサイトがそれを埋め込めるかは Polar 自身の `frame-ancestors` が決め、これは **Settings > Embedding** で設定します。そこに登録されていないサイトではフレームは空白のままになり、その場合、私たちのボタンは購入者を代わりに Polar のチェックアウトページへ移動させます。このスクリプトは読み込み中のスピナーのための `<style>` 要素も追加します。`style-src` を持つポリシーではこれをハッシュで許可しなければなりませんが、私たちのポリシーは `style-src` を設定していません。
 
 **アフィリエイトのピクセルは `'strict-dynamic'` を通じて読み込まれます。** 紹介パラメーター付きの訪問では、React がハイドレーションの後に Affonso のピクセルをレンダリングします。
 
@@ -414,7 +417,7 @@ saasyland.com は手順 2 と 3 を行わず、その結果が上のインシデ
   ],
 ```
 
-**専用のスペックが nonce を確認します。** `e2e/specs/content-security-policy.spec.ts` は、プリレンダリング済みのページ 3 つとレンダリングされるページ 2 つを、それぞれ 2 回ずつリクエストします。そして、ヘッダーが `documentPolicy(nonce)` と等しいこと、2 回目のレスポンスの nonce が異なること、JSON-LD を除くすべてのスクリプトとモジュールプリロードがヘッダーの nonce を持つこと、`csp-nonce` タグが一致すること、meta のポリシーがないこと、レスポンスが `ETag` なしの `private, no-cache` であることを確認します。続いて、このポリシーのもとで管理コンソールにサインインし、顧客のチェックアウトを最後まで進めます。
+**専用のスペックが nonce を確認します。** `e2e/specs/content-security-policy.spec.ts` は、プリレンダリング済みのページ 3 つとレンダリングされるページ 2 つを、それぞれ 2 回ずつリクエストします。そして、ヘッダーが `documentPolicy(nonce, POLAR_SERVER)` と等しいこと、2 回目のレスポンスの nonce が異なること、JSON-LD を除くすべてのスクリプトとモジュールプリロードがヘッダーの nonce を持つこと、`csp-nonce` タグが一致すること、meta のポリシーがないこと、レスポンスが `ETag` なしの `private, no-cache` であることを確認します。続いて管理コンソールにサインインし、ワークスペースの上に開いた Polar のチェックアウトで顧客に支払わせます。このチェックアウトはテストダブルで、そのフレームはポリシーの `frame-src` が許可しなければなりません。
 
 **エッジの役を演じるスペックもあります。** `e2e/specs/edge-scripts.spec.ts` は、配信されたページを Cloudflare と同じように書き換え、ヘッダーの nonce を持つスクリプトと持たないスクリプトを 1 つずつ追加します。
 

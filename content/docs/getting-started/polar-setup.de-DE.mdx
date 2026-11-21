@@ -1,6 +1,6 @@
 ---
 title: "Polar-Einrichtung"
-description: "Die Polar-Organisationen, das Token, die Produkte, Lizenzschlüssel, die Zustimmungs-Checkbox, die Sprache des Checkouts, das Steuerverhalten und die Webhooks, die der Code erwartet, wie der Checkout regionale Preise festlegt, und wie polar:verify sie prüft."
+description: "Die Polar-Organisationen, das Token, die Produkte, Lizenzschlüssel, die Zustimmungs-Checkbox, die Sprache des Checkouts, das Steuerverhalten, die Hosts für die Einbettung und die Webhooks, die der Code erwartet, wie der Checkout regionale Preise festlegt, und wie polar:verify sie prüft."
 ---
 
 Polar verkauft die drei Stufen zu den Preisen, die der Checkout übermittelt, stellt ihre Lizenzschlüssel aus und berechnet die Steuer. Der Code erwartet in Polar eine genau festgelegte Einrichtung, und Polar warnt dich nicht, wenn beide auseinanderlaufen: Ein Produkt ohne Lizenzschlüssel-Benefit nimmt die Zahlung trotzdem an, stellt aber keinen Schlüssel aus. `bun run polar:verify:<environment>` vergleicht Polar mit dem Code, und die Deploy-Skripte führen es vor jedem manuellen Deployment aus.
@@ -32,7 +32,7 @@ Zuerst in der Sandbox, dann in der Produktion:
 | `customer_sessions:write` | Den Link zum Kundenportal, `/api/auth/customer/portal`                                                                                                                                                                                                                                                                                                            |
 | `license_keys:write`      | Das Lesen eines Schlüssels und seiner Aktivierungen, das Aktivieren eines Geräts und das Entfernen einer Aktivierung (`deactivateLicense` und die [CLI-Lizenz-API](/docs/features/cli-licence-api)) sowie bei einem Upgrade das Anheben des Aktivierungslimits des Schlüssels und das Deaktivieren des Schlüssels, den Polar für die Upgrade-Bestellung ausstellt |
 | `orders:read`             | Die Webhook-Handler, die die Bestellung hinter einer Lizenz und den aktuellen Kunden einer Bestellung lesen, deren Ereignis zu keinem Konto passt, und den Upgrade-Preis, der addiert, was der Kunde für Lizenzen bezahlt hat                                                                                                                                     |
-| `organizations:read`      | `polar:verify`, das liest, ob die Checkout-Lokalisierung eingeschaltet ist, und das voreingestellte Steuerverhalten                                                                                                                                                                                                                                               |
+| `organizations:read`      | `polar:verify`, das liest, ob die Checkout-Lokalisierung eingeschaltet ist, das voreingestellte Steuerverhalten und die Hosts, die den Checkout einbetten dürfen                                                                                                                                                                                                  |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                                                                                    |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -83,6 +83,18 @@ Polar zeigt seinen Checkout nur dann in der Sprache, die `startCheckout` anforde
 
 Die Preiskarten sagen, dass die Preise in US-Dollar angegeben sind, dass die Umsatzsteuer in der EU enthalten ist und dass in den USA, Kanada und Indien beim Checkout Sales Tax hinzukommt. So berechnet Polar die Steuer, wenn das voreingestellte Steuerverhalten der Organisation standortbasiert ist; stelle es daher in den Einstellungen der Organisation darauf ein. Die API liefert es als `default_tax_behavior` an der Organisation, und `polar:verify` schlägt fehl, solange es nicht `location` ist (`POLAR_TAX_BEHAVIOR.LOCATION` in `src/lib/polar.ts`).
 
+## Einbettung [#embedding]
+
+Die Kauf-Schaltflächen öffnen den Checkout von Polar über der Website in einem iframe ([Lizenzen](/docs/features/licences#the-checkout-over-the-page)), und Polar erlaubt nur den Hosts, die seine Organisation aufführt, seinen Checkout in einem Frame zu zeigen. Trage unter **Settings > Embedding** die Hosts ein, die `appHostsForMode` in jeder Umgebung bedient, ohne Schema und mit dem Port, wenn es einen gibt:
+
+| Umgebung      | Organisation | Hosts                              |
+| ------------- | ------------ | ---------------------------------- |
+| `development` | Sandbox      | `localhost:3000`, `127.0.0.1:3000` |
+| `preview`     | Sandbox      | `preview.saasyland.com`            |
+| `production`  | Produktion   | `saasyland.com`                    |
+
+Ein Eintrag `*.saasyland.com` deckt `preview.saasyland.com` ab, aber nicht `saasyland.com`. Polar fügt die verifizierten Domains der Organisation selbst zur Liste hinzu. Die API liefert die Liste als `embed_hosts` an der Organisation, und `polar:verify` schlägt fehl, solange ein Host der Umgebung fehlt. Bis er eingetragen ist, bleibt der Frame von Polar auf diesem Host leer, und nach <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" /> schickt die Schaltfläche den Käufer stattdessen zur Checkout-Seite von Polar, sodass Käufer weiterhin bezahlen können, nur etwas später.
+
 ## Regionale Preise [#regional-prices]
 
 Regionale Preise brauchen in Polar nichts. Für einen Käufer in einem Land aus `PPP_TIERS` (`src/modules/license/license.pricing.ts`), dessen Preisstufen <RegionalDiscounts /> abziehen, sendet `startCheckout` den Preis selbst: `regionalPrice` rundet den Preis der Stufe auf ganze Dollar ab, den Betrag, den die Stufenkarten zeigen, und der Checkout trägt ihn in `prices` als Festpreis für das Produkt der Stufe, der nur für diesen Checkout gilt, sodass das Produkt seinen Preis aus `TIER_PRICES` behält. Ein [Upgrade](/docs/features/licences#upgrades) sendet seinen Preis auf dieselbe Weise. Rabatte, die eine frühere Einrichtung angelegt hat, werden nicht mehr verwendet, und du kannst sie löschen.
@@ -126,7 +138,7 @@ bun run polar:verify:production
 Jedes Skript liest die Polar-Schlüssel aus `.env.<environment>` und sendet nur GET-Anfragen an die API, die `POLAR_SERVER` nennt: Es liest die Organisation, listet ihre Produkte und Webhook-Endpunkte auf und ändert nichts. Es prüft, dass:
 
 - die Umgebungsdatei jeden Polar-Schlüssel setzt, mit `POLAR_SERVER=sandbox` für Entwicklung und Preview und `POLAR_SERVER=production` für die Produktion;
-- die Checkout-Lokalisierung für die Organisation eingeschaltet und ihr voreingestelltes Steuerverhalten standortbasiert ist;
+- die Checkout-Lokalisierung für die Organisation eingeschaltet, ihr voreingestelltes Steuerverhalten standortbasiert ist und sie jedem Host der Umgebung erlaubt, ihren Checkout einzubetten;
 - jede `POLAR_PRODUCT_ID_*` ein Produkt der Organisation nennt, das weder archiviert noch ein Abonnement ist und dessen Preise fest sind, in `DEFAULT_CURRENCY_CODE` und gleich `TIER_PRICES`;
 - jedes Produkt genau einen Lizenzschlüssel-Benefit mit dem Limit der Stufe aus `LICENSE_ACTIVATION_LIMITS`, ohne Ablauf und ohne Nutzungslimit hat;
 - jedes Produkt das Checkbox-Feld <RepositoryFact name="licenseWithdrawalConsentField" /> mit der Beschriftung aus `WITHDRAWAL_CONSENT_FIELD` verlangt;
@@ -155,6 +167,7 @@ Ein Fehlschlag stoppt das Deployment, bevor etwas gebaut, migriert oder hochgela
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` oder `label differs`**: Lege die [Zustimmungs-Checkbox](#consent-checkbox) an, hänge sie an oder korrigiere sie. Wenn sich der Wortlaut absichtlich ändert, ändere zuerst `WITHDRAWAL_CONSENT_FIELD.label` und dann die Beschriftung in Polar.
 - **`Checkout localization is off`**: Schalte die [Checkout-Lokalisierung](#checkout-language) für die Organisation ein.
 - **`default tax behaviour is not location`**: Stelle das [Steuerverhalten](#tax-behaviour) der Organisation auf standortbasiert um.
+- **`does not let … embed its checkout`**: Trage den Host, den die Meldung nennt, unter [Settings > Embedding](#embedding) ein.
 - **Ein Webhook-Endpunkt**: Korrigiere den Endpunkt, den die Meldung nennt, oder entferne einen Endpunkt, der an den Host einer anderen Umgebung sendet.
 
 ## Verwandte Seiten

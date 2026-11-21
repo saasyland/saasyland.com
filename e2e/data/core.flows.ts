@@ -124,7 +124,8 @@ export const CORE_FLOWS = [
   {
     area: FLOW_AREA.SECURITY,
     id: "content-security-policy",
-    outcome: "Every HTML response gets a new nonce in its policy and on each of its scripts, and no page of any spec breaks the policy",
+    outcome:
+      "Every HTML response gets a new nonce in its policy and on each of its scripts, frames only Polar's checkout, and no page of any spec breaks the policy",
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "content-security-policy.spec.ts", title: "content security policy › / gets a new nonce with every response, in its header and on every script" },
@@ -133,7 +134,10 @@ export const CORE_FLOWS = [
         title: "content security policy › /auth/sign-in gets a new nonce with every response, in its header and on every script",
       },
       { spec: "content-security-policy.spec.ts", title: "content security policy › the admin console runs under its policy" },
-      { spec: "content-security-policy.spec.ts", title: "content security policy › a customer reaches checkout from the workspace under its policy" },
+      {
+        spec: "content-security-policy.spec.ts",
+        title: "content security policy › a customer pays in Polar's checkout over the workspace under its policy, which frames only Polar's checkout",
+      },
     ],
   },
   {

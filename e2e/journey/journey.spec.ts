@@ -26,6 +26,7 @@ import {
 import { CLI_COMMAND, CLI_KEY_LINES } from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
+import { checkoutOverlay } from "../fixtures/polar-checkout"
 import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
 import { inboxAddress, purchaseConfirmation, verificationLink } from "./inbox"
 import { POLAR_SANDBOX_CHECKOUT, PolarCheckoutPage } from "./polar-checkout-page"
@@ -72,6 +73,27 @@ const RUNNER_COUNTRY = /^loc=(?<country>[A-Z]{2})$/mu
 const REFUNDED_NOTICE = "This licence was refunded, so its key no longer works. Write to us if that looks wrong."
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const OVERLAY_EVENT = { CONFIRMED: "confirmed", LOADED: "loaded", SUCCESS: "success" } as const
+const OVERLAY_MESSAGE = { LOG: "Polar checkout event:", TYPE: "POLAR_CHECKOUT" } as const
+
+const logOverlayEvents = ({ prefix, type }: { prefix: string; type: string }): void => {
+  globalThis.addEventListener("message", ({ data }: MessageEvent<unknown>) => {
+    if (typeof data === "object" && data !== null && Reflect.get(data, "type") === type) {
+      console.info(`${prefix} ${String(Reflect.get(data, "event"))}`)
+    }
+  })
+}
+
+const overlayEvents = async (page: Page): Promise<string[]> => {
+  const events: string[] = []
+  page.on("console", (message) => {
+    if (message.text().startsWith(OVERLAY_MESSAGE.LOG)) events.push(message.text().slice(OVERLAY_MESSAGE.LOG.length).trim())
+  })
+  await page.evaluate(logOverlayEvents, { prefix: OVERLAY_MESSAGE.LOG, type: OVERLAY_MESSAGE.TYPE })
+
+  return events
+}
 
 const test = base.extend<JourneyFixtures>({
   buyers: async ({}, use) => {
@@ -134,11 +156,18 @@ const checkOut = async (
   buyer: Buyer,
   { button, tier }: { button: Locator; tier: LicenseTier },
 ): Promise<void> => {
+  const startedAt = page.url()
+  const events = await overlayEvents(page)
   await button.click()
-  await page.waitForURL(POLAR_SANDBOX_CHECKOUT)
+  await expect(checkoutOverlay(page)).toHaveAttribute("src", POLAR_SANDBOX_CHECKOUT)
+  await expect(checkoutOverlay(page)).toBeFocused()
+  expect(page.url()).toBe(startedAt)
   await new PolarCheckoutPage(page).pay(buyer)
 
   await page.waitForURL(/\/app\?checkoutId=/u, { timeout: WEBHOOK_TIMEOUT_MS })
+  await expect(checkoutOverlay(page)).toHaveCount(0)
+  expect(events).toEqual([OVERLAY_EVENT.LOADED, OVERLAY_EVENT.CONFIRMED, OVERLAY_EVENT.SUCCESS])
+  test.info().annotations.push({ description: `${TIER_NAMES[tier]}: ${events.join(", ")}`, type: "overlay events" })
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible({ timeout: WEBHOOK_TIMEOUT_MS })
   await expect(page.getByText(`Thank you for buying ${TIER_NAMES[tier]}.`, { exact: false })).toBeVisible()

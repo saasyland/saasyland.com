@@ -1,6 +1,6 @@
 ---
 title: "Polar setup"
-description: "The Polar organisations, token, products, licence keys, consent checkbox, checkout language, tax behaviour and webhooks the code expects, how checkout sets regional prices, and how polar:verify checks them."
+description: "The Polar organisations, token, products, licence keys, consent checkbox, checkout language, tax behaviour, embedding hosts and webhooks the code expects, how checkout sets regional prices, and how polar:verify checks them."
 ---
 
 Polar sells the three tiers at the prices checkout sends, issues their licence keys and charges the tax. The code expects a precise setup in Polar, and Polar does not warn you when the two drift apart: a product without a licence-key benefit still takes the payment but issues no key. `bun run polar:verify:<environment>` compares Polar with the code, and the deploy scripts run it before every manual deploy.
@@ -32,7 +32,7 @@ In the sandbox, then in production:
 | `customer_sessions:write` | The customer portal link, `/api/auth/customer/portal`                                                                                                                                                                                                                                |
 | `license_keys:write`      | Reading a key and its activations, activating a machine and removing an activation (`deactivateLicense` and the [CLI licence API](/docs/features/cli-licence-api)), and, for an upgrade, raising the key's activation limit and disabling the key Polar issues for the upgrade order |
 | `orders:read`             | The webhook handlers, which read the order behind a licence and the current customer of an order whose event matches no account, and the upgrade price, which adds up what the customer has paid for licences                                                                        |
-| `organizations:read`      | `polar:verify`, which reads whether checkout localization is on and the default tax behaviour                                                                                                                                                                                        |
+| `organizations:read`      | `polar:verify`, which reads whether checkout localization is on, the default tax behaviour and the hosts that may embed the checkout                                                                                                                                                 |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                       |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                       |
 
@@ -83,6 +83,18 @@ Polar shows its checkout in the language `startCheckout` asks for only while che
 
 The pricing cards say that prices are in US dollars, that VAT is included in the EU and that sales tax is added at checkout in the US, Canada and India. Polar charges tax that way when the organisation's default tax behaviour is location-based, so set it to that in the organisation's settings. The API returns it as `default_tax_behavior` on the organisation, and `polar:verify` fails while it is not `location` (`POLAR_TAX_BEHAVIOR.LOCATION` in `src/lib/polar.ts`).
 
+## Embedding
+
+The buy buttons open Polar's checkout over the site in an iframe ([Licences](/docs/features/licences#the-checkout-over-the-page)), and Polar lets only the hosts its organisation lists frame its checkout. Under **Settings > Embedding**, list the hosts that `appHostsForMode` serves in each environment, without a scheme and with the port when there is one:
+
+| Environment   | Organisation | Hosts                              |
+| ------------- | ------------ | ---------------------------------- |
+| `development` | Sandbox      | `localhost:3000`, `127.0.0.1:3000` |
+| `preview`     | Sandbox      | `preview.saasyland.com`            |
+| `production`  | Production   | `saasyland.com`                    |
+
+An entry `*.saasyland.com` covers `preview.saasyland.com` but not `saasyland.com`. Polar adds the organisation's verified domains to the list itself. The API returns the list as `embed_hosts` on the organisation, and `polar:verify` fails while a host of the environment is missing. Until it is listed, Polar's frame stays blank on that host, and after <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" /> the button sends the buyer to Polar's checkout page instead, so buyers can still pay, a little later.
+
 ## Regional prices
 
 Regional prices need nothing in Polar. For a buyer in a country of `PPP_TIERS` (`src/modules/license/license.pricing.ts`), whose bands take <RegionalDiscounts /> off, `startCheckout` sends the price itself: `regionalPrice` rounds the tier's price down to whole dollars, the amount the tier cards show, and the checkout carries it in `prices` as a fixed price for the tier's product that holds for that checkout only, so the product keeps its price from `TIER_PRICES`. An [upgrade](/docs/features/licences#upgrades) sends its price the same way. Discounts that an earlier setup created are no longer used, and you can delete them.
@@ -126,7 +138,7 @@ bun run polar:verify:production
 Each script reads the Polar keys from `.env.<environment>` and sends only GET requests to the API that `POLAR_SERVER` names: it reads the organisation and lists its products and webhook endpoints, and changes nothing. It checks that:
 
 - the environment file sets every Polar key, with `POLAR_SERVER=sandbox` for development and preview and `POLAR_SERVER=production` for production;
-- checkout localization is on for the organisation, and its default tax behaviour is location-based;
+- checkout localization is on for the organisation, its default tax behaviour is location-based, and it lets every host of the environment embed its checkout;
 - each `POLAR_PRODUCT_ID_*` names a product of the organisation that is neither archived nor a subscription, whose prices are fixed, in `DEFAULT_CURRENCY_CODE` and equal to `TIER_PRICES`;
 - each product has exactly one licence-key benefit with the tier's limit from `LICENSE_ACTIVATION_LIMITS`, no expiration and no usage limit;
 - each product requires the checkbox field <RepositoryFact name="licenseWithdrawalConsentField" /> with the label in `WITHDRAWAL_CONSENT_FIELD`;
@@ -155,6 +167,7 @@ A failure stops the deploy before anything is built, migrated or uploaded. The s
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` or `label differs`**: create, attach or correct the [consent checkbox](#consent-checkbox). When the wording changes on purpose, change `WITHDRAWAL_CONSENT_FIELD.label` first, then the label in Polar.
 - **`Checkout localization is off`**: turn on [checkout localization](#checkout-language) for the organisation.
 - **`default tax behaviour is not location`**: set the organisation's [tax behaviour](#tax-behaviour) to location-based.
+- **`does not let … embed its checkout`**: add the host the message names under [Settings > Embedding](#embedding).
 - **A webhook endpoint**: fix the endpoint the message names, or remove an endpoint that posts to another environment's host.
 
 ## Related pages

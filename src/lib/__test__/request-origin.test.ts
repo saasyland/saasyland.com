@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { newsletterRequestOrigin } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.server"
+
+import { trustedRequestOrigin } from "~/src/lib/request-origin"
 
 import { APP_DOMAIN, APP_PREVIEW_DOMAIN, APP_SLUG, APP_URL } from "~/src/presentation/branding"
 
@@ -12,7 +13,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-describe("newsletter request origin", () => {
+describe("trusted request origin", () => {
   it.each([
     { mode: ENVIRONMENT.PRODUCTION, origin: APP_URL },
     { mode: ENVIRONMENT.PREVIEW, origin: `https://${APP_PREVIEW_DOMAIN}` },
@@ -23,7 +24,7 @@ describe("newsletter request origin", () => {
   ])("accepts $origin, a host the $mode build trusts", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 
-    expect(newsletterRequestOrigin(new Request(`${origin}/_serverFn/subscribe?unrelated=value`))).toBe(origin)
+    expect(trustedRequestOrigin(new Request(`${origin}/_serverFn/request?unrelated=value`))).toBe(origin)
   })
 
   it.each([
@@ -39,11 +40,11 @@ describe("newsletter request origin", () => {
   ])("rejects $origin in the $mode build", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 
-    expect(() => newsletterRequestOrigin(new Request(origin))).toThrow(ERROR_CODES.FORBIDDEN)
+    expect(() => trustedRequestOrigin(new Request(origin))).toThrow(ERROR_CODES.FORBIDDEN)
   })
 
   it("ignores attacker-controlled origin and forwarding headers", () => {
-    const request = new Request("http://localhost:3000/_serverFn/subscribe", {
+    const request = new Request("http://localhost:3000/_serverFn/request", {
       headers: {
         host: "attacker.example",
         origin: "https://attacker.example",
@@ -52,6 +53,6 @@ describe("newsletter request origin", () => {
       },
     })
 
-    expect(newsletterRequestOrigin(request)).toBe("http://localhost:3000")
+    expect(trustedRequestOrigin(request)).toBe("http://localhost:3000")
   })
 })

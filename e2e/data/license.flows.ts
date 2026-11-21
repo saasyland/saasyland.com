@@ -9,7 +9,22 @@ const BUY_COMPLETE = {
 const CHECKOUT_LANGUAGE = {
   spec: "checkout-funnel.spec.ts",
   title:
-    "checkout funnel › opens Polar's checkout without a dialog, in the buyer's language, with a back button and the consent box left for the buyer",
+    "checkout funnel › opens Polar's checkout over the page without a dialog of its own, in the buyer's language, with a back button and the consent box left for the buyer",
+} as const
+
+const CHECKOUT_CLOSED = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › closing Polar's checkout without paying leaves the buyer where they were, with the button ready and focused",
+} as const
+
+const CHECKOUT_REFUSED = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a browser that cannot show Polar's checkout over the page goes to Polar's checkout page instead",
+} as const
+
+const CHECKOUT_POLICY = {
+  spec: "content-security-policy.spec.ts",
+  title: "content security policy › a customer pays in Polar's checkout over the workspace under its policy, which frames only Polar's checkout",
 } as const
 
 const purchaseTest = (tier: LicenseTier) =>
@@ -111,9 +126,33 @@ export const LICENSE_FLOWS = [
     area: FLOW_AREA.PURCHASE,
     id: "consent-required",
     outcome:
-      "A tier button opens Polar's checkout straight away, without a dialog of the site, and the consent to immediate supply is the box on Polar's page that the site leaves empty for the buyer",
+      "A tier button opens Polar's checkout straight away over the page, without a dialog of the site, and the consent to immediate supply is the box on Polar's page that the site leaves empty for the buyer",
     status: FLOW_STATUS.COVERED,
     tests: [CHECKOUT_LANGUAGE],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "checkout-overlay-paid",
+    outcome:
+      "A buyer who pays in Polar's checkout over the page lands on Payment received and the Get started steps without a reload, under a policy that frames only Polar's checkout",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUY_COMPLETE, CHECKOUT_POLICY],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "checkout-overlay-closed",
+    outcome:
+      "A buyer who closes Polar's checkout without paying stays on the page they were on, with focus back on the button they pressed and the button ready again",
+    status: FLOW_STATUS.COVERED,
+    tests: [CHECKOUT_CLOSED],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "checkout-overlay-refused",
+    outcome:
+      "When Polar refuses to open its checkout over the page, the button takes the buyer to Polar's own checkout page for the same checkout",
+    status: FLOW_STATUS.COVERED,
+    tests: [CHECKOUT_REFUSED],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -247,7 +286,7 @@ export const LICENSE_FLOWS = [
     area: FLOW_AREA.PURCHASE,
     id: "activation-pending",
     outcome:
-      "Back from the checkout before the webhook, the buyer sees Payment received, and after a minute without the licence a message with the contact email, the checkout reference and Check again",
+      "After paying, before the webhook, the buyer sees Payment received, and after a minute without the licence a message with the contact email, the checkout reference and Check again",
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "checkout-funnel.spec.ts", title: "checkout funnel › a slow activation ends in an honest message with the contact email and checkout reference" },
@@ -300,7 +339,7 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.I18N,
     id: "localized-checkout",
-    outcome: "A buyer on /pl-PL is sent to the Polar checkout in Polish and receives the purchase confirmation in Polish",
+    outcome: "A buyer on /pl-PL gets the Polar checkout in Polish and receives the purchase confirmation in Polish",
     reason: "The browser suite opens a Polish checkout, and an English one for Ukrainian, but reads the confirmation of English orders only.",
     status: FLOW_STATUS.MISSING,
     tests: [CHECKOUT_LANGUAGE],

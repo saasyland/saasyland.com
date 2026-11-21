@@ -2,12 +2,13 @@ import { defineConfig, devices } from "@playwright/test"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "../../src/modules/_core/constants/api"
 import { LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import type { AppOptions } from "../fixtures/test"
 
 const isCI = Boolean(process.env["CI"])
 
 const JOURNEY_TIMEOUT_MS = 600_000
 
-export default defineConfig({
+export default defineConfig<AppOptions>({
   expect: {
     timeout: 30_000,
   },
@@ -22,6 +23,7 @@ export default defineConfig({
   use: {
     baseURL: `https://${DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]}`,
     navigationTimeout: 60_000,
+    polarCheckoutDouble: false,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",

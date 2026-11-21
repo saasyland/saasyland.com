@@ -1,6 +1,6 @@
 ---
 title: "ライセンス"
-description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、ドル未満を切り捨てた地域価格、差額の支払いによる上位プランへのアップグレード、ライセンスの付与、アップグレード、取り消しを行う Webhook、購入確認メール、どのアカウントにも対応しない支払い済み注文のアラートと管理画面の一覧、顧客のライセンス画面。"
+description: "ライセンスのプランを販売する、サイトの上に重ねて開く Polar の購入処理と即時提供への同意、ドル未満を切り捨てた地域価格、差額の支払いによる上位プランへのアップグレード、ライセンスの付与、アップグレード、取り消しを行う Webhook、購入確認メール、どのアカウントにも対応しない支払い済み注文のアラートと管理画面の一覧、顧客のライセンス画面。"
 ---
 
 ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、同意のチェックボックスを説明しています。
@@ -13,20 +13,32 @@ description: "ライセンスのプランを販売する Polar の購入処理�
 
 購入者は、支払いの直前に Polar のチェックアウトページで 1 回だけ同意します。Polar のすべてのライセンスの商品は、チェックボックスのフィールド <RepositoryFact name="licenseWithdrawalConsentField" /> を必須にしています（[Polar のセットアップ](/docs/getting-started/polar-setup#consent-checkbox)）。そのラベルは即時提供を求め、ライセンスキーの発行で提供が始まった時点で <RepositoryFact name="refundWithdrawalDays" unit="day" />の撤回権を失うことを了承する内容です。`startCheckout` は `custom_field_data` を送らないため、ボックスは空の状態で始まり、チェックを入れられるのは購入者だけです。ボックスが空のままでは Polar は支払いを受け付けません。購入者が支払うときに Polar がフィールドを商品と照合し、必須のチェックボックスには `true` しか受け付けないためです。Polar はチェックの入ったボックスを注文に保存し、[購入確認](#purchase-confirmation)メールがそれを耐久性のある媒体で確認します。これが、EU でデジタルコンテンツの撤回権を消滅させる条件、つまり購入者の事前の明示的な同意、了承、そして確認です。
 
-`CheckoutButton`（`src/presentation/components/custom/app/checkout.tsx`）は、押されるとすぐに独自のダイアログなしで購入を開始し、ブラウザーが Polar に移動するまでほかのプランのボタンを無効にします。同じファイルの `CheckoutNotice` は、プランのカードの下と選んだプランの下で、Polar が Merchant of Record であり支払いページで同意を求めること、プロジェクトを生成するか有料レッスンを開くまでは <RepositoryFact name="refundWithdrawalDays" unit="day" />の間は全額返金を受けられることを事前に伝え、返金ポリシー、利用規約、商用ライセンスにリンクします。
+`CheckoutButton`（`src/presentation/components/custom/app/checkout.tsx`）は、押されるとすぐに独自のダイアログなしで購入を開始し、Polar のチェックアウトをページの上に開き（[ページに重ねて開くチェックアウト](#the-checkout-over-the-page)）、それが開くまでほかのプランのボタンを無効にします。同じファイルの `CheckoutNotice` は、プランのカードの下と選んだプランの下で、Polar が Merchant of Record であり支払いページで同意を求めること、プロジェクトを生成するか有料レッスンを開くまでは <RepositoryFact name="refundWithdrawalDays" unit="day" />の間は全額返金を受けられることを事前に伝え、返金ポリシー、利用規約、商用ライセンスにリンクします。
 
 ### 購入の開始 [#starting-the-checkout]
 
-`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, returnPath, tier }` を受け取ります。`returnPath` は購入者がボタンを押したページで、サイト内にとどまるよう `callbackPathSchema` で検証します。そのうえで次の処理を行います。
+`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, returnPath, tier }` を受け取ります。`returnPath` は購入者がボタンを押したページで、サイト内にとどまるよう `callbackPathSchema` で検証します。リクエストのオリジンは `trustedRequestOrigin`（`src/lib/request-origin.ts`）で読み取ります。この関数は、ビルドモードについて `appHostsForMode` が挙げていないホストや、開発とテスト以外での平文の HTTP を `FORBIDDEN` で拒否します。そのうえで次の処理を行います。
 
 1. アカウントにすでに同じプランか上位プランの `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
 2. `buyerTierPrice`（`license.ppp.ts`）でプランの価格を決めます。`TIER_PRICES` の金額に、`regional_pricing` Cookie が `off` でない限り `PPP_TIERS` にある `cf-ipcountry` の国の倍率を掛け、`regionalPrice`（`license.pricing.ts`）でドル未満を切り捨てます。`regionalPrice` は、プランのカードが価格の表示に使うのと同じ関数です。有効なライセンスのプランがより下位のアカウントでは、代わりに[アップグレード](#upgrades)の価格になります。
-3. `polar.checkouts.create` でプランの Polar チェックアウトを作成します。チェックアウトはアカウントに紐付け（`external_customer_id`）、そのメールアドレスと名前（`customer_email`、`customer_name`）を入力済みにするため、チェックアウトのフォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`。Better Auth の `getIP` で読み取り）、無効にした割引コード、`TIER_PRICES` と異なる場合にこのチェックアウトに限って有効なプランの商品の固定価格として `prices` に入れた手順 2 の価格、`metadata` の `locale`（`LICENSE_CHECKOUT_METADATA`）に入れた購入者の言語（アップグレードでは `upgrade_from_order` と `upgrade_from_tier` に入れたアップグレード元の注文とプランも。訪問者がアフィリエイトリンクから来た場合はアフィリエイトの紹介情報も。[アフィリエイトプログラム](/docs/features/affiliates)を参照）、`polarCheckoutLanguage` で決めた Polar のページの言語を入れた `locale`、Polar が戻るボタンを表示するよう `return_url` にした `returnPath` のページ、購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）を渡します。Polar はメタデータと購入者が与えた同意を注文にコピーし、`{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
-4. 購入 URL を返し、ブラウザーがそれを開きます。
+3. `polar.checkouts.create` でプランの Polar チェックアウトを作成します。チェックアウトはアカウントに紐付け（`external_customer_id`）、そのメールアドレスと名前（`customer_email`、`customer_name`）を入力済みにするため、チェックアウトのフォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`。Better Auth の `getIP` で読み取り）、無効にした割引コード、`TIER_PRICES` と異なる場合にこのチェックアウトに限って有効なプランの商品の固定価格として `prices` に入れた手順 2 の価格、`metadata` の `locale`（`LICENSE_CHECKOUT_METADATA`）に入れた購入者の言語（アップグレードでは `upgrade_from_order` と `upgrade_from_tier` に入れたアップグレード元の注文とプランも。訪問者がアフィリエイトリンクから来た場合はアフィリエイトの紹介情報も。[アフィリエイトプログラム](/docs/features/affiliates)を参照）、`polarCheckoutLanguage` で決めた Polar のページの言語を入れた `locale`、Polar が戻るボタンを表示するよう `return_url` にした `returnPath` のページ、購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）、そしてチェックアウトをフレームに表示してそのメッセージを受け取れる唯一のページとして `embed_origin` に入れたリクエストのオリジンを渡します。Polar はメタデータと購入者が与えた同意を注文にコピーし、`{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
+4. チェックアウトの ID と URL を返し、`CheckoutButton` がそれをページの上に開きます。
 
 返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
 
 `POLAR_CHECKOUT_LANGUAGES`（`src/data/polar.ts`）は、サイトの各言語を Polar のチェックアウトが翻訳されている言語に対応付けます。対応する言語がない場合、`polarCheckoutLanguage` は英語である `POLAR_CHECKOUT_DEFAULT_LANGUAGE` を使い、その言語では `isPolarCheckoutTranslated` によって `CheckoutNotice` が支払いページは英語で開くことを書き添えます。Polar がその言語でページを表示するのは、組織でチェックアウトのローカライズがオンになっている間だけで、`polar:verify` がこれを確認します（[Polar のセットアップ](/docs/getting-started/polar-setup#checkout-language)）。
+
+### ページに重ねて開くチェックアウト [#the-checkout-over-the-page]
+
+`openCheckoutOverlay`（`src/lib/checkout-overlay.ts`）は、購入者がいるページの上にオーバーレイで Polar のチェックアウトを表示します。`@polar-sh/checkout/embed` の `PolarEmbedCheckout` はチェックアウトが始まったときに初めてインポートするため、購入者がボタンを押す前に Polar のスクリプトを読み込むページはありません。ページがそれをエントリースクリプトとして、または静的インポートで読み込むと、`scripts/verify-build.ts` がビルドを失敗させます。`PolarEmbedCheckout.create` はサイトで解決済みのテーマで Polar のフレームをページに追加し、チェックアウトを読み込んだと Polar が伝えると、オーバーレイは次のように動作します。
+
+- `pages.license` の `buy.overlay` でフレームに名前を付け、フォーカスをフレームの中に移して、ページのほかの部分を `inert` にします。これにより、キーボードとスクリーンリーダーはチェックアウトの中にとどまります。
+- 支払い前の `close` では、チェックアウトを閉じてページを元に戻します。購入者は元の場所にとどまり、ボタンは再び押せる状態でフォーカスを受け取ります。
+- `success`、または Polar の `confirmed` の後の `close` では、Polar のスクリプトにリダイレクトさせずにチェックアウトを閉じ、`CheckoutButton` がページを再読み込みせずにその場で `/app?checkoutId=<id>` に移動します。これは、Polar のチェックアウトページが戻る先と同じ成功 URL です（[支払い後](#after-payment)）。
+
+ボタンは、押されてからオーバーレイが開くまで `buy.pending` を表示します。オーバーレイを開けない場合、ボタンはブラウザーを同じチェックアウトの Polar のチェックアウトページに移動させ、その `return_url` と成功 URL がこれまでどおり購入者を戻します。オーバーレイを開けないのは、スクリプトの読み込みに失敗したとき、Polar のフレームが現れないとき、またはフレームは読み込まれたものの、チェックアウトの準備ができたことを Polar が <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" />以内（`CHECKOUT_OVERLAY_GRACE_MS`）に伝えないときです。最後の例は、組織が挙げていないホストからのフレーム表示を Polar が拒否する場合です（[Polar のセットアップ](/docs/getting-started/polar-setup#embedding)）。
+
+ページの Content Security Policy がフレームとして許可するのは、Polar のチェックアウトだけです。`documentPolicy` は、`POLAR_SERVER` に対して `polarCheckoutOrigin`（`src/data/polar.ts`）が返すオリジン、つまり本番では `https://polar.sh`、サンドボックスでは `https://sandbox.polar.sh` を `frame-src` に追加します（[セキュリティ](/docs/features/security)）。
 
 ### アップグレード [#upgrades]
 
@@ -46,9 +58,9 @@ description: "ライセンスのプランを販売する Polar の購入処理�
 
 サインアップページの時点でプランが示されます。ライセンスのエリアは `src/data/license.sign-up-intros.ts` で `SignUpOrderSummary`（`custom/app/sign-up-order-summary.tsx`）を `SIGN_UP_INTROS` に追加し、`redirectTierSchema`（`src/data/license.ts`）がロケールの接頭辞の有無にかかわらず `/app` または `/app/license` への `redirect` から `LICENSE_TIER` を読み取ると、ページは説明文の代わりにこれを表示します。概要には、プラン名と `TIER_PRICES` の金額、訪問者がいま `PURCHASE_STEP` のどのステップにいるか（アカウント作成の次に Polar での支払い）、そして未使用の購入なら `REFUND_TERMS.WITHDRAWAL_DAYS` 日以内に全額返金されることが、返金ポリシーへのリンク付きで表示されます。サインアップページには地域別価格の選択肢がないため、概要には定価が表示され、訪問者が辞退していなければ決済時に地域別の割引が適用されます。`SignUpPending` は同じリダイレクトに対して `SignUpOrderSummaryPending` を描画し、それ以外の `redirect` では説明文がそのまま表示されます。
 
-### 支払い後
+### 支払い後 [#after-payment]
 
-Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは <RepositoryFact name="activationPollSeconds" unit="second" />ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
+支払いが終わると、購入者は `/app?checkoutId=<id>` にいます。ページに重ねて開いた Polar のチェックアウトが支払いを報告すると `CheckoutButton` がそこに移動し、オーバーレイを開けなかった場合は Polar のチェックアウトページがそこに戻します。どちらの場合も、通常は `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは <RepositoryFact name="activationPollSeconds" unit="second" />ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
 
 - ライセンスが有効になると購入者にお礼を表示し、`triggerConfetti`（`src/lib/confetti.ts`。動きを減らす設定の訪問者には何も描きません）でお祝いして[最初のステップ](#first-steps)を表示し、その下にライセンスが表示されます。
 - <RepositoryFact name="activationTimeoutSeconds" unit="second" />

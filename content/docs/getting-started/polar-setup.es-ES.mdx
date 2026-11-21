@@ -1,6 +1,6 @@
 ---
 title: "Configuración de Polar"
-description: "Las organizaciones, el token, los productos, las claves de licencia, la casilla de consentimiento, el idioma del pago, el comportamiento fiscal y los webhooks de Polar que espera el código, cómo fija el pago los precios regionales y cómo los comprueba polar:verify."
+description: "Las organizaciones, el token, los productos, las claves de licencia, la casilla de consentimiento, el idioma del pago, el comportamiento fiscal, los hosts que pueden incrustar el pago y los webhooks de Polar que espera el código, cómo fija el pago los precios regionales y cómo los comprueba polar:verify."
 ---
 
 Polar vende los tres niveles a los precios que envía el pago, emite sus claves de licencia y cobra los impuestos. El código espera una configuración precisa en Polar, y Polar no avisa cuando ambos dejan de coincidir: un producto sin un beneficio de clave de licencia sigue aceptando el pago, pero no emite ninguna clave. `bun run polar:verify:<environment>` compara Polar con el código, y los scripts de despliegue lo ejecutan antes de cada despliegue manual.
@@ -32,7 +32,7 @@ En el sandbox y, después, en producción:
 | `customer_sessions:write` | El enlace al portal de cliente, `/api/auth/customer/portal`                                                                                                                                                                                                                                               |
 | `license_keys:write`      | Leer una clave y sus activaciones, activar un dispositivo y eliminar una activación (`deactivateLicense` y la [API de licencias de la CLI](/docs/features/cli-licence-api)) y, en una mejora, elevar el límite de activaciones de la clave y desactivar la clave que Polar emite para el pedido de mejora |
 | `orders:read`             | Los handlers de los webhooks, que leen el pedido que hay detrás de una licencia y el cliente actual de un pedido cuyo evento no corresponde a ninguna cuenta, y el precio de la mejora, que suma lo que el cliente ha pagado por licencias                                                                |
-| `organizations:read`      | `polar:verify`, que lee si la localización del pago está activada y el comportamiento fiscal predeterminado                                                                                                                                                                                               |
+| `organizations:read`      | `polar:verify`, que lee si la localización del pago está activada, el comportamiento fiscal predeterminado y los hosts que pueden incrustar el pago                                                                                                                                                       |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                            |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                            |
 
@@ -83,6 +83,18 @@ Polar muestra su pago en el idioma que pide `startCheckout` solo mientras la loc
 
 Las tarjetas de precios indican que los precios están en dólares estadounidenses, que el IVA está incluido en la UE y que el impuesto sobre ventas se añade en el pago en Estados Unidos, Canadá e India. Polar cobra los impuestos así cuando el comportamiento fiscal predeterminado de la organización se basa en la ubicación, así que configúralo de esa forma en los ajustes de la organización. La API lo devuelve como `default_tax_behavior` en la organización, y `polar:verify` falla mientras no sea `location` (`POLAR_TAX_BEHAVIOR.LOCATION` en `src/lib/polar.ts`).
 
+## Incrustación [#embedding]
+
+Los botones de compra abren el pago de Polar superpuesto al sitio en un iframe ([Licencias](/docs/features/licences#the-checkout-over-the-page)), y Polar solo permite mostrar su pago en un marco a los hosts que su organización incluye en la lista. En **Settings > Embedding**, añade los hosts que `appHostsForMode` sirve en cada entorno, sin esquema y con el puerto cuando lo hay:
+
+| Entorno       | Organización | Hosts                              |
+| ------------- | ------------ | ---------------------------------- |
+| `development` | Sandbox      | `localhost:3000`, `127.0.0.1:3000` |
+| `preview`     | Sandbox      | `preview.saasyland.com`            |
+| `production`  | Producción   | `saasyland.com`                    |
+
+Una entrada `*.saasyland.com` cubre `preview.saasyland.com`, pero no `saasyland.com`. Polar añade por sí mismo a la lista los dominios verificados de la organización. La API devuelve la lista como `embed_hosts` en la organización, y `polar:verify` falla mientras falte un host del entorno. Hasta que esté en la lista, el marco de Polar se queda en blanco en ese host y, tras <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" />, el botón lleva en su lugar al comprador a la página de pago de Polar, así que los compradores pueden pagar igualmente, un poco más tarde.
+
 ## Precios regionales [#regional-prices]
 
 Los precios regionales no necesitan nada en Polar. Para un comprador de un país de `PPP_TIERS` (`src/modules/license/license.pricing.ts`), cuyos tramos descuentan <RegionalDiscounts />, `startCheckout` envía el propio precio: `regionalPrice` redondea a la baja el precio del nivel a dólares enteros, el importe que muestran las tarjetas de niveles, y el pago lo lleva en `prices` como precio fijo del producto del nivel que solo vale para ese pago, de modo que el producto conserva su precio de `TIER_PRICES`. Una [mejora](/docs/features/licences#upgrades) envía su precio de la misma forma. Los descuentos que creó una configuración anterior ya no se usan, y puedes eliminarlos.
@@ -126,7 +138,7 @@ bun run polar:verify:production
 Cada script lee las claves de Polar de `.env.<environment>` y solo envía peticiones GET a la API que indica `POLAR_SERVER`: lee la organización y enumera sus productos y endpoints de webhook, y no modifica nada. Comprueba que:
 
 - el archivo de entorno define todas las claves de Polar, con `POLAR_SERVER=sandbox` para desarrollo y preview y `POLAR_SERVER=production` para producción;
-- la localización del pago está activada en la organización, y su comportamiento fiscal predeterminado se basa en la ubicación;
+- la localización del pago está activada en la organización, su comportamiento fiscal predeterminado se basa en la ubicación y la organización permite que todos los hosts del entorno incrusten su pago;
 - cada `POLAR_PRODUCT_ID_*` corresponde a un producto de la organización que no está archivado ni es una suscripción, y cuyos precios son fijos, están en `DEFAULT_CURRENCY_CODE` y son iguales a `TIER_PRICES`;
 - cada producto tiene exactamente un beneficio de clave de licencia con el límite del nivel según `LICENSE_ACTIVATION_LIMITS`, sin caducidad y sin límite de uso;
 - cada producto exige el campo de casilla <RepositoryFact name="licenseWithdrawalConsentField" /> con la etiqueta de `WITHDRAWAL_CONSENT_FIELD`;
@@ -155,6 +167,7 @@ Un fallo detiene el despliegue antes de que se compile, se migre o se suba nada.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` o `label differs`**: crea, vincula o corrige la [casilla de consentimiento](#consent-checkbox). Cuando la redacción cambie a propósito, cambia primero `WITHDRAWAL_CONSENT_FIELD.label` y después la etiqueta en Polar.
 - **`Checkout localization is off`**: activa la [localización del pago](#checkout-language) en la organización.
 - **`default tax behaviour is not location`**: configura el [comportamiento fiscal](#tax-behaviour) de la organización para que se base en la ubicación.
+- **`does not let … embed its checkout`**: añade el host que indica el mensaje en [Settings > Embedding](#embedding).
 - **Un endpoint de webhook**: corrige el endpoint que indica el mensaje o elimina un endpoint que envíe eventos al host de otro entorno.
 
 ## Páginas relacionadas

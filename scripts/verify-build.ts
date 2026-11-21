@@ -30,6 +30,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 const CLIENT_ENTRY_SCRIPT = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/(?<entry>assets\/[^"]+)")[^>]*>/u
 const PAGE_MESSAGES_LOADER = /messages\/[^/"`]+\/pages\.[^/"`]+\.json/u
+const CHECKOUT_EMBED = /polar-loader-spinner/u
 
 const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE, ROUTES.AFFILIATES]
 const LOCALE_ALIASES = [...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`), `/${I18N.DEFAULT_LOCALE}`]
@@ -149,11 +150,13 @@ for (const file of clientScripts) {
   }
 }
 
-const staticImportsOf = (file: string): string[] =>
+const importsOf = (file: string, kind: string): string[] =>
   scanner
     .scan(readFileSync(file, "utf8"))
-    .imports.filter(({ kind, path: specifier }) => kind === "import-statement" && specifier.startsWith("."))
+    .imports.filter((imported) => imported.kind === kind && imported.path.startsWith("."))
     .map(({ path: specifier }) => resolve(dirname(file), specifier))
+
+const staticImportsOf = (file: string): string[] => importsOf(file, "import-statement")
 
 const staticClosureOf = (entry: string): string[] => {
   const closure = [entry]
@@ -179,6 +182,24 @@ if (eagerMessages.length > 0) {
   throw new Error(
     `Every page loads the message loaders of the page namespaces in ${eagerMessages.join(", ")}; import them where a namespace is loaded`,
   )
+}
+
+const clientAssets = clientScripts.map((file) => resolve(ASSETS_DIR, file))
+const checkoutEmbeds = clientAssets.filter((file) => CHECKOUT_EMBED.test(readFileSync(file, "utf8")))
+const [checkoutEmbed] = checkoutEmbeds
+
+if (checkoutEmbed === undefined || checkoutEmbeds.length > 1) {
+  throw new Error(`Expected Polar's checkout embed in one client asset, found it in ${String(checkoutEmbeds.length)}`)
+}
+
+if (checkoutEmbed === resolve(CLIENT_DIR, clientEntry) || clientAssets.some((file) => staticImportsOf(file).includes(checkoutEmbed))) {
+  throw new Error(
+    `Pages load Polar's checkout embed in ${relative(process.cwd(), checkoutEmbed)} as their entry script or with a static import; import() it when a buyer starts a checkout`,
+  )
+}
+
+if (!clientAssets.some((file) => importsOf(file, "dynamic-import").includes(checkoutEmbed))) {
+  throw new Error(`No client asset imports Polar's checkout embed in ${relative(process.cwd(), checkoutEmbed)} when a checkout starts`)
 }
 
 const serverChunks = globSync("**/*.js", { cwd: SERVER_DIR }).map((file) => resolve(SERVER_DIR, file))
@@ -258,5 +279,5 @@ const serverBytes = bytesOf(serverChunks)
 const routeTreeBytes = bytesOf(staticClosureOf(chunkOf(ROUTE_TREE_MODULE)))
 
 process.stdout.write(
-  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, the ${String(bootBytes)} bytes the Worker loads on a cold start, the ${String(routeTreeBytes)} bytes of the route tree, a Worker of ${String(serverChunks.length)} files and ${String(serverBytes)} bytes without any docs or blog content, and one docs search index per locale with every docs page of that locale.\n`,
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, Polar's checkout embed loaded only when a checkout starts, the ${String(bootBytes)} bytes the Worker loads on a cold start, the ${String(routeTreeBytes)} bytes of the route tree, a Worker of ${String(serverChunks.length)} files and ${String(serverBytes)} bytes without any docs or blog content, and one docs search index per locale with every docs page of that locale.\n`,
 )

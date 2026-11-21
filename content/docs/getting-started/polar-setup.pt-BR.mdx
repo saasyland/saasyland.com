@@ -1,6 +1,6 @@
 ---
 title: "Configuração da Polar"
-description: "As organizações, o token, os produtos, as chaves de licença, a caixa de consentimento, o idioma do checkout, o comportamento fiscal e os webhooks da Polar que o código espera, como o checkout define os preços regionais e como o polar:verify os verifica."
+description: "As organizações, o token, os produtos, as chaves de licença, a caixa de consentimento, o idioma do checkout, o comportamento fiscal, os hosts de incorporação e os webhooks da Polar que o código espera, como o checkout define os preços regionais e como o polar:verify os verifica."
 ---
 
 A Polar vende os três planos pelos preços que o checkout envia, emite as chaves de licença deles e cobra os impostos. O código espera uma configuração precisa na Polar, e a Polar não avisa quando os dois divergem: um produto sem um benefício de chave de licença continua recebendo o pagamento, mas não emite nenhuma chave. `bun run polar:verify:<environment>` compara a Polar com o código, e os scripts de deploy o executam antes de todo deploy manual.
@@ -32,7 +32,7 @@ No sandbox e, depois, na produção:
 | `customer_sessions:write` | O link do portal do cliente, `/api/auth/customer/portal`                                                                                                                                                                                                                                  |
 | `license_keys:write`      | Ler uma chave e as ativações dela, ativar um dispositivo e remover uma ativação (`deactivateLicense` e a [API de licenças da CLI](/docs/features/cli-licence-api)) e, num upgrade, aumentar o limite de ativações da chave e desativar a chave que a Polar emite para o pedido de upgrade |
 | `orders:read`             | Os handlers de webhook, que leem o pedido por trás de uma licença e o cliente atual de um pedido cujo evento não corresponde a nenhuma conta, e o preço do upgrade, que soma o que o cliente pagou por licenças                                                                           |
-| `organizations:read`      | `polar:verify`, que lê se a localização do checkout está ativada e o comportamento fiscal padrão                                                                                                                                                                                          |
+| `organizations:read`      | `polar:verify`, que lê se a localização do checkout está ativada, o comportamento fiscal padrão e os hosts que podem incorporar o checkout                                                                                                                                                |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                            |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                            |
 
@@ -83,6 +83,18 @@ A Polar só mostra o checkout no idioma que `startCheckout` pede enquanto a loca
 
 Os cards de preços dizem que os preços estão em dólares americanos, que o IVA está incluído na UE e que o imposto sobre vendas é adicionado no checkout nos Estados Unidos, no Canadá e na Índia. A Polar cobra os impostos dessa forma quando o comportamento fiscal padrão da organização é baseado na localização, então defina-o assim nas configurações da organização. A API o retorna como `default_tax_behavior` na organização, e `polar:verify` falha enquanto ele não for `location` (`POLAR_TAX_BEHAVIOR.LOCATION` em `src/lib/polar.ts`).
 
+## Incorporação [#embedding]
+
+Os botões de compra abrem o checkout da Polar sobreposto ao site em um iframe ([Licenças](/docs/features/licences#the-checkout-over-the-page)), e a Polar só deixa os hosts que a organização dela lista exibirem o checkout em um frame. Em **Settings > Embedding**, liste os hosts que `appHostsForMode` atende em cada ambiente, sem o esquema e com a porta quando houver uma:
+
+| Ambiente      | Organização | Hosts                              |
+| ------------- | ----------- | ---------------------------------- |
+| `development` | Sandbox     | `localhost:3000`, `127.0.0.1:3000` |
+| `preview`     | Sandbox     | `preview.saasyland.com`            |
+| `production`  | Produção    | `saasyland.com`                    |
+
+Uma entrada `*.saasyland.com` cobre `preview.saasyland.com`, mas não `saasyland.com`. A própria Polar adiciona à lista os domínios verificados da organização. A API retorna a lista como `embed_hosts` na organização, e `polar:verify` falha enquanto faltar um host do ambiente. Enquanto ele não estiver na lista, o frame da Polar fica em branco nesse host e, depois de <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" />, o botão leva o comprador à página de checkout da Polar, então os compradores ainda conseguem pagar, só um pouco mais tarde.
+
 ## Preços regionais [#regional-prices]
 
 Os preços regionais não precisam de nada na Polar. Para um comprador em um país de `PPP_TIERS` (`src/modules/license/license.pricing.ts`), cujas faixas abatem <RegionalDiscounts />, `startCheckout` envia o próprio preço: `regionalPrice` arredonda o preço do plano para baixo em dólares inteiros, o valor que os cards de planos mostram, e o checkout o leva em `prices` como um preço fixo para o produto do plano que vale só para esse checkout, de modo que o produto mantém o preço de `TIER_PRICES`. Um [upgrade](/docs/features/licences#upgrades) envia o preço dele da mesma forma. Os descontos criados por uma configuração anterior não são mais usados, e você pode excluí-los.
@@ -126,7 +138,7 @@ bun run polar:verify:production
 Cada script lê as chaves da Polar de `.env.<environment>` e envia apenas requisições GET à API que `POLAR_SERVER` indica: lê a organização e lista os produtos e os endpoints de webhook dela, e não altera nada. Ele verifica se:
 
 - o arquivo de ambiente define todas as chaves da Polar, com `POLAR_SERVER=sandbox` para desenvolvimento e preview e `POLAR_SERVER=production` para produção;
-- a localização do checkout está ativada na organização, e o comportamento fiscal padrão dela é baseado na localização;
+- a localização do checkout está ativada na organização, o comportamento fiscal padrão dela é baseado na localização, e ela deixa todos os hosts do ambiente incorporarem o checkout dela;
 - cada `POLAR_PRODUCT_ID_*` indica um produto da organização que não está arquivado nem é uma assinatura, com preços fixos, em `DEFAULT_CURRENCY_CODE` e iguais a `TIER_PRICES`;
 - cada produto tem exatamente um benefício de chave de licença com o limite do plano definido em `LICENSE_ACTIVATION_LIMITS`, sem expiração e sem limite de uso;
 - cada produto exige o campo de caixa de seleção <RepositoryFact name="licenseWithdrawalConsentField" /> com o rótulo de `WITHDRAWAL_CONSENT_FIELD`;
@@ -155,6 +167,7 @@ Uma falha interrompe o deploy antes de qualquer build, migração ou envio. O sc
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` ou `label differs`**: crie, associe ou corrija a [caixa de consentimento](#consent-checkbox). Quando o texto muda de propósito, altere primeiro `WITHDRAWAL_CONSENT_FIELD.label` e, depois, o rótulo na Polar.
 - **`Checkout localization is off`**: ative a [localização do checkout](#checkout-language) na organização.
 - **`default tax behaviour is not location`**: defina o [comportamento fiscal](#tax-behaviour) da organização como baseado na localização.
+- **`does not let … embed its checkout`**: adicione o host que a mensagem indica em [Settings > Embedding](#embedding).
 - **Um endpoint de webhook**: corrija o endpoint que a mensagem indica ou remova um endpoint que envia eventos para o host de outro ambiente.
 
 ## Páginas relacionadas

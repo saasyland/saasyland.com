@@ -1,6 +1,6 @@
 ---
 title: "Konfiguracja Polar"
-description: "Organizacje, token, produkty, klucze licencyjne, pole wyboru zgody, język płatności, sposób naliczania podatku i webhooki Polar, których oczekuje kod, to, jak płatność ustala ceny regionalne, oraz to, jak sprawdza je polar:verify."
+description: "Organizacje, token, produkty, klucze licencyjne, pole wyboru zgody, język płatności, sposób naliczania podatku, hosty osadzania płatności i webhooki Polar, których oczekuje kod, to, jak płatność ustala ceny regionalne, oraz to, jak sprawdza je polar:verify."
 ---
 
 Polar sprzedaje trzy plany po cenach wysyłanych przy płatności, wydaje ich klucze licencyjne i nalicza podatek. Kod oczekuje w Polar ściśle określonej konfiguracji, a Polar nie ostrzega, gdy jedno rozjedzie się z drugim: produkt bez benefitu kluczy licencyjnych nadal przyjmuje płatność, ale nie wydaje klucza. `bun run polar:verify:<environment>` porównuje Polar z kodem, a skrypty wdrożeniowe uruchamiają go przed każdym ręcznym wdrożeniem.
@@ -32,7 +32,7 @@ Najpierw w usłudze sandbox, potem w produkcyjnej:
 | `customer_sessions:write` | Link do portalu klienta, `/api/auth/customer/portal`                                                                                                                                                                                                                                           |
 | `license_keys:write`      | Odczyt klucza i jego aktywacji, aktywacja maszyny oraz usuwanie aktywacji (`deactivateLicense` i [API licencji CLI](/docs/features/cli-licence-api)), a przy przejściu na wyższy plan podniesienie limitu aktywacji klucza i wyłączenie klucza, który Polar wydaje dla zamówienia za przejście |
 | `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją oraz bieżącego klienta zamówienia, którego zdarzenie nie pasuje do żadnego konta, oraz obliczanie ceny przejścia na wyższy plan, które sumuje to, co klient zapłacił za licencje                                           |
-| `organizations:read`      | `polar:verify`, który odczytuje, czy lokalizacja płatności jest włączona, oraz domyślny sposób naliczania podatku                                                                                                                                                                              |
+| `organizations:read`      | `polar:verify`, który odczytuje, czy lokalizacja płatności jest włączona, domyślny sposób naliczania podatku oraz hosty, które mogą osadzać płatność                                                                                                                                           |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                 |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                 |
 
@@ -83,6 +83,18 @@ Polar pokazuje swoją płatność w języku, o który prosi `startCheckout`, tyl
 
 Karty cennika podają, że ceny są w dolarach amerykańskich, że w UE VAT jest wliczony, a w USA, Kanadzie i Indiach podatek od sprzedaży dolicza się przy płatności. Polar nalicza podatek w ten sposób, gdy domyślny sposób naliczania podatku w organizacji zależy od lokalizacji, więc ustaw go tak w ustawieniach organizacji. API zwraca go jako `default_tax_behavior` w organizacji, a `polar:verify` kończy się błędem, dopóki nie ma on wartości `location` (`POLAR_TAX_BEHAVIOR.LOCATION` w `src/lib/polar.ts`).
 
+## Osadzanie [#embedding]
+
+Przyciski zakupu otwierają płatność Polar nad serwisem w ramce iframe ([Licencje](/docs/features/licences#the-checkout-over-the-page)), a Polar pozwala osadzać swoją płatność w ramce tylko hostom, które wymienia jego organizacja. W **Settings > Embedding** wpisz hosty, które `appHostsForMode` obsługuje w każdym środowisku, bez schematu i z portem, jeśli jest:
+
+| Środowisko    | Organizacja | Hosty                              |
+| ------------- | ----------- | ---------------------------------- |
+| `development` | Sandbox     | `localhost:3000`, `127.0.0.1:3000` |
+| `preview`     | Sandbox     | `preview.saasyland.com`            |
+| `production`  | Produkcja   | `saasyland.com`                    |
+
+Wpis `*.saasyland.com` obejmuje `preview.saasyland.com`, ale nie `saasyland.com`. Polar sam dodaje do listy zweryfikowane domeny organizacji. API zwraca listę jako `embed_hosts` w organizacji, a `polar:verify` kończy się błędem, dopóki brakuje któregoś hosta środowiska. Dopóki host nie jest na liście, ramka Polar pozostaje na nim pusta, a gdy minie <RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" />, przycisk kieruje kupującego na stronę płatności Polar, więc kupujący nadal mogą zapłacić, tylko nieco później.
+
 ## Ceny regionalne [#regional-prices]
 
 Ceny regionalne nie wymagają niczego w Polar. Dla kupującego z kraju ujętego w `PPP_TIERS` (`src/modules/license/license.pricing.ts`), gdzie przedziały obniżają cenę o <RegionalDiscounts />, `startCheckout` wysyła gotową cenę: `regionalPrice` zaokrągla cenę planu w dół do pełnych dolarów, czyli do kwoty, którą pokazują karty planów, a płatność przekazuje ją w `prices` jako stałą cenę produktu planu obowiązującą tylko w tej płatności, więc produkt zachowuje swoją cenę z `TIER_PRICES`. [Przejście na wyższy plan](/docs/features/licences#upgrades) wysyła swoją cenę w ten sam sposób. Rabaty utworzone przy wcześniejszej konfiguracji nie są już używane i można je usunąć.
@@ -126,7 +138,7 @@ bun run polar:verify:production
 Każdy skrypt odczytuje klucze Polar z `.env.<environment>` i wysyła wyłącznie żądania GET do API wskazanego przez `POLAR_SERVER`: odczytuje organizację, pobiera listę jej produktów i endpointów webhooków i niczego nie zmienia. Sprawdza, czy:
 
 - plik środowiskowy ustawia każdy klucz Polar, z `POLAR_SERVER=sandbox` dla trybu deweloperskiego i preview oraz `POLAR_SERVER=production` dla produkcji;
-- lokalizacja płatności jest włączona dla organizacji, a jej domyślny sposób naliczania podatku zależy od lokalizacji;
+- lokalizacja płatności jest włączona dla organizacji, jej domyślny sposób naliczania podatku zależy od lokalizacji, a organizacja pozwala każdemu hostowi środowiska osadzać swoją płatność;
 - każdy `POLAR_PRODUCT_ID_*` wskazuje produkt organizacji, który nie jest zarchiwizowany ani nie jest subskrypcją, a jego ceny są stałe, w `DEFAULT_CURRENCY_CODE` i równe `TIER_PRICES`;
 - każdy produkt ma dokładnie jeden benefit kluczy licencyjnych z limitem planu z `LICENSE_ACTIVATION_LIMITS`, bez wygaśnięcia i bez limitu użycia;
 - każdy produkt wymaga pola wyboru <RepositoryFact name="licenseWithdrawalConsentField" /> z etykietą z `WITHDRAWAL_CONSENT_FIELD`;
@@ -155,6 +167,7 @@ Błąd zatrzymuje wdrożenie, zanim cokolwiek zostanie zbudowane, zmigrowane lub
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` lub `label differs`**: utwórz, dołącz lub popraw [pole wyboru zgody](#consent-checkbox). Gdy brzmienie etykiety zmienia się celowo, najpierw zmień `WITHDRAWAL_CONSENT_FIELD.label`, a dopiero potem etykietę w Polar.
 - **`Checkout localization is off`**: włącz [lokalizację płatności](#checkout-language) dla organizacji.
 - **`default tax behaviour is not location`**: ustaw [sposób naliczania podatku](#tax-behaviour) w organizacji na zależny od lokalizacji.
+- **`does not let … embed its checkout`**: dodaj host wskazany w komunikacie w [Settings > Embedding](#embedding).
 - **Endpoint webhooka**: popraw endpoint wskazany w komunikacie albo usuń endpoint, który wysyła zdarzenia do hosta innego środowiska.
 
 ## Powiązane strony

@@ -30,19 +30,14 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import {
-  POLAR_CHECKOUT_ID_PLACEHOLDER,
-  POLAR_LICENSE_KEY_STATUS,
-  POLAR_MINIMUM_PRICE_AMOUNT,
-  POLAR_ORDER_STATUS,
-} from "~/src/integrations/polar/polar.constants"
+import { POLAR_LICENSE_KEY_STATUS, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
+import { type BrowserState, type Buyer, RETURN_PATH, actAs, startCheckout } from "~/src/modules/license/__test__/fixtures/checkout"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_CHECKOUT_FIELD,
@@ -65,57 +60,15 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { CLI_INIT_COMMAND } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/marketing"
-import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "~/src/data/polar"
+import { POLAR_CHECKOUT_DEFAULT_LANGUAGE, polarCheckoutOrigin } from "~/src/data/polar"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
 const INCLUDED_VAT_RATE = 0.23
-const RETURN_PATH = "/pl-PL/app/license?tier=complete"
 const CONSENT = { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
-
-interface Buyer {
-  readonly headers: Headers
-  readonly userId: string
-}
-
-interface BrowserState {
-  readonly cookie?: string
-  readonly country?: string
-}
-
-const actAs = ({ headers }: Buyer, { cookie, country = "US" }: BrowserState = {}): void => {
-  const requestHeaders = new Headers(headers)
-  requestHeaders.set(COUNTRY_HEADER, country)
-  if (cookie !== undefined) {
-    requestHeaders.set("cookie", `${requestHeaders.get("cookie") ?? ""}; ${cookie}`)
-  }
-  vi.mocked(getRequest).mockReturnValue(new Request(`${TEST_APP_URL}/_serverFn/license`, { headers: requestHeaders, method: "POST" }))
-}
-
-const startCheckout = async (
-  buyer: Buyer,
-  {
-    locale = "en-US",
-    redirect,
-    tier,
-    ...browser
-  }: BrowserState & { readonly locale?: SupportedLocale; readonly redirect?: string; readonly tier: LicenseTier },
-): Promise<models.Checkout> => {
-  actAs(buyer, browser)
-  const started = await executeMutation(startCheckoutMutation, { locale, redirect, returnPath: RETURN_PATH, tier })
-  if ("alreadyActive" in started) {
-    throw new Error("The account already holds an active licence, so no checkout started")
-  }
-  const { url } = started
-  const checkout = polarCheckouts().find(({ id }) => new URL(url).searchParams.get("checkoutId") === id)
-  if (checkout === undefined) {
-    throw new Error(`Polar holds no checkout for ${url}`)
-  }
-  return checkout
-}
 
 const postWebhook = async (body: string, headers: Record<string, string>): Promise<number> => {
   const response = await auth.handler(new Request(WEBHOOKS_URL, { body, headers, method: "POST" }))
@@ -170,15 +123,39 @@ describe("checkout", () => {
       allow_discount_codes: false,
       custom_field_data: {},
       discount_id: null,
+      embed_origin: TEST_APP_URL,
       external_customer_id: buyer.userId,
       locale: "pl",
       metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "pl-PL" },
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       return_url: `${TEST_APP_URL}${RETURN_PATH}`,
-      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
+      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${checkout.id}`,
     })
   })
+
+  it("lets Polar's checkout open over the page that started it and report back only to that page's origin", async () => {
+    const buyer = await signUpAndVerify()
+
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
+
+    expect(checkout.embed_origin).toBe(new URL(TEST_APP_URL).origin)
+    expect(new URL(checkout.url).origin).toBe(polarCheckoutOrigin(env.POLAR_SERVER))
+  })
+
+  it.each(["http://attacker.example", "http://localhost:3030"])(
+    "refuses a checkout requested through %s, a host this build does not serve, without asking Polar",
+    async (origin) => {
+      const buyer = await signUpAndVerify()
+      const headers = new Headers(buyer.headers)
+      vi.mocked(getRequest).mockReturnValue(new Request(`${origin}/_serverFn/license`, { headers, method: "POST" }))
+
+      await expect(
+        executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier: LICENSE_TIER.CORE }),
+      ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
+      expect(polarCheckouts().filter(({ external_customer_id: customer }) => customer === buyer.userId)).toStrictEqual([])
+    },
+  )
 
   it("comes back from Polar with the page the buyer started from, such as the lesson they want to watch", async () => {
     const buyer = await signUpAndVerify()
@@ -186,7 +163,7 @@ describe("checkout", () => {
     const checkout = await startCheckout(buyer, { redirect: "/courses/the-walkthrough/billing", tier: LICENSE_TIER.COMPLETE })
 
     expect(checkout.success_url).toBe(
-      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling`,
+      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${checkout.id}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling`,
     )
   })
 

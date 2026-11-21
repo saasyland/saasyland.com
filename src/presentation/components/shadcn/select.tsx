@@ -20,6 +20,7 @@ import {
   type SelectProps,
   SelectValue as SelectValuePrimitive,
   type SelectValueProps,
+  type SelectValueRenderProps,
   Separator as SeparatorPrimitive,
   type SeparatorProps,
   composeRenderProps,
@@ -61,15 +62,20 @@ const SelectGroup = <TValue extends object>({ className, ...props }: Readonly<Li
   <ListBoxSectionPrimitive className={cn("scroll-my-1 p-1", className)} data-slot="select-group" {...props} />
 )
 
+const renderSelectedValue = ({
+  defaultChildren,
+  selectedItems,
+  selectedText,
+}: SelectValueRenderProps<object> & { defaultChildren: ReactNode }): ReactNode =>
+  selectedItems.length > 1 ? selectedText : defaultChildren
+
 const SelectValue = <TValue extends object>({ children, className, ...props }: Readonly<SelectValueProps<TValue>>) => (
   <SelectValuePrimitive
     className={cn("flex flex-1 text-left data-placeholder:text-muted-foreground", className)}
     data-slot="select-value"
     {...props}
   >
-    {typeof children === "function"
-      ? children
-      : ({ defaultChildren, selectedItems, selectedText }) => (selectedItems.length > 1 ? selectedText : defaultChildren)}
+    {typeof children === "function" ? children : renderSelectedValue}
   </SelectValuePrimitive>
 )
 

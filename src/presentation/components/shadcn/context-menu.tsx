@@ -146,9 +146,9 @@ const ContextMenuTrigger = ({
 
   return (
     <MenuTriggerPrimitive data-slot="context-menu" isOpen={position !== undefined} onOpenChange={handleOpenChange} {...props}>
-      {position === undefined || anchorStyle === undefined
-        ? undefined
-        : createPortal(<div data-slot="context-menu-anchor" ref={positionRef} style={anchorStyle} />, document.body)}
+      {position !== undefined &&
+        anchorStyle !== undefined &&
+        createPortal(<div data-slot="context-menu-anchor" ref={positionRef} style={anchorStyle} />, document.body)}
       <div className={cn("contents select-none", className)} data-slot="context-menu-trigger" onContextMenu={handleContextMenu}>
         <ContextMenuPopoverProvider triggerRef={positionRef}>{children}</ContextMenuPopoverProvider>
       </div>
@@ -216,7 +216,7 @@ const ContextMenuItem = ({
     >
       {composeRenderProps(children, (renderedChildren, { isSelected, selectionMode }) => (
         <>
-          {selectionMode === "none" ? undefined : (
+          {selectionMode !== "none" && (
             <span
               className="pointer-events-none absolute right-2"
               data-slot={selectionMode === "single" ? "context-menu-radio-item-indicator" : "context-menu-checkbox-item-indicator"}

@@ -40,14 +40,14 @@ const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type StyleWithCssVars = CSSProperties & Record<`--${string}`, string>
 
-const SIDEBAR_WRAPPER_STYLE = {
+const SIDEBAR_WRAPPER_STYLE: StyleWithCssVars = {
   "--sidebar-width": SIDEBAR_WIDTH,
   "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-} as StyleWithCssVars
+}
 
-const SIDEBAR_MOBILE_STYLE = {
+const SIDEBAR_MOBILE_STYLE: StyleWithCssVars = {
   "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-} as StyleWithCssVars
+}
 
 interface SidebarContextProps {
   isMobile: boolean
@@ -60,6 +60,14 @@ interface SidebarContextProps {
 }
 
 type SidebarButtonProps = (LinkProps & { href: string }) | (ButtonProps & { href?: never })
+
+const SidebarButton = (props: SidebarButtonProps) => {
+  if (props.href === undefined) {
+    return <ButtonPrimitive {...props} />
+  }
+
+  return <LinkPrimitive {...props} />
+}
 
 const SidebarContext = createContext<SidebarContextProps | undefined>(undefined)
 
@@ -181,6 +189,7 @@ const Sidebar = ({
 }) => {
   const { isMobile, openMobile, setOpenMobile, state } = useSidebar()
   const t = useTranslations("components.shadcn.sidebar")
+  const isDetached = variant === "floating" || variant === "inset"
 
   if (collapsible === "none") {
     return (
@@ -227,18 +236,21 @@ const Sidebar = ({
           "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          {
+            "group-data-[collapsible=icon]:w-(--sidebar-width-icon)": !isDetached,
+            "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]": isDetached,
+          },
         )}
         data-slot="sidebar-gap"
       />
       <aside
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:-left-(--sidebar-width) data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:-right-(--sidebar-width) md:flex",
-          variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+          {
+            "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l":
+              !isDetached,
+            "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]": isDetached,
+          },
           className,
         )}
         data-side={side}
@@ -427,28 +439,17 @@ const SidebarMenuButton = ({
   tooltip?: string | ComponentProps<typeof Tooltip>
 } & VariantProps<typeof sidebarMenuButtonVariants>) => {
   const { isMobile, state } = useSidebar()
-  const buttonClassName = cn(sidebarMenuButtonVariants({ size, variant }), className)
 
-  const button =
-    props.href === undefined ? (
-      <ButtonPrimitive
-        className={buttonClassName}
-        data-active={isActive}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-slot="sidebar-menu-button"
-        {...props}
-      />
-    ) : (
-      <LinkPrimitive
-        className={buttonClassName}
-        data-active={isActive}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-slot="sidebar-menu-button"
-        {...props}
-      />
-    )
+  const button = (
+    <SidebarButton
+      className={cn(sidebarMenuButtonVariants({ size, variant }), className)}
+      data-active={isActive}
+      data-sidebar="menu-button"
+      data-size={size}
+      data-slot="sidebar-menu-button"
+      {...props}
+    />
+  )
 
   if (tooltip === undefined) {
     return button
@@ -481,9 +482,10 @@ const SidebarMenuAction = ({
   <ButtonPrimitive
     className={cn(
       "absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
-      showOnHover
-        ? "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0"
-        : undefined,
+      {
+        "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0":
+          showOnHover,
+      },
       className,
     )}
     data-sidebar="menu-action"
@@ -546,36 +548,19 @@ const SidebarMenuSubButton = ({
 }: SidebarButtonProps & {
   isActive?: boolean
   size?: "md" | "sm"
-}) => {
-  const subButtonClassName = cn(
-    "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
-    className,
-  )
-
-  if (props.href === undefined) {
-    return (
-      <ButtonPrimitive
-        className={subButtonClassName}
-        data-active={isActive}
-        data-sidebar="menu-sub-button"
-        data-size={size}
-        data-slot="sidebar-menu-sub-button"
-        {...props}
-      />
-    )
-  }
-
-  return (
-    <LinkPrimitive
-      className={subButtonClassName}
-      data-active={isActive}
-      data-sidebar="menu-sub-button"
-      data-size={size}
-      data-slot="sidebar-menu-sub-button"
-      {...props}
-    />
-  )
-}
+}) => (
+  <SidebarButton
+    className={cn(
+      "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
+      className,
+    )}
+    data-active={isActive}
+    data-sidebar="menu-sub-button"
+    data-size={size}
+    data-slot="sidebar-menu-sub-button"
+    {...props}
+  />
+)
 
 export {
   Sidebar,

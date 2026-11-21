@@ -71,12 +71,12 @@ const Sheet = ({ children, className, isDismissable = true, showCloseButton = tr
           data-slot="sheet"
         >
           {children}
-          {showCloseButton ? (
+          {showCloseButton && (
             <SheetClose className="absolute top-3 right-3" size="icon-sm" variant="ghost">
               <XIcon />
               <span className="sr-only">{t("close")}</span>
             </SheetClose>
-          ) : undefined}
+          )}
         </SheetPrimitive>
       </ModalPrimitive>
     </SheetOverlay>

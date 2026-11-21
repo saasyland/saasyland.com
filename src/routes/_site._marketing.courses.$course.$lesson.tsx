@@ -15,11 +15,9 @@ import type { Lesson as LessonDetail } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
-import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useLessonProgress } from "~/src/hooks/use-lesson-progress"
 
 import { cn } from "~/src/lib/cn"
-import { formatClock } from "~/src/lib/duration"
 import { notFoundHead, rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
@@ -29,6 +27,7 @@ import { CourseContents, CourseContentsSheet } from "~/src/presentation/componen
 import { LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { KeyMoments } from "~/src/presentation/components/custom/courses/key-moments"
 import { LessonMedia } from "~/src/presentation/components/custom/courses/lesson-media"
+import { LessonMeta } from "~/src/presentation/components/custom/courses/lesson-meta"
 import { LessonStage } from "~/src/presentation/components/custom/courses/lesson-stage"
 import { LessonTranscript } from "~/src/presentation/components/custom/courses/lesson-transcript"
 import { MaterialsList } from "~/src/presentation/components/custom/courses/materials-list"
@@ -149,7 +148,6 @@ const LessonPage = (): JSX.Element => {
   const params = Route.useParams()
   const [isSidebarOpen, setSidebarOpen] = useState(true)
 
-  const { offer } = useCourseAccessNames()
   const { data } = useSuspenseQuery(lessonQuery({ courseSlug: params.course, lessonSlug: params.lesson, locale }))
 
   const { lesson, next, previous } = data
@@ -203,11 +201,7 @@ const LessonPage = (): JSX.Element => {
 
             <article className="mx-auto max-w-3xl pt-10">
               <h1 className="text-headline-peak text-balance text-foreground">{lesson.title}</h1>
-              <p className="mt-4 flex flex-wrap gap-x-4 font-mono text-label uppercase">
-                <span className="text-ring">{t(`access.${lesson.access}`, { offer })}</span>
-                {lesson.durationMs !== null && <span className="text-muted-foreground tabular-nums">{formatClock(lesson.durationMs)}</span>}
-                {lesson.durationMs === null && <span className="text-muted-foreground">{t("lesson.recording")}</span>}
-              </p>
+              <LessonMeta className="mt-4" lesson={lesson} />
               <OnThisPage lesson={lesson} />
               <p className="mt-6 text-lead text-pretty text-muted-foreground">{lesson.summary}</p>
               {lesson.description.length > 0 && (

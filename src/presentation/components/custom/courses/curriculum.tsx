@@ -8,12 +8,12 @@ import type { Course } from "~/src/modules/course/course.types"
 import { isPlayable } from "~/src/modules/course/course.utils"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
-import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
-
 import { cn } from "~/src/lib/cn"
-import { formatClock, wholeMinutes } from "~/src/lib/duration"
+import { wholeMinutes } from "~/src/lib/duration"
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/src/presentation/components/shadcn/accordion"
+
+import { LessonMeta } from "~/src/presentation/components/custom/courses/lesson-meta"
 
 const NUMBER_BASE = 1
 const NUMBER_PAD = 2
@@ -36,37 +36,8 @@ const LessonIcon = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   return <Play aria-hidden className="size-3 text-muted-foreground" data-slot="lesson-recording" strokeWidth={2} />
 }
 
-const LessonTag = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
-  const t = useTranslations("pages.courses.tags")
-
-  const { offer } = useCourseAccessNames()
-
-  return (
-    <span
-      className={cn("rounded-md border px-2 py-0.5 font-mono text-[0.6875rem] leading-none whitespace-nowrap", {
-        "border-border text-muted-foreground": lesson.access !== LESSON_ACCESS.PREVIEW,
-        "border-ring/40 bg-ring/10 text-ring": lesson.access === LESSON_ACCESS.PREVIEW,
-      })}
-    >
-      {t(lesson.access, { offer })}
-    </span>
-  )
-}
-
-const LessonTime = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
-  const t = useTranslations("pages.courses.lesson")
-
-  if (lesson.durationMs === null) {
-    return <span className="font-mono text-spec text-muted-foreground">{t("recording")}</span>
-  }
-
-  return <span className="font-mono text-spec text-muted-foreground tabular-nums">{formatClock(lesson.durationMs)}</span>
-}
-
 const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   const t = useTranslations("pages.courses")
-
-  const { offer } = useCourseAccessNames()
 
   if (lesson.completed) {
     return <span className="sr-only">{t("lesson.completed")}</span>
@@ -76,12 +47,7 @@ const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
     return <span aria-hidden className="w-3" />
   }
 
-  return (
-    <>
-      <Lock aria-hidden className="size-3 text-muted-foreground" strokeWidth={2.25} />
-      <span className="sr-only">{t(`access.${lesson.access}`, { offer })}</span>
-    </>
-  )
+  return <Lock aria-hidden className="size-3 text-muted-foreground" strokeWidth={2.25} />
 }
 
 interface LessonListProps {
@@ -112,19 +78,16 @@ const LessonList = ({ compact, courseSlug, lessons, numbers }: LessonListProps):
               {padNumber(numbers.get(lesson.id))}
             </span>
           )}
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span className="flex min-w-0 flex-1 flex-col gap-y-1">
             <span
               className={cn(
-                "text-pretty transition-colors group-hover:text-foreground group-data-[status=active]:font-medium group-data-[status=active]:text-ring",
-                { "text-foreground": !lesson.locked, "text-muted-foreground": lesson.locked },
+                "text-pretty text-foreground transition-colors group-data-[status=active]:font-medium group-data-[status=active]:text-ring",
+                { "font-medium": !compact },
               )}
             >
               {lesson.title}
             </span>
-            {!compact && <LessonTag lesson={lesson} />}
-            <span className="basis-full">
-              <LessonTime lesson={lesson} />
-            </span>
+            <LessonMeta compact={compact} lesson={lesson} />
           </span>
           <span className="flex h-lh shrink-0 items-center">
             <LessonLock lesson={lesson} />
@@ -144,12 +107,12 @@ const ChapterSummary = ({ chapter }: { readonly chapter: Chapter }): JSX.Element
   const isPartlyRecorded = recorded.length > 0 && recorded.length < chapter.lessons.length
 
   return (
-    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground uppercase">
+    <span className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-spec whitespace-nowrap text-muted-foreground">
+      {recorded.length === 0 && <span>{t("catalogue.recordingNow")}</span>}
       {!isPartlyRecorded && <span>{t("catalogue.lessons", { count: chapter.lessons.length })}</span>}
       {isPartlyRecorded && <span>{t("catalogue.recorded", { recorded: recorded.length, total: chapter.lessons.length })}</span>}
+      {recorded.length > 0 && <span className="tabular-nums">{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
       {previews > 0 && <span className="text-ring">{t("catalogue.previews", { count: previews })}</span>}
-      {recorded.length === 0 && <span>{t("catalogue.recordingNow")}</span>}
-      {recorded.length > 0 && <span>{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
     </span>
   )
 }

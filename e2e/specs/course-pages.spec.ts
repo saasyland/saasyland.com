@@ -118,8 +118,9 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("heading", { level: 2, name: "What you’ll learn" })).toBeVisible()
     await expect(page.getByText(TEST_COURSE.prerequisites["en-US"][0])).toBeVisible()
     await expect(page.getByRole("link", { name: new RegExp(`^${preview.title["en-US"]}.*Free preview`, "u") })).toBeVisible()
-    await expect(page.getByRole("link", { name: new RegExp(`${account.title["en-US"]}.*Free with an account$`, "u") })).toBeVisible()
-    await expect(page.getByRole("link", { name: new RegExp(`${paid.title["en-US"]}.*Included with Complete$`, "u") })).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(`${account.title["en-US"]}.*Locked: free with an account`, "u") })).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(`${paid.title["en-US"]}.*Locked: included with Complete`, "u") })).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(paid.title["en-US"], "u") }).getByText("Included with Complete")).toBeVisible()
 
     const [, quality] = TEST_COURSE.chapters
     const chapter = page.getByRole("button", { name: new RegExp(quality.title["en-US"], "u") })
@@ -127,7 +128,7 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("link", { name: new RegExp(recording.title["en-US"], "u") })).toBeHidden()
     await chapter.press("Enter")
     await expect(chapter).toHaveAttribute("aria-expanded", "true")
-    await expect(page.getByRole("link", { name: new RegExp(`${recording.title["en-US"]}.*Being recorded`, "u") })).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(`${recording.title["en-US"]}.*Coming soon`, "u") })).toBeVisible()
   })
 
   test("the unlock panel sticks below the header with the same gap at every scroll", async ({ page }) => {
@@ -206,7 +207,7 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Kluczowe momenty" })).toBeVisible()
 
     await courseBlockTitle(page, "/pl-PL", TEST_COURSE.title["pl-PL"])
-    await expect(page.getByRole("link", { name: `${preview.title["pl-PL"]} Za darmo` })).toBeVisible()
+    await expect(page.getByRole("link", { name: `${preview.title["pl-PL"]} Darmowy podgląd` })).toBeVisible()
   })
 })
 

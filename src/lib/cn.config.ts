@@ -19,6 +19,7 @@ export default {
             "spec",
             "statement",
             "title",
+            "title-lg",
           ],
         },
       ],

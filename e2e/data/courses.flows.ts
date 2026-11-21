@@ -197,7 +197,7 @@ export const COURSES_FLOWS = [
     area: FLOW_AREA.COURSES,
     id: "course-showcase",
     outcome:
-      "The landing page's course block lists each published course with its lessons by title: open lessons link to their pages, locked ones say what unlocks them, lessons being recorded are not links, and a link to the course counts the rest",
+      "The landing page's course block lists each published course with its lessons by title: open lessons link to their pages, locked ones say what unlocks them, lessons coming soon say so and are not links, and a link to the course counts the rest",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "landing.spec.ts", title: "landing page › course showcase lists real courses with their open and locked lessons" }],
   },
@@ -217,7 +217,7 @@ export const COURSES_FLOWS = [
     area: FLOW_AREA.COURSES,
     id: "course-curriculum",
     outcome:
-      "The course page shows the level, the outcomes and the prerequisites, and lists each chapter as an accordion whose lessons say their access and whether they are being recorded",
+      "The course page shows the level, the outcomes and the prerequisites, and lists each chapter as an accordion whose lessons say who can watch them and whether they are coming soon",
     status: FLOW_STATUS.COVERED,
     tests: [
       {

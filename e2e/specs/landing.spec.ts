@@ -109,13 +109,14 @@ test.describe("landing page", () => {
     )
     const tile = showcase.getByRole("listitem").filter({ has: page.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] }) })
     await expect(tile.getByText(`3 of ${String(TEST_LESSONS.length)} lessons recorded`)).toBeVisible()
-    await expect(tile.getByRole("link", { name: `${freeLesson.title["en-US"]} Free` })).toBeVisible()
+    await expect(tile.getByRole("link", { name: `${freeLesson.title["en-US"]} Free preview` })).toBeVisible()
     await expect(tile.getByRole("link", { name: `${accountLesson.title["en-US"]} Locked: free with an account` })).toContainText(
       "Free with an account",
     )
     await expect(tile.getByRole("link", { name: `${paidLesson.title["en-US"]} Locked: included with Complete` })).toBeVisible()
     await expect(tile.getByRole("link", { name: new RegExp(recordingLesson.title["en-US"], "u") })).toHaveCount(0)
     await expect(tile.getByText(recordingLesson.title["en-US"])).toBeVisible()
+    await expect(tile.getByRole("listitem").filter({ hasText: recordingLesson.title["en-US"] })).toContainText("Coming soon")
     await expect(tile.getByRole("link", { name: "+ 1 more lesson" })).toHaveAttribute("href", `/courses/${TEST_COURSE.slug}`)
     await expect(showcase.getByRole("link", { name: "Browse all courses" })).toHaveAttribute("href", "/courses")
 

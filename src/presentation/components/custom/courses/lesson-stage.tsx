@@ -5,8 +5,8 @@ import { useTranslations } from "use-intl/react"
 import type { Course } from "~/src/modules/course/course.types"
 import { isPlayable } from "~/src/modules/course/course.utils"
 
-import { RecordingNow } from "~/src/presentation/components/custom/courses/course-card"
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { RecordingNow } from "~/src/presentation/components/custom/courses/course-facts"
 import { LessonPlayer } from "~/src/presentation/components/custom/courses/lesson-player"
 import { LockedLesson } from "~/src/presentation/components/custom/courses/locked-lesson"
 

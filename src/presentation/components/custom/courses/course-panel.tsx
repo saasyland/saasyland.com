@@ -15,8 +15,8 @@ import { CTA_CLASSES } from "~/src/data/cta"
 import { cn } from "~/src/lib/cn"
 import { wholeMinutes } from "~/src/lib/duration"
 
-import { RecordingNow } from "~/src/presentation/components/custom/courses/course-card"
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { RecordingNow } from "~/src/presentation/components/custom/courses/course-facts"
 import { ConfirmEmailLink, SignInInstead, UnlockLink } from "~/src/presentation/components/custom/courses/locked-lesson"
 
 const PANEL_COVER_SIZES = "(min-width: 64rem) 23rem, calc(100vw - 3rem)"

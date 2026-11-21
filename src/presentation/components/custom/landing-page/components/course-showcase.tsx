@@ -12,18 +12,16 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
-
-import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { LANDING_VIDEO_SIZES } from "~/src/data/landing-videos"
 
 import { cn } from "~/src/lib/cn"
-import { wholeMinutes } from "~/src/lib/duration"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { CourseFacts } from "~/src/presentation/components/custom/courses/course-facts"
+import { LessonMeta } from "~/src/presentation/components/custom/courses/lesson-meta"
 
 import courseTourPosterAvif800 from "~/src/presentation/assets/motion/course-tour-800.avif?url"
 import courseTourPosterWebp800 from "~/src/presentation/assets/motion/course-tour-800.webp?url"
@@ -58,7 +56,19 @@ const COURSE_LESSONS = "mt-4 border-t border-border pt-2 md:group-first/tile:col
 
 const COURSE_LESSON = "flex break-inside-avoid gap-3 rounded-md py-2 text-body-sm"
 
-const COURSE_MORE = "mt-2 h-lh self-start font-mono text-spec"
+const COURSE_HEADER = "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4"
+
+const COURSE_COVER = "row-start-2 lg:row-span-3 lg:row-start-1"
+
+const COURSE_KICKER = "col-span-2 mb-3 font-mono text-label lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:self-end"
+
+const COURSE_TITLE = "col-start-2 row-start-2 text-title lg:mt-1 lg:self-start lg:text-title-lg"
+
+const COURSE_FACTS = "col-span-2 mt-3 lg:col-span-1 lg:col-start-2 lg:row-start-3 lg:mt-0"
+
+const COMING_COLLAPSE = "@container @max-[19rem]:**:data-[slot=lesson-coming]:sr-only"
+
+const COURSE_MORE = "mt-2 h-lh self-start text-body-sm font-medium"
 
 const posterSet = (small: string, large: string): string => `${small} ${String(TOUR_POSTER_SMALL_WIDTH)}w, ${large} ${String(TOUR.width)}w`
 
@@ -142,60 +152,17 @@ const LessonIcon = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Elemen
   return <Play aria-hidden className="size-3 fill-current text-ring" strokeWidth={0} />
 }
 
-const LessonState = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Element => {
-  const t = useTranslations("pages.landing.studio.masterclass")
-
-  const { offer } = useCourseAccessNames()
-  const tag = lesson.access === LESSON_ACCESS.PAID ? offer : t(`access.${lesson.access}`)
-
-  return (
-    <>
-      <span className="flex h-lh shrink-0 items-center">
-        <LessonIcon lesson={lesson} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className={cn("block truncate", { "text-foreground": !lesson.locked, "text-muted-foreground": lesson.locked })}>
-          {lesson.title}
-        </span>{" "}
-        <span className="flex gap-x-3 overflow-hidden font-mono text-spec whitespace-nowrap text-muted-foreground">
-          {lesson.locked && <span className="sr-only">{t(`locked.${lesson.access}`, { offer })}</span>}
-          {lesson.locked && <span aria-hidden>{tag}</span>}
-          {!lesson.locked && <span className="text-ring">{tag}</span>}
-          {lesson.recording && <span>{t("recording")}</span>}
-        </span>
-      </span>
-    </>
-  )
-}
-
-const ShowcaseProgress = ({ course }: { readonly course: Course["showcase"][number] }): JSX.Element => {
-  const t = useTranslations("pages.landing.studio.masterclass")
-
-  if (course.recordedCount === 0) {
-    return (
-      <>
-        <span>{t("lessons", { count: course.lessonCount })}</span>
-        <span>{t("recording")}</span>
-      </>
-    )
-  }
-
-  if (course.recordedCount < course.lessonCount) {
-    return (
-      <>
-        <span>{t("recorded", { recorded: course.recordedCount, total: course.lessonCount })}</span>
-        <span>{t("minutes", { minutes: wholeMinutes(course.durationMs) })}</span>
-      </>
-    )
-  }
-
-  return (
-    <>
-      <span>{t("lessons", { count: course.lessonCount })}</span>
-      <span>{t("minutes", { minutes: wholeMinutes(course.durationMs) })}</span>
-    </>
-  )
-}
+const LessonState = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Element => (
+  <>
+    <span className="flex h-lh shrink-0 items-center">
+      <LessonIcon lesson={lesson} />
+    </span>
+    <span className="min-w-0 flex-1">
+      <span className="block truncate font-medium text-foreground">{lesson.title}</span>{" "}
+      <LessonMeta className={cn(COMING_COLLAPSE, "flex-nowrap overflow-hidden")} lesson={lesson} />
+    </span>
+  </>
+)
 
 const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number] }): JSX.Element => {
   const t = useTranslations("pages.landing.studio.masterclass")
@@ -203,27 +170,31 @@ const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number
 
   return (
     <li className={COURSE_TILE}>
-      <div className="flex items-center gap-4">
-        <div className={COURSE_THUMBNAIL}>
+      <div className={COURSE_HEADER}>
+        <div className={cn(COURSE_THUMBNAIL, COURSE_COVER)}>
           <CourseCover className="size-full" course={course} isDecorative sizes={THUMBNAIL_SIZES} />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-label text-muted-foreground uppercase">
-            {t(`kinds.${course.kind}`)} · {t(`levels.${course.level}`)}
-          </p>
-          <h4 className="mt-1 text-title">
-            <Link
-              className={cn(LINK_CLASSNAME, "block truncate text-foreground hover:text-ring")}
-              params={{ course: course.slug }}
-              to="/courses/$course"
-            >
-              {course.title}
-            </Link>
-          </h4>
-          <p className="flex gap-x-4 overflow-hidden font-mono text-spec whitespace-nowrap text-muted-foreground">
-            <ShowcaseProgress course={course} />
-          </p>
-        </div>
+        <p className={cn(COURSE_KICKER, "truncate text-muted-foreground uppercase")}>
+          {t(`kinds.${course.kind}`)} · {t(`levels.${course.level}`)}
+        </p>
+        <h4 className={COURSE_TITLE}>
+          <Link
+            className={cn(LINK_CLASSNAME, "line-clamp-2 text-balance text-foreground hover:text-ring lg:line-clamp-1")}
+            params={{ course: course.slug }}
+            to="/courses/$course"
+          >
+            {course.title}
+          </Link>
+        </h4>
+        <CourseFacts
+          className={cn(COURSE_FACTS, "flex-nowrap gap-x-4 overflow-hidden mask-r-from-85%")}
+          course={{
+            durationMs: course.durationMs,
+            lessons: course.lessonCount,
+            previews: course.previewCount,
+            recorded: course.recordedCount,
+          }}
+        />
       </div>
       <ol className={COURSE_LESSONS}>
         {course.lessons.map((lesson) => (
@@ -260,13 +231,14 @@ const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number
 
 const ShowcaseCoursePending = (): JSX.Element => (
   <div className={COURSE_TILE}>
-    <div className="flex items-center gap-4">
-      <Skeleton className={COURSE_THUMBNAIL} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Skeleton className="h-lh w-32 scale-y-70 font-mono text-label" />
-        <Skeleton className="mt-1 h-lh w-2/3 scale-y-70 text-title" />
-        <Skeleton className="h-lh w-1/2 scale-y-70 font-mono text-spec" />
+    <div className={COURSE_HEADER}>
+      <Skeleton className={cn(COURSE_THUMBNAIL, COURSE_COVER)} />
+      <Skeleton className={cn(COURSE_KICKER, "h-lh w-32 scale-y-70")} />
+      <div className={cn(COURSE_TITLE, "flex flex-col")}>
+        <Skeleton className="h-lh w-2/3 scale-y-70" />
+        <Skeleton className="h-lh w-1/3 scale-y-70 lg:hidden" />
       </div>
+      <Skeleton className={cn(COURSE_FACTS, "h-lh w-1/2 scale-y-70 text-spec")} />
     </div>
     <div className={COURSE_LESSONS}>
       {Array.from({ length: COURSE_SHOWCASE.LESSONS }, (_, lesson) => (
@@ -274,7 +246,7 @@ const ShowcaseCoursePending = (): JSX.Element => (
           <Skeleton className="h-lh w-3 shrink-0 scale-y-30" />
           <div className="flex min-w-0 flex-1 flex-col">
             <Skeleton className="h-lh w-4/5 scale-y-70" />
-            <Skeleton className="h-lh w-24 scale-y-70 font-mono text-spec" />
+            <Skeleton className="h-lh w-24 scale-y-70 text-spec" />
           </div>
         </div>
       ))}

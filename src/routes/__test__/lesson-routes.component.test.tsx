@@ -45,6 +45,7 @@ import {
   stubCourseGlobals,
 } from "~/src/routes/__test__/fixtures/course-router"
 
+import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import { ROUTES } from "~/src/routes"
 
@@ -126,7 +127,7 @@ describe("lesson page", () => {
     expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "0")
     expect(player.get("props")?.playback).toStrictEqual(PLAYBACK)
     expect(screen.getByRole("heading", { level: 1, name: "Boundaries" })).toBeVisible()
-    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(`${messages.access.preview}2:05`)
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(`${meta.access.preview} 2:05`)
     expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
     player.get("props")?.onProgress?.(30)
     player.get("props")?.onEnded?.()
@@ -175,6 +176,7 @@ describe("lesson page", () => {
     await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/coverage" })
 
     expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(meta.coming)
     expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
     const neighbours = within(screen.getByRole("navigation", { name: messages.lesson.neighbours }))
     expect(neighbours.getByRole("link", { name: /Billing/u })).toHaveTextContent(messages.lesson.previous)

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
+import { POLAR_SERVER } from "~/src/data/polar"
+
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 
 const SAMPLE_SIZE = 50
@@ -40,12 +42,23 @@ afterEach(() => {
 
 describe("documentPolicy", () => {
   it("allows the scripts that carry the nonce and the scripts they load, and keeps every directive of the base policy", () => {
-    const policy = documentPolicy(NONCE)
+    const policy = documentPolicy(NONCE, POLAR_SERVER.PRODUCTION)
 
     expect(policy).toBe(
-      `script-src 'nonce-${NONCE}' 'strict-dynamic' 'unsafe-inline' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`,
+      `script-src 'nonce-${NONCE}' 'strict-dynamic' 'unsafe-inline' https:; frame-src https://polar.sh; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`,
     )
     expect(policy.split("; ")).toEqual(expect.arrayContaining(SECURITY_HEADERS["Content-Security-Policy"].split("; ")))
+  })
+
+  it.each([
+    { origin: "https://polar.sh", server: POLAR_SERVER.PRODUCTION },
+    { origin: "https://sandbox.polar.sh", server: POLAR_SERVER.SANDBOX },
+  ])("frames only the $server checkout of Polar, at $origin", ({ origin, server }) => {
+    const frameSources = documentPolicy(NONCE, server)
+      .split("; ")
+      .filter((directive) => directive.startsWith("frame-src "))
+
+    expect(frameSources).toStrictEqual([`frame-src ${origin}`])
   })
 })
 

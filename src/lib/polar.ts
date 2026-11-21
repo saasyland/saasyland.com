@@ -5,7 +5,7 @@ import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
 import * as zod from "zod"
 
-import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import {
@@ -79,6 +79,8 @@ const PRODUCT_ID_KEYS = {
 } as const satisfies Record<LicenseTier, string>
 
 const PAGE_SIZE = 100
+
+const ANY_SUBDOMAIN = "*."
 
 const settingValue = zod.string().trim().nonempty()
 
@@ -177,6 +179,17 @@ const readPolar = async (settings: Settings, source: Source): Promise<PolarState
 
   return { endpoints: endpoints.items, organizations: organizations.items, products: products.items }
 }
+
+const allowsHost = (embedHosts: readonly string[], host: string): boolean =>
+  embedHosts.some((entry) => entry === host || (entry.startsWith(ANY_SUBDOMAIN) && host.endsWith(entry.slice(ANY_SUBDOMAIN.length - 1))))
+
+const embedProblems = (organizations: readonly models.Organization[], environment: PolarEnvironment): string[] =>
+  appHostsForMode(environment)
+    .filter((host) => !organizations.some(({ embed_hosts: embedHosts }) => allowsHost(embedHosts, host)))
+    .map(
+      (host) =>
+        `The organisation does not let ${host} embed its checkout, so the buy buttons there open Polar's checkout page instead of the overlay (openCheckoutOverlay); add ${host} under Settings > Embedding.`,
+    )
 
 const organizationProblems = (organizations: readonly models.Organization[]): string[] =>
   failing([
@@ -330,6 +343,7 @@ export const verifyPolar = async ({
 
   const problems = [
     ...organizationProblems(organizations),
+    ...embedProblems(organizations, environment),
     ...LICENSE_TIERS.flatMap((tier) => productProblems(tier, settings, products)),
     ...webhookUrls.flatMap((url) => ownWebhookProblems(url, { endpoints, file: source.file, secret: settings.POLAR_WEBHOOK_SECRET })),
     ...foreignWebhookProblems(source.server, endpoints),
@@ -340,7 +354,7 @@ export const verifyPolar = async ({
   }
 
   const checked = [
-    "checkout localization and tax behaviour",
+    "checkout localization, tax behaviour and the hosts that embed the checkout",
     `${String(LICENSE_TIERS.length)} products with their prices, licence keys and consent field`,
     ...webhookUrls.map((url) => `the webhook at ${url}`),
   ]

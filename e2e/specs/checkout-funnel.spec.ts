@@ -1,3 +1,5 @@
+import assert from "node:assert/strict"
+
 import type { APIRequestContext, Page } from "@playwright/test"
 import { STACK_DEFAULTS } from "@saasyland/stack"
 import { ACTIVATION_KIND, API_ENDPOINT, PLATFORM, apiRequest, deriveMachineId, readApiResponse } from "@saasyland/stack/api"
@@ -9,6 +11,13 @@ import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibilit
 import { expect, test } from "../fixtures/auth"
 import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
 import { buyLicense, deliverPaidOrder, payCheckout, startedCheckouts } from "../fixtures/license"
+import {
+  checkoutOverlay,
+  closeCheckoutOverlay,
+  isPolarCheckoutPage,
+  payInCheckoutOverlay,
+  refusePolarCheckoutEmbedding,
+} from "../fixtures/polar-checkout"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -21,6 +30,7 @@ import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER, LICENSE_TIERS } from "../../sr
 import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
 import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
+import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 
@@ -28,6 +38,8 @@ const [, customer] = TEST_ACCOUNTS
 const [, , paid] = TEST_LESSONS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
 const BROWSER_CLOCK_BEHIND_MS = 300_000
+const PAGE_MARKER = "__pageBeforeCheckout"
+const OVERLAY_TITLE = "Polar checkout"
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 
@@ -36,6 +48,12 @@ const COURSE_TIERS: readonly string[] = [LICENSE_TIER.COMPLETE, LICENSE_TIER.AGE
 const checklist = (page: Page) => page.getByRole("region", { name: "Get started" })
 
 const stepDone = (page: Page, title: string) => checklist(page).getByRole("listitem").filter({ hasText: title }).getByText("Done")
+
+const markPage = async (page: Page): Promise<void> => {
+  await page.evaluate((marker) => Reflect.set(globalThis, marker, true), PAGE_MARKER)
+}
+
+const isSamePage = async (page: Page): Promise<unknown> => page.evaluate((marker) => Reflect.get(globalThis, marker), PAGE_MARKER)
 
 const fromOwnAddress = (request: Request): Request => {
   request.headers.set(IP_ADDRESS_HEADER, `2001:db8:${crypto.randomUUID().slice(0, 4)}::`)
@@ -111,19 +129,28 @@ test.describe("checkout funnel", () => {
     await expect(chosen).toBeVisible()
 
     await expect(chosen.getByText(/^You pay on Polar, our Merchant of Record\./u)).toBeVisible()
+    await markPage(page)
     await chosen.getByRole("button", { name: "Continue to checkout" }).click()
 
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toBeFocused()
+    await expect(checkoutOverlay(page)).toHaveAttribute("title", OVERLAY_TITLE)
+    await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.COMPLETE}`)
     await expect(page.getByRole("dialog")).toHaveCount(0)
-    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({
       custom_field_data: {},
+      embed_origin: new URL(page.url()).origin,
       locale: "en",
       metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" },
       return_url: new URL(`/app?tier=${LICENSE_TIER.COMPLETE}`, page.url()).href,
     })
+    await payInCheckoutOverlay(page)
+
+    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toHaveCount(0)
+    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
+    expect(await isSamePage(page)).toBe(true)
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
@@ -187,13 +214,14 @@ test.describe("checkout funnel", () => {
     await expect(page).toHaveURL(`/app/license?redirect=${encodeURIComponent(lesson)}&tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
     await page.getByRole("region", { name: "Continue with Complete" }).getByRole("button", { name: "Continue to checkout" }).click()
+    await payInCheckoutOverlay(page)
     await expect(page).toHaveURL((url) => url.pathname === ROUTES.APP && url.searchParams.has("checkoutId") && url.searchParams.get("redirect") === lesson)
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
     await expect(page.getByRole("link", { name: "Continue where you left off" })).toHaveAttribute("href", lesson)
   })
 
-  test("opens Polar's checkout without a dialog, in the buyer's language, with a back button and the consent box left for the buyer", async ({
+  test("opens Polar's checkout over the page without a dialog of its own, in the buyer's language, with a back button and the consent box left for the buyer", async ({
     appPage,
     authPage,
     page,
@@ -210,7 +238,8 @@ test.describe("checkout funnel", () => {
 
     await page.getByRole("button", { name: "Wybierz Podstawę", exact: true }).click()
 
-    await expect(page).toHaveURL(/\/pl-PL\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toHaveAttribute("title", "Płatność w Polar")
+    await expect(page).toHaveURL(`/pl-PL${ROUTES.APP_LICENSE}`)
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({
       custom_field_data: {},
@@ -222,9 +251,57 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(page.getByText("Сторінка оплати відкриється англійською.", { exact: false })).toBeVisible()
     await page.getByRole("button", { name: "Придбати Core", exact: true }).click()
-    await expect(page).toHaveURL(/\/uk-UA\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toHaveAttribute("title", "Оплата через Polar")
     const checkouts = await startedCheckouts(request, userId)
     expect(checkouts.at(-1)).toMatchObject({ locale: POLAR_CHECKOUT_DEFAULT_LANGUAGE })
+  })
+
+  test("closing Polar's checkout without paying leaves the buyer where they were, with the button ready and focused", async ({
+    appPage,
+    authPage,
+    page,
+  }) => {
+    await authPage.signIn(customer.email)
+    await expect(page).toHaveURL(ROUTES.APP)
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await markPage(page)
+    const button = page.getByRole("button", { name: "Get Core", exact: true })
+
+    await button.click()
+
+    await expect(checkoutOverlay(page)).toBeFocused()
+    await expect(button).toBeEnabled()
+    for (const colorScheme of COLOR_SCHEMES) {
+      await page.emulateMedia({ colorScheme })
+      expect(await accessibilityViolations(page)).toEqual([])
+    }
+    await closeCheckoutOverlay(page)
+
+    await expect(checkoutOverlay(page)).toHaveCount(0)
+    await expect(button).toBeFocused()
+    await expect(button).toBeEnabled()
+    await expect(page).toHaveURL(ROUTES.APP_LICENSE)
+    await expect(page.getByRole("heading", { name: "Payment received" })).toHaveCount(0)
+    expect(await isSamePage(page)).toBe(true)
+  })
+
+  test("a browser that cannot show Polar's checkout over the page goes to Polar's checkout page instead", async ({
+    appPage,
+    authPage,
+    context,
+    page,
+  }) => {
+    await refusePolarCheckoutEmbedding(context)
+    await authPage.signIn(customer.email)
+    await expect(page).toHaveURL(ROUTES.APP)
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
+
+    await page.waitForURL(isPolarCheckoutPage, { timeout: CHECKOUT_OVERLAY_GRACE_MS * 2 })
+    await expect(page.getByRole("heading", { name: "Polar checkout test double" })).toBeVisible()
   })
 
   test("a slow activation ends in an honest message with the contact email and checkout reference", async ({ appPage, authPage, page }) => {
@@ -435,11 +512,13 @@ test.describe("checkout funnel", () => {
     }
 
     await card.getByRole("button", { name: "Upgrade to Complete" }).click()
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
-    const checkoutId = new URL(page.url()).searchParams.get("checkoutId") ?? ""
-    const upgrade = (await startedCheckouts(request, userId)).find(({ id }) => id === checkoutId)
+    await expect(checkoutOverlay(page)).toBeFocused()
+    const [upgrade] = await startedCheckouts(request, userId)
+    assert(upgrade !== undefined)
     expect(upgrade).toMatchObject({ total_amount: toMinorUnits(difference, DEFAULT_CURRENCY_CODE) })
-    await payCheckout(request, checkoutId)
+    await payCheckout(request, upgrade.id)
+    await payInCheckoutOverlay(page)
+    await expect(page).toHaveURL(`/app?checkoutId=${upgrade.id}`)
 
     await expect(page.getByText("Thank you for buying Complete.", { exact: false })).toBeVisible()
     await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -468,7 +547,7 @@ test.describe("checkout funnel", () => {
 
     await page.getByRole("button", { name: "Get Core", exact: true }).click()
 
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toBeFocused()
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({ total_amount: toMinorUnits(price, DEFAULT_CURRENCY_CODE) })
 
@@ -479,7 +558,7 @@ test.describe("checkout funnel", () => {
     await expect(offer).not.toBeChecked()
     await page.getByRole("button", { name: "Get Core", exact: true }).click()
 
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(checkoutOverlay(page)).toBeFocused()
     const [, declined] = await startedCheckouts(request, userId)
     expect(declined).toMatchObject({ total_amount: toMinorUnits(TIER_PRICES[LICENSE_TIER.CORE], DEFAULT_CURRENCY_CODE) })
   })

@@ -12,6 +12,8 @@ export const POLAR_DASHBOARD_HOSTS = {
   [POLAR_SERVER.SANDBOX]: "sandbox.polar.sh",
 } as const satisfies Record<Environment, string>
 
+export const polarCheckoutOrigin = (server: Environment): string => `https://${POLAR_DASHBOARD_HOSTS[server]}`
+
 export const POLAR_ORGANIZATION_SLUG = "saasyland"
 
 export const POLAR_CHECKOUT_DEFAULT_LANGUAGE = "en"

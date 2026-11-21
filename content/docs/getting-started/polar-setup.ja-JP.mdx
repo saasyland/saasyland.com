@@ -1,6 +1,6 @@
 ---
 title: "Polar の設定"
-description: "コードが前提とする Polar の組織、トークン、商品、ライセンスキー、同意のチェックボックス、チェックアウトの言語、税の扱い、Webhook と、チェックアウトが地域価格を設定する方法、polar:verify によるその確認方法です。"
+description: "コードが前提とする Polar の組織、トークン、商品、ライセンスキー、同意のチェックボックス、チェックアウトの言語、税の扱い、チェックアウトの埋め込みを許可するホスト、Webhook と、チェックアウトが地域価格を設定する方法、polar:verify によるその確認方法です。"
 ---
 
 Polar は 3 つのプランをチェックアウトが送る価格で販売し、そのライセンスキーを発行し、税を課します。コードは Polar 側に決まった設定があることを前提としていますが、両者が食い違っても Polar は警告しません。たとえば、ライセンスキーの特典がない商品でも支払いは受け付けますが、キーは発行されません。`bun run polar:verify:<environment>` は Polar とコードを比較し、デプロイスクリプトは手動デプロイのたびに事前にこれを実行します。
@@ -32,7 +32,7 @@ Polar は 2 つの独立したサービスを運営しています。本番（`p
 | `customer_sessions:write` | カスタマーポータルへのリンク `/api/auth/customer/portal`                                                                                                                                                                                                                                               |
 | `license_keys:write`      | キーとそのアクティベーションの読み取り、端末のアクティベート、およびアクティベーションの解除（`deactivateLicense` と [CLI ライセンス API](/docs/features/cli-licence-api)）、さらにアップグレードでのキーのアクティベーション数の上限の引き上げと、アップグレードの注文に Polar が発行するキーの無効化 |
 | `orders:read`             | ライセンスの元になった注文と、イベントがどのアカウントにも対応しない注文の現在の顧客を読み取る Webhook ハンドラーと、顧客がライセンスに支払った額を合計してアップグレードの価格を求める処理                                                                                                            |
-| `organizations:read`      | チェックアウトのローカライズがオンかどうかとデフォルトの税の扱いを読み取る `polar:verify`                                                                                                                                                                                                              |
+| `organizations:read`      | チェックアウトのローカライズがオンかどうか、デフォルトの税の扱い、チェックアウトを埋め込めるホストを読み取る `polar:verify`                                                                                                                                                                            |
 | `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                         |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                         |
 
@@ -83,6 +83,18 @@ Polar が `startCheckout` の求める言語でチェックアウトを表示す
 
 料金カードには、価格が米ドルであること、EU では付加価値税が含まれること、米国、カナダ、インドではチェックアウト時に売上税が加算されることが書かれています。Polar がそのとおりに税を課すのは、組織のデフォルトの税の扱いが所在地に基づく設定になっている場合なので、組織の設定でそのように設定してください。API はこれを組織の `default_tax_behavior` として返し、これが `location` でない間は `polar:verify` が失敗します（`src/lib/polar.ts` の `POLAR_TAX_BEHAVIOR.LOCATION`）。
 
+## 埋め込み [#embedding]
+
+購入ボタンは Polar のチェックアウトを iframe でサイトの上に開きます（[ライセンス](/docs/features/licences#the-checkout-over-the-page)）。Polar がチェックアウトのフレーム表示を許可するのは、組織に登録されたホストだけです。**Settings > Embedding** で、各環境で `appHostsForMode` が配信するホストを、スキームを付けずに、ポートがある場合はポートを付けて登録してください。
+
+| 環境          | 組織           | ホスト                             |
+| ------------- | -------------- | ---------------------------------- |
+| `development` | サンドボックス | `localhost:3000`、`127.0.0.1:3000` |
+| `preview`     | サンドボックス | `preview.saasyland.com`            |
+| `production`  | 本番           | `saasyland.com`                    |
+
+`*.saasyland.com` というエントリーは `preview.saasyland.com` を含みますが、`saasyland.com` は含みません。組織の検証済みドメインは、Polar が自動的にリストに加えます。API はこのリストを組織の `embed_hosts` として返し、環境のホストが 1 つでも欠けている間は `polar:verify` が失敗します。登録されるまで、そのホストでは Polar のフレームは空白のままになり、<RepositoryFact name="checkoutOverlayGraceSeconds" unit="second" />後にボタンが代わりに購入者を Polar のチェックアウトページに移動させます。そのため、少し遅れはしますが、購入者は支払いを済ませられます。
+
 ## 地域価格 [#regional-prices]
 
 地域価格のために Polar で設定するものはありません。`PPP_TIERS`（`src/modules/license/license.pricing.ts`）の国の購入者には、区分に応じて <RegionalDiscounts /> を割り引いた価格を `startCheckout` がそのまま送ります。`regionalPrice` がプランの価格のドル未満を切り捨てた、プランのカードに表示されるのと同じ金額です。チェックアウトはこれを `prices` に、そのチェックアウトだけで有効なプランの商品の固定価格として持つため、商品自体の価格は `TIER_PRICES` のままです。[アップグレード](/docs/features/licences#upgrades)も同じ方法で価格を送ります。以前の設定で作成した割引はもう使われないため、削除してかまいません。
@@ -126,7 +138,7 @@ bun run polar:verify:production
 各スクリプトは `.env.<environment>` から Polar のキーを読み込み、`POLAR_SERVER` が示す API に GET リクエストだけを送ります。組織を読み取り、その商品と Webhook エンドポイントを一覧で取得するだけで、何も変更しません。確認する内容は次のとおりです。
 
 - 環境ファイルにすべての Polar のキーが設定されており、開発とプレビューでは `POLAR_SERVER=sandbox`、本番では `POLAR_SERVER=production` になっていること。
-- 組織でチェックアウトのローカライズがオンになっており、デフォルトの税の扱いが所在地に基づく設定になっていること。
+- 組織でチェックアウトのローカライズがオンになっており、デフォルトの税の扱いが所在地に基づく設定になっていて、環境のすべてのホストにチェックアウトの埋め込みを許可していること。
 - 各 `POLAR_PRODUCT_ID_*` が、アーカイブ済みでもサブスクリプションでもない組織の商品を指し、その価格が固定価格で、`DEFAULT_CURRENCY_CODE` 建てで、`TIER_PRICES` と等しいこと。
 - 各商品にライセンスキーの特典がちょうど 1 つあり、その特典が `LICENSE_ACTIVATION_LIMITS` にあるプランの上限を持ち、有効期限も使用回数の上限もないこと。
 - 各商品が、`WITHDRAWAL_CONSENT_FIELD` のラベルを持つチェックボックスのフィールド <RepositoryFact name="licenseWithdrawalConsentField" /> を必須にしていること。
@@ -155,6 +167,7 @@ A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhook
 - **`does not ask for the … checkout field`、`without requiring it`、`instead of a checkbox`、`label differs`**: [同意のチェックボックス](#consent-checkbox)を作成するか、商品に付けるか、修正してください。文言を意図的に変える場合は、先に `WITHDRAWAL_CONSENT_FIELD.label` を変更し、その後で Polar のラベルを変更します。
 - **`Checkout localization is off`**: 組織で[チェックアウトのローカライズ](#checkout-language)をオンにしてください。
 - **`default tax behaviour is not location`**: 組織の[税の扱い](#tax-behaviour)を所在地に基づく設定にしてください。
+- **`does not let … embed its checkout`**: メッセージが示すホストを [Settings > Embedding](#embedding) に追加してください。
 - **Webhook エンドポイント**: メッセージが示すエンドポイントを修正するか、別の環境のホストに送信しているエンドポイントを削除してください。
 
 ## 関連ページ

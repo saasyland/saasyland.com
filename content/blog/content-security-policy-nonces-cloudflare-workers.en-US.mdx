@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
 tags:
   - security
@@ -184,19 +184,20 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-Every HTML response gets `documentPolicy(nonce)`, built from those values:
+Every HTML response gets `documentPolicy(nonce, polarServer)`, built from those values and the origin of Polar’s checkout for the Polar server the deployment uses:
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string): string =>
+export const documentPolicy = (nonce: string, polarServer: Environment): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    `frame-src ${polarCheckoutOrigin(polarServer)}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
   ].join("; ")
 ```
 
-Responses that are not HTML, redirects and the files the Worker streams from R2 get a base policy with only `base-uri`, `frame-ancestors` and `object-src`. The policy deliberately stops at scripts: it has no `style-src`, `img-src`, `font-src` or `connect-src`, no Trusted Types and no reporting endpoint, and the site’s [Security](/docs/features/security) page lists those as not implemented.
+Responses that are not HTML, redirects and the files the Worker streams from R2 get a base policy with only `base-uri`, `frame-ancestors` and `object-src`. Beyond scripts, the policy restricts only frames, to Polar’s checkout, which the embedded checkout described under third-party scripts needs: it has no `style-src`, `img-src`, `font-src` or `connect-src`, no Trusted Types and no reporting endpoint, and the site’s [Security](/docs/features/security) page lists those as not implemented.
 
 ## Generate and deliver nonces correctly
 
@@ -239,7 +240,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -253,7 +254,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce), response }
+  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
 }
 ```
 
@@ -374,15 +375,17 @@ Third parties are where strict policies are won or lost. Four patterns cover mos
 
 **Code that cannot work under a strict policy.** Inline event handlers such as `onclick="…"` and `javascript:` URLs are blocked; web.dev’s advice is to move them into scripts that call `addEventListener`. Scripts written with `document.write` are parser-inserted, so `'strict-dynamic'` does not trust them. A third-party tag that depends on either needs replacing, not an exception.
 
-### Worked example: a redirect, a pixel and Cloudflare
+### Worked example: an embed, a pixel and Cloudflare
 
-**Polar’s checkout needs no exception, because it never runs on saasyland.com’s pages.** The workspace calls the `startCheckout` server function, which creates a checkout with Polar’s API, and the browser leaves for Polar’s hosted page:
+**Polar’s checkout needs one directive, for its frame.** The workspace calls the `startCheckout` server function, which creates a checkout with Polar’s API and names the page’s origin as its `embed_origin`, and the buy button opens the checkout over the page with Polar’s `@polar-sh/checkout` package, which the page imports only when a buyer presses it:
 
-```tsx title="src/presentation/components/custom/app/checkout.tsx"
-globalThis.location.href = checkout.url
+```ts title="src/lib/checkout-overlay.ts"
+const showOverlay = async ({ onUnavailable, title, url, ...outcome }: CheckoutOverlay): Promise<void> => {
+  const { PolarEmbedCheckout } = await import("@polar-sh/checkout/embed")
+  const opening = PolarEmbedCheckout.create(url, { theme: siteTheme() })
 ```
 
-Polar also offers an embedded checkout, a script from jsDelivr or the `@polar-sh/checkout` package that opens the checkout in an iframe, while Polar’s own `frame-ancestors` decides which sites may frame it, configured under **Settings > Embedding**. Under a strict policy, the package is part of your bundle and needs nothing, a CDN script tag needs the nonce, and a policy that restricts frames needs Polar’s checkout origin in `frame-src`. Our policy restricts no frames, and the redirect keeps payment pages out of it altogether.
+The package is part of the bundle, so `'strict-dynamic'` trusts the chunk like any route chunk, and `script-src` needs nothing for it; Polar’s script tag from jsDelivr would need the nonce instead. The package adds an iframe that shows Polar’s checkout, and our policy now restricts frames to that one origin: `frame-src https://polar.sh` in production and `frame-src https://sandbox.polar.sh` where the sandbox takes the payments. Polar’s own `frame-ancestors` decides which sites may frame it, configured under **Settings > Embedding**; for a site it does not list, the frame stays blank, and our button then sends the buyer to Polar’s checkout page instead. The script also adds a `<style>` element for its loading spinner, which a policy with `style-src` would have to allow by hash; ours sets no `style-src`.
 
 **The affiliate pixel loads through `'strict-dynamic'`.** On a visit with a referral parameter, React renders Affonso’s pixel after hydration:
 
@@ -458,7 +461,7 @@ A policy is configuration that can regress with any commit, so test it like code
   ],
 ```
 
-**A dedicated spec checks the nonce.** `e2e/specs/content-security-policy.spec.ts` requests three prerendered pages and two rendered ones twice each. It checks that the header equals `documentPolicy(nonce)`, that the second response has a different nonce, that every script and module preload carries the header’s nonce, except JSON-LD, that the `csp-nonce` tag matches, that there is no meta policy, and that the response is `private, no-cache` without an `ETag`. It then signs in to the admin console and goes through a customer’s checkout under the policy.
+**A dedicated spec checks the nonce.** `e2e/specs/content-security-policy.spec.ts` requests three prerendered pages and two rendered ones twice each. It checks that the header equals `documentPolicy(nonce, POLAR_SERVER)`, that the second response has a different nonce, that every script and module preload carries the header’s nonce, except JSON-LD, that the `csp-nonce` tag matches, that there is no meta policy, and that the response is `private, no-cache` without an `ETag`. It then signs in to the admin console, and has a customer pay in Polar’s checkout over the workspace, a test double whose frame the policy’s `frame-src` must allow.
 
 **A spec plays the edge.** `e2e/specs/edge-scripts.spec.ts` rewrites a served page the way Cloudflare would, adding one script with the header’s nonce and one without:
 

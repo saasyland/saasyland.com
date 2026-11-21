@@ -101,6 +101,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
+import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
@@ -139,6 +140,7 @@ const FACTS = {
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
+  checkoutOverlayGraceSeconds: CHECKOUT_OVERLAY_GRACE_MS / MILLISECONDS_PER_SECOND,
   cliActivate: cliCommand(CLI_COMMAND.ACTIVATE),
   cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
   cliApiUrlVariable: CLI_VARIABLE.API_URL,

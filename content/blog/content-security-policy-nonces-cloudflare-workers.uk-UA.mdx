@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
 tags:
   - security
@@ -187,19 +187,20 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-Кожна HTML-відповідь отримує `documentPolicy(nonce)`, побудовану з цих значень:
+Кожна HTML-відповідь отримує `documentPolicy(nonce, polarServer)`, побудовану з цих значень і origin оформлення замовлення Polar для сервера Polar, який використовує розгортання:
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string): string =>
+export const documentPolicy = (nonce: string, polarServer: Environment): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    `frame-src ${polarCheckoutOrigin(polarServer)}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
   ].join("; ")
 ```
 
-Відповіді, які не є HTML, перенаправлення й файли, які Worker потоково віддає з R2, отримують базову політику лише з `base-uri`, `frame-ancestors` і `object-src`. Політика свідомо обмежується скриптами: у ній немає `style-src`, `img-src`, `font-src` чи `connect-src`, немає Trusted Types і немає ендпоінта для звітів, а сторінка сайту [Безпека](/docs/features/security) перелічує все це як нереалізоване.
+Відповіді, які не є HTML, перенаправлення й файли, які Worker потоково віддає з R2, отримують базову політику лише з `base-uri`, `frame-ancestors` і `object-src`. Окрім скриптів, політика обмежує лише фрейми, дозволяючи тільки оформлення замовлення Polar, бо цього потребує вбудоване оформлення замовлення, описане в розділі про сторонні скрипти: у ній немає `style-src`, `img-src`, `font-src` чи `connect-src`, немає Trusted Types і немає ендпоінта для звітів, а сторінка сайту [Безпека](/docs/features/security) перелічує все це як нереалізоване.
 
 ## Генеруйте й передавайте nonce правильно
 
@@ -242,7 +243,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -256,7 +257,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce), response }
+  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
 }
 ```
 
@@ -377,15 +378,17 @@ const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
 
 **Код, який не може працювати за суворої політики.** Вбудовані обробники подій на кшталт `onclick="…"` і URL-адреси `javascript:` блокуються; web.dev радить перенести їх у скрипти, які викликають `addEventListener`. Скрипти, записані через `document.write`, вставлені парсером, тож `'strict-dynamic'` їм не довіряє. Сторонній тег, що залежить від будь-чого з цього, треба замінити, а не робити для нього виняток.
 
-### Приклад: перенаправлення, піксель і Cloudflare
+### Приклад: вбудовування, піксель і Cloudflare
 
-**Оформлення замовлення Polar не потребує винятку, бо воно ніколи не виконується на сторінках saasyland.com.** Робочий простір викликає серверну функцію `startCheckout`, яка створює оформлення замовлення через API Polar, і браузер переходить на сторінку, яку розміщує Polar:
+**Оформленню замовлення Polar потрібна одна директива — для його фрейму.** Робочий простір викликає серверну функцію `startCheckout`, яка створює оформлення замовлення через API Polar і вказує origin сторінки як його `embed_origin`, а кнопка купівлі відкриває оформлення замовлення поверх сторінки за допомогою пакета Polar `@polar-sh/checkout`, який сторінка імпортує лише тоді, коли покупець натискає кнопку:
 
-```tsx title="src/presentation/components/custom/app/checkout.tsx"
-globalThis.location.href = checkout.url
+```ts title="src/lib/checkout-overlay.ts"
+const showOverlay = async ({ onUnavailable, title, url, ...outcome }: CheckoutOverlay): Promise<void> => {
+  const { PolarEmbedCheckout } = await import("@polar-sh/checkout/embed")
+  const opening = PolarEmbedCheckout.create(url, { theme: siteTheme() })
 ```
 
-Polar також пропонує вбудоване оформлення замовлення: скрипт із jsDelivr або пакет `@polar-sh/checkout`, що відкриває оформлення замовлення в iframe, тоді як власна `frame-ancestors` Polar вирішує, які сайти можуть вбудовувати його у фрейм, і це налаштовується в **Settings > Embedding**. За суворої політики пакет є частиною вашого бандла й нічого не потребує, тегу скрипта з CDN потрібен nonce, а політиці, яка обмежує фрейми, потрібен origin оформлення замовлення Polar у `frame-src`. Наша політика фреймів не обмежує, а перенаправлення взагалі тримає платіжні сторінки поза нею.
+Пакет є частиною бандла, тож `'strict-dynamic'` довіряє його чанку, як і будь-якому чанку маршруту, і `script-src` для нього нічого не потребує; тегу скрипта Polar із jsDelivr натомість потрібен був би nonce. Пакет додає iframe, що показує оформлення замовлення Polar, і наша політика тепер обмежує фрейми цим одним origin: `frame-src https://polar.sh` у продакшні та `frame-src https://sandbox.polar.sh` там, де платежі приймає пісочниця. Власна `frame-ancestors` Polar вирішує, які сайти можуть вбудовувати його у фрейм, і це налаштовується в **Settings > Embedding**; на сайті, якого там немає, фрейм лишається порожнім, і тоді наша кнопка натомість відправляє покупця на сторінку оформлення замовлення Polar. Скрипт також додає елемент `<style>` для свого індикатора завантаження, який політиці з `style-src` довелося б дозволити за хешем; наша політика `style-src` не задає.
 
 **Партнерський піксель завантажується завдяки `'strict-dynamic'`.** Під час візиту з реферальним параметром React рендерить піксель Affonso після гідратації:
 
@@ -461,7 +464,7 @@ saasyland.com пропустив кроки 2 і 3, і описаний вище
   ],
 ```
 
-**Окрема специфікація перевіряє nonce.** `e2e/specs/content-security-policy.spec.ts` двічі запитує кожну з трьох попередньо відрендерених сторінок і двох відрендерених. Вона перевіряє, що заголовок дорівнює `documentPolicy(nonce)`, що друга відповідь має інший nonce, що кожен скрипт і кожна підказка попереднього завантаження модуля, крім JSON-LD, мають nonce із заголовка, що тег `csp-nonce` збігається, що політики в meta немає і що відповідь має `private, no-cache` без `ETag`. Потім вона входить в адміністративну консоль і проходить оформлення замовлення клієнта під цією політикою.
+**Окрема специфікація перевіряє nonce.** `e2e/specs/content-security-policy.spec.ts` двічі запитує кожну з трьох попередньо відрендерених сторінок і двох відрендерених. Вона перевіряє, що заголовок дорівнює `documentPolicy(nonce, POLAR_SERVER)`, що друга відповідь має інший nonce, що кожен скрипт і кожна підказка попереднього завантаження модуля, крім JSON-LD, мають nonce із заголовка, що тег `csp-nonce` збігається, що політики в meta немає і що відповідь має `private, no-cache` без `ETag`. Потім вона входить в адміністративну консоль, а клієнт платить в оформленні замовлення Polar поверх робочого простору — тестовому дублері, фрейм якого має дозволяти `frame-src` політики.
 
 **Ще одна специфікація грає роль периферії мережі.** `e2e/specs/edge-scripts.spec.ts` переписує віддану сторінку так, як це зробив би Cloudflare, додаючи один скрипт із nonce із заголовка й один без нього:
 

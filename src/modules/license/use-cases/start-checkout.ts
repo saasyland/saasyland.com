@@ -25,6 +25,8 @@ import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { polarCheckoutLanguage } from "~/src/data/polar"
 
+import { trustedRequestOrigin } from "~/src/lib/request-origin"
+
 import { ROUTES } from "~/src/routes"
 
 interface CheckoutTerms {
@@ -58,6 +60,7 @@ export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: License["startCheckout"]) => licenseZodSchemas.startCheckout.parse(input))
   .handler(async ({ context, data: { locale, redirect, returnPath, tier } }) => {
+    const origin = trustedRequestOrigin(getRequest())
     const { user } = context.auth
     const terms = await checkoutTerms(await getLicense(user.id), tier, context.requestHeaders)
 
@@ -66,17 +69,17 @@ export const startCheckout = createServerFn({ method: "POST" })
     }
 
     const productId = POLAR_PRODUCT_IDS[tier]
-    const { url: requestUrl } = getRequest()
     const returnTo = redirect === undefined ? "" : `&${new URLSearchParams({ redirect }).toString()}`
     const successUrl = new URL(
       `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}${returnTo}`,
-      requestUrl,
+      origin,
     )
-    const { url } = await polar.checkouts.create({
+    const { id, url } = await polar.checkouts.create({
       allow_discount_codes: false,
       customer_email: user.email,
       customer_ip_address: getIP(context.requestHeaders, auth.options),
       customer_name: user.name,
+      embed_origin: origin,
       external_customer_id: user.id,
       locale: polarCheckoutLanguage(locale),
       metadata: {
@@ -85,12 +88,12 @@ export const startCheckout = createServerFn({ method: "POST" })
         [LICENSE_CHECKOUT_METADATA.LOCALE]: locale,
       },
       products: [productId],
-      return_url: new URL(returnPath, requestUrl).toString(),
+      return_url: new URL(returnPath, origin).toString(),
       success_url: successUrl.toString(),
       ...(terms.amount === toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE) ? {} : adHocPrices(productId, terms.amount)),
     })
 
-    return { url }
+    return { checkoutId: id, url }
   })
 
 export const startCheckoutMutation = mutationOptions({

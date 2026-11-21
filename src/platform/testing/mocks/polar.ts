@@ -27,6 +27,8 @@ import {
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+import { polarCheckoutOrigin } from "~/src/data/polar"
+
 type RequestSchema<Model> = { readonly [Key in keyof Model]?: zod.ZodType<Model[Key]> }
 
 const MAX_PAGE_SIZE = 100
@@ -297,6 +299,10 @@ const checkoutCreateSchema = zod
     customer_email: zod.email(),
     customer_ip_address: zod.union([zod.ipv4(), zod.ipv6()]).nullable(),
     customer_name: zod.string(),
+    embed_origin: zod
+      .url()
+      .refine((origin) => new URL(origin).origin === origin, "an origin, without a path")
+      .optional(),
     external_customer_id: zod.string().min(1),
     locale: zod.string().min(1).optional(),
     metadata: metadataSchema,
@@ -356,6 +362,7 @@ const createCheckout = async (request: Request) => {
     return invalid("body.products", `${productId} is not a product of the organization`)
   }
   const id = crypto.randomUUID()
+  const clientSecret = `polar_c_${id.replaceAll("-", "")}`
   const createdAt = new Date()
   const product = polarCheckoutProduct(env.POLAR_ORGANIZATION_ID, catalogueProduct)
   const price = polarProductPrice(catalogueProduct)
@@ -375,7 +382,7 @@ const createCheckout = async (request: Request) => {
       postal_code: "disabled",
       state: "disabled",
     },
-    client_secret: `polar_c_${id.replaceAll("-", "")}`,
+    client_secret: clientSecret,
     created_at: createdAt.toISOString(),
     currency: price.price_currency,
     custom_field_data: body.data.custom_field_data ?? {},
@@ -390,7 +397,7 @@ const createCheckout = async (request: Request) => {
     discount: null,
     discount_amount: 0,
     discount_id: null,
-    embed_origin: null,
+    embed_origin: body.data.embed_origin ?? null,
     expires_at: new Date(createdAt.getTime() + CHECKOUT_LIFETIME_MS).toISOString(),
     external_customer_id: body.data.external_customer_id,
     id,
@@ -420,7 +427,7 @@ const createCheckout = async (request: Request) => {
     return_url: body.data.return_url ?? null,
     status: "open",
     subscription_id: null,
-    success_url: body.data.success_url,
+    success_url: body.data.success_url.replaceAll(POLAR_CHECKOUT_ID_PLACEHOLDER, id),
     tax_amount: null,
     tax_behavior: null,
     total_amount: amount,
@@ -428,7 +435,7 @@ const createCheckout = async (request: Request) => {
     trial_interval: null,
     trial_interval_count: null,
     units: null,
-    url: body.data.success_url.replaceAll(POLAR_CHECKOUT_ID_PLACEHOLDER, id),
+    url: `${polarCheckoutOrigin(env.POLAR_SERVER)}/checkout/${clientSecret}`,
   }
   checkouts.set(id, checkout)
   return respond(HTTP_STATUS.CREATED, checkout)

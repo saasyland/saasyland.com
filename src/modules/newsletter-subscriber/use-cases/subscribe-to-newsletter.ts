@@ -20,12 +20,12 @@ import {
   SUBSCRIPTION_RESULT,
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
-import { newsletterRequestOrigin } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.server"
 import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 import { confirmationExpiry, confirmationUrl, createToken } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
 import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
+import { trustedRequestOrigin } from "~/src/lib/request-origin"
 
 import type confirmationMessages from "~/messages/en-US/emails.newsletter-confirmation-email.json"
 import { NEWSLETTER_CONFIRMATION_NAMESPACE, NewsletterConfirmationEmail } from "~/src/presentation/emails/newsletter-confirmation-email"
@@ -34,7 +34,7 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
   .middleware([withRateLimit("subscribe-to-newsletter", RATE_LIMITS.SENSITIVE)])
   .validator((input: NewsletterSubscriber["subscribeToNewsletter"]) => newsletterSubscriberZodSchemas.subscribeToNewsletter.parse(input))
   .handler(async ({ data: { email, locale, source } }) => {
-    const origin = newsletterRequestOrigin(getRequest())
+    const origin = trustedRequestOrigin(getRequest())
     const address = email.toLowerCase()
 
     const [existing] = await db

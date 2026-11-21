@@ -15,6 +15,7 @@ import {
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
 
+import { LOCAL_HOSTS } from "~/src/data/local-server"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_SERVER } from "~/src/data/polar"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
@@ -32,12 +33,15 @@ import {
   verifyPolar,
 } from "~/src/lib/polar"
 
+import { APP_DOMAIN, APP_PREVIEW_DOMAIN } from "~/src/presentation/branding"
+
 const ACCESS_TOKEN = "polar_oat_test"
 const ORGANIZATION_ID = "organization-test"
 const WEBHOOK_SECRET = "whsec_test"
 const CREATED_AT = "2026-11-01T00:00:00.000Z"
 const NOW = Date.parse("2026-11-14T12:00:00.000Z")
 const FAKE_PAGE_SIZE = 2
+const EMBED_HOSTS = [APP_DOMAIN, `*.${APP_DOMAIN}`, ...LOCAL_HOSTS]
 
 const PREVIEW_WEBHOOK = "https://preview.saasyland.com/api/auth/polar/webhooks"
 const PRODUCTION_WEBHOOK = "https://saasyland.com/api/auth/polar/webhooks"
@@ -213,6 +217,7 @@ const webhookEndpoint = (url: string, fields: Partial<models.WebhookEndpoint> = 
 const organization = (
   featureSettings: models.Organization["feature_settings"],
   taxBehavior: models.Organization["default_tax_behavior"] = POLAR_TAX_BEHAVIOR.LOCATION,
+  embedHosts: readonly string[] = EMBED_HOSTS,
 ): models.Organization => ({
   account_id: JSON_NULL,
   allow_customer_updates: true,
@@ -248,7 +253,7 @@ const organization = (
   details_submitted_at: CREATED_AT,
   dispute_settings: { auto_accept_below_amount: JSON_NULL },
   email: JSON_NULL,
-  embed_hosts: [],
+  embed_hosts: [...embedHosts],
   feature_settings: featureSettings,
   id: ORGANIZATION_ID,
   modified_at: JSON_NULL,
@@ -286,6 +291,9 @@ const TAX_NOT_LOCATION_BASED = `The organisation's default tax behaviour is not 
 
 const LOCALIZATION_OFF =
   "Checkout localization is off for the organisation, so Polar opens every checkout in English whatever locale startCheckout sends (POLAR_CHECKOUT_LANGUAGES); turn it on."
+
+const embedRefused = (host: string): string =>
+  `The organisation does not let ${host} embed its checkout, so the buy buttons there open Polar's checkout page instead of the overlay (openCheckoutOverlay); add ${host} under Settings > Embedding.`
 
 const fetchMock = vi.fn<(input: string, init: RequestInit) => Promise<Response>>()
 
@@ -367,7 +375,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.PREVIEW)).resolves.toBe(
-      `Polar sandbox matches the code for preview: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field; the webhook at ${PREVIEW_WEBHOOK}.`,
+      `Polar sandbox matches the code for preview: checkout localization, tax behaviour and the hosts that embed the checkout; 3 products with their prices, licence keys and consent field; the webhook at ${PREVIEW_WEBHOOK}.`,
     )
     expect(new Set(requestedUrls().map(({ host, pathname }) => `${host}${pathname}`))).toStrictEqual(
       new Set([
@@ -398,7 +406,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve({ endpoints: [webhookEndpoint(PRODUCTION_WEBHOOK)] })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).resolves.toBe(
-      `Polar production matches the code for production: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field; the webhook at ${PRODUCTION_WEBHOOK}.`,
+      `Polar production matches the code for production: checkout localization, tax behaviour and the hosts that embed the checkout; 3 products with their prices, licence keys and consent field; the webhook at ${PRODUCTION_WEBHOOK}.`,
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.PRODUCTION])).toBe(true)
   })
@@ -407,7 +415,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.DEVELOPMENT)).resolves.toBe(
-      "Polar sandbox matches the code for development: checkout localization and tax behaviour; 3 products with their prices, licence keys and consent field.",
+      "Polar sandbox matches the code for development: checkout localization, tax behaviour and the hosts that embed the checkout; 3 products with their prices, licence keys and consent field.",
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.SANDBOX])).toBe(true)
   })
@@ -691,6 +699,37 @@ describe("verifyPolar on the organisation", () => {
       )
     },
   )
+})
+
+const withEmbedHosts = (...embedHosts: readonly string[]): Partial<PolarOrganisation> => ({
+  organization: organization({ checkout_localization_enabled: true }, POLAR_TAX_BEHAVIOR.LOCATION, embedHosts),
+})
+
+describe("verifyPolar on the hosts that embed the checkout", () => {
+  it("reports the preview host when the sandbox organisation lets no host embed its checkout", async () => {
+    await expectPreviewProblems(withEmbedHosts(), embedRefused(APP_PREVIEW_DOMAIN))
+  })
+
+  it("accepts the preview host through a wildcard for the domain's subdomains", async () => {
+    serve(withEmbedHosts(`*.${APP_DOMAIN}`))
+
+    await expect(verify(ENVIRONMENT.PREVIEW)).resolves.toContain("the hosts that embed the checkout")
+  })
+
+  it("reports the production domain, which a wildcard for its subdomains does not cover", async () => {
+    serve({ ...withEmbedHosts(`*.${APP_DOMAIN}`), endpoints: [webhookEndpoint(PRODUCTION_WEBHOOK)] })
+
+    await expect(verify(ENVIRONMENT.PRODUCTION)).rejects.toThrow(mismatch(ENVIRONMENT.PRODUCTION, embedRefused(APP_DOMAIN)))
+  })
+
+  it("reports each local host of the development server that the sandbox organisation leaves out, port included", async () => {
+    const [listed, ...missing] = LOCAL_HOSTS
+    serve(withEmbedHosts(String(listed), `${APP_DOMAIN}:3000`))
+
+    await expect(verify(ENVIRONMENT.DEVELOPMENT)).rejects.toThrow(
+      mismatch(ENVIRONMENT.DEVELOPMENT, ...missing.map((host) => embedRefused(host))),
+    )
+  })
 })
 
 it("lists every problem at once, in the order organisation, products, webhooks", async () => {

@@ -18,6 +18,7 @@ interface PaidOrder {
 const checkoutsSchema = zod.array(
   zod.object({
     custom_field_data: zod.record(zod.string(), zod.unknown()),
+    embed_origin: zod.string().nullable(),
     locale: zod.string(),
     metadata: zod.record(zod.string(), zod.unknown()),
     product_id: zod.string(),

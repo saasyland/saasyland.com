@@ -39,6 +39,18 @@ export const LICENSE_TEST_WORKER = [
   },
   {
     kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/checkout",
+    respond: async (url) => {
+      const { polarCheckouts } = await import("../../src/platform/testing/mocks/polar")
+      const checkout = polarCheckouts().find(({ client_secret: secret }) => secret === url.searchParams.get("secret"))
+      if (checkout === undefined) {
+        return Response.json({ error: "No checkout has that client secret" }, { status: HTTP_STATUS.NOT_FOUND })
+      }
+      return Response.json(checkout)
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
     path: "/__test/polar/purchase",
     respond: async (url, env) => {
       const purchase = purchaseSchema.safeParse(Object.fromEntries(url.searchParams))

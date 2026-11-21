@@ -45,6 +45,8 @@ import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import type { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
+
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
@@ -66,6 +68,8 @@ import { ROUTES } from "~/src/routes"
 
 const LICENSE_KEY = "private-purchased-license-key"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
+const CHECKOUT_URL = "#checkout"
+const STARTED_CHECKOUT = { checkoutId: CHECKOUT_ID, url: CHECKOUT_URL }
 const { activation, buy, chosen, copy, statusCard } = pagesLicenseMessages
 const SECTION_NAME = vi.hoisted(() => "Included with every tier")
 
@@ -79,6 +83,7 @@ const upgradePriceMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getUpgra
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const triggerConfettiMock = vi.hoisted(() => vi.fn<() => void>())
+const overlayMock = vi.hoisted(() => vi.fn<typeof openCheckoutOverlay>())
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -125,6 +130,7 @@ vi.mock(import("~/src/modules/license/use-cases/deactivate-license"), () => ({
   deactivateLicenseMutation: { mutationFn: deactivateMock, mutationKey: LICENSE_MUTATION_KEYS.DEACTIVATE },
 }))
 vi.mock(import("~/src/lib/confetti"), () => ({ triggerConfetti: triggerConfettiMock }))
+vi.mock(import("~/src/lib/checkout-overlay"), () => ({ openCheckoutOverlay: overlayMock }))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -209,6 +215,7 @@ beforeEach(() => {
   activationsMock.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
   sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
+  overlayMock.mockReset().mockResolvedValue(undefined)
   upgradePriceMock.mockReset().mockResolvedValue({ upgrade: undefined })
   deactivateMock.mockReset()
   signOutMock.mockReset().mockResolvedValue({ redirect: undefined, success: true, url: undefined })
@@ -302,7 +309,7 @@ describe("buying a license", () => {
   })
 
   it("keeps every tier button off while the checkout starts and recovers after a failure", async () => {
-    const checkout = Promise.withResolvers<{ url: string }>()
+    const checkout = Promise.withResolvers<typeof STARTED_CHECKOUT>()
     checkoutMock.mockReturnValue(checkout.promise)
     const { region } = await startPolishCheckout()
 
@@ -323,23 +330,24 @@ describe("buying a license", () => {
     expect(checkoutMock).toHaveBeenCalledOnce()
   })
 
-  it("refreshes the license before opening the checkout", async () => {
-    checkoutMock.mockResolvedValue({ url: "#checkout" })
-    const { queryClient, user } = await renderApp(ROUTES.APP)
+  it("refreshes the license before it opens Polar's checkout over the page", async () => {
+    checkoutMock.mockResolvedValue(STARTED_CHECKOUT)
+    const { queryClient, router, user } = await renderApp(ROUTES.APP)
     await offer()
     const invalidate = vi.spyOn(queryClient, "invalidateQueries")
 
     await user.click(tierButton(LICENSE_TIER.CORE))
 
     await waitFor(() => {
-      expect(globalThis.location.hash).toBe("#checkout")
+      expect(overlayMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ title: buy.overlay, url: CHECKOUT_URL }))
     })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: LICENSE_QUERY_KEYS.ALL })
+    expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(overlayMock.mock.invocationCallOrder[0] ?? 0)
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
       { locale: "en-US", returnPath: ROUTES.APP, tier: LICENSE_TIER.CORE },
       expect.anything(),
     )
-    globalThis.history.replaceState({}, "", "/")
+    expect(router.state.location.href).toBe(ROUTES.APP)
   })
 
   it("explains a refused checkout and switches a stale page to the license it already owns", async () => {

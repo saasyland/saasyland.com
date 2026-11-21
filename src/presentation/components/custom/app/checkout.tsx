@@ -1,7 +1,7 @@
-import type { JSX, ReactNode } from "react"
+import { type JSX, type ReactNode, useRef } from "react"
 
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -15,6 +15,8 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { isPolarCheckoutTranslated } from "~/src/data/polar"
 import { REFUND_TERMS } from "~/src/data/refunds"
+
+import { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
@@ -55,6 +57,8 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
   const t = useTranslations("pages.license.buy")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
+  const navigate = useNavigate()
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const returnPath = useRouterState({ select: ({ location }) => location.publicHref })
   const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
 
@@ -74,7 +78,19 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
         toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
         return
       }
-      globalThis.location.href = checkout.url
+      await openCheckoutOverlay({
+        onClose: () => {
+          buttonRef.current?.focus()
+        },
+        onPaid: () => {
+          void navigate({ search: { checkoutId: checkout.checkoutId, redirect }, to: ROUTES.APP })
+        },
+        onUnavailable: () => {
+          globalThis.location.href = checkout.url
+        },
+        title: t("overlay"),
+        url: checkout.url,
+      })
     },
   })
 
@@ -86,6 +102,7 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
       onPress={() => {
         mutate({ locale: getCurrentLocale(), redirect, returnPath, tier })
       }}
+      ref={buttonRef}
       variant={featured ? "default" : "outline"}
     >
       {isPending && <Spinner />}

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/content-security-policy-nonces-cloudflare-workers.webp
 tags:
   - security
@@ -191,19 +191,20 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-Jede HTML-Antwort erhält `documentPolicy(nonce)`, gebaut aus diesen Werten:
+Jede HTML-Antwort erhält `documentPolicy(nonce, polarServer)`, gebaut aus diesen Werten und dem Origin des Checkouts von Polar für den Polar-Server, den das Deployment verwendet:
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string): string =>
+export const documentPolicy = (nonce: string, polarServer: Environment): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
+    `frame-src ${polarCheckoutOrigin(polarServer)}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
   ].join("; ")
 ```
 
-Antworten, die kein HTML sind, Weiterleitungen und die Dateien, die der Worker aus R2 streamt, erhalten eine Basis-Richtlinie mit nur `base-uri`, `frame-ancestors` und `object-src`. Die Richtlinie hört bewusst bei den Skripten auf: Sie hat kein `style-src`, `img-src`, `font-src` oder `connect-src`, keine Trusted Types und keinen Endpunkt für Berichte, und die Seite [Sicherheit](/docs/features/security) der Website führt diese Punkte als nicht implementiert auf.
+Antworten, die kein HTML sind, Weiterleitungen und die Dateien, die der Worker aus R2 streamt, erhalten eine Basis-Richtlinie mit nur `base-uri`, `frame-ancestors` und `object-src`. Über die Skripte hinaus schränkt die Richtlinie nur Frames ein, und zwar auf den Checkout von Polar, den der unter den Skripten von Drittanbietern beschriebene eingebettete Checkout braucht: Sie hat kein `style-src`, `img-src`, `font-src` oder `connect-src`, keine Trusted Types und keinen Endpunkt für Berichte, und die Seite [Sicherheit](/docs/features/security) der Website führt diese Punkte als nicht implementiert auf.
 
 ## Nonces richtig erzeugen und ausliefern
 
@@ -246,7 +247,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -260,7 +261,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce), response }
+  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
 }
 ```
 
@@ -381,15 +382,17 @@ Bei Drittanbietern werden strikte Richtlinien gewonnen oder verloren. Vier Muste
 
 **Code, der unter einer strikten Richtlinie nicht funktionieren kann.** Inline-Event-Handler wie `onclick="…"` und `javascript:`-URLs werden blockiert; web.dev rät, sie in Skripte zu verschieben, die `addEventListener` aufrufen. Skripte, die mit `document.write` geschrieben werden, sind vom Parser eingefügt, also vertraut `'strict-dynamic'` ihnen nicht. Ein Drittanbieter-Tag, das von einem der beiden abhängt, muss ersetzt werden, statt eine Ausnahme zu bekommen.
 
-### Praxisbeispiel: eine Weiterleitung, ein Pixel und Cloudflare
+### Praxisbeispiel: eine Einbettung, ein Pixel und Cloudflare
 
-**Der Checkout von Polar braucht keine Ausnahme, weil er nie auf den Seiten von saasyland.com läuft.** Der Kundenbereich ruft die Server Function `startCheckout` auf, die mit der API von Polar einen Checkout erstellt, und der Browser wechselt zur gehosteten Seite von Polar:
+**Der Checkout von Polar braucht eine Direktive, für seinen Frame.** Der Kundenbereich ruft die Server Function `startCheckout` auf, die mit der API von Polar einen Checkout erstellt und den Origin der Seite als dessen `embed_origin` nennt, und die Kauf-Schaltfläche öffnet den Checkout über der Seite mit dem Paket `@polar-sh/checkout` von Polar, das die Seite erst importiert, wenn ein Käufer sie drückt:
 
-```tsx title="src/presentation/components/custom/app/checkout.tsx"
-globalThis.location.href = checkout.url
+```ts title="src/lib/checkout-overlay.ts"
+const showOverlay = async ({ onUnavailable, title, url, ...outcome }: CheckoutOverlay): Promise<void> => {
+  const { PolarEmbedCheckout } = await import("@polar-sh/checkout/embed")
+  const opening = PolarEmbedCheckout.create(url, { theme: siteTheme() })
 ```
 
-Polar bietet auch einen eingebetteten Checkout an, ein Skript von jsDelivr oder das Paket `@polar-sh/checkout`, das den Checkout in einem iframe öffnet, während das eigene `frame-ancestors` von Polar entscheidet, welche Websites ihn einbetten dürfen, konfiguriert unter **Settings > Embedding**. Unter einer strikten Richtlinie ist das Paket Teil deines Bundles und braucht nichts, ein Script-Tag von einem CDN braucht die Nonce, und eine Richtlinie, die Frames einschränkt, braucht den Checkout-Origin von Polar in `frame-src`. Unsere Richtlinie schränkt keine Frames ein, und die Weiterleitung hält Zahlungsseiten ganz aus ihr heraus.
+Das Paket ist Teil des Bundles, also vertraut `'strict-dynamic'` dem Chunk wie jedem Routen-Chunk, und `script-src` braucht dafür nichts; das Script-Tag von Polar auf jsDelivr bräuchte stattdessen die Nonce. Das Paket fügt einen iframe hinzu, der den Checkout von Polar zeigt, und unsere Richtlinie schränkt Frames jetzt auf diesen einen Origin ein: `frame-src https://polar.sh` in Produktion und `frame-src https://sandbox.polar.sh` dort, wo die Sandbox die Zahlungen annimmt. Das eigene `frame-ancestors` von Polar entscheidet, welche Websites den Checkout einbetten dürfen, konfiguriert unter **Settings > Embedding**; für eine Website, die dort nicht aufgeführt ist, bleibt der Frame leer, und unsere Schaltfläche schickt den Käufer dann stattdessen zur Checkout-Seite von Polar. Das Skript fügt außerdem ein `<style>`-Element für seinen Lade-Spinner hinzu, das eine Richtlinie mit `style-src` per Hash erlauben müsste; unsere setzt kein `style-src`.
 
 **Das Empfehlungspixel lädt über `'strict-dynamic'`.** Bei einem Besuch mit einem Empfehlungsparameter rendert React das Pixel von Affonso nach der Hydration:
 
@@ -465,7 +468,7 @@ Eine Richtlinie ist Konfiguration, die mit jedem Commit kaputtgehen kann, also t
   ],
 ```
 
-**Eine eigene Spec prüft die Nonce.** `e2e/specs/content-security-policy.spec.ts` fragt drei vorgerenderte und zwei gerenderte Seiten je zweimal an. Sie prüft, dass der Header `documentPolicy(nonce)` entspricht, dass die zweite Antwort eine andere Nonce hat, dass jedes Skript und jeder Modul-Preload außer JSON-LD die Nonce des Headers trägt, dass das Tag `csp-nonce` übereinstimmt, dass es keine Meta-Richtlinie gibt und dass die Antwort `private, no-cache` ohne `ETag` ist. Danach meldet sie sich in der Admin-Konsole an und durchläuft unter der Richtlinie den Checkout eines Kunden.
+**Eine eigene Spec prüft die Nonce.** `e2e/specs/content-security-policy.spec.ts` fragt drei vorgerenderte und zwei gerenderte Seiten je zweimal an. Sie prüft, dass der Header `documentPolicy(nonce, POLAR_SERVER)` entspricht, dass die zweite Antwort eine andere Nonce hat, dass jedes Skript und jeder Modul-Preload außer JSON-LD die Nonce des Headers trägt, dass das Tag `csp-nonce` übereinstimmt, dass es keine Meta-Richtlinie gibt und dass die Antwort `private, no-cache` ohne `ETag` ist. Danach meldet sie sich in der Admin-Konsole an und lässt einen Kunden im Checkout von Polar über dem Kundenbereich bezahlen, einem Test-Double, dessen Frame das `frame-src` der Richtlinie erlauben muss.
 
 **Eine Spec spielt die Rolle des Edge.** `e2e/specs/edge-scripts.spec.ts` schreibt eine ausgelieferte Seite so um, wie Cloudflare es tun würde, und fügt ein Skript mit der Nonce des Headers und eines ohne hinzu:
 

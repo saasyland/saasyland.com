@@ -8,6 +8,8 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
+import { POLAR_SERVER } from "~/src/data/polar"
+
 import { documentPolicy } from "~/src/lib/content-security-policy"
 
 import worker from "~/src/server"
@@ -100,9 +102,18 @@ it("gives every page the Worker renders a script policy with a nonce of its own,
 
   expect(renderedNonce(0)).toMatch(/^[\da-f]{32}$/u)
   expect(renderedNonce(1)).not.toBe(renderedNonce(0))
-  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(0)))
-  expect(second.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(1)))
+  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(0), env.POLAR_SERVER))
+  expect(second.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(1), env.POLAR_SERVER))
   expect(first.headers.get(POLICY_HEADER)).toContain("frame-ancestors 'none'")
+})
+
+it.each([
+  { origin: "https://polar.sh", server: POLAR_SERVER.PRODUCTION },
+  { origin: "https://sandbox.polar.sh", server: POLAR_SERVER.SANDBOX },
+])("lets a page of a Worker on the Polar $server server frame only that server's checkout", async ({ origin, server }) => {
+  const response = await worker.fetch(new Request("http://localhost/app/license"), { ...env, POLAR_SERVER: server })
+
+  expect(response.headers.get(POLICY_HEADER)).toContain(`; frame-src ${origin};`)
 })
 
 it("renders pages on the dev server under the base policy, because Vite's own inline scripts carry no nonce", async () => {
@@ -141,7 +152,7 @@ it("gives every prerendered page a nonce of its own in the header, and on the sc
   rewriteHandlers.mockClear()
   const second = await worker.fetch(new Request("http://localhost/docs"), env)
 
-  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(policyNonce(first)))
+  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(policyNonce(first), env.POLAR_SERVER))
   expect(policyNonce(second)).not.toBe(policyNonce(first))
   expect(firstScripts).toStrictEqual([["nonce", policyNonce(first)]])
   expect(await nonceOnScripts()).toStrictEqual([["nonce", policyNonce(second)]])

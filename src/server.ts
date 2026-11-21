@@ -34,7 +34,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -48,7 +48,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce), response }
+  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
 }
 
 const withSecurityHeaders = (response: Response, { policy, protocol }: { policy: string; protocol: string }): Response => {

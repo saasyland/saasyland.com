@@ -2,6 +2,7 @@ import { type Page, expect, test as base } from "@playwright/test"
 
 import { BasePage, LandingPage } from "../pages"
 import { RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
+import { servePolarCheckout } from "./polar-checkout"
 
 export const CSP_VIOLATION = "Content Security Policy violation:"
 
@@ -20,10 +21,15 @@ interface AppFixtures {
   checkTranslations: void
   checkPermissionsPolicy: void
   cspViolations: string[]
+  polarCheckout: void
   recordRenders: void
 }
 
-export const test = base.extend<AppFixtures>({
+export interface AppOptions {
+  polarCheckoutDouble: boolean
+}
+
+export const test = base.extend<AppFixtures & AppOptions>({
   appPage: async ({ page }, runWith) => {
     await runWith(new BasePage(page))
   },
@@ -61,6 +67,14 @@ export const test = base.extend<AppFixtures>({
     },
     { auto: true },
   ],
+  polarCheckout: [
+    async ({ context, polarCheckoutDouble }, runWith) => {
+      if (polarCheckoutDouble) await servePolarCheckout(context)
+      await runWith()
+    },
+    { auto: true },
+  ],
+  polarCheckoutDouble: [true, { option: true }],
   recordRenders: [
     async ({ context }, runWith) => {
       await context.addInitScript(recordRenderedLocations, RENDERED_LOCATION_KEY)

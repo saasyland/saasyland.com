@@ -1,7 +1,7 @@
 ---
-title: "Vercel vs Cloudflare for Full-Stack Apps in 2026: Pricing, Limits and Scaling"
-description: "Vercel vs Cloudflare Workers for a full-stack app: pricing with worked bills at 100k, 1M and 10M requests, CPU and memory billing, autoscaling, spend limits, data, previews, runtime limits and migration, from a SaaS that moved from one to the other."
-excerpt: "Both platforms now bill the CPU your code uses rather than the time it waits, both can stop your spending at a limit, and both run a full-stack app well. What still separates them is what they meter around the CPU, where your data lives and what the runtime leaves out. Here is each difference with the arithmetic, checked on the vendors’ own pages, from a site that moved from Vercel to Cloudflare in September 2026."
+title: "Vercel vs Cloudflare in 2026: Cost, Performance, DX and Scaling for Full-Stack Apps"
+description: "Vercel vs Cloudflare Workers for a full-stack app: pricing with worked bills, performance and cold starts, developer experience, ease of setup and day-two operations, scaling and spend limits, with a decision guide by project type, from a SaaS that moved from one to the other."
+excerpt: "Both platforms now bill the CPU your code uses rather than the time it waits, both can stop your spending at a limit, and both run a full-stack app well. What still separates them is what they meter, how far your code runs from your users and your data, how much of the platform you can run on your laptop, and how each one grows. Here is each difference, checked on the vendors’ own pages and measured on a site that moved from Vercel to Cloudflare in September 2026."
 authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
@@ -83,6 +83,20 @@ faq:
       gradual deployments, that Workers supports and Pages does not. The exception it lists is a
       custom domain outside a Cloudflare zone, which Pages supports and Workers does not. Requests
       for static files on Workers are free and unlimited.
+  - question: Which has the better developer experience, Vercel or Cloudflare?
+    answer: >-
+      Vercel, for most teams on day one: it deploys a Git repository with no configuration, gives
+      every push a protected preview URL, runs the same Node.js locally and in production, and has
+      generally available tracing on every plan. Cloudflare is better at local development, because
+      Wrangler and its Vite plugin simulate D1, KV, R2 and Durable Objects on your laptop, and its
+      deploy step is short. Its runtime and bindings take longer to learn.
+  - question: Which scales better, Vercel or Cloudflare?
+    answer: >-
+      For compute, Cloudflare: a Worker runs in every location with no regions or instances to
+      manage, and in our model each further million short requests costs about $0.50. Vercel scales
+      instances automatically too, in the regions you choose. On both, the data layer is the real
+      limit: a D1 database runs one query at a time and holds 10 GB, and a Postgres database behind
+      Vercel has connection and CPU limits of its own.
   - question: Does SaaSy Land generate projects for Vercel?
     answer: >-
       {generation, select, available {Not yet. {initCommand} generates TanStack Start projects for
@@ -99,9 +113,11 @@ A comparison of Vercel and Cloudflare for a full-stack application with a databa
 
 1. How each platform runs your code, and what that means for latency, cold starts and the runtime.
 2. How each one bills, meter by meter, and worked bills at 100,000, 1 million and 10 million requests a month, with the arithmetic so you can redo it.
-3. Autoscaling, bill shock and the spend limits each platform now offers, with the steps to set them.
-4. Databases, storage, preview deployments, local development, logs and Next.js on each.
-5. The honest disadvantages of both, when each is the better choice, why saasyland.com runs on Cloudflare, and how to migrate in either direction.
+3. Bill shock and the spend limits each platform now offers, with the steps to set them.
+4. Performance: cold starts, time to first byte, distance to your data, caching and the limits that show up as latency, with the public benchmarks and our own measurements.
+5. Scaling under a traffic spike and as your data grows, and how each bill grows with it.
+6. Ease and developer experience: from zero to production, day-two operations, local development, previews, deploys, observability and debugging.
+7. The honest disadvantages of both, a decision guide by project type, why saasyland.com runs on Cloudflare, and how to migrate in either direction.
 
 </Callout>
 
@@ -112,6 +128,15 @@ _Last checked 21 November 2026. Every price, limit and feature of Vercel and Clo
 **Choose Vercel** if you build with Next.js and want its features without configuring anything, if per-commit preview deployments and their review tools matter to your team, if your code needs the full Node.js runtime, or if your app is mostly CPU-light pages with modest traffic, where the $20 seat buys you time you would otherwise spend on infrastructure.
 
 **Choose Cloudflare** if cost under growth matters, if you serve large files such as video or downloads, if your requests spend most of their time waiting on databases or AI models, or if you want compute, a SQL database, a cache and object storage in one account with one bill. It costs you a runtime that is not Node.js, a SQLite database with limits you have to design around, and APIs that only exist on Cloudflare.
+
+The same choice looks different from each of the four angles this article covers:
+
+| Angle                | Where Vercel leads                                                                  | Where Cloudflare leads                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Cost                 | Small, CPU-light apps whose bill stays near the platform fee                        | Almost everywhere else: no seats, free static files, no egress, no charge for waiting           |
+| Performance          | CPU-heavy and memory-heavy requests, Next.js, code next to a database in one region | Requests that need no distant data, static files, audiences spread around the world             |
+| Developer experience | Zero-configuration Git deploys, per-commit previews, full Node.js, tracing          | Every data product simulated locally, one configuration file, a deploy step of about 30 seconds |
+| Scaling              | A Postgres-shaped data model that grows with a database provider                    | Compute everywhere with no regions to add, per-tenant databases, Durable Objects                |
 
 Five facts drive most of that:
 
@@ -139,6 +164,10 @@ Five facts drive most of that:
 | Preview deployments | Automatic per push, with branch and commit URLs and protection by default               | Version URLs on every upload; Worker Previews per branch since September 2026                            |
 | Hard spending limit | Spend Management can pause production deployments (Pro)                                 | Spending limits for Workers and Durable Objects (beta since 13 November 2026)                            |
 | Next.js             | Maintained by Vercel; no adapter needed                                                 | vinext (beta) or the OpenNext adapter                                                                    |
+| Cold starts         | Rare in production: shared instances, bytecode caching and pre-warming                  | Isolates start fast, but each new one loads your whole Worker                                            |
+| Local development   | Your framework’s dev server in Node.js                                                  | `workerd` through Wrangler or the Vite plugin, with D1, KV and R2 simulated                              |
+| Gradual rollouts    | Rolling Releases, on Pro for one project                                                | Gradual deployments with `wrangler versions deploy`                                                      |
+| Tracing             | Generally available on all plans                                                        | Automatic tracing in beta                                                                                |
 
 ## Two machines: how each platform runs your code
 
@@ -320,27 +349,6 @@ Take a course site with 100 GB of video that its students watch for 2 TB a month
 
 saasyland.com is this case. Its course videos are HLS streams cut into segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, stored in a private R2 bucket and served through the Worker behind signed URLs, so viewing adds Worker requests and R2 reads to the bill, never bandwidth.
 
-## Autoscaling: what "scales to zero" and "scales up" mean on each
-
-Both platforms scale to zero in the billing sense: with no traffic, you pay no compute. They scale up differently, and the limit you meet first is rarely the compute.
-
-**Vercel** scales by instances. Fluid compute "automatically optimizes existing resources before scaling up", which means a new request goes to an instance that is already running when it has room, and a new instance starts when it does not. Concurrency "scales automatically based on demand". What scales with it is your database’s connection count: every new instance is another Node.js process opening connections to Postgres, which is why Vercel’s limits page advises connection pooling and its regions page advises placing functions in the same region as the database.
-
-**Cloudflare** scales by isolates in every location. There are no instances to size or regions to add; a traffic spike in Tokyo starts isolates in Tokyo. Cold starts are rare on busy Workers: Cloudflare reported in September 2025 that, after it changed how requests are routed to warm isolates, "for enterprise traffic, our warm request rate increased from 99.9% to 99.99%". On a site with modest traffic, though, many requests still meet a new isolate, and saasyland.com measured what that costs, as the next section shows.
-
-**The ceiling is the data.** On Cloudflare, compute scales out without any configuration, and D1 does not: "each individual D1 database is inherently single-threaded, and processes queries one at a time". A query that takes 1 ms leaves room for about a thousand a second; one that scans a table for 200 ms blocks every other request for 200 ms. On Vercel the same role is played by your Postgres server’s CPU and connection limit. Design for the data layer’s limit on either platform, and test it under load before launch.
-
-**Distance is the other ceiling.** A Worker in Sydney that makes five sequential queries to a D1 primary in Europe pays five intercontinental round trips. D1 creates a primary "in a location close to where you issued the request" to create it, and its read replicas only serve queries that go through the Sessions API. [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/) addresses the rest: it measures your Worker’s traffic and, when it is faster, runs the Worker near its backend instead of near the user, which Cloudflare illustrates with exactly this case, a user in Sydney and a database in Frankfurt. It needs consistent traffic from several locations to decide, and its analysis can take up to 15 minutes.
-
-### Cold starts, measured
-
-On Vercel, a cold start is a new Node.js process loading your bundle; bytecode caching and pre-warming reduce it on production deployments. On Cloudflare, a new isolate is cheap, but it still has to load your whole Worker before it can answer. saasyland.com learned how much that matters twice:
-
-- **One static import** of a header name from a module that also imported the Polar client pulled about 1.4 MB of SDK into every cold start, and the landing page’s first byte took up to 1.4 seconds. The build now follows the Worker entry’s static imports and fails when they reach the Polar SDK, Drizzle or Resend, as the [performance convention](/docs/conventions/performance) records.
-- **Content in the Worker.** Before [#239](https://github.com/saasyland/saasyland.com/pull/239), the Worker bundled the compiled docs and blog. Moving them into static files took the upload from 30,115 KiB to 13,465 KiB, and the median wait before the handler ran on a new isolate from 934 ms to 561 ms on the preview deployment.
-
-The lesson applies to both platforms: the size of what loads on a cold start is latency, and it is worth a check in CI. Our [guide to a SaaS on Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) covers the method.
-
 ## Bill shock and denial of wallet
 
 A denial-of-wallet attack does not take your site down; it makes it expensive. Every pay-per-use platform is exposed, and the exposure follows the meters.
@@ -406,6 +414,182 @@ A paused project stays paused: "Projects won’t automatically unpause if you in
 4. **Add a rate limiting rule** for the endpoints that write to D1 or KV, send email or call paid APIs.
 5. **Put writes behind authentication** or a cheap check, so anonymous traffic can only cost you reads.
 
+## Performance: latency, cold starts and caching
+
+Performance on both platforms is mostly geography and warmth: how far a request travels to your code, how far your code travels to its data, and whether the request finds a warm runtime or a cached response. Raw CPU speed matters less often than any of those, and it is the one thing the public benchmarks measure.
+
+### Cold starts: isolates against Fluid instances
+
+**Vercel** has made cold starts rarer. Its [cold start guide](https://vercel.com/kb/guide/improve-function-cold-start-performance-on-vercel) says that with Fluid compute "multiple invocations share a single warm instance instead of spinning up a new instance per request", that Vercel pre-compiles function code on Node.js 24 and later in production, and that on paid plans production deployments keep instances warm. Two exceptions are worth knowing: preview deployments get neither bytecode caching nor pre-warming, and a function idle for two weeks in production, or 48 hours in preview, is archived, after which its next invocation adds "at least one second of latency". Vercel’s Observability shows your own cold start percentage.
+
+**Cloudflare** starts isolates quickly and often. An isolate "can start around a hundred times faster than a Node process", and Cloudflare reported in September 2025 that, after it changed how requests are routed to warm isolates, "for enterprise traffic, our warm request rate increased from 99.9% to 99.99%". A new isolate still has to load your whole Worker within the one-second startup limit, and "larger bundles and expensive initialization code in global scope increase startup time". On a site with modest traffic, many requests meet a new isolate.
+
+On either platform, a cold start costs what your code costs to load. saasyland.com learned how much that matters twice:
+
+- **One static import** of a header name from a module that also imported the Polar client pulled about 1.4 MB of SDK into every cold start, and the landing page’s first byte took up to 1.4 seconds. The build now follows the Worker entry’s static imports and fails when they reach the Polar SDK, Drizzle or Resend, as the [performance convention](/docs/conventions/performance) records.
+- **Content in the Worker.** Before [#239](https://github.com/saasyland/saasyland.com/pull/239), the Worker bundled the compiled docs and blog. Moving them into static files took the upload from 30,115 KiB to 13,465 KiB, the median wait before the handler ran on a new isolate from 934 ms to 561 ms, and the median time to first byte from 1,145 ms to 676 ms, on the preview deployment.
+
+The lesson applies to both platforms: the size of what loads on a cold start is latency, and it is worth a check in CI. Our [guide to a SaaS on Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) covers the method.
+
+### Time to first byte: edge isolates against regional functions
+
+A dynamic response is only as fast as its round trips. On **Vercel**, a visitor connects to the nearest of more than 126 points of presence, which terminate TCP and route the request over Vercel’s private network to the region that runs your function, and "the Vercel region the request is routed to handles TLS encryption and decryption". A visitor in Sydney who asks for a page rendered in `iad1` waits for the trip to Virginia and back before the first byte, however fast the function is.
+
+On **Cloudflare**, the Worker runs in the data centre that received the request, so a response that needs no remote data starts close to the visitor. The advantage lasts as long as the Worker stays local: every query to a database in one region costs that distance again.
+
+A useful rule is to count the sequential round trips to your data per request. With one, the platforms are close, and Cloudflare usually wins for a distant visitor. With several, put the code next to the data: choose the function’s region on Vercel, or let Smart Placement move the Worker on Cloudflare.
+
+### Distance to your data
+
+**Distance is the other ceiling.** A Worker in Sydney that makes five sequential queries to a D1 primary in Europe pays five intercontinental round trips. D1 creates a primary "in a location close to where you issued the request" to create it, and its read replicas only serve queries that go through the Sessions API. [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/) addresses the rest: it measures your Worker’s traffic and, when it is faster, runs the Worker near its backend instead of near the user, which Cloudflare illustrates with exactly this case, a user in Sydney and a database in Frankfurt. It needs consistent traffic from several locations to decide, and its analysis can take up to 15 minutes.
+
+You can also be explicit. On Cloudflare, `placement.region` pins a Worker next to a database you run with a cloud provider, in the form `aws:us-east-1`, and D1 accepts a location hint, such as Western Europe or Asia-Pacific, when you create a database. On Vercel, you set the function’s region to the database’s, as Vercel advises, and Pro allows up to three regions.
+
+### Caching layers
+
+Caching changes the picture more than any other setting, and the two platforms cache in different places:
+
+| Layer                               | Vercel                                                                                  | Cloudflare                                                                                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Static files                        | Cached on Vercel’s network "for the lifetime of the deployment after the first request" | Served from static assets near the visitor, without running the Worker                                                                                 |
+| Whole responses                     | CDN cache with `s-maxage` and `stale-while-revalidate`, "segmented by region"           | [Workers Cache](https://developers.cloudflare.com/workers/cache/) in front of the Worker, "tiered by default", turned on in the Wrangler configuration |
+| Pages regenerated in the background | ISR, persisted "in a single region" behind the CDN                                      | Your own code, or the adapter’s cache when you run Next.js                                                                                             |
+| Data inside your code               | Runtime Cache, per region                                                               | The Cache API, local to one data centre, and KV, global and eventually consistent                                                                      |
+
+Two details matter in practice. On Cloudflare, a response served by Workers Cache is still billed as a request, only without CPU. And content that differs per visitor defeats every cache: saasyland.com sends each HTML page as `private, no-cache` with a fresh nonce for its Content Security Policy, so every page view runs the Worker. That is a performance price we pay for security, and the [nonce guide](/blog/content-security-policy-nonces-cloudflare-workers) explains why.
+
+### Static assets
+
+Static files are where Cloudflare’s model is simplest: they are free, unlimited, "always served from the location nearest the request" and never run your code, and `run_worker_first` decides which paths reach the Worker at all. saasyland.com runs the Worker for every page and lets `/assets/*` and `/fonts/*` skip it. Static files are fast on Vercel too; the difference there is the meter, because every file is a CDN request.
+
+Two measurements from the site show what the first kilobytes are worth. Hinting the fonts as `103 Early Hints` brought First Contentful Paint from 168–208 ms down to 144–164 ms. And `robots.txt` and `llms.txt` skip the Worker because Lighthouse fetches them with a two-second timeout, and a slow Worker response once failed its SEO and agent-readiness audits.
+
+### Limits that show up as latency
+
+Some limits never produce an error; they produce waiting.
+
+- **Six connections waiting at once on Workers.** "Each Worker invocation can have up to six connections simultaneously waiting for response headers", counting `fetch()`, KV, R2, Cache and Queues calls; a seventh "is queued". A page that fans out to twenty APIs at once runs them six at a time.
+- **128 MB per isolate.** Large in-memory work, such as parsing a big file, has to stream on Workers; on Vercel the default instance has 2 GB, shared by the requests it serves.
+- **One D1 query at a time per database,** and one write per second per KV key. A slow query makes every other request to that database wait.
+- **CPU limits.** 10 ms per request on Workers Free and 30 seconds by default on Paid; Vercel limits duration instead, 300 seconds by default.
+- **Subrequests.** 50 per request on Workers Free and 10,000 on Paid.
+- **File descriptors on Vercel.** 1,024 per instance, "shared across concurrent executions", database connections included.
+
+### What the public benchmarks show, and what they do not
+
+In October 2025, Theo Browne published benchmarks of server-side rendering on both platforms. Vercel’s [write-up](https://vercel.com/blog/fluid-compute-benchmark-results) reported that "Fluid compute performed 1.2 to 5 times faster than Cloudflare Workers" on compute-bound tasks, and noted that the two ran different configurations: Workers with "shared CPU, 128MB RAM" against Fluid compute with "2 vCPU, 4GB RAM". Cloudflare [answered](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks) that much of the gap came from its scheduler queueing CPU-heavy bursts from one client, a garbage-collector setting from 2017 and inefficiencies in OpenNext, shipped fixes, and reported that "Cloudflare now performs on par with Vercel in every benchmark case except the one based on Next.js". It added that the scheduling problem "would not have affected your bill", because waiting for an isolate is not CPU time.
+
+Three conclusions survive both posts. For CPU-bound work, Vercel lets you buy a bigger machine and Cloudflare does not. For Next.js specifically, Vercel is the reference platform. And a benchmark of someone else’s code tells you little about yours: deploy a representative route to both and measure time to first byte from the places your users are.
+
+What the benchmarks do not show matters as much. They measured compute-bound rendering from one client location, so they say nothing about the network distance to your users, about cold starts on a site with little traffic, or about database round trips, which dominate most full-stack requests. They are more than a year old. And the two platforms ran with different memory and CPU, which fairly compares what each one sells and says little about the runtimes themselves.
+
+### What we measured on saasyland.com
+
+These are the numbers the repository documents, each measured on Cloudflare and linked to where the method is written down:
+
+| Measurement                                                           | Before     | After      | Documented in                                               |
+| --------------------------------------------------------------------- | ---------- | ---------- | ----------------------------------------------------------- |
+| First HTML request on a new isolate, time to first byte (median)      | 1,145 ms   | 676 ms     | [#239](https://github.com/saasyland/saasyland.com/pull/239) |
+| Same requests, wait before the Worker’s handler runs (median)         | 934 ms     | 561 ms     | [#239](https://github.com/saasyland/saasyland.com/pull/239) |
+| Click on **Docs** when its server function met a new isolate (median) | 1,287 ms   | 87 ms      | [Performance](/docs/conventions/performance)                |
+| First Contentful Paint with the fonts sent as Early Hints             | 168–208 ms | 144–164 ms | [Performance](/docs/conventions/performance)                |
+
+The docs click got faster because the header now preloads its pages once the page on screen is idle, so a new isolate starts before the click rather than after it. Lighthouse on the landing page, on a local production build behind an HTTP/2 proxy, gives a median Largest Contentful Paint of 1,538 ms on the mobile profile and 728 ms on desktop over 13 runs; those numbers describe the page, not the platform, because they come from a local server.
+
+None of these compares the same code on both platforms. The site changed framework when it changed host, so its Vercel-era numbers would say nothing about Vercel. What they do show is that on Workers, the size of the code that loads on a cold start decided our first-byte times more than anything else we changed.
+
+## Scaling: what happens as traffic and data grow
+
+Both platforms scale to zero in the billing sense: with no traffic, you pay no compute. They scale up differently, and the limit you meet first is rarely the compute.
+
+### What happens in a traffic spike
+
+**Vercel** scales by instances. Fluid compute "automatically optimizes existing resources before scaling up", which means a new request goes to an instance that is already running when it has room, and a new instance starts when it does not. Concurrency "scales automatically based on demand". What scales with it is your database’s connection count: every new instance is another Node.js process opening connections to Postgres, which is why Vercel’s limits page advises connection pooling and its regions page advises placing functions in the same region as the database.
+
+Vercel’s [pooling guide](https://vercel.com/kb/guide/connection-pooling-with-functions) states the risk plainly, "each instance may open its own connection to the database, often leading to connection limits being hit", and recommends attaching the pool with `attachDatabasePool` from `@vercel/functions` and "a relatively short idle timeout (e.g., 5 seconds)".
+
+**Cloudflare** scales by isolates in every location. There are no instances to size or regions to add; a traffic spike in Tokyo starts isolates in Tokyo, and each isolate reaches D1, KV and R2 through bindings rather than its own database connections. If you keep Postgres, Hyperdrive pools the connections for you.
+
+Neither platform publishes a cap on concurrent requests for a paid plan. Both publish limits per request, which is where growth actually meets them.
+
+### The ceilings you hit as you grow
+
+| Ceiling         | Vercel                                                               | Cloudflare                                                                  |
+| --------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Memory          | 2 GB by default, 4 GB on Pro, shared by the requests on one instance | 128 MB per isolate                                                          |
+| Time            | 300 s by default, 800 s on Pro, 1,800 s in beta                      | 30 s of CPU by default, 5 min at most; no wall-time limit for HTTP requests |
+| Code            | 250 MB uncompressed, 5 GB in beta                                    | 64 MiB uncompressed                                                         |
+| Request body    | 4.5 MB, 20 MiB in beta                                               | 100 MB on the Free and Pro zone plans, 200 MB on Business                   |
+| Outbound work   | 1,024 file descriptors per instance                                  | 6 connections waiting at once; 50 subrequests on Free, 10,000 on Paid       |
+| Regions         | 1 on Hobby, up to 3 on Pro, all on Enterprise                        | Every location                                                              |
+| SQL database    | Your provider’s limits                                               | D1: 10 GB per database, one query at a time, 1,000 queries per invocation   |
+| Platform quotas | 100 deployments a day on Hobby, 6,000 on Pro                         | 500 Workers per account on Paid                                             |
+
+Most of these are design constraints rather than walls. On Workers, the answer to 128 MB and to long work is streaming and splitting jobs across Queues; the answer to D1’s size is more databases. On Vercel, the answer to distance is another region or a cache, and the answer to connection limits is pooling.
+
+### Scaling the data layer
+
+**The ceiling is the data.** On Cloudflare, compute scales out without any configuration, and D1 does not: "each individual D1 database is inherently single-threaded, and processes queries one at a time". A query that takes 1 ms leaves room for about a thousand a second; one that scans a table for 200 ms blocks every other request for 200 ms. On Vercel the same role is played by your Postgres server’s CPU and connection limit. Design for the data layer’s limit on either platform, and test it under load before launch.
+
+Each of Cloudflare’s data products scales in its own way:
+
+- **D1** scales out rather than up: 10 GB per database, and Workers Paid includes the first 100,000 databases, so one database per tenant is a supported design. Read replicas serve reads near your users through the Sessions API.
+- **KV** serves reads everywhere with no read limit on Paid, accepts one write per second per key, and can take a minute or more to show a change in other locations.
+- **Durable Objects** give you as many single-threaded objects as you need, each with up to 10 GB of storage and "a soft limit of 1,000 requests per second", so you scale them by splitting state across objects: one per chat room, document or tenant.
+- **R2** stores objects without egress fees, so files that are read often grow the bill only through storage and operations.
+- **Hyperdrive** pools connections to a Postgres or MySQL database you run elsewhere, which then scales the way that database does.
+
+On Vercel, Postgres, Redis and the other databases come from Marketplace providers and scale on those providers’ terms and prices; Blob, Global Config and Runtime Cache are Vercel’s own.
+
+### Global distribution
+
+Cloudflare runs your code in every location by default and keeps each D1 primary in one place, with read replicas for reads. Vercel runs your code in the regions you choose and caches responses and files across its network. For a read-heavy product with users everywhere, Cloudflare needs less work to be fast everywhere. For a write-heavy product with one database, both end up in the same place: one region for writes, and caching for everything else.
+
+### How cost behaves as you grow
+
+The worked examples above show the shape. In that model, each further million server requests costs Cloudflare $0.50 beyond the allowances, $0.30 for the requests and $0.20 for their 10 million CPU milliseconds, plus $0.20 of D1 writes once you pass 50 million rows written a month. On Vercel, compute grows by $3.64 per million, and delivery grows in steps: the flat tiers at $20, $100 and $300 a month, then on-demand pricing above 150 million CDN requests.
+
+At 100 million server requests, the model costs $51.40 on Cloudflare. On Vercel, its 500 million CDN requests and 23 TB of transfer at on-demand prices come to $1,000 and $3,450 on top of $363.89 of compute, about $4,800 a month. A business of that size would negotiate an Enterprise contract, so read that figure as the list price of the model rather than a quote. The direction does not change: Cloudflare’s bill grows with CPU and writes, Vercel’s with requests, bytes, memory time and seats.
+
+## Ease: from zero to production, and day two
+
+### From zero to a deployed app on Vercel
+
+1. **Import the Git repository** in the dashboard. Vercel "detects your framework and configures the build for you, often with no setup", builds and deploys.
+2. **Add a database** from the Marketplace. `vercel install neon` "installs the integration, connects it to the linked project, and pulls credentials into `.env.local`", and the same credentials reach your deployments as environment variables.
+3. **Add your other variables** per environment: Production, Preview and Development.
+4. **Push.** Every branch gets a preview deployment, and the production branch deploys to production.
+
+No configuration file is required; `vercel.json` appears when you need headers, redirects, regions or function settings. For a Next.js app with Postgres, it is hard to make this path shorter.
+
+### From zero to a deployed app on Cloudflare
+
+1. **Scaffold the project** with `npm create cloudflare@latest`, which writes a `wrangler.jsonc` beside the code, or add Cloudflare’s Vite plugin to an existing Vite app.
+2. **Create the resources** for each environment: `wrangler d1 create`, `wrangler kv namespace create` and `wrangler r2 bucket create`.
+3. **Declare them as bindings** per environment in `wrangler.jsonc`, with D1’s migrations directory.
+4. **Set the secrets** with `wrangler secret put`, and list the ones each environment needs under `secrets.required`, so a deploy fails when one is missing.
+5. **Apply the migrations and deploy** with `wrangler deploy`, or connect the repository to Workers Builds.
+6. **Attach a custom domain.** It needs "an active Cloudflare zone", and Cloudflare "will create DNS records and issue necessary certificates on your behalf".
+
+There are more steps, and every one is a decision you make once: which resources exist, which environment uses which, and which secrets each one needs. The migration section below shows the commands with saasyland.com’s real names.
+
+### Day-two operations
+
+| Task                | Vercel                                                                                                                 | Cloudflare                                                                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roll back           | Instant Rollback to any deployment that served production on Pro, the previous one on Hobby                            | `wrangler rollback` to one of the 100 most recent versions; bound resources are not changed                                                                                                          |
+| Roll out gradually  | [Rolling Releases](https://vercel.com/docs/rolling-releases), on Pro for one project, with Skew Protection recommended | [Gradual deployments](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/gradual-deployments/) split traffic between two versions by percentage, with version affinity |
+| Add a custom domain | Add it to the project; your DNS can stay with another provider                                                         | The domain must be a zone on Cloudflare; DNS records and certificates are created for you                                                                                                            |
+| Preview a branch    | Automatic on every push                                                                                                | Worker Previews, with `wrangler preview` or Workers Builds                                                                                                                                           |
+| Change a secret     | Takes effect on the next deployment                                                                                    | `wrangler secret put` deploys a new version at once                                                                                                                                                  |
+
+On both, code rolls back and data does not, which is why every schema change should work with the release before it.
+
+### What you have to learn
+
+- **On Vercel:** your framework, plus a few platform concepts: regions, Fluid compute’s concurrency, CDN cache headers, the Marketplace provider behind your database, and the meters. The runtime is Node.js, so most of what you already know applies.
+- **On Cloudflare:** the Workers runtime and its limits, bindings and the Wrangler configuration, compatibility dates and flags, D1’s batches in place of interactive transactions, KV’s eventual consistency, the Durable Objects model if you need coordination, and the isolate lifecycle that makes module-level state unreliable. It is more to learn, and most of it applies only to Cloudflare.
+
 ## Data: what lives next to your code
 
 This is where the platforms differ most, and where your choice is hardest to undo.
@@ -435,6 +619,26 @@ Vercel’s own [migration guide](https://vercel.com/kb/guide/migrate-to-vercel-f
 
 ## Developer experience
 
+### Local development
+
+Wrangler runs your Worker locally in a `workerd` process, and "all resources your Worker is bound to in your Wrangler configuration are simulated locally": D1, KV, R2, Queues and Durable Objects included. You can develop and run a browser test suite with no cloud account, as saasyland.com does.
+
+Cloudflare’s [Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/) does the same inside the Vite dev server: the Worker "runs inside a local workerd process" that "closely matches the runtime APIs and behavior of deployed Workers", and the plugin officially supports TanStack Start and React Router. That is what saasyland.com runs in development.
+
+saasyland.com depends on that, and found out what happens without it. Until [#258](https://github.com/saasyland/saasyland.com/pull/258), its `development` environment bound the preview D1 database remotely, so local development wrote to preview data and its development database scripts all reached the preview database. Now `development` and `test` bind local D1, KV and R2 under `.wrangler/`, `bun run dev` needs no Cloudflare login, and a test fails if a development binding becomes remote or shares a resource with preview or production. Production, preview, development and test each have their own database; the [Database guide](/docs/tooling/database) lists them.
+
+On Vercel, local development runs your framework’s dev server in Node.js, which matches production closely, and `vercel env pull` fetches the environment’s variables. Vercel’s own CLI documentation advises against `vercel dev` when your framework’s development command "already provides all the features you need", as `next dev` does. Your database comes from your provider, so local development needs a development database of its own or a local Postgres.
+
+### Framework support beyond Next.js
+
+**Vercel** "detects your framework and configures the build for you". Its [support matrix](https://vercel.com/docs/frameworks) covers Next.js, SvelteKit, Nuxt, TanStack, Astro, Remix, Vite and Create React App; ISR works on Next.js, SvelteKit, Nuxt and Astro, and the matrix marks it unsupported on TanStack and Remix. Backend frameworks such as Hono and FastAPI deploy too, on Node.js, Python or Bun.
+
+**Cloudflare** has [framework guides](https://developers.cloudflare.com/workers/framework-guides/web-apps/) for React Router, Astro, TanStack Start, SvelteKit, Vue, Nuxt, Hono, Next.js and others, and the frameworks built on Vite get the closest fit, because the Vite plugin runs them in `workerd` during development.
+
+Vercel maintains [Next.js](https://github.com/vercel/next.js), and on Vercel its features need no adapter: ISR, image optimisation, Server Actions, Cache Components and `proxy.ts`, the successor to middleware. [v0](https://v0.app/docs/introduction), Vercel’s AI app builder, deploys "with one click" to Vercel. The template gallery, the integrations and the number of guides written for Vercel first are real advantages, especially for a small team.
+
+On Cloudflare, Next.js runs through an adapter. Cloudflare "recommends vinext as the default way to run Next.js applications on Cloudflare Workers" and says "vinext is in beta"; vinext’s own README answers whether to use it in production with "You can, with caution". The [OpenNext adapter](https://opennext.js.org/cloudflare) supports "all minor and patch versions of Next.js 16 and the latest minor of Next.js 15", and vinext’s README calls it the more mature option. Frameworks built on Vite deploy to Workers through Cloudflare’s own Vite plugin: TanStack Start, which saasyland.com uses, lists Cloudflare as an official hosting partner, and we compared it with Next.js in [TanStack Start vs Next.js for SaaS](/blog/tanstack-start-vs-nextjs-for-saas).
+
 ### Preview deployments
 
 **Preview deployments are where Vercel is strongest.** By default, every push to a branch that is not production and every pull request gets a preview deployment, with "a branch-specific URL" that follows the branch and "a commit-specific URL" for each commit. New projects protect previews with Vercel Authentication, previews are served with `noindex`, each environment has its own variables, and Pro can add custom environments such as staging. It works without any configuration, and it is one of the best reasons to choose Vercel.
@@ -443,35 +647,51 @@ Vercel’s own [migration guide](https://vercel.com/kb/guide/migrate-to-vercel-f
 
 **What saasyland.com does.** It predates Worker Previews and uses one shared `preview` environment at `preview.saasyland.com`, with its own D1 database, KV namespace and R2 buckets. GitHub Actions deploy it after the checks and the browser suite pass, pull requests from forks are validated but not deployed, and each preview deploy replaces the last. Workers Builds’ automatic deploys are off, so that a push can neither deploy twice nor skip the CI gate; the [CI/CD page](/docs/tooling/ci-cd) and [Deploy a preview](/docs/getting-started/deploy-preview) describe the setup.
 
-### Local development
+### Deploy speed
 
-Wrangler runs your Worker locally in a `workerd` process, and "all resources your Worker is bound to in your Wrangler configuration are simulated locally": D1, KV, R2, Queues and Durable Objects included. You can develop and run a browser test suite with no cloud account, as saasyland.com does.
+The step that belongs to the platform alone is short on Cloudflare. In saasyland.com’s three production deploys on 21 November 2026 ([1](https://github.com/saasyland/saasyland.com/actions/runs/44914664854), [2](https://github.com/saasyland/saasyland.com/actions/runs/44912243597), [3](https://github.com/saasyland/saasyland.com/actions/runs/44901514997)), `wrangler deploy` took 29, 33 and 31 seconds, applying the D1 migrations took one to two seconds, and building the Worker in GitHub Actions took between two and three and a half minutes.
 
-saasyland.com depends on that, and found out what happens without it. Until [#258](https://github.com/saasyland/saasyland.com/pull/258), its `development` environment bound the preview D1 database remotely, so local development wrote to preview data and its development database scripts all reached the preview database. Now `development` and `test` bind local D1, KV and R2 under `.wrangler/`, `bun run dev` needs no Cloudflare login, and a test fails if a development binding becomes remote or shares a resource with preview or production. Production, preview, development and test each have their own database; the [Database guide](/docs/tooling/database) lists them.
+Vercel builds on its own machines, Elastic by default for new Pro teams and up to 30 vCPUs, within a 45-minute limit per deployment, billed from $0.0035 per CPU minute on paid plans, with up to 6,000 deployments a day on Pro. Promoting a staged build or rolling back reassigns your domains without rebuilding. We have not measured the same app on Vercel, so we make no claim about which is faster from push to production.
 
-On Vercel, local development runs your framework’s dev server in Node.js, which matches production closely, and `vercel env pull` fetches the environment’s variables. Your database comes from your provider, so local development needs a development database of its own or a local Postgres.
+### Configuration, environment variables and secrets
 
-### Builds, CI and rollbacks
+**On Vercel,** your database is a connection string in an environment variable that the Marketplace integration adds. Each variable is either Config, readable by your team, or Secret, write-only once saved; all of them together may total 64 KB per deployment; preview variables can differ per Git branch; and a change applies only to new deployments, so it needs a redeploy.
 
-Vercel builds on its own machines, billed from $0.0035 per CPU minute on paid plans, with up to 6,000 deployments a day on Pro. Workers Builds includes 6,000 build minutes a month on paid plans, then $0.005 a minute, with a 20-minute timeout, or you build in your own CI and run `wrangler deploy`, as saasyland.com does.
+**On Cloudflare,** resources are bindings declared in `wrangler.jsonc` and typed in your code, and secrets are kept apart from them: "secret values are not visible within Wrangler or Cloudflare dashboard after you define them", and `wrangler secret put` "creates a new version of the Worker and deploys it immediately". Locally, secrets come from `.dev.vars` or `.env`, and `secrets.required` makes a deploy fail when one is missing. saasyland.com adds one more rule of its own: a deploy refuses an empty secret or a placeholder such as `[UPDATE]`, since one reached production and broke Google sign-in ([#223](https://github.com/saasyland/saasyland.com/pull/223)).
 
-Rolling back: Vercel’s Instant Rollback lets Pro teams return to any deployment that served production, without rebuilding. Cloudflare keeps the 100 most recent versions for `wrangler rollback`, and says "resources connected to your Worker will not be changed during a rollback". On both, code rolls back and data does not, which is why every schema change should work with the release before it.
+### Logs, tracing and observability
 
-### Logs and debugging
+Vercel keeps runtime logs for an hour on Hobby, a day on Pro and three days on Enterprise, and sells more as Observability Plus, at $1.20 per million events. Its [tracing](https://vercel.com/docs/tracing) "is available on all plans", instruments Vercel’s infrastructure and outbound fetches without code changes, adds framework spans through `@vercel/otel`, is on by default for new projects on Next.js 16.5 or later, and exports through Drains. Speed Insights and Web Analytics sit in the same dashboard.
 
-Vercel keeps runtime logs for an hour on Hobby and a day on Pro, and sells more as Observability Plus, at $1.20 per million events. Cloudflare keeps Workers Logs for 3 days on Free and 7 on Paid, with `wrangler tail` for live logs, CPU and wall time per invocation in the dashboard, and a new pricing model from 1 December 2026.
+Cloudflare keeps Workers Logs for 3 days on Free and 7 on Paid, with `wrangler tail` for live logs and CPU and wall time per invocation in the dashboard. Its [automatic tracing](https://developers.cloudflare.com/workers/observability/traces/) instruments outbound fetches and binding calls such as KV and R2, follows OpenTelemetry so you can export it, and is in beta: you turn it on with `observability.traces.enabled`. From 1 December 2026, logs and traces count towards one ingestion and storage allowance.
 
-### Next.js, v0 and the ecosystem
+### Debugging the Workers runtime against Node.js
 
-Vercel maintains [Next.js](https://github.com/vercel/next.js), and on Vercel its features need no adapter: ISR, image optimisation, Server Actions, Cache Components and `proxy.ts`, the successor to middleware. [v0](https://v0.app/docs/introduction), Vercel’s AI app builder, deploys "with one click" to Vercel. The template gallery, the integrations and the number of guides written for Vercel first are real advantages, especially for a small team.
+On Vercel you debug Node.js with the tools you already use, and the process you debug locally behaves like the one in production. On Cloudflare, `wrangler dev` opens Chrome DevTools when you press D, and the Vite plugin prints a debug URL; both give you breakpoints, CPU profiles and memory profiles against the local `workerd`. What they cannot show you is how isolates behave at the edge: an isolate that serves several requests, a request cancelled halfway, a cold start. Bugs of that kind, such as the module-scope promise in the gotchas below, show up only in production logs, so log the identifiers that let you follow one request, such as its `cf-ray`.
 
-On Cloudflare, Next.js runs through an adapter. Cloudflare "recommends vinext as the default way to run Next.js applications on Cloudflare Workers" and says "vinext is in beta"; vinext’s own README answers whether to use it in production with "You can, with caution". The [OpenNext adapter](https://opennext.js.org/cloudflare) supports "all minor and patch versions of Next.js 16 and the latest minor of Next.js 15", and vinext’s README calls it the more mature option. Frameworks built on Vite deploy to Workers through Cloudflare’s own Vite plugin: TanStack Start, which saasyland.com uses, lists Cloudflare as an official hosting partner, and we compared it with Next.js in [TanStack Start vs Next.js for SaaS](/blog/tanstack-start-vs-nextjs-for-saas).
+### CLIs and CI
 
-## Performance: what the benchmarks say
+Both CLIs cover the whole platform. `vercel` deploys, pulls environment variables, manages budgets and rolling releases, and searches the documentation; `wrangler` runs the local runtime, deploys, uploads versions, manages D1, KV, R2 and secrets, tails logs and rolls back. For CI, Vercel’s Git integration deploys every push without a pipeline, and `vercel build` builds in your own CI when you need to. Cloudflare offers Workers Builds, with 6,000 build minutes a month on paid plans, then $0.005 a minute and a 20-minute timeout, or `wrangler deploy` from any CI with an API token, which is what saasyland.com does from GitHub Actions once its checks and browser tests pass.
 
-In October 2025, Theo Browne published benchmarks of server-side rendering on both platforms. Vercel’s [write-up](https://vercel.com/blog/fluid-compute-benchmark-results) reported that "Fluid compute performed 1.2 to 5 times faster than Cloudflare Workers" on compute-bound tasks, and noted that the two ran different configurations: Workers with "shared CPU, 128MB RAM" against Fluid compute with "2 vCPU, 4GB RAM". Cloudflare [answered](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks) that much of the gap came from its scheduler queueing CPU-heavy bursts from one client, a garbage-collector setting from 2017 and inefficiencies in OpenNext, shipped fixes, and reported that "Cloudflare now performs on par with Vercel in every benchmark case except the one based on Next.js". It added that the scheduling problem "would not have affected your bill", because waiting for an isolate is not CPU time.
+### Documentation, ecosystem and lock-in
 
-Three conclusions survive both posts. For CPU-bound work, Vercel lets you buy a bigger machine and Cloudflare does not. For Next.js specifically, Vercel is the reference platform. And a benchmark of someone else’s code tells you little about yours: deploy a representative route to both and measure time to first byte from the places your users are.
+Both write their documentation for people and for coding agents: every Vercel docs page can be searched and printed as Markdown with `vercel docs`, and Cloudflare publishes `llms.txt` indexes of its docs. Vercel’s ecosystem is larger around Next.js, with templates, Marketplace integrations and v0. Cloudflare’s is broader across products, since one account covers compute, data, security and DNS. Either ecosystem costs you some lock-in, and Cloudflare’s costs more, as the section on its disadvantages explains.
+
+### Where Vercel’s developer experience is better
+
+- Zero-configuration Git deploys with protected, per-commit previews, comments and promotion.
+- The same Node.js runtime locally and in production, so fewer runtime surprises.
+- Tracing that is generally available on every plan, with infrastructure spans.
+- Next.js features without an adapter, and v0.
+- Rolling Releases with Skew Protection.
+
+### Where Cloudflare’s developer experience is better
+
+- Every data product simulated locally, so development and browser tests need no cloud account.
+- One configuration file that names every resource of every environment.
+- A deploy step of about half a minute in our CI, and secrets that take effect at once.
+- Bindings in place of connection strings, typed in your code.
+- DevTools profiling of the real runtime on your laptop.
 
 ## The honest disadvantages of Cloudflare
 
@@ -510,7 +730,7 @@ Bindings are the convenience and the lock-in. Code that calls `env.DB.batch()`, 
 
 Each of these cost saasyland.com time, and none is in a getting-started guide:
 
-- **State at module scope belongs to a request.** The site once cached Polar’s regional discounts as a promise at module level. On Workers that promise belongs to the request that created it; when that request was cancelled, the promise never settled, and every later checkout on the isolate waited on it until the isolate was recycled. The fix in [#103](https://github.com/saasyland/saasyland.com/pull/103) moved the cache to KV with a fetch time, refreshed after <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
+- **State at module scope belongs to a request.** The site once cached Polar’s regional discounts as a promise at module level. On Workers that promise belongs to the request that created it; when that request was cancelled, the promise never settled, and every later checkout on the isolate waited on it until the isolate was recycled. The fix in [#103](https://github.com/saasyland/saasyland.com/pull/103) moved the cache to KV with the time it was fetched and kept nothing in Worker memory between requests; since [#267](https://github.com/saasyland/saasyland.com/pull/267), the site computes regional prices itself and needs no lookup at all.
 - **Early Hints outlive a deploy.** Cloudflare replays a page’s last `Link` header as `103 Early Hints`, after a deploy too, so a hinted stylesheet named after its content pointed at a deleted file. The Worker now hints only fonts, whose names never change ([#214](https://github.com/saasyland/saasyland.com/pull/214)).
 - **Speed Brain refuses Worker pages.** The zone setting asks Chromium to prefetch links, but Cloudflare refuses to prefetch URLs that run a Worker and answers with `503`, so it is off; the [Cloudflare Workers page](/docs/integrations/cloudflare-workers) explains why that costs nothing.
 - **Your bot protection blocks your CI.** Cloudflare answers requests from CI runners with `403`, so the live check after a deploy runs only from a developer’s machine.
@@ -542,13 +762,30 @@ Each of these cost saasyland.com time, and none is in a getting-started guide:
 - **You want one platform:** compute, SQL, cache, storage, queues and static files in one account, one configuration file and one bill.
 - **Your framework is built on Vite** or targets Workers directly, such as TanStack Start, Astro, React Router or Hono.
 
+## A decision guide: cost, performance and developer experience by project type
+
+Each row weighs the three together for one kind of project. Read it as a starting point: the quickest way to decide is to deploy one representative route to both, run the cost formula with your own numbers, and see which workflow your team prefers after a week.
+
+| Project                                           | Cost                                        | Performance                                                     | Developer experience                                            | Our pick                                                   |
+| ------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- |
+| Content-heavy Next.js site or documentation       | Close at modest traffic                     | Both cache well; Vercel runs Next.js without an adapter         | Vercel                                                          | Vercel                                                     |
+| SaaS behind a sign-in, with SQL data              | Cloudflare, more so with several developers | Cloudflare for users everywhere; close with one database region | Vercel for Next.js and Postgres; Cloudflare for Vite frameworks | Cloudflare, unless the team is set on Next.js and Postgres |
+| Public API with users worldwide                   | Cloudflare                                  | Cloudflare, if the data is cacheable or replicated              | Close                                                           | Cloudflare                                                 |
+| AI app with streaming or long model calls         | Cloudflare, because waiting is free         | Close                                                           | Vercel if you rely on Node.js libraries                         | Cloudflare, unless a dependency needs Node.js              |
+| Video, downloads or user files                    | Cloudflare, by a wide margin                | Both serve from a CDN                                           | Close                                                           | Cloudflare                                                 |
+| Multi-tenant SaaS with data per tenant            | Cloudflare                                  | Cloudflare, with a database or an object per tenant             | Cloudflare, for D1 and Durable Objects                          | Cloudflare                                                 |
+| CPU- or memory-heavy work, such as PDFs or images | Close per CPU millisecond                   | Vercel, with up to 4 GB and full Node.js                        | Vercel                                                          | Vercel                                                     |
+| Storefront on Next.js with ISR                    | Depends on traffic                          | Vercel                                                          | Vercel                                                          | Vercel                                                     |
+| Side project you do not sell                      | Both free                                   | Close                                                           | Your preference                                                 | Either; Vercel’s Hobby plan forbids commercial use         |
+| Team with many developers who deploy              | Cloudflare, with no seat fees               | Depends on the app                                              | Vercel’s previews and review tools                              | Weigh $20 a seat against the workflow                      |
+
 ## Why saasyland.com runs on Cloudflare
 
 Until September 2026, saasyland.com was a Next.js 16 app on Vercel, with Postgres on Neon and Redis on Upstash, deployed with `vercel deploy`. On 6 September 2026 it [moved](https://github.com/saasyland/saasyland.com/commit/0b9a1b986) to TanStack Start on Cloudflare Workers with D1, KV and R2. We chose Cloudflare for five reasons, each of which is visible in the repository today:
 
 1. **One platform instead of three.** The site’s server code, database, cache, private file storage and static files are bindings in one `wrangler.jsonc`, with one account, one bill and one set of deploy credentials. Before the move, the same site needed accounts with Vercel, Neon and Upstash, each with its own credentials in every environment.
 2. **The cost model fits a product that sells to a small audience worldwide.** The site serves marketing pages, documentation and a blog in <RepositoryFact name="languages" /> languages, a customer workspace, an admin console, a licence API and payment webhooks. Its static files cost nothing to serve, its requests are short, and nobody who deploys it costs a seat.
-3. **Bindings.** Users, sessions, licences and courses are rows in D1, two cached answers live in KV, and course videos and CLI bundles are objects in R2, all reached through `env` with no connection strings, pools or drivers, and all simulated locally for development and tests.
+3. **Bindings.** Users, sessions, licences and courses are rows in D1, a cached answer lives in KV, and course videos and CLI bundles are objects in R2, all reached through `env` with no connection strings, pools or drivers, and all simulated locally for development and tests.
 4. **No egress fees.** Course videos and the CLI’s template bundles are served from R2 through the Worker, so the bill does not grow with what customers watch or download.
 5. **Global by default.** Prerendered pages come from static assets near every visitor, and the Worker that adds each page’s security headers and regional prices runs where the request arrives, without a region to choose.
 
@@ -602,6 +839,8 @@ Our [guide to a SaaS on Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) cove
 - I have a hard spending limit or a pause, and I know how long each takes to act.
 - Every environment has its own database, cache and storage.
 - I measured cold starts on a real deployment.
+- I deployed one representative route to both and measured time to first byte from where my users are.
+- I know how my team will preview, roll out gradually and roll back a change on the platform I choose.
 - I know what I would have to rewrite to leave, and I have kept it behind my own modules.
 
 ## Related reading
@@ -639,10 +878,10 @@ Everything saasyland.com runs on Cloudflare is in its public source, and the [Cl
 ### Sources
 
 - Vercel pricing and plans: [pricing](https://vercel.com/pricing), [pricing overview](https://vercel.com/docs/pricing), [the Pro plan](https://vercel.com/docs/plans/pro-plan), [the Hobby plan](https://vercel.com/docs/plans/hobby), [Fluid compute pricing](https://vercel.com/docs/functions/usage-and-pricing), [Washington, D.C. prices](https://vercel.com/docs/pricing/regional-pricing/iad1), [CDN pricing and usage](https://vercel.com/docs/manage-cdn-usage), [Flat Rate CDN](https://vercel.com/docs/pricing/flat-rate-cdn), its [changelog entry](https://vercel.com/changelog/flat-rate-cdn-is-now-ga-for-pro-teams) and [announcement](https://vercel.com/blog/introducing-flat-rate-cdn), [Blob pricing](https://vercel.com/docs/vercel-blob/usage-and-pricing), [Spend Management](https://vercel.com/docs/spend-management) and the [terms of service](https://vercel.com/legal/terms)
-- Vercel platform: [Fluid compute](https://vercel.com/docs/fluid-compute), [functions limits](https://vercel.com/docs/functions/limitations), [the Edge runtime](https://vercel.com/docs/functions/runtimes/edge), [the Bun runtime](https://vercel.com/docs/functions/runtimes/bun), [regions](https://vercel.com/docs/regions), [DDoS mitigation](https://vercel.com/docs/vercel-firewall/ddos-mitigation), [storage](https://vercel.com/docs/storage), [environments](https://vercel.com/docs/deployments/environments), [Instant Rollback](https://vercel.com/docs/instant-rollback), [migrating from Cloudflare](https://vercel.com/kb/guide/migrate-to-vercel-from-cloudflare), [the benchmark results](https://vercel.com/blog/fluid-compute-benchmark-results) and [v0](https://v0.app/docs/introduction)
+- Vercel platform: [Fluid compute](https://vercel.com/docs/fluid-compute), [functions limits](https://vercel.com/docs/functions/limitations), [the Edge runtime](https://vercel.com/docs/functions/runtimes/edge), [the Bun runtime](https://vercel.com/docs/functions/runtimes/bun), [regions](https://vercel.com/docs/regions), [DDoS mitigation](https://vercel.com/docs/vercel-firewall/ddos-mitigation), [storage](https://vercel.com/docs/storage), [environments](https://vercel.com/docs/deployments/environments), [Instant Rollback](https://vercel.com/docs/instant-rollback), [migrating from Cloudflare](https://vercel.com/kb/guide/migrate-to-vercel-from-cloudflare), [the benchmark results](https://vercel.com/blog/fluid-compute-benchmark-results), [v0](https://v0.app/docs/introduction), [cold starts](https://vercel.com/kb/guide/improve-function-cold-start-performance-on-vercel), [connection pooling](https://vercel.com/kb/guide/connection-pooling-with-functions), [the CDN cache](https://vercel.com/docs/caching/cdn-cache), [limits](https://vercel.com/docs/limits), [frameworks](https://vercel.com/docs/frameworks), [`vercel dev`](https://vercel.com/docs/cli/dev), [environment variables](https://vercel.com/docs/environment-variables), [tracing](https://vercel.com/docs/tracing) and [Rolling Releases](https://vercel.com/docs/rolling-releases)
 - Cloudflare pricing: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [R2 pricing](https://developers.cloudflare.com/r2/pricing/), [Images pricing](https://developers.cloudflare.com/images/pricing/), [Hyperdrive pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/), [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/), [Observability pricing](https://developers.cloudflare.com/observability/pricing/), [spending limits](https://developers.cloudflare.com/billing/manage/spend-management/), [budget alerts](https://developers.cloudflare.com/billing/manage/budget-alerts/), the [default budget alert](https://developers.cloudflare.com/changelog/post/2026-06-15-budget-alerts-default-on/) and the [Spend Management announcement](https://blog.cloudflare.com/spend-management/)
-- Cloudflare platform: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [the 64 MiB size limit](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/), [how Workers works](https://developers.cloudflare.com/workers/reference/how-workers-works/), [Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/), [Version URLs](https://developers.cloudflare.com/workers/configuration/previews/), [Worker Previews](https://developers.cloudflare.com/workers/previews/) and [their changelog entry](https://developers.cloudflare.com/changelog/post/2026-09-22-worker-previews/), [local development](https://developers.cloudflare.com/workers/development-testing/), [metrics](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/), [rollbacks](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/), [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/), [D1 data location](https://developers.cloudflare.com/d1/configuration/data-location/), [migrating from Pages](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/), [DDoS protection](https://developers.cloudflare.com/ddos-protection/), [rate limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/), [security feature interoperability](https://developers.cloudflare.com/waf/feature-interoperability/), [the network](https://www.cloudflare.com/network/), [eliminating cold starts](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/) and [the CPU benchmarks](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks)
+- Cloudflare platform: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [the 64 MiB size limit](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/), [how Workers works](https://developers.cloudflare.com/workers/reference/how-workers-works/), [Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/), [Version URLs](https://developers.cloudflare.com/workers/configuration/previews/), [Worker Previews](https://developers.cloudflare.com/workers/previews/) and [their changelog entry](https://developers.cloudflare.com/changelog/post/2026-09-22-worker-previews/), [local development](https://developers.cloudflare.com/workers/development-testing/), [metrics](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/), [rollbacks](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/), [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/), [D1 data location](https://developers.cloudflare.com/d1/configuration/data-location/), [migrating from Pages](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/), [DDoS protection](https://developers.cloudflare.com/ddos-protection/), [rate limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/), [security feature interoperability](https://developers.cloudflare.com/waf/feature-interoperability/), [the network](https://www.cloudflare.com/network/), [eliminating cold starts](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/), [the CPU benchmarks](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks), [the Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/), [Workers Cache](https://developers.cloudflare.com/workers/cache/), [traces](https://developers.cloudflare.com/workers/observability/traces/), [DevTools](https://developers.cloudflare.com/workers/observability/dev-tools/), [secrets](https://developers.cloudflare.com/workers/configuration/secrets/), [gradual deployments](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/gradual-deployments/), [custom domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/), [getting started](https://developers.cloudflare.com/workers/get-started/guide/), [framework guides](https://developers.cloudflare.com/workers/framework-guides/web-apps/), [KV limits](https://developers.cloudflare.com/kv/platform/limits/), [Durable Objects limits](https://developers.cloudflare.com/durable-objects/platform/limits/) and [Hyperdrive](https://developers.cloudflare.com/hyperdrive/)
 - Next.js on Cloudflare: [Cloudflare’s Next.js guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/), [vinext](https://github.com/cloudflare/vinext) and the [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare)
-- SaaSy Land: the [Cloudflare Workers](/docs/integrations/cloudflare-workers), [CI/CD](/docs/tooling/ci-cd), [Deploy a preview](/docs/getting-started/deploy-preview), [Database](/docs/tooling/database) and [performance](/docs/conventions/performance) pages, the [migration commit](https://github.com/saasyland/saasyland.com/commit/0b9a1b986), the [source maps commit](https://github.com/saasyland/saasyland.com/commit/704bbef94), and pull requests [#103](https://github.com/saasyland/saasyland.com/pull/103), [#214](https://github.com/saasyland/saasyland.com/pull/214), [#239](https://github.com/saasyland/saasyland.com/pull/239) and [#258](https://github.com/saasyland/saasyland.com/pull/258)
+- SaaSy Land: the [Cloudflare Workers](/docs/integrations/cloudflare-workers), [CI/CD](/docs/tooling/ci-cd), [Deploy a preview](/docs/getting-started/deploy-preview), [Database](/docs/tooling/database) and [performance](/docs/conventions/performance) pages, the [migration commit](https://github.com/saasyland/saasyland.com/commit/0b9a1b986), the [source maps commit](https://github.com/saasyland/saasyland.com/commit/704bbef94), pull requests [#103](https://github.com/saasyland/saasyland.com/pull/103), [#214](https://github.com/saasyland/saasyland.com/pull/214), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#239](https://github.com/saasyland/saasyland.com/pull/239) and [#258](https://github.com/saasyland/saasyland.com/pull/258), and the production deploy runs of 21 November 2026 for the deploy timings
 
 _Written by Piotr J. Borowiecki, who moved saasyland.com from Vercel to Cloudflare Workers and runs it there. Vercel’s and Cloudflare’s prices and limits were read from their own pages on 21 November 2026 and may have changed since; the links go to the source rather than to a screenshot. If anything here is out of date or wrong, tell me and I will correct it._

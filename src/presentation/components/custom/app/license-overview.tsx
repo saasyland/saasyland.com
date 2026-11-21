@@ -22,13 +22,14 @@ export const LicenseOverview = (): JSX.Element => {
 
   const hasActiveLicense = license?.status === LICENSE_STATUS.ACTIVE
   const isBuying = checkoutId === undefined && !hasActiveLicense
+  const isUpgrading = checkoutId === undefined && hasActiveLicense && tier !== undefined
   const showsLicense = license !== undefined && (hasActiveLicense || checkoutId === undefined)
 
   return (
     <>
-      {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
+      {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} tier={tier} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
-      {hasActiveLicense && tier !== undefined && <UpgradeOffer tier={tier} />}
+      {isUpgrading && <UpgradeOffer tier={tier} />}
       {showsLicense && <LicenseStatusCard />}
       {showsLicense && checkoutId === undefined && <GetStarted />}
       {isBuying && <LicenseOffer />}

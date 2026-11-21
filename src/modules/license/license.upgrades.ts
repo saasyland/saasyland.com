@@ -1,6 +1,7 @@
 import * as zod from "zod"
 
-import { LICENSE_CHECKOUT_METADATA, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_METADATA, LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import type { License } from "~/src/modules/license/license.types"
 
 const upgradeOriginSchema = zod.object({
   [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_ORDER]: zod.string().min(1),
@@ -15,6 +16,11 @@ export interface UpgradeOrigin {
 export const isUpgrade = (from: LicenseTier, to: LicenseTier): boolean => LICENSE_TIERS.indexOf(to) > LICENSE_TIERS.indexOf(from)
 
 export const higherTiers = (tier: LicenseTier): readonly LicenseTier[] => LICENSE_TIERS.filter((candidate) => isUpgrade(tier, candidate))
+
+export const hasReachedTier = <Licence extends Pick<License["select"], "status" | "tier">>(
+  license: Licence | undefined,
+  tier: LicenseTier | undefined,
+): license is Licence => license?.status === LICENSE_STATUS.ACTIVE && (tier === undefined || !isUpgrade(license.tier, tier))
 
 export const upgradeOrigin = (metadata: unknown): UpgradeOrigin | undefined => {
   const parsed = upgradeOriginSchema.safeParse(metadata)

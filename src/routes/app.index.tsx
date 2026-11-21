@@ -9,6 +9,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { APP_OVERVIEW_SECTIONS, appOverviewSearchSchema } from "~/src/data/app-overview"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 
+import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
@@ -70,5 +71,6 @@ export const Route = createFileRoute("/app/")({
     return { locale, metadata }
   },
   pendingComponent: AppOverviewPending,
+  search: { middlewares: [onlyDeclaredSearch(appOverviewSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -43,6 +43,7 @@ describe("subscription schema", () => {
       "canceled",
       "unpaid",
       "paused",
+      "trial_ended",
     ])
     expect(subscription.recurringInterval.enumValues).toStrictEqual(["day", "week", "month", "year"])
   })

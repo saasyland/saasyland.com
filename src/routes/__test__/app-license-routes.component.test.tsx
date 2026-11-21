@@ -22,6 +22,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
 import {
+  LICENSE_ACTIVATION_LIMITS,
   LICENSE_MUTATION_KEYS,
   LICENSE_POLL_MS,
   LICENSE_QUERY_KEYS,
@@ -107,7 +108,7 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-key"), async
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activationsMock } }
+  return { ...actual, licenseActivationsQuery: (input) => ({ ...actual.licenseActivationsQuery(input), queryFn: activationsMock }) }
 })
 vi.mock("~/src/data/license-offer.entries", () => ({
   TEST_LICENSE_OFFER: [
@@ -186,6 +187,8 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
 }
 
 const offer = () => screen.findByRole("region", { name: buy.title })
+
+const unused = (limit: number): string => pagesLicenseMessages.activations.count.replace("{used}", "0").replace("{limit}", String(limit))
 
 const tierButton = (tier: keyof typeof pricingMessages.tiers) => screen.getByRole("button", { name: pricingMessages.tiers[tier].cta })
 
@@ -544,6 +547,15 @@ describe("returning from checkout", () => {
     expect(screen.queryByText(pagesLicenseMessages.refunded)).toBeNull()
   })
 
+  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("waits on %s for the paid upgrade, never thanking for the old tier", async (path) => {
+    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, tier: LICENSE_TIER.CORE } })
+    await renderApp(`${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.COMPLETE}`)
+
+    expect(await screen.findByRole("heading", { name: activation.activating.title })).toBeVisible()
+    expect(screen.queryByText(activation.active.body.replace("{tier}", pricingMessages.tiers.core.name))).toBeNull()
+    expect(upgradePriceMock).not.toHaveBeenCalled()
+  })
+
   it("ignores a checkout reference that is not a Polar checkout id", async () => {
     await renderApp(`${ROUTES.APP}?checkoutId=not-a-checkout`)
 
@@ -675,18 +687,26 @@ describe("the licence key, its commands and its machines", () => {
     },
   )
 
-  it("says a pending key is on its way and shows it without a refresh, without a machine list before provisioning", async () => {
-    const pending = { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL }
-    currentLicenseMock.mockResolvedValue({ license: pending })
+  it("shows a key that arrives without a refresh, with its machine limit at once and again after an upgrade", async () => {
+    const core = { ...ownedLicense, tier: LICENSE_TIER.CORE }
+    currentLicenseMock.mockResolvedValue({ license: { ...core, key: JSON_NULL, polarLicenseKeyId: JSON_NULL } })
     licenseKeyMock.mockResolvedValue({ key: JSON_NULL })
-    await renderApp(ROUTES.APP_LICENSE)
+    activationsMock.mockResolvedValue({ activations: [], limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE] })
+    const { queryClient } = await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByText(pagesLicenseMessages.pending)).toBeVisible()
     expect(screen.queryByRole("heading", { name: pagesLicenseMessages.activations.title })).toBeNull()
+    expect(activationsMock).not.toHaveBeenCalled()
 
-    currentLicenseMock.mockResolvedValue({ license: ownedLicense })
+    currentLicenseMock.mockResolvedValue({ license: core })
     licenseKeyMock.mockResolvedValue({ key: LICENSE_KEY })
     expect(await screen.findByText(LICENSE_KEY, {}, { timeout: LICENSE_POLL_MS.KEY * 2 })).toBeVisible()
+    expect(await screen.findByText(unused(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE]))).toBeVisible()
+
+    currentLicenseMock.mockResolvedValue({ license: { ...core, tier: LICENSE_TIER.COMPLETE } })
+    activationsMock.mockResolvedValue({ activations: [], limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.COMPLETE] })
+    await act(() => queryClient.invalidateQueries({ queryKey: currentLicenseQuery.queryKey }))
+    expect(await screen.findByText(unused(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.COMPLETE]))).toBeVisible()
   })
 
   it("supports unlimited activations and keeps the machine when deactivation fails", async () => {

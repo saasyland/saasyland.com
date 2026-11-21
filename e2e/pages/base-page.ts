@@ -71,6 +71,24 @@ export class BasePage {
       .toBe(true)
   }
 
+  async watchForText(text: string): Promise<() => Promise<boolean>> {
+    const marker = `__sawText:${text}`
+    await this.page.evaluate(
+      ([key, watched]) => {
+        const look = () => {
+          if (document.body.textContent.includes(watched)) {
+            Reflect.set(globalThis, key, true)
+          }
+        }
+        look()
+        new MutationObserver(look).observe(document.body, { characterData: true, childList: true, subtree: true })
+      },
+      [marker, text] as const,
+    )
+
+    return async () => this.page.evaluate((key) => Reflect.get(globalThis, key) === true, marker)
+  }
+
   private async waitForRender(): Promise<void> {
     await this.page.waitForFunction(
       (key) => {

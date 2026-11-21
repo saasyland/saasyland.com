@@ -1,6 +1,7 @@
 import type { BrowserContext, Page, Route } from "@playwright/test"
 import * as zod from "zod"
 
+import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { polarCheckoutOrigin } from "../../src/data/polar"
 import { TEST_POLAR } from "../data/polar-settings"
@@ -8,6 +9,8 @@ import { TEST_POLAR } from "../data/polar-settings"
 const CHECKOUT_PATH = /^\/checkout\/(?<secret>[^/]+)$/u
 const CHECKOUT_ORIGIN = polarCheckoutOrigin(TEST_POLAR.POLAR_SERVER)
 const REFUSE_FRAMING = { "content-security-policy": "frame-ancestors 'none'" }
+
+export const POLAR_CUSTOMER_SESSION_TOKEN = "polar_cst_e2eCustomerSessionTokenThatMustStayOnPolar"
 
 const checkoutSchema = zod.object({ embed_origin: zod.string(), success_url: zod.string() })
 
@@ -28,6 +31,12 @@ const checkoutPage = ({ embed_origin: embedOrigin, success_url: successUrl }: zo
     <script>
       const post = (message) => window.parent.postMessage({ ...message, type: "POLAR_CHECKOUT" }, ${JSON.stringify(embedOrigin)})
       document.querySelector("#pay").addEventListener("click", () => {
+        if (window.parent === window) {
+          const success = new URL(${JSON.stringify(successUrl)})
+          success.searchParams.set(${JSON.stringify(POLAR_CUSTOMER_SESSION_TOKEN_PARAM)}, ${JSON.stringify(POLAR_CUSTOMER_SESSION_TOKEN)})
+          window.location.assign(success)
+          return
+        }
         post({ event: "confirmed" })
         post({ event: "success", redirect: true, successURL: ${JSON.stringify(successUrl)} })
       })
@@ -69,4 +78,8 @@ export const payInCheckoutOverlay = async (page: Page): Promise<void> => {
 
 export const closeCheckoutOverlay = async (page: Page): Promise<void> => {
   await checkoutOverlayFrame(page).getByRole("button", { name: "Close" }).click()
+}
+
+export const payOnPolarCheckoutPage = async (page: Page): Promise<void> => {
+  await page.getByRole("button", { name: "Pay" }).click()
 }

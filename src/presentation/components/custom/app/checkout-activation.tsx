@@ -4,8 +4,8 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { ArrowRight, CircleCheck, Clock } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
-import type { License } from "~/src/modules/license/license.types"
+import type { LicenseTier } from "~/src/modules/license/license.constants"
+import { hasReachedTier } from "~/src/modules/license/license.upgrades"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
@@ -36,9 +36,6 @@ const EMAIL_TAGS = {
   ),
 }
 
-const isActive = <Licence extends Pick<License["select"], "status">>(license: Licence | undefined): license is Licence =>
-  license?.status === LICENSE_STATUS.ACTIVE
-
 const ActivationPanel = ({ children, icon }: Readonly<{ children: ReactNode; icon: ReactNode }>): JSX.Element => (
   <section className="flex items-start gap-5 rounded-lg border border-border bg-card p-6 md:p-8" role="status">
     <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full border border-ring/40 bg-ring/10 text-ring">
@@ -48,7 +45,12 @@ const ActivationPanel = ({ children, icon }: Readonly<{ children: ReactNode; ico
   </section>
 )
 
-export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string }>): JSX.Element => {
+interface CheckoutActivationProps {
+  readonly checkoutId: string
+  readonly tier: LicenseTier | undefined
+}
+
+export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps): JSX.Element => {
   const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license.activation")
 
@@ -67,10 +69,10 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
 
   const { data, isRefetching, refetch } = useSuspenseQuery({
     ...currentLicenseQuery,
-    refetchInterval: ({ state }) => (isActive(state.data?.license) || hasTimedOut ? false : ACTIVATION_POLL_MS),
+    refetchInterval: ({ state }) => (hasReachedTier(state.data?.license, tier) || hasTimedOut ? false : ACTIVATION_POLL_MS),
   })
 
-  const hasActivated = isActive(data.license)
+  const hasActivated = hasReachedTier(data.license, tier)
 
   useEffect(() => {
     if (hasActivated) {
@@ -78,7 +80,7 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
     }
   }, [hasActivated])
 
-  if (isActive(data.license)) {
+  if (hasReachedTier(data.license, tier)) {
     return (
       <div className="flex flex-col gap-6">
         <ActivationPanel icon={<CircleCheck className="size-4.5" strokeWidth={2.25} />}>

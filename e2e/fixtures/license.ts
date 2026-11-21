@@ -53,19 +53,28 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
   await post(request, signedPolarWebhook({ data: order, secret: TEST_POLAR.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }))
 }
 
-export const buyLicense = async (request: APIRequestContext, { tier, userId }: Omit<PaidOrder, "withdrawalConsent">) => {
+export const orderLicense = async (request: APIRequestContext, { tier, userId }: Omit<PaidOrder, "withdrawalConsent">) => {
   const response = await request.get("/__test/polar/purchase", { params: { customer: userId, tier } })
   expect(response.ok()).toBe(true)
   const { grantCreated, orderPaid, orderRefunded } = purchaseSchema.parse(await response.json())
 
   await post(request, orderPaid)
-  await post(request, grantCreated)
 
   return {
+    issueKey: async () => {
+      await post(request, grantCreated)
+    },
     refund: async () => {
       await post(request, orderRefunded)
     },
   }
+}
+
+export const buyLicense = async (request: APIRequestContext, purchase: Omit<PaidOrder, "withdrawalConsent">) => {
+  const { issueKey, refund } = await orderLicense(request, purchase)
+  await issueKey()
+
+  return { refund }
 }
 
 export const startedCheckouts = async (request: APIRequestContext, customer: string) => {

@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vite-plus/test"
 import * as zod from "zod"
 
-import { searchChoice, searchFlag, searchParam, searchText } from "~/src/lib/search-params"
+import { onlyDeclaredSearch, searchChoice, searchFlag, searchParam, searchText } from "~/src/lib/search-params"
 
 const VIEWS = ["grid", "table"] as const
 const CODE_LENGTH = 6
+const LIST_SEARCH = zod.object({ page: searchText(), query: searchText() })
+const ADDRESS_ORDER = [
+  ["query", "polar"],
+  ["page", "2"],
+] as const
+
+type ListSearch = zod.infer<typeof LIST_SEARCH>
+
+const withInjectedParam = (search: ListSearch): ListSearch & { readonly injected: string } => ({ ...search, injected: "secret" })
 
 describe("search params", () => {
   it.each([
@@ -41,5 +50,13 @@ describe("search params", () => {
     { expected: "grid", value: "list" },
   ])("reads $value as choice $expected", ({ expected, value }) => {
     expect(searchChoice(VIEWS, "grid").parse(value)).toBe(expected)
+  })
+
+  it("keeps only the params a route declares, in the order the address gives them, whatever the inner middlewares return", () => {
+    const address: ListSearch = Object.fromEntries(ADDRESS_ORDER)
+
+    const search = onlyDeclaredSearch<ListSearch>(LIST_SEARCH)({ next: withInjectedParam, search: address })
+
+    expect(Object.entries(search)).toStrictEqual(ADDRESS_ORDER)
   })
 })

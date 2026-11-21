@@ -111,7 +111,7 @@ describe("leaving Polar's checkout", () => {
     expect(router.state.location.href).toBe(ROUTES.APP_LICENSE)
   })
 
-  it("shows the payment on the success URL in place, keeping the page the buyer came from", async () => {
+  it("shows the payment on the success URL in place, with the tier it bought and the page the buyer came from", async () => {
     const lesson = "/courses/the-walkthrough/billing"
     overlayMock.mockImplementation(({ onPaid }) => {
       onPaid()
@@ -123,7 +123,7 @@ describe("leaving Polar's checkout", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(ROUTES.APP)
     })
-    expect(router.state.location.search).toEqual({ checkoutId: CHECKOUT_ID, redirect: lesson })
+    expect(router.state.location.search).toEqual({ checkoutId: CHECKOUT_ID, redirect: lesson, tier: LICENSE_TIER.CORE })
   })
 
   it("goes to Polar's checkout page when the checkout cannot open over the page", async () => {

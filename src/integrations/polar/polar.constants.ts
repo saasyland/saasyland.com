@@ -2,6 +2,8 @@ import type { models } from "@polar-sh/sdk/2026-10"
 
 export const POLAR_CHECKOUT_ID_PLACEHOLDER = "{CHECKOUT_ID}"
 
+export const POLAR_CUSTOMER_SESSION_TOKEN_PARAM = "customer_session_token" satisfies keyof models.CheckoutPublicConfirmed
+
 export const POLAR_PRICE_CURRENCY = "usd" satisfies models.PresentmentCurrency
 
 export const POLAR_MINIMUM_PRICE_AMOUNT = 50
@@ -27,6 +29,7 @@ export const POLAR_SUBSCRIPTION_STATUS = {
   PAST_DUE: "past_due",
   PAUSED: "paused",
   TRIALING: "trialing",
+  TRIAL_ENDED: "trial_ended",
   UNPAID: "unpaid",
 } as const satisfies Record<string, models.SubscriptionStatus>
 

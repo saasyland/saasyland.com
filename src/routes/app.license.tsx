@@ -8,6 +8,7 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
@@ -15,6 +16,7 @@ import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-curr
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
+import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
@@ -27,6 +29,10 @@ import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-o
 
 import { ROUTES } from "~/src/routes"
 
+const hasIssuedKey = <Licence extends Pick<License["select"], "polarLicenseKeyId" | "status">>(
+  license: Licence | undefined,
+): license is Licence & { polarLicenseKeyId: string } => license?.status === LICENSE_STATUS.ACTIVE && license.polarLicenseKeyId !== null
+
 const LicensePage = (): JSX.Element => {
   const t = useTranslations("pages.license")
 
@@ -36,6 +42,7 @@ const LicensePage = (): JSX.Element => {
 
   const hasActiveLicense = license?.status === LICENSE_STATUS.ACTIVE
   const isBuying = checkoutId === undefined && !hasActiveLicense
+  const isUpgrading = checkoutId === undefined && hasActiveLicense && tier !== undefined
   const showsLicense = license !== undefined && (hasActiveLicense || checkoutId === undefined)
 
   return (
@@ -44,11 +51,11 @@ const LicensePage = (): JSX.Element => {
         <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
       </header>
-      {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
+      {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} tier={tier} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
-      {hasActiveLicense && tier !== undefined && <UpgradeOffer tier={tier} />}
+      {isUpgrading && <UpgradeOffer tier={tier} />}
       {showsLicense && <LicenseCard />}
-      {hasActiveLicense && license.polarLicenseKeyId !== null && <LicenseActivations />}
+      {hasIssuedKey(license) && <LicenseActivations polarLicenseKeyId={license.polarLicenseKeyId} tier={license.tier} />}
       {isBuying && <LicenseOffer />}
       <Link
         className="w-fit text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -71,13 +78,17 @@ export const Route = createFileRoute("/app/license")({
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
-      context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }),
+      context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }).then(async ({ license }) => {
+        if (hasIssuedKey(license)) {
+          await context.queryClient.query({ ...licenseActivationsQuery(license), staleTime: "static" })
+        }
+      }),
       context.queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),
-      context.queryClient.query({ ...licenseActivationsQuery, staleTime: "static" }),
       ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
     ])
     return { locale, metadata }
   },
   pendingComponent: AppLicensePending,
+  search: { middlewares: [onlyDeclaredSearch(licenseSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -10,7 +10,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
@@ -72,14 +72,22 @@ const grantedLicense: License["select"] = {
 
 const SERVER_CLOCK_AHEAD_MS = 300_000
 
-const renderActivation = ({ path = "/app", serverReadAt = Date.now() }: { path?: string; serverReadAt?: number } = {}) => {
+interface ActivationRender {
+  readonly path?: string
+  readonly serverReadAt?: number
+  readonly tier?: LicenseTier | undefined
+}
+
+const renderActivation = (options: ActivationRender = {}) => {
+  const { path = "/app", serverReadAt = Date.now() } = options
+  const tier = "tier" in options ? options.tier : LICENSE_TIER.COMPLETE
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined }, { updatedAt: serverReadAt })
   queryClient.setQueryData(currentLicenseKeyQuery.queryKey, { key: undefined })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
-      <CheckoutActivation checkoutId={CHECKOUT_ID} />
+      <CheckoutActivation checkoutId={CHECKOUT_ID} tier={tier} />
     </IntlProvider>,
     { queryClient, router: createTestRouter(path) },
   )
@@ -131,6 +139,35 @@ describe("checkout activation", () => {
     await advance(ACTIVATION_TIMEOUT_MS)
     expect(currentLicenseMock).toHaveBeenCalledTimes(polls)
     expect(triggerConfettiMock).toHaveBeenCalledOnce()
+  })
+
+  it("keeps waiting after an upgrade until the licence reaches the tier being bought, never thanking the buyer for the old one", async () => {
+    const thanks = (tier: keyof typeof pricingMessages.tiers) => activation.active.body.replace("{tier}", pricingMessages.tiers[tier].name)
+    currentLicenseMock.mockResolvedValue({ license: { ...grantedLicense, tier: LICENSE_TIER.CORE } })
+    renderActivation({ tier: LICENSE_TIER.COMPLETE })
+
+    await advance(ACTIVATION_POLL_MS)
+    await advance(ACTIVATION_POLL_MS)
+
+    expect(screen.getByRole("status")).toHaveTextContent(activation.activating.title)
+    expect(screen.queryByText(thanks(LICENSE_TIER.CORE))).toBeNull()
+    expect(triggerConfettiMock).not.toHaveBeenCalled()
+
+    currentLicenseMock.mockResolvedValue({ license: grantedLicense })
+    await advance(ACTIVATION_POLL_MS)
+
+    expect(screen.getByRole("heading", { name: activation.active.title })).toBeVisible()
+    expect(screen.getByText(thanks(LICENSE_TIER.COMPLETE))).toBeVisible()
+    expect(triggerConfettiMock).toHaveBeenCalledOnce()
+  })
+
+  it("confirms a return that names no tier as soon as the licence is active", async () => {
+    currentLicenseMock.mockResolvedValue({ license: { ...grantedLicense, tier: LICENSE_TIER.CORE } })
+    renderActivation({ tier: undefined })
+
+    await advance(ACTIVATION_POLL_MS)
+
+    expect(screen.getByText(activation.active.body.replace("{tier}", pricingMessages.tiers.core.name))).toBeVisible()
   })
 
   it("offers the way back to the page the buyer came from once the licence is active", async () => {

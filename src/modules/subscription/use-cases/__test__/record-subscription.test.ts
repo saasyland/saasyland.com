@@ -148,6 +148,18 @@ describe("recording a Polar subscription", () => {
 
     expect(await storedSubscription(incomplete.id)).toMatchObject({ startedAt: JSON_NULL, status: POLAR_SUBSCRIPTION_STATUS.INCOMPLETE })
   })
+
+  it("records a trial that ends without a payment as trial_ended, so it is never read as trialing or active", async () => {
+    const started = startedSubscription(await createAccount())
+
+    await recordSubscription({ ...started, status: POLAR_SUBSCRIPTION_STATUS.TRIALING })
+    await recordSubscription({ ...started, modified_at: PERIOD_END, status: POLAR_SUBSCRIPTION_STATUS.TRIAL_ENDED })
+
+    expect(await storedSubscription(started.id)).toMatchObject({
+      changedAt: new Date(PERIOD_END),
+      status: POLAR_SUBSCRIPTION_STATUS.TRIAL_ENDED,
+    })
+  })
 })
 
 describe("the account of a recorded subscription", () => {

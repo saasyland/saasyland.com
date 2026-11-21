@@ -155,7 +155,7 @@ describe(E2E_WORKFLOW, () => {
 
     expect(build).toContain("run: bun run db:reset:test")
     expect(build).toContain("run: bun run build:test")
-    expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/test")
+    expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test")
     expect(build).toContain(TEST_WORKER_ARTIFACT)
     expect(shard).toContain("needs: build")
     expect(shard).toContain(TEST_WORKER_ARTIFACT)

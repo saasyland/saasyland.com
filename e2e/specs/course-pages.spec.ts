@@ -120,7 +120,7 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("link", { name: new RegExp(`^${preview.title["en-US"]}.*Free preview`, "u") })).toBeVisible()
     await expect(page.getByRole("link", { name: new RegExp(`${account.title["en-US"]}.*Locked: free with an account`, "u") })).toBeVisible()
     await expect(page.getByRole("link", { name: new RegExp(`${paid.title["en-US"]}.*Locked: included with Complete`, "u") })).toBeVisible()
-    await expect(page.getByRole("link", { name: new RegExp(paid.title["en-US"], "u") }).getByText("Included with Complete")).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(paid.title["en-US"], "u") }).getByText("Included with Complete", { exact: true })).toBeVisible()
 
     const [, quality] = TEST_COURSE.chapters
     const chapter = page.getByRole("button", { name: new RegExp(quality.title["en-US"], "u") })

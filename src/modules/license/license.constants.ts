@@ -34,6 +34,8 @@ export const LICENSE_STATUS = {
 
 export const LICENSE_STATUSES = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REVOKED, LICENSE_STATUS.REFUNDED] as const
 
+export type LicenseStatus = (typeof LICENSE_STATUSES)[number]
+
 export const LICENSE_API_ENDPOINTS = [
   "LICENSE",
   "ACTIVATE",
@@ -81,6 +83,7 @@ export const BUNDLE_METADATA = {
 export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],
   ALL: ["license"],
+  COUNTS: ["license", "getLicenseCounts"],
   CURRENT: ["license", "current"],
   KEY: ["license", "key"],
   UNLICENSED_ORDERS: ["license", "getUnlicensedOrders"],

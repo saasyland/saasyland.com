@@ -1,13 +1,23 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import {
+  LICENSE_STATUS,
+  LICENSE_STATUSES,
+  LICENSE_TIERS,
+  type LicenseStatus,
+  type LicenseTier,
+} from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS } from "../data/accounts"
+import { TEST_LICENSES, TEST_TIER_LICENSES } from "../data/licenses"
 import { TEST_REVENUE } from "../data/payments"
 import { expect, test } from "../fixtures/auth"
 import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
+import pricingMessages from "../../messages/en-US/components.custom.pricing.json" with { type: "json" }
 import authDashboardMessages from "../../messages/en-US/dashboard.auth.json" with { type: "json" }
 import coursesDashboardMessages from "../../messages/en-US/dashboard.courses.json" with { type: "json" }
+import licenseDashboardMessages from "../../messages/en-US/dashboard.license.json" with { type: "json" }
 import paymentsDashboardMessages from "../../messages/en-US/dashboard.payments.json" with { type: "json" }
 import notFoundMessages from "../../messages/en-US/errors.not-found.json" with { type: "json" }
 import pagesAdminDashboardMessages from "../../messages/en-US/pages.admin.dashboard.json" with { type: "json" }
@@ -31,11 +41,21 @@ const REMOVED_LABELS = /analytics|pricing models|payments|blog|landing page|invi
 
 const revenue = paymentsDashboardMessages.revenue
 const ranges = pagesAdminDashboardMessages.chart.range
+const licenses = licenseDashboardMessages.licenses
+
+const SEEDED_LICENSES = [...TEST_LICENSES, ...TEST_TIER_LICENSES]
+
+const STATUSES_PURCHASES_ADD_TO = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REFUNDED] as const
 
 const panel = (page: Page, title: string): Locator =>
   page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: title }) })
 
 const figure = (scope: Locator, name: string): Locator => scope.getByText(name, { exact: true }).locator("xpath=following-sibling::dd")
+
+const seeded = (tier: LicenseTier, status: LicenseStatus): number =>
+  SEEDED_LICENSES.filter((license) => license.tier === tier && license.status === status).length
+
+const countIn = async (cell: Locator): Promise<number> => Number((await cell.innerText()).replaceAll(/\D/gu, ""))
 
 const signInAsAdmin = async (page: Page): Promise<void> => {
   await new AuthPage(page).signIn(admin.email)
@@ -65,6 +85,29 @@ test("the dashboard totals the seeded orders per currency, refunds subtracted, a
   await expect(signups.getByText(/^\d[\d,]* new users?$/u)).toBeVisible()
   await expect(panel(page, coursesDashboardMessages.progress.title).getByRole("table")).toBeVisible()
   await expect(page.getByText("Revenue Overview")).toHaveCount(0)
+})
+
+test("the dashboard counts each tier's licences by status, the seeded revoked ones exactly and the active and refunded ones purchases add to", async ({
+  page,
+}) => {
+  await signInAsAdmin(page)
+
+  const table = panel(page, licenses.title).getByRole("table")
+  await expect(table.getByRole("columnheader")).toHaveText([
+    licenses.columns.tier,
+    ...LICENSE_STATUSES.map((status) => licenses.columns[status]),
+  ])
+  for (const tier of LICENSE_TIERS) {
+    const name = pricingMessages.tiers[tier].name
+    const cells = table.getByRole("row").filter({ has: page.getByRole("cell", { exact: true, name }) }).getByRole("cell")
+    const cellOf = (status: LicenseStatus): Locator => cells.nth(LICENSE_STATUSES.indexOf(status) + 1)
+
+    await expect(cells).toHaveCount(LICENSE_STATUSES.length + 1)
+    await expect(cellOf(LICENSE_STATUS.REVOKED)).toHaveText(String(seeded(tier, LICENSE_STATUS.REVOKED)))
+    for (const status of STATUSES_PURCHASES_ADD_TO) {
+      expect(await countIn(cellOf(status)), `${name} ${status}`).toBeGreaterThanOrEqual(seeded(tier, status))
+    }
+  }
 })
 
 test("the dashboard counts the accounts and links the newest to their profiles", async ({ page }) => {

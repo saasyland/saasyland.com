@@ -13,6 +13,7 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
@@ -98,6 +99,34 @@ describe("list-products", () => {
     await db.delete(product)
     const result = await executeQuery(getProductsQuery)
     expect(result).toMatchObject({ rows: [], total: 0 })
+  })
+
+  it("lists each product's price in minor units with its currency code", async () => {
+    await db.delete(product)
+    await db.insert(product).values([
+      {
+        createdAt: new Date("2026-09-25T12:00:00Z"),
+        currency: "jpy",
+        id: "yen",
+        name: "Yen",
+        priceCents: 4900,
+        type: PRODUCT_TYPE.ONE_TIME,
+      },
+      { createdAt: new Date("2026-09-24T12:00:00Z"), id: "dollar", name: "Dollar", priceCents: 4900, type: PRODUCT_TYPE.ONE_TIME },
+    ])
+
+    const { rows } = await executeQuery(getProductsQuery)
+
+    expect(rows.map(({ currency, id, priceCents }) => ({ currency, id, priceCents }))).toStrictEqual([
+      { currency: "JPY", id: "yen", priceCents: 4900 },
+      { currency: DEFAULT_CURRENCY_CODE, id: "dollar", priceCents: 4900 },
+    ])
+  })
+
+  it("refuses to list a product whose currency is not an ISO 4217 code", async () => {
+    await db.insert(product).values({ currency: "XYZ", id: "unknown-currency", name: "Unknown", type: PRODUCT_TYPE.ONE_TIME })
+
+    await expect(executeQuery(getProductsQuery)).rejects.toThrow()
   })
 
   it("filters before paging and counts only matching products", async () => {

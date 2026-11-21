@@ -107,6 +107,27 @@ const authorMeta = (author: ArticleAuthor) => [
   ...(author.url === undefined ? [] : [{ content: author.url, property: "article:author" }]),
 ]
 
+export interface PageSequence {
+  readonly next?: string | undefined
+  readonly previous?: string | undefined
+}
+
+interface SequenceLink {
+  readonly href: string
+  readonly hrefLang?: string
+  readonly rel: "next" | "prev"
+}
+
+const sequenceLink = ({
+  locale,
+  pathname,
+  rel,
+}: {
+  locale: SupportedLocale
+  pathname: string | undefined
+  rel: SequenceLink["rel"]
+}): SequenceLink[] => (pathname === undefined ? [] : [{ href: `${APP_URL}${localizePathname({ locale, pathname })}`, rel }])
+
 export const buildPageHead = ({
   author,
   dates,
@@ -114,6 +135,7 @@ export const buildPageHead = ({
   locale = I18N.DEFAULT_LOCALE,
   pathname,
   section,
+  sequence = {},
   title,
   type = "website",
 }: {
@@ -123,6 +145,7 @@ export const buildPageHead = ({
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
   readonly section?: string | undefined
+  readonly sequence?: PageSequence | undefined
   readonly title?: string | undefined
   readonly type?: "article" | "website"
 }) => {
@@ -133,7 +156,11 @@ export const buildPageHead = ({
   const imageUrl = `${APP_URL}${image.path}`
 
   return {
-    links: [...localeLinks({ origin: APP_URL, pathname: canonicalPath })],
+    links: [
+      ...localeLinks({ origin: APP_URL, pathname: canonicalPath }),
+      ...sequenceLink({ locale, pathname: sequence.previous, rel: "prev" }),
+      ...sequenceLink({ locale, pathname: sequence.next, rel: "next" }),
+    ],
     meta: [
       { title: pageTitle },
       { content: description, name: "description" },
@@ -306,28 +333,120 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
 export const buildBlogPostStructuredDataHtml = (input: PostStructuredDataInput): { __html: string } =>
   toStructuredDataHtml(buildBlogPostStructuredData(input))
 
-type BlogStructuredDataInput = Readonly<{
-  description: string
+type BlogListing = Readonly<{ date: string | Date; title: string; url: string }>
+
+type BlogListInput = Readonly<{
+  listed: readonly BlogListing[]
   locale: SupportedLocale
-  posts: readonly Readonly<{ date: string | Date; title: string; url: string }>[]
-  title: string
+  offset: number
+  pathname: string
+  total: number
 }>
 
-export const buildBlogStructuredData = ({ description, locale, posts, title }: BlogStructuredDataInput): StructuredDataNode => ({
-  "@context": SCHEMA_CONTEXT,
-  "@type": "Blog",
-  blogPost: posts.map((post) => ({
-    "@type": "BlogPosting",
-    datePublished: toIsoDate(post.date),
-    headline: post.title,
+type BlogStructuredDataInput = BlogListInput &
+  Readonly<{
+    description: string
+    posts: readonly BlogListing[]
+    title: string
+  }>
+
+type BlogArchiveStructuredDataInput = BlogListInput &
+  Readonly<{
+    blogTitle: string
+    description: string
+    title: string
+  }>
+
+const ITEM_LIST_ORDER_DESCENDING = "https://schema.org/ItemListOrderDescending"
+
+const blogIds = ({ locale, pathname }: Pick<BlogListInput, "locale" | "pathname">) => {
+  const blogUrl = localizedUrl({ baseUrl: APP_URL, locale, pathname: ROUTES.BLOG })
+  const pageUrl = localizedUrl({ baseUrl: APP_URL, locale, pathname })
+
+  return { blogId: `${blogUrl}#blog`, blogUrl, listId: `${pageUrl}#posts`, pageUrl }
+}
+
+const blogList = ({ listed, locale, offset, pathname, total }: BlogListInput): StructuredDataNode => ({
+  "@id": blogIds({ locale, pathname }).listId,
+  "@type": "ItemList",
+  itemListElement: listed.map((post, index) => ({
+    "@type": "ListItem",
+    name: post.title,
+    position: offset + index + 1,
     url: absoluteUrl(APP_URL, post.url),
   })),
-  description,
-  inLanguage: locale,
-  name: buildTitle({ locale, title }),
-  publisher: ORGANIZATION,
-  url: localizedUrl({ baseUrl: APP_URL, locale, pathname: ROUTES.BLOG }),
+  itemListOrder: ITEM_LIST_ORDER_DESCENDING,
+  numberOfItems: total,
 })
+
+export const buildBlogStructuredData = ({ description, posts, title, ...list }: BlogStructuredDataInput): PostStructuredData => {
+  const { blogId, blogUrl, listId } = blogIds(list)
+
+  return {
+    "@context": SCHEMA_CONTEXT,
+    "@graph": [
+      {
+        "@id": blogId,
+        "@type": "Blog",
+        blogPost: posts.map((post) => ({
+          "@type": "BlogPosting",
+          datePublished: toIsoDate(post.date),
+          headline: post.title,
+          url: absoluteUrl(APP_URL, post.url),
+        })),
+        description,
+        inLanguage: list.locale,
+        mainEntityOfPage: { "@id": listId },
+        name: buildTitle({ locale: list.locale, title }),
+        publisher: ORGANIZATION,
+        url: blogUrl,
+      },
+      blogList(list),
+    ],
+  }
+}
 
 export const buildBlogStructuredDataHtml = (input: BlogStructuredDataInput): { __html: string } =>
   toStructuredDataHtml(buildBlogStructuredData(input))
+
+export const buildBlogArchiveStructuredData = ({
+  blogTitle,
+  description,
+  title,
+  ...list
+}: BlogArchiveStructuredDataInput): PostStructuredData => {
+  const { blogId, blogUrl, listId, pageUrl } = blogIds(list)
+
+  return {
+    "@context": SCHEMA_CONTEXT,
+    "@graph": [
+      {
+        "@id": pageUrl,
+        "@type": "CollectionPage",
+        description,
+        inLanguage: list.locale,
+        isPartOf: { "@id": blogId, "@type": "Blog", url: blogUrl },
+        mainEntity: { "@id": listId },
+        name: buildTitle({ locale: list.locale, title }),
+        url: pageUrl,
+      },
+      blogList(list),
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            item: localizedUrl({ baseUrl: APP_URL, locale: list.locale, pathname: ROUTES.HOME }),
+            name: APP_NAME,
+            position: 1,
+          },
+          { "@type": "ListItem", item: blogUrl, name: blogTitle, position: 2 },
+          { "@type": "ListItem", item: pageUrl, name: title, position: 3 },
+        ],
+      },
+    ],
+  }
+}
+
+export const buildBlogArchiveStructuredDataHtml = (input: BlogArchiveStructuredDataInput): { __html: string } =>
+  toStructuredDataHtml(buildBlogArchiveStructuredData(input))

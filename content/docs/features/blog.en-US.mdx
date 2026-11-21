@@ -5,7 +5,9 @@ description: "Localized MDX posts in content/blog, loaded through a Fumadocs col
 
 ## Content
 
-Posts live in `content/blog/<slug>.<locale>.mdx`, one file per locale. The frontmatter schema in `src/integrations/fumadocs/fumadocs.schema.ts` requires `title`, `authorName` and `date`, and accepts `description`, `authorImage`, `authorUrl`, `excerpt`, `faq`, `featured`, `image`, `published` (default `true`), `tags` and `updated`. A tag is one of `BLOG_TAGS` in `src/data/blog.ts`, and the schema rejects any other value; `PostRow` and `PostMeta` show each tag by its label under `tags` in `pages.blog`, so tags read in the page's language.
+Posts live in `content/blog/<slug>.<locale>.mdx`, one file per locale. The frontmatter schema in `src/integrations/fumadocs/fumadocs.schema.ts` requires `title`, `authorName` and `date`, and accepts `description`, `authorImage`, `authorUrl`, `excerpt`, `faq`, `image`, `published` (default `true`), `tags` and `updated`. A tag is one of `BLOG_TAGS` in `src/data/blog.ts`, and the schema rejects any other value; `PostTags` and `PostMeta` show each tag by its label under `tags` in `pages.blog`, so tags read in the page's language.
+
+The featured posts are not frontmatter: `FEATURED_BLOG_POSTS` in `src/data/blog.ts` names them by slug, in the order the blog index and the landing page show them, so one line of one file chooses them for every locale. A slug a locale does not publish is skipped, and `src/data/__test__/blog.test.ts` fails when a slug names no post.
 
 - `description` is the post's search description: the `description` and `og:description` tags and the feed use it. `excerpt` is the longer teaser under the title and on the blog index, and stands in for a missing `description`.
 - `image` is the cover, a WebP file in `public/images/blog` of the size `BLOG_COVER` in `src/data/blog.ts` declares. The post page gives the cover that `width` and `height`, and the structured data describes it at that size; `src/data/__test__/blog.test.ts` fails when a cover has another size.
@@ -15,7 +17,7 @@ Posts live in `content/blog/<slug>.<locale>.mdx`, one file per locale. The front
 
 `date` is the day a post was first published, and it never changes. `updated` is the day the post's facts or substance last changed, such as a price, a feature that shipped or a comparison that no longer holds; it does not move for a typo, formatting or a fix to a translation. Both are written `YYYY-MM-DD`, and every locale of a post carries the same two, because they date the post, not its translation. The blog index keeps both for every post, and they drive every date that readers and search engines see:
 
-- `PostMeta` shows the publication date and, when `updated` is later than `date`, the update date, each in its own `<time>` element with a `dateTime`, formatted with the `calendarDate` format for the page's locale. The labels are the ICU messages `post.published` and `post.updated` in `pages.blog`, which take the formatted date as `{date}`. `PostRow`, on the blog index and in the landing page's Notes, shows only the publication date, which keeps the list compact and is the date the list is sorted by.
+- `PostMeta` shows the publication date and, when `updated` is later than `date`, the update date, each in its own `<time>` element with a `dateTime`, formatted with the `calendarDate` format for the page's locale. The labels are the ICU messages `post.published` and `post.updated` in `pages.blog`, which take the formatted date as `{date}`. Every list of posts shows one date, in a `<time>` element (`PostDate` in `post-facts.tsx`): the publication date, except in **Recently updated** and in the archive sorted by **Updated**, which show the update date under the `post.updated` label, because that is the date those lists are ordered by.
 - The `BlogPosting` JSON-LD gives `date` as `datePublished`, and `updated`, or `date` when there is none, as `dateModified`.
 - `buildPageHead` writes the same two as `article:published_time` and `article:modified_time`, and `sitemap.xml` gives the post's URL in every locale its `article:modified_time` as `<lastmod>`; see [Search and social previews](/docs/features/seo).
 
@@ -27,15 +29,38 @@ A post prints the values the code defines instead of typing them: `<RepositoryFa
 
 ## Source
 
-Every build turns the posts into a blog index per locale (see [Fumadocs](/docs/integrations/fumadocs#content-indexes)): the published posts under `/blog`, newest first, with the same i18n settings as the docs, each with its frontmatter, its table of contents and its reading time, counted with `Intl.Segmenter` for that locale. `loadBlogIndex(locale)` imports a locale's index, a file under `/assets/`, and `toBlogPostSummary` in `fumadocs.blog.ts` formats a post's title and localizes its URL. The loaders below read it in the browser on a client navigation, so moving through the blog never reaches the Worker. `relatedBlogPosts` in the same file picks, from the same index, the other posts that share the most tags with a post, the newest first among equals, as many as `RELATED_POSTS` allows.
+Every build turns the posts into a blog index per locale (see [Fumadocs](/docs/integrations/fumadocs#content-indexes)): the published posts under `/blog`, newest first, with the same i18n settings as the docs, each with its frontmatter, its table of contents and its reading time, counted with `Intl.Segmenter` for that locale. `loadBlogIndex(locale)` imports a locale's index, a file under `/assets/`, and `toBlogPostSummary` in `fumadocs.blog.ts` formats a post's title and localizes its URL. The loaders below read it in the browser on a client navigation, so moving through the blog never reaches the Worker. The same file picks every list the blog shows from that one index:
+
+- `relatedBlogPosts`: the other posts that share the most tags with a post, the newest first among equals, as many as `RELATED_POSTS` allows.
+- `blogHighlights`: the featured posts in the order of `FEATURED_BLOG_POSTS`; the newest other posts, as many as `BLOG_HIGHLIGHTS.LATEST`; and, from the posts left, those whose `updated` is later than their `date`, the most recently updated first, as many as `BLOG_HIGHLIGHTS.UPDATED`. No post appears in two of these lists.
+- `blogNotes`: the landing page's lead post, the first featured post or else the newest, and the newest others.
+- `blogArchivePageCount`, `blogArchivePage`, `blogArchivePath` and `blogArchiveSequence`: the archive's pages of `BLOG_ARCHIVE.PAGE_SIZE` posts, newest first, their addresses and their neighbours.
 
 ## Routes
 
 - The `/blog` layout (`_site._marketing.blog.tsx`) sits in the `_site` and `_marketing` layouts, which add the site header, `PageFrame`, `Footer` and `BackToTop` around it (see [Landing page](/docs/features/landing-page#navigation-and-back-to-top)). It loads `docs.css` for article typography. The header marks **Blog** as the current section on the index and on every post. Its loader preloads `fumadocs` and `pages.blog` and reads the blog's title, and its head names the feed of the page's locale in a `<link rel="alternate" type="application/rss+xml">` (`blogFeedLinks`), so feed readers and browsers find it from the index and from every post.
-- `/blog` (`_site._marketing.blog.index.tsx`) lists the posts of the blog index with `PostRow`. Under the lead it links the feed of its locale, and it describes itself to search engines as a `Blog` with its posts (`buildBlogStructuredDataHtml`).
+- `/blog` (`_site._marketing.blog.index.tsx`) links the feed of its locale under the lead, then shows, from `src/presentation/components/custom/blog`, the featured posts with their covers (`FeaturedPosts`: the first as a wide card, the others in two columns), the **Latest** and **Recently updated** lists (`RecentPosts`) and the archive of every post (`PostArchive`). It describes itself to search engines as a `Blog` with every post and the posts of its first page as an `ItemList` (`buildBlogStructuredDataHtml`), and names `/blog/page/2` as its next page when there is one.
+- `/blog/page/<n>` (`_site._marketing.blog.page.$page.tsx`) is page `<n>` of the archive, from 2 to `blogArchivePageCount`, with its own title, **All posts, page \<n>**, its own canonical URL, `rel="prev"` and `rel="next"` links to its neighbours, and `PostPagination` links to the newer and older pages. Its structured data is a `CollectionPage` that is part of the blog, its posts as an `ItemList` numbered across the archive, and a `BreadcrumbList` (`buildBlogArchiveStructuredDataHtml`). Any other number, `1` or a number with a leading zero answers 404.
 - `/blog/$` (`_site._marketing.blog.$.tsx`) finds one post in the blog index (404 when it is missing or unpublished), preloads its compiled MDX with `blogContent`, and composes `PostMeta` and `PostShare` in the bar under the title, `PostToc` (or, on small screens, `InlineTOC` under the same title), and after the article `PostAuthor` beside a second `PostShare`, then `PostCta` and `PostRelated`, all from `src/presentation/components/custom/blog`. It adds JSON-LD from `buildBlogPostStructuredDataHtml` and article metadata from `buildPageHead`, with the blog's title from `pages.blog` as its `article:section`, an `article:tag` for each tag in the page's language and its own social card; see [Search and social previews](/docs/features/seo). The post wraps its MDX in Fumadocs' `RootProvider`, with search and the theme switch off and the strings of `useFumadocsI18n`, so the copy buttons of code blocks and heading anchors and the FAQ's accordion items are labelled in the post's language.
 
-The landing page Notes section shows three posts of the blog index, featured ones first, then the newest.
+The landing page's Notes section (`notes-section.tsx`) shows the post `blogNotes` leads with as a card with its cover, beside the newest other posts and a link to `/blog`. The landing page is prerendered, so these links are in its HTML.
+
+## The archive: search, topics, sorting and more posts
+
+`PostArchive` lists every post of the locale, `BLOG_ARCHIVE.PAGE_SIZE` at a time, as rows of `PostRow`. Above the rows, a React Aria `SearchField` searches the titles, summaries and topics, a `ToggleGroup` sorts by **Newest**, **Updated** or **Shortest read**, and another filters by one topic, each with its number of posts. There is no sort by popularity: the site counts no views.
+
+- **Search.** `filterBlogPosts` in `src/lib/blog-archive.ts` keeps the posts that contain every word of the query, in any order, in the title, the summary, a tag or its label in the page's language. `normalizeSearchText` compares without case, without Latin accents and with full-width letters folded, so `securite` finds _Sécurité_ and `ＴａｎＳｔａｃｋ` finds _TanStack_. The search runs in the browser over the index the page already has, as the reader types.
+- **Sorting.** `sortBlogPosts` orders by the publication date, by the latest change (`updated`, or `date` for a post never updated) or by reading time, the newest first among equals.
+- **The address is the state.** The route's `validateSearch` reads `q`, `tag`, `sort` and `page` with the helpers of `src/lib/search-params.ts`; `stripSearchParams` keeps the default sort out of the address. Every change replaces the history entry without scrolling, so **Back** leaves the blog instead of undoing a keystroke, and a link such as `/blog?tag=auth&sort=updated` opens the archive that way.
+- **The prerendered page is the default view.** `/blog` is a static file, and Cloudflare serves the same file whatever the query string, so the server's HTML always lists the first page, newest first. `PostArchive` reads the address only once the page has hydrated (`useHydrated`), so the first render in the browser matches that HTML and React never discards it; the search, topic and sort then apply.
+- **More posts.** Under the rows, **Load more posts** is a link to `/blog/page/2`. Without JavaScript, and for crawlers, it opens that page, which links on to the next; with JavaScript, a plain click adds the next page of rows in place and records `page=2` in the address, and a click that opens a new tab or window still goes to the link. There is no infinite scroll: every post stays one link away.
+- **Nothing found.** When no post matches, the archive says so and **Show all posts** clears the search and the topic.
+
+Each control is named in every locale under `archive` in `pages.blog`, and the topics by their labels under `tags`.
+
+## Beside and after a post
+
+On screens at least `xl` wide, a post has two rails: `PostRail` on the left lists every post of the locale, newest first, and marks the one being read with `aria-current="page"` (TanStack Router's own `data-status="active"`); `PostToc` on the right is the table of contents. Each rail sticks below the header and scrolls on its own when it is taller than the window, and `PostRail` scrolls the current post into its view once the page has hydrated. On narrower screens the rail is left out, and the post ends with `PostRelated`, its related posts and **See all \<n> posts**, which links to `/blog`.
 
 ## Sharing
 
@@ -54,7 +79,7 @@ Every heading in a post links to itself, and its copy button copies the link to 
 
 `PostAuthor` names the author from the frontmatter alone: `authorName`, the image at `authorImage` when there is one, and a link to `authorUrl` with `rel="author"` when there is one. It adds no title, biography or claim the frontmatter does not make.
 
-`PostRelated` lists the posts `relatedBlogPosts` picked, with their dates and reading times, so every post links to others on the same subjects. It renders nothing when the locale has no other post.
+`PostRelated` lists the posts `relatedBlogPosts` picked, with their dates and reading times, so every post links to others on the same subjects, and ends with a link to every post. It renders nothing when the locale has no other post.
 
 ## Feed
 
@@ -62,13 +87,13 @@ Each locale has an RSS 2.0 feed of its blog at `BLOG_FEED.PATH` in `src/lib/feed
 
 - The channel takes its title, link and description from the locale's blog index, and names its own URL in an `atom:link rel="self"`.
 - Each post is an item with its title, canonical URL as `link` and `guid`, `article:published_time` as `pubDate`, the author as `dc:creator`, each tag in the page's language as a `category` and its description. Items are newest first, and `lastBuildDate` is the latest publication or update date of the posts.
-- Only pages the sitemap lists are read, and an unpublished post is never prerendered, so a draft never reaches a feed. The build fails when a post has no publication date or a locale has no blog index.
+- Only pages the sitemap lists are read, and an unpublished post is never prerendered, so a draft never reaches a feed. The archive's later pages, under `/blog/page/`, are not posts and are left out. The build fails when a post has no publication date or a locale has no blog index.
 
 The prerenderer follows links, and the feed link on the blog index points at a file the build writes afterwards, so `shouldPrerender` in `src/data/tanstack.vite.ts` skips every path with a file extension. After a deploy, `verify-deployment.ts` requests the English feed with the rest of the live checks.
 
 ## Tags
 
-Tags label posts and fill the `article:tag` tags, the feed's categories and the structured data's `keywords`, but they have no pages of their own. Most tags label very few posts, so a page per tag in every locale would list what the blog index already lists, and search engines treat such near-empty archives as thin content. Tag pages are worth adding once each tag gathers enough posts to need its own list; until then they would only multiply the URLs to crawl.
+Tags label posts, filter the archive on `/blog` and fill the `article:tag` tags, the feed's categories and the structured data's `keywords`, but they have no pages of their own: the topic filter lives in the `tag` query parameter, which the prerendered `/blog` names as its own canonical URL. Most tags label very few posts, so a page per tag in every locale would list what the blog index already lists, and search engines treat such near-empty archives as thin content. Tag pages are worth adding once each tag gathers enough posts to need its own list; until then they would only multiply the URLs to crawl.
 
 ## Editing
 
@@ -78,4 +103,4 @@ Posts are MDX files in Git. The admin has no blog editor: a post is written, rev
 
 Run `bun run content` after adding a post. `bun scripts/check-content.ts` verifies that every locale exists, that titles, descriptions and excerpts are translated, that code blocks are identical, and that every locale of a post has the same `date` and `updated`.
 
-`blog-routes.component.test.tsx` checks every share target's URL, the copy confirmation, the system share sheet, the author block, the related posts, the feed link and the post's metadata; `feed.test.ts` checks the feeds. In the browser suite, `blog-share.spec.ts` shares a post on a desktop and on a phone, with and without JavaScript, and `seo.spec.ts` reads every locale's feed and compares it with the published posts.
+`blog-routes.component.test.tsx` checks the featured, latest and recently updated posts, the search, topic filter, sorting and **Load more posts** of the archive, the archive pages, the rail beside a post, every share target's URL, the copy confirmation, the system share sheet, the author block, the related posts, the feed link and the post's metadata; `blog-archive.test.ts` checks the search and the sorting, `fumadocs.blog.test.ts` the lists picked from the index and `feed.test.ts` the feeds. In the browser suite, `blog-index.spec.ts` searches, filters, sorts and loads more posts with JavaScript, follows the archive's pages without it, checks the canonical and neighbouring links of every archive page and the landing page's Notes; `blog-share.spec.ts` shares a post on a desktop and on a phone, with and without JavaScript, and `seo.spec.ts` reads every locale's feed and compares it with the published posts.

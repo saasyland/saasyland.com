@@ -57,6 +57,7 @@ import { Route as SiteMarketingNewsletterConfirmRouteImport } from './routes/_si
 import { Route as SiteMarketingNewsletterUnsubscribeRouteImport } from './routes/_site._marketing.newsletter.unsubscribe'
 import { Route as ApiCliV1ActivationsRouteImport } from './routes/api/cli.v1.activations'
 import { Route as ApiCliV1LicenseRouteImport } from './routes/api/cli.v1.license'
+import { Route as SiteMarketingBlogPagePageRouteImport } from './routes/_site._marketing.blog.page.$page'
 import { Route as SiteMarketingCoursesCourseIndexRouteImport } from './routes/_site._marketing.courses.$course.index'
 import { Route as SiteMarketingCoursesCourseLessonRouteImport } from './routes/_site._marketing.courses.$course.$lesson'
 import { Route as AdminCoursesCourseIdLessonsLessonIdRouteImport } from './routes/admin.courses.$courseId_.lessons.$lessonId'
@@ -304,6 +305,12 @@ const ApiCliV1LicenseRoute = ApiCliV1LicenseRouteImport.update({
   path: '/api/cli/v1/license',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteMarketingBlogPagePageRoute =
+  SiteMarketingBlogPagePageRouteImport.update({
+    id: '/page/$page',
+    path: '/page/$page',
+    getParentRoute: () => SiteMarketingBlogRoute,
+  } as any)
 const SiteMarketingCoursesCourseIndexRoute =
   SiteMarketingCoursesCourseIndexRouteImport.update({
     id: '/$course/',
@@ -382,6 +389,7 @@ export interface FileRoutesByFullPath {
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
   '/blog/': typeof SiteMarketingBlogIndexRoute
   '/courses/': typeof SiteMarketingCoursesIndexRoute
+  '/blog/page/$page': typeof SiteMarketingBlogPagePageRoute
   '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/admin/courses/$courseId/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
@@ -428,6 +436,7 @@ export interface FileRoutesByTo {
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
   '/blog': typeof SiteMarketingBlogIndexRoute
   '/courses': typeof SiteMarketingCoursesIndexRoute
+  '/blog/page/$page': typeof SiteMarketingBlogPagePageRoute
   '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/admin/courses/$courseId/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
@@ -484,6 +493,7 @@ export interface FileRoutesById {
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
   '/_site/_marketing/blog/': typeof SiteMarketingBlogIndexRoute
   '/_site/_marketing/courses/': typeof SiteMarketingCoursesIndexRoute
+  '/_site/_marketing/blog/page/$page': typeof SiteMarketingBlogPagePageRoute
   '/_site/_marketing/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/admin/courses/$courseId_/lessons/$lessonId': typeof AdminCoursesCourseIdLessonsLessonIdRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
@@ -539,6 +549,7 @@ export interface FileRouteTypes {
     | '/api/cli/v1/license'
     | '/blog/'
     | '/courses/'
+    | '/blog/page/$page'
     | '/courses/$course/$lesson'
     | '/admin/courses/$courseId/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
@@ -585,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/cli/v1/license'
     | '/blog'
     | '/courses'
+    | '/blog/page/$page'
     | '/courses/$course/$lesson'
     | '/admin/courses/$courseId/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
@@ -640,6 +652,7 @@ export interface FileRouteTypes {
     | '/api/cli/v1/license'
     | '/_site/_marketing/blog/'
     | '/_site/_marketing/courses/'
+    | '/_site/_marketing/blog/page/$page'
     | '/_site/_marketing/courses/$course/$lesson'
     | '/admin/courses/$courseId_/lessons/$lessonId'
     | '/api/cli/v1/activations/$activationId'
@@ -996,6 +1009,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCliV1LicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_site/_marketing/blog/page/$page': {
+      id: '/_site/_marketing/blog/page/$page'
+      path: '/page/$page'
+      fullPath: '/blog/page/$page'
+      preLoaderRoute: typeof SiteMarketingBlogPagePageRouteImport
+      parentRoute: typeof SiteMarketingBlogRoute
+    }
     '/_site/_marketing/courses/$course/': {
       id: '/_site/_marketing/courses/$course/'
       path: '/$course'
@@ -1037,11 +1057,13 @@ declare module '@tanstack/react-router' {
 interface SiteMarketingBlogRouteChildren {
   SiteMarketingBlogSplatRoute: typeof SiteMarketingBlogSplatRoute
   SiteMarketingBlogIndexRoute: typeof SiteMarketingBlogIndexRoute
+  SiteMarketingBlogPagePageRoute: typeof SiteMarketingBlogPagePageRoute
 }
 
 const SiteMarketingBlogRouteChildren: SiteMarketingBlogRouteChildren = {
   SiteMarketingBlogSplatRoute: SiteMarketingBlogSplatRoute,
   SiteMarketingBlogIndexRoute: SiteMarketingBlogIndexRoute,
+  SiteMarketingBlogPagePageRoute: SiteMarketingBlogPagePageRoute,
 }
 
 const SiteMarketingBlogRouteWithChildren =

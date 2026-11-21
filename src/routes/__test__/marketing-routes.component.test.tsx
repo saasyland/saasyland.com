@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { act, cleanup, render, screen } from "@testing-library/react"
+import { act, cleanup, render, screen, within } from "@testing-library/react"
 import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -73,11 +73,12 @@ const legalText = (body: string): string => createTranslator({ locale: "en-US", 
 
 const summary = (title: string, slug: string): BlogPostSummary => ({
   date: "2026-09-01",
-  featured: false,
+  image: undefined,
   readingTimeMinutes: 5,
   summary: "Article summary",
   tags: [BLOG_TAG.TANSTACK_START],
   title,
+  updated: undefined,
   url: `/blog/${slug}`,
 })
 
@@ -122,11 +123,21 @@ vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
 }))
 
+const sectionOf = (heading: HTMLElement): HTMLElement => {
+  const container = heading.closest("section")
+  if (!container) {
+    throw new Error("Missing section")
+  }
+  return container
+}
+
+const STAR_COUNT = 98_765
+
 const routers: ReturnType<typeof createMarketingRouter>[] = []
 
 const createMarketingRouter = ({ path, post, posts }: { path: string; post: BlogPost; posts: BlogPostSummary[] }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(starCountQuery.queryKey, 456)
+  queryClient.setQueryData(starCountQuery.queryKey, STAR_COUNT)
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
   Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
@@ -134,7 +145,11 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   Object.assign(HomeRoute.options, {
     getParentRoute: () => MarketingRoute,
     id: "/",
-    loader: (): typeof HomeRoute.types.loaderData => ({ locale: "en-US", metadata: pagesLandingMessages.metadata, posts }),
+    loader: (): typeof HomeRoute.types.loaderData => ({
+      locale: "en-US",
+      metadata: pagesLandingMessages.metadata,
+      notes: { latest: posts.slice(1), lead: posts.at(0) },
+    }),
     path: "/",
   })
   for (const [route, pathName] of [
@@ -150,13 +165,21 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   Object.assign(BlogIndexRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/",
-    loader: (): typeof BlogIndexRoute.types.loaderData => ({ locale: "en-US", metadata: pagesBlogMessages.metadata, posts }),
+    loader: (): typeof BlogIndexRoute.types.loaderData => ({
+      featured: [],
+      latest: [],
+      locale: "en-US",
+      metadata: pagesBlogMessages.metadata,
+      pages: 1,
+      posts,
+      updated: [],
+    }),
     path: "/",
   })
   Object.assign(BlogPostRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post, section: pagesBlogMessages.metadata.title }),
+    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post, posts: [], section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
   const blog = BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])
@@ -273,7 +296,7 @@ describe("public route content", () => {
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {
     await renderRoute("/")
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
-    expect(screen.getByText("456", { selector: "dd" })).toBeVisible()
+    expect(screen.getByText(new Intl.NumberFormat("en-US").format(STAR_COUNT), { selector: "dd" })).toBeVisible()
     expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()
     expect(screen.getByRole("navigation", { name: componentsNavigationMessages.ariaLabel })).toBeVisible()
@@ -285,12 +308,40 @@ describe("public route content", () => {
     expect(document.querySelector('script[type="application/ld+json"]')?.innerHTML).toBe(html)
   })
 
-  it("lists the latest notes in the order the server selected them, with their reading time", async () => {
-    await renderRoute("/")
-    const titles = new Set(NOTES.map((note) => note.title))
-    const notes = screen.getAllByRole("heading", { level: 3 }).filter((heading) => titles.has(heading.textContent))
-    expect(notes.map((heading) => heading.textContent)).toEqual(["Featured", "Recent", "Older"])
-    expect(screen.getAllByText(/5 min read/u).length).toBeGreaterThan(0)
+  it("leads the notes with the featured post and its cover, then lists the latest posts in the order the server selected them", async () => {
+    await renderRoute("/", { posts: [{ ...summary("Featured", "featured"), image: "/images/blog/featured.webp" }, ...NOTES.slice(1)] })
+    const notes = sectionOf(screen.getByRole("heading", { level: 2, name: pagesLandingMessages.notes.title }))
+    expect(within(notes).getByRole("heading", { level: 3, name: "Featured" })).toBeVisible()
+    expect(within(notes).getByRole("link", { name: "Featured" })).toHaveAttribute("href", "/blog/featured")
+    expect(notes.querySelector('img[src="/images/blog/featured.webp"]')).toHaveAttribute("loading", "lazy")
+    expect(within(notes).getByRole("heading", { level: 3, name: pagesLandingMessages.notes.latest })).toBeVisible()
+    expect(
+      within(notes)
+        .getAllByRole("heading", { level: 4 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Recent", "Older"])
+    expect(within(notes).getAllByText(/5 min read/u)).toHaveLength(3)
+    expect(within(notes).getByRole("link", { name: pagesLandingMessages.notes.cta })).toHaveAttribute("href", "/blog")
+  })
+
+  it("keeps the notes without a lead post or summaries", async () => {
+    await renderRoute("/", { posts: [] })
+    const notes = sectionOf(screen.getByRole("heading", { level: 2, name: pagesLandingMessages.notes.title }))
+    expect(within(notes).queryByRole("heading", { level: 4 })).toBeNull()
+    expect(notes.querySelector("[data-slot=post-cover]")).toBeNull()
+    expect(within(notes).getByRole("link", { name: pagesLandingMessages.notes.cta })).toHaveAttribute("href", "/blog")
+  })
+
+  it("draws a cover for a lead post without an image and leaves out missing summaries", async () => {
+    await renderRoute("/", {
+      posts: [
+        { ...summary("Lead", "lead"), summary: undefined },
+        { ...summary("Plain", "plain"), summary: undefined },
+      ],
+    })
+    const notes = sectionOf(screen.getByRole("heading", { level: 2, name: pagesLandingMessages.notes.title }))
+    expect(notes.querySelector("[data-slot=post-cover]")).toHaveAttribute("aria-hidden", "true")
+    expect(within(notes).queryByText("Article summary")).toBeNull()
   })
 
   it("renders the empty blog state with its stylesheet", async () => {
@@ -305,7 +356,7 @@ describe("public route content", () => {
     const titles = new Set(NOTES.map((note) => note.title))
     expect(
       screen
-        .getAllByRole("heading", { level: 2 })
+        .getAllByRole("heading", { level: 3 })
         .map((heading) => heading.textContent)
         .filter((title) => titles.has(title)),
     ).toEqual(["Featured", "Recent", "Older"])

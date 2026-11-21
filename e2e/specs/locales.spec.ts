@@ -54,7 +54,7 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     await page.goto(`${prefix}/blog`)
     await appPage.waitForAppReady()
-    await page.locator(`main h2 a[href^="${prefix}/blog/"]`).first().click()
+    await page.locator(`main h3 a[href^="${prefix}/blog/"]`).first().click()
     await expect(page).toHaveURL(new RegExp(`${prefix}/blog/.+`, "u"))
     await appPage.waitForAppReady()
     await expect(page.locator("html")).toHaveAttribute("lang", locale)

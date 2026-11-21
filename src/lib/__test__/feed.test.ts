@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { blogArchivePath } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
@@ -71,6 +72,12 @@ describe("blog feeds", () => {
     expect(xml).toContain("<description>An older post</description>")
     expect(xml).toContain("<lastBuildDate>Wed, 18 Nov 2026 00:00:00 GMT</lastBuildDate>")
     expect(xml.match(/<dc:creator>/gu)).toHaveLength(1)
+  })
+
+  it("leaves the later pages of the blog's archive out of the feed", () => {
+    const xml = feedFor([...blogIndexes, page("en-US", blogArchivePath(2), { title: "Blog, page 2" })], "en-US")
+
+    expect(xml).not.toContain("<item>")
   })
 
   it("leaves pages outside the blog out of the feed", () => {

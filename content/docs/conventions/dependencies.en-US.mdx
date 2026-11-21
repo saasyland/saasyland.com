@@ -39,12 +39,12 @@ When the application already follows the documented usage and the new version is
 
 The current patches:
 
-- `patches/@tanstack%2Frouter-core@1.171.39.patch` stops the router's first render after hydration from scrolling the window back to the top.
+- `patches/@tanstack%2Frouter-core@1.171.39.patch` stops the router's first render after hydration from scrolling the window back to the top. It is reported upstream as [TanStack/router#8933](https://github.com/TanStack/router/issues/8933).
 - `patches/@tanstack%2Freact-router@1.170.46.patch` stops `lazyRouteComponent` from reloading a page whose route chunk the browser cancelled because the visitor is leaving. It is the fix proposed in [TanStack/router#8830](https://github.com/TanStack/router/pull/8830).
-- `patches/framer-motion@14.14.0.patch` makes `LazyMotion` ignore a feature bundle that fails to load instead of leaving the rejection unhandled. `motion` is pinned to 14.14.0 with it.
-- `patches/better-auth@1.7.27.patch` lets the `haveIBeenPwned` plugin hash a password outside a Better Auth endpoint, as `(await auth.$context).password.hash()` does in the integration tests, by reading the endpoint context with `tryGetCurrentAuthEndpointContext` instead of `getCurrentAuthEndpointContext`, which throws there. `better-auth` is pinned to 1.7.27 with it.
+- `patches/framer-motion@14.14.0.patch` makes `LazyMotion` ignore a feature bundle that fails to load instead of leaving the rejection unhandled. `motion` is pinned to 14.14.0 with it. Motion merged the fix for [motiondivision/motion#4089](https://github.com/motiondivision/motion/issues/4089) after releasing 14.14.0, so the patch goes with the first release that contains it.
+- `patches/better-auth@1.7.27.patch` lets the `haveIBeenPwned` plugin hash a password outside a Better Auth endpoint, as `(await auth.$context).password.hash()` does in the integration tests, by reading the endpoint context with `tryGetCurrentAuthEndpointContext` instead of `getCurrentAuthEndpointContext`, which throws there. `better-auth` is pinned to 1.7.27 with it. It is the fix proposed in [better-auth/better-auth#12873](https://github.com/better-auth/better-auth/pull/12873).
 
-`@tanstack/router-core` is a direct dependency, because `src/lib/stale-build.ts` imports `isModuleNotFoundError` from it, and is pinned to 1.171.39 so its patch keeps applying. `@tanstack/react-router` is pinned to 1.170.46 and `@tanstack/react-start` to 1.169.5, because they depend on exactly the patched TanStack versions. A patch to `fumadocs-mdx` 15.6.0 was carried the same way and removed when 15.6.1 shipped the upstream fix, and so were the patches to `@fumadocs/base-ui` and `fumadocs-core` 16.19.2 when 16.19.3 shipped theirs. The patch to `@videojs/utils` 10.4.0 went when 10.5.0 shipped its fix. A patch that gave the Fumadocs docs layout a `skipToContent` slot was removed when Fumadocs declined the slot; `globals.css` now hides Fumadocs' link, and the site's own skip link leads to the docs article (see [Docs site](/docs/features/docs-site)).
+`@tanstack/router-core` is a direct dependency, because `src/lib/stale-build.ts` imports `isModuleNotFoundError` from it, and is pinned to 1.171.39 so its patch keeps applying. `@tanstack/react-router` is pinned to 1.170.46 and `@tanstack/react-start` to 1.169.7, because they depend on exactly the patched TanStack versions. A patch to `fumadocs-mdx` 15.6.0 was carried the same way and removed when 15.6.1 shipped the upstream fix, and so were the patches to `@fumadocs/base-ui` and `fumadocs-core` 16.19.2 when 16.19.3 shipped theirs. The patch to `@videojs/utils` 10.4.0 went when 10.5.0 shipped its fix. A patch that gave the Fumadocs docs layout a `skipToContent` slot was removed when Fumadocs declined the slot; `globals.css` now hides Fumadocs' link, and the site's own skip link leads to the docs article (see [Docs site](/docs/features/docs-site)).
 
 A patch changes a package's files, not the versions Bun installs for it. When a package pins one of its own dependencies below the release the application uses, an `overrides` entry in `package.json` lifts it instead:
 
@@ -59,10 +59,11 @@ When no release of the parent allows the fix yet, an `overrides` entry lifts the
 - `package.json`: `"minimatch": "^11.0.1"`. `shadcn` reaches `minimatch` ^10 through `ts-morph` 26 and `@ts-morph/common`, and only `minimatch` 11.0.1 fixes GHSA-g3hv-75wg-m249. Delete it when `shadcn` depends on a `ts-morph` release that contains [dsherret/ts-morph#1697](https://github.com/dsherret/ts-morph/pull/1697).
 - `remotion/package.json`: `minimatch` ^11.0.1 under `@typescript-eslint/typescript-estree`, for the same advisory. `@remotion/eslint-config-flat` pins `typescript-eslint` 8.71.2, whose parser asks for `minimatch` ^10. Delete it when `@remotion/eslint-config-flat` depends on a `typescript-eslint` release that contains [typescript-eslint/typescript-eslint#13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145).
 
-`bun audit` still reports two advisories that have no fix to take:
+`bun audit` still reports one advisory that has no fix to take:
 
-- `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, low), through `shadcn` and `@shadcn/registry`. No fixed release exists, its CVE was rejected as not describing a vulnerability, and [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) asks GitHub to withdraw the advisory.
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, moderate), through `drizzle-kit` and `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 declares the loader but never imports it, and the advisory concerns esbuild's development server, which nothing here starts. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) tracks removing it; the `drizzle-kit` 1.0 release candidates no longer depend on it.
+
+GitHub withdrew the `deepmerge` 4.3.1 advisory (GHSA-gcqx-w48m-w2h4), which `shadcn` and `@shadcn/registry` pulled in, after [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910), so `bun audit` no longer reports it.
 
 ## The Vite+ entries in package.json
 

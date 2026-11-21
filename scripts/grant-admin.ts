@@ -1,4 +1,3 @@
-import { spawn } from "bun"
 import { and, eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/sqlite-proxy"
 import process from "node:process"
@@ -10,14 +9,13 @@ import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
+import { executeD1, inline } from "./d1-execute.ts"
+
 const SCRIPT_ARGUMENTS_START = 2
-const DATABASE_BINDING = "DB"
-const PARAMETER = "?"
 const SQLITE_TRUE = 1
 const USAGE = "Usage: bun run admin:grant:<local|preview|production> <email>"
 
 const environmentSchema = z.enum([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
-const sqlParameterSchema = z.union([z.string(), z.number()])
 const accountSchema = z.object({
   banned: z.number(),
   email: z.string(),
@@ -25,8 +23,6 @@ const accountSchema = z.object({
   id: z.string(),
   role: z.string(),
 })
-const statementResultSchema = z.object({ results: z.array(z.unknown()) })
-const outputSchema = z.array(statementResultSchema).min(1)
 
 type Account = z.infer<typeof accountSchema>
 
@@ -37,46 +33,11 @@ if (!environment.success || !email.success) {
   throw new Error(USAGE)
 }
 
-const location = environment.data === ENVIRONMENT.DEVELOPMENT ? "--local" : "--remote"
 const proxy = drizzle(() => Promise.resolve({ rows: [] }))
 
-const sqlLiteral = (value: unknown): string => {
-  const parameter = sqlParameterSchema.parse(value)
-  return typeof parameter === "number" ? String(parameter) : `'${parameter.replaceAll("'", "''")}'`
-}
-
-const inline = ({ params, sql }: { params: unknown[]; sql: string }): string => {
-  const pending = [...params]
-  return sql.replaceAll(PARAMETER, () => sqlLiteral(pending.shift()))
-}
-
 const execute = async (statement: string): Promise<unknown[]> => {
-  const child = spawn(
-    [
-      "vp",
-      "exec",
-      "wrangler",
-      "d1",
-      "execute",
-      DATABASE_BINDING,
-      "--env",
-      environment.data,
-      location,
-      "--json",
-      "--yes",
-      "--command",
-      statement,
-    ],
-    { stderr: "inherit", stdin: "inherit", stdout: "pipe" },
-  )
-  const [output, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited])
-  if (exitCode !== 0) {
-    throw new Error(
-      `wrangler d1 execute failed on the ${environment.data} database. Run wrangler login with an account that can write to it.`,
-    )
-  }
-
-  return outputSchema.parse(JSON.parse(output)).flatMap(({ results }) => results)
+  const results = await executeD1({ environment: environment.data, input: ["--command", statement] })
+  return results.flat()
 }
 
 const findAccount = async (): Promise<Account | undefined> => {

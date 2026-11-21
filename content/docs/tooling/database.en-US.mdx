@@ -39,25 +39,26 @@ Installing dependencies and building never migrate a database.
 
 ## Commands
 
-| Command                                                             | Database                         | Does                                                                                          |
-| ------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| `bun run db:generate`                                               | none                             | A new migration from the schema diff (drizzle-kit)                                            |
-| `bun run db:migrate:local`                                          | Local `development`              | Applies the migrations                                                                        |
-| `bun run db:migrations:local`                                       | Local `development`              | Lists the migrations not applied yet; changes nothing                                         |
-| `bun run db:reset:local`                                            | Local `development`              | Deletes `.wrangler/state/v3/d1`, then applies every migration: an empty database              |
-| `bun run db:seed:local`                                             | Local `development`              | The local admin, the curriculum, licences and an order; see [The local seed](#the-local-seed) |
-| `bun run db:studio:local`                                           | Local `development`              | Drizzle Studio on the local SQLite file                                                       |
-| `bun run admin:grant:local`                                         | Local `development`              | Makes a verified account an admin; see [The first admin](#the-first-admin)                    |
-| `bun run db:migrate:test`                                           | Local `test` in `.wrangler/test` | Applies the migrations                                                                        |
-| `bun run db:seed:test`                                              | Local `test`                     | Test accounts, a licence, a video, a course with four lessons and a CLI template bundle       |
-| `bun run db:reset:test`                                             | Local `test`                     | Deletes `.wrangler/test`, then runs `db:migrate:test` and `db:seed:test`                      |
-| `bun run db:migrate:preview`, `bun run db:migrate:production`       | Remote                           | Applies the migrations                                                                        |
-| `bun run db:migrations:preview`, `bun run db:migrations:production` | Remote                           | Lists the migrations not applied yet; changes nothing                                         |
-| `bun run db:studio:preview`, `bun run db:studio:production`         | Remote                           | Drizzle Studio over the D1 HTTP API                                                           |
-| `bun run db:introspect:preview`, `bun run db:introspect:production` | Remote                           | drizzle-kit introspection over the D1 HTTP API                                                |
-| `bun run admin:grant:preview`, `bun run admin:grant:production`     | Remote                           | Makes a verified account an admin; see [The first admin](#the-first-admin)                    |
+| Command                                                             | Database                         | Does                                                                                                         |
+| ------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `bun run db:generate`                                               | none                             | A new migration from the schema diff (drizzle-kit)                                                           |
+| `bun run db:migrate:local`                                          | Local `development`              | Applies the migrations                                                                                       |
+| `bun run db:migrations:local`                                       | Local `development`              | Lists the migrations not applied yet; changes nothing                                                        |
+| `bun run db:reset:local`                                            | Local `development`              | Deletes `.wrangler/state/v3/d1`, then applies every migration: an empty database                             |
+| `bun run db:seed:local`                                             | Local `development`              | The local admin, the curriculum, licences and an order; see [The local seed](#the-local-seed)                |
+| `bun run db:studio:local`                                           | Local `development`              | Drizzle Studio on the local SQLite file                                                                      |
+| `bun run admin:grant:local`                                         | Local `development`              | Makes a verified account an admin; see [The first admin](#the-first-admin)                                   |
+| `bun run db:migrate:test`                                           | Local `test` in `.wrangler/test` | Applies the migrations                                                                                       |
+| `bun run db:seed:test`                                              | Local `test`                     | Test accounts, a licence, a video, a course with four lessons and a CLI template bundle                      |
+| `bun run db:reset:test`                                             | Local `test`                     | Deletes `.wrangler/test`, then runs `db:migrate:test` and `db:seed:test`                                     |
+| `bun run db:migrate:preview`, `bun run db:migrate:production`       | Remote                           | Applies the migrations                                                                                       |
+| `bun run db:migrations:preview`, `bun run db:migrations:production` | Remote                           | Lists the migrations not applied yet; changes nothing                                                        |
+| `bun run db:studio:preview`, `bun run db:studio:production`         | Remote                           | Drizzle Studio over the D1 HTTP API                                                                          |
+| `bun run db:introspect:preview`, `bun run db:introspect:production` | Remote                           | drizzle-kit introspection over the D1 HTTP API                                                               |
+| `bun run admin:grant:preview`, `bun run admin:grant:production`     | Remote                           | Makes a verified account an admin; see [The first admin](#the-first-admin)                                   |
+| `bun run courses:sync:preview`                                      | Remote `preview`                 | Copies production's published courses; see [Copying the courses to preview](#copying-the-courses-to-preview) |
 
-`deploy:preview`, `deploy:production` and the CI deployment run `db:migrate:preview` or `db:migrate:production` before `wrangler deploy`. Nothing seeds a remote database.
+`deploy:preview`, `deploy:production` and the CI deployment run `db:migrate:preview` or `db:migrate:production` before `wrangler deploy`. No deployment seeds a remote database.
 
 ## Drizzle Studio
 
@@ -84,9 +85,24 @@ Sign in at http://localhost:3000/auth/sign-in with the admin and open `/admin/co
 ## Course data in each environment
 
 - Local: `bun run db:seed:local` imports the curriculum.
-- Preview and production: an admin imports `content/courses/saasy-land-courses.json` in the admin. Sign in as an admin, open **Content → Courses**, choose **Import**, pick the file, run **Check file**, read the plan, then **Import**. Importing the same file again changes nothing. See [Import and export](/docs/features/courses#import-and-export).
+- Production: an admin imports `content/courses/saasy-land-courses.json` in the admin. Sign in as an admin, open **Content → Courses**, choose **Import**, pick the file, run **Check file**, read the plan, then **Import**. Importing the same file again changes nothing. See [Import and export](/docs/features/courses#import-and-export).
+- Preview: `bun run courses:sync:preview` copies the published courses of production, so preview shows the catalogue that production shows.
 
-No script writes course data to a remote database.
+### Copying the courses to preview
+
+```sh
+bunx wrangler login
+bun run courses:sync:preview
+```
+
+`scripts/sync-courses.ts` reaches D1 the way `admin:grant:*` does, through `wrangler d1 execute --remote` and the shared `scripts/d1-execute.ts`. It sends production `SELECT` statements only, and writes preview in one `--file` run. It copies, row for row with their ids and timestamps:
+
+- every published course, with its chapters, its lessons and their link attachments; a row preview already has is updated by its id, so a second run changes nothing that production has not changed;
+- the `video` rows those lessons use, as placeholders. A video's files are in production's `MEDIA` bucket and are not copied, so on preview its lessons show as [being recorded](/docs/features/courses#being-recorded) instead of failing to play. A video row preview already has keeps its placeholder flag.
+
+Within the courses it copies, it deletes the chapters, lessons and link attachments that production no longer has, with preview's progress on those lessons, and it deletes a preview course that production no longer publishes. It copies no file attachments, whose files are in production's bucket, and nothing outside these tables: no users, sessions, licences, orders, subscriptions or progress. A lesson pointed at another video in preview's lesson editor points at production's video again after the next run.
+
+It stops before writing when a preview course has the slug of a production course with another id, such as one imported from the curriculum file; delete that course in preview's admin, then run it again. It prints what it created, updated and removed in each table, then counts the rows in preview and fails if they differ from production's.
 
 ## The first admin
 

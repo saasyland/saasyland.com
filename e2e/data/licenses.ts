@@ -1,5 +1,5 @@
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
-import { LICENSE_STATUS, LICENSE_TIER } from "../../src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIER, type LicenseStatus, type LicenseTier } from "../../src/modules/license/license.constants"
 
 const PARALLEL_WORKERS = 8
 const UUID_NODE_DIGITS = 12
@@ -61,6 +61,29 @@ const cliTestLicense = (parallelIndex: number) => {
 export const TEST_CLI_LICENSES = Array.from({ length: PARALLEL_WORKERS }, (_, parallelIndex) => cliTestLicense(parallelIndex))
 
 export const TEST_LICENSES = [TEST_LICENSE, TEST_COURSE_LICENSE, ...TEST_CLI_LICENSES]
+
+const tierTestLicense = (tier: LicenseTier, status: LicenseStatus) => {
+  const id = `test-${tier}-${status}`
+
+  return {
+    id: `${id}-license`,
+    key: `SAASY-TEST-${tier.toUpperCase()}-${status.toUpperCase()}`,
+    polarCustomerId: `cus_${id}`,
+    polarLicenseKeyId: `lk_${id}`,
+    polarOrderId: `ord_${id}`,
+    status,
+    tier,
+    user: { email: `${id}@example.test`, id, name: `Test ${tier} ${status} licensee`, role: ROLE_CODES.CUSTOMER },
+  } as const
+}
+
+export const TEST_TIER_LICENSES = [
+  tierTestLicense(LICENSE_TIER.AGENCY, LICENSE_STATUS.ACTIVE),
+  tierTestLicense(LICENSE_TIER.AGENCY, LICENSE_STATUS.REFUNDED),
+  tierTestLicense(LICENSE_TIER.AGENCY, LICENSE_STATUS.REVOKED),
+  tierTestLicense(LICENSE_TIER.COMPLETE, LICENSE_STATUS.REFUNDED),
+  tierTestLicense(LICENSE_TIER.CORE, LICENSE_STATUS.REVOKED),
+]
 
 export const TEST_UNLICENSED_ORDER = {
   customerId: "cus_test-unlicensed",

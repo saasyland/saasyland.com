@@ -138,9 +138,9 @@ describe("admin catalog", () => {
   })
 
   it.each([
-    [null, "4900 USD"],
-    ["", "4900 USD"],
-    ["month", "/ month"],
+    [null, "$49.00"],
+    ["", "$49.00"],
+    ["month", "$49.00 / month"],
   ])("displays billing information consistently for %s", (billingCycle, expected) => {
     renderProducts([adminProduct({ billingCycle })])
     const [, row] = screen.getAllByRole("row")
@@ -154,6 +154,19 @@ describe("admin catalog", () => {
       pagesAdminProductsMessages.table.headers.status,
     ])
     expect(within(row ?? document.body).queryByRole("button")).toBeNull()
+  })
+
+  it.each([
+    ["USD", 4900, "$49.00"],
+    ["EUR", 1999, "€19.99"],
+    ["JPY", 4900, "¥4,900"],
+    ["KRW", 59_000, "₩59,000"],
+  ] as const)("shows a %s price of %i minor units as %s", (currency, priceCents, expected) => {
+    renderProducts([adminProduct({ currency, priceCents })])
+    const [, row] = screen.getAllByRole("row")
+
+    expect(within(row ?? document.body).getByText(expected)).toBeVisible()
+    expect(row).not.toHaveTextContent(String(priceCents))
   })
 })
 

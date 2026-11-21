@@ -367,6 +367,19 @@ export const LICENSE_FLOWS = [
     tests: [{ spec: "license.spec.ts", title: "admin finds a paid licence order without a licence on the dashboard, linked to the order in Polar" }],
   },
   {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-licence-counts",
+    outcome: "The admin dashboard counts the licences of each tier in D1 by status: active, revoked and refunded",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-dashboard.spec.ts",
+        title:
+          "the dashboard counts each tier's licences by status, the seeded revoked ones exactly and the active and refunded ones purchases add to",
+      },
+    ],
+  },
+  {
     area: FLOW_AREA.LICENCE,
     id: "licence-navigation",
     outcome: "A customer opens Licence from the app navigation and from the phone sidebar, in English and Polish",

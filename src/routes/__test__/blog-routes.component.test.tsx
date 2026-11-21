@@ -1,24 +1,25 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { getRequest } from "@tanstack/react-start/server"
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
-import { IntlProvider, createTranslator } from "use-intl"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { createTranslator } from "use-intl"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
-import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
+import { getNavigationLabel } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { Route as SiteRoute } from "~/src/routes/_site"
-import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
-import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
-import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
-import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
+import {
+  GUIDE,
+  MINIMAL,
+  POLISH_GUIDE,
+  RELATED,
+  SHARED_TITLE,
+  metaTimes,
+  renderBlog,
+  section,
+  useBlogTestEnvironment,
+} from "~/src/routes/__test__/fixtures/blog-router"
 
 import { BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
@@ -30,169 +31,12 @@ import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.
 import plContentNavigationMessages from "~/messages/pl-PL/navigation.content.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
-import type { RouterContext } from "~/src/router"
-
-type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
-
-const SHARED_TITLE = "React & SaaS / launch"
-
-const RELATED: BlogPostSummary = {
-  date: "2026-08-15",
-  featured: false,
-  readingTimeMinutes: 9,
-  summary: "Related summary",
-  tags: [BLOG_TAG.SAAS],
-  title: "Related guide",
-  url: "/blog/related",
-}
-
-const GUIDE: BlogPost = {
-  authorImage: "/images/blog/authors/ada.webp",
-  authorName: "Ada",
-  authorUrl: "https://github.com/ada",
-  date: "2026-09-01",
-  description: "Article description",
-  faq: undefined,
-  featured: false,
-  image: undefined,
-  path: "guide.en-US.mdx",
-  readingTimeMinutes: 5,
-  related: [RELATED],
-  summary: "Article summary",
-  tags: [BLOG_TAG.TANSTACK_START, BLOG_TAG.SAAS],
-  title: SHARED_TITLE,
-  toc: [
-    { depth: 2, title: "Start", url: "#start" },
-    { depth: 3, title: "Detail", url: "#detail" },
-  ],
-  updated: undefined,
-  url: "/blog/guide",
-}
-
-const POLISH_GUIDE: BlogPost = {
-  ...GUIDE,
-  authorImage: undefined,
-  authorUrl: undefined,
-  path: "guide.pl-PL.mdx",
-  related: [],
-  summary: undefined,
-  tags: [BLOG_TAG.TESTING, BLOG_TAG.TOOLING],
-  title: "Przewodnik",
-  toc: [{ depth: 2, title: "Start", url: "#start" }],
-  url: "/pl-PL/blog/guide",
-}
-
-const MINIMAL: BlogPostSummary = {
-  date: "2024-01-01",
-  featured: false,
-  readingTimeMinutes: 1,
-  summary: undefined,
-  tags: [],
-  title: "Minimal",
-  url: "/blog/minimal",
-}
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
 }))
 
-const routers: ReturnType<typeof createBlogRouter>[] = []
-
-const createBlogRouter = ({
-  locale,
-  path,
-  post,
-  posts,
-}: {
-  locale: SupportedLocale
-  path: string
-  post: BlogPost
-  posts: BlogPostSummary[]
-}) => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
-  Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
-  Object.assign(BlogRoute.options, { getParentRoute: () => MarketingRoute, id: "/blog", path: "/blog" })
-  Object.assign(BlogIndexRoute.options, {
-    getParentRoute: () => BlogRoute,
-    id: "/",
-    loader: (): typeof BlogIndexRoute.types.loaderData => ({ locale, metadata: pagesBlogMessages.metadata, posts }),
-    path: "/",
-  })
-  Object.assign(BlogPostRoute.options, {
-    getParentRoute: () => BlogRoute,
-    id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post, section: pagesBlogMessages.metadata.title }),
-    path: "/$",
-  })
-  const blog = BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])
-  const site = SiteRoute.addChildren([MarketingRoute.addChildren([blog])])
-  return createRouter({
-    context: { queryClient },
-    defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [path] }),
-    rewrite: { input: ({ url }) => deLocalizeUrl(url), output: ({ url }) => localizeUrl(url) },
-    routeTree: root.addChildren([site]),
-  })
-}
-
-const renderBlog = async ({
-  locale,
-  path,
-  post = GUIDE,
-  posts = [],
-}: {
-  locale: SupportedLocale
-  path: string
-  post?: BlogPost
-  posts?: BlogPostSummary[]
-}) => {
-  vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
-  const router = createBlogRouter({ locale, path, post, posts })
-  routers.push(router)
-  render(
-    <QueryClientProvider client={router.options.context.queryClient}>
-      <IntlProvider formats={I18N.FORMATS} locale={locale} messages={getTestMessages(locale)} timeZone={I18N.DEFAULT_TIMEZONE}>
-        <RouterProvider router={router} />
-      </IntlProvider>
-    </QueryClientProvider>,
-  )
-  await act(() => router.load())
-  return router
-}
-
-const section = (element: HTMLElement, selector: "aside" | "section"): HTMLElement => {
-  const container = element.closest(selector)
-  if (!container) {
-    throw new Error(`Missing ${selector}`)
-  }
-  return container
-}
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  vi.stubGlobal(
-    "IntersectionObserver",
-    class {
-      observe = vi.fn()
-      unobserve = vi.fn()
-      disconnect = vi.fn()
-    },
-  )
-  vi.stubGlobal("CSS", { supports: () => true })
-  vi.stubGlobal("scrollTo", vi.fn())
-})
-
-afterEach(() => {
-  cleanup()
-  for (const router of routers) {
-    router.options.context.queryClient.clear()
-  }
-  routers.length = 0
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
-})
+useBlogTestEnvironment()
 
 describe("blog routes", () => {
   it("keeps the blog navigation current and localizes the pricing and page links", async () => {
@@ -234,12 +78,12 @@ describe("blog routes", () => {
     expect(published).toHaveAttribute("datetime", "2026-09-01T00:00:00.000Z")
     expect(published.parentElement).toHaveTextContent(/^Published September 1, 2026$/u)
     expect(screen.queryByText(/^Updated /u)).not.toBeInTheDocument()
-    expect(document.querySelectorAll("article time")).toHaveLength(1)
+    expect(metaTimes()).toHaveLength(1)
   })
 
   it("leaves the update out when the post was updated on the day it was published", async () => {
     await renderBlog({ locale: "en-US", path: "/blog/guide", post: { ...GUIDE, updated: GUIDE.date } })
-    expect(document.querySelectorAll("article time")).toHaveLength(1)
+    expect(metaTimes()).toHaveLength(1)
   })
 
   it.each([
@@ -254,7 +98,7 @@ describe("blog routes", () => {
     "shows when a $locale post was published and when it was updated, each in its own time element",
     async ({ locale, post, ...labels }) => {
       await renderBlog({ locale, path: post.url, post: { ...post, updated: "2026-11-17" } })
-      const times = Array.from(document.querySelectorAll("article time"), (time) => ({
+      const times = metaTimes().map((time) => ({
         dateTime: time.getAttribute("datetime"),
         label: time.parentElement?.textContent,
       }))
@@ -281,11 +125,12 @@ describe("blog routes", () => {
   ])("preserves the server reading time when browser word segmentation differs in $locale", async ({ label, locale }) => {
     const post: BlogPostSummary = {
       date: "2026-09-01",
-      featured: false,
+      image: undefined,
       readingTimeMinutes: 14,
       summary: "A post with a reading time calculated by the server.",
       tags: [],
       title: "Server-provided reading time",
+      updated: undefined,
       url: `/${locale}/blog/post`,
     }
     const browserWords = new Intl.Segmenter(locale, { granularity: "word" }).segment("one")
@@ -344,7 +189,9 @@ describe("the end of a blog post and its metadata", () => {
     await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog", posts: [GUIDE] })
     expect(screen.getByRole("link", { name: plPagesBlogMessages.index.feed })).toHaveAttribute("href", "/pl-PL/blog/rss.xml")
     const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
-    expect(structuredData).toMatchObject({ "@type": "Blog", blogPost: [{ headline: SHARED_TITLE }], inLanguage: "pl-PL" })
+    expect(structuredData).toMatchObject({
+      "@graph": [{ "@type": "Blog", blogPost: [{ headline: SHARED_TITLE }], inLanguage: "pl-PL" }, { "@type": "ItemList" }],
+    })
   })
 })
 
@@ -447,5 +294,34 @@ describe("sharing a blog post", () => {
     } finally {
       Reflect.deleteProperty(navigator, "share")
     }
+  })
+})
+
+describe("the posts beside a post", () => {
+  it("lists every post beside the article, marks the one being read and scrolls it into the list's view", async () => {
+    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(300)
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600)
+    const scrollTop = vi.spyOn(Element.prototype, "scrollTop", "set")
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+
+    const rail = within(screen.getByRole("navigation", { name: pagesBlogMessages.post.rail }))
+    expect(rail.getByRole("link", { name: SHARED_TITLE })).toHaveAttribute("aria-current", "page")
+    expect(rail.getByRole("link", { name: "Related guide" })).not.toHaveAttribute("aria-current")
+    expect(offsetTop).toHaveBeenCalled()
+    expect(scrollTop).toHaveBeenCalledWith(100)
+  })
+
+  it("leaves the list where it is when the post being read is not in it", async () => {
+    const scrollTop = vi.spyOn(Element.prototype, "scrollTop", "set")
+    await renderBlog({ locale: "en-US", path: "/blog/guide", rail: [{ title: RELATED.title, url: RELATED.url }] })
+
+    expect(screen.getByRole("navigation", { name: pagesBlogMessages.post.rail })).toBeInTheDocument()
+    expect(scrollTop).not.toHaveBeenCalled()
+  })
+
+  it("ends a post with its related posts and a link to every post", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+
+    expect(screen.getByRole("link", { name: "See all 2 posts" })).toHaveAttribute("href", "/blog")
   })
 })

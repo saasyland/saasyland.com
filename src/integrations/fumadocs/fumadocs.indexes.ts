@@ -139,7 +139,6 @@ const buildBlogIndex = (source: BlogSource, locale: SupportedLocale) =>
         date: toDate(data.date),
         description: data.description,
         faq: data.faq,
-        featured: data.featured === true,
         image: data.image,
         path,
         readingTimeMinutes: readingTimeMinutes({ content: data.content, locale }),

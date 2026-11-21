@@ -6,6 +6,8 @@ import {
   ORGANIZATION_LOGO,
   ORGANIZATION_STRUCTURED_DATA_HTML,
   SOCIAL_IMAGE,
+  buildBlogArchiveStructuredData,
+  buildBlogArchiveStructuredDataHtml,
   buildBlogPostStructuredData,
   buildBlogPostStructuredDataHtml,
   buildBlogStructuredData,
@@ -147,31 +149,136 @@ describe("blog structured data", () => {
     { date: new Date("2026-08-15"), title: "Older", url: "/de-DE/blog/older" },
   ]
 
-  it("describes the blog with its posts in the page's language", () => {
-    expect(buildBlogStructuredData({ description: "Notizen", locale: "de-DE", posts: POSTS, title: "Blog" })).toStrictEqual({
+  it("describes the blog with every post and lists the posts of its first page in the page's language", () => {
+    expect(
+      buildBlogStructuredData({
+        description: "Notizen",
+        listed: POSTS.slice(0, 1),
+        locale: "de-DE",
+        offset: 0,
+        pathname: ROUTES.BLOG,
+        posts: POSTS,
+        title: "Blog",
+        total: POSTS.length,
+      }),
+    ).toStrictEqual({
       "@context": "https://schema.org",
-      "@type": "Blog",
-      blogPost: [
-        { "@type": "BlogPosting", datePublished: "2026-11-17T00:00:00.000Z", headline: "Newest", url: `${APP_URL}/de-DE/blog/newest` },
-        { "@type": "BlogPosting", datePublished: "2026-08-15T00:00:00.000Z", headline: "Older", url: `${APP_URL}/de-DE/blog/older` },
+      "@graph": [
+        {
+          "@id": `${APP_URL}/de-DE/blog#blog`,
+          "@type": "Blog",
+          blogPost: [
+            { "@type": "BlogPosting", datePublished: "2026-11-17T00:00:00.000Z", headline: "Newest", url: `${APP_URL}/de-DE/blog/newest` },
+            { "@type": "BlogPosting", datePublished: "2026-08-15T00:00:00.000Z", headline: "Older", url: `${APP_URL}/de-DE/blog/older` },
+          ],
+          description: "Notizen",
+          inLanguage: "de-DE",
+          mainEntityOfPage: { "@id": `${APP_URL}/de-DE/blog#posts` },
+          name: `Blog – ${APP_NAME}`,
+          publisher: ORGANIZATION,
+          url: `${APP_URL}/de-DE/blog`,
+        },
+        {
+          "@id": `${APP_URL}/de-DE/blog#posts`,
+          "@type": "ItemList",
+          itemListElement: [{ "@type": "ListItem", name: "Newest", position: 1, url: `${APP_URL}/de-DE/blog/newest` }],
+          itemListOrder: "https://schema.org/ItemListOrderDescending",
+          numberOfItems: 2,
+        },
       ],
-      description: "Notizen",
-      inLanguage: "de-DE",
-      name: `Blog – ${APP_NAME}`,
-      publisher: ORGANIZATION,
-      url: `${APP_URL}/de-DE/blog`,
     })
   })
 
   it("escapes the blog's structured data", () => {
     const { __html: html } = buildBlogStructuredDataHtml({
       description: "</script>",
+      listed: [],
       locale: "en-US",
+      offset: 0,
+      pathname: ROUTES.BLOG,
       posts: [],
       title: "Blog",
+      total: 0,
     })
     expect(html).not.toContain("<")
-    expect(JSON.parse(html)).toMatchObject({ blogPost: [], description: "</script>", url: `${APP_URL}${ROUTES.BLOG}` })
+    expect(JSON.parse(html)).toMatchObject({ "@graph": [{ blogPost: [], description: "</script>", url: `${APP_URL}${ROUTES.BLOG}` }, {}] })
+  })
+
+  it("describes a later archive page as part of the blog, with its posts numbered across the archive and its breadcrumbs", () => {
+    const { __html: html } = buildBlogArchiveStructuredDataHtml({
+      blogTitle: "Blog",
+      description: "Notizen",
+      listed: POSTS.slice(1),
+      locale: "de-DE",
+      offset: 12,
+      pathname: "/blog/page/2",
+      title: "Blog, Seite 2",
+      total: 13,
+    })
+
+    expect(html).not.toContain("<")
+    expect(JSON.parse(html)).toStrictEqual(
+      buildBlogArchiveStructuredData({
+        blogTitle: "Blog",
+        description: "Notizen",
+        listed: POSTS.slice(1),
+        locale: "de-DE",
+        offset: 12,
+        pathname: "/blog/page/2",
+        title: "Blog, Seite 2",
+        total: 13,
+      }),
+    )
+    expect(JSON.parse(html)).toStrictEqual({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@id": `${APP_URL}/de-DE/blog/page/2`,
+          "@type": "CollectionPage",
+          description: "Notizen",
+          inLanguage: "de-DE",
+          isPartOf: { "@id": `${APP_URL}/de-DE/blog#blog`, "@type": "Blog", url: `${APP_URL}/de-DE/blog` },
+          mainEntity: { "@id": `${APP_URL}/de-DE/blog/page/2#posts` },
+          name: `Blog, Seite 2 – ${APP_NAME}`,
+          url: `${APP_URL}/de-DE/blog/page/2`,
+        },
+        {
+          "@id": `${APP_URL}/de-DE/blog/page/2#posts`,
+          "@type": "ItemList",
+          itemListElement: [{ "@type": "ListItem", name: "Older", position: 13, url: `${APP_URL}/de-DE/blog/older` }],
+          itemListOrder: "https://schema.org/ItemListOrderDescending",
+          numberOfItems: 13,
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", item: `${APP_URL}/de-DE`, name: APP_NAME, position: 1 },
+            { "@type": "ListItem", item: `${APP_URL}/de-DE/blog`, name: "Blog", position: 2 },
+            { "@type": "ListItem", item: `${APP_URL}/de-DE/blog/page/2`, name: "Blog, Seite 2", position: 3 },
+          ],
+        },
+      ],
+    })
+  })
+})
+
+describe("page sequences", () => {
+  it("links the previous and next pages of a sequence in the page's language", () => {
+    const { links } = buildPageHead({
+      locale: "pl-PL",
+      pathname: "/blog/page/2",
+      sequence: { next: "/blog/page/3", previous: ROUTES.BLOG },
+    })
+
+    expect(links).toContainEqual({ href: `${APP_URL}/pl-PL/blog`, rel: "prev" })
+    expect(links).toContainEqual({ href: `${APP_URL}/pl-PL/blog/page/3`, rel: "next" })
+    expect(links).toContainEqual({ href: `${APP_URL}/pl-PL/blog/page/2`, rel: "canonical" })
+  })
+
+  it("links no neighbour a page does not have", () => {
+    const { links } = buildPageHead({ pathname: ROUTES.BLOG })
+
+    expect(links.filter(({ rel }) => rel === "prev" || rel === "next")).toStrictEqual([])
   })
 })
 

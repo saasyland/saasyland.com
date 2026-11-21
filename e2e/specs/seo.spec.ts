@@ -4,6 +4,7 @@ import { basename, join } from "node:path"
 import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import * as zod from "zod"
 
+import { BLOG_ARCHIVE } from "../../src/data/blog"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
@@ -25,6 +26,7 @@ const REQUESTS_AT_ONCE = 16
 const FEED_ITEM = /<item>\s*<title>[^<]*<\/title>\s*<link>(?<link>[^<]+)<\/link>[\s\S]*?<pubDate>(?<published>[^<]+)<\/pubDate>/gu
 const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
 const POST_PREFIX = `${ROUTES.BLOG}/`
+const ARCHIVE_PREFIX = `${POST_PREFIX}${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 const UNPUBLISHED = /^published:\s*false\s*$/mu
 
 const BLOG_POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
@@ -117,7 +119,11 @@ test("every blog feed lists exactly the published posts of its language with the
     const response = await request.get(blogFeedPath(locale))
     const items = Array.from((await response.text()).matchAll(FEED_ITEM), ({ groups }) => [groups?.["link"], groups?.["published"]])
     const posts = pages
-      .filter(({ canonical, lang }) => lang === locale && deLocalizePathname(new URL(canonical).pathname).startsWith(POST_PREFIX))
+      .filter(({ canonical, lang }) => {
+        const pathname = deLocalizePathname(new URL(canonical).pathname)
+
+        return lang === locale && pathname.startsWith(POST_PREFIX) && !pathname.startsWith(ARCHIVE_PREFIX)
+      })
       .map(({ canonical, published }) => [canonical, new Date(published ?? "").toUTCString()])
 
     expect(response.status()).toBe(HTTP_STATUS.OK)

@@ -6,7 +6,7 @@ import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-rou
 import { useTranslations } from "use-intl/react"
 import { loadBlogIndex } from "virtual:content-indexes"
 
-import { relatedBlogPosts, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { relatedBlogPosts, toBlogPostLink, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import type { BlogIndex, BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
@@ -25,6 +25,7 @@ import { PostAuthor } from "~/src/presentation/components/custom/blog/post-autho
 import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
 import { usePostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 import { PostMeta } from "~/src/presentation/components/custom/blog/post-meta"
+import { PostRail } from "~/src/presentation/components/custom/blog/post-rail"
 import { PostRelated } from "~/src/presentation/components/custom/blog/post-related"
 import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
 import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
@@ -120,7 +121,8 @@ const BlogPostPage = (): JSX.Element => {
             />
           </div>
         )}
-        <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
+        <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr] xl:grid-cols-[13rem_minmax(0,1fr)_15rem] xl:gap-x-12">
+          <PostRail />
           <div className="min-w-0">
             <div className="mb-10 lg:hidden">
               <InlineTOC items={post.toc}>{t("post.contents")}</InlineTOC>
@@ -180,7 +182,12 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
       throw notFound()
     }
     await blogContent.preload(post.path)
-    return { locale, post: toPostData({ locale, post, posts }), section: blog.title }
+    return {
+      locale,
+      post: toPostData({ locale, post, posts }),
+      posts: posts.map((other) => toBlogPostLink(other, locale)),
+      section: blog.title,
+    }
   },
   pendingComponent: BlogPostPending,
   staticData: { namespaces: [NAMESPACE] },

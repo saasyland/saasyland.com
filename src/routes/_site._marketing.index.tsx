@@ -6,7 +6,7 @@ import { loadBlogIndex } from "virtual:content-indexes"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { blogNotes, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -39,8 +39,6 @@ import { StackSection } from "~/src/presentation/components/custom/landing-page/
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
 
 import { ROUTES } from "~/src/routes"
-
-const NOTE_COUNT = 3
 
 const LandingPage = (): JSX.Element => (
   <MotionProvider>
@@ -83,8 +81,15 @@ export const Route = createFileRoute("/_site/_marketing/")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    const notes = [...posts.filter(({ featured }) => featured), ...posts.filter(({ featured }) => !featured)]
-    return { locale, metadata, posts: notes.slice(0, NOTE_COUNT).map((post) => toBlogPostSummary(post, locale)) }
+    const { latest, lead } = blogNotes(posts)
+    return {
+      locale,
+      metadata,
+      notes: {
+        latest: latest.map((post) => toBlogPostSummary(post, locale)),
+        lead: lead === undefined ? undefined : toBlogPostSummary(lead, locale),
+      },
+    }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: [NAMESPACE], underHeader: true },

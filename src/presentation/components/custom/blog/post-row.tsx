@@ -1,17 +1,20 @@
 import type { JSX } from "react"
 
 import { Link } from "@tanstack/react-router"
-import { useFormatter, useTranslations } from "use-intl/react"
+import { useTranslations } from "use-intl/react"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 
+import { PostDate, PostTags } from "~/src/presentation/components/custom/blog/post-facts"
 import { HighlightItem } from "~/src/presentation/components/custom/highlight"
 
-export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Element => {
-  const t = useTranslations("pages.blog")
-  const format = useFormatter()
+interface PostRowProps {
+  readonly isUpdated?: boolean
+  readonly post: BlogPostSummary
+}
 
-  const tags = post.tags.map((tag) => t(`tags.${tag}`)).join(" · ")
+export const PostRow = ({ isUpdated = false, post }: PostRowProps): JSX.Element => {
+  const t = useTranslations("pages.blog")
 
   return (
     <HighlightItem
@@ -20,24 +23,26 @@ export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Elem
       id={post.url}
     >
       <div className="font-mono text-spec text-muted-foreground tabular-nums">
-        <p>{format.dateTime(new Date(post.date), "calendarDate")}</p>
-        <p className="mt-1 text-muted-foreground">{t("post.readingTime", { minutes: post.readingTimeMinutes })}</p>
+        <p>
+          <PostDate isUpdated={isUpdated} post={post} />
+        </p>
+        <p className="mt-1">{t("post.readingTime", { minutes: post.readingTimeMinutes })}</p>
       </div>
       <div className="min-w-0">
-        <h2 className="text-title text-balance text-foreground">
+        <h3 className="text-title text-balance text-foreground">
           <Link
             className="after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
             to={post.url}
           >
             {post.title}
           </Link>
-        </h2>
+        </h3>
         {post.summary !== undefined && post.summary.length > 0 && (
-          <p className="mt-2 max-w-[68ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground">
+          <p className="mt-2 line-clamp-3 max-w-[68ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground">
             {post.summary}
           </p>
         )}
-        {tags.length > 0 && <p className="mt-4 font-mono text-label text-muted-foreground uppercase">{tags}</p>}
+        <PostTags className="mt-4" tags={post.tags} />
       </div>
     </HighlightItem>
   )

@@ -1,6 +1,8 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { BLOG_ARCHIVE } from "~/src/data/blog"
+
 import type { PageHead } from "~/src/lib/page-head"
 import { buildTitle } from "~/src/lib/seo"
 import { escapeXml } from "~/src/lib/sitemap"
@@ -16,6 +18,7 @@ export const BLOG_FEED = {
 const ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
 const DUBLIN_CORE_NAMESPACE = "http://purl.org/dc/elements/1.1/"
 const POST_PREFIX = `${ROUTES.BLOG}/`
+const ARCHIVE_PREFIX = `${POST_PREFIX}${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 
 export interface BlogFeed {
   readonly path: string
@@ -95,7 +98,9 @@ export const buildBlogFeeds = (pages: readonly PageHead[]): BlogFeed[] =>
       throw new Error(`No ${locale} blog index is listed, so its blog feed would have no channel.`)
     }
 
-    const posts = own.filter((page) => pathOf(page).startsWith(POST_PREFIX)).map((page) => toFeedPost(page))
+    const posts = own
+      .filter((page) => pathOf(page).startsWith(POST_PREFIX) && !pathOf(page).startsWith(ARCHIVE_PREFIX))
+      .map((page) => toFeedPost(page))
 
     return { path: blogFeedPath(locale), xml: buildFeed({ index, locale, posts }) }
   })

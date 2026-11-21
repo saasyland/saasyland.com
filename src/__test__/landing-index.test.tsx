@@ -90,7 +90,7 @@ describe("landing page star count during server rendering", () => {
           .replace("{coverageThreshold, number}", String(REPOSITORY_FACTS.coverageThreshold))
           .replace("{languages, number}", String(REPOSITORY_FACTS.languages)),
       },
-      posts: [],
+      notes: { latest: [], lead: undefined },
     })
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBeUndefined()
   })

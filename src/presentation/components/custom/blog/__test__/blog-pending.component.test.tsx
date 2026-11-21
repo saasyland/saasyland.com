@@ -7,7 +7,7 @@ import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { BlogIndexPending, BlogPending, BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
+import { BlogArchivePending, BlogIndexPending, BlogPending, BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
 
 afterEach(cleanup)
 
@@ -15,6 +15,8 @@ describe("path-aware skeletons", () => {
   it.each([
     ["/blog", BlogIndexPending],
     ["/ja-JP/blog", BlogIndexPending],
+    ["/blog/page/2", BlogArchivePending],
+    ["/pl-PL/blog/page/3", BlogArchivePending],
     ["/blog/saasy-land-release", BlogPostPending],
   ])("renders the skeleton of the page at %s", (path, Page) => {
     const page = markupOf(<Page />)

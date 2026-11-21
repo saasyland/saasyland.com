@@ -44,6 +44,58 @@ export const CONTENT_FLOWS = [
   },
   {
     area: FLOW_AREA.CONTENT,
+    id: "blog-highlights",
+    outcome: "The blog leads with the posts FEATURED_BLOG_POSTS names, then the latest and the recently updated posts",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "blog-index.spec.ts", title: "leads the blog with the featured posts, then the latest and the recently updated posts" }],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
+    id: "blog-search",
+    outcome: "A visitor searches, filters by topic and sorts every post of the blog, and the address keeps the view without a hydration error",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "blog-index.spec.ts", title: "searches every post as the reader types and keeps the search in the address" },
+      { spec: "blog-index.spec.ts", title: "filters the posts by topic" },
+      { spec: "blog-index.spec.ts", title: "sorts the posts by their latest update and shows that date" },
+      { spec: "blog-index.spec.ts", title: "hydrates a filtered address onto the prerendered blog without a browser error" },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
+    id: "blog-more-posts",
+    outcome:
+      "A visitor loads more posts in place with JavaScript, or follows the archive's pages without it, and each archive page names its own canonical address and neighbours",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "blog-index.spec.ts", title: "loads the next posts in place without moving the page" },
+      { spec: "blog-index.spec.ts", title: "follows the archive's pages without JavaScript" },
+      { spec: "blog-index.spec.ts", title: "/blog/page/2 names its own canonical address and links the blog as its previous page" },
+      { spec: "blog-index.spec.ts", title: "/ja-JP/blog/page/2 names its own canonical address and links the blog as its previous page" },
+      { spec: "blog-index.spec.ts", title: "answers an archive page that does not exist with 404" },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
+    id: "blog-post-rail",
+    outcome: "On a wide screen a post lists every other post beside it and marks the one being read",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "blog-index.spec.ts", title: "lists every post beside a post and marks the one being read" }],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
+    id: "landing-notes",
+    outcome: "The landing page leads its notes with the featured post and links the latest posts in its prerendered HTML",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "blog-index.spec.ts",
+        title: "leads the landing page's notes with the featured post and links the latest posts, before JavaScript runs",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
     id: "blog-share",
     outcome: "A post shares its canonical address on every network and by copying it, with and without JavaScript, and links each section to itself",
     status: FLOW_STATUS.COVERED,

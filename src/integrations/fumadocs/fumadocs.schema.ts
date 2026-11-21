@@ -20,7 +20,6 @@ export const blogSchema = pageSchema
     date: blogDateSchema,
     excerpt: zod.string().optional(),
     faq: blogFaqSchema.optional(),
-    featured: zod.boolean().optional(),
     image: zod.string().optional(),
     published: zod.boolean().default(true),
     tags: zod.array(zod.enum(BLOG_TAGS)).optional(),

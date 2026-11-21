@@ -27,5 +27,6 @@ export const CONTENT_PAGES = [
   { path: "/docs/tooling/playwright" },
   { path: "/docs/ui/data-table" },
   { path: "/blog" },
+  { path: "/blog/page/2" },
   { path: "/blog/ai-coding-agents-repository-readiness" },
 ] as const satisfies readonly PageEntry[]

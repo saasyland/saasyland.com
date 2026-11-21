@@ -11,8 +11,9 @@ import { Route as SiteRoute } from "~/src/routes/_site"
 import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
 import { Route as NotFoundRoute } from "~/src/routes/_site._marketing.$"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
+import { Route as BlogArchiveRoute } from "~/src/routes/_site._marketing.blog.page.$page"
 
-import { BLOG_TAG } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_TAG } from "~/src/data/blog"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -25,17 +26,18 @@ import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
+import frPagesBlogMessages from "~/messages/fr-FR/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
-const { loadBlogIndex } = vi.hoisted(() => {
+const { loadBlogIndex } = await vi.hoisted(async () => {
+  const blog = await import("~/src/data/blog")
   const base = {
     authorName: "Ada",
     date: "2026-09-01",
     faq: undefined,
-    featured: false,
     image: undefined,
     readingTimeMinutes: 5,
     summary: "Article summary",
@@ -67,13 +69,20 @@ const { loadBlogIndex } = vi.hoisted(() => {
         ],
         updated: "2025-07-01",
       }),
-      post("featured", { date: "2025-01-01", featured: true, title: "Featured" }),
+      post(blog.FEATURED_BLOG_POSTS[0], { date: "2025-01-01", title: "Featured" }),
       post("minimal", { authorName: " ", date: "2024-01-01", summary: undefined, tags: [], title: "Minimal" }),
     ],
+    "fr-FR": Array.from({ length: blog.BLOG_ARCHIVE.PAGE_SIZE + 1 }, (_, index) =>
+      post(`article-${String(index + 1)}`, { title: `Article ${String(index + 1)}` }, "fr-FR"),
+    ),
     "pl-PL": [post("guide", { title: "Przewodnik" }, "pl-PL")],
   }
 
-  return { loadBlogIndex: vi.fn((locale: string) => Promise.resolve(posts[locale] ?? [])) }
+  return {
+    loadBlogIndex: vi.fn((locale: string) =>
+      locale === "it-IT" ? Promise.reject(new Error("The blog index could not be loaded")) : Promise.resolve(posts[locale] ?? []),
+    ),
+  }
 })
 
 vi.mock("virtual:content-indexes", () => ({ loadBlogIndex }))
@@ -121,14 +130,28 @@ const captureBlogPostLoad = async (path: string) => {
 }
 
 describe("landing loader", () => {
-  it("selects featured notes first, then the newest posts, without drafts", async () => {
+  it("leads the notes with the first featured post, then lists the newest others", async () => {
     const router = createRouterAt("/")
     router.options.context.queryClient.setQueryData(starCountQuery.queryKey, 456)
     await router.load()
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "en-US",
-      posts: [{ title: "Featured" }, { title: "Recent" }, { title: "Older" }],
+      notes: { latest: [{ title: "Recent" }, { title: "Older" }, { title: "Complete guide" }], lead: { title: "Featured" } },
     })
+  })
+
+  it("leads the notes with the newest post when the language has no featured post", async () => {
+    const router = createRouterAt("/pl-PL")
+    router.options.context.queryClient.setQueryData(starCountQuery.queryKey, 456)
+    await router.load()
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ notes: { latest: [], lead: { title: "Przewodnik" } } })
+  })
+
+  it("leaves the notes without a lead when the language has no post", async () => {
+    const router = createRouterAt("/de-DE")
+    router.options.context.queryClient.setQueryData(starCountQuery.queryKey, 456)
+    await router.load()
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ notes: { latest: [], lead: undefined } })
   })
 
   it("describes the page with the entry price from TIER_PRICES", async () => {
@@ -147,11 +170,14 @@ describe("landing loader", () => {
 })
 
 describe("blog index loader", () => {
-  it("lists the posts of the blog index with their summary, tags and reading time", async () => {
+  it("lists the posts of the blog index with their summary, tags and reading time, and picks the featured and latest posts", async () => {
     const router = await load("/blog")
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
+      featured: [{ title: "Featured" }],
+      latest: [{ title: "Recent" }, { title: "Older" }, { title: "Complete guide" }],
       locale: "en-US",
       metadata: pagesBlogMessages.metadata,
+      pages: 1,
       posts: [
         { readingTimeMinutes: 5, summary: "Article summary", tags: [BLOG_TAG.TANSTACK_START], title: "Recent", url: "/blog/recent" },
         { title: "Older" },
@@ -159,7 +185,70 @@ describe("blog index loader", () => {
         { title: "Featured" },
         { summary: undefined, tags: [], title: "Minimal" },
       ],
+      updated: [],
     })
+    expect(router.state.matches.at(-1)?.links?.filter((link) => link?.rel === "next")).toStrictEqual([])
+  })
+
+  it("names the archive's second page as the next page when the posts fill more than one", async () => {
+    const router = await load("/fr-FR/blog")
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ pages: 2 })
+    expect(router.state.matches.at(-1)?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}/page/2`, rel: "next" })
+  })
+})
+
+describe("blog index head", () => {
+  it("names no next page when the blog's posts fail to load", async () => {
+    const router = await load("/it-IT/blog")
+    const index = router.state.matches.at(-1)
+    expect(index?.status).toBe("error")
+    expect(index?.links?.filter((link) => link?.rel === "next")).toStrictEqual([])
+  })
+})
+
+describe("blog archive loader", () => {
+  it("lists one page of the archive under its own title, address and neighbours", async () => {
+    const router = await load("/fr-FR/blog/page/2")
+    const archive = router.state.matches.at(-1)
+    const title = `${frPagesBlogMessages.metadata.title}, page 2`
+
+    expect(archive?.routeId).toBe(BlogArchiveRoute.id)
+    expect(archive?.loaderData).toMatchObject({
+      blogTitle: frPagesBlogMessages.metadata.title,
+      listed: [
+        {
+          title: `Article ${String(BLOG_ARCHIVE.PAGE_SIZE + 1)}`,
+          url: `/fr-FR${ROUTES.BLOG}/article-${String(BLOG_ARCHIVE.PAGE_SIZE + 1)}`,
+        },
+      ],
+      locale: "fr-FR",
+      metadata: { description: frPagesBlogMessages.metadata.description, title },
+      offset: BLOG_ARCHIVE.PAGE_SIZE,
+      page: 2,
+      pages: 2,
+      total: BLOG_ARCHIVE.PAGE_SIZE + 1,
+    })
+    expect(archive?.meta).toContainEqual({ title: buildTitle({ locale: "fr-FR", title }) })
+    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}/page/2`, rel: "canonical" })
+    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}`, rel: "prev" })
+    expect(archive?.links?.filter((link) => link?.rel === "next")).toStrictEqual([])
+  })
+
+  it.each(["/fr-FR/blog/page/1", "/fr-FR/blog/page/3", "/fr-FR/blog/page/02", "/fr-FR/blog/page/two", "/blog/page/2"])(
+    "answers %s as not found and keeps it out of search results",
+    async (path) => {
+      const router = await load(path)
+      const archive = router.state.matches.find((match) => match.routeId === BlogArchiveRoute.id)
+      expect(archive?.status).toBe("notFound")
+      expect(archive?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+    },
+  )
+
+  it("keeps an archive page that failed to load out of search results", async () => {
+    const router = await load("/it-IT/blog/page/2")
+    const archive = router.state.matches.find((match) => match.routeId === BlogArchiveRoute.id)
+    expect(archive?.status).toBe("error")
+    expect(archive?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
   })
 })
 
@@ -272,6 +361,7 @@ describe("blog post loader", () => {
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "pl-PL",
       post: { title: "Przewodnik", url: "/pl-PL/blog/guide" },
+      posts: [{ title: "Przewodnik", url: "/pl-PL/blog/guide" }],
     })
   })
 })

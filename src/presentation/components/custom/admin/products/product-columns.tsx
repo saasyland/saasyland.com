@@ -1,8 +1,9 @@
 import type { JSX } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
+import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { PRODUCT_STATUS } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 
@@ -20,7 +21,7 @@ const PRODUCT_STATUS_COLORS: Record<ProductRow["status"], AdminStatusColor> = {
   [PRODUCT_STATUS.PUBLISHED]: "emerald",
 }
 
-type ProductRow = Product["select"]
+type ProductRow = Product["listedProduct"]
 
 const ProductHeader = ({ id }: { readonly id: "pricing" | "product" | "status" | "type" }): string => {
   const t = useTranslations("pages.admin.products.table.headers")
@@ -57,6 +58,18 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, Pro
   )
 }
 
+const PriceCell = ({ row }: CellContext<DataTableFeatures, ProductRow, number>): JSX.Element => {
+  const format = useFormatter()
+  const { billingCycle, currency, priceCents } = row.original
+
+  return (
+    <div className="text-sm font-medium text-foreground tabular-nums">
+      {format.number(fromMinorUnits(priceCents, currency), { currency, style: "currency" })}{" "}
+      {billingCycle !== null && billingCycle !== "" && <span className="font-normal text-muted-foreground">/ {billingCycle}</span>}
+    </div>
+  )
+}
+
 const columnHelper = createColumnHelper<DataTableFeatures, ProductRow>()
 
 export const productColumns = columnHelper.columns([
@@ -66,17 +79,6 @@ export const productColumns = columnHelper.columns([
     header: () => <ProductHeader id="product" />,
   }),
   columnHelper.accessor("type", { cell: TypeCell, enableSorting: false, header: () => <ProductHeader id="type" /> }),
-  columnHelper.accessor("priceCents", {
-    cell: ({ row }) => (
-      <div className="text-sm font-medium text-foreground">
-        {row.original.priceCents} {row.original.currency}{" "}
-        {row.original.billingCycle !== null && row.original.billingCycle !== "" && (
-          <span className="font-normal text-muted-foreground">/ {row.original.billingCycle}</span>
-        )}
-      </div>
-    ),
-    enableSorting: false,
-    header: () => <ProductHeader id="pricing" />,
-  }),
+  columnHelper.accessor("priceCents", { cell: PriceCell, enableSorting: false, header: () => <ProductHeader id="pricing" /> }),
   columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <ProductHeader id="status" /> }),
 ])

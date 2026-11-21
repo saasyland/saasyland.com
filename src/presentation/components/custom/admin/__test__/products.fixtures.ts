@@ -10,7 +10,7 @@ import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 
-export const adminProduct = (overrides: Partial<Product["select"]> = {}): Product["select"] => ({
+export const adminProduct = (overrides: Partial<Product["listedProduct"]> = {}): Product["listedProduct"] => ({
   billingCycle: null,
   createdAt: fixtureDate,
   currency: DEFAULT_CURRENCY_CODE,

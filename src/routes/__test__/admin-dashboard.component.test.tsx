@@ -28,6 +28,12 @@ import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.
 
 afterEach(() => vi.restoreAllMocks())
 
+const usersTable = (): HTMLElement =>
+  within(
+    screen.getByRole("heading", { level: 2, name: pagesAdminDashboardMessages.users.title }).closest<HTMLElement>("[data-slot=card]") ??
+      document.body,
+  ).getByRole("table")
+
 describe("admin dashboard", () => {
   it.each([0, 1, 6])("shows counts and a bounded preview for %i users", (count) => {
     const queryClient = adminQueryClient()
@@ -46,7 +52,7 @@ describe("admin dashboard", () => {
     })
     renderAdminPage(DashboardRoute.options.component, { queryClient })
     expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
-    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
+    expect(within(usersTable()).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
     expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
       "href",
       "/admin/users",
@@ -64,7 +70,7 @@ describe("admin dashboard", () => {
       total: 2,
     })
     renderAdminPage(DashboardRoute.options.component, { queryClient })
-    const [, adaRow] = within(screen.getByRole("table")).getAllByRole("row")
+    const [, adaRow] = within(usersTable()).getAllByRole("row")
     if (!adaRow) {
       throw new Error("Missing dashboard row")
     }
@@ -96,6 +102,7 @@ describe("admin dashboard", () => {
     ])
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toStrictEqual([
       licenseDashboardMessages.unlicensedOrders.title,
+      licenseDashboardMessages.licenses.title,
       paymentsDashboardMessages.revenue.title,
       authDashboardMessages.signups.title,
       coursesDashboardMessages.progress.title,

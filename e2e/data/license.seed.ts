@@ -16,6 +16,7 @@ import {
   TEST_COURSE_LEARNER,
   TEST_LICENSED_ACCOUNT,
   TEST_LICENSES,
+  TEST_TIER_LICENSES,
   TEST_UNLICENSED_ORDER,
 } from "./licenses"
 import { TEST_PRODUCT_IDS } from "./polar-settings"
@@ -40,8 +41,8 @@ export const licenseSeed = async (): Promise<TestSeed> => {
     ],
     statements: [
       ...(await accountStatements([TEST_LICENSED_ACCOUNT, TEST_COURSE_LEARNER])),
-      ...TEST_CLI_LICENSES.map(({ user }) => userStatement(user)),
-      ...TEST_LICENSES.map(
+      ...[...TEST_CLI_LICENSES, ...TEST_TIER_LICENSES].map(({ user }) => userStatement(user)),
+      ...[...TEST_LICENSES, ...TEST_TIER_LICENSES].map(
         ({ id, key, polarCustomerId, polarLicenseKeyId, polarOrderId, status, tier, user }) =>
           `INSERT INTO license (id, user_id, tier, status, polar_customer_id, polar_order_id, polar_license_key_id, key) VALUES (${literal(id)}, ${literal(user.id)}, ${literal(tier)}, ${literal(status)}, ${literal(polarCustomerId)}, ${literal(polarOrderId)}, ${literal(polarLicenseKeyId)}, ${literal(key)}) ON CONFLICT(id) DO UPDATE SET status = excluded.status, polar_license_key_id = excluded.polar_license_key_id, key = excluded.key;`,
       ),

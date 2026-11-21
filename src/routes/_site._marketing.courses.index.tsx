@@ -26,7 +26,7 @@ const CompleteBand = ({ signedIn }: { readonly signedIn: boolean }): JSX.Element
   const { offer } = useCourseAccessNames()
 
   return (
-    <aside className="mt-6 flex flex-col gap-8 overflow-hidden rounded-2xl border border-ring/30 bg-radial-[ellipse_at_0%_0%] from-ring/14 via-card via-60% to-card p-8 md:flex-row md:items-center md:justify-between md:p-12">
+    <aside className="mt-6 flex flex-col gap-8 overflow-hidden rounded-lg border border-ring/30 bg-radial-[ellipse_at_0%_0%] from-ring/14 via-card via-60% to-card p-8 md:flex-row md:items-center md:justify-between md:p-12">
       <div className="max-w-2xl">
         <h2 className="text-headline-support text-balance text-foreground">{t("title", { offer })}</h2>
         <p className="mt-3 text-body text-pretty text-muted-foreground">{t("body", { offer })}</p>

@@ -67,7 +67,7 @@ export const CompareSection = (): JSX.Element => {
 
           <div className="mt-14 grid gap-x-16 gap-y-10 md:mt-16 md:grid-cols-2 md:items-start">
             <p className="text-statement text-pretty text-foreground">{t("close")}</p>
-            <div className="rounded-xl border border-border bg-card p-7 md:p-8">
+            <div className="rounded-lg border border-border bg-card p-7 md:p-8">
               <h3 className="text-title text-foreground">{t("notFor.title")}</h3>
               <p className="mt-3 text-body text-pretty text-muted-foreground">{t("notFor.body")}</p>
             </div>

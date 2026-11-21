@@ -43,7 +43,7 @@ const AdminSidebarPending = (): JSX.Element => (
     </div>
     <div className="flex flex-col border-t border-sidebar-border p-2">
       <div className="flex h-11 items-center gap-2.5 px-2">
-        <Skeleton className="size-7 shrink-0 rounded-md" />
+        <Skeleton className="size-7 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-col gap-0.5 leading-none">
           <Skeleton className="h-lh w-20 scale-y-70 text-[0.8125rem]" />
           <Skeleton className="h-lh w-40 scale-y-70 text-[0.6875rem]" />
@@ -94,7 +94,7 @@ export const AdminPending = (): JSX.Element => {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-lg sm:w-60" />
+            <Skeleton className="h-8 w-8 rounded-md sm:w-60" />
           </div>
         </div>
         <div

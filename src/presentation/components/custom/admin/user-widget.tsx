@@ -37,12 +37,12 @@ export const UserWidget = (): JSX.Element | undefined => {
       <SidebarMenuItem>
         <DropdownMenuTrigger>
           <SidebarMenuButton
-            className="h-11 gap-2.5 rounded-lg px-2 data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+            className="h-11 gap-2.5 rounded-md px-2 data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
             size="lg"
           >
             <span
               aria-hidden
-              className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-muted text-[0.6875rem] font-semibold text-foreground"
+              className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[0.6875rem] font-semibold text-foreground"
             >
               {getUserInitials(name)}
             </span>

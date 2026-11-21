@@ -43,7 +43,7 @@ export const AdminCommandPalette = (): JSX.Element => {
   return (
     <>
       <Button
-        className="group flex h-8 items-center gap-2 rounded-lg border border-border bg-muted/40 pr-1.5 pl-2.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp outline-none hover:bg-muted data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+        className="group flex h-8 items-center gap-2 rounded-md border border-border bg-muted/40 pr-1.5 pl-2.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp outline-none hover:bg-muted data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
         onPress={() => {
           setIsOpen(true)
         }}

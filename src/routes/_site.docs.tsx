@@ -34,7 +34,7 @@ const LINKS = [
   {
     children: (
       <a
-        className="flex flex-col gap-1.5 rounded-lg p-2 text-sm text-fd-foreground/80 transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+        className="flex flex-col gap-1.5 rounded-md p-2 text-sm text-fd-foreground/80 transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
         href={APP_GITHUB_URL}
         rel="noreferrer noopener"
         target="_blank"
@@ -59,7 +59,7 @@ const THEME_SWITCH = { enabled: false } as const
 const SLOTS = { header: DocsToolbar, languageSelect: false } as const
 
 const SIDEBAR = {
-  className: "border-s",
+  className: "border-s [&_.rounded-lg]:rounded-md [&_kbd]:rounded-sm",
   collapsible: false,
   footer: (
     <div className="flex flex-col gap-2">

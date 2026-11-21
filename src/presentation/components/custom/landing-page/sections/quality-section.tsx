@@ -97,7 +97,7 @@ export const QualitySection = (): JSX.Element => {
         </Reveal>
 
         <Reveal className="min-w-0 lg:sticky lg:top-24" delay={TERMINAL_DELAY_MS}>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2.5 border-b border-border bg-background/40 px-4 py-2.5">
               <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ring" />
               <span className="font-mono text-spec text-muted-foreground">{t("terminalTitle")}</span>

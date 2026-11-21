@@ -108,7 +108,7 @@ const BlogPostPage = (): JSX.Element => {
         </div>
 
         {post.image !== undefined && post.image.length > 0 && (
-          <div className="relative mt-10 aspect-[2.4/1] w-full overflow-hidden rounded-xl border border-border bg-card">
+          <div className="relative mt-10 aspect-[2.4/1] w-full overflow-hidden rounded-lg border border-border bg-card">
             <img
               alt=""
               className="absolute inset-0 h-full w-full object-cover"

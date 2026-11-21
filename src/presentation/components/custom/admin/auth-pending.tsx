@@ -30,7 +30,7 @@ const DashboardUserRowPending = (): JSX.Element => (
     </TableCell>
     <TableCell>
       <div className="flex items-center gap-3">
-        <Skeleton className="size-8 shrink-0 rounded-md" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
         <div>
           <Skeleton className="h-lh w-16 scale-y-70" />
           <Skeleton className="h-lh w-100 scale-y-70 text-xs" />
@@ -38,7 +38,7 @@ const DashboardUserRowPending = (): JSX.Element => (
       </div>
     </TableCell>
     <TableCell>
-      <Skeleton className="h-5 w-18 rounded-4xl" />
+      <Skeleton className="h-5 w-18 rounded-md" />
     </TableCell>
     <TableCell>
       <div className="flex items-center gap-2 text-xs">
@@ -61,11 +61,11 @@ export const AdminDashboardPending = (): JSX.Element => (
       </div>
       <div className="flex items-center gap-3">
         {ADMIN_DASHBOARD_ACTIONS.map((action) => (
-          <Skeleton className="h-9 w-32 rounded-lg" key={action.key} />
+          <Skeleton className="h-9 w-32 rounded-md" key={action.key} />
         ))}
       </div>
     </div>
-    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
       {ADMIN_DASHBOARD_STATS.map((stat) => (
         <div className="bg-card px-5 py-5" key={stat.key}>
           <Skeleton className="h-lh w-32 scale-y-70 font-mono text-label" />
@@ -86,9 +86,9 @@ export const AdminDashboardPending = (): JSX.Element => (
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Skeleton className="h-10 w-full rounded-lg" />
+          <Skeleton className="h-10 w-full rounded-md" />
         </div>
-        <Skeleton className="h-8 w-full rounded-lg sm:w-48" />
+        <Skeleton className="h-8 w-full rounded-md sm:w-48" />
       </div>
       <TableContainer>
         <Table>
@@ -120,7 +120,7 @@ export const AdminDashboardPending = (): JSX.Element => (
       </TableContainer>
       <PaginationPending />
       <div className="flex justify-end">
-        <Skeleton className="h-7 w-26 rounded-lg" />
+        <Skeleton className="h-7 w-26 rounded-md" />
       </div>
     </Card>
   </div>
@@ -154,7 +154,7 @@ const UserRowPending = (): JSX.Element => (
     </TableCell>
     <TableCell>
       <div className="flex items-center gap-3">
-        <Skeleton className="size-8 shrink-0 rounded-md" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
         <div>
           <Skeleton className="h-lh w-16 scale-y-70" />
           <Skeleton className="h-lh w-100 scale-y-70 text-xs" />
@@ -191,7 +191,7 @@ const UserRowPending = (): JSX.Element => (
 export const AdminUsersAllPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
     <div className="flex justify-end">
-      <Skeleton className="h-10 w-25 rounded-lg" />
+      <Skeleton className="h-10 w-25 rounded-md" />
     </div>
     <TableContainer>
       <Table>
@@ -251,7 +251,7 @@ export const AdminUserProfilePending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-6 pb-6">
     <div className="flex items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-4">
-        <Skeleton className="size-12 shrink-0 rounded-lg" />
+        <Skeleton className="size-12 shrink-0 rounded-full" />
         <div className="min-w-0">
           <Skeleton className="h-lh w-40 scale-y-70 text-title" />
           <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-sm" />
@@ -287,7 +287,7 @@ export const AdminUserProfilePending = (): JSX.Element => (
         </CardHeader>
         <CardContent className="px-0">
           <div className="flex items-center gap-3 px-(--card-spacing) py-3">
-            <Skeleton className="size-9 shrink-0 rounded-lg" />
+            <Skeleton className="size-9 shrink-0 rounded-md" />
             <div className="min-w-0">
               <Skeleton className="h-lh w-48 max-w-full scale-y-70 text-sm" />
               <Skeleton className="h-lh w-40 max-w-full scale-y-70 text-xs" />

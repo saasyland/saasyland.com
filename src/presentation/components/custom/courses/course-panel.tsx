@@ -127,7 +127,7 @@ const PanelIncludes = ({ data }: { readonly data: Course["page"] }): JSX.Element
 }
 
 export const CoursePanel = ({ className, data }: { readonly className?: string; readonly data: Course["page"] }): JSX.Element => (
-  <section aria-label={data.course.title} className={cn("overflow-hidden rounded-2xl border border-border bg-card", className)}>
+  <section aria-label={data.course.title} className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
     <CourseCover className="w-full" course={data.course} isPriority sizes={PANEL_COVER_SIZES} />
     <div className="p-6">
       <PanelStatus lessons={courseLessons(data)} />

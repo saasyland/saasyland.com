@@ -24,7 +24,7 @@ const SELECTORS = {
   ACTIVATION: ".size-11.rounded-full",
   CARD: "[data-slot=card]",
   CHOSEN_TIER: "[class*='lg:grid-cols-[1fr_18rem]']",
-  COMMAND: String.raw`.h-10\.5.rounded-lg`,
+  COMMAND: String.raw`.h-10\.5.rounded-md`,
   SECTION: "[data-section=included]",
   SETUP_STEP: ".size-6.rounded-full",
   STATUS_BADGE: "[data-slot=card-action]",

@@ -75,7 +75,7 @@ const CourseIconPreview = ({ icon }: { readonly icon: Course["select"]["icon"] }
   const Icon = COURSE_ICON_COMPONENTS[icon]
 
   return (
-    <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
+    <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
       <Icon className="size-4 text-foreground" />
     </span>
   )

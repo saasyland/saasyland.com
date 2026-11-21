@@ -17,7 +17,7 @@ const suggestionTag =
   (onPress: () => void) =>
   (chunks: ReactNode): JSX.Element => (
     <Button
-      className="inline h-auto rounded-xs p-0 align-baseline text-body-sm font-medium wrap-anywhere whitespace-normal text-foreground"
+      className="inline h-auto rounded-sm p-0 align-baseline text-body-sm font-medium wrap-anywhere whitespace-normal text-foreground"
       onPress={onPress}
       variant="link"
     >

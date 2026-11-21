@@ -11,15 +11,15 @@ export const PreferencesCardPending = (): JSX.Element => (
     </CardHeader>
     <CardContent className="flex flex-col gap-2 pb-(--card-spacing)">
       <Skeleton className="h-lh w-20 scale-y-70 text-sm leading-none" />
-      <Skeleton className="h-8 w-full rounded-lg" />
+      <Skeleton className="h-8 w-full rounded-md" />
       <div className="flex flex-col text-sm leading-normal">
         <Skeleton className="h-lh w-full max-w-[60ch] scale-y-70" />
         <Skeleton className="h-lh w-1/2 scale-y-70 sm:hidden" />
       </div>
-      <Skeleton className="h-7 w-48 rounded-lg" />
+      <Skeleton className="h-7 w-48 rounded-md" />
     </CardContent>
     <CardFooter className="justify-end">
-      <Skeleton className="h-7 w-36 rounded-lg" />
+      <Skeleton className="h-7 w-36 rounded-md" />
     </CardFooter>
   </Card>
 )

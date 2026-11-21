@@ -116,7 +116,7 @@ export const AppSidebar = (): JSX.Element => {
       <SidebarFooter className="gap-3 border-t border-sidebar-border p-3">
         <LocaleSelect />
         <section aria-label={t("account.label")} className="flex min-w-0 items-center gap-2.5">
-          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-body-sm font-semibold">
+          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-body-sm font-semibold">
             {name.charAt(0).toUpperCase()}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">

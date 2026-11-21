@@ -25,7 +25,7 @@ export const StudioSection = (): JSX.Element => {
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20">
-          <article className="grid overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[1.35fr_1fr] lg:divide-x lg:divide-border">
+          <article className="grid overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[1.35fr_1fr] lg:divide-x lg:divide-border">
             <div className="flex items-center border-b border-border p-7 md:p-9 lg:border-b-0">
               <ConceptLoop
                 className="overflow-hidden rounded-lg border border-border"
@@ -38,7 +38,7 @@ export const StudioSection = (): JSX.Element => {
               <h3 className="text-headline-support text-balance text-foreground">{t("builder.title")}</h3>
               <p className="mt-3 max-w-[52ch] text-body text-pretty text-muted-foreground">{t("builder.body")}</p>
               <p className="mt-7 flex items-center gap-2.5">
-                <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+                <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
                 <span className="font-mono text-spec text-foreground">{t("builder.spec")}</span>
               </p>
             </div>

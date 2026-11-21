@@ -10,7 +10,7 @@ export const PasswordInput = (props: Readonly<ComponentProps<typeof InputGroupIn
   const [isVisible, setIsVisible] = useState(false)
 
   return (
-    <InputGroup className="h-11 rounded-lg border-input transition-[border-color,box-shadow] duration-200 ease-exp dark:bg-input/30">
+    <InputGroup className="h-11 rounded-md border-input transition-[border-color,box-shadow] duration-200 ease-exp dark:bg-input/30">
       <InputGroupInput
         className="px-3 text-base text-foreground placeholder:text-muted-foreground md:text-sm"
         type={isVisible ? "text" : "password"}
@@ -19,7 +19,7 @@ export const PasswordInput = (props: Readonly<ComponentProps<typeof InputGroupIn
       <InputGroupAddon align="inline-end" className="pr-0">
         <InputGroupButton
           aria-label={t(isVisible ? "hidePassword" : "showPassword")}
-          className="size-11 rounded-none rounded-r-lg text-muted-foreground transition-[background-color,color] duration-200 ease-exp hover:bg-muted hover:text-foreground"
+          className="size-11 rounded-none rounded-r-md text-muted-foreground transition-[background-color,color] duration-200 ease-exp hover:bg-muted hover:text-foreground"
           onPress={() => {
             setIsVisible(!isVisible)
           }}

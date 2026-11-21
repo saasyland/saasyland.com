@@ -16,7 +16,7 @@ import { CourseCover } from "~/src/presentation/components/custom/courses/course
 type CatalogueCourse = Course["catalogueCourse"]
 
 const CARD_CLASSNAME =
-  "group relative isolate flex overflow-hidden rounded-2xl border border-border bg-card transition-[border-color,translate,box-shadow] duration-300 ease-exp hover:border-ring/40 hover:shadow-[0_24px_48px_-24px_oklch(0_0_0/0.7)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-safe:hover:-translate-y-0.5"
+  "group relative isolate flex overflow-hidden rounded-lg border border-border bg-card transition-[border-color,translate,box-shadow] duration-300 ease-exp hover:border-ring/40 hover:shadow-[0_24px_48px_-24px_oklch(0_0_0/0.7)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-safe:hover:-translate-y-0.5"
 
 const COVER_CLASSNAME = "size-full transition-transform duration-700 ease-exp motion-safe:group-hover:scale-103"
 
@@ -68,10 +68,10 @@ export const CourseBadges = ({
 
   return (
     <p className={cn("flex flex-wrap gap-2 text-spec font-medium", className)}>
-      <span className="rounded-full border border-ring/40 bg-background/80 px-2.5 py-1 text-ring backdrop-blur-sm">
+      <span className="rounded-md border border-ring/40 bg-background/80 px-2.5 py-1 text-ring backdrop-blur-sm">
         {t(`kinds.${course.kind}`)}
       </span>
-      <span className="rounded-full border border-border bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm">
+      <span className="rounded-md border border-border bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm">
         {t(`levels.${course.level}`)}
       </span>
     </p>

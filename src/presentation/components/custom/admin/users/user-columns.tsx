@@ -33,7 +33,7 @@ const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): J
       {image !== null && image !== "" && (
         <img
           alt={name}
-          className={cn("size-8 shrink-0 rounded-md border border-border object-cover", { "opacity-50 grayscale": banned })}
+          className={cn("size-8 shrink-0 rounded-full border border-border object-cover", { "opacity-50 grayscale": banned })}
           height={32}
           src={image}
           width={32}
@@ -41,7 +41,7 @@ const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): J
       )}
       {(image === null || image === "") && (
         <div
-          className={cn("flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-[0.6875rem] font-semibold", {
+          className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[0.6875rem] font-semibold", {
             "text-foreground": !banned,
             "text-muted-foreground": banned,
           })}

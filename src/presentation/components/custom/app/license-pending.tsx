@@ -49,7 +49,7 @@ const TextLines = ({ className }: Readonly<{ className: string }>): JSX.Element 
 )
 
 const ActivationPending = (): JSX.Element => (
-  <div className="flex items-start gap-5 rounded-xl border border-border bg-card p-6 md:p-8">
+  <div className="flex items-start gap-5 rounded-lg border border-border bg-card p-6 md:p-8">
     <Skeleton className="size-11 shrink-0 rounded-full" />
     <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
       <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-title" />
@@ -67,7 +67,7 @@ const CheckoutNoticePending = (): JSX.Element => (
 )
 
 const ChosenTierPending = (): JSX.Element => (
-  <div className="overflow-hidden rounded-xl border border-ring/40 bg-card">
+  <div className="overflow-hidden rounded-lg border border-ring/40 bg-card">
     <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
       <div>
         <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-title" />
@@ -77,7 +77,7 @@ const ChosenTierPending = (): JSX.Element => (
           <Skeleton className="h-lh w-16 scale-y-70 text-spec" />
         </div>
       </div>
-      <Skeleton className="h-11 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-md" />
     </div>
     <div className="border-t border-border px-6 py-4 md:px-8">
       <CheckoutNoticePending />
@@ -117,7 +117,7 @@ const TierColumnPending = ({ featured, tier }: Readonly<{ featured: boolean; tie
       <Skeleton className="mt-7 h-lh w-28 scale-y-70 text-price" />
       <TextLines className="mt-3 text-body-sm @2xl:min-h-12" />
       <div className="mt-7 @2xl:order-last @2xl:mt-auto @2xl:pt-12">
-        <Skeleton className="h-11 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-md" />
       </div>
       <TierFeaturesPending tier={tier} />
     </div>
@@ -137,7 +137,7 @@ const PricingTrustPending = (): JSX.Element => (
 
 const TiersPending = (): JSX.Element => (
   <div className="@container">
-    <div className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3">
+    <div className="grid overflow-hidden rounded-lg border border-border @2xl:grid-cols-3">
       {LICENSE_TIERS.map((tier) => (
         <TierColumnPending featured={tier === FEATURED_TIER} key={tier} tier={tier} />
       ))}
@@ -167,17 +167,17 @@ const LicenseStatusCardPending = (): JSX.Element => (
       <Skeleton className="h-lh w-28 scale-y-70 text-base leading-snug" />
       <Skeleton className="h-lh w-72 max-w-full scale-y-70 text-sm" />
       <CardAction>
-        <Skeleton className="h-5 w-14 rounded-4xl" />
+        <Skeleton className="h-5 w-14 rounded-md" />
       </CardAction>
     </CardHeader>
     <CardContent className="flex flex-wrap items-center justify-between gap-4">
       <Skeleton className="h-lh w-24 scale-y-70 text-lg" />
-      <Skeleton className="h-7 w-36 rounded-lg" />
+      <Skeleton className="h-7 w-36 rounded-md" />
     </CardContent>
   </Card>
 )
 
-const CommandLinePending = (): JSX.Element => <Skeleton className="h-10.5 w-full rounded-lg" />
+const CommandLinePending = (): JSX.Element => <Skeleton className="h-10.5 w-full rounded-md" />
 
 const ActiveLicensePending = (): JSX.Element => (
   <>
@@ -202,8 +202,8 @@ const InactiveLicensePending = (): JSX.Element => (
   <div className="flex flex-col items-start gap-4">
     <Skeleton className="h-lh w-3/4 scale-y-70 text-sm" />
     <div className="flex flex-wrap items-center gap-3">
-      <Skeleton className="h-7 w-36 rounded-lg" />
-      <Skeleton className="h-7 w-28 rounded-lg" />
+      <Skeleton className="h-7 w-36 rounded-md" />
+      <Skeleton className="h-7 w-28 rounded-md" />
     </div>
   </div>
 )
@@ -218,7 +218,7 @@ const LicenseCardPending = ({ isActive }: Readonly<{ isActive: boolean }>): JSX.
       {!isActive && <InactiveLicensePending />}
       <Skeleton className="h-lh w-3/4 scale-y-70 text-xs leading-relaxed" />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Skeleton className="h-7 w-36 rounded-lg" />
+        <Skeleton className="h-7 w-36 rounded-md" />
         {isActive && <Skeleton className="h-lh w-56 scale-y-70 text-xs" />}
       </div>
     </CardContent>
@@ -226,7 +226,7 @@ const LicenseCardPending = ({ isActive }: Readonly<{ isActive: boolean }>): JSX.
 )
 
 const GetStartedPending = (): JSX.Element => (
-  <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+  <div className="rounded-lg border border-border bg-card p-6 md:p-8">
     <Skeleton className="h-lh w-40 scale-y-70 text-title" />
     <TextLines className="mt-1.5 text-body-sm" />
     <div className="mt-5 flex max-w-md flex-col gap-3">

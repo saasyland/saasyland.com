@@ -66,7 +66,7 @@ export const RangePicker = ({ onChange, range }: RangePickerProps): JSX.Element 
 export const RangePickerPending = (): JSX.Element => (
   <div className="flex">
     {TIME_RANGES.map((option) => (
-      <Skeleton className="h-7 w-18 rounded-none first:rounded-l-lg last:rounded-r-lg" key={option} />
+      <Skeleton className="h-7 w-18 rounded-none first:rounded-l-md last:rounded-r-md" key={option} />
     ))}
   </div>
 )

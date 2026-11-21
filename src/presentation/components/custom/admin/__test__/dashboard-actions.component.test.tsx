@@ -51,6 +51,6 @@ describe("dashboard actions", () => {
   it("draws a button placeholder for every action", () => {
     const { container } = render(<AdminDashboardPending />)
 
-    expect(container.querySelectorAll(".h-9.rounded-lg")).toHaveLength(ADMIN_DASHBOARD_ACTIONS.length)
+    expect(container.querySelectorAll(".h-9.rounded-md")).toHaveLength(ADMIN_DASHBOARD_ACTIONS.length)
   })
 })

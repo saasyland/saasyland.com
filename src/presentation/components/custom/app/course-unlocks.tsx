@@ -29,7 +29,7 @@ export const CourseUnlocks = (): JSX.Element | undefined => {
   const lessons = locked.reduce((total, { paid }) => total + paid, 0)
 
   return (
-    <section aria-labelledby={headingId} className="rounded-xl border border-border bg-card p-6 md:p-8">
+    <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card p-6 md:p-8">
       <h3 className="text-title text-foreground" id={headingId}>
         {t("title", { includedWith })}
       </h3>
@@ -70,7 +70,7 @@ export const CourseUnlocksPending = (): JSX.Element | undefined => {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+    <div className="rounded-lg border border-border bg-card p-6 md:p-8">
       <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-title" />
       <div className="mt-1.5 flex w-full flex-col text-body-sm">
         <Skeleton className="h-lh w-full max-w-[60ch] scale-y-70" />

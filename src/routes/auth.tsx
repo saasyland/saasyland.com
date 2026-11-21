@@ -23,7 +23,7 @@ const AuthLayout = (): JSX.Element => {
     <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground antialiased [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
       <header className="relative z-10 col-span-full row-start-1 flex h-header items-center justify-between gap-6 lg:grid lg:grid-cols-subgrid lg:px-(--gutter)">
         <Link
-          className="flex h-11 items-center justify-self-start rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="flex h-11 items-center justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           to={ROUTES.HOME}
         >
           <Wordmark />
@@ -53,7 +53,7 @@ const AuthLayout = (): JSX.Element => {
           <ul className="flex flex-col gap-5">
             {AUTH_ASSURANCES.map((id) => (
               <li className="flex items-start gap-3" key={id}>
-                <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-xs bg-ring" />
+                <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-full bg-ring" />
                 <span className="font-mono text-spec text-muted-foreground">{t(`gate.assurances.${id}`)}</span>
               </li>
             ))}

@@ -37,7 +37,7 @@ export const AdminCoursesPending = (): JSX.Element => (
         <TitlePending />
         <DescriptionPending />
       </div>
-      <Skeleton className="h-9 w-32 rounded-lg" />
+      <Skeleton className="h-9 w-32 rounded-md" />
     </div>
     <div className="space-y-4">
       <TableContainer>
@@ -110,7 +110,7 @@ export const AdminCourseEditorPending = (): JSX.Element => (
         <TitlePending />
         <DescriptionPending />
       </div>
-      <Skeleton className="h-9 w-32 rounded-lg" />
+      <Skeleton className="h-9 w-32 rounded-md" />
     </div>
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
       <CourseFormPending />
@@ -148,7 +148,7 @@ export const AdminLessonEditorPending = (): JSX.Element => (
         <TitlePending />
         <DescriptionPending />
       </div>
-      <Skeleton className="h-9 w-32 rounded-lg" />
+      <Skeleton className="h-9 w-32 rounded-md" />
     </div>
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
       <Card>
@@ -173,7 +173,7 @@ export const AdminLessonEditorPending = (): JSX.Element => (
               <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-sm" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-md" />
             </CardContent>
           </Card>
         ))}
@@ -275,7 +275,7 @@ export const AdminVideosPending = (): JSX.Element => (
           {VIDEO_PUBLISH_STEPS.map((step) => (
             <div className="flex flex-col gap-2" key={step}>
               <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-sm" />
-              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-md" />
             </div>
           ))}
         </div>

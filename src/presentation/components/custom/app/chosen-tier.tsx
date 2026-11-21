@@ -17,7 +17,7 @@ export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Eleme
   const name = tTier(`tiers.${tier}.name`)
 
   return (
-    <section aria-labelledby={headingId} className="overflow-hidden rounded-xl border border-ring/40 bg-card">
+    <section aria-labelledby={headingId} className="overflow-hidden rounded-lg border border-ring/40 bg-card">
       <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
         <div>
           <h2 className="text-title text-balance text-foreground" id={headingId}>

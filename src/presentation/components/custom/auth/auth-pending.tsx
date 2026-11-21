@@ -24,7 +24,7 @@ const OAuthPending = (): JSX.Element => (
   <>
     <div className="flex flex-col gap-3">
       {OAUTH_PROVIDERS.map(({ id }) => (
-        <Skeleton className="h-11 w-full rounded-lg" key={id} />
+        <Skeleton className="h-11 w-full rounded-md" key={id} />
       ))}
     </div>
     <div className="flex items-center gap-4 text-body-sm">
@@ -38,14 +38,14 @@ const OAuthPending = (): JSX.Element => (
 const FieldPending = (): JSX.Element => (
   <div className="flex flex-col gap-2">
     <Skeleton className="h-lh w-20 scale-y-70 text-body-sm" />
-    <Skeleton className="h-11 w-full rounded-lg" />
+    <Skeleton className="h-11 w-full rounded-md" />
   </div>
 )
 
 const PasswordRulesPending = (): JSX.Element => (
   <div className="flex flex-col gap-2 text-body-sm">
     <div className="flex items-start gap-2.5">
-      <Skeleton className="mt-0.5 size-4 shrink-0 rounded-xs" />
+      <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
       <Skeleton className="h-lh w-52 scale-y-70" />
     </div>
     <Skeleton className="h-lh w-4/5 scale-y-70" />
@@ -68,10 +68,10 @@ export const SignInPending = (): JSX.Element => (
               <Skeleton className="h-lh w-20 scale-y-70" />
               <Skeleton className="h-lh w-28 scale-y-70" />
             </div>
-            <Skeleton className="h-11 w-full rounded-lg" />
+            <Skeleton className="h-11 w-full rounded-md" />
           </div>
         </div>
-        <Skeleton className="h-11 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-md" />
       </div>
     </div>
     <FooterPending />
@@ -103,7 +103,7 @@ export const SignUpPending = (): JSX.Element => (
           <FieldPending />
         </div>
         <PasswordRulesPending />
-        <Skeleton className="h-11 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-md" />
       </div>
       {SIGN_UP_NOTICES.map(({ Pending, key }) => (
         <Pending key={key} />
@@ -122,7 +122,7 @@ export const ForgotPasswordPending = (): JSX.Element => (
     </div>
     <div className="mt-10 flex flex-col gap-6">
       <FieldPending />
-      <Skeleton className="h-11 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-md" />
     </div>
     <FooterPending />
   </div>
@@ -135,7 +135,7 @@ export const ResetPasswordPending = (): JSX.Element => (
     <div className="mt-10 flex flex-col gap-6">
       <FieldPending />
       <PasswordRulesPending />
-      <Skeleton className="h-11 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-md" />
     </div>
   </div>
 )
@@ -150,14 +150,14 @@ export const TwoFactorPending = (): JSX.Element => (
     <div className="mt-10 flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-lh w-36 scale-y-70 text-body-sm" />
-        <div className="flex w-fit overflow-hidden rounded-lg">
+        <div className="flex w-fit overflow-hidden rounded-md">
           {createOtpSlotIndices(TWO_FACTOR_CODE_LENGTH).map((index) => (
             <Skeleton className="size-12 rounded-none border-r border-background last:border-r-0" key={index} />
           ))}
         </div>
       </div>
-      <Skeleton className="h-11 w-full rounded-lg" />
-      <Skeleton className="h-11 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-md" />
+      <Skeleton className="h-11 w-full rounded-md" />
     </div>
   </div>
 )
@@ -172,7 +172,7 @@ export const VerifyEmailPending = (): JSX.Element => (
         <Skeleton className="h-lh w-1/2 scale-y-70" />
       </div>
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-11 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-md" />
         <FieldPending />
         <div className="flex h-11 items-center self-center text-body-sm">
           <Skeleton className="h-lh w-40 scale-y-70" />
@@ -218,7 +218,7 @@ export const AuthPending = (): JSX.Element => {
           <div className="flex flex-col gap-5">
             {AUTH_ASSURANCES.map((assurance) => (
               <div className="flex items-start gap-3" key={assurance}>
-                <span className="mt-2 size-1.25 shrink-0 rounded-xs bg-border" />
+                <span className="mt-2 size-1.25 shrink-0 rounded-full bg-border" />
                 <Skeleton className="h-lh w-64 scale-y-70 font-mono text-spec" />
               </div>
             ))}

@@ -85,7 +85,7 @@ export const HeroSection = (): JSX.Element => {
           {t.rich("anchor", ANCHOR_TAGS)}
         </p>
 
-        <div className="mt-16 overflow-hidden rounded-xl border border-border bg-card sm:[--rise-delay:300ms] sm:[--rise-distance:1rem] sm:[--rise-duration:1000ms] sm:motion-safe:animate-rise md:mt-20">
+        <div className="mt-16 overflow-hidden rounded-lg border border-border bg-card sm:[--rise-delay:300ms] sm:[--rise-distance:1rem] sm:[--rise-duration:1000ms] sm:motion-safe:animate-rise md:mt-20">
           <InstallCommand />
           <ConceptLoop
             className="w-[190%] max-w-none border-t border-border sm:w-[135%] md:w-full"

@@ -45,7 +45,7 @@ export const BackToTop = (): JSX.Element => {
       <Button
         aria-label={t("label")}
         className={cn(
-          "group fixed right-4 bottom-4 z-30 flex size-11 cursor-pointer items-center justify-center rounded-lg border border-border bg-background/72 text-muted-foreground backdrop-blur-xl transition-[opacity,translate,visibility,color,background-color] duration-200 ease-exp hover:bg-muted hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-pressed:translate-y-px motion-reduce:transition-none md:right-6 md:bottom-6",
+          "group fixed right-4 bottom-4 z-30 flex size-11 cursor-pointer items-center justify-center rounded-md border border-border bg-background/72 text-muted-foreground backdrop-blur-xl transition-[opacity,translate,visibility,color,background-color] duration-200 ease-exp hover:bg-muted hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-pressed:translate-y-px motion-reduce:transition-none md:right-6 md:bottom-6",
           { "invisible translate-y-2 opacity-0": !isVisible },
         )}
         onPress={returnToTop}

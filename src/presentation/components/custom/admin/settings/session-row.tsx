@@ -44,7 +44,7 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
   return (
     <div className="group flex items-center justify-between gap-4 p-5 transition-colors hover:bg-muted/40">
       <div className="flex items-center gap-4">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground shadow-inner">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground shadow-inner">
           {isMobile && <Smartphone className="size-5" />}
           {!isMobile && <Laptop className="size-5" />}
         </div>

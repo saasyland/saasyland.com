@@ -18,7 +18,7 @@ export const PasswordRequirements = ({ id, password }: Readonly<{ id: string; pa
           <span
             aria-hidden
             className={cn(
-              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xs border transition-colors duration-200 ease-exp",
+              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-200 ease-exp",
               {
                 "border-foreground bg-foreground text-background": isLongEnough,
                 "border-muted-foreground text-muted-foreground": !isLongEnough,

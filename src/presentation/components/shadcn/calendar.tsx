@@ -46,11 +46,11 @@ type CalendarRenderCell = (renderProps: CellRenderProps) => ReactNode
 
 const CALENDAR_DAY_BUTTON_CLASSNAME = cn(
   buttonVariants({ size: "icon", variant: "ghost" }),
-  "relative isolate z-10 flex aspect-square h-full w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+  "relative isolate z-10 flex aspect-square h-full w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
 )
 
 const cellVariants = cva(
-  "group/day relative mt-2 aspect-square h-full w-full cursor-default rounded-(--cell-radius) p-0 text-center select-none [&:is(:last-child>[data-selected=true])>div]:rounded-r-(--cell-radius)",
+  "group/day relative mt-2 aspect-square h-full w-full cursor-default rounded-md p-0 text-center select-none [&:is(:last-child>[data-selected=true])>div]:rounded-r-md",
   {
     variants: {
       isDisabled: {
@@ -60,20 +60,20 @@ const cellVariants = cva(
         true: "text-muted-foreground aria-selected:text-muted-foreground",
       },
       isSelectionEnd: {
-        true: "relative isolate z-0 rounded-r-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:left-0 after:w-4 after:bg-muted",
+        true: "relative isolate z-0 rounded-r-md bg-muted after:absolute after:inset-y-0 after:left-0 after:w-4 after:bg-muted",
       },
       isSelectionStart: {
-        true: "relative isolate z-0 rounded-l-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:right-0 after:w-4 after:bg-muted",
+        true: "relative isolate z-0 rounded-l-md bg-muted after:absolute after:inset-y-0 after:right-0 after:w-4 after:bg-muted",
       },
       isToday: {
-        true: "rounded-(--cell-radius) bg-muted text-foreground data-[selected=true]:rounded-none",
+        true: "rounded-md bg-muted text-foreground data-[selected=true]:rounded-none",
       },
       isUnavailable: {
         true: "text-muted-foreground opacity-50 [&>div]:line-through",
       },
       showWeekNumber: {
-        false: "[&:is(:first-child>[data-selected=true])>div]:rounded-l-(--cell-radius)",
-        true: "[&:is(:nth-child(2)>[data-selected=true])>div]:rounded-l-(--cell-radius)",
+        false: "[&:is(:first-child>[data-selected=true])>div]:rounded-l-md",
+        true: "[&:is(:nth-child(2)>[data-selected=true])>div]:rounded-l-md",
       },
     },
   },
@@ -128,7 +128,7 @@ const Calendar = <TValue extends DateValue, TSelectionMode extends "single" | "m
     <AriaCalendar
       {...props}
       className={cn(
-        "group/calendar w-fit bg-background p-2 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        "group/calendar w-fit bg-background p-2 [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         props.className,
       )}
       data-slot="calendar"
@@ -147,7 +147,7 @@ const RangeCalendar = <TValue extends DateValue>(props: RangeCalendarProps<TValu
     <AriaRangeCalendar
       {...props}
       className={cn(
-        "group/calendar w-fit bg-background p-2 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        "group/calendar w-fit bg-background p-2 [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         props.className,
       )}
       data-slot="calendar"
@@ -221,7 +221,7 @@ const CalendarMonthSection = ({
       <CalendarGrid className="w-full border-collapse" offset={gridOffset}>
         <AriaCalendarGridHeader>
           {(day) => (
-            <CalendarHeaderCell className="rounded-(--cell-radius) text-[0.8rem] font-normal text-muted-foreground select-none">
+            <CalendarHeaderCell className="rounded-md text-[0.8rem] font-normal text-muted-foreground select-none">
               {day}
             </CalendarHeaderCell>
           )}

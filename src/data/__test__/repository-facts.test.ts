@@ -217,4 +217,10 @@ describe("REPOSITORY_FACTS", () => {
   it("reads the schedule of the full browser run from its workflow", () => {
     expect(readFileSync(".github/workflows/e2e-full.yml", "utf8")).toContain(`cron: "${REPOSITORY_FACTS.e2eFullSchedule}"`)
   })
+
+  it("counts the shards the browser suite runs on from its workflow's matrix", () => {
+    const shards = Array.from({ length: REPOSITORY_FACTS.e2eShards }, (_, index) => index + 1)
+
+    expect(readFileSync(".github/workflows/e2e-reusable.yml", "utf8")).toContain(`shard: [${shards.join(", ")}]`)
+  })
 })

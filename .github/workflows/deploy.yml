@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/ci.yml
+
+  deploy-production:
+    name: Deploy production
+    needs: checks
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      target: production
+    secrets: inherit
+
+  release:
+    name: Release
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Tag the deployed commit and publish its release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.deploy-production.outputs.release-tag }}
+        run: bun scripts/publish-release.ts "$GITHUB_SHA" "$RELEASE_TAG"

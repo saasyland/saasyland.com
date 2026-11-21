@@ -21,6 +21,7 @@ import { readBucketNames } from "./wrangler-config.ts"
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
+const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MESSAGES_PATH = "messages/"
 const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
@@ -34,12 +35,14 @@ const JOURNEY_SPEC = "journey.spec.ts"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
+const SHARD_MATRIX = /^ +shard: \[(?<shards>[\d, ]+)\]$/mu
 
 const packageSchema = zod.object({ version: zod.string() })
 const enginesSchema = zod.object({ engines: zod.object({ node: zod.string() }) })
 const rootPackageSchema = zod.object({ packageManager: zod.string() })
 const versionMatchSchema = zod.object({ version: zod.string() })
 const scheduleMatchSchema = zod.object({ schedule: zod.string() })
+const shardsMatchSchema = zod.object({ shards: zod.string() })
 
 const maxRuleSchema = zod.tuple([zod.string(), zod.object({ max: zod.number() })])
 
@@ -100,6 +103,12 @@ const readE2eFullSchedule = (): string => {
   const workflow = readFileSync(E2E_FULL_WORKFLOW, "utf8")
 
   return scheduleMatchSchema.parse(WORKFLOW_CRON.exec(workflow)?.groups).schedule
+}
+
+const readE2eShards = (): number => {
+  const workflow = readFileSync(E2E_WORKFLOW, "utf8")
+
+  return shardsMatchSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").length
 }
 
 const findTimedProject = (projects: readonly unknown[]) =>
@@ -201,6 +210,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     coverageThreshold: test.coverage.thresholds.lines,
     currencies: CURRENCY_CODES.length,
     e2eFullSchedule: readE2eFullSchedule(),
+    e2eShards: readE2eShards(),
     e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
     e2eSpecsPath,
     e2eTests: browserTests.length,

@@ -1,4 +1,5 @@
 name: E2E (reusable)
+
 on:
   workflow_call:
     inputs:
@@ -6,18 +7,15 @@ on:
         description: Playwright project to run.
         required: true
         type: string
-      suite:
-        description: Playwright test path to run.
-        required: false
-        type: string
-        default: e2e/specs
+
 permissions:
   contents: read
+
 jobs:
-  e2e:
-    name: Build and E2E (${{ inputs.browser }})
+  build:
+    name: Build the test Worker (${{ inputs.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -29,21 +27,88 @@ jobs:
         run: bun run db:reset:test
       - name: Build local Cloudflare test environment
         run: bun run build:test
+      - name: Pack the build and the seeded test state
+        run: tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-worker-${{ inputs.browser }}
+          path: test-worker.tar.zst
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  shard:
+    name: E2E shard ${{ matrix.shard }} of ${{ strategy.job-total }} (${{ inputs.browser }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: test-worker-${{ inputs.browser }}
+      - name: Unpack the build and the seeded test state
+        run: tar --zstd --extract --file test-worker.tar.zst && rm test-worker.tar.zst
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ inputs.browser }}-${{ hashFiles('bun.lock') }}
+          key: ${{ runner.os }}-playwright-${{ inputs.browser }}-${{ hashFiles('node_modules/playwright-core/package.json') }}
       - name: Install Playwright browser
         run: bunx playwright install --with-deps ${{ inputs.browser }}
       - name: E2E suite
-        run: bunx playwright test ${{ inputs.suite }} --project=${{ inputs.browser }}
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v7
-        if: failure()
+        run: bunx playwright test e2e/specs --project=${{ inputs.browser }} --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report-${{ inputs.browser }}-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  report:
+    name: Build and E2E (${{ inputs.browser }})
+    needs: [build, shard]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BUILD_RESULT: ${{ needs.build.result }}
+      SHARD_RESULT: ${{ needs.shard.result }}
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.shard.result == 'failure'
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        if: needs.shard.result == 'failure'
+      - uses: actions/download-artifact@v8
+        if: needs.shard.result == 'failure'
+        with:
+          pattern: blob-report-${{ inputs.browser }}-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge the shard reports
+        if: needs.shard.result == 'failure'
+        run: bunx playwright merge-reports --reporter html all-blob-reports
+      - uses: actions/upload-artifact@v7
+        if: needs.shard.result == 'failure'
         with:
           name: playwright-report-${{ inputs.browser }}
-          path: |
-            playwright-report/
-            test-results/
+          path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+      - name: Require the build and every shard to pass
+        run: |
+          if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then
+            echo "::error::The test build finished with $BUILD_RESULT and the shards with $SHARD_RESULT."
+            exit 1
+          fi

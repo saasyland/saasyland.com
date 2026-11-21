@@ -31,7 +31,7 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
-  reporter: isCI ? [["github"], ["html", { open: "never" }]] : [["list"], ["html", { open: "on-failure" }]],
+  reporter: isCI ? [["github"], ["blob"]] : [["list"], ["html", { open: "on-failure" }]],
   retries: isCI ? CI_RETRIES : DEV_RETRIES,
   testDir: "./e2e/specs",
   timeout: E2E_TIMEOUT_MS,

@@ -1,0 +1,44 @@
+name: Preview
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tested:
+    name: Tested before the deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Require the checks that main requires to have passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/tested-commit.ts "$GITHUB_SHA" | grep --quiet --line-regexp "tested=true"
+
+  deploy-preview:
+    name: Deploy preview
+    needs: tested
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      target: preview
+    secrets: inherit

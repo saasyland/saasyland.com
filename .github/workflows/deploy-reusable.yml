@@ -7,25 +7,27 @@ on:
         description: Wrangler environment to deploy (preview or production).
         required: true
         type: string
+      upload:
+        description: Upload the build as a new Worker version without deploying it, applying migrations or recording a GitHub deployment.
+        required: false
+        type: boolean
+        default: false
     outputs:
       release-tag:
         description: Tag that the release job gives a production deploy, chosen before the build so its changelog can show it.
         value: ${{ jobs.deploy.outputs.release-tag }}
 
-permissions:
-  contents: read
-  deployments: write
-
 jobs:
   deploy:
-    name: Deploy ${{ inputs.target }}
+    name: ${{ inputs.upload && 'Upload' || 'Deploy' }} ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
       name: ${{ inputs.target == 'production' && 'Production' || 'Preview' }}
       url: ${{ inputs.target == 'production' && 'https://saasyland.com' || 'https://preview.saasyland.com' }}
+      deployment: ${{ !inputs.upload }}
     concurrency:
-      group: cloudflare-deploy-${{ inputs.target }}
+      group: cloudflare-${{ inputs.upload && format('upload-{0}', github.run_id) || format('deploy-{0}', inputs.target) }}
       cancel-in-progress: false
       queue: max
     env:
@@ -74,13 +76,30 @@ jobs:
           rm -f dist/server/.dev.vars
 
       - name: Apply D1 migrations
+        if: ${{ !inputs.upload }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bun run "db:migrate:$DEPLOY_TARGET"
 
       - name: Deploy Worker
+        if: ${{ !inputs.upload }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: vp exec wrangler deploy --config dist/server/wrangler.json
+
+      - name: Upload Worker version
+        if: inputs.upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIEW_ALIAS: ${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || '' }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.json
+        run: |
+          alias_arguments=()
+          if [[ -n "$PREVIEW_ALIAS" ]]; then
+            alias_arguments=(--preview-alias "$PREVIEW_ALIAS")
+          fi
+          vp exec wrangler versions upload --config dist/server/wrangler.json --message "$GITHUB_REF $GITHUB_SHA" "${alias_arguments[@]}"
+          jq --raw-output 'select(.type == "version-upload") | "Uploaded version \(.version_id), \(.bundle_size.gzip_bytes // "an unknown number of") bytes gzipped. \(.preview_alias_url // .preview_url // "Version URLs are off for this Worker.")"' "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_STEP_SUMMARY"

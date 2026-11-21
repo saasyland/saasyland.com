@@ -48,10 +48,10 @@ Non impostare mai `core.hooksPath` su un altro valore e non passare mai `-c core
 
 ## Cronologia lineare [#linear-history]
 
-Il ruleset che protegge `main` su GitHub richiede una cronologia lineare, accetta solo gli squash merge e rifiuta i force-push, quindi ogni pull request arriva su `main` come un unico commit. Anche i branch delle pull request restano lineari:
+Il ruleset che protegge `main` su GitHub richiede una cronologia lineare, accetta le pull request solo attraverso la coda di merge, che fa lo squash di ciascuna, e rifiuta i force-push, quindi ogni pull request arriva su `main` come un unico commit. Anche i branch delle pull request restano lineari:
 
 - Non creare mai un merge commit, né su `main` né sul branch di una pull request: non fare il merge di `main` in un branch e non risolvere conflitti in un merge commit.
-- Aggiorna un branch facendo il rebase su `main`, con `gh pr update-branch --rebase` oppure con `git fetch origin` e `git rebase origin/main`.
+- Aggiorna un branch facendo il rebase su `main`, con `gh pr update-branch --rebase` oppure con `git fetch origin` e `git rebase origin/main`, quando entra in conflitto con `main`. Una pull request senza conflitti non ha bisogno di alcun rebase per il merge: la coda di merge la testa sopra l'ultima versione di `main`.
 - Quando GitHub non riesce a fare il rebase di una pull request con più commit, riportala come un unico commit sopra `main`: riduci il branch a un solo commit sulla sua merge base, poi fai il rebase di quel commit, così risolvi ogni conflitto una sola volta:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull request
 
 - **Piccole e mirate.** Una correzione, una funzionalità o un refactoring per pull request. Una funzionalità grande diventa una serie di pull request, ognuna revisionabile da sola, come è stato per i video, i corsi e l'amministrazione dei corsi.
-- **Il titolo è il commit di squash.** Usa il formato dei commit; diventa l'oggetto su `main`.
+- **Il titolo è il commit di squash.** Usa il formato dei commit senza l'emoji; diventa l'oggetto su `main`, che GitHub chiude con `(#<number>)`. `scripts/enqueue-pr.ts` aggiunge l'emoji che aggiungerebbe l'hook di commit quando mette la pull request nella coda di merge.
 - **La descrizione** contiene un `## Summary` di cosa è cambiato e perché, un `## Test plan` con i comandi che hai eseguito e i loro risultati, e un elenco `## Docs` delle pagine, delle sezioni del README e dei testi che hai aggiornato. Scrivila in modo semplice, senza linguaggio di marketing.
 - **Ogni pull request aggiorna ciò che rende inesatto:** il README, le pagine della documentazione in tutti i locale e qualsiasi testo del sito o affermazione della landing page che tocca, e aggiunge la propria [voce del changelog](#changelog-entries). Le inesattezze trovate in codice che non hai modificato richiedono una pull request a parte.
+
+## Merge [#merging]
+
+Una pull request arriva su `main` solo attraverso la coda di merge di GitHub. Quando i suoi controlli sono verdi e la sua voce del changelog è presente, mettila in coda con il suo numero:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+Lo script fallisce su un titolo che non segue il formato dei commit, imposta come titolo l'oggetto che scriverebbe l'hook di commit, emoji compresa, ed esegue `gh pr merge --auto --squash`, che aggiunge la pull request alla coda non appena i suoi controlli passano. La coda testa ogni pull request sopra `main` e sopra le pull request che la precedono, con i controlli che la pull request ha eseguito, ne compila diverse alla volta e porta su `main` un gruppo di pull request tutte insieme quando ciascuna è passata, così nessuno deve fare il rebase di una pull request pronta per unirla. Una pull request che fallisce nella coda ne esce; correggila e rimettila in coda. Non fare mai il merge di una pull request a mano o scavalcando la coda: è l'esecuzione della coda ad aver testato il commit che arriva su `main`, e `deploy.yml` riesegue tutti i controlli per un commit che l'ha saltata.
 
 ## Voci del changelog [#changelog-entries]
 
@@ -78,11 +88,11 @@ Ogni pull request aggiunge la propria voce al [changelog](/docs/project/changelo
 - **Dalle il nome della pull request.** Apri la pull request, poi aggiungi `content/changelog/<number>.<locale>.mdx` in tutti i locale: un elenco puntato, senza frontmatter, di ciò che cambia per chi usa il codice, con i link alle pagine della documentazione interessate.
 - **Non scrivere mai una data né il numero della pull request.** La pagina del changelog ricava il giorno di ogni voce, e le note di rilascio la sua release, dalla cronologia Git: il giorno, in UTC, del commit squash il cui oggetto GitHub chiude con `(#<number>)`. Finché la pull request non è unita, la sua voce compare sotto **Non rilasciato**. Il numero lo ricavano dal nome del file: la pagina chiude ogni punto di una voce con un link alla sua pull request, o al suo commit per una voce che porta il nome di un commit, e le note di rilascio chiudono ogni punto con `(#<number>)`, che GitHub trasforma in link. Una volta distribuita, la pagina collega anche ogni voce alla [release](/docs/tooling/ci-cd#releases-and-tags) che l'ha rilasciata per prima.
 - **La CI lo controlla.** In una pull request, `bun run check` fallisce finché manca `content/changelog/<number>.en-US.mdx`, e `check:i18n` confronta ogni traduzione con questo file come fa con una pagina della documentazione. Fallisce anche un file che non porta né il numero di una pull request né l'hash completo di un commit: le poche modifiche arrivate su `main` senza pull request portano il nome del loro commit.
-- **Solo la tua voce può restare non rilasciata.** In CI, la build del sito fallisce finché il changelog mostrerebbe sotto **Non rilasciato** una voce che non dovrebbe esserci: in una pull request verso `main`, qualsiasi voce tranne quella della pull request stessa, e su `main`, qualsiasi voce. Una build locale, che non ha `GITHUB_REF`, mostra tutte le voci non unite. Così emerge una voce sopravvissuta alla sua pull request: `content/changelog/219.<locale>.mdx` è rimasto indietro quando #219 è stata chiusa senza unirla, ripeteva la voce di #220 ed è comparso sotto **Non rilasciato** in produzione finché #254 non l'ha rimosso.
+- **Solo la tua voce può restare non rilasciata.** In CI, la build del sito fallisce finché il changelog mostrerebbe sotto **Non rilasciato** una voce che non dovrebbe esserci: in una pull request verso `main`, qualsiasi voce tranne quella della pull request stessa, e nella coda di merge e su `main`, qualsiasi voce. Un branch della coda di merge contiene già il commit squash di ogni pull request del suo gruppo, quindi ognuna delle loro voci ha il suo giorno. Una build locale, che non ha `GITHUB_REF`, mostra tutte le voci non unite. Così emerge una voce sopravvissuta alla sua pull request: `content/changelog/219.<locale>.mdx` è rimasto indietro quando #219 è stata chiusa senza unirla, ripeteva la voce di #220 ed è comparso sotto **Non rilasciato** in produzione finché #254 non l'ha rimosso.
 
 ## Controlli
 
-La CI esegue `bun run check` e `bun run test:coverage`, poi compila il Worker di test ed esegue la suite nel browser in Chromium; solo quando entrambi passano esegue il deploy di una preview. Attendi anche il deploy della preview: è l'unico passaggio che carica il Worker su Cloudflare, e i limiti di caricamento di Cloudflare hanno fatto fallire un deploy che aveva superato tutti gli altri controlli. Vedi [CI/CD](/docs/tooling/ci-cd).
+La CI esegue `bun run check` e `bun run test:coverage`, compila il Worker di test ed esegue la suite nel browser in Chromium, e carica il Worker di preview su Cloudflare come versione che non riceve traffico. Quel caricamento è il controllo che Cloudflare accetta il Worker: i suoi limiti di caricamento hanno fatto fallire un deploy che aveva superato tutti gli altri controlli. La coda di merge esegue di nuovo gli stessi controlli sulla pull request insieme a `main` e alle pull request che la precedono. Vedi [CI/CD](/docs/tooling/ci-cd).
 
 ## Pagine correlate
 

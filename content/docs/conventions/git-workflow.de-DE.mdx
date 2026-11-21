@@ -48,10 +48,10 @@ Setze `core.hooksPath` nie auf einen anderen Wert und übergib Git nie `-c core.
 
 ## Lineare Historie [#linear-history]
 
-Das Ruleset, das `main` auf GitHub schützt, verlangt eine lineare Historie, erlaubt nur Squash-Merges und lehnt Force-Pushes ab, sodass jeder Pull Request als ein Commit in `main` landet. Auch Pull-Request-Branches bleiben linear:
+Das Ruleset, das `main` auf GitHub schützt, verlangt eine lineare Historie, nimmt Pull Requests nur über die Merge Queue an, die jeden einzelnen zu einem Squash-Commit zusammenfasst, und lehnt Force-Pushes ab, sodass jeder Pull Request als ein Commit in `main` landet. Auch Pull-Request-Branches bleiben linear:
 
 - Erstelle nie einen Merge-Commit, weder auf `main` noch auf einem Pull-Request-Branch: Merge `main` nicht in einen Branch und löse keine Konflikte in einem Merge-Commit.
-- Bringe einen Branch auf den neuesten Stand, indem du ihn auf `main` rebasest, mit `gh pr update-branch --rebase` oder mit `git fetch origin` und `git rebase origin/main`.
+- Bringe einen Branch auf den neuesten Stand, indem du ihn auf `main` rebasest, mit `gh pr update-branch --rebase` oder mit `git fetch origin` und `git rebase origin/main`, wenn er mit `main` in Konflikt steht. Ein Pull Request ohne Konflikte braucht für den Merge kein Rebase: Die Merge Queue testet ihn auf dem neuesten Stand von `main`.
 - Wenn GitHub einen Pull Request mit mehreren Commits nicht rebasen kann, bring ihn erneut als einen Commit auf `main` ein: Fasse den Branch an seiner Merge-Basis zu einem Commit zusammen und rebase dann diesen Commit, sodass du jeden Konflikt nur einmal löst:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull Requests
 
 - **Klein und gezielt.** Eine Korrektur, eine Funktion oder ein Refactoring pro Pull Request. Eine große Funktion wird zu einem Stapel von Pull Requests, die jeweils für sich reviewbar sind, wie es bei Videos, Kursen und der Kursverwaltung im Admin der Fall war.
-- **Der Titel ist der Squash-Commit.** Verwende das Commit-Format; der Titel wird zum Betreff auf `main`.
+- **Der Titel ist der Squash-Commit.** Verwende das Commit-Format ohne das Emoji; der Titel wird zum Betreff auf `main`, den GitHub mit `(#<number>)` abschließt. `scripts/enqueue-pr.ts` ergänzt das Emoji, das der Commit-Hook setzen würde, wenn es den Pull Request in die Merge Queue stellt.
 - **Die Beschreibung** hat eine `## Summary` dessen, was sich geändert hat und warum, einen `## Test plan` mit den Befehlen, die du ausgeführt hast, und ihren Ergebnissen, und eine `## Docs`-Liste der Seiten, README-Abschnitte und Texte, die du aktualisiert hast. Schreibe sie schlicht, ohne Marketingsprache.
 - **Jeder Pull Request aktualisiert, was er ungenau macht:** die README, die Dokumentationsseiten in jeder Locale und alle Website-Texte oder Aussagen der Landingpage, die er berührt, und er fügt seinen [Changelog-Eintrag](#changelog-entries) hinzu. Ungenauigkeiten in Code, den du nicht geändert hast, bekommen einen eigenen Pull Request.
+
+## Mergen [#merging]
+
+Ein Pull Request gelangt nur über die Merge Queue von GitHub in `main`. Sobald seine Prüfungen grün sind und sein Changelog-Eintrag vorhanden ist, stelle ihn mit seiner Nummer in die Queue:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+Das Skript schlägt bei einem Titel fehl, der nicht dem Commit-Format folgt, setzt den Titel auf den Betreff, den der Commit-Hook schreiben würde, samt Emoji, und führt `gh pr merge --auto --squash` aus, das den Pull Request in die Queue aufnimmt, sobald seine Prüfungen bestanden sind. Die Queue testet jeden Pull Request auf `main` und den Pull Requests vor ihm, mit den Prüfungen, die der Pull Request durchlaufen hat, baut mehrere davon gleichzeitig und bringt eine Gruppe von Pull Requests gemeinsam in `main` ein, sobald jeder davon bestanden hat, sodass niemand einen fertigen Pull Request rebasen muss, um ihn zu mergen. Ein Pull Request, der in der Queue fehlschlägt, verlässt sie; korrigiere ihn und stelle ihn erneut in die Queue. Merge einen Pull Request nie von Hand oder an der Queue vorbei: Der Lauf der Queue ist der, der den Commit getestet hat, der in `main` landet, und `deploy.yml` führt jede Prüfung für einen Commit erneut aus, der die Queue übersprungen hat.
 
 ## Changelog-Einträge [#changelog-entries]
 
@@ -78,11 +88,11 @@ Jeder Pull Request fügt dem [Changelog](/docs/project/changelog) einen eigenen 
 - **Nach dem Pull Request benennen.** Öffne den Pull Request und lege dann `content/changelog/<number>.<locale>.mdx` in jeder Locale an: eine Aufzählung ohne Frontmatter, was sich für die Nutzer des Codes ändert, mit Links auf die betroffenen Dokumentationsseiten.
 - **Nie ein Datum oder die Nummer des Pull Requests schreiben.** Die Changelog-Seite entnimmt den Tag jedes Eintrags und die Release Notes sein Release der Git-Historie: den Tag (UTC) des Squash-Commits, dessen Betreff GitHub mit `(#<number>)` abschließt. Bis der Pull Request gemergt ist, steht sein Eintrag unter **Unveröffentlicht**. Die Nummer entnehmen sie dem Dateinamen: Die Seite schließt jeden Aufzählungspunkt eines Eintrags mit einem Link auf seinen Pull Request ab, bei einem nach einem Commit benannten Eintrag mit einem Link auf diesen Commit, und die Release Notes schließen jeden Aufzählungspunkt mit `(#<number>)` ab, das GitHub verlinkt. Nach dem Deployment verlinkt die Seite jeden Eintrag außerdem auf das [Release](/docs/tooling/ci-cd#releases-and-tags), das ihn als erstes ausgeliefert hat.
 - **CI prüft es.** In einem Pull Request schlägt `bun run check` fehl, solange `content/changelog/<number>.en-US.mdx` fehlt, und `check:i18n` vergleicht jede Übersetzung damit wie bei einer Dokumentationsseite. Eine Datei, die weder nach einer Pull-Request-Nummer noch nach einem vollständigen Commit-Hash benannt ist, schlägt ebenfalls fehl: Die wenigen Änderungen, die ohne Pull Request in `main` gelangt sind, tragen den Namen ihres Commits.
-- **Nur der eigene Eintrag darf unveröffentlicht sein.** In der CI schlägt der Build der Website fehl, solange der Changelog einen Eintrag unter **Unveröffentlicht** aufführen würde, der dort nicht hingehört: in einem Pull Request nach `main` jeden Eintrag außer dem des Pull Requests selbst und auf `main` jeden Eintrag überhaupt. Ein lokaler Build, der kein `GITHUB_REF` hat, führt jeden nicht gemergten Eintrag auf. So fällt ein Eintrag auf, der seinen Pull Request überlebt: `content/changelog/219.<locale>.mdx` blieb zurück, als #219 ohne Merge geschlossen wurde, wiederholte den Eintrag von #220 und stand in Produktion unter **Unveröffentlicht**, bis #254 ihn entfernte.
+- **Nur der eigene Eintrag darf unveröffentlicht sein.** In der CI schlägt der Build der Website fehl, solange der Changelog einen Eintrag unter **Unveröffentlicht** aufführen würde, der dort nicht hingehört: in einem Pull Request nach `main` jeden Eintrag außer dem des Pull Requests selbst und in der Merge Queue und auf `main` jeden Eintrag überhaupt. Ein Branch der Merge Queue enthält bereits den Squash-Commit jedes Pull Requests seiner Gruppe, sodass jeder ihrer Einträge seinen Tag hat. Ein lokaler Build, der kein `GITHUB_REF` hat, führt jeden nicht gemergten Eintrag auf. So fällt ein Eintrag auf, der seinen Pull Request überlebt: `content/changelog/219.<locale>.mdx` blieb zurück, als #219 ohne Merge geschlossen wurde, wiederholte den Eintrag von #220 und stand in Produktion unter **Unveröffentlicht**, bis #254 ihn entfernte.
 
 ## Prüfungen
 
-Die CI führt `bun run check` und `bun run test:coverage` aus, baut dann den Test-Worker und führt die Browser-Suite in Chromium aus; nur wenn beides erfolgreich ist, deployt sie eine Preview. Warte auch auf das Preview-Deployment: Es ist der einzige Schritt, der den Worker zu Cloudflare hochlädt, und die Upload-Limits von Cloudflare haben schon ein Deployment scheitern lassen, das jede andere Prüfung bestanden hatte. Siehe [CI/CD](/docs/tooling/ci-cd).
+Die CI führt `bun run check` und `bun run test:coverage` aus, baut den Test-Worker, führt die Browser-Suite in Chromium aus und lädt den Preview-Worker als Version, die keinen Traffic bedient, zu Cloudflare hoch. Dieser Upload ist die Prüfung, dass Cloudflare den Worker annimmt: Die Upload-Limits von Cloudflare haben schon ein Deployment scheitern lassen, das jede andere Prüfung bestanden hatte. Die Merge Queue führt dieselben Prüfungen erneut für den Pull Request zusammen mit `main` und den Pull Requests vor ihm aus. Siehe [CI/CD](/docs/tooling/ci-cd).
 
 ## Verwandte Seiten
 

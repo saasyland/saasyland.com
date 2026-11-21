@@ -131,6 +131,24 @@ describe("releaseNotes", () => {
     expect(releaseNotes(changelog, "v2026.11.14")).toBe("- Change 10. (#10)")
   })
 
+  it("gives the release of one push every pull request of the merge group that push brought to main", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#10)", "2026-11-21T09:00:00Z")
+    repository.tag("v2026.11.21")
+    repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-21T10:00:00Z")
+    repository.commit("🚀 perf(worker): load less (#12)", "2026-11-21T10:00:01Z")
+    repository.commit("📚 docs(ci): describe the merge queue (#13)", "2026-11-21T10:00:02Z")
+
+    for (const key of ["10", "11", "12", "13"]) {
+      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+    }
+
+    const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.21.2" })
+
+    expect(releaseNotes(changelog, "v2026.11.21.2")).toBe("- Change 13. (#13)\n- Change 12. (#12)\n- Change 11. (#11)")
+  })
+
   it("links to the changelog when the release shipped no entry", () => {
     expect(releaseNotes(CHANGELOG, "v2026.11.14.3")).toBe(CHANGELOG_LINK)
   })

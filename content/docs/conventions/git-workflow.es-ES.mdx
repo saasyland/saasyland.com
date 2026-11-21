@@ -48,10 +48,10 @@ No asignes nunca otro valor a `core.hooksPath` ni pases `-c core.hooksPath` a Gi
 
 ## Historial lineal [#linear-history]
 
-El ruleset que protege `main` en GitHub exige un historial lineal, solo acepta fusiones con squash y rechaza los force-push, así que cada pull request llega a `main` como un solo commit. Las ramas de las pull requests también se mantienen lineales:
+El ruleset que protege `main` en GitHub exige un historial lineal, solo acepta pull requests a través de la cola de fusión, que aplica squash a cada una, y rechaza los force-push, así que cada pull request llega a `main` como un solo commit. Las ramas de las pull requests también se mantienen lineales:
 
 - No crees nunca un commit de merge, ni en `main` ni en la rama de una pull request: no fusiones `main` en una rama y no resuelvas conflictos en un commit de merge.
-- Pon al día una rama haciendo rebase sobre `main`, con `gh pr update-branch --rebase` o con `git fetch origin` y `git rebase origin/main`.
+- Pon al día una rama haciendo rebase sobre `main`, con `gh pr update-branch --rebase` o con `git fetch origin` y `git rebase origin/main`, cuando entre en conflicto con `main`. Una pull request sin conflictos no necesita rebase para fusionarse: la cola de fusión la prueba sobre el `main` más reciente.
 - Cuando GitHub no puede hacer rebase de una pull request con varios commits, vuelve a integrarla como un solo commit sobre `main`: junta la rama en un commit en su base de merge y después haz rebase de ese commit, de modo que resuelves cada conflicto una sola vez:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull requests
 
 - **Pequeñas y concretas.** Una corrección, una funcionalidad o una refactorización por pull request. Una funcionalidad grande se convierte en una pila de pull requests, cada una revisable por separado, como se hizo con los vídeos, los cursos y la administración de cursos.
-- **El título es el commit del squash.** Usa el formato de commit; se convierte en el asunto en `main`.
+- **El título es el commit del squash.** Usa el formato de commit sin el emoji; se convierte en el asunto en `main`, que GitHub termina con `(#<number>)`. `scripts/enqueue-pr.ts` añade el emoji que añadiría el hook de commit cuando pone la pull request en la cola de fusión.
 - **La descripción** tiene un `## Summary` con lo que ha cambiado y por qué, un `## Test plan` con los comandos que has ejecutado y sus resultados, y una lista `## Docs` con las páginas, las secciones del README y los textos que has actualizado. Escríbela con sencillez, sin lenguaje de marketing.
 - **Cada pull request actualiza lo que deja inexacto:** el README, las páginas de la documentación en todos los idiomas y cualquier texto del sitio o afirmación de la página de inicio que toque, y añade su [entrada del registro de cambios](#changelog-entries). Una inexactitud encontrada en código que no has cambiado recibe su propia pull request.
+
+## Fusionar [#merging]
+
+Una pull request solo llega a `main` a través de la cola de fusión de GitHub. Cuando sus comprobaciones estén en verde y su entrada del registro de cambios esté incluida, ponla en la cola con su número:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+El script falla con un título que no sigue el formato de commit, cambia el título por el asunto que escribiría el hook de commit, emoji incluido, y ejecuta `gh pr merge --auto --squash`, que añade la pull request a la cola en cuanto pasan sus comprobaciones. La cola prueba cada pull request sobre `main` y sobre las pull requests que van por delante, con las comprobaciones que ejecutó la pull request, compila varias a la vez e integra juntas las pull requests de un grupo una vez que todas han pasado, así que nadie tiene que hacer rebase de una pull request lista para fusionarla. Una pull request que falla en la cola sale de ella; corrígela y vuelve a ponerla en la cola. No fusiones nunca una pull request a mano ni saltándote la cola: la ejecución de la cola es la que probó el commit que llega a `main`, y `deploy.yml` vuelve a ejecutar todas las comprobaciones para un commit que se la saltó.
 
 ## Entradas del registro de cambios [#changelog-entries]
 
@@ -78,11 +88,11 @@ Cada pull request añade su propia entrada al [registro de cambios](/docs/projec
 - **Nómbrala como la pull request.** Abre la pull request y después añade `content/changelog/<number>.<locale>.mdx` en todos los idiomas: una lista con viñetas, sin frontmatter, de lo que cambia para quienes usan el código, con enlaces a las páginas de la documentación afectadas.
 - **No escribas nunca una fecha ni el número de la pull request.** La página del registro de cambios toma el día de cada entrada, y las notas de la versión su versión, del historial de Git: el día, en UTC, del commit squash cuyo asunto GitHub termina con `(#<number>)`. Hasta que se fusiona la pull request, su entrada aparece en **Sin publicar**. El número lo toman del nombre del archivo: la página termina cada viñeta de una entrada con un enlace a su pull request, o a su commit si la entrada lleva el nombre de uno, y las notas de la versión terminan cada viñeta con `(#<number>)`, que GitHub enlaza. Una vez desplegada, la página enlaza además cada entrada a la [versión](/docs/tooling/ci-cd#releases-and-tags) que la publicó por primera vez.
 - **La CI lo comprueba.** En una pull request, `bun run check` falla mientras falte `content/changelog/<number>.en-US.mdx`, y `check:i18n` compara cada traducción con ella igual que con una página de la documentación. También falla un archivo que no lleve el nombre de un número de pull request ni de un hash de commit completo: los pocos cambios que llegaron a `main` sin pull request llevan el nombre de su commit.
-- **Solo tu propia entrada puede quedar sin publicar.** En la CI, la compilación del sitio falla mientras el registro de cambios fuera a mostrar en **Sin publicar** una entrada que no debería estar ahí: en una pull request hacia `main`, cualquier entrada salvo la de la propia pull request, y en `main`, cualquier entrada. Una compilación local, que no tiene `GITHUB_REF`, muestra todas las entradas sin fusionar. Así se detecta una entrada que sobrevive a su pull request: `content/changelog/219.<locale>.mdx` se quedó atrás cuando #219 se cerró sin fusionarse, repetía la entrada de #220 y apareció en **Sin publicar** en producción hasta que #254 la eliminó.
+- **Solo tu propia entrada puede quedar sin publicar.** En la CI, la compilación del sitio falla mientras el registro de cambios fuera a mostrar en **Sin publicar** una entrada que no debería estar ahí: en una pull request hacia `main`, cualquier entrada salvo la de la propia pull request, y en la cola de fusión y en `main`, cualquier entrada. Una rama de la cola de fusión ya contiene el commit squash de cada pull request de su grupo, así que cada una de sus entradas tiene su día. Una compilación local, que no tiene `GITHUB_REF`, muestra todas las entradas sin fusionar. Así se detecta una entrada que sobrevive a su pull request: `content/changelog/219.<locale>.mdx` se quedó atrás cuando #219 se cerró sin fusionarse, repetía la entrada de #220 y apareció en **Sin publicar** en producción hasta que #254 la eliminó.
 
 ## Comprobaciones
 
-CI ejecuta `bun run check` y `bun run test:coverage`, después compila el Worker de pruebas y ejecuta la suite del navegador en Chromium; solo cuando ambos pasan despliega una preview. Espera también al despliegue de la preview: es el único paso que sube el Worker a Cloudflare, y los límites de subida de Cloudflare ya han hecho fallar un despliegue que había superado todas las demás comprobaciones. Consulta [CI/CD](/docs/tooling/ci-cd).
+CI ejecuta `bun run check` y `bun run test:coverage`, compila el Worker de pruebas y ejecuta la suite del navegador en Chromium, y sube el Worker de preview a Cloudflare como una versión que no sirve tráfico. Esa subida es la comprobación de que Cloudflare acepta el Worker: sus límites de subida ya han hecho fallar un despliegue que había superado todas las demás comprobaciones. La cola de fusión vuelve a ejecutar las mismas comprobaciones sobre la pull request junto con `main` y las pull requests que van por delante. Consulta [CI/CD](/docs/tooling/ci-cd).
 
 ## Páginas relacionadas
 

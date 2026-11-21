@@ -48,10 +48,10 @@ Nunca defina `core.hooksPath` com outro valor e nunca passe `-c core.hooksPath` 
 
 ## Histórico linear [#linear-history]
 
-O ruleset que protege `main` no GitHub exige um histórico linear, aceita apenas merges com squash e recusa force-push, então cada pull request chega a `main` como um único commit. As branches dos pull requests também ficam lineares:
+O ruleset que protege `main` no GitHub exige um histórico linear, aceita pull requests apenas pela fila de mesclagem, que faz squash de cada um, e recusa force-push, então cada pull request chega a `main` como um único commit. As branches dos pull requests também ficam lineares:
 
 - Nunca crie um commit de merge, nem em `main` nem na branch de um pull request: não faça merge de `main` em uma branch e não resolva conflitos em um commit de merge.
-- Atualize uma branch fazendo rebase sobre `main`, com `gh pr update-branch --rebase` ou com `git fetch origin` e `git rebase origin/main`.
+- Atualize uma branch fazendo rebase sobre `main`, com `gh pr update-branch --rebase` ou com `git fetch origin` e `git rebase origin/main`, quando ela tiver conflitos com `main`. Um pull request sem conflitos não precisa de rebase para ser mesclado: a fila de mesclagem o testa sobre a `main` mais recente.
 - Quando o GitHub não consegue fazer rebase de um pull request com vários commits, integre-o de novo como um único commit sobre `main`: junte a branch em um commit na base de merge dela e depois faça rebase desse commit, para resolver cada conflito uma única vez:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull requests
 
 - **Pequenos e focados.** Uma correção, um recurso ou uma refatoração por pull request. Um recurso grande vira uma pilha de pull requests, cada um revisável por si só, como foram os vídeos, os cursos e a administração de cursos.
-- **O título é o commit do squash.** Use o formato de commit; ele se torna o assunto em `main`.
+- **O título é o commit do squash.** Use o formato de commit sem o emoji; ele se torna o assunto em `main`, que o GitHub termina com `(#<number>)`. `scripts/enqueue-pr.ts` adiciona o emoji que o hook de commit adicionaria quando coloca o pull request na fila de mesclagem.
 - **A descrição** tem um `## Summary` do que mudou e por quê, um `## Test plan` com os comandos que você executou e os seus resultados, e uma lista `## Docs` das páginas, seções do README e textos que você atualizou. Escreva de forma simples, sem linguagem de marketing.
 - **Todo pull request atualiza o que ele torna impreciso:** o README, as páginas da documentação em todos os locales e qualquer texto do site ou afirmação da landing page que ele afete, e adiciona a sua [entrada do changelog](#changelog-entries). Uma imprecisão encontrada em código que você não alterou ganha o seu próprio pull request.
+
+## Mesclagem [#merging]
+
+Um pull request só chega à `main` pela fila de mesclagem do GitHub. Quando as verificações dele estiverem verdes e a entrada do changelog estiver incluída, coloque-o na fila com o número dele:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+O script falha com um título que não segue o formato de commit, troca o título pelo assunto que o hook de commit escreveria, com o emoji, e executa `gh pr merge --auto --squash`, que adiciona o pull request à fila assim que as verificações dele passam. A fila testa cada pull request sobre a `main` e sobre os pull requests à frente dele, com as verificações que o pull request executou, faz o build de vários ao mesmo tempo e integra juntos os pull requests de um grupo quando todos eles passam, então ninguém precisa fazer rebase de um pull request pronto para mesclá-lo. Um pull request que falha na fila sai dela; corrija-o e coloque-o na fila de novo. Nunca mescle um pull request manualmente nem por fora da fila: a execução da fila é a que testou o commit que chega à `main`, e o `deploy.yml` executa de novo todas as verificações para um commit que passou por fora dela.
 
 ## Entradas do changelog [#changelog-entries]
 
@@ -78,11 +88,11 @@ Todo pull request adiciona a sua própria entrada ao [changelog](/docs/project/c
 - **Dê a ela o número do pull request.** Abra o pull request e depois adicione `content/changelog/<number>.<locale>.mdx` em todos os locales: uma lista com marcadores, sem frontmatter, do que mudou para quem usa o código, com links para as páginas da documentação afetadas.
 - **Nunca escreva uma data nem o número do pull request.** A página do changelog tira o dia de cada entrada, e as notas de versão a sua release, do histórico do Git: o dia, em UTC, do commit squash cujo assunto o GitHub termina com `(#<number>)`. Até o pull request ser mesclado, a entrada aparece em **Não lançado**. O número vem do nome do arquivo: a página termina cada item de uma entrada com um link para o seu pull request, ou para o seu commit no caso de uma entrada com o nome de um commit, e as notas de versão terminam cada item com `(#<number>)`, que o GitHub transforma em link. Depois do deploy, a página também liga cada entrada à [release](/docs/tooling/ci-cd#releases-and-tags) que a entregou primeiro.
 - **A CI verifica.** Em um pull request, `bun run check` falha enquanto `content/changelog/<number>.en-US.mdx` não existir, e `check:i18n` compara cada tradução com ele como faz com uma página da documentação. Um arquivo nomeado sem o número de um pull request nem o hash completo de um commit também falha: as poucas mudanças que chegaram à `main` sem pull request levam o nome do seu commit.
-- **Só a sua própria entrada pode ficar sem lançamento.** Na CI, o build do site falha enquanto o changelog listaria em **Não lançado** uma entrada que não deveria estar ali: em um pull request para a `main`, qualquer entrada que não seja a do próprio pull request, e na `main`, qualquer entrada. Um build local, que não tem `GITHUB_REF`, lista todas as entradas não mescladas. Isso pega uma entrada que sobrevive ao seu pull request: `content/changelog/219.<locale>.mdx` ficou para trás quando o #219 foi fechado sem ser mesclado, repetia a entrada do #220 e aparecia em **Não lançado** em produção até o #254 removê-la.
+- **Só a sua própria entrada pode ficar sem lançamento.** Na CI, o build do site falha enquanto o changelog listaria em **Não lançado** uma entrada que não deveria estar ali: em um pull request para a `main`, qualquer entrada que não seja a do próprio pull request, e na fila de mesclagem e na `main`, qualquer entrada. Uma branch da fila de mesclagem já contém o commit squash de cada pull request do seu grupo, então cada uma das entradas deles tem o seu dia. Um build local, que não tem `GITHUB_REF`, lista todas as entradas não mescladas. Isso pega uma entrada que sobrevive ao seu pull request: `content/changelog/219.<locale>.mdx` ficou para trás quando o #219 foi fechado sem ser mesclado, repetia a entrada do #220 e aparecia em **Não lançado** em produção até o #254 removê-la.
 
 ## Verificações
 
-A CI executa `bun run check` e `bun run test:coverage`, depois compila o Worker de teste e executa a suíte de navegador no Chromium; só quando os dois passam ela faz o deploy de um preview. Espere também o deploy do preview: é a única etapa que envia o Worker ao Cloudflare, e os limites de upload do Cloudflare já fizeram falhar um deploy que tinha passado em todas as outras verificações. Veja [CI/CD](/docs/tooling/ci-cd).
+A CI executa `bun run check` e `bun run test:coverage`, compila o Worker de teste e executa a suíte de navegador no Chromium, e envia o Worker de preview ao Cloudflare como uma versão que não recebe tráfego. Esse upload é a verificação de que o Cloudflare aceita o Worker: os limites de upload do Cloudflare já fizeram falhar um deploy que tinha passado em todas as outras verificações. A fila de mesclagem executa de novo as mesmas verificações no pull request junto com a `main` e os pull requests à frente dele. Veja [CI/CD](/docs/tooling/ci-cd).
 
 ## Páginas relacionadas
 

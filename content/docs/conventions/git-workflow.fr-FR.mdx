@@ -48,10 +48,10 @@ Ne donnez jamais une autre valeur à `core.hooksPath` et ne passez jamais `-c co
 
 ## Historique linéaire [#linear-history]
 
-Le ruleset qui protège `main` sur GitHub exige un historique linéaire, n'accepte que les fusions par squash et refuse les force-push : chaque pull request arrive donc sur `main` en un seul commit. Les branches des pull requests restent elles aussi linéaires :
+Le ruleset qui protège `main` sur GitHub exige un historique linéaire, n'accepte les pull requests que par la file de fusion, qui squashe chacune d'elles, et refuse les force-push : chaque pull request arrive donc sur `main` en un seul commit. Les branches des pull requests restent elles aussi linéaires :
 
 - Ne créez jamais de commit de merge, ni sur `main` ni sur une branche de pull request : ne fusionnez pas `main` dans une branche et ne résolvez pas de conflits dans un commit de merge.
-- Mettez une branche à jour en la rebasant sur `main`, avec `gh pr update-branch --rebase` ou avec `git fetch origin` et `git rebase origin/main`.
+- Mettez une branche à jour en la rebasant sur `main`, avec `gh pr update-branch --rebase` ou avec `git fetch origin` et `git rebase origin/main`, quand elle entre en conflit avec `main`. Une pull request sans conflit n'a besoin d'aucun rebase pour être fusionnée : la file de fusion la teste au-dessus de la dernière version de `main`.
 - Quand GitHub ne peut pas rebaser une pull request de plusieurs commits, intégrez-la de nouveau en un seul commit au-dessus de `main` : regroupez la branche en un commit sur sa base de merge, puis rebasez ce commit, pour ne résoudre chaque conflit qu'une fois :
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull requests
 
 - **Petites et ciblées.** Une correction, une fonctionnalité ou un refactoring par pull request. Une grosse fonctionnalité devient une pile de pull requests, chacune pouvant être relue séparément, comme l'ont été les vidéos, les cours et l'administration des cours.
-- **Le titre est le commit de squash.** Utilisez le format des commits ; il devient le sujet sur `main`.
+- **Le titre est le commit de squash.** Utilisez le format des commits, sans l'émoji ; il devient le sujet sur `main`, que GitHub termine par `(#<number>)`. `scripts/enqueue-pr.ts` ajoute l'émoji qu'ajouterait le hook de commit quand il place la pull request dans la file de fusion.
 - **La description** comporte une section `## Summary` sur ce qui a changé et pourquoi, une section `## Test plan` avec les commandes exécutées et leurs résultats, et une liste `## Docs` des pages, des sections du README et des textes que vous avez mis à jour. Rédigez-la simplement, sans langage marketing.
 - **Chaque pull request met à jour ce qu'elle rend inexact :** le README, les pages de documentation dans toutes les langues et tout texte du site ou toute affirmation de la page d'accueil qu'elle touche, et elle ajoute son [entrée au journal des modifications](#changelog-entries). Une inexactitude repérée dans du code que vous n'avez pas modifié fait l'objet de sa propre pull request.
+
+## Fusion [#merging]
+
+Une pull request n'arrive sur `main` que par la file de fusion de GitHub. Une fois ses vérifications au vert et son entrée du journal des modifications ajoutée, placez-la dans la file avec son numéro :
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+Le script échoue sur un titre qui ne suit pas le format des commits, remplace le titre par le sujet qu'écrirait le hook de commit, émoji compris, et lance `gh pr merge --auto --squash`, qui ajoute la pull request à la file dès que ses vérifications réussissent. La file teste chaque pull request au-dessus de `main` et des pull requests qui la précèdent, avec les vérifications que la pull request a exécutées, en construit plusieurs à la fois et intègre un groupe de pull requests d'un seul coup une fois que chacune d'elles a réussi : personne n'a donc à rebaser une pull request prête pour la fusionner. Une pull request qui échoue dans la file en sort ; corrigez-la et remettez-la dans la file. Ne fusionnez jamais une pull request à la main ni en contournant la file : c'est l'exécution de la file qui a testé le commit qui arrive sur `main`, et `deploy.yml` relance toutes les vérifications pour un commit qui ne l'a pas suivie.
 
 ## Entrées du journal des modifications [#changelog-entries]
 
@@ -78,11 +88,11 @@ Chaque pull request ajoute sa propre entrée au [journal des modifications](/doc
 - **Nommez-la d'après la pull request.** Ouvrez la pull request, puis ajoutez `content/changelog/<number>.<locale>.mdx` dans chaque langue : une liste à puces, sans frontmatter, de ce qui change pour les personnes qui utilisent le code, avec des liens vers les pages de documentation concernées.
 - **N'écrivez jamais de date ni le numéro de la pull request.** La page du journal tire le jour de chaque entrée, et les notes de version sa version, de l'historique Git : le jour, en UTC, du commit squash dont GitHub termine l'objet par `(#<number>)`. Tant que la pull request n'est pas fusionnée, son entrée figure sous **Non publié**. Elles tirent le numéro du nom du fichier : la page termine chaque puce d'une entrée par un lien vers sa pull request, ou vers son commit pour une entrée nommée d'après un commit, et les notes de version terminent chaque puce par `(#<number>)`, dont GitHub fait un lien. Une fois déployée, la page relie aussi chaque entrée à la [version](/docs/tooling/ci-cd#releases-and-tags) qui l'a livrée en premier.
 - **La CI le vérifie.** Dans une pull request, `bun run check` échoue tant que `content/changelog/<number>.en-US.mdx` manque, et `check:i18n` compare chaque traduction à ce fichier comme pour une page de documentation. Un fichier nommé ni d'après un numéro de pull request ni d'après un hash de commit complet échoue aussi : les rares changements arrivés sur `main` sans pull request portent le nom de leur commit.
-- **Seule votre propre entrée peut rester non publiée.** En CI, la construction du site échoue tant que le journal afficherait sous **Non publié** une entrée qui n'a rien à y faire : dans une pull request vers `main`, toute entrée autre que celle de la pull request elle-même, et sur `main`, toute entrée. Une construction locale, qui n'a pas de `GITHUB_REF`, affiche toutes les entrées non fusionnées. Cela repère une entrée qui survit à sa pull request : `content/changelog/219.<locale>.mdx` est resté en place quand #219 a été fermée sans fusion, répétait l'entrée de #220 et figurait sous **Non publié** en production jusqu'à ce que #254 le supprime.
+- **Seule votre propre entrée peut rester non publiée.** En CI, la construction du site échoue tant que le journal afficherait sous **Non publié** une entrée qui n'a rien à y faire : dans une pull request vers `main`, toute entrée autre que celle de la pull request elle-même, et dans la file de fusion et sur `main`, toute entrée. Une branche de la file de fusion contient déjà le commit squash de chaque pull request de son groupe, si bien que chacune de leurs entrées a son jour. Une construction locale, qui n'a pas de `GITHUB_REF`, affiche toutes les entrées non fusionnées. Cela repère une entrée qui survit à sa pull request : `content/changelog/219.<locale>.mdx` est resté en place quand #219 a été fermée sans fusion, répétait l'entrée de #220 et figurait sous **Non publié** en production jusqu'à ce que #254 le supprime.
 
 ## Vérifications
 
-La CI exécute `bun run check` et `bun run test:coverage`, puis construit le Worker de test et exécute la suite de tests du navigateur dans Chromium ; ce n'est que lorsque les deux réussissent qu'elle déploie une préversion. Attendez aussi le déploiement de la préversion : c'est la seule étape qui envoie le Worker sur Cloudflare, et les limites d'envoi de Cloudflare ont déjà fait échouer un déploiement qui avait passé toutes les autres vérifications. Voir [CI/CD](/docs/tooling/ci-cd).
+La CI exécute `bun run check` et `bun run test:coverage`, construit le Worker de test et exécute la suite de tests du navigateur dans Chromium, et envoie le Worker de préversion sur Cloudflare sous forme d'une version qui ne reçoit aucun trafic. Cet envoi est la vérification que Cloudflare accepte le Worker : ses limites d'envoi ont déjà fait échouer un déploiement qui avait passé toutes les autres vérifications. La file de fusion exécute de nouveau les mêmes vérifications sur la pull request réunie avec `main` et les pull requests qui la précèdent. Voir [CI/CD](/docs/tooling/ci-cd).
 
 ## Pages associées
 

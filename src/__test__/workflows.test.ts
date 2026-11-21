@@ -13,6 +13,7 @@ const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MAIN_WORKFLOW = ".github/workflows/deploy.yml"
+const PREVIEW_WORKFLOW = ".github/workflows/preview.yml"
 const SETUP_ACTION = ".github/actions/setup/action.yml"
 const REMOTION = readFileSync(REMOTION_WORKFLOW, "utf8")
 const DEPLOY = readFileSync(DEPLOY_WORKFLOW, "utf8")
@@ -20,9 +21,11 @@ const E2E = readFileSync(E2E_WORKFLOW, "utf8")
 const E2E_FULL = readFileSync(E2E_FULL_WORKFLOW, "utf8")
 const CI = readFileSync(CI_WORKFLOW, "utf8")
 const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
+const PREVIEW = readFileSync(PREVIEW_WORKFLOW, "utf8")
 const SETUP = readFileSync(SETUP_ACTION, "utf8")
 const E2E_SHARDS = [1, 2, 3, 4]
 const JOBS_SECTION = "\njobs:\n"
+const TRIGGERS_SECTION = /^on:\n(?<triggers>(?: {2}.+\n| {4}.+\n)+)/mu
 const QUEUED = ["cancel-in-progress: false", "queue: max"]
 const WHOLE_COMMIT_HISTORY = ["fetch-depth: 0", "filter: tree:0"]
 const REMOTION_PATHS = "remotion/**"
@@ -36,6 +39,13 @@ const BLOB_REPORT_ARTIFACT = `name: blob-report-${BROWSER}-${expression("matrix.
 const AGGREGATE_CHECK = `name: Build and E2E (${BROWSER})`
 const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}`
 const UNLESS_CANCELLED = `if: ${expression("!cancelled()")}`
+const UNLESS_UPLOAD = `if: ${expression("!inputs.upload")}`
+const DEPLOYMENT_UNLESS_UPLOAD = `deployment: ${expression("!inputs.upload")}`
+const UPLOAD_CONCURRENCY = `group: cloudflare-${expression("inputs.upload && format('upload-{0}', github.run_id) || format('deploy-{0}', inputs.target)")}`
+const UPLOAD_SKIPPED_STEPS = 2
+const UNTESTED = "if: needs.tested.outputs.tested != 'true'"
+const TESTED_OR_CHECKED = "(needs.tested.outputs.tested == 'true' || needs.checks.result == 'success')"
+const AFTER_PREVIEW = `if: ${expression("!cancelled() && needs.deploy-preview.result == 'success'")}`
 const PULL_REQUEST_CANCELLATION = `cancel-in-progress: ${expression("github.event_name == 'pull_request'")}`
 
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
@@ -63,6 +73,7 @@ const environmentUrlSchema = zod.object({ fallbackUrl: zod.string(), target: zod
 const jobHeaderSchema = zod.object({ id: zod.string() })
 const concurrencySchema = zod.object({ settings: zod.string() })
 const shardMatrixSchema = zod.object({ shards: zod.string() })
+const triggersSchema = zod.object({ triggers: zod.string() })
 
 const listedPaths = (entries: string): string[] => [...entries.matchAll(TRIGGER_PATH)].map((entry) => pathSchema.parse(entry.groups).path)
 
@@ -100,6 +111,13 @@ const concurrencyOf = (workflow: string): string[] =>
     .settings.trim()
     .split("\n")
     .map((setting) => setting.trim())
+
+const triggersOf = (workflow: string): string[] =>
+  triggersSchema
+    .parse(TRIGGERS_SECTION.exec(workflow)?.groups)
+    .triggers.split("\n")
+    .filter((line) => line.startsWith("  ") && !line.startsWith("    "))
+    .map((line) => line.trim())
 
 const shardsOf = (workflow: string): number[] => shardMatrixSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").map(Number)
 
@@ -202,12 +220,63 @@ describe("workflow concurrency", () => {
   ])("queues every run of $path on main instead of cancelling one", ({ workflow }) => {
     expect(concurrencyOf(workflow)).toEqual(expect.arrayContaining(QUEUED))
   })
+
+  it(`never cancels a run of ${PREVIEW_WORKFLOW}`, () => {
+    expect(concurrencyOf(PREVIEW)).toContain("cancel-in-progress: false")
+  })
+})
+
+describe(CI_WORKFLOW, () => {
+  it("runs on pull requests and on the merge queue's groups, which must report every required check", () => {
+    expect(triggersOf(CI)).toStrictEqual(["pull_request:", "merge_group:", "workflow_call:"])
+  })
+
+  it("uploads the preview Worker as a version, deploying nothing, for every merge group and every pull request that can read the secrets", () => {
+    const upload = jobOf(CI, "upload")
+
+    expect(upload).toContain(`uses: ./${DEPLOY_WORKFLOW}`)
+    expect(upload).toContain("target: preview")
+    expect(upload).toContain("upload: true")
+    expect(upload).toContain("github.event_name == 'merge_group' ||")
+    expect(upload).toContain("github.event.pull_request.head.repo.full_name == github.repository")
+  })
+})
+
+describe(DEPLOY_WORKFLOW, () => {
+  it("uploads a version in place of the migrations and the deploy when asked to, and then records no GitHub deployment", () => {
+    expect(DEPLOY).toContain(DEPLOYMENT_UNLESS_UPLOAD)
+    expect(DEPLOY.split(UNLESS_UPLOAD)).toHaveLength(UPLOAD_SKIPPED_STEPS + 1)
+    expect(DEPLOY).toContain("if: inputs.upload")
+    expect(DEPLOY).toContain("vp exec wrangler versions upload --config dist/server/wrangler.json")
+  })
+
+  it("runs the uploads of different runs side by side and queues the deploys of one target", () => {
+    expect(DEPLOY).toContain(UPLOAD_CONCURRENCY)
+  })
 })
 
 describe(MAIN_WORKFLOW, () => {
-  it(`runs the checks of ${CI_WORKFLOW} before it deploys production`, () => {
+  it(`runs the checks of ${CI_WORKFLOW} only for a commit that did not pass them before the merge`, () => {
+    expect(jobOf(MAIN, "tested")).toContain('run: bun scripts/tested-commit.ts "$GITHUB_SHA" >> "$GITHUB_OUTPUT"')
+    expect(jobOf(MAIN, "checks")).toContain("needs: tested")
+    expect(jobOf(MAIN, "checks")).toContain(UNTESTED)
     expect(jobOf(MAIN, "checks")).toContain(`uses: ./${CI_WORKFLOW}`)
-    expect(jobOf(MAIN, "deploy-production")).toContain("needs: checks")
+  })
+
+  it("deploys the shared preview after the checks, and production only after the preview deploy succeeded", () => {
+    expect(jobOf(MAIN, "deploy-preview")).toContain(TESTED_OR_CHECKED)
+    expect(jobOf(MAIN, "deploy-preview")).toContain("target: preview")
+    expect(jobOf(MAIN, "deploy-production")).toContain("needs: [tested, checks, deploy-preview]")
+    expect(jobOf(MAIN, "deploy-production")).toContain(AFTER_PREVIEW)
+  })
+})
+
+describe(PREVIEW_WORKFLOW, () => {
+  it("deploys a branch to the shared preview only by hand, and only after its commit passed the checks main requires", () => {
+    expect(triggersOf(PREVIEW)).toStrictEqual(["workflow_dispatch:"])
+    expect(jobOf(PREVIEW, "tested")).toContain('run: bun scripts/tested-commit.ts "$GITHUB_SHA" | grep --quiet --line-regexp "tested=true"')
+    expect(jobOf(PREVIEW, "deploy-preview")).toContain("needs: tested")
+    expect(jobOf(PREVIEW, "deploy-preview")).toContain("target: preview")
   })
 })
 

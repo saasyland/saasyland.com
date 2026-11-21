@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -58,7 +58,7 @@ AI コーディングエージェントに本番のコードベースを変更�
 
 </Callout>
 
-_最終確認日：2026年11月20日。Claude Code、ESLint、Oxlint、typescript-eslint、Vitest、Changesets、Git、GitHub の動作はそれぞれ自身のドキュメントに基づいており、いずれも同日に確認しました。研究の内容は、末尾にリンクした論文とレポートに基づいています。saasyland.com に関する記述はすべて、その公開リポジトリ、プルリクエスト、CI の実行に基づいています。[リポジトリが AI コーディングエージェントを迎える準備ができているか](/blog/ai-coding-agents-repository-readiness)を扱った以前の記事はリポジトリを採点するもので、この記事はそのスコアを上げるチェックの作り方を扱います。_
+_最終確認日：2026年11月20日。Claude Code、ESLint、Oxlint、typescript-eslint、Vitest、Changesets、Git、GitHub の動作はそれぞれ自身のドキュメントに基づいており、いずれも同日に確認しました。研究の内容は、末尾にリンクした論文とレポートに基づいています。saasyland.com に関する記述はすべて、その公開リポジトリ、プルリクエスト、CI の実行に基づいています。[リポジトリが AI コーディングエージェントを迎える準備ができているか](/blog/ai-coding-agents-repository-readiness)を扱った以前の記事はリポジトリを採点するもので、この記事はそのスコアを上げるチェックの作り方を扱います。2026年11月21日に、新しい完了の定義、マージキュー、それに伴う CI の時間に合わせて更新しました。_
 
 ## 結論から
 
@@ -100,8 +100,8 @@ Google のエンジニアは、これらすべての根底にある考え方に�
 | エージェントの権限とフック | 各ツール呼び出しの前             | エージェントを実行する人、または別の書き方のコマンド | 決して実行してはならないコマンド、エージェントが編集してはならないパス | 通常の force-push は拒否。人間によるレビューが必要なパスへの変更は権限の分類器が停止                                                           |
 | コンパイラーとエディター   | エージェントが書いている最中     | 実行されていれば誰も不可能                           | 誤った形、処理されていないケース                                       | `strict`、`exactOptionalPropertyTypes`、`noUncheckedIndexedAccess` を有効にした TypeScript                                                     |
 | Git フック                 | 各コミット時                     | `--no-verify`                                        | ステージされたファイルへの高速なチェック、コミットメッセージの形式     | `pre-commit` がフォーマット、リント、型、翻訳のチェックを実行。`prepare-commit-msg` は Conventional Commits に従わない件名を拒否               |
-| 必須の CI チェック         | プルリクエストへのプッシュのたび | ブランチルールが許せば管理者                         | プログラムが判定できるすべてのこと                                     | `bun run check`、`bun run test:coverage`、テストビルド、ブラウザーのスイート                                                                   |
-| ブランチルール             | マージ時とプッシュ時             | Organization の管理者                                | マージ方法、履歴、force-push、必須のチェック                           | スカッシュのみ、線形の履歴、force-push と削除の禁止、CI のチェックと成功したプレビューデプロイ                                                 |
+| 必須の CI チェック         | プルリクエストへのプッシュのたび | ブランチルールが許せば管理者                         | プログラムが判定できるすべてのこと                                     | `bun run check`、`bun run test:coverage`、テストビルド、ブラウザーのスイート、トラフィックを配信しない Worker のアップロード                   |
+| ブランチルール             | マージ時とプッシュ時             | Organization の管理者                                | マージ方法、履歴、force-push、必須のチェック                           | マージキュー、スカッシュのみ、線形の履歴、force-push と削除の禁止、3 つの CI のチェック                                                        |
 | デプロイチェック           | アップロードの前と後             | デプロイする人                                       | シークレット、バインディング、本番での振る舞い                         | ビルド前にプレースホルダーのシークレットを拒否。デプロイ後にライブサイトのチェック                                                             |
 | 人が持つ 2 本目の鍵        | 求められたとき                   | 本人以外には不可能                                   | 取り返しのつかない変更とお金を動かす変更、リリース                     | 人間によるレビューが必要なパスに対するオーナーの引用された承認。CLI のリリースは、オーナーが 2 要素認証で承認するまで npm にステージされたまま |
 
@@ -287,35 +287,40 @@ const noComments = {
 
 GitHub は 2 本目の鍵を強制できます。`CODEOWNERS` ファイルがパスを人に割り当て、ブランチルールで「コードオーナーからのレビューを必須にする」ことができます。ただし、エージェントを使うすべての個人開発者にとって重要な落とし穴があります。GitHub のドキュメントは「プルリクエストの作成者は、自分のプルリクエストを承認できない」と明言しています。エージェントがあなたの認証情報でプルリクエストを開くなら、サーバー側のすべての制御にはあなたが見えており、あなたからの必須のレビューを与えることは不可能です。
 
-これが私たちの現状です。エージェントはオーナーのアカウントで作業しているので、私たちのブランチルールは承認のレビューではなく CI のチェックとプレビューデプロイを必須にしており、人間によるレビューが必要なパスに対するオーナーの承認は引用されたメッセージで、それをエージェントの権限レイヤーが守っています。インシデントが示すとおりこれは機能してきましたが、私たちの仕組みの中で最も弱い部分です。より強い構成は、説明するだけなら簡単です。エージェントに専用の ID、たとえば書き込み権限はあるが管理者権限のないボットアカウントや GitHub App を与え、人間によるレビューが必要なパスを `CODEOWNERS` に入れ、`main` でコードオーナーのレビューを必須にします。そうすれば 2 本目の鍵は人によるクリックになり、どんな文もその代わりにはなれません。
+これが私たちの現状です。エージェントはオーナーのアカウントで作業しているので、私たちのブランチルールは承認のレビューではなく CI のチェックとマージキューを必須にしており、人間によるレビューが必要なパスに対するオーナーの承認は引用されたメッセージで、それをエージェントの権限レイヤーが守っています。インシデントが示すとおりこれは機能してきましたが、私たちの仕組みの中で最も弱い部分です。より強い構成は、説明するだけなら簡単です。エージェントに専用の ID、たとえば書き込み権限はあるが管理者権限のないボットアカウントや GitHub App を与え、人間によるレビューが必要なパスを `CODEOWNERS` に入れ、`main` でコードオーナーのレビューを必須にします。そうすれば 2 本目の鍵は人によるクリックになり、どんな文もその代わりにはなれません。
 
 ## 完了を終了コードで定義する
 
 「完了」は、エージェントが口にする言葉の中で最も高くつく言葉です。その後のすべてが、ほかの誰かの時間になるからです。完了は、プッシュしようとしているブランチで終了コード 0 を返さなければならない短いコマンドのリストとして、速いものから遅いものへの固定の順序で定義し、各コマンドが、それより前のコマンドでは捕まえられない種類の失敗を捕まえるようにします。CI には、よく似たものではなく同じコマンドを実行させます。そうすれば、ローカルで緑なら CI でも緑になると予測できます。プルリクエストには終了コードと件数を書いてもらい、要約は検証すべき主張として扱ってください。
 
-### 実例：順番に実行する 4 つのコマンド
+### 実例：3 つのコマンドと、触れたスペック
 
-私たちの完了の定義は 4 つのコマンドです。
+私たちの完了の定義は、3 つのコマンド、次に変更が触れるブラウザーのスペック、そしてマージキューです。使うのは `AGENTS.md` の次の行です。
 
 ```sh title="AGENTS.md"
 bun run check
 bun run test:coverage
 bun run build:test
 bun run test:e2e:pr
+bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
+bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` はフォーマット、リント、型チェックを行い、すべてのロケールで翻訳とコンテンツのチェックを実行します。`test:coverage` は、行、ステートメント、関数、分岐について <RepositoryFact name="coverageThreshold" unit="percent" /> のカバレッジのゲートのもとで、ユニットテスト、統合テスト、コンポーネントテストを実行します。`build:test` は Cloudflare Worker をビルドして出力をチェックします。`test:e2e:pr` はそのビルドを配信し、Chromium で操作します。
+`check` はフォーマット、リント、型チェックを行い、すべてのロケールで翻訳とコンテンツのチェックを実行します。`test:coverage` は、行、ステートメント、関数、分岐について <RepositoryFact name="coverageThreshold" unit="percent" /> のカバレッジのゲートのもとで、ユニットテスト、統合テスト、コンポーネントテストを実行します。`build:test` は Cloudflare Worker をビルドして出力をチェックします。`test:e2e:pr` はそのビルドを配信し、Chromium でブラウザーのスイート全体を操作します。CI はこれをプルリクエストで実行し、マージキューでもう一度実行します。ローカルでは、エージェントは代わりに `bunx playwright test` の行を、変更が触れるスペックについて、専用の空いているポートで実行します。プルリクエストが完了するのは、CI で緑になり、最後の行がそれをキューに入れたときだけです。
 
-2026年11月20日、ブログの共有機能が `main` に入ったときに走った CI の実行で、それぞれにかかった時間は次のとおりです。
+11月21日までは、ローカルのリストの最後はスイート全体で、プルリクエストは共有プレビューのデプロイを待つスクリプトを通してマージされていました。その両方が変わった理由は、[このシリーズの次の記事](/blog/running-ai-coding-agents-in-parallel#update-november-2026)で述べています。2026年11月20日、ブログの共有機能が `main` に入ったときに走った CI の実行と、11月21日、マージキューを導入したプルリクエストのマージキューでの実行で、各ステップにかかった時間は次のとおりです。
 
-| ステップ                                 | 時間        |
-| ---------------------------------------- | ----------- |
-| ツールチェーンと依存関係のセットアップ   | 1 分 11 秒  |
-| `bun run check`                          | 16 秒       |
-| `bun run test:coverage`                  | 3 分 44 秒  |
-| `bun run build:test`                     | 2 分 59 秒  |
-| `bun run test:e2e:pr`                    | 12 分 2 秒  |
-| プッシュから緑になるまで（ジョブは並列） | 16 分 35 秒 |
+| ステップ                                       | 11月20日、ジョブごとに 1 台のランナー | 11月21日、マージキューで                                                    |
+| ---------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------- |
+| ツールチェーンと依存関係のセットアップ         | 1 分 11 秒                            | 24 秒                                                                       |
+| `bun run check`                                | 16 秒                                 | 31 秒                                                                       |
+| `bun run test:coverage`                        | 3 分 44 秒                            | 7 分 21 秒                                                                  |
+| `bun run build:test`                           | 2 分 59 秒                            | 2 分 48 秒                                                                  |
+| Chromium でのブラウザーのスイート              | 12 分 2 秒                            | <RepositoryFact name="e2eShards" /> 個の各シャードで 2 分 15 秒〜3 分 10 秒 |
+| トラフィックを配信しない Worker のアップロード | まだチェックではなかった              | 3 分 24 秒、ビルドと並行                                                    |
+| 最初のジョブから緑になるまで                   | 16 分 35 秒                           | 8 分 24 秒                                                                  |
+
+ブラウザーのスイートは、1 台のランナーでの 12 分から、<RepositoryFact name="e2eShards" /> 台それぞれで約 3 分になり、ツールチェーンのセットアップからは同じキャッシュの 2 回目の復元がなくなりました。カバレッジ付きのユニットテストは前日の約 2 倍の時間がかかり、今では最も遅いジョブです。次に見るべきところはそこだとわかります。
 
 どのコマンドも、それがなかったために何かが通過してしまったからリストに入っています。11月12日、依存関係のアップグレード（#94）は、本番ビルドが 2 か所で壊れていたのに、`check` と、完全なカバレッジでの 1,255 件のテストに合格しました。新しい Polar SDK がバンドルできず、TanStack Start のリリースが出力を変えたためにビルド後のスクリプトが失敗したのです。ユニットテストは Cloudflare のビルドを一切実行しないので、`build:test` がリストに加わり、規約のドキュメントにその理由が記録されています。
 
@@ -447,7 +452,7 @@ CLI のあるリリースが、UI ライブラリという質問を追加し、�
 
 ガードレールは無料ではありません。無料だと言う人は、ガードレールを保守したことがないのです。
 
-**変更ごとの時間。** 私たちの CI は、プッシュから緑になるまで約 16 分半かかり、その大半はブラウザーのスイートです。さらに、プッシュ前のローカルの実行にかかる時間が加わります。公開リポジトリなら、CI の時間そのものは GitHub の標準ランナーでは費用がかかりません。GitHub は公開リポジトリでの利用を無料と文書化しています。非公開のリポジトリでは 1 分ごとに料金がかかり、その時間を消費するのはブラウザーのスイートです。
+**変更ごとの時間。** 私たちの CI は、11月20日にはプッシュから緑になるまで約 16 分半かかり、その大半は 1 台のランナーでのブラウザーのスイートでした。スイートが <RepositoryFact name="e2eShards" /> 台のランナーで並列に動くようになってから、プルリクエストの実行は約 8〜10 分で、マージの前にマージキューがもう一度それを実行します。さらに、プッシュ前のローカルの実行にかかる時間が加わります。シャードはランナーの時間と引き換えにその時間を得ています。各シャードがツールチェーンとブラウザーをもう一度セットアップするからです。公開リポジトリなら、CI の時間そのものは GitHub の標準ランナーでは費用がかかりません。GitHub は公開リポジトリでの利用を無料と文書化しています。非公開のリポジトリでは 1 分ごとに料金がかかり、その時間を消費するのはブラウザーのスイートです。
 
 **書いて保守するコード。** コンテンツと翻訳のチェック、ビルドの検証スクリプト、ハイドレーションのプラグイン、コミットフックは、合わせて 1,000 行を超える TypeScript で、それぞれにテストがあります。これらもほかのコードと同じです。shebang やフランス語の「ton」が示すようにバグがあり、同じレビューが必要です。
 
@@ -720,6 +725,6 @@ Do not change these without a maintainer's written yes that names the paths:
 - リント：ESLint の[ルールの設定](https://eslint.org/docs/latest/use/configure/rules)と[カスタムルール](https://eslint.org/docs/latest/extend/custom-rules)、Oxlint の [JS プラグイン](https://oxc.rs/docs/guide/usage/linter/js-plugins.html)、typescript-eslint の [`ban-ts-comment`](https://typescript-eslint.io/rules/ban-ts-comment/) と [`consistent-type-assertions`](https://typescript-eslint.io/rules/consistent-type-assertions/)
 - テストとリリース：Vitest の[カバレッジの設定](https://vitest.dev/config/coverage)、Changesets の [Changesets の自動化](https://github.com/changesets/changesets/blob/main/docs/guide/automating.md)、Git の [`git push`](https://git-scm.com/docs/git-push)
 - GitHub：[ルールセットで利用できるルール](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)、[必須のレビューがあるプルリクエストの承認](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews)、[GitHub Actions の課金](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
-- SaaSy Land：[規約](/docs/conventions)のセクション、[2026年11月20日の CI の実行](https://github.com/saasyland/saasyland.com/actions/runs/44743869789)、そしてプルリクエスト [#94](https://github.com/saasyland/saasyland.com/pull/94)、[#137](https://github.com/saasyland/saasyland.com/pull/137)、[#146](https://github.com/saasyland/saasyland.com/pull/146)、[#152](https://github.com/saasyland/saasyland.com/pull/152)、[#166](https://github.com/saasyland/saasyland.com/pull/166)、[#169](https://github.com/saasyland/saasyland.com/pull/169)、[#198](https://github.com/saasyland/saasyland.com/pull/198)、[#201](https://github.com/saasyland/saasyland.com/pull/201)、[#204](https://github.com/saasyland/saasyland.com/pull/204)、[#208](https://github.com/saasyland/saasyland.com/pull/208)、[#211](https://github.com/saasyland/saasyland.com/pull/211)、[#220](https://github.com/saasyland/saasyland.com/pull/220)、[#223](https://github.com/saasyland/saasyland.com/pull/223)、[#224](https://github.com/saasyland/saasyland.com/pull/224)、[#230](https://github.com/saasyland/saasyland.com/pull/230)、[#244](https://github.com/saasyland/saasyland.com/pull/244)
+- SaaSy Land：[規約](/docs/conventions)のセクション、[2026年11月20日の CI の実行](https://github.com/saasyland/saasyland.com/actions/runs/44743869789)、[2026年11月21日のマージキューの実行](https://github.com/saasyland/saasyland.com/actions/runs/44929764863)、そしてプルリクエスト [#94](https://github.com/saasyland/saasyland.com/pull/94)、[#137](https://github.com/saasyland/saasyland.com/pull/137)、[#146](https://github.com/saasyland/saasyland.com/pull/146)、[#152](https://github.com/saasyland/saasyland.com/pull/152)、[#166](https://github.com/saasyland/saasyland.com/pull/166)、[#169](https://github.com/saasyland/saasyland.com/pull/169)、[#198](https://github.com/saasyland/saasyland.com/pull/198)、[#201](https://github.com/saasyland/saasyland.com/pull/201)、[#204](https://github.com/saasyland/saasyland.com/pull/204)、[#208](https://github.com/saasyland/saasyland.com/pull/208)、[#211](https://github.com/saasyland/saasyland.com/pull/211)、[#220](https://github.com/saasyland/saasyland.com/pull/220)、[#223](https://github.com/saasyland/saasyland.com/pull/223)、[#224](https://github.com/saasyland/saasyland.com/pull/224)、[#230](https://github.com/saasyland/saasyland.com/pull/230)、[#244](https://github.com/saasyland/saasyland.com/pull/244)、[#275](https://github.com/saasyland/saasyland.com/pull/275)、[#277](https://github.com/saasyland/saasyland.com/pull/277)
 
 _執筆者は、saasyland.com と、そこで働くエージェントを運営している Piotr J. Borowiecki です。ツールのドキュメントと研究は 2026年11月20日に読んだもので、その後変更されている可能性があります。リンクはスクリーンショットではなく出典を指しています。古くなっている情報や誤りがあればお知らせください。修正します。_

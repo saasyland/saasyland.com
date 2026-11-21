@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -103,7 +103,7 @@ Praktyczny przewodnik po barierkach dla zespołów, które pozwalają agentom AI
 
 </Callout>
 
-_Ostatnio sprawdzone 20 listopada 2026. To, co robią Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git i GitHub, pochodzi z ich własnej dokumentacji, odczytanej tego dnia; badania pochodzą z artykułów i raportów podlinkowanych na dole. Wszystko o saasyland.com pochodzi z jego publicznego repozytorium, jego pull requestów i przebiegów CI. Nasz wcześniejszy tekst o tym, [czy Twoje repozytorium jest gotowe na agenty AI do kodowania](/blog/ai-coding-agents-repository-readiness), ocenia repozytorium; ten opisuje budowanie kontroli, które podnoszą tę ocenę._
+_Ostatnio sprawdzone 20 listopada 2026. To, co robią Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git i GitHub, pochodzi z ich własnej dokumentacji, odczytanej tego dnia; badania pochodzą z artykułów i raportów podlinkowanych na dole. Wszystko o saasyland.com pochodzi z jego publicznego repozytorium, jego pull requestów i przebiegów CI. Nasz wcześniejszy tekst o tym, [czy Twoje repozytorium jest gotowe na agenty AI do kodowania](/blog/ai-coding-agents-repository-readiness), ocenia repozytorium; ten opisuje budowanie kontroli, które podnoszą tę ocenę. Zaktualizowano 21 listopada 2026 o nową definicję ukończenia, kolejkę scalania i czasy CI, które przyszły razem z nimi._
 
 ## Krótka odpowiedź
 
@@ -145,8 +145,8 @@ Reguła może mieszkać w ośmiu miejscach. Różnią się tym, kiedy działają
 | Uprawnienia i hooki agenta     | Przed każdym wywołaniem narzędzia  | Osoba, która uruchamia agenta, albo polecenie zapisane inaczej | Poleceń, które nigdy nie mogą się wykonać, ścieżek, których agent nie może edytować | Zwykłe force-pushe odrzucane; zmiany w ścieżkach wymagających przeglądu przez człowieka zatrzymywane przez klasyfikator uprawnień                                 |
 | Kompilator i edytor            | Gdy agent pisze                    | Nikt, jeśli działa                                             | Błędnych kształtów, nieobsłużonych przypadków                                       | TypeScript z `strict`, `exactOptionalPropertyTypes` i `noUncheckedIndexedAccess`                                                                                  |
 | Hooki Gita                     | Przy każdym commicie               | `--no-verify`                                                  | Szybkich kontroli plików przygotowanych do commita, formatu komunikatu commita      | `pre-commit` uruchamia formatowanie, lint, typy i kontrole tłumaczeń; `prepare-commit-msg` odrzuca temat, który nie jest konwencjonalny                           |
-| Wymagane kontrole CI           | Przy każdym pushu do pull requesta | Administratorzy, jeśli reguła gałęzi im na to pozwala          | Wszystkiego, co może rozstrzygnąć program                                           | `bun run check`, `bun run test:coverage`, build testowy i zestaw testów przeglądarkowych                                                                          |
-| Reguły gałęzi                  | Przy scalaniu i pushu              | Administratorzy organizacji                                    | Metody scalania, historii, force-pushy, wymaganych kontroli                         | Tylko squash, liniowa historia, bez force-pushy i usuwania, kontrole CI i udane wdrożenie preview                                                                 |
+| Wymagane kontrole CI           | Przy każdym pushu do pull requesta | Administratorzy, jeśli reguła gałęzi im na to pozwala          | Wszystkiego, co może rozstrzygnąć program                                           | `bun run check`, `bun run test:coverage`, build testowy, zestaw testów przeglądarkowych i przesłanie Workera, który nie obsługuje ruchu                           |
+| Reguły gałęzi                  | Przy scalaniu i pushu              | Administratorzy organizacji                                    | Metody scalania, historii, force-pushy, wymaganych kontroli                         | Kolejka scalania, tylko squash, liniowa historia, bez force-pushy i usuwania oraz trzy kontrole CI                                                                |
 | Kontrole wdrożenia             | Przed przesłaniem i po nim         | Ten, kto wdraża                                                | Sekretów, bindingów, działania na żywo                                              | Wartości zastępcze sekretów odrzucane przed buildem; kontrole działającej witryny po wdrożeniu                                                                    |
 | Drugi klucz w rękach człowieka | Na prośbę                          | Nikt inny                                                      | Zmian nieodwracalnych i przesuwających pieniądze, wydań                             | Zacytowane „tak” właściciela dla ścieżek wymagających przeglądu przez człowieka; wydania CLI czekające na npm, aż zatwierdzi je uwierzytelnianiem dwuskładnikowym |
 
@@ -332,35 +332,40 @@ Opisane wyżej incydenty z drugiej ręki mają wspólny kształt: zgoda istniał
 
 GitHub potrafi egzekwować drugi klucz: plik `CODEOWNERS` przypisuje ścieżki ludziom, a reguła gałęzi może „require reviews from code owners”. Jest jednak haczyk, który ma znaczenie dla każdego programisty pracującego w pojedynkę z agentami. Dokumentacja GitHuba mówi to jednoznacznie: „Pull request authors cannot approve their own pull requests.” Jeśli Twoje agenty otwierają pull requesty z Twoimi danymi uwierzytelniającymi, każde zabezpieczenie po stronie serwera widzi Ciebie, a wymaganej recenzji od Ciebie nie da się udzielić.
 
-Tak wygląda dziś nasza sytuacja. Agenty pracują na koncie właściciela, więc nasza reguła gałęzi wymaga kontroli CI i wdrożenia preview, a nie zatwierdzającej recenzji, a „tak” właściciela dla ścieżki wymagającej przeglądu przez człowieka to zacytowana wiadomość, której pilnuje warstwa uprawnień agentów. To działało, jak pokazują incydenty, i jest to najsłabsza część naszego układu. Silniejsze rozwiązanie łatwo opisać: daj agentom własną tożsamość, na przykład konto bota albo GitHub App z prawem zapisu, ale bez uprawnień administratora, umieść ścieżki wymagające przeglądu przez człowieka w `CODEOWNERS` i wymagaj recenzji właściciela kodu na `main`. Wtedy drugi klucz to kliknięcie człowieka i żadne zdanie nie może go zastąpić.
+Tak wygląda dziś nasza sytuacja. Agenty pracują na koncie właściciela, więc nasza reguła gałęzi wymaga kontroli CI i kolejki scalania, a nie zatwierdzającej recenzji, a „tak” właściciela dla ścieżki wymagającej przeglądu przez człowieka to zacytowana wiadomość, której pilnuje warstwa uprawnień agentów. To działało, jak pokazują incydenty, i jest to najsłabsza część naszego układu. Silniejsze rozwiązanie łatwo opisać: daj agentom własną tożsamość, na przykład konto bota albo GitHub App z prawem zapisu, ale bez uprawnień administratora, umieść ścieżki wymagające przeglądu przez człowieka w `CODEOWNERS` i wymagaj recenzji właściciela kodu na `main`. Wtedy drugi klucz to kliknięcie człowieka i żadne zdanie nie może go zastąpić.
 
 ## Zdefiniuj ukończenie jako kody wyjścia
 
 „Gotowe” to najdroższe słowo, jakie mówi agent, bo wszystko, co następuje po nim, to czas kogoś innego. Zdefiniuj je jako krótką listę poleceń, które muszą zakończyć się kodem 0 na gałęzi, która ma zostać wypchnięta, w ustalonej kolejności, od najszybszego do najwolniejszego, przy czym każde wyłapuje rodzaj błędu, którego nie wyłapią poprzednie. Niech CI uruchamia te same polecenia, a nie ich podobne wersje, żeby zielony przebieg lokalny zapowiadał zielony przebieg CI. Proś o kody wyjścia i liczby w pull requeście, a podsumowanie traktuj jako twierdzenie do sprawdzenia.
 
-### Przykład z praktyki: cztery polecenia, w kolejności
+### Przykład z praktyki: trzy polecenia i specyfikacje, których dotknęła zmiana
 
-Nasza definicja ukończenia to cztery polecenia:
+Nasza definicja ukończenia to trzy polecenia, potem specyfikacje przeglądarkowe, których dotyka zmiana, a potem kolejka scalania. Oto linie `AGENTS.md`, z których korzysta:
 
 ```sh title="AGENTS.md"
 bun run check
 bun run test:coverage
 bun run build:test
 bun run test:e2e:pr
+bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
+bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formatuje, lintuje, sprawdza typy i uruchamia kontrole tłumaczeń i treści w każdym języku. `test:coverage` uruchamia testy jednostkowe, integracyjne i komponentów z bramką pokrycia na poziomie <RepositoryFact name="coverageThreshold" unit="percent" /> dla linii, instrukcji, funkcji i gałęzi. `build:test` buduje Workera Cloudflare i sprawdza wynik. `test:e2e:pr` serwuje ten build i steruje nim w Chromium.
+`check` formatuje, lintuje, sprawdza typy i uruchamia kontrole tłumaczeń i treści w każdym języku. `test:coverage` uruchamia testy jednostkowe, integracyjne i komponentów z bramką pokrycia na poziomie <RepositoryFact name="coverageThreshold" unit="percent" /> dla linii, instrukcji, funkcji i gałęzi. `build:test` buduje Workera Cloudflare i sprawdza wynik. `test:e2e:pr` serwuje ten build i przeprowadza przez niego cały zestaw testów przeglądarkowych w Chromium; CI uruchamia go w pull requeście i ponownie w kolejce scalania, a lokalnie agent uruchamia zamiast niego linię `bunx playwright test`, dla specyfikacji, których dotyka jego zmiana, na własnym wolnym porcie. Pull request jest gotowy dopiero wtedy, gdy jest zielony w CI, a ostatnia linia wstawiła go do kolejki.
 
-Tyle trwał każdy krok w przebiegu CI z 20 listopada 2026, uruchomionym, gdy nasza funkcja udostępniania wpisów na blogu trafiła do `main`:
+Do 21 listopada lista lokalna kończyła się całym zestawem, a pull request był scalany przez skrypt, który czekał na wspólne wdrożenie preview. [Następny artykuł z tej serii](/blog/running-ai-coding-agents-in-parallel#update-november-2026) wyjaśnia, dlaczego zmieniło się jedno i drugie. Tyle trwał każdy krok w przebiegu CI z 20 listopada 2026, uruchomionym, gdy nasza funkcja udostępniania wpisów na blogu trafiła do `main`, oraz w przebiegu kolejki scalania z 21 listopada dla pull requesta, który tę kolejkę wprowadził:
 
-| Krok                                          | Czas        |
-| --------------------------------------------- | ----------- |
-| Przygotowanie narzędzi i zależności           | 1 min 11 s  |
-| `bun run check`                               | 16 s        |
-| `bun run test:coverage`                       | 3 min 44 s  |
-| `bun run build:test`                          | 2 min 59 s  |
-| `bun run test:e2e:pr`                         | 12 min 2 s  |
-| Od pushu do zielonego, z zadaniami równolegle | 16 min 35 s |
+| Krok                                          | 20 listopada, jeden runner na zadanie | 21 listopada, w kolejce scalania                                                    |
+| --------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Przygotowanie narzędzi i zależności           | 1 min 11 s                            | 24 s                                                                                |
+| `bun run check`                               | 16 s                                  | 31 s                                                                                |
+| `bun run test:coverage`                       | 3 min 44 s                            | 7 min 21 s                                                                          |
+| `bun run build:test`                          | 2 min 59 s                            | 2 min 48 s                                                                          |
+| Zestaw testów przeglądarkowych w Chromium     | 12 min 2 s                            | Od 2 min 15 s do 3 min 10 s na każdym z <RepositoryFact name="e2eShards" /> shardów |
+| Przesłanie Workera, który nie obsługuje ruchu | Jeszcze nie było kontrolą             | 3 min 24 s, obok builda                                                             |
+| Od pierwszego zadania do zielonego            | 16 min 35 s                           | 8 min 24 s                                                                          |
+
+Zestaw testów przeglądarkowych skrócił się z 12 minut na jednym runnerze do około 3 na każdym z <RepositoryFact name="e2eShards" />, a przygotowanie narzędzi straciło drugie przywracanie tej samej pamięci podręcznej. Testy jednostkowe z pokryciem trwały mniej więcej dwa razy dłużej niż dzień wcześniej i są teraz najwolniejszym zadaniem, co mówi nam, gdzie szukać dalej.
 
 Każde polecenie jest na liście, bo bez niego coś się prześlizgnęło. 12 listopada aktualizacja zależności (#94) przeszła `check` i 1255 testów przy pełnym pokryciu, podczas gdy build produkcyjny był zepsuty na dwa sposoby: nowego SDK Polar nie dało się zbundlować, a wydanie TanStack Start zmieniło swój wynik tak, że skrypt uruchamiany po buildzie kończył się błędem. Testy jednostkowe nigdy nie uruchamiają builda Cloudflare, więc `build:test` dołączył do listy, a dokumentacja konwencji zapisuje, dlaczego.
 
@@ -492,7 +497,7 @@ Nie potrzebujesz tego wszystkiego od poniedziałku. Oto kolejność, która daje
 
 Barierki nie są darmowe, a każdy, kto mówi Ci, że są, żadnych nie utrzymywał.
 
-**Czas przy każdej zmianie.** Nasze CI potrzebuje około 16 i pół minuty od pushu do zielonego, w większości na zestaw testów przeglądarkowych, plus tyle, ile trwa lokalny przebieg przed pushem. W publicznym repozytorium same minuty CI nic nie kosztują na standardowych runnerach GitHuba, które GitHub dokumentuje jako darmowe dla publicznych repozytoriów; prywatne repozytorium płaci za każdą minutę, a zestaw testów przeglądarkowych to miejsce, w którym te minuty znikają.
+**Czas przy każdej zmianie.** 20 listopada nasze CI potrzebowało około 16 i pół minuty od pushu do zielonego, w większości na zestaw testów przeglądarkowych na jednym runnerze. Odkąd zestaw działa równolegle na <RepositoryFact name="e2eShards" /> runnerach, przebieg pull requesta trwa około 8 do 10 minut, a kolejka scalania uruchamia go jeszcze raz przed scaleniem, plus tyle, ile trwa lokalny przebieg przed pushem. Shardy kupują ten czas minutami runnerów, bo każdy z nich ponownie przygotowuje narzędzia i przeglądarkę. W publicznym repozytorium same minuty CI nic nie kosztują na standardowych runnerach GitHuba, które GitHub dokumentuje jako darmowe dla publicznych repozytoriów; prywatne repozytorium płaci za każdą minutę, a zestaw testów przeglądarkowych to miejsce, w którym te minuty znikają.
 
 **Kod do napisania i utrzymania.** Nasze kontrole treści i tłumaczeń, weryfikator builda, wtyczka hydratacji i hook commita to razem ponad tysiąc wierszy TypeScriptu, z własnymi testami. Są kodem jak każdy inny: mają błędy, jak pokazują shebang i francuskie „ton”, i potrzebują takiego samego przeglądu.
 
@@ -765,6 +770,6 @@ Każda z tych pozycji to reguła, którą przekazujemy słowami, zamiast ją egz
 - Lintowanie: strony ESLint o [konfiguracji reguł](https://eslint.org/docs/latest/use/configure/rules) i [własnych regułach](https://eslint.org/docs/latest/extend/custom-rules), [wtyczki JS](https://oxc.rs/docs/guide/usage/linter/js-plugins.html) w Oxlint oraz reguły typescript-eslint [`ban-ts-comment`](https://typescript-eslint.io/rules/ban-ts-comment/) i [`consistent-type-assertions`](https://typescript-eslint.io/rules/consistent-type-assertions/)
 - Testy i wydania: [konfiguracja pokrycia](https://vitest.dev/config/coverage) w Vitest, [Automating Changesets](https://github.com/changesets/changesets/blob/main/docs/guide/automating.md) w Changesets i [`git push`](https://git-scm.com/docs/git-push) w Git
 - GitHub: [dostępne reguły zestawów reguł](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), [zatwierdzanie pull requesta z wymaganymi recenzjami](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews) i [rozliczanie GitHub Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
-- SaaSy Land: sekcja [Konwencje](/docs/conventions), [przebieg CI z 20 listopada 2026](https://github.com/saasyland/saasyland.com/actions/runs/44743869789) oraz pull requesty [#94](https://github.com/saasyland/saasyland.com/pull/94), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#166](https://github.com/saasyland/saasyland.com/pull/166), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#198](https://github.com/saasyland/saasyland.com/pull/198), [#201](https://github.com/saasyland/saasyland.com/pull/201), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#208](https://github.com/saasyland/saasyland.com/pull/208), [#211](https://github.com/saasyland/saasyland.com/pull/211), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230) i [#244](https://github.com/saasyland/saasyland.com/pull/244)
+- SaaSy Land: sekcja [Konwencje](/docs/conventions), [przebieg CI z 20 listopada 2026](https://github.com/saasyland/saasyland.com/actions/runs/44743869789), [przebieg kolejki scalania z 21 listopada 2026](https://github.com/saasyland/saasyland.com/actions/runs/44929764863) oraz pull requesty [#94](https://github.com/saasyland/saasyland.com/pull/94), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#166](https://github.com/saasyland/saasyland.com/pull/166), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#198](https://github.com/saasyland/saasyland.com/pull/198), [#201](https://github.com/saasyland/saasyland.com/pull/201), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#208](https://github.com/saasyland/saasyland.com/pull/208), [#211](https://github.com/saasyland/saasyland.com/pull/211), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#275](https://github.com/saasyland/saasyland.com/pull/275) i [#277](https://github.com/saasyland/saasyland.com/pull/277)
 
 _Napisał Piotr J. Borowiecki, który prowadzi saasyland.com i agenty, które nad nim pracują. Dokumentację narzędzi i badania odczytano 20 listopada 2026 i mogły się od tego czasu zmienić; linki prowadzą do źródła, a nie do zrzutu ekranu. Jeśli cokolwiek tutaj jest nieaktualne albo błędne, napisz, a poprawię._

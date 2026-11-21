@@ -1,12 +1,12 @@
 ---
 title: "Lessons From Running a Team of AI Coding Agents on One Codebase"
-description: "How to run several AI coding agents in parallel on one production repository: worktrees, ports, a rebase-only merge queue, verification, permissions and review."
+description: "How to run several AI coding agents in parallel on one production repository: worktrees, ports, one merge queue, verification, permissions and review, and what we changed when the queue became the bottleneck."
 excerpt: "Five agents on one repository are not five times one agent. They are a team without a hallway, sharing one machine, one main branch and one preview host. This guide turns 145 merged pull requests, and the incidents between them, into rules any team can apply on Monday."
 authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -37,8 +37,9 @@ faq:
     answer: >-
       Rebase, and only branches they own. Merge commits on branches hide hand-resolved conflicts, make
       the branch impossible to rebase later, and stay forever on any long-lived branch they reach.
-      Squash a branch into one commit before it enters the queue, rebase it onto the current main,
-      push with force-with-lease and run the whole definition of done again.
+      Squash a branch into one commit before it enters the queue. When it conflicts with main, rebase
+      it onto the current main, push with force-with-lease and run the definition of done again; a
+      merge queue then tests it on top of main and the changes ahead of it.
   - question: How many AI coding agents can run in parallel on one machine?
     answer: >-
       Count the heavy ones, not the agents. An agent that builds the app and drives a browser suite
@@ -49,12 +50,13 @@ faq:
     answer: >-
       Force-push with lease, on its own pull request branch, yes. On main, never: make the server
       refuse it, because harness rules match command text and are not a security boundary. Merging
-      can be delegated to a queue once required checks and the preview deployment pass, but changes to
-      payments, auth, migrations, workflows and secrets need a person’s explicit yes first.
+      can be delegated to a merge queue that runs the required checks again, but changes to payments,
+      auth, migrations, workflows and secrets need a person’s explicit yes first.
   - question: How do I know an AI coding agent is really done?
     answer: >-
       Ask for exit codes, not a summary. Done means every command of your definition of done exited 0,
-      in order, on the commit the pull request points at, and CI passed on that same commit. A
+      in order, on the commit the pull request points at, and CI passed on that same commit and again
+      in the merge queue. A
       background run that has not finished has no exit code, a commit that was not pushed is not in the
       pull request, and a rebase invalidates every earlier result.
   - question: What should a brief for an AI coding agent contain?
@@ -84,14 +86,14 @@ A practical guide to running several AI coding agents in parallel on one product
 
 </Callout>
 
-_Last checked 20 November 2026. Every external fact below was read on its source that day and is linked at the bottom. Every incident comes from the public repository of saasyland.com; the pull requests, CI runs and commits are linked so you can check them._
+_Last checked 20 November 2026. Every external fact below was read on its source that day and is linked at the bottom. Every incident comes from the public repository of saasyland.com; the pull requests, CI runs and commits are linked so you can check them. Updated 21 November 2026, when we replaced our merge script and the shared preview check with GitHub’s merge queue: the passages that described them now say what changed, and [Update, November 2026](#update-november-2026) tells the story with the measured times._
 
 ## The short answer
 
 Running several agents on one codebase is an operations problem before it is a prompting problem. Between 12 and 20 November 2026, we merged 145 pull requests into saasyland.com, nearly all of them written by agents and every one reviewed by one person, and almost every incident in that week was a collision on something the agents shared. What held:
 
 - **Isolate by default.** One git worktree per branch, one port per running server, one database per worktree, one scratch folder per agent. Share nothing an agent can write to unless you have decided how it is shared.
-- **One way into main.** A single queue merges one pull request at a time, as one squashed commit; a pull request that is behind main is rebased and checked again before it merges. No merge commits anywhere.
+- **One way into main.** A single queue tests each pull request on top of main and of the pull requests ahead of it, and lands each one as one squashed commit. No merge commits anywhere.
 - **Done is an exit code.** The definition of done is a list of commands, and an agent is done when each exited 0 on the commit the pull request points at, and CI agrees. A summary saying “done” is a claim, not evidence.
 - **Boundaries live on the server.** Instructions tell an agent what to do, the harness asks before risky commands, and the server refuses what must never happen. Irreversible steps keep a person in the loop.
 - **Brief like a peer, review like an auditor.** The brief is all the agent knows. The review checks evidence before code.
@@ -103,18 +105,18 @@ One agent is a fast contributor with no memory. Several agents are a team withou
 
 Start by listing what your agents share. On a single developer machine with one repository, it is more than it looks:
 
-| Shared resource                     | How agents collide on it                                             | What isolates it                                           |
-| ----------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------- |
-| The working tree                    | One agent switches the branch under another, or edits its files      | One git worktree per branch                                |
-| Network ports                       | A test runner finds another agent’s server and tests the wrong build | Assigned ports, and a check of who owns the listener       |
-| Local databases and caches          | Seeds and migrations from one branch reset another branch’s data     | State inside the worktree, never in a shared directory     |
-| Processes                           | A cleanup by name kills every match, including other agents’ runs    | Stop by process ID, and only what you started              |
-| Scratch files                       | A draft written by one agent is published by another                 | One scratch folder per agent                               |
-| The main branch                     | Two changes that pass alone break the build together                 | One merge queue that rebases and re-runs checks            |
-| Shared environments                 | One preview host shows whichever pull request deployed last          | Per-change environments, or a schedule for the shared one  |
-| CPU, memory and disk                | Builds slow down until unrelated tests time out                      | A cap on heavy agents                                      |
-| Tokens, usage limits and CI minutes | Every agent stops at the same moment, mid-step                       | Resumable tasks and a budget                               |
-| The reviewer’s attention            | Pull requests wait, go stale and conflict with each other            | Fewer, smaller pull requests than the agents could produce |
+| Shared resource                     | How agents collide on it                                             | What isolates it                                            |
+| ----------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| The working tree                    | One agent switches the branch under another, or edits its files      | One git worktree per branch                                 |
+| Network ports                       | A test runner finds another agent’s server and tests the wrong build | Assigned ports, and a check of who owns the listener        |
+| Local databases and caches          | Seeds and migrations from one branch reset another branch’s data     | State inside the worktree, never in a shared directory      |
+| Processes                           | A cleanup by name kills every match, including other agents’ runs    | Stop by process ID, and only what you started               |
+| Scratch files                       | A draft written by one agent is published by another                 | One scratch folder per agent                                |
+| The main branch                     | Two changes that pass alone break the build together                 | One merge queue that tests each change on top of the others |
+| Shared environments                 | One preview host shows whichever pull request deployed last          | Per-change environments, or a schedule for the shared one   |
+| CPU, memory and disk                | Builds slow down until unrelated tests time out                      | A cap on heavy agents                                       |
+| Tokens, usage limits and CI minutes | Every agent stops at the same moment, mid-step                       | Resumable tasks and a budget                                |
+| The reviewer’s attention            | Pull requests wait, go stale and conflict with each other            | Fewer, smaller pull requests than the agents could produce  |
 
 Every incident in this article is one row of that table. The rest of the guide goes through them in order of how often they cost us time.
 
@@ -199,14 +201,14 @@ Agents write drafts: pull request descriptions, changelog entries, logs, screens
 
 Some things cannot be copied per agent: a staging database, a payment sandbox, a preview host with a fixed domain. These need a schedule.
 
-**Our incident.** Every pull request from the saasyland.com repository deploys to one preview environment, and our documentation says so: “The preview is shared: each deployment replaces the previous one and uses the same preview D1 database, KV namespace and R2 buckets.” When #244, a change to the CLI configurator on the landing page, was ready, the owner opened the preview host to look at it and saw a different build, because another pull request had deployed after it.
+**Our incident.** Until 21 November, every pull request from the saasyland.com repository deployed to one preview environment, and our documentation still says what that means: “The preview is shared: each deployment replaces the previous one and uses the same preview D1 database, KV namespace and R2 buckets.” When #244, a change to the CLI configurator on the landing page, was ready, the owner opened the preview host to look at it and saw a different build, because another pull request had deployed after it.
 
 - **Symptom:** the reviewer sees something other than the change under review.
 - **Root cause:** one shared environment, deployed by every pull request’s CI on its own schedule.
-- **Fix:** before asking for a review on the preview, redeploy that pull request’s preview job, say which commit is live, and hold other preview deploys until the review is done. Our merge queue does the same before each merge, because the repository requires a successful Preview deployment of the pull request, and any other deploy replaces it.
+- **Fix:** before asking for a review on the preview, redeploy that pull request’s preview job, say which commit is live, and hold other preview deploys until the review is done. Our merge script had to do the same before each merge, because the repository required a successful Preview deployment of the pull request, and any other deploy replaced it. That requirement turned out to be the bottleneck of the whole merge path, as the update below shows.
 - **Rule:** a shared environment is a meeting room. Book it, use it, give it back.
 
-The structural fix is a preview per change. Cloudflare Workers can serve each uploaded version at its own URL on `workers.dev`, which would give each pull request its own address. It would still share the preview database, and it means changing the deployment configuration, which is on our list of files that need the owner’s explicit approval, so for now we schedule. Your platform probably has an equivalent; use it before you need it.
+The structural fix is a preview per change. Cloudflare Workers can serve each uploaded version at its own URL on `workers.dev`, which would give each pull request its own address. We took the first half of that step on 21 November: pull requests no longer deploy the shared preview, each one uploads its Worker as a version that serves no traffic, and the shared preview runs `main`. Version URLs are not yet on for that Worker, so a reviewer who wants a branch on the shared host still books it, now by deploying a tested branch there by hand. Your platform probably has an equivalent; use it before you need it.
 
 ### Isolation inside the test suite and the repository
 
@@ -220,7 +222,7 @@ Look for your own versions of that file: a registry that every feature appends t
 
 ## Coordination: one way into main
 
-Isolation lets agents work at the same time. Coordination decides the order in which their work becomes real. The answer that held for us is boring: a single queue, one pull request at a time, each one a single commit, rebased and checked again when main has moved under it.
+Isolation lets agents work at the same time. Coordination decides the order in which their work becomes real. The answer that held for us is boring: a single queue, each pull request a single commit, checked again on top of whatever reached main before it. For the week this article covers, that queue was a script that merged one pull request at a time; since 21 November it is GitHub’s merge queue, for reasons the update below gives.
 
 ### Why we banned merge commits
 
@@ -246,18 +248,18 @@ A pull request should reach the queue as one commit. Our agents squash their bra
 
 ### A single merge queue
 
-Our queue is a short script, run by the lead agent, that takes pull request numbers in order and for each one: waits for the required checks and the preview deployment on its current head; tries to merge; if GitHub says it cannot, rebases the branch onto main with `gh pr update-branch --rebase`, waits until the new head appears, waits for the checks and the preview again, and merges; and stops the whole queue at the first conflict, for a person or an agent to resolve.
+Our first queue was a short script, run by the lead agent, that took pull request numbers in order and for each one: waited for the required checks and the preview deployment on its current head; tried to merge; if GitHub said it could not, rebased the branch onto main with `gh pr update-branch --rebase`, waited until the new head appeared, waited for the checks and the preview again, and merged; and stopped the whole queue at the first conflict, for a person or an agent to resolve.
 
-The queue merges with a subject built from the pull request title, put through the same commit hook that adds the emoji to every commit, plus the number. That last detail comes from #224, which landed without its emoji because GitHub uses the pull request title as the squash subject and the title had none. Your squash commit is your pull request title; validate it like a commit message.
+The script merged with a subject built from the pull request title, put through the same commit hook that adds the emoji to every commit, plus the number. That detail comes from #224, which landed without its emoji because GitHub uses the pull request title as the squash subject and the title had none. Your squash commit is your pull request title; validate it like a commit message. It survived the script: `bun scripts/enqueue-pr.ts <number>` now refuses a title that is not a conventional subject, sets it to the hook’s subject, emoji included, and puts the pull request in GitHub’s merge queue.
 
-**Our incidents with the queue itself:**
+**Our incidents with the script:**
 
-- **Two queues block each other.** We once ran two queue scripts at the same time. The repository requires the pull request’s head to be the active Preview deployment, so each queue’s preview redeploy deactivated the other’s, and both sat blocked (#179 and #154). There is one queue, with every pull request number in it, in order.
+- **Two queues block each other.** We once ran two queue scripts at the same time. The repository required the pull request’s head to be the active Preview deployment, so each queue’s preview redeploy deactivated the other’s, and both sat blocked (#179 and #154). From then on there was one queue, with every pull request number in it, in order.
 - **A queue that waited for itself.** A script that waited for “the other queue” to finish with `pgrep -f` matched the shells that were waiting, because their own command lines contained the pattern. Three pull requests (#183, #184, #186) stalled for about 30 minutes. Wait on a process ID or a lock file, never on a pattern.
 - **A merge that half happened.** GitHub answered an API error to a merge of #221, created the squash commit on `main` anyway and left the pull request open. Before a queue retries anything, it checks `git log origin/main` for the pull request’s number.
 - **A stale head.** Right after a push, the API can still report the old head for a few seconds, and a queue that starts waiting then waits on a commit nobody will build. Wait until the API shows the head you pushed.
 
-If your only gate is CI, GitHub’s own merge queue does this job: it tests each pull request against the latest target branch together with the pull requests ahead of it, and its build concurrency setting caps how many of those builds run at once. Ours also requires a deployment of the exact head to the single preview environment, which is why a script runs it.
+If your only gate is CI, GitHub’s own merge queue does this job: it tests each pull request against the latest target branch together with the pull requests ahead of it, and its build concurrency setting caps how many of those builds run at once. Ours also required a deployment of the exact head to the single preview environment, which is why a script ran it. On 21 November we replaced that requirement with a check that needs no shared environment, and GitHub’s queue took over.
 
 ### Semantic conflicts: green alone, red together
 
@@ -267,10 +269,10 @@ Git conflicts are the easy kind: Git tells you. The dangerous kind is two pull r
 
 - **Symptom:** `main` fails a check that every merged pull request passed.
 - **Root cause:** #221’s checks ran against a `main` that did not yet contain #220. Our required status checks do not require a branch to be up to date before merging.
-- **Fix:** #222 repaired `main`. Agents now rebase onto the current main and run the full definition of done again right before their pull request enters the queue, not only the checks that look relevant. Our own queue rebases only when GitHub refuses a merge, which a pull request that is merely behind does not trigger; the queue in the playbook below rebases every pull request that is behind, and that is the version we recommend.
+- **Fix:** #222 repaired `main`. Our script rebased only when GitHub refused a merge, which a pull request that is merely behind does not trigger, so for a while agents rebased and ran the definition of done again right before their pull request entered the queue. Since 21 November, GitHub’s merge queue runs every required check on the pull request’s squash commit on top of the current main and of the pull requests ahead of it, and moves main to the commit it tested. #221 would now fail in the queue instead of on `main`.
 - **Rule:** a result is valid for one pair of commits, the branch and the main it was tested on. Change either and it expires.
 
-Requiring branches to be up to date is the strict answer; GitHub’s rulesets offer it. Its price is throughput. The median of our last 33 successful pull request runs was 21 minutes when we measured it on 20 November, so a strictly serial queue in which every merge forces the next pull request to rebuild merges about three pull requests an hour, at best. Agents produce more than that. Choose deliberately: strict and slow, a merge queue that batches, or a looser rule plus a cheap check of what changed on main since the branch’s CI ran.
+Requiring branches to be up to date is the strict answer; GitHub’s rulesets offer it. Its price is throughput. The median of our last 33 successful pull request runs was 21 minutes when we measured it on 20 November, so a strictly serial queue in which every merge forces the next pull request to rebuild merges about three pull requests an hour, at best. Agents produce more than that. Choose deliberately: strict and slow, a merge queue that batches, or a looser rule plus a cheap check of what changed on main since the branch’s CI ran. We chose the merge queue; the update below has the numbers.
 
 ### Force-push, with a lease, on your own branch
 
@@ -282,9 +284,9 @@ The lease is a real protection with a known hole. Git’s documentation says the
 
 An agent’s summary is written by the same process that did the work, at the moment it most wants to be finished. Treat it as a claim. Verify it with things the agent cannot write: exit codes, the commit a pull request points at, and CI runs on that commit.
 
-Our definition of done is four commands, in order, all exiting 0 on the branch about to be pushed: `bun run check`, `bun run test:coverage`, `bun run build:test` and `bun run test:e2e:pr`. AGENTS.md ends the paragraph with the sentence that matters most: “Nothing else counts as done, including a summary that says it is.”
+Our definition of done is three commands and the browser specs the change touches, in order, all exiting 0 on the branch about to be pushed: `bun run check`, `bun run test:coverage`, `bun run build:test`, then `bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium` for each spec the change touches, on a free port of its own. CI runs the whole browser suite on the pull request and again in the merge queue, and a pull request is done only when it is green there and `bun scripts/enqueue-pr.ts <number>` has put it in the queue. Until 21 November the local list ended with the whole suite, `bun run test:e2e:pr`; the update below says why that changed. AGENTS.md ends the paragraph with the sentence that matters most: “Nothing else counts as done, including a summary that says it is.”
 
-**Our incident: done while still running.** An agent reported its task done, with three of the four commands green and the browser suite started in the background. The suite had not finished; it had no exit code yet.
+**Our incident: done while still running.** An agent reported its task done, with `check`, `test:coverage` and `build:test` green and the browser suite started in the background. The suite had not finished; it had no exit code yet.
 
 - **Root cause:** a summary written at the end of the agent’s turn, not at the end of the work.
 - **Rule:** a run in the background is not a result. Report the exit code, or say that it is still running.
@@ -294,9 +296,9 @@ Our definition of done is four commands, in order, all exiting 0 on the branch a
 - **Root cause:** local state reported as remote state.
 - **Rule:** done includes `git status -sb` showing nothing ahead of the remote, and the pull request’s head commit being the one you tested.
 
-**After a rebase, everything is unverified again.** A rebase produces new commits. The tests you ran before it ran on commits that no longer exist, against a main that has moved. Our agents re-run all four commands after every rebase, and the queue waits for CI on the new head; #220 and #221 above are why.
+**After a rebase, everything is unverified again.** A rebase produces new commits. The tests you ran before it ran on commits that no longer exist, against a main that has moved. Our agents run the definition of done again after every rebase, and the merge queue runs CI once more on the combination it is about to merge; #220 and #221 above are why.
 
-**CI is the gate; local runs are the filter.** Local runs catch most problems minutes before CI would, and an agent should never push something it has not run. But the result that counts is the one on the commit you merge, produced by a machine nobody else is using. Some failures only CI or the deploy can find: our documentation tells contributors to wait for the preview deployment as well, because it is the only step that uploads the Worker, and Cloudflare’s upload limit once failed a deployment that every other check had passed.
+**CI is the gate; local runs are the filter.** Local runs catch most problems minutes before CI would, and an agent should never push something it has not run. But the result that counts is the one on the commit you merge, produced by a machine nobody else is using. Some failures only CI or the deploy can find: Cloudflare’s upload limit once failed a deployment that every other check had passed. For a while that made the shared preview deployment a required step, because it was the only one that uploaded the Worker; now a required check uploads every pull request’s Worker as a version that serves no traffic, and Cloudflare validates it as it would a deploy.
 
 What an agent’s report should contain, so that you can verify it in a minute:
 
@@ -312,18 +314,18 @@ Think of permissions in four layers, from weakest to strongest. Each catches wha
 
 1. **Instructions.** AGENTS.md and the brief say what an agent should and should not do. They set intent, and an agent following a stale or ambiguous instruction follows it confidently.
 2. **The harness.** The agent’s own permission system asks before or refuses certain commands. In Claude Code, rules are evaluated in order, deny, then ask, then allow, and the first match decides. Our setup also runs a classifier over actions. It refused, at different times, a force-push to a pull request branch that had already been pushed, the merge of a new pull request nobody had reviewed, and killing a process the agent had not started. When the owner later decided agents may force-push with lease on their own branches, he allowed exactly that command pattern and nothing wider.
-3. **The server.** Branch protection, required checks and required deployments do not care how a command was spelled. Claude Code’s documentation is explicit that a Bash rule matches the command text, so a rule against `git push` does not stop `git -C . push`, and “isn’t a security boundary around the program”. Our main branch accepts only squash merges of pull requests, requires linear history, refuses force-pushes and deletion, and requires two status checks and a successful Preview deployment. That is the layer that holds when the other two do not.
+3. **The server.** Branch protection, required checks and required deployments do not care how a command was spelled. Claude Code’s documentation is explicit that a Bash rule matches the command text, so a rule against `git push` does not stop `git -C . push`, and “isn’t a security boundary around the program”. Our main branch accepts pull requests only through the merge queue, which squashes each one, requires linear history, refuses force-pushes and deletion, and requires three status checks, the last of them the Worker upload. That is the layer that holds when the other two do not.
 4. **People.** Some steps are irreversible or spend money or trust, and those keep a person in the loop by design: publishing a package to npm waits for the owner’s approval with two-factor authentication, and deploys, remote migrations and secrets are human steps.
 
 Here is how that comes out for our agents:
 
-| Agents may                                                  | Agents may not                                                | Only with the owner’s explicit yes                                  |
-| ----------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Create worktrees and branches from `origin/main`            | Push to `main`, or force-push any branch they do not own      | Change migrations, which are applied to production and irreversible |
-| Commit, push their branch and open pull requests            | Run `--no-verify`, or disable a lint rule to pass it          | Change payments, licences, auth or permission statements            |
-| Force-push with lease to their own pull request branch      | Kill a process they did not start                             | Change workflows, Wrangler configuration, `.env` files or secrets   |
-| Run every local check, build and browser suite              | Delete anything outside their worktree and scratch folder     | Deploy, apply remote migrations or publish a package                |
-| Merge through the lead’s queue once CI and the preview pass | Merge a pull request whose checks have not passed on its head | Rewrite the history of a released branch                            |
+| Agents may                                             | Agents may not                                            | Only with the owner’s explicit yes                                  |
+| ------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| Create worktrees and branches from `origin/main`       | Push to `main`, or force-push any branch they do not own  | Change migrations, which are applied to production and irreversible |
+| Commit, push their branch and open pull requests       | Run `--no-verify`, or disable a lint rule to pass it      | Change payments, licences, auth or permission statements            |
+| Force-push with lease to their own pull request branch | Kill a process they did not start                         | Change workflows, Wrangler configuration, `.env` files or secrets   |
+| Run every local check, build and browser suite         | Delete anything outside their worktree and scratch folder | Deploy, apply remote migrations or publish a package                |
+| Put a green pull request in the merge queue            | Merge a pull request by hand, past the merge queue        | Rewrite the history of a released branch                            |
 
 Two of those lines came from incidents that never reached GitHub, and they are worth telling.
 
@@ -417,7 +419,7 @@ The last limit is the person who reviews. Agents can open pull requests faster t
 | The pull request description describes another change | A shared draft file                                              | Rewrite it from the diff; give each agent its own scratch folder                                 |
 | The preview shows another build                       | A later deploy to the shared environment                         | Redeploy this pull request’s preview, then review                                                |
 | The branch cannot be updated by rebase                | Obsolete commits that conflict                                   | Squash onto current main, resolve once, force-push with lease, rerun everything                  |
-| Main fails a check every merged pull request passed   | A semantic conflict between two pull requests                    | Fix forward with a small pull request; make the queue rebase and rerun                           |
+| Main fails a check every merged pull request passed   | A semantic conflict between two pull requests                    | Fix forward with a small pull request; make the queue test each change on top of main            |
 | The merge API failed but the commit is on main        | A half-completed merge                                           | Check `git log origin/main` for the number; close the pull request with a note                   |
 | CI fails in seconds with no steps                     | Jobs not starting: spending limit or billing                     | Read the job annotations; fix the budget, not the code                                           |
 | Every agent stopped at once                           | Usage limit                                                      | Resume from branches, pull requests and the ledger after the reset                               |
@@ -436,6 +438,74 @@ Two process lessons came from releasing the CLI, a separate private repository w
 
 - **Record a release after it exists.** The release workflow used to create Git tags and GitHub Releases when it staged a version on npm, before the owner approved the publication. One staged version was never published, so three GitHub Releases described packages npm never served. Now tags and releases are written by a separate run after npm serves the version, and the unpublished one is labelled as such.
 - **Ship the reader before the writer.** When the CLI and the website share a contract, a change to it has to reach the server before a client that sends it. One CLI release sent an answer that the website’s licence API, still on the previous version of the contract, refused. Our own end-to-end check of the published CLI against production found it, and a website update fixed it the same day. A contract change now ships on the website first.
+
+## Update, November 2026 [#update-november-2026]
+
+_Added on 21 November 2026, the day after this article was published._ The week above ended with a merge script that landed one pull request at a time and a pull request run of about 21 minutes, and it was tempting to conclude that the tests were too slow. They were the smaller problem. On 21 November we changed the merge path in four steps, three pull requests and one ruleset change, and measured each step on the repository’s GitHub Actions runs. Every time below runs from the start of a run’s first job to the end of its last, unless it says otherwise.
+
+### The bottleneck was a shared environment
+
+The ruleset on `main` required a successful deployment of each pull request to the `Preview` environment, and that environment was one host. When another pull request deployed, GitHub marked the earlier deployment inactive and the rule stopped counting it, so a pull request that was green and ready lost its right to merge the moment a neighbour deployed. Our script therefore redeployed each pull request’s preview right before merging it, in a deploy queue of one, and no two ready pull requests could be mergeable at the same time. Each merge waited for a preview deploy, which took 3.6 to 5.3 minutes in the runs we measured, and a pull request that GitHub refused to merge was rebased and paid for a whole pull request run again.
+
+The tests were slow too, but they were not what serialized the work. In the 12 successful pull request runs of 21 November before #275, the browser suite took 13.6 to 19.3 minutes on one runner, and the whole run 18.1 to 23.9 minutes, with a median of 21.5. Halving the suite would have made each turn of a serial queue shorter. It would not have let two ready pull requests merge in the same five minutes.
+
+### The quick fix: a check instead of a deployment
+
+The first change touched no code. At 15:15 UTC the ruleset’s required `Preview` deployment became a required status check on the preview deploy job, `Deploy preview / Deploy preview`. A status check belongs to a commit, and another pull request’s deploy cannot make it fail, so ready pull requests stopped taking each other’s place. The preview host was still shared and its deploys still ran one after another, but nothing that had passed had to pass again because someone else had deployed.
+
+### Sharding the browser suite (#275)
+
+#275 split the one browser job into a build and <RepositoryFact name="e2eShards" /> shards. One job seeds the test database, runs `build:test` and uploads the build with its database as an artifact. Each shard downloads it and runs its part of the specs with Playwright’s `--shard` option and the blob reporter. A last job, still named `Build and E2E (chromium)`, passes only when the build and every shard passed, and merges the shards’ reports into one HTML report when one of them failed. Because the required check kept its name, the ruleset needed no change.
+
+The same pull request fixed two smaller costs. Runs of one branch used to queue behind each other, and three of the 12 runs above waited 13 to 15 minutes for an older run of their own branch before their first job started; a new commit now cancels the run of the commit it replaces. And a second restore of the dependency cache, which the pull request measured at about 40 seconds a job, is gone. After #275, the build took 3.4 to 4.7 minutes, each shard 3.2 to 5.6 more, and a pull request run, still with the preview deploy at its end, 13.4 to 14.7 minutes.
+
+Sharding is not free: each shard sets up the toolchain and the browser again, so a run uses more runner minutes than before. On a public repository with GitHub’s standard runners those minutes cost nothing; on a private one, count them.
+
+### An incident: a release tagged between the build and the shards (#278)
+
+Splitting one job into several created a race that one job could not have. The changelog spec, `content.spec.ts`, compares the built changelog with the release tags in Git. When the build and the tests ran in one job, they read one checkout. After #275 they read separate checkouts, minutes apart.
+
+On #273’s run, the build job checked out the repository at 16:40 UTC. At 16:44:03 the deploy of #275 published the release `v2026.11.21.9`. The shards started 20 seconds later, fetched a tag the built changelog had never seen, and the third shard failed: the spec expected bullets linked to `v2026.11.21.9`, a release the page, built minutes earlier, did not know.
+
+- **Symptom:** one shard fails a test about content that the change did not touch, and the same commit passes later.
+- **Root cause:** jobs that read the same changing state, the repository’s tags, at different moments. One job had read one snapshot; five jobs read five.
+- **Fix:** #278 makes the build pack the sorted list of tags it read with the build, and each shard deletes every tag created since before Playwright starts, so both sides read the same history. The spec, its retries and the build did not change. It merged 49 minutes after #275.
+- **Rule:** when you split a job, list everything it reads that can change while it runs, and hand the later jobs a snapshot of it together with the artifact.
+
+### GitHub’s merge queue and a Worker upload (#277)
+
+#277 replaced the script and the shared preview check together.
+
+- **The merge queue.** Pull requests now reach `main` only through GitHub’s merge queue, set to squash, to require every entry to pass, to build up to five entries at once, to merge one to five together, and to wait at most five minutes to fill a group. For each entry, GitHub writes its squash commit on a branch on top of `main` and of the entries ahead of it, runs the required checks there and moves `main` to the commit it tested. A pull request that fails leaves the queue, and those behind it are tested again without it. That is the check #220 and #221 needed: nothing reaches `main` without passing on top of everything ahead of it.
+- **A Worker upload instead of a deployment.** A required check, `Worker upload / Upload preview`, builds the preview Worker as a deploy does and runs `wrangler versions upload --preview-alias pr-<number>`. Cloudflare checks the size, the start-up time, the bindings and the required secrets as it does for a deploy, but the version serves no traffic: `preview.saasyland.com` keeps what it was serving, no migration runs, and the uploads of different pull requests run side by side. Ready pull requests no longer share anything.
+- **A deploy that trusts the queue.** On a push to `main`, a first job reads the checks that `main` requires and looks for a successful run of each on the pushed commit. A commit the queue tested goes straight to the shared preview, which now runs `main`, and then to production; a commit that skipped the queue runs every check first.
+- **One command to merge.** `bun scripts/enqueue-pr.ts <number>` checks the title, gives it the emoji the squash commit keeps and turns on auto-merge, which puts the pull request in the queue once its checks pass.
+- **A shorter local definition of done.** CI now runs the whole browser suite twice for every pull request, on the pull request and in the queue, on runners nobody else uses. So agents run `check`, `test:coverage`, `build:test` and the specs their change touches, on their own port, instead of the whole suite on a laptop they share with other agents.
+
+A pull request run now has three jobs that start together, the checks with coverage, the test build and the Worker upload, followed by the shards, and in the first five runs on the new workflow it took 7.7 to 9.8 minutes. The longest job is now the unit tests with coverage, which took 7 minutes 21 seconds in the queue’s run of #277, against 3 minutes 44 seconds on 20 November; that is the next thing to look at.
+
+### Before and after
+
+| Measured on 21 November 2026        | Before                                                                | After                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A pull request run                  | 18.1 to 23.9 minutes, median 21.5 (12 runs)                           | 13.4 to 14.7 minutes after #275 (5 runs); 7.7 to 9.8 after #277 (5 runs)                             |
+| The browser check                   | 13.6 to 19.3 minutes on one runner                                    | 7.7 to 9.9 minutes (12 runs): a build, then <RepositoryFact name="e2eShards" /> shards               |
+| A merge queue run                   | None: the script relied on the pull request’s own run                 | 8.4 minutes for #277 and 9.9 for #276                                                                |
+| A push to `main`, to production     | 17.3 to 23.0 minutes, median 21.4 (8 pushes)                          | 8.2 minutes for #277 and 8.1 for #276; #277’s push first waited 2.7 minutes for the deploy before it |
+| Ready pull requests merging at once | One, after a preview deploy of its own                                | Up to five built at once, one to five merged together                                                |
+| Enqueued to production, wall clock  | Not measured: the script did not record when a pull request was ready | 20.2 minutes for #277 and 18.9 for #276                                                              |
+
+Two honest limits. The after column is a day old: a handful of runs, not a month of them, and we will replace it with medians once there are enough. And the throughput row is a ceiling, not a measurement. Between 10:26 UTC on 20 November and 00:44 the next night, the script merged 23 pull requests, one at a time; by the time of writing, the new queue had built two pull requests side by side, #276 and #274, but it has not yet had a busy day.
+
+### Lessons for any team running many agents
+
+- **Look for the shared resource before you speed up the work.** Our visible cost was test time. The real one was a single environment that every ready change needed to itself. Faster tests shorten each turn of a serial queue; removing the shared requirement removes the queue.
+- **Require properties of a commit, not of the world.** A deployment status can be taken away by someone else’s deploy; a check on a commit cannot. Any required condition that a neighbour’s action can invalidate turns parallel work into serial work.
+- **Prove that a change deploys without deploying it.** An upload that the platform validates but that serves no traffic gives the guarantee the shared deploy gave, without anything shared.
+- **Let the queue test the combination.** Agents produce many small changes that pass alone. The risk is in pairs, and only a queue that tests each change on top of the ones ahead of it sees pairs.
+- **When you split a job, snapshot what it reads.** Parallel jobs read tags, the default branch, registries and the clock at different moments. Pass what the first job read to the others.
+- **Make the trusted path the fast path.** Our deploy reruns nothing the queue already ran on that exact commit, and anything that bypasses the queue pays for every check again.
+- **Measure from the run data, at the level of jobs.** A run’s duration includes the time it waited before its first job; its jobs’ times do not. The gap between the two was where much of our time went.
 
 ## The playbook
 
@@ -481,7 +551,7 @@ Checklist for each agent’s environment:
 
 ### A merge queue in a few lines
 
-One queue, one pull request at a time, in the order given, stopping at the first problem:
+If your host has a merge queue and your gate is CI alone, use the host’s queue: that is what we do now, and putting a pull request in it is one command, `gh pr merge <number> --auto --squash`. The script below is for a gate the host’s queue cannot run. One queue, one pull request at a time, in the order given, stopping at the first problem:
 
 ```sh
 set -euo pipefail
@@ -577,6 +647,6 @@ Every pull request, CI run and commit named here is public in saasyland.com’s 
 - Anthropic: [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) (June 2025), on token use
 - Cloudflare: [preview and version URLs for Workers](https://developers.cloudflare.com/workers/configuration/previews/)
 - procps: [the `pgrep` and `pkill` manual](https://man7.org/linux/man-pages/man1/pgrep.1.html), on `-f`
-- saasyland.com: pull requests [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) and its [first CI run](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244) and [#249](https://github.com/saasyland/saasyland.com/pull/249); the [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) and [local debugging](/docs/guides/local-debugging) pages
+- saasyland.com: pull requests [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) and its [first CI run](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#249](https://github.com/saasyland/saasyland.com/pull/249), [#273](https://github.com/saasyland/saasyland.com/pull/273) and its [failed shard](https://github.com/saasyland/saasyland.com/actions/runs/44925821049), [#274](https://github.com/saasyland/saasyland.com/pull/274), [#275](https://github.com/saasyland/saasyland.com/pull/275), [#276](https://github.com/saasyland/saasyland.com/pull/276), [#277](https://github.com/saasyland/saasyland.com/pull/277) and its [merge queue run](https://github.com/saasyland/saasyland.com/actions/runs/44929764863), and [#278](https://github.com/saasyland/saasyland.com/pull/278); the [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) and [local debugging](/docs/guides/local-debugging) pages
 
 _Written by Piotr J. Borowiecki, who runs a team of AI coding agents on saasyland.com every day. External documentation was read on 20 November 2026 and may have changed since; the links go to the source. If anything here is out of date or wrong, tell me and I will correct it._

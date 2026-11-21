@@ -1,6 +1,6 @@
 ---
 title: "管理ダッシュボード"
-description: "/admin の骨格とダッシュボード: カウンター、売上、新規ユーザー、コースの進捗、ライセンスのない支払い済みのライセンス注文、最新のユーザー（いずれも D1 から読み取ります）、そして管理画面からデモデータを締め出す lint ルール。"
+description: "/admin の骨格とダッシュボード: カウンター、売上、新規ユーザー、コースの進捗、パッケージ別のライセンス、ライセンスのない支払い済みのライセンス注文、最新のユーザー（いずれも D1 から読み取ります）、そして管理画面からデモデータを締め出す lint ルール。"
 ---
 
 ## 管理画面の骨格 [#admin-shell]
@@ -28,12 +28,13 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 | 動画                     | `courses`    | `getVideosQuery` の `total`: `video` のすべての行                                          |
 | ニュースレター購読者     | `newsletter` | `newsletterSubscribersQuery`: `newsletter_subscriber` のうちステータスが `subscribed` の行 |
 
-| パネル                         | エリア     | 取得元                                                                                                                          |
-| ------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| ライセンスのない支払い済み注文 | `license`  | `unlicensedOrdersQuery`（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）                             |
-| 売上                           | `payments` | `src/modules/order/use-cases/get-revenue.ts` の `revenueQuery`。[売上](#revenue)を参照                                          |
-| 新規ユーザー                   | `auth`     | `src/modules/user/use-cases/get-user-signups.ts` の `userSignupsQuery`。[新規ユーザー](#new-users)を参照                        |
-| コースの進捗                   | `courses`  | `src/modules/lesson-progress/use-cases/get-course-progress.ts` の `courseProgressQuery`。[コースの進捗](#course-progress)を参照 |
+| パネル                         | エリア     | 取得元                                                                                                                               |
+| ------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| ライセンスのない支払い済み注文 | `license`  | `unlicensedOrdersQuery`（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）                                  |
+| パッケージ別のライセンス       | `license`  | `src/modules/license/use-cases/get-license-counts.ts` の `licenseCountsQuery`（[パッケージ別のライセンス](#licences-by-tier)を参照） |
+| 売上                           | `payments` | `src/modules/order/use-cases/get-revenue.ts` の `revenueQuery`。[売上](#revenue)を参照                                               |
+| 新規ユーザー                   | `auth`     | `src/modules/user/use-cases/get-user-signups.ts` の `userSignupsQuery`。[新規ユーザー](#new-users)を参照                             |
+| コースの進捗                   | `courses`  | `src/modules/lesson-progress/use-cases/get-course-progress.ts` の `courseProgressQuery`。[コースの進捗](#course-progress)を参照      |
 
 どのクエリも、各エリアがすでに宣言している権限を指定した `authorized(...)` の背後でサーバー関数を実行します。そのため、その権限を持たないサインイン中のアカウントには、数値ではなくエラーが返ります。
 
@@ -60,6 +61,10 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 ### コースの進捗 [#course-progress]
 
 `getCourseProgress`（`course: ["read"]`）は、すべてのコースを管理画面での順序（`position`）で一覧にし、それぞれの公開済みのレッスン、そのいずれかに進捗を保存したアカウント、そのすべてを修了したアカウント、修了したレッスンの合計を示します。下書きのレッスンの進捗は数えず、管理者を含むすべてのアカウントを数えます。いずれかのコースに進捗を保存したアカウントの数である `learners` が、**受講者** の統計です。パネルはコースを `DataTable`（`course-progress-columns.tsx`）で一覧にするか、まだコースがないことを表示します。
+
+### パッケージ別のライセンス [#licences-by-tier]
+
+`getLicenseCounts`（`admin: ["access"]`）は、`license` を `tier` と `status` でグループ化した1回のクエリで読み取り、何も書き込みません。`LICENSE_TIERS` の各パッケージについてその順序で1行を返し、`LICENSE_STATUSES` の各ステータスにあるライセンスの数を示します。あるステータスにライセンスがないパッケージは0です。パネルはパッケージを `DataTable`（`license-count-columns.tsx`）で一覧にし、それぞれを `components.custom.pricing.json` の名前で表示します。有効なライセンスはCLIで使えますが、返金済みまたは取り消し済みのライセンスは使えなくなります（[ライセンス](/docs/features/licences)を参照）。
 
 ### ニュースレター購読者 [#newsletter-subscribers]
 

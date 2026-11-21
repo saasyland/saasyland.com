@@ -4,10 +4,15 @@ export const PRODUCTS_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_PRODUCTS,
     id: "admin-products-list",
-    outcome: "/admin/products lists the products and the categories stored in D1",
-    reason: "The workspace specs open the page and scan it; no spec checks a product or a category on it.",
-    status: FLOW_STATUS.MISSING,
-    tests: [{ spec: "workspaces.spec.ts", title: "admin can sign in and load the permitted workspace" }],
+    outcome: "/admin/products lists the products stored in D1, each with its price in its currency's major units, and the categories",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-products.spec.ts",
+        title: "the product list shows each seeded product's price in its currency, and the categories tab lists the seeded category",
+      },
+      { spec: "workspaces.spec.ts", title: "admin can sign in and load the permitted workspace" },
+    ],
   },
   {
     area: FLOW_AREA.ADMIN_PRODUCTS,

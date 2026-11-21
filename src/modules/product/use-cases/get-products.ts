@@ -5,6 +5,7 @@ import { and, count, desc, eq } from "drizzle-orm"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { currencyCodeField } from "~/src/modules/_core/utils/zod-fields"
 import { PRODUCT_QUERY_KEYS } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import type { Product } from "~/src/modules/product/product.types"
@@ -25,7 +26,10 @@ export const getProducts = createServerFn({ method: "GET" })
         .offset(data.pageIndex * data.pageSize),
       db.select({ total: count() }).from(product).where(filter),
     ])
-    return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
+    return {
+      rows: rows.map((row) => Object.assign(row, { currency: currencyCodeField.parse(row.currency) })),
+      total: totals.reduce((sum, row) => sum + row.total, 0),
+    }
   })
 
 export const getProductsPageQuery = (input: Product["getProducts"] = {}) =>

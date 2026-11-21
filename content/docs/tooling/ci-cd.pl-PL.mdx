@@ -7,7 +7,7 @@ Workflowy znajdują się w `.github/workflows/`. Workflowy aplikacji (`ci.yml`, 
 
 | Workflow              | Wyzwalacz                                                                             | Zadania                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requesty, grupy kolejki scalania i wywołania z `deploy.yml`                      | Kontrole i pokrycie, E2E w Chromium i przesłanie Workera preview                                     |
+| `ci.yml`              | Pull requesty, grupy kolejki scalania i wywołania z `deploy.yml`                      | Kontrole, testy z pokryciem na równoległych shardach, E2E w Chromium i przesłanie Workera preview    |
 | `deploy.yml`          | Pushe do `main`                                                                       | Kontrole z `ci.yml`, chyba że uruchomiła je kolejka scalania, następnie preview, produkcja i wydanie |
 | `preview.yml`         | Ręcznie                                                                               | Wdraża gałąź, której kontrole przeszły, do współdzielonego środowiska preview                        |
 | `e2e-full.yml`        | Pushe do `main`, harmonogram <RepositoryFact name="e2eFullSchedule" /> w UTC, ręcznie | WebKit przy pushu; Chromium i WebKit przy uruchomieniach z harmonogramu i ręcznych                   |
@@ -21,7 +21,17 @@ Checkouty w `e2e-reusable.yml`, którego build renderuje historię zmian i któr
 
 ## Kontrole [#checks]
 
-Zadanie `verify` w `ci.yml` uruchamia `bun run check` (tablice nazw klas, kontrole i18n i treści, [spis przepływów](/docs/tooling/test-coverage#flow-coverage), formatowanie, lint i typy) oraz `bun run test:coverage`, a następnie przesyła raport pokrycia. Zadanie `e2e` wywołuje `e2e-reusable.yml`, który buduje aplikację raz i uruchamia zestaw testów równolegle na <RepositoryFact name="e2eShards" /> runnerach:
+Za wymaganą kontrolą `Format, lint, types, i18n, tests` stoją trzy zadania w `ci.yml`:
+
+| Zadanie                                               | Uruchamia                                                                                                                                                                                                                                                |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`                                               | `bun run check`: tablice nazw klas, kontrole i18n i treści, [spis przepływów](/docs/tooling/test-coverage#flow-coverage), formatowanie, lint i typy                                                                                                      |
+| `test`                                                | Jedno zadanie na shard, <RepositoryFact name="vitestShards" /> równolegle: `bun run test:coverage --shard=<n>/<total>` z reporterem blob Vitesta, a następnie przesyła raport blob sharda z jego pokryciem                                               |
+| `verify`, o nazwie `Format, lint, types, i18n, tests` | Gdy każdy shard przejdzie, pobiera raporty blob i uruchamia `bun run test:coverage --merge-reports`, które scala pokrycie i egzekwuje progi, a następnie przesyła raport pokrycia; kończy się błędem, jeśli nie przeszły `check`, każdy shard i scalenie |
+
+Shard nie sprawdza żadnego progu, bo mierzy tylko kod, do którego docierają jego własne testy; progi z `vite.config.ts` obowiązują raz, dla scalonego pokrycia wszystkich shardów, tak jak przy lokalnym `bun run test:coverage`. Zadanie `verify` jest jedyną kontrolą wymaganą przez reguły gałęzi, więc dodanie lub usunięcie sharda nie zmienia nazwy żadnej wymaganej kontroli.
+
+Zadanie `e2e` wywołuje `e2e-reusable.yml`, który buduje aplikację raz i uruchamia zestaw testów równolegle na <RepositoryFact name="e2eShards" /> runnerach:
 
 | Zadanie                                       | Uruchamia                                                                                                                                                                          |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

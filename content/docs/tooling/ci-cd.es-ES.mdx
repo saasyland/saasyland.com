@@ -7,7 +7,7 @@ Los flujos de trabajo se encuentran en `.github/workflows/`. Los flujos de traba
 
 | Flujo de trabajo      | Disparador                                                                                | Jobs                                                                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requests, grupos de la cola de fusión y llamadas desde `deploy.yml`                  | Comprobaciones y cobertura, E2E en Chromium y la subida del Worker de preview                                                                   |
+| `ci.yml`              | Pull requests, grupos de la cola de fusión y llamadas desde `deploy.yml`                  | Comprobaciones, tests con cobertura en shards paralelos, E2E en Chromium y la subida del Worker de preview                                      |
 | `deploy.yml`          | Pushes a `main`                                                                           | Las comprobaciones de `ci.yml`, salvo que ya las haya ejecutado la cola de fusión, y después preview, producción y la publicación de la versión |
 | `preview.yml`         | Manual                                                                                    | Despliega en la preview compartida una rama cuyas comprobaciones se han superado                                                                |
 | `e2e-full.yml`        | Pushes a `main`, la programación <RepositoryFact name="e2eFullSchedule" /> en UTC, manual | WebKit en cada push; Chromium y WebKit en las ejecuciones programadas y manuales                                                                |
@@ -21,7 +21,17 @@ Los checkouts de `e2e-reusable.yml`, cuya compilación renderiza el registro de 
 
 ## Comprobaciones [#checks]
 
-El job `verify` de `ci.yml` ejecuta `bun run check` (tablas de nombres de clase, comprobaciones de i18n y de contenido, el [inventario de flujos](/docs/tooling/test-coverage#flow-coverage), formato, lint y tipos) y `bun run test:coverage`, y después sube el informe de cobertura. El job `e2e` invoca `e2e-reusable.yml`, que compila una sola vez y ejecuta la suite en <RepositoryFact name="e2eShards" /> runners en paralelo:
+Tres jobs de `ci.yml` sostienen la comprobación obligatoria `Format, lint, types, i18n, tests`:
+
+| Job                                                  | Ejecuta                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`                                              | `bun run check`: tablas de nombres de clase, comprobaciones de i18n y de contenido, el [inventario de flujos](/docs/tooling/test-coverage#flow-coverage), formato, lint y tipos                                                                                        |
+| `test`                                               | Un job por shard, <RepositoryFact name="vitestShards" /> en paralelo: `bun run test:coverage --shard=<n>/<total>` con el reporter blob de Vitest, y después sube el informe blob del shard con su cobertura                                                            |
+| `verify`, llamado `Format, lint, types, i18n, tests` | Cuando todos los shards han pasado, descarga los informes blob y ejecuta `bun run test:coverage --merge-reports`, que fusiona la cobertura y aplica los umbrales, y después sube el informe de cobertura; falla salvo que `check`, cada shard y la fusión hayan pasado |
+
+Un shard no comprueba ningún umbral, porque solo mide el código que alcanzan sus propios tests; los umbrales de `vite.config.ts` se aplican una vez, a la cobertura fusionada de todos los shards, igual que en un `bun run test:coverage` local. El job `verify` es la única comprobación que exigen las reglas de la rama, así que añadir o quitar un shard no cambia el nombre de ninguna comprobación obligatoria.
+
+El job `e2e` invoca `e2e-reusable.yml`, que compila una sola vez y ejecuta la suite en <RepositoryFact name="e2eShards" /> runners en paralelo:
 
 | Job                                          | Ejecuta                                                                                                                                                                       |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

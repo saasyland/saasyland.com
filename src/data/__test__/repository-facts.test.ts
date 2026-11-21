@@ -9,7 +9,13 @@ import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
 import { FLOWS } from "~/scripts/check-flows"
-import { collectCoverageScope, collectFlowTables, collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
+import {
+  collectCoverageScope,
+  collectFlowTables,
+  collectRepositoryFacts,
+  collectSeededAccounts,
+  repositoryFacts,
+} from "~/scripts/repository-facts"
 
 const configWith = ({
   hookTimeout = 4000,
@@ -226,5 +232,18 @@ describe("REPOSITORY_FACTS", () => {
     const shards = Array.from({ length: REPOSITORY_FACTS.e2eShards }, (_, index) => index + 1)
 
     expect(readFileSync(".github/workflows/e2e-reusable.yml", "utf8")).toContain(`shard: [${shards.join(", ")}]`)
+  })
+
+  it("reads vite.config.ts before Vitest applies a run's command-line options, which the CI shards use to skip the thresholds", () => {
+    const plugin = repositoryFacts()
+
+    expect(plugin.enforce).toBe("pre")
+    expect(plugin.config).toMatchObject({ order: "pre" })
+  })
+
+  it("counts the shards the unit, integration and component tests run on from the CI workflow's matrix", () => {
+    const shards = Array.from({ length: REPOSITORY_FACTS.vitestShards }, (_, index) => index + 1)
+
+    expect(readFileSync(REPOSITORY_FACTS.ciWorkflowPath, "utf8")).toContain(`shard: [${shards.join(", ")}]`)
   })
 })

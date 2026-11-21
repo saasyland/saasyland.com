@@ -112,8 +112,8 @@ const readE2eFullSchedule = (): string => {
   return scheduleMatchSchema.parse(WORKFLOW_CRON.exec(workflow)?.groups).schedule
 }
 
-const readE2eShards = (): number => {
-  const workflow = readFileSync(E2E_WORKFLOW, "utf8")
+const readShards = (path: string): number => {
+  const workflow = readFileSync(path, "utf8")
 
   return shardsMatchSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").length
 }
@@ -226,7 +226,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     coverageThreshold: test.coverage.thresholds.lines,
     currencies: CURRENCY_CODES.length,
     e2eFullSchedule: readE2eFullSchedule(),
-    e2eShards: readE2eShards(),
+    e2eShards: readShards(E2E_WORKFLOW),
     e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
     e2eSpecsPath,
     e2eTests: browserTests.length,
@@ -260,6 +260,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     testPassword: TEST_PASSWORD,
     timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
+    vitestShards: readShards(CI_WORKFLOW),
   }
 }
 
@@ -281,16 +282,20 @@ export const repositoryFacts = (): Plugin => {
   let moduleSource = ""
 
   return {
-    config: async (config) => {
-      moduleSource = [
-        `export default ${JSON.stringify(collectRepositoryFacts(config, listBrowserTests()))}`,
-        `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
-        `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
-        `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
-        `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
-        `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
-      ].join("\n")
+    config: {
+      handler: async (config) => {
+        moduleSource = [
+          `export default ${JSON.stringify(collectRepositoryFacts(config, listBrowserTests()))}`,
+          `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
+          `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
+          `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
+          `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
+          `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
+        ].join("\n")
+      },
+      order: "pre",
     },
+    enforce: "pre",
     load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),
     name: "saasyland:repository-facts",
     resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),

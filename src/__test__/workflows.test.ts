@@ -155,11 +155,18 @@ describe(E2E_WORKFLOW, () => {
 
     expect(build).toContain("run: bun run db:reset:test")
     expect(build).toContain("run: bun run build:test")
-    expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test")
+    expect(build).toContain("git tag --list | LC_ALL=C sort > test-worker.tags")
+    expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test test-worker.tags")
     expect(build).toContain(TEST_WORKER_ARTIFACT)
     expect(shard).toContain("needs: build")
     expect(shard).toContain(TEST_WORKER_ARTIFACT)
     expect(shard).not.toContain("build:test")
+  })
+
+  it("gives the shards the release tags the build read, so a release tagged in between cannot change the changelog they expect", () => {
+    expect(jobOf(E2E, "shard")).toContain(
+      "git tag --list | LC_ALL=C sort | comm -13 test-worker.tags - | xargs --no-run-if-empty git tag --delete",
+    )
   })
 
   it("splits the browser suite across four shards that each run their part", () => {

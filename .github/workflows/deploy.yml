@@ -14,16 +14,54 @@ permissions:
   contents: read
 
 jobs:
+  tested:
+    name: Tested before the merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      tested: ${{ steps.tested.outputs.tested }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Find whether the merge queue tested this commit
+        id: tested
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/tested-commit.ts "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
   checks:
     name: Checks
+    needs: tested
+    if: needs.tested.outputs.tested != 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  deploy-preview:
+    name: Deploy preview
+    needs: [tested, checks]
+    if: ${{ !cancelled() && needs.tested.result == 'success' && (needs.tested.outputs.tested == 'true' || needs.checks.result == 'success') }}
     permissions:
       contents: read
       deployments: write
-    uses: ./.github/workflows/ci.yml
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      target: preview
+    secrets: inherit
 
   deploy-production:
     name: Deploy production
-    needs: checks
+    needs: [tested, checks, deploy-preview]
+    if: ${{ !cancelled() && needs.deploy-preview.result == 'success' }}
     permissions:
       contents: read
       deployments: write
@@ -35,6 +73,7 @@ jobs:
   release:
     name: Release
     needs: deploy-production
+    if: ${{ !cancelled() && needs.deploy-production.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

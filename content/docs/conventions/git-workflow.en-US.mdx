@@ -48,10 +48,10 @@ Never set `core.hooksPath` to another value and never pass `-c core.hooksPath` t
 
 ## Linear history
 
-The ruleset that protects `main` on GitHub requires a linear history, accepts only squash merges and rejects force-pushes, so each pull request reaches `main` as one commit. Pull request branches stay linear too:
+The ruleset that protects `main` on GitHub requires a linear history, accepts pull requests only through the merge queue, which squashes each one, and rejects force-pushes, so each pull request reaches `main` as one commit. Pull request branches stay linear too:
 
 - Never create a merge commit, on `main` or on a pull request branch: do not merge `main` into a branch, and do not resolve conflicts in a merge commit.
-- Bring a branch up to date by rebasing it onto `main`, with `gh pr update-branch --rebase` or with `git fetch origin` and `git rebase origin/main`.
+- Bring a branch up to date by rebasing it onto `main`, with `gh pr update-branch --rebase` or with `git fetch origin` and `git rebase origin/main`, when it conflicts with `main`. A pull request without conflicts needs no rebase to merge: the merge queue tests it on top of the latest `main`.
 - When GitHub cannot rebase a pull request with several commits, land it again as one commit on top of `main`: squash the branch into one commit at its merge base, then rebase that commit, so you resolve each conflict once:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull requests
 
 - **Small and targeted.** One fix, one feature or one refactor per pull request. A large feature becomes a stack of pull requests, each reviewable on its own, as videos, courses and the course admin were.
-- **The title is the squash commit.** Use the commit format; it becomes the subject on `main`.
+- **The title is the squash commit.** Use the commit format without the emoji; it becomes the subject on `main`, which GitHub ends with `(#<number>)`. `scripts/enqueue-pr.ts` adds the emoji that the commit hook would when it puts the pull request in the merge queue.
 - **The description** has a `## Summary` of what changed and why, a `## Test plan` with the commands you ran and their results, and a `## Docs` list of the pages, README sections and copy you updated. Write it plainly, without marketing language.
 - **Every pull request updates what it makes inaccurate:** the README, the docs pages in every locale and any site copy or landing page claim it touches, and it adds its [changelog entry](#changelog-entries). Inaccuracy found in code you did not change gets its own pull request.
+
+## Merging [#merging]
+
+A pull request reaches `main` only through GitHub's merge queue. Once its checks are green and its changelog entry is in, put it in the queue with its number:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+The script fails on a title that does not follow the commit format, sets the title to the subject the commit hook would write, emoji included, and runs `gh pr merge --auto --squash`, which adds the pull request to the queue as soon as its checks pass. The queue tests each pull request on top of `main` and of the pull requests ahead of it, with the checks the pull request ran, builds several of them at a time, and lands a group of pull requests together once each of them has passed, so nobody rebases a ready pull request to merge it. A pull request that fails in the queue leaves it; fix it and enqueue it again. Never merge a pull request by hand or past the queue: the queue's run is the one that tested the commit that reaches `main`, and `deploy.yml` reruns every check for a commit that skipped it.
 
 ## Changelog entries
 
@@ -78,11 +88,11 @@ Every pull request adds its own entry to the [changelog](/docs/project/changelog
 - **Name it after the pull request.** Open the pull request, then add `content/changelog/<number>.<locale>.mdx` in every locale: a bulleted list, without frontmatter, of what changed for the people using the code, linking the docs pages it affects.
 - **Never write a date or the pull request's number.** The changelog page takes each entry's day, and the release notes each entry's release, from the Git history: the day, in UTC, of the squash commit whose subject GitHub ends with `(#<number>)`. Until the pull request is merged, its entry is listed under **Unreleased**. They take the number from the file name: the page ends every bullet of an entry with a link to its pull request, or to its commit for an entry named after one, and the release notes end every bullet with `(#<number>)`, which GitHub links. Once deployed, the page also links each entry to the [release](/docs/tooling/ci-cd#releases-and-tags) that first shipped it.
 - **CI checks it.** In a pull request, `bun run check` fails while `content/changelog/<number>.en-US.mdx` is missing, and `check:i18n` compares each translation with it as it does a docs page. A file named after neither a pull request number nor a full commit hash fails too: the few changes that reached `main` without a pull request are named after their commit.
-- **Only your own entry may be unreleased.** In CI, the build of the site fails while the changelog would list an entry under **Unreleased** that should not be there: in a pull request into `main`, any entry but the pull request's own, and on `main`, any entry at all. A local build, which has no `GITHUB_REF`, lists every unmerged entry. This catches an entry that outlives its pull request: `content/changelog/219.<locale>.mdx` stayed behind when #219 was closed without merging, repeated #220's entry and showed as **Unreleased** on production until #254 removed it.
+- **Only your own entry may be unreleased.** In CI, the build of the site fails while the changelog would list an entry under **Unreleased** that should not be there: in a pull request into `main`, any entry but the pull request's own, and in the merge queue and on `main`, any entry at all. A merge queue branch already holds the squash commit of every pull request in its group, so each of their entries has its day. A local build, which has no `GITHUB_REF`, lists every unmerged entry. This catches an entry that outlives its pull request: `content/changelog/219.<locale>.mdx` stayed behind when #219 was closed without merging, repeated #220's entry and showed as **Unreleased** on production until #254 removed it.
 
 ## Checks
 
-CI runs `bun run check` and `bun run test:coverage`, then builds the test Worker and runs the browser suite in Chromium; only when both pass does it deploy a preview. Wait for the preview deployment as well: it is the only step that uploads the Worker to Cloudflare, and Cloudflare's upload limits have failed a deployment that every other check passed. See [CI/CD](/docs/tooling/ci-cd).
+CI runs `bun run check` and `bun run test:coverage`, builds the test Worker and runs the browser suite in Chromium, and uploads the preview Worker to Cloudflare as a version that serves no traffic. That upload is the check that Cloudflare accepts the Worker: its upload limits have failed a deployment that every other check passed. The merge queue runs the same checks again on the pull request together with `main` and the pull requests ahead of it. See [CI/CD](/docs/tooling/ci-cd).
 
 ## Related pages
 

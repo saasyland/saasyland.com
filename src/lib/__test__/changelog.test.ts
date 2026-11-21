@@ -20,6 +20,7 @@ const COMMIT_HASH = "0b9a1b9865859643bedbbb41c3f26b3ff6a1eede"
 const TRANSLATED_LOCALE = "de-DE"
 const MAIN_REF = `refs/heads/${MAIN_BRANCH}`
 const PULL_REQUEST_REF = "refs/pull/220/merge"
+const MERGE_GROUP_REF = `refs/heads/gh-readonly-queue/${MAIN_BRANCH}/pr-221-${COMMIT_HASH}`
 
 const entry = (key: string) => ({ key, source: `- Change ${key}.\n` })
 
@@ -30,6 +31,8 @@ const writeEntries = (repository: GitRepository, keys: readonly string[]): void 
     repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, entry(key).source)
   }
 }
+
+const MERGE_QUEUE_RULE = "in the merge queue, whose branch already holds the squash commit of every pull request in the group, no entry may"
 
 const problemOf = (key: string, rule: string): string =>
   `content/changelog/${key}.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; ${rule}. Delete the entry of a pull request that was closed without merging.`
@@ -191,6 +194,26 @@ describe("unreleasedEntryProblems", () => {
     ).toStrictEqual([])
   })
 
+  it("fails a merge group while any entry is unreleased, since its branch holds the squash commit of each pull request in the group", () => {
+    expect(unreleasedEntryProblems({ changelog, run: { baseRef: "", ref: MERGE_GROUP_REF } })).toStrictEqual([
+      problemOf("220", MERGE_QUEUE_RULE),
+      problemOf("219", MERGE_QUEUE_RULE),
+    ])
+  })
+
+  it("passes a merge group whose pull requests' squash commits date every entry, those of the group included", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#218)", "2026-11-20T10:00:00Z")
+    repository.commit("🐛 fix(auth): keep the locale (#220)", "2026-11-21T10:00:00Z")
+    repository.commit("⚙️ ci(queue): test pull requests together (#221)", "2026-11-21T10:00:01Z")
+    writeEntries(repository, ["218", "220", "221"])
+
+    expect(unreleasedEntryProblems({ changelog: await readEnglish(repository), run: { baseRef: "", ref: MERGE_GROUP_REF } })).toStrictEqual(
+      [],
+    )
+  })
+
   it("fails main while any entry is unreleased", () => {
     expect(unreleasedEntryProblems({ changelog, run: { baseRef: "", ref: MAIN_REF } })).toStrictEqual([
       problemOf("220", "on main, no entry may"),
@@ -222,7 +245,14 @@ describe("pullRequestOf", () => {
     expect(pullRequestOf("refs/pull/202/merge")).toBe("202")
   })
 
-  it.each(["refs/heads/main", "refs/tags/v2026.11.16", ""])("finds no pull request in %j", (ref) => {
-    expect(pullRequestOf(ref)).toBeUndefined()
+  it("reads the number of the pull request whose merge queue entry a workflow tests", () => {
+    expect(pullRequestOf(MERGE_GROUP_REF)).toBe("221")
   })
+
+  it.each(["refs/heads/main", "refs/tags/v2026.11.16", "refs/heads/gh-readonly-queue/beta/pr-221-0b9a1b98", ""])(
+    "finds no pull request in %j",
+    (ref) => {
+      expect(pullRequestOf(ref)).toBeUndefined()
+    },
+  )
 })

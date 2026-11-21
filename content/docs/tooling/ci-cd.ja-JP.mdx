@@ -3,15 +3,16 @@ title: "CI/CD"
 description: "チェック、ブラウザーテスト、デプロイ、リリースのための GitHub Actions ワークフローです。"
 ---
 
-ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
+ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
 | ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | プルリクエスト、および `deploy.yml` からの呼び出し                                          | チェックとカバレッジ、Chromium の E2E、その後プルリクエストのプレビューへのデプロイ                              |
-| `deploy.yml`          | `main` へのプッシュ                                                                         | `ci.yml` のチェック、その後本番へのデプロイとそのリリース                                                        |
+| `ci.yml`              | プルリクエスト、マージキューのグループ、および `deploy.yml` からの呼び出し                  | チェックとカバレッジ、Chromium の E2E、プレビュー用 Worker のアップロード                                        |
+| `deploy.yml`          | `main` へのプッシュ                                                                         | マージキューが実行していなければ `ci.yml` のチェック、その後プレビュー、本番、リリース                           |
+| `preview.yml`         | 手動実行                                                                                    | チェックが成功したブランチを共有プレビューにデプロイ                                                             |
 | `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                           |
 | `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック |
-| `deploy-reusable.yml` | `ci.yml` と `deploy.yml` から呼び出し                                                       | ビルド、D1 マイグレーション、`wrangler deploy`                                                                   |
+| `deploy-reusable.yml` | `ci.yml`、`deploy.yml`、`preview.yml` から呼び出し                                          | ビルド、その後 D1 マイグレーションと `wrangler deploy`、または `wrangler versions upload`                        |
 | `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                |
 
 `remotion.yml` は、プルリクエストでもプッシュでも同じパスで実行されます。対象は `remotion/`、ワークフロー自体、そして `remotion/src` が直接または他のサイトのファイルを通じてインポートするサイトのファイルです。`src/__test__/workflows.test.ts` はそのインポートをたどり、たどり着いたファイルがどのパスにも一致しない場合や、どのファイルにも一致しないパスがある場合に失敗します。
@@ -30,20 +31,28 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 Playwright 自体のリトライとワーカーは、どのシャードでも [Playwright](/docs/tooling/playwright#configuration) の説明どおりです。ブランチのルールが必須とするチェックは `report` ジョブだけなので、シャードを追加または削除しても、必須チェックの名前は変わりません。 ビルドは読み込んだリリースタグの一覧もまとめ、各シャードはそれ以降に作られたタグを削除します。`content.spec.ts` は Git からリリースタグを読むため、シャードが待っている間にリリースのタグが付くと、ビルドが一度も描画していない changelog を期待してしまうからです。
 
-プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗します。`e2e` ジョブとデプロイジョブのビルドは、変更履歴がそのプルリクエスト自身のもの以外のエントリを**未リリース**の下に載せることになる間は失敗し、`main` では未リリースのエントリが 1 つでもあれば失敗します。
+`upload` ジョブ（名前は `Worker upload`）は、`upload: true` を付けて `deploy-reusable.yml` を呼び出します。デプロイとまったく同じようにプレビュー用 Worker をビルドし、`wrangler versions upload` を実行して、デプロイせずに新しいバージョンとして `saasyland-preview` Worker に送ります。Cloudflare は、サイズの上限、起動時間、バインディング、`secrets.required` が挙げるシークレットを、デプロイと同じようにアップロードでも検査します。そのため、このチェックに通った Worker はデプロイでき、その間も `preview.saasyland.com` は以前にデプロイされたバージョンを配信し続けます。このジョブはマイグレーションを適用せず、GitHub のデプロイも記録せず（`deployment: false`）、ほかのプルリクエストのアップロードと並行して実行されます。プルリクエストのバージョンには `pr-<number>` というエイリアスが付き、Cloudflare のダッシュボードでそのバージョンを示します。ジョブのサマリーにはバージョンの ID とサイズが表示され、Worker で Version URLs が有効な場合はその URL も表示されます。現在、`saasyland-preview` では有効になっていません。フォークと Dependabot からのプルリクエストは Cloudflare の認証情報を読めないため、このジョブをスキップします。認証情報を読めるマージキューが、マージ前にそれらのビルドをアップロードします。
+
+プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗し、マージキューでは、キューに入ったプルリクエストのエントリがない間は失敗します。`e2e` ジョブと `upload` ジョブ、そしてデプロイジョブのビルドは、変更履歴がそのプルリクエスト自身のもの以外のエントリを**未リリース**の下に載せることになる間は失敗し、マージキューと `main` では未リリースのエントリが 1 つでもあれば失敗します。
+
+## マージキュー [#merge-queue]
+
+`main` を保護するルールセットは、`Format, lint, types, i18n, tests`、`Build and E2E / Build and E2E (chromium)`、`Worker upload / Upload preview` を必須とし、プルリクエストを GitHub のマージキュー経由でのみマージします。マージキューは各プルリクエストをスカッシュします。`bun scripts/enqueue-pr.ts <number>` でプルリクエストをキューに入れます（[Git とプルリクエスト](/docs/conventions/git-workflow#merging)）。GitHub はキュー内の各プルリクエストについて、`main` とその前に並んでいるプルリクエストの上に、`gh-readonly-queue/main/pr-<number>-<commit>` という名前のブランチでスカッシュコミットを作成し、そのブランチで `merge_group` イベントとして `ci.yml` を実行します。グループ内の各プルリクエストが成功すると、GitHub は `main` をグループの最後のコミット、つまりキューがテストしたまさにそのコミットに移動します。そのため、1 回のプッシュでグループのすべてのプルリクエストが、それぞれ独自のスカッシュコミットとして `main` に入ります。失敗したプルリクエストはキューから外れ、その後ろのプルリクエストはそれを除いてもう一度テストされます。
+
+`ci.yml` は、新しいコミットに置き換えられたプルリクエストの実行をキャンセルしますが、キューの実行はキャンセルしません。キューのブランチはそれぞれ独自の ref を持つためです。変更履歴のゲートは、キューのブランチを `main` として扱います。グループの各プルリクエストはすでに、件名が自身の番号で終わるスカッシュコミットになっているため、未リリースのエントリは 1 つも許されず、キューに入ったプルリクエスト自身のエントリが存在する必要があります。
 
 ## デプロイ
 
-デプロイは `verify` と `e2e` が成功した後にのみ実行されます。プルリクエストでは `ci.yml` の実行の中で、`main` へのプッシュでは `ci.yml` を呼び出す `deploy.yml` の実行の中で行われます。
+`deploy.yml` は、`main` へのすべてのプッシュを、そのコミットが `main` が必須とするすべてのチェックに成功した時点で、まず共有プレビューに、続いて本番にデプロイします。最初のジョブ `tested` は `scripts/tested-commit.ts` を実行します。このスクリプトは GitHub の API を通じてルールセットからそれらのチェックを読み取り、プッシュされたコミットでそれぞれが成功した実行を探します。マージキューを経由したコミットには、キューがまさにそのコミットをテストしたため、それらの実行があります。そのため `deploy.yml` はチェックを再実行せずにデプロイします。それ以外の方法で `main` に入ったコミットでは、まず `ci.yml` のチェックを実行します。
 
-| イベント                                       | デプロイ先   | GitHub の環境 | URL                           |
-| ---------------------------------------------- | ------------ | ------------- | ----------------------------- |
-| このリポジトリ内のブランチからのプルリクエスト | `preview`    | `Preview`     | https://preview.saasyland.com |
-| `main` へのプッシュ                            | `production` | `Production`  | https://saasyland.com         |
+| イベント                 | デプロイ先                     | GitHub の環境                  | URL                                                  |
+| ------------------------ | ------------------------------ | ------------------------------ | ---------------------------------------------------- |
+| `main` へのプッシュ      | `preview`、その後 `production` | `Preview`、その後 `Production` | https://preview.saasyland.com, https://saasyland.com |
+| `preview.yml` の手動実行 | `preview`                      | `Preview`                      | https://preview.saasyland.com                        |
 
-`deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 の各バケットを使います。
+`deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 の各バケットを使います。プレビューでは `main` が動いています。そのため、[ジャーニースイート](/docs/tooling/playwright#journey-suite)、Polar サンドボックスの Webhook、そして Better Auth が信頼する唯一のプレビューのホストである `preview.saasyland.com` でのサインインは、いずれも本番がまもなく実行するコードに対して行われ、すべてのマイグレーションは本番より先にプレビューのデータベースに適用されます。マージ前にブランチをそこで試すには、`gh workflow run preview.yml --ref <branch>` を実行します。ブランチのコミットが `main` の必須チェックに成功している場合にのみ、マイグレーションも含めてそのブランチをデプロイします。次に `main` へのプッシュがあると、プレビューは `main` に戻ります。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入り、互いにキャンセルすることはありません（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてテストされ、デプロイされます。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`upload: true` の場合は、最後の 2 つのステップの代わりに `vp exec wrangler versions upload` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入り、アップロードは並行して実行されます。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、マージキューの実行は互いにキャンセルすることがなく、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入ります（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてデプロイされます。
 
 Dependabot は GitHub Actions を毎週更新します。
 

@@ -48,10 +48,10 @@ Nigdy nie ustawiaj `core.hooksPath` na inną wartość i nigdy nie przekazuj Git
 
 ## Liniowa historia [#linear-history]
 
-Ruleset, który chroni `main` na GitHubie, wymaga liniowej historii, przyjmuje tylko scalanie przez squash i odrzuca force-push, więc każdy pull request trafia do `main` jako jeden commit. Gałęzie pull requestów również pozostają liniowe:
+Ruleset, który chroni `main` na GitHubie, wymaga liniowej historii, przyjmuje pull requesty wyłącznie przez kolejkę scalania, która łączy każdy z nich w jeden commit squash, i odrzuca force-push, więc każdy pull request trafia do `main` jako jeden commit. Gałęzie pull requestów również pozostają liniowe:
 
 - Nigdy nie twórz commita scalającego, ani na `main`, ani na gałęzi pull requesta: nie scalaj `main` do gałęzi i nie rozwiązuj konfliktów w commicie scalającym.
-- Aktualizuj gałąź, robiąc jej rebase na `main`, poleceniem `gh pr update-branch --rebase` albo poleceniami `git fetch origin` i `git rebase origin/main`.
+- Aktualizuj gałąź, robiąc jej rebase na `main`, poleceniem `gh pr update-branch --rebase` albo poleceniami `git fetch origin` i `git rebase origin/main`, gdy jest w konflikcie z `main`. Pull request bez konfliktów nie potrzebuje rebase’u, żeby zostać scalony: kolejka scalania testuje go na szczycie najnowszego `main`.
 - Gdy GitHub nie może zrobić rebase’u pull requesta z kilkoma commitami, wprowadź go ponownie jako jeden commit na szczycie `main`: połącz gałąź w jeden commit na jej bazie scalania, a potem zrób rebase tego commita, dzięki czemu każdy konflikt rozwiązujesz tylko raz:
 
 ```sh
@@ -67,9 +67,19 @@ git push --force-with-lease
 ## Pull requesty
 
 - **Małe i ukierunkowane.** Jedna poprawka, jedna funkcja lub jeden refaktoring na pull request. Duża funkcja staje się stosem pull requestów, z których każdy da się przejrzeć osobno, tak jak powstawały wideo, kursy i administracja kursami.
-- **Tytuł jest commitem squash.** Używaj formatu commitów; tytuł staje się tematem na `main`.
+- **Tytuł jest commitem squash.** Używaj formatu commitów bez emoji; tytuł staje się tematem na `main`, który GitHub kończy na `(#<number>)`. `scripts/enqueue-pr.ts` dodaje emoji, które dodałby hook commitów, gdy umieszcza pull request w kolejce scalania.
 - **Opis** zawiera `## Summary` z tym, co się zmieniło i dlaczego, `## Test plan` z uruchomionymi poleceniami i ich wynikami oraz listę `## Docs` ze zaktualizowanymi stronami, sekcjami README i tekstami. Pisz go prosto, bez języka marketingowego.
 - **Każdy pull request aktualizuje to, co czyni nieaktualnym:** README, strony dokumentacji we wszystkich językach oraz wszelkie teksty serwisu i deklaracje na stronie głównej, których dotyczy, a do tego dodaje własny [wpis w historii zmian](#changelog-entries). Nieścisłość znaleziona w kodzie, którego nie zmieniałeś, dostaje własny pull request.
+
+## Scalanie [#merging]
+
+Pull request trafia do `main` wyłącznie przez kolejkę scalania GitHuba (merge queue). Gdy jego kontrole są zielone, a wpis w historii zmian jest na miejscu, umieść go w kolejce, podając jego numer:
+
+```sh
+bun scripts/enqueue-pr.ts 280
+```
+
+Skrypt kończy się błędem przy tytule niezgodnym z formatem commitów, ustawia jako tytuł temat, który napisałby hook commitów, razem z emoji, i uruchamia `gh pr merge --auto --squash`, które dodaje pull request do kolejki, gdy tylko jego kontrole przejdą. Kolejka testuje każdy pull request na szczycie `main` i pull requestów przed nim, tymi samymi kontrolami, które uruchomił pull request, buduje kilka z nich naraz i wprowadza grupę pull requestów do `main` razem, gdy każdy z nich przejdzie, więc nikt nie musi robić rebase’u gotowego pull requesta, żeby go scalić. Pull request, który nie przejdzie w kolejce, opuszcza ją; popraw go i ponownie umieść w kolejce. Nigdy nie scalaj pull requesta ręcznie ani z pominięciem kolejki: to przebieg kolejki przetestował commit, który trafia do `main`, a `deploy.yml` ponownie uruchamia wszystkie kontrole dla commita, który ją pominął.
 
 ## Wpisy w historii zmian [#changelog-entries]
 
@@ -78,11 +88,11 @@ Każdy pull request dodaje własny wpis do [historii zmian](/docs/project/change
 - **Nazwij go numerem pull requesta.** Otwórz pull request, a potem dodaj `content/changelog/<number>.<locale>.mdx` we wszystkich językach: listę punktowaną bez frontmattera opisującą, co zmienia się dla osób korzystających z kodu, z linkami do stron dokumentacji, których dotyczy.
 - **Nigdy nie wpisuj daty ani numeru pull requesta.** Strona historii zmian bierze dzień każdego wpisu, a informacje o wydaniu jego wydanie, z historii Gita: dzień (UTC) commita squash, którego temat GitHub kończy na `(#<number>)`. Dopóki pull request nie zostanie scalony, jego wpis jest wymieniony w sekcji **Niewydane**. Numer biorą z nazwy pliku: strona kończy każdy punkt wpisu linkiem do jego pull requesta, a w przypadku wpisu nazwanego od commita linkiem do tego commita, natomiast informacje o wydaniu kończą każdy punkt na `(#<number>)`, co GitHub zamienia w link. Po wdrożeniu strona linkuje też każdy wpis do [wydania](/docs/tooling/ci-cd#releases-and-tags), które dostarczyło go jako pierwsze.
 - **CI to sprawdza.** W pull requeście `bun run check` kończy się błędem, dopóki brakuje `content/changelog/<number>.en-US.mdx`, a `check:i18n` porównuje z nim każde tłumaczenie tak jak stronę dokumentacji. Błędem kończy się też plik nazwany ani numerem pull requesta, ani pełnym hashem commita: nieliczne zmiany, które trafiły do `main` bez pull requesta, noszą nazwę swojego commita.
-- **Niewydany może być tylko Twój własny wpis.** W CI build strony kończy się błędem, dopóki historia zmian pokazywałaby w sekcji **Niewydane** wpis, którego nie powinno tam być: w pull requeście do `main` każdy wpis poza wpisem samego pull requesta, a na `main` każdy wpis. Lokalny build, który nie ma `GITHUB_REF`, pokazuje wszystkie niescalone wpisy. To wyłapuje wpis, który przetrwał swój pull request: `content/changelog/219.<locale>.mdx` został w repozytorium, gdy #219 zamknięto bez scalenia, powtarzał wpis #220 i był widoczny na produkcji w sekcji **Niewydane**, dopóki #254 go nie usunął.
+- **Niewydany może być tylko Twój własny wpis.** W CI build strony kończy się błędem, dopóki historia zmian pokazywałaby w sekcji **Niewydane** wpis, którego nie powinno tam być: w pull requeście do `main` każdy wpis poza wpisem samego pull requesta, a w kolejce scalania i na `main` każdy wpis. Gałąź kolejki scalania zawiera już commit squash każdego pull requesta ze swojej grupy, więc każdy z ich wpisów ma swój dzień. Lokalny build, który nie ma `GITHUB_REF`, pokazuje wszystkie niescalone wpisy. To wyłapuje wpis, który przetrwał swój pull request: `content/changelog/219.<locale>.mdx` został w repozytorium, gdy #219 zamknięto bez scalenia, powtarzał wpis #220 i był widoczny na produkcji w sekcji **Niewydane**, dopóki #254 go nie usunął.
 
 ## Kontrole
 
-CI uruchamia `bun run check` i `bun run test:coverage`, następnie buduje testowego Workera i uruchamia zestaw testów przeglądarkowych w Chromium; wdrożenie preview następuje dopiero wtedy, gdy oba przejdą. Poczekaj także na wdrożenie preview: to jedyny krok, który przesyła Workera do Cloudflare, a limity przesyłania Cloudflare zablokowały już wdrożenie, które przeszło wszystkie inne kontrole. Zobacz [CI/CD](/docs/tooling/ci-cd).
+CI uruchamia `bun run check` i `bun run test:coverage`, buduje testowego Workera, uruchamia zestaw testów przeglądarkowych w Chromium i przesyła Workera preview do Cloudflare jako wersję, która nie obsługuje ruchu. To przesłanie jest kontrolą, że Cloudflare przyjmuje Workera: limity przesyłania Cloudflare zablokowały już wdrożenie, które przeszło wszystkie inne kontrole. Kolejka scalania uruchamia te same kontrole ponownie na pull requeście razem z `main` i pull requestami przed nim. Zobacz [CI/CD](/docs/tooling/ci-cd).
 
 ## Powiązane strony
 

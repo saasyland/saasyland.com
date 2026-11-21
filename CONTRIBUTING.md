@@ -23,19 +23,19 @@ This repository is the saasyland.com website: the marketing pages, docs, blog, c
    bun run test:coverage
    bun run build:test
    bun run test:e2e:install
-   bun run test:e2e:pr
+   bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
    ```
 
-   `check` runs formatting, lint, types, the translation checks and the flow inventory check; code coverage must stay at 100%; `build:test` runs the Cloudflare build that the unit tests do not; `test:e2e:pr` runs the browser suite in Chromium, as CI does.
+   `check` runs formatting, lint, types, the translation checks and the flow inventory check; code coverage must stay at 100%; `build:test` runs the Cloudflare build that the unit tests do not; the last command runs the browser specs that cover your change in Chromium. CI runs the whole browser suite on the pull request and again in the merge queue before it merges; `bun run test:e2e:pr` runs it locally.
 
-   The browser suite serves the test build on port 3000. When another server holds that port, or you run several worktrees at once, give each run its own free port from 3020 to 3029, the ports the test build trusts: check it with `lsof -nP -iTCP:3027 -sTCP:LISTEN`, which prints nothing for a free port, then run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr`. Never stop a server you did not start. The run stops before the first test if the server on its port belongs to another worktree; [Playwright](https://saasyland.com/docs/tooling/playwright#running-beside-other-worktrees) explains why.
+   The browser suite serves the test build on port 3000. When another server holds that port, or you run several worktrees at once, give each run its own free port from 3020 to 3029, the ports the test build trusts: check it with `lsof -nP -iTCP:3027 -sTCP:LISTEN`, which prints nothing for a free port, then run `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium`. Never stop a server you did not start. The run stops before the first test if the server on its port belongs to another worktree; [Playwright](https://saasyland.com/docs/tooling/playwright#running-beside-other-worktrees) explains why.
 
 5. Write commit messages in the [conventional commit](https://saasyland.com/docs/tooling/conventional-commits) format, such as `fix(auth): keep the locale in verification links`. The commit hook adds the emoji.
 
 ## Pull requests
 
-- One fix, feature or refactor per pull request. The title uses the commit format and becomes the squash commit on `main`.
-- Keep the history linear: bring your branch up to date by rebasing it onto `main`, never by merging `main` into it, and push the rebased branch with `git push --force-with-lease`.
+- One fix, feature or refactor per pull request. The title uses the commit format without the emoji and becomes the squash commit on `main`.
+- Keep the history linear: when your branch conflicts with `main`, rebase it onto `main`, never merge `main` into it, and push the rebased branch with `git push --force-with-lease`. A branch without conflicts needs no rebase: a maintainer puts the green pull request in GitHub's merge queue with `bun scripts/enqueue-pr.ts <number>`, and the queue tests it again on top of `main` before it merges.
 - Fill in the template: what changed and why, the checks you ran, and the docs you updated.
 - Update everything the change makes inaccurate: the README and the docs in all nine locales.
 - Once the pull request has its number, add its [changelog entry](https://saasyland.com/docs/conventions/git-workflow#changelog-entries): `content/changelog/<number>.<locale>.mdx` in all nine locales, without a date. The changelog dates it by the day the pull request reaches `main`, and CI fails a pull request without one.

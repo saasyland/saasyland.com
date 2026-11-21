@@ -45,6 +45,7 @@ const PULL_REQUEST_KEY = /^[1-9]\d*$/u
 
 const SQUASHED_PULL_REQUEST = /\(#(?<number>[1-9]\d*)\)$/u
 const PULL_REQUEST_REF = /^refs\/pull\/(?<number>[1-9]\d*)\/merge$/u
+const MERGE_GROUP_REF = new RegExp(String.raw`^refs/heads/gh-readonly-queue/${MAIN_BRANCH}/pr-(?<number>[1-9]\d*)-[\da-f]+$`, "u")
 const TIME_OF_DAY = /T.+$/u
 const LOG_FORMAT = "--format=%H%x09%ct%x09%D%x09%s"
 const FIRST_PARENT = "--first-parent"
@@ -180,9 +181,11 @@ export const entryItems = (source: string): string[] =>
 export const joinEntries = <Entry extends ChangelogEntry>(entries: readonly Entry[], reference: (entry: Entry) => string): string =>
   entries.flatMap((entry) => entryItems(entry.source).map((item) => `${item} ${reference(entry)}`)).join("\n")
 
-export const pullRequestOf = (ref: string): string | undefined => PULL_REQUEST_REF.exec(ref)?.groups?.["number"]
+export const pullRequestOf = (ref: string): string | undefined =>
+  (PULL_REQUEST_REF.exec(ref) ?? MERGE_GROUP_REF.exec(ref))?.groups?.["number"]
 
-const awaitedEntryOf = ({ baseRef, ref }: ChangelogRun): string | undefined => (baseRef === MAIN_BRANCH ? pullRequestOf(ref) : undefined)
+const awaitedEntryOf = ({ baseRef, ref }: ChangelogRun): string | undefined =>
+  baseRef === MAIN_BRANCH ? PULL_REQUEST_REF.exec(ref)?.groups?.["number"] : undefined
 
 const unreleasedProblems = (entries: readonly ChangelogEntry[], rule: string): string[] =>
   entries.map(
@@ -197,6 +200,13 @@ export const unreleasedEntryProblems = ({ changelog, run }: { changelog: Changel
     return unreleasedProblems(
       changelog.unreleased.filter(({ key }) => key !== awaited),
       `in pull request #${awaited}, only its own entry may wait for the merge`,
+    )
+  }
+
+  if (MERGE_GROUP_REF.test(run.ref)) {
+    return unreleasedProblems(
+      changelog.unreleased,
+      "in the merge queue, whose branch already holds the squash commit of every pull request in the group, no entry may",
     )
   }
 

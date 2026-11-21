@@ -35,18 +35,42 @@ const fail = (lines: readonly string[]): never => {
   return process.exit(FAILURE_EXIT_CODE)
 }
 
-const resolveEmoji = (subject: string): string => {
-  const type = CONVENTIONAL_PATTERN.exec(subject)?.groups?.["type"]
+const isDecorated = (subject: string): boolean => LEADING_EMOJI.test(subject) || GIT_GENERATED_SUBJECT.test(subject)
+
+const typeOf = (subject: string): string | undefined => CONVENTIONAL_PATTERN.exec(subject)?.groups?.["type"]
+
+const emojiFor = (subject: string): string | undefined => {
+  const type = typeOf(subject)
+
+  if (isDecorated(subject) || type === undefined) {
+    return undefined
+  }
+
+  return COMMIT_EMOJIS[type]
+}
+
+export const subjectProblems = (subject: string): string[] => {
+  const type = typeOf(subject)
+
+  if (isDecorated(subject) || emojiFor(subject) !== undefined) {
+    return []
+  }
 
   if (type === undefined) {
-    return fail([
+    return [
       "Commit message does not follow conventional format.",
       "Expected: <type>(<scope>): <description>",
       `Allowed types: ${ALLOWED_TYPES}`,
-    ])
+    ]
   }
 
-  return COMMIT_EMOJIS[type] ?? fail([`Unknown commit type: "${type}"`, `Allowed types: ${ALLOWED_TYPES}`])
+  return [`Unknown commit type: "${type}"`, `Allowed types: ${ALLOWED_TYPES}`]
+}
+
+export const decoratedSubject = (subject: string): string => {
+  const emoji = emojiFor(subject)
+
+  return emoji === undefined ? subject : `${emoji} ${subject}`
 }
 
 const run = (): void => {
@@ -65,12 +89,17 @@ const run = (): void => {
   }
 
   const subject = subjectLine.trim()
+  const problems = subjectProblems(subject)
 
-  if (LEADING_EMOJI.test(subject) || GIT_GENERATED_SUBJECT.test(subject)) {
-    return
+  if (problems.length > 0) {
+    fail(problems)
   }
 
-  const emoji = resolveEmoji(subject)
+  const emoji = emojiFor(subject)
+
+  if (emoji === undefined) {
+    return
+  }
 
   writeFileSync(messageFile, lines.with(subjectIndex, `${emoji} ${subjectLine.trimEnd()}`).join("\n").replace(TRAILING_NEWLINE, "\n"))
 }

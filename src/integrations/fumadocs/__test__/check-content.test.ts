@@ -175,6 +175,9 @@ describe("check-content", () => {
   })
 })
 
+const mergeGroupRef = (pullRequest: string): string =>
+  `refs/heads/gh-readonly-queue/main/pr-${pullRequest}-0b9a1b9865859643bedbbb41c3f26b3ff6a1eede`
+
 describe("pullRequestEntryProblems", () => {
   it("passes a pull request that adds its changelog entry, and a run that is not for a pull request", () => {
     expect(pullRequestEntryProblems(`refs/pull/${MERGED_PULL_REQUEST}/merge`)).toEqual([])
@@ -183,6 +186,13 @@ describe("pullRequestEntryProblems", () => {
 
   it("fails a pull request without its changelog entry", () => {
     expect(pullRequestEntryProblems("refs/pull/99999/merge")).toEqual([
+      "Pull request #99999 has no changelog entry: add content/changelog/99999.<locale>.mdx in every locale",
+    ])
+  })
+
+  it("checks the entry of the pull request a merge queue entry tests", () => {
+    expect(pullRequestEntryProblems(mergeGroupRef(MERGED_PULL_REQUEST))).toEqual([])
+    expect(pullRequestEntryProblems(mergeGroupRef("99999"))).toEqual([
       "Pull request #99999 has no changelog entry: add content/changelog/99999.<locale>.mdx in every locale",
     ])
   })

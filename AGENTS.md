@@ -13,13 +13,15 @@ bun run check
 bun run test:coverage
 bun run build:test
 bun run test:e2e:pr
+bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
+bun scripts/enqueue-pr.ts <number>
 ```
 
 Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreates and seeds the local test database that the browser suite uses. Other worktrees run browser suites on this machine too, so run yours on a free port from 3020 to 3029, the range the test build trusts: `lsof -nP -iTCP:3027 -sTCP:LISTEN` prints nothing for a free port, then `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3027 bun run test:e2e:pr`. Never stop or reuse a server you did not start; the run stops before the first test when the server on its port belongs to another worktree. Format and lint only the files you changed with `bunx vp fmt <files>` and `bunx vp lint --fix <files>`; never run `bun run check:fix` or `vp check --fix` over the repository. The formatter keeps `package.json` scripts sorted by name, and `vp check` fails when one is out of order.
 
 ## Definition of done
 
-`bun run check`, `bun run test:coverage`, `bun run build:test` and `bun run test:e2e:pr`, in that order, all exit 0 on the branch you are about to push, and the pull request carries its changelog entry (rule 10). A documentation-only change may skip the browser suite, not the build. Nothing else counts as done, including a summary that says it is.
+`bun run check`, `bun run test:coverage` and `bun run build:test`, in that order, exit 0 on the branch you are about to push, then so do the browser specs your change touches (`bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium`, with `PLAYWRIGHT_BASE_URL` on a free port of 3020 to 3029), and the pull request carries its changelog entry (rule 10). CI runs the full browser suite on the pull request and again in the merge queue, and the pull request is done only when it is green there and `bun scripts/enqueue-pr.ts <number>` has put it in the queue; never merge by hand. `bun run test:e2e:pr` runs the full suite locally. A documentation-only change may skip the browser specs, not the build. Nothing else counts as done, including a summary that says it is.
 
 ## Where code goes
 
@@ -41,7 +43,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 8. Every user-facing string in every locale; numbers shown on the site are measured (`REPOSITORY_FACTS`) or declared once in `src/data` (`TIER_PRICES`), and the docs print values the code defines with `<RepositoryFact>` and `<RepositoryTable>`; nothing is typed.
 9. Coverage stays at 100% for lines, statements, functions and branches; delete unreachable branches instead of stubbing them. Every user and admin flow is listed in `e2e/data/<area>.flows.ts` with the Playwright test that performs it end to end and asserts its outcome, or the reason no test does yet; `bun run check:flows` fails when a flow names a test that is gone.
 10. A change updates the README, the docs in every locale and the site copy it affects, and its pull request adds its changelog entry: once the pull request has its number, write `content/changelog/<number>.<locale>.mdx` in every locale, a bulleted list without a date. The changelog dates each entry by the squash commit that brings it to `main`, and `bun run check` fails a pull request's CI run while its entry is missing.
-11. Commits are conventional (`fix(auth): keep the locale in verification links`), never `--no-verify` or `-c core.hooksPath`, and carry no `Co-Authored-By` trailer or any other AI attribution; the same goes for pull request descriptions. Do not type the emoji: the hook adds it from the type (`feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎, `revert` 🗑️). History is linear: never create a merge commit, bring a branch up to date by rebasing it onto `main` (`gh pr update-branch --rebase`), and push a rewritten branch of your own with `git push --force-with-lease`, never `--force`.
+11. Commits are conventional (`fix(auth): keep the locale in verification links`), never `--no-verify` or `-c core.hooksPath`, and carry no `Co-Authored-By` trailer or any other AI attribution; the same goes for pull request descriptions. Do not type the emoji: the hook adds it from the type, and `scripts/enqueue-pr.ts` adds it to the pull request title, which becomes the squash commit (`feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎, `revert` 🗑️). History is linear: never create a merge commit, bring a branch up to date by rebasing it onto `main` (`gh pr update-branch --rebase`), and push a rewritten branch of your own with `git push --force-with-lease`, never `--force`.
 12. Stay on the latest dependency versions: adapt the code, or carry an upstream bug as a `bun patch` and report it upstream. Never pin back.
 
 ## Human review required

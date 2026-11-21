@@ -43,6 +43,7 @@ describe("getCourseShowcase", () => {
   it("lists the published courses in catalogue order with their counts and first lessons", async () => {
     expect(await showcase()).toStrictEqual([
       {
+        cover: null,
         durationMs: 375_000,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.COURSE,
@@ -61,6 +62,7 @@ describe("getCourseShowcase", () => {
         title: "The walkthrough",
       },
       {
+        cover: null,
         durationMs: 0,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.TUTORIAL,

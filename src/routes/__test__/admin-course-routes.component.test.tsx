@@ -133,6 +133,7 @@ const VIDEO: Video["select"] = {
 }
 
 const COURSE: Course["select"] = {
+  cover: null,
   createdAt: UPDATED_AT,
   icon: COURSE_ICON.ROCKET,
   id: COURSE_ID,

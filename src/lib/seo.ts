@@ -56,6 +56,14 @@ export const socialImagePath = (canonicalPath: string): string => {
   return `${SOCIAL_IMAGE_DIRECTORY}${name}.${SOCIAL_IMAGE_FORMAT}`
 }
 
+export interface ShareImage {
+  readonly alt: string
+  readonly height: number
+  readonly path: string
+  readonly type: string
+  readonly width: number
+}
+
 const socialImage = ({
   canonicalPath,
   locale,
@@ -66,14 +74,15 @@ const socialImage = ({
   readonly locale: SupportedLocale
   readonly section: string | undefined
   readonly title: string | undefined
-}): { readonly alt: string; readonly path: string } => {
+}): ShareImage => {
+  const card = { height: SOCIAL_IMAGE.HEIGHT, type: SOCIAL_IMAGE.TYPE, width: SOCIAL_IMAGE.WIDTH }
   if (isUnlistedRoute(deLocalizePathname(canonicalPath))) {
-    return { alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
+    return { ...card, alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
   }
 
   const text = [title, section, APP_NAME].filter((part) => part !== undefined)
 
-  return { alt: text.join(TITLE_SEPARATORS[locale]), path: socialImagePath(canonicalPath) }
+  return { ...card, alt: text.join(TITLE_SEPARATORS[locale]), path: socialImagePath(canonicalPath) }
 }
 
 type PostDates = Readonly<{
@@ -132,6 +141,7 @@ export const buildPageHead = ({
   author,
   dates,
   description = "",
+  image: shareImage,
   locale = I18N.DEFAULT_LOCALE,
   pathname,
   section,
@@ -142,6 +152,7 @@ export const buildPageHead = ({
   readonly author?: ArticleAuthor | undefined
   readonly dates?: PostDates | undefined
   readonly description?: string | undefined
+  readonly image?: ShareImage | undefined
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
   readonly section?: string | undefined
@@ -152,7 +163,7 @@ export const buildPageHead = ({
   const canonicalPath = localizePathname({ locale, pathname })
   const pageTitle = title === undefined ? APP_NAME : buildTitle({ locale, title })
   const shareTitle = title ?? APP_NAME
-  const image = socialImage({ canonicalPath, locale, section, title })
+  const image = shareImage ?? socialImage({ canonicalPath, locale, section, title })
   const imageUrl = `${APP_URL}${image.path}`
 
   return {
@@ -174,9 +185,9 @@ export const buildPageHead = ({
       ...(dates === undefined ? [] : articleTimes(dates)),
       ...(author === undefined ? [] : authorMeta(author)),
       { content: imageUrl, property: "og:image" },
-      { content: SOCIAL_IMAGE.TYPE, property: "og:image:type" },
-      { content: String(SOCIAL_IMAGE.WIDTH), property: "og:image:width" },
-      { content: String(SOCIAL_IMAGE.HEIGHT), property: "og:image:height" },
+      { content: image.type, property: "og:image:type" },
+      { content: String(image.width), property: "og:image:width" },
+      { content: String(image.height), property: "og:image:height" },
       { content: image.alt, property: "og:image:alt" },
       { content: SOCIAL_IMAGE.TWITTER_CARD, name: "twitter:card" },
       { content: shareTitle, name: "twitter:title" },

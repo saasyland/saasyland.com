@@ -371,6 +371,23 @@ describe("social preview", () => {
     expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
   })
 
+  it("shares the image a page passes, with its own type and size, in place of a card", () => {
+    const image = { alt: "The walkthrough", height: 900, path: "/media/covers/course/cover.webp", type: "image/webp", width: 1600 }
+    const { meta } = buildPageHead({ image, pathname: ROUTES.COURSES, title: "The walkthrough" })
+
+    expect(meta).toStrictEqual(
+      expect.arrayContaining([
+        { content: `${APP_URL}${image.path}`, property: "og:image" },
+        { content: image.type, property: "og:image:type" },
+        { content: "1600", property: "og:image:width" },
+        { content: "900", property: "og:image:height" },
+        { content: image.alt, property: "og:image:alt" },
+        { content: `${APP_URL}${image.path}`, name: "twitter:image" },
+        { content: image.alt, name: "twitter:image:alt" },
+      ]),
+    )
+  })
+
   it("describes the card of a page without a title by the site name alone", () => {
     const { meta } = buildPageHead({ pathname: ROUTES.DOCS })
 

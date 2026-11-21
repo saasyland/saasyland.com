@@ -9,6 +9,7 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { courseShareImage } from "~/src/modules/course/course.cover"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseLessons } from "~/src/modules/course/course.utils"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
@@ -137,7 +138,7 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
     loaderData,
     match,
   }: {
-    loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
+    loaderData?: { cover: string | null; locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
     match: { error: unknown }
   }) => {
     if (isNotFound(match.error)) {
@@ -146,6 +147,7 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
 
     return buildPageHead({
       description: loaderData?.summary,
+      image: loaderData === undefined ? undefined : courseShareImage(loaderData),
       locale: loaderData?.locale,
       pathname: loaderData?.pathname ?? ROUTES.COURSES,
       title: loaderData?.title,
@@ -157,7 +159,13 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
       context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    return { locale, pathname: `${ROUTES.COURSES}/${data.course.slug}`, summary: data.course.summary, title: data.course.title }
+    return {
+      cover: data.course.cover,
+      locale,
+      pathname: `${ROUTES.COURSES}/${data.course.slug}`,
+      summary: data.course.summary,
+      title: data.course.title,
+    }
   },
   pendingComponent: CoursePending,
   staticData: { namespaces: [NAMESPACE] },

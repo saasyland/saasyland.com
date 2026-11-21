@@ -1,10 +1,15 @@
 export const BACKUP_CODE_MAX_LENGTH = 12
 export const BACKUP_CODE_MIN_LENGTH = 8
 
-export const EMAIL_MAX_LENGTH = 64
+export const EMAIL_MAX_LENGTH = 254
 export const NAME_MAX_LENGTH = 100
 
 export const IMAGE_URL_MAX_LENGTH = 2048
+
+export const DECLARED_COLUMN_LENGTH = {
+  EMAIL: 64,
+  NAME: 32,
+} as const
 
 export const PASSWORD_MAX_LENGTH = 1024
 export const PASSWORD_MIN_LENGTH = 12

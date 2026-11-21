@@ -25,6 +25,11 @@ const FRESH_COURSE = {
   title: "a course created and renamed in the admin reaches the landing page and the catalogue without a deploy",
 } as const
 
+const COURSE_COVER = {
+  spec: "course-cover.spec.ts",
+  title: "an administrator uploads a course cover that the catalogue, the landing page and the course page show, then removes it",
+} as const
+
 const CUSTOMER_KEPT_OUT = {
   spec: "videos.spec.ts",
   title: "video library › a customer cannot open the library or stream without a signed path",
@@ -359,6 +364,14 @@ export const COURSES_FLOWS = [
     reason: "The spec renames a course; none edits its summary, level, outcomes or status after creating it.",
     status: FLOW_STATUS.MISSING,
     tests: [FRESH_COURSE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-course-cover",
+    outcome:
+      "The admin uploads a cover for a course, and /courses, the landing page's course block and the course page with its link preview show it; removing it brings back the icon on a teal glow",
+    status: FLOW_STATUS.COVERED,
+    tests: [COURSE_COVER],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,

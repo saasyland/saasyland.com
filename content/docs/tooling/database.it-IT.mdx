@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 L'installazione delle dipendenze e la build non migrano mai un database.
 
+SQLite non impone la lunghezza di un tipo di colonna come `text(<length>)`, e drizzle-kit la cambia ricostruendo la tabella: una tabella nuova, ogni riga copiata dentro, la vecchia eliminata. Per questo i limiti sono quelli che convalidano i moduli e le funzioni server, e una colonna mantiene la lunghezza con cui è stata creata. `user.email` e `newsletter_subscriber.email` restano `text(<RepositoryFact name="declaredEmailColumnLength" />)` e `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` tramite `DECLARED_COLUMN_LENGTH` in `auth.constraints.ts`, mentre un indirizzo può avere <RepositoryFact name="emailMaxLength" /> caratteri (`EMAIL_MAX_LENGTH`, il limite di percorso della RFC 5321) e un nome <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Una migrazione generata che contiene ``CREATE TABLE `__new_`` ricostruisce una tabella; rivedila prima di fare commit.
+
 ## Comandi
 
 | Comando                                                             | Database                          | Cosa fa                                                                                                            |
@@ -78,6 +80,7 @@ Ferma il server di sviluppo prima di `db:reset:local`. `db:seed:local` (`scripts
 
 - Un amministratore, <RepositoryFact name="localAdminEmail" />, con un indirizzo email verificato. La sua password è `LOCAL_ADMIN_PASSWORD` di `.env.development`, oppure <RepositoryFact name="localAdminPassword" /> quando non è impostata, e deve rispettare le regole della registrazione. Ogni esecuzione imposta di nuovo la password. Usa una password che esiste solo sulla tua macchina, mai una di produzione: il seed scrive solo il database locale.
 - Il programma dei corsi di `content/courses/saasy-land-courses.json`, importato con `planCourseImport` e `applyCourseImport` di `src/modules/course/course.transfer.ts`, lo stesso codice di **Importa** nell'amministrazione. Le sue lezioni non hanno ancora un video, quindi risultano [in registrazione](/docs/features/courses#being-recorded).
+- Le copertine di `content/courses/covers/`, con lo slug come nome, per i corsi che non ne hanno: ogni dimensione va nel bucket `MEDIA` locale e il corso riceve la sua chiave, così il catalogo locale appare come quello di produzione.
 - Le licenze, l'ordine senza licenza e il bundle di template della CLI del seed di test (`e2e/data/license.seed.ts`), così il cruscotto di amministrazione e le pagine delle licenze hanno dati con una forma reale. I loro account cliente usano la password <RepositoryFact name="testPassword" />.
 
 Accedi su http://localhost:3000/auth/sign-in con l'amministratore e apri `/admin/courses` per vedere i corsi.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - le righe di `video` che usano quelle lezioni, come segnaposto. I file di un video sono nel bucket `MEDIA` della produzione e non vengono copiati, quindi su preview le sue lezioni appaiono [in registrazione](/docs/features/courses#being-recorded) invece di non riuscire a partire. Una riga di `video` che preview ha già mantiene il suo flag di segnaposto.
 
 Nei corsi che copia, elimina i capitoli, le lezioni e gli allegati di tipo link che la produzione non ha più, insieme ai progressi di preview su quelle lezioni, ed elimina un corso di preview che la produzione non pubblica più. Non copia allegati di tipo file, i cui file sono nel bucket della produzione, né nulla al di fuori di queste tabelle: né utenti, né sessioni, né licenze, né ordini, né abbonamenti, né progressi. Una lezione che punti a un altro video nell'editor delle lezioni di preview torna a puntare al video della produzione dopo l'esecuzione successiva.
+
+Lascia `course.cover` fuori dalla copia: i file di una copertina sono nel bucket `MEDIA` di produzione, quindi un corso nuovo su preview non ha copertina, e un corso che preview ha già mantiene la copertina caricata lì.
 
 Si ferma prima di scrivere se un corso di preview ha lo slug di un corso della produzione con un altro id, come uno importato dal file del programma; elimina quel corso nell'amministrazione di preview, poi eseguilo di nuovo. Stampa ciò che ha creato, aggiornato e rimosso in ogni tabella, poi conta le righe su preview e fallisce se sono diverse da quelle della produzione.
 

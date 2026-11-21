@@ -113,7 +113,18 @@ export const AdminCourseEditorPending = (): JSX.Element => (
       <Skeleton className="h-9 w-32 rounded-md" />
     </div>
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
-      <CourseFormPending />
+      <div className="flex flex-col gap-6">
+        <CourseFormPending />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-lh w-24 scale-y-70 text-base" />
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Skeleton className="aspect-video w-full rounded-md" />
+            <FieldPending />
+          </CardContent>
+        </Card>
+      </div>
       <Card>
         <CardHeader>
           <Skeleton className="h-lh w-28 scale-y-70 text-base" />

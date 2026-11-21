@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 Ni la instalación de dependencias ni la compilación migran nunca una base de datos.
 
+SQLite no impone la longitud de un tipo de columna como `text(<length>)`, y drizzle-kit la cambia reconstruyendo la tabla: una tabla nueva, cada fila copiada en ella y la antigua eliminada. Por eso los límites son los que validan los formularios y las funciones de servidor, y una columna conserva la longitud con la que se creó. `user.email` y `newsletter_subscriber.email` siguen siendo `text(<RepositoryFact name="declaredEmailColumnLength" />)` y `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` mediante `DECLARED_COLUMN_LENGTH` en `auth.constraints.ts`, mientras que una dirección puede tener <RepositoryFact name="emailMaxLength" /> caracteres (`EMAIL_MAX_LENGTH`, el límite de ruta de RFC 5321) y un nombre <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Una migración generada que contiene ``CREATE TABLE `__new_`` reconstruye una tabla; revísala antes de hacer commit.
+
 ## Comandos
 
 | Comando                                                             | Base de datos                    | Qué hace                                                                                                           |
@@ -78,6 +80,7 @@ Detén el servidor de desarrollo antes de `db:reset:local`. `db:seed:local` (`sc
 
 - Un administrador, <RepositoryFact name="localAdminEmail" />, con la dirección de correo verificada. Su contraseña es `LOCAL_ADMIN_PASSWORD` de `.env.development`, o <RepositoryFact name="localAdminPassword" /> si no está definida, y debe cumplir las reglas del registro. Cada ejecución vuelve a establecer la contraseña. Usa una contraseña que solo exista en tu equipo, nunca una de producción: el seed solo escribe en la base de datos local.
 - El temario de `content/courses/saasy-land-courses.json`, importado con `planCourseImport` y `applyCourseImport` de `src/modules/course/course.transfer.ts`, el mismo código que **Importar** en la administración. Sus lecciones aún no tienen vídeo, así que aparecen [en grabación](/docs/features/courses#being-recorded).
+- Las portadas de `content/courses/covers/`, con el slug como nombre, para los cursos que no tienen ninguna: cada tamaño va al bucket `MEDIA` local y el curso recibe su clave, así que el catálogo local se ve como el de producción.
 - Las licencias, el pedido sin licencia y el bundle de plantillas de la CLI del seed de pruebas (`e2e/data/license.seed.ts`), para que el panel de administración y las páginas de licencias tengan datos con forma real. Sus cuentas de cliente usan la contraseña <RepositoryFact name="testPassword" />.
 
 Inicia sesión en http://localhost:3000/auth/sign-in con el administrador y abre `/admin/courses` para ver los cursos.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - las filas de `video` que usan esas lecciones, como marcadores de posición. Los archivos de un vídeo están en el bucket `MEDIA` de producción y no se copian, así que en preview sus lecciones aparecen [en grabación](/docs/features/courses#being-recorded) en lugar de fallar al reproducirse. Una fila de `video` que preview ya tiene conserva su indicador de marcador de posición.
 
 Dentro de los cursos que copia, borra los capítulos, las lecciones y los adjuntos de enlace que producción ya no tiene, junto con el progreso de preview en esas lecciones, y borra un curso de preview que producción ya no publica. No copia adjuntos de archivo, cuyos archivos están en el bucket de producción, ni nada fuera de estas tablas: ni usuarios, ni sesiones, ni licencias, ni pedidos, ni suscripciones, ni progreso. Una lección que apuntes a otro vídeo en el editor de lecciones de preview vuelve a apuntar al vídeo de producción tras la siguiente ejecución.
+
+Deja `course.cover` fuera de la copia: los archivos de una portada están en el bucket `MEDIA` de producción, así que un curso nuevo en preview no tiene portada y un curso que preview ya tiene conserva la portada subida allí.
 
 Se detiene antes de escribir si un curso de preview tiene el slug de un curso de producción con otro id, como uno importado desde el archivo del temario; borra ese curso en la administración de preview y vuelve a ejecutarlo. Muestra lo que ha creado, actualizado y eliminado en cada tabla, después cuenta las filas de preview y falla si no coinciden con las de producción.
 

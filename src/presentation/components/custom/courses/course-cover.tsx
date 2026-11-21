@@ -1,25 +1,22 @@
 import type { JSX } from "react"
 
-import { useTranslations } from "use-intl/react"
+import { type CourseIcon } from "~/src/modules/course/course.constants"
+import { COURSE_COVER_SIZE, courseCoverImage } from "~/src/modules/course/course.cover"
 
-import type { CourseIcon } from "~/src/modules/course/course.constants"
-
-import { COURSE_COVER_SIZE, courseCover } from "~/src/data/course-covers"
 import { COURSE_ICON_COMPONENTS } from "~/src/data/course-icons"
 
 import { cn } from "~/src/lib/cn"
 
 interface CourseCoverProps {
   readonly className?: string
-  readonly course: { readonly icon: CourseIcon; readonly slug: string }
+  readonly course: { readonly cover: string | null; readonly icon: CourseIcon; readonly title: string }
   readonly isDecorative?: boolean
   readonly isPriority?: boolean
   readonly sizes: string
 }
 
 export const CourseCover = ({ className, course, isDecorative = false, isPriority = false, sizes }: CourseCoverProps): JSX.Element => {
-  const t = useTranslations("components.custom.course-covers")
-  const cover = courseCover(course.slug)
+  const cover = courseCoverImage(course.cover)
 
   if (cover === undefined) {
     const Icon = COURSE_ICON_COMPONENTS[course.icon]
@@ -38,11 +35,9 @@ export const CourseCover = ({ className, course, isDecorative = false, isPriorit
     )
   }
 
-  const alt = isDecorative ? "" : t(cover.alt)
-
   return (
     <img
-      alt={alt}
+      alt={isDecorative ? "" : course.title}
       className={cn("aspect-video object-cover", className)}
       data-slot="course-cover"
       decoding="async"

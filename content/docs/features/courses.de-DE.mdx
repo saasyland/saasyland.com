@@ -27,6 +27,7 @@ Jede Tabelle hat ihr eigenes Modul in `src/modules`. Die Migration `202611130044
 - Neue Zeilen sind `draft`, neue Lektionen sind `paid`. Nur Kurse und Lektionen mit `published` werden aufgelistet oder ausgeliefert; jeder andere Slug zeigt die Seite „Nicht gefunden“.
 - Kurse sind nach `position` sortiert, Kapitel nach `position` innerhalb ihres Kurses und Lektionen nach `position` innerhalb ihres Kapitels. Lektionen werden über den ganzen Kurs durchnummeriert.
 - `video_id` verweist auf die Tabelle `video` und wird `NULL`, wenn das Video gelöscht wird. Das Löschen eines Kurses oder Kapitels löscht seine Lektionen, und das Löschen einer Lektion löscht ihre Materialien; das Löschen einer Lektion oder eines Benutzers löscht dessen Fortschritt.
+- `cover`, hinzugefügt von `20261121231021_overjoyed_bastion.sql` und standardmäßig `NULL`, enthält den R2-Schlüssel des Titelbilds des Kurses, nie eine URL; siehe [Titelbilder der Kurse](#course-covers).
 
 ## Wird aufgezeichnet [#being-recorded]
 
@@ -87,9 +88,11 @@ Der Player und seine Begleiter teilen sich einen einzigen Video.js-Store: `Lesso
 - **Wichtige Stellen** (`key-moments.tsx`) sind Buttons, die den Player in den sichtbaren Bereich holen, zur jeweiligen Stelle springen und abspielen. Sie werden außerdem als Track `chapters` hinzugefügt, sodass der Zeitschieberegler sie zeigt. Eine Lektion, die nicht abgespielt wird, listet ihre Schlüsselmomente ohne Buttons auf.
 - **Transkript** (`lesson-transcript.tsx`) lädt die Untertitel in der Sprache der Seite, sonst auf Englisch, sonst die ersten, als Track `metadata`, listet ihre Zeilen mit ihren Zeiten auf, markiert die gerade laufende Zeile und folgt ihr und springt zu einer Zeile, wenn sie gedrückt wird. Eine Lektion, deren Video keine Untertitel hat oder deren Untertitel keine Zeilen haben, zeigt kein Transkript.
 
-### Titelbilder der Kurse
+### Titelbilder der Kurse [#course-covers]
 
-`courseCover(slug)` in `src/data/course-covers.ts` liefert das Titelbild eines Kurses, `public/images/courses/<slug>.webp`, in 1600, 960 und 480 Pixeln Breite, und den Schlüssel seines Alt-Texts in `components.custom.course-covers`, übersetzt in jede Locale. `CourseCover` (`course-cover.tsx`) zeichnet es mit Breite und Höhe, `srcset` und `sizes`, mit hoher Priorität, wo es das größte Bild der Seite ist, sonst per Lazy Loading, und als Dekoration in einer Karte, deren Text den Kurs bereits nennt. Ein Kurs ohne Titelbild erhält stattdessen sein Symbol auf einem petrolfarbenen Leuchten. Die Titelbilder sind vorerst Dateien, die nach dem Slug benannt sind; sobald es eine Spalte `course.cover` gibt, ist `courseCover` die einzige Stelle, die sie liest.
+`course.cover` enthält den R2-Schlüssel des Titelbilds in voller Größe, `covers/<courseId>/<coverId>.webp`, und seine kleineren Größen liegen daneben, mit ihrer Breite im Namen, etwa `<coverId>-480.webp`. `courseCoverImage` in `src/modules/course/course.cover.ts` macht aus dem Schlüssel ein `src` und ein `srcset` unter `/media/covers/`, mit <RepositoryFact name="courseCoverWidths" /> Pixeln Breite. `CourseCover` (`course-cover.tsx`) zeichnet es mit <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" />, `srcset` und `sizes`, mit hoher Priorität, wo es das größte Bild der Seite ist, sonst verzögert, mit dem Kurstitel als Alternativtext und als Dekoration in einer Karte, deren Text den Kurs bereits nennt. Ein Kurs ohne Titelbild zeigt stattdessen sein Symbol auf einem türkisen Schimmer. Der Katalog, die Kursseite mit ihrem Panel, die Lektionsseite und der Kursblock der Landingpage lesen das Titelbild aus ihren eigenen Abfragen (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+Der Worker liefert die Titelbilder selbst aus: Hinter dem `/media/`-Handler des Kursbereichs beantwortet `serveCover` (`course.delivery.ts`) `GET` und `HEAD` für einen Pfad mit Kurs-ID, Titelbild-ID, optionaler Breite und `.webp` oder `.jpg`, mit `Cache-Control: public, max-age=31536000, immutable`, und legt eine Kopie im Workers-Cache ab. Jedes neue Titelbild bekommt eine neue ID, sodass keine Kopie im Cache veraltet. Die Kursseite teilt das Titelbild in voller Größe als Linkvorschau (`courseShareImage`): `og:image` und `twitter:image` mit Typ, Größe und dem Kurstitel als Alternativtext. Ein Kurs ohne Titelbild teilt die Karte der Website.
 
 ## Auf der Landingpage [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ Das Kursformular (`course-form.tsx`) hat diese Felder:
 - **Symbol**: eines der benannten Symbole, das neben dem Feld angezeigt wird.
 - **Was Lernende danach können** und **Voraussetzungen**, mit einem Tab pro Locale: **Lernziel hinzufügen** und **Voraussetzung hinzufügen** fügen eine Zeile hinzu, und das Kreuz neben einer Zeile entfernt sie. Eine leere Zeile wird abgelehnt.
 
+### Titelbild [#cover]
+
+Die Karte **Cover** unter dem Kursformular (`course-cover-card.tsx`) zeigt das Titelbild des Kurses oder sein Symbol auf einem türkisen Schimmer. **Bild auswählen** nimmt eine Datei im Format <RepositoryFact name="courseCoverSourceTypes" /> mit höchstens <RepositoryFact name="courseCoverMaxMegabytes" /> MB. **Cover hochladen**, oder **Cover ersetzen**, sobald es eines gibt, schneidet es im Browser von der Mitte aus auf 16:9 zu und kodiert es mit `encodeImages` (`src/lib/image-encoding.ts`) in jeder Breite als WebP, in einem Browser, der kein WebP kodieren kann, als JPEG, und sendet die Größen in einer Anfrage. **Cover entfernen** bringt das Symbol zurück. Ein Kurs bekommt ein Titelbild, sobald es ihn gibt, deshalb steht die Karte im Kurseditor und nicht im Formular zum Anlegen.
+
 ### Lehrplan
 
 Der Lehrplan-Editor (`curriculum-editor.tsx`) zeigt die Kapitel in ihrer Reihenfolge, jedes mit seinen Lektionen.
@@ -175,6 +182,8 @@ Jedes Löschen fragt zuerst nach einer Bestätigung.
 - Das Löschen eines Materials entfernt es aus der Lektion.
 
 Die Fremdschlüssel entfernen die Zeilen mit `ON DELETE CASCADE`, und die Lösch-Use-Cases entfernen die hochgeladenen Dateien aus R2 (`attachmentObjectKeys` und `removeAttachmentObjects` in `lesson-attachment.objects.ts`). Videos werden nie mit einem Kurs, einem Kapitel oder einer Lektion gelöscht: Sie bleiben in der Bibliothek.
+
+Das Löschen eines Kurses löscht auch die Dateien seines Titelbilds (`removeCoverObjects` in `course.objects.ts`).
 
 ### Import und Export [#import-and-export]
 
@@ -241,6 +250,8 @@ Er schreibt nur, was sich unterscheidet, sodass ein zweiter Import derselben Dat
 
 Nach einem Import ist die Datenbank die maßgebliche Quelle: Bearbeite Kurse im Admin-Bereich, und für eine Änderung an vielen Lektionen auf einmal exportierst du, bearbeitest die Datei und importierst sie.
 
+Die Datei enthält keine Titelbilder. Ein Import lässt das Titelbild jedes Kurses, wie es ist, und einer, der einen Kurs entfernt, löscht auch die Dateien seines Titelbilds, die der Probelauf zu den Dateien zählt. `content/courses/covers/` enthält die Titelbilder der Kurse von saasyland.com in jeder Breite, benannt nach Slug: `bun run db:seed:local` lädt sie für die lokalen Kurse hoch, die noch keines haben, und auf der Produktion lädt ein Admin `<slug>.webp` in der Karte **Cover** jedes Kurses hoch.
+
 `content/courses/saasy-land-courses.json` ist der Lehrplan von saasyland.com in jeder Locale, veröffentlicht, und jede seiner Lektionen wird aufgezeichnet. Es ist die Datei, die du in eine neue Datenbank importierst, keine Daten, die die Anwendung liest: Die Kurse existieren erst, wenn ein Admin sie auf der Produktion importiert, `bun run db:seed:local` sie mit demselben Code in die lokale Datenbank importiert oder `bun run courses:sync:preview` die Kurse der Produktion nach Preview kopiert (siehe [Datenbank](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` prüft, dass der Import sie akzeptiert.
 
 ### Serverfunktionen
@@ -250,6 +261,7 @@ Nach einem Import ist die Datenbank die maßgebliche Quelle: Bearbeite Kurse im 
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ Nach einem Import ist die Datenbank die maßgebliche Quelle: Bearbeite Kurse im 
 
 - `getCourseEditor` liefert jede Lektion mit ihrer Beschreibung, ihren Schlüsselmomenten, ihrem Video (mit dessen Platzhalter-Markierung) und ihren Materialien, sodass sich Kurseditor und Lektionseditor eine einzige Abfrage teilen.
 - `uploadLessonAttachment` nimmt `FormData` entgegen (die Datei, die Lektion und den Titel pro Locale, gebaut von `uploadFormData`) und führt außerdem `withRateLimit` mit <RepositoryFact name="attachmentUploadsPerMinute" /> Uploads pro Adresse und Minute aus. Es schreibt die Zeile, dann die Datei, und entfernt die Zeile wieder, wenn R2 die Datei ablehnt.
+- `uploadCourseCover` nimmt `FormData` entgegen, gebaut von `coverFormData`: den Kurs und ein Bild pro Breite. Es führt außerdem `withRateLimit` mit <RepositoryFact name="courseCoverUploadsPerMinute" /> Uploads pro Adresse und Minute aus und lehnt eine fehlende Größe, eine leere Datei, eine über <RepositoryFact name="courseCoverMaxMegabytes" /> MB, einen anderen Typ als WebP oder JPEG und Größen unterschiedlichen Typs ab. Es speichert die Größen in R2, schreibt den Schlüssel in den Kurs und löscht erst dann die Dateien des ersetzten Titelbilds; lehnt R2 eine Größe ab oder ist der Kurs verschwunden, löscht es, was es gespeichert hat. `removeCourseCover` leert den Schlüssel und löscht die Dateien.
 - `setVideoPlaceholder` entscheidet, ob Lektionen abgespielt werden, und prüft deshalb `course: ["update"]`, wie die anderen Schreibvorgänge, die ändern, was Lernende ansehen können.
 - Die Videoliste des Lektionsdialogs und des Lektionseditors kommt von `getVideos`, das `video: ["read"]` verlangt.
 - Ein bereits vergebener Slug wird mit `CONFLICT` beantwortet: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) wandelt den Unique-Constraint-Fehler von D1 in einen `AppError` um. Eine ID, zu der es keine Zeile gibt, wird mit `NOT_FOUND` beantwortet.

@@ -1,6 +1,6 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import { DECLARED_COLUMN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -17,7 +17,7 @@ export const newsletterSubscriber = sqliteTable(
   {
     confirmationExpiresAt: integer("confirmation_expires_at", { mode: "timestamp_ms" }),
     confirmationToken: text("confirmation_token", { length: NEWSLETTER_TOKEN_LENGTH }).unique(),
-    email: text("email", { length: EMAIL_MAX_LENGTH }).notNull().unique(),
+    email: text("email", { length: DECLARED_COLUMN_LENGTH.EMAIL }).notNull().unique(),
     id: text("id").primaryKey(),
     locale: text("locale", { enum: I18N.SUPPORTED_LOCALES }).notNull().default(I18N.DEFAULT_LOCALE),
     source: text("source", { enum: NEWSLETTER_SOURCES }).notNull().default(NEWSLETTER_SOURCE.FOOTER),

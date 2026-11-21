@@ -7,6 +7,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { COURSE_MUTATION_KEYS } from "~/src/modules/course/course.constants"
+import { removeCoverObjects } from "~/src/modules/course/course.objects"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
@@ -18,15 +19,15 @@ export const deleteCourse = createServerFn({ method: "POST" })
   .validator((input: Course["deleteCourse"]) => courseZodSchemas.deleteCourse.parse(input))
   .handler(async ({ data }) => {
     const objectKeys = await attachmentObjectKeys(eq(lesson.courseId, data.courseId))
-    const [row] = await db.delete(course).where(eq(course.id, data.courseId)).returning({ id: course.id })
+    const [row] = await db.delete(course).where(eq(course.id, data.courseId)).returning({ cover: course.cover, id: course.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await removeAttachmentObjects(objectKeys)
+    await Promise.all([removeAttachmentObjects(objectKeys), removeCoverObjects(row.cover)])
 
-    return row
+    return { id: row.id }
   })
 
 export const deleteCourseMutation = mutationOptions({

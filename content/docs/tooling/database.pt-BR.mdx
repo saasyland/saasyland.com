@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 Instalar dependências e fazer o build nunca migram um banco de dados.
 
+O SQLite não impõe o tamanho de um tipo de coluna como `text(<length>)`, e o drizzle-kit o altera reconstruindo a tabela: uma tabela nova, cada linha copiada para ela e a antiga excluída. Por isso os limites são os que os formulários e as funções de servidor validam, e uma coluna mantém o tamanho com que foi criada. `user.email` e `newsletter_subscriber.email` continuam `text(<RepositoryFact name="declaredEmailColumnLength" />)` e `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` por meio de `DECLARED_COLUMN_LENGTH` em `auth.constraints.ts`, enquanto um endereço pode ter <RepositoryFact name="emailMaxLength" /> caracteres (`EMAIL_MAX_LENGTH`, o limite de caminho da RFC 5321) e um nome <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Uma migração gerada que contém ``CREATE TABLE `__new_`` reconstrói uma tabela; revise-a antes do commit.
+
 ## Comandos
 
 | Comando                                                             | Banco de dados                   | Faz                                                                                                             |
@@ -78,6 +80,7 @@ Pare o servidor de desenvolvimento antes de `db:reset:local`. `db:seed:local` (`
 
 - Um administrador, <RepositoryFact name="localAdminEmail" />, com o endereço de e-mail verificado. A senha dele é `LOCAL_ADMIN_PASSWORD` de `.env.development`, ou <RepositoryFact name="localAdminPassword" /> quando ela não está definida, e precisa seguir as regras do cadastro. Cada execução define a senha de novo. Use uma senha que só exista na sua máquina, nunca uma de produção: o seed grava apenas o banco de dados local.
 - O conteúdo programático de `content/courses/saasy-land-courses.json`, importado com `planCourseImport` e `applyCourseImport` de `src/modules/course/course.transfer.ts`, o mesmo código de **Importar** na administração. As aulas dele ainda não têm vídeo, então aparecem como [em gravação](/docs/features/courses#being-recorded).
+- As capas de `content/courses/covers/`, com o slug como nome, para os cursos que não têm nenhuma: cada tamanho vai para o bucket `MEDIA` local e o curso recebe sua chave, então o catálogo local fica igual ao de produção.
 - As licenças, o pedido sem licença e o pacote de templates da CLI do seed de testes (`e2e/data/license.seed.ts`), para que o painel da administração e as páginas de licenças tenham dados com formato real. As contas de cliente deles usam a senha <RepositoryFact name="testPassword" />.
 
 Faça login em http://localhost:3000/auth/sign-in com o administrador e abra `/admin/courses` para ver os cursos.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - as linhas de `video` que essas aulas usam, como placeholders. Os arquivos de um vídeo ficam no bucket `MEDIA` da produção e não são copiados, então no preview as aulas dele aparecem [em gravação](/docs/features/courses#being-recorded) em vez de falhar ao reproduzir. Uma linha de `video` que o preview já tem mantém sua flag de placeholder.
 
 Nos cursos que copia, ele exclui os capítulos, as aulas e os anexos de link que a produção não tem mais, junto com o progresso do preview nessas aulas, e exclui um curso do preview que a produção não publica mais. Ele não copia anexos de arquivo, cujos arquivos ficam no bucket da produção, nem nada fora dessas tabelas: nenhum usuário, sessão, licença, pedido, assinatura ou progresso. Uma aula que você apontar para outro vídeo no editor de aulas do preview volta a apontar para o vídeo da produção depois da próxima execução.
+
+Ele deixa `course.cover` fora da cópia: os arquivos de uma capa estão no bucket `MEDIA` de produção, então um curso novo no preview não tem capa, e um curso que o preview já tem mantém a capa enviada lá.
 
 Ele para antes de gravar quando um curso do preview tem o slug de um curso da produção com outro id, como um importado do arquivo do conteúdo programático; exclua esse curso no admin do preview e execute de novo. Ele mostra o que criou, atualizou e removeu em cada tabela, depois conta as linhas no preview e falha se forem diferentes das da produção.
 

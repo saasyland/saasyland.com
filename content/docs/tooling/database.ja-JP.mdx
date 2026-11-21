@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 依存関係のインストールやビルドで、データベースがマイグレーションされることはありません。
 
+SQLite は `text(<length>)` のような列の型に含まれる長さを強制せず、drizzle-kit はテーブルを作り直すことで長さを変更します。新しいテーブルを作り、すべての行をコピーし、古いテーブルを削除します。そのため上限はフォームとサーバー関数が検証するものであり、列は作成時の長さを保ちます。`user.email` と `newsletter_subscriber.email` は `auth.constraints.ts` の `DECLARED_COLUMN_LENGTH` によって `text(<RepositoryFact name="declaredEmailColumnLength" />)`、`user.name` は `text(<RepositoryFact name="declaredNameColumnLength" />)` のままですが、アドレスは <RepositoryFact name="emailMaxLength" /> 文字（`EMAIL_MAX_LENGTH`、RFC 5321 のパスの上限）、名前は <RepositoryFact name="nameMaxLength" /> 文字（`NAME_MAX_LENGTH`）まで使えます。``CREATE TABLE `__new_`` を含む生成されたマイグレーションはテーブルを作り直すので、コミットする前に確認してください。
+
 ## コマンド
 
 | コマンド                                                            | データベース                           | 内容                                                                                                      |
@@ -78,6 +80,7 @@ bun run dev
 
 - メールアドレスを確認済みの管理者 <RepositoryFact name="localAdminEmail" />。パスワードは `.env.development` の `LOCAL_ADMIN_PASSWORD`、設定されていない場合は <RepositoryFact name="localAdminPassword" /> で、サインアップのルールを満たす必要があります。実行するたびにパスワードが設定し直されます。自分のマシンにだけ存在するパスワードを使い、本番のパスワードは決して使わないでください。シードが書き込むのはローカルのデータベースだけです。
 - `content/courses/saasy-land-courses.json` のカリキュラム。管理画面の **インポート** と同じコードである、`src/modules/course/course.transfer.ts` の `planCourseImport` と `applyCourseImport` でインポートします。レッスンにはまだ動画がないため、[収録中](/docs/features/courses#being-recorded)として表示されます。
+- `content/courses/covers/` にある slug 名のカバー画像を、カバー画像のないコースに付けます。各サイズはローカルの `MEDIA` バケットに入り、コースにはそのキーが付くので、ローカルのカタログは本番と同じ見た目になります。
 - テストのシード（`e2e/data/license.seed.ts`）にあるライセンス、ライセンスのない注文、CLI のテンプレートバンドル。これにより、管理画面のダッシュボードとライセンスのページに実際と同じ形のデータが入ります。それらの顧客アカウントのパスワードは <RepositoryFact name="testPassword" /> です。
 
 管理者として http://localhost:3000/auth/sign-in からサインインし、`/admin/courses` を開くとコースが表示されます。
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - それらのレッスンが使う `video` の行。プレースホルダーとしてコピーします。動画のファイルは本番の `MEDIA` バケットにあり、コピーされないため、プレビューではそのレッスンは再生に失敗せず[収録中](/docs/features/courses#being-recorded)として表示されます。プレビューにすでにある `video` の行は、プレースホルダーのフラグを保ちます。
 
 コピーするコースの中では、本番にもうない章、レッスン、リンク添付ファイルを、それらのレッスンに対するプレビューの進捗とともに削除し、本番がもう公開していないプレビューのコースも削除します。ファイルが本番のバケットにあるファイル添付はコピーせず、これらのテーブル以外のもの、つまりユーザー、セッション、ライセンス、注文、サブスクリプション、進捗は一切コピーしません。プレビューのレッスンエディターで別の動画を指定したレッスンは、次の実行後に再び本番の動画を指します。
+
+`course.cover` はコピーしません。カバー画像のファイルは本番の `MEDIA` バケットにあるため、プレビューに新しく入るコースにはカバー画像がなく、プレビューにすでにあるコースはそこでアップロードされたカバー画像を保ちます。
 
 本番のコースと同じスラッグで ID が異なるコースがプレビューにある場合（カリキュラムファイルからインポートしたものなど）は、書き込む前に停止します。プレビューの管理画面でそのコースを削除してから、もう一度実行してください。テーブルごとに作成、更新、削除した件数を表示し、その後プレビューの行数を数えて、本番と異なれば失敗します。
 

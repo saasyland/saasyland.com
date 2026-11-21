@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 Weder die Installation der Abhängigkeiten noch ein Build migriert jemals eine Datenbank.
 
+SQLite erzwingt die Länge in einem Spaltentyp wie `text(<length>)` nicht, und drizzle-kit ändert sie, indem es die Tabelle neu baut: eine neue Tabelle, jede Zeile hineinkopiert, die alte gelöscht. Deshalb gelten die Grenzen, die die Formulare und die Serverfunktionen prüfen, und eine Spalte behält die Länge, mit der sie angelegt wurde. `user.email` und `newsletter_subscriber.email` bleiben über `DECLARED_COLUMN_LENGTH` in `auth.constraints.ts` `text(<RepositoryFact name="declaredEmailColumnLength" />)` und `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)`, während eine Adresse <RepositoryFact name="emailMaxLength" /> Zeichen haben darf (`EMAIL_MAX_LENGTH`, die Pfadgrenze aus RFC 5321) und ein Name <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Eine erzeugte Migration, die ``CREATE TABLE `__new_`` enthält, baut eine Tabelle neu; prüfe sie, bevor du sie committest.
+
 ## Befehle
 
 | Befehl                                                              | Datenbank                        | Macht                                                                                                                       |
@@ -78,6 +80,7 @@ Stoppe den Dev-Server vor `db:reset:local`. `db:seed:local` (`scripts/seed-local
 
 - Einen Admin, <RepositoryFact name="localAdminEmail" />, mit bestätigter E-Mail-Adresse. Sein Passwort ist `LOCAL_ADMIN_PASSWORD` aus `.env.development` oder <RepositoryFact name="localAdminPassword" />, wenn es nicht gesetzt ist, und muss die Regeln der Registrierung erfüllen. Jeder Lauf setzt das Passwort neu. Verwende ein Passwort, das nur auf deinem Rechner existiert, nie eines aus der Produktion: Der Seed schreibt nur in die lokale Datenbank.
 - Den Lehrplan aus `content/courses/saasy-land-courses.json`, importiert mit `planCourseImport` und `applyCourseImport` aus `src/modules/course/course.transfer.ts`, demselben Code wie **Importieren** im Admin-Bereich. Seine Lektionen haben noch kein Video und erscheinen daher als [„Wird aufgezeichnet“](/docs/features/courses#being-recorded).
+- Die Titelbilder aus `content/courses/covers/`, benannt nach Slug, für die Kurse, die noch keines haben: Jede Größe kommt in den lokalen `MEDIA`-Bucket und der Kurs bekommt ihren Schlüssel, sodass der lokale Katalog wie der der Produktion aussieht.
 - Die Lizenzen, die Bestellung ohne Lizenz und das Vorlagen-Bundle der CLI aus dem Test-Seed (`e2e/data/license.seed.ts`), damit das Admin-Dashboard und die Lizenzseiten Daten in echter Form haben. Ihre Kundenkonten verwenden das Passwort <RepositoryFact name="testPassword" />.
 
 Melde dich unter http://localhost:3000/auth/sign-in mit dem Admin an und öffne `/admin/courses`, um die Kurse zu sehen.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - die `video`-Zeilen, die diese Lektionen verwenden, als Platzhalter. Die Dateien eines Videos liegen im `MEDIA`-Bucket der Produktion und werden nicht kopiert, daher erscheinen seine Lektionen auf Preview als [„Wird aufgezeichnet“](/docs/features/courses#being-recorded), statt beim Abspielen zu scheitern. Eine `video`-Zeile, die Preview schon hat, behält ihr Platzhalter-Flag.
 
 Innerhalb der kopierten Kurse löscht es die Kapitel, Lektionen und Link-Anhänge, die die Produktion nicht mehr hat, samt dem Fortschritt auf Preview in diesen Lektionen, und es löscht einen Preview-Kurs, den die Produktion nicht mehr veröffentlicht. Es kopiert keine Datei-Anhänge, deren Dateien im Bucket der Produktion liegen, und nichts außerhalb dieser Tabellen: keine Nutzer, Sitzungen, Lizenzen, Bestellungen, Abonnements oder Fortschritte. Eine Lektion, die du im Lektionseditor von Preview auf ein anderes Video gesetzt hast, zeigt nach dem nächsten Lauf wieder auf das Video der Produktion.
+
+Es lässt `course.cover` beim Kopieren aus: Die Dateien eines Titelbilds liegen im `MEDIA`-Bucket der Produktion, deshalb hat ein Kurs, der neu in Preview ist, kein Titelbild, und ein Kurs, den Preview schon hat, behält das dort hochgeladene.
 
 Es bricht vor dem Schreiben ab, wenn ein Preview-Kurs den Slug eines Produktionskurses mit einer anderen ID hat, etwa einer, der aus der Lehrplandatei importiert wurde; lösche diesen Kurs im Admin-Bereich von Preview und führe es dann erneut aus. Es gibt aus, was es in jeder Tabelle angelegt, aktualisiert und entfernt hat, zählt danach die Zeilen in Preview und schlägt fehl, wenn sie von denen der Produktion abweichen.
 

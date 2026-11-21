@@ -27,6 +27,7 @@ Cada tabla tiene su propio módulo en `src/modules`. La migración `202611130044
 - Las filas nuevas son `draft`, y las lecciones nuevas son `paid`. Solo se listan o sirven los cursos y lecciones `published`; cualquier otro slug muestra la página de no encontrado.
 - Los cursos se ordenan por `position`, los capítulos por `position` dentro de su curso y las lecciones por `position` dentro de su capítulo. Las lecciones se numeran a lo largo de todo el curso.
 - `video_id` apunta a la tabla `video` y pasa a `NULL` cuando se elimina el vídeo. Eliminar un curso o un capítulo elimina sus lecciones, y eliminar una lección elimina sus materiales; eliminar una lección o un usuario elimina su progreso.
+- `cover`, añadido por `20261121231021_overjoyed_bastion.sql` y `NULL` por defecto, guarda la clave de R2 de la portada del curso, nunca una URL; consulta [Portadas de los cursos](#course-covers).
 
 ## En grabación [#being-recorded]
 
@@ -87,9 +88,11 @@ El reproductor y sus complementos comparten un único store de Video.js: `Lesson
 - Los **Momentos clave** (`key-moments.tsx`) son botones que desplazan la página hasta el reproductor, saltan al momento y empiezan la reproducción. También se añaden como una pista `chapters`, así que la barra de tiempo los muestra. Una lección que no se reproduce enumera sus momentos clave sin botones.
 - La **Transcripción** (`lesson-transcript.tsx`) carga como una pista `metadata` los subtítulos en el idioma de la página, en su defecto los ingleses y, en último caso, los primeros, enumera sus líneas con sus tiempos, marca la línea que se está reproduciendo y la sigue, y salta a una línea cuando se pulsa. Una lección cuyo vídeo no tiene subtítulos, o cuyos subtítulos no tienen líneas, no muestra ninguna transcripción.
 
-### Portadas de los cursos
+### Portadas de los cursos [#course-covers]
 
-`courseCover(slug)` en `src/data/course-covers.ts` devuelve la portada de un curso, `public/images/courses/<slug>.webp`, con 1600, 960 y 480 píxeles de ancho, y la clave de su texto alternativo en `components.custom.course-covers`, traducido en todos los locales. `CourseCover` (`course-cover.tsx`) la dibuja con su ancho y su alto, `srcset` y `sizes`, con prioridad alta donde es la imagen más grande de la página, de forma diferida en el resto, y como decoración dentro de una tarjeta cuyo texto ya nombra el curso. Un curso sin portada muestra en su lugar su icono sobre un resplandor verde azulado. Por ahora, las portadas son archivos identificados por su slug; cuando exista una columna `course.cover`, `courseCover` será el único lugar que la lea.
+`course.cover` guarda la clave de R2 de la portada a tamaño completo, `covers/<courseId>/<coverId>.webp`, y sus tamaños menores están a su lado con su ancho en el nombre, como `<coverId>-480.webp`. `courseCoverImage`, en `src/modules/course/course.cover.ts`, convierte la clave en un `src` y un `srcset` bajo `/media/covers/`, de <RepositoryFact name="courseCoverWidths" /> píxeles de ancho. `CourseCover` (`course-cover.tsx`) la dibuja a <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> con `srcset` y `sizes`, con prioridad alta donde es la imagen más grande de la página y en diferido en el resto, con el título del curso como texto alternativo, y como decoración dentro de una tarjeta cuyo texto ya nombra el curso. Un curso sin portada muestra en su lugar su icono sobre un brillo verde azulado. El catálogo, la página del curso y su panel, la página de la lección y el bloque de cursos de la página de inicio leen la portada de sus propias consultas (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+El Worker sirve las portadas por sí mismo: detrás del manejador `/media/` del área de cursos, `serveCover` (`course.delivery.ts`) responde a `GET` y `HEAD` para una ruta con un id de curso, un id de portada, un ancho opcional y `.webp` o `.jpg`, con `Cache-Control: public, max-age=31536000, immutable`, y guarda una copia en la caché de Workers. Cada portada nueva recibe un id nuevo, así que ninguna copia en caché queda obsoleta. La página del curso comparte la portada a tamaño completo como vista previa del enlace (`courseShareImage`): `og:image` y `twitter:image` con su tipo, su tamaño y el título del curso como texto alternativo. Un curso sin portada comparte la tarjeta del sitio.
 
 ## En la página de inicio [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ El formulario del curso (`course-form.tsx`) tiene estos campos:
 - **Icono**: uno de los iconos con nombre, que se muestra junto al campo.
 - **Lo que los alumnos sabrán hacer** y **Requisitos previos**, con una pestaña por locale: **Añadir un objetivo** y **Añadir un requisito previo** añaden una línea, y la cruz junto a una línea la quita. Una línea vacía se rechaza.
 
+### Portada [#cover]
+
+La tarjeta **Portada**, bajo el formulario del curso (`course-cover-card.tsx`), muestra la portada del curso o su icono sobre un brillo verde azulado. **Elegir una imagen** acepta un archivo <RepositoryFact name="courseCoverSourceTypes" /> de <RepositoryFact name="courseCoverMaxMegabytes" /> MB como máximo. **Subir portada**, o **Sustituir portada** cuando ya hay una, la recorta a 16:9 desde el centro en el navegador y la codifica en cada ancho con `encodeImages` (`src/lib/image-encoding.ts`), en WebP, o en JPEG en un navegador que no puede codificar WebP, y envía los tamaños en una sola petición. **Quitar portada** devuelve el icono. Un curso recibe una portada cuando ya existe, por eso la tarjeta está en el editor del curso y no en el formulario de creación.
+
 ### Temario
 
 El editor del temario (`curriculum-editor.tsx`) muestra los capítulos en orden, cada uno con sus lecciones.
@@ -175,6 +182,8 @@ Toda eliminación pide confirmación antes.
 - Eliminar un material lo quita de la lección.
 
 Las claves foráneas eliminan las filas con `ON DELETE CASCADE`, y los casos de uso de eliminación borran de R2 los archivos subidos (`attachmentObjectKeys` y `removeAttachmentObjects` en `lesson-attachment.objects.ts`). Los vídeos nunca se eliminan con un curso, un capítulo o una lección: se quedan en la biblioteca.
+
+Eliminar un curso también elimina los archivos de su portada (`removeCoverObjects` en `course.objects.ts`).
 
 ### Importar y exportar [#import-and-export]
 
@@ -241,6 +250,8 @@ La opción **Eliminar lo que el archivo no contiene** está desmarcada por defec
 
 Tras una importación, la base de datos es la fuente de verdad: edita los cursos en la administración y, para cambiar muchas lecciones a la vez, exporta, edita el archivo e impórtalo.
 
+El archivo no contiene portadas. Una importación deja la portada de cada curso como está, y una que elimina un curso borra también los archivos de su portada, que la prueba en seco cuenta entre los archivos. `content/courses/covers/` contiene las portadas de los cursos de saasyland.com en cada ancho, con el slug como nombre: `bun run db:seed:local` las sube para los cursos locales que no tienen ninguna, y en producción un administrador sube `<slug>.webp` en la tarjeta **Portada** de cada curso.
+
 `content/courses/saasy-land-courses.json` es el temario de saasyland.com en todos los locales, publicado, con todas las lecciones en grabación. Es el archivo que se importa en una base de datos nueva, no datos que lea la aplicación: los cursos solo existen cuando un administrador lo importa en producción, cuando `bun run db:seed:local` lo importa en la base de datos local con el mismo código o cuando `bun run courses:sync:preview` copia los cursos de producción a preview (consulta [Base de datos](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` comprueba que la importación lo acepta.
 
 ### Funciones de servidor
@@ -250,6 +261,7 @@ Tras una importación, la base de datos es la fuente de verdad: edita los cursos
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ Tras una importación, la base de datos es la fuente de verdad: edita los cursos
 
 - `getCourseEditor` devuelve cada lección con su descripción, sus momentos clave, su vídeo (con su marca de provisional) y sus materiales, así que el editor del curso y el editor de la lección comparten una sola consulta.
 - `uploadLessonAttachment` recibe `FormData` (el archivo, la lección y el título por locale, que construye `uploadFormData`) y además ejecuta `withRateLimit` con <RepositoryFact name="attachmentUploadsPerMinute" /> subidas por dirección y minuto. Escribe la fila, después el archivo, y vuelve a quitar la fila si R2 rechaza el archivo.
+- `uploadCourseCover` recibe un `FormData` construido por `coverFormData`: el curso y una imagen por ancho. También ejecuta `withRateLimit` con <RepositoryFact name="courseCoverUploadsPerMinute" /> subidas por dirección y minuto, y rechaza un tamaño que falta, un archivo vacío, uno de más de <RepositoryFact name="courseCoverMaxMegabytes" /> MB, un tipo distinto de WebP o JPEG y tamaños de tipos distintos. Guarda los tamaños en R2, registra la clave en el curso y solo entonces borra los archivos de la portada que sustituye; cuando R2 rechaza un tamaño o el curso ya no existe, borra lo que había guardado. `removeCourseCover` vacía la clave y borra los archivos.
 - `setVideoPlaceholder` decide si las lecciones se reproducen, así que comprueba `course: ["update"]`, como las demás escrituras que cambian lo que los alumnos pueden ver.
 - La lista de vídeos del diálogo de la lección y del editor de la lección viene de `getVideos`, que exige `video: ["read"]`.
 - Un slug que ya está en uso responde `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) convierte el error de restricción única de D1 en un `AppError`. Un id que no corresponde a ninguna fila responde `NOT_FOUND`.

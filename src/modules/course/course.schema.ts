@@ -21,6 +21,7 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 export const course = sqliteTable(
   "course",
   {
+    cover: text("cover"),
     icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),

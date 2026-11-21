@@ -12,6 +12,8 @@ import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/bet
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
+  DECLARED_COLUMN_LENGTH,
+  EMAIL_MAX_LENGTH,
   NAME_MAX_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -39,6 +41,13 @@ import {
   COURSE_LEVELS,
   COURSE_SHOWCASE,
 } from "~/src/modules/course/course.constants"
+import {
+  COURSE_COVER_MAX_MEGABYTES,
+  COURSE_COVER_SIZE,
+  COURSE_COVER_SOURCE_TYPES,
+  COURSE_COVER_UPLOADS_PER_MINUTE,
+  COURSE_COVER_WIDTHS,
+} from "~/src/modules/course/course.cover"
 import {
   LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS,
   LESSON_ATTACHMENT_EXTENSIONS,
@@ -174,6 +183,12 @@ const FACTS = {
   cliSetupCommands: CLI_SETUP_LINES.map(({ command }) => command),
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
   corePriceInHours: CORE_PRICE_IN_HOURS,
+  courseCoverHeight: COURSE_COVER_SIZE.height,
+  courseCoverMaxMegabytes: COURSE_COVER_MAX_MEGABYTES,
+  courseCoverSourceTypes: Object.keys(COURSE_COVER_SOURCE_TYPES),
+  courseCoverUploadsPerMinute: COURSE_COVER_UPLOADS_PER_MINUTE,
+  courseCoverWidth: COURSE_COVER_SIZE.width,
+  courseCoverWidths: COURSE_COVER_WIDTHS.map(String),
   courseDocumentFormat: COURSE_DOCUMENT.FORMAT,
   courseDocumentMaxLength: COURSE_DOCUMENT_MAX_LENGTH,
   courseDocumentVersion: COURSE_DOCUMENT.VERSION,
@@ -186,9 +201,12 @@ const FACTS = {
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,
+  declaredEmailColumnLength: DECLARED_COLUMN_LENGTH.EMAIL,
+  declaredNameColumnLength: DECLARED_COLUMN_LENGTH.NAME,
   defaultDashboardRange: DEFAULT_TIME_RANGE,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   emailLinkHours: EMAIL_LINK_LIFETIME_HOURS,
+  emailMaxLength: EMAIL_MAX_LENGTH,
   googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   idleFallbackDelayMs: IDLE_FALLBACK_DELAY_MS,

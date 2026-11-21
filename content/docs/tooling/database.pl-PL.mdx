@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 Instalacja zależności i budowanie nigdy nie migrują bazy danych.
 
+SQLite nie egzekwuje długości w typie kolumny takim jak `text(<length>)`, a drizzle-kit zmienia ją, przebudowując tabelę: tworzy nową tabelę, kopiuje do niej każdy wiersz i usuwa starą. Dlatego limity to te, które sprawdzają formularze i funkcje serwerowe, a kolumna zachowuje długość, z którą ją utworzono. `user.email` i `newsletter_subscriber.email` pozostają `text(<RepositoryFact name="declaredEmailColumnLength" />)`, a `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` dzięki `DECLARED_COLUMN_LENGTH` w `auth.constraints.ts`, choć adres może mieć <RepositoryFact name="emailMaxLength" /> znaków (`EMAIL_MAX_LENGTH`, limit ścieżki z RFC 5321), a imię i nazwisko <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Wygenerowana migracja zawierająca ``CREATE TABLE `__new_`` przebudowuje tabelę; przejrzyj ją przed commitem.
+
 ## Polecenia
 
 | Polecenie                                                           | Baza danych                       | Działanie                                                                                                       |
@@ -78,6 +80,7 @@ Zatrzymaj serwer deweloperski przed `db:reset:local`. `db:seed:local` (`scripts/
 
 - Administratora, <RepositoryFact name="localAdminEmail" />, ze zweryfikowanym adresem e-mail. Jego hasło to `LOCAL_ADMIN_PASSWORD` z `.env.development` albo <RepositoryFact name="localAdminPassword" />, gdy nie jest ustawione, i musi spełniać reguły rejestracji. Każde uruchomienie ustawia hasło ponownie. Użyj hasła, które istnieje tylko na Twoim komputerze, nigdy produkcyjnego: dane początkowe trafiają wyłącznie do lokalnej bazy danych.
 - Program kursów z `content/courses/saasy-land-courses.json`, zaimportowany przez `planCourseImport` i `applyCourseImport` z `src/modules/course/course.transfer.ts`, ten sam kod co **Importuj** w panelu administracyjnym. Jego lekcje nie mają jeszcze filmów, więc są oznaczone jako [w trakcie nagrywania](/docs/features/courses#being-recorded).
+- Okładki z `content/courses/covers/`, nazwane slugiem, dla kursów, które ich nie mają: każdy rozmiar trafia do lokalnego bucketu `MEDIA`, a kurs dostaje jej klucz, więc lokalny katalog wygląda jak produkcyjny.
 - Licencje, zamówienie bez licencji i paczkę szablonów CLI z testowych danych początkowych (`e2e/data/license.seed.ts`), dzięki czemu pulpit administracyjny i strony licencji mają dane o realistycznym kształcie. Konta ich klientów używają hasła <RepositoryFact name="testPassword" />.
 
 Zaloguj się pod http://localhost:3000/auth/sign-in jako administrator i otwórz `/admin/courses`, aby zobaczyć kursy.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - wiersze `video`, których używają te lekcje, jako zastępcze. Pliki filmu leżą w buckecie `MEDIA` produkcji i nie są kopiowane, więc na preview jego lekcje są widoczne jako [w trakcie nagrywania](/docs/features/courses#being-recorded), zamiast nie dać się odtworzyć. Wiersz `video`, który preview już ma, zachowuje swoją flagę filmu zastępczego.
 
 W kopiowanych kursach usuwa rozdziały, lekcje i załączniki w postaci linków, których produkcja już nie ma, razem z postępami na preview w tych lekcjach, oraz usuwa kurs na preview, którego produkcja już nie publikuje. Nie kopiuje załączników w postaci plików, bo ich pliki leżą w buckecie produkcji, ani niczego spoza tych tabel: żadnych użytkowników, sesji, licencji, zamówień, subskrypcji ani postępów. Lekcja, której w edytorze lekcji na preview ustawisz inny film, po następnym uruchomieniu znów wskazuje film z produkcji.
+
+Pomija przy kopiowaniu `course.cover`: pliki okładki są w buckecie `MEDIA` produkcji, więc kurs nowy na preview nie ma okładki, a kurs, który preview już ma, zachowuje przesłaną tam okładkę.
 
 Zatrzymuje się przed zapisem, gdy kurs na preview ma slug kursu z produkcji, ale inny identyfikator, na przykład kurs zaimportowany z pliku programu; usuń ten kurs w panelu administracyjnym preview i uruchom skrypt ponownie. Wypisuje, co utworzył, zaktualizował i usunął w każdej tabeli, a potem liczy wiersze na preview i kończy się błędem, jeśli różnią się od tych na produkcji.
 

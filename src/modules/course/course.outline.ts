@@ -99,6 +99,7 @@ export const readCourseOutline = async ({ course, locale, viewer }: OutlineReque
       title: localize(entry.title, locale),
     })),
     course: {
+      cover: course.cover,
       icon: course.icon,
       id: course.id,
       kind: course.kind,

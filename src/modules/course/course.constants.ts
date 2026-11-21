@@ -4,6 +4,7 @@ import {
   LOCALIZED_TEXT_MAX_LENGTH,
 } from "~/src/modules/_core/utils/localized-text"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
+import { COURSE_COVER_MAX_MEGABYTES } from "~/src/modules/course/course.cover"
 import { LESSON_ATTACHMENT_MAX_MEGABYTES } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
 
@@ -80,7 +81,9 @@ export const COURSE_MUTATION_KEYS = {
   EXPORT: ["course", "exportCourses"],
   IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
+  REMOVE_COVER: ["course", "removeCourseCover"],
   UPDATE: ["course", "updateCourse"],
+  UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 
 export const COURSE_DOCUMENT = {
@@ -101,6 +104,7 @@ export const COURSE_IMPORTS_PER_MINUTE = 10
 export const COURSE_IMPORT_PROBLEMS_MAX = 20
 
 export const COURSE_VALIDATION_PARAMS: Record<string, Record<string, number>> = {
+  coverTooLarge: { max: COURSE_COVER_MAX_MEGABYTES },
   descriptionTooLong: { max: LESSON_DESCRIPTION_MAX_LENGTH },
   fileTooLarge: { max: LESSON_ATTACHMENT_MAX_MEGABYTES },
   itemTooLong: { max: LOCALIZED_LIST_ITEM_MAX_LENGTH },

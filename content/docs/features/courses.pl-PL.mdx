@@ -27,6 +27,7 @@ Każda tabela ma własny moduł w `src/modules`. Migracja `20261113004409_salty_
 - Nowe wiersze mają status `draft`, a nowe lekcje dostęp `paid`. Wyświetlane i serwowane są tylko kursy i lekcje `published`; każdy inny slug pokazuje stronę „nie znaleziono”.
 - Kursy są sortowane według `position`, rozdziały według `position` w obrębie kursu, a lekcje według `position` w obrębie rozdziału. Lekcje są numerowane w całym kursie.
 - `video_id` wskazuje na tabelę `video` i zmienia się na `NULL`, gdy film zostanie usunięty. Usunięcie kursu lub rozdziału usuwa jego lekcje, a usunięcie lekcji usuwa jej materiały; usunięcie lekcji lub użytkownika usuwa związane z nimi postępy.
+- `cover`, dodana przez `20261121231021_overjoyed_bastion.sql`, domyślnie `NULL`, przechowuje klucz R2 okładki kursu, nigdy adres URL; zobacz [Okładki kursów](#course-covers).
 
 ## W trakcie nagrywania [#being-recorded]
 
@@ -87,9 +88,11 @@ Odtwarzacz i elementy, które z nim współpracują, korzystają z jednego magaz
 - **Kluczowe momenty** (`key-moments.tsx`) to przyciski, które przewijają stronę do odtwarzacza, przeskakują do danego momentu i uruchamiają odtwarzanie. Są też dodawane jako ścieżka `chapters`, więc pokazuje je pasek czasu odtwarzacza. Lekcja, która się nie odtwarza, wymienia swoje kluczowe momenty bez przycisków.
 - **Transkrypcja** (`lesson-transcript.tsx`) wczytuje jako ścieżkę `metadata` napisy w języku strony, a gdy ich nie ma, angielskie, a w ostateczności pierwsze dostępne, wyświetla ich wiersze z czasami, zaznacza wiersz odtwarzany w danej chwili i podąża za nim, a po naciśnięciu wiersza przeskakuje do niego. Lekcja, której film nie ma napisów albo której napisy nie mają wierszy, nie pokazuje transkrypcji.
 
-### Okładki kursów
+### Okładki kursów [#course-covers]
 
-`courseCover(slug)` w `src/data/course-covers.ts` zwraca okładkę kursu, `public/images/courses/<slug>.webp`, w szerokościach 1600, 960 i 480 pikseli, oraz klucz jej tekstu alternatywnego w `components.custom.course-covers`, przetłumaczonego w każdym locale. `CourseCover` (`course-cover.tsx`) rysuje ją z jej szerokością i wysokością, `srcset` i `sizes`, z wysokim priorytetem tam, gdzie jest największym obrazem strony, leniwie w pozostałych miejscach, a jako dekorację wewnątrz karty, której tekst już nazywa kurs. Kurs bez okładki dostaje zamiast niej swoją ikonę na morskiej poświacie. Na razie okładki to pliki nazwane slugami kursów; gdy powstanie kolumna `course.cover`, `courseCover` będzie jedynym miejscem, które ją czyta.
+`course.cover` przechowuje klucz R2 okładki w pełnym rozmiarze, `covers/<courseId>/<coverId>.webp`, a jej mniejsze rozmiary leżą obok, z szerokością w nazwie, np. `<coverId>-480.webp`. `courseCoverImage` w `src/modules/course/course.cover.ts` zamienia klucz na `src` i `srcset` pod `/media/covers/`, o szerokości <RepositoryFact name="courseCoverWidths" /> pikseli. `CourseCover` (`course-cover.tsx`) rysuje ją w rozmiarze <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> z `srcset` i `sizes`, z wysokim priorytetem tam, gdzie jest największym obrazem strony, a gdzie indziej z opóźnieniem, z tytułem kursu jako tekstem alternatywnym i jako dekorację w karcie, której tekst już nazywa kurs. Kurs bez okładki pokazuje zamiast niej swoją ikonę na turkusowej poświacie. Katalog, strona kursu z panelem, strona lekcji i blok kursów na stronie głównej czytają okładkę z własnych zapytań (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+Okładki serwuje sam Worker: za handlerem `/media/` obszaru kursów `serveCover` (`course.delivery.ts`) odpowiada na `GET` i `HEAD` dla ścieżki z identyfikatorem kursu, identyfikatorem okładki, opcjonalną szerokością i `.webp` albo `.jpg`, z `Cache-Control: public, max-age=31536000, immutable`, i trzyma kopię w pamięci podręcznej Workers. Każda nowa okładka dostaje nowy identyfikator, więc żadna kopia w pamięci podręcznej się nie dezaktualizuje. Strona kursu udostępnia okładkę w pełnym rozmiarze jako podgląd linku (`courseShareImage`): `og:image` i `twitter:image` z jej typem, rozmiarem i tytułem kursu jako tekstem alternatywnym. Kurs bez okładki udostępnia kartę serwisu.
 
 ## Na stronie głównej [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ Formularz kursu (`course-form.tsx`) ma następujące pola:
 - **Ikona**: jedna z nazwanych ikon, wyświetlana obok pola.
 - **Co będą umieć uczestnicy** i **Wymagania wstępne**, z jedną kartą na każde locale: **Dodaj umiejętność** i **Dodaj wymaganie** dodają wiersz, a krzyżyk obok wiersza go usuwa. Pusty wiersz jest odrzucany.
 
+### Okładka [#cover]
+
+Karta **Okładka** pod formularzem kursu (`course-cover-card.tsx`) pokazuje okładkę kursu albo jego ikonę na turkusowej poświacie. **Wybierz obraz** przyjmuje plik <RepositoryFact name="courseCoverSourceTypes" /> o rozmiarze do <RepositoryFact name="courseCoverMaxMegabytes" /> MB. **Prześlij okładkę**, albo **Zastąp okładkę**, gdy już jest, przycina obraz w przeglądarce od środka do 16:9 i koduje go w każdej szerokości przez `encodeImages` (`src/lib/image-encoding.ts`) jako WebP, a w przeglądarce, która nie potrafi kodować WebP, jako JPEG, po czym wysyła rozmiary w jednym żądaniu. **Usuń okładkę** przywraca ikonę. Kurs dostaje okładkę, gdy już istnieje, dlatego karta jest w edytorze kursu, a nie w formularzu tworzenia.
+
 ### Program
 
 Edytor programu (`curriculum-editor.tsx`) pokazuje rozdziały po kolei, każdy z jego lekcjami.
@@ -175,6 +182,8 @@ Każde usunięcie najpierw prosi o potwierdzenie.
 - Usunięcie materiału usuwa go z lekcji.
 
 Wiersze usuwają klucze obce z `ON DELETE CASCADE`, a przesłane pliki usuwają z R2 przypadki użycia usuwania (`attachmentObjectKeys` i `removeAttachmentObjects` w `lesson-attachment.objects.ts`). Filmy nigdy nie są usuwane razem z kursem, rozdziałem ani lekcją: zostają w bibliotece.
+
+Usunięcie kursu usuwa też pliki jego okładki (`removeCoverObjects` w `course.objects.ts`).
 
 ### Import i eksport [#import-and-export]
 
@@ -241,6 +250,8 @@ Opcja **Usuń to, czego nie ma w pliku** jest domyślnie wyłączona. Gdy jest z
 
 Po imporcie źródłem prawdy jest baza danych: edytuj kursy w administracji, a gdy chcesz zmienić wiele lekcji naraz, wyeksportuj kursy, edytuj plik i zaimportuj go.
 
+Plik nie zawiera okładek. Import zostawia okładkę każdego kursu bez zmian, a import, który usuwa kurs, usuwa też pliki jego okładki, które próbny przebieg liczy wśród plików. `content/courses/covers/` zawiera okładki kursów saasyland.com w każdej szerokości, nazwane slugiem: `bun run db:seed:local` przesyła je dla lokalnych kursów, które jeszcze ich nie mają, a na produkcji administrator przesyła `<slug>.webp` w karcie **Okładka** każdego kursu.
+
 `content/courses/saasy-land-courses.json` to program saasyland.com w każdym locale, opublikowany, z każdą lekcją w trakcie nagrywania. To plik do zaimportowania do nowej bazy danych, a nie dane, które czyta aplikacja: kursy istnieją dopiero wtedy, gdy administrator zaimportuje go na produkcji, gdy `bun run db:seed:local` zaimportuje go tym samym kodem do lokalnej bazy danych albo gdy `bun run courses:sync:preview` skopiuje kursy produkcji na preview (zobacz [Baza danych](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` sprawdza, że import go akceptuje.
 
 ### Funkcje serwerowe
@@ -250,6 +261,7 @@ Po imporcie źródłem prawdy jest baza danych: edytuj kursy w administracji, a 
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ Po imporcie źródłem prawdy jest baza danych: edytuj kursy w administracji, a 
 
 - `getCourseEditor` zwraca każdą lekcję z jej szczegółowym opisem, kluczowymi momentami, filmem (z flagą filmu zastępczego) i materiałami, więc edytor kursu i edytor lekcji współdzielą jedno zapytanie.
 - `uploadLessonAttachment` przyjmuje `FormData` (plik, lekcję i tytuł w każdym locale, zbudowane przez `uploadFormData`) i uruchamia też `withRateLimit`, którego limit przesłań z jednego adresu na minutę wynosi <RepositoryFact name="attachmentUploadsPerMinute" />. Zapisuje wiersz, potem plik, a jeśli R2 odrzuci plik, ponownie usuwa wiersz.
+- `uploadCourseCover` przyjmuje `FormData` zbudowane przez `coverFormData`: kurs i jeden obraz na szerokość. Uruchamia też `withRateLimit`, którego limit przesłań z jednego adresu na minutę wynosi <RepositoryFact name="courseCoverUploadsPerMinute" />, i odrzuca brakujący rozmiar, pusty plik, plik większy niż <RepositoryFact name="courseCoverMaxMegabytes" /> MB, typ inny niż WebP lub JPEG oraz rozmiary różnych typów. Zapisuje rozmiary w R2, zapisuje klucz w kursie i dopiero wtedy usuwa pliki zastępowanej okładki; gdy R2 odrzuci rozmiar albo kursu już nie ma, usuwa to, co zapisał. `removeCourseCover` czyści klucz i usuwa pliki.
 - `setVideoPlaceholder` decyduje, czy lekcje się odtwarzają, więc sprawdza `course: ["update"]`, tak jak inne zapisy, które zmieniają to, co mogą oglądać uczestnicy.
 - Lista filmów w oknie lekcji i w edytorze lekcji pochodzi z `getVideos`, które wymaga `video: ["read"]`.
 - Zajęty już slug daje odpowiedź `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) zamienia błąd ograniczenia unikalności z D1 na `AppError`. Identyfikator, który nie pasuje do żadnego wiersza, daje odpowiedź `NOT_FOUND`.

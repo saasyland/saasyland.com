@@ -27,6 +27,7 @@ Each table has its own module in `src/modules`. The migration `20261113004409_sa
 - New rows are `draft`, and new lessons are `paid`. Only `published` courses and lessons are listed or served; any other slug shows the not-found page.
 - Courses are ordered by `position`, chapters by `position` within their course and lessons by `position` within their chapter. Lessons are numbered across the whole course.
 - `video_id` refers to the `video` table and becomes `NULL` when the video is deleted. Deleting a course or a chapter deletes its lessons, and deleting a lesson deletes its materials; deleting a lesson or a user deletes their progress.
+- `cover`, added by `20261121231021_overjoyed_bastion.sql` and `NULL` by default, holds the R2 key of the course's cover, never a URL; see [Course covers](#course-covers).
 
 ## Being recorded
 
@@ -89,7 +90,9 @@ The player and its companions share one Video.js store: `LessonMedia` (`lesson-m
 
 ### Course covers
 
-`courseCover(slug)` in `src/data/course-covers.ts` returns a course's cover, `public/images/courses/<slug>.webp`, at 1600, 960 and 480 pixels wide, and the key of its alternative text in `components.custom.course-covers`, translated in every locale. `CourseCover` (`course-cover.tsx`) draws it with its width and height, `srcset` and `sizes`, at high priority where it is the largest image of the page, lazily elsewhere, and as decoration inside a card whose text already names the course. A course without a cover gets its icon on a teal glow instead. The covers are files keyed by slug for now; once a `course.cover` column exists, `courseCover` is the one place that reads it.
+`course.cover` holds the R2 key of the cover's full size, `covers/<courseId>/<coverId>.webp`, and its smaller sizes sit beside it with their width in the name, such as `<coverId>-480.webp`. `courseCoverImage` in `src/modules/course/course.cover.ts` turns the key into a `src` and a `srcset` under `/media/covers/`, at <RepositoryFact name="courseCoverWidths" /> pixels wide. `CourseCover` (`course-cover.tsx`) draws it at <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> with `srcset` and `sizes`, at high priority where it is the largest image of the page, lazily elsewhere, with the course title as its alternative text, and as decoration inside a card whose text already names the course. A course without a cover gets its icon on a teal glow instead. The catalogue, the course page and its panel, the lesson page and the landing page's course block read the cover from their own queries (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+The Worker serves covers itself: behind the courses area's `/media/` handler, `serveCover` (`course.delivery.ts`) answers `GET` and `HEAD` for a path that names a course id, a cover id, an optional width and `.webp` or `.jpg`, with `Cache-Control: public, max-age=31536000, immutable`, and keeps a copy in the Workers cache. Every new cover gets a new id, so no cached copy goes stale. The course page shares the full-size cover as its link preview (`courseShareImage`): `og:image` and `twitter:image` with its type, its size and the course title as the alternative text. A course without a cover shares the site card.
 
 ## On the landing page
 
@@ -141,6 +144,10 @@ The course form (`course-form.tsx`) has these fields:
 - **Icon**: one of the named icons, shown beside the field.
 - **What learners will be able to do** and **Prerequisites**, with one tab per locale: **Add an outcome** and **Add a prerequisite** add a line, and the cross beside a line removes it. An empty line is refused.
 
+### Cover
+
+The **Cover** card under the course form (`course-cover-card.tsx`) shows the course's cover, or its icon on a teal glow. **Choose an image** takes a <RepositoryFact name="courseCoverSourceTypes" /> file of at most <RepositoryFact name="courseCoverMaxMegabytes" /> MB. **Upload cover**, or **Replace cover** once there is one, crops it to 16:9 from its centre in the browser and encodes it at each width with `encodeImages` (`src/lib/image-encoding.ts`), as WebP, or as JPEG in a browser that cannot encode WebP, then sends the sizes in one request. **Remove cover** brings back the icon. A course gets a cover once it exists, so the card is on the course editor and not on the create form.
+
 ### Curriculum
 
 The curriculum editor (`curriculum-editor.tsx`) shows the chapters in order, each with its lessons.
@@ -175,6 +182,8 @@ Every delete asks for confirmation first.
 - Deleting a material removes it from the lesson.
 
 The foreign keys remove the rows with `ON DELETE CASCADE`, and the delete use cases remove the uploaded files from R2 (`attachmentObjectKeys` and `removeAttachmentObjects` in `lesson-attachment.objects.ts`). Videos are never deleted with a course, a chapter or a lesson: they stay in the library.
+
+Deleting a course also deletes the files of its cover (`removeCoverObjects` in `course.objects.ts`).
 
 ### Import and export
 
@@ -241,6 +250,8 @@ It writes only what differs, so importing the same file twice changes nothing th
 
 After an import, the database is the source of truth: edit courses in the admin, and for a change to many lessons at once, export, edit the file and import it.
 
+The file holds no covers. An import leaves each course's cover as it is, and one that removes a course deletes its cover's files too, which the dry run counts among the files. `content/courses/covers/` holds the covers of saasyland.com's courses at each width, named by slug: `bun run db:seed:local` uploads them for the local courses that have none, and on production an admin uploads `<slug>.webp` in each course's **Cover** card.
+
 `content/courses/saasy-land-courses.json` is the curriculum of saasyland.com in every locale, published, with every lesson being recorded. It is the file to import into a new database, not data the application reads: the courses exist only once an admin imports it on production, `bun run db:seed:local` imports it into the local database with the same code, or `bun run courses:sync:preview` copies production's courses to preview (see [Database](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` checks that the import accepts it.
 
 ### Server functions
@@ -250,6 +261,7 @@ After an import, the database is the source of truth: edit courses in the admin,
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ After an import, the database is the source of truth: edit courses in the admin,
 
 - `getCourseEditor` returns every lesson with its description, key moments, video (with its placeholder flag) and materials, so the course editor and the lesson editor share one query.
 - `uploadLessonAttachment` takes `FormData` (the file, the lesson and the title per locale, built by `uploadFormData`), and also runs `withRateLimit` with <RepositoryFact name="attachmentUploadsPerMinute" /> uploads per address a minute. It writes the row, then the file, and removes the row again if R2 refuses the file.
+- `uploadCourseCover` takes `FormData` built by `coverFormData`: the course and one image per width. It also runs `withRateLimit` with <RepositoryFact name="courseCoverUploadsPerMinute" /> uploads per address a minute, and refuses a missing size, an empty file, one over <RepositoryFact name="courseCoverMaxMegabytes" /> MB, a type other than WebP or JPEG and sizes of different types. It stores the sizes in R2, records the key on the course, and only then deletes the files of the cover it replaces; when R2 refuses a size or the course is gone, it deletes what it stored. `removeCourseCover` clears the key and deletes the files.
 - `setVideoPlaceholder` decides whether lessons play, so it checks `course: ["update"]`, like the other writes that change what learners can watch.
 - The video list of the lesson dialog and of the lesson editor comes from `getVideos`, which requires `video: ["read"]`.
 - A slug that is already taken answers `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) turns D1's unique-constraint error into an `AppError`. An id that matches no row answers `NOT_FOUND`.

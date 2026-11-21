@@ -1,7 +1,8 @@
 import { hashPassword } from "better-auth/crypto"
 import { plugin } from "bun"
 import { and, eq } from "drizzle-orm"
-import { readFile } from "node:fs/promises"
+import { access, readFile } from "node:fs/promises"
+import { join } from "node:path"
 import process from "node:process"
 import { v7 } from "uuid"
 import { getPlatformProxy } from "wrangler"
@@ -12,6 +13,8 @@ import { strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { account } from "~/src/modules/account/account.schema"
+import { COURSE_COVER_STORED_TYPES, COURSE_COVER_WIDTHS, coverObjectKey, coverVariantKey } from "~/src/modules/course/course.cover"
+import { course } from "~/src/modules/course/course.schema"
 import { user } from "~/src/modules/user/user.schema"
 
 import { LOCAL_ADMIN } from "./local-admin.ts"
@@ -19,6 +22,8 @@ import { licenseSeed } from "~/e2e/data/license.seed"
 import { APP_NAME } from "~/src/presentation/branding"
 
 const CURRICULUM = "content/courses/saasy-land-courses.json"
+const COVERS = "content/courses/covers"
+const COVER_EXTENSION = "webp"
 
 const platform = await getPlatformProxy<Cloudflare.Env>({ environment: ENVIRONMENT.DEVELOPMENT })
 
@@ -75,6 +80,39 @@ const seedCurriculum = async (): Promise<void> => {
   process.stdout.write(`Curriculum from ${CURRICULUM}: ${counts.join(", ")}; ${String(warnings.length)} missing videos\n`)
 }
 
+const isReadable = (path: string): Promise<boolean> =>
+  access(path).then(
+    () => true,
+    () => false,
+  )
+
+const seedCovers = async (): Promise<void> => {
+  const { db } = await import("~/src/integrations/drizzle-orm/drizzle.database")
+  const rows = await db.select({ cover: course.cover, id: course.id, slug: course.slug }).from(course)
+  const sources = rows.flatMap(({ cover, id, slug }) =>
+    cover === null ? [{ id, source: join(COVERS, `${slug}.${COVER_EXTENSION}`) }] : [],
+  )
+  const found = await Promise.all(sources.map(async (entry) => ((await isReadable(entry.source)) ? [entry] : [])))
+
+  const covered = found.flat()
+
+  await Promise.all(
+    covered.map(async ({ id, source }) => {
+      const cover = coverObjectKey({ courseId: id, coverId: v7(), extension: COVER_EXTENSION })
+      await Promise.all(
+        COURSE_COVER_WIDTHS.map(async (width) =>
+          platform.env.MEDIA.put(coverVariantKey(cover, width), await readFile(coverVariantKey(source, width)), {
+            httpMetadata: { contentType: COURSE_COVER_STORED_TYPES[COVER_EXTENSION] },
+          }),
+        ),
+      )
+      await db.update(course).set({ cover }).where(eq(course.id, id))
+    }),
+  )
+
+  process.stdout.write(`Covers from ${COVERS}: ${String(covered.length)} courses\n`)
+}
+
 const seedLicences = async (): Promise<void> => {
   const { objects, statements } = await licenseSeed()
   await platform.env.DB.batch(statements.map((statement) => platform.env.DB.prepare(statement)))
@@ -89,6 +127,7 @@ const seedLicences = async (): Promise<void> => {
 try {
   await seedAdmin()
   await seedCurriculum()
+  await seedCovers()
   await seedLicences()
 } finally {
   await platform.dispose()

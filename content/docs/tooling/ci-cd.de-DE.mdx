@@ -7,7 +7,7 @@ Workflows liegen in `.github/workflows/`. Die Anwendungs-Workflows (`ci.yml`, `d
 
 | Workflow              | Auslöser                                                                                       | Jobs                                                                                                                  |
 | --------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull Requests, Merge-Gruppen und Aufrufe aus `deploy.yml`                                      | Prüfungen und Testabdeckung, E2E in Chromium und der Upload des Preview-Workers                                       |
+| `ci.yml`              | Pull Requests, Merge-Gruppen und Aufrufe aus `deploy.yml`                                      | Prüfungen, Tests mit Abdeckung auf parallelen Shards, E2E in Chromium und der Upload des Preview-Workers              |
 | `deploy.yml`          | Pushes auf `main`                                                                              | Die Prüfungen von `ci.yml`, sofern die Merge Queue sie nicht ausgeführt hat, dann Preview, Produktion und das Release |
 | `preview.yml`         | Manuell                                                                                        | Deployt einen Branch, dessen Prüfungen bestanden sind, in die gemeinsame Preview                                      |
 | `e2e-full.yml`        | Pushes auf `main`, nach dem Zeitplan <RepositoryFact name="e2eFullSchedule" /> in UTC, manuell | WebKit bei Push; Chromium und WebKit bei geplanten und manuellen Läufen                                               |
@@ -21,7 +21,17 @@ Die Checkouts in `e2e-reusable.yml`, dessen Build den Changelog rendert und dess
 
 ## Prüfungen [#checks]
 
-Der Job `verify` in `ci.yml` führt `bun run check` (Klassennamen-Tabellen, i18n- und Inhaltsprüfungen, das [Ablaufinventar](/docs/tooling/test-coverage#flow-coverage), Formatierung, Linting und Typen) und `bun run test:coverage` aus und lädt anschließend den Abdeckungsbericht hoch. Der Job `e2e` ruft `e2e-reusable.yml` auf; dieser Workflow baut einmal und führt die Suite parallel auf <RepositoryFact name="e2eShards" /> Runnern aus:
+Hinter der erforderlichen Prüfung `Format, lint, types, i18n, tests` stehen drei Jobs in `ci.yml`:
+
+| Job                                                  | Führt aus                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`                                              | `bun run check`: Klassennamen-Tabellen, i18n- und Inhaltsprüfungen, das [Ablaufinventar](/docs/tooling/test-coverage#flow-coverage), Formatierung, Linting und Typen                                                                                                                                                            |
+| `test`                                               | Ein Job pro Shard, <RepositoryFact name="vitestShards" /> parallel: `bun run test:coverage --shard=<n>/<total>` mit dem Blob-Reporter von Vitest, danach lädt er den Blob-Bericht des Shards mit seiner Abdeckung hoch                                                                                                          |
+| `verify`, benannt `Format, lint, types, i18n, tests` | Sobald jeder Shard bestanden hat, lädt er die Blob-Berichte herunter und führt `bun run test:coverage --merge-reports` aus, das die Abdeckung zusammenführt und die Schwellenwerte durchsetzt, und lädt dann den Abdeckungsbericht hoch; schlägt fehl, sofern nicht `check`, jeder Shard und das Zusammenführen bestanden haben |
+
+Ein Shard prüft keinen Schwellenwert, weil er nur den Code misst, den seine eigenen Tests erreichen; die Schwellenwerte aus `vite.config.ts` gelten einmal, für die zusammengeführte Abdeckung aller Shards, so wie bei einem lokalen `bun run test:coverage`. Der Job `verify` ist die eine Prüfung, die die Branch-Regeln verlangen, daher ändert das Hinzufügen oder Entfernen eines Shards keinen Namen einer erforderlichen Prüfung.
+
+Der Job `e2e` ruft `e2e-reusable.yml` auf; dieser Workflow baut einmal und führt die Suite parallel auf <RepositoryFact name="e2eShards" /> Runnern aus:
 
 | Job                                                | Führt aus                                                                                                                                                                               |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

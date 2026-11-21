@@ -7,7 +7,7 @@ Os workflows ficam em `.github/workflows/`. Os workflows da aplicação (`ci.yml
 
 | Workflow              | Gatilho                                                                                    | Jobs                                                                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requests, grupos da fila de mesclagem e chamadas do `deploy.yml`                      | Verificações e cobertura, E2E no Chromium e o upload do Worker de preview                                                  |
+| `ci.yml`              | Pull requests, grupos da fila de mesclagem e chamadas do `deploy.yml`                      | Verificações, testes com cobertura em shards paralelos, E2E no Chromium e o upload do Worker de preview                    |
 | `deploy.yml`          | Pushes para `main`                                                                         | As verificações do `ci.yml`, a menos que a fila de mesclagem já as tenha executado, e depois preview, produção e a release |
 | `preview.yml`         | Manual                                                                                     | Faz o deploy no preview compartilhado de uma branch cujas verificações passaram                                            |
 | `e2e-full.yml`        | Pushes para `main`, o agendamento <RepositoryFact name="e2eFullSchedule" /> em UTC, manual | WebKit no push; Chromium e WebKit nas execuções agendadas e manuais                                                        |
@@ -21,7 +21,17 @@ Os checkouts em `e2e-reusable.yml`, cujo build renderiza o changelog e cujo `con
 
 ## Verificações [#checks]
 
-O job `verify` em `ci.yml` executa `bun run check` (tabelas de nomes de classes, verificações de i18n e de conteúdo, o [inventário de fluxos](/docs/tooling/test-coverage#flow-coverage), formatação, lint e tipos) e `bun run test:coverage` e, em seguida, envia o relatório de cobertura. O job `e2e` chama `e2e-reusable.yml`, que faz o build uma única vez e executa a suíte em <RepositoryFact name="e2eShards" /> runners em paralelo:
+Três jobs em `ci.yml` estão por trás da verificação obrigatória `Format, lint, types, i18n, tests`:
+
+| Job                                                  | Executa                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `check`                                              | `bun run check`: tabelas de nomes de classes, verificações de i18n e de conteúdo, o [inventário de fluxos](/docs/tooling/test-coverage#flow-coverage), formatação, lint e tipos                                                                                    |
+| `test`                                               | Um job por shard, <RepositoryFact name="vitestShards" /> em paralelo: `bun run test:coverage --shard=<n>/<total>` com o reporter blob do Vitest e, em seguida, envia o relatório blob do shard com a sua cobertura                                                 |
+| `verify`, chamado `Format, lint, types, i18n, tests` | Quando todos os shards passam, baixa os relatórios blob e executa `bun run test:coverage --merge-reports`, que mescla a cobertura e aplica os limites, e depois envia o relatório de cobertura; falha a menos que `check`, cada shard e a mesclagem tenham passado |
+
+Um shard não verifica nenhum limite, porque mede apenas o código que os seus próprios testes alcançam; os limites de `vite.config.ts` valem uma vez, para a cobertura mesclada de todos os shards, como em um `bun run test:coverage` local. O job `verify` é a única verificação que as regras da branch exigem, então adicionar ou remover um shard não muda o nome de nenhuma verificação obrigatória.
+
+O job `e2e` chama `e2e-reusable.yml`, que faz o build uma única vez e executa a suíte em <RepositoryFact name="e2eShards" /> runners em paralelo:
 
 | Job                                          | Executa                                                                                                                                                                                     |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

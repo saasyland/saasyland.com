@@ -13,10 +13,10 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Format, lint, types, i18n, tests
+  check:
+    name: Format, lint, types, i18n
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -29,17 +29,88 @@ jobs:
       - name: Format, lint, typecheck, and i18n
         run: bun run check
 
-      - name: Tests with coverage gate
-        run: bun run test:coverage
+  test:
+    name: Tests shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Tests with coverage of this shard
+        run: >-
+          bun run test:coverage
+          --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+          --reporter=default --reporter=blob
+          --coverage.reporter=json-summary
+          --coverage.thresholds.lines=0 --coverage.thresholds.statements=0
+          --coverage.thresholds.functions=0 --coverage.thresholds.branches=0
+
+      - name: Upload the blob report
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: .vitest/blob/
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  verify:
+    name: Format, lint, types, i18n, tests
+    needs: [check, test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CHECK_RESULT: ${{ needs.check.result }}
+      TEST_RESULT: ${{ needs.test.result }}
+    steps:
+      - name: Checkout
+        if: needs.test.result == 'success'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        if: needs.test.result == 'success'
+        uses: ./.github/actions/setup
+
+      - name: Download the blob reports
+        if: needs.test.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vitest-blob-*
+          path: .vitest/blob
+          merge-multiple: true
+
+      - name: Merge the shards and enforce the coverage gate
+        if: needs.test.result == 'success'
+        run: bun run test:coverage --merge-reports
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.test.result == 'success' }}
         with:
           name: coverage
           path: coverage/
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Require the checks, every shard and the merged coverage to pass
+        run: |
+          if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then
+            echo "::error::The checks finished with $CHECK_RESULT and the test shards with $TEST_RESULT."
+            exit 1
+          fi
 
   e2e:
     name: Build and E2E

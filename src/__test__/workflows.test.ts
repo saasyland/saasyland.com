@@ -24,6 +24,7 @@ const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
 const PREVIEW = readFileSync(PREVIEW_WORKFLOW, "utf8")
 const SETUP = readFileSync(SETUP_ACTION, "utf8")
 const E2E_SHARDS = [1, 2, 3, 4]
+const TEST_SHARDS = [1, 2, 3, 4]
 const JOBS_SECTION = "\njobs:\n"
 const TRIGGERS_SECTION = /^on:\n(?<triggers>(?: {2}.+\n| {4}.+\n)+)/mu
 const QUEUED = ["cancel-in-progress: false", "queue: max"]
@@ -38,6 +39,10 @@ const TEST_WORKER_ARTIFACT = `name: test-worker-${BROWSER}`
 const BLOB_REPORT_ARTIFACT = `name: blob-report-${BROWSER}-${expression("matrix.shard")}`
 const AGGREGATE_CHECK = `name: Build and E2E (${BROWSER})`
 const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}`
+const REQUIRED_CHECK = "name: Format, lint, types, i18n, tests"
+const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
+const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
+const MERGE_COMMAND = "run: bun run test:coverage --merge-reports"
 const UNLESS_CANCELLED = `if: ${expression("!cancelled()")}`
 const UNLESS_UPLOAD = `if: ${expression("!inputs.upload")}`
 const DEPLOYMENT_UNLESS_UPLOAD = `deployment: ${expression("!inputs.upload")}`
@@ -229,6 +234,32 @@ describe("workflow concurrency", () => {
 describe(CI_WORKFLOW, () => {
   it("runs on pull requests and on the merge queue's groups, which must report every required check", () => {
     expect(triggersOf(CI)).toStrictEqual(["pull_request:", "merge_group:", "workflow_call:"])
+  })
+
+  it("runs the format, lint, type and i18n checks in a job of their own, beside the test shards", () => {
+    expect(jobOf(CI, "check")).toContain("run: bun run check")
+    expect(jobOf(CI, "check")).not.toContain("needs:")
+  })
+
+  it("splits the tests with coverage across four shards that each upload a blob report", () => {
+    const test = jobOf(CI, "test")
+
+    expect(shardsOf(test)).toStrictEqual(TEST_SHARDS)
+    expect(test).toContain("fail-fast: false")
+    expect(test).toContain(TEST_SHARD_COMMAND)
+    expect(test).toContain(TEST_BLOB_ARTIFACT)
+    expect(test).toContain("if-no-files-found: error")
+  })
+
+  it("reports the required check from one job that merges the shards' coverage under the configured thresholds and fails unless the checks and every shard passed", () => {
+    const verify = jobOf(CI, "verify")
+
+    expect(verify).toContain(REQUIRED_CHECK)
+    expect(verify).toContain("needs: [check, test]")
+    expect(verify).toContain(UNLESS_CANCELLED)
+    expect(verify).toContain(MERGE_COMMAND)
+    expect(verify).not.toContain("--coverage.thresholds")
+    expect(verify).toContain('if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then')
   })
 
   it("uploads the preview Worker as a version, deploying nothing, for every merge group and every pull request that can read the secrets", () => {

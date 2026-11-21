@@ -7,7 +7,7 @@ Les workflows se trouvent dans `.github/workflows/`. Les workflows de l'applicat
 
 | Workflow              | Déclencheur                                                                                       | Jobs                                                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requests, groupes de la file de fusion, et appels depuis `deploy.yml`                        | Vérifications et couverture, E2E Chromium et téléversement du Worker de préversion                                                          |
+| `ci.yml`              | Pull requests, groupes de la file de fusion, et appels depuis `deploy.yml`                        | Vérifications, tests avec couverture sur des shards parallèles, E2E Chromium et téléversement du Worker de préversion                       |
 | `deploy.yml`          | Pushs sur `main`                                                                                  | Les vérifications de `ci.yml`, sauf si la file de fusion les a exécutées, puis la préversion, la production et la publication de la version |
 | `preview.yml`         | Manuel                                                                                            | Déploie sur la préversion partagée une branche dont les vérifications ont réussi                                                            |
 | `e2e-full.yml`        | Pushs sur `main`, selon la planification <RepositoryFact name="e2eFullSchedule" /> en UTC, manuel | WebKit lors d'un push ; Chromium et WebKit lors des exécutions planifiées et manuelles                                                      |
@@ -21,7 +21,17 @@ Les checkouts de `e2e-reusable.yml`, dont le build génère le journal des modif
 
 ## Vérifications [#checks]
 
-Le job `verify` de `ci.yml` exécute `bun run check` (tables des noms de classes, vérifications i18n et de contenu, l'[inventaire des parcours](/docs/tooling/test-coverage#flow-coverage), formatage, lint et types) et `bun run test:coverage`, puis téléverse le rapport de couverture. Le job `e2e` appelle `e2e-reusable.yml`, qui construit une seule fois et exécute la suite sur <RepositoryFact name="e2eShards" /> runners en parallèle :
+Trois jobs de `ci.yml` se trouvent derrière la vérification obligatoire `Format, lint, types, i18n, tests` :
+
+| Job                                                | Exécute                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `check`                                            | `bun run check` : tables des noms de classes, vérifications i18n et de contenu, l'[inventaire des parcours](/docs/tooling/test-coverage#flow-coverage), formatage, lint et types                                                                                         |
+| `test`                                             | Un job par shard, <RepositoryFact name="vitestShards" /> en parallèle : `bun run test:coverage --shard=<n>/<total>` avec le reporter blob de Vitest, puis téléverse le rapport blob du shard avec sa couverture                                                          |
+| `verify`, nommé `Format, lint, types, i18n, tests` | Une fois chaque shard réussi, télécharge les rapports blob et exécute `bun run test:coverage --merge-reports`, qui fusionne la couverture et applique les seuils, puis téléverse le rapport de couverture ; échoue sauf si `check`, chaque shard et la fusion ont réussi |
+
+Un shard ne vérifie aucun seuil, car il ne mesure que le code que ses propres tests atteignent ; les seuils de `vite.config.ts` s'appliquent une seule fois, à la couverture fusionnée de tous les shards, comme pour un `bun run test:coverage` local. Le job `verify` est la seule vérification qu'exigent les règles de la branche, donc ajouter ou retirer un shard ne change le nom d'aucune vérification obligatoire.
+
+Le job `e2e` appelle `e2e-reusable.yml`, qui construit une seule fois et exécute la suite sur <RepositoryFact name="e2eShards" /> runners en parallèle :
 
 | Job                                        | Exécute                                                                                                                                                                                    |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

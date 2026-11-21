@@ -1,6 +1,7 @@
 import { PolarClientError } from "@polar-sh/sdk"
 import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { createDiscountsService } from "@polar-sh/sdk/2026-10/services/discounts"
+import { createOrganizationsService } from "@polar-sh/sdk/2026-10/services/organizations"
 import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
 import * as zod from "zod"
@@ -60,6 +61,7 @@ export const POLAR_WEBHOOK_FORMAT = {
 
 export const POLAR_SCOPE = {
   DISCOUNTS: "discounts:read",
+  ORGANIZATIONS: "organizations:read",
   PRODUCTS: "products:read",
   WEBHOOKS: "webhooks:read",
 } as const
@@ -104,6 +106,7 @@ interface Source {
 interface PolarState {
   readonly discounts: readonly models.Discount[]
   readonly endpoints: readonly models.WebhookEndpoint[]
+  readonly organizations: readonly models.Organization[]
   readonly products: readonly models.Product[]
 }
 
@@ -154,23 +157,42 @@ const listAll = async <Item>(items: AsyncIterable<Item>, scope: string, source: 
   }
 }
 
+const readOne = async <Item>(item: Promise<Item>, scope: string, source: Source): Promise<Listing<Item>> => {
+  try {
+    return { items: [await item] }
+  } catch (error) {
+    return { items: [], refusal: describeRefusal(error, scope, source) }
+  }
+}
+
 const readPolar = async (settings: Settings, source: Source): Promise<PolarState> => {
   const polar = createPolarCore({ accessToken: settings.POLAR_ACCESS_TOKEN, environment: source.server })
   const query = { limit: PAGE_SIZE, organization_id: settings.POLAR_ORGANIZATION_ID }
 
-  const [products, discounts, endpoints] = await Promise.all([
+  const [products, discounts, endpoints, organizations] = await Promise.all([
     listAll(createProductsService(polar).iterList(query), POLAR_SCOPE.PRODUCTS, source),
     listAll(createDiscountsService(polar).iterList(query), POLAR_SCOPE.DISCOUNTS, source),
     listAll(createWebhooksService(polar).iterListWebhookEndpoints(query), POLAR_SCOPE.WEBHOOKS, source),
+    readOne(createOrganizationsService(polar).get(settings.POLAR_ORGANIZATION_ID), POLAR_SCOPE.ORGANIZATIONS, source),
   ])
-  const refusals = new Set([products.refusal, discounts.refusal, endpoints.refusal].filter((refusal) => refusal !== undefined))
+  const refusals = new Set(
+    [products.refusal, discounts.refusal, endpoints.refusal, organizations.refusal].filter((refusal) => refusal !== undefined),
+  )
 
   if (refusals.size > 0) {
     throw new Error([`Polar ${source.server} could not be read with the token in ${source.file}:`, ...refusals].join("\n"))
   }
 
-  return { discounts: discounts.items, endpoints: endpoints.items, products: products.items }
+  return { discounts: discounts.items, endpoints: endpoints.items, organizations: organizations.items, products: products.items }
 }
+
+const organizationProblems = (organizations: readonly models.Organization[]): string[] =>
+  failing([
+    [
+      !organizations.some((organization) => organization.feature_settings?.checkout_localization_enabled === true),
+      "Checkout localization is off for the organisation, so Polar opens every checkout in English whatever locale startCheckout sends (POLAR_CHECKOUT_LANGUAGES); turn it on.",
+    ],
+  ])
 
 const priceProblems = (tier: LicenseTier, product: models.Product, label: string): string[] => {
   const prices = product.prices.filter(({ is_archived: archived }) => !archived)
@@ -324,10 +346,11 @@ export const verifyPolar = async ({
 }): Promise<string> => {
   const source = { file: `.env.${environment}`, server: POLAR_SERVER_BY_ENVIRONMENT[environment] }
   const settings = readSettings(values, source)
-  const { discounts, endpoints, products } = await readPolar(settings, source)
+  const { discounts, endpoints, organizations, products } = await readPolar(settings, source)
   const webhookUrls = ownWebhookUrls(environment)
 
   const problems = [
+    ...organizationProblems(organizations),
     ...LICENSE_TIERS.flatMap((tier) => productProblems(tier, settings, products)),
     ...discountProblems(settings, discounts, Date.now()),
     ...webhookUrls.flatMap((url) => ownWebhookProblems(url, { endpoints, file: source.file, secret: settings.POLAR_WEBHOOK_SECRET })),
@@ -339,6 +362,7 @@ export const verifyPolar = async ({
   }
 
   const checked = [
+    "checkout localization",
     `${String(LICENSE_TIERS.length)} products with their prices, licence keys and consent field`,
     `${String(PPP_PERCENTS_OFF.length)} regional discounts`,
     ...webhookUrls.map((url) => `the webhook at ${url}`),

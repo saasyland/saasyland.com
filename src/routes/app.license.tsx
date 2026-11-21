@@ -46,7 +46,7 @@ const LicensePage = (): JSX.Element => {
       {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
       {showsLicense && <LicenseCard />}
-      {showsLicense && license.polarLicenseKeyId !== null && <LicenseActivations />}
+      {hasActiveLicense && license.polarLicenseKeyId !== null && <LicenseActivations />}
       {isBuying && <LicenseOffer />}
       <Link
         className="w-fit text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"

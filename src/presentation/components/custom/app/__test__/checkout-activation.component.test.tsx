@@ -3,13 +3,17 @@ import { act, cleanup, fireEvent, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
+import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS, CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
 
@@ -21,11 +25,33 @@ const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const { activation } = pagesLicenseMessages
 
 const currentLicenseMock = vi.hoisted(() => vi.fn<() => Promise<{ license: License["select"] | undefined }>>())
+const licenseKeyMock = vi.hoisted(() => vi.fn<() => Promise<{ key: string | null | undefined }>>())
+const sessionRequest = vi.hoisted(() => vi.fn())
+const triggerConfettiMock = vi.hoisted(() => vi.fn<() => void>())
 
 vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock } }
+  return {
+    ...actual,
+    currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock },
+    licenseSetupQuery: { ...actual.licenseSetupQuery, queryFn: currentLicenseMock },
+  }
 })
+vi.mock(import("~/src/modules/license/use-cases/get-current-license-key"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    currentLicenseKeyQuery: { ...actual.currentLicenseKeyQuery, queryFn: licenseKeyMock },
+    licenseKeySetupQuery: { ...actual.licenseKeySetupQuery, queryFn: licenseKeyMock },
+  }
+})
+vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
+})
+vi.mock(import("~/src/lib/confetti"), () => ({ triggerConfetti: triggerConfettiMock }))
+
+const session = createAuthSessionFixture()
 
 const grantedLicense: License["select"] = {
   activatedAt: null,
@@ -49,6 +75,8 @@ const SERVER_CLOCK_AHEAD_MS = 300_000
 const renderActivation = ({ path = "/app", serverReadAt = Date.now() }: { path?: string; serverReadAt?: number } = {}) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined }, { updatedAt: serverReadAt })
+  queryClient.setQueryData(currentLicenseKeyQuery.queryKey, { key: undefined })
+  queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <CheckoutActivation checkoutId={CHECKOUT_ID} />
@@ -65,6 +93,9 @@ beforeEach(() => {
   vi.useFakeTimers()
   notifyManager.setScheduler(queueMicrotask)
   currentLicenseMock.mockReset().mockResolvedValue({ license: undefined })
+  licenseKeyMock.mockReset().mockResolvedValue({ key: JSON_NULL })
+  sessionRequest.mockReset().mockResolvedValue(session)
+  triggerConfettiMock.mockReset()
 })
 
 afterEach(() => {
@@ -74,22 +105,32 @@ afterEach(() => {
 })
 
 describe("checkout activation", () => {
-  it("polls the license until the payment webhook grants it, then thanks the buyer", async () => {
+  it("polls the license until the payment webhook grants it, then celebrates once and shows the first steps", async () => {
     renderActivation()
 
     expect(screen.getByRole("status")).toHaveTextContent(activation.activating.title)
     await advance(ACTIVATION_POLL_MS)
     expect(currentLicenseMock).toHaveBeenCalledOnce()
+    expect(triggerConfettiMock).not.toHaveBeenCalled()
 
     currentLicenseMock.mockResolvedValue({ license: grantedLicense })
     await advance(ACTIVATION_POLL_MS)
 
     expect(screen.getByRole("heading", { name: activation.active.title })).toBeVisible()
-    expect(screen.getByText(`Thank you for buying ${pricingMessages.tiers.complete.name}.`)).toBeVisible()
+    expect(screen.getByText(activation.active.body.replace("{tier}", pricingMessages.tiers.complete.name))).toBeVisible()
     expect(screen.queryByRole("link", { name: activation.active.continue })).toBeNull()
+    expect(screen.getByRole("region", { name: pagesLicenseMessages.setup.title })).toBeVisible()
+    expect(triggerConfettiMock).toHaveBeenCalledOnce()
 
+    currentLicenseMock.mockResolvedValue({
+      license: { ...grantedLicense, activatedAt: new Date(), deliveredAt: new Date(), key: "SAASY-KEY", polarLicenseKeyId: "key-1" },
+    })
+    licenseKeyMock.mockResolvedValue({ key: "SAASY-KEY" })
     await advance(ACTIVATION_TIMEOUT_MS)
-    expect(currentLicenseMock).toHaveBeenCalledTimes(2)
+    const polls = currentLicenseMock.mock.calls.length
+    await advance(ACTIVATION_TIMEOUT_MS)
+    expect(currentLicenseMock).toHaveBeenCalledTimes(polls)
+    expect(triggerConfettiMock).toHaveBeenCalledOnce()
   })
 
   it("offers the way back to the page the buyer came from once the licence is active", async () => {

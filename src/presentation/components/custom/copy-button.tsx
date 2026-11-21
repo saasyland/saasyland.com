@@ -37,10 +37,11 @@ const CheckGlyph = (): JSX.Element => (
 interface CopyButtonProps {
   readonly copiedLabel: string
   readonly copyLabel: string
+  readonly onCopy?: () => void
   readonly value: string
 }
 
-export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): JSX.Element => {
+export const CopyButton = ({ copiedLabel, copyLabel, onCopy, value }: CopyButtonProps): JSX.Element => {
   const [hasCopied, setHasCopied] = useState(false)
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): 
     navigator.clipboard.writeText(value).then(
       () => {
         setHasCopied(true)
+        onCopy?.()
       },
       () => {
         setHasCopied(false)

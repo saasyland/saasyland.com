@@ -29,12 +29,13 @@ faq:
       confirmación: puede usar el producto, desistir dentro del plazo y recuperar su dinero.
   - question: ¿Necesito dos casillas, una para el consentimiento y otra para el reconocimiento?
     answer: >-
-      La directiva exige las dos declaraciones, no un número de casillas. saasyland.com pide ambas en
-      una sola casilla obligatoria que empieza vacía, en su propio paso antes del pago, con una
-      etiqueta que expresa la solicitud y el reconocimiento; algunos vendedores usan dos casillas
-      para mantenerlas visiblemente separadas. Los tribunales alemanes han exigido una marca activa e
-      independiente de la propia compra, así que haz del consentimiento un paso propio y pide a tu
-      abogado que confirme el diseño para los mercados en los que vendes.
+      La directiva exige las dos declaraciones, no un número de casillas. saasyland.com pide ambas
+      en una sola casilla obligatoria que empieza vacía, en la página de pago de Polar justo antes
+      de que el comprador pague, con una etiqueta que expresa la solicitud y el reconocimiento;
+      algunos vendedores usan dos casillas para mantenerlas visiblemente separadas. Los tribunales
+      alemanes han exigido una marca activa e independiente de la propia compra, así que haz del
+      consentimiento un acto propio, separado del botón de compra, y pide a tu abogado que confirme
+      el diseño para los mercados en los que vendes.
   - question: ¿Necesito el botón de desistimiento de la UE para los productos digitales?
     answer: >-
       Allí donde exista el derecho de desistimiento, sí. El artículo 11 bis de la directiva,
@@ -63,9 +64,10 @@ faq:
     answer: >-
       Cuenta con ello. Las condiciones para compradores de Polar hacen de Polar el vendedor de la
       compra, mientras que tú concedes la licencia del producto y lo entregas, y el momento del
-      suministro depende de tu producto. saasyland.com recoge el consentimiento en su propio paso del
-      checkout, hace que Polar lo registre en el pedido y envía la confirmación por su cuenta. Qué
-      parte se considera el comerciante a efectos de estas normas es una cuestión para tu abogado.
+      suministro depende de tu producto. saasyland.com hace que el comprador dé el consentimiento en
+      una casilla obligatoria del checkout de Polar, hace que Polar lo registre en el pedido y envía
+      la confirmación por su cuenta. Qué parte se considera el comerciante a efectos de estas normas
+      es una cuestión para tu abogado.
   - question: ¿Puedo seguir ofreciendo reembolsos después de que se extinga el derecho de desistimiento?
     answer: >-
       Sí, y eso hace que el consentimiento sea más fácil de dar. saasyland.com reembolsa íntegramente
@@ -179,17 +181,15 @@ El derecho polaco también muestra cómo un texto nacional puede ir más allá d
 
 saasyland.com vende licencias de la CLI de SaaSy Land a través de Polar, que actúa como Merchant of Record. Las condiciones para compradores de Polar hacen de Polar el vendedor de la compra, mientras que SaaSy Land concede la licencia del producto y lo suministra: el suministro comienza cuando se emite la clave de licencia, justo después del pago. El flujo que sigue recoge, registra y confirma el consentimiento con independencia de cuál de los dos se considere el comerciante, y cada paso está en el [código fuente público](https://github.com/saasyland/saasyland.com) con licencia MIT.
 
-### 1. Un paso de consentimiento en nuestro propio checkout, en el idioma del comprador
+### 1. Un solo consentimiento, en el checkout de Polar
 
-Los botones de compra no abren Polar. Abren en saasyland.com un diálogo que indica que el plan es contenido digital que se suministra en cuanto el comprador paga y que pide una única casilla obligatoria, en el idioma que el comprador esté leyendo de entre los <RepositoryFact name="languages" /> idiomas del sitio. En español dice: «Solicito a SaaSy Land que me suministre Core de inmediato y reconozco que pierdo mi derecho de desistimiento de <RepositoryFact name="refundWithdrawalDays" /> días en cuanto comienza el suministro, es decir, cuando se emite mi clave de licencia». La casilla empieza vacía, y si se pulsa **Continuar con el pago** sin marcarla, solo se señala como no válida.
+El checkout de Polar admite campos personalizados, y cada producto de licencia exige un campo de casilla con el identificador <RepositoryFact name="licenseWithdrawalConsentField" />. Su etiqueta expresa la solicitud y el reconocimiento: «I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued.» [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) no envía ningún valor para el campo, así que la casilla empieza vacía y solo el comprador puede marcarla. Cuando el comprador paga, Polar comprueba los campos con respecto al producto y, en una casilla obligatoria, solo acepta una casilla marcada, de modo que ningún pago sale adelante sin el consentimiento, y Polar guarda la casilla marcada en el pedido. `polar:verify` falla mientras algún producto de licencia no exija el campo.
 
-El servidor aplica la misma regla. El esquema de entrada de `startCheckout` solo acepta `withdrawalConsent` cuando vale `true`, así que no se puede crear ningún checkout sin el consentimiento, envíe lo que envíe el navegador. El diálogo es [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), y el esquema está en [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+El consentimiento se pide una sola vez, en la página en la que el comprador paga. Una casilla que el comprador marca ahí, justo antes de pagar, es el registro más claro de un consentimiento expreso, y ningún paso adicional se interpone entre el comprador y el pago.
 
-### 2. El mismo consentimiento en el checkout de Polar
+### 2. Las mismas condiciones de antemano, en el idioma del comprador
 
-El checkout de Polar admite campos personalizados, y cada producto de licencia exige un campo de casilla con el identificador <RepositoryFact name="licenseWithdrawalConsentField" /> que expresa en inglés la misma solicitud y el mismo reconocimiento. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) envía como valor del campo el consentimiento que el comprador acaba de dar, así que Polar muestra la casilla ya marcada por decisión del propio comprador, y guarda el consentimiento en el pedido. `polar:verify` falla mientras algún producto de licencia no exija el campo.
-
-¿Por qué preguntar dos veces? Porque el registro debe quedar junto al pedido del vendedor, y porque el checkout de Polar no puede mostrar el texto en todos los idiomas: un campo personalizado tiene una sola etiqueta, y el checkout de Polar sigue el idioma del navegador del comprador en una beta que cubre 15 idiomas. Preguntar primero en nuestra propia página pone el consentimiento delante del comprador en el idioma que eligió.
+Un campo personalizado tiene una sola etiqueta, así que la casilla de la página de Polar está en inglés. El sitio lo dice antes, en el idioma que el comprador esté leyendo de entre sus <RepositoryFact name="languages" /> idiomas: bajo los botones de compra, un aviso indica que Polar es el Merchant of Record y pide el consentimiento en la página de pago, que marcar la casilla extingue el derecho de desistimiento en cuanto se emite la clave de licencia, y hasta cuándo sigue siendo posible un reembolso completo. Después, los botones de compra abren directamente el checkout de Polar, en el idioma del comprador cuando Polar traduce su checkout a ese idioma, y el aviso lo indica cuando la página de pago se vaya a abrir en inglés. El aviso es `CheckoutNotice` en [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. Un correo de confirmación, el soporte duradero
 
@@ -246,7 +246,7 @@ saasyland.com no tiene una función de desistimiento como la que describe el art
 
 1. Decide cuándo comienza el suministro de tu producto y déjalo escrito en tus condiciones.
 2. Antes del pago, pide el consentimiento y el reconocimiento con una casilla obligatoria que empiece vacía, en el idioma del comprador.
-3. Rechaza el checkout en el servidor cuando falte el consentimiento.
+3. Haz imposible el pago sin el consentimiento, con un control allí donde se cobra el pago y no solo en la página.
 4. Registra el consentimiento con el pedido, y registra el momento del suministro y el del primer uso.
 5. Envía un correo de confirmación que incluya el consentimiento, el reconocimiento y los datos del pedido.
 6. Cuando falte el consentimiento, mantén los 14 días completos y recuerda que entonces el comprador no soporta ningún coste.

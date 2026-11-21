@@ -19,11 +19,14 @@ import { LICENSE_CHECKOUT_METADATA, type LicenseTier } from "~/src/modules/licen
 import { refundDeadline } from "~/src/modules/license/license.refunds"
 import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
+import { PURCHASE_EMAIL_STEPS } from "~/src/data/purchase-email"
+
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
 import {
   PURCHASE_CONFIRMATION_EMAIL_NAMESPACE,
   PurchaseConfirmationEmail,
   type PurchaseConfirmationLinks,
+  type PurchaseConfirmationStep,
 } from "~/src/presentation/emails/purchase-confirmation-email"
 import { ROUTES } from "~/src/routes"
 
@@ -33,7 +36,7 @@ type PaidOrder = Pick<models.Order, "created_at" | "currency" | "id" | "invoice_
 
 interface PurchaseConfirmation {
   readonly order: PaidOrder
-  readonly recipient: string
+  readonly recipient: Readonly<{ email: string; id: string }>
   readonly tier: LicenseTier
   readonly withdrawalConsent: boolean
 }
@@ -49,10 +52,19 @@ const absoluteUrl = (locale: SupportedLocale, pathname: string): string =>
 
 const confirmationLinks = (locale: SupportedLocale): PurchaseConfirmationLinks => ({
   account: absoluteUrl(locale, ROUTES.APP_LICENSE),
+  docs: absoluteUrl(locale, ROUTES.DOCS_CLI),
   licence: absoluteUrl(locale, ROUTES.LICENCE),
   refunds: absoluteUrl(locale, ROUTES.REFUNDS),
   terms: absoluteUrl(locale, ROUTES.TERMS),
 })
+
+const nextSteps = async (locale: SupportedLocale, userId: string): Promise<PurchaseConfirmationStep[]> => {
+  const lines = await Promise.all(PURCHASE_EMAIL_STEPS.map(({ line }) => line({ locale, userId })))
+
+  return lines.flatMap((line) =>
+    line === undefined ? [] : [{ link: line.link, text: line.text, url: absoluteUrl(locale, line.pathname) }],
+  )
+}
 
 export const sendPurchaseConfirmationEmail = async ({
   order,
@@ -63,9 +75,10 @@ export const sendPurchaseConfirmationEmail = async ({
   const locale = orderLocale(order.metadata)
   const currency = orderCurrencySchema.parse(order.currency)
   const orderedAt = new Date(order.created_at)
-  const [messages, tierName] = await Promise.all([
+  const [messages, tierName, steps] = await Promise.all([
     loadNamespace<typeof purchaseConfirmationMessages>({ locale, namespace: PURCHASE_CONFIRMATION_EMAIL_NAMESPACE }),
     localizedTierName(locale, tier),
+    nextSteps(locale, recipient.id),
   ])
 
   await sendEmail({
@@ -79,10 +92,11 @@ export const sendPurchaseConfirmationEmail = async ({
       orderedAt,
       reference: order.invoice_number ?? order.id,
       refundDeadline: refundDeadline(orderedAt),
+      steps,
       tierName,
       withdrawalConsent,
     }),
     subject: createTranslator({ locale, messages })("subject", { tier: tierName }),
-    to: recipient,
+    to: recipient.email,
   })
 }

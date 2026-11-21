@@ -1,4 +1,5 @@
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
+import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 
 import type { AppOverviewArea } from "~/src/data/app-overview"
 import { licenseSearchSchema } from "~/src/data/license"
@@ -17,6 +18,7 @@ export const LICENSE_APP_OVERVIEW = {
       load: ({ locale, queryClient }) =>
         Promise.all([
           queryClient.query({ ...currentLicenseQuery, staleTime: "static" }),
+          queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),
           ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient })),
         ]),
     },

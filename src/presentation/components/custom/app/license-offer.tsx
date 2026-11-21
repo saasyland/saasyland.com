@@ -4,9 +4,10 @@ import { useTranslations } from "use-intl/react"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
+import { LICENSE_OFFER_ID } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
-import { CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
+import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
 import { PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
 
 const TierCheckoutButton: TierAction = ({ featured, tier }) => {
@@ -24,7 +25,7 @@ export const LicenseOffer = (): JSX.Element => {
   const headingId = useId()
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-6">
+    <section aria-labelledby={headingId} className="flex scroll-mt-6 flex-col gap-6" id={LICENSE_OFFER_ID}>
       <div className="flex flex-col gap-1.5">
         <h2 className="text-title text-balance text-foreground" id={headingId}>
           {t("title")}
@@ -34,6 +35,7 @@ export const LicenseOffer = (): JSX.Element => {
       <MotionProvider>
         <PricingTiers Action={TierCheckoutButton} />
       </MotionProvider>
+      <CheckoutNotice />
       {LICENSE_OFFER_SECTIONS.map(({ key, Section }) => (
         <Section key={key} />
       ))}

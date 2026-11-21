@@ -139,7 +139,7 @@ export const licenseWebhookHandlers = {
       userId: account.id,
       withdrawalConsentAt: consentAt,
     })
-    await sendPurchaseConfirmationEmail({ order: data, recipient: account.email, tier, withdrawalConsent: consentAt !== undefined })
+    await sendPurchaseConfirmationEmail({ order: data, recipient: account, tier, withdrawalConsent: consentAt !== undefined })
   },
 
   onOrderRefunded: async ({ data }: OrderEvent): Promise<void> => {

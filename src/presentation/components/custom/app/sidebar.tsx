@@ -6,6 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
+import { appBadge } from "~/src/data/app-badges"
 import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -17,6 +18,7 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -60,6 +62,7 @@ export const AppSidebar = (): JSX.Element => {
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
                 const isActive = pathname === item.to || (item.to !== ROUTES.APP && pathname.startsWith(`${item.to}/`))
+                const badge = appBadge(item.to)
 
                 return (
                   <SidebarMenuItem key={item.to}>
@@ -77,6 +80,11 @@ export const AppSidebar = (): JSX.Element => {
                       />
                       <span>{navigationLabel(item)}</span>
                     </SidebarMenuButton>
+                    {badge !== undefined && (
+                      <SidebarMenuBadge>
+                        <badge.Badge />
+                      </SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 )
               })}

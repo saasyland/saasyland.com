@@ -1,9 +1,28 @@
+import { LICENSE_TIER, type LicenseTier } from "../../src/modules/license/license.constants"
 import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
 
 const BUY_COMPLETE = {
   spec: "checkout-funnel.spec.ts",
   title: "checkout funnel › a tier picked on the landing page goes from sign-up straight to checkout, and the key, invoices and paid lessons wait for the confirmed email",
 } as const
+
+const CHECKOUT_LANGUAGE = {
+  spec: "checkout-funnel.spec.ts",
+  title:
+    "checkout funnel › opens Polar's checkout without a dialog, in the buyer's language, with a back button and the consent box left for the buyer",
+} as const
+
+const purchaseTest = (tier: LicenseTier) =>
+  ({
+    spec: "checkout-funnel.spec.ts",
+    title: `checkout funnel › a ${tier} purchase grants the licence and its key, and its email says how to start`,
+  }) as const
+
+const BUY_CORE = purchaseTest(LICENSE_TIER.CORE)
+
+const BUY_COMPLETE_WITH_KEY = purchaseTest(LICENSE_TIER.COMPLETE)
+
+const BUY_AGENCY = purchaseTest(LICENSE_TIER.AGENCY)
 
 const SECOND_CHECKOUT = {
   spec: "checkout-funnel.spec.ts",
@@ -23,6 +42,11 @@ const CLI_MACHINE = {
 const CLI_BUNDLE = {
   spec: "cli-licence-api.spec.ts",
   title: "CLI licence API › signs a URL to a release's bundle that the Worker serves with the digest and size it promised",
+} as const
+
+const REFUNDED_LICENCE = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a refunded licence says so without its key, commands or a pending key, and offers a new one",
 } as const
 
 const JOURNEY_STEP = {
@@ -75,14 +99,10 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.PURCHASE,
     id: "consent-required",
-    outcome: "Checkout starts only once the buyer ticks the consent to immediate supply; without it the dialog says why and the page stays",
+    outcome:
+      "A tier button opens Polar's checkout straight away, without a dialog of the site, and the consent to immediate supply is the box on Polar's page that the site leaves empty for the buyer",
     status: FLOW_STATUS.COVERED,
-    tests: [
-      {
-        spec: "checkout-funnel.spec.ts",
-        title: "checkout funnel › checkout starts only once the buyer ticks the consent to immediate supply, and the dialog says why",
-      },
-    ],
+    tests: [CHECKOUT_LANGUAGE],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -105,17 +125,18 @@ export const LICENSE_FLOWS = [
     id: "buy-core",
     outcome: "A buyer consents and checks out Core, and ends with an active Core licence, its confirmation email and Core on /app/license",
     journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite checks out Complete only; a Core licence is granted by a webhook without a checkout.",
+    reason: "The browser suite checks out Complete only; the Core purchase test grants the licence through signed webhooks without a checkout.",
     status: FLOW_STATUS.MISSING,
-    tests: [SECOND_CHECKOUT],
+    tests: [SECOND_CHECKOUT, BUY_CORE],
   },
   {
     area: FLOW_AREA.PURCHASE,
     id: "buy-agency",
     outcome: "A buyer consents and checks out Agency, and ends with an active Agency licence, its confirmation email and Agency on /app/license",
     journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite never checks out Agency.",
+    reason: "The browser suite never checks out Agency; the Agency purchase test grants the licence through signed webhooks without a checkout.",
     status: FLOW_STATUS.MISSING,
+    tests: [BUY_AGENCY],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -151,13 +172,14 @@ export const LICENSE_FLOWS = [
     id: "checkout-prefilled",
     outcome: "The Polar checkout opens with the account's email, the buyer's locale and the account as Polar's external customer",
     journey: JOURNEY_STEP.PAY,
-    reason: "The Polar double answers the checkout without the browser suite reading what it was sent.",
+    reason: "The browser suite reads the language and the back link of the checkout the Polar double receives, not its email or external customer.",
     status: FLOW_STATUS.MISSING,
+    tests: [CHECKOUT_LANGUAGE],
   },
   {
     area: FLOW_AREA.PURCHASE,
     id: "consent-reaches-polar",
-    outcome: "The consent ticked on the site reaches Polar as the order's withdrawal-consent field and is stored on the licence",
+    outcome: "The consent the buyer ticks on Polar's checkout reaches the order's withdrawal-consent field and is stored on the licence",
     journey: JOURNEY_STEP.ORDER,
     reason: "The browser suite writes the consent into a webhook it signs itself; only the journey reads it back from Polar.",
     status: FLOW_STATUS.MISSING,
@@ -173,10 +195,17 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.PURCHASE,
     id: "key-issued",
-    outcome: "The key from the benefit_grant.created webhook appears on /app/license with the CLI commands and no machine in use",
-    journey: JOURNEY_STEP.KEY,
-    reason: "The browser suite sends order.paid only; the seeded licences hold their keys from the seed, not from a webhook.",
-    status: FLOW_STATUS.MISSING,
+    outcome: "The key from the benefit_grant.created webhook appears on /app/license with the CLI commands, each with a copy button",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUY_CORE, BUY_COMPLETE_WITH_KEY, BUY_AGENCY],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "confirmation-get-started",
+    outcome:
+      "The purchase confirmation says how to start, with the licence page, the activate and init commands and the CLI guide, and links the courses for Complete and Agency only",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUY_CORE, BUY_COMPLETE_WITH_KEY, BUY_AGENCY],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -249,8 +278,9 @@ export const LICENSE_FLOWS = [
     area: FLOW_AREA.I18N,
     id: "localized-checkout",
     outcome: "A buyer on /pl-PL is sent to the Polar checkout in Polish and receives the purchase confirmation in Polish",
-    reason: "Every checkout in the specs starts from an English page.",
+    reason: "The browser suite opens a Polish checkout, and an English one for Ukrainian, but reads the confirmation of English orders only.",
     status: FLOW_STATUS.MISSING,
+    tests: [CHECKOUT_LANGUAGE],
   },
   {
     area: FLOW_AREA.I18N,
@@ -264,8 +294,16 @@ export const LICENSE_FLOWS = [
     id: "refund-revokes",
     outcome: "An order.refunded webhook marks the licence refunded, /app/license says the key no longer works, and the CLI is refused with licenseRefunded",
     journey: JOURNEY_STEP.REFUND,
-    reason: JOURNEY_ONLY,
+    reason: "The browser suite checks the refunded licence on /app/license; only the journey runs the CLI against a refunded key.",
     status: FLOW_STATUS.MISSING,
+    tests: [REFUNDED_LICENCE],
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "refunded-licence-page",
+    outcome: "A refunded licence on /app/license says so without the key, the commands or a pending key, and offers a new licence and support",
+    status: FLOW_STATUS.COVERED,
+    tests: [REFUNDED_LICENCE],
   },
   {
     area: FLOW_AREA.AFTER_SALE,
@@ -354,6 +392,19 @@ export const LICENSE_FLOWS = [
       {
         spec: "license.spec.ts",
         title: "cached data when the account changes › signing out and signing in as another account leaves none of the first account's data",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.LICENCE,
+    id: "first-steps",
+    outcome:
+      "After a purchase, the overview lists the steps to a first project with a button to copy each command, and the steps tick off as the key is copied, activated and used to generate a project",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "checkout-funnel.spec.ts",
+        title: "checkout funnel › the first steps tick off as the buyer copies the key, activates it and generates a project",
       },
     ],
   },

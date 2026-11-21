@@ -13,17 +13,29 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
 
+import { CLI_SETUP_LINES } from "~/src/data/cli"
+import type { PurchaseEmailContext } from "~/src/data/purchase-email"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import plMessages from "~/messages/pl-PL/emails.purchase-confirmation-email.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const RECIPIENT = "buyer@example.test"
+const BUYER = { email: RECIPIENT, id: "buyer-1" }
+const STEP = { link: "Open the step", pathname: "/step", text: "A step another area adds for this buyer." }
 const ORDER_ID = "6f1c2c4e-0f63-4a4b-9a7e-1f6d2f0c9b11"
 const INVOICE_NUMBER = "SAASYLAND-0001"
 const ORIGIN = "http://127.0.0.1:3000"
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+vi.mock("~/src/data/purchase-email.entries", () => ({
+  TEST_PURCHASE_EMAIL: [
+    {
+      key: "step",
+      line: ({ userId }: PurchaseEmailContext) => Promise.resolve(userId === BUYER.id ? STEP : undefined),
+    },
+  ],
+}))
 
 const order = (fields: Partial<models.Order> = {}) => ({
   created_at: "2026-09-24T10:00:00.000Z",
@@ -54,8 +66,8 @@ describe("the purchase confirmation", () => {
   it("confirms an English purchase with consent to immediate supply, once per order", async () => {
     const paid = order()
 
-    await sendPurchaseConfirmationEmail({ order: paid, recipient: RECIPIENT, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
-    await sendPurchaseConfirmationEmail({ order: paid, recipient: RECIPIENT, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
+    await sendPurchaseConfirmationEmail({ order: paid, recipient: BUYER, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
+    await sendPurchaseConfirmationEmail({ order: paid, recipient: BUYER, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
 
     const email = onlyEmail()
     expect(email).toMatchObject({
@@ -70,16 +82,45 @@ describe("the purchase confirmation", () => {
       `acknowledged that you lose your ${String(REFUND_TERMS.WITHDRAWAL_DAYS)}-day right of withdrawal once supply begins.`,
     )
     expect(email.text).not.toContain("without giving a reason")
-    expect(email.text).toContain("You can still get a full refund until Oct 8, 2026, 10:00 AM UTC if you have not generated a project")
+    expect(email.text).toContain(
+      "You can still get a full refund until Oct 8, 2026, 10:00 AM UTC if you have not generated a project with the CLI or opened a paid lesson.",
+    )
     expect(email.text).toContain("in force on Sep 24, 2026 apply to this purchase.")
-    for (const path of ["/app/license", "/terms", "/licence", "/refunds"]) {
+    for (const path of ["/app/license", "/docs/cli", "/terms", "/licence", "/refunds"]) {
       expect(email.html).toContain(`href="${ORIGIN}${path}"`)
     }
     expect(email.html).toContain(`href="mailto:${CONTACT_EMAIL}"`)
   })
 
+  it("brands the email and ends with the steps from the key to a first project, with the link written out", async () => {
+    await sendPurchaseConfirmationEmail({ order: order(), recipient: BUYER, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
+
+    const { html, text } = onlyEmail()
+    expect(text).toContain("SaaSy Land")
+    expect(text).toContain("Get started")
+    expect(text).toContain("Open your licence")
+    expect(text).toContain(`If the button does not work, open this link:<br/><a href="${ORIGIN}/app/license"`)
+    for (const { command } of CLI_SETUP_LINES) {
+      expect(html).toContain(command)
+    }
+    expect(text).toContain(`the ${String(REFUND_TERMS.WITHDRAWAL_DAYS)}-day refund no longer applies after it`)
+    expect(text).toContain(STEP.text)
+    expect(html).toContain(`href="${ORIGIN}${STEP.pathname}"`)
+  })
+
+  it("leaves out the steps other areas add only for another buyer", async () => {
+    await sendPurchaseConfirmationEmail({
+      order: order(),
+      recipient: { email: RECIPIENT, id: "buyer-2" },
+      tier: LICENSE_TIER.CORE,
+      withdrawalConsent: true,
+    })
+
+    expect(onlyEmail().text).not.toContain(STEP.text)
+  })
+
   it("confirms the statutory right of withdrawal when the order carries no consent", async () => {
-    await sendPurchaseConfirmationEmail({ order: order(), recipient: RECIPIENT, tier: LICENSE_TIER.CORE, withdrawalConsent: false })
+    await sendPurchaseConfirmationEmail({ order: order(), recipient: BUYER, tier: LICENSE_TIER.CORE, withdrawalConsent: false })
 
     const { text } = onlyEmail()
     expect(text).toContain(
@@ -97,7 +138,7 @@ describe("the purchase confirmation", () => {
     const details = spaced(t("details", { amount, date, reference: INVOICE_NUMBER, tier: "Komplet" }))
     const waived = spaced(t("withdrawal.waived", { days: REFUND_TERMS.WITHDRAWAL_DAYS }))
 
-    await sendPurchaseConfirmationEmail({ order: paid, recipient: RECIPIENT, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
+    await sendPurchaseConfirmationEmail({ order: paid, recipient: BUYER, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true })
 
     const email = onlyEmail()
     expect(email.subject).toBe("Twoja licencja SaaSy Land na pakiet Komplet")
@@ -114,7 +155,7 @@ describe("the purchase confirmation", () => {
   ])("writes in English to an order with %s, naming it by its Polar ID before it has an invoice", async (_case, metadata) => {
     await sendPurchaseConfirmationEmail({
       order: order({ invoice_number: JSON_NULL, metadata }),
-      recipient: RECIPIENT,
+      recipient: BUYER,
       tier: LICENSE_TIER.AGENCY,
       withdrawalConsent: true,
     })
@@ -139,7 +180,7 @@ describe("the purchase confirmation", () => {
     )
 
     await expect(
-      sendPurchaseConfirmationEmail({ order: order(), recipient: RECIPIENT, tier: LICENSE_TIER.CORE, withdrawalConsent: true }),
+      sendPurchaseConfirmationEmail({ order: order(), recipient: BUYER, tier: LICENSE_TIER.CORE, withdrawalConsent: true }),
     ).rejects.toThrow(`Failed to send "Your SaaSy Land Core licence" to ${RECIPIENT}`)
   })
 })

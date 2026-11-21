@@ -1,5 +1,7 @@
 import { type Locator, type Page, expect } from "@playwright/test"
 
+import { APP_NAME } from "../../src/presentation/branding"
+
 export const POLAR_SANDBOX_CHECKOUT = /^https:\/\/sandbox\.polar\.sh\/checkout\//u
 
 const TEST_CARD = { cvc: "123", number: "4242 4242 4242 4242" } as const
@@ -8,6 +10,7 @@ const TWO_DIGITS = 100
 const BILLING_COUNTRY = "Poland"
 const SUBMIT_TIMEOUT_MS = 5000
 const PAYMENT_TIMEOUT_MS = 60_000
+const CONSENT_LABEL = new RegExp(`^I ask ${APP_NAME} to supply my purchase immediately`, "u")
 
 const expiry = (): string => `12 / ${String((new Date().getFullYear() + CARD_VALID_FOR_YEARS) % TWO_DIGITS).padStart(2, "0")}`
 
@@ -29,6 +32,9 @@ export class PolarCheckoutPage {
     await card.getByRole("textbox", { name: /^Expiration/u }).fill(expiry())
     await card.getByRole("textbox", { name: "Security code" }).fill(TEST_CARD.cvc)
     await this.page.getByRole("textbox", { name: "Cardholder name" }).fill(name)
+    const consent = this.page.getByRole("checkbox", { name: CONSENT_LABEL })
+    await expect(consent).not.toBeChecked()
+    await consent.check()
     await expect(async () => {
       await this.page.getByRole("button", { name: "Pay now" }).click({ timeout: SUBMIT_TIMEOUT_MS })
       await expect(this.page.getByText(/^(?:Processing payment|Payment successful)/u)).toBeVisible({ timeout: SUBMIT_TIMEOUT_MS })

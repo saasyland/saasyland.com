@@ -31,12 +31,13 @@ faq:
   - question: Brauche ich zwei Checkboxen, eine für die Zustimmung und eine für die Kenntnisnahme?
     answer: >-
       Die Richtlinie verlangt beide Erklärungen, nicht eine bestimmte Zahl von Checkboxen.
-      saasyland.com fragt beide mit einer einzigen Pflicht-Checkbox ab, die anfangs leer ist, in
-      einem eigenen Schritt vor der Zahlung und mit einer Beschriftung, die das Verlangen und die
-      Kenntnisnahme formuliert; manche Händler verwenden zwei Checkboxen, um beide sichtbar zu
-      trennen. Deutsche Gerichte haben ein aktives Ankreuzen getrennt vom eigentlichen Kauf verlangt,
-      also mach die Zustimmung zu einem eigenen Schritt und lass deinen Anwalt die Gestaltung für die
-      Märkte bestätigen, in die du verkaufst.
+      saasyland.com fragt beide mit einer einzigen Pflicht-Checkbox ab, die anfangs leer ist, auf
+      der Zahlungsseite von Polar unmittelbar bevor der Käufer bezahlt, und mit einer Beschriftung,
+      die das Verlangen und die Kenntnisnahme formuliert; manche Händler verwenden zwei Checkboxen,
+      um beide sichtbar zu trennen. Deutsche Gerichte haben ein aktives Ankreuzen getrennt vom
+      eigentlichen Kauf verlangt, also mach die Zustimmung zu einer eigenen Handlung, getrennt von
+      der Kaufschaltfläche, und lass deinen Anwalt die Gestaltung für die Märkte bestätigen, in die
+      du verkaufst.
   - question: Brauche ich den EU-Widerrufsbutton für digitale Produkte?
     answer: >-
       Wo das Widerrufsrecht besteht, ja. Artikel 11a der Richtlinie, der ab dem 19. Juni 2026
@@ -65,9 +66,10 @@ faq:
     answer: >-
       Plane sie ein. Nach den Käuferbedingungen von Polar ist Polar der Verkäufer des Kaufs, während
       du das Produkt lizenzierst und auslieferst, und der Zeitpunkt der Bereitstellung hängt von
-      deinem Produkt ab. saasyland.com holt die Zustimmung in einem eigenen Checkout-Schritt ein,
-      lässt sie von Polar an der Bestellung festhalten und verschickt die Bestätigung selbst. Welche
-      Partei für diese Regeln als Unternehmer gilt, ist eine Frage für deinen Anwalt.
+      deinem Produkt ab. saasyland.com lässt den Käufer die Zustimmung über eine Pflicht-Checkbox im
+      Checkout von Polar erteilen, die Polar an der Bestellung festhält, und verschickt die
+      Bestätigung selbst. Welche Partei für diese Regeln als Unternehmer gilt, ist eine Frage für
+      deinen Anwalt.
   - question: Kann ich nach dem Erlöschen des Widerrufsrechts noch Erstattungen anbieten?
     answer: >-
       Ja, und das macht es leichter, die Zustimmung zu geben. saasyland.com erstattet einen Kauf
@@ -183,17 +185,15 @@ Das polnische Recht zeigt auch, wie ein nationaler Text über die Richtlinie hin
 
 saasyland.com verkauft Lizenzen für die CLI von SaaSy Land über Polar, einen Merchant of Record. Nach den Käuferbedingungen von Polar ist Polar der Verkäufer des Kaufs, während SaaSy Land das Produkt lizenziert und bereitstellt: Die Bereitstellung beginnt mit der Ausstellung des Lizenzschlüssels direkt nach der Zahlung. Der folgende Ablauf holt die Zustimmung ein, hält sie fest und bestätigt sie, gleich welcher der beiden als Unternehmer gilt, und jeder Schritt steht im [öffentlichen Quellcode](https://github.com/saasyland/saasyland.com) unter der MIT-Lizenz.
 
-### 1. Ein Zustimmungsschritt in unserem eigenen Checkout, in der Sprache des Käufers
+### 1. Eine Zustimmung, im Checkout von Polar
 
-Die Kaufschaltflächen öffnen nicht Polar. Sie öffnen auf saasyland.com einen Dialog in der Sprache, in der der Käufer die Website gerade liest, einer der <RepositoryFact name="languages" /> Sprachen der Website. Der Dialog erklärt, dass das Paket ein digitaler Inhalt ist, der bereitgestellt wird, sobald der Käufer bezahlt, und verlangt eine einzige Pflicht-Checkbox. Auf Deutsch lautet ihre Beschriftung: „Ich verlange, dass SaaSy Land mir Core sofort bereitstellt, und nehme zur Kenntnis, dass ich mein <RepositoryFact name="refundWithdrawalDays" />-tägiges Widerrufsrecht verliere, sobald die Bereitstellung beginnt, also sobald mein Lizenzschlüssel ausgestellt wird.“ Die Checkbox ist anfangs leer, und solange sie leer ist, markiert ein Klick auf **Weiter zur Zahlung** sie nur als ungültig.
+Der Checkout von Polar nimmt benutzerdefinierte Felder an, und jedes Lizenzprodukt verlangt ein Checkbox-Feld mit dem Slug <RepositoryFact name="licenseWithdrawalConsentField" />. Seine Beschriftung formuliert das Verlangen und die Kenntnisnahme: „I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued.“ [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) übermittelt keinen Wert für das Feld, sodass die Checkbox anfangs leer ist und nur der Käufer sie ankreuzen kann. Wenn der Käufer bezahlt, prüft Polar die Felder anhand des Produkts und akzeptiert bei einer Pflicht-Checkbox nur ein gesetztes Häkchen, sodass ohne die Zustimmung keine Zahlung durchgeht, und Polar speichert die angekreuzte Checkbox an der Bestellung. `polar:verify` schlägt fehl, solange ein Lizenzprodukt das Feld nicht verlangt.
 
-Der Server setzt dieselbe Regel durch. Das Eingabeschema von `startCheckout` akzeptiert `withdrawalConsent` nur, wenn es `true` ist, sodass ohne die Zustimmung kein Checkout erstellt werden kann, egal was der Browser sendet. Der Dialog ist [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), und das Schema steht in [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+Die Zustimmung wird einmal abgefragt, auf der Seite, auf der der Käufer bezahlt. Eine Checkbox, die der Käufer dort unmittelbar vor der Zahlung ankreuzt, ist der klarste Nachweis einer ausdrücklichen Zustimmung, und kein zusätzlicher Schritt steht zwischen dem Käufer und der Zahlung.
 
-### 2. Dieselbe Zustimmung im Checkout von Polar
+### 2. Dieselben Bedingungen vorab, in der Sprache des Käufers
 
-Der Checkout von Polar nimmt benutzerdefinierte Felder an, und jedes Lizenzprodukt verlangt ein Checkbox-Feld mit dem Slug <RepositoryFact name="licenseWithdrawalConsentField" />, das dasselbe Verlangen und dieselbe Kenntnisnahme auf Englisch formuliert. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) übermittelt die Zustimmung, die der Käufer gerade gegeben hat, als Wert des Felds, sodass Polar die Checkbox so zeigt, wie der Käufer sie selbst angekreuzt hat, und Polar speichert sie an der Bestellung. `polar:verify` schlägt fehl, solange ein Lizenzprodukt das Feld nicht verlangt.
-
-Warum zweimal fragen? Weil der Nachweis bei der Bestellung des Verkäufers liegen sollte und weil der Checkout von Polar den Wortlaut nicht in jeder Sprache tragen kann: Ein benutzerdefiniertes Feld hat eine einzige Beschriftung, und der Checkout von Polar folgt der Browsersprache des Käufers in einer Beta, die 15 Sprachen umfasst. Wenn wir zuerst auf unserer eigenen Seite fragen, sieht der Käufer die Zustimmung in der Sprache, die er gewählt hat.
+Ein benutzerdefiniertes Feld hat nur eine Beschriftung, deshalb ist die Checkbox auf der Seite von Polar englisch. Die Website sagt dasselbe vorher, in der Sprache, in der der Käufer sie gerade liest, einer ihrer <RepositoryFact name="languages" /> Sprachen: Unter den Kaufschaltflächen erklärt ein Hinweis, dass Polar der Merchant of Record ist und die Zustimmung auf der Zahlungsseite einholt, dass das Ankreuzen der Checkbox das Widerrufsrecht erlöschen lässt, sobald der Lizenzschlüssel ausgestellt ist, und bis wann eine volle Erstattung noch möglich ist. Die Kaufschaltflächen öffnen dann direkt den Checkout von Polar, in der Sprache des Käufers, sofern Polar seinen Checkout in diese Sprache übersetzt, und der Hinweis sagt es dazu, wenn sich die Zahlungsseite auf Englisch öffnen wird. Der Hinweis ist `CheckoutNotice` in [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. Eine Bestätigungs-E-Mail als dauerhafter Datenträger
 
@@ -250,7 +250,7 @@ saasyland.com hat keine Widerrufsfunktion, wie Artikel 11a sie beschreibt. Ein K
 
 1. Lege fest, wann die Bereitstellung bei deinem Produkt beginnt, und schreib es in deine Bedingungen.
 2. Frag vor der Zahlung mit einer Pflicht-Checkbox, die anfangs leer ist, nach der Zustimmung und der Kenntnisnahme, in der Sprache des Käufers.
-3. Lehne den Checkout auf dem Server ab, wenn die Zustimmung fehlt.
+3. Mach die Zahlung ohne die Zustimmung unmöglich, und setz das dort durch, wo die Zahlung angenommen wird, nicht nur auf der Seite.
 4. Halte die Zustimmung zusammen mit der Bestellung fest, ebenso den Zeitpunkt der Bereitstellung und der ersten Nutzung.
 5. Schick eine Bestätigungs-E-Mail, die die Zustimmung und die Kenntnisnahme sowie die Details der Bestellung enthält.
 6. Fehlt die Zustimmung, gewähre die vollen 14 Tage, und denk daran, dass der Käufer dann keine Kosten trägt.

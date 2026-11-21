@@ -1,20 +1,24 @@
 import type { APIRequestContext, Page } from "@playwright/test"
+import { STACK_DEFAULTS } from "@saasyland/stack"
+import { ACTIVATION_KIND, API_ENDPOINT, PLATFORM, apiRequest, deriveMachineId, readApiResponse } from "@saasyland/stack/api"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_CHECKOUT_ID } from "../data/licenses"
+import { TEST_BUNDLE, TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
-import { consentAndPay, consentDialog, deliverPaidOrder } from "../fixtures/license"
+import { buyLicense, deliverPaidOrder, startedCheckouts } from "../fixtures/license"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import { ROUTES } from "../../src/routes"
+import { HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
+import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER, LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
+import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
+import { ROUTES } from "../../src/routes"
 
 const [, customer] = TEST_ACCOUNTS
 const [, , paid] = TEST_LESSONS
@@ -22,6 +26,17 @@ const SIGN_UP_PASSWORD = "StrongPassword123!"
 const BROWSER_CLOCK_BEHIND_MS = 300_000
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const COURSE_TIERS: readonly string[] = [LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY]
+
+const checklist = (page: Page) => page.getByRole("region", { name: "Get started" })
+
+const stepDone = (page: Page, title: string) => checklist(page).getByRole("listitem").filter({ hasText: title }).getByText("Done")
+
+const fromOwnAddress = (request: Request): Request => {
+  request.headers.set(IP_ADDRESS_HEADER, `2001:db8:${crypto.randomUUID().slice(0, 4)}::`)
+  return request
+}
 
 const useOwnRateLimit = async (page: Page): Promise<string> => {
   const id = crypto.randomUUID()
@@ -91,20 +106,33 @@ test.describe("checkout funnel", () => {
     const chosen = page.getByRole("region", { name: "Continue with Complete" })
     await expect(chosen).toBeVisible()
 
+    await expect(chosen.getByText(/^You pay on Polar, our Merchant of Record\./u)).toBeVisible()
     await chosen.getByRole("button", { name: "Continue to checkout" }).click()
-    await consentAndPay(page)
 
     await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(page.getByRole("dialog")).toHaveCount(0)
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
+    const [checkout] = await startedCheckouts(request, userId)
+    expect(checkout).toMatchObject({
+      custom_field_data: {},
+      locale: "en",
+      metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" },
+      return_url: new URL(`/app?tier=${LICENSE_TIER.COMPLETE}`, page.url()).href,
+    })
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
     await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible()
-    await expect(page.getByText("Thank you for buying Complete.")).toBeVisible()
+    await expect(page.getByText("Thank you for buying Complete. These steps take you to your first project.")).toBeVisible()
+    await expect(checklist(page)).toBeVisible()
+    await expect(checklist(page).getByText("Your key appears here once you confirm your email address.", { exact: false })).toBeVisible()
+    await expect(checklist(page).getByRole("button", { name: "Copy licence key" })).toHaveCount(0)
     const confirmation = await expectPurchaseConfirmation(request, email)
     expect(confirmation).toContain("Your SaaSy Land Complete licence")
     expect(confirmation).toContain("so the right of withdrawal does not apply to this order")
+    expect(confirmation).toContain("if you have not generated a project with the CLI or opened a paid lesson")
+    expect(confirmation).toContain(CLI_INIT_COMMAND)
 
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
@@ -133,7 +161,7 @@ test.describe("checkout funnel", () => {
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("region", { name: "Confirm your email" })).toHaveCount(0)
-    await expect(page.getByText("Your key is being issued. Refresh in a moment.", { exact: true })).toBeVisible()
+    await expect(page.getByText("Your key is being issued. It appears here by itself in a few seconds.", { exact: true })).toBeVisible()
     await expect(page.getByRole("link", { name: "Invoices and receipts" })).toBeVisible()
   })
 
@@ -155,43 +183,44 @@ test.describe("checkout funnel", () => {
     await expect(page).toHaveURL(`/app/license?redirect=${encodeURIComponent(lesson)}&tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
     await page.getByRole("region", { name: "Continue with Complete" }).getByRole("button", { name: "Continue to checkout" }).click()
-    await consentAndPay(page)
     await expect(page).toHaveURL((url) => url.pathname === ROUTES.APP && url.searchParams.has("checkoutId") && url.searchParams.get("redirect") === lesson)
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
     await expect(page.getByRole("link", { name: "Continue where you left off" })).toHaveAttribute("href", lesson)
   })
 
-  test("checkout starts only once the buyer ticks the consent to immediate supply, and the dialog says why", async ({
+  test("opens Polar's checkout without a dialog, in the buyer's language, with a back button and the consent box left for the buyer", async ({
     appPage,
     authPage,
     page,
+    request,
   }) => {
-    await useOwnRateLimit(page)
-    await authPage.signIn(customer.email)
-    await expect(page).toHaveURL("/app")
-    await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    await page.goto(`/pl-PL${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await page.getByRole("button", { name: "Get Core", exact: true }).click()
-
-    const dialog = consentDialog(page)
-    await expect(dialog).toBeFocused()
-    const box = dialog.getByRole("checkbox", { name: /^I ask SaaSy Land to supply Core immediately/u })
-    await expect(box).not.toBeChecked()
-    await dialog.getByRole("button", { name: "Continue to payment" }).click()
-
-    await expect(dialog.getByRole("alert")).toHaveText("Tick the box to continue.")
-    await expect(box).toHaveAttribute("aria-invalid", "true")
-    await expect(page).toHaveURL("/app/license")
     for (const colorScheme of COLOR_SCHEMES) {
       await page.emulateMedia({ colorScheme })
       expect(await accessibilityViolations(page)).toEqual([])
     }
 
-    await page.keyboard.press("Escape")
-    await expect(dialog).toHaveCount(0)
-    await expect(page.getByRole("button", { name: "Get Core", exact: true })).toBeFocused()
-    await expect(page).toHaveURL("/app/license")
+    await page.getByRole("button", { name: "Wybierz Podstawę", exact: true }).click()
+
+    await expect(page).toHaveURL(/\/pl-PL\/app\?checkoutId=[\da-f-]{36}$/u)
+    const [checkout] = await startedCheckouts(request, userId)
+    expect(checkout).toMatchObject({
+      custom_field_data: {},
+      locale: "pl",
+      return_url: new URL(`/pl-PL${ROUTES.APP_LICENSE}`, page.url()).href,
+    })
+
+    await page.goto(`/uk-UA${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(page.getByText("Сторінка оплати відкриється англійською.", { exact: false })).toBeVisible()
+    await page.getByRole("button", { name: "Придбати Core", exact: true }).click()
+    await expect(page).toHaveURL(/\/uk-UA\/app\?checkoutId=[\da-f-]{36}$/u)
+    const checkouts = await startedCheckouts(request, userId)
+    expect(checkouts.at(-1)).toMatchObject({ locale: POLAR_CHECKOUT_DEFAULT_LANGUAGE })
   })
 
   test("a slow activation ends in an honest message with the contact email and checkout reference", async ({ appPage, authPage, page }) => {
@@ -254,7 +283,6 @@ test.describe("checkout funnel", () => {
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.CORE, userId })
     await page.getByRole("button", { name: "Get Agency", exact: true }).click()
-    await consentAndPay(page)
 
     await expect(page.getByText("You already have an active licence. To move to another tier, email hello@saasyland.com.")).toBeVisible()
     await expect(page.getByRole("heading", { name: "Core", exact: true })).toBeVisible()
@@ -266,5 +294,110 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Continue to checkout" })).toHaveCount(0)
+  })
+
+  for (const tier of LICENSE_TIERS) {
+    test(`a ${tier} purchase grants the licence and its key, and its email says how to start`, async ({ appPage, authPage, page, request }) => {
+      await authPage.gotoSignUp()
+      const { email, userId } = await signUpAndVerify({ authPage, page, request })
+
+      await buyLicense(request, { tier, userId })
+      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+
+      await expect(page.getByRole("button", { name: "Copy licence key" })).toBeVisible()
+      for (const { command } of CLI_KEY_LINES) {
+        await expect(page.getByRole("button", { name: `Copy ${command}` })).toBeVisible()
+      }
+      const confirmation = await expectPurchaseConfirmation(request, email)
+      expect(confirmation).toContain("Get started")
+      expect(confirmation.includes(`${ROUTES.COURSES}"`)).toBe(COURSE_TIERS.includes(tier))
+    })
+  }
+
+  test("the first steps tick off as the buyer copies the key, activates it and generates a project", async ({
+    appPage,
+    authPage,
+    baseURL,
+    context,
+    page,
+    request,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"])
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
+    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await appPage.waitForHydration(checklist(page))
+    await expect(checklist(page).getByRole("progressbar", { name: "1 of 4 done" })).toBeVisible()
+    const key = await checklist(page).getByRole("listitem").filter({ hasText: "Copy your licence key" }).locator("code").innerText()
+
+    await page.getByRole("button", { name: "Copy licence key" }).click()
+    await expect(stepDone(page, "Copy your licence key")).toBeAttached()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(key)
+    for (const { command } of CLI_SETUP_LINES) {
+      await page.getByRole("button", { name: `Copy ${command}` }).click()
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+    }
+
+    const machine = await deriveMachineId(ACTIVATION_KIND.MACHINE, [crypto.randomUUID()])
+    const connection = { credentials: { key, machine }, origin: String(baseURL) }
+    const activationRequest = apiRequest(
+      API_ENDPOINT.ACTIVATE,
+      { body: { cliVersion: "0.1.0", kind: ACTIVATION_KIND.MACHINE, label: "e2e-first-steps", platform: PLATFORM.LINUX } },
+      connection,
+    )
+    const activation = await readApiResponse(API_ENDPOINT.ACTIVATE, await fetch(fromOwnAddress(activationRequest)))
+    if (!activation.success) {
+      throw new Error("The purchased key did not activate")
+    }
+    await expect(stepDone(page, "Activate the key on your machine")).toBeAttached()
+    await expect(checklist(page).getByRole("progressbar", { name: "3 of 4 done" })).toBeVisible()
+
+    const bundleRequest = apiRequest(
+      API_ENDPOINT.BUNDLE,
+      { body: { answers: STACK_DEFAULTS, version: TEST_BUNDLE.version }, params: { activationId: activation.data.activationId } },
+      connection,
+    )
+    const bundle = await readApiResponse(API_ENDPOINT.BUNDLE, await fetch(fromOwnAddress(bundleRequest)))
+    expect(bundle.success).toBe(true)
+    await expect(stepDone(page, "Generate your first project")).toBeAttached()
+    await expect(checklist(page).getByRole("progressbar", { name: "4 of 4 done" })).toBeVisible()
+    for (const colorScheme of COLOR_SCHEMES) {
+      await page.emulateMedia({ colorScheme })
+      expect(await accessibilityViolations(page)).toEqual([])
+    }
+  })
+
+  test("a refunded licence says so without its key, commands or a pending key, and offers a new one", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    const { refund } = await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
+    await refund()
+
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await expect(page.getByText("This licence was refunded, so its key no longer works.", { exact: false })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Buy a new licence" })).toHaveAttribute("href", "#license-offer")
+    await expect(page.getByRole("link", { name: "Email support" })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
+    await expect(page.getByRole("button", { name: "Copy licence key" })).toHaveCount(0)
+    await expect(page.getByText("Your key is being issued.", { exact: false })).toHaveCount(0)
+    await expect(page.getByRole("region", { name: "Get your licence" })).toBeVisible()
+    for (const colorScheme of COLOR_SCHEMES) {
+      await page.emulateMedia({ colorScheme })
+      expect(await accessibilityViolations(page)).toEqual([])
+    }
+
+    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(checklist(page)).toHaveCount(0)
+    await expect(page.getByRole("region", { name: "Get your licence" })).toBeVisible()
   })
 })

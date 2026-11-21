@@ -15,11 +15,11 @@ afterEach(() => {
   writeText.mockReset()
 })
 
-const renderButton = () => {
+const renderButton = (onCopy?: () => void) => {
   vi.stubGlobal("navigator", { clipboard: { writeText } })
   return render(
     <MotionProvider>
-      <CopyButton copiedLabel="Copied" copyLabel="Copy command" value="bunx saasyland init" />
+      <CopyButton copiedLabel="Copied" copyLabel="Copy command" value="bunx saasyland init" {...(onCopy === undefined ? {} : { onCopy })} />
     </MotionProvider>,
   )
 }
@@ -40,6 +40,23 @@ describe("copy command", () => {
     expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument()
     await act(() => vi.advanceTimersByTimeAsync(1))
     expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument()
+  })
+
+  it("tells its owner once the value is on the clipboard, and not when the copy fails", async () => {
+    const onCopy = vi.fn<() => void>()
+    writeText.mockRejectedValueOnce(new Error("Permission denied")).mockResolvedValueOnce(undefined)
+    renderButton(onCopy)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy command" }))
+      await Promise.resolve()
+    })
+    expect(onCopy).not.toHaveBeenCalled()
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy command" }))
+      await Promise.resolve()
+    })
+    expect(onCopy).toHaveBeenCalledOnce()
   })
 
   it("keeps the copy action available after clipboard permission is denied", async () => {

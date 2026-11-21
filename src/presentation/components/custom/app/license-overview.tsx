@@ -8,6 +8,7 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 
 import { CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
 import { ChosenTier } from "~/src/presentation/components/custom/app/chosen-tier"
+import { GetStarted } from "~/src/presentation/components/custom/app/get-started"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
@@ -27,6 +28,7 @@ export const LicenseOverview = (): JSX.Element => {
       {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
       {showsLicense && <LicenseStatusCard />}
+      {showsLicense && checkoutId === undefined && <GetStarted />}
       {isBuying && <LicenseOffer />}
     </>
   )

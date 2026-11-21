@@ -168,7 +168,10 @@ describe("collectFlowTables", () => {
       FLOW_AREA.AFTER_SALE,
       expect.any(String),
       expect.any(String),
-      ["journey.spec.ts › a refund in the Polar sandbox stops the key and removes the credentials"],
+      [
+        "checkout-funnel.spec.ts › checkout funnel › a refunded licence says so without its key, commands or a pending key, and offers a new one",
+        "journey.spec.ts › a refund in the Polar sandbox stops the key and removes the credentials",
+      ],
     ])
   })
 

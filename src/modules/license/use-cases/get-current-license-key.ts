@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 
-import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+import { LICENSE_POLL_MS, LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
 export const getCurrentLicenseKey = createServerFn({ method: "GET" })
@@ -19,3 +19,8 @@ export const getCurrentLicenseKey = createServerFn({ method: "GET" })
   })
 
 export const currentLicenseKeyQuery = queryOptions({ queryFn: () => getCurrentLicenseKey(), queryKey: LICENSE_QUERY_KEYS.KEY })
+
+export const licenseKeySetupQuery = queryOptions({
+  ...currentLicenseKeyQuery,
+  refetchInterval: ({ state }) => (state.data?.key === null ? LICENSE_POLL_MS.KEY : false),
+})

@@ -29,11 +29,12 @@ faq:
   - question: Preciso de duas caixas de seleção, uma para o consentimento e outra para o reconhecimento?
     answer: >-
       A diretiva exige as duas declarações, e não um número de caixas. O saasyland.com pede as duas
-      em uma única caixa de seleção obrigatória que começa vazia, em uma etapa própria antes do
-      pagamento, com um rótulo que expressa o pedido e o reconhecimento; alguns vendedores usam duas
-      caixas para mantê-las visivelmente separadas. Tribunais alemães já exigiram uma marcação ativa,
-      separada da própria compra, então faça do consentimento uma etapa própria e peça ao seu
-      advogado que confirme o formato para os mercados em que você vende.
+      em uma única caixa de seleção obrigatória que começa vazia, na página de pagamento da Polar,
+      logo antes de o comprador pagar, com um rótulo que expressa o pedido e o reconhecimento; alguns
+      vendedores usam duas caixas para mantê-las visivelmente separadas. Tribunais alemães já
+      exigiram uma marcação ativa, separada da própria compra, então faça do consentimento um ato
+      próprio, distinto do botão de compra, e peça ao seu advogado que confirme o formato para os
+      mercados em que você vende.
   - question: Preciso do botão de desistência da UE para produtos digitais?
     answer: >-
       Onde o direito de desistência existe, sim. O artigo 11a da diretiva, aplicado a partir de 19 de
@@ -62,9 +63,9 @@ faq:
     answer: >-
       Planeje-se para isso. Os termos para compradores da Polar fazem dela a vendedora da compra,
       enquanto você licencia e entrega o produto, e o momento do fornecimento depende do seu
-      produto. O saasyland.com coleta o consentimento em uma etapa do próprio checkout, faz a Polar
-      registrá-lo no pedido e envia ele mesmo a confirmação. Qual das partes conta como profissional
-      para essas regras é uma pergunta para o seu advogado.
+      produto. O saasyland.com pede que o comprador dê o consentimento em uma caixa obrigatória no
+      checkout da Polar, faz a Polar registrá-lo no pedido e envia ele mesmo a confirmação. Qual das
+      partes conta como profissional para essas regras é uma pergunta para o seu advogado.
   - question: Ainda posso oferecer reembolsos depois que o direito de desistência se extingue?
     answer: >-
       Sim, e isso torna o consentimento mais fácil de dar. O saasyland.com reembolsa integralmente
@@ -178,17 +179,15 @@ A lei polonesa também mostra como um texto nacional pode ir além da diretiva. 
 
 O saasyland.com vende licenças da CLI do SaaSy Land pela Polar, um Merchant of Record. Os termos para compradores da Polar fazem dela a vendedora da compra, enquanto o SaaSy Land licencia o produto e o fornece: o fornecimento começa quando a chave de licença é emitida, logo após o pagamento. O fluxo abaixo coleta, registra e confirma o consentimento independentemente de qual dos dois conta como profissional, e cada etapa está no [código-fonte público](https://github.com/saasyland/saasyland.com), sob a licença MIT.
 
-### 1. Uma etapa de consentimento no nosso próprio checkout, no idioma do comprador
+### 1. Um único consentimento, no checkout da Polar
 
-Os botões de compra não abrem a Polar. Eles abrem um diálogo no saasyland.com, em qualquer um dos <RepositoryFact name="languages" /> idiomas do site que o comprador estiver lendo, que diz que o plano é conteúdo digital fornecido assim que ele paga e pede uma única caixa de seleção obrigatória. Em português, ela diz: “Peço à SaaSy Land que me forneça o Core imediatamente e reconheço que perco meu direito de desistência de <RepositoryFact name="refundWithdrawalDays" /> dias assim que o fornecimento começa, quando minha chave de licença é emitida.” A caixa começa vazia, e clicar em **Continuar para o pagamento** com a caixa vazia apenas a marca como inválida.
+O checkout da Polar aceita campos personalizados, e cada produto de licença exige um campo de caixa de seleção com o identificador <RepositoryFact name="licenseWithdrawalConsentField" />. O rótulo dele expressa o pedido e o reconhecimento: “I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued.” [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) não envia nenhum valor para o campo, então a caixa começa vazia e só o comprador pode marcá-la. Quando o comprador paga, a Polar confere os campos com o produto e, para uma caixa de seleção obrigatória, só aceita a caixa marcada; assim, nenhum pagamento é concluído sem o consentimento, e a Polar guarda a caixa marcada no pedido. `polar:verify` falha enquanto algum produto de licença não exigir o campo.
 
-O servidor aplica a mesma regra. O schema de entrada de `startCheckout` só aceita `withdrawalConsent` quando ele vale `true`, então nenhum checkout pode ser criado sem o consentimento, seja o que for que o navegador envie. O diálogo é [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), e o schema está em [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+O consentimento é pedido uma única vez, na página em que o comprador paga. Uma caixa que o próprio comprador marca ali, logo antes de pagar, é o registro mais claro de consentimento expresso, e nenhuma etapa extra fica entre o comprador e o pagamento.
 
-### 2. O mesmo consentimento no checkout da Polar
+### 2. Os mesmos termos de antemão, no idioma do comprador
 
-O checkout da Polar aceita campos personalizados, e cada produto de licença exige um campo de caixa de seleção com o identificador <RepositoryFact name="licenseWithdrawalConsentField" />, que expressa em inglês o mesmo pedido e o mesmo reconhecimento. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) envia como valor do campo o consentimento que o comprador acabou de dar, então a Polar mostra a caixa já marcada por escolha do próprio comprador e guarda o consentimento no pedido. `polar:verify` falha enquanto algum produto de licença não exigir o campo.
-
-Por que perguntar duas vezes? Porque o registro deve ficar junto ao pedido do vendedor, e porque o checkout da Polar não consegue levar o texto em todos os idiomas: um campo personalizado tem um único rótulo, e o checkout da Polar segue o idioma do navegador do comprador, em um beta que cobre 15 idiomas. Perguntar primeiro na nossa própria página coloca o consentimento diante do comprador no idioma que ele escolheu.
+Um campo personalizado tem um único rótulo, então a caixa na página da Polar fica em inglês. O site apresenta esses termos antes, em qualquer um dos seus <RepositoryFact name="languages" /> idiomas que o comprador estiver lendo: abaixo dos botões de compra, um aviso diz que a Polar é o Merchant of Record e que ela pede o consentimento na página de pagamento, que marcar a caixa encerra o direito de desistência assim que a chave de licença é emitida e até quando um reembolso integral continua possível. Em seguida, os botões de compra abrem diretamente o checkout da Polar, no idioma do comprador quando a Polar traduz o seu checkout para esse idioma, e, quando a página de pagamento vai abrir em inglês, o aviso diz isso. O aviso é o `CheckoutNotice` em [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. Um e-mail de confirmação, o suporte duradouro
 
@@ -245,7 +244,7 @@ O saasyland.com não tem uma função de desistência do tipo que o artigo 11a d
 
 1. Defina quando o fornecimento começa para o seu produto e deixe isso por escrito nos seus termos.
 2. Antes do pagamento, peça o consentimento e o reconhecimento com uma caixa de seleção obrigatória que comece vazia, no idioma do comprador.
-3. Recuse o checkout no servidor quando o consentimento faltar.
+3. Torne o pagamento impossível sem o consentimento, com a regra aplicada onde o pagamento é recebido, e não só na página.
 4. Registre o consentimento com o pedido, e registre o momento do fornecimento e o do primeiro uso.
 5. Envie um e-mail de confirmação que inclua o consentimento, o reconhecimento e os dados do pedido.
 6. Quando faltar o consentimento, mantenha os 14 dias completos, e lembre-se de que, nesse caso, o comprador não suporta nenhum custo.

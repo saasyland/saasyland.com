@@ -8,8 +8,8 @@ import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 const startCheckout = zod.object({
   locale: localeField,
   redirect: callbackPathSchema.optional(),
+  returnPath: callbackPathSchema,
   tier: zod.enum(LICENSE_TIERS),
-  withdrawalConsent: zod.literal(true, { message: "withdrawalConsentRequired" }),
 })
 
 const deactivateLicense = zod.object({

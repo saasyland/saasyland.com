@@ -58,12 +58,16 @@ import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-curr
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 import { user } from "~/src/modules/user/user.schema"
 
+import { CLI_INIT_COMMAND } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "~/src/data/polar"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
+const RETURN_PATH = "/pl-PL/app/license?tier=complete"
+const CONSENT = { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
 
 interface Buyer {
@@ -95,7 +99,7 @@ const startCheckout = async (
   }: BrowserState & { readonly locale?: SupportedLocale; readonly redirect?: string; readonly tier: LicenseTier },
 ): Promise<models.Checkout> => {
   actAs(buyer, browser)
-  const started = await executeMutation(startCheckoutMutation, { locale, redirect, tier, withdrawalConsent: true })
+  const started = await executeMutation(startCheckoutMutation, { locale, redirect, returnPath: RETURN_PATH, tier })
   if ("alreadyActive" in started) {
     throw new Error("The account already holds an active licence, so no checkout started")
   }
@@ -123,7 +127,7 @@ const deliver = (
 
 const paidOrder = async (buyer: Buyer, tier: LicenseTier = LICENSE_TIER.CORE): Promise<models.Order> => {
   const checkout = await startCheckout(buyer, { tier })
-  return payPolarCheckout(checkout.id)
+  return payPolarCheckout(checkout.id, CONSENT)
 }
 
 const currentLicense = async (buyer: Buyer) => {
@@ -158,12 +162,14 @@ describe("checkout", () => {
 
     expect(checkout).toMatchObject({
       allow_discount_codes: false,
-      custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true },
+      custom_field_data: {},
       discount_id: null,
       external_customer_id: buyer.userId,
+      locale: "pl",
       metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "pl-PL" },
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
+      return_url: `${TEST_APP_URL}${RETURN_PATH}`,
       success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
     })
   })
@@ -186,6 +192,31 @@ describe("checkout", () => {
     expect(checkout).toMatchObject({ customer_email: buyer.account.email, external_customer_id: buyer.userId })
   })
 
+  it.each([
+    ["de-DE", "de"],
+    ["ja-JP", "ja"],
+    ["pt-BR", "pt"],
+    ["uk-UA", POLAR_CHECKOUT_DEFAULT_LANGUAGE],
+  ] as const)("opens the checkout of a %s buyer in Polar's %s", async (locale, language) => {
+    const buyer = await signUpAndVerify()
+
+    const checkout = await startCheckout(buyer, { locale, tier: LICENSE_TIER.CORE })
+
+    expect(checkout.locale).toBe(language)
+  })
+
+  it("leaves the consent box for the buyer to tick on Polar's page, which takes no payment without it", async () => {
+    const buyer = await signUpAndVerify()
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
+
+    expect(checkout.custom_field_data).toStrictEqual({})
+    expect(() => payPolarCheckout(checkout.id)).toThrow(LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT)
+    expect(() => payPolarCheckout(checkout.id, { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: false })).toThrow(
+      LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT,
+    )
+    expect(payPolarCheckout(checkout.id, CONSENT).custom_field_data).toStrictEqual(CONSENT)
+  })
+
   it("fills in the signed-in buyer's email and name and passes the buyer's address, so the checkout form asks for neither", async () => {
     const buyer = await signUpAndVerify({ ...createTestAccount(), name: "Ada Lovelace" })
 
@@ -198,7 +229,9 @@ describe("checkout", () => {
       external_customer_id: buyer.userId,
     })
   })
+})
 
+describe("checkout prices, referrals and refusals", () => {
   it.each(["PT", "PL", "IN", "UA"])("charges a buyer from %s the regional price the pricing cards show", async (country) => {
     const buyer = await signUpAndVerify()
 
@@ -224,7 +257,7 @@ describe("checkout", () => {
 
     const metadata = { [AFFONSO.METADATA_KEY]: referral, [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
     expect(checkout.metadata).toStrictEqual(metadata)
-    expect(payPolarCheckout(checkout.id).metadata).toStrictEqual(metadata)
+    expect(payPolarCheckout(checkout.id, CONSENT).metadata).toStrictEqual(metadata)
   })
 
   it("sends Polar no referral when the buyer carries no affiliate cookie, and the paid order has none either", async () => {
@@ -234,7 +267,7 @@ describe("checkout", () => {
 
     const metadata = { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
     expect(checkout.metadata).toStrictEqual(metadata)
-    expect(payPolarCheckout(checkout.id).metadata).toStrictEqual(metadata)
+    expect(payPolarCheckout(checkout.id, CONSENT).metadata).toStrictEqual(metadata)
   })
 
   it("refuses a second checkout while the account holds an active licence, without asking Polar", async () => {
@@ -243,7 +276,7 @@ describe("checkout", () => {
 
     actAs(buyer)
     await expect(
-      executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY, withdrawalConsent: true }),
+      executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier: LICENSE_TIER.AGENCY }),
     ).resolves.toStrictEqual({
       alreadyActive: true,
     })
@@ -261,25 +294,24 @@ describe("checkout", () => {
   })
 
   it("refuses a tier this app does not sell and a language it does not speak", () => {
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise", withdrawalConsent: true }).success).toBe(false)
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "xx-XX", tier: LICENSE_TIER.CORE, withdrawalConsent: true }).success).toBe(
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", returnPath: RETURN_PATH, tier: "enterprise" }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "xx-XX", returnPath: RETURN_PATH, tier: LICENSE_TIER.CORE }).success).toBe(
       false,
     )
   })
 
-  it.each([
-    ["without the consent", {}],
-    ["with the box left empty", { withdrawalConsent: false }],
-    ["with consent given as text", { withdrawalConsent: "true" }],
-  ])("refuses a checkout %s to immediate supply", (_case, consent) => {
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: LICENSE_TIER.CORE, ...consent }).success).toBe(false)
-  })
+  it.each(["https://evil.example/app", "//evil.example/app", String.raw`/\evil.example`, "app/license"])(
+    "refuses a back button that leaves the site, %s",
+    (returnPath) => {
+      expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", returnPath, tier: LICENSE_TIER.CORE }).success).toBe(false)
+    },
+  )
 
   it("refuses a visitor who is not signed in", async () => {
     vi.mocked(getRequest).mockReturnValue(new Request(`${TEST_APP_URL}/_serverFn/license`, { headers: browserHeaders(), method: "POST" }))
 
     await expect(
-      executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.CORE, withdrawalConsent: true }),
+      executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier: LICENSE_TIER.CORE }),
     ).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
     expect(polarCheckouts()).toStrictEqual([])
   })
@@ -312,7 +344,7 @@ describe("Polar webhooks", () => {
   it("confirms the purchase by email in the checkout's language, with the consent the buyer gave before paying", async () => {
     const buyer = await signUpAndVerify()
     const checkout = await startCheckout(buyer, { locale: "pl-PL", tier: LICENSE_TIER.COMPLETE })
-    const order = payPolarCheckout(checkout.id)
+    const order = payPolarCheckout(checkout.id, CONSENT)
 
     expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
 
@@ -322,6 +354,8 @@ describe("Polar webhooks", () => {
     expect(confirmations).toStrictEqual([expect.objectContaining({ subject: "Twoja licencja SaaSy Land na pakiet Komplet" })])
     expect(confirmations[0]?.html).toContain('lang="pl-PL"')
     expect(confirmations[0]?.html).toContain("prawo odstąpienia od umowy nie dotyczy tego zamówienia")
+    expect(confirmations[0]?.html).toContain(CLI_INIT_COMMAND)
+    expect(confirmations[0]?.html).toContain(`${TEST_APP_URL}/pl-PL${ROUTES.COURSES}`)
     expect(await currentLicense(buyer)).toMatchObject({ withdrawalConsentAt: new Date(order.created_at) })
   })
 

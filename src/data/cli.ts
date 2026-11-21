@@ -36,13 +36,24 @@ type CliCommand = (typeof CLI_COMMAND)[keyof typeof CLI_COMMAND]
 
 export const cliCommand = (command: CliCommand): string => `${CLI_EXEC} ${command}`
 
-export const CLI_LICENSE_COMMANDS = [CLI_COMMAND.ACTIVATE, CLI_COMMAND.WHOAMI, CLI_COMMAND.DEACTIVATE] as const
-
 export const SCAFFOLD_DIR = "my-app"
 
 export const SCAFFOLD_TARGET = `${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFOLD_DIR}`
 
 export const CLI_INIT_COMMAND = `${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`
+
+const ACTIVATE_LINE = { command: cliCommand(CLI_COMMAND.ACTIVATE), id: CLI_COMMAND.ACTIVATE } as const
+
+const INIT_LINE = { command: CLI_INIT_COMMAND, id: CLI_COMMAND.INIT } as const
+
+export const CLI_SETUP_LINES = [ACTIVATE_LINE, INIT_LINE] as const
+
+export const CLI_KEY_LINES = [
+  ACTIVATE_LINE,
+  INIT_LINE,
+  { command: cliCommand(CLI_COMMAND.WHOAMI), id: CLI_COMMAND.WHOAMI },
+  { command: cliCommand(CLI_COMMAND.DEACTIVATE), id: CLI_COMMAND.DEACTIVATE },
+] as const
 
 export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.AVAILABLE
 

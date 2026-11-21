@@ -123,7 +123,7 @@ describe("license webhooks on paid orders", () => {
     })
     expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith({
       order: paid.data,
-      recipient: BUYER_EMAIL,
+      recipient: { email: BUYER_EMAIL, id: USER_ID },
       tier: LICENSE_TIER.COMPLETE,
       withdrawalConsent: false,
     })
@@ -225,7 +225,7 @@ describe("license webhooks on paid orders that match no account", () => {
       expect.objectContaining({ polarOrderId: paid.id, tier: LICENSE_TIER.AGENCY, userId: USER_ID }),
     )
     expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ order: paid, recipient: BUYER_EMAIL, tier: LICENSE_TIER.AGENCY }),
+      expect.objectContaining({ order: paid, recipient: { email: BUYER_EMAIL, id: USER_ID }, tier: LICENSE_TIER.AGENCY }),
     )
     expect(useCaseMocks.sendUnmatchedOrderAlert).not.toHaveBeenCalled()
   })

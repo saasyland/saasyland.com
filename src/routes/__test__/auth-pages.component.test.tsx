@@ -247,7 +247,7 @@ describe("sessions that ended", () => {
     vi.mocked(getRequest).mockReturnValue(
       new Request("http://127.0.0.1:3000/", { headers: { cookie: `${APP_SLUG}.session_token=expired` } }),
     )
-    await renderAuth(`${ROUTES.AUTH_CALLBACK}?redirect=%2Fcourses`)
+    await renderAuth(`${ROUTES.AUTH_CALLBACK}?redirect=${encodeURIComponent(ROUTES.BLOG)}`)
 
     expect(await screen.findByRole("status")).toHaveTextContent(pagesAuthSignInMessages.sessionEnded)
   })

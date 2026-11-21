@@ -33,6 +33,7 @@ Najpierw w usłudze sandbox, potem w produkcyjnej:
 | `discounts:read`          | Wyszukiwanie rabatu regionalnego przy płatności (`pppDiscountId`) i `polar:verify`                                                                   |
 | `license_keys:write`      | Odczyt klucza i jego aktywacji, aktywacja maszyny oraz usuwanie aktywacji (`deactivateLicense` i [API licencji CLI](/docs/features/cli-licence-api)) |
 | `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją oraz bieżącego klienta zamówienia, którego zdarzenie nie pasuje do żadnego konta |
+| `organizations:read`      | `polar:verify`, który odczytuje, czy lokalizacja płatności jest włączona                                                                             |
 | `products:read`           | `polar:verify`                                                                                                                                       |
 | `webhooks:read`           | `polar:verify`                                                                                                                                       |
 
@@ -63,7 +64,7 @@ Każdy produkt potrzebuje dokładnie jednego benefitu kluczy licencyjnych; inne 
 
 ## Pole wyboru zgody [#consent-checkbox]
 
-Okno dialogowe płatności w serwisie prosi kupującego o zgodę na natychmiastowe dostarczenie (zobacz [Licencje](/docs/features/licences#consent-to-immediate-supply)), a formularz płatności Polar zapisuje ją w zamówieniu. Utwórz w organizacji jedno pole niestandardowe i dołącz je do trzech produktów:
+Kupujący wyraża zgodę na natychmiastowe dostarczenie w płatności Polar, a to pole jest jedynym miejscem, w którym jest o nią proszony (zobacz [Licencje](/docs/features/licences#consent-to-immediate-supply)); Polar zapisuje ją w zamówieniu. Utwórz w organizacji jedno pole niestandardowe i dołącz je do trzech produktów:
 
 - **Typ**: pole wyboru (Checkbox).
 - **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, czyli `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` w `src/modules/license/license.constants.ts`. Zamówienie zapisuje zaznaczone pole pod tym kluczem w `custom_field_data`.
@@ -71,9 +72,13 @@ Okno dialogowe płatności w serwisie prosi kupującego o zgodę na natychmiasto
 - **Nazwa**: dowolna; `WITHDRAWAL_CONSENT_FIELD.name` to nazwa, którą proponuje kod, a `polar:verify` jej nie sprawdza.
 - **Wymagane** w każdym z trzech produktów. Inne pola, o które proszą produkty, mogą pozostać.
 
-`startCheckout` wysyła jako wartość pola zgodę, której kupujący właśnie udzielił, więc Polar pokazuje pole jako zaznaczone. Polar zachowuje tylko wartości pól, o które prosi produkt: zanim pole zostanie dołączone, płatność nadal działa, ale zamówienie nie zapisuje zgody, a [potwierdzenie zakupu](/docs/features/licences#purchase-confirmation) informuje zamiast tego o ustawowym prawie odstąpienia od umowy.
+`startCheckout` nie wysyła żadnej wartości tego pola, więc jest ono na początku puste i zaznacza je kupujący; Polar nie przyjmie płatności, dopóki obowiązkowe pole jest puste. Polar zachowuje tylko wartości pól, o które prosi produkt: zanim pole zostanie dołączone, płatność nadal działa, ale zamówienie nie zapisuje zgody, a [potwierdzenie zakupu](/docs/features/licences#purchase-confirmation) informuje zamiast tego o ustawowym prawie odstąpienia od umowy.
 
 Utworzenie pola i dołączenie go do produktu wymagają zakresów `custom_fields:write` i `products:write`, których nie ma opisany powyżej token. Utwórz i dołącz pole w panelu Polar albo przez API, używając osobnego tokenu z tymi zakresami. `polar:verify` odczytuje dołączone pola z listy produktów, więc nie potrzebuje żadnego innego zakresu.
+
+## Język płatności [#checkout-language]
+
+Polar pokazuje swoją płatność w języku, o który prosi `startCheckout`, tylko wtedy, gdy lokalizacja płatności jest włączona dla organizacji; w przeciwnym razie każda płatność otwiera się po angielsku. Włącz ją w ustawieniach organizacji. [Przewodnik po lokalizacji płatności](https://polar.sh/docs/features/checkout/localization) Polar nazywa ją flagą funkcji, a API zwraca ją jako `feature_settings.checkout_localization_enabled` w organizacji. `POLAR_CHECKOUT_LANGUAGES` w `src/data/polar.ts` wymienia języki, o które prosi kod, a `polar:verify` kończy się błędem, dopóki lokalizacja jest wyłączona.
 
 ## Rabaty regionalne
 
@@ -125,6 +130,7 @@ bun run polar:verify:production
 Każdy skrypt odczytuje klucze Polar z `.env.<environment>` i wysyła wyłącznie żądania GET do API wskazanego przez `POLAR_SERVER`: pobiera listę produktów, rabatów i endpointów webhooków organizacji i niczego nie zmienia. Sprawdza, czy:
 
 - plik środowiskowy ustawia każdy klucz Polar, z `POLAR_SERVER=sandbox` dla trybu deweloperskiego i preview oraz `POLAR_SERVER=production` dla produkcji;
+- lokalizacja płatności jest włączona dla organizacji;
 - każdy `POLAR_PRODUCT_ID_*` wskazuje produkt organizacji, który nie jest zarchiwizowany ani nie jest subskrypcją, a jego ceny są stałe, w `DEFAULT_CURRENCY_CODE` i równe `TIER_PRICES`;
 - każdy produkt ma dokładnie jeden benefit kluczy licencyjnych z limitem planu z `LICENSE_ACTIVATION_LIMITS`, bez wygaśnięcia i bez limitu użycia;
 - każdy produkt wymaga pola wyboru <RepositoryFact name="licenseWithdrawalConsentField" /> z etykietą z `WITHDRAWAL_CONSENT_FIELD`;
@@ -152,6 +158,7 @@ Błąd zatrzymuje wdrożenie, zanim cokolwiek zostanie zbudowane, zmigrowane lub
 - **`names no product of the organisation`**: ID produktu lub `POLAR_ORGANIZATION_ID` jest błędne albo należy do drugiej usługi.
 - **Cena, klucz licencyjny lub rabat**: zmień ustawienie w Polar tak, aby zgadzało się z kodem. Gdy wartość biznesowa zmienia się celowo, najpierw zmień `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` lub `PPP_TIERS`, a dopiero potem Polar.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` lub `label differs`**: utwórz, dołącz lub popraw [pole wyboru zgody](#consent-checkbox). Gdy brzmienie etykiety zmienia się celowo, najpierw zmień `WITHDRAWAL_CONSENT_FIELD.label`, a dopiero potem etykietę w Polar.
+- **`Checkout localization is off`**: włącz [lokalizację płatności](#checkout-language) dla organizacji.
 - **Endpoint webhooka**: popraw endpoint wskazany w komunikacie albo usuń endpoint, który wysyła zdarzenia do hosta innego środowiska.
 
 ## Powiązane strony

@@ -1,0 +1,654 @@
+---
+title: "Vercel vs Cloudflare per app full-stack nel 2026: prezzi, limiti e scalabilità"
+description: "Vercel vs Cloudflare Workers per un’app full-stack: prezzi con fatture calcolate a 100k, 1M e 10M richieste, fatturazione di CPU e memoria, autoscaling, limiti di spesa, dati, preview, limiti del runtime e migrazione, da un SaaS che è passato dall’uno all’altro."
+excerpt: "Entrambe le piattaforme ora fatturano la CPU che il tuo codice usa anziché il tempo che passa ad aspettare, entrambe possono fermare la tua spesa a un limite ed entrambe fanno girare bene un’app full-stack. Ciò che ancora le separa è cosa misurano attorno alla CPU, dove vivono i tuoi dati e cosa lascia fuori il runtime. Ecco ogni differenza con i calcoli, verificata sulle pagine stesse dei fornitori, da un sito passato da Vercel a Cloudflare a settembre 2026."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-21
+updated: 2026-11-21
+image: /images/blog/vercel-vs-cloudflare.webp
+tags:
+  - comparison
+  - stack
+  - architecture
+  - nextjs
+faq:
+  - question: Cloudflare costa meno di Vercel?
+    answer: >-
+      Per la maggior parte delle app full-stack sì, e il divario cresce con il traffico. Workers Paid
+      costa $5 al mese per account con 10 milioni di richieste e 30 milioni di millisecondi di CPU
+      inclusi, i file statici sono gratuiti e non ci sono costi per il traffico in uscita. Vercel Pro
+      costa un canone di piattaforma di $20 al mese con una postazione abilitata al deploy e $20 di
+      credito di utilizzo, più $20 per ogni ulteriore postazione, e conteggia a consumo invocazioni,
+      Active CPU, memoria allocata e traffico CDN. Nel nostro esempio calcolato di un SaaS con 10
+      milioni di richieste al server al mese, Cloudflare arrivava a $6,40 e Vercel a circa $136,
+      prima di qualsiasi costo del database.
+  - question: Quale piano gratuito è migliore, Vercel Hobby o Cloudflare Workers Free?
+    answer: >-
+      Servono a cose diverse. Le condizioni di Vercel limitano Hobby all’uso personale o non
+      commerciale, quindi un prodotto che vendi va su Pro. Workers Free consente 100.000 richieste
+      al giorno e 10 millisecondi di CPU per richiesta, che sono troppo pochi per pagine renderizzate
+      sul server sotto carico. Per un prodotto a pagamento, confronta Vercel Pro a $20 al mese con
+      Workers Paid a $5.
+  - question: Come fattura Vercel le funzioni con Fluid compute?
+    answer: >-
+      Con tre voci di consumo. Active CPU viene fatturata solo mentre il tuo codice è in esecuzione,
+      a $0,128 per ora di CPU a Washington, D.C. La memoria allocata viene fatturata per GB-ora per
+      tutto il tempo in cui una richiesta è in corso, compreso il tempo passato ad aspettare un
+      database o un’API. Le invocazioni costano $0,60 per milione. Pro non ha una quota inclusa per
+      queste voci; il suo credito mensile di $20 paga l’utilizzo finché non si esaurisce.
+  - question: Come funzionano i prezzi di Cloudflare Workers?
+    answer: >-
+      Workers Paid ha un minimo di $5 al mese per account che include 10 milioni di richieste e 30
+      milioni di millisecondi di CPU; oltre questa quota paghi $0,30 per milione di richieste e $0,02
+      per milione di millisecondi di CPU. Tempo trascorso, memoria e banda non vengono fatturati, e
+      le richieste di file statici sono gratuite e illimitate. D1, KV, R2 e Queues hanno le proprie
+      quote incluse e i propri prezzi.
+  - question: Posso impostare un limite di spesa rigido su Vercel o su Cloudflare?
+    answer: >-
+      Sì, su entrambi, con un ritardo. Su Vercel Pro, un budget di team o di progetto in Spend
+      Management può mettere in pausa i deploy di produzione quando la spesa lo raggiunge, con un
+      controllo ogni pochi minuti. Cloudflare ha aggiunto i limiti di spesa per Workers e Durable
+      Objects il 13 novembre 2026, in beta: al raggiungimento del limite, le nuove invocazioni
+      vengono rifiutate fino al periodo di fatturazione successivo. Nessuno dei due ferma la fattura
+      all’istante, e Cloudflare dice che un limite non garantisce un importo massimo in fattura.
+  - question: Cloudflare Workers è più veloce di Vercel?
+    answer: >-
+      Dipende da cosa misuri. Un Worker parte in un isolate nella località che riceve la richiesta,
+      il che aiuta latenza e avvii a freddo, ma un Worker che fa diversi round trip verso un database
+      in una sola regione può essere più lento di una Vercel Function collocata accanto a esso, ed è
+      ciò che risolve Smart Placement. Nei benchmark della CPU di ottobre 2025, Cloudflare ha
+      riportato la parità con Vercel dopo le correzioni in ogni caso tranne Next.js. Misura la tua
+      app.
+  - question: Posso far girare Next.js su Cloudflare Workers?
+    answer: >-
+      Sì. Cloudflare consiglia vinext, una reimplementazione dell’API di Next.js su Vite, che la sua
+      documentazione definisce in beta; l’adapter OpenNext supporta ogni release di Next.js 16 e
+      l’ultima minor di Next.js 15 ed è il più maturo dei due. Entrambi eseguono Next.js su Workers
+      con la compatibilità Node.js, e l’ottimizzazione delle immagini passa a Cloudflare Images.
+  - question: Cloudflare Workers supporta Node.js?
+    answer: >-
+      In parte. Con il flag nodejs_compat, o per impostazione predefinita dalla data di
+      compatibilità del 4 agosto 2026, Workers fornisce moduli come buffer, crypto, stream, http e
+      fs, mentre child_process è uno stub che non funziona. Le librerie che avviano processi,
+      richiedono addon nativi o si aspettano un server di lunga durata non girano, quindi controlla
+      le tue dipendenze prima di migrare.
+  - question: Cloudflare fa pagare la banda o il traffico in uscita?
+    answer: >-
+      Non per Workers, file statici, D1 o R2: le pagine dei prezzi dicono che non ci sono costi per
+      il trasferimento dati o il traffico in uscita. Vercel conteggia a consumo Fast Data Transfer,
+      Fast Origin Transfer e le richieste CDN; i nuovi team Pro hanno Flat Rate CDN, che include 1
+      milione di richieste CDN e 1 TB di trasferimento al mese e vende fasce più grandi a partire da
+      $20, ma esclude i siti in cui la distribuzione di media costituisce la maggior parte della
+      banda.
+  - question: Per una nuova app full-stack dovrei usare Cloudflare Pages o Workers?
+    answer: >-
+      Workers, nella maggior parte dei casi. La guida alla migrazione di Cloudflare dice che ciò che
+      funziona in Pages funziona in Workers, e la sua matrice di compatibilità elenca funzionalità,
+      come Cron Triggers, Workers Logs e i deploy graduali, che Workers supporta e Pages no.
+      L’eccezione che elenca è un dominio personalizzato fuori da una zona Cloudflare, che Pages
+      supporta e Workers no. Le richieste di file statici su Workers sono gratuite e illimitate.
+  - question: SaaSy Land genera progetti per Vercel?
+    answer: >-
+      {generation, select, available {Non ancora. {initCommand} genera oggi progetti TanStack Start
+      per Cloudflare Workers, e il configuratore indica Vercel e il self-hosting come in arrivo.}
+      other {Non ancora. La generazione dei progetti arriva in una versione successiva e parte da
+      TanStack Start su Cloudflare Workers, e il configuratore indica Vercel e il self-hosting come
+      in arrivo. Oggi la CLI attiva la tua licenza, e il Worker stesso di saasyland.com è pubblico
+      con licenza MIT.}}
+---
+
+<Callout title="Che cos’è questo articolo">
+
+Un confronto tra Vercel e Cloudflare per un’applicazione full-stack con un database, scritto da un team che ha fatto girare il proprio sito su entrambe. Tratta:
+
+1. Come ciascuna piattaforma esegue il tuo codice, e cosa significa per latenza, avvii a freddo e runtime.
+2. Come fattura ciascuna, voce per voce, e fatture calcolate a 100.000, 1 milione e 10 milioni di richieste al mese, con i calcoli per poterle rifare.
+3. Autoscaling, fatture a sorpresa e i limiti di spesa che ciascuna piattaforma offre oggi, con i passaggi per impostarli.
+4. Database, storage, deploy di preview, sviluppo locale, log e Next.js su ciascuna.
+5. Gli svantaggi reali di entrambe, quando ciascuna è la scelta migliore, perché saasyland.com gira su Cloudflare e come migrare in entrambe le direzioni.
+
+</Callout>
+
+_Ultima verifica: 21 novembre 2026. Ogni prezzo, limite e funzionalità di Vercel e Cloudflare riportati qui sotto sono stati letti quel giorno sulla pagina dei prezzi, nella documentazione, nel changelog o nel blog del fornitore stesso, linkati nel testo ed elencati in fondo. Entrambe le aziende hanno cambiato i prezzi nel 2026, quindi controlla i link prima di decidere. Tutto ciò che riguarda saasyland.com proviene dal suo repository pubblico, e i valori definiti dal codice vengono stampati dal codice. Costruiamo su Cloudflare e vendiamo un prodotto che genera progetti per Cloudflare, quindi leggi le sezioni sugli svantaggi di Cloudflare e su quando scegliere Vercel con la stessa attenzione del resto._
+
+## La risposta breve
+
+**Scegli Vercel** se costruisci con Next.js e vuoi le sue funzionalità senza configurare nulla, se i deploy di preview per ogni commit e i relativi strumenti di revisione contano per il tuo team, se il tuo codice ha bisogno del runtime Node.js completo, o se la tua app è fatta per lo più di pagine leggere sulla CPU con un traffico modesto, dove i $20 della postazione ti comprano tempo che altrimenti dedicheresti all’infrastruttura.
+
+**Scegli Cloudflare** se conta il costo man mano che cresci, se servi file grandi come video o download, se le tue richieste passano la maggior parte del tempo ad aspettare database o modelli di AI, o se vuoi calcolo, un database SQL, una cache e uno storage di oggetti in un solo account con una sola fattura. Il prezzo da pagare è un runtime che non è Node.js, un database SQLite con limiti attorno a cui devi progettare e API che esistono solo su Cloudflare.
+
+Cinque fatti spiegano gran parte di tutto questo:
+
+- **Entrambe fatturano la CPU, non l’attesa.** L’Active CPU di Vercel e il tempo di CPU di Cloudflare smettono entrambi di contare mentre il tuo codice aspetta l’I/O. La differenza è tutto ciò che c’è attorno: Vercel fattura anche la memoria allocata per tutto il tempo in cui una richiesta è in corso, le invocazioni e il traffico CDN; Cloudflare fattura richieste e CPU, e nulla per il tempo trascorso (wall time), la memoria o la banda.
+- **I file statici sono gratuiti su Cloudflare e a consumo su Vercel.** Ogni file servito dalla CDN di Vercel è una richiesta CDN, e i byte contano per il trasferimento dati; su Workers, «le richieste di file statici sono gratuite e illimitate».
+- **Vercel esegue le tue funzioni in una sola regione per impostazione predefinita; Cloudflare esegue un Worker dove arriva la richiesta.** Nessuna delle due è automaticamente più veloce: conta quanto è lontano il tuo codice dai tuoi dati.
+- **Entrambe ora hanno limiti di spesa rigidi, con dei ritardi.** La pausa di Vercel viene verificata ogni pochi minuti; i limiti di Cloudflare sono stati lanciati in beta il 13 novembre 2026 e coprono solo Workers e Durable Objects.
+- **Il database di Vercel è di qualcun altro.** Postgres e Redis arrivano da provider del Marketplace come Neon, Upstash e Supabase. D1, KV, R2, Queues e Durable Objects di Cloudflare sono prodotti suoi, raggiunti tramite binding anziché tramite stringhe di connessione.
+
+## Vercel e Cloudflare a colpo d’occhio
+
+| Domanda                     | Vercel                                                                                                                                  | Cloudflare                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Dove gira il codice         | Vercel Functions su Fluid compute, in `iad1` per impostazione predefinita; Pro può scegliere fino a 3 regioni                           | Isolate di Workers nel data center che riceve la richiesta, o vicino al tuo backend con Smart Placement         |
+| Runtime                     | Node.js, Python, Bun (beta) e altri; API Node.js completa                                                                               | Isolate V8 con un sottoinsieme delle API di Node.js                                                             |
+| Piano a pagamento           | Pro: canone di piattaforma di $20 al mese, 1 postazione abilitata al deploy, $20 di credito di utilizzo; $20 per ogni postazione in più | Workers Paid: minimo di $5 al mese per account                                                                  |
+| Voci di consumo del calcolo | Active CPU, memoria allocata (GB-ora), invocazioni                                                                                      | Richieste e millisecondi di CPU                                                                                 |
+| File statici                | Richieste CDN e trasferimento dati, coperti da una fascia di Flat Rate CDN o fatturati per unità                                        | Gratuiti e illimitati                                                                                           |
+| Traffico in uscita          | Fast Data Transfer, Fast Origin Transfer, Blob Data Transfer                                                                            | Nessun costo per Workers, file statici, D1 o R2                                                                 |
+| Memoria per richiesta       | 2 GB per impostazione predefinita, al massimo 4 GB su Pro, condivisi dalle richieste di una stessa istanza                              | 128 MB per isolate                                                                                              |
+| Richiesta più lunga         | 300 s per impostazione predefinita, 800 s su Pro, 1.800 s in beta                                                                       | Nessun limite di tempo trascorso per le richieste HTTP; CPU 30 s per impostazione predefinita, 5 min al massimo |
+| Dimensione del codice       | 250 MB non compressi, 5 GB in beta                                                                                                      | 64 MiB non compressi                                                                                            |
+| Database SQL                | Marketplace: Neon, Supabase e altri                                                                                                     | D1 (SQLite), oppure il tuo Postgres o MySQL tramite Hyperdrive                                                  |
+| Storage di oggetti          | Vercel Blob                                                                                                                             | R2, senza costi per il traffico in uscita                                                                       |
+| Deploy di preview           | Automatici a ogni push, con URL per branch e per commit e protezione attiva per impostazione predefinita                                | Version URLs a ogni upload; Worker Previews per branch da settembre 2026                                        |
+| Limite di spesa rigido      | Spend Management può mettere in pausa i deploy di produzione (Pro)                                                                      | Limiti di spesa per Workers e Durable Objects (in beta dal 13 novembre 2026)                                    |
+| Next.js                     | Mantenuto da Vercel; nessun adapter necessario                                                                                          | vinext (beta) o l’adapter OpenNext                                                                              |
+
+## Due macchine: come ciascuna piattaforma esegue il tuo codice
+
+I prezzi, i limiti e la maggior parte delle sorprese derivano da un’unica differenza architetturale, quindi vale la pena capirla prima di guardare qualsiasi numero.
+
+### Vercel: funzioni su Fluid compute
+
+Una Vercel Function gira in una regione che scegli tu, `iad1` a Washington, D.C., a meno che tu non la cambi. Davanti c’è la CDN di Vercel, che la [pagina delle regioni](https://vercel.com/docs/regions) descrive come più di 126 punti di presenza che instradano il traffico verso 19 regioni con capacità di calcolo attraverso una rete privata. Hobby esegue le funzioni in una sola regione e Pro in un massimo di tre, quindi un visitatore a Sydney raggiunge una funzione in Virginia a meno che tu non aggiunga una regione più vicina a lui, e il consiglio di Vercel stessa è che «le funzioni dovrebbero essere eseguite nella stessa regione del tuo database».
+
+Dal 23 aprile 2025 i nuovi progetti usano [Fluid compute](https://vercel.com/docs/fluid-compute), che ha cambiato il modello in tre modi che contano:
+
+- **Un’istanza serve più richieste contemporaneamente** sui runtime Node.js e Python. Vercel la chiama concorrenza ottimizzata: un’istanza che per una richiesta sta aspettando un database può lavorare su un’altra.
+- **Gli avvii a freddo sono ridotti, non eliminati.** Vercel mette in cache il bytecode compilato e preriscalda le funzioni, in entrambi i casi solo sui deploy di produzione; i deploy di preview non hanno né l’uno né l’altro.
+- **Ogni istanza è un vero processo Node.js.** La pagina dei limiti di Vercel indica una «copertura completa di Node.js», 2 GB di memoria con una vCPU per impostazione predefinita e fino a 4 GB con due vCPU su Pro, e bundle fino a 250 MB non compressi.
+
+### Cloudflare: isolate in ogni località
+
+Un Worker gira in un isolate V8 che, secondo la documentazione di Cloudflare, «può avviarsi circa cento volte più velocemente di un processo Node in un container o in una macchina virtuale» e all’avvio usa «un ordine di grandezza di memoria in meno». Non c’è una regione da scegliere: «per impostazione predefinita, Workers e Pages Functions girano in un data center il più vicino possibile al punto in cui è stata ricevuta la richiesta», su una rete che Cloudflare descrive come composta da centinaia di località.
+
+Il compromesso sta nel runtime. Un isolate ha 128 MB di memoria, lo scope globale del tuo Worker deve finire di avviarsi entro un secondo, e l’API di Node.js è un sottoinsieme che Cloudflare fornisce tramite i flag di compatibilità. Non hai nemmeno voce in capitolo su quanto vive un isolate: gli isolate «non hanno necessariamente una lunga durata», quindi lo stato a livello di modulo è una cache che a volte funziona.
+
+### Cosa significa «edge» nel 2026
+
+Vercel ha un proprio runtime basato su isolate, l’Edge runtime, e la sua documentazione ora si apre con «Consigliamo di migrare da edge a Node.js per migliorare prestazioni e affidabilità»; inoltre, da Next.js 16.3, «impostare `runtime = 'edge'` non è più supportato». Oggi su Vercel «edge» descrive la CDN davanti alle funzioni regionali, non il luogo in cui gira il tuo codice.
+
+Su Cloudflare il tuo codice gira all’edge, e da qui derivano sia i suoi punti di forza sia le sue regole. Quando qualcuno confronta «Vercel Edge Functions con Cloudflare Workers», il confronto è superato; il confronto corretto nel 2026 è Fluid compute su Node.js contro Workers.
+
+## Prezzi Vercel vs Cloudflare: come fattura ciascuna piattaforma
+
+### Vercel: un canone di piattaforma, postazioni e voci di consumo
+
+Vercel ha tre piani. **Hobby** è gratuito, include ogni mese 1 milione di invocazioni di funzioni, 4 ore di Active CPU, 360 GB-ora di memoria allocata, 1 milione di richieste CDN e 100 GB di Fast Data Transfer, e le condizioni di Vercel dicono che «i Servizi con un piano Hobby vanno usati solo per uso personale o non commerciale». Se superi un limite di Hobby, Vercel mette in pausa il team: i visitatori vedono `503 DEPLOYMENT_PAUSED` e, «nella maggior parte dei casi», aspetti 30 giorni. **Enterprise** ha un prezzo definito per contratto.
+
+**Pro** è il piano che usa un’azienda. La sua [pagina del piano](https://vercel.com/docs/plans/pro-plan) indica un «canone di piattaforma Pro di $20 al mese» che include una postazione abilitata al deploy e «$20 al mese di credito di utilizzo»; ogni ulteriore postazione abilitata al deploy costa $20 al mese, le postazioni di sola visualizzazione sono gratuite e il credito «scade alla fine del mese se non lo usi». Pro non include alcuna quota per il calcolo: il credito lo paga finché non si esaurisce, poi paghi a consumo.
+
+Le [voci di consumo del calcolo](https://vercel.com/docs/functions/usage-and-pricing), ai prezzi di Washington, D.C.:
+
+- **Active CPU**, $0,128 per ora di CPU, fatturata «solo durante l’effettiva esecuzione del codice e non durante le operazioni di I/O». Una richiesta che calcola per 100 ms e aspetta il database per 400 ms viene fatturata per 100 ms.
+- **Memoria allocata**, $0,0106 per GB-ora, «fatturata per l’intera durata dell’istanza» finché una qualsiasi richiesta è in corso, «anche durante le operazioni di I/O». La stessa richiesta viene fatturata per la sua memoria per tutti i 500 ms.
+- **Invocazioni**, $0,60 per milione, conteggiate «indipendentemente dal successo o dal fallimento della richiesta».
+
+I prezzi variano per regione: Francoforte fa pagare $0,184 per ora di CPU e $0,0152 per GB-ora, San Paolo $0,221 e $0,0183.
+
+### Flat Rate CDN: la risposta di Vercel alle fatture per la banda
+
+La distribuzione è l’altra metà di una fattura Vercel. La compongono tre risorse: le **richieste CDN**, cioè ogni richiesta gestita dalla CDN, file statici compresi («I file statici e le funzioni generano tutti richieste CDN»); il **Fast Data Transfer**, i byte tra la CDN e il visitatore; e il **Fast Origin Transfer**, i byte tra la CDN e le tue funzioni. A consumo, a Washington, D.C., costano $2,00 per milione di richieste, $0,15 per GB e $0,06 per GB.
+
+L’8 settembre 2026 Vercel ha reso [Flat Rate CDN](https://vercel.com/docs/pricing/flat-rate-cdn) disponibile per tutti, e i nuovi team Pro lo hanno attivo per impostazione predefinita. Invece di costi per unità su richieste e trasferimento, paghi una fascia di capacità:
+
+| Fascia         | Richieste CDN al mese | Trasferimento dati al mese |
+| -------------- | --------------------- | -------------------------- |
+| Inclusa in Pro | 1 milione             | 1 TB                       |
+| $20 al mese    | 10 milioni            | 50 TB                      |
+| $100 al mese   | 50 milioni            | 50 TB                      |
+| $300 al mese   | 150 milioni           | 50 TB                      |
+
+Il traffico che supera la fascia durante un picco viene, nelle parole dell’[annuncio](https://vercel.com/changelog/flat-rate-cdn-is-now-ga-for-pro-teams), «servito normalmente, senza prestazioni ridotte, e non viene fatturato»; un utilizzo costante oltre la fascia ti sposta alla fascia successiva all’inizio del ciclo di fatturazione seguente. Accanto a questo vanno due avvertenze. Il Fast Origin Transfer non è coperto, quindi i byte restituiti dalle tue funzioni vengono comunque fatturati a GB. E le fasce non sono pensate per la «distribuzione su larga scala di media o file quando tale distribuzione costituisce la maggior parte dell’utilizzo di banda», il che esclude dalla tariffa fissa un corso video.
+
+Un’incongruenza da conoscere: il 21 novembre 2026 la pagina dei prezzi di Vercel indicava 10 milioni di richieste CDN incluse con Pro, mentre la sua documentazione e il changelog di settembre ne indicano 1 milione. Qui sotto usiamo il dato della documentazione; l’ultima parola spetta alla pagina di fatturazione del tuo team.
+
+### Cloudflare: cinque dollari e due voci di consumo
+
+[Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) ha un «addebito minimo di $5 USD al mese per account», non per postazione. Include 10 milioni di richieste e 30 milioni di millisecondi di CPU al mese, poi fa pagare $0,30 per milione di richieste e $0,02 per milione di millisecondi di CPU. Per la durata, la pagina indica «Nessun costo né limite», e dice che «non ci sono costi aggiuntivi per il trasferimento dati (traffico in uscita) o il throughput (banda)». Le richieste di file statici sono «gratuite e illimitate», e «solo le richieste che arrivano a un Worker contano per i tuoi limiti e per la tua fattura».
+
+Gli altri prodotti hanno le proprie quote incluse negli stessi $5:
+
+| Prodotto        | Incluso in Workers Paid                                                  | Oltre la quota inclusa                                                                   |
+| --------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| D1              | 25 miliardi di righe lette, 50 milioni di righe scritte, 5 GB di storage | $0,001 per milione di righe lette, $1,00 per milione di righe scritte, $0,75 per GB-mese |
+| KV              | 10 milioni di letture, 1 milione di scritture, 1 GB                      | $0,50 per milione di letture, $5,00 per milione di scritture                             |
+| R2              | 10 GB-mese, 1 milione di operazioni di Classe A e 10 milioni di Classe B | $0,015 per GB-mese, $4,50 e $0,36 per milione di operazioni; traffico in uscita gratuito |
+| Queues          | 1 milione di operazioni                                                  | $0,40 per milione di operazioni                                                          |
+| Durable Objects | 1 milione di richieste, 400.000 GB-secondi                               | $0,15 per milione di richieste, $12,50 per milione di GB-secondi                         |
+| Hyperdrive      | Query illimitate                                                         | Incluso                                                                                  |
+| Workers Builds  | 6.000 minuti di build                                                    | $0,005 al minuto                                                                         |
+
+Una sottigliezza sorprende chi aggiunge una cache: «dato che Cloudflare Workers viene eseguito prima della cache di Cloudflare, la messa in cache di una richiesta comporta comunque dei costi». Un cache hit dentro il tuo Worker è comunque una richiesta fatturata; fa risparmiare solo CPU.
+
+### I piani gratuiti, per un progetto personale
+
+Entrambi i piani gratuiti sono generosi per qualcosa che non vendi, e si comportano in modo diverso quando diventano troppo stretti.
+
+- **Vercel Hobby** include le quote indicate sopra, ed è pensato per «uso personale o non commerciale». Quando un team supera un limite, i suoi deploy vanno in pausa, e «un team Hobby in pausa non riprende da solo».
+- **Workers Free** consente 100.000 richieste al giorno, azzerate a mezzanotte UTC, e 10 ms di CPU per richiesta, con D1 a 5 milioni di righe lette e 100.000 scritte al giorno e 5 GB in totale, e KV a 100.000 letture e 1.000 scritture al giorno. Oltre il limite di richieste, «Cloudflare restituisce l’errore 1027», oppure, se la route è configurata in fail open, le richieste passano come se non ci fosse alcun Worker.
+
+Il limite di 10 ms di CPU è quello da tenere d’occhio: basta per un’API che legge una riga, ed è stretto per il rendering lato server di una pagina React a ogni richiesta.
+
+### Tempo di CPU contro tempo trascorso: la differenza che conta di più
+
+Entrambe le piattaforme fatturano la CPU anziché il tempo trascorso, e per millisecondo di CPU restano entro un fattore tre l’una dall’altra: $0,128 per ora di CPU corrispondono a $0,0356 per milione di millisecondi di CPU a Washington, D.C. e a $0,0511 a Francoforte, contro i $0,02 di Cloudflare.
+
+La vera differenza è cosa fattura ciascuna mentre il tuo codice aspetta. Su Vercel, la memoria allocata continua a correre: con i 2 GB predefiniti, ogni secondo in cui una richiesta è in corso costa circa $0,0000059, ovvero $5,89 per milione di secondi-richiesta, a meno che altre richieste non condividano l’istanza in quel periodo. Su Cloudflare, un Worker che aspetta un database, un’API di pagamento o un modello linguistico non costa nulla per l’attesa.
+
+Ecco perché la forma delle tue richieste conta più dei prezzi di listino:
+
+- **Richieste brevi e leggere sulla CPU** (il rendering di una pagina, un’API JSON su una query indicizzata) costano poco su entrambe, e il costo aggiuntivo per richiesta di Vercel è dato per lo più da invocazioni e distribuzione.
+- **Attese lunghe** (risposte AI in streaming, API di terze parti lente, webhook che chiamano altri servizi) costano tempo di memoria su Vercel e nulla in più su Cloudflare. Fluid compute attenua l’effetto, perché le richieste concorrenti su un’istanza ne condividono la memoria, ma il contatore continua a correre.
+- **CPU pesante** (elaborazione di immagini, generazione di PDF, grandi trasformazioni JSON) costa CPU su entrambe, e solo Vercel ti dà 2 o 4 GB di memoria e un Node.js completo per farlo.
+
+### Come stimare i tuoi millisecondi di CPU
+
+Ti serve un numero per ogni tipo di richiesta, e puoi ottenerlo prima di migrare qualsiasi cosa:
+
+1. **Su Cloudflare, leggilo.** Le metriche del Worker mostrano nella dashboard il tempo di CPU e il tempo trascorso per esecuzione sotto forma di quantili; la mediana è il tuo numero di riferimento per la pianificazione e i quantili alti sono il tuo rischio.
+2. **Su Vercel, leggi l’Active CPU per route** in Observability, poi dividila per le invocazioni della stessa route.
+3. **Sul tuo portatile, approssimalo.** Chiama `process.cpuUsage()` prima e dopo un handler, eseguilo qualche centinaio di volte su un database locale e prendi la mediana del tempo utente più quello di sistema. Node.js su un portatile non è un isolate all’edge, quindi tratta il risultato come una stima e sostituiscilo con il dato della piattaforma appena ne hai uno.
+4. **Separa l’attesa dal lavoro.** Il tempo trascorso meno il tempo di CPU è la tua attesa di I/O; è gratuita su Cloudflare ed è tempo di memoria su Vercel.
+
+Gli esempi di prezzo di Cloudflare stessa presuppongono 7 ms di CPU per richiesta, una prima stima ragionevole per una breve chiamata API. Il rendering lato server di solito costa di più, e un grande albero di componenti o una libreria pesante possono moltiplicarlo, quindi misura il tuo prima di fidarti di qualsiasi media.
+
+## Esempi calcolati: 100k, 1M e 10M richieste al mese
+
+Ecco un mese dello stesso SaaS a tre dimensioni diverse, con il prezzo di ciascuna piattaforma calcolato alle tariffe indicate sopra. Il modello è volutamente semplice, così puoi cambiare qualsiasi riga.
+
+### Le ipotesi
+
+- **Richieste al server:** 100.000, 1 milione o 10 milioni al mese che eseguono il tuo codice (rendering di pagine e chiamate API).
+- **CPU:** 10 ms per richiesta al server. **Tempo trascorso:** 150 ms, in gran parte di attesa del database.
+- **File statici:** quattro per ogni richiesta al server, in media 50 KB ciascuno, al netto della cache del browser. Su Cloudflare saltano il Worker; su Vercel sono richieste CDN.
+- **Risposte:** 30 KB per richiesta al server.
+- **Database:** 20 righe lette e 0,2 righe scritte per richiesta al server (una scrittura ogni cinque richieste).
+- **Vercel:** Pro con una postazione, prezzi di Washington, D.C., Flat Rate CDN attivo, funzioni con i 2 GB predefiniti e nessuna coppia di richieste che condivida un’istanza, che è il limite superiore per la memoria. Assumiamo che il credito di $20 paghi l’utilizzo a consumo e che la fascia CDN venga fatturata in aggiunta.
+- **Cloudflare:** Workers Paid, con D1 come database.
+
+### Cloudflare, riga per riga
+
+- **100.000 richieste al server:** 100.000 richieste e 1 milione di ms di CPU rientrano nei 10 milioni e nei 30 milioni inclusi. D1 legge 2 milioni di righe e ne scrive 20.000. **Totale: $5,00.**
+- **1 milione:** 1 milione di richieste e 10 milioni di ms di CPU, entrambi dentro la quota inclusa; D1 legge 20 milioni di righe e ne scrive 200.000. **Totale: $5,00.**
+- **10 milioni:** 10 milioni di richieste, esattamente la quota inclusa. La CPU è di 100 milioni di ms, 70 milioni oltre la quota: 70 × $0,02 = $1,40. D1 legge 200 milioni di righe e ne scrive 2 milioni, entrambi dentro la quota. **Totale: $6,40.**
+
+### Vercel, riga per riga
+
+Per milione di richieste al server: invocazioni $0,60; Active CPU 10 milioni di ms = 2,78 ore × $0,128 = $0,36; memoria 2 GB × 0,15 s × 1 milione = 83,3 GB-ora × $0,0106 = $0,88; Fast Origin Transfer 30 GB × $0,06 = $1,80. Sono $3,64 di utilizzo a consumo per milione di richieste al server.
+
+- **100.000:** utilizzo a consumo $0,36, dentro il credito di $20. CDN: 500.000 richieste e 23 GB, dentro la fascia inclusa. **Totale: $20,00.**
+- **1 milione:** a consumo $3,64, dentro il credito. CDN: 5 milioni di richieste e 230 GB, oltre il milione di richieste incluso, quindi con un traffico costante il team passa alla fascia da $20. **Totale: $40,00.**
+- **10 milioni:** a consumo $36,39, di cui il credito paga $20. CDN: 50 milioni di richieste e 2,3 TB, che rientrano nella fascia da $100. **Totale: $20 + $100 + $16,39 = $136,39.**
+
+### Fianco a fianco
+
+| Richieste al server al mese | Cloudflare Workers Paid | Vercel Pro, una postazione |
+| --------------------------- | ----------------------- | -------------------------- |
+| 100.000                     | $5,00                   | $20,00                     |
+| 1 milione                   | $5,00                   | $40,00                     |
+| 10 milioni                  | $6,40                   | $136,39                    |
+
+Tre cose che la tabella non mostra:
+
+- **Il database.** La colonna di Cloudflare include D1. Quella di Vercel non contiene alcun database: Postgres da un provider del Marketplace viene fatturato da quel provider ai suoi prezzi.
+- **Le postazioni.** Ogni ulteriore sviluppatore che fa deploy su Vercel aggiunge $20 al mese. Workers Paid ha un prezzo per account.
+- **Dove porta la crescita.** A 100 milioni di richieste al server lo stesso modello costa $51,40 su Cloudflare; su Vercel, 500 milioni di richieste CDN superano la fascia fissa più grande, quindi la distribuzione passa ai prezzi a consumo e la fattura è dominata da richieste CDN e trasferimento anziché dal calcolo.
+
+Se la tua app è un sito Next.js leggero sulla CPU con 100.000 richieste al mese e un solo sviluppatore, i $15 di differenza ti comprano l’integrazione con Next.js, i deploy di preview per ogni commit e un runtime Node.js completo, e può essere un buon affare. La differenza diventa un motivo per cambiare piattaforma quando crescono il traffico, le postazioni o i file grandi.
+
+### Rifai i conti con i tuoi numeri
+
+```text
+cloudflare = 5
+  + max(0, requests - 10000000) * 0.30 / 1000000
+  + max(0, requests * cpu_ms - 30000000) * 0.02 / 1000000
+  + max(0, rows_written - 50000000) * 1.00 / 1000000
+
+vercel_metered = requests * 0.60 / 1000000
+  + requests * cpu_ms / 3600000 * cpu_hour_price
+  + requests * memory_gb * wall_seconds / 3600 * gb_hour_price
+  + response_gb * 0.06
+
+vercel = 20 * seats + cdn_tier + max(0, vercel_metered - 20)
+```
+
+Prendi `cpu_hour_price` e `gb_hour_price` dalla riga della tua regione nella tabella di Vercel, e imposta `cdn_tier` in base al totale delle tue richieste CDN, quelle al server e quelle statiche insieme. La riga della memoria è un limite superiore: le richieste che si sovrappongono su un’istanza ne condividono la memoria, quindi il tuo dato reale è più basso.
+
+### Il caso che le medie nascondono: video e file grandi
+
+Prendi un sito di corsi con 100 GB di video che i suoi studenti guardano per 2 TB al mese.
+
+- **Su Cloudflare R2**, lo storage supera di 90 GB i 10 GB gratuiti, a $0,015, quindi $1,35 al mese, più le letture di Classe B a $0,36 per milione oltre i primi 10 milioni. Il traffico in uscita è gratuito, quindi 2 TB o 20 TB di visualizzazioni costano lo stesso.
+- **Su Vercel Blob**, lo storage costa $0,023 per GB, $2,30 per 100 GB, e il Blob Data Transfer costa $0,05 per GB a Washington, D.C., quindi 2 TB di visualizzazioni costano circa $100 al mese, prima delle richieste CDN e del Fast Origin Transfer sui cache miss. Flat Rate CDN copre il Blob Data Transfer per il traffico applicativo, ma le sue regole di idoneità escludono i siti in cui i media costituiscono la maggior parte della banda.
+
+saasyland.com è esattamente questo caso. I video dei suoi corsi sono stream HLS divisi in segmenti da <RepositoryFact name="videoSegmentSeconds" unit="second" />, salvati in un bucket R2 privato e serviti tramite il Worker dietro URL firmati, quindi le visualizzazioni aggiungono alla fattura richieste al Worker e letture da R2, mai banda.
+
+## Autoscaling: cosa significano «scalare a zero» e «scalare verso l’alto» su ciascuna
+
+Entrambe le piattaforme scalano a zero dal punto di vista della fatturazione: senza traffico non paghi alcun calcolo. Scalano verso l’alto in modo diverso, e il limite che incontri per primo raramente è il calcolo.
+
+**Vercel** scala per istanze. Fluid compute «ottimizza automaticamente le risorse esistenti prima di scalare verso l’alto», il che significa che una nuova richiesta va a un’istanza già in esecuzione quando questa ha spazio, e che una nuova istanza parte quando non ne ha. La concorrenza «scala automaticamente in base alla domanda». Insieme a essa scala il numero di connessioni del tuo database: ogni nuova istanza è un altro processo Node.js che apre connessioni a Postgres, ed è per questo che la pagina dei limiti di Vercel consiglia il connection pooling e la sua pagina delle regioni consiglia di collocare le funzioni nella stessa regione del database.
+
+**Cloudflare** scala per isolate in ogni località. Non ci sono istanze da dimensionare né regioni da aggiungere; un picco di traffico a Tokyo avvia isolate a Tokyo. Sui Worker molto trafficati gli avvii a freddo sono rari: a settembre 2025 Cloudflare ha riferito che, dopo aver cambiato il modo in cui le richieste vengono instradate verso isolate già caldi, «per il traffico enterprise, il nostro tasso di richieste a caldo è salito dal 99,9% al 99,99%». Su un sito con un traffico modesto, però, molte richieste incontrano ancora un nuovo isolate, e saasyland.com ha misurato quanto costa, come mostra la sezione successiva.
+
+**Il tetto sono i dati.** Su Cloudflare il calcolo scala orizzontalmente senza alcuna configurazione, D1 invece no: «ogni singolo database D1 è intrinsecamente single-threaded, ed elabora le query una alla volta». Una query che dura 1 ms lascia spazio a circa mille query al secondo; una che scansiona una tabella per 200 ms blocca ogni altra richiesta per 200 ms. Su Vercel lo stesso ruolo lo hanno la CPU e il limite di connessioni del tuo server Postgres. Su entrambe le piattaforme progetta tenendo conto del limite del livello dati, e testalo sotto carico prima del lancio.
+
+**La distanza è l’altro tetto.** Un Worker a Sydney che fa cinque query sequenziali a un database primario D1 in Europa paga cinque round trip intercontinentali. D1 crea il primario «in una località vicina al punto da cui hai inviato la richiesta» di crearlo, e le sue repliche in lettura servono solo le query che passano dalla Sessions API. [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/) si occupa del resto: misura il traffico del tuo Worker e, quando conviene in velocità, esegue il Worker vicino al suo backend anziché vicino all’utente, cosa che Cloudflare illustra proprio con questo caso, un utente a Sydney e un database a Francoforte. Per decidere ha bisogno di traffico costante da più località, e la sua analisi può richiedere fino a 15 minuti.
+
+### Avvii a freddo, misurati
+
+Su Vercel, un avvio a freddo è un nuovo processo Node.js che carica il tuo bundle; il caching del bytecode e il preriscaldamento lo riducono sui deploy di produzione. Su Cloudflare un nuovo isolate costa poco, ma deve comunque caricare l’intero Worker prima di poter rispondere. saasyland.com ha imparato due volte quanto conti:
+
+- **Un solo import statico** del nome di un header da un modulo che importava anche il client di Polar ha trascinato circa 1,4 MB di SDK in ogni avvio a freddo, e il primo byte della landing page arrivava fino a 1,4 secondi dopo. Ora la build segue gli import statici dell’entry point del Worker e fallisce quando raggiungono l’SDK di Polar, Drizzle o Resend, come riporta la [convenzione sulle prestazioni](/docs/conventions/performance).
+- **I contenuti nel Worker.** Prima della [#239](https://github.com/saasyland/saasyland.com/pull/239), il Worker includeva nel bundle la documentazione e il blog compilati. Spostarli in file statici ha portato l’upload da 30.115 KiB a 13.465 KiB, e l’attesa mediana prima che l’handler partisse su un nuovo isolate da 934 ms a 561 ms sul deploy di preview.
+
+La lezione vale per entrambe le piattaforme: la dimensione di ciò che viene caricato in un avvio a freddo è latenza, e merita un controllo nella CI. La nostra [guida a un SaaS su Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) spiega il metodo.
+
+## Fatture a sorpresa e denial of wallet
+
+Un attacco denial-of-wallet non mette offline il tuo sito; lo rende costoso. Ogni piattaforma a consumo è esposta, e l’esposizione segue le voci di consumo.
+
+### Cosa può far salire una fattura Vercel
+
+- **Traffico verso le funzioni che non viene riconosciuto come attacco.** La [pagina sugli attacchi DDoS](https://vercel.com/docs/vercel-firewall/ddos-mitigation) di Vercel dice che «non addebita ai clienti il traffico che viene bloccato», e anche che l’utilizzo viene conteggiato «per le richieste servite con successo prima che mitighiamo automaticamente l’evento» e «per le richieste che non vengono riconosciute come evento DDoS, il che può includere il traffico di bot e crawler».
+- **Upstream lenti.** La memoria viene fatturata mentre le richieste aspettano, quindi un’API che rallenta da 100 ms a 5 secondi moltiplica il costo di memoria di ogni richiesta che la chiama, a meno che le istanze non ne servano molte in parallelo.
+- **Media e download.** Il trasferimento dati fuori dalla tariffa fissa, il trasferimento da Blob e il Fast Origin Transfer crescono con ogni byte.
+- **Image Optimization.** Le trasformazioni costano $0,05 ogni mille su Pro a Washington, D.C., più letture e scritture della cache, quindi una pagina che richiede molte dimensioni di molte immagini le moltiplica.
+
+Flat Rate CDN risolve la classica fattura a sorpresa di Vercel, un lancio virale fatturato a gigabyte, per i team che lo usano: l’esempio di Vercel stessa è un team la cui fattura «avrebbe raggiunto decine di migliaia di dollari» con i prezzi a consumo ed è rimasta a $20. Le funzioni restano a consumo.
+
+### Cosa può far salire una fattura Cloudflare
+
+- **Le richieste che arrivano al Worker.** Un’ondata di 100 milioni di richieste con 1 ms di CPU ciascuna costa circa $30 in richieste e $2 in CPU oltre la quota inclusa. Le richieste costano poco; l’esposizione sta in ciò che il Worker fa con ciascuna.
+- **Le scritture.** D1 fa pagare $1,00 per milione di righe scritte e KV $5,00 per milione di scritture, quindi un ciclo o un attaccante che provoca scritture è la strada più rapida verso una fattura salata. Un rate limiter che scrive una riga per richiesta merita la stessa attenzione.
+- **Endpoint pesanti per la CPU.** Un endpoint che consuma 500 ms di CPU per chiamata costa 50 volte uno da 10 ms, e il limite di CPU predefinito su Workers Paid è di 30 secondi per richiesta.
+- **Log.** Dal 1° dicembre 2026, log e trace passano ai [prezzi di Cloudflare Observability](https://developers.cloudflare.com/observability/pricing/): 50 GB di ingestione e 10 GB-mese di storage per ciclo di fatturazione su un piano a pagamento, poi $0,25 per GB ingerito e $0,10 per GB-mese conservato.
+
+La protezione DDoS di Cloudflare è «non a consumo» su ogni piano, e il suo WAF può fermare il traffico abusivo prima del tuo codice: anche il piano Free include una regola di rate limiting, che conta per IP su 10 secondi. Una regola che blocca una richiesta la termina, e «la richiesta si ferma e non raggiunge le fasi successive». Durante un incidente controlla le metriche delle richieste del tuo Worker per confermare cosa lo ha raggiunto.
+
+### Controlli di spesa a confronto
+
+| Controllo                      | Vercel Pro                                                                                 | Cloudflare                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Avviso predefinito             | Notifiche a $200 di spesa a consumo per ciclo di fatturazione                              | Un avviso di budget da $10 sull’intero account per gli account con pagamento a consumo che non ne hanno uno          |
+| Avvisi che imposti tu          | Budget per team, progetto o prodotto; email e web al 50%, 75% e 100%, SMS al 100%; webhook | Avvisi di budget sulla spesa dell’intero account; email all’80% e al 100% di un limite di spesa                      |
+| Stop rigido                    | Il budget di team o di progetto mette in pausa i deploy di produzione                      | Il limite di spesa per Workers o Durable Objects rifiuta le nuove invocazioni fino al periodo successivo (beta)      |
+| Ritardo                        | Verificato «ogni pochi minuti»                                                             | «Il blocco non è istantaneo»; i dati di spesa arrivano in meno di 10 minuti                                          |
+| Cosa resta attivo dopo lo stop | Costi di storage; utilizzo di AI Gateway e v0                                              | I file statici continuano a essere serviti; KV, R2, D1 e gli altri prodotti non sono coperti da un limite di Workers |
+| Protezione per richiesta       | `maxDuration` per funzione                                                                 | `limits.cpu_ms` per Worker                                                                                           |
+
+### Come limitare la spesa su Vercel
+
+1. **Crea un budget di team** in **Settings** > **Billing** > **Spend Management**, oppure dalla CLI, e attiva **Pause production deployments**. Impostalo sotto la cifra massima che sei disposto a pagare, perché «i progetti possono continuare a servire traffico e ad accumulare utilizzo per diversi minuti» dopo che la spesa lo ha raggiunto.
+2. **Aggiungi budget di progetto** per i progetti che preferiresti mettere in pausa per primi, come gli strumenti interni.
+3. **Aggiungi un webhook** che faccia qualcosa di meno drastico della pausa, come passare il tuo sito a una versione statica di riserva.
+4. **Imposta `maxDuration`** su ogni funzione alla durata massima di cui ha bisogno una richiesta legittima.
+5. **Attiva Attack Mode** quando sei sotto attacco; è gratuito su ogni piano e sottopone a una challenge tutto il traffico.
+
+```sh
+vercel billing budgets set --amount 200 --pause
+vercel billing budgets set --project my-app --amount 100
+```
+
+Un progetto in pausa resta in pausa: «i progetti non riprendono automaticamente se aumenti l’importo del budget», quindi qualcuno deve riattivarli uno per uno.
+
+### Come limitare la spesa su Cloudflare
+
+1. **Mantieni l’avviso di budget predefinito** o imposta il tuo in **Billable Usage**, e aggiungi un destinatario: i limiti di spesa creati dalla dashboard per impostazione predefinita non hanno alcun destinatario email.
+2. **Imposta un limite di spesa per Workers** se restare offline finché non alzi il limite costa meno di una fattura senza tetto. È in beta, esclude l’abbonamento da $5 e gli altri prodotti, e Cloudflare dice esplicitamente che «un limite non garantisce un importo massimo in fattura».
+3. **Imposta un limite di CPU per invocazione**, così una singola richiesta patologica non può girare per 30 secondi:
+
+```jsonc
+{
+  "limits": {
+    "cpu_ms": 50,
+  },
+}
+```
+
+4. **Aggiungi una regola di rate limiting** per gli endpoint che scrivono in D1 o KV, inviano email o chiamano API a pagamento.
+5. **Metti le scritture dietro l’autenticazione** o un controllo economico, così il traffico anonimo può costarti solo letture.
+
+## Dati: cosa vive accanto al tuo codice
+
+È qui che le piattaforme differiscono di più, ed è qui che la tua scelta è più difficile da annullare.
+
+**Vercel conserva file e configurazione e lascia i database ai partner.** La sua [panoramica sullo storage](https://vercel.com/docs/storage) elenca Vercel Blob per i file, Global Config per la configurazione letta in meno di 10 ms, Runtime Cache per la cache regionale e lo «storage del Marketplace» per tutto ciò che è relazionale o chiave-valore, da «provider come Neon, Upstash e Supabase». `vercel install neon` crea un database e ne inserisce le credenziali come variabili d’ambiente. La tua app poi parla con Postgres attraverso la rete tramite un driver, e questo porta con sé tutto ciò che Postgres offre: transazioni, estensioni, un grande ecosistema e decenni di strumenti.
+
+**Cloudflare gestisce i propri prodotti per i dati e li consegna al tuo Worker come binding.** Un binding è un oggetto su `env`, come `env.DB` per D1 o `env.MEDIA` per un bucket R2, dichiarato nella configurazione di Wrangler. Non c’è una stringa di connessione che possa trapelare, nessun pool da dimensionare e nulla da predisporre per ogni istanza. I prodotti, in breve:
+
+- **D1**, SQLite con lo storage e la replica di Cloudflare: 10 GB per database, una query alla volta per database, istruzioni in modalità auto-commit e batch come transazioni.
+- **KV**, un archivio chiave-valore eventualmente consistente per dati che puoi permetterti di leggere con un minuto di ritardo.
+- **R2**, storage di oggetti compatibile con S3 senza costi per il traffico in uscita.
+- **Queues** e **Durable Objects**, per il lavoro in background e per il coordinamento che richiede un unico proprietario consistente.
+- **Hyperdrive**, connection pooling e caching delle query per un database Postgres o MySQL che gestisci già, incluso nei piani Workers.
+
+Quest’ultimo conta per chiunque stia valutando di cambiare piattaforma: non devi adottare D1 per girare su Workers. Un’app Next.js su Vercel con Neon può spostare il calcolo su Cloudflare e tenere il suo database, con Hyperdrive davanti.
+
+La [guida alla migrazione](https://vercel.com/kb/guide/migrate-to-vercel-from-cloudflare) di Vercel stessa mappa i prodotti nella direzione opposta, ed è una tabella utile per vedere cosa ciascuna piattaforma offre come prodotto proprio:
+
+| Cloudflare      | Vercel, secondo la guida di Vercel     |
+| --------------- | -------------------------------------- |
+| Workers KV      | Redis dal Marketplace, o Global Config |
+| R2              | Vercel Blob                            |
+| D1              | Postgres dal Marketplace               |
+| Durable Objects | Nessun equivalente diretto             |
+| Queues          | Vercel Queues, in beta                 |
+| Cron Triggers   | Cron Jobs                              |
+
+## Esperienza di sviluppo
+
+### Deploy di preview
+
+**I deploy di preview sono il punto di forza di Vercel.** Per impostazione predefinita, ogni push su un branch diverso da quello di produzione e ogni pull request ricevono un deploy di preview, con «un URL specifico del branch» che segue il branch e «un URL specifico del commit» per ogni commit. I nuovi progetti proteggono le preview con Vercel Authentication, le preview vengono servite con `noindex`, ogni ambiente ha le proprie variabili, e Pro può aggiungere ambienti personalizzati come lo staging. Funziona senza alcuna configurazione, ed è uno dei motivi migliori per scegliere Vercel.
+
+**Cloudflare ha recuperato terreno in due passi.** Ogni versione caricata di un Worker può avere un **Version URL**, prima chiamato preview URL, che però «esegue una versione caricata sulle tue risorse di produzione», quindi mette alla prova il codice e non i dati. Il 22 settembre 2026 Cloudflare ha aggiunto [Worker Previews](https://developers.cloudflare.com/workers/previews/): una Preview per branch, ciascuna con «le proprie variabili, secret, binding, URL e osservabilità», creata con `wrangler preview` o da Workers Builds sulle pull request. Due dettagli differiscono da Vercel: «gli URL delle Preview sono pubblici per impostazione predefinita» finché non metti Cloudflare Access davanti, e KV, D1 e R2 sono isolati solo quando colleghi ogni Preview a una risorsa separata, mentre i Durable Objects ricevono automaticamente i propri namespace.
+
+**Cosa fa saasyland.com.** È precedente a Worker Previews e usa un unico ambiente `preview` condiviso su `preview.saasyland.com`, con il proprio database D1, il proprio namespace KV e i propri bucket R2. GitHub Actions ne fa il deploy dopo che i controlli e la suite nel browser sono passati, le pull request dai fork vengono validate ma non distribuite, e ogni deploy di preview sostituisce il precedente. I deploy automatici di Workers Builds sono disattivati, così un push non può né fare il deploy due volte né saltare il controllo della CI; le pagine [CI/CD](/docs/tooling/ci-cd) e [Deploy di una preview](/docs/getting-started/deploy-preview) descrivono la configurazione.
+
+### Sviluppo locale
+
+Wrangler esegue il tuo Worker in locale in un processo `workerd`, e «tutte le risorse a cui il tuo Worker è collegato nella configurazione di Wrangler vengono simulate in locale»: D1, KV, R2, Queues e Durable Objects compresi. Puoi sviluppare ed eseguire una suite di test nel browser senza alcun account cloud, come fa saasyland.com.
+
+saasyland.com dipende da questo, e ha scoperto cosa succede senza. Fino alla [#258](https://github.com/saasyland/saasyland.com/pull/258), il suo ambiente `development` collegava in remoto il database D1 di preview, quindi lo sviluppo locale scriveva sui dati di preview e tutti i suoi script per il database di sviluppo arrivavano al database di preview. Ora `development` e `test` collegano D1, KV e R2 locali sotto `.wrangler/`, `bun run dev` non richiede alcun login a Cloudflare, e un test fallisce se un binding di sviluppo diventa remoto o condivide una risorsa con la preview o con la produzione. Produzione, preview, sviluppo e test hanno ciascuno il proprio database; la guida [Database](/docs/tooling/database) li elenca.
+
+Su Vercel, lo sviluppo locale esegue il server di sviluppo del tuo framework in Node.js, che corrisponde da vicino alla produzione, e `vercel env pull` recupera le variabili dell’ambiente. Il tuo database arriva dal tuo provider, quindi lo sviluppo locale richiede un proprio database di sviluppo o un Postgres locale.
+
+### Build, CI e rollback
+
+Vercel esegue le build sulle proprie macchine, fatturate a partire da $0,0035 per minuto di CPU sui piani a pagamento, con fino a 6.000 deploy al giorno su Pro. Workers Builds include 6.000 minuti di build al mese sui piani a pagamento, poi $0,005 al minuto, con un timeout di 20 minuti; in alternativa esegui la build nella tua CI e lanci `wrangler deploy`, come fa saasyland.com.
+
+Per il rollback, Instant Rollback di Vercel permette ai team Pro di tornare a qualsiasi deploy che abbia servito la produzione, senza ricompilare. Cloudflare conserva le 100 versioni più recenti per `wrangler rollback`, e dice che «le risorse collegate al tuo Worker non vengono modificate durante un rollback». Su entrambe torna indietro il codice e non i dati, ed è per questo che ogni modifica dello schema dovrebbe funzionare con la release precedente.
+
+### Log e debugging
+
+Vercel conserva i log di runtime per un’ora su Hobby e per un giorno su Pro, e ne vende di più con Observability Plus, a $1,20 per milione di eventi. Cloudflare conserva Workers Logs per 3 giorni su Free e 7 su Paid, con `wrangler tail` per i log in tempo reale, tempo di CPU e tempo trascorso per invocazione nella dashboard, e un nuovo modello di prezzo dal 1° dicembre 2026.
+
+### Next.js, v0 e l’ecosistema
+
+Vercel mantiene [Next.js](https://github.com/vercel/next.js), e su Vercel le sue funzionalità non hanno bisogno di alcun adapter: ISR, ottimizzazione delle immagini, Server Actions, Cache Components e `proxy.ts`, il successore del middleware. [v0](https://v0.app/docs/introduction), il generatore di app con AI di Vercel, fa il deploy su Vercel «con un clic». La galleria dei template, le integrazioni e il numero di guide scritte prima di tutto per Vercel sono vantaggi reali, soprattutto per un team piccolo.
+
+Su Cloudflare, Next.js gira tramite un adapter. Cloudflare «consiglia vinext come modo predefinito per eseguire applicazioni Next.js su Cloudflare Workers» e dice che «vinext è in beta»; il README di vinext stesso, alla domanda se usarlo in produzione, risponde «Puoi, con cautela». L’[adapter OpenNext](https://opennext.js.org/cloudflare) supporta «tutte le versioni minor e patch di Next.js 16 e l’ultima minor di Next.js 15», e il README di vinext lo definisce l’opzione più matura. I framework costruiti su Vite fanno il deploy su Workers tramite il plugin Vite di Cloudflare stessa: TanStack Start, che saasyland.com usa, indica Cloudflare come partner di hosting ufficiale, e l’abbiamo confrontato con Next.js in [TanStack Start vs Next.js per un SaaS](/blog/tanstack-start-vs-nextjs-for-saas).
+
+## Prestazioni: cosa dicono i benchmark
+
+A ottobre 2025 Theo Browne ha pubblicato dei benchmark del rendering lato server su entrambe le piattaforme. Il [resoconto](https://vercel.com/blog/fluid-compute-benchmark-results) di Vercel riportava che «Fluid compute ha avuto prestazioni da 1,2 a 5 volte più veloci di Cloudflare Workers» nei task legati al calcolo, e notava che le due piattaforme giravano con configurazioni diverse: Workers con «CPU condivisa, 128MB di RAM» contro Fluid compute con «2 vCPU, 4GB di RAM». Cloudflare ha [risposto](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks) che gran parte del divario derivava dal suo scheduler, che metteva in coda le raffiche di lavoro pesante per la CPU provenienti da un unico client, da un’impostazione del garbage collector risalente al 2017 e da inefficienze in OpenNext, ha rilasciato delle correzioni e ha riferito che «Cloudflare ora ha prestazioni alla pari con Vercel in ogni caso del benchmark tranne quello basato su Next.js». Ha aggiunto che il problema di scheduling «non avrebbe influito sulla tua fattura», perché l’attesa di un isolate non è tempo di CPU.
+
+Tre conclusioni sopravvivono a entrambi gli articoli. Per il lavoro legato alla CPU, Vercel ti permette di comprare una macchina più grande e Cloudflare no. Per Next.js in particolare, Vercel è la piattaforma di riferimento. E un benchmark del codice di qualcun altro ti dice poco sul tuo: fai il deploy di una route rappresentativa su entrambe e misura il time to first byte dai luoghi in cui si trovano i tuoi utenti.
+
+## Gli svantaggi reali di Cloudflare
+
+### Workers non è Node.js
+
+Workers implementa «un sottoinsieme delle API di Node.js». Con `nodejs_compat`, che la data di compatibilità del 4 agosto 2026 attiva per impostazione predefinita, sono disponibili moduli come `buffer`, `crypto`, `stream`, `http` e `fs`, ma `child_process` è uno stub che non fa nulla, gli addon nativi di Node.js non si caricano, e il codice che si aspetta un processo di lunga durata o un disco persistente deve trovare un’altra casa. La maggior parte dei pacchetti npm usati da un SaaS funziona; quelli che non funzionano, come i browser headless, le librerie di immagini con binding nativi e i driver che richiedono codice nativo, tendono a essere proprio quelli che non puoi sostituire facilmente. Controlla ogni dipendenza lato server prima di impegnarti.
+
+### D1 è SQLite, con un thread per database
+
+D1 limita un database a 10 GB su Workers Paid, una query a 30 secondi e 100 parametri associati, e un’invocazione a 1.000 query. Non esiste una transazione che puoi aprire, da cui leggere, su cui decidere in JavaScript e da confermare più tardi; le modifiche atomiche sono una sola istruzione o un solo `batch()`. Per i dati divisi per tenant scala bene, perché ogni tenant può avere il proprio database. Per un unico grande dataset condiviso con molte scritture, Postgres tramite Hyperdrive è la scelta migliore, e quel database lo gestisci tu o paghi un provider perché lo faccia.
+
+### 128 MB, e un bundle che si carica a ogni avvio a freddo
+
+Un isolate ha 128 MB di memoria, e il Worker deve avviarsi entro un secondo. Dal 4 settembre 2026 un Worker può arrivare a 64 MiB non compressi su ogni piano, contro i precedenti 3 MB compressi su Free e 10 MB su Paid, ma «bundle più grandi e codice di inizializzazione costoso nello scope globale aumentano il tempo di avvio», quindi il limite che incontri in pratica è la latenza, molto prima del limite di dimensione.
+
+### Il debugging in produzione
+
+Gli stack trace del codice in bundle sono difficili da leggere senza source map, e le source map rendono l’upload più grande. saasyland.com le ha disattivate dopo che il plugin Vite di Cloudflare ha iniziato a caricarle per impostazione predefinita: con circa 3.300 moduli, le map raddoppiavano l’upload e l’API di Cloudflare lo rifiutava con «multipart: message too large», come registra il [commit 704bbef](https://github.com/saasyland/saasyland.com/commit/704bbef94). L’impostazione è ancora disattivata:
+
+```jsonc title="wrangler.jsonc"
+  "compatibility_flags": ["nodejs_compat"],
+  "keep_vars": true,
+  "upload_source_maps": false,
+  "observability": {
+    "enabled": true,
+  },
+```
+
+I log restano per 7 giorni su Paid, non si può fare il tail dei Version URLs, e un’esecuzione locale in `workerd` non riproduce il modo in cui gli isolate vengono creati, condivisi ed eliminati all’edge.
+
+### Lock-in
+
+I binding sono la comodità e il lock-in insieme. Il codice che chiama `env.DB.batch()`, legge `env.CACHE`, firma URL di R2 o tiene lo stato in un Durable Object gira su Cloudflare e da nessun’altra parte. Puoi contenerlo: metti ogni binding dietro un tuo modulo, usa Drizzle o un altro query builder sopra D1 così l’SQL resta portabile, e usa R2 tramite la sua API compatibile con S3 dove puoi. Ma i Durable Objects non hanno un equivalente altrove, come dice la guida di Vercel stessa, e spostare un database D1 significa passare da SQLite a ciò che offre la nuova piattaforma.
+
+### Insidie che abbiamo incontrato in produzione
+
+Ognuna di queste è costata tempo a saasyland.com, e nessuna compare in una guida introduttiva:
+
+- **Lo stato a livello di modulo appartiene a una richiesta.** Una volta il sito metteva in cache gli sconti regionali di Polar come promise a livello di modulo. Su Workers quella promise appartiene alla richiesta che l’ha creata; quando quella richiesta è stata annullata, la promise non si è mai risolta, e ogni checkout successivo sull’isolate l’ha aspettata finché l’isolate non è stato riciclato. La correzione nella [#103](https://github.com/saasyland/saasyland.com/pull/103) ha spostato la cache in KV con l’orario del recupero, aggiornata dopo <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
+- **Gli Early Hints sopravvivono a un deploy.** Cloudflare riproduce l’ultimo header `Link` di una pagina come `103 Early Hints`, anche dopo un deploy, quindi un foglio di stile suggerito, con il nome derivato dal contenuto, puntava a un file eliminato. Ora il Worker suggerisce solo i font, i cui nomi non cambiano mai ([#214](https://github.com/saasyland/saasyland.com/pull/214)).
+- **Speed Brain rifiuta le pagine dei Worker.** L’impostazione della zona chiede a Chromium di precaricare i link, ma Cloudflare si rifiuta di precaricare gli URL che eseguono un Worker e risponde con `503`, quindi è disattivata; la pagina [Cloudflare Workers](/docs/integrations/cloudflare-workers) spiega perché questo non costa nulla.
+- **La tua protezione dai bot blocca la tua CI.** Cloudflare risponde con `403` alle richieste dei runner della CI, quindi il controllo sul sito online dopo un deploy viene eseguito solo dalla macchina di uno sviluppatore.
+
+## Gli svantaggi reali di Vercel
+
+- **Le postazioni.** $20 al mese per ogni sviluppatore che fa deploy si sommano per un team, ed è un costo che Cloudflare non ha.
+- **La memoria viene fatturata mentre aspetti.** Su Vercel le richieste lunghe costano più di quanto suggerisca la loro CPU; streaming, AI e API lente sono i carichi di lavoro in cui la differenza è maggiore.
+- **Una sola regione per impostazione predefinita.** I visitatori lontani da `iad1` aspettano il round trip a meno che tu non aggiunga regioni, e Pro ne consente fino a tre. Va bene quando il tuo database vive comunque in una sola regione.
+- **File statici e byte sono a consumo.** Flat Rate CDN rende la spesa prevedibile per il traffico applicativo, ma i siti ricchi di media ne restano fuori, e il Fast Origin Transfer viene fatturato in ogni caso.
+- **Più fornitori.** Un database, una cache e spesso una coda arrivano da aziende diverse, con account, credenziali, fatture e pagine di stato separati.
+- **Corpo delle richieste.** Le funzioni accettano 4,5 MB per impostazione predefinita e 20 MiB in beta, quindi i caricamenti vanno direttamente su Blob o su un altro archivio.
+- **Hobby non è per le aziende.** Il piano gratuito non può ospitare un prodotto che vendi, e quando supera un limite va in pausa, nella maggior parte dei casi per 30 giorni.
+
+## Quando Vercel è la scelta migliore
+
+- **Costruisci su Next.js** e vuoi ogni funzionalità senza un adapter.
+- **Il tuo codice ha bisogno di Node.js:** moduli nativi, browser headless, processi figli, molta memoria o lunghi lavori legati alla CPU.
+- **Il tuo team revisiona il lavoro nelle preview** e dà più valore agli URL di preview protetti e per commit, ai commenti e alla promozione che al prezzo della postazione.
+- **Il tuo traffico è modesto e leggero sulla CPU,** quindi la fattura resta vicina al canone di piattaforma e la comodità costa poco.
+- **Ti serve comunque Postgres** e ti va bene che lo gestiscano Neon o Supabase.
+
+## Quando Cloudflare è la scelta migliore
+
+- **Il costo conta man mano che cresci,** in richieste, in postazioni e in banda.
+- **Servi file grandi,** come video, download, backup o artefatti di build, dove il traffico in uscita gratuito di R2 cambia i conti.
+- **Le tue richieste passano la maggior parte del tempo ad aspettare** database, API di terze parti o modelli linguistici, perché il tempo trascorso è gratuito.
+- **I tuoi utenti sono ovunque,** e i tuoi dati sono per utente, per tenant o memorizzabili in cache, quindi il codice vicino all’utente è anche vicino ai suoi dati.
+- **Vuoi una sola piattaforma:** calcolo, SQL, cache, storage, code e file statici in un solo account, un solo file di configurazione e una sola fattura.
+- **Il tuo framework è costruito su Vite** o punta direttamente a Workers, come TanStack Start, Astro, React Router o Hono.
+
+## Perché saasyland.com gira su Cloudflare
+
+Fino a settembre 2026 saasyland.com era un’app Next.js 16 su Vercel, con Postgres su Neon e Redis su Upstash, distribuita con `vercel deploy`. Il 6 settembre 2026 è [passato](https://github.com/saasyland/saasyland.com/commit/0b9a1b986) a TanStack Start su Cloudflare Workers con D1, KV e R2. Abbiamo scelto Cloudflare per cinque motivi, ciascuno dei quali oggi è visibile nel repository:
+
+1. **Una piattaforma invece di tre.** Il codice server del sito, il database, la cache, lo storage dei file privati e i file statici sono binding in un unico `wrangler.jsonc`, con un solo account, una sola fattura e un solo insieme di credenziali per il deploy. Prima del passaggio, lo stesso sito aveva bisogno di account su Vercel, Neon e Upstash, ciascuno con le proprie credenziali in ogni ambiente.
+2. **Il modello di costo si adatta a un prodotto che vende a un pubblico piccolo in tutto il mondo.** Il sito serve pagine di marketing, documentazione e un blog in <RepositoryFact name="languages" /> lingue, un’area clienti, una console di amministrazione, un’API delle licenze e i webhook di pagamento. I suoi file statici non costano nulla da servire, le sue richieste sono brevi, e nessuno di quelli che ne fanno il deploy costa una postazione.
+3. **I binding.** Utenti, sessioni, licenze e corsi sono righe in D1, due risposte in cache vivono in KV, e i video dei corsi e i bundle della CLI sono oggetti in R2, tutti raggiunti tramite `env` senza stringhe di connessione, pool o driver, e tutti simulati in locale per lo sviluppo e i test.
+4. **Nessun costo per il traffico in uscita.** I video dei corsi e i bundle di template della CLI vengono serviti da R2 tramite il Worker, quindi la fattura non cresce con ciò che i clienti guardano o scaricano.
+5. **Globale per impostazione predefinita.** Le pagine prerenderizzate arrivano dai file statici vicino a ogni visitatore, e il Worker che aggiunge a ogni pagina gli header di sicurezza e i prezzi regionali gira dove arriva la richiesta, senza una regione da scegliere.
+
+Il passaggio ha avuto dei costi, e il repository registra anche quelli: un percorso a freddo che abbiamo dovuto misurare e alleggerire, un database SQLite attorno a cui progettiamo, le source map a cui abbiamo rinunciato e le insidie di produzione descritte sopra. Per un prodotto come questo il compromesso vale la pena; per un team che costruisce un sito Next.js ricco di contenuti e ha bisogno di ogni funzionalità dal primo giorno, Vercel è la scelta più adatta.
+
+## Migrare dall’una all’altra
+
+### Da Vercel a Cloudflare
+
+1. **Fai l’inventario delle tue dipendenze lato server** confrontandole con l’elenco di compatibilità Node.js. Tutto ciò che avvia processi o richiede codice nativo è il primo problema da risolvere.
+2. **Scegli come girerà Next.js,** se lo usi: OpenNext per la copertura di funzionalità più ampia oggi, vinext se accetti una beta in cambio di build più veloci. Se il tuo framework è costruito su Vite, usa il plugin Vite di Cloudflare.
+3. **Tieni prima il tuo database.** Metti Hyperdrive davanti al tuo Postgres esistente, sposta il calcolo, e decidi su D1 più avanti, quando l’app gira.
+4. **Mappa le funzionalità della piattaforma** che usi: `next/image` su Cloudflare Images, Blob su R2, i Cron Jobs di Vercel sui Cron Triggers, Global Config su KV, `waitUntil` di `@vercel/functions` sul `waitUntil` del Worker stesso, e gli header di IP e geolocalizzazione di Vercel su `cf-connecting-ip` e `cf-ipcountry` di Cloudflare.
+5. **Crea risorse separate per ogni ambiente** fin dal primo giorno, e dai ai test e allo sviluppo locale i propri binding locali.
+6. **Misura gli avvii a freddo su un deploy reale,** non in locale, e aggiungi alla CI un controllo sulle dimensioni dell’entry point del Worker.
+7. **Sposta il DNS per ultimo.** Se il tuo dominio è già su Cloudflare, il passaggio è una route nella configurazione del Worker.
+
+### Distribuire un’app full-stack su Cloudflare Workers
+
+Che tu stia migrando o partendo da zero, un’app full-stack su Workers richiede gli stessi pochi passaggi, e la guida [Deploy di una preview](/docs/getting-started/deploy-preview) di saasyland.com li esegue con nomi reali:
+
+1. **Crea le risorse** per ogni ambiente: un database D1, un namespace KV e i bucket R2 che ti servono.
+2. **Dichiarale come binding** in `wrangler.jsonc`, per ogni ambiente, con la directory delle migrazioni del database.
+3. **Applica le migrazioni** al database di destinazione con `wrangler d1 migrations apply`, prima che vada online il codice che ne ha bisogno.
+4. **Fai il deploy** con `wrangler deploy`, dalla tua CI o con Workers Builds.
+
+```sh
+bunx wrangler login
+bunx wrangler d1 create saasyland_com_preview
+bunx wrangler kv namespace create CACHE --env preview
+bunx wrangler r2 bucket create saasyland-preview
+```
+
+La nostra [guida a un SaaS su Workers](/blog/saas-on-cloudflare-workers-d1-kv-r2) spiega cosa viene dopo: quali dati vanno dove, migrazioni senza downtime e i controlli da eseguire prima e dopo ogni deploy.
+
+### Da Cloudflare a Vercel
+
+1. **Sostituisci i binding con dei client.** `env.DB` diventa un client Postgres, `env.CACHE` un client Redis, `env.MEDIA` l’SDK di Blob, e i secret passano da `env.SECRET` a `process.env.SECRET`, come nota la guida di Vercel.
+2. **Migra i dati.** D1 è SQLite e i database di Vercel sono per lo più Postgres, quindi pianifica una traduzione dello schema e un’esportazione; la guida di Vercel nota che Cloudflare KV «non ha uno strumento di esportazione diretto».
+3. **Riprogetta ciò che usava i Durable Objects** attorno a Redis o a una coda, dato che non esiste un equivalente diretto.
+4. **Scegli una regione** vicina al tuo nuovo database, e decidi se te ne serve più di una.
+5. **Imposta un budget di spesa con pausa** prima di ricevere traffico.
+6. **Ricrea header e redirect** da `_headers` e `_redirects` in `vercel.json` o nella configurazione del tuo framework. Un’app TanStack Start fa il deploy su Vercel tramite Nitro.
+
+## Una checklist prima di scegliere
+
+- Conosco la mediana dei millisecondi di CPU e del tempo trascorso per richiesta, per ogni tipo di richiesta.
+- Ho calcolato il costo del traffico previsto su entrambe le piattaforme, comprese richieste statiche, byte, postazioni e database.
+- Ho confrontato ogni dipendenza lato server con l’elenco di compatibilità Node.js di Workers, oppure ho deciso che mi serve Node.js completo.
+- So dove vivono i miei dati, e il mio codice gira accanto a essi o fa pochi round trip.
+- Ho un limite di spesa rigido o una pausa, e so quanto tempo impiega ciascuno ad agire.
+- Ogni ambiente ha il proprio database, la propria cache e il proprio storage.
+- Ho misurato gli avvii a freddo su un deploy reale.
+- So cosa dovrei riscrivere per andarmene, e l’ho tenuto dietro moduli miei.
+
+## Letture correlate
+
+<Cards>
+
+<Card title="Un SaaS su Cloudflare Workers: D1, KV e R2 in produzione" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Quali dati vanno dove, scritture atomiche senza transazioni, migrazioni, avvii a freddo e costi, con il codice di questo sito.
+</Card>
+
+<Card title="TanStack Start vs Next.js per un SaaS" href="/blog/tanstack-start-vs-nextjs-for-saas">
+  I due framework come sono a novembre 2026, compreso l’hosting su Vercel, Node e Workers.
+</Card>
+
+<Card title="Content Security Policy con nonce su Cloudflare Workers" href="/blog/content-security-policy-nonces-cloudflare-workers">
+  Un nonce nuovo su ogni pagina, prerenderizzata o renderizzata, dal Worker che le precede.
+</Card>
+
+<Card title="Better Auth vs Clerk vs Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
+  Perché i nostri utenti, le sessioni e i limiti di richieste sono righe in D1 e non record nel servizio di qualcun altro.
+</Card>
+
+</Cards>
+
+<Callout title="Leggi il Worker prima di scegliere">
+
+Tutto ciò che saasyland.com esegue su Cloudflare è nel suo codice sorgente pubblico, e le pagine [Cloudflare Workers](/docs/integrations/cloudflare-workers), [D1](/docs/integrations/cloudflare-d1), [KV](/docs/integrations/cloudflare-kv) e [R2](/docs/integrations/cloudflare-r2) lo documentano. Scegli il tuo stack nel [configuratore](/#cli), poi [scopri quanto costa ogni piano](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, con ogni scheda che indica cosa è disponibile ora e cosa è in arrivo. Per sapere quando arriva il supporto per Vercel, iscriviti al diario di sviluppo in fondo a questa pagina.
+
+</Callout>
+
+## Domande frequenti
+
+<PostFaq entries={frontmatter.faq} />
+
+### Fonti
+
+- Prezzi e piani di Vercel: [prezzi](https://vercel.com/pricing), [panoramica dei prezzi](https://vercel.com/docs/pricing), [il piano Pro](https://vercel.com/docs/plans/pro-plan), [il piano Hobby](https://vercel.com/docs/plans/hobby), [prezzi di Fluid compute](https://vercel.com/docs/functions/usage-and-pricing), [prezzi di Washington, D.C.](https://vercel.com/docs/pricing/regional-pricing/iad1), [prezzi e utilizzo della CDN](https://vercel.com/docs/manage-cdn-usage), [Flat Rate CDN](https://vercel.com/docs/pricing/flat-rate-cdn), la relativa [voce del changelog](https://vercel.com/changelog/flat-rate-cdn-is-now-ga-for-pro-teams) e il relativo [annuncio](https://vercel.com/blog/introducing-flat-rate-cdn), [prezzi di Blob](https://vercel.com/docs/vercel-blob/usage-and-pricing), [Spend Management](https://vercel.com/docs/spend-management) e le [condizioni di servizio](https://vercel.com/legal/terms)
+- Piattaforma Vercel: [Fluid compute](https://vercel.com/docs/fluid-compute), [limiti delle funzioni](https://vercel.com/docs/functions/limitations), [l’Edge runtime](https://vercel.com/docs/functions/runtimes/edge), [il runtime Bun](https://vercel.com/docs/functions/runtimes/bun), [regioni](https://vercel.com/docs/regions), [mitigazione DDoS](https://vercel.com/docs/vercel-firewall/ddos-mitigation), [storage](https://vercel.com/docs/storage), [ambienti](https://vercel.com/docs/deployments/environments), [Instant Rollback](https://vercel.com/docs/instant-rollback), [migrare da Cloudflare](https://vercel.com/kb/guide/migrate-to-vercel-from-cloudflare), [i risultati del benchmark](https://vercel.com/blog/fluid-compute-benchmark-results) e [v0](https://v0.app/docs/introduction)
+- Prezzi di Cloudflare: [prezzi di Workers](https://developers.cloudflare.com/workers/platform/pricing/), [prezzi di D1](https://developers.cloudflare.com/d1/platform/pricing/), [prezzi di R2](https://developers.cloudflare.com/r2/pricing/), [prezzi di Images](https://developers.cloudflare.com/images/pricing/), [prezzi di Hyperdrive](https://developers.cloudflare.com/hyperdrive/platform/pricing/), [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/), [prezzi di Observability](https://developers.cloudflare.com/observability/pricing/), [limiti di spesa](https://developers.cloudflare.com/billing/manage/spend-management/), [avvisi di budget](https://developers.cloudflare.com/billing/manage/budget-alerts/), l’[avviso di budget predefinito](https://developers.cloudflare.com/changelog/post/2026-06-15-budget-alerts-default-on/) e l’[annuncio di Spend Management](https://blog.cloudflare.com/spend-management/)
+- Piattaforma Cloudflare: [limiti di Workers](https://developers.cloudflare.com/workers/platform/limits/), [il limite di dimensione di 64 MiB](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/), [come funziona Workers](https://developers.cloudflare.com/workers/reference/how-workers-works/), [compatibilità con Node.js](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), [Smart Placement](https://developers.cloudflare.com/workers/configuration/placement/), [Version URLs](https://developers.cloudflare.com/workers/configuration/previews/), [Worker Previews](https://developers.cloudflare.com/workers/previews/) e [la relativa voce del changelog](https://developers.cloudflare.com/changelog/post/2026-09-22-worker-previews/), [sviluppo locale](https://developers.cloudflare.com/workers/development-testing/), [metriche](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/), [rollback](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/), [configurazione di Wrangler](https://developers.cloudflare.com/workers/wrangler/configuration/), [limiti di D1](https://developers.cloudflare.com/d1/platform/limits/), [posizione dei dati di D1](https://developers.cloudflare.com/d1/configuration/data-location/), [migrare da Pages](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/), [protezione DDoS](https://developers.cloudflare.com/ddos-protection/), [regole di rate limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/), [interoperabilità delle funzionalità di sicurezza](https://developers.cloudflare.com/waf/feature-interoperability/), [la rete](https://www.cloudflare.com/network/), [l’eliminazione degli avvii a freddo](https://blog.cloudflare.com/eliminating-cold-starts-2-shard-and-conquer/) e [i benchmark della CPU](https://blog.cloudflare.com/unpacking-cloudflare-workers-cpu-performance-benchmarks)
+- Next.js su Cloudflare: [la guida a Next.js di Cloudflare](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/), [vinext](https://github.com/cloudflare/vinext) e l’[adapter Cloudflare di OpenNext](https://opennext.js.org/cloudflare)
+- SaaSy Land: le pagine [Cloudflare Workers](/docs/integrations/cloudflare-workers), [CI/CD](/docs/tooling/ci-cd), [Deploy di una preview](/docs/getting-started/deploy-preview), [Database](/docs/tooling/database) e [prestazioni](/docs/conventions/performance), il [commit della migrazione](https://github.com/saasyland/saasyland.com/commit/0b9a1b986), il [commit delle source map](https://github.com/saasyland/saasyland.com/commit/704bbef94), e le pull request [#103](https://github.com/saasyland/saasyland.com/pull/103), [#214](https://github.com/saasyland/saasyland.com/pull/214), [#239](https://github.com/saasyland/saasyland.com/pull/239) e [#258](https://github.com/saasyland/saasyland.com/pull/258)
+
+_Scritto da Piotr J. Borowiecki, che ha spostato saasyland.com da Vercel a Cloudflare Workers e lo fa girare lì. I prezzi e i limiti di Vercel e di Cloudflare sono stati letti dalle loro pagine il 21 novembre 2026 e potrebbero essere cambiati da allora; i link portano alla fonte e non a uno screenshot. Se qualcosa qui è obsoleto o sbagliato, dimmelo e lo correggerò._

@@ -27,8 +27,10 @@ jobs:
         run: bun run db:reset:test
       - name: Build local Cloudflare test environment
         run: bun run build:test
-      - name: Pack the build and the seeded test state
-        run: tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test
+      - name: Pack the build, the seeded test state and the release tags the build read
+        run: |
+          git tag --list | LC_ALL=C sort > test-worker.tags
+          tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test test-worker.tags
       - uses: actions/upload-artifact@v7
         with:
           name: test-worker-${{ inputs.browser }}
@@ -56,8 +58,11 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: test-worker-${{ inputs.browser }}
-      - name: Unpack the build and the seeded test state
-        run: tar --zstd --extract --file test-worker.tar.zst && rm test-worker.tar.zst
+      - name: Unpack the build and keep only the release tags it read
+        run: |
+          tar --zstd --extract --file test-worker.tar.zst
+          git tag --list | LC_ALL=C sort | comm -13 test-worker.tags - | xargs --no-run-if-empty git tag --delete
+          rm test-worker.tar.zst test-worker.tags
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright

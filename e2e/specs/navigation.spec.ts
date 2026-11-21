@@ -32,13 +32,14 @@ const MINIMUM_TARGET = 24
 const HEADER_MARK = "__sameHeader"
 const HEADER_FRAMES = "__headerFrames"
 const SITE_WIDTH = "--container-site"
-const DOCS_WIDTH = "--container-docs"
-const DOCS_FRAME = "[data-docs-frame]"
+const DOCS_FRAME = "#nd-docs-layout"
 const PIXEL_TOLERANCE = 1
+const FRAME_VIEWPORTS = [{ height: 900, width: 1440 }, { height: 1080, width: 1920 }, WIDEST_VIEWPORT]
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
 
 const DOCS_PAGE = `${ROUTES.DOCS}/conventions/components`
+const LONG_DOCS_PAGE = `${ROUTES.DOCS}/features/courses`
 
 const PUBLIC_PAGES = [
   ROUTES.HOME,
@@ -53,7 +54,7 @@ const PUBLIC_PAGES = [
 ]
 
 const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS]
-const MARKETING_HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG]
+const FRAMED_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.COURSES, ROUTES.DOCS, LONG_DOCS_PAGE]
 
 const POLISH_PAGES = HEADER_PAGES.map((pathname) => localizePathname({ locale: POLISH, pathname }))
 
@@ -68,9 +69,10 @@ const CURRENT_ENTRIES = [
 ]
 
 interface HeaderFrame {
-  frame: number[]
-  header: number
+  docs: boolean
+  header: number[]
   navigation: number[]
+  path: string
 }
 
 interface Box {
@@ -111,11 +113,11 @@ const headerPlacement = async (page: Page): Promise<{ header: Box; logo: Box; na
   }
 }
 
-const rowOf = ({ header, logo, navigation }: Awaited<ReturnType<typeof headerPlacement>>) => ({
-  header,
-  logo: { bottom: logo.bottom, top: logo.top },
-  navigation: { bottom: navigation.bottom, top: navigation.top },
-})
+const columnOf = (locator: Locator): Promise<{ left: number; right: number }> =>
+  locator.evaluate((element) => {
+    const { left, right } = element.getBoundingClientRect()
+    return { left, right }
+  })
 
 const tokenWidth = (page: Page, token: string): Promise<number> =>
   page.evaluate((name) => {
@@ -226,75 +228,97 @@ test.describe("one site header", () => {
 
       const landing = placements.get(ROUTES.HOME)
       for (const [path, placement] of placements) {
-        expect(rowOf(placement), `${path} at ${String(viewport.width)} px`).toStrictEqual(landing && rowOf(landing))
+        expect(placement, `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
       }
-      for (const path of MARKETING_HEADER_PAGES) {
-        expect(placements.get(path), `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
-      }
-      const siteWidth = await tokenWidth(page, SITE_WIDTH)
-      const headerWidth = (landing?.header.right ?? 0) - (landing?.header.left ?? 0)
-      const navigationWidth = (landing?.navigation.right ?? 0) - (landing?.navigation.left ?? 0)
-      expect(Math.abs(navigationWidth - Math.min(siteWidth, headerWidth)), `${String(viewport.width)} px`).toBeLessThanOrEqual(PIXEL_TOLERANCE)
     }
   })
 
-  test("widens the header to the docs frame in the same frame as the docs appear, and narrows it with them on the way back", async ({ page }) => {
-    await page.setViewportSize(WIDEST_VIEWPORT)
-    await visit(page, ROUTES.HOME)
-    const header = page.getByRole("banner")
-    await new BasePage(page).waitForHydration(header)
-    const siteWidth = await tokenWidth(page, SITE_WIDTH)
-    const docsWidth = await tokenWidth(page, DOCS_WIDTH)
-    await page.evaluate(
-      ({ frameSelector, key }) => {
-        const frames: HeaderFrame[] = []
-        Reflect.set(window, key, frames)
-        const edges = (element: Element | null): number[] => {
-          const box = element?.getBoundingClientRect()
-          return box === undefined ? [] : [box.left, box.right]
-        }
-        const record = (): void => {
-          const banner = document.querySelector("header")
-          frames.push({
-            frame: edges(document.querySelector(frameSelector)),
-            header: banner?.getBoundingClientRect().width ?? 0,
-            navigation: edges(banner?.querySelector("nav") ?? null),
-          })
-          requestAnimationFrame(record)
-        }
-        requestAnimationFrame(record)
-      },
-      { frameSelector: DOCS_FRAME, key: HEADER_FRAMES },
-    )
+  test("puts the header and the footer in the site's frame, at the same width and place, on the landing page, the blog, the courses, the docs and a long docs page", async ({
+    page,
+  }) => {
+    for (const viewport of FRAME_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      const frames = new Map<string, { footer: { left: number; right: number }; header: { left: number; right: number } }>()
+      for (const path of FRAMED_PAGES) {
+        await visit(page, path)
+        frames.set(path, {
+          footer: await columnOf(page.getByRole("contentinfo").locator(":scope > div")),
+          header: await columnOf(page.getByRole("banner").getByRole("navigation")),
+        })
+      }
 
-    await header.getByRole("link", { exact: true, name: "Docs" }).click()
-    await expect(page).toHaveURL(ROUTES.DOCS)
-    await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
-    await header.getByRole("link", { exact: true, name: "SaaSy Land" }).click()
-    await expect(page).toHaveURL(ROUTES.HOME)
-    await expect(page.locator(DOCS_FRAME)).toHaveCount(0)
-
-    const frames: HeaderFrame[] = await page.evaluate(
-      (key) =>
-        new Promise((resolve) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              resolve(Reflect.get(window, key))
-            })
-          })
-        }),
-      HEADER_FRAMES,
-    )
-    const docsFrames = frames.filter(({ frame }) => frame.length > 0)
-    expect(docsFrames.length).toBeGreaterThan(0)
-    expect(frames.at(-1)?.frame).toStrictEqual([])
-    for (const { frame, header: headerWidth, navigation } of frames) {
-      const [left = 0, right = 0] = navigation
-      const expected = Math.min(frame.length > 0 ? docsWidth : siteWidth, headerWidth)
-      expect(Math.abs(right - left - expected), JSON.stringify({ frame, navigation })).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      const siteWidth = await tokenWidth(page, SITE_WIDTH)
+      const pageWidth = await page.evaluate(() => document.documentElement.clientWidth)
+      const landing = frames.get(ROUTES.HOME)
+      for (const [path, frame] of frames) {
+        expect(frame, `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
+      }
+      expect(landing?.footer).toStrictEqual(landing?.header)
+      expect(Math.abs((landing?.header.right ?? 0) - (landing?.header.left ?? 0) - Math.min(siteWidth, pageWidth))).toBeLessThanOrEqual(
+        PIXEL_TOLERANCE,
+      )
     }
-    for (const { frame, navigation } of docsFrames) {
-      expect(frame.map((edge, index) => Math.abs(edge - (navigation[index] ?? 0)) <= PIXEL_TOLERANCE)).toStrictEqual([true, true])
+  })
+
+  test("keeps the header in one place in every frame of the client navigations from the landing page to the docs and on to the blog", async ({
+    page,
+  }) => {
+    for (const viewport of FRAME_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      await visit(page, ROUTES.HOME)
+      const header = page.getByRole("banner")
+      await new BasePage(page).waitForHydration(header)
+      await page.evaluate(
+        ({ docsSelector, key }) => {
+          const frames: HeaderFrame[] = []
+          Reflect.set(window, key, frames)
+          const edges = (element: Element | null): number[] => {
+            const box = element?.getBoundingClientRect()
+            return box === undefined ? [] : [box.left, box.top, box.right, box.bottom]
+          }
+          const record = (): void => {
+            const banner = document.querySelector("header")
+            frames.push({
+              docs: document.querySelector(docsSelector) !== null,
+              header: edges(banner),
+              navigation: edges(banner?.querySelector("nav") ?? null),
+              path: window.location.pathname,
+            })
+            requestAnimationFrame(record)
+          }
+          requestAnimationFrame(record)
+        },
+        { docsSelector: DOCS_FRAME, key: HEADER_FRAMES },
+      )
+
+      await header.getByRole("link", { exact: true, name: contentNavigation.header.docs }).click()
+      await expect(page).toHaveURL(ROUTES.DOCS)
+      await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
+      await header.getByRole("link", { exact: true, name: contentNavigation.header.blog }).click()
+      await expect(page).toHaveURL(ROUTES.BLOG)
+      await expect(page.getByRole("heading", { level: 1, name: blog.index.title })).toBeVisible()
+
+      const frames: HeaderFrame[] = await page.evaluate(
+        (key) =>
+          new Promise((resolve) => {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                resolve(Reflect.get(window, key))
+              })
+            })
+          }),
+        HEADER_FRAMES,
+      )
+      const [first] = frames
+      const placeOf = (frame: HeaderFrame | undefined): string => JSON.stringify([frame?.header, frame?.navigation])
+      const at = `${String(viewport.width)} px`
+      expect(frames.some(({ docs }) => docs), at).toBe(true)
+      expect(frames.at(-1)?.path, at).toBe(ROUTES.BLOG)
+      expect(first?.navigation, at).toHaveLength(4)
+      expect(
+        frames.filter((frame) => placeOf(frame) !== placeOf(first)),
+        at,
+      ).toStrictEqual([])
     }
   })
 

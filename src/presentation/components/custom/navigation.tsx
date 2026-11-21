@@ -78,7 +78,7 @@ export const Navigation = (): JSX.Element => {
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-background/72 backdrop-blur-xl">
         <nav
           aria-label={t("ariaLabel")}
-          className="mx-auto flex h-header w-full max-w-page items-center justify-between gap-6 px-6 md:px-10"
+          className="mx-auto flex h-header w-full max-w-site items-center justify-between gap-6 px-6 md:px-10"
         >
           <HomeLink />
 

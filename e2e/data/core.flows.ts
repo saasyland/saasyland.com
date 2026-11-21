@@ -34,7 +34,7 @@ export const CORE_FLOWS = [
   {
     area: FLOW_AREA.CONTENT,
     id: "site-header",
-    outcome: "Every public page has the same header links, marks the current section and keeps one header through client navigation",
+    outcome: "Every public page has the same header links in the same place, marks the current section and keeps one header, unmoved, through client navigation",
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "navigation.spec.ts", title: "one site header › lists the same links in the same order on every public page" },
@@ -42,6 +42,11 @@ export const CORE_FLOWS = [
       {
         spec: "navigation.spec.ts",
         title: "one site header › keeps the same header element through client navigations from the landing page to the docs and back",
+      },
+      {
+        spec: "navigation.spec.ts",
+        title:
+          "one site header › keeps the header in one place in every frame of the client navigations from the landing page to the docs and on to the blog",
       },
     ],
   },

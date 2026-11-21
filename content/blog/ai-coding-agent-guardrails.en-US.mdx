@@ -100,7 +100,7 @@ A practical guide to guardrails for teams that let AI coding agents change a pro
 
 </Callout>
 
-_Last checked 20 November 2026. What Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git and GitHub do comes from their own documentation, read that day; the research comes from the papers and reports linked at the bottom. Everything about saasyland.com comes from its public repository, its pull requests and its CI runs. Our earlier post on [whether your repository is ready for AI coding agents](/blog/ai-coding-agents-repository-readiness) scores a repository; this one is about building the checks that raise the score._
+_Last checked 20 November 2026. What Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git and GitHub do comes from their own documentation, read that day; the research comes from the papers and reports linked at the bottom. Everything about saasyland.com comes from its public repository, its pull requests and its CI runs. Our earlier post on [whether your repository is ready for AI coding agents](/blog/ai-coding-agents-repository-readiness) scores a repository; this one is about building the checks that raise the score. Updated 21 November 2026 for the new definition of done, the merge queue and the CI times that came with them._
 
 ## The short answer
 
@@ -142,8 +142,8 @@ A rule can live in eight places. They differ in when they run, who can get past 
 | Agent permissions and hooks | Before each tool call           | The person running the agent, or a command worded another way | Commands that must never run, paths an agent must not edit | Plain force pushes refused; changes to human-review paths stopped by the permission classifier                                        |
 | Compiler and editor         | As the agent writes             | Nobody, if it runs                                            | Wrong shapes, unhandled cases                              | TypeScript with `strict`, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`                                                 |
 | Git hooks                   | At each commit                  | `--no-verify`                                                 | Fast checks on staged files, commit message format         | `pre-commit` runs formatting, lint, types and the translation checks; `prepare-commit-msg` refuses a subject that is not conventional |
-| Required CI checks          | On every push to a pull request | Admins, if the branch rule lets them                          | Everything a program can decide                            | `bun run check`, `bun run test:coverage`, the test build and the browser suite                                                        |
-| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | Squash only, linear history, no force pushes or deletion, the CI checks and a successful preview deployment                           |
+| Required CI checks          | On every push to a pull request | Admins, if the branch rule lets them                          | Everything a program can decide                            | `bun run check`, `bun run test:coverage`, the test build, the browser suite and an upload of the Worker that serves no traffic        |
+| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | The merge queue, squash only, linear history, no force pushes or deletion, and the three CI checks                                    |
 | Deploy checks               | Before and after an upload      | Whoever deploys                                               | Secrets, bindings, live behaviour                          | Placeholder secrets refused before the build; live site checks after the deploy                                                       |
 | A person’s second key       | When asked                      | Nobody else                                                   | Irreversible and money-moving changes, releases            | The owner’s quoted yes for human-review paths; CLI releases staged on npm until he approves them with two-factor authentication       |
 
@@ -333,35 +333,40 @@ The hearsay incidents above share a shape: an approval existed as a sentence, an
 
 GitHub can enforce the second key: a `CODEOWNERS` file assigns paths to people, and a branch rule can "require reviews from code owners". There is a catch that matters to every solo developer who runs agents. GitHub’s documentation is explicit: "Pull request authors cannot approve their own pull requests." If your agents open pull requests with your credentials, every server-side control sees you, and a required review from you is impossible to give.
 
-That is our situation today. The agents work under the owner’s account, so our branch rule requires the CI checks and a preview deployment rather than an approving review, and the owner’s yes for a human-review path is a quoted message, held by the agents’ permission layer. It has worked, as the incidents show, and it is the weakest part of our setup. The stronger arrangement is simple to describe: give agents an identity of their own, such as a bot account or a GitHub App with write access but no admin rights, put the human-review paths in `CODEOWNERS`, and require a code owner’s review on `main`. Then the second key is a click by a person, and no sentence can stand in for it.
+That is our situation today. The agents work under the owner’s account, so our branch rule requires the CI checks and the merge queue rather than an approving review, and the owner’s yes for a human-review path is a quoted message, held by the agents’ permission layer. It has worked, as the incidents show, and it is the weakest part of our setup. The stronger arrangement is simple to describe: give agents an identity of their own, such as a bot account or a GitHub App with write access but no admin rights, put the human-review paths in `CODEOWNERS`, and require a code owner’s review on `main`. Then the second key is a click by a person, and no sentence can stand in for it.
 
 ## Define done as exit codes
 
 "Done" is the most expensive word an agent says, because everything after it is someone else’s time. Define it as a short list of commands that must exit 0 on the branch about to be pushed, in a fixed order, from fastest to slowest, where each one catches a kind of failure the previous ones cannot. Make CI run the same commands, not lookalikes, so a green local run predicts a green CI run. Ask for exit codes and counts in the pull request, and treat a summary as a claim to verify.
 
-### Worked example: four commands, in order
+### Worked example: three commands and the specs you touched
 
-Our definition of done is four commands:
+Our definition of done is three commands, then the browser specs the change touches, then the merge queue. These are the lines of `AGENTS.md` it uses:
 
 ```sh title="AGENTS.md"
 bun run check
 bun run test:coverage
 bun run build:test
 bun run test:e2e:pr
+bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
+bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formats, lints, type-checks and runs the translation and content checks in every locale. `test:coverage` runs the unit, integration and component tests with the coverage gate at <RepositoryFact name="coverageThreshold" unit="percent" /> for lines, statements, functions and branches. `build:test` builds the Cloudflare Worker and checks the output. `test:e2e:pr` serves that build and drives it in Chromium.
+`check` formats, lints, type-checks and runs the translation and content checks in every locale. `test:coverage` runs the unit, integration and component tests with the coverage gate at <RepositoryFact name="coverageThreshold" unit="percent" /> for lines, statements, functions and branches. `build:test` builds the Cloudflare Worker and checks the output. `test:e2e:pr` serves that build and drives the whole browser suite in Chromium; CI runs it on the pull request and again in the merge queue, and locally an agent runs the `bunx playwright test` line instead, for the specs its change touches, on a free port of its own. The pull request is done only when it is green in CI and the last line has put it in the queue.
 
-Here is what each one took on the CI run of 20 November 2026 that ran when our blog sharing feature reached `main`:
+Until 21 November the local list ended with the whole suite, and a pull request merged through a script that waited for a shared preview deployment. [The next post in this series](/blog/running-ai-coding-agents-in-parallel#update-november-2026) tells why both changed. Here is what each step took on the CI run of 20 November 2026 that ran when our blog sharing feature reached `main`, and on the merge queue’s run for the pull request that brought in the merge queue, on 21 November:
 
-| Step                                      | Time        |
-| ----------------------------------------- | ----------- |
-| Set up the toolchain and dependencies     | 1 min 11 s  |
-| `bun run check`                           | 16 s        |
-| `bun run test:coverage`                   | 3 min 44 s  |
-| `bun run build:test`                      | 2 min 59 s  |
-| `bun run test:e2e:pr`                     | 12 min 2 s  |
-| From push to green, with jobs in parallel | 16 min 35 s |
+| Step                                        | 20 November, one runner per job | 21 November, in the merge queue                                                |
+| ------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
+| Set up the toolchain and dependencies       | 1 min 11 s                      | 24 s                                                                           |
+| `bun run check`                             | 16 s                            | 31 s                                                                           |
+| `bun run test:coverage`                     | 3 min 44 s                      | 7 min 21 s                                                                     |
+| `bun run build:test`                        | 2 min 59 s                      | 2 min 48 s                                                                     |
+| The browser suite in Chromium               | 12 min 2 s                      | 2 min 15 s to 3 min 10 s on each of <RepositoryFact name="e2eShards" /> shards |
+| Upload of the Worker that serves no traffic | Not a check yet                 | 3 min 24 s, beside the build                                                   |
+| From the first job to green                 | 16 min 35 s                     | 8 min 24 s                                                                     |
+
+The browser suite went from 12 minutes on one runner to about 3 on each of <RepositoryFact name="e2eShards" />, and the toolchain setup lost a second restore of the same cache. The unit tests with coverage took about twice as long as the day before and are now the slowest job, which tells us where to look next.
 
 Every command is in the list because something passed without it. On 12 November a dependency upgrade (#94) passed `check` and 1,255 tests at full coverage while the production build was broken twice: a new Polar SDK could not be bundled, and a TanStack Start release changed its output so that a post-build script failed. Unit tests never run the Cloudflare build, so `build:test` joined the list, and the conventions docs record why.
 
@@ -493,7 +498,7 @@ You do not need all of this on Monday. This is the order that buys the most per 
 
 Guardrails are not free, and anyone who tells you they are has not maintained any.
 
-**Time on every change.** Our CI takes about 16 and a half minutes from push to green, most of it in the browser suite, plus whatever a local run takes before the push. For a public repository the CI minutes themselves cost nothing on GitHub’s standard runners, which GitHub documents as free for public repositories; a private repository pays for every minute, and a browser suite is where those minutes go.
+**Time on every change.** Our CI took about 16 and a half minutes from push to green on 20 November, most of it in the browser suite on one runner. Since the suite runs on <RepositoryFact name="e2eShards" /> runners in parallel, a pull request’s run takes about 8 to 10 minutes, and the merge queue runs it once more before the merge, plus whatever a local run takes before the push. Shards buy that time with runner minutes, because each one sets up the toolchain and the browser again. For a public repository the CI minutes themselves cost nothing on GitHub’s standard runners, which GitHub documents as free for public repositories; a private repository pays for every minute, and a browser suite is where those minutes go.
 
 **Code to write and keep.** Our content and translation checks, the build verifier, the hydration plugin and the commit hook are more than a thousand lines of TypeScript between them, with tests of their own. They are code like any other: they have bugs, as the shebang and French "ton" show, and they need the same review.
 
@@ -763,6 +768,6 @@ The [conventions](/docs/conventions) are the coding standard these checks enforc
 - Linting: ESLint’s [Configure Rules](https://eslint.org/docs/latest/use/configure/rules) and [Custom Rules](https://eslint.org/docs/latest/extend/custom-rules), Oxlint’s [JS plugins](https://oxc.rs/docs/guide/usage/linter/js-plugins.html), and typescript-eslint’s [`ban-ts-comment`](https://typescript-eslint.io/rules/ban-ts-comment/) and [`consistent-type-assertions`](https://typescript-eslint.io/rules/consistent-type-assertions/)
 - Testing and releases: Vitest’s [coverage configuration](https://vitest.dev/config/coverage), Changesets’ [Automating Changesets](https://github.com/changesets/changesets/blob/main/docs/guide/automating.md) and Git’s [`git push`](https://git-scm.com/docs/git-push)
 - GitHub: [Available rules for rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets), [Approving a pull request with required reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews) and [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
-- SaaSy Land: the [Conventions](/docs/conventions) section, the [CI run of 20 November 2026](https://github.com/saasyland/saasyland.com/actions/runs/44743869789), and pull requests [#94](https://github.com/saasyland/saasyland.com/pull/94), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#166](https://github.com/saasyland/saasyland.com/pull/166), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#198](https://github.com/saasyland/saasyland.com/pull/198), [#201](https://github.com/saasyland/saasyland.com/pull/201), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#208](https://github.com/saasyland/saasyland.com/pull/208), [#211](https://github.com/saasyland/saasyland.com/pull/211), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230) and [#244](https://github.com/saasyland/saasyland.com/pull/244)
+- SaaSy Land: the [Conventions](/docs/conventions) section, the [CI run of 20 November 2026](https://github.com/saasyland/saasyland.com/actions/runs/44743869789), the [merge queue’s run of 21 November 2026](https://github.com/saasyland/saasyland.com/actions/runs/44929764863), and pull requests [#94](https://github.com/saasyland/saasyland.com/pull/94), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#166](https://github.com/saasyland/saasyland.com/pull/166), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#198](https://github.com/saasyland/saasyland.com/pull/198), [#201](https://github.com/saasyland/saasyland.com/pull/201), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#208](https://github.com/saasyland/saasyland.com/pull/208), [#211](https://github.com/saasyland/saasyland.com/pull/211), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#223](https://github.com/saasyland/saasyland.com/pull/223), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#275](https://github.com/saasyland/saasyland.com/pull/275) and [#277](https://github.com/saasyland/saasyland.com/pull/277)
 
 _Written by Piotr J. Borowiecki, who runs saasyland.com and the agents that work on it. The tools’ documentation and the research were read on 20 November 2026 and may have changed since; the links go to the source rather than to a screenshot. If anything here is out of date or wrong, tell me and I will correct it._

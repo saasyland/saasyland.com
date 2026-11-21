@@ -1,12 +1,12 @@
 ---
 title: "Lezioni da un team di agenti di programmazione AI al lavoro su un’unica base di codice"
-description: "Come far lavorare in parallelo più agenti di programmazione AI su un unico repository di produzione: worktree, porte, una coda di merge solo con rebase, verifica, permessi e revisione."
+description: "Come far lavorare in parallelo più agenti di programmazione AI su un unico repository di produzione: worktree, porte, una sola coda di merge, verifica, permessi e revisione, e cosa abbiamo cambiato quando la coda è diventata il collo di bottiglia."
 excerpt: "Cinque agenti su un repository non valgono cinque volte un agente. Sono un team senza chiacchiere di corridoio, che condivide una sola macchina, un solo branch principale e un solo host di preview. Questa guida trasforma 145 pull request unite, e gli incidenti avvenuti tra l’una e l’altra, in regole che qualsiasi team può applicare già da lunedì."
 authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -41,8 +41,9 @@ faq:
       Il rebase, e solo sui branch che possiedono. I commit di merge sui branch nascondono conflitti
       risolti a mano, rendono impossibile fare in seguito il rebase del branch e restano per sempre
       in qualsiasi branch di lunga durata che raggiungono. Fai lo squash di un branch in un solo
-      commit prima che entri nella coda, fanne il rebase sul main attuale, fai il push con
-      force-with-lease ed esegui di nuovo l’intera definizione di «fatto».
+      commit prima che entri nella coda. Quando va in conflitto con main, fanne il rebase sul main
+      attuale, fai il push con force-with-lease ed esegui di nuovo la definizione di «fatto»; poi una
+      coda di merge lo testa sopra main e sopra le modifiche che lo precedono.
   - question: Quanti agenti di programmazione AI possono girare in parallelo su una macchina?
     answer: >-
       Conta gli agenti pesanti, non tutti gli agenti. Un agente che compila l’app e pilota una suite
@@ -54,14 +55,14 @@ faq:
     answer: >-
       Force-push con lease, sul branch della propria pull request, sì. Su main, mai: fai in modo che
       sia il server a rifiutarlo, perché le regole dell’harness confrontano il testo dei comandi e
-      non sono un confine di sicurezza. Il merge si può delegare a una coda una volta che i controlli
-      obbligatori e il deploy della preview sono passati, ma le modifiche a pagamenti,
-      autenticazione, migrazioni, workflow e secret richiedono prima il sì esplicito di una persona.
+      non sono un confine di sicurezza. Il merge si può delegare a una coda di merge che esegue di
+      nuovo i controlli obbligatori, ma le modifiche a pagamenti, autenticazione, migrazioni,
+      workflow e secret richiedono prima il sì esplicito di una persona.
   - question: Come faccio a sapere che un agente di programmazione AI ha davvero finito?
     answer: >-
       Chiedi codici di uscita, non un riepilogo. «Fatto» significa che ogni comando della tua
       definizione di «fatto» è uscito con 0, in ordine, sul commit a cui punta la pull request, e che
-      la CI è passata su quello stesso commit. Un’esecuzione in background non ancora finita non ha
+      la CI è passata su quello stesso commit e di nuovo nella coda di merge. Un’esecuzione in background non ancora finita non ha
       un codice di uscita, un commit di cui non è stato fatto il push non è nella pull request, e un
       rebase invalida ogni risultato precedente.
   - question: Cosa dovrebbe contenere il brief per un agente di programmazione AI?
@@ -93,14 +94,14 @@ Una guida pratica per far lavorare in parallelo più agenti di programmazione AI
 
 </Callout>
 
-_Ultima verifica: 20 novembre 2026. Ogni fatto esterno riportato qui sotto è stato letto quel giorno nella sua fonte, linkata in fondo. Ogni incidente proviene dal repository pubblico di saasyland.com; le pull request, le esecuzioni della CI e i commit sono linkati, così puoi verificarli._
+_Ultima verifica: 20 novembre 2026. Ogni fatto esterno riportato qui sotto è stato letto quel giorno nella sua fonte, linkata in fondo. Ogni incidente proviene dal repository pubblico di saasyland.com; le pull request, le esecuzioni della CI e i commit sono linkati, così puoi verificarli. Aggiornato il 21 novembre 2026, quando abbiamo sostituito il nostro script di merge e il controllo della preview condivisa con la coda di merge di GitHub: i passaggi che li descrivevano ora dicono cosa è cambiato, e [Aggiornamento, novembre 2026](#update-november-2026) racconta la storia con i tempi misurati._
 
 ## La risposta breve
 
 Far lavorare più agenti su un’unica base di codice è un problema operativo prima ancora che un problema di prompt. Tra il 12 e il 20 novembre 2026 abbiamo unito 145 pull request in saasyland.com, quasi tutte scritte da agenti e ognuna revisionata da una persona, e quasi ogni incidente di quella settimana è stato uno scontro su qualcosa che gli agenti condividevano. Ecco cosa ha retto:
 
 - **Isola per impostazione predefinita.** Un worktree Git per branch, una porta per ogni server in esecuzione, un database per worktree, una cartella di appoggio per agente. Non condividere nulla in cui un agente può scrivere, a meno che tu non abbia deciso come va condiviso.
-- **Una sola strada verso main.** Un’unica coda unisce una pull request alla volta, come un solo commit squash; una pull request rimasta indietro rispetto a main viene sottoposta a rebase e ricontrollata prima del merge. Nessun commit di merge, da nessuna parte.
+- **Una sola strada verso main.** Un’unica coda testa ogni pull request sopra main e sopra le pull request che la precedono, e porta ciascuna su main come un solo commit squash. Nessun commit di merge, da nessuna parte.
 - **«Fatto» è un codice di uscita.** La definizione di «fatto» è un elenco di comandi, e un agente ha finito quando ciascuno è uscito con 0 sul commit a cui punta la pull request, e la CI concorda. Un riepilogo che dice «fatto» è un’affermazione, non una prova.
 - **I confini stanno sul server.** Le istruzioni dicono a un agente cosa fare, l’harness chiede conferma prima dei comandi rischiosi e il server rifiuta ciò che non deve succedere mai. I passaggi irreversibili tengono una persona nel ciclo.
 - **Istruisci l’agente come un collega, revisiona come un auditor.** Il brief è tutto ciò che l’agente sa. La revisione controlla le prove prima del codice.
@@ -119,7 +120,7 @@ Parti dall’elenco di ciò che i tuoi agenti condividono. Su una sola macchina 
 | Database e cache locali                  | Seed e migrazioni di un branch azzerano i dati di un altro branch                                | Lo stato dentro il worktree, mai in una cartella condivisa                        |
 | Processi                                 | Una pulizia per nome uccide ogni processo corrispondente, comprese le esecuzioni di altri agenti | Fermare per ID di processo, e solo ciò che hai avviato                            |
 | File di appoggio                         | Una bozza scritta da un agente viene pubblicata da un altro                                      | Una cartella di appoggio per agente                                               |
-| Il branch principale                     | Due modifiche che passano da sole rompono insieme la build                                       | Un’unica coda di merge che fa il rebase e riesegue i controlli                    |
+| Il branch principale                     | Due modifiche che passano da sole rompono insieme la build                                       | Un’unica coda di merge che testa ogni modifica sopra le altre                     |
 | Ambienti condivisi                       | Un host di preview mostra la pull request che ha fatto il deploy per ultima                      | Ambienti per singola modifica, o un calendario per quello condiviso               |
 | CPU, memoria e disco                     | Le build rallentano finché test non correlati vanno in timeout                                   | Un tetto al numero di agenti pesanti                                              |
 | Token, limiti di utilizzo e minuti di CI | Tutti gli agenti si fermano nello stesso istante, a metà di un passaggio                         | Attività riprendibili e un budget                                                 |
@@ -208,14 +209,14 @@ Gli agenti scrivono bozze: descrizioni delle pull request, voci del changelog, l
 
 Alcune cose non si possono duplicare per ogni agente: un database di staging, una sandbox di pagamento, un host di preview con un dominio fisso. Queste richiedono un calendario.
 
-**Il nostro incidente.** Ogni pull request del repository di saasyland.com fa il deploy in un unico ambiente di preview, e la nostra documentazione lo dice: «La preview è condivisa: ogni deploy sostituisce il precedente e usa lo stesso database D1, lo stesso namespace KV e gli stessi bucket R2 di preview.» Quando la #244, una modifica al configuratore della CLI sulla landing page, era pronta, il proprietario ha aperto l’host di preview per guardarla e ha visto un’altra build, perché un’altra pull request aveva fatto il deploy dopo di essa.
+**Il nostro incidente.** Fino al 21 novembre, ogni pull request del repository di saasyland.com faceva il deploy in un unico ambiente di preview, e la nostra documentazione dice ancora cosa significa: «La preview è condivisa: ogni deploy sostituisce il precedente e usa lo stesso database D1, lo stesso namespace KV e gli stessi bucket R2 di preview.» Quando la #244, una modifica al configuratore della CLI sulla landing page, era pronta, il proprietario ha aperto l’host di preview per guardarla e ha visto un’altra build, perché un’altra pull request aveva fatto il deploy dopo di essa.
 
 - **Sintomo:** chi revisiona vede qualcosa di diverso dalla modifica in revisione.
 - **Causa radice:** un unico ambiente condiviso, su cui la CI di ogni pull request fa il deploy secondo i propri tempi.
-- **Correzione:** prima di chiedere una revisione sulla preview, riesegui il job di deploy della preview di quella pull request, indica quale commit è online e trattieni gli altri deploy della preview finché la revisione non è finita. La nostra coda di merge fa lo stesso prima di ogni merge, perché il repository richiede un deployment Preview riuscito della pull request, e qualsiasi altro deploy lo sostituisce.
+- **Correzione:** prima di chiedere una revisione sulla preview, riesegui il job di deploy della preview di quella pull request, indica quale commit è online e trattieni gli altri deploy della preview finché la revisione non è finita. Il nostro script di merge doveva fare lo stesso prima di ogni merge, perché il repository richiedeva un deployment Preview riuscito della pull request, e qualsiasi altro deploy lo sostituiva. Quel requisito si è rivelato il collo di bottiglia dell’intero percorso di merge, come mostra l’aggiornamento più sotto.
 - **Regola:** un ambiente condiviso è una sala riunioni. Prenotala, usala, liberala.
 
-La correzione strutturale è una preview per ogni modifica. Cloudflare Workers può servire ogni versione caricata a un proprio URL su `workers.dev`, il che darebbe a ogni pull request un proprio indirizzo. Condividerebbe comunque il database della preview, e significa modificare la configurazione di deploy, che è nel nostro elenco di file che richiedono l’approvazione esplicita del proprietario, quindi per ora usiamo un calendario. La tua piattaforma ha probabilmente un equivalente; usalo prima che ti serva.
+La correzione strutturale è una preview per ogni modifica. Cloudflare Workers può servire ogni versione caricata a un proprio URL su `workers.dev`, il che darebbe a ogni pull request un proprio indirizzo. Abbiamo fatto la prima metà di quel passo il 21 novembre: le pull request non fanno più il deploy della preview condivisa, ognuna carica il suo Worker come una versione che non serve traffico, e la preview condivisa esegue `main`. Gli URL delle versioni non sono ancora attivi per quel Worker, quindi chi revisiona e vuole un branch sull’host condiviso lo prenota ancora, ora facendo a mano il deploy di un branch testato. La tua piattaforma ha probabilmente un equivalente; usalo prima che ti serva.
 
 ### Isolamento dentro la suite di test e il repository
 
@@ -229,7 +230,7 @@ Cerca le tue versioni di quel file: un elenco centrale a cui ogni funzionalità 
 
 ## Coordinamento: una sola strada verso main
 
-L’isolamento permette agli agenti di lavorare nello stesso momento. Il coordinamento decide l’ordine in cui il loro lavoro diventa reale. La risposta che per noi ha retto è noiosa: un’unica coda, una pull request alla volta, ognuna un solo commit, sottoposta di nuovo a rebase e ai controlli quando main si è spostato sotto di essa.
+L’isolamento permette agli agenti di lavorare nello stesso momento. Il coordinamento decide l’ordine in cui il loro lavoro diventa reale. La risposta che per noi ha retto è noiosa: un’unica coda, ogni pull request un solo commit, ricontrollata sopra tutto ciò che è arrivato su main prima di essa. Nella settimana di cui parla questo articolo, quella coda era uno script che univa una pull request alla volta; dal 21 novembre è la coda di merge di GitHub, per i motivi che dà l’aggiornamento più sotto.
 
 ### Perché abbiamo vietato i commit di merge
 
@@ -255,18 +256,18 @@ Una pull request dovrebbe arrivare alla coda come un solo commit. I nostri agent
 
 ### Un’unica coda di merge
 
-La nostra coda è un breve script, eseguito dall’agente coordinatore, che prende in ordine i numeri delle pull request e per ciascuna: attende i controlli obbligatori e il deploy della preview sul suo commit di testa attuale; prova a fare il merge; se GitHub dice che non è possibile, fa il rebase del branch su main con `gh pr update-branch --rebase`, attende che compaia il nuovo commit di testa, attende di nuovo i controlli e la preview, e fa il merge; e al primo conflitto ferma l’intera coda, perché lo risolva una persona o un agente.
+La nostra prima coda era un breve script, eseguito dall’agente coordinatore, che prendeva in ordine i numeri delle pull request e per ciascuna: attendeva i controlli obbligatori e il deploy della preview sul suo commit di testa attuale; provava a fare il merge; se GitHub diceva che non era possibile, faceva il rebase del branch su main con `gh pr update-branch --rebase`, attendeva che comparisse il nuovo commit di testa, attendeva di nuovo i controlli e la preview, e faceva il merge; e al primo conflitto fermava l’intera coda, perché lo risolvesse una persona o un agente.
 
-La coda fa il merge con un oggetto costruito dal titolo della pull request, passato attraverso lo stesso hook di commit che aggiunge l’emoji a ogni commit, più il numero. Quest’ultimo dettaglio viene dalla #224, arrivata senza la sua emoji perché GitHub usa il titolo della pull request come oggetto dello squash e il titolo non ne aveva. Il tuo commit squash è il titolo della tua pull request; validalo come un messaggio di commit.
+Lo script faceva il merge con un oggetto costruito dal titolo della pull request, passato attraverso lo stesso hook di commit che aggiunge l’emoji a ogni commit, più il numero. Quel dettaglio viene dalla #224, arrivata senza la sua emoji perché GitHub usa il titolo della pull request come oggetto dello squash e il titolo non ne aveva. Il tuo commit squash è il titolo della tua pull request; validalo come un messaggio di commit. È sopravvissuto allo script: ora `bun scripts/enqueue-pr.ts <number>` rifiuta un titolo che non è un oggetto conventional, lo imposta all’oggetto dell’hook, emoji compresa, e mette la pull request nella coda di merge di GitHub.
 
-**I nostri incidenti con la coda stessa:**
+**I nostri incidenti con lo script:**
 
-- **Due code si bloccano a vicenda.** Una volta abbiamo eseguito due script di coda nello stesso momento. Il repository richiede che il commit di testa della pull request sia il deployment Preview attivo, quindi il nuovo deploy della preview fatto da ciascuna coda disattivava quello dell’altra, ed entrambe restavano bloccate (#179 e #154). C’è una sola coda, con dentro ogni numero di pull request, in ordine.
+- **Due code si bloccano a vicenda.** Una volta abbiamo eseguito due script di coda nello stesso momento. Il repository richiedeva che il commit di testa della pull request fosse il deployment Preview attivo, quindi il nuovo deploy della preview fatto da ciascuna coda disattivava quello dell’altra, ed entrambe restavano bloccate (#179 e #154). Da allora c’è stata una sola coda, con dentro ogni numero di pull request, in ordine.
 - **Una coda che aspettava sé stessa.** Uno script che aspettava con `pgrep -f` che «l’altra coda» finisse trovava le shell che stavano aspettando, perché le loro stesse righe di comando contenevano il pattern. Tre pull request (#183, #184, #186) sono rimaste ferme per circa 30 minuti. Aspetta un ID di processo o un file di lock, mai un pattern.
 - **Un merge avvenuto a metà.** GitHub ha risposto con un errore dell’API a un merge della #221, ha creato comunque il commit squash su `main` e ha lasciato aperta la pull request. Prima che una coda ritenti qualsiasi cosa, cerca in `git log origin/main` il numero della pull request.
 - **Un commit di testa obsoleto.** Subito dopo un push, l’API può riportare ancora per qualche secondo il vecchio commit di testa, e una coda che inizia ad aspettare in quel momento aspetta un commit che nessuno compilerà. Aspetta finché l’API non mostra il commit di testa di cui hai fatto il push.
 
-Se l’unico controllo che blocca il merge è la CI, la merge queue di GitHub fa questo lavoro: testa ogni pull request sull’ultima versione del branch di destinazione insieme alle pull request che la precedono, e la sua impostazione di concorrenza delle build limita quante di quelle build girano contemporaneamente. La nostra richiede anche un deploy del commit di testa esatto nell’unico ambiente di preview, ed è per questo che la esegue uno script.
+Se l’unico controllo che blocca il merge è la CI, la merge queue di GitHub fa questo lavoro: testa ogni pull request sull’ultima versione del branch di destinazione insieme alle pull request che la precedono, e la sua impostazione di concorrenza delle build limita quante di quelle build girano contemporaneamente. La nostra richiedeva anche un deploy del commit di testa esatto nell’unico ambiente di preview, ed è per questo che la eseguiva uno script. Il 21 novembre abbiamo sostituito quel requisito con un controllo che non ha bisogno di alcun ambiente condiviso, e la coda di GitHub ha preso il suo posto.
 
 ### Conflitti semantici: verdi da sole, rosse insieme
 
@@ -276,10 +277,10 @@ I conflitti di Git sono il tipo facile: te li segnala Git. Il tipo pericoloso so
 
 - **Sintomo:** `main` fallisce un controllo che ogni pull request unita aveva superato.
 - **Causa radice:** i controlli della #221 erano stati eseguiti su un `main` che non conteneva ancora la #220. I nostri controlli di stato obbligatori non richiedono che un branch sia aggiornato prima del merge.
-- **Correzione:** la #222 ha riparato `main`. Ora gli agenti fanno il rebase sul main attuale ed eseguono di nuovo l’intera definizione di «fatto» subito prima che la loro pull request entri nella coda, non solo i controlli che sembrano pertinenti. La nostra coda fa il rebase solo quando GitHub rifiuta un merge, cosa che una pull request semplicemente rimasta indietro non provoca; la coda del playbook qui sotto fa il rebase di ogni pull request rimasta indietro, ed è la versione che raccomandiamo.
+- **Correzione:** la #222 ha riparato `main`. Il nostro script faceva il rebase solo quando GitHub rifiutava un merge, cosa che una pull request semplicemente rimasta indietro non provoca, quindi per un periodo gli agenti facevano il rebase ed eseguivano di nuovo la definizione di «fatto» subito prima che la loro pull request entrasse nella coda. Dal 21 novembre, la coda di merge di GitHub esegue ogni controllo obbligatorio sul commit squash della pull request sopra il main attuale e sopra le pull request che la precedono, e sposta main sul commit che ha testato. Oggi la #221 fallirebbe nella coda invece che su `main`.
 - **Regola:** un risultato vale per una coppia di commit, il branch e il main su cui è stato testato. Se cambia uno dei due, scade.
 
-Richiedere che i branch siano aggiornati è la risposta rigorosa; i ruleset di GitHub la offrono. Il suo prezzo è il throughput. La mediana delle nostre ultime 33 esecuzioni riuscite su pull request era di 21 minuti quando l’abbiamo misurata il 20 novembre, quindi una coda strettamente seriale, in cui ogni merge costringe la pull request successiva a ricompilare, unisce circa tre pull request all’ora, nel migliore dei casi. Gli agenti ne producono di più. Scegli con consapevolezza: rigorosa e lenta, una coda di merge che raggruppa, oppure una regola più permissiva più un controllo economico di ciò che è cambiato su main da quando è girata la CI del branch.
+Richiedere che i branch siano aggiornati è la risposta rigorosa; i ruleset di GitHub la offrono. Il suo prezzo è il throughput. La mediana delle nostre ultime 33 esecuzioni riuscite su pull request era di 21 minuti quando l’abbiamo misurata il 20 novembre, quindi una coda strettamente seriale, in cui ogni merge costringe la pull request successiva a ricompilare, unisce circa tre pull request all’ora, nel migliore dei casi. Gli agenti ne producono di più. Scegli con consapevolezza: rigorosa e lenta, una coda di merge che raggruppa, oppure una regola più permissiva più un controllo economico di ciò che è cambiato su main da quando è girata la CI del branch. Noi abbiamo scelto la coda di merge; l’aggiornamento più sotto ha i numeri.
 
 ### Force-push, con lease, sul tuo branch
 
@@ -291,9 +292,9 @@ Il lease è una protezione reale con una falla nota. La documentazione di Git di
 
 Il riepilogo di un agente è scritto dallo stesso processo che ha fatto il lavoro, nel momento in cui più desidera aver finito. Trattalo come un’affermazione. Verificalo con cose che l’agente non può scrivere: codici di uscita, il commit a cui punta una pull request e le esecuzioni della CI su quel commit.
 
-La nostra definizione di «fatto» è composta da quattro comandi, in ordine, che devono uscire tutti con 0 sul branch di cui si sta per fare il push: `bun run check`, `bun run test:coverage`, `bun run build:test` e `bun run test:e2e:pr`. AGENTS.md chiude il paragrafo con la frase che conta di più: «Nient’altro conta come fatto, nemmeno un riepilogo che dice che lo è.»
+La nostra definizione di «fatto» è composta da tre comandi e dalle spec del browser che la modifica tocca, in ordine, che devono uscire tutti con 0 sul branch di cui si sta per fare il push: `bun run check`, `bun run test:coverage`, `bun run build:test`, poi `bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium` per ogni spec che la modifica tocca, su una porta libera tutta sua. La CI esegue l’intera suite nel browser sulla pull request e di nuovo nella coda di merge, e una pull request è fatta solo quando è verde lì e `bun scripts/enqueue-pr.ts <number>` l’ha messa nella coda. Fino al 21 novembre l’elenco locale terminava con l’intera suite, `bun run test:e2e:pr`; l’aggiornamento più sotto dice perché è cambiato. AGENTS.md chiude il paragrafo con la frase che conta di più: «Nient’altro conta come fatto, nemmeno un riepilogo che dice che lo è.»
 
-**Il nostro incidente: fatto mentre era ancora in esecuzione.** Un agente ha dichiarato conclusa la sua attività, con tre dei quattro comandi verdi e la suite nel browser avviata in background. La suite non era finita; non aveva ancora un codice di uscita.
+**Il nostro incidente: fatto mentre era ancora in esecuzione.** Un agente ha dichiarato conclusa la sua attività, con `check`, `test:coverage` e `build:test` verdi e la suite nel browser avviata in background. La suite non era finita; non aveva ancora un codice di uscita.
 
 - **Causa radice:** un riepilogo scritto alla fine del turno dell’agente, non alla fine del lavoro.
 - **Regola:** un’esecuzione in background non è un risultato. Riporta il codice di uscita, oppure di’ che è ancora in esecuzione.
@@ -303,9 +304,9 @@ La nostra definizione di «fatto» è composta da quattro comandi, in ordine, ch
 - **Causa radice:** uno stato locale riportato come stato remoto.
 - **Regola:** «fatto» comprende `git status -sb` che non mostra nulla in anticipo rispetto al remote, e il commit di testa della pull request che coincide con quello che hai testato.
 
-**Dopo un rebase, tutto torna a essere non verificato.** Un rebase produce commit nuovi. I test che hai eseguito prima giravano su commit che non esistono più, rispetto a un main che si è spostato. I nostri agenti rieseguono tutti e quattro i comandi dopo ogni rebase, e la coda attende la CI sul nuovo commit di testa; la #220 e la #221 qui sopra spiegano perché.
+**Dopo un rebase, tutto torna a essere non verificato.** Un rebase produce commit nuovi. I test che hai eseguito prima giravano su commit che non esistono più, rispetto a un main che si è spostato. I nostri agenti eseguono di nuovo la definizione di «fatto» dopo ogni rebase, e la coda di merge esegue la CI ancora una volta sulla combinazione che sta per unire; la #220 e la #221 qui sopra spiegano perché.
 
-**La CI è la barriera; le esecuzioni locali sono il filtro.** Le esecuzioni locali intercettano la maggior parte dei problemi minuti prima della CI, e un agente non dovrebbe mai fare il push di qualcosa che non ha eseguito. Ma il risultato che conta è quello sul commit che unisci, prodotto da una macchina che nessun altro sta usando. Alcuni errori li trovano solo la CI o il deploy: la nostra documentazione dice a chi contribuisce di attendere anche il deploy della preview, perché è l’unico passaggio che carica il Worker, e il limite di caricamento di Cloudflare una volta ha fatto fallire un deploy che aveva superato tutti gli altri controlli.
+**La CI è la barriera; le esecuzioni locali sono il filtro.** Le esecuzioni locali intercettano la maggior parte dei problemi minuti prima della CI, e un agente non dovrebbe mai fare il push di qualcosa che non ha eseguito. Ma il risultato che conta è quello sul commit che unisci, prodotto da una macchina che nessun altro sta usando. Alcuni errori li trovano solo la CI o il deploy: il limite di caricamento di Cloudflare una volta ha fatto fallire un deploy che aveva superato tutti gli altri controlli. Per un periodo questo ha reso il deploy della preview condivisa un passaggio obbligatorio, perché era l’unico che caricava il Worker; ora un controllo obbligatorio carica il Worker di ogni pull request come una versione che non serve traffico, e Cloudflare la valida come farebbe con un deploy.
 
 Cosa dovrebbe contenere il report di un agente, così che tu possa verificarlo in un minuto:
 
@@ -321,18 +322,18 @@ Pensa ai permessi come a quattro livelli, dal più debole al più forte. Ognuno 
 
 1. **Istruzioni.** AGENTS.md e il brief dicono cosa un agente dovrebbe e non dovrebbe fare. Stabiliscono l’intento, e un agente che segue un’istruzione obsoleta o ambigua la segue con sicurezza.
 2. **L’harness.** Il sistema di permessi dell’agente stesso chiede conferma prima di certi comandi o li rifiuta. In Claude Code le regole vengono valutate in ordine, prima i divieti (deny), poi le richieste di conferma (ask), poi i permessi (allow), e decide la prima corrispondenza. La nostra configurazione esegue anche un classificatore sulle azioni. Ha rifiutato, in momenti diversi, un force-push sul branch di una pull request già pubblicato con il push, il merge di una nuova pull request che nessuno aveva revisionato e l’uccisione di un processo che l’agente non aveva avviato. Quando in seguito il proprietario ha deciso che gli agenti possono fare force-push con lease sui propri branch, ha consentito esattamente quel pattern di comando e niente di più ampio.
-3. **Il server.** La protezione dei branch, i controlli obbligatori e i deploy obbligatori non badano a come è stato scritto un comando. La documentazione di Claude Code dice esplicitamente che una regola Bash confronta il testo del comando, quindi una regola contro `git push` non ferma `git -C . push`, e «non è un confine di sicurezza attorno al programma». Il nostro branch principale accetta solo squash merge di pull request, richiede una cronologia lineare, rifiuta force-push ed eliminazione, e richiede due controlli di stato e un deployment Preview riuscito. È il livello che regge quando gli altri due non reggono.
+3. **Il server.** La protezione dei branch, i controlli obbligatori e i deploy obbligatori non badano a come è stato scritto un comando. La documentazione di Claude Code dice esplicitamente che una regola Bash confronta il testo del comando, quindi una regola contro `git push` non ferma `git -C . push`, e «non è un confine di sicurezza attorno al programma». Il nostro branch principale accetta pull request solo tramite la coda di merge, che fa lo squash di ciascuna, richiede una cronologia lineare, rifiuta force-push ed eliminazione, e richiede tre controlli di stato, l’ultimo dei quali è l’upload del Worker. È il livello che regge quando gli altri due non reggono.
 4. **Le persone.** Alcuni passaggi sono irreversibili o spendono denaro o fiducia, e per scelta mantengono una persona nel ciclo: la pubblicazione di un pacchetto su npm attende l’approvazione del proprietario con l’autenticazione a due fattori, e deploy, migrazioni remote e secret sono passaggi umani.
 
 Ecco come si traduce per i nostri agenti:
 
-| Gli agenti possono                                                               | Gli agenti non possono                                                                         | Solo con il sì esplicito del proprietario                                          |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Creare worktree e branch da `origin/main`                                        | Fare push su `main`, o force-push su qualsiasi branch che non sia loro                         | Modificare le migrazioni, che vengono applicate in produzione e sono irreversibili |
-| Fare commit, fare il push del proprio branch e aprire pull request               | Usare `--no-verify`, o disattivare una regola di lint per superarla                            | Modificare pagamenti, licenze, autenticazione o dichiarazioni di permesso          |
-| Fare force-push con lease sul branch della propria pull request                  | Uccidere un processo che non hanno avviato                                                     | Modificare workflow, configurazione di Wrangler, file `.env` o secret              |
-| Eseguire ogni controllo locale, build e suite nel browser                        | Eliminare qualsiasi cosa al di fuori del proprio worktree e della propria cartella di appoggio | Fare deploy, applicare migrazioni remote o pubblicare un pacchetto                 |
-| Fare il merge tramite la coda del coordinatore quando la CI e la preview passano | Fare il merge di una pull request i cui controlli non sono passati sul suo commit di testa     | Riscrivere la cronologia di un branch già rilasciato                               |
+| Gli agenti possono                                                 | Gli agenti non possono                                                                         | Solo con il sì esplicito del proprietario                                          |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Creare worktree e branch da `origin/main`                          | Fare push su `main`, o force-push su qualsiasi branch che non sia loro                         | Modificare le migrazioni, che vengono applicate in produzione e sono irreversibili |
+| Fare commit, fare il push del proprio branch e aprire pull request | Usare `--no-verify`, o disattivare una regola di lint per superarla                            | Modificare pagamenti, licenze, autenticazione o dichiarazioni di permesso          |
+| Fare force-push con lease sul branch della propria pull request    | Uccidere un processo che non hanno avviato                                                     | Modificare workflow, configurazione di Wrangler, file `.env` o secret              |
+| Eseguire ogni controllo locale, build e suite nel browser          | Eliminare qualsiasi cosa al di fuori del proprio worktree e della propria cartella di appoggio | Fare deploy, applicare migrazioni remote o pubblicare un pacchetto                 |
+| Mettere una pull request verde nella coda di merge                 | Fare il merge di una pull request a mano, scavalcando la coda di merge                         | Riscrivere la cronologia di un branch già rilasciato                               |
 
 Due di queste righe vengono da incidenti che non sono mai arrivati su GitHub, e vale la pena raccontarli.
 
@@ -426,7 +427,7 @@ L’ultimo limite è la persona che revisiona. Gli agenti possono aprire pull re
 | La descrizione della pull request descrive un’altra modifica          | Un file di bozza condiviso                                           | Riscrivila a partire dal diff; dai a ogni agente la sua cartella di appoggio                                 |
 | La preview mostra un’altra build                                      | Un deploy successivo nell’ambiente condiviso                         | Rifai il deploy della preview di questa pull request, poi revisiona                                          |
 | Il branch non si può aggiornare con il rebase                         | Commit obsoleti che vanno in conflitto                               | Squash sul main attuale, risolvi una volta sola, force-push con lease, riesegui tutto                        |
-| Main fallisce un controllo che ogni pull request unita aveva superato | Un conflitto semantico tra due pull request                          | Correggi in avanti con una piccola pull request; fai fare alla coda il rebase e una nuova esecuzione         |
+| Main fallisce un controllo che ogni pull request unita aveva superato | Un conflitto semantico tra due pull request                          | Correggi in avanti con una piccola pull request; fai testare alla coda ogni modifica sopra main              |
 | L’API di merge è fallita ma il commit è su main                       | Un merge completato a metà                                           | Cerca il numero in `git log origin/main`; chiudi la pull request con una nota                                |
 | La CI fallisce in pochi secondi senza passaggi                        | I job non partono: limite di spesa o fatturazione                    | Leggi le annotazioni del job; sistema il budget, non il codice                                               |
 | Tutti gli agenti si sono fermati insieme                              | Limite di utilizzo                                                   | Riprendi da branch, pull request e registro dopo l’azzeramento                                               |
@@ -445,6 +446,74 @@ Due lezioni di processo sono venute dal rilascio della CLI, un repository privat
 
 - **Registra una release dopo che esiste.** Il workflow di rilascio creava i tag Git e le GitHub Release quando preparava una versione su npm, prima che il proprietario ne approvasse la pubblicazione. Una versione preparata non è mai stata pubblicata, quindi tre GitHub Release descrivevano pacchetti che npm non ha mai servito. Ora tag e release vengono scritti da un’esecuzione separata dopo che npm serve la versione, e quella non pubblicata è etichettata come tale.
 - **Rilascia chi legge prima di chi scrive.** Quando la CLI e il sito web condividono un contratto, una sua modifica deve arrivare al server prima di un client che la invia. Una release della CLI ha inviato una risposta che l’API delle licenze del sito, ancora alla versione precedente del contratto, ha rifiutato. Il nostro controllo end-to-end della CLI pubblicata sulla produzione l’ha trovato, e un aggiornamento del sito l’ha corretto lo stesso giorno. Ora una modifica del contratto arriva prima sul sito web.
+
+## Aggiornamento, novembre 2026 [#update-november-2026]
+
+_Aggiunto il 21 novembre 2026, il giorno dopo la pubblicazione di questo articolo._ La settimana descritta qui sopra si è chiusa con uno script di merge che portava su main una pull request alla volta e con un’esecuzione di circa 21 minuti per pull request, ed era facile concludere che i test fossero troppo lenti. Erano il problema minore. Il 21 novembre abbiamo cambiato il percorso di merge in quattro passi, tre pull request e una modifica del ruleset, e abbiamo misurato ogni passo sulle esecuzioni di GitHub Actions del repository. Ogni tempo qui sotto va dall’inizio del primo job di un’esecuzione alla fine del suo ultimo, salvo dove è detto altrimenti.
+
+### Il collo di bottiglia era un ambiente condiviso
+
+Il ruleset su `main` richiedeva un deploy riuscito di ogni pull request nell’ambiente `Preview`, e quell’ambiente era un solo host. Quando un’altra pull request faceva il deploy, GitHub segnava come inattivo il deploy precedente e la regola smetteva di contarlo, quindi una pull request verde e pronta perdeva il diritto al merge nel momento in cui una vicina faceva il deploy. Il nostro script quindi rifaceva il deploy della preview di ogni pull request subito prima del suo merge, in una coda di deploy da uno, e due pull request pronte non potevano mai essere unibili nello stesso momento. Ogni merge aspettava un deploy della preview, che nelle esecuzioni misurate richiedeva da 3,6 a 5,3 minuti, e una pull request di cui GitHub rifiutava il merge veniva sottoposta a rebase e pagava di nuovo un’intera esecuzione.
+
+Anche i test erano lenti, ma non erano loro a serializzare il lavoro. Nelle 12 esecuzioni riuscite su pull request del 21 novembre prima della #275, la suite nel browser richiedeva da 13,6 a 19,3 minuti su un solo runner, e l’intera esecuzione da 18,1 a 23,9 minuti, con una mediana di 21,5. Dimezzare la suite avrebbe accorciato ogni giro di una coda seriale. Non avrebbe permesso a due pull request pronte di arrivare al merge negli stessi cinque minuti.
+
+### La correzione rapida: un controllo invece di un deploy
+
+Il primo cambiamento non ha toccato codice. Alle 15:15 UTC il deploy `Preview` richiesto dal ruleset è diventato un controllo di stato obbligatorio sul job di deploy della preview, `Deploy preview / Deploy preview`. Un controllo di stato appartiene a un commit, e il deploy di un’altra pull request non può farlo fallire, quindi le pull request pronte hanno smesso di togliersi il posto a vicenda. L’host di preview era ancora condiviso e i suoi deploy giravano ancora uno dopo l’altro, ma nulla di ciò che era passato doveva passare di nuovo perché qualcun altro aveva fatto il deploy.
+
+### Lo sharding della suite nel browser (#275)
+
+La #275 ha diviso l’unico job del browser in una build e <RepositoryFact name="e2eShards" /> shard. Un job fa il seed del database di test, esegue `build:test` e carica la build con il suo database come artifact. Ogni shard lo scarica ed esegue la sua parte delle spec con l’opzione `--shard` di Playwright e il reporter blob. Un ultimo job, che si chiama ancora `Build and E2E (chromium)`, passa solo quando la build e ogni shard sono passati, e quando uno di essi è fallito unisce i report degli shard in un solo report HTML. Poiché il controllo obbligatorio ha mantenuto il suo nome, il ruleset non ha avuto bisogno di modifiche.
+
+La stessa pull request ha corretto due costi minori. Le esecuzioni di uno stesso branch si mettevano in coda una dietro l’altra, e tre delle 12 esecuzioni qui sopra hanno aspettato da 13 a 15 minuti un’esecuzione più vecchia del proprio branch prima che partisse il loro primo job; ora un nuovo commit annulla l’esecuzione del commit che sostituisce. E un secondo ripristino della cache delle dipendenze, che la pull request ha misurato in circa 40 secondi per job, non c’è più. Dopo la #275, la build richiedeva da 3,4 a 4,7 minuti, ogni shard da 3,2 a 5,6 in più, e un’esecuzione su pull request, ancora con il deploy della preview alla fine, da 13,4 a 14,7 minuti.
+
+Lo sharding non è gratis: ogni shard configura di nuovo la toolchain e il browser, quindi un’esecuzione usa più minuti di runner di prima. In un repository pubblico con i runner standard di GitHub quei minuti non costano nulla; in uno privato, contali.
+
+### Un incidente: una release taggata tra la build e gli shard (#278)
+
+Dividere un job in più job ha creato una race che un job solo non poteva avere. La spec del changelog, `content.spec.ts`, confronta il changelog compilato con i tag delle release in Git. Quando build e test giravano in un solo job, leggevano un solo checkout. Dopo la #275 leggevano checkout separati, a minuti di distanza.
+
+Nell’esecuzione della #273, il job di build ha fatto il checkout del repository alle 16:40 UTC. Alle 16:44:03 il deploy della #275 ha pubblicato la release `v2026.11.21.9`. Gli shard sono partiti 20 secondi dopo, hanno scaricato un tag che il changelog compilato non aveva mai visto, e il terzo shard è fallito: la spec si aspettava punti elenco collegati a `v2026.11.21.9`, una release che la pagina, compilata pochi minuti prima, non conosceva.
+
+- **Sintomo:** uno shard fallisce un test su contenuti che la modifica non ha toccato, e lo stesso commit passa più tardi.
+- **Causa radice:** job che leggono lo stesso stato in cambiamento, i tag del repository, in momenti diversi. Un job aveva letto un’istantanea; cinque job ne leggevano cinque.
+- **Correzione:** la #278 fa sì che la build impacchetti con sé l’elenco ordinato dei tag che ha letto, e ogni shard elimina ogni tag creato da allora prima che parta Playwright, così entrambe le parti leggono la stessa cronologia. La spec, i suoi retry e la build non sono cambiati. È stata unita 49 minuti dopo la #275.
+- **Regola:** quando dividi un job, elenca tutto ciò che legge e che può cambiare mentre gira, e consegna ai job successivi un’istantanea di quei dati insieme all’artifact.
+
+### La coda di merge di GitHub e un upload del Worker (#277)
+
+La #277 ha sostituito insieme lo script e il controllo della preview condivisa.
+
+- **La coda di merge.** Ora le pull request arrivano su `main` solo tramite la coda di merge di GitHub, impostata per fare lo squash, per richiedere che ogni voce passi, per compilare fino a cinque voci alla volta, per unirne da una a cinque insieme e per aspettare al massimo cinque minuti che un gruppo si riempia. Per ogni voce, GitHub scrive il suo commit squash su un branch sopra `main` e sopra le voci che la precedono, esegue lì i controlli obbligatori e sposta `main` sul commit che ha testato. Una pull request che fallisce esce dalla coda, e quelle dietro di lei vengono testate di nuovo senza di lei. È il controllo che serviva alla #220 e alla #221: nulla arriva su `main` senza passare sopra tutto ciò che lo precede.
+- **Un upload del Worker invece di un deploy.** Un controllo obbligatorio, `Worker upload / Upload preview`, compila il Worker di preview come fa un deploy ed esegue `wrangler versions upload --preview-alias pr-<number>`. Cloudflare controlla le dimensioni, il tempo di avvio, i binding e i secret richiesti come fa per un deploy, ma la versione non serve traffico: `preview.saasyland.com` continua a servire ciò che serviva, nessuna migrazione viene eseguita, e gli upload di pull request diverse girano affiancati. Le pull request pronte non condividono più nulla.
+- **Un deploy che si fida della coda.** A un push su `main`, un primo job legge i controlli che `main` richiede e cerca un’esecuzione riuscita di ciascuno sul commit pubblicato. Un commit testato dalla coda va dritto alla preview condivisa, che ora esegue `main`, e poi in produzione; un commit che ha scavalcato la coda esegue prima ogni controllo.
+- **Un solo comando per il merge.** `bun scripts/enqueue-pr.ts <number>` controlla il titolo, gli dà l’emoji che il commit squash conserva e attiva l’auto-merge, che mette la pull request nella coda appena i suoi controlli passano.
+- **Una definizione di «fatto» locale più corta.** Ora la CI esegue l’intera suite nel browser due volte per ogni pull request, sulla pull request e nella coda, su runner che nessun altro usa. Quindi gli agenti eseguono `check`, `test:coverage`, `build:test` e le spec che la loro modifica tocca, sulla propria porta, invece dell’intera suite su un portatile che condividono con altri agenti.
+
+Ora un’esecuzione su pull request ha tre job che partono insieme, i controlli con la copertura, la build di test e l’upload del Worker, seguiti dagli shard, e nelle prime cinque esecuzioni con il nuovo workflow ha richiesto da 7,7 a 9,8 minuti. Il job più lungo ora sono i test unitari con la copertura, che hanno richiesto 7 minuti e 21 secondi nell’esecuzione della coda per la #277, contro 3 minuti e 44 secondi il 20 novembre; è la prossima cosa da guardare.
+
+### Prima e dopo
+
+| Misurato il 21 novembre 2026            | Prima                                                                     | Dopo                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Un’esecuzione su pull request           | Da 18,1 a 23,9 minuti, mediana 21,5 (12 esecuzioni)                       | Da 13,4 a 14,7 minuti dopo la #275 (5 esecuzioni); da 7,7 a 9,8 dopo la #277 (5 esecuzioni)                     |
+| Il controllo del browser                | Da 13,6 a 19,3 minuti su un solo runner                                   | Da 7,7 a 9,9 minuti (12 esecuzioni): una build, poi <RepositoryFact name="e2eShards" /> shard                   |
+| Un’esecuzione nella coda di merge       | Nessuna: lo script si affidava all’esecuzione della pull request stessa   | 8,4 minuti per la #277 e 9,9 per la #276                                                                        |
+| Un push su `main`, fino alla produzione | Da 17,3 a 23,0 minuti, mediana 21,4 (8 push)                              | 8,2 minuti per la #277 e 8,1 per la #276; il push della #277 ha prima aspettato 2,7 minuti il deploy precedente |
+| Pull request pronte unite insieme       | Una, dopo un deploy della preview tutto suo                               | Fino a cinque compilate insieme, da una a cinque unite insieme                                                  |
+| Dalla coda alla produzione, tempo reale | Non misurato: lo script non registrava quando una pull request era pronta | 20,2 minuti per la #277 e 18,9 per la #276                                                                      |
+
+Due limiti onesti. La colonna «dopo» ha un giorno: una manciata di esecuzioni, non un mese, e la sostituiremo con delle mediane quando ce ne saranno abbastanza. E la riga del throughput è un tetto, non una misura. Tra le 10:26 UTC del 20 novembre e le 00:44 della notte successiva, lo script ha unito 23 pull request, una alla volta; al momento in cui scriviamo, la nuova coda ha compilato due pull request affiancate, la #276 e la #274, ma non ha ancora avuto una giornata piena.
+
+### Lezioni per qualsiasi team che fa lavorare molti agenti
+
+- **Cerca la risorsa condivisa prima di accelerare il lavoro.** Il nostro costo visibile era il tempo dei test. Quello reale era un unico ambiente che ogni modifica pronta doveva avere tutto per sé. Test più veloci accorciano ogni giro di una coda seriale; togliere il requisito condiviso toglie la coda.
+- **Richiedi proprietà di un commit, non del mondo.** Lo stato di un deploy può essere tolto dal deploy di qualcun altro; un controllo su un commit no. Ogni condizione obbligatoria che l’azione di un vicino può invalidare trasforma il lavoro parallelo in lavoro seriale.
+- **Dimostra che una modifica si può distribuire senza distribuirla.** Un upload che la piattaforma valida ma che non serve traffico dà la garanzia che dava il deploy condiviso, senza nulla di condiviso.
+- **Lascia che la coda testi la combinazione.** Gli agenti producono molte piccole modifiche che passano da sole. Il rischio sta nelle coppie, e solo una coda che testa ogni modifica sopra quelle che la precedono vede le coppie.
+- **Quando dividi un job, fai un’istantanea di ciò che legge.** I job paralleli leggono tag, il branch predefinito, i registry e l’orologio in momenti diversi. Passa agli altri ciò che ha letto il primo job.
+- **Fai del percorso fidato il percorso veloce.** Il nostro deploy non riesegue nulla che la coda abbia già eseguito su quello stesso commit, e tutto ciò che scavalca la coda paga di nuovo ogni controllo.
+- **Misura a partire dai dati delle esecuzioni, a livello di job.** La durata di un’esecuzione comprende il tempo che ha aspettato prima del suo primo job; i tempi dei suoi job no. Lo scarto tra i due era il punto in cui se ne andava gran parte del nostro tempo.
 
 ## Il playbook
 
@@ -490,7 +559,7 @@ Checklist per l’ambiente di ciascun agente:
 
 ### Una coda di merge in poche righe
 
-Una sola coda, una pull request alla volta, nell’ordine dato, che si ferma al primo problema:
+Se il tuo host ha una coda di merge e il tuo unico controllo è la CI, usa la coda dell’host: è quello che facciamo ora, e mettere una pull request in coda è un solo comando, `gh pr merge <number> --auto --squash`. Lo script qui sotto è per un controllo che la coda dell’host non può eseguire. Una sola coda, una pull request alla volta, nell’ordine dato, che si ferma al primo problema:
 
 ```sh
 set -euo pipefail
@@ -591,6 +660,6 @@ Ogni pull request, esecuzione della CI e commit citati qui sono pubblici nel rep
 - Anthropic: [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) (giugno 2025), sull’uso dei token
 - Cloudflare: [URL di preview e di versione per Workers](https://developers.cloudflare.com/workers/configuration/previews/)
 - procps: [il manuale di `pgrep` e `pkill`](https://man7.org/linux/man-pages/man1/pgrep.1.html), su `-f`
-- saasyland.com: le pull request [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) e la sua [prima esecuzione della CI](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244) e [#249](https://github.com/saasyland/saasyland.com/pull/249); le pagine [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) e [debug in locale](/docs/guides/local-debugging)
+- saasyland.com: le pull request [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) e la sua [prima esecuzione della CI](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#249](https://github.com/saasyland/saasyland.com/pull/249), [#273](https://github.com/saasyland/saasyland.com/pull/273) e il suo [shard fallito](https://github.com/saasyland/saasyland.com/actions/runs/44925821049), [#274](https://github.com/saasyland/saasyland.com/pull/274), [#275](https://github.com/saasyland/saasyland.com/pull/275), [#276](https://github.com/saasyland/saasyland.com/pull/276), [#277](https://github.com/saasyland/saasyland.com/pull/277) e la sua [esecuzione nella coda di merge](https://github.com/saasyland/saasyland.com/actions/runs/44929764863), e [#278](https://github.com/saasyland/saasyland.com/pull/278); le pagine [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) e [debug in locale](/docs/guides/local-debugging)
 
 _Scritto da Piotr J. Borowiecki, che ogni giorno fa lavorare un team di agenti di programmazione AI su saasyland.com. La documentazione esterna è stata letta il 20 novembre 2026 e potrebbe essere cambiata da allora; i link portano alla fonte. Se qualcosa qui è obsoleto o sbagliato, dimmelo e lo correggerò._

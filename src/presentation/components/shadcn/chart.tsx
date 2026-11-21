@@ -211,12 +211,11 @@ const ChartTooltipItem = ({
     return <ChartTooltipIndicator indicator={indicator} indicatorColor={resolvedIndicatorColor} nestLabel={nestLabel} />
   })()
 
-  const valueNode =
-    item.value === undefined ? undefined : (
-      <span className="font-mono font-medium text-foreground tabular-nums">
-        {typeof item.value === "number" ? format.number(item.value) : String(item.value)}
-      </span>
-    )
+  const valueNode = item.value !== undefined && (
+    <span className="font-mono font-medium text-foreground tabular-nums">
+      {typeof item.value === "number" ? format.number(item.value) : String(item.value)}
+    </span>
+  )
 
   if (formatter !== undefined && item.value !== undefined && item.name !== undefined) {
     return (

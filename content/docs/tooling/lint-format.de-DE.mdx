@@ -9,7 +9,7 @@ Vite+ führt oxfmt für die Formatierung und oxlint für das Linting aus; beide 
 bun run check
 ```
 
-Das Skript führt `generate:cn`, `check:i18n` und `vp check` aus; Letzteres prüft die Formatierung, wendet die Lint-Regeln an und führt die Typprüfung des Projekts durch. Verwende `bun run lint`, `bun run format` und `bun run format:check`, um jeweils nur ein Werkzeug auszuführen.
+Das Skript führt `generate:cn`, `check:comments`, `check:i18n`, `check:flows` und `vp check` aus; Letzteres prüft die Formatierung, wendet die Lint-Regeln an und führt die Typprüfung des Projekts durch. Verwende `bun run lint`, `bun run format` und `bun run format:check`, um jeweils nur ein Werkzeug auszuführen.
 
 ## Formatierung
 
@@ -23,13 +23,14 @@ Das Skript führt `generate:cn`, `check:i18n` und `vp check` aus; Letzteres prü
 - Typbewusste Regeln und die Typprüfung sind aktiviert (`typeAware` und `typeCheck`).
 - Wichtige Grenzen: <RepositoryFact name="maxLines" /> Zeilen pro Datei, <RepositoryFact name="maxLinesPerFunction" /> Zeilen pro Funktion, <RepositoryFact name="maxStatements" /> Anweisungen pro Funktion, keine magischen Zahlen außer `0` und `1`, kein explizites `any` (`typescript/no-explicit-any`) und Bezeichner mit mindestens zwei Zeichen, ausgenommen `_`, `m` und `t`.
 - Overrides lockern einige Regeln für Tests, Präsentationscode und Hooks, Test-Mocks und Routendateien.
-- `jsPlugins` lädt die repository-eigenen oxlint-Plugins: `scripts/hydration-lint-plugin.ts`, dessen Regel `hydration/no-clock-or-locale-in-render` verhindert, dass Render-Code die Uhr oder die Locale der Laufzeitumgebung liest (siehe [Codestil](/docs/conventions/code-style)), `scripts/admin-data-lint-plugin.ts`, dessen Regel `admin-data/no-literal-data` Demo-Daten aus dem Admin-Code fernhält (siehe [Admin-Dashboard](/docs/features/admin-dashboard#real-data-only)), und `scripts/radius-lint-plugin.ts`, dessen Regel `radius/no-off-scale` jede Ecke auf der Radius-Skala hält (siehe [Theme](/docs/ui/theme#corner-radius)).
+- `jsPlugins` lädt die repository-eigenen oxlint-Plugins: `scripts/code-style-lint-plugin.ts`, dessen Regeln `code-style/no-comments`, `code-style/no-multiline-ternary` und `code-style/no-undefined-fallback` jeden Kommentar, jeden ternären Ausdruck über mehrere Zeilen und jedes `?? undefined` scheitern lassen (siehe [Codestil](/docs/conventions/code-style)), `scripts/hydration-lint-plugin.ts`, dessen Regel `hydration/no-clock-or-locale-in-render` verhindert, dass Render-Code die Uhr oder die Locale der Laufzeitumgebung liest (siehe [Codestil](/docs/conventions/code-style)), `scripts/admin-data-lint-plugin.ts`, dessen Regel `admin-data/no-literal-data` Demo-Daten aus dem Admin-Code fernhält (siehe [Admin-Dashboard](/docs/features/admin-dashboard#real-data-only)), und `scripts/radius-lint-plugin.ts`, dessen Regel `radius/no-off-scale` jede Ecke auf der Radius-Skala hält (siehe [Theme](/docs/ui/theme#corner-radius)).
+- Die Hintertüren sind namentlich verboten: `typescript/ban-ts-comment` weist `@ts-expect-error`, `@ts-ignore` und `@ts-nocheck` auch mit einer Beschreibung zurück, `typescript/consistent-type-assertions` mit `assertionStyle: "never"` weist jede Typassertion außer `as const` zurück, und `respectEslintDisableDirectives: false` sorgt dafür, dass ein `eslint-disable`-Kommentar nichts abschaltet. `code-style/no-comments` ersetzt `capitalized-comments`, `no-inline-comments` und `no-warning-comments`, die die Kategorien einschalten und von denen jede nur einen Teil der Kommentare sah; deshalb sind diese drei abgeschaltet.
 
-Beide Werkzeuge ignorieren generierte und externe Dateien: Deklarationsdateien, `src/routeTree.gen.ts`, Migrationen, `.source`, `dist`, `coverage`, `e2e`, `remotion`, die Agent-Ordner und die Playwright-Ausgabe. `scripts/` wird wie `src/` formatiert und gelintet.
+Beide Werkzeuge ignorieren generierte und externe Dateien: Deklarationsdateien, `src/routeTree.gen.ts`, Migrationen, `.source`, `dist`, `coverage`, `e2e`, `remotion`, die Agent-Ordner und die Playwright-Ausgabe. `scripts/` wird wie `src/` formatiert und gelintet. `bun run check:comments` liest auch, was der Linter auslässt: `e2e`, `remotion`, die Deklarationsdateien und die Stylesheets.
 
 Der Formatter sortiert außerdem `package.json`, einschließlich der `scripts` in alphabetischer Reihenfolge (`sortPackageJson: { sortScripts: true }`), sodass `vp check` fehlschlägt, wenn ein Script nicht an seinem Platz steht.
 
-Behebe die Ursache eines Lint-Fehlers. Füge keine Disable-Kommentare, kein `@ts-expect-error` und keine `as`-Casts hinzu, um eine Regel zu erfüllen.
+Behebe die Ursache eines Lint-Fehlers. Füge keine Disable-Kommentare, kein `@ts-expect-error` und keine `as`-Casts hinzu, um eine Regel zu erfüllen. Ein Disable-Kommentar ist ein Kommentar, und der Linter befolgt ihn, bevor eine Regel ihn sieht; deshalb lässt `bun run check:comments`, das außerhalb des Linters läuft, ihn scheitern, wo immer er steht.
 
 ## Korrigieren
 

@@ -25,9 +25,9 @@ const RadioGroupItem = ({ children, className, ...props }: Readonly<RadioFieldPr
       {composeRenderProps(children, (renderedChildren, { isSelected }) => (
         <>
           <span className="flex size-4 items-center justify-center" data-slot="radio-group-indicator">
-            {isSelected ? (
+            {isSelected && (
               <span className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground" />
-            ) : undefined}
+            )}
           </span>
           {renderedChildren}
         </>

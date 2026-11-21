@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -125,7 +125,7 @@ Każdy z nich zdarzył się w naszych repozytoriach i na każdy jest rozwiązani
 
 **1. Rozmycie.** Każda reguła, którą dodajesz, sprawia, że każda inna jest przestrzegana odrobinę rzadziej. Dokumentacja Claude Code zaleca pliki instrukcji krótsze niż 200 wierszy, bo „longer files consume more context and reduce adherence”. Nasz `AGENTS.md` to streszczenie, które wskazuje całą sekcję dokumentacji z konwencjami. Agent czyta streszczenie w każdej sesji, a strony tylko wtedy, gdy przyjdzie mu to do głowy.
 
-**2. Konflikt.** Instrukcje przychodzą z kilku miejsc i są ze sobą sprzeczne. Narzędzia agentowe domyślnie dodają do commitów trailer atrybucji, taki jak `Co-Authored-By`. Nasze reguły tego zabraniają, bo GitHub przypisuje adres z trailera do konta i wymienia to konto jako współtwórcę repozytorium. Rozwiązanie, które trzyma, jest strukturalne, a nie kolejnym zdaniem: repozytorium pozwala tylko na scalanie przez squash, a commit squash bierze tytuł pull requesta z pustą treścią, więc nic, co agent napisze w komunikacie commita na swojej gałęzi, nie trafia do `main`.
+**2. Konflikt.** Instrukcje przychodzą z kilku miejsc i są ze sobą sprzeczne. Narzędzia agentowe domyślnie dodają do commitów trailer atrybucji, taki jak `Co-Authored-By`. Nasze reguły tego zabraniają, bo GitHub przypisuje adres z trailera do konta i wymienia to konto jako współtwórcę repozytorium. Rozwiązanie, które trzyma, jest strukturalne, a nie kolejnym zdaniem: repozytorium pozwala tylko na scalanie przez squash, a commit squash bierze tytuł pull requesta z pustą treścią, więc nic, co agent napisze w komunikacie commita na swojej gałęzi, nie trafia do `main`. Od #274 hook `commit-msg` odrzuca też każdy komunikat commita, którego trailer wymienia narzędzie AI, więc agent dowiaduje się o tym już przy pierwszym commicie.
 
 **3. Z drugiej ręki.** Gdy kilka agentów pracuje razem, większość instrukcji dociera do wykonawcy przez streszczenie innego agenta, a streszczenia gubią szczegóły. W naszym układzie agent prowadzący pisze brief dla każdego wykonawcy. Jeden brief mówił, że „właściciel zatwierdził” zmianę w płatnościach, podczas gdy zatwierdził on coś innego (#166). Następnego ranka dwa briefy mówiły, że API licencji CLI nie jest na liście przeglądu przez człowieka, choć `AGENTS.md` wymieniał je od poprzedniego dnia, i dwa pull requesty je zmieniły (#208 i #211). Tym, co za każdym razem zatrzymało następny krok, nie była instrukcja: warstwa uprawnień harnessu agenta odmówiła scalenia zmiany w płatnościach i dalszej pracy nad drugą zmianą licencji, dopóki właściciel nie powiedział „tak”. Jego „tak” dla zmiany licencji jest zacytowane w jej pull requeście.
 
@@ -225,6 +225,8 @@ Z jednej tabeli wyszły cztery lekcje i wszystkie cztery dotyczą każdego linte
 
 **Powtarzaj próbę po każdej aktualizacji lintera.** Kategorie takie jak `nursery` zyskują i tracą reguły między wydaniami. Plik próbny jest testem Twojej konfiguracji i zasługuje na to, żeby działać w CI jak każdy inny test; zestaw startowy na końcu artykułu ma taki test.
 
+Wszystkie luki z tabeli zamknęliśmy następnego dnia, w #274. `code-style/no-comments` zgłasza każdy komentarz, `code-style/no-multiline-ternary` każdy operator trójargumentowy rozciągający się na kilka wierszy, a `code-style/no-undefined-fallback` każde `?? undefined`; `typescript/ban-ts-comment` odrzuca teraz `@ts-expect-error` nawet z opisem, a `typescript/consistent-type-assertions` z `assertionStyle: "never"` odrzuca rozszerzające `as`. Włączone w całym repozytorium reguły znalazły 21 wielowierszowych operatorów trójargumentowych, z czego 17 w skopiowanych do repozytorium komponentach shadcn, oraz dwa rzutowania `as`, a pull request przepisał każde z tych miejsc, zamiast robić dla niego wyjątek.
+
 ## Jak zamienić regułę stylu w kontrolę
 
 1. **Zapisz regułę jako pytanie o artefakt, na które odpowiedź brzmi tak albo nie.** „Czy ten plik zawiera komentarz?” da się rozstrzygnąć. „Czy ten kod jest czytelny?” nie, i to pytanie należy do przeglądu. Jeśli nie umiesz zapisać pytania, znalazłeś instrukcję, a nie kontrolę.
@@ -271,7 +273,7 @@ Następnego dnia #220 zrobił to samo dla formy zwracania się do czytelnika. Ka
 
 ### Przykład z praktyki: bez komentarzy, egzekwowane przez parser
 
-Audyt powyżej pokazał, że naszą regułę zakazu komentarzy egzekwuje tylko przypadek. Oto reguła, która zamyka tę lukę, napisana pod API reguł ESLint, które ładuje też Oxlint („Oxlint’s plugin API is compatible with ESLint v9+”):
+Audyt powyżej pokazał, że naszą regułę zakazu komentarzy egzekwuje tylko przypadek. Oto reguła, która zamknęła tę lukę, napisana pod API reguł ESLint, które ładuje też Oxlint („Oxlint’s plugin API is compatible with ESLint v9+”); nasza to `code-style/no-comments` w `scripts/code-style-lint-plugin.ts`:
 
 ```js
 const noComments = {
@@ -294,6 +296,8 @@ const noComments = {
 Uruchomiliśmy ją z naszą istniejącą konfiguracją na każdym pliku, który obejmuje linter. Zgłosiła komentarz liniowy pisany wielką literą, blok JSDoc i komentarz JSX z pliku próbnego, pominęła `//` w ciągu znaków z URL-em i w wyrażeniu regularnym, a w kodzie objętym linterem znalazła dokładnie jeden problem: wiersz `#!/usr/bin/env bun` na początku skryptu. ESLint dokumentuje, dlaczego: shebangi „are treated as comments” i zwraca je `getAllComments()`. Stąd wyjątek `Shebang`, który jest lekcją z kroku 5 w miniaturze: kontrola, której nie uruchomiłeś na prawdziwym kodzie, ma błędy, których jeszcze nie spotkałeś.
 
 Drugie odkrycie jest równie ważne: poza tym wierszem lintowany kod nie miał żadnych komentarzy. Przegląd utrzymał regułę. Kosztowało to jednak właściciela uwagę potrzebną do jej pilnowania, za każdym razem, i właśnie o tę wymianę chodzi w tym artykule.
+
+Reguła lintera wciąż ma dwa martwe punkty. Nie widzi plików, które linter pomija, a u nas są to zestaw testów przeglądarkowych, pliki deklaracji i arkusze stylów, i nie może zgłosić komentarza `/* oxlint-disable */`, który ją wymienia, bo linter najpierw wykonuje dyrektywę. Dlatego `bun run check:comments` parsuje każdy plik TypeScript, JavaScript i CSS, który śledzi Git, poza linterem, za pomocą oxc dla kodu i PostCSS dla stylów, i kończy się błędem przy każdym komentarzu, zanim ruszy linter. Pierwsze uruchomienie znalazło jeszcze jeden: wiersz `/// <reference types>` w pliku deklaracji, który przeniesiono do `types` w `tsconfig.json`.
 
 ### Gdy reguła rodzi rytuał, popraw regułę
 
@@ -708,9 +712,9 @@ Do not change these without a maintainer's written yes that names the paths:
 
 Pisanie tego artykułu było audytem, a audyt znalazł luki. W duchu całej reszty oto one.
 
-- **Zakaz komentarzy** jest egzekwowany tylko przez kategorie lintera, które przepuszczają komentarze liniowe pisane wielką literą oraz komentarze JSDoc i JSX. Lukę zamyka opisana wyżej reguła oparta na parserze.
-- **Furtki** są sprawdzane tylko częściowo: opisany `@ts-expect-error`, rozszerzające `as` i komentarz `oxlint-disable` przechodzą lint. `ban-ts-comment` ustawione na zakaz i wyszukiwanie dyrektyw w CI zamykają większość tej luki.
-- **Wielowierszowych operatorów trójargumentowych i `?? undefined`** pilnuje wyłącznie przegląd.
+Trzy z nich są już zamknięte: komentarze, furtki oraz wielowierszowe operatory trójargumentowe razem z `?? undefined` sprawiają teraz, że `bun run check` kończy się błędem (#274). Pozostają te:
+
+- **Zestaw testów przeglądarkowych** leży poza linterem: `bun run check:comments` czyta `e2e/`, ale żadna inna reguła lintera tego nie robi.
 - **Ścieżek wymagających przeglądu przez człowieka** pilnują instrukcja i warstwa uprawnień agentów, a nie GitHub, bo agenty pracują pod tożsamością właściciela. Lista pomija też pliki, które definiują bramki.
 - **Opisy pull requestów** nie są porównywane z diffem.
 - **Opublikowane CLI** nie jest jeszcze uruchamiane na działającym API przed każdym wydaniem.

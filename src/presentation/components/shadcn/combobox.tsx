@@ -110,7 +110,7 @@ const ComboboxInput = ({
   <InputGroup className={cn("w-auto", className)}>
     <InputGroupInput {...(disabled ? { disabled: true } : {})} {...props} />
     <InputGroupAddon align="inline-end">
-      {showTrigger ? (
+      {showTrigger && (
         <InputGroupButton
           className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent [&_svg:not([class*='size-'])]:size-4"
           data-slot="combobox-trigger"
@@ -120,7 +120,7 @@ const ComboboxInput = ({
         >
           <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
         </InputGroupButton>
-      ) : undefined}
+      )}
       {showClear ? <ComboboxClear isDisabled={disabled} /> : undefined}
     </InputGroupAddon>
     {children}
@@ -286,11 +286,11 @@ const ComboboxChip = ({
     {...props}
   >
     {children}
-    {showRemove ? (
+    {showRemove && (
       <Button className="-ml-1 opacity-50 hover:opacity-100" data-slot="combobox-chip-remove" size="icon-xs" slot="remove" variant="ghost">
         <XIcon className="pointer-events-none" />
       </Button>
-    ) : undefined}
+    )}
   </TagPrimitive>
 )
 

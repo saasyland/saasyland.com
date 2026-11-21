@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -122,7 +122,7 @@ Each of these happened in our repositories, and each has a fix that does not dep
 
 **1. Dilution.** Every rule you add makes every other rule a little less likely to be followed. Claude Code’s documentation recommends instruction files under 200 lines because "longer files consume more context and reduce adherence". Our `AGENTS.md` is a summary that points at a whole docs section of conventions. The agent reads the summary in every session and the pages only when it thinks to.
 
-**2. Conflict.** Instructions come from several places, and they disagree. Agent tools add an attribution trailer such as `Co-Authored-By` to commits by default. Our rules forbid it, because GitHub resolves the trailer’s address to an account and lists that account as a contributor to the repository. The fix that holds is structural rather than another sentence: the repository allows only squash merges, and the squash commit takes the pull request title with an empty body, so nothing an agent writes in a branch commit message reaches `main`.
+**2. Conflict.** Instructions come from several places, and they disagree. Agent tools add an attribution trailer such as `Co-Authored-By` to commits by default. Our rules forbid it, because GitHub resolves the trailer’s address to an account and lists that account as a contributor to the repository. The fix that holds is structural rather than another sentence: the repository allows only squash merges, and the squash commit takes the pull request title with an empty body, so nothing an agent writes in a branch commit message reaches `main`. Since #274, a `commit-msg` hook also rejects any commit message whose trailer names an AI tool, so the agent hears about it at its first commit.
 
 **3. Hearsay.** When several agents work together, most instructions reach a worker through another agent’s summary of them, and summaries lose things. In our setup a lead agent writes the brief for each worker. One brief said "the owner approved" a payments change when he had approved something else (#166). The next morning, two briefs said the CLI licence API was not on the human-review list, although `AGENTS.md` had listed it since the day before, and two pull requests changed it (#208 and #211). What stopped the next step each time was not an instruction: the permission layer of the agent’s harness refused to merge the payments change and to continue work on the second licence change until the owner said yes. His yes for the licence change is quoted in its pull request.
 
@@ -222,6 +222,8 @@ Four lessons came out of one table, and all four apply to any linter.
 
 **Re-run the probe after every linter upgrade.** Categories such as `nursery` gain and lose rules between releases. The probe file is a test of your configuration, and it deserves to run in CI like any other test; the starter kit at the end has one.
 
+We closed every gap in the table the next day, in #274. `code-style/no-comments` reports every comment, `code-style/no-multiline-ternary` every ternary that spans lines and `code-style/no-undefined-fallback` every `?? undefined`; `typescript/ban-ts-comment` now rejects `@ts-expect-error` even with a description, and `typescript/consistent-type-assertions` with `assertionStyle: "never"` rejects the widening `as`. Switched on across the repository, the rules found 21 multi-line ternaries, 17 of them in vendored shadcn components, and two `as` casts, and the pull request rewrote each one rather than exempting it.
+
 ## How to turn a style rule into a check
 
 1. **Write the rule as a yes-or-no question about an artifact.** "Does this file contain a comment?" is decidable. "Is this code clear?" is not, and belongs in review. If you cannot write the question, you have found an instruction, not a check.
@@ -268,7 +270,7 @@ The next day, #220 did the same for the form of address. Each locale addresses t
 
 ### Worked example: no comments, enforced by a parser
 
-The audit above showed our no-comments rule enforced only by accident. This is the rule that closes the gap, written against ESLint’s rule API, which Oxlint also loads ("Oxlint’s plugin API is compatible with ESLint v9+"):
+The audit above showed our no-comments rule enforced only by accident. This is the rule that closed the gap, written against ESLint’s rule API, which Oxlint also loads ("Oxlint’s plugin API is compatible with ESLint v9+"); ours is `code-style/no-comments` in `scripts/code-style-lint-plugin.ts`:
 
 ```js
 const noComments = {
@@ -291,6 +293,8 @@ const noComments = {
 We ran it with our existing configuration over every file the linter covers. It reported the capitalised line comment, the JSDoc block and the JSX comment in the probe file, left alone a `//` inside a URL string and inside a regular expression, and found exactly one problem in the code the linter covers: the `#!/usr/bin/env bun` line at the top of a script. ESLint documents why: shebangs "are treated as comments" and are returned by `getAllComments()`. Hence the `Shebang` exception, which is the step-5 lesson in miniature: a check you have not run on real code has bugs you have not met yet.
 
 The other finding matters as much: apart from that line, the linted code had no comments at all. Review had held the rule. It had also cost the owner the attention to hold it, every time, and that is the trade this article is about.
+
+A lint rule still has two blind spots. It cannot see the files the linter skips, which for us are the browser suite, the declaration files and the stylesheets, and it cannot report a `/* oxlint-disable */` that names it, because the linter obeys the directive first. So `bun run check:comments` parses every TypeScript, JavaScript and CSS file that Git tracks, outside the linter, with oxc for code and PostCSS for styles, and fails on any comment before the linter runs. Its first run found one more: a `/// <reference types>` line in a declaration file, whose type reference moved to `types` in `tsconfig.json`.
 
 ### When a rule produces ceremony, fix the rule
 
@@ -705,9 +709,9 @@ Do not change these without a maintainer's written yes that names the paths:
 
 Writing this article was an audit, and the audit found gaps. In the spirit of the rest of it, here they are.
 
-- **No comments** is enforced only by the lint categories, which miss capitalised line comments, JSDoc and JSX comments. The parser rule above closes it.
-- **Escape hatches** are only partly checked: a described `@ts-expect-error`, a widening `as` and an `oxlint-disable` comment pass lint. `ban-ts-comment` set to forbid and a directive search in CI close most of it.
-- **Multi-line ternaries and `?? undefined`** are held by review alone.
+Three of them are closed, because `bun run check` now fails on them (#274): comments, the escape hatches, and multi-line ternaries with `?? undefined`. These remain:
+
+- **The browser suite** is outside the linter: `bun run check:comments` reads `e2e/`, but no other lint rule does.
 - **Human-review paths** are held by instruction and the agents’ permission layer, not by GitHub, because the agents work under the owner’s identity. The list also leaves out the files that define the gates.
 - **Pull request descriptions** are not checked against the diff.
 - **The published CLI** is not yet run against the live API before each release.

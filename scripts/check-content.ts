@@ -148,9 +148,11 @@ const quotedSourceProblems = ({ label, target }: Translation): string[] =>
     const path = groups?.["path"] ?? ""
     const file = join(REPOSITORY_DIR, path)
 
-    return existsSync(file) && readFileSync(file, "utf8").includes(groups?.["code"] ?? "")
-      ? []
-      : [`A code block in ${label} is not an excerpt of ${path}`]
+    if (existsSync(file) && readFileSync(file, "utf8").includes(groups?.["code"] ?? "")) {
+      return []
+    }
+
+    return [`A code block in ${label} is not an excerpt of ${path}`]
   })
 
 const hostProblems = ({ label, target }: Translation): string[] =>
@@ -287,12 +289,15 @@ const entryKeyProblems = ({ label, locale }: Translation): string[] => {
   return ENTRY_KEY.test(key) ? [] : [`${label} is named after neither a pull request number nor a full commit hash`]
 }
 
-const entryItemProblems = ({ label, target }: Translation): string[] =>
-  entryItems(target).every((line) => ENTRY_ITEM.test(line))
-    ? []
-    : [
-        `${label} must be a list of one-line bullets, each starting with "- ", because the changelog ends every bullet with its pull request and release`,
-      ]
+const entryItemProblems = ({ label, target }: Translation): string[] => {
+  if (entryItems(target).every((line) => ENTRY_ITEM.test(line))) {
+    return []
+  }
+
+  return [
+    `${label} must be a list of one-line bullets, each starting with "- ", because the changelog ends every bullet with its pull request and release`,
+  ]
+}
 
 const addressProblems = ({ label, locale, target }: Translation): string[] =>
   formOfAddressProblems({ locale, text: target.replaceAll(CODE_BLOCK_PATTERN, "").replaceAll(INLINE_CODE_PATTERN, "") }).map(

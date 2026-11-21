@@ -69,12 +69,12 @@ const Dialog = ({
       >
         <DialogPrimitive className="[display:inherit] gap-[inherit] outline-none" data-slot="dialog">
           {children}
-          {showCloseButton ? (
+          {showCloseButton && (
             <DialogClose className="absolute top-2 right-2" size="icon-sm" variant="ghost">
               <XIcon />
               <span className="sr-only">{t("close")}</span>
             </DialogClose>
-          ) : undefined}
+          )}
         </DialogPrimitive>
       </ModalPrimitive>
     </DialogOverlay>

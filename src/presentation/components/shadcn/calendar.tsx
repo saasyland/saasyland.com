@@ -209,12 +209,13 @@ const CalendarMonthSection = ({
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex h-(--cell-size) w-full items-center justify-center gap-1 px-(--cell-size)">
-        {captionLayout === "dropdown" ? (
+        {captionLayout === "dropdown" && (
           <>
             <MonthDropdown format={headerFormat} />
             <YearDropdown format={headerFormat} />
           </>
-        ) : (
+        )}
+        {captionLayout !== "dropdown" && (
           <CalendarHeading className="text-sm font-medium select-none" offset={gridOffset} {...headingFormatProps} />
         )}
       </div>

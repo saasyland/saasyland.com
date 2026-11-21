@@ -119,7 +119,7 @@ const DropdownMenuItem = ({
     >
       {composeRenderProps(children, (renderedChildren, { isSelected, selectionMode }) => (
         <>
-          {selectionMode === "none" ? undefined : (
+          {selectionMode !== "none" && (
             <span
               className="pointer-events-none absolute right-2 flex items-center justify-center"
               data-slot={selectionMode === "single" ? "dropdown-menu-radio-item-indicator" : "dropdown-menu-checkbox-item-indicator"}

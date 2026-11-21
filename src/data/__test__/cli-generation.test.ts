@@ -100,28 +100,23 @@ const generationSelects = (nodes: MessageFormatElement[]): SelectElement[] =>
     ...childrenOf(node).flatMap((children) => generationSelects(children)),
   ])
 
+const nodeText = (node: MessageFormatElement, textOf: (nodes: MessageFormatElement[]) => string): string => {
+  if (isLiteralElement(node)) {
+    return node.value
+  }
+
+  return childrenOf(node)
+    .map((children) => textOf(children))
+    .join(" ")
+}
+
 const textOutsideGeneration = (nodes: MessageFormatElement[]): string =>
   nodes
     .filter((node) => !isGenerationSelect(node))
-    .map((node) =>
-      isLiteralElement(node)
-        ? node.value
-        : childrenOf(node)
-            .map((children) => textOutsideGeneration(children))
-            .join(" "),
-    )
+    .map((node) => nodeText(node, textOutsideGeneration))
     .join(" ")
 
-const literalText = (nodes: MessageFormatElement[]): string =>
-  nodes
-    .map((node) =>
-      isLiteralElement(node)
-        ? node.value
-        : childrenOf(node)
-            .map((children) => literalText(children))
-            .join(" "),
-    )
-    .join(" ")
+const literalText = (nodes: MessageFormatElement[]): string => nodes.map((node) => nodeText(node, literalText)).join(" ")
 
 const tagNames = (nodes: MessageFormatElement[]): string[] =>
   nodes.flatMap((node) => [...(isTagElement(node) ? [node.value] : []), ...childrenOf(node).flatMap((children) => tagNames(children))])

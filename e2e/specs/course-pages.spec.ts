@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { TEST_ACCOUNTS } from "../data/accounts"
@@ -19,6 +19,39 @@ const LESSON_VIEW = {
 } as const
 
 type LessonView = (typeof LESSON_VIEW)[keyof typeof LESSON_VIEW]
+
+const ALIGNMENT_VIEWPORTS = [
+  { height: 900, width: 1280 },
+  { height: 844, width: 390 },
+] as const
+
+const FIRST_LINE_TOLERANCE_PX = 1
+
+const COLUMN_TOLERANCE_PX = 0.5
+
+const curriculumAlignment = async (list: Locator) =>
+  list.evaluate((section) => {
+    const firstLine = (element: Element): number =>
+      element.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(element).lineHeight) / 2
+    const centre = (element: Element): number => element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2
+    const drift = (title: Element, selectors: readonly string[]): number => {
+      const marks = selectors.flatMap((selector) => [...(title.parentElement?.querySelectorAll(selector) ?? [])])
+      return Math.max(...marks.map((mark) => Math.abs(centre(mark) - firstLine(title))))
+    }
+    const visible = (selector: string): Element[] => [...section.querySelectorAll(selector)].filter((element) => element.getClientRects().length > 0)
+    const lessons = visible("[data-slot=lesson-title]")
+    const chapters = visible("[data-slot=chapter-title]")
+
+    return {
+      chapterDrift: Math.max(...chapters.map((title) => drift(title, ["[data-slot=chapter-number] > span"]))),
+      chapterLefts: chapters.map((title) => title.getBoundingClientRect().left),
+      lessonDrift: Math.max(
+        ...lessons.map((title) => drift(title, ["[data-slot=lesson-icon] svg", "[data-slot=lesson-number] > span", "[data-slot=lesson-lock] svg"])),
+      ),
+      lessonLefts: lessons.map((title) => title.getBoundingClientRect().left),
+      wrapped: lessons.filter((title) => title.getBoundingClientRect().height > Number.parseFloat(getComputedStyle(title).lineHeight) * 1.5).length,
+    }
+  })
 
 const lessonPath = (slug: string, prefix = ""): string => `${prefix}/courses/${TEST_COURSE.slug}/${slug}`
 
@@ -129,6 +162,36 @@ test.describe("course and lesson pages", () => {
     await chapter.press("Enter")
     await expect(chapter).toHaveAttribute("aria-expanded", "true")
     await expect(page.getByRole("link", { name: new RegExp(`${recording.title["en-US"]}.*Coming soon`, "u") })).toBeVisible()
+  })
+
+  test("the curriculum hangs each lesson's icon, number and lock on its title's first line, in the chapter title's column", async ({ page }) => {
+    for (const viewport of ALIGNMENT_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      await page.goto(`/courses/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await page.locator("section[aria-labelledby=course-curriculum]").scrollIntoViewIfNeeded()
+
+      const alignment = await curriculumAlignment(page.locator("section[aria-labelledby=course-curriculum]"))
+      const [chapterLeft] = alignment.chapterLefts
+
+      expect(alignment.lessonLefts.length).toBeGreaterThan(0)
+      expect(alignment.lessonDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
+      expect(alignment.chapterDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
+      for (const left of [...alignment.chapterLefts, ...alignment.lessonLefts]) {
+        expect(Math.abs(left - (chapterLeft ?? 0))).toBeLessThanOrEqual(COLUMN_TOLERANCE_PX)
+      }
+      if (viewport.width < ALIGNMENT_VIEWPORTS[0].width) {
+        expect(alignment.wrapped).toBeGreaterThan(0)
+      }
+    }
+
+    await page.setViewportSize(ALIGNMENT_VIEWPORTS[0])
+    await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    const contents = await curriculumAlignment(page.locator("#lesson-sidebar"))
+    expect(contents.lessonDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
+    expect(contents.chapterDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
+    for (const left of contents.lessonLefts) {
+      expect(Math.abs(left - (contents.chapterLefts[0] ?? 0))).toBeLessThanOrEqual(COLUMN_TOLERANCE_PX)
+    }
   })
 
   test("the unlock panel sticks below the header with the same gap at every scroll", async ({ page }) => {

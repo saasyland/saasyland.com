@@ -54,7 +54,7 @@ const THUMBNAIL_SIZES = "7rem"
 
 const COURSE_LESSONS = "mt-4 border-t border-border pt-2 md:group-first/tile:columns-2 md:group-first/tile:gap-8"
 
-const COURSE_LESSON = "flex break-inside-avoid gap-3 rounded-md py-2 text-body-sm"
+const COURSE_LESSON = "grid break-inside-avoid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 rounded-md py-2 text-body-sm"
 
 const COURSE_HEADER = "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4"
 
@@ -154,13 +154,13 @@ const LessonIcon = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Elemen
 
 const LessonState = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Element => (
   <>
-    <span className="flex h-lh shrink-0 items-center">
+    <span className="flex h-lh items-center justify-center" data-slot="lesson-icon">
       <LessonIcon lesson={lesson} />
     </span>
-    <span className="min-w-0 flex-1">
-      <span className="block truncate font-medium text-foreground">{lesson.title}</span>{" "}
-      <LessonMeta className={cn(COMING_COLLAPSE, "flex-nowrap overflow-hidden")} lesson={lesson} />
-    </span>
+    <span className="truncate font-medium text-foreground" data-slot="lesson-title">
+      {lesson.title}
+    </span>{" "}
+    <LessonMeta className={cn(COMING_COLLAPSE, "col-start-2 flex-nowrap overflow-hidden")} lesson={lesson} />
   </>
 )
 
@@ -206,7 +206,7 @@ const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number
             )}
             {!lesson.recording && (
               <Link
-                className={cn(LINK_CLASSNAME, COURSE_LESSON, "-mx-2 px-2 hover:bg-card")}
+                className={cn(LINK_CLASSNAME, COURSE_LESSON, "-mx-2 px-2 hover:bg-muted/40")}
                 params={{ course: course.slug, lesson: lesson.slug }}
                 to="/courses/$course/$lesson"
               >
@@ -243,8 +243,8 @@ const ShowcaseCoursePending = (): JSX.Element => (
     <div className={COURSE_LESSONS}>
       {Array.from({ length: COURSE_SHOWCASE.LESSONS }, (_, lesson) => (
         <div className={COURSE_LESSON} key={lesson}>
-          <Skeleton className="h-lh w-3 shrink-0 scale-y-30" />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <Skeleton className="h-lh w-3 scale-y-30 justify-self-center" />
+          <div className="flex min-w-0 flex-col">
             <Skeleton className="h-lh w-4/5 scale-y-70" />
             <Skeleton className="h-lh w-24 scale-y-70 text-spec" />
           </div>

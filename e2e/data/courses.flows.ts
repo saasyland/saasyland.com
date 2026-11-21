@@ -224,6 +224,10 @@ export const COURSES_FLOWS = [
         spec: "course-pages.spec.ts",
         title: "course and lesson pages › the course page lists each chapter as an accordion with each lesson's access and recording",
       },
+      {
+        spec: "course-pages.spec.ts",
+        title: "course and lesson pages › the curriculum hangs each lesson's icon, number and lock on its title's first line, in the chapter title's column",
+      },
     ],
   },
   {

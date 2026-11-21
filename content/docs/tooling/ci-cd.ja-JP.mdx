@@ -3,29 +3,38 @@ title: "CI/CD"
 description: "チェック、ブラウザーテスト、デプロイ、リリースのための GitHub Actions ワークフローです。"
 ---
 
-ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンを使う Vite+、Bun のキャッシュ、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
+ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
-| ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | プルリクエストと `main` へのプッシュ                                                        | チェックとカバレッジ、Chromium の E2E、その後プレビューへのデプロイ、または本番へのデプロイとリリース |
-| `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                |
-| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | テスト用データベース、テスト用ビルド、1 つの Playwright プロジェクト                                  |
-| `deploy-reusable.yml` | `ci.yml` から呼び出し                                                                       | ビルド、D1 マイグレーション、`wrangler deploy`                                                        |
-| `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                     |
+| ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | プルリクエスト、および `deploy.yml` からの呼び出し                                          | チェックとカバレッジ、Chromium の E2E、その後プルリクエストのプレビューへのデプロイ                              |
+| `deploy.yml`          | `main` へのプッシュ                                                                         | `ci.yml` のチェック、その後本番へのデプロイとそのリリース                                                        |
+| `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                           |
+| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック |
+| `deploy-reusable.yml` | `ci.yml` と `deploy.yml` から呼び出し                                                       | ビルド、D1 マイグレーション、`wrangler deploy`                                                                   |
+| `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                |
 
 `remotion.yml` は、プルリクエストでもプッシュでも同じパスで実行されます。対象は `remotion/`、ワークフロー自体、そして `remotion/src` が直接または他のサイトのファイルを通じてインポートするサイトのファイルです。`src/__test__/workflows.test.ts` はそのインポートをたどり、たどり着いたファイルがどのパスにも一致しない場合や、どのファイルにも一致しないパスがある場合に失敗します。
 
-サイトをビルドする `e2e-reusable.yml` と `deploy-reusable.yml` のチェックアウト、そして `release` ジョブのチェックアウトは、すべてのコミットをツリーなしで取得します（`fetch-depth: 0` と `filter: tree:0`）。[変更履歴](/docs/project/changelog)が、各エントリの日付をそれを `main` に入れたコミットから決めるためです。シャロークローンと比べて増えるのはコミットそのものだけです。シャロークローンでは、エントリの日付を誤る代わりにビルドが失敗します。これらのチェックアウトが履歴を取得しなくなると、`src/__test__/workflows.test.ts` が失敗します。
+ビルドが変更履歴を生成し、`content.spec.ts` がそれを読み込む `e2e-reusable.yml` のチェックアウト、サイトをビルドする `deploy-reusable.yml` のチェックアウト、そして `release` ジョブのチェックアウトは、すべてのコミットをツリーなしで取得します（`fetch-depth: 0` と `filter: tree:0`）。[変更履歴](/docs/project/changelog)が、各エントリの日付をそれを `main` に入れたコミットから決めるためです。シャロークローンと比べて増えるのはコミットそのものだけです。シャロークローンでは、エントリの日付を誤る代わりにビルドが失敗します。これらのチェックアウトが履歴を取得しなくなると、`src/__test__/workflows.test.ts` が失敗します。
 
-## チェック
+## チェック [#checks]
 
-`ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、[フロー一覧](/docs/tooling/test-coverage#flow-coverage)、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:reset:test` と `build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
+`ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、[フロー一覧](/docs/tooling/test-coverage#flow-coverage)、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `e2e-reusable.yml` を呼び出します。これは 1 回だけビルドし、<RepositoryFact name="e2eShards" /> 台のランナーでスイートを並列に実行します。
+
+| ジョブ                                        | 実行内容                                                                                                                                                             |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build`                                       | `db:reset:test` と `build:test` を実行し、`dist` とシード済みの `.wrangler/test` を 1 つのアーティファクトとしてアップロード                                         |
+| `shard`                                       | シャードごとに 1 つのジョブ。そのビルドをダウンロードし、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium --shard=<n>/<total>` を実行 |
+| `report`（名前は `Build and E2E (chromium)`） | ビルドとすべてのシャードが成功しない限り失敗。失敗したシャードがあれば、各シャードの blob レポートを 1 つの HTML レポートにマージしてアップロード                    |
+
+Playwright 自体のリトライとワーカーは、どのシャードでも [Playwright](/docs/tooling/playwright#configuration) の説明どおりです。ブランチのルールが必須とするチェックは `report` ジョブだけなので、シャードを追加または削除しても、必須チェックの名前は変わりません。
 
 プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗します。`e2e` ジョブとデプロイジョブのビルドは、変更履歴がそのプルリクエスト自身のもの以外のエントリを**未リリース**の下に載せることになる間は失敗し、`main` では未リリースのエントリが 1 つでもあれば失敗します。
 
 ## デプロイ
 
-デプロイは `verify` と `e2e` が成功した後にのみ実行されます。
+デプロイは `verify` と `e2e` が成功した後にのみ実行されます。プルリクエストでは `ci.yml` の実行の中で、`main` へのプッシュでは `ci.yml` を呼び出す `deploy.yml` の実行の中で行われます。
 
 | イベント                                       | デプロイ先   | GitHub の環境 | URL                           |
 | ---------------------------------------------- | ------------ | ------------- | ----------------------------- |
@@ -34,17 +43,17 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 の各バケットを使います。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入り、互いにキャンセルすることはありません（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてテストされ、デプロイされます。
 
 Dependabot は GitHub Actions を毎週更新します。
 
 ## リリースとタグ [#releases-and-tags]
 
-サイトは継続的にデプロイされるため、バージョンはセマンティックバージョンではなく日付です。本番へのデプロイが成功すると、`ci.yml` の `release` ジョブがデプロイしたコミットに UTC の日付で `vYYYY.MM.DD` のタグを付け、GitHub Release を公開します。同じ日の 2 回目の本番デプロイには `vYYYY.MM.DD.2`、その次には `.3` というようにタグが付きます。プレビューへのデプロイにはタグを付けません。`contents: write` を持つジョブは `release` ジョブだけです。
+サイトは継続的にデプロイされるため、バージョンはセマンティックバージョンではなく日付です。本番へのデプロイが成功すると、`deploy.yml` の `release` ジョブがデプロイしたコミットに UTC の日付で `vYYYY.MM.DD` のタグを付け、GitHub Release を公開します。同じ日の 2 回目の本番デプロイには `vYYYY.MM.DD.2`、その次には `.3` というようにタグが付きます。プレビューへのデプロイにはタグを付けません。`contents: write` を持つジョブは `release` ジョブだけです。
 
 リリースノートは、そのリリースが出荷した、つまり前のリリースタグ以降に `main` に入った[変更履歴](/docs/project/changelog)のエントリで、各エントリの末尾には GitHub がプルリクエストへのリンクにする `(#<number>)` が付きます。これにより、変更の説明は 1 か所にまとまります。出荷したエントリがないリリースでは、リリースノートは変更履歴へのリンクになります。 `scripts/publish-release.ts` は `src/lib/release.ts` からリリースノートを取り、デプロイが選んだタグで `gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
 
-本番デプロイのジョブは、ビルドの前にそのタグを選びます。`scripts/choose-release-tag.ts` がチェックアウトのタグに `src/lib/release.ts` の `releaseTag` を適用し、ビルドはそのタグを `RELEASE_TAG` として受け取り、ジョブは出力 `release-tag` として `release` ジョブに渡します。これで、デプロイとそのリリースは同じタグを共有します。このタグを使って、[変更履歴](/docs/project/changelog)は各エントリを、それを最初に出荷したリリースにリンクします。リンク先は、`main` の第一親の履歴をたどってエントリのスカッシュコミットを含むコミットに付いた、最も古いリリースタグです。ビルドはこれを日付と一緒に 1 回の `git log` で読みます。デプロイ自身が持ち込むエントリには、そのデプロイのタグを使います。`release` ジョブも公開するタグを使って同じ方法で変更履歴を読むため、リリースのリリースノートは、ページがそのリリースにリンクするエントリとちょうど一致します。最初のリリースタグより前にマージされたエントリはどのリリースにもリンクせず、ローカル、プレビュー、プルリクエストのビルドでは、まだどのデプロイも出荷していないエントリもリンクしません。2 つの本番デプロイが同じタグを選ぶことはありません。`ci.yml` は ref ごとに一度に 1 つのワークフロー実行しか走らせない（`concurrency` と `queue: max`）ため、前の実行の `release` ジョブがタグを作成してから、次のデプロイがリポジトリをチェックアウトします。
+本番デプロイのジョブは、ビルドの前にそのタグを選びます。`scripts/choose-release-tag.ts` がチェックアウトのタグに `src/lib/release.ts` の `releaseTag` を適用し、ビルドはそのタグを `RELEASE_TAG` として受け取り、ジョブは出力 `release-tag` として `release` ジョブに渡します。これで、デプロイとそのリリースは同じタグを共有します。このタグを使って、[変更履歴](/docs/project/changelog)は各エントリを、それを最初に出荷したリリースにリンクします。リンク先は、`main` の第一親の履歴をたどってエントリのスカッシュコミットを含むコミットに付いた、最も古いリリースタグです。ビルドはこれを日付と一緒に 1 回の `git log` で読みます。デプロイ自身が持ち込むエントリには、そのデプロイのタグを使います。`release` ジョブも公開するタグを使って同じ方法で変更履歴を読むため、リリースのリリースノートは、ページがそのリリースにリンクするエントリとちょうど一致します。最初のリリースタグより前にマージされたエントリはどのリリースにもリンクせず、ローカル、プレビュー、プルリクエストのビルドでは、まだどのデプロイも出荷していないエントリもリンクしません。2 つの本番デプロイが同じタグを選ぶことはありません。`deploy.yml` は一度に 1 つのワークフロー実行しか走らせない（`concurrency` と `queue: max`）ため、前の実行の `release` ジョブがタグを作成してから、次のデプロイがリポジトリをチェックアウトします。
 
 本番をあるリリースに戻すには、そのタグより後の変更をすべてプルリクエストで取り消します。
 

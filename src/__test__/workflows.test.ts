@@ -10,15 +10,33 @@ import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
 const DEPLOY_WORKFLOW = ".github/workflows/deploy-reusable.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
+const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
+const MAIN_WORKFLOW = ".github/workflows/deploy.yml"
+const SETUP_ACTION = ".github/actions/setup/action.yml"
 const REMOTION = readFileSync(REMOTION_WORKFLOW, "utf8")
 const DEPLOY = readFileSync(DEPLOY_WORKFLOW, "utf8")
 const E2E = readFileSync(E2E_WORKFLOW, "utf8")
+const E2E_FULL = readFileSync(E2E_FULL_WORKFLOW, "utf8")
 const CI = readFileSync(CI_WORKFLOW, "utf8")
-const RELEASE_JOB = "\n  release:\n"
+const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
+const SETUP = readFileSync(SETUP_ACTION, "utf8")
+const E2E_SHARDS = [1, 2, 3, 4]
+const JOBS_SECTION = "\njobs:\n"
+const QUEUED = ["cancel-in-progress: false", "queue: max"]
 const WHOLE_COMMIT_HISTORY = ["fetch-depth: 0", "filter: tree:0"]
 const REMOTION_PATHS = "remotion/**"
 const REMOTION_SOURCES = "remotion/src/**/*.{ts,tsx}"
+
+const expression = (body: string): string => `\${{ ${body} }}`
+
+const BROWSER = expression("inputs.browser")
+const TEST_WORKER_ARTIFACT = `name: test-worker-${BROWSER}`
+const BLOB_REPORT_ARTIFACT = `name: blob-report-${BROWSER}-${expression("matrix.shard")}`
+const AGGREGATE_CHECK = `name: Build and E2E (${BROWSER})`
+const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}`
+const UNLESS_CANCELLED = `if: ${expression("!cancelled()")}`
+const PULL_REQUEST_CANCELLATION = `cancel-in-progress: ${expression("github.event_name == 'pull_request'")}`
 
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
 const TRIGGER_PATH = /"(?<path>[^"]+)"/gu
@@ -32,6 +50,9 @@ const WORKFLOW_RELEASE_TAG =
   /\n {4}outputs:\n {6}release-tag:\n {8}description: .+\n {8}value: \$\{\{ jobs\.deploy\.outputs\.release-tag \}\}\n/u
 const PUBLISH_RELEASE_TAG =
   /RELEASE_TAG: \$\{\{ needs\.deploy-production\.outputs\.release-tag \}\}\n +run: bun scripts\/publish-release\.ts "\$GITHUB_SHA" "\$RELEASE_TAG"\n/u
+const JOB_HEADER = /^ {2}(?<id>[\w-]+):\n/gmu
+const WORKFLOW_CONCURRENCY = /^concurrency:\n(?<settings>(?: {2}.+\n)+)/mu
+const SHARD_MATRIX = /matrix:\n +shard: \[(?<shards>[\d, ]+)\]\n/u
 const ENVIRONMENT_URL = /url: \$\{\{ inputs\.target == '(?<target>[^']+)' && '(?<targetUrl>[^']+)' \|\| '(?<fallbackUrl>[^']+)' \}\}/u
 
 const entriesSchema = zod.object({ entries: zod.string() })
@@ -39,6 +60,9 @@ const pathSchema = zod.object({ path: zod.string() })
 const triggerListsSchema = zod.tuple([zod.array(zod.string()), zod.array(zod.string())])
 const checkoutOptionsSchema = zod.object({ options: zod.string() })
 const environmentUrlSchema = zod.object({ fallbackUrl: zod.string(), target: zod.string(), targetUrl: zod.string() })
+const jobHeaderSchema = zod.object({ id: zod.string() })
+const concurrencySchema = zod.object({ settings: zod.string() })
+const shardMatrixSchema = zod.object({ shards: zod.string() })
 
 const listedPaths = (entries: string): string[] => [...entries.matchAll(TRIGGER_PATH)].map((entry) => pathSchema.parse(entry.groups).path)
 
@@ -59,7 +83,25 @@ const optionsOf = (checkout: RegExpExecArray): string[] =>
 
 const checkoutsOf = (workflow: string): string[][] => [...workflow.matchAll(CHECKOUT_OPTIONS)].map((checkout) => optionsOf(checkout))
 
-const releaseJobOf = (workflow: string): string => workflow.slice(workflow.indexOf(RELEASE_JOB))
+const jobsOf = (workflow: string): ReadonlyMap<string, string> => {
+  const jobs = workflow.slice(workflow.indexOf(JOBS_SECTION))
+  const headers = [...jobs.matchAll(JOB_HEADER)]
+
+  return new Map(
+    headers.map((header, index) => [jobHeaderSchema.parse(header.groups).id, jobs.slice(header.index, headers[index + 1]?.index)]),
+  )
+}
+
+const jobOf = (workflow: string, id: string): string => zod.string().parse(jobsOf(workflow).get(id))
+
+const concurrencyOf = (workflow: string): string[] =>
+  concurrencySchema
+    .parse(WORKFLOW_CONCURRENCY.exec(workflow)?.groups)
+    .settings.trim()
+    .split("\n")
+    .map((setting) => setting.trim())
+
+const shardsOf = (workflow: string): number[] => shardMatrixSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").map(Number)
 
 const isWatched = (file: string): boolean => WEBSITE_PATHS.some((glob) => posix.matchesGlob(file, glob))
 const isImported = (glob: string): boolean => IMPORTED_WEBSITE_FILES.some((file) => posix.matchesGlob(file, glob))
@@ -96,12 +138,76 @@ describe(DEPLOY_WORKFLOW, () => {
 
 describe("checkouts that read the changelog", () => {
   it.each([
-    { checkouts: checkoutsOf(E2E), job: `the build in ${E2E_WORKFLOW}` },
+    { checkouts: checkoutsOf(jobOf(E2E, "build")), job: `the build in ${E2E_WORKFLOW}` },
+    { checkouts: checkoutsOf(jobOf(E2E, "shard")), job: `the shards in ${E2E_WORKFLOW}, whose content spec reads the changelog` },
     { checkouts: checkoutsOf(DEPLOY), job: `the build in ${DEPLOY_WORKFLOW}` },
-    { checkouts: checkoutsOf(releaseJobOf(CI)), job: `the release job in ${CI_WORKFLOW}` },
+    { checkouts: checkoutsOf(jobOf(MAIN, "release")), job: `the release job in ${MAIN_WORKFLOW}` },
   ])("fetch every commit without its trees for $job, which dates the changelog entries", ({ checkouts }) => {
     expect(checkouts).toHaveLength(1)
     expect(checkouts.flat()).toEqual(expect.arrayContaining(WHOLE_COMMIT_HISTORY))
+  })
+})
+
+describe(E2E_WORKFLOW, () => {
+  it("builds the test Worker once and hands the build and its seeded state to the shards", () => {
+    const build = jobOf(E2E, "build")
+    const shard = jobOf(E2E, "shard")
+
+    expect(build).toContain("run: bun run db:reset:test")
+    expect(build).toContain("run: bun run build:test")
+    expect(build).toContain("tar --create --file test-worker.tar dist .wrangler/test")
+    expect(build).toContain(TEST_WORKER_ARTIFACT)
+    expect(shard).toContain("needs: build")
+    expect(shard).toContain(TEST_WORKER_ARTIFACT)
+    expect(shard).not.toContain("build:test")
+  })
+
+  it("splits the browser suite across four shards that each run their part", () => {
+    expect(shardsOf(E2E)).toStrictEqual(E2E_SHARDS)
+    expect(jobOf(E2E, "shard")).toContain(`run: ${SHARD_COMMAND}`)
+    expect(jobOf(E2E, "shard")).toContain("fail-fast: false")
+  })
+
+  it("reports one check per browser that needs the build and every shard and fails unless both passed", () => {
+    const report = jobOf(E2E, "report")
+
+    expect(report).toContain(AGGREGATE_CHECK)
+    expect(report).toContain("needs: [build, shard]")
+    expect(report).toContain(UNLESS_CANCELLED)
+    expect(report).toContain('if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then')
+  })
+
+  it("merges the shards' blob reports into one HTML report when a shard fails", () => {
+    expect(jobOf(E2E, "shard")).toContain(BLOB_REPORT_ARTIFACT)
+    expect(jobOf(E2E, "report")).toContain("run: bunx playwright merge-reports --reporter html all-blob-reports")
+  })
+})
+
+describe("workflow concurrency", () => {
+  it(`cancels a superseded pull request run in ${CI_WORKFLOW} and nothing else`, () => {
+    expect(concurrencyOf(CI)).toContain(PULL_REQUEST_CANCELLATION)
+    expect(concurrencyOf(CI)).not.toContain("queue: max")
+  })
+
+  it.each([
+    { path: MAIN_WORKFLOW, workflow: MAIN },
+    { path: E2E_FULL_WORKFLOW, workflow: E2E_FULL },
+  ])("queues every run of $path on main instead of cancelling one", ({ workflow }) => {
+    expect(concurrencyOf(workflow)).toEqual(expect.arrayContaining(QUEUED))
+  })
+})
+
+describe(MAIN_WORKFLOW, () => {
+  it(`runs the checks of ${CI_WORKFLOW} before it deploys production`, () => {
+    expect(jobOf(MAIN, "checks")).toContain(`uses: ./${CI_WORKFLOW}`)
+    expect(jobOf(MAIN, "deploy-production")).toContain("needs: checks")
+  })
+})
+
+describe(SETUP_ACTION, () => {
+  it("restores the dependency cache once, through setup-vp", () => {
+    expect(SETUP).toContain("cache: true")
+    expect(SETUP).not.toContain("actions/cache")
   })
 })
 
@@ -117,6 +223,6 @@ describe("the release tag of a production deploy", () => {
   it("leaves the deploy as an output of the reusable workflow and becomes the tag the release job publishes", () => {
     expect(DEPLOY).toMatch(DEPLOY_JOB_RELEASE_TAG)
     expect(DEPLOY).toMatch(WORKFLOW_RELEASE_TAG)
-    expect(releaseJobOf(CI)).toMatch(PUBLISH_RELEASE_TAG)
+    expect(jobOf(MAIN, "release")).toMatch(PUBLISH_RELEASE_TAG)
   })
 })

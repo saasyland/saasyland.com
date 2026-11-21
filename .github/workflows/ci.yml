@@ -2,14 +2,11 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-  queue: max
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -18,7 +15,7 @@ jobs:
   verify:
     name: Format, lint, types, i18n, tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -65,39 +62,3 @@ jobs:
     with:
       target: preview
     secrets: inherit
-
-  deploy-production:
-    name: Deploy production
-    needs: [verify, e2e]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      deployments: write
-    uses: ./.github/workflows/deploy-reusable.yml
-    with:
-      target: production
-    secrets: inherit
-
-  release:
-    name: Release
-    needs: deploy-production
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout deployed revision
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-          persist-credentials: false
-
-      - name: Setup toolchain
-        uses: ./.github/actions/setup
-
-      - name: Tag the deployed commit and publish its release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.deploy-production.outputs.release-tag }}
-        run: bun scripts/publish-release.ts "$GITHUB_SHA" "$RELEASE_TAG"

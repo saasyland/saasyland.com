@@ -1,5 +1,6 @@
 import { renderToString } from "react-dom/server"
 
+import { VideoPlayer as Player } from "@videojs/react/video"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -29,7 +30,9 @@ describe("VideoPlayer on the server", () => {
 
     const html = renderToString(
       <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
-        <VideoPlayer playback={PLAYBACK} sizes="100vw" title="Module boundaries" />
+        <Player poster={PLAYBACK.poster} title="Module boundaries">
+          <VideoPlayer playback={PLAYBACK} sizes="100vw" />
+        </Player>
       </IntlProvider>,
     )
 

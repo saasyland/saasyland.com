@@ -12,7 +12,9 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { LESSON_IDS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
+import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
@@ -104,7 +106,7 @@ describe("course access through a licence", () => {
     ])
   })
 
-  it("keeps paid lessons locked for a Complete holder until they confirm their email, and tells the page why", async () => {
+  it("keeps paid lessons locked for a Complete holder until they confirm their email, on the course page, the catalogue and the landing page", async () => {
     const userId = `learner-${LICENSE_TIER.COMPLETE}-${LICENSE_STATUS.ACTIVE}`
     const holder = createAuthSessionFixture({ userId })
     vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/"))
@@ -115,6 +117,17 @@ describe("course access through a licence", () => {
     expect(page.viewer).toStrictEqual({ mustConfirmEmail: true, signedIn: true })
     expect(page.chapters.flatMap(({ lessons }) => lessons).find(({ slug }) => slug === "billing")?.locked).toBe(true)
     await expect(executeQuery(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: "billing" }))).rejects.toThrow("FORBIDDEN")
+
+    const catalogue = await executeQuery(catalogueQuery({ locale: "en-US" }))
+    expect(catalogue.viewer).toStrictEqual({ mustConfirmEmail: true, signedIn: true, unlocked: false })
+
+    const showcase = await executeQuery(courseShowcaseQuery({ locale: "en-US" }))
+    expect(showcase.flatMap(({ lessons }) => lessons).map(({ locked, slug }) => [slug, locked])).toStrictEqual([
+      ["boundaries", false],
+      ["sessions", false],
+      ["billing", true],
+      ["coverage", true],
+    ])
   })
 })
 

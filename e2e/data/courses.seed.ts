@@ -71,14 +71,17 @@ export const coursesSeed = async (): Promise<TestSeed> => {
     ],
     statements: [
       ...TEST_VIDEOS.map(
-        ({ durationMs, height, id, placeholder, title, width }) =>
-          `INSERT INTO video (id, title, duration_ms, width, height, size_bytes, caption_locales, placeholder) VALUES (${literal(id)}, ${literal(title)}, ${String(durationMs)}, ${String(width)}, ${String(height)}, ${String(sizeBytes)}, '[]', ${String(Number(placeholder))}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, size_bytes = excluded.size_bytes, placeholder = excluded.placeholder;`,
+        ({ captionLocales, durationMs, height, id, placeholder, title, width }) =>
+          `INSERT INTO video (id, title, duration_ms, width, height, size_bytes, caption_locales, placeholder) VALUES (${literal(id)}, ${literal(title)}, ${String(durationMs)}, ${String(width)}, ${String(height)}, ${String(sizeBytes)}, ${json(captionLocales)}, ${String(Number(placeholder))}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, size_bytes = excluded.size_bytes, caption_locales = excluded.caption_locales, placeholder = excluded.placeholder;`,
       ),
       `INSERT INTO course (id, slug, kind, status, level, icon, title, summary, outcomes, prerequisites) VALUES (${literal(TEST_COURSE.id)}, ${literal(TEST_COURSE.slug)}, ${literal(TEST_COURSE.kind)}, ${literal(COURSE_STATUS.PUBLISHED)}, ${literal(TEST_COURSE.level)}, ${literal(TEST_COURSE.icon)}, ${json(TEST_COURSE.title)}, ${json(TEST_COURSE.summary)}, ${json(TEST_COURSE.outcomes)}, ${json(TEST_COURSE.prerequisites)}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, summary = excluded.summary, status = excluded.status, level = excluded.level, icon = excluded.icon, outcomes = excluded.outcomes, prerequisites = excluded.prerequisites;`,
-      `INSERT INTO chapter (id, course_id, title, summary) VALUES (${literal(TEST_COURSE.chapter.id)}, ${literal(TEST_COURSE.id)}, ${json(TEST_COURSE.chapter.title)}, ${json(TEST_COURSE.chapter.summary)}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, summary = excluded.summary;`,
+      ...TEST_COURSE.chapters.map(
+        (chapter, position) =>
+          `INSERT INTO chapter (id, course_id, position, title, summary) VALUES (${literal(chapter.id)}, ${literal(TEST_COURSE.id)}, ${String(position)}, ${json(chapter.title)}, ${json(chapter.summary)}) ON CONFLICT(id) DO UPDATE SET position = excluded.position, title = excluded.title, summary = excluded.summary;`,
+      ),
       ...TEST_LESSONS.map(
-        ({ access, description, id, keyMoments, slug, summary, title, videoId }, position) =>
-          `INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, description, key_moments, video_id) VALUES (${literal(id)}, ${literal(TEST_COURSE.id)}, ${literal(TEST_COURSE.chapter.id)}, ${literal(slug)}, ${literal(access)}, ${literal(LESSON_STATUS.PUBLISHED)}, ${String(position)}, ${json(title)}, ${json(summary)}, ${json(description)}, ${json(keyMoments)}, ${literal(videoId)}) ON CONFLICT(id) DO UPDATE SET access = excluded.access, position = excluded.position, description = excluded.description, key_moments = excluded.key_moments, video_id = excluded.video_id;`,
+        ({ access, chapterId, description, id, keyMoments, slug, summary, title, videoId }, position) =>
+          `INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, description, key_moments, video_id) VALUES (${literal(id)}, ${literal(TEST_COURSE.id)}, ${literal(chapterId)}, ${literal(slug)}, ${literal(access)}, ${literal(LESSON_STATUS.PUBLISHED)}, ${String(position)}, ${json(title)}, ${json(summary)}, ${json(description)}, ${json(keyMoments)}, ${literal(videoId)}) ON CONFLICT(id) DO UPDATE SET chapter_id = excluded.chapter_id, access = excluded.access, position = excluded.position, description = excluded.description, key_moments = excluded.key_moments, video_id = excluded.video_id;`,
       ),
       ...(await Promise.all(TEST_MATERIALS.map((material, position) => materialStatement(material, position)))),
     ],

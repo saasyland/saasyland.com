@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import { VideoPlayer as Player } from "@videojs/react/video"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it, vi } from "vite-plus/test"
 
@@ -24,7 +25,9 @@ const PLAYBACK: Video["playback"] = {
 const renderPlayer = (locale: "en-US" | "pl-PL") =>
   render(
     <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
-      <VideoPlayer className="max-w-4xl" playback={PLAYBACK} sizes="100vw" title="Module boundaries" />
+      <Player poster={PLAYBACK.poster} title="Module boundaries">
+        <VideoPlayer className="max-w-4xl" playback={PLAYBACK} sizes="100vw" />
+      </Player>
     </IntlProvider>,
   )
 
@@ -69,7 +72,9 @@ describe("VideoPlayer", () => {
     const onProgress = vi.fn<(seconds: number) => void>()
     const { container } = render(
       <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
-        <VideoPlayer onEnded={onEnded} onProgress={onProgress} playback={PLAYBACK} sizes="100vw" startAt={42.5} title="Module boundaries" />
+        <Player poster={PLAYBACK.poster} title="Module boundaries">
+          <VideoPlayer onEnded={onEnded} onProgress={onProgress} playback={PLAYBACK} sizes="100vw" startAt={42.5} />
+        </Player>
       </IntlProvider>,
     )
     const video = container.querySelector("video")

@@ -18,9 +18,9 @@ export const CourseUnlocks = (): JSX.Element | undefined => {
   const headingId = useId()
 
   const { includedWith } = useCourseAccessNames()
-  const { data: courses } = useSuspenseQuery(catalogueQuery({ locale: getCurrentLocale() }))
+  const { data } = useSuspenseQuery(catalogueQuery({ locale: getCurrentLocale() }))
 
-  const locked = courses.filter(({ paid }) => paid > 0)
+  const locked = data.courses.filter(({ paid }) => paid > 0)
 
   if (locked.length === 0) {
     return undefined
@@ -62,8 +62,8 @@ export const CourseUnlocks = (): JSX.Element | undefined => {
 export const CourseUnlocksPending = (): JSX.Element | undefined => {
   const queryClient = useQueryClient()
 
-  const catalogue = queryClient.getQueryData(catalogueQuery({ locale: getCurrentLocale() }).queryKey) ?? []
-  const courses = catalogue.filter(({ paid }) => paid > 0).length
+  const catalogue = queryClient.getQueryData(catalogueQuery({ locale: getCurrentLocale() }).queryKey)
+  const courses = catalogue?.courses.filter(({ paid }) => paid > 0).length ?? 0
 
   if (courses === 0) {
     return undefined

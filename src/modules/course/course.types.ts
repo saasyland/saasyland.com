@@ -17,6 +17,7 @@ export interface Course {
   select: typeof course.$inferSelect
   insert: typeof course.$inferInsert
   catalogue: Awaited<ReturnType<typeof getCatalogue>>
+  catalogueCourse: Awaited<ReturnType<typeof getCatalogue>>["courses"][number]
   page: CoursePage
   pageLesson: CoursePage["chapters"][number]["lessons"][number]
   showcase: Awaited<ReturnType<typeof getCourseShowcase>>

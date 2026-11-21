@@ -6,7 +6,7 @@ import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-const [freeLesson] = TEST_LESSONS
+const [freeLesson, accountLesson, paidLesson, recordingLesson] = TEST_LESSONS
 const MOTION_FEATURES_CHUNK = /\/assets\/motion\.features-[\w-]+\.js$/u
 const BROWSER_TIMEZONE = "Pacific/Kiritimati"
 const BROWSER_TIME = new Date("2099-01-01T00:05:00+14:00")
@@ -98,7 +98,7 @@ test.describe("landing page", () => {
     )
   })
 
-  test("course showcase links the published course and its free lesson to their pages", async ({ landingPage, page }) => {
+  test("course showcase lists real courses with their open and locked lessons", async ({ landingPage, page }) => {
     await landingPage.goto()
     const showcase = landingPage.courseShowcase()
     await showcase.scrollIntoViewIfNeeded()
@@ -107,10 +107,19 @@ test.describe("landing page", () => {
       "href",
       `/courses/${TEST_COURSE.slug}`,
     )
-    await expect(showcase.getByText(`${String(TEST_LESSONS.length)} lessons`)).toBeVisible()
+    const tile = showcase.getByRole("listitem").filter({ has: page.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] }) })
+    await expect(tile.getByText(`3 of ${String(TEST_LESSONS.length)} lessons recorded`)).toBeVisible()
+    await expect(tile.getByRole("link", { name: `${freeLesson.title["en-US"]} Free` })).toBeVisible()
+    await expect(tile.getByRole("link", { name: `${accountLesson.title["en-US"]} Locked: free with an account` })).toContainText(
+      "Free with an account",
+    )
+    await expect(tile.getByRole("link", { name: `${paidLesson.title["en-US"]} Locked: included with Complete` })).toBeVisible()
+    await expect(tile.getByRole("link", { name: new RegExp(recordingLesson.title["en-US"], "u") })).toHaveCount(0)
+    await expect(tile.getByText(recordingLesson.title["en-US"])).toBeVisible()
+    await expect(tile.getByRole("link", { name: "+ 1 more lesson" })).toHaveAttribute("href", `/courses/${TEST_COURSE.slug}`)
     await expect(showcase.getByRole("link", { name: "Browse all courses" })).toHaveAttribute("href", "/courses")
 
-    await showcase.getByRole("link", { name: new RegExp(`^${freeLesson.title["en-US"]}`, "u") }).click()
+    await tile.getByRole("link", { name: new RegExp(`^${freeLesson.title["en-US"]}`, "u") }).click()
     await expect(page).toHaveURL(`/courses/${TEST_COURSE.slug}/${freeLesson.slug}`)
     await expect(page.getByRole("heading", { level: 1, name: freeLesson.title["en-US"] })).toBeVisible()
   })

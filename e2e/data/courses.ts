@@ -3,12 +3,20 @@ import { LESSON_ATTACHMENT_KIND } from "../../src/modules/lesson-attachment/less
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "./videos"
 
+const FOUNDATIONS = {
+  id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0a1",
+  summary: { "en-US": "The shape of the code before any feature.", "pl-PL": "Kształt kodu przed pierwszą funkcją." },
+  title: { "en-US": "Foundations", "pl-PL": "Podstawy" },
+} as const
+
+const QUALITY = {
+  id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0a2",
+  summary: { "en-US": "What keeps the code shippable." },
+  title: { "en-US": "Quality and shipping", "pl-PL": "Jakość i wdrożenia" },
+} as const
+
 export const TEST_COURSE = {
-  chapter: {
-    id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0a1",
-    summary: { "en-US": "The shape of the code before any feature.", "pl-PL": "Kształt kodu przed pierwszą funkcją." },
-    title: { "en-US": "Foundations", "pl-PL": "Podstawy" },
-  },
+  chapters: [FOUNDATIONS, QUALITY],
   icon: COURSE_ICON.MAP,
   id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0c0",
   kind: COURSE_KIND.COURSE,
@@ -23,6 +31,7 @@ export const TEST_COURSE = {
 export const TEST_LESSONS = [
   {
     access: LESSON_ACCESS.PREVIEW,
+    chapterId: FOUNDATIONS.id,
     description: { "en-US": "Every feature starts at a module.\n\nOpen `src/modules` and follow one table." },
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c001",
     keyMoments: [{ label: { "en-US": "The modules folder" }, seconds: 1 }],
@@ -33,6 +42,7 @@ export const TEST_LESSONS = [
   },
   {
     access: LESSON_ACCESS.ACCOUNT,
+    chapterId: FOUNDATIONS.id,
     description: {},
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c002",
     keyMoments: [],
@@ -43,6 +53,7 @@ export const TEST_LESSONS = [
   },
   {
     access: LESSON_ACCESS.PAID,
+    chapterId: FOUNDATIONS.id,
     description: {},
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c003",
     keyMoments: [],
@@ -53,12 +64,35 @@ export const TEST_LESSONS = [
   },
   {
     access: LESSON_ACCESS.PAID,
+    chapterId: QUALITY.id,
     description: {},
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c004",
     keyMoments: [],
     slug: "coverage-gate",
     summary: { "en-US": "Test strategy and the coverage gate." },
     title: { "en-US": "Test strategy and the coverage gate" },
+    videoId: TEST_PLACEHOLDER_VIDEO.id,
+  },
+  {
+    access: LESSON_ACCESS.PAID,
+    chapterId: QUALITY.id,
+    description: {},
+    id: "0195a2b4-6c8d-7e9f-8a0b-00000000c005",
+    keyMoments: [],
+    slug: "deploys",
+    summary: { "en-US": "Previews per pull request and production on merge." },
+    title: { "en-US": "Deploys you never run by hand" },
+    videoId: TEST_PLACEHOLDER_VIDEO.id,
+  },
+  {
+    access: LESSON_ACCESS.PAID,
+    chapterId: QUALITY.id,
+    description: {},
+    id: "0195a2b4-6c8d-7e9f-8a0b-00000000c006",
+    keyMoments: [],
+    slug: "rollbacks",
+    summary: { "en-US": "See what production does and roll back safely." },
+    title: { "en-US": "Logs and rollbacks" },
     videoId: TEST_PLACEHOLDER_VIDEO.id,
   },
 ] as const

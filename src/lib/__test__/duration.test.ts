@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { formatClock, parseClock } from "~/src/lib/duration"
+import { formatClock, parseClock, wholeMinutes } from "~/src/lib/duration"
 
 describe("formatClock", () => {
   it.each([
@@ -35,5 +35,16 @@ describe("parseClock", () => {
     for (const milliseconds of [0, 59_000, 3_599_000, 3_600_000, 7_384_000]) {
       expect(parseClock(formatClock(milliseconds))).toBe(milliseconds / 1000)
     }
+  })
+})
+
+describe("wholeMinutes", () => {
+  it.each([
+    [0, 0],
+    [2000, 1],
+    [60_000, 1],
+    [375_000, 7],
+  ])("rounds %d ms up to %d minutes", (milliseconds, minutes) => {
+    expect(wholeMinutes(milliseconds)).toBe(minutes)
   })
 })

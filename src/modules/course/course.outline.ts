@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only"
 
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -8,6 +8,7 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localize, localizeList } from "~/src/modules/_core/utils/localized-text"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import type { Course } from "~/src/modules/course/course.types"
+import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { type Viewer, hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
@@ -22,6 +23,7 @@ const readLessons = (courseId: string) =>
   db
     .select({
       access: lesson.access,
+      captionLocales: video.captionLocales,
       chapterId: lesson.chapterId,
       durationMs: video.durationMs,
       id: lesson.id,
@@ -33,6 +35,13 @@ const readLessons = (courseId: string) =>
     .leftJoin(video, playableVideo)
     .where(and(eq(lesson.courseId, courseId), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
     .orderBy(asc(lesson.position), asc(lesson.id))
+
+const readMaterials = (courseId: string): Promise<number> => {
+  const published = and(eq(lesson.courseId, courseId), eq(lesson.status, LESSON_STATUS.PUBLISHED))
+  const lessons = db.select({ id: lesson.id }).from(lesson).where(published)
+
+  return db.$count(lessonAttachment, inArray(lessonAttachment.lessonId, lessons))
+}
 
 const readProgress = (userId: string | undefined, courseId: string) => {
   if (userId === undefined) {
@@ -56,9 +65,10 @@ interface OutlineRequest {
 }
 
 export const readCourseOutline = async ({ course, locale, viewer }: OutlineRequest) => {
-  const [chapters, lessons, progress] = await Promise.all([
+  const [chapters, lessons, materials, progress] = await Promise.all([
     readChapters(course.id),
     readLessons(course.id),
+    readMaterials(course.id),
     readProgress(viewer.userId, course.id),
   ])
 
@@ -66,6 +76,7 @@ export const readCourseOutline = async ({ course, locale, viewer }: OutlineReque
   const lessonsByChapter = Map.groupBy(
     lessons.map((entry) => ({
       access: entry.access,
+      captioned: (entry.captionLocales?.length ?? 0) > 0,
       chapterId: entry.chapterId,
       completed: progressByLesson.get(entry.id)?.completed ?? false,
       durationMs: entry.durationMs,
@@ -92,6 +103,7 @@ export const readCourseOutline = async ({ course, locale, viewer }: OutlineReque
       id: course.id,
       kind: course.kind,
       level: course.level,
+      materials,
       outcomes: localizeList(course.outcomes, locale),
       prerequisites: localizeList(course.prerequisites, locale),
       slug: course.slug,

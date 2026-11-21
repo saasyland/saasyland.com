@@ -181,6 +181,7 @@ const FACTS = {
   courseImportsPerMinute: COURSE_IMPORTS_PER_MINUTE,
   courseLevels: COURSE_LEVELS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
+  courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,

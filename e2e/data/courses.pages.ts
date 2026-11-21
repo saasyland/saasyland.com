@@ -7,6 +7,7 @@ const [freeLesson, , paidLesson] = TEST_LESSONS
 export const COURSES_PAGES = [
   { path: "/courses" },
   { path: `/courses/${TEST_COURSE.slug}` },
+  { path: `/courses/${TEST_COURSE.slug}/${freeLesson.slug}` },
   { path: `/courses/${TEST_COURSE.slug}/${paidLesson.slug}` },
   { path: "/admin/courses", role: ROLE_CODES.ADMIN },
   { heading: "New course", path: "/admin/courses/create", role: ROLE_CODES.ADMIN },

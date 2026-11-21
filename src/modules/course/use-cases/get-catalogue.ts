@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { and, asc, count, eq, sql } from "drizzle-orm"
+import { and, asc, count, eq, isNotNull, sql } from "drizzle-orm"
 
 import { withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -10,38 +10,60 @@ import { COURSE_QUERY_KEYS, COURSE_STALE_MS, COURSE_STATUS } from "~/src/modules
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
+import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
+import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { video } from "~/src/modules/video/video.schema"
+
+const readCompleted = (userId: string | undefined) => {
+  if (userId === undefined) {
+    return Promise.resolve([])
+  }
+
+  return db
+    .select({ completed: count(lessonProgress.lessonId), courseId: lesson.courseId })
+    .from(lessonProgress)
+    .innerJoin(lesson, eq(lesson.id, lessonProgress.lessonId))
+    .where(and(eq(lessonProgress.userId, userId), isNotNull(lessonProgress.completedAt), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
+    .groupBy(lesson.courseId)
+}
+
+const readCourses = () =>
+  db
+    .select({
+      durationMs: sql<number>`coalesce(sum(${video.durationMs}), 0)`,
+      icon: course.icon,
+      id: course.id,
+      kind: course.kind,
+      lessons: count(lesson.id),
+      level: course.level,
+      paid: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PAID}), 0)`,
+      previews: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PREVIEW}), 0)`,
+      recorded: count(video.id),
+      slug: course.slug,
+      summary: course.summary,
+      title: course.title,
+    })
+    .from(course)
+    .leftJoin(lesson, and(eq(lesson.courseId, course.id), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
+    .leftJoin(video, playableVideo)
+    .where(eq(course.status, COURSE_STATUS.PUBLISHED))
+    .groupBy(course.id)
+    .orderBy(asc(course.position), asc(course.id))
 
 export const getCatalogue = createServerFn({ method: "GET" })
   .middleware([withRequest])
   .validator((input: Course["getCatalogue"]) => courseZodSchemas.getCatalogue.parse(input))
   .handler(async ({ data: { locale } }) => {
-    const rows = await db
-      .select({
-        durationMs: sql<number>`coalesce(sum(${video.durationMs}), 0)`,
-        icon: course.icon,
-        id: course.id,
-        kind: course.kind,
-        lessons: count(lesson.id),
-        level: course.level,
-        paid: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PAID}), 0)`,
-        previews: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PREVIEW}), 0)`,
-        recorded: count(video.id),
-        slug: course.slug,
-        summary: course.summary,
-        title: course.title,
-      })
-      .from(course)
-      .leftJoin(lesson, and(eq(lesson.courseId, course.id), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
-      .leftJoin(video, playableVideo)
-      .where(eq(course.status, COURSE_STATUS.PUBLISHED))
-      .groupBy(course.id)
-      .orderBy(asc(course.position), asc(course.id))
+    const viewer = await resolveViewer()
+    const [rows, completed] = await Promise.all([readCourses(), readCompleted(viewer.userId)])
+    const completedByCourse = new Map(completed.map((entry) => [entry.courseId, entry.completed]))
 
-    return rows.map((row) => ({
+    const courses = rows.map((row) => ({
+      completed: completedByCourse.get(row.id) ?? 0,
       durationMs: row.durationMs,
       icon: row.icon,
       id: row.id,
@@ -55,11 +77,19 @@ export const getCatalogue = createServerFn({ method: "GET" })
       summary: localize(row.summary, locale),
       title: localize(row.title, locale),
     }))
+
+    return {
+      courses,
+      viewer: {
+        mustConfirmEmail: viewer.mustConfirmEmail,
+        signedIn: viewer.userId !== undefined,
+        unlocked: hasLessonAccess(LESSON_ACCESS.PAID, viewer),
+      },
+    }
   })
 
 export const catalogueQuery = (input: Course["getCatalogue"]) =>
   queryOptions({
-    meta: { public: true },
     queryFn: () => getCatalogue({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
     staleTime: COURSE_STALE_MS,

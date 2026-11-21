@@ -4,8 +4,10 @@ type Lesson = Course["pageLesson"]
 
 export const courseLessons = (page: Course["page"]): Lesson[] => page.chapters.flatMap(({ lessons }) => lessons)
 
+export const isPlayable = (lesson: Pick<Lesson, "locked" | "recording">): boolean => !lesson.locked && !lesson.recording
+
 export const nextLessonToWatch = (lessons: readonly Lesson[]): Lesson | undefined => {
-  const playable = lessons.filter((lesson) => !lesson.locked && !lesson.recording)
+  const playable = lessons.filter((lesson) => isPlayable(lesson))
 
   return playable.find((lesson) => !lesson.completed) ?? playable[0]
 }

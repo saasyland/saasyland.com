@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
-import { ArrowLeft, Play } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -10,27 +10,22 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, nextLessonToWatch } from "~/src/modules/course/course.utils"
+import { courseLessons } from "~/src/modules/course/course.utils"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
-import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
-
-import { CTA_CLASSES } from "~/src/data/cta"
-
-import { cn } from "~/src/lib/cn"
 import { notFoundHead, rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 
+import { CourseBadges, CourseFacts } from "~/src/presentation/components/custom/courses/course-card"
+import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { CoursePanel } from "~/src/presentation/components/custom/courses/course-panel"
 import { CoursePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
-import { UnlockLink } from "~/src/presentation/components/custom/courses/locked-lesson"
 
 import { ROUTES } from "~/src/routes"
-
-const START_CLASSNAME = cn("mt-10", CTA_CLASSES.PRIMARY)
 
 const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLesson"][] }): JSX.Element => {
   const t = useTranslations("pages.courses.course")
@@ -45,20 +40,25 @@ const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLe
   )
 }
 
-interface StartLinkProps {
-  readonly courseSlug: string
-  readonly next: Course["pageLesson"]
-  readonly started: boolean
-}
-
-const StartLink = ({ courseSlug, next, started }: StartLinkProps): JSX.Element => {
-  const t = useTranslations("pages.courses.course")
+const CourseList = ({ items, title }: { readonly items: readonly string[]; readonly title: string }): JSX.Element | undefined => {
+  if (items.length === 0) {
+    return undefined
+  }
 
   return (
-    <Link className={START_CLASSNAME} params={{ course: courseSlug, lesson: next.slug }} to="/courses/$course/$lesson">
-      <Play aria-hidden className="size-3.5 fill-current" strokeWidth={0} />
-      {started ? t("continue", { title: next.title }) : t("start")}
-    </Link>
+    <section className="min-w-0">
+      <h2 className="text-title text-foreground">{title}</h2>
+      <ul className="mt-4 flex flex-col gap-3">
+        {items.map((item) => (
+          <li className="flex gap-3 text-body text-pretty text-muted-foreground" key={item}>
+            <span aria-hidden className="flex h-lh shrink-0 items-center">
+              <Check className="size-3.5 text-ring" strokeWidth={2.5} />
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -67,57 +67,64 @@ const CoursePage = (): JSX.Element => {
   const locale = getCurrentLocale()
   const params = Route.useParams()
 
-  const { offer } = useCourseAccessNames()
   const { data } = useSuspenseQuery(courseQuery({ locale, slug: params.course }))
 
   const lessons = courseLessons(data)
-  const next = nextLessonToWatch(lessons)
-  const hasLockedLessons = lessons.some((lesson) => lesson.locked)
-  const isRecording = lessons.every((lesson) => lesson.recording)
+  const facts = {
+    durationMs: lessons.reduce((total, lesson) => total + (lesson.durationMs ?? 0), 0),
+    lessons: lessons.length,
+    previews: lessons.filter((lesson) => lesson.access === LESSON_ACCESS.PREVIEW).length,
+    recorded: lessons.filter((lesson) => !lesson.recording).length,
+  }
 
   return (
-    <section className="relative">
-      <div className="mx-auto grid w-full max-w-site gap-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_22rem]">
-        <div className="min-w-0">
+    <section className="relative isolate">
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[38rem] overflow-hidden mask-b-from-20% opacity-40">
+        <CourseCover className="size-full scale-110 blur-3xl" course={data.course} isDecorative sizes="10vw" />
+      </div>
+      <div className="mx-auto grid w-full max-w-site px-6 pt-16 pb-24 md:px-10 md:pt-24 md:pb-32 lg:grid-cols-[minmax(0,1fr)_0.75rem_23rem] lg:grid-rows-[auto_1fr] lg:gap-x-10 xl:gap-x-14">
+        <header className="min-w-0 lg:col-start-1 lg:row-start-1">
           <Link
-            className="inline-flex items-center gap-2 rounded-md font-mono text-label text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="inline-flex items-center gap-2 rounded-md text-body-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
             to={ROUTES.COURSES}
           >
             <ArrowLeft aria-hidden className="size-3.5" />
             {t("course.breadcrumb")}
           </Link>
-          <p className="mt-8 flex items-center gap-2.5">
-            <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
-            <span className="font-mono text-label text-ring uppercase">{t(`kinds.${data.course.kind}`)}</span>
+          <CourseBadges className="mt-8" course={data.course} />
+          <h1 className="mt-5 max-w-[20ch] text-display-gate text-balance text-foreground">{data.course.title}</h1>
+          <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground">{data.course.summary}</p>
+          <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-mono text-spec text-muted-foreground">
+            <CourseFacts course={facts} />
           </p>
-          <h1 className="mt-4 max-w-[18ch] text-headline-peak text-balance text-foreground">{data.course.title}</h1>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{data.course.summary}</p>
-
           {data.viewer.signedIn && <CourseProgress lessons={lessons} />}
-          {isRecording && (
-            <p className="mt-8 max-w-2xl rounded-lg border border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground">
-              {t("course.recording")}
-            </p>
-          )}
-          {next !== undefined && (
-            <StartLink courseSlug={data.course.slug} next={next} started={lessons.some((lesson) => lesson.completed)} />
-          )}
+        </header>
 
-          <div className="mt-16">
-            <h2 className="text-headline-support text-foreground">{t("course.curriculum")}</h2>
-            <div className="mt-8">
-              <Curriculum chapters={data.chapters} courseSlug={data.course.slug} />
-            </div>
+        <div
+          aria-hidden
+          className="hidden bg-[repeating-linear-gradient(135deg,var(--color-border)_0_1px,transparent_1px_7px)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block"
+        />
+
+        <CoursePanel
+          className="mt-12 lg:sticky lg:top-[calc(var(--spacing-header)+var(--spacing)*6)] lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:max-h-[calc(100dvh-var(--spacing-header)-var(--spacing)*12)] lg:self-start lg:overflow-y-auto lg:overscroll-contain"
+          data={data}
+        />
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <div className="mt-16 grid gap-10 md:grid-cols-2 md:gap-12">
+            <CourseList items={data.course.outcomes} title={t("course.outcomes")} />
+            <CourseList items={data.course.prerequisites} title={t("course.prerequisites")} />
           </div>
-        </div>
 
-        {hasLockedLessons && (
-          <aside className="self-start rounded-xl border border-ring/30 bg-radial-[at_top] from-ring/10 to-card to-70% p-7 lg:sticky lg:top-8">
-            <h2 className="text-title text-balance text-foreground">{t("course.unlock.title", { offer })}</h2>
-            <p className="mt-3 text-body-sm text-pretty text-muted-foreground">{t("course.unlock.body", { offer })}</p>
-            <UnlockLink access={LESSON_ACCESS.PAID} signedIn={data.viewer.signedIn} />
-          </aside>
-        )}
+          <section aria-labelledby="course-curriculum" className="mt-16">
+            <h2 className="text-headline-support text-foreground" id="course-curriculum">
+              {t("course.curriculum")}
+            </h2>
+            <div className="mt-8">
+              <Curriculum chapters={data.chapters} courseSlug={data.course.slug} signedIn={data.viewer.signedIn} />
+            </div>
+          </section>
+        </div>
       </div>
     </section>
   )

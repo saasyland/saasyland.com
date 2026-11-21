@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -7,8 +7,10 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
+import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"
 
@@ -19,6 +21,8 @@ type ShowcaseCourse = Course["showcase"][number]
 const copy = english.studio.masterclass
 
 const loadShowcase = vi.hoisted(() => vi.fn<() => Promise<Course["showcase"]>>())
+
+vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
 vi.mock(import("~/src/modules/course/use-cases/get-course-showcase"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -63,27 +67,29 @@ const approach = (): void => {
 
 const WALKTHROUGH: ShowcaseCourse = {
   durationMs: 1_500_000,
-  freeLesson: { slug: "boundaries", title: "Lesson boundaries" },
-  icon: COURSE_ICON.BOOK_OPEN,
+  icon: COURSE_ICON.MAP,
   id: "walkthrough",
   kind: COURSE_KIND.COURSE,
   lessonCount: 8,
+  lessons: [
+    { access: LESSON_ACCESS.PREVIEW, locked: false, recording: false, slug: "boundaries", title: "Lesson boundaries" },
+    { access: LESSON_ACCESS.ACCOUNT, locked: true, recording: false, slug: "sessions", title: "Sessions" },
+    { access: LESSON_ACCESS.PAID, locked: true, recording: true, slug: "billing", title: "Billing" },
+  ],
   level: COURSE_LEVEL.BEGINNER,
-  previewCount: 1,
   recordedCount: 6,
-  slug: "the-walkthrough",
+  slug: "code-walkthrough",
   title: "The walkthrough",
 }
 
 const TUTORIAL: ShowcaseCourse = {
   durationMs: 0,
-  freeLesson: undefined,
   icon: COURSE_ICON.BOOK_OPEN,
   id: "tutorial",
   kind: COURSE_KIND.TUTORIAL,
   lessonCount: 0,
-  level: COURSE_LEVEL.BEGINNER,
-  previewCount: 0,
+  lessons: [],
+  level: COURSE_LEVEL.ADVANCED,
   recordedCount: 0,
   slug: "one-off",
   title: "One-off tutorial",
@@ -91,23 +97,34 @@ const TUTORIAL: ShowcaseCourse = {
 
 const UNRECORDED: ShowcaseCourse = {
   durationMs: 0,
-  freeLesson: undefined,
-  icon: COURSE_ICON.BOOK_OPEN,
+  icon: COURSE_ICON.ROCKET,
   id: "project",
   kind: COURSE_KIND.PROJECT,
   lessonCount: 2,
-  level: COURSE_LEVEL.BEGINNER,
-  previewCount: 1,
+  lessons: [
+    { access: LESSON_ACCESS.PREVIEW, locked: false, recording: true, slug: "intro", title: "Intro" },
+    { access: LESSON_ACCESS.PAID, locked: false, recording: false, slug: "deep-dive", title: "Deep dive" },
+  ],
+  level: COURSE_LEVEL.INTERMEDIATE,
   recordedCount: 0,
   slug: "unrecorded",
   title: "Unrecorded project",
 }
 
-const SKELETONS_PER_COURSE = 3
+const RECORDED: ShowcaseCourse = {
+  ...UNRECORDED,
+  durationMs: 540_000,
+  id: "recorded",
+  recordedCount: 2,
+  slug: "recorded",
+  title: "Recorded project",
+}
+
+const SKELETONS_PER_COURSE = 5 + COURSE_SHOWCASE.LESSONS * 3
 
 const renderShowcase = () =>
   renderWithRouter(
-    <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+    <IntlProvider locale="en-US" messages={{ ...getTestMessages("en-US"), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
       <CourseShowcase />
     </IntlProvider>,
   )
@@ -123,10 +140,9 @@ const expectCourseFrame = (message: string): void => {
   const text = screen.getByText(message)
   const frame = text.previousElementSibling
 
-  expect(text).toHaveClass("contain-size")
   expect(frame).toHaveClass("invisible")
   expect(frame).toHaveAttribute("aria-hidden", "true")
-  expect(frame?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(SKELETONS_PER_COURSE)
+  expect(frame?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(COURSE_SHOWCASE.COURSES * SKELETONS_PER_COURSE)
 }
 
 const playButton = () => screen.getByRole("button", { name: copy.tour.play })
@@ -144,7 +160,7 @@ afterEach(() => {
 })
 
 describe("course showcase data", () => {
-  it("renders the static block and one placeholder column per course without asking for courses until it nears the viewport", () => {
+  it("renders the static block and one placeholder tile per course without asking for courses until it nears the viewport", () => {
     const { container } = renderShowcase()
 
     expect(screen.getByRole("heading", { level: 3, name: copy.title })).toBeVisible()
@@ -152,39 +168,62 @@ describe("course showcase data", () => {
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
     expect(screen.getByRole("article")).toHaveAttribute("aria-busy", "false")
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(COURSE_SHOWCASE.COURSES * SKELETONS_PER_COURSE)
+    expect(container.querySelector('[aria-hidden="true"].invisible')).toBeNull()
     expect(loadShowcase).not.toHaveBeenCalled()
   })
 
-  it("links every course and its free lesson to their pages once the courses arrive", async () => {
+  it("links every course and its first lessons, opening the free ones and greying out the locked ones", async () => {
     const { container } = renderShowcase()
     await showcaseLoaded()
 
     expect(loadShowcase).toHaveBeenCalledOnce()
-    expect(screen.getByRole("link", { name: WALKTHROUGH.title })).toHaveAttribute("href", "/courses/the-walkthrough")
+    expect(screen.getByRole("link", { name: WALKTHROUGH.title })).toHaveAttribute("href", "/courses/code-walkthrough")
     expect(screen.getByRole("link", { name: TUTORIAL.title })).toHaveAttribute("href", "/courses/one-off")
-    expect(screen.getByRole("link", { name: `Lesson boundaries ${copy.preview}` })).toHaveAttribute(
-      "href",
-      "/courses/the-walkthrough/boundaries",
-    )
-    expect(screen.getAllByRole("listitem")).toHaveLength(2)
-    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0)
+    const preview = screen.getByRole("link", { name: `Lesson boundaries ${copy.access.preview}` })
+    const account = screen.getByRole("link", { name: `Sessions ${copy.locked.account}` })
+    expect(preview).toHaveAttribute("href", "/courses/code-walkthrough/boundaries")
+    expect(account).toHaveAttribute("href", "/courses/code-walkthrough/sessions")
+    expect(preview.querySelector(".lucide-play.fill-current")).not.toBeNull()
+    expect(account.querySelector(".lucide-lock")).not.toBeNull()
+    expect(within(account).getByText(copy.access.account)).toHaveAttribute("aria-hidden", "true")
+    expect(within(account).queryByText(copy.access.preview)).toBeNull()
+    expect(screen.queryByRole("link", { name: /Billing/u })).toBeNull()
+    expect(screen.getByText("Billing").parentElement).toHaveTextContent(copy.locked.paid.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer))
+    expect(screen.getByRole("link", { name: "+ 5 more lessons" })).toHaveAttribute("href", "/courses/code-walkthrough")
+    expect(container.querySelector('img[src="/images/courses/code-walkthrough.webp"]')).toHaveAttribute("alt", "")
+    expect(container.querySelector('[aria-hidden="true"].invisible [data-slot="skeleton"]')).not.toBeNull()
   })
 
-  it("describes each course on one line and counts the free lessons of a course with none to watch", async () => {
-    loadShowcase.mockResolvedValue([WALKTHROUGH, TUTORIAL, UNRECORDED])
+  it("plays nothing from a lesson being recorded and links a recorded lesson the viewer can open", async () => {
+    loadShowcase.mockResolvedValue([UNRECORDED])
     renderShowcase()
     await showcaseLoaded()
 
-    expect(screen.getByText("Course")).toBeVisible()
-    expect(screen.getByText("8 lessons")).toBeVisible()
-    expect(screen.getByText("25 min")).toBeVisible()
-    expect(screen.getAllByText(copy.recording)).toHaveLength(2)
-    expect(screen.getByText("No free lessons")).toBeVisible()
-    expect(screen.getByText("1 free lesson")).toBeVisible()
-    expect(screen.getAllByRole("link", { name: new RegExp(`${copy.preview}$`, "u") })).toHaveLength(1)
+    expect(screen.queryByRole("link", { name: /Intro/u })).toBeNull()
+    expect(screen.getByText("Intro").parentElement).toHaveTextContent(copy.recording)
+    expect(screen.getByRole("link", { name: `Deep dive ${COURSE_ACCESS_TEST_NAMES.offer}` })).toHaveAttribute(
+      "href",
+      "/courses/unrecorded/deep-dive",
+    )
   })
 
-  it("says in the frame of a course column when no course is published", async () => {
+  it("says how much of each course is recorded and how many lessons it holds beyond the first ones", async () => {
+    loadShowcase.mockResolvedValue([WALKTHROUGH, TUTORIAL, UNRECORDED, RECORDED])
+    renderShowcase()
+    await showcaseLoaded()
+
+    expect(screen.getByText("Course · Beginner")).toBeVisible()
+    expect(screen.getByText("Tutorial · Advanced")).toBeVisible()
+    expect(screen.getByText("6 of 8 lessons recorded")).toBeVisible()
+    expect(screen.getByText("25 min")).toBeVisible()
+    expect(screen.getByText("+ 5 more lessons")).toBeVisible()
+    expect(screen.getAllByText("2 lessons")).toHaveLength(2)
+    expect(screen.getByText("9 min")).toBeVisible()
+    expect(screen.getAllByText(/more lessons?$/u)).toHaveLength(1)
+    expect(screen.getAllByText(copy.recording).length).toBeGreaterThan(1)
+  })
+
+  it("says in the frame of the course tiles when no course is published", async () => {
     loadShowcase.mockResolvedValue([])
     renderShowcase()
     await showcaseLoaded()

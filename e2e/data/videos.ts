@@ -1,4 +1,5 @@
 export const TEST_VIDEO = {
+  captionLocales: ["en-US"],
   durationMs: 2000,
   fixture: "e2e/fixtures/video",
   height: 180,

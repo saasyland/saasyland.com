@@ -32,11 +32,7 @@ vi.mock(import("~/src/modules/video/use-cases/delete-video"), () => ({
 }))
 
 vi.mock(import("~/src/presentation/components/custom/video-player"), () => ({
-  VideoPlayer: ({ playback, title }: { readonly playback: Video["playback"]; readonly title: string }) => (
-    <div data-src={playback.src} data-testid="video-player">
-      {title}
-    </div>
-  ),
+  VideoPlayer: ({ playback }: { readonly playback: Video["playback"] }) => <div data-src={playback.src} data-testid="video-player" />,
 }))
 
 const LESSON: Video["select"] = {

@@ -8,21 +8,35 @@ import type { Course } from "~/src/modules/course/course.types"
 import { isPlayable } from "~/src/modules/course/course.utils"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
-import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
-
 import { cn } from "~/src/lib/cn"
-import { formatClock, wholeMinutes } from "~/src/lib/duration"
+import { wholeMinutes } from "~/src/lib/duration"
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/src/presentation/components/shadcn/accordion"
 
+import { LessonMeta } from "~/src/presentation/components/custom/courses/lesson-meta"
+
 const NUMBER_BASE = 1
 const NUMBER_PAD = 2
+
+const COMPACT_COLUMNS = "grid-cols-[1rem_minmax(0,1fr)_auto]"
+
+const FULL_COLUMNS = "grid-cols-[1rem_1.25rem_minmax(0,1fr)_auto]"
+
+const LEAD_COLUMN = "col-[1/-3]"
+
+const TITLE_COLUMN = "col-[-3/-2]"
+
+const END_COLUMN = "col-[-2/-1]"
+
+const FIRST_LINE = "flex h-lh items-center"
 
 type Lesson = Course["pageLesson"]
 
 type Chapter = Course["page"]["chapters"][number]
 
 const padNumber = (value: number | undefined): string => String(value).padStart(NUMBER_PAD, "0")
+
+const outline = (compact: boolean): string => cn("grid gap-x-3", { [COMPACT_COLUMNS]: compact, [FULL_COLUMNS]: !compact })
 
 const LessonIcon = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   if (lesson.completed) {
@@ -36,37 +50,8 @@ const LessonIcon = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   return <Play aria-hidden className="size-3 text-muted-foreground" data-slot="lesson-recording" strokeWidth={2} />
 }
 
-const LessonTag = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
-  const t = useTranslations("pages.courses.tags")
-
-  const { offer } = useCourseAccessNames()
-
-  return (
-    <span
-      className={cn("rounded-md border px-2 py-0.5 font-mono text-[0.6875rem] leading-none whitespace-nowrap", {
-        "border-border text-muted-foreground": lesson.access !== LESSON_ACCESS.PREVIEW,
-        "border-ring/40 bg-ring/10 text-ring": lesson.access === LESSON_ACCESS.PREVIEW,
-      })}
-    >
-      {t(lesson.access, { offer })}
-    </span>
-  )
-}
-
-const LessonTime = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
-  const t = useTranslations("pages.courses.lesson")
-
-  if (lesson.durationMs === null) {
-    return <span className="font-mono text-spec text-muted-foreground">{t("recording")}</span>
-  }
-
-  return <span className="font-mono text-spec text-muted-foreground tabular-nums">{formatClock(lesson.durationMs)}</span>
-}
-
 const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   const t = useTranslations("pages.courses")
-
-  const { offer } = useCourseAccessNames()
 
   if (lesson.completed) {
     return <span className="sr-only">{t("lesson.completed")}</span>
@@ -76,12 +61,7 @@ const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
     return <span aria-hidden className="w-3" />
   }
 
-  return (
-    <>
-      <Lock aria-hidden className="size-3 text-muted-foreground" strokeWidth={2.25} />
-      <span className="sr-only">{t(`access.${lesson.access}`, { offer })}</span>
-    </>
-  )
+  return <Lock aria-hidden className="size-3 text-muted-foreground" strokeWidth={2.25} />
 }
 
 interface LessonListProps {
@@ -98,37 +78,35 @@ const LessonList = ({ compact, courseSlug, lessons, numbers }: LessonListProps):
         <Link
           activeOptions={{ exact: true }}
           className={cn(
-            "group flex items-start gap-3 rounded-md px-3 text-body-sm no-underline transition-colors duration-200 ease-exp hover:bg-card focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:bg-ring/10",
+            outline(compact),
+            "group items-start rounded-md px-3 text-body-sm no-underline transition-colors duration-200 ease-exp hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:bg-ring/10",
             { "py-2.5": compact, "py-3.5": !compact },
           )}
           params={{ course: courseSlug, lesson: lesson.slug }}
           to="/courses/$course/$lesson"
         >
-          <span className="flex h-lh w-3.5 shrink-0 items-center justify-center">
+          <span className={cn(FIRST_LINE, "justify-center")} data-slot="lesson-icon">
             <LessonIcon lesson={lesson} />
           </span>
           {!compact && (
-            <span aria-hidden className="hidden h-lh shrink-0 items-center font-mono text-spec text-muted-foreground tabular-nums sm:flex">
-              {padNumber(numbers.get(lesson.id))}
+            <span aria-hidden className={FIRST_LINE} data-slot="lesson-number">
+              <span className="font-mono text-spec text-muted-foreground tabular-nums">{padNumber(numbers.get(lesson.id))}</span>
             </span>
           )}
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span
-              className={cn(
-                "text-pretty transition-colors group-hover:text-foreground group-data-[status=active]:font-medium group-data-[status=active]:text-ring",
-                { "text-foreground": !lesson.locked, "text-muted-foreground": lesson.locked },
-              )}
-            >
-              {lesson.title}
-            </span>
-            {!compact && <LessonTag lesson={lesson} />}
-            <span className="basis-full">
-              <LessonTime lesson={lesson} />
-            </span>
+          <span
+            className={cn(
+              TITLE_COLUMN,
+              "text-pretty text-foreground transition-colors group-data-[status=active]:font-medium group-data-[status=active]:text-ring",
+              { "font-medium": !compact },
+            )}
+            data-slot="lesson-title"
+          >
+            {lesson.title}
           </span>
-          <span className="flex h-lh shrink-0 items-center">
+          <span className={cn(END_COLUMN, FIRST_LINE, "justify-end")} data-slot="lesson-lock">
             <LessonLock lesson={lesson} />
           </span>
+          <LessonMeta className={cn(TITLE_COLUMN, "mt-1")} compact={compact} lesson={lesson} />
         </Link>
       </li>
     ))}
@@ -144,12 +122,12 @@ const ChapterSummary = ({ chapter }: { readonly chapter: Chapter }): JSX.Element
   const isPartlyRecorded = recorded.length > 0 && recorded.length < chapter.lessons.length
 
   return (
-    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground uppercase">
+    <span className={cn(TITLE_COLUMN, "mt-1 flex flex-wrap gap-x-5 gap-y-1 text-spec font-normal whitespace-nowrap text-muted-foreground")}>
+      {recorded.length === 0 && <span>{t("catalogue.recordingNow")}</span>}
       {!isPartlyRecorded && <span>{t("catalogue.lessons", { count: chapter.lessons.length })}</span>}
       {isPartlyRecorded && <span>{t("catalogue.recorded", { recorded: recorded.length, total: chapter.lessons.length })}</span>}
-      {previews > 0 && <span className="text-ring">{t("catalogue.previews", { count: previews })}</span>}
-      {recorded.length === 0 && <span>{t("catalogue.recordingNow")}</span>}
-      {recorded.length > 0 && <span>{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
+      {recorded.length > 0 && <span className="tabular-nums">{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
+      {previews > 0 && <span className="dark:text-ring">{t("catalogue.previews", { count: previews })}</span>}
     </span>
   )
 }
@@ -167,29 +145,29 @@ const ChapterHeading = ({ chapter, compact, number, signedIn }: ChapterHeadingPr
   return (
     <AccordionTrigger
       className={cn(
-        "gap-4 rounded-none px-3 text-left hover:bg-card/60 hover:no-underline focus-visible:border-transparent focus-visible:ring-0 data-focus-visible:outline-2 data-focus-visible:-outline-offset-2 data-focus-visible:outline-ring **:data-[slot=accordion-trigger-icon]:hidden",
+        "rounded-none border-0 bg-muted/60 px-3 text-left hover:bg-muted hover:no-underline focus-visible:ring-0 data-focus-visible:outline-2 data-focus-visible:-outline-offset-2 data-focus-visible:outline-ring **:data-[slot=accordion-trigger-icon]:hidden",
         { "py-3.5": compact, "py-5": !compact },
       )}
     >
-      <span className="flex min-w-0 flex-1 gap-3">
-        <span aria-hidden className="pt-0.5 font-mono text-spec text-muted-foreground tabular-nums">
-          {padNumber(number)}
+      <span className={cn(outline(compact), "min-w-0 flex-1 items-start", { "text-body-sm": compact, "text-title": !compact })}>
+        <span aria-hidden className={cn(LEAD_COLUMN, FIRST_LINE)} data-slot="chapter-number">
+          <span className="font-mono text-spec font-normal text-muted-foreground tabular-nums">{padNumber(number)}</span>
         </span>
-        <span className="min-w-0 flex-1">
-          <span className={cn("block text-pretty text-foreground", { "text-body-sm font-medium": compact, "text-title": !compact })}>
-            {chapter.title}
+        <span className={cn(TITLE_COLUMN, "text-pretty text-foreground")} data-slot="chapter-title">
+          {chapter.title}
+        </span>
+        <span className={cn(END_COLUMN, FIRST_LINE, "justify-end gap-4")}>
+          {signedIn && (
+            <span className="font-mono text-spec font-normal text-muted-foreground tabular-nums">
+              {completed}/{chapter.lessons.length}
+            </span>
+          )}
+          <span aria-hidden className="relative size-3 shrink-0">
+            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground transition-colors duration-200 ease-exp group-aria-expanded/accordion-trigger:bg-foreground" />
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground transition-[opacity,transform] duration-300 ease-exp group-aria-expanded/accordion-trigger:scale-y-0 group-aria-expanded/accordion-trigger:opacity-0 motion-reduce:transition-none" />
           </span>
-          {!compact && <ChapterSummary chapter={chapter} />}
         </span>
-      </span>
-      {signedIn && (
-        <span className="pt-0.5 font-mono text-spec text-muted-foreground tabular-nums">
-          {completed}/{chapter.lessons.length}
-        </span>
-      )}
-      <span aria-hidden className="relative mt-1.5 size-3 shrink-0">
-        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground transition-colors duration-200 ease-exp group-aria-expanded/accordion-trigger:bg-foreground" />
-        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground transition-[opacity,transform] duration-300 ease-exp group-aria-expanded/accordion-trigger:scale-y-0 group-aria-expanded/accordion-trigger:opacity-0 motion-reduce:transition-none" />
+        {!compact && <ChapterSummary chapter={chapter} />}
       </span>
     </AccordionTrigger>
   )
@@ -222,7 +200,9 @@ export const Curriculum = ({ chapters, compact = false, courseSlug, currentSlug,
           <ChapterHeading chapter={chapter} compact={compact} number={index + NUMBER_BASE} signedIn={signedIn} />
           <AccordionContent className="pb-3 [&_a]:no-underline">
             {!compact && chapter.summary.length > 0 && (
-              <p className="max-w-[68ch] px-3 pb-3 pl-11 text-body-sm text-pretty text-muted-foreground">{chapter.summary}</p>
+              <div className={cn(outline(compact), "px-3 pt-4 pb-1")}>
+                <p className={cn(TITLE_COLUMN, "max-w-[68ch] text-body-sm text-pretty text-muted-foreground")}>{chapter.summary}</p>
+              </div>
             )}
             <LessonList compact={compact} courseSlug={courseSlug} lessons={chapter.lessons} numbers={numbers} />
           </AccordionContent>

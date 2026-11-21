@@ -7,11 +7,11 @@ import { useTranslations } from "use-intl/react"
 import type { Course } from "~/src/modules/course/course.types"
 
 import { cn } from "~/src/lib/cn"
-import { wholeMinutes } from "~/src/lib/duration"
 
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { CourseFacts } from "~/src/presentation/components/custom/courses/course-facts"
 
 type CatalogueCourse = Course["catalogueCourse"]
 
@@ -23,39 +23,6 @@ const COVER_CLASSNAME = "size-full transition-transform duration-700 ease-exp mo
 const FEATURED_SIZES = "(min-width: 80rem) 44rem, (min-width: 64rem) 56vw, calc(100vw - 3rem)"
 
 const CARD_SIZES = "(min-width: 80rem) 37rem, (min-width: 48rem) calc(50vw - 3.5rem), calc(100vw - 3rem)"
-
-export const RecordingNow = ({ className }: { readonly className?: string }): JSX.Element => {
-  const t = useTranslations("pages.courses.catalogue")
-
-  return (
-    <span className={cn("inline-flex items-center gap-2 text-ring", className)}>
-      <span aria-hidden className="relative flex size-2">
-        <span className="absolute inset-0 rounded-full bg-ring/60 motion-safe:animate-ping" />
-        <span className="relative size-2 rounded-full bg-ring" />
-      </span>
-      {t("recordingNow")}
-    </span>
-  )
-}
-
-export const CourseFacts = ({
-  course,
-}: {
-  readonly course: Pick<CatalogueCourse, "durationMs" | "lessons" | "previews" | "recorded">
-}): JSX.Element => {
-  const t = useTranslations("pages.courses.catalogue")
-  const isPartlyRecorded = course.recorded > 0 && course.recorded < course.lessons
-
-  return (
-    <>
-      {course.recorded === 0 && <RecordingNow />}
-      {!isPartlyRecorded && <span>{t("lessons", { count: course.lessons })}</span>}
-      {isPartlyRecorded && <span>{t("recorded", { recorded: course.recorded, total: course.lessons })}</span>}
-      {course.recorded > 0 && <span>{t("minutes", { minutes: wholeMinutes(course.durationMs) })}</span>}
-      {course.previews > 0 && <span className="text-ring">{t("previews", { count: course.previews })}</span>}
-    </>
-  )
-}
 
 export const CourseBadges = ({
   className,
@@ -118,9 +85,7 @@ export const FeaturedCourseCard = ({ course }: { readonly course: CatalogueCours
       <CourseBadges course={course} />
       <h2 className="mt-6 text-headline-peak text-balance text-foreground">{course.title}</h2>
       <p className="mt-4 max-w-[52ch] text-body text-pretty text-muted-foreground">{course.summary}</p>
-      <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-mono text-spec text-muted-foreground">
-        <CourseFacts course={course} />
-      </p>
+      <CourseFacts className="mt-6" course={course} />
       <CourseProgress course={course} />
       <div className="mt-auto pt-8">
         <ViewCourse />
@@ -138,9 +103,7 @@ export const CourseCard = ({ course }: { readonly course: CatalogueCourse }): JS
     <div className="flex flex-1 flex-col p-6 md:p-8">
       <h2 className="text-headline-support text-balance text-foreground">{course.title}</h2>
       <p className="mt-3 line-clamp-3 max-w-[60ch] text-body text-pretty text-muted-foreground">{course.summary}</p>
-      <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-mono text-spec text-muted-foreground">
-        <CourseFacts course={course} />
-      </p>
+      <CourseFacts className="mt-6" course={course} />
       <CourseProgress course={course} />
       <div className="mt-auto pt-6">
         <ViewCourse />

@@ -19,8 +19,9 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 
-import { CourseBadges, CourseFacts } from "~/src/presentation/components/custom/courses/course-card"
+import { CourseBadges } from "~/src/presentation/components/custom/courses/course-card"
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
+import { CourseFacts } from "~/src/presentation/components/custom/courses/course-facts"
 import { CoursePanel } from "~/src/presentation/components/custom/courses/course-panel"
 import { CoursePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
@@ -94,9 +95,7 @@ const CoursePage = (): JSX.Element => {
           <CourseBadges className="mt-8" course={data.course} />
           <h1 className="mt-5 max-w-[20ch] text-display-gate text-balance text-foreground">{data.course.title}</h1>
           <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground">{data.course.summary}</p>
-          <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-mono text-spec text-muted-foreground">
-            <CourseFacts course={facts} />
-          </p>
+          <CourseFacts className="mt-6" course={facts} />
           {data.viewer.signedIn && <CourseProgress lessons={lessons} />}
         </header>
 

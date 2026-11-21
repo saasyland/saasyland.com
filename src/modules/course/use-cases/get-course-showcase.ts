@@ -12,7 +12,7 @@ import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
-import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
@@ -60,12 +60,14 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
         lessonCount: own.length,
         lessons: own.slice(0, COURSE_SHOWCASE.LESSONS).map(({ access, durationMs, slug, title }) => ({
           access,
+          durationMs,
           locked: !hasLessonAccess(access, viewer),
           recording: durationMs === null,
           slug,
           title: localize(title, locale),
         })),
         level: entry.level,
+        previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
         recordedCount: own.filter(({ durationMs }) => durationMs !== null).length,
         slug: entry.slug,
         title: localize(entry.title, locale),

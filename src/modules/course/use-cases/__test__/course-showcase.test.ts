@@ -49,12 +49,13 @@ describe("getCourseShowcase", () => {
         kind: COURSE_KIND.COURSE,
         lessonCount: 4,
         lessons: [
-          { access: LESSON_ACCESS.PREVIEW, locked: false, recording: false, slug: "boundaries", title: "Boundaries" },
-          { access: LESSON_ACCESS.ACCOUNT, locked: true, recording: false, slug: "sessions", title: "Sessions" },
-          { access: LESSON_ACCESS.PAID, locked: true, recording: false, slug: "billing", title: "Billing" },
-          { access: LESSON_ACCESS.PAID, locked: true, recording: true, slug: "coverage", title: "Coverage" },
+          { access: LESSON_ACCESS.PREVIEW, durationMs: 125_000, locked: false, recording: false, slug: "boundaries", title: "Boundaries" },
+          { access: LESSON_ACCESS.ACCOUNT, durationMs: 125_000, locked: true, recording: false, slug: "sessions", title: "Sessions" },
+          { access: LESSON_ACCESS.PAID, durationMs: 125_000, locked: true, recording: false, slug: "billing", title: "Billing" },
+          { access: LESSON_ACCESS.PAID, durationMs: null, locked: true, recording: true, slug: "coverage", title: "Coverage" },
         ],
         level: COURSE_LEVEL.BEGINNER,
+        previewCount: 1,
         recordedCount: 3,
         slug: "the-walkthrough",
         title: "The walkthrough",
@@ -67,6 +68,7 @@ describe("getCourseShowcase", () => {
         lessonCount: 0,
         lessons: [],
         level: COURSE_LEVEL.BEGINNER,
+        previewCount: 0,
         recordedCount: 0,
         slug: "one-off",
         title: "One-off tutorial",
@@ -148,11 +150,11 @@ describe("getCourseShowcase", () => {
     const [walkthrough] = await showcase()
 
     expect(walkthrough).toMatchObject({ durationMs: 125_000, lessonCount: 4, recordedCount: 1 })
-    expect(walkthrough?.lessons.map(({ recording, slug }) => [slug, recording])).toStrictEqual([
-      ["boundaries", true],
-      ["sessions", true],
-      ["billing", false],
-      ["coverage", true],
+    expect(walkthrough?.lessons.map(({ durationMs, recording, slug }) => [slug, recording, durationMs])).toStrictEqual([
+      ["boundaries", true, null],
+      ["sessions", true, null],
+      ["billing", false, 125_000],
+      ["coverage", true, null],
     ])
   })
 

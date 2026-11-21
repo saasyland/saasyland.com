@@ -36,6 +36,7 @@ import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 
 import covers from "~/messages/en-US/components.custom.course-covers.json"
+import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
@@ -219,18 +220,28 @@ describe("course page", () => {
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
     expect(boundaries).toHaveTextContent("01")
     expect(boundaries).toHaveTextContent("2:05")
-    expect(boundaries).toHaveTextContent(messages.tags.preview)
-    expect(screen.getByRole("link", { name: /Sessions/u })).toHaveTextContent(messages.tags.account)
+    expect(boundaries).toHaveTextContent(meta.access.preview)
+    expect(screen.getByRole("link", { name: /Sessions/u })).toHaveTextContent(meta.access.account)
     expect(screen.queryByRole("link", { name: /Coverage/u })).toBeNull()
 
     await expand(/^Product/u)
 
     const coverage = screen.getByRole("link", { name: /Coverage/u })
     expect(coverage).toHaveTextContent("04")
-    expect(coverage).not.toHaveTextContent(":")
-    expect(coverage).toHaveTextContent(messages.lesson.recording)
-    expect(coverage).toHaveAccessibleName(new RegExp(withOffer(messages.access.paid), "u"))
+    expect(coverage).not.toHaveTextContent(/\d:\d\d/u)
+    expect(coverage).toHaveTextContent(meta.coming)
+    expect(coverage).toHaveAccessibleName(new RegExp(withOffer(meta.locked.paid), "u"))
     expect(screen.queryByText(messages.course.recording)).toBeNull()
+  })
+
+  it("keeps a locked lesson's title as bright as an open one and announces the lock in place of its tag", async () => {
+    await renderCourses({ path: "/courses/the-walkthrough" })
+    await expand(/^Product/u)
+
+    const coverage = screen.getByRole("link", { name: /Coverage/u })
+    expect(within(coverage).getByText("Coverage")).toHaveClass("font-medium", "text-foreground")
+    expect(within(coverage).getByText(withOffer(meta.access.paid))).toHaveAttribute("aria-hidden", "true")
+    expect(within(screen.getByRole("link", { name: /Boundaries/u })).getByText("Boundaries")).toHaveClass("font-medium", "text-foreground")
   })
 
   it("lets a guest who already holds the offer sign in from the panel and come back to the course", async () => {
@@ -289,7 +300,7 @@ describe("course page", () => {
 
     expect(screen.getByText(messages.course.recording)).toBeVisible()
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
-    expect(screen.getAllByText(messages.lesson.recording)).toHaveLength(2)
+    expect(screen.getAllByText(meta.coming)).toHaveLength(2)
     expect(screen.getByRole("link", { name: /Boundaries/u }).querySelector("[data-slot=lesson-recording]")).not.toBeNull()
     expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent(messages.catalogue.recordingNow)
   })

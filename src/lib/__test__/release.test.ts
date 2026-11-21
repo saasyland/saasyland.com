@@ -97,10 +97,10 @@ describe("readTags", () => {
 })
 
 describe("releaseNotes", () => {
-  it("gives a release the entries it shipped, newest first and across days, with absolute site links and the pull request each came from", () => {
+  it("gives a release the entries it shipped, newest first and across days, with absolute site links and every bullet ending with the pull request it came from", () => {
     expect(releaseNotes(CHANGELOG, "v2026.11.14")).toBe(
       [
-        "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
+        "- Dependencies updated, see [Vite+](https://viteplus.dev/). (#150)",
         "- Fixed: the logo scrolls to the top. (#150)",
         "- Courses. (#120)",
       ].join("\n"),

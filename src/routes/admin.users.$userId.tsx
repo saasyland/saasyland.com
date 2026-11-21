@@ -33,11 +33,9 @@ const UserProfilePage = (): JSX.Element => {
     <div className="custom-scrollbar flex min-h-0 w-full flex-1 animate-in flex-col gap-6 overflow-y-auto pb-6 duration-500 fade-in-50">
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <Avatar className="size-12 shrink-0 rounded-lg border border-border">
+          <Avatar className="size-12 shrink-0 border border-border">
             {user.image !== null && <AvatarImage alt={user.name} src={user.image} />}
-            <AvatarFallback className="rounded-lg bg-muted text-sm font-semibold text-foreground">
-              {getUserInitials(user.name)}
-            </AvatarFallback>
+            <AvatarFallback className="bg-muted text-sm font-semibold text-foreground">{getUserInitials(user.name)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <h2 className="truncate text-title font-semibold text-foreground">{user.name}</h2>

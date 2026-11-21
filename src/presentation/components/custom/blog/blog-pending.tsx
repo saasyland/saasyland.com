@@ -61,7 +61,7 @@ export const BlogPostPending = (): JSX.Element => (
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-border py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 font-mono text-body-sm">
-          <span className="size-1.25 shrink-0 rounded-xs bg-border" />
+          <span className="size-1.25 shrink-0 rounded-full bg-border" />
           <Skeleton className="h-lh w-52 scale-y-70" />
           <Skeleton className="h-lh w-52 scale-y-70" />
           <Skeleton className="h-lh w-28 scale-y-70" />
@@ -78,7 +78,7 @@ export const BlogPostPending = (): JSX.Element => (
         </div>
       </div>
 
-      <Skeleton className="mt-10 aspect-[2.4/1] w-full rounded-xl border border-border" />
+      <Skeleton className="mt-10 aspect-[2.4/1] w-full rounded-lg border border-border" />
 
       <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
         <div className="flex min-w-0 flex-col gap-6 text-lg/[1.72]">

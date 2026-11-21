@@ -19,7 +19,7 @@ export const LongDescriptionPending = (): JSX.Element => (
 
 export const IconPending = (): JSX.Element => <Skeleton className="size-4 shrink-0" />
 
-export const CheckboxPending = (): JSX.Element => <Skeleton className="size-4 rounded-[4px]" />
+export const CheckboxPending = (): JSX.Element => <Skeleton className="size-4 rounded-sm" />
 
 export const SortableHeadPending = (): JSX.Element => (
   <div className="flex items-center gap-1.5">
@@ -39,8 +39,8 @@ export const PaginationPending = (): JSX.Element => (
     <Skeleton className="h-lh w-10 scale-y-70" />
     <div className="flex items-center gap-2">
       <Skeleton className="h-lh w-15 scale-y-70" />
-      <Skeleton className="h-7 w-9.5 rounded-lg" />
-      <Skeleton className="h-7 w-9.5 rounded-lg" />
+      <Skeleton className="h-7 w-9.5 rounded-md" />
+      <Skeleton className="h-7 w-9.5 rounded-md" />
     </div>
   </div>
 )
@@ -48,6 +48,6 @@ export const PaginationPending = (): JSX.Element => (
 export const FieldPending = (): JSX.Element => (
   <div className="flex w-full flex-col gap-2">
     <Skeleton className="h-lh w-28 scale-y-70 text-sm leading-snug" />
-    <Skeleton className="h-8 w-full rounded-lg" />
+    <Skeleton className="h-8 w-full rounded-md" />
   </div>
 )

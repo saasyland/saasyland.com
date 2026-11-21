@@ -35,7 +35,7 @@ export const PublishVideoCard = (): JSX.Element => {
                 </span>
                 {t(`steps.${id}`)}
               </p>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 py-1.5 pr-1.5 pl-3">
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 py-1.5 pr-1.5 pl-3">
                 <code className="min-w-0 truncate font-mono text-xs text-foreground">{command}</code>
                 <CopyButton copiedLabel={t("copied")} copyLabel={t("copy")} value={command} />
               </div>

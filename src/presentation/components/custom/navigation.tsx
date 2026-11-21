@@ -107,7 +107,7 @@ export const Navigation = (): JSX.Element => {
             <a
               {...startBuilding}
               aria-current={undefined}
-              className="hidden h-9 shrink-0 items-center rounded-lg border border-border bg-card/60 px-3.5 text-body-sm font-medium whitespace-nowrap text-foreground transition-[color,border-color,background-color] duration-200 ease-exp hover:border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px sm:inline-flex"
+              className="hidden h-9 shrink-0 items-center rounded-md border border-border bg-card/60 px-3.5 text-body-sm font-medium whitespace-nowrap text-foreground transition-[color,border-color,background-color] duration-200 ease-exp hover:border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px sm:inline-flex"
             >
               {t("getStarted")}
             </a>

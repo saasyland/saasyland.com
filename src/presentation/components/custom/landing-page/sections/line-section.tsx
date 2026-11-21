@@ -35,7 +35,7 @@ export const LineSection = (): JSX.Element => {
 
         <Reveal className="mt-14 md:mt-20" delay={GRID_DELAY_MS}>
           <HighlightGroup
-            className="grid gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-2"
+            className="grid gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-2"
             name="line-station-highlight"
           >
             {STATIONS.map(({ id, loop, offsetSeconds }) => (
@@ -45,7 +45,7 @@ export const LineSection = (): JSX.Element => {
                   {t(`stations.${id}.body`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
-                  <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+                  <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
                   <span className="font-mono text-spec text-foreground">{t(`stations.${id}.spec`, REPOSITORY_FACTS)}</span>
                 </p>
                 <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />

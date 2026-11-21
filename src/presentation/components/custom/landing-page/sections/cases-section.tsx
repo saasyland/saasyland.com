@@ -39,7 +39,7 @@ export const CasesSection = (): JSX.Element => {
                 <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-label text-muted-foreground uppercase">
                   <span
                     aria-hidden
-                    className={cn("size-1.25 shrink-0 rounded-xs", {
+                    className={cn("size-1.25 shrink-0 rounded-full", {
                       "bg-muted-foreground/40": product.status === PRODUCT_CASE_STATUS.LAUNCH,
                       "bg-ring": product.status === PRODUCT_CASE_STATUS.WAITLIST,
                     })}

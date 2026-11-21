@@ -93,7 +93,7 @@ const LicenseKey = (): JSX.Element => {
     <div className="space-y-2">
       <p className="text-sm font-medium">{t("issued")}</p>
       {unconfirmedEmail !== undefined && (
-        <p className="rounded-md border border-dashed border-border px-4 py-3 text-sm text-pretty text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-pretty text-muted-foreground">
           {t.rich("keyAwaitsConfirmation", { ...ADDRESS_TAGS, email: unconfirmedEmail })}
         </p>
       )}

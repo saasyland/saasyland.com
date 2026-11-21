@@ -7,7 +7,7 @@ import { cn } from "~/src/lib/cn"
 const Empty = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     className={cn(
-      "flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-dashed p-6 text-center text-balance",
+      "flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-lg border-dashed p-6 text-center text-balance",
       className,
     )}
     data-slot="empty"
@@ -26,7 +26,7 @@ const emptyMediaVariants = cva("mb-2 flex shrink-0 items-center justify-center [
   variants: {
     variant: {
       default: "bg-transparent",
-      icon: "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
+      icon: "flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
     },
   },
 })

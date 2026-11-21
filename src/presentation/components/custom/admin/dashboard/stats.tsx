@@ -18,7 +18,7 @@ const DashboardStat = ({ stat }: { readonly stat: (typeof ADMIN_DASHBOARD_STATS)
 }
 
 export const DashboardStats = (): JSX.Element => (
-  <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
+  <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
     {ADMIN_DASHBOARD_STATS.map((stat) => (
       <DashboardStat key={stat.key} stat={stat} />
     ))}

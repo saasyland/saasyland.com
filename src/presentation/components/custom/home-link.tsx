@@ -29,7 +29,7 @@ export const HomeLink = ({ onClick }: { readonly onClick?: () => void }): JSX.El
 
   return (
     <Link
-      className="rounded-md py-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      className="rounded-sm py-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       onClick={returnToTop}
       to={ROUTES.HOME}
     >

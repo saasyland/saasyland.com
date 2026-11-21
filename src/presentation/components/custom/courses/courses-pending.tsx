@@ -11,8 +11,8 @@ const INCLUDES = ["first", "second", "third", "fourth", "fifth", "sixth"] as con
 
 const BadgesPending = (): JSX.Element => (
   <div className="flex gap-2">
-    <Skeleton className="h-6 w-16 rounded-full" />
-    <Skeleton className="h-6 w-24 rounded-full" />
+    <Skeleton className="h-6 w-16 rounded-md" />
+    <Skeleton className="h-6 w-24 rounded-md" />
   </div>
 )
 
@@ -49,7 +49,7 @@ export const CataloguePending = (): JSX.Element => (
         <Skeleton className="h-lh w-full scale-y-70" />
         <Skeleton className="h-lh w-3/5 scale-y-70" />
       </div>
-      <div className="mt-14 grid overflow-hidden rounded-2xl border border-border bg-card md:mt-20 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-14 grid overflow-hidden rounded-lg border border-border bg-card md:mt-20 lg:grid-cols-[1.4fr_1fr]">
         <Skeleton className="aspect-video w-full rounded-none" />
         <div className="p-7 md:p-10">
           <BadgesPending />
@@ -60,7 +60,7 @@ export const CataloguePending = (): JSX.Element => (
       </div>
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         {CARDS.map((card) => (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card" key={card}>
+          <div className="overflow-hidden rounded-lg border border-border bg-card" key={card}>
             <Skeleton className="aspect-video w-full rounded-none" />
             <div className="p-6 md:p-8">
               <CardBodyPending />
@@ -92,11 +92,11 @@ export const CoursePending = (): JSX.Element => (
         </div>
       </div>
       <div aria-hidden className="max-lg:hidden" />
-      <div className="mt-12 overflow-hidden rounded-2xl border border-border bg-card lg:mt-0 lg:self-start">
+      <div className="mt-12 overflow-hidden rounded-lg border border-border bg-card lg:mt-0 lg:self-start">
         <Skeleton className="aspect-video w-full rounded-none" />
         <div className="flex flex-col gap-3 p-6">
           <Skeleton className="h-lh w-40 scale-y-70 text-title" />
-          <Skeleton className="h-11 w-full rounded-lg" />
+          <Skeleton className="h-11 w-full rounded-md" />
         </div>
         <div className="flex flex-col gap-2.5 border-t border-border p-6 text-body-sm">
           {INCLUDES.map((item) => (
@@ -128,8 +128,8 @@ export const LessonPending = (): JSX.Element => (
       <div className="min-w-0">
         <PlayerPending />
         <div className="mt-3 flex items-center justify-between gap-2 border-b border-border pb-3">
-          <Skeleton className="h-8 w-36 rounded-lg" />
-          <Skeleton className="h-8 w-44 rounded-lg" />
+          <Skeleton className="h-8 w-36 rounded-md" />
+          <Skeleton className="h-8 w-44 rounded-md" />
         </div>
         <div className="mx-auto max-w-3xl pt-10">
           <Skeleton className="h-lh w-full max-w-[22ch] scale-y-75 text-headline-peak" />

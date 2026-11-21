@@ -46,6 +46,10 @@ describe("collectRepositoryFacts", () => {
     expect(collectRepositoryFacts(configWith(), []).buildYear).toBe(2032)
   })
 
+  it("reads the radius scale from globals.css in pixels", () => {
+    expect(collectRepositoryFacts(configWith(), [])).toMatchObject({ radiusLgPixels: 8, radiusMdPixels: 6, radiusSmPixels: 4 })
+  })
+
   it("reads the coverage threshold, lint limits, formatter widths and test timeout from the Vite config", () => {
     expect(collectRepositoryFacts(configWith(), [])).toMatchObject({
       coverageThreshold: 90,

@@ -94,7 +94,7 @@ export const UserSessions = ({ user }: { readonly user: User["select"] }): JSX.E
             {sessions.map((session) => (
               <li className="flex items-center justify-between gap-4 px-(--card-spacing) py-3" key={session.id}>
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground">
                     {isMobileSession(session) && <Smartphone aria-hidden className="size-4" />}
                     {!isMobileSession(session) && <Laptop aria-hidden className="size-4" />}
                   </div>

@@ -48,9 +48,9 @@ export const dashboardUserColumns = columnHelper.columns([
   columnHelper.accessor("name", {
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
-        <Avatar className="size-8 rounded-md border border-border">
+        <Avatar className="size-8 border border-border">
           {row.original.image !== null && <AvatarImage alt={row.original.name} src={row.original.image} />}
-          <AvatarFallback className="rounded-md bg-muted text-[0.6875rem] font-semibold text-foreground">
+          <AvatarFallback className="bg-muted text-[0.6875rem] font-semibold text-foreground">
             {getUserInitials(row.original.name)}
           </AvatarFallback>
         </Avatar>

@@ -85,7 +85,7 @@ const CoursePage = (): JSX.Element => {
       <div className="mx-auto grid w-full max-w-site px-6 pt-16 pb-24 md:px-10 md:pt-24 md:pb-32 lg:grid-cols-[minmax(0,1fr)_0.75rem_23rem] lg:grid-rows-[auto_1fr] lg:gap-x-10 xl:gap-x-14">
         <header className="min-w-0 lg:col-start-1 lg:row-start-1">
           <Link
-            className="inline-flex items-center gap-2 rounded-md text-body-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="inline-flex items-center gap-2 rounded-sm text-body-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
             to={ROUTES.COURSES}
           >
             <ArrowLeft aria-hidden className="size-3.5" />

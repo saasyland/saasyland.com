@@ -166,7 +166,7 @@ const tooling = {
     env: { browser: true, es2024: true, node: true, worker: true },
     globals: { HTMLRewriter: "readonly", caches: "readonly" },
     ignorePatterns,
-    jsPlugins: ["./scripts/admin-data-lint-plugin.ts", "./scripts/hydration-lint-plugin.ts"],
+    jsPlugins: ["./scripts/admin-data-lint-plugin.ts", "./scripts/hydration-lint-plugin.ts", "./scripts/radius-lint-plugin.ts"],
     options: {
       typeAware: true,
       typeCheck: true,
@@ -175,6 +175,10 @@ const tooling = {
       {
         files: ["src/hooks/**", "src/presentation/**", "src/providers/**", "src/routes/*.tsx"],
         rules: { "hydration/no-clock-or-locale-in-render": "error" },
+      },
+      {
+        files: ["src/**"],
+        rules: { "radius/no-off-scale": "error" },
       },
       {
         files: ["src/data/admin*.ts", "src/data/*.dashboard.ts", "src/presentation/components/custom/admin/**", "src/routes/admin*.tsx"],
@@ -187,6 +191,7 @@ const tooling = {
           "hydration/no-clock-or-locale-in-render": "off",
           "no-await-in-loop": "off",
           "no-magic-numbers": "off",
+          "radius/no-off-scale": "off",
           "unicorn/no-null": "off",
         },
       },

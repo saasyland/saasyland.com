@@ -123,7 +123,7 @@ export const GetStarted = (): JSX.Element | undefined => {
   const done = steps.filter(Boolean).length
 
   return (
-    <section aria-labelledby={headingId} className="rounded-xl border border-border bg-card p-6 md:p-8">
+    <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card p-6 md:p-8">
       <h2 className="text-title text-balance text-foreground" id={headingId}>
         {t("title")}
       </h2>

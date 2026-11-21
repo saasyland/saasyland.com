@@ -33,7 +33,7 @@ const PendingConfirmation = ({ email }: { readonly email: string }): JSX.Element
   return (
     <section
       aria-labelledby={headingId}
-      className="mb-6 flex flex-col gap-4 rounded-xl border border-ring/40 bg-ring/5 p-5 md:mb-8 md:flex-row md:p-6"
+      className="mb-6 flex flex-col gap-4 rounded-lg border border-ring/40 bg-ring/5 p-5 md:mb-8 md:flex-row md:p-6"
     >
       <span
         aria-hidden
@@ -110,7 +110,7 @@ export const EmailVerificationBanner = (): JSX.Element | undefined => {
   if (confirmedHere) {
     return (
       <p
-        className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 text-body-sm text-foreground md:mb-8"
+        className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-card px-5 py-4 text-body-sm text-foreground md:mb-8"
         role="status"
       >
         <CircleCheck aria-hidden className="size-4 shrink-0 text-ring" strokeWidth={2.25} />

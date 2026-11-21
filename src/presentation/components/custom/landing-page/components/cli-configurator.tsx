@@ -249,7 +249,7 @@ const RunOutput = ({ modules }: Readonly<{ modules: readonly string[] }>): JSX.E
         </AnimatePresence>
       </ul>
       <m.p className="mt-8 flex items-center gap-3 border-t border-border pt-6 text-body-sm text-foreground" layout transition={EXP_FAST}>
-        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
         <span>
           <RunCount value={modules.length} /> {t("run.modules")} · {t("run.green")}
         </span>
@@ -309,7 +309,7 @@ export const CliConfigurator = (): JSX.Element => {
   }
 
   return (
-    <div className="overflow-hidden border-y border-border sm:rounded-xl sm:border-x">
+    <div className="overflow-hidden border-y border-border sm:rounded-lg sm:border-x">
       <div className="flex flex-wrap items-center gap-x-6 border-b border-border bg-card px-3 md:px-5">
         <RunnerTabs className="w-auto border-b-0 py-2" onSelect={setRunner} taken={runner.id} />
         <p className="flex items-center gap-1.5 px-2.5 pb-2.5 text-spec text-muted-foreground md:ml-auto md:pb-0">

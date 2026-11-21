@@ -323,7 +323,7 @@ export const CourseShowcase = (): JSX.Element => {
     <article
       ref={article}
       aria-busy={isNear && data === undefined && !isError}
-      className="overflow-hidden rounded-xl border border-border bg-card"
+      className="overflow-hidden rounded-lg border border-border bg-card"
     >
       <div className="p-7 md:p-9">
         <h3 className="text-headline-support text-balance text-foreground">{t("title")}</h3>

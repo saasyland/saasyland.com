@@ -44,7 +44,7 @@ const Command = ({
 
   return (
     <div
-      className={cn("flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground", className)}
+      className={cn("flex size-full flex-col overflow-hidden rounded-lg! bg-popover p-1 text-popover-foreground", className)}
       data-slot="command"
       dir={dir}
       style={style}
@@ -73,7 +73,7 @@ const CommandDialog = ({
   const t = useTranslations("components.shadcn.command")
 
   return (
-    <Dialog className={cn("top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0", className)} showCloseButton={showCloseButton} {...props}>
+    <Dialog className={cn("top-1/3 translate-y-0 overflow-hidden rounded-lg! p-0", className)} showCloseButton={showCloseButton} {...props}>
       <DialogHeader className="sr-only">
         <DialogTitle>{title ?? t("title")}</DialogTitle>
         <DialogDescription>{description ?? t("description")}</DialogDescription>
@@ -89,7 +89,7 @@ const CommandInput = ({ className, placeholder, ...props }: Readonly<InputProps>
 
   return (
     <SearchField aria-label={resolvedPlaceholder} className="p-1 pb-0" data-slot="command-input-wrapper">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+      <InputGroup className="h-8! rounded-md! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
         <Input
           className={cn(
             "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-search-cancel-button]:hidden",
@@ -146,7 +146,7 @@ const CommandItem = <TValue extends object>({ children, className, textValue, ..
   return (
     <MenuItem
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-focused:bg-muted data-focused:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-focused:*:[svg]:text-foreground data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-focused:bg-muted data-focused:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-focused:*:[svg]:text-foreground data-selected:*:[svg]:text-foreground",
         className,
       )}
       data-slot="command-item"

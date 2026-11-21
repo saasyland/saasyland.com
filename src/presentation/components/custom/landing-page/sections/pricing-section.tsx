@@ -31,7 +31,7 @@ const TierSignUpLink: TierAction = ({ featured, tier }) => {
   return (
     <Link
       className={cn(
-        "inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-body-sm font-semibold transition-[background-color,border-color,transform] duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px",
+        "inline-flex h-11 w-full items-center justify-center rounded-md px-5 text-body-sm font-semibold transition-[background-color,border-color,transform] duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px",
         {
           "bg-primary text-primary-foreground hover:bg-primary/88": featured,
           "border border-border text-foreground hover:bg-muted": !featured,
@@ -71,7 +71,7 @@ export const PricingSection = (): JSX.Element => {
         </Reveal>
 
         <Reveal className="mt-12 md:mt-14" delay={GRID_DELAY_MS} variant="quiet">
-          <div className="grid gap-x-12 gap-y-7 rounded-xl border border-border bg-card p-7 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+          <div className="grid gap-x-12 gap-y-7 rounded-lg border border-border bg-card p-7 md:grid-cols-[1fr_auto] md:items-center md:p-8">
             <div>
               <p className="font-mono text-label text-muted-foreground uppercase">{t("consulting.label")}</p>
               <h3 className="mt-3 max-w-[26ch] text-title text-balance text-foreground">{t("consulting.title")}</h3>
@@ -84,7 +84,7 @@ export const PricingSection = (): JSX.Element => {
                 <span className="font-mono text-spec text-muted-foreground">{t("consulting.period")}</span>
               </p>
               <a
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-border px-5 text-body-sm font-semibold whitespace-nowrap text-foreground transition-[background-color,border-color,transform] duration-200 ease-exp hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-border px-5 text-body-sm font-semibold whitespace-nowrap text-foreground transition-[background-color,border-color,transform] duration-200 ease-exp hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
                 href={CONSULTING_HREF}
               >
                 {t("consulting.cta")}

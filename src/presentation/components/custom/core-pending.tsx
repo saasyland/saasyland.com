@@ -20,10 +20,10 @@ export const HomePending = (): JSX.Element => (
         <Skeleton className="h-lh w-1/3 scale-y-70" />
       </div>
       <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4">
-        <Skeleton className="h-11 w-33 rounded-lg" />
-        <Skeleton className="h-11 w-40 rounded-lg border border-border bg-card/60" />
+        <Skeleton className="h-11 w-33 rounded-md" />
+        <Skeleton className="h-11 w-40 rounded-md border border-border bg-card/60" />
       </div>
-      <div className="mt-16 overflow-hidden rounded-xl border border-border bg-card md:mt-20">
+      <div className="mt-16 overflow-hidden rounded-lg border border-border bg-card md:mt-20">
         <div className="flex h-10 items-center gap-1 bg-background/40 px-2">
           {PACKAGE_MANAGERS.map((manager) => (
             <Skeleton className="h-7 w-12 rounded-md" key={manager.id} />

@@ -130,7 +130,7 @@ export const PurchaseConfirmationEmail = ({
                 <Text className="m-0 mt-4 text-base text-neutral-600" key={id}>
                   {t(`getStarted.${id}`, { days })}
                   <br />
-                  <CodeInline className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-sm text-neutral-900">{command}</CodeInline>
+                  <CodeInline className="rounded-sm bg-neutral-100 px-1.5 py-0.5 font-mono text-sm text-neutral-900">{command}</CodeInline>
                 </Text>
               ))}
               <Text className="m-0 mt-4 text-base text-neutral-600">{t.rich("getStarted.docs", { docs: linkTo(links.docs) })}</Text>

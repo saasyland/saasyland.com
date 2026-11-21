@@ -36,7 +36,7 @@ export const DocsSearchDialog = ({ dialogHandle, onOpenChange, open }: SharedPro
           <SearchDialogInput />
           <SearchDialogClose />
         </SearchDialogHeader>
-        <SearchDialogList />
+        <SearchDialogList className="[&_[role=option]]:rounded-sm" />
       </SearchDialogContent>
     </SearchDialog>
   )

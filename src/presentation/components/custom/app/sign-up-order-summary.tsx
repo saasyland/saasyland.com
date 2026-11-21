@@ -26,7 +26,7 @@ export const SignUpOrderSummary = ({ redirect }: Readonly<{ redirect: string | u
   const amount = TIER_PRICES[tier]
 
   return (
-    <section aria-labelledby={headingId} className="mt-6 rounded-xl border border-ring/40 bg-card p-5">
+    <section aria-labelledby={headingId} className="mt-6 rounded-lg border border-ring/40 bg-card p-5">
       <h2 className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-title text-foreground" id={headingId}>
         <span>{tTier(`tiers.${tier}.name`)}</span>{" "}
         <span className="flex items-baseline gap-2">
@@ -62,7 +62,7 @@ export const SignUpOrderSummary = ({ redirect }: Readonly<{ redirect: string | u
 }
 
 export const SignUpOrderSummaryPending = (): JSX.Element => (
-  <div className="mt-6 rounded-xl border border-ring/40 bg-card p-5">
+  <div className="mt-6 rounded-lg border border-ring/40 bg-card p-5">
     <div className="flex items-baseline justify-between gap-4 text-title">
       <Skeleton className="h-lh w-24 scale-y-70" />
       <Skeleton className="h-lh w-28 scale-y-70" />
@@ -72,7 +72,7 @@ export const SignUpOrderSummaryPending = (): JSX.Element => (
       <Skeleton className="h-lh w-1/3 scale-y-70" />
     </div>
     <div className="mt-3 flex items-start gap-2.5 text-body-sm">
-      <Skeleton className="mt-0.75 size-3.5 shrink-0 rounded-xs" />
+      <Skeleton className="mt-0.75 size-3.5 shrink-0 rounded-sm" />
       <div className="flex flex-1 flex-col">
         <Skeleton className="h-lh w-full scale-y-70" />
         <Skeleton className="h-lh w-1/2 scale-y-70" />

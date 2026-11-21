@@ -40,7 +40,7 @@ const isActive = <Licence extends Pick<License["select"], "status">>(license: Li
   license?.status === LICENSE_STATUS.ACTIVE
 
 const ActivationPanel = ({ children, icon }: Readonly<{ children: ReactNode; icon: ReactNode }>): JSX.Element => (
-  <section className="flex items-start gap-5 rounded-xl border border-border bg-card p-6 md:p-8" role="status">
+  <section className="flex items-start gap-5 rounded-lg border border-border bg-card p-6 md:p-8" role="status">
     <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full border border-ring/40 bg-ring/10 text-ring">
       {icon}
     </span>

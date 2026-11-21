@@ -32,10 +32,14 @@ const COVERAGE_SUMMARY_REPORTER = "json-summary"
 const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
 const CLI_CONTRACT_PACKAGE = "@saasyland/stack"
 const JOURNEY_SPEC = "journey.spec.ts"
+const GLOBAL_STYLESHEET = "src/presentation/styles/globals.css"
+const PIXELS_PER_REM = 16
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
 const SHARD_MATRIX = /^ +shard: \[(?<shards>[\d, ]+)\]$/mu
+const BASE_RADIUS = /--radius:\s*(?<rem>[\d.]+)rem;/u
+const RADIUS_STEP = /--radius-(?<step>sm|md|lg):\s*(?:calc\(var\(--radius\) \* (?<factor>[\d.]+)\)|var\(--radius\));/gu
 
 const packageSchema = zod.object({ version: zod.string() })
 const enginesSchema = zod.object({ engines: zod.object({ node: zod.string() }) })
@@ -43,6 +47,9 @@ const rootPackageSchema = zod.object({ packageManager: zod.string() })
 const versionMatchSchema = zod.object({ version: zod.string() })
 const scheduleMatchSchema = zod.object({ schedule: zod.string() })
 const shardsMatchSchema = zod.object({ shards: zod.string() })
+const baseRadiusSchema = zod.object({ rem: zod.coerce.number() })
+const radiusStepSchema = zod.object({ factor: zod.coerce.number().default(1), step: zod.enum(["sm", "md", "lg"]) })
+const radiusScaleSchema = zod.object({ lg: zod.number(), md: zod.number(), sm: zod.number() })
 
 const maxRuleSchema = zod.tuple([zod.string(), zod.object({ max: zod.number() })])
 
@@ -109,6 +116,14 @@ const readE2eShards = (): number => {
   const workflow = readFileSync(E2E_WORKFLOW, "utf8")
 
   return shardsMatchSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").length
+}
+
+const readRadiusScale = () => {
+  const stylesheet = readFileSync(GLOBAL_STYLESHEET, "utf8")
+  const base = baseRadiusSchema.parse(BASE_RADIUS.exec(stylesheet)?.groups).rem * PIXELS_PER_REM
+  const steps = [...stylesheet.matchAll(RADIUS_STEP)].map((match) => radiusStepSchema.parse(match.groups))
+
+  return radiusScaleSchema.parse(Object.fromEntries(steps.map(({ factor, step }) => [step, base * factor])))
 }
 
 const findTimedProject = (projects: readonly unknown[]) =>
@@ -190,6 +205,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
   const [, maxLines] = lint.rules["max-lines"]
   const [, maxLinesPerFunction] = lint.rules["max-lines-per-function"]
   const [, maxStatements] = lint.rules["max-statements"]
+  const radius = readRadiusScale()
 
   return {
     authIntegrationPath: AUTH_INTEGRATION_PATH,
@@ -234,6 +250,9 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     playwrightLocalRetries: DEV_RETRIES,
     playwrightLocalWorkers: LOCAL_WORKERS,
     printWidth: fmt.printWidth,
+    radiusLgPixels: radius.lg,
+    radiusMdPixels: radius.md,
+    radiusSmPixels: radius.sm,
     reactMajor: majorVersionOf("react"),
     tabWidth: fmt.tabWidth,
     tanstackTableMajor: majorVersionOf("@tanstack/react-table"),

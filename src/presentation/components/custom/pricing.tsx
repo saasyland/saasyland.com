@@ -162,8 +162,8 @@ const RegionalPricing = (): JSX.Element => {
 
   return (
     <CheckboxField defaultSelected={!declined} key={String(declined)} onChange={storeRegionalChoice}>
-      <CheckboxButton className="group ppp-offer mt-6 cursor-pointer items-start gap-3 rounded-xl border border-ring/35 bg-ring/6 px-5 py-4">
-        <span className="relative mt-0.75 flex size-4 shrink-0 rounded-[4px] border border-input bg-background transition-colors group-has-checked:border-primary group-has-checked:bg-primary group-data-focus-visible:outline-2 group-data-focus-visible:outline-offset-2 group-data-focus-visible:outline-ring">
+      <CheckboxButton className="group ppp-offer mt-6 cursor-pointer items-start gap-3 rounded-lg border border-ring/35 bg-ring/6 px-5 py-4">
+        <span className="relative mt-0.75 flex size-4 shrink-0 rounded-sm border border-input bg-background transition-colors group-has-checked:border-primary group-has-checked:bg-primary group-data-focus-visible:outline-2 group-data-focus-visible:outline-offset-2 group-data-focus-visible:outline-ring">
           <Check
             aria-hidden
             className="pointer-events-none absolute inset-0 m-auto size-3.5 text-primary-foreground opacity-0 group-has-checked:opacity-100"
@@ -213,7 +213,7 @@ const PricingTrust = (): JSX.Element => {
 
 export const PricingTiers = ({ Action }: Readonly<{ Action: TierAction }>): JSX.Element => (
   <div className="@container">
-    <HighlightGroup className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3" name="pricing-highlight">
+    <HighlightGroup className="grid overflow-hidden rounded-lg border border-border @2xl:grid-cols-3" name="pricing-highlight">
       {LICENSE_TIERS.map((tier) => (
         <TierColumn Action={Action} key={tier} tier={tier} />
       ))}

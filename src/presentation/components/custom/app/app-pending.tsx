@@ -45,12 +45,12 @@ const AppSidebarPending = (): JSX.Element => (
       </div>
     </div>
     <div className="flex flex-col gap-3 border-t border-sidebar-border p-3">
-      <div className="flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border border-input py-2 pr-2 pl-2.5 text-body-sm">
+      <div className="flex h-9 w-full items-center justify-between gap-1.5 rounded-md border border-input py-2 pr-2 pl-2.5 text-body-sm">
         <Skeleton className="h-lh w-16 scale-y-70" />
         <Skeleton className="size-4 shrink-0" />
       </div>
       <div className="flex min-w-0 items-center gap-2.5">
-        <Skeleton className="size-8 shrink-0 rounded-md" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Skeleton className="h-lh w-24 scale-y-70 text-body-sm" />
           <Skeleton className="h-lh w-36 max-w-full scale-y-70 text-label" />

@@ -27,7 +27,7 @@ const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | u
   const names = { from: tTier(`tiers.${upgrade.fromTier}.name`), tier: tTier(`tiers.${tier}.name`) }
 
   return (
-    <section aria-labelledby={headingId} className="overflow-hidden rounded-xl border border-ring/40 bg-card">
+    <section aria-labelledby={headingId} className="overflow-hidden rounded-lg border border-ring/40 bg-card">
       <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
         <div>
           <h2 className="flex items-center gap-2 text-title text-balance text-foreground" id={headingId}>
@@ -62,7 +62,7 @@ const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | u
 }
 
 export const UpgradeOfferPending = (): JSX.Element => (
-  <div className="overflow-hidden rounded-xl border border-ring/40 bg-card">
+  <div className="overflow-hidden rounded-lg border border-ring/40 bg-card">
     <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
       <div>
         <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-title" />

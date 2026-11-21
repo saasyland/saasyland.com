@@ -43,7 +43,7 @@ const LessonTag = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
 
   return (
     <span
-      className={cn("rounded-full border px-2 py-0.5 font-mono text-[0.6875rem] leading-none whitespace-nowrap", {
+      className={cn("rounded-md border px-2 py-0.5 font-mono text-[0.6875rem] leading-none whitespace-nowrap", {
         "border-border text-muted-foreground": lesson.access !== LESSON_ACCESS.PREVIEW,
         "border-ring/40 bg-ring/10 text-ring": lesson.access === LESSON_ACCESS.PREVIEW,
       })}

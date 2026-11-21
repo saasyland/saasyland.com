@@ -102,7 +102,7 @@ const UpNext = ({ courseSlug, lesson }: { readonly courseSlug: string; readonly 
 
   return (
     <Link
-      className="group inline-flex h-8 max-w-full min-w-0 items-center gap-2 rounded-lg px-3 text-body-sm font-medium text-foreground transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="group inline-flex h-8 max-w-full min-w-0 items-center gap-2 rounded-md px-3 text-body-sm font-medium text-foreground transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       params={{ course: courseSlug, lesson: lesson.slug }}
       to="/courses/$course/$lesson"
     >

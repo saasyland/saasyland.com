@@ -17,7 +17,7 @@ describe("form skeleton blocks shared by the admin areas", () => {
     const input = renderWithRouter(<Input aria-label="Name" />).container.querySelector("input")
 
     expect(label).toHaveClass("text-sm")
-    expect(control).toHaveClass("h-8", "w-full", "rounded-lg")
-    expect(input).toHaveClass("h-8", "w-full", "rounded-lg")
+    expect(control).toHaveClass("h-8", "w-full", "rounded-md")
+    expect(input).toHaveClass("h-8", "w-full", "rounded-md")
   })
 })

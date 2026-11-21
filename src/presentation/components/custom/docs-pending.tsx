@@ -32,7 +32,7 @@ const DocsArticle = ({ breadcrumb }: { readonly breadcrumb: boolean }): JSX.Elem
         <Skeleton className={cn("h-lh scale-y-70", width)} key={width} />
       ))}
     </div>
-    <Skeleton className="mt-5 h-72 w-full rounded-xl border border-border bg-transparent" />
+    <Skeleton className="mt-5 h-72 w-full rounded-lg border border-border bg-transparent" />
     <Skeleton className="mt-12 h-lh w-1/3 scale-y-70 text-2xl" />
     <div className="mt-6 flex flex-col text-base/7">
       <Skeleton className="h-lh w-full scale-y-70" />
@@ -81,10 +81,10 @@ export const DocsPending = (): JSX.Element => {
           <div className="flex h-lh items-center text-[0.9375rem]">
             <Skeleton className="h-lh w-20 scale-y-70" />
           </div>
-          <div className="flex h-9 items-center gap-2 rounded-lg border border-border px-2.5 text-sm">
+          <div className="flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-sm">
             <Skeleton className="size-4 rounded-full" />
             <Skeleton className="h-lh w-14 scale-y-70" />
-            <Skeleton className="ml-auto h-5 w-10 rounded-md" />
+            <Skeleton className="ml-auto h-5 w-10 rounded-sm" />
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-0.5 overflow-hidden px-4 pt-4 text-sm">
@@ -100,8 +100,8 @@ export const DocsPending = (): JSX.Element => {
           ))}
         </div>
         <div className="flex flex-col gap-2 p-4 pt-2">
-          <Skeleton className="h-9 w-full rounded-lg border border-border bg-transparent" />
-          <Skeleton className="h-9 w-full rounded-lg border border-border bg-transparent" />
+          <Skeleton className="h-9 w-full rounded-md border border-border bg-transparent" />
+          <Skeleton className="h-9 w-full rounded-md border border-border bg-transparent" />
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col">

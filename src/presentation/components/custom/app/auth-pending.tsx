@@ -16,7 +16,7 @@ const DocsStepPending = (): JSX.Element => (
         <Skeleton className="h-lh w-1/4 scale-y-70 sm:hidden" />
       </div>
     </div>
-    <Skeleton className="h-7 w-42 rounded-lg" />
+    <Skeleton className="h-7 w-42 rounded-md" />
   </div>
 )
 
@@ -26,7 +26,7 @@ const SupportStepPending = (): JSX.Element => (
       <Skeleton className="h-lh w-24 scale-y-70" />
       <Skeleton className="h-lh w-4/5 scale-y-70" />
     </div>
-    <Skeleton className="h-7 w-30 rounded-lg" />
+    <Skeleton className="h-7 w-30 rounded-md" />
   </div>
 )
 

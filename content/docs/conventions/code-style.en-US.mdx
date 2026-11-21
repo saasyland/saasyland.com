@@ -1,24 +1,29 @@
 ---
 title: "Code style"
-description: "What the formatter, linter and compiler enforce, and the rules they cannot check: no comments, no escape hatches, one-line ternaries and named constants."
+description: "What the formatter, linter, compiler and comment check enforce: no comments, no escape hatches, one-line ternaries, no ?? undefined and named constants."
 ---
 
-`bun run check` runs `vp check`, which formats with oxfmt, lints with oxlint and type-checks with TypeScript in one pass, with the configuration in `vite.config.ts` and `tsconfig.json`. CI runs the same command. Nothing here is a matter of taste: if the tools accept code that breaks a rule on this page, review rejects it.
+`bun run check` runs `bun run check:comments` and then `vp check`, which formats with oxfmt, lints with oxlint and type-checks with TypeScript in one pass, with the configuration in `vite.config.ts` and `tsconfig.json`. CI runs the same command. Nothing here is a matter of taste: if the tools accept code that breaks a rule on this page, review rejects it.
 
 ## What the tools enforce
 
 oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories as errors, with type-aware rules and type checking switched on. The limits that shape code most:
 
-| Rule                         | Setting                                                    | Effect                                         |
-| ---------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| `max-lines`                  | <RepositoryFact name="maxLines" />                         | Split a file by responsibility before it grows |
-| `max-lines-per-function`     | <RepositoryFact name="maxLinesPerFunction" />              | Components and handlers stay small             |
-| `max-statements`             | <RepositoryFact name="maxStatements" />                    | Extract named helpers instead of long bodies   |
-| `no-magic-numbers`           | `0` and `1` allowed, plus array indexes and default values | Every other number is a named constant         |
-| `id-length`                  | at least two characters, except `_`, `m` and `t`           | Identifiers are words; `t` is the translator   |
-| `one-var`                    | `never`                                                    | One declaration per statement                  |
-| `unicorn/no-null`            | on outside tests and `src/platform/testing`                | Absent values are `undefined`                  |
-| `typescript/no-explicit-any` | `error`                                                    | No value is typed `any`                        |
+| Rule                                    | Setting                                                       | Effect                                                    |
+| --------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| `max-lines`                             | <RepositoryFact name="maxLines" />                            | Split a file by responsibility before it grows            |
+| `max-lines-per-function`                | <RepositoryFact name="maxLinesPerFunction" />                 | Components and handlers stay small                        |
+| `max-statements`                        | <RepositoryFact name="maxStatements" />                       | Extract named helpers instead of long bodies              |
+| `no-magic-numbers`                      | `0` and `1` allowed, plus array indexes and default values    | Every other number is a named constant                    |
+| `id-length`                             | at least two characters, except `_`, `m` and `t`              | Identifiers are words; `t` is the translator              |
+| `one-var`                               | `never`                                                       | One declaration per statement                             |
+| `unicorn/no-null`                       | on outside tests and `src/platform/testing`                   | Absent values are `undefined`                             |
+| `typescript/no-explicit-any`            | `error`                                                       | No value is typed `any`                                   |
+| `typescript/ban-ts-comment`             | `true` for `@ts-expect-error`, `@ts-ignore` and `@ts-nocheck` | No compiler error is suppressed, with or without a reason |
+| `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                     | No `as` cast; `as const` and `satisfies` remain           |
+| `code-style/no-comments`                | `error`                                                       | No comment, directive comments included                   |
+| `code-style/no-multiline-ternary`       | `error`                                                       | A ternary fits on one line                                |
+| `code-style/no-undefined-fallback`      | `error`                                                       | No `?? undefined`                                         |
 
 The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null`, `hydration/no-clock-or-locale-in-render` and `admin-data/no-literal-data`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)); and the admin's routes, components and data files turn on `admin-data/no-literal-data` (see [Admin dashboard](/docs/features/admin-dashboard#real-data-only)).
 
@@ -47,20 +52,28 @@ const FIRST_SEQUENCE = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-The first two come from `video.delivery.ts` and `release.ts`, the third from `src/data/polar.vite.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt. Before you commit, search your diff for `//`, `/*` and `{/*`.
+The first two come from `video.delivery.ts` and `release.ts`, the third from `src/data/polar.vite.ts`: each would otherwise need a comment.
+
+Two checks enforce the rule, and both name the file, the line and the fix:
+
+- `code-style/no-comments`, a rule of the repository's oxlint plugin in `scripts/code-style-lint-plugin.ts`, reports every comment in the files the linter reads, in the editor and in `vp check`.
+- `bun run check:comments` runs `scripts/check-comments.ts` before the linter, in `bun run check` and in the pre-commit hook. It parses every TypeScript, JavaScript and CSS file that Git tracks or would add, with oxc for code and PostCSS for styles, so a `//` in a URL or a regular expression and a `/*` in a CSS glob are not comments. It reads what the linter cannot: `e2e`, `remotion`, declaration files, the stylesheets, and a `/* oxlint-disable */` comment, which the linter obeys before any rule sees it.
+
+The exemptions are the files that `.gitattributes` marks `linguist-generated`, of which `src/routeTree.gen.ts` and `src/types/worker-configuration.d.ts` are code, and the `#!` line of a script, which JavaScript's grammar does not count as a comment. A type the compiler needs everywhere goes into `types` in `tsconfig.json`, as the Vitest globals do, never into a `/// <reference>` comment.
 
 ## No escape hatches
 
-Never write `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, an `as` cast or `any` to make a rule pass. A rule that fires is pointing at a design problem; change the design.
+Never write `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, an `as` cast or `any` to make a rule pass. A rule that fires is pointing at a design problem; change the design. The checks reject each of them: `typescript/ban-ts-comment` the three compiler directives even with a description, `typescript/consistent-type-assertions` every assertion but `as const`, `typescript/no-explicit-any` the `any`, and `code-style/no-comments` and `bun run check:comments` every disable comment. An `eslint-disable` comment switches nothing off in the first place (`respectEslintDisableDirectives: false`).
 
 - **Validate instead of asserting.** Data from storage, the network or a request is parsed with Zod: `src/lib/github.ts` reads the cached star count with `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data`, which is a number or `undefined`, never a guess.
 - **Narrow with a type guard.** `isRole` in `src/integrations/better-auth/auth.roles.ts` and `isErrorCode` in `src/hooks/use-error-message.ts` turn a `string` into a union with a real check.
+- **Annotate, do not assert.** Give a value the type it needs where it is declared: the shadcn sidebar declares `SIDEBAR_MOBILE_STYLE: StyleWithCssVars`, the CSS properties plus its `--sidebar-width` custom property, instead of casting the object literal.
 - **Check, do not convert.** `as const` and `satisfies` are allowed because they never change a type: `POLAR_ORDER_STATUS` ends in `as const satisfies Record<string, models.OrderStatus>`, so a misspelled Polar status fails to compile.
 - **Restructure when a library contract fights you.** Wrap a value in an object, split a function, or read from a typed source rather than casting.
 
 ## Null and undefined
 
-Outside tests and `src/platform/testing`, an absent value is `undefined`, and `null` is never written as a value. The linter allows it where an API defines it: in a comparison with a value that can be `null`, such as a nullable column (`entry.completedAt !== null` in `get-course.ts`), and in a React DOM ref, which starts as `useRef<HTMLElement>(null)` because React types `ref` as `RefObject<T | null>` and sets it back to `null` on unmount (`course-showcase.tsx`). Never bridge an API that returns `null` with `?? undefined`. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
+Outside tests and `src/platform/testing`, an absent value is `undefined`, and `null` is never written as a value. The linter allows it where an API defines it: in a comparison with a value that can be `null`, such as a nullable column (`entry.completedAt !== null` in `get-course.ts`), and in a React DOM ref, which starts as `useRef<HTMLElement>(null)` because React types `ref` as `RefObject<T | null>` and sets it back to `null` on unmount (`course-showcase.tsx`). Never bridge an API that returns `null` with `?? undefined`; `code-style/no-undefined-fallback` fails it. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -70,7 +83,7 @@ export const authSearchSchema = zod.object({
 
 ## Ternaries and early returns
 
-A ternary fits on one line, such as `{t(course === undefined ? "create" : "save")}` in `course-form.tsx`. Anything longer, and every choice between two pieces of JSX, becomes an early return, a pair of `&&` conditions or a small component. `src/routes/auth.reset-password.tsx` renders its two states with two conditions:
+A ternary fits on one line, such as `{t(course === undefined ? "create" : "save")}` in `course-form.tsx`. Anything longer, and every choice between two pieces of JSX, becomes an early return, a pair of `&&` conditions or a small component; a conditional class becomes `cn("base", { "classes": condition })`. `code-style/no-multiline-ternary` fails every ternary that spans lines, including one the formatter broke because it grew past the print width. `src/routes/auth.reset-password.tsx` renders its two states with two conditions:
 
 ```tsx
 {resetToken !== undefined && <ResetPasswordForm token={resetToken} />}

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -132,7 +132,7 @@ Jede davon ist in unseren Repositories vorgekommen, und für jede gibt es eine L
 
 **1. Verwässerung.** Jede Regel, die du hinzufügst, macht es ein wenig unwahrscheinlicher, dass jede andere befolgt wird. Die Dokumentation von Claude Code empfiehlt Anweisungsdateien unter 200 Zeilen, weil längere Dateien mehr Kontext verbrauchen und die Befolgung verringern („longer files consume more context and reduce adherence“). Unsere `AGENTS.md` ist eine Zusammenfassung, die auf einen ganzen Dokumentationsabschnitt mit Konventionen verweist. Der Agent liest die Zusammenfassung in jeder Sitzung und die Seiten nur, wenn er daran denkt.
 
-**2. Konflikt.** Anweisungen kommen von mehreren Stellen, und sie widersprechen sich. Agent-Werkzeuge fügen Commits standardmäßig einen Attributions-Trailer wie `Co-Authored-By` hinzu. Unsere Regeln verbieten ihn, weil GitHub die Adresse des Trailers einem Konto zuordnet und dieses Konto als Mitwirkenden des Repositorys aufführt. Die Lösung, die hält, ist strukturell statt eines weiteren Satzes: Das Repository erlaubt nur Squash-Merges, und der Squash-Commit übernimmt den Titel des Pull Requests mit leerem Body, sodass nichts, was ein Agent in die Commit-Nachricht eines Branches schreibt, `main` erreicht.
+**2. Konflikt.** Anweisungen kommen von mehreren Stellen, und sie widersprechen sich. Agent-Werkzeuge fügen Commits standardmäßig einen Attributions-Trailer wie `Co-Authored-By` hinzu. Unsere Regeln verbieten ihn, weil GitHub die Adresse des Trailers einem Konto zuordnet und dieses Konto als Mitwirkenden des Repositorys aufführt. Die Lösung, die hält, ist strukturell statt eines weiteren Satzes: Das Repository erlaubt nur Squash-Merges, und der Squash-Commit übernimmt den Titel des Pull Requests mit leerem Body, sodass nichts, was ein Agent in die Commit-Nachricht eines Branches schreibt, `main` erreicht. Seit #274 weist außerdem ein `commit-msg`-Hook jede Commit-Nachricht zurück, deren Trailer ein KI-Werkzeug nennt, sodass der Agent schon bei seinem ersten Commit davon erfährt.
 
 **3. Hörensagen.** Wenn mehrere Agenten zusammenarbeiten, erreichen die meisten Anweisungen einen ausführenden Agenten über die Zusammenfassung eines anderen Agenten, und Zusammenfassungen verlieren Dinge. In unserem Setup schreibt ein leitender Agent das Briefing für jeden ausführenden Agenten. Ein Briefing behauptete über eine Zahlungsänderung, „der Inhaber hat zugestimmt“, obwohl er etwas anderes freigegeben hatte (#166). Am nächsten Morgen sagten zwei Briefings, die Lizenz-API der CLI stehe nicht auf der Liste für menschliches Review, obwohl `AGENTS.md` sie seit dem Vortag aufführte, und zwei Pull Requests änderten sie (#208 und #211). Was den nächsten Schritt jedes Mal stoppte, war keine Anweisung: Die Berechtigungsschicht im Harness des Agenten weigerte sich, die Zahlungsänderung zu mergen und die Arbeit an der zweiten Lizenzänderung fortzusetzen, bis der Inhaber Ja sagte. Sein Ja zur Lizenzänderung ist in deren Pull Request zitiert.
 
@@ -232,6 +232,8 @@ Aus einer einzigen Tabelle ergaben sich vier Lehren, und alle vier gelten für j
 
 **Führe die Probe nach jedem Upgrade des Linters erneut aus.** Kategorien wie `nursery` gewinnen und verlieren zwischen Releases Regeln. Die Probedatei ist ein Test deiner Konfiguration und verdient es, wie jeder andere Test in der CI zu laufen; das Starter-Kit am Ende enthält einen.
 
+Am nächsten Tag haben wir in #274 jede Lücke der Tabelle geschlossen. `code-style/no-comments` meldet jeden Kommentar, `code-style/no-multiline-ternary` jeden ternären Ausdruck über mehrere Zeilen und `code-style/no-undefined-fallback` jedes `?? undefined`; `typescript/ban-ts-comment` weist `@ts-expect-error` jetzt auch mit einer Beschreibung zurück, und `typescript/consistent-type-assertions` mit `assertionStyle: "never"` weist das erweiternde `as` zurück. Im gesamten Repository eingeschaltet, fanden die Regeln 21 mehrzeilige ternäre Ausdrücke, 17 davon in ins Repository übernommenen shadcn-Komponenten, und zwei `as`-Casts, und der Pull Request hat jeden davon umgeschrieben, statt ihn auszunehmen.
+
 ## Wie aus einer Stilregel eine Prüfung wird
 
 1. **Formuliere die Regel als Ja-oder-Nein-Frage über ein Artefakt.** „Enthält diese Datei einen Kommentar?“ ist entscheidbar. „Ist dieser Code klar?“ ist es nicht und gehört ins Review. Wenn du die Frage nicht formulieren kannst, hast du eine Anweisung gefunden, keine Prüfung.
@@ -278,7 +280,7 @@ Am nächsten Tag tat #220 dasselbe für die Anrede. Jede Locale spricht den Lese
 
 ### Praxisbeispiel: keine Kommentare, durchgesetzt von einem Parser
 
-Das Audit oben hat gezeigt, dass unsere Regel gegen Kommentare nur zufällig durchgesetzt wurde. Das hier ist die Regel, die die Lücke schließt, geschrieben gegen die Regel-API von ESLint, die auch Oxlint lädt (laut Oxlint ist seine Plugin-API mit ESLint ab v9 kompatibel, „Oxlint’s plugin API is compatible with ESLint v9+“):
+Das Audit oben hat gezeigt, dass unsere Regel gegen Kommentare nur zufällig durchgesetzt wurde. Das hier ist die Regel, die die Lücke geschlossen hat, geschrieben gegen die Regel-API von ESLint, die auch Oxlint lädt (laut Oxlint ist seine Plugin-API mit ESLint ab v9 kompatibel, „Oxlint’s plugin API is compatible with ESLint v9+“); unsere ist `code-style/no-comments` in `scripts/code-style-lint-plugin.ts`:
 
 ```js
 const noComments = {
@@ -301,6 +303,8 @@ const noComments = {
 Wir haben sie mit unserer bestehenden Konfiguration über jede Datei laufen lassen, die der Linter abdeckt. Sie meldete den großgeschriebenen Zeilenkommentar, den JSDoc-Block und den JSX-Kommentar in der Probedatei, ließ ein `//` in einem URL-String und in einem regulären Ausdruck in Ruhe und fand genau ein Problem im Code, den der Linter abdeckt: die Zeile `#!/usr/bin/env bun` am Anfang eines Skripts. ESLint dokumentiert den Grund: Shebangs werden als Kommentare behandelt („are treated as comments“) und von `getAllComments()` zurückgegeben. Daher die Ausnahme für `Shebang`, die die Lehre aus Schritt 5 im Kleinen ist: Eine Prüfung, die du nicht auf echtem Code ausgeführt hast, hat Bugs, denen du noch nicht begegnet bist.
 
 Der andere Befund zählt genauso viel: Abgesehen von dieser Zeile hatte der gelintete Code überhaupt keine Kommentare. Das Review hatte die Regel gehalten. Es hatte den Inhaber aber auch die Aufmerksamkeit gekostet, sie jedes Mal zu halten, und genau um diesen Tausch geht es in diesem Artikel.
+
+Eine Lint-Regel hat trotzdem zwei blinde Flecken. Sie sieht die Dateien nicht, die der Linter auslässt, bei uns die Browser-Suite, die Deklarationsdateien und die Stylesheets, und sie kann kein `/* oxlint-disable */` melden, das sie nennt, weil der Linter die Direktive zuerst befolgt. Deshalb parst `bun run check:comments` jede TypeScript-, JavaScript- und CSS-Datei, die Git verfolgt, außerhalb des Linters, mit oxc für Code und PostCSS für Styles, und schlägt bei jedem Kommentar fehl, bevor der Linter läuft. Sein erster Lauf fand noch einen: eine Zeile `/// <reference types>` in einer Deklarationsdatei, die nach `types` in `tsconfig.json` gewandert ist.
 
 ### Wenn eine Regel Zeremonie erzeugt, korrigiere die Regel
 
@@ -715,9 +719,9 @@ Do not change these without a maintainer's written yes that names the paths:
 
 Das Schreiben dieses Artikels war ein Audit, und das Audit hat Lücken gefunden. Im Geist des übrigen Artikels stehen sie hier.
 
-- **Keine Kommentare** wird nur durch die Lint-Kategorien durchgesetzt, die großgeschriebene Zeilenkommentare, JSDoc- und JSX-Kommentare übersehen. Die Parser-Regel oben schließt diese Lücke.
-- **Hintertüren** werden nur teilweise geprüft: Ein beschriebenes `@ts-expect-error`, ein erweiterndes `as` und ein `oxlint-disable`-Kommentar bestehen das Linting. `ban-ts-comment` auf Verbot gestellt und eine Suche nach Direktiven in der CI schließen das meiste davon.
-- **Mehrzeilige ternäre Ausdrücke und `?? undefined`** werden nur durch Review gehalten.
+Drei davon sind geschlossen: Kommentare, die Hintertüren und mehrzeilige ternäre Ausdrücke samt `?? undefined` lassen jetzt `bun run check` fehlschlagen (#274). Diese bleiben:
+
+- **Die Browser-Suite** liegt außerhalb des Linters: `bun run check:comments` liest `e2e/`, aber keine andere Lint-Regel tut das.
 - **Pfade mit menschlichem Review** werden durch Anweisungen und die Berechtigungsschicht der Agenten gehalten, nicht durch GitHub, weil die Agenten unter der Identität des Inhabers arbeiten. Die Liste lässt außerdem die Dateien aus, die die Gates definieren.
 - **Beschreibungen von Pull Requests** werden nicht mit dem Diff abgeglichen.
 - **Die veröffentlichte CLI** läuft vor einem Release noch nicht gegen die Live-API.

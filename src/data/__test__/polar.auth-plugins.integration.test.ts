@@ -43,7 +43,6 @@ const deliver = async (type: models.WebhookEventType): Promise<number> => {
   const order = polarOrder({
     checkoutId: JSON_NULL,
     customer: polarCustomer(env.POLAR_ORGANIZATION_ID, "user-sample"),
-    discount: JSON_NULL,
     metadata: {},
     product: PRODUCT,
     status: POLAR_ORDER_STATUS.PAID,

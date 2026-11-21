@@ -1,9 +1,9 @@
 ---
 title: "Polar-Einrichtung"
-description: "Die Polar-Organisationen, das Token, die Produkte, Lizenzschlüssel, die Zustimmungs-Checkbox, die regionalen Rabatte und Webhooks, die der Code erwartet, und wie polar:verify sie prüft."
+description: "Die Polar-Organisationen, das Token, die Produkte, Lizenzschlüssel, die Zustimmungs-Checkbox, die Sprache des Checkouts, das Steuerverhalten und die Webhooks, die der Code erwartet, wie der Checkout regionale Preise festlegt, und wie polar:verify sie prüft."
 ---
 
-Polar verkauft die drei Stufen, stellt ihre Lizenzschlüssel aus und wendet die regionalen Rabatte an. Der Code erwartet in Polar eine genau festgelegte Einrichtung, und Polar warnt dich nicht, wenn beide auseinanderlaufen: Ein Produkt ohne Lizenzschlüssel-Benefit nimmt die Zahlung trotzdem an, stellt aber keinen Schlüssel aus. `bun run polar:verify:<environment>` vergleicht Polar mit dem Code, und die Deploy-Skripte führen es vor jedem manuellen Deployment aus.
+Polar verkauft die drei Stufen zu den Preisen, die der Checkout übermittelt, stellt ihre Lizenzschlüssel aus und berechnet die Steuer. Der Code erwartet in Polar eine genau festgelegte Einrichtung, und Polar warnt dich nicht, wenn beide auseinanderlaufen: Ein Produkt ohne Lizenzschlüssel-Benefit nimmt die Zahlung trotzdem an, stellt aber keinen Schlüssel aus. `bun run polar:verify:<environment>` vergleicht Polar mit dem Code, und die Deploy-Skripte führen es vor jedem manuellen Deployment aus.
 
 ## Produktion und Sandbox
 
@@ -26,18 +26,17 @@ Zuerst in der Sandbox, dann in der Produktion:
 1. Lege eine Organisation an und kopiere ihre ID aus den Organisationseinstellungen in `POLAR_ORGANIZATION_ID`. Gib beiden Organisationen den Slug aus `POLAR_ORGANIZATION_SLUG` (`src/data/polar.ts`) oder ändere die Konstante auf ihren Slug: Die [Warnung und die Admin-Liste der Bestellungen ohne passendes Konto](/docs/features/licences#orders-that-match-no-account) verlinken jede Bestellung im Polar-Dashboard unter diesem Slug.
 2. Erstelle in den Organisationseinstellungen ein Organisations-Zugriffstoken mit diesen Scopes und keinen weiteren, und kopiere es in `POLAR_ACCESS_TOKEN`.
 
-| Scope                     | Benötigt für                                                                                                                                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `checkouts:write`         | `startCheckout`, das den Checkout über das Polar-Plugin für Better Auth erstellt                                                                                                                    |
-| `customer_sessions:write` | Den Link zum Kundenportal, `/api/auth/customer/portal`                                                                                                                                              |
-| `discounts:read`          | Die Abfrage des regionalen Rabatts beim Checkout (`pppDiscountId`) und `polar:verify`                                                                                                               |
-| `license_keys:write`      | Das Lesen eines Schlüssels und seiner Aktivierungen, das Aktivieren eines Geräts und das Entfernen einer Aktivierung (`deactivateLicense` und die [CLI-Lizenz-API](/docs/features/cli-licence-api)) |
-| `orders:read`             | Die Webhook-Handler, die die Bestellung hinter einer Lizenz und den aktuellen Kunden einer Bestellung lesen, deren Ereignis zu keinem Konto passt                                                   |
-| `organizations:read`      | `polar:verify`, das liest, ob die Checkout-Lokalisierung eingeschaltet ist                                                                                                                          |
-| `products:read`           | `polar:verify`                                                                                                                                                                                      |
-| `webhooks:read`           | `polar:verify`                                                                                                                                                                                      |
+| Scope                     | Benötigt für                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, das den Checkout über das Polar-Plugin für Better Auth erstellt                                                                                                                                                                                                                                                                                  |
+| `customer_sessions:write` | Den Link zum Kundenportal, `/api/auth/customer/portal`                                                                                                                                                                                                                                                                                                            |
+| `license_keys:write`      | Das Lesen eines Schlüssels und seiner Aktivierungen, das Aktivieren eines Geräts und das Entfernen einer Aktivierung (`deactivateLicense` und die [CLI-Lizenz-API](/docs/features/cli-licence-api)) sowie bei einem Upgrade das Anheben des Aktivierungslimits des Schlüssels und das Deaktivieren des Schlüssels, den Polar für die Upgrade-Bestellung ausstellt |
+| `orders:read`             | Die Webhook-Handler, die die Bestellung hinter einer Lizenz und den aktuellen Kunden einer Bestellung lesen, deren Ereignis zu keinem Konto passt, und den Upgrade-Preis, der addiert, was der Kunde für Lizenzen bezahlt hat                                                                                                                                     |
+| `organizations:read`      | `polar:verify`, das liest, ob die Checkout-Lokalisierung eingeschaltet ist, und das voreingestellte Steuerverhalten                                                                                                                                                                                                                                               |
+| `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                                                                                    |
+| `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                                                                                    |
 
-Ein Schreib-Scope schließt das Lesen ein, daher deckt `license_keys:write` auch das Lesen von Schlüsseln ab. Ein Organisations-Token handelt bereits für seine eigene Organisation. `polar:verify` sendet `POLAR_ORGANIZATION_ID` trotzdem als Query-Parameter `organization_id`, wie es auch die Rabattabfrage beim Checkout tut, sodass sich die ID einer anderen Organisation als fehlende Produkte bemerkbar macht.
+Ein Schreib-Scope schließt das Lesen ein, daher deckt `license_keys:write` auch das Lesen von Schlüsseln ab. Ein Organisations-Token handelt bereits für seine eigene Organisation. `polar:verify` sendet `POLAR_ORGANIZATION_ID` trotzdem als Query-Parameter `organization_id`, wie es auch die Abfrage der Bestellungen für ein Upgrade tut, sodass sich die ID einer anderen Organisation als fehlende Produkte bemerkbar macht.
 
 ## Produkte
 
@@ -80,16 +79,13 @@ Das Anlegen des Felds und das Anhängen an ein Produkt brauchen die Scopes `cust
 
 Polar zeigt seinen Checkout nur dann in der Sprache, die `startCheckout` anfordert, wenn die Checkout-Lokalisierung für die Organisation eingeschaltet ist; sonst öffnet sich jeder Checkout auf Englisch. Schalte sie in den Einstellungen der Organisation ein. Polars [Leitfaden zur Checkout-Lokalisierung](https://polar.sh/docs/features/checkout/localization) nennt sie ein Feature-Flag, und die API liefert sie als `feature_settings.checkout_localization_enabled` an der Organisation. `POLAR_CHECKOUT_LANGUAGES` in `src/data/polar.ts` listet die Sprachen, die der Code anfordert, und `polar:verify` schlägt fehl, solange die Lokalisierung ausgeschaltet ist.
 
-## Regionale Rabatte
+## Steuerverhalten [#tax-behaviour]
 
-Der Checkout wendet einen regionalen Preis über einen automatischen Rabatt in Polar an (siehe [Lizenzen](/docs/features/licences)). Lege für jede Rabattstufe in `PPP_TIERS` (`src/modules/license/license.pricing.ts`) einen Prozentrabatt an: <RegionalDiscounts />. Jeder Rabatt muss:
+Die Preiskarten sagen, dass die Preise in US-Dollar angegeben sind, dass die Umsatzsteuer in der EU enthalten ist und dass in den USA, Kanada und Indien beim Checkout Sales Tax hinzukommt. So berechnet Polar die Steuer, wenn das voreingestellte Steuerverhalten der Organisation standortbasiert ist; stelle es daher in den Einstellungen der Organisation darauf ein. Die API liefert es als `default_tax_behavior` an der Organisation, und `polar:verify` schlägt fehl, solange es nicht `location` ist (`POLAR_TAX_BEHAVIOR.LOCATION` in `src/lib/polar.ts`).
 
-- einen Prozentsatz abziehen; Polar speichert ihn in Basispunkten, also in Hundertstel eines Prozents;
-- keinen Code haben, damit der Checkout ihn anwenden kann, ohne dass der Käufer einen eingibt;
-- für alle drei Produkte gelten oder für kein bestimmtes Produkt;
-- jetzt einlösbar sein: kein Startdatum in der Zukunft, kein Enddatum in der Vergangenheit und, falls er ein Einlösungslimit hat, noch verbleibende Einlösungen.
+## Regionale Preise [#regional-prices]
 
-`findRegionalDiscount` in `src/integrations/polar/polar.discounts.ts` entscheidet, welchen Rabatt der Checkout anwendet, und `polar:verify` fragt dieselbe Funktion.
+Regionale Preise brauchen in Polar nichts. Für einen Käufer in einem Land aus `PPP_TIERS` (`src/modules/license/license.pricing.ts`), dessen Preisstufen <RegionalDiscounts /> abziehen, sendet `startCheckout` den Preis selbst: `regionalPrice` rundet den Preis der Stufe auf ganze Dollar ab, den Betrag, den die Stufenkarten zeigen, und der Checkout trägt ihn in `prices` als Festpreis für das Produkt der Stufe, der nur für diesen Checkout gilt, sodass das Produkt seinen Preis aus `TIER_PRICES` behält. Ein [Upgrade](/docs/features/licences#upgrades) sendet seinen Preis auf dieselbe Weise. Rabatte, die eine frühere Einrichtung angelegt hat, werden nicht mehr verwendet, und du kannst sie löschen.
 
 ## Webhook
 
@@ -127,14 +123,13 @@ bun run polar:verify:preview
 bun run polar:verify:production
 ```
 
-Jedes Skript liest die Polar-Schlüssel aus `.env.<environment>` und sendet nur GET-Anfragen an die API, die `POLAR_SERVER` nennt: Es listet die Produkte, Rabatte und Webhook-Endpunkte der Organisation auf und ändert nichts. Es prüft, dass:
+Jedes Skript liest die Polar-Schlüssel aus `.env.<environment>` und sendet nur GET-Anfragen an die API, die `POLAR_SERVER` nennt: Es liest die Organisation, listet ihre Produkte und Webhook-Endpunkte auf und ändert nichts. Es prüft, dass:
 
 - die Umgebungsdatei jeden Polar-Schlüssel setzt, mit `POLAR_SERVER=sandbox` für Entwicklung und Preview und `POLAR_SERVER=production` für die Produktion;
-- die Checkout-Lokalisierung für die Organisation eingeschaltet ist;
+- die Checkout-Lokalisierung für die Organisation eingeschaltet und ihr voreingestelltes Steuerverhalten standortbasiert ist;
 - jede `POLAR_PRODUCT_ID_*` ein Produkt der Organisation nennt, das weder archiviert noch ein Abonnement ist und dessen Preise fest sind, in `DEFAULT_CURRENCY_CODE` und gleich `TIER_PRICES`;
 - jedes Produkt genau einen Lizenzschlüssel-Benefit mit dem Limit der Stufe aus `LICENSE_ACTIVATION_LIMITS`, ohne Ablauf und ohne Nutzungslimit hat;
 - jedes Produkt das Checkbox-Feld <RepositoryFact name="licenseWithdrawalConsentField" /> mit der Beschriftung aus `WITHDRAWAL_CONSENT_FIELD` verlangt;
-- für jede Rabattstufe in `PPP_TIERS` ein automatischer Prozentrabatt nach der Regel des Checkouts für jedes Stufenprodukt einlösbar ist;
 - Preview und Produktion unter ihrer Webhook-URL einen aktivierten Endpunkt im Raw-Format haben, der mit `POLAR_WEBHOOK_SECRET` signiert ist und genau `POLAR_EVENTS` abonniert;
 - kein Endpunkt an den Host einer Umgebung sendet, die den anderen Polar-Dienst verwendet.
 
@@ -156,9 +151,10 @@ Ein Fehlschlag stoppt das Deployment, bevor etwas gebaut, migriert oder hochgela
 - **`rejects POLAR_ACCESS_TOKEN`**: Das Token ist ungültig, widerrufen oder stammt aus dem anderen Dienst, etwa ein Produktions-Token in `.env.preview`.
 - **`lacks the … scope`**: Erstelle ein Token mit den oben genannten Scopes.
 - **`names no product of the organisation`**: Die Produkt-ID oder `POLAR_ORGANIZATION_ID` ist falsch oder gehört zum anderen Dienst.
-- **Ein Preis, ein Lizenzschlüssel oder ein Rabatt**: Ändere ihn in Polar so, dass er zum Code passt. Wenn sich ein geschäftlicher Wert absichtlich ändert, ändere zuerst `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` oder `PPP_TIERS` und dann Polar.
+- **Ein Preis oder ein Lizenzschlüssel**: Ändere ihn in Polar so, dass er zum Code passt. Wenn sich ein geschäftlicher Wert absichtlich ändert, ändere zuerst `TIER_PRICES` oder `LICENSE_ACTIVATION_LIMITS` und dann Polar.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` oder `label differs`**: Lege die [Zustimmungs-Checkbox](#consent-checkbox) an, hänge sie an oder korrigiere sie. Wenn sich der Wortlaut absichtlich ändert, ändere zuerst `WITHDRAWAL_CONSENT_FIELD.label` und dann die Beschriftung in Polar.
 - **`Checkout localization is off`**: Schalte die [Checkout-Lokalisierung](#checkout-language) für die Organisation ein.
+- **`default tax behaviour is not location`**: Stelle das [Steuerverhalten](#tax-behaviour) der Organisation auf standortbasiert um.
 - **Ein Webhook-Endpunkt**: Korrigiere den Endpunkt, den die Meldung nennt, oder entferne einen Endpunkt, der an den Host einer anderen Umgebung sendet.
 
 ## Verwandte Seiten

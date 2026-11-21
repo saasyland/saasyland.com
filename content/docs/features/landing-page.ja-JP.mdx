@@ -1,6 +1,6 @@
 ---
 title: "ランディングページ"
-description: "/ のマーケティングページ、各セクション、地域割引付きの料金、CLI コンフィギュレーター、フッターのニュースレターフォーム。"
+description: "/ のマーケティングページ、各セクション、ドル未満を切り捨てた地域価格と購入者が支払い前に確認する情報を備えた料金、CLI コンフィギュレーター、フッターのニュースレターフォーム。"
 ---
 
 ## ルート
@@ -44,18 +44,20 @@ Hero、Manifesto、Gate の各セクションに表示するアドバンテー�
 
 `PricingSection` は `src/presentation/components/custom/pricing.tsx` の `PricingTiers` を表示します。これは[顧客アプリ](/docs/features/customer-app)がライセンスのないアカウントに表示するのと同じプランのカードです。各カードは `LICENSE_TIERS`（`src/modules/license/license.constants.ts`）のプランを、`TIER_PRICES` の金額と `components.custom.pricing` 名前空間の文言とともに表示し、ボタンは表示するページから受け取ります。ランディングページでは `/auth/sign-up?redirect=/app?tier=<tier>` へのリンクなので、選んだプランはサインアップ後も引き継がれます。グリッドは自身のコンテナの幅が 42rem 以上になると 3 列に切り替わる（`@container`）ため、幅の狭いアプリの列にも収まります。地域別価格はクライアント側の JavaScript なしで動くため、ページはプリレンダリングされたままです。
 
+注目のプランである `FEATURED_TIER`（Complete）には **おすすめ** のラベルが付きます。1 列のときはカードのボタンが価格の下、機能の一覧より前に置かれるため、スマートフォンの訪問者は一覧をスクロールしなくてもボタンに届きます。3 列のときはボタンがカードの下端に移り（`order-last`）、各カードのボタンの位置がそろいます。カードの下では、`PricingTrust` が `trust` メッセージの `PRICING_TRUST_ITEMS` を列挙します。Merchant of Record としての Polar（領収書と付加価値税の請求書、法人向けの VAT 番号の入力欄）、米ドル建ての価格（EU では付加価値税込み、米国、カナダ、インドでは売上税を加算。Polar の[税の扱い](/docs/getting-started/polar-setup#tax-behaviour)をこれに合わせる必要があります）、プロジェクトを生成するか有料レッスンを開く前であれば <RepositoryFact name="refundWithdrawalDays" unit="day" />以内の全額返金（返金ポリシーへのリンク付き）、そしてすべてのリリースが含まれる CLI のベータ版です。Hero セクションは、ボタンの下の `hero.anchor` でオファーを繰り返します。`PRICE_TAGS` による Core の価格（該当する地域では地域価格）、生涯アップデート、`REFUND_TERMS.WITHDRAWAL_DAYS` による返金期間です。
+
 カードの機能は `src/data/marketing.ts` の `TIER_FEATURES` から取得します。各エントリには ID（その文言は `tiers.<tier>.features.<id>`）と `FEATURE_STATUS` があり、カードはエントリを **提供中** と **提供予定**（`status.available` と `status.arriving`）に分けて表示します。そのため、現在動くものと提供予定のものの区分は一か所で宣言され、どの翻訳もステータスを書きません。提供中のグループの最後には、1 つのキーを同時に使える端末数が並びます。これは `LICENSE_ACTIVATION_LIMITS[tier]` を ICU の複数形である `machines` メッセージに渡したもので、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。`LicenseOfferPending` も `TIER_FEATURES` から同じグループを描画します。
 
 Complete に含まれる 2 つのコースプラットフォームへの無料の生涯アクセスは、同じファイルの `REACTPROJECTS_ACCESS` と `ANGULARPROJECTS_ACCESS` からステータスを受け取ります。どちらも `CLI_GENERATION` と同じ `FEATURE_STATUS` の値です。現在の値は reactprojects.com が <RepositoryFact name="reactprojectsAccess" />、angularprojects.com が <RepositoryFact name="angularprojectsAccess" /> です。どちらもウェイトリストの登録を受け付けている段階で、まだ公開されていないためです。Complete についての FAQ の回答は `reactprojectsAccess` と `angularprojectsAccess` に対する ICU の `select` で、FAQ はこれらを各プラットフォームのホストとともに `COURSE_PLATFORM_VALUES` で受け取ります。そのため、プラットフォームのステータスを `FEATURE_STATUS.AVAILABLE` にすると、その機能は**提供中**に移り、すべての言語でその文が変わります。`src/data/__test__/course-platform-access.test.ts` は、すべての言語で両方のバリアントを描画します。Agency のコースと 2 つのプラットフォームのチーム席は**提供予定**のままです。ブログ記事はアクセスを文章で説明しており、プラットフォームの公開時に書き換えます。
 
 地域別価格は次のようにページに反映されます。
 
-1. `Price` は地域の倍率（`PPP_KEYS`）ごとに金額を 1 回ずつ表示し、通常価格を取り消し線付きで表示します。
+1. `Price` は地域の倍率（`PPP_KEYS`）ごとに、チェックアウトの請求にも使う関数 `regionalPrice` でドル未満を切り捨てた金額を 1 回ずつ表示し、通常価格を取り消し線付きで表示します。
 2. Worker がすべての HTML ページに適用する、ライセンスのエリアのドキュメントハンドラー（`src/data/license.worker.ts`）が `cf-ipcountry` を読み取ります。`PPP_TIERS` に含まれる国であれば、`HTMLRewriter` で `html` 要素に `data-ppp` と変数 `--ppp-region`、`--ppp-percent` を設定し、レスポンスを `private, no-cache` にします。
 3. 地域割引のチェックボックスがオンの間、`globals.css` の CSS が該当する価格を表示します。
-4. チェックを外すと Cookie に `regional_pricing=off` が保存され、Worker と `startCheckout` の両方がこれに従います。
+4. チェックを外すと Cookie に `regional_pricing=off` が保存され、Worker と `startCheckout` の両方がこれに従うため、カードの価格がそのままチェックアウトの価格になります。
 
-プランの下のコンサルティングカードは、`src/data/marketing.ts` の `CONSULTING_HOURLY_RATE` を `CURRENCY_FORMAT` で整形して表示します。通話はメールで予約するもので Polar では販売しないため、地域別価格はありません。
+プランの下のコンサルティングカードは、`src/data/marketing.ts` の `CONSULTING_HOURLY_RATE` を `CURRENCY_FORMAT` で整形して表示します。通話はメールで予約するもので Polar では販売しないため、地域別価格はなく、ボタンには **メールで相談を予約** と表示されます。
 
 ## CLI コンフィギュレーター [#cli-configurator]
 
@@ -69,7 +71,7 @@ Complete に含まれる 2 つのコースプラットフォームへの無料�
 
 `@saasyland/stack` と同じく UI ライブラリが最初の質問なので、コマンドは `--framework` より前に `--library` を渡します。フレームワークの質問は、各フレームワークをそれが動作するライブラリの下に並べます。これは `@saasyland/stack` のフレームワークの `visibleWhen` ルールが宣言しています。React の下に TanStack Start、Next.js、React Router、Angular の下に Analog と Angular SSR、Vue の下に Nuxt、Svelte の下に SvelteKit、Solid の下に SolidStart です。TanStack Start は Solid でも動作するため、React の下に一度だけ表示し、Solid のグループでは SolidStart の後にその名前を挙げます。各ライブラリのフレームワークは、質問のラジオグループの中でライブラリ名を名前にした `role="group"` になるので、矢印キーは引き続き質問全体を移動します。選んだライブラリで動作しないフレームワークは無効になりますが、理由はグループがすでに示しているため取り消し線は付かず、`aria-describedby` は質問の `note` に関連付けます。`CLI_TEMPLATE_SUPPORT` が挙げるのは React と TanStack Start なので、ほかのライブラリとフレームワークにはすべて砂時計が付きます。ランタイムの質問が Cloudflare と Vercel で除外する Deno も同様です。
 
-プロジェクト生成が提供されたかどうかは、`src/data/cli.ts` の `CLI_GENERATION`（`FEATURE_STATUS`）が決めます。これに依存するメッセージはすべて `generation` に対する ICU の `select` で、`available` のバリアントと提供予定のバリアント（`other`）を持ちます。コンポーネントは `CLI_GENERATION_VALUES`、つまりステータスとプロジェクトを作る npm コマンド <RepositoryFact name="cliInitCommand" /> を渡します。生成によって提供される Core の機能と Agency のクライアントプロジェクトは、`TIER_FEATURES` で同じ定数からステータスを受け取ります。そのため定数を変えるだけで、すべての言語でそれらの文が変わり、その機能は**提供中**に移ります。Core のカードの課金は、さらに `CLI_TEMPLATE_SUPPORT` が課金プロバイダーを挙げるまで待つため、テンプレートが課金を生成するまで**提供予定**に残ります。`src/data/__test__/cli-generation.test.ts` はそれらのメッセージを列挙し、すべての言語で両方のバリアントを表示し、提供予定の文言が選択肢の外にあると失敗します。ブログ記事、このドキュメント、`public/llms.txt` は文章で書かれているため、生成を提供するリリースで更新します。
+プロジェクト生成が提供されたかどうかは、`src/data/cli.ts` の `CLI_GENERATION`（`FEATURE_STATUS`）が決めます。これに依存するメッセージはすべて `generation` に対する ICU の `select` で、`available` のバリアントと提供予定のバリアント（`other`）を持ちます。コンポーネントは `CLI_GENERATION_VALUES`、つまりステータスとプロジェクトを作る npm コマンド <RepositoryFact name="cliInitCommand" /> を渡します。生成によって提供される Core の機能と Agency のクライアントプロジェクトは、`TIER_FEATURES` で同じ定数からステータスを受け取ります。そのため定数を変えるだけで、すべての言語でそれらの文が変わり、その機能は**提供中**に移ります。Core のカードの課金は、さらに `CLI_TEMPLATE_SUPPORT` が課金プロバイダーを挙げるまで待つため、テンプレートが課金を生成するまで**提供予定**に残ります。また、Hero セクションと締めくくりの行動喚起がプロジェクトに含まれるものとして課金を挙げるのは、`BILLING_GENERATION` が提供中になってからです。`src/data/__test__/cli-generation.test.ts` はそれらのメッセージを列挙し、すべての言語で両方のバリアントを表示し、提供予定の文言が選択肢の外にあると失敗します。ブログ記事、このドキュメント、`public/llms.txt` は文章で書かれているため、生成を提供するリリースで更新します。
 
 ## ニュースレター
 

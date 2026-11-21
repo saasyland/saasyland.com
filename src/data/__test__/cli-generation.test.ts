@@ -16,6 +16,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { AFFILIATE_PORTAL_URL } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES, CLI_INIT_COMMAND } from "~/src/data/cli"
+import { BILLING_GENERATION } from "~/src/data/marketing"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -130,6 +131,7 @@ const render = ({ generation, locale, message }: { generation: string; locale: S
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
     ...ARRIVING_AFFILIATE_PROGRAM_VALUES,
+    billing: BILLING_GENERATION,
     ...Object.fromEntries(tagNames(message.nodes).map((tag) => [tag, (chunks: string) => chunks])),
     generation,
   })

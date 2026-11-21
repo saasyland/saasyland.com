@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
-import { PPP_PERCENTS_OFF, getPppMultiplier, getPppPercentOff, pppMultiplierKey } from "~/src/modules/license/license.pricing"
+import {
+  PPP_KEYS,
+  PPP_PERCENTS_OFF,
+  getPppMultiplier,
+  getPppPercentOff,
+  pppMultiplierKey,
+  regionalPrice,
+} from "~/src/modules/license/license.pricing"
 
 const formatPrice = (amount: number): string => new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(amount)
 
@@ -27,7 +34,12 @@ describe("regional pricing", () => {
     expect(formatPrice(295 * multiplier)).toBe("$295")
   })
 
-  it("lists the percentage off of each regional band, the discounts Polar must offer", () => {
+  it("lists the percentage off of each regional band", () => {
     expect(PPP_PERCENTS_OFF).toStrictEqual([20, 30, 40, 50])
+  })
+
+  it("rounds a regional price down to whole dollars and keeps the full price whole", () => {
+    expect(PPP_KEYS.map((key) => regionalPrice(249, key))).toStrictEqual([249, 199, 174, 149, 124])
+    expect(PPP_KEYS.map((key) => regionalPrice(399, key))).toStrictEqual([399, 319, 279, 239, 199])
   })
 })

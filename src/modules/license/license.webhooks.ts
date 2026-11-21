@@ -9,12 +9,15 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
+import { upgradeOrigin } from "~/src/modules/license/license.upgrades"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
+import { revertLicenseUpgrade } from "~/src/modules/license/use-cases/revert-license-upgrade"
 import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
 import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
 import { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
+import { upgradeLicense } from "~/src/modules/license/use-cases/upgrade-license"
 import { user } from "~/src/modules/user/user.schema"
 
 interface PolarCustomer {
@@ -130,27 +133,40 @@ export const licenseWebhookHandlers = {
     }
 
     const consentAt = withdrawalConsentAt(data)
+    const upgraded = await upgradeLicense({ origin: upgradeOrigin(data.metadata), tier, userId: account.id })
 
-    await grantLicense({
-      polarCustomerId: data.customer_id,
-      polarOrderId: data.id,
-      purchaseCreatedAt: new Date(data.created_at),
-      tier,
-      userId: account.id,
-      withdrawalConsentAt: consentAt,
-    })
+    if (!upgraded) {
+      await grantLicense({
+        polarCustomerId: data.customer_id,
+        polarOrderId: data.id,
+        purchaseCreatedAt: new Date(data.created_at),
+        tier,
+        userId: account.id,
+        withdrawalConsentAt: consentAt,
+      })
+    }
     await sendPurchaseConfirmationEmail({ order: data, recipient: account, tier, withdrawalConsent: consentAt !== undefined })
   },
 
   onOrderRefunded: async ({ data }: OrderEvent): Promise<void> => {
-    if (data.status !== POLAR_ORDER_STATUS.REFUNDED || data.product_id === null || licenseTierForProduct(data.product_id) === undefined) {
+    const tier = data.product_id === null ? undefined : licenseTierForProduct(data.product_id)
+
+    if (data.status !== POLAR_ORDER_STATUS.REFUNDED || tier === undefined) {
       return
     }
 
     const account = await findAccount(data.customer)
 
-    if (account !== undefined) {
-      await revokeLicense({ polarOrderId: data.id, status: LICENSE_STATUS.REFUNDED, userId: account.id })
+    if (account === undefined) {
+      return
     }
+
+    const origin = upgradeOrigin(data.metadata)
+
+    if (origin !== undefined) {
+      await revertLicenseUpgrade({ origin, tier, userId: account.id })
+    }
+
+    await revokeLicense({ polarOrderId: data.id, status: LICENSE_STATUS.REFUNDED, userId: account.id })
   },
 } satisfies Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>

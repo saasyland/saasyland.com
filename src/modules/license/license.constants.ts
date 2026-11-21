@@ -55,6 +55,8 @@ export const LICENSE_CHECKOUT_FIELD = {
 
 export const LICENSE_CHECKOUT_METADATA = {
   LOCALE: "locale",
+  UPGRADE_FROM_ORDER: "upgrade_from_order",
+  UPGRADE_FROM_TIER: "upgrade_from_tier",
 } as const
 
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
@@ -63,8 +65,6 @@ export const LICENSE_POLL_MS = {
   KEY: 2000,
   SETUP: 5000,
 } as const
-
-export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000
 
 export const BUNDLE_BINDING = "BUNDLES"
 
@@ -84,6 +84,7 @@ export const LICENSE_QUERY_KEYS = {
   CURRENT: ["license", "current"],
   KEY: ["license", "key"],
   UNLICENSED_ORDERS: ["license", "getUnlicensedOrders"],
+  UPGRADE_PRICE: ["license", "upgradePrice"],
   USER: ["license", "getUserLicense"],
 } as const
 

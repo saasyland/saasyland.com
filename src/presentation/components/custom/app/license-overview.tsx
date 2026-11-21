@@ -11,6 +11,7 @@ import { ChosenTier } from "~/src/presentation/components/custom/app/chosen-tier
 import { GetStarted } from "~/src/presentation/components/custom/app/get-started"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
+import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-offer"
 
 const route = getRouteApi("/app/")
 
@@ -27,6 +28,7 @@ export const LicenseOverview = (): JSX.Element => {
     <>
       {checkoutId !== undefined && <CheckoutActivation checkoutId={checkoutId} />}
       {isBuying && tier !== undefined && <ChosenTier tier={tier} />}
+      {hasActiveLicense && tier !== undefined && <UpgradeOffer tier={tier} />}
       {showsLicense && <LicenseStatusCard />}
       {showsLicense && checkoutId === undefined && <GetStarted />}
       {isBuying && <LicenseOffer />}

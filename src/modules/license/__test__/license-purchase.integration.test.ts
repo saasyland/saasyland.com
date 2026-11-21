@@ -30,15 +30,19 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_CHECKOUT_ID_PLACEHOLDER,
+  POLAR_LICENSE_KEY_STATUS,
+  POLAR_MINIMUM_PRICE_AMOUNT,
+  POLAR_ORDER_STATUS,
+} from "~/src/integrations/polar/polar.constants"
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
-import { toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
-import { REGIONAL_POLAR_DISCOUNTS } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_CHECKOUT_FIELD,
@@ -48,13 +52,14 @@ import {
   LICENSE_WEBHOOK_EVENTS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
-import { PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/license/license.pricing"
+import { PPP_COOKIE, PPP_DECLINED, pppMultiplierKey, regionalPrice as roundedRegionalPrice } from "~/src/modules/license/license.pricing"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
+import { upgradePriceQuery } from "~/src/modules/license/use-cases/get-upgrade-price"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -66,6 +71,7 @@ import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
+const INCLUDED_VAT_RATE = 0.23
 const RETURN_PATH = "/pl-PL/app/license?tier=complete"
 const CONSENT = { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
@@ -125,8 +131,8 @@ const deliver = (
   return postWebhook(body, headers)
 }
 
-const paidOrder = async (buyer: Buyer, tier: LicenseTier = LICENSE_TIER.CORE): Promise<models.Order> => {
-  const checkout = await startCheckout(buyer, { tier })
+const paidOrder = async (buyer: Buyer, tier: LicenseTier = LICENSE_TIER.CORE, browser: BrowserState = {}): Promise<models.Order> => {
+  const checkout = await startCheckout(buyer, { tier, ...browser })
   return payPolarCheckout(checkout.id, CONSENT)
 }
 
@@ -139,11 +145,11 @@ const currentLicense = async (buyer: Buyer) => {
 const listPrice = (tier: LicenseTier): number => toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
 
 const regionalPrice = (tier: LicenseTier, country: string): number =>
-  toMinorUnits((TIER_PRICES[tier] * pppMultiplierKey(country)) / PPP_PERCENT, DEFAULT_CURRENCY_CODE)
+  toMinorUnits(roundedRegionalPrice(TIER_PRICES[tier], pppMultiplierKey(country)), DEFAULT_CURRENCY_CODE)
 
-const buyLicense = async (tier: LicenseTier = LICENSE_TIER.CORE) => {
+const buyLicense = async (tier: LicenseTier = LICENSE_TIER.CORE, browser: BrowserState = {}) => {
   const buyer = await signUpAndVerify()
-  const order = await paidOrder(buyer, tier)
+  const order = await paidOrder(buyer, tier, browser)
   await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
   const grant = grantPolarLicenseKey(order)
   await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)
@@ -232,14 +238,17 @@ describe("checkout", () => {
 })
 
 describe("checkout prices, referrals and refusals", () => {
-  it.each(["PT", "PL", "IN", "UA"])("charges a buyer from %s the regional price the pricing cards show", async (country) => {
-    const buyer = await signUpAndVerify()
+  it.each(["PT", "PL", "IN", "UA"])(
+    "charges a buyer from %s the regional price the pricing cards show, in whole dollars",
+    async (country) => {
+      const buyer = await signUpAndVerify()
 
-    const checkout = await startCheckout(buyer, { country, tier: LICENSE_TIER.AGENCY })
+      const checkout = await startCheckout(buyer, { country, tier: LICENSE_TIER.AGENCY })
 
-    expect(REGIONAL_POLAR_DISCOUNTS.map(({ id }) => id)).toContain(checkout.discount_id)
-    expect(checkout.net_amount).toBe(regionalPrice(LICENSE_TIER.AGENCY, country))
-  })
+      expect(checkout).toMatchObject({ discount_id: null, net_amount: regionalPrice(LICENSE_TIER.AGENCY, country) })
+      expect(checkout.net_amount % toMinorUnits(1, DEFAULT_CURRENCY_CODE)).toBe(0)
+    },
+  )
 
   it("charges the full price when the buyer turned regional pricing off", async () => {
     const buyer = await signUpAndVerify()
@@ -270,13 +279,13 @@ describe("checkout prices, referrals and refusals", () => {
     expect(payPolarCheckout(checkout.id, CONSENT).metadata).toStrictEqual(metadata)
   })
 
-  it("refuses a second checkout while the account holds an active licence, without asking Polar", async () => {
+  it("refuses a second checkout for the tier the account already holds, without asking Polar", async () => {
     const { buyer } = await buyLicense()
     const checkoutsBefore = polarCheckouts().length
 
     actAs(buyer)
     await expect(
-      executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier: LICENSE_TIER.AGENCY }),
+      executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier: LICENSE_TIER.CORE }),
     ).resolves.toStrictEqual({
       alreadyActive: true,
     })
@@ -603,5 +612,188 @@ describe("licence activations", () => {
     await expect(executeMutation(deactivateLicenseMutation, { activationId: ownerMachine.id })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
 
     expect(polarLicenseKeyOf(owner.grant).activations).toStrictEqual([ownerMachine])
+  })
+})
+
+const upgradeTo = async (buyer: Buyer, tier: LicenseTier, browser: BrowserState = {}) => {
+  const checkout = await startCheckout(buyer, { tier, ...browser })
+  return { checkout, order: payPolarCheckout(checkout.id, CONSENT) }
+}
+
+const priceOf = async (buyer: Buyer, tier: LicenseTier, browser: BrowserState = {}) => {
+  actAs(buyer, browser)
+  const { upgrade } = await executeQuery(upgradePriceQuery({ tier }))
+  return upgrade
+}
+
+describe("upgrade prices", () => {
+  it("prices an upgrade at the higher tier's price less what the buyer has paid for the licence", async () => {
+    const { buyer } = await buyLicense(LICENSE_TIER.CORE)
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toStrictEqual({
+      amount: TIER_PRICES[LICENSE_TIER.COMPLETE] - TIER_PRICES[LICENSE_TIER.CORE],
+      credit: TIER_PRICES[LICENSE_TIER.CORE],
+      fromTier: LICENSE_TIER.CORE,
+      price: TIER_PRICES[LICENSE_TIER.COMPLETE],
+    })
+  })
+
+  it("charges a regional buyer the regional price of the higher tier less the regional price paid", async () => {
+    const browser = { country: "IN" }
+    const { buyer } = await buyLicense(LICENSE_TIER.CORE, browser)
+
+    const upgrade = await priceOf(buyer, LICENSE_TIER.AGENCY, browser)
+
+    expect(upgrade).toMatchObject({ amount: (regionalPrice(LICENSE_TIER.AGENCY, "IN") - regionalPrice(LICENSE_TIER.CORE, "IN")) / 100 })
+  })
+
+  it("asks nothing more of a buyer who has already paid what the higher tier costs them", async () => {
+    const { buyer } = await buyLicense(LICENSE_TIER.CORE)
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE, { country: "UA" })).resolves.toMatchObject({ amount: 0 })
+  })
+
+  it("asks nothing when less than Polar's minimum price is left to pay", async () => {
+    const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
+    const almost = listPrice(LICENSE_TIER.COMPLETE) - order.net_amount - POLAR_MINIMUM_PRICE_AMOUNT + 1
+    createPolarOrder(
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
+      { net_amount: almost, subtotal_amount: almost, total_amount: almost },
+    )
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({ amount: 0 })
+  })
+
+  it("counts only paid licence orders in US dollars, less what was refunded", async () => {
+    const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
+    const half = Math.floor(order.net_amount / 2)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, half))
+    createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, { currency: "eur" })
+    createPolarOrder(
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
+      { status: POLAR_ORDER_STATUS.PENDING },
+    )
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({ credit: (order.net_amount - half) / 100 })
+  })
+
+  it("credits a price that included tax at what it charged, less what was refunded of it and of its tax", async () => {
+    const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
+    const tax = Math.round(order.subtotal_amount - order.subtotal_amount / (1 + INCLUDED_VAT_RATE))
+    const refunded = { refunded_amount: Math.floor((order.subtotal_amount - tax) / 2), refunded_tax_amount: Math.floor(tax / 2) }
+    const taxed = { ...refunded, net_amount: order.subtotal_amount - tax, status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED, tax_amount: tax }
+    createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, taxed)
+    const kept = order.subtotal_amount - refunded.refunded_amount - refunded.refunded_tax_amount
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({
+      credit: fromMinorUnits(order.net_amount + kept, DEFAULT_CURRENCY_CODE),
+    })
+  })
+
+  it("offers no upgrade to the tier the licence already has or to a lower one", async () => {
+    const tier = LICENSE_TIER.CORE
+    const { buyer } = await buyLicense(LICENSE_TIER.COMPLETE)
+
+    await expect(priceOf(buyer, tier)).resolves.toBeUndefined()
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toBeUndefined()
+    actAs(buyer)
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", returnPath: RETURN_PATH, tier })).resolves.toStrictEqual({
+      alreadyActive: true,
+    })
+  })
+
+  it("offers no upgrade before the key is issued, or to an account without a licence", async () => {
+    const buyer = await signUpAndVerify()
+
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toBeUndefined()
+    const order = await paidOrder(buyer, LICENSE_TIER.CORE)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
+    await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toBeUndefined()
+  })
+})
+
+describe("upgrades", () => {
+  it("opens a checkout for the difference that names the licence it upgrades", async () => {
+    const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
+
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.COMPLETE })
+
+    expect(checkout).toMatchObject({
+      metadata: {
+        [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US",
+        [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_ORDER]: order.id,
+        [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_TIER]: LICENSE_TIER.CORE,
+      },
+      net_amount: listPrice(LICENSE_TIER.COMPLETE) - listPrice(LICENSE_TIER.CORE),
+      product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
+    })
+  })
+
+  it("moves the paid upgrade's licence to the higher tier with its key and machines, and disables the upgrade's own key", async () => {
+    const { buyer, grant, order } = await buyLicense(LICENSE_TIER.CORE)
+    const laptop = activatePolarLicenseKey(grant, "Laptop")
+    const before = await currentLicense(buyer)
+
+    const upgrade = await upgradeTo(buyer, LICENSE_TIER.COMPLETE)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, upgrade.order)).toBe(HTTP_STATUS.OK)
+    const upgradeGrant = grantPolarLicenseKey(upgrade.order)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, upgradeGrant)).toBe(HTTP_STATUS.OK)
+
+    expect(await currentLicense(buyer)).toMatchObject({
+      key: before?.key,
+      polarLicenseKeyId: before?.polarLicenseKeyId,
+      polarOrderId: order.id,
+      status: LICENSE_STATUS.ACTIVE,
+      tier: LICENSE_TIER.COMPLETE,
+    })
+    expect(polarLicenseKeyOf(grant)).toMatchObject({
+      activations: [laptop],
+      limit_activations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.COMPLETE],
+      status: POLAR_LICENSE_KEY_STATUS.GRANTED,
+    })
+    expect(polarLicenseKeyOf(upgradeGrant).status).toBe(POLAR_LICENSE_KEY_STATUS.DISABLED)
+    const confirmations = getSentEmails(buyer.account.email).filter(
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
+    )
+    expect(confirmations.map(({ subject }) => subject)).toStrictEqual(["Your SaaSy Land Core licence", "Your SaaSy Land Complete licence"])
+  })
+
+  it("keeps the higher tier when Polar delivers the upgrade again, and when an older upgrade arrives after a newer one", async () => {
+    const { buyer } = await buyLicense(LICENSE_TIER.CORE)
+    const toComplete = await upgradeTo(buyer, LICENSE_TIER.COMPLETE)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, toComplete.order)
+    const toAgency = await upgradeTo(buyer, LICENSE_TIER.AGENCY)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, toAgency.order)
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, toComplete.order)
+    expect(await currentLicense(buyer)).toMatchObject({ tier: LICENSE_TIER.AGENCY })
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(toComplete.order.id, toComplete.order.net_amount))
+    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.AGENCY })
+  })
+
+  it("returns the licence to its earlier tier and machine limit when the upgrade is refunded in full", async () => {
+    const { buyer, grant } = await buyLicense(LICENSE_TIER.CORE)
+    const upgrade = await upgradeTo(buyer, LICENSE_TIER.COMPLETE)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, upgrade.order)
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(upgrade.order.id, upgrade.order.net_amount))
+
+    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.CORE })
+    expect(polarLicenseKeyOf(grant).limit_activations).toBe(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE])
+  })
+
+  it("grants a paid upgrade whose licence was refunded meanwhile as a licence of its own", async () => {
+    const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
+    const upgrade = await upgradeTo(buyer, LICENSE_TIER.COMPLETE)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount))
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, upgrade.order)
+
+    expect(await currentLicense(buyer)).toMatchObject({
+      polarOrderId: upgrade.order.id,
+      status: LICENSE_STATUS.ACTIVE,
+      tier: LICENSE_TIER.COMPLETE,
+    })
   })
 })

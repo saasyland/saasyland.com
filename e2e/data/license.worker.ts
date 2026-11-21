@@ -65,4 +65,22 @@ export const LICENSE_TEST_WORKER = [
       })
     },
   },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/pay",
+    respond: async (url, env) => {
+      const checkoutId = url.searchParams.get("checkout")
+      if (checkoutId === null || checkoutId.length === 0) {
+        return Response.json({ error: "A checkout ID is required" }, { status: HTTP_STATUS.BAD_REQUEST })
+      }
+      const polar = await import("../../src/platform/testing/mocks/polar")
+      const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
+      const order = polar.payPolarCheckout(checkoutId, { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true })
+      const secret = env.POLAR_WEBHOOK_SECRET
+      return Response.json({
+        grantCreated: signedPolarWebhook({ data: polar.grantPolarLicenseKey(order), secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
+        orderPaid: signedPolarWebhook({ data: order, secret, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
+      })
+    },
+  },
 ] as const satisfies readonly TestWorkerEntry[]

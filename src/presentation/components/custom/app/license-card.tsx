@@ -5,8 +5,9 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, type LicenseTier } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
+import { higherTiers } from "~/src/modules/license/license.upgrades"
 import { licenseSetupQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseKeySetupQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 
@@ -129,6 +130,22 @@ const KeyCommands = (): JSX.Element => {
   )
 }
 
+const TierChanges = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
+  const tTier = useTranslations("components.custom.pricing")
+  const t = useTranslations("pages.license")
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+      {higherTiers(tier).map((higher) => (
+        <Link className={LINK_CLASSNAME} key={higher} search={{ tier: higher }} to={ROUTES.APP_LICENSE}>
+          {t("upgrade.link", { tier: tTier(`tiers.${higher}.name`) })}
+        </Link>
+      ))}
+      <p>{t.rich("changeTier", CHANGE_TIER_TAGS)}</p>
+    </div>
+  )
+}
+
 export const LicenseCard = (): JSX.Element | undefined => {
   const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license")
@@ -158,9 +175,7 @@ export const LicenseCard = (): JSX.Element | undefined => {
               {t("manage")}
             </a>
           )}
-          {license.status === LICENSE_STATUS.ACTIVE && (
-            <p className="text-xs text-muted-foreground">{t.rich("changeTier", CHANGE_TIER_TAGS)}</p>
-          )}
+          {license.status === LICENSE_STATUS.ACTIVE && <TierChanges tier={license.tier} />}
         </div>
       </CardContent>
     </Card>

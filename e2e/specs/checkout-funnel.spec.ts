@@ -8,11 +8,15 @@ import { TEST_BUNDLE, TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
-import { buyLicense, deliverPaidOrder, startedCheckouts } from "../fixtures/license"
+import { buyLicense, deliverPaidOrder, payCheckout, startedCheckouts } from "../fixtures/license"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-import { HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
+import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
+import { toMinorUnits } from "../../src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
+import { pppMultiplierKey, regionalPrice } from "../../src/modules/license/license.pricing"
+import { TIER_PRICES } from "../../src/data/marketing"
 import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER, LICENSE_TIERS } from "../../src/modules/license/license.constants"
 import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
 import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
@@ -279,12 +283,16 @@ test.describe("checkout funnel", () => {
     await expect(page).toHaveURL("/app")
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await expect(page.getByRole("button", { name: "Get Agency", exact: true })).toBeEnabled()
+    await expect(page.getByRole("button", { name: "Get Core", exact: true })).toBeEnabled()
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.CORE, userId })
-    await page.getByRole("button", { name: "Get Agency", exact: true }).click()
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
 
-    await expect(page.getByText("You already have an active licence. To move to another tier, email hello@saasyland.com.")).toBeVisible()
+    await expect(
+      page.getByText(
+        "You already have an active licence. To upgrade, choose a higher tier on your licence page; to move to a lower one, email hello@saasyland.com.",
+      ),
+    ).toBeVisible()
     await expect(page.getByRole("heading", { name: "Core", exact: true })).toBeVisible()
     await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
 
@@ -399,5 +407,80 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(checklist(page)).toHaveCount(0)
     await expect(page.getByRole("region", { name: "Get your licence" })).toBeVisible()
+  })
+
+  test("a Core owner who picks Complete pays the difference and keeps the key, now with Complete's machines", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const key = await page.getByRole("button", { name: "Copy licence key" }).locator("xpath=..").locator("code").innerText()
+
+    await page.getByRole("link", { name: "Upgrade to Complete" }).click()
+    await expect(page).toHaveURL(`${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}`)
+    const card = page.getByRole("region", { name: "Upgrade to Complete" })
+    await expect(card).toBeVisible()
+    const difference = TIER_PRICES[LICENSE_TIER.COMPLETE] - TIER_PRICES[LICENSE_TIER.CORE]
+    await expect(card.getByText(`$${String(difference)}`, { exact: true })).toBeVisible()
+    await expect(card.getByText("Your key stays the same and then activates up to 5 machines instead of 3.")).toBeVisible()
+    for (const colorScheme of COLOR_SCHEMES) {
+      await page.emulateMedia({ colorScheme })
+      expect(await accessibilityViolations(page)).toEqual([])
+    }
+
+    await card.getByRole("button", { name: "Upgrade to Complete" }).click()
+    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    const checkoutId = new URL(page.url()).searchParams.get("checkoutId") ?? ""
+    const upgrade = (await startedCheckouts(request, userId)).find(({ id }) => id === checkoutId)
+    expect(upgrade).toMatchObject({ total_amount: toMinorUnits(difference, DEFAULT_CURRENCY_CODE) })
+    await payCheckout(request, checkoutId)
+
+    await expect(page.getByText("Thank you for buying Complete.", { exact: false })).toBeVisible()
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
+    await expect(page.getByText(key, { exact: true })).toBeVisible()
+    await expect(page.getByText("0 of 5 in use")).toBeVisible()
+    await expect(page.getByRole("link", { name: "Upgrade to Agency" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Upgrade to Complete" })).toHaveCount(0)
+  })
+
+  test("a buyer from a regional-price country pays the whole-dollar price the cards show, or the full price after declining it", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    const country = "IN"
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    await page.setExtraHTTPHeaders({ [COUNTRY_HEADER]: country })
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const price = regionalPrice(TIER_PRICES[LICENSE_TIER.CORE], pppMultiplierKey(country))
+    await expect(page.getByRole("region", { name: "Get your licence" }).getByText(`$${String(price)}`, { exact: true }).first()).toBeVisible()
+
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
+
+    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    const [checkout] = await startedCheckouts(request, userId)
+    expect(checkout).toMatchObject({ total_amount: toMinorUnits(price, DEFAULT_CURRENCY_CODE) })
+
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const offer = page.getByRole("checkbox", { name: /with regional pricing\.$/u })
+    await page.locator("label").filter({ has: offer }).click()
+    await expect(offer).not.toBeChecked()
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
+
+    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    const [, declined] = await startedCheckouts(request, userId)
+    expect(declined).toMatchObject({ total_amount: toMinorUnits(TIER_PRICES[LICENSE_TIER.CORE], DEFAULT_CURRENCY_CODE) })
   })
 })

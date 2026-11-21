@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -159,13 +159,13 @@ Las reglas que hay detrás: lo que decide el acceso se guarda en un sitio consis
 
 saasyland.com sigue la tabla con cinco bindings, declarados en `wrangler.jsonc`:
 
-| Binding   | Producto                    | Qué guarda                                                                                                              | Dónde está en el código                                   |
-| --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ASSETS`  | Assets estáticos de Workers | Las páginas prerenderizadas, los scripts, los estilos, las fuentes y las imágenes del build                             | `src/server.ts`                                           |
-| `DB`      | D1                          | Usuarios, sesiones, licencias, copias de los pedidos de Polar, cursos, vídeos y contadores de los límites de frecuencia | `src/integrations/drizzle-orm/` y `src/modules/`          |
-| `CACHE`   | KV                          | Dos respuestas cacheadas de las API de otros servicios                                                                  | `src/lib/github.ts`, `src/modules/license/license.ppp.ts` |
-| `MEDIA`   | R2                          | Los vídeos de los cursos y los materiales de las lecciones                                                              | `src/modules/video/`, `src/modules/lesson-attachment/`    |
-| `BUNDLES` | R2                          | El bundle de plantillas de cada versión de la CLI                                                                       | `src/modules/license/`                                    |
+| Binding   | Producto                    | Qué guarda                                                                                                              | Dónde está en el código                                |
+| --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ASSETS`  | Assets estáticos de Workers | Las páginas prerenderizadas, los scripts, los estilos, las fuentes y las imágenes del build                             | `src/server.ts`                                        |
+| `DB`      | D1                          | Usuarios, sesiones, licencias, copias de los pedidos de Polar, cursos, vídeos y contadores de los límites de frecuencia | `src/integrations/drizzle-orm/` y `src/modules/`       |
+| `CACHE`   | KV                          | Una respuesta cacheada de la API de otro servicio                                                                       | `src/lib/github.ts`                                    |
+| `MEDIA`   | R2                          | Los vídeos de los cursos y los materiales de las lecciones                                                              | `src/modules/video/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                          | El bundle de plantillas de cada versión de la CLI                                                                       | `src/modules/license/`                                 |
 
 Todavía no hay ningún Durable Object: todos los contadores que mantiene el sitio viven en D1, como muestra la sección de límites de frecuencia.
 
@@ -444,14 +444,11 @@ Eso hace que KV sea excelente para algunos datos y peligroso para el resto.
 - **Escribe solo valores completos.** Si una actualización falla a medias, conserva la entrada antigua en lugar de guardar una lista parcial.
 - **No guardes nada en la memoria del Worker entre peticiones.** Cloudflare puede desalojar un isolate en cualquier momento, y no se garantiza que dos peticiones lleguen al mismo, así que una caché a nivel de módulo es una caché que a veces funciona.
 
-### Ejemplo práctico: dos entradas, las dos desechables
+### Ejemplo práctico: una entrada desechable
 
-El espacio de nombres `CACHE` de saasyland.com contiene exactamente dos entradas:
+El espacio de nombres `CACHE` de saasyland.com contiene exactamente una entrada: el recuento de estrellas de GitHub que se muestra en el sitio, que se actualiza al cabo de <RepositoryFact name="starCountRefreshHours" unit="hour" />.
 
-- **El recuento de estrellas de GitHub** que se muestra en el sitio, que se actualiza al cabo de <RepositoryFact name="starCountRefreshHours" unit="hour" />.
-- **Los descuentos regionales de Polar**, los descuentos porcentuales automáticos que el checkout aplica según el país, que se actualizan al cabo de <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />.
-
-Cada entrada guarda su valor junto con el momento en que se obtuvo, quien la lee la valida con Zod, y una entrada que falta o está mal formada se vuelve a obtener. Los descuentos desactualizados se vuelven a obtener antes de que el checkout continúe, y un listado que falla se registra en el log y no se guarda, mientras que un recuento de estrellas desactualizado se sirve tal cual y se actualiza en segundo plano:
+La entrada guarda su valor junto con el momento en que se obtuvo, quien la lee la valida con Zod, y una entrada que falta o está mal formada se vuelve a obtener. Un recuento de estrellas desactualizado se sirve tal cual y se actualiza en segundo plano:
 
 ```ts title="src/lib/github.ts"
 export const getStarCount = createServerFn({ method: "GET" }).handler(async () => {

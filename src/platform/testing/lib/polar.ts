@@ -2,10 +2,8 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
 import { POLAR_LICENSE_KEY_STATUS, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
-import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
 const MS_PER_SECOND = 1000
-const PERCENT_PER_WHOLE = 100
 export const POLAR_API_VERSION = "2026-10"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
@@ -20,13 +18,6 @@ export interface PolarProduct {
   readonly requiredCheckboxes?: readonly string[]
 }
 
-export interface PolarDiscount {
-  readonly basisPoints: number
-  readonly id: string
-  readonly name: string
-  readonly products: readonly PolarProduct[]
-}
-
 export interface PolarLicenseKeyBenefit {
   readonly activationLimit: number
   readonly id: string
@@ -35,13 +26,9 @@ export interface PolarLicenseKeyBenefit {
 }
 
 export interface PolarCatalogue {
-  readonly discounts: readonly PolarDiscount[]
   readonly licenseKeyBenefits: readonly PolarLicenseKeyBenefit[]
   readonly products: readonly PolarProduct[]
 }
-
-export const polarDiscountAmount = (amount: number, discount: models.DiscountPercentageOnceForeverDurationBase | null): number =>
-  discount === null ? 0 : Math.round((amount * discount.basis_points) / (BASIS_POINTS_PER_PERCENT * PERCENT_PER_WHOLE))
 
 const productFields = (organizationId: string, { id, name, recurringInterval }: PolarProduct): Omit<models.OrderProduct, "metadata"> => ({
   created_at: CATALOGUE_CREATED_AT,
@@ -86,27 +73,6 @@ export const polarCheckoutProduct = (organizationId: string, product: PolarProdu
   prices: [polarProductPrice(product)],
 })
 
-export const polarDiscount = (
-  organizationId: string,
-  { basisPoints, id, name }: PolarDiscount,
-): models.DiscountPercentageOnceForeverDurationBase => ({
-  basis_points: basisPoints,
-  code: null,
-  created_at: CATALOGUE_CREATED_AT,
-  duration: "once",
-  ends_at: null,
-  id,
-  max_redemptions: null,
-  max_redemptions_per_customer: null,
-  metadata: {},
-  modified_at: null,
-  name,
-  organization_id: organizationId,
-  redemptions_count: 0,
-  starts_at: null,
-  type: "percentage",
-})
-
 export const polarCustomer = (organizationId: string, externalId: string): models.CustomerIndividual => ({
   avatar_url: null,
   billing_address: null,
@@ -129,16 +95,14 @@ export const polarCustomer = (organizationId: string, externalId: string): model
 interface PolarOrderInput {
   readonly checkoutId: string | null
   readonly customer: models.CustomerIndividual
-  readonly discount: models.DiscountPercentageOnceForeverDurationBase | null
   readonly metadata: models.MetadataOutputType
   readonly product: PolarProduct
   readonly status: models.OrderStatus
 }
 
-export const polarOrder = ({ checkoutId, customer, discount, metadata, product, status }: PolarOrderInput): models.Order => {
+export const polarOrder = ({ checkoutId, customer, metadata, product, status }: PolarOrderInput): models.Order => {
   const createdAt = new Date().toISOString()
-  const subtotal = product.price.amount
-  const net = subtotal - polarDiscountAmount(subtotal, discount)
+  const { amount } = product.price
   const orderProduct = polarOrderProduct(customer.organization_id, product)
 
   return {
@@ -152,16 +116,16 @@ export const polarOrder = ({ checkoutId, customer, discount, metadata, product, 
     customer,
     customer_id: customer.id,
     description: orderProduct.name,
-    discount,
-    discount_amount: subtotal - net,
-    discount_id: discount?.id ?? null,
+    discount: null,
+    discount_amount: 0,
+    discount_id: null,
     due_amount: 0,
     id: crypto.randomUUID(),
     invoice_number: null,
     is_invoice_generated: false,
     items: [
       {
-        amount: subtotal,
+        amount,
         created_at: createdAt,
         end_timestamp: null,
         id: crypto.randomUUID(),
@@ -175,23 +139,23 @@ export const polarOrder = ({ checkoutId, customer, discount, metadata, product, 
     ],
     metadata,
     modified_at: null,
-    net_amount: net,
+    net_amount: amount,
     paid: true,
     platform_fee_amount: 0,
     platform_fee_currency: null,
     product: orderProduct,
     product_id: orderProduct.id,
     receipt_number: null,
-    refundable_amount: net,
+    refundable_amount: amount,
     refundable_tax_amount: 0,
     refunded_amount: 0,
     refunded_tax_amount: 0,
     status,
     subscription: null,
     subscription_id: null,
-    subtotal_amount: subtotal,
+    subtotal_amount: amount,
     tax_amount: 0,
-    total_amount: net,
+    total_amount: amount,
     units: null,
   }
 }

@@ -24,6 +24,16 @@ const BUY_COMPLETE_WITH_KEY = purchaseTest(LICENSE_TIER.COMPLETE)
 
 const BUY_AGENCY = purchaseTest(LICENSE_TIER.AGENCY)
 
+const REGIONAL_CHECKOUT = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a buyer from a regional-price country pays the whole-dollar price the cards show, or the full price after declining it",
+} as const
+
+const UPGRADE = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a Core owner who picks Complete pays the difference and keeps the key, now with Complete's machines",
+} as const
+
 const SECOND_CHECKOUT = {
   spec: "checkout-funnel.spec.ts",
   title: "checkout funnel › a page left open after buying refuses a second checkout and shows the license instead",
@@ -57,6 +67,7 @@ const JOURNEY_STEP = {
   ORDER: "Polar records the order of the tier",
   PAY: "pay the regional price with the Stripe test card",
   REFUND: "a refund in the Polar sandbox stops the key and removes the credentials",
+  UPGRADE_REFUND: "a refund of the upgrade returns the lower tier and its limit, and the key still works",
 } as const
 
 const JOURNEY_ONLY = "Only the journey suite does this, against preview and the Polar sandbox, and no CI runs it yet."
@@ -150,11 +161,22 @@ export const LICENSE_FLOWS = [
     area: FLOW_AREA.PURCHASE,
     id: "checkout-regional-price",
     outcome:
-      "A buyer in a regional-pricing country who keeps the offer is charged the regional price at checkout, and one who declines it the full price",
-    journey: JOURNEY_STEP.ORDER,
-    reason: "The browser suite checks the regional price on the landing page only; it never reads the discount on the checkout.",
-    status: FLOW_STATUS.MISSING,
-    tests: [{ spec: "regional-pricing.spec.ts", title: "shows the regional price next to the struck-through regular price and remembers a decline" }],
+      "A buyer in a regional-pricing country who keeps the offer is charged the whole-dollar regional price the cards show at checkout, and one who declines it the full price",
+    status: FLOW_STATUS.COVERED,
+    tests: [REGIONAL_CHECKOUT],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "pricing-trust",
+    outcome:
+      "The landing page anchors the Core price, lifetime updates and the refund period under the hero, marks the recommended tier, and says under the tiers who sells, how tax works, when a refund applies and that the CLI is in beta",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "regional-pricing.spec.ts",
+        title: "anchors the regional price under the hero and says under the tiers who sells, how tax works, the refund and the beta",
+      },
+    ],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -235,7 +257,8 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.PURCHASE,
     id: "second-checkout-refused",
-    outcome: "An account with an active licence that opens another checkout is refused and shown its licence, and the landing page no longer offers it checkout",
+    outcome:
+      "An account with an active licence that opens another checkout for its own or a lower tier is refused and shown its licence, and the landing page no longer offers it checkout",
     status: FLOW_STATUS.COVERED,
     tests: [SECOND_CHECKOUT],
   },
@@ -379,8 +402,9 @@ export const LICENSE_FLOWS = [
     id: "licence-prices",
     outcome: "The offer on /app/license shows each tier's full price, or its regional price in a regional-pricing country",
     journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite never reads the prices on /app/license.",
+    reason: "The browser suite reads the regional Core price on /app/license, not every tier's price.",
     status: FLOW_STATUS.MISSING,
+    tests: [REGIONAL_CHECKOUT],
   },
   {
     area: FLOW_AREA.LICENCE,
@@ -419,9 +443,18 @@ export const LICENSE_FLOWS = [
   {
     area: FLOW_AREA.LICENCE,
     id: "upgrade-tier",
-    outcome: "A licence holder moves to a higher tier and pays the difference",
-    reason: "The site refuses a second checkout and asks the holder to write; there is no upgrade checkout.",
-    status: FLOW_STATUS.TO_BUILD,
+    outcome:
+      "A Core holder opens the upgrade to Complete from the licence page, pays the higher tier's price less what was paid, and keeps the same key with Complete's machine limit",
+    status: FLOW_STATUS.COVERED,
+    tests: [UPGRADE],
+  },
+  {
+    area: FLOW_AREA.LICENCE,
+    id: "upgrade-refunded",
+    outcome: "A full refund of an upgrade order puts the licence back on its earlier tier and machine limit",
+    journey: JOURNEY_STEP.UPGRADE_REFUND,
+    reason: "No browser test sends order.refunded for an upgrade; the integration suite and the journey suite refund one, and no CI runs the journey yet.",
+    status: FLOW_STATUS.MISSING,
   },
   {
     area: FLOW_AREA.CLI_API,

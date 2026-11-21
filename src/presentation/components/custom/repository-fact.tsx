@@ -55,7 +55,6 @@ import {
   LICENSE_API_RETRY_AFTER_SECONDS,
   LICENSE_CHECKOUT_FIELD,
   LICENSE_POLL_MS,
-  REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
@@ -222,7 +221,6 @@ const FACTS = {
   reactprojectsAccess: REACTPROJECTS_ACCESS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
-  regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
   resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,

@@ -21,7 +21,6 @@ import {
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
   LICENSE_CHECKOUT_FIELD,
-  REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
@@ -154,9 +153,6 @@ describe("RepositoryFact", () => {
           <RepositoryFact name="starCountRefreshHours" unit="hour" />
         </li>
         <li>
-          <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />
-        </li>
-        <li>
           <RepositoryFact name="liveSiteCheckRetries" />
         </li>
         <li>
@@ -168,7 +164,6 @@ describe("RepositoryFact", () => {
     expect(listItems()).toEqual([
       inUnit("second", STAR_COUNT_FETCH_TIMEOUT_MS / MILLISECONDS_PER_SECOND),
       inUnit("hour", STAR_COUNT_REFRESH_AFTER_MS / MILLISECONDS_PER_HOUR),
-      inUnit("minute", REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE),
       String(LIVE_SITE_CHECK_RETRY_DELAYS_MS.length),
       inUnit("second", LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND),
     ])

@@ -2,6 +2,12 @@ import type { models } from "@polar-sh/sdk/2026-10"
 
 export const POLAR_CHECKOUT_ID_PLACEHOLDER = "{CHECKOUT_ID}"
 
+export const POLAR_PRICE_CURRENCY = "usd" satisfies models.PresentmentCurrency
+
+export const POLAR_MINIMUM_PRICE_AMOUNT = 50
+
+export const POLAR_FIXED_PRICE = "fixed" satisfies models.ProductPriceFixedCreate["amount_type"]
+
 export const POLAR_ID_MAX_LENGTH = 64
 
 export const POLAR_ORDER_STATUS = {

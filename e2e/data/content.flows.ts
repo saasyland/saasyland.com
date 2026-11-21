@@ -21,12 +21,17 @@ export const CONTENT_FLOWS = [
   {
     area: FLOW_AREA.CONTENT,
     id: "changelog-links",
-    outcome: "The changelog ends every entry with a link to the pull request or commit it came from, named for screen readers",
+    outcome:
+      "The changelog ends every entry with a link to the pull request or commit it came from, and each released entry with a link to the release that first shipped it",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "content.spec.ts",
         title: "the changelog ends every entry with a link to the pull request or commit it came from, named for screen readers",
+      },
+      {
+        spec: "content.spec.ts",
+        title: "the changelog links each released entry to the first release that shipped it, and no entry merged before the first release",
       },
     ],
   },

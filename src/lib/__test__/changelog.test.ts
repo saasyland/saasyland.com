@@ -23,6 +23,8 @@ const PULL_REQUEST_REF = "refs/pull/220/merge"
 
 const entry = (key: string) => ({ key, source: `- Change ${key}.\n` })
 
+const merged = (key: string, release?: string) => ({ ...entry(key), release })
+
 const writeEntries = (repository: GitRepository, keys: readonly string[]): void => {
   for (const key of keys) {
     repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, entry(key).source)
@@ -32,7 +34,24 @@ const writeEntries = (repository: GitRepository, keys: readonly string[]): void 
 const problemOf = (key: string, rule: string): string =>
   `content/changelog/${key}.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; ${rule}. Delete the entry of a pull request that was closed without merging.`
 
-const readEnglish = (repository: GitRepository) => readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE })
+const readEnglish = (repository: GitRepository, upcomingRelease?: string) =>
+  readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease })
+
+const repositoryWithReleases = (): GitRepository => {
+  const repository = createGitRepository()
+
+  repository.commit("✨ feat(courses): add courses (#10)", "2026-11-13T10:00:00Z")
+  repository.commit("⚙️ ci(release): tag each production deploy (#11)", "2026-11-14T10:00:00Z")
+  repository.tag("v2026.11.14")
+  repository.commit("🐛 fix(auth): keep the locale (#12)", "2026-11-14T11:00:00Z")
+  repository.commit("🚀 perf(worker): load less (#13)", "2026-11-14T12:00:00Z")
+  repository.tag("v2026.11.14.2")
+  repository.tag("v2.0.0")
+  repository.commit("📚 docs(blog): add a post (#14)", "2026-11-15T09:00:00Z")
+  writeEntries(repository, ["10", "11", "12", "13", "14", "15"])
+
+  return repository
+}
 
 describe("readChangelog", () => {
   it("dates each entry by the UTC day its pull request's squash commit or its own commit reached main, newest first", async () => {
@@ -46,8 +65,8 @@ describe("readChangelog", () => {
 
     await expect(readEnglish(repository)).resolves.toStrictEqual({
       days: [
-        { date: "2026-11-16", entries: [entry("12"), entry(pushed)] },
-        { date: "2026-11-14", entries: [entry("11"), entry("10")] },
+        { date: "2026-11-16", entries: [merged("12"), merged(pushed)] },
+        { date: "2026-11-14", entries: [merged("11"), merged("10")] },
       ],
       unreleased: [entry("14"), entry("13")],
     })
@@ -60,7 +79,7 @@ describe("readChangelog", () => {
     repository.commit("✨ feat(app): second (#20)", "2026-09-24T22:22:46Z")
     writeEntries(repository, ["9", "20"])
 
-    await expect(readEnglish(repository)).resolves.toMatchObject({ days: [{ date: "2026-09-24", entries: [entry("20"), entry("9")] }] })
+    await expect(readEnglish(repository)).resolves.toMatchObject({ days: [{ date: "2026-09-24", entries: [merged("20"), merged("9")] }] })
   })
 
   it("reads the entries of the locale it is asked for", async () => {
@@ -71,8 +90,51 @@ describe("readChangelog", () => {
     repository.writeEntry(`10.${TRANSLATED_LOCALE}.mdx`, "- Kurse.\n")
 
     await expect(readChangelog({ cwd: repository.path, locale: TRANSLATED_LOCALE })).resolves.toStrictEqual({
-      days: [{ date: "2026-11-13", entries: [{ key: "10", source: "- Kurse.\n" }] }],
+      days: [{ date: "2026-11-13", entries: [{ key: "10", release: undefined, source: "- Kurse.\n" }] }],
       unreleased: [],
+    })
+  })
+
+  it("names the first release that shipped each entry and none for the entries merged before the first release tag or after the last", async () => {
+    await expect(readEnglish(repositoryWithReleases())).resolves.toStrictEqual({
+      days: [
+        { date: "2026-11-15", entries: [merged("14")] },
+        { date: "2026-11-14", entries: [merged("13", "v2026.11.14.2"), merged("12", "v2026.11.14.2"), merged("11", "v2026.11.14")] },
+        { date: "2026-11-13", entries: [merged("10")] },
+      ],
+      unreleased: [entry("15")],
+    })
+  })
+
+  it("names the release a production deploy is about to publish for the entries it brings", async () => {
+    await expect(readEnglish(repositoryWithReleases(), "v2026.11.15")).resolves.toMatchObject({
+      days: [{ date: "2026-11-15", entries: [merged("14", "v2026.11.15")] }, { date: "2026-11-14" }, { date: "2026-11-13" }],
+    })
+  })
+
+  it("keeps the tag the deployed commit already has and the earliest of two release tags on one commit", async () => {
+    const repository = repositoryWithReleases()
+
+    repository.tag("v2026.11.15")
+    repository.tag("v2026.11.15.2")
+
+    await expect(readEnglish(repository, "v2026.11.15.3")).resolves.toMatchObject({
+      days: [{ date: "2026-11-15", entries: [merged("14", "v2026.11.15")] }, { date: "2026-11-14" }, { date: "2026-11-13" }],
+    })
+  })
+
+  it("names the first release of a repository that has no release tag yet only for the deployed commit", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#10)", "2026-11-13T10:00:00Z")
+    repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-14T11:00:00Z")
+    writeEntries(repository, ["10", "11"])
+
+    await expect(readEnglish(repository, "v2026.11.14")).resolves.toMatchObject({
+      days: [
+        { date: "2026-11-14", entries: [merged("11", "v2026.11.14")] },
+        { date: "2026-11-13", entries: [merged("10")] },
+      ],
     })
   })
 
@@ -110,7 +172,7 @@ describe("originOf", () => {
 
 describe("unreleasedEntryProblems", () => {
   const changelog: Changelog = {
-    days: [{ date: "2026-11-20", entries: [entry("218")] }],
+    days: [{ date: "2026-11-20", entries: [merged("218")] }],
     unreleased: [entry("220"), entry("219")],
   }
 

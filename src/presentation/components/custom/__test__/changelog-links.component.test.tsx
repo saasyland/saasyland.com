@@ -12,6 +12,7 @@ import { APP_GITHUB_URL } from "~/src/presentation/branding"
 const PULL_REQUEST = "257"
 const COMMIT = "0b9a1b9865859643bedbbb41c3f26b3ff6a1eede"
 const SHORT_COMMIT = "0b9a1b9"
+const RELEASE = "v2026.11.20.15"
 
 const renderLinks = (props: ChangelogLinksProps, locale: SupportedLocale = I18N.DEFAULT_LOCALE) =>
   render(
@@ -39,13 +40,24 @@ describe("ChangelogLinks", () => {
     expect(link).toHaveTextContent(SHORT_COMMIT)
   })
 
+  it("links a released entry to the release that first shipped it as well", () => {
+    renderLinks({ pullRequest: PULL_REQUEST, release: RELEASE })
+
+    const release = screen.getByRole("link", { name: `Release ${RELEASE}` })
+
+    expect(release).toHaveAttribute("href", `${APP_GITHUB_URL}/releases/tag/${RELEASE}`)
+    expect(release).toHaveTextContent(RELEASE)
+    expect(screen.getAllByRole("link")).toHaveLength(2)
+  })
+
   it.each(I18N.SUPPORTED_LOCALES)("names the links in %s with the text they show", (locale) => {
-    renderLinks({ pullRequest: PULL_REQUEST }, locale)
+    renderLinks({ pullRequest: PULL_REQUEST, release: RELEASE }, locale)
     renderLinks({ commit: COMMIT }, locale)
 
-    const [pullRequest, commit] = screen.getAllByRole("link")
+    const [pullRequest, release, commit] = screen.getAllByRole("link")
 
     expect(pullRequest?.getAttribute("aria-label")).toContain(`#${PULL_REQUEST}`)
+    expect(release?.getAttribute("aria-label")).toContain(RELEASE)
     expect(commit?.getAttribute("aria-label")).toContain(SHORT_COMMIT)
   })
 })

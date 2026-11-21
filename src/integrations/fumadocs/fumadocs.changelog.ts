@@ -2,7 +2,15 @@ import type { Plugin } from "fumadocs-mdx"
 import process from "node:process"
 import zod from "zod/v4"
 
-import { type ChangelogEntry, joinEntries, originOf, readChangelog, unreleasedEntryProblems } from "../../lib/changelog"
+import {
+  type ChangelogEntry,
+  type MergedEntry,
+  RELEASE_TAG,
+  joinEntries,
+  originOf,
+  readChangelog,
+  unreleasedEntryProblems,
+} from "../../lib/changelog"
 
 interface CompiledDocument {
   readonly cwd: string
@@ -17,9 +25,20 @@ const SECTION_SEPARATOR = "\n\n"
 
 const elementSchema = zod.object({ unreleased: zod.string() })
 const pageSchema = zod.object({ locale: zod.string() })
-const runSchema = zod.object({ GITHUB_BASE_REF: zod.string().default(""), GITHUB_REF: zod.string().default("") })
+const runSchema = zod.object({
+  GITHUB_BASE_REF: zod.string().default(""),
+  GITHUB_REF: zod.string().default(""),
+  RELEASE_TAG: zod
+    .string()
+    .optional()
+    .transform((tag) => (tag === "" ? undefined : tag))
+    .pipe(zod.string().regex(RELEASE_TAG).optional()),
+})
 
-const entryLinks = ({ key }: ChangelogEntry): string => `<ChangelogLinks ${originOf(key)}="${key}" />`
+const releaseProp = (release: string | undefined): string => (release === undefined ? "" : ` release="${release}"`)
+
+const entryLinks = ({ key, release }: ChangelogEntry & Partial<Pick<MergedEntry, "release">>): string =>
+  `<ChangelogLinks ${originOf(key)}="${key}"${releaseProp(release)} />`
 
 const section = (heading: string, entries: readonly ChangelogEntry[]): string[] =>
   entries.length === 0 ? [] : [`## ${heading}`, joinEntries(entries, entryLinks)]
@@ -33,8 +52,8 @@ export const listChangelogEntries = async ({ cwd, path, source }: { cwd: string;
 
   const { unreleased } = elementSchema.parse(element.groups)
   const { locale } = pageSchema.parse(PAGE_LOCALE.exec(path)?.groups)
-  const { GITHUB_BASE_REF, GITHUB_REF } = runSchema.parse(process.env)
-  const changelog = await readChangelog({ cwd, locale })
+  const { GITHUB_BASE_REF, GITHUB_REF, RELEASE_TAG: upcomingRelease } = runSchema.parse(process.env)
+  const changelog = await readChangelog({ cwd, locale, upcomingRelease })
   const problems = unreleasedEntryProblems({ changelog, run: { baseRef: GITHUB_BASE_REF, ref: GITHUB_REF } })
 
   if (problems.length > 0) {

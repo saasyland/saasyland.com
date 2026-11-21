@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import type { Changelog } from "~/src/lib/changelog"
-import { releaseNotes, releaseTag } from "~/src/lib/release"
+import { createGitRepository } from "~/src/platform/testing/lib/git-repository"
+
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
+import { type Changelog, readChangelog } from "~/src/lib/changelog"
+import { readTags, releaseNotes, releaseTag } from "~/src/lib/release"
 
 const DEPLOYED_COMMIT = "4f9c2d1e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e"
 
@@ -16,15 +20,20 @@ const CHANGELOG: Changelog = {
     {
       date: "2026-11-14",
       entries: [
-        { key: "151", source: "- Videos play with captions. See [Videos](/docs/features/videos).\n" },
-        { key: "150", source: "- Dependencies updated, see [Vite+](https://viteplus.dev/).\n- Fixed: the logo scrolls to the top.\n" },
+        { key: "151", release: "v2026.11.14.2", source: "- Videos play with captions. See [Videos](/docs/features/videos).\n" },
+        { key: DEPLOYED_COMMIT, release: "v2026.11.14.2", source: "- Dependencies updated.\n" },
+        {
+          key: "150",
+          release: "v2026.11.14",
+          source: "- Dependencies updated, see [Vite+](https://viteplus.dev/).\n- Fixed: the logo scrolls to the top.\n",
+        },
       ],
     },
     {
       date: "2026-11-13",
       entries: [
-        { key: "120", source: "- Courses.\n" },
-        { key: EARLIER_COMMIT, source: "- Dependencies updated.\n" },
+        { key: "120", release: "v2026.11.14", source: "- Courses.\n" },
+        { key: EARLIER_COMMIT, release: undefined, source: "- Payments.\n" },
       ],
     },
   ],
@@ -69,25 +78,60 @@ describe("releaseTag", () => {
   })
 })
 
-describe("releaseNotes", () => {
-  it.each(["v2026.11.14", "v2026.11.14.2"])(
-    "gives %s the entries that reached main on its day, with absolute site links and the pull request each came from",
-    (tag) => {
-      expect(releaseNotes(CHANGELOG, tag)).toBe(
-        [
-          "- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos). (#151)",
-          "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
-          "- Fixed: the logo scrolls to the top. (#150)",
-        ].join("\n"),
-      )
-    },
-  )
+describe("readTags", () => {
+  it("reads every tag of the repository with the commit it points at", () => {
+    const repository = createGitRepository()
 
-  it("leaves out the entries of other days and the ones not on main yet, and names the commit of an entry without a pull request", () => {
-    expect(releaseNotes(CHANGELOG, "v2026.11.13")).toBe(`- Courses. (#120)\n- Dependencies updated. (${EARLIER_COMMIT})`)
+    expect(readTags(repository.path)).toStrictEqual([])
+
+    const first = repository.commit("⚙️ ci(release): tag each production deploy (#135)", "2026-11-14T10:00:00Z")
+    repository.tag("v2026.11.14")
+    const second = repository.commit("📚 docs(ssot): print the values (#137)", "2026-11-14T12:00:00Z")
+    repository.tag("v2026.11.14.2")
+
+    expect(readTags(repository.path)).toStrictEqual([
+      { commit: first, name: "v2026.11.14" },
+      { commit: second, name: "v2026.11.14.2" },
+    ])
+  })
+})
+
+describe("releaseNotes", () => {
+  it("gives a release the entries it shipped, newest first and across days, with absolute site links and the pull request each came from", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14")).toBe(
+      [
+        "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
+        "- Fixed: the logo scrolls to the top. (#150)",
+        "- Courses. (#120)",
+      ].join("\n"),
+    )
   })
 
-  it("links to the changelog when no entry reached main that day", () => {
-    expect(releaseNotes(CHANGELOG, "v2026.11.12")).toBe(CHANGELOG_LINK)
+  it("leaves out the entries of other releases and the ones not on main yet, and names the commit of an entry without a pull request", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14.2")).toBe(
+      `- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos). (#151)\n- Dependencies updated. (${DEPLOYED_COMMIT})`,
+    )
+  })
+
+  it("gives the release a production deploy publishes the entries that reached main since the previous release tag", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#10)", "2026-11-14T09:00:00Z")
+    repository.tag("v2026.11.14")
+    repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-14T10:00:00Z")
+    repository.commit("🚀 perf(worker): load less (#12)", "2026-11-14T11:00:00Z")
+
+    for (const key of ["10", "11", "12"]) {
+      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+    }
+
+    const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.14.2" })
+
+    expect(releaseNotes(changelog, "v2026.11.14.2")).toBe("- Change 12. (#12)\n- Change 11. (#11)")
+    expect(releaseNotes(changelog, "v2026.11.14")).toBe("- Change 10. (#10)")
+  })
+
+  it("links to the changelog when the release shipped no entry", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14.3")).toBe(CHANGELOG_LINK)
   })
 })

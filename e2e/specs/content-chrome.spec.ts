@@ -28,10 +28,9 @@ const WIDE_VIEWPORTS = [
 ] as const
 const PIXEL_TOLERANCE = 1
 const SITE_WIDTH = "--container-site"
-const DOCS_WIDTH = "--container-docs"
 const DOCS_FRAME = "#nd-docs-layout"
 const DOCS_ARTICLE = "#nd-page"
-const READING_MEASURE = 80
+const READING_MEASURE = { MAX: 80, MIN: 60 } as const
 const MEASURE_SAMPLE = 100
 const DOCS_SIDEBAR = "#nd-sidebar"
 const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
@@ -223,7 +222,7 @@ for (const locale of LOCALES) {
 
 test.describe("docs on a wide screen", () => {
   for (const viewport of WIDE_VIEWPORTS) {
-    test(`give the docs the header's frame, wider than the site's on a wide screen, and line the sidebar and the table of contents up with the header at ${String(viewport.width)} px`, async ({
+    test(`give the docs the site's frame, line the sidebar and the table of contents up with the header, and fill the space between them with a readable article at ${String(viewport.width)} px`, async ({
       page,
     }) => {
       const { sidebar } = fumadocsSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "fumadocs"))
@@ -238,14 +237,14 @@ test.describe("docs on a wide screen", () => {
       const navigation = await edgesOf(banner.getByRole("navigation"))
       const frame = await edgesOf(page.locator(DOCS_FRAME))
       const siteWidth = await tokenWidth(page, SITE_WIDTH)
-      const docsWidth = await tokenWidth(page, DOCS_WIDTH)
       const headerWidth = header.right - header.left
       const navigationWidth = navigation.right - navigation.left
+      const measure = await measureOf(page)
       expect(Math.abs(frame.left - navigation.left)).toBeLessThanOrEqual(PIXEL_TOLERANCE)
       expect(Math.abs(frame.right - navigation.right)).toBeLessThanOrEqual(PIXEL_TOLERANCE)
-      expect(Math.abs(navigationWidth - Math.min(docsWidth, headerWidth))).toBeLessThanOrEqual(PIXEL_TOLERANCE)
-      expect(navigationWidth > siteWidth).toBe(headerWidth > siteWidth)
-      expect(await measureOf(page)).toBeLessThanOrEqual(READING_MEASURE)
+      expect(Math.abs(navigationWidth - Math.min(siteWidth, headerWidth))).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      expect(measure).toBeGreaterThanOrEqual(READING_MEASURE.MIN)
+      expect(measure).toBeLessThanOrEqual(READING_MEASURE.MAX)
 
       const expectLinedUp = async (moment: string): Promise<void> => {
         const docsSidebar = await edgesOf(page.locator(DOCS_SIDEBAR))
@@ -255,7 +254,8 @@ test.describe("docs on a wide screen", () => {
         expect(Math.abs(tableOfContents.right - callToAction.right), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
         expect(Math.abs(docsSidebar.top - header.bottom), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
         const article = await edgesOf(page.locator(DOCS_ARTICLE))
-        expect(Math.abs(article.left - docsSidebar.right - (tableOfContents.left - article.right)), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+        expect(Math.abs(article.left - docsSidebar.right), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+        expect(Math.abs(tableOfContents.left - article.right), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
       }
 
       await expectLinedUp("at the top of the page")

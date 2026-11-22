@@ -13,6 +13,7 @@ import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/sign-up-order-summary"
 import {
+  AcceptInvitationPending,
   AuthPending,
   ForgotPasswordPending,
   ResetPasswordPending,
@@ -58,6 +59,7 @@ describe("path-aware skeletons", () => {
     ["/auth/reset-password", ResetPasswordPending],
     ["/auth/two-factor", TwoFactorPending],
     ["/auth/verify-email", VerifyEmailPending],
+    [`/pl-PL${ROUTES.ACCEPT_INVITATION}?token=invitation-token`, AcceptInvitationPending],
   ])("renders the skeleton of the page at %s", (path, Page) => {
     const page = pageMarkupAt(path, Page)
     const { container } = renderAuthPending(path)

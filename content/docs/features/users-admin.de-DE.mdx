@@ -5,13 +5,14 @@ description: "Benutzerverwaltung unter /admin/users: eine funktionsfähige Benut
 
 ## Routen
 
-`src/routes/admin.users.tsx` ist ein Layout, dessen Link-Tabs `USER_TABS` in `src/data/user-tabs.ts` sind, das die `src/data/<area>.user-tabs.ts` jedes Bereichs nach `order` zusammenführt. Ein Tab nennt seinen Pfad und das Skeleton seiner Seite, und seine Beschriftung in der `navigation.<area>.json` des Bereichs benennt die Seite auch in den Breadcrumbs. Der Auth-Bereich fügt **Alle Benutzer** hinzu und der Zahlungsbereich **Kunden** (siehe [Bestellungen und Kunden](/docs/features/orders#customers)). `/admin/users` leitet zu `/admin/users/all` weiter. Jeder Tab nimmt seinen Seitentitel aus `pages.admin.users`.
+`src/routes/admin.users.tsx` ist ein Layout, dessen Link-Tabs `USER_TABS` in `src/data/user-tabs.ts` sind, das die `src/data/<area>.user-tabs.ts` jedes Bereichs nach `order` zusammenführt. Ein Tab nennt seinen Pfad und das Skeleton seiner Seite, und seine Beschriftung in der `navigation.<area>.json` des Bereichs benennt die Seite auch in den Breadcrumbs. Der Auth-Bereich fügt **Alle Benutzer** und **Einladungen** hinzu und der Zahlungsbereich **Kunden** (siehe [Bestellungen und Kunden](/docs/features/orders#customers)). `/admin/users` leitet zu `/admin/users/all` weiter. Jeder Tab nimmt seinen Seitentitel aus `pages.admin.users`.
 
-| Route                    | Inhalt                                                                                       |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| `/admin/users/all`       | Funktionsfähige Benutzertabelle                                                              |
-| `/admin/users/customers` | Jeder Polar-Kunde mit Konto, Bestellungen und dem, was er nach Erstattungen bezahlt hat      |
-| `/admin/users/$userId`   | Profil eines Benutzers: Kontodaten, Sitzungen und die Karten, die andere Bereiche hinzufügen |
+| Route                      | Inhalt                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `/admin/users/all`         | Funktionsfähige Benutzertabelle                                                              |
+| `/admin/users/customers`   | Jeder Polar-Kunde mit Konto, Bestellungen und dem, was er nach Erstattungen bezahlt hat      |
+| `/admin/users/invitations` | Die offenen Einladungen, mit **Benutzer einladen**, **Erneut senden** und **Widerrufen**     |
+| `/admin/users/$userId`     | Profil eines Benutzers: Kontodaten, Sitzungen und die Karten, die andere Bereiche hinzufügen |
 
 ## Alle Benutzer
 
@@ -59,9 +60,33 @@ Der Header zeigt Name und E-Mail-Adresse des Benutzers und dasselbe Aktionsmenü
 
 Jede Serverfunktion prüft ihre eigene Berechtigung mit `authorized(...)` aus `auth.middleware.ts`. Die Statements `user` und `session` sind die `defaultStatements` von Better Auth, und die Rolle `admin` erhält `adminAc` von Better Auth, deshalb deklariert `src/data/auth.access.ts` nur `admin` und `settings`. Der Guard von `/admin` lässt nur Rollen zu, die `admin: ["access"]` besitzen.
 
-## Einladungen und Rollen
+## Einladungen [#invitations]
 
-Es gibt keine Einladungstabelle, und die Rollen sind `admin` und `customer` in `auth.roles.ts`, pro Benutzer mit **Rolle ändern** festgelegt. Der Admin-Bereich hat keine Einladungen und keinen Rolleneditor, bis eine Tabelle und ein Anwendungsfall sie tragen.
+**Benutzer einladen** auf `/admin/users/invitations` öffnet `InviteUserDialog` (`invite-user-dialog.tsx`), ein Formular mit TanStack Form, das `invitationZodSchemas.createInvitation` validiert: die E-Mail-Adresse, eine Rolle aus `ROLE_VALUES` in `auth.roles.ts` und die Sprache der E-Mail, anfangs die eigene Sprache des Admins. `createInvitation` (`src/modules/invitation/use-cases/create-invitation.ts`, Berechtigung `user: ["create"]`, Rate-Limit `INVITATION_RATE_LIMIT`) lehnt eine Adresse, zu der es bereits ein Konto oder eine offene Einladung gibt, mit `CONFLICT` ab, speichert die Einladung und schickt den Link mit `sendInvitationEmail` per E-Mail. Lässt sich die E-Mail nicht senden, wird die Einladung wieder entfernt.
+
+Die Tabelle `invitation` hält fest, wer wen eingeladen hat und was aus der Einladung geworden ist:
+
+| Spalte                       | Enthält                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `email`, `role`, `locale`    | Die eingeladene Adresse in Kleinbuchstaben, die Rolle, die das Konto erhält, und die Sprache der E-Mail    |
+| `token_hash`                 | Den SHA-256-Hash des Tokens im Link; das Token selbst steht nur in der E-Mail                              |
+| `invited_by`, `created_at`   | Den Admin, der eingeladen hat, und wann                                                                    |
+| `sent_at`, `expires_at`      | Wann der letzte Link gesendet wurde und wann er nicht mehr funktioniert: `INVITATION_LIFETIME_DAYS` später |
+| `accepted_by`, `accepted_at` | Das Konto, das sie angenommen hat, und wann                                                                |
+| `revoked_by`, `revoked_at`   | Den Admin, der sie widerrufen hat, und wann                                                                |
+
+Die Fremdschlüssel auf Benutzer sind `ON DELETE SET NULL`, sodass der Datensatz die Konten überdauert, die er nennt. Ein partieller eindeutiger Index auf `email` für Zeilen, in denen `accepted_at` und `revoked_at` leer sind, erlaubt eine offene Einladung pro Adresse.
+
+Der Tab listet mit `listInvitations` (`user: ["list"]`) die offenen Einladungen auf, ausstehend oder mit abgelaufenem Link, in `DataTable` mit `invitationColumns` (`invitation-columns.tsx`). **Erneut senden** (`resendInvitation`, mit demselben Rate-Limit wie die Einladung) schickt einen neuen Link, der das Token ersetzt und die Gültigkeitsdauer neu beginnen lässt, sodass der frühere Link nicht mehr funktioniert. **Widerrufen** (`revokeInvitation`) fragt zuerst nach und hält dann den Admin und den Zeitpunkt fest; der Link sagt danach, dass die Einladung zurückgezogen wurde.
+
+Der Link öffnet `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` liefert die eingeladene Adresse, die Rolle und den Status des Links (`INVITATION_STATUS`), und die Seite zeigt eine dieser Ansichten:
+
+- **Ausstehend, abgemeldet:** die Adresse, einen Namen und ein Passwort, mit denen `acceptInvitation` (Rate-Limit wie beim Einlösen eines Tokens) das Konto über `createUser` von Better Auth anlegt, mit der Rolle und bereits bestätigter Adresse, bevor es den Besucher anmeldet und je nach Rolle `/admin` oder `/app` öffnet. Das Passwort durchläuft dieselbe Richtlinie und dieselbe Prüfung bei Have I Been Pwned wie ein neuer Benutzer, den ein Admin anlegt. **Mit Google fortfahren** oder **Mit GitHub fortfahren** führt angemeldet auf dieselbe Seite zurück.
+- **Ausstehend, mit der eingeladenen Adresse angemeldet:** **Einladung annehmen**, worauf `claimInvitation` (angemeldet, Rate-Limit wie beim Einlösen eines Tokens) dem Konto die Rolle und eine bestätigte Adresse gibt.
+- **Ausstehend, mit einer anderen Adresse angemeldet:** beide Adressen und **Abmelden**.
+- **Abgelaufen, widerrufen, angenommen oder unbekannt:** was passiert ist, und eine Möglichkeit zur Anmeldung.
+
+Jede Annahme markiert die Einladung nur dann als angenommen, wenn sie offen ist und ihr Link nicht abgelaufen ist, sodass ein Link genau ein Konto eröffnet. Die Rollen selbst sind `admin` und `customer`; sie werden später pro Benutzer mit **Rolle ändern** festgelegt.
 
 ## Verwandte Anleitungen
 

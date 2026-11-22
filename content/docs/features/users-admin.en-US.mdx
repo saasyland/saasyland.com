@@ -5,13 +5,14 @@ description: "User management under /admin/users: a live users table, a profile 
 
 ## Routes
 
-`src/routes/admin.users.tsx` is a layout whose link tabs are `USER_TABS` in `src/data/user-tabs.ts`, which joins each area's `src/data/<area>.user-tabs.ts` by `order`. A tab names its path and its page skeleton, and its label in the area's `navigation.<area>.json` also names the page in the breadcrumbs. The auth area adds **All users** and the payments area **Customers** (see [Orders and customers](/docs/features/orders#customers)). `/admin/users` redirects to `/admin/users/all`. Every tab takes its page title from `pages.admin.users`.
+`src/routes/admin.users.tsx` is a layout whose link tabs are `USER_TABS` in `src/data/user-tabs.ts`, which joins each area's `src/data/<area>.user-tabs.ts` by `order`. A tab names its path and its page skeleton, and its label in the area's `navigation.<area>.json` also names the page in the breadcrumbs. The auth area adds **All users** and **Invitations**, and the payments area **Customers** (see [Orders and customers](/docs/features/orders#customers)). `/admin/users` redirects to `/admin/users/all`. Every tab takes its page title from `pages.admin.users`.
 
-| Route                    | Content                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| `/admin/users/all`       | Live users table                                                                 |
-| `/admin/users/customers` | Every Polar customer with their account, orders and what they paid after refunds |
-| `/admin/users/$userId`   | A user's profile: account details, sessions and the cards other areas add        |
+| Route                      | Content                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `/admin/users/all`         | Live users table                                                                 |
+| `/admin/users/customers`   | Every Polar customer with their account, orders and what they paid after refunds |
+| `/admin/users/invitations` | The open invitations, with **Invite user**, **Resend** and **Revoke**            |
+| `/admin/users/$userId`     | A user's profile: account details, sessions and the cards other areas add        |
 
 ## All users
 
@@ -59,9 +60,33 @@ The header shows the user's name and email and the same actions menu as the tabl
 
 Each server function checks its own permission with `authorized(...)` from `auth.middleware.ts`. The `user` and `session` statements are Better Auth's `defaultStatements`, and the `admin` role holds Better Auth's `adminAc`, so `src/data/auth.access.ts` declares only `admin` and `settings`. The `/admin` guard admits only roles that hold `admin: ["access"]`.
 
-## Invitations and roles
+## Invitations
 
-There is no invitation table, and the roles are `admin` and `customer` in `auth.roles.ts`, set per user with **Change role**. The admin has no invitations or role editor until a table and a use case back them.
+**Invite user** on `/admin/users/invitations` opens `InviteUserDialog` (`invite-user-dialog.tsx`), a TanStack Form validated by `invitationZodSchemas.createInvitation`: the email address, a role from `ROLE_VALUES` in `auth.roles.ts` and the language of the email, the admin's own language to begin with. `createInvitation` (`src/modules/invitation/use-cases/create-invitation.ts`, permission `user: ["create"]`, rate limited by `INVITATION_RATE_LIMIT`) refuses an address that already has an account or an open invitation with `CONFLICT`, stores the invitation and emails the link with `sendInvitationEmail`. When the email cannot be sent, the invitation is removed again.
+
+The `invitation` table keeps who invited whom and what happened to it:
+
+| Column                       | Holds                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `email`, `role`, `locale`    | The invited address, in lower case, the role the account gets and the language of the email |
+| `token_hash`                 | The SHA-256 hash of the link's token; the token itself is only in the email                 |
+| `invited_by`, `created_at`   | The admin who invited, and when                                                             |
+| `sent_at`, `expires_at`      | When the last link was sent, and when it stops working: `INVITATION_LIFETIME_DAYS` later    |
+| `accepted_by`, `accepted_at` | The account that accepted it, and when                                                      |
+| `revoked_by`, `revoked_at`   | The admin who revoked it, and when                                                          |
+
+The user foreign keys are `ON DELETE SET NULL`, so the record outlives the accounts it names. A partial unique index on `email` where `accepted_at` and `revoked_at` are empty allows one open invitation per address.
+
+The tab lists the open invitations with `listInvitations` (`user: ["list"]`), pending or with an expired link, in `DataTable` with `invitationColumns` (`invitation-columns.tsx`). **Resend** (`resendInvitation`, rate limited like the invitation) sends a new link, which replaces the token and restarts the lifetime, so the earlier link stops working. **Revoke** (`revokeInvitation`) asks first, then records the admin and the time; the link then says that the invitation was withdrawn.
+
+The link opens `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` returns the invited address, the role and the status of the link (`INVITATION_STATUS`), and the page shows one of these:
+
+- **Pending, signed out:** the address, a name and a password, which `acceptInvitation` (rate limited as a token) uses to create the account with Better Auth's `createUser`, with the role and the address already verified, before it signs the visitor in and opens `/admin` or `/app` by role. The password passes the same policy and Have I Been Pwned check as an admin's new user. **Continue with Google** or **GitHub** comes back to the same page signed in.
+- **Pending, signed in with the invited address:** **Accept invitation**, which `claimInvitation` (signed in, rate limited as a token) answers by giving the account the role and a verified address.
+- **Pending, signed in with another address:** both addresses and **Sign out**.
+- **Expired, revoked, accepted or unknown:** what happened and a way to sign in.
+
+Each acceptance marks the invitation accepted only while it is open and its link has not expired, so one link opens one account. The roles themselves are `admin` and `customer`, set later per user with **Change role**.
 
 ## Related guides
 

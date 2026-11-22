@@ -11,6 +11,7 @@ export const AUTH_SKELETONS = [
   { pendingComponent: AdminSettingsPending, to: ROUTES.ADMIN_SETTINGS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_ALL },
+  { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_INVITATIONS },
   { pendingComponent: AppOverviewPending, to: ROUTES.APP },
   { pendingComponent: AppDeleteAccountPending, to: ROUTES.APP_DELETE_ACCOUNT },
   { pendingComponent: AppSettingsPending, to: ROUTES.APP_SETTINGS },

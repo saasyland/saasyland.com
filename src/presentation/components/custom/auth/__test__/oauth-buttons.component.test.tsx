@@ -1,3 +1,5 @@
+import type { ReactElement } from "react"
+
 import { BetterFetchError, type ErrorContext } from "@better-fetch/fetch"
 import { getRequest } from "@tanstack/react-start/server"
 import { act, screen, waitFor } from "@testing-library/react"
@@ -45,10 +47,10 @@ const createErrorContext = (error: BetterFetchError): ErrorContext => ({
   response: new Response(null, { status: error.status }),
 })
 
-const clickSignIn = async (): Promise<void> => {
+const clickSignIn = async (buttons: ReactElement = <OAuthButtons />): Promise<void> => {
   renderWithRouter(
     <IntlProvider locale="en-US" messages={{ auth: { errors: authErrorsMessages, oauth: authOauthMessages } }}>
-      <OAuthButtons />
+      {buttons}
     </IntlProvider>,
   )
   await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
@@ -70,6 +72,22 @@ describe("OAuth buttons", () => {
           callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}`,
           errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}`,
           provider: AUTH_PROVIDER.GITHUB,
+        }),
+      )
+    })
+  })
+
+  it("returns to the page it is given after the provider, or after a failed callback, in the visitor's locale", async () => {
+    const page = `${ROUTES.ACCEPT_INVITATION}?${new URLSearchParams({ token: "invitation-token" }).toString()}`
+    const withPage = new URLSearchParams({ redirect: page }).toString()
+
+    await clickSignIn(<OAuthButtons redirect={page} />)
+
+    await waitFor(() => {
+      expect(signInSocialMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}?${withPage}`,
+          errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}?${withPage}`,
         }),
       )
     })

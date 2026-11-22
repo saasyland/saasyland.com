@@ -13,7 +13,7 @@ import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
-const renderAuthRedirect = (path: string) => {
+const renderAuthRedirect = (path: string, target?: string) => {
   vi.mocked(getRequest).mockReturnValue(new Request(new URL(path, "http://127.0.0.1:3000")))
   const router = createTestRouter(path)
   const queryClient = new QueryClient()
@@ -23,7 +23,7 @@ const renderAuthRedirect = (path: string) => {
     </TestProviders>
   )
 
-  return { queryClient, result: renderHook(() => useAuthRedirect(), { wrapper }).result, router }
+  return { queryClient, result: renderHook(() => useAuthRedirect(target), { wrapper }).result, router }
 }
 
 describe("useAuthRedirect", () => {
@@ -33,6 +33,14 @@ describe("useAuthRedirect", () => {
     expect(result.current.redirect).toBe("/pl-PL/app/settings")
     expect(result.current.hrefWithRedirect("/auth/callback")).toBe("/pl-PL/auth/callback?redirect=%2Fpl-PL%2Fapp%2Fsettings")
     expect(result.current.hrefWithRedirect("/auth/sign-in")).toBe("/pl-PL/auth/sign-in?redirect=%2Fpl-PL%2Fapp%2Fsettings")
+  })
+
+  it("returns to the page it is given in place of the redirect in the address", () => {
+    const { result } = renderAuthRedirect("/pl-PL/auth/sign-in?redirect=%2Fpl-PL%2Fapp%2Fsettings", "/auth/invite?token=invitation")
+
+    expect(result.current.redirect).toBe("/auth/invite?token=invitation")
+    expect(result.current.hrefWithRedirect("/auth/callback")).toBe("/pl-PL/auth/callback?redirect=%2Fauth%2Finvite%3Ftoken%3Dinvitation")
+    expect(result.current.hrefWithRedirect("/auth/sign-in")).toBe("/pl-PL/auth/sign-in?redirect=%2Fauth%2Finvite%3Ftoken%3Dinvitation")
   })
 
   it("ignores a redirect that would leave the site", () => {

@@ -27,7 +27,7 @@ describe("user management tabs", () => {
 
     const tabs = await import("~/src/data/user-tabs")
 
-    expect(tabs.USER_TABS.map(({ key }) => key)).toStrictEqual([exports.key, allUsers.key])
+    expect(tabs.USER_TABS.map(({ key }) => key)).toStrictEqual([exports.key, ...AUTH_USER_TABS.map(({ key }) => key)])
     vi.doUnmock("~/src/data/user-tabs.entries")
   })
 

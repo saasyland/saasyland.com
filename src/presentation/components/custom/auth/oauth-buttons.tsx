@@ -28,10 +28,10 @@ type Provider = (typeof OAUTH_PROVIDERS)[number]["id"]
 
 const signInSocial = createClientOnlyFn((data: Parameters<typeof authClient.signIn.social>[0]) => authClient.signIn.social(data))
 
-const useSocialSignIn = () => {
+const useSocialSignIn = (redirect?: string) => {
   const t = useTranslations("auth")
 
-  const { hrefWithRedirect } = useAuthRedirect()
+  const { hrefWithRedirect } = useAuthRedirect(redirect)
 
   return useMutation({
     mutationFn: (provider: Provider) =>
@@ -57,10 +57,10 @@ export const LastUsedBadge = (): JSX.Element => {
   return <Badge className="ml-auto">{t("lastUsed")}</Badge>
 }
 
-export const OAuthButtons = (): JSX.Element => {
+export const OAuthButtons = ({ redirect }: { readonly redirect?: string }): JSX.Element => {
   const t = useTranslations("auth")
   const { isLastUsed } = useLastLoginMethod()
-  const signInWithProvider = useSocialSignIn()
+  const signInWithProvider = useSocialSignIn(redirect)
 
   return (
     <div className="flex flex-col gap-3">

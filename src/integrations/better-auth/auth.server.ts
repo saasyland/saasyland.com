@@ -24,6 +24,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
 import { COUNTRIES } from "~/src/modules/_core/constants/country"
+import { invitationPlugin } from "~/src/modules/invitation/invitation.plugin"
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 import { AUTH_EMAILS } from "~/src/data/auth-emails"
@@ -133,6 +134,7 @@ export const auth = betterAuth({
     admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),
     twoFactor({ issuer: APP_NAME }),
     lastLoginMethod({ cookieName: LAST_LOGIN_METHOD_COOKIE }),
+    invitationPlugin(),
     ...AUTH_PLUGINS,
     tanstackStartCookies(),
   ],

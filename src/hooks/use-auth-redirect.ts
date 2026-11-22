@@ -10,11 +10,12 @@ import { ROUTES } from "~/src/routes"
 
 type AuthPage = typeof ROUTES.AUTH_CALLBACK | typeof ROUTES.RESET_PASSWORD | typeof ROUTES.SIGN_IN
 
-export const useAuthRedirect = () => {
+export const useAuthRedirect = (target?: string) => {
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  const redirect = useRouterState({ select: ({ location }) => authSearchSchema.parse(location.search).redirect })
+  const searchRedirect = useRouterState({ select: ({ location }) => authSearchSchema.parse(location.search).redirect })
+  const redirect = target ?? searchRedirect
 
   const hrefWithRedirect = (page: AuthPage): string => router.buildLocation({ search: { redirect }, to: page }).publicHref
 

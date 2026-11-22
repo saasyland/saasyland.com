@@ -5,13 +5,14 @@ description: "Gestão de usuários em /admin/users: uma tabela de usuários real
 
 ## Rotas
 
-`src/routes/admin.users.tsx` é um layout cujas abas em forma de link são `USER_TABS` em `src/data/user-tabs.ts`, que junta o `src/data/<area>.user-tabs.ts` de cada área pelo `order`. Uma aba informa seu caminho e o esqueleto da sua página, e seu rótulo no `navigation.<area>.json` da área também dá nome à página na trilha de navegação. A área de autenticação adiciona **Todos os usuários** e a área de pagamentos **Clientes** (veja [Pedidos e clientes](/docs/features/orders#customers)). `/admin/users` redireciona para `/admin/users/all`. Cada aba usa o título de página de `pages.admin.users`.
+`src/routes/admin.users.tsx` é um layout cujas abas em forma de link são `USER_TABS` em `src/data/user-tabs.ts`, que junta o `src/data/<area>.user-tabs.ts` de cada área pelo `order`. Uma aba informa seu caminho e o esqueleto da sua página, e seu rótulo no `navigation.<area>.json` da área também dá nome à página na trilha de navegação. A área de autenticação adiciona **Todos os usuários** e **Convites**, e a área de pagamentos **Clientes** (veja [Pedidos e clientes](/docs/features/orders#customers)). `/admin/users` redireciona para `/admin/users/all`. Cada aba usa o título de página de `pages.admin.users`.
 
-| Rota                     | Conteúdo                                                                            |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `/admin/users/all`       | Tabela de usuários real                                                             |
-| `/admin/users/customers` | Cada cliente da Polar com a conta, os pedidos e o que pagou após os reembolsos      |
-| `/admin/users/$userId`   | Perfil de um usuário: dados da conta, sessões e os cards que outras áreas adicionam |
+| Rota                       | Conteúdo                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `/admin/users/all`         | Tabela de usuários real                                                             |
+| `/admin/users/customers`   | Cada cliente da Polar com a conta, os pedidos e o que pagou após os reembolsos      |
+| `/admin/users/invitations` | Os convites em aberto, com **Convidar usuário**, **Reenviar** e **Revogar**         |
+| `/admin/users/$userId`     | Perfil de um usuário: dados da conta, sessões e os cards que outras áreas adicionam |
 
 ## Todos os usuários
 
@@ -59,9 +60,33 @@ O cabeçalho mostra o nome e o e-mail do usuário e o mesmo menu de ações da l
 
 Cada função de servidor verifica a própria permissão com `authorized(...)` de `auth.middleware.ts`. As declarações `user` e `session` são os `defaultStatements` do Better Auth, e o papel `admin` recebe o `adminAc` do Better Auth, então `src/data/auth.access.ts` declara apenas `admin` e `settings`. A guarda de `/admin` só admite papéis que tenham `admin: ["access"]`.
 
-## Convites e papéis
+## Convites [#invitations]
 
-Não há tabela de convites, e os papéis são `admin` e `customer` em `auth.roles.ts`, definidos por usuário com **Alterar função**. O admin não tem convites nem editor de papéis até que uma tabela e um caso de uso os sustentem.
+**Convidar usuário** em `/admin/users/invitations` abre `InviteUserDialog` (`invite-user-dialog.tsx`), um formulário do TanStack Form validado por `invitationZodSchemas.createInvitation`: o endereço de e-mail, um papel de `ROLE_VALUES` em `auth.roles.ts` e o idioma do e-mail, de início o idioma do próprio admin. `createInvitation` (`src/modules/invitation/use-cases/create-invitation.ts`, permissão `user: ["create"]`, limitado por `INVITATION_RATE_LIMIT`) recusa com `CONFLICT` um endereço que já tem uma conta ou um convite em aberto, salva o convite e envia o link por e-mail com `sendInvitationEmail`. Quando o e-mail não pode ser enviado, o convite é removido de novo.
+
+A tabela `invitation` guarda quem convidou quem e o que aconteceu com o convite:
+
+| Coluna                       | Guarda                                                                                               |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `email`, `role`, `locale`    | O endereço convidado, em minúsculas, o papel que a conta recebe e o idioma do e-mail                 |
+| `token_hash`                 | O hash SHA-256 do token do link; o token em si só está no e-mail                                     |
+| `invited_by`, `created_at`   | O admin que convidou, e quando                                                                       |
+| `sent_at`, `expires_at`      | Quando o último link foi enviado, e quando ele deixa de funcionar: `INVITATION_LIFETIME_DAYS` depois |
+| `accepted_by`, `accepted_at` | A conta que o aceitou, e quando                                                                      |
+| `revoked_by`, `revoked_at`   | O admin que o revogou, e quando                                                                      |
+
+As chaves estrangeiras para usuários são `ON DELETE SET NULL`, então o registro sobrevive às contas que ele cita. Um índice único parcial em `email` para as linhas em que `accepted_at` e `revoked_at` estão vazios permite um convite em aberto por endereço.
+
+A aba lista os convites em aberto com `listInvitations` (`user: ["list"]`), pendentes ou com o link expirado, em `DataTable` com `invitationColumns` (`invitation-columns.tsx`). **Reenviar** (`resendInvitation`, limitado como o convite) envia um novo link, que substitui o token e reinicia a validade, então o link anterior deixa de funcionar. **Revogar** (`revokeInvitation`) pede confirmação e depois registra o admin e o horário; a partir daí, o link informa que o convite foi retirado.
+
+O link abre `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` retorna o endereço convidado, o papel e o status do link (`INVITATION_STATUS`), e a página mostra uma destas telas:
+
+- **Pendente, sem login:** o endereço, um nome e uma senha, que `acceptInvitation` (limitado como o resgate de um token) usa para criar a conta com o `createUser` do Better Auth, com o papel e o endereço já verificado, antes de fazer o login do visitante e abrir `/admin` ou `/app` conforme o papel. A senha passa pela mesma política e pela mesma verificação no Have I Been Pwned que um novo usuário criado por um admin. **Continuar com Google** ou **Continuar com GitHub** volta à mesma página já com login.
+- **Pendente, logado com o endereço convidado:** **Aceitar convite**, ao qual `claimInvitation` (logado, limitado como o resgate de um token) responde dando à conta o papel e um endereço verificado.
+- **Pendente, logado com outro endereço:** os dois endereços e **Sair**.
+- **Expirado, revogado, aceito ou desconhecido:** o que aconteceu e uma forma de entrar.
+
+Cada aceitação marca o convite como aceito apenas enquanto ele está em aberto e seu link não expirou, então um link abre uma única conta. Os papéis em si são `admin` e `customer`, definidos depois por usuário com **Alterar função**.
 
 ## Guias relacionados
 

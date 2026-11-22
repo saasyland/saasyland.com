@@ -37,11 +37,10 @@ const REMOVED_SCREENS = [
   "/admin/payments",
   "/admin/pricing-models",
   "/admin/products/create",
-  "/admin/users/invitations",
   "/admin/users/roles",
 ] as const
 
-const REMOVED_LABELS = /analytics|pricing models|payments|blog|landing page|invitations|roles/iu
+const REMOVED_LABELS = /analytics|pricing models|payments|blog|landing page|roles/iu
 
 const revenue = paymentsDashboardMessages.revenue
 const ranges = pagesAdminDashboardMessages.chart.range

@@ -5,13 +5,14 @@ description: "Gestion des utilisateurs sous /admin/users : un vrai tableau des u
 
 ## Routes
 
-`src/routes/admin.users.tsx` est un layout dont les onglets sous forme de liens sont `USER_TABS` dans `src/data/user-tabs.ts`, qui réunit le `src/data/<area>.user-tabs.ts` de chaque zone selon son `order`. Un onglet indique son chemin et le squelette de sa page, et son libellé dans le `navigation.<area>.json` de la zone nomme aussi la page dans le fil d’Ariane. La zone d’authentification ajoute **Tous les utilisateurs** et la zone des paiements **Clients** (voir [Commandes et clients](/docs/features/orders#customers)). `/admin/users` redirige vers `/admin/users/all`. Chaque onglet prend le titre de sa page dans `pages.admin.users`.
+`src/routes/admin.users.tsx` est un layout dont les onglets sous forme de liens sont `USER_TABS` dans `src/data/user-tabs.ts`, qui réunit le `src/data/<area>.user-tabs.ts` de chaque zone selon son `order`. Un onglet indique son chemin et le squelette de sa page, et son libellé dans le `navigation.<area>.json` de la zone nomme aussi la page dans le fil d’Ariane. La zone d’authentification ajoute **Tous les utilisateurs** et **Invitations**, et la zone des paiements **Clients** (voir [Commandes et clients](/docs/features/orders#customers)). `/admin/users` redirige vers `/admin/users/all`. Chaque onglet prend le titre de sa page dans `pages.admin.users`.
 
-| Route                    | Contenu                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| `/admin/users/all`       | Vrai tableau des utilisateurs                                                               |
-| `/admin/users/customers` | Chaque client Polar avec son compte, ses commandes et ce qu’il a payé après remboursements  |
-| `/admin/users/$userId`   | Profil d’un utilisateur : détails du compte, sessions et cartes ajoutées par d’autres zones |
+| Route                      | Contenu                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `/admin/users/all`         | Vrai tableau des utilisateurs                                                               |
+| `/admin/users/customers`   | Chaque client Polar avec son compte, ses commandes et ce qu’il a payé après remboursements  |
+| `/admin/users/invitations` | Les invitations ouvertes, avec **Inviter un utilisateur**, **Renvoyer** et **Révoquer**     |
+| `/admin/users/$userId`     | Profil d’un utilisateur : détails du compte, sessions et cartes ajoutées par d’autres zones |
 
 ## Tous les utilisateurs
 
@@ -59,9 +60,33 @@ L’en-tête affiche le nom et l’e-mail de l’utilisateur ainsi que le même 
 
 Chaque fonction serveur vérifie sa propre permission avec `authorized(...)` de `auth.middleware.ts`. Les déclarations `user` et `session` sont les `defaultStatements` de Better Auth, et le rôle `admin` reçoit `adminAc` de Better Auth : `src/data/auth.access.ts` ne déclare donc que `admin` et `settings`. La garde de `/admin` n’admet que les rôles qui détiennent `admin: ["access"]`.
 
-## Invitations et rôles
+## Invitations [#invitations]
 
-Il n’existe pas de table d’invitations, et les rôles sont `admin` et `customer` dans `auth.roles.ts`, attribués à chaque utilisateur avec **Changer de rôle**. L’administration n’a ni invitations ni éditeur de rôles tant qu’une table et un cas d’usage ne les prennent pas en charge.
+**Inviter un utilisateur** sur `/admin/users/invitations` ouvre `InviteUserDialog` (`invite-user-dialog.tsx`), un formulaire TanStack Form validé par `invitationZodSchemas.createInvitation` : l’adresse e-mail, un rôle parmi `ROLE_VALUES` dans `auth.roles.ts` et la langue de l’e-mail, au départ celle de l’administrateur. `createInvitation` (`src/modules/invitation/use-cases/create-invitation.ts`, permission `user: ["create"]`, limité par `INVITATION_RATE_LIMIT`) refuse avec `CONFLICT` une adresse qui a déjà un compte ou une invitation ouverte, enregistre l’invitation et envoie le lien par e-mail avec `sendInvitationEmail`. Si l’e-mail ne peut pas être envoyé, l’invitation est de nouveau supprimée.
+
+La table `invitation` conserve qui a invité qui et ce que l’invitation est devenue :
+
+| Colonne                      | Contient                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `email`, `role`, `locale`    | L’adresse invitée, en minuscules, le rôle que reçoit le compte et la langue de l’e-mail                     |
+| `token_hash`                 | Le hachage SHA-256 du jeton du lien ; le jeton lui-même ne figure que dans l’e-mail                         |
+| `invited_by`, `created_at`   | L’administrateur qui a invité, et quand                                                                     |
+| `sent_at`, `expires_at`      | Quand le dernier lien a été envoyé, et quand il cesse de fonctionner : `INVITATION_LIFETIME_DAYS` plus tard |
+| `accepted_by`, `accepted_at` | Le compte qui l’a acceptée, et quand                                                                        |
+| `revoked_by`, `revoked_at`   | L’administrateur qui l’a révoquée, et quand                                                                 |
+
+Les clés étrangères vers les utilisateurs sont en `ON DELETE SET NULL`, si bien que l’enregistrement survit aux comptes qu’il nomme. Un index unique partiel sur `email`, limité aux lignes où `accepted_at` et `revoked_at` sont vides, n’autorise qu’une invitation ouverte par adresse.
+
+L’onglet liste les invitations ouvertes avec `listInvitations` (`user: ["list"]`), en attente ou dont le lien a expiré, dans `DataTable` avec `invitationColumns` (`invitation-columns.tsx`). **Renvoyer** (`resendInvitation`, limité comme l’invitation) envoie un nouveau lien, qui remplace le jeton et relance la durée de validité, si bien que le lien précédent ne fonctionne plus. **Révoquer** (`revokeInvitation`) demande d’abord une confirmation, puis enregistre l’administrateur et l’heure ; le lien indique ensuite que l’invitation a été retirée.
+
+Le lien ouvre `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` renvoie l’adresse invitée, le rôle et le statut du lien (`INVITATION_STATUS`), et la page affiche l’un de ces écrans :
+
+- **En attente, déconnecté :** l’adresse, un nom et un mot de passe, avec lesquels `acceptInvitation` (limité comme l’utilisation d’un jeton) crée le compte avec `createUser` de Better Auth, avec le rôle et l’adresse déjà vérifiée, avant de connecter le visiteur et d’ouvrir `/admin` ou `/app` selon le rôle. Le mot de passe passe par la même politique et la même vérification Have I Been Pwned qu’un nouvel utilisateur créé par un administrateur. **Continuer avec Google** ou **Continuer avec GitHub** revient sur la même page une fois connecté.
+- **En attente, connecté avec l’adresse invitée :** **Accepter l’invitation**, à quoi `claimInvitation` (connecté, limité comme l’utilisation d’un jeton) répond en donnant au compte le rôle et une adresse vérifiée.
+- **En attente, connecté avec une autre adresse :** les deux adresses et **Se déconnecter**.
+- **Expirée, révoquée, acceptée ou inconnue :** ce qui s’est passé et un moyen de se connecter.
+
+Chaque acceptation ne marque l’invitation comme acceptée que tant qu’elle est ouverte et que son lien n’a pas expiré, si bien qu’un lien n’ouvre qu’un seul compte. Les rôles eux-mêmes sont `admin` et `customer`, attribués ensuite à chaque utilisateur avec **Changer de rôle**.
 
 ## Guides associés
 

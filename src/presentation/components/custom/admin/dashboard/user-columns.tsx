@@ -7,9 +7,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import type { User } from "~/src/modules/user/user.types"
 import { type UserStatus, getUserInitials, getUserStatus } from "~/src/modules/user/user.utils"
 
-import { ADMIN_STATUS_DOT_CLASSES, USER_STATUS_COLORS } from "~/src/data/admin"
-
-import { cn } from "~/src/lib/cn"
+import { USER_STATUS_BADGES } from "~/src/data/admin"
 
 import { Avatar, AvatarFallback, AvatarImage } from "~/src/presentation/components/shadcn/avatar"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
@@ -26,14 +24,8 @@ const ColumnHeader = ({ id }: { readonly id: "joined" | "role" | "status" | "use
 
 const StatusCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, UserStatus>): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard.users.table.status")
-  const status = getValue()
 
-  return (
-    <div className="flex items-center gap-2">
-      <div className={cn("size-2 rounded-full", ADMIN_STATUS_DOT_CLASSES[USER_STATUS_COLORS[status]])} />
-      <span className="text-spec text-muted-foreground">{t(status)}</span>
-    </div>
-  )
+  return <Badge variant={USER_STATUS_BADGES[getValue()]}>{t(getValue())}</Badge>
 }
 
 const JoinedCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, Date>): JSX.Element => {
@@ -70,11 +62,7 @@ export const dashboardUserColumns = columnHelper.columns([
     id: "user",
   }),
   columnHelper.accessor("role", {
-    cell: ({ getValue }) => (
-      <Badge variant="outline" className="font-medium text-muted-foreground">
-        {getValue()}
-      </Badge>
-    ),
+    cell: ({ getValue }) => <Badge>{getValue()}</Badge>,
     header: () => <ColumnHeader id="role" />,
   }),
   columnHelper.accessor((row) => getUserStatus(row), {

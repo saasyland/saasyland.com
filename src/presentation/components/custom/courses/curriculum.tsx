@@ -108,7 +108,7 @@ const LessonList = ({ compact, courseSlug, lessons, numbers }: LessonListProps):
           <span className={cn(END_COLUMN, MARK, "w-3")} data-slot="lesson-lock">
             <LessonLock lesson={lesson} />
           </span>
-          <LessonMeta className={cn(TITLE_COLUMN, "mt-1")} compact={compact} lesson={lesson} />
+          <LessonMeta className={cn(TITLE_COLUMN, { "mt-1": compact, "mt-2": !compact })} compact={compact} lesson={lesson} />
         </Link>
       </li>
     ))}

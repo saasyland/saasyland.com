@@ -11,8 +11,8 @@ const INCLUDES = ["first", "second", "third", "fourth", "fifth", "sixth"] as con
 
 const BadgesPending = (): JSX.Element => (
   <div className="flex gap-2">
-    <Skeleton className="h-6 w-16 rounded-md" />
-    <Skeleton className="h-6 w-24 rounded-md" />
+    <Skeleton className="h-5.5 w-16 rounded-md" />
+    <Skeleton className="h-5.5 w-24 rounded-md" />
   </div>
 )
 

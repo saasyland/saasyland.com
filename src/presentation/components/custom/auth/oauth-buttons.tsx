@@ -54,11 +54,7 @@ const useSocialSignIn = () => {
 export const LastUsedBadge = (): JSX.Element => {
   const t = useTranslations("auth.oauth")
 
-  return (
-    <Badge className="ml-auto text-label uppercase" variant="secondary">
-      {t("lastUsed")}
-    </Badge>
-  )
+  return <Badge className="ml-auto">{t("lastUsed")}</Badge>
 }
 
 export const OAuthButtons = (): JSX.Element => {

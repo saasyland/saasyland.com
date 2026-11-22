@@ -31,7 +31,7 @@ const HeadPending = (): JSX.Element => <Skeleton className="h-lh w-16 scale-y-70
 
 const TextPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
 
-const BadgePending = (): JSX.Element => <Skeleton className="h-5 w-16 rounded-md" />
+const BadgePending = (): JSX.Element => <Skeleton className="h-5.5 w-16 rounded-md" />
 
 const OrderRowPending = (): JSX.Element => (
   <TableRow>

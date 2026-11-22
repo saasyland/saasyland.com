@@ -5,6 +5,7 @@ import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_COURSE_LEARNER } from "../data/licenses"
 import { expect, test } from "../fixtures/auth"
+import { BADGE_INK_TOLERANCE_PX, META_ROW_TOLERANCE_PX, TITLE_GAP_TOLERANCE_PX, badgeLayout } from "../fixtures/badge-layout"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -33,6 +34,8 @@ const CENTRE_TOLERANCE_PX = 1
 const BASELINE_TOLERANCE_PX = 0.5
 
 const COLUMN_TOLERANCE_PX = 0.5
+
+const META_GAP_PX = 8
 
 const curriculumAlignment = async (list: Locator) =>
   list.evaluate((section) => {
@@ -242,6 +245,43 @@ test.describe("course and lesson pages", () => {
     await fontsLoaded(zoomedPage)
     await curriculum(zoomedPage).scrollIntoViewIfNeeded()
     expectOneCentreLine(await curriculumAlignment(curriculum(zoomedPage)))
+    await zoomed.close()
+  })
+
+  test("each badge centres its label, and each lesson's badge and length share one centre line the same gap below its title", async ({
+    baseURL,
+    browser,
+    page,
+  }) => {
+    const expectBadges = async (scope: Locator, label: string): Promise<void> => {
+      const layout = await badgeLayout(scope)
+      expect(layout.badges, label).toBeGreaterThan(0)
+      expect(layout.inkOffset, label).toBeLessThanOrEqual(BADGE_INK_TOLERANCE_PX)
+      expect(layout.metaDrift, label).toBeLessThanOrEqual(META_ROW_TOLERANCE_PX)
+      for (const gap of layout.titleGaps) {
+        expect(Math.abs(gap - META_GAP_PX), label).toBeLessThanOrEqual(TITLE_GAP_TOLERANCE_PX)
+      }
+    }
+
+    for (const viewport of ALIGNMENT_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      await page.goto(`/courses/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await fontsLoaded(page)
+      const curriculum = page.locator("section[aria-labelledby=course-curriculum]")
+      await curriculum.scrollIntoViewIfNeeded()
+      expect((await badgeLayout(curriculum)).titleGaps.length).toBeGreaterThan(0)
+      await expectBadges(page.locator("main"), `course page at ${String(viewport.width)}px`)
+
+      await page.goto(lessonPath(recording.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await fontsLoaded(page)
+      await expectBadges(page.locator("article"), `lesson page at ${String(viewport.width)}px`)
+    }
+
+    const zoomed = await browser.newContext({ ...ZOOMED_VIEW, ...(baseURL === undefined ? {} : { baseURL }) })
+    const zoomedPage = await zoomed.newPage()
+    await zoomedPage.goto(`/courses/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await fontsLoaded(zoomedPage)
+    await expectBadges(zoomedPage.locator("main"), "course page at 200%")
     await zoomed.close()
   })
 

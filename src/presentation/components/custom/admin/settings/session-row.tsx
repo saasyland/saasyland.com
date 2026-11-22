@@ -53,11 +53,7 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
             <p className="text-sm font-medium text-foreground">
               {sessionDeviceLabel(session) ?? t("settings.security.sessions.unknownDevice")}
             </p>
-            {isCurrent && (
-              <Badge className="px-0 text-label text-ring" variant="outline">
-                {t("settings.security.sessions.currentBadge")}
-              </Badge>
-            )}
+            {isCurrent && <Badge variant="accent">{t("settings.security.sessions.currentBadge")}</Badge>}
           </div>
           <p className="text-spec text-muted-foreground">
             {t("labels.unknownLocation")}

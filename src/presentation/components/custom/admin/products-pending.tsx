@@ -19,13 +19,13 @@ const ProductRowPending = (): JSX.Element => (
       <Skeleton className="mt-0.5 h-lh w-48 scale-y-70 text-spec" />
     </TableCell>
     <TableCell>
-      <Skeleton className="h-5 w-22 rounded-md" />
+      <Skeleton className="h-5.5 w-22 rounded-md" />
     </TableCell>
     <TableCell>
       <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
     </TableCell>
     <TableCell>
-      <Skeleton className="h-5 w-22 rounded-md" />
+      <Skeleton className="h-5.5 w-22 rounded-md" />
     </TableCell>
   </TableRow>
 )

@@ -160,7 +160,7 @@ const LessonState = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Eleme
     <span className="truncate font-medium text-foreground" data-slot="lesson-title">
       {lesson.title}
     </span>{" "}
-    <LessonMeta className={cn(COMING_COLLAPSE, "col-start-2 flex-nowrap overflow-hidden")} lesson={lesson} />
+    <LessonMeta className={cn(COMING_COLLAPSE, "col-start-2 mt-2 flex-nowrap overflow-hidden")} lesson={lesson} />
   </>
 )
 
@@ -246,7 +246,7 @@ const ShowcaseCoursePending = (): JSX.Element => (
           <Skeleton className="h-lh w-3 scale-y-30 justify-self-center" />
           <div className="flex min-w-0 flex-col">
             <Skeleton className="h-lh w-4/5 scale-y-70" />
-            <Skeleton className="h-lh w-24 scale-y-70 text-spec" />
+            <Skeleton className="mt-2 h-5.5 w-28 rounded-md" />
           </div>
         </div>
       ))}

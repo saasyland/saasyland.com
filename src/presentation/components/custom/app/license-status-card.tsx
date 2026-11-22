@@ -7,7 +7,7 @@ import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { Badge } from "~/src/presentation/components/shadcn/badge"
+import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/badge"
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
@@ -23,6 +23,13 @@ const licenseStatus = (license: Pick<License["select"], "polarLicenseKeyId" | "s
   }
 
   return "pending"
+}
+
+const STATUS_BADGES: Record<ReturnType<typeof licenseStatus>, BadgeVariant> = {
+  [LICENSE_STATUS.ACTIVE]: "accent",
+  [LICENSE_STATUS.REFUNDED]: "destructive",
+  [LICENSE_STATUS.REVOKED]: "destructive",
+  pending: "warning",
 }
 
 export const LicenseStatusCard = (): JSX.Element | undefined => {
@@ -43,7 +50,7 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
         </CardTitle>
         <CardDescription>{t("description")}</CardDescription>
         <CardAction>
-          <Badge variant={license.status === LICENSE_STATUS.ACTIVE ? "secondary" : "destructive"}>{t(licenseStatus(license))}</Badge>
+          <Badge variant={STATUS_BADGES[licenseStatus(license)]}>{t(licenseStatus(license))}</Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">

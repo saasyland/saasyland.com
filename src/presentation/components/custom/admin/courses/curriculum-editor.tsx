@@ -12,7 +12,6 @@ import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-ch
 import { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 
@@ -20,7 +19,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { useVideoLabel } from "~/src/hooks/use-video-library"
 
-import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
+import { LESSON_ACCESS_BADGES, LESSON_STATUS_BADGES } from "~/src/data/course-badges"
 
 import { cn } from "~/src/lib/cn"
 
@@ -126,21 +125,9 @@ const LessonRow = ({
       </div>
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          {(lesson.video === null || lesson.video.placeholder) && (
-            <Badge className={ADMIN_STATUS_BADGE_CLASSES.amber} variant="outline">
-              {t("curriculum.recording")}
-            </Badge>
-          )}
-          <Badge variant="outline">{t(`lesson.accessLevels.${lesson.access}`, { holders })}</Badge>
-          <Badge
-            className={cn({
-              [ADMIN_STATUS_BADGE_CLASSES.emerald]: lesson.status === LESSON_STATUS.PUBLISHED,
-              [ADMIN_STATUS_BADGE_CLASSES.neutral]: lesson.status === LESSON_STATUS.DRAFT,
-            })}
-            variant="outline"
-          >
-            {t(`lesson.statuses.${lesson.status}`)}
-          </Badge>
+          {(lesson.video === null || lesson.video.placeholder) && <Badge variant="warning">{t("curriculum.recording")}</Badge>}
+          <Badge variant={LESSON_ACCESS_BADGES[lesson.access]}>{t(`lesson.accessLevels.${lesson.access}`, { holders })}</Badge>
+          <Badge variant={LESSON_STATUS_BADGES[lesson.status]}>{t(`lesson.statuses.${lesson.status}`)}</Badge>
         </div>
         <div className="ml-auto flex items-center">
           <MoveButtons

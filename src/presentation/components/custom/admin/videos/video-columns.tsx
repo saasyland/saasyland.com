@@ -61,7 +61,7 @@ const CaptionsCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Vid
   return (
     <div className="flex flex-wrap gap-1">
       {locales.map((locale) => (
-        <Badge className="font-mono" key={locale} variant="outline">
+        <Badge className="font-mono" key={locale}>
           {locale}
         </Badge>
       ))}

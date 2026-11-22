@@ -1,43 +1,38 @@
 ---
 title: "TanStack Table"
-description: "TanStack Table v9 behind one generic DataTable."
+description: "TanStack Table v9 behind the one DataGrid: the features it registers, its filter functions and the column meta the grid reads."
 ---
 
-Every table renders through one generic `DataTable` in `src/presentation/components/custom/data-table.tsx`. It creates a TanStack Table v9 instance with `tableFeatures` (column filtering, sorting, pagination and row selection) and `useTable`, and renders shadcn table primitives, skeleton rows while loading and a localized empty state.
+Every new table renders through `DataGrid` in `src/presentation/components/custom/data-grid.tsx` ([Data grid](/docs/ui/data-grid)). The TanStack Table v9 setup it builds on lives in `src/integrations/tanstack-table/`:
 
-```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
-```
+| File                | Holds                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `table.features.ts` | `dataGridFeatures`, the `tableFeatures` registry; the filter kinds and their filter functions; the density and pin values; the `ColumnMeta` the grid reads |
+| `table.columns.ts`  | Column helpers: the default visibility and pinning from `meta`, the column label, the sticky offsets of pinned columns, reordering and the CSV value       |
 
-## Props
+## Features
 
-| Prop                   | Purpose                                                                                                                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | Column definitions for the row type; every row needs an `id`                                                                                   |
-| `data`                 | Rows for a table that sorts, filters and paginates on the client                                                                               |
-| `options.initialState` | Initial `pagination` and `sorting`                                                                                                             |
-| `options.query`        | Server-side paging and sorting: a function of `pageIndex`, `pageSize` and `sorting` that returns query options resolving to `rows` and `total` |
-| `options.selectable`   | Adds a checkbox column for row selection                                                                                                       |
-| `filters`              | Search filters (`type: "search"`, `columnId`, `placeholder`) or select filters (`type: "select"`, `columnId`, `label`, `options`)              |
+`dataGridFeatures` registers column filtering, ordering, pinning, sizing, resizing and visibility, the global filter, pagination, row selection and sorting, with the filtered, sorted and paginated row models. A grid with `query` sets `manualFiltering`, `manualPagination` and `manualSorting`, so those row models only run for a grid with `data`.
 
-With `options.query` the table switches to manual pagination and sorting, shows skeleton rows and disables the previous and next buttons while a page loads, keeps the previous total for the row count and returns to the first page when the sorting changes.
+## Filter functions
 
-## Columns
+Each filter kind maps to one registered function in `DATA_GRID_FILTER_FNS`, which the grid gives every column that declares `meta.filter`:
 
-Columns live in an `<entity>-columns.tsx` file beside the page's widgets and use `createColumnHelper<DataTableFeatures, Row>()`. Cells and headers are small components that read their own translations, so the route passes no labels:
+| Kind          | Function         |
+| ------------- | ---------------- |
+| `text`        | `includesString` |
+| `select`      | `equalsString`   |
+| `multiSelect` | `arrHas`         |
+| `numberRange` | `numberInRange`  |
+| `dateRange`   | `dateInRange`    |
 
-```tsx
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+`numberInRange` and `dateInRange` are built with `constructFilterFn` for the `{ min?, max? }` and `{ from?, to? }` values the grid's editors write, and drop a range that has neither bound. The same shapes are `numberRangeField` and `dateRangeField` in `src/modules/_core/utils/zod-fields.ts`, which a module's Zod schema uses to read the grid's request.
 
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-])
-```
+## State
 
-The complete example is `src/presentation/components/custom/admin/users/user-columns.tsx`, rendered by `src/routes/admin.users.all.tsx`.
+The grid controls every slice it uses. Pagination, sorting, column filters, the search and the selection live in component state and go back to the first page and an empty selection when the search, a filter, the sorting or the page changes. Column visibility, order, pinning and sizing, with the density and the page size, come from `useDataGridPreferences` (`src/hooks/use-data-grid-preferences.ts`), which reads and writes them in `localStorage` through `useSyncExternalStore` and renders the defaults on the server.
 
-## Related guides
+## Related pages
 
-- [DataTable](/docs/ui/data-table)
-- [Add a DataTable](/docs/guides/add-a-data-table)
+- [Data grid](/docs/ui/data-grid)
+- [Add a data grid](/docs/guides/add-a-data-table)

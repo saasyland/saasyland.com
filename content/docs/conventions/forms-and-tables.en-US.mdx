@@ -1,6 +1,6 @@
 ---
 title: "Forms and tables"
-description: "Every form follows shadcn's TanStack Form guide with the module's Zod schema and shadcn fields; every table is the one generic DataTable with a columns file."
+description: "Every form follows shadcn's TanStack Form guide with the module's Zod schema and shadcn fields; every table is the one DataGrid with a columns file."
 ---
 
 Forms and tables are the two places where hand-rolled variants multiply fastest. There is one way to build each, taken from the vendors' own guides rather than invented here.
@@ -121,45 +121,57 @@ The smallest complete example is `src/presentation/components/custom/newsletter-
 
 ## Tables
 
-Every table is the generic `DataTable` from `src/presentation/components/custom/data-table.tsx`, used directly on the page:
+Every table is the `DataGrid` from `src/presentation/components/custom/data-grid.tsx`, used directly on the page:
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 Its props are the whole interface:
 
-| Prop      | Contains                                                                                    |
-| --------- | ------------------------------------------------------------------------------------------- |
-| `columns` | The column set from `<entity>-columns.tsx`                                                  |
-| `data`    | Rows already in memory, for a table that pages on the client                                |
-| `options` | `query` (page state to query options, for server-side paging), `selectable`, `initialState` |
-| `filters` | Search and select controls bound to column IDs                                              |
+| Prop          | Contains                                                                    |
+| ------------- | --------------------------------------------------------------------------- |
+| `columns`     | The column set from the `<entity>-columns.tsx` hook                         |
+| `id`          | The key of the layout the browser keeps, and the start of the CSV file name |
+| `label`       | The table's accessible name                                                 |
+| `data`        | Rows already in memory, for a grid that works on the client                 |
+| `query`       | The grid's request to query options, for a grid that works on the server    |
+| `search`      | The search box's label; without it there is no search                       |
+| `empty`       | What the grid says before any row exists                                    |
+| `selectable`  | Row selection with the selection bar                                        |
+| `bulkActions` | More buttons for the selected rows                                          |
 
-`DataTable` is modelled on [shadcn's React Aria data table](https://ui.shadcn.com/docs/components/aria/data-table): TanStack Table v9 `tableFeatures` and `useTable`, rendered with the shadcn table primitives. Paging, sorting, filtering, selection, loading rows and the pagination bar all live inside it. Do not write a per-page table, header, row or pagination component, and do not add an option no page uses yet.
+The search, the filters by column type, sorting, column visibility, pinning, order and widths, density, the page size, the saved layout, selection, CSV export, the skeleton and the empty states all live inside it ([Data grid](/docs/ui/data-grid)). Do not write a per-page table, header, row, toolbar or pagination component. The tables not moved yet still use the older `DataTable` (`custom/data-table.tsx`); they move to the grid one by one, and new tables start on the grid.
 
 ### Columns
 
-A column set lives in `custom/<area>/<entity>-columns.tsx` and is built with `createColumnHelper<DataTableFeatures, Row>()`, where the row type comes from the module interface (`Course["listRow"]`):
+A column set is a hook in `custom/<area>/<entity>-columns.tsx`, built with `createColumnHelper<DataGridFeatures, Row>()`, where the row type comes from the module interface (`Order["listRow"]`). It reads its translations and the data its filters offer and returns the columns memoised:
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- Each cell is a small component in the same file that reads its own translations (`KindCell`, `StatusCell`) and, for actions, its own mutations (`ActionsCell`).
-- Header labels come from a header component that reads the page namespace, never from strings in the column definition.
-- The actions column uses `DataTableActionsHeader`, which gives screen readers a column name.
-- Icon-only actions carry an `aria-label` that names the row: `t("actions.edit", { title })`.
+- `header` is the translated label as a string; the grid needs it as text for its menus, chips, announcements and the CSV.
+- `meta.filter` declares the filter kind and, for a choice, its options; `meta.hidden` and `meta.pinned` set the default layout; `meta.export` writes the CSV text.
+- Each cell is a small component in the same file that reads its own translations (`StatusCell`, `CountryCell`) and, for actions, its own mutations.
+- Starting widths live in one constant in `src/data` (`ORDER_COLUMN_SIZES`) that the columns and the route's skeleton both read.
 
 ## Related pages
 
 - [Forms and validation](/docs/guides/forms-and-validation)
-- [Add a data table](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [Add a data grid](/docs/guides/add-a-data-table)
+- [Data grid](/docs/ui/data-grid)

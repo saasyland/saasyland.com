@@ -1,0 +1,138 @@
+---
+title: "Grade de dados"
+description: "O componente de tabela: busca, filtros por tipo de coluna, ordenação, um layout que cada administrador pode reorganizar e manter, seleção, exportação em CSV e dados no cliente ou no servidor."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) é o componente de tabela. Ele monta uma instância do TanStack Table v9 a partir dos recursos de `src/integrations/tanstack-table/table.features.ts` e a renderiza com as primitivas de tabela do shadcn e controles do React Aria. Uma página entrega a ele as suas colunas e, ou as suas linhas, ou uma query; todo o resto, da barra de ferramentas à barra de paginação, fica dentro dele.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Finalidade                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`     | O conjunto de colunas do `<entity>-columns.tsx` da página. Toda linha precisa de um `id` do tipo string, usado como ID da linha |
+| `id`          | Dá nome à grade: a chave do seu layout salvo no navegador e o começo do nome do seu arquivo CSV                                 |
+| `label`       | O nome acessível da tabela, geralmente o título da página                                                                       |
+| `data`        | Linhas em memória, para uma grade que busca, filtra, ordena e pagina no cliente                                                 |
+| `query`       | Modo servidor: uma função da requisição da grade que retorna query options resolvidas em `{ rows, total }`                      |
+| `search`      | O rótulo e o placeholder da caixa de busca; sem ele, a grade não tem busca                                                      |
+| `empty`       | O que a grade diz enquanto não tem linhas e nenhuma busca ou filtro está definido                                               |
+| `selectable`  | Adiciona uma coluna de caixas de seleção e a barra de seleção                                                                   |
+| `bulkActions` | Uma função das linhas selecionadas que renderiza mais botões na barra de seleção                                                |
+
+## Colunas
+
+Um conjunto de colunas é um hook em `custom/<area>/<entity>-columns.tsx`, como `useOrderColumns`. Ele lê as suas traduções e os dados que os seus filtros oferecem e retorna as colunas memoizadas, de modo que cada rótulo é uma string simples que a grade pode usar nos seus menus, nos seus anúncios e no cabeçalho do CSV. Cada célula é um componente pequeno no mesmo arquivo, que lê as suas próprias traduções.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` é o que a grade lê de uma coluna:
+
+| Chave    | Efeito                                                                                                                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | O filtro da coluna: o seu `kind` e, para uma escolha, as `options` como `{ label, value }`                                                          |
+| `hidden` | Oculta até o administrador mostrá-la pelo menu Colunas                                                                                              |
+| `pinned` | Fixada no `start` ou no `end` até o administrador desafixá-la                                                                                       |
+| `export` | O texto que o CSV recebe para uma linha. Sem ele, o CSV pega strings e números como estão, datas como instantes ISO, e deixa todo o resto em branco |
+
+`size` é a largura inicial da coluna em pixels. Uma coluna é ordenável a menos que defina `enableSorting: false`; no modo servidor, só as colunas pelas quais o schema Zod do módulo consegue ordenar devem ser ordenáveis.
+
+## Filtros [#filters]
+
+Os tipos de filtro são <RepositoryFact name="dataGridFilterKinds" />. Cada um tem o seu próprio editor, aberto pelo botão Filtrar da barra de ferramentas ou pelo chip do filtro:
+
+| Tipo          | Editor                                                                                                      | Valor                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `text`        | Um campo de texto, aplicado quando a digitação pausa por <RepositoryFact name="dataGridTypingDelayMs" /> ms | O texto sem espaços nas pontas |
+| `select`      | Uma lista de opções; escolher de novo a opção escolhida a remove                                            | Um `value`                     |
+| `multiSelect` | Uma lista de opções, várias de uma vez; uma lista longa ganha um campo de busca                             | Um array de `value`            |
+| `numberRange` | Dois campos numéricos, no mínimo e no máximo, qualquer um deles vazio                                       | `{ min?, max? }`               |
+| `dateRange`   | Últimos 7 dias, últimos 30 dias, últimos 12 meses ou quaisquer dias em um calendário                        | `{ from?, to? }` em ms         |
+
+Os dias são convertidos em instantes no fuso horário do administrador, do início do primeiro dia ao último milissegundo do último, de modo que o servidor compara instantes simples. Cada filtro ativo aparece como um chip com um resumo curto, como no mínimo 40, Pago ou Reembolsado, ou 3 selecionadas; o seu × o remove e Remover filtros remove todos. Mudar a busca, um filtro ou a ordenação volta para a primeira página e limpa a seleção.
+
+## Modo servidor
+
+Com `query`, a grade pagina, ordena, busca e filtra no servidor. Ela chama `query` com:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` guarda o id de cada coluna filtrada com o seu valor. A rota valida a requisição com o schema Zod do módulo antes que ela chegue à server function, como `/admin/orders` faz com `orderZodSchemas.getOrders.parse(request)`. Até a primeira página chegar, a grade mostra linhas de esqueleto; enquanto uma página seguinte carrega, ela mantém as linhas anteriores esmaecidas, marca a tabela como ocupada e desativa a paginação. Erros da query chegam ao error boundary da rota.
+
+## Layout
+
+O administrador reorganiza a grade, e o navegador guarda isso sob o `id` da grade em `localStorage` (`src/hooks/use-data-grid-preferences.ts`): quais colunas aparecem, a ordem delas, quais estão fixadas, as larguras, a densidade das linhas e o tamanho da página. Busca, filtros, ordenação e seleção não são guardados. Restaurar layout traz de volta os padrões. Quando o navegador recusa o armazenamento, o layout dura só a visita.
+
+- **Menu Colunas.** Mostra e oculta cada coluna que pode ser ocultada.
+- **Menu da coluna.** O botão ⋮ de cada cabeçalho ordena de forma crescente ou decrescente, limpa a ordenação, fixa a coluna à esquerda ou à direita, desafixa, move a coluna uma posição para a esquerda ou para a direita dentro do seu lado e a oculta.
+- **Arrastar.** Um cabeçalho arrastado sobre outro cabeçalho do mesmo lado toma o lugar dele.
+- **Redimensionar.** A borda de um cabeçalho pode ser arrastada para redimensionar; ela também é um separador que as setas do teclado alargam ou estreitam, e um clique duplo restaura a largura inicial.
+- **Ordenação.** Pressionar um cabeçalho ordena por ele; com Shift, adiciona a coluna à ordenação, até <RepositoryFact name="dataGridMaxSortedColumns" /> colunas, numeradas no cabeçalho.
+- **Densidade.** Linhas espaçosas ou compactas.
+- **Tamanho da página.** <RepositoryFact name="dataGridPageSizes" /> linhas por página.
+
+A linha de cabeçalho continua visível enquanto as linhas rolam dentro da grade, e as colunas fixadas continuam visíveis enquanto a grade rola para os lados, que é como um celular mostra uma tabela larga.
+
+## Seleção e exportação
+
+Com `selectable`, uma caixa de seleção seleciona uma linha e a caixa do cabeçalho seleciona a página. Então uma barra flutua na parte de baixo da janela com a contagem, Exportar seleção, as `bulkActions` da página e Limpar seleção.
+
+Exportar CSV baixa todas as linhas que a busca e os filtros encontram, não só a página na tela: no servidor, ele pede páginas de <RepositoryFact name="dataGridExportPageSize" /> linhas até ter todas. O arquivo tem as colunas visíveis na ordem delas, começa com uma marca de ordem de bytes para que as planilhas o leiam como UTF-8 e coloca um `'` antes de qualquer célula que começaria uma fórmula. Quem o escreve é `src/lib/csv.ts`.
+
+## Acessibilidade
+
+- A tabela leva `label` como nome e `aria-rowcount`; cada linha, o seu `aria-rowindex`, contado ao longo das páginas.
+- Cabeçalhos ordenáveis são botões e levam `aria-sort`.
+- Todo controle funciona pelo teclado: os menus e as listas seguem as setas e a busca por digitação do React Aria, Escape os fecha, e o redimensionamento usa as setas no separador do cabeçalho.
+- Mover, fixar, ocultar, ordenar por um menu e restaurar o layout são anunciados em uma live region educada; a contagem de resultados e a contagem da seleção também são live.
+
+## Traduções
+
+Os textos próprios da grade ficam em `messages/<locale>/components.custom.data-grid.json`. Uma página entrega a ela só os rótulos das colunas, as opções dos filtros, o rótulo da busca e a mensagem de vazio.
+
+## DataTable
+
+O `DataTable` mais antigo (`src/presentation/components/custom/data-table.tsx`) ainda renderiza as tabelas que não passaram para a grade: usuários, clientes, cursos, produtos e categorias, vídeos e as tabelas do painel. Ele recebe `columns`, `data`, `empty`, `filters` (controles de busca e de seleção vinculados aos IDs das colunas) e `options` (`query`, `selectable`, `initialState`), e não tem nada do layout, dos filtros por tipo nem da exportação da grade. Cada uma dessas tabelas passa para `DataGrid` em uma mudança própria, e `DataTable` sai quando não restar nenhuma.
+
+## Testes
+
+`src/presentation/components/custom/__test__/` cobre a grade em memória (`data-grid.component.test.tsx`), os seus filtros (`data-grid-filter.component.test.tsx`), o seu layout (`data-grid-layout.component.test.tsx`) e o modo servidor (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` a usa em `/admin/orders` em um navegador.
+
+## Páginas relacionadas
+
+- [Formulários e tabelas](/docs/conventions/forms-and-tables)
+- [Adicionar uma grade de dados](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Pedidos e clientes](/docs/features/orders)

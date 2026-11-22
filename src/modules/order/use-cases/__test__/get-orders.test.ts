@@ -9,7 +9,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { TIME_RANGE } from "~/src/modules/_core/utils/time-series"
+import { orderRow } from "~/src/modules/order/__test__/fixtures/order"
 import {
   ADMIN_ID,
   BUYER_ID,
@@ -89,6 +89,12 @@ describe("get-orders", () => {
       REFUNDED_GUEST.id,
       PARTLY_REFUNDED_AGENCY.id,
     ])
+    await expect(idsOf({ sorting: [{ desc: true, id: "refundedAmount" }] })).resolves.toStrictEqual([
+      REFUNDED_GUEST.id,
+      PARTLY_REFUNDED_AGENCY.id,
+      PAID_CORE.id,
+      PENDING_CORE.id,
+    ])
     await expect(idsOf({ sorting: [{ desc: true, id: "status" }] })).resolves.toStrictEqual([
       REFUNDED_GUEST.id,
       PENDING_CORE.id,
@@ -104,26 +110,76 @@ describe("get-orders", () => {
   })
 
   it("searches the order, the Polar customer, the product and the account's name and email", async () => {
-    await expect(idsOf({ filters: { customer: "GRACE@" } })).resolves.toStrictEqual([PENDING_CORE.id])
-    await expect(idsOf({ filters: { customer: "ada buyer" } })).resolves.toStrictEqual([PAID_CORE.id, PARTLY_REFUNDED_AGENCY.id])
-    await expect(idsOf({ filters: { customer: "cus_guest" } })).resolves.toStrictEqual([REFUNDED_GUEST.id])
-    await expect(idsOf({ filters: { customer: "agency" } })).resolves.toStrictEqual([PARTLY_REFUNDED_AGENCY.id, REFUNDED_GUEST.id])
-    await expect(idsOf({ filters: { customer: "ord_pending" } })).resolves.toStrictEqual([PENDING_CORE.id])
-    await expect(idsOf({ filters: { customer: "100%" } })).resolves.toStrictEqual([])
-    await expect(idsOf({ filters: { customer: "   " } })).resolves.toHaveLength(ORDERS.length)
+    await expect(idsOf({ search: "GRACE@" })).resolves.toStrictEqual([PENDING_CORE.id])
+    await expect(idsOf({ search: "ada buyer" })).resolves.toStrictEqual([PAID_CORE.id, PARTLY_REFUNDED_AGENCY.id])
+    await expect(idsOf({ search: "cus_guest" })).resolves.toStrictEqual([REFUNDED_GUEST.id])
+    await expect(idsOf({ search: "agency" })).resolves.toStrictEqual([PARTLY_REFUNDED_AGENCY.id, REFUNDED_GUEST.id])
+    await expect(idsOf({ search: "ord_pending" })).resolves.toStrictEqual([PENDING_CORE.id])
+    await expect(idsOf({ search: "100%" })).resolves.toStrictEqual([])
+    await expect(idsOf({ search: "   " })).resolves.toHaveLength(ORDERS.length)
   })
 
-  it("filters by status, product and period, and counts only the matching orders", async () => {
-    await expect(idsOf({ filters: { status: POLAR_ORDER_STATUS.PENDING } })).resolves.toStrictEqual([PENDING_CORE.id])
-    await expect(idsOf({ filters: { product: CORE_PRODUCT_ID } })).resolves.toStrictEqual([PAID_CORE.id, PENDING_CORE.id])
-    await expect(idsOf({ filters: { placedAt: TIME_RANGE.LAST_7_DAYS } })).resolves.toStrictEqual([PAID_CORE.id, PENDING_CORE.id])
-    await expect(
-      idsOf({ filters: { placedAt: TIME_RANGE.LAST_12_MONTHS, product: CORE_PRODUCT_ID, status: POLAR_ORDER_STATUS.PAID } }),
-    ).resolves.toStrictEqual([PAID_CORE.id])
+  it("filters by the customer's name, email or Polar ID alone", async () => {
+    await expect(idsOf({ filters: { customer: "ada@" } })).resolves.toStrictEqual([PAID_CORE.id, PARTLY_REFUNDED_AGENCY.id])
+    await expect(idsOf({ filters: { customer: "cus_guest" } })).resolves.toStrictEqual([REFUNDED_GUEST.id])
+    await expect(idsOf({ filters: { customer: "agency" } })).resolves.toStrictEqual([])
+    await expect(idsOf({ filters: { customer: "" } })).resolves.toHaveLength(ORDERS.length)
+  })
 
-    const { total } = await executeQuery(getOrdersPageQuery({ filters: { placedAt: TIME_RANGE.LAST_12_MONTHS } }))
+  it("filters by any of several statuses, products and countries, and counts only the matching orders", async () => {
+    await expect(idsOf({ filters: { status: [POLAR_ORDER_STATUS.PENDING] } })).resolves.toStrictEqual([PENDING_CORE.id])
+    await expect(idsOf({ filters: { status: [POLAR_ORDER_STATUS.PENDING, POLAR_ORDER_STATUS.REFUNDED] } })).resolves.toStrictEqual([
+      PENDING_CORE.id,
+      REFUNDED_GUEST.id,
+    ])
+    await expect(idsOf({ filters: { product: [CORE_PRODUCT_ID] } })).resolves.toStrictEqual([PAID_CORE.id, PENDING_CORE.id])
+    await expect(idsOf({ filters: { country: ["DE", "fr"] } })).resolves.toStrictEqual([
+      PAID_CORE.id,
+      PARTLY_REFUNDED_AGENCY.id,
+      REFUNDED_GUEST.id,
+    ])
+    await expect(idsOf({ filters: { country: [], product: [], status: [] } })).resolves.toHaveLength(ORDERS.length)
 
-    expect(total).toBe(3)
+    const { total } = await executeQuery(getOrdersPageQuery({ filters: { product: [CORE_PRODUCT_ID], status: [POLAR_ORDER_STATUS.PAID] } }))
+
+    expect(total).toBe(1)
+  })
+})
+
+describe("get-orders ranges and choices", () => {
+  it("filters by the day range the order was placed in, open at either end", async () => {
+    const from = new Date("2026-10-01T00:00:00.000Z").getTime()
+    const to = new Date("2026-11-18T23:59:59.999Z").getTime()
+
+    await expect(idsOf({ filters: { placedAt: { from, to } } })).resolves.toStrictEqual([PENDING_CORE.id, PARTLY_REFUNDED_AGENCY.id])
+    await expect(idsOf({ filters: { placedAt: { from } } })).resolves.toStrictEqual([
+      PAID_CORE.id,
+      PENDING_CORE.id,
+      PARTLY_REFUNDED_AGENCY.id,
+    ])
+    await expect(idsOf({ filters: { placedAt: { to } } })).resolves.toStrictEqual([
+      PENDING_CORE.id,
+      PARTLY_REFUNDED_AGENCY.id,
+      REFUNDED_GUEST.id,
+    ])
+    await expect(idsOf({ filters: { placedAt: {} } })).resolves.toHaveLength(ORDERS.length)
+  })
+
+  it("filters by a total range in each order's own currency, the bounds included", async () => {
+    await expect(idsOf({ filters: { totalAmount: { max: 199, min: 199 } } })).resolves.toStrictEqual([PAID_CORE.id, PENDING_CORE.id])
+    await expect(idsOf({ filters: { totalAmount: { min: 500 } } })).resolves.toStrictEqual([PARTLY_REFUNDED_AGENCY.id])
+    await expect(idsOf({ filters: { totalAmount: { max: 499 } } })).resolves.toStrictEqual([
+      PAID_CORE.id,
+      PENDING_CORE.id,
+      REFUNDED_GUEST.id,
+    ])
+    await expect(idsOf({ filters: { totalAmount: {} } })).resolves.toHaveLength(ORDERS.length)
+  })
+
+  it("compares a total in a currency without minor units as whole units", async () => {
+    await db.insert(order).values(orderRow({ currency: "jpy", id: "ord_yen", placedAt: NOW, totalAmount: 30_000 }))
+
+    await expect(idsOf({ filters: { totalAmount: { max: 30_000, min: 30_000 } } })).resolves.toStrictEqual(["ord_yen"])
   })
 
   it("filters by whether a discount applied, by one discount and by the billing country", async () => {
@@ -133,17 +189,16 @@ describe("get-orders", () => {
       PARTLY_REFUNDED_AGENCY.id,
     ])
     await expect(idsOf({ filters: { discount: PARTNER_DISCOUNT.id } })).resolves.toStrictEqual([REFUNDED_GUEST.id])
-    await expect(idsOf({ filters: { country: "DE" } })).resolves.toStrictEqual([PAID_CORE.id, REFUNDED_GUEST.id])
-    await expect(idsOf({ filters: { country: "fr" } })).resolves.toStrictEqual([PARTLY_REFUNDED_AGENCY.id])
     await expect(
-      idsOf({ filters: { country: "DE", discount: ORDER_DISCOUNT_FILTER.ANY, status: POLAR_ORDER_STATUS.PAID } }),
+      idsOf({ filters: { country: ["DE"], discount: ORDER_DISCOUNT_FILTER.ANY, status: [POLAR_ORDER_STATUS.PAID] } }),
     ).resolves.toStrictEqual([PAID_CORE.id])
   })
 
-  it("refuses a status, period or sort column it does not know", () => {
-    expect(() => getOrdersPageQuery({ filters: { country: "XX" } })).toThrow()
-    expect(() => getOrdersPageQuery({ filters: { status: "lost" } })).toThrow()
-    expect(() => getOrdersPageQuery({ filters: { placedAt: "1d" } })).toThrow()
+  it("refuses a status, country, range or sort column it does not know", () => {
+    expect(() => getOrdersPageQuery({ filters: { country: ["XX"] } })).toThrow()
+    expect(() => getOrdersPageQuery({ filters: { status: ["lost"] } })).toThrow()
+    expect(() => getOrdersPageQuery({ filters: { placedAt: { from: 0.5 } } })).toThrow()
+    expect(() => getOrdersPageQuery({ filters: { totalAmount: { min: Number.POSITIVE_INFINITY } } })).toThrow()
     expect(() => getOrdersPageQuery({ sorting: [{ desc: false, id: "customer" }] })).toThrow()
   })
 

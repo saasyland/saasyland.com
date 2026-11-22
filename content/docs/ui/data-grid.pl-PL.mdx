@@ -1,0 +1,138 @@
+---
+title: "Siatka danych"
+description: "Komponent tabeli: wyszukiwanie, filtry według typu kolumny, sortowanie, układ, który każdy administrator może zmienić i zachować, zaznaczanie, eksport CSV oraz dane po stronie klienta lub serwera."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) to komponent tabeli. Buduje instancję TanStack Table v9 z funkcji w `src/integrations/tanstack-table/table.features.ts` i renderuje ją prymitywami tabeli shadcn oraz kontrolkami React Aria. Strona przekazuje mu swoje kolumny oraz albo swoje wiersze, albo zapytanie; cała reszta, od paska narzędzi po pasek paginacji, znajduje się w nim.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Propsy
+
+| Prop          | Przeznaczenie                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `columns`     | Zestaw kolumn z `<entity>-columns.tsx` strony. Każdy wiersz potrzebuje tekstowego `id`, używanego jako ID wiersza |
+| `id`          | Nazywa siatkę: klucz jej zapisanego układu w przeglądarce i początek nazwy jej pliku CSV                          |
+| `label`       | Dostępna nazwa tabeli, zwykle tytuł strony                                                                        |
+| `data`        | Wiersze w pamięci, dla siatki, która wyszukuje, filtruje, sortuje i stronicuje po stronie klienta                 |
+| `query`       | Tryb serwerowy: funkcja żądania siatki, która zwraca opcje zapytania rozwiązywane do `{ rows, total }`            |
+| `search`      | Etykieta i placeholder pola wyszukiwania; bez niego siatka nie ma wyszukiwania                                    |
+| `empty`       | Co mówi siatka, dopóki nie ma wierszy i nie ustawiono wyszukiwania ani filtra                                     |
+| `selectable`  | Dodaje kolumnę pól wyboru i pasek zaznaczenia                                                                     |
+| `bulkActions` | Funkcja zaznaczonych wierszy, która renderuje dodatkowe przyciski na pasku zaznaczenia                            |
+
+## Kolumny
+
+Zestaw kolumn to hook w `custom/<area>/<entity>-columns.tsx`, na przykład `useOrderColumns`. Odczytuje swoje tłumaczenia i dane, które oferują jego filtry, i zwraca zmemoizowane kolumny, dzięki czemu każda etykieta jest zwykłym tekstem, którego siatka może użyć w swoich menu, komunikatach dla czytników ekranu i nagłówku CSV. Każda komórka to mały komponent w tym samym pliku, który sam odczytuje swoje tłumaczenia.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` to to, co siatka odczytuje z kolumny:
+
+| Klucz    | Działanie                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | Filtr kolumny: jego `kind`, a dla wyboru `options` w postaci `{ label, value }`                                                             |
+| `hidden` | Ukryta, dopóki administrator nie pokaże jej z menu Kolumny                                                                                  |
+| `pinned` | Przypięta do `start` albo do `end`, dopóki administrator jej nie odepnie                                                                    |
+| `export` | Tekst, który CSV dostaje dla wiersza. Bez niego CSV bierze teksty i liczby bez zmian, daty jako momenty ISO, a wszystko inne zostawia puste |
+
+`size` to początkowa szerokość kolumny w pikselach. Kolumnę można sortować, chyba że ustawia `enableSorting: false`; w trybie serwerowym sortować powinny się tylko kolumny, po których może sortować schemat Zod modułu.
+
+## Filtry [#filters]
+
+Rodzaje filtrów to <RepositoryFact name="dataGridFilterKinds" />. Każdy ma własny edytor, otwierany przyciskiem Filtruj na pasku narzędzi albo z chipa filtra:
+
+| Rodzaj        | Edytor                                                                                              | Wartość                     |
+| ------------- | --------------------------------------------------------------------------------------------------- | --------------------------- |
+| `text`        | Pole tekstowe, stosowane, gdy pisanie ustanie na <RepositoryFact name="dataGridTypingDelayMs" /> ms | Tekst bez spacji na końcach |
+| `select`      | Lista opcji; ponowny wybór wybranej opcji ją czyści                                                 | Jedna `value`               |
+| `multiSelect` | Lista opcji, kilka naraz; długa lista dostaje pole wyszukiwania                                     | Tablica `value`             |
+| `numberRange` | Dwa pola liczbowe, co najmniej i co najwyżej, każde może zostać puste                               | `{ min?, max? }`            |
+| `dateRange`   | Ostatnie 7 dni, ostatnie 30 dni, ostatnie 12 miesięcy albo dowolne dni w kalendarzu                 | `{ from?, to? }` w ms       |
+
+Dni są zamieniane na momenty w strefie czasowej administratora, od początku pierwszego dnia do ostatniej milisekundy ostatniego, więc serwer porównuje zwykłe momenty. Każdy aktywny filtr widać jako chip z krótkim podsumowaniem, na przykład co najmniej 40, Opłacone lub Zwrócone albo wybrano: 3; jego × go usuwa, a Usuń filtry usuwa wszystkie. Zmiana wyszukiwania, filtra lub sortowania wraca do pierwszej strony i czyści zaznaczenie.
+
+## Tryb serwerowy
+
+Z `query` siatka stronicuje, sortuje, wyszukuje i filtruje na serwerze. Wywołuje `query` z:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` zawiera id każdej filtrowanej kolumny z jej wartością. Trasa sprawdza żądanie schematem Zod modułu, zanim dotrze ono do funkcji serwerowej, tak jak `/admin/orders` robi to przez `orderZodSchemas.getOrders.parse(request)`. Dopóki nie dotrze pierwsza strona, siatka pokazuje szkielety wierszy; gdy ładuje się kolejna strona, zostawia poprzednie wiersze przygaszone, oznacza tabelę jako zajętą i wyłącza przechodzenie między stronami. Błędy zapytania trafiają do error boundary trasy.
+
+## Układ
+
+Administrator zmienia układ siatki, a przeglądarka zapisuje go pod `id` siatki w `localStorage` (`src/hooks/use-data-grid-preferences.ts`): które kolumny są widoczne, ich kolejność, które są przypięte, ich szerokości, gęstość wierszy i rozmiar strony. Wyszukiwanie, filtry, sortowanie i zaznaczenie nie są zapisywane. Przywróć układ przywraca wartości domyślne. Gdy przeglądarka odmawia dostępu do pamięci, układ trwa tylko do końca wizyty.
+
+- **Menu Kolumny.** Pokazuje i ukrywa każdą kolumnę, którą można ukryć.
+- **Menu kolumny.** Przycisk ⋮ każdego nagłówka sortuje rosnąco lub malejąco, czyści sortowanie, przypina kolumnę do lewej lub prawej, odpina ją, przesuwa ją o jedno miejsce w lewo lub w prawo w obrębie jej strony i ją ukrywa.
+- **Przeciąganie.** Nagłówek przeciągnięty na inny nagłówek po tej samej stronie zajmuje jego miejsce.
+- **Zmiana szerokości.** Krawędź nagłówka można przeciągnąć, aby zmienić szerokość; jest to też separator, który klawisze strzałek poszerzają lub zwężają, a dwuklik przywraca początkową szerokość.
+- **Sortowanie.** Naciśnięcie nagłówka sortuje według niego; z Shiftem dodaje kolumnę do sortowania, maksymalnie <RepositoryFact name="dataGridMaxSortedColumns" /> kolumn, ponumerowanych w nagłówku.
+- **Gęstość.** Przestronne lub zwarte wiersze.
+- **Rozmiar strony.** <RepositoryFact name="dataGridPageSizes" /> wierszy na stronę.
+
+Wiersz nagłówka pozostaje widoczny, gdy wiersze przewijają się wewnątrz siatki, a przypięte kolumny pozostają widoczne, gdy siatka przewija się w poziomie; tak telefon pokazuje szeroką tabelę.
+
+## Zaznaczanie i eksport
+
+Z `selectable` pole wyboru zaznacza wiersz, a pole wyboru w nagłówku zaznacza stronę. Wtedy u dołu okna pojawia się pływający pasek z liczbą, Eksportuj zaznaczone, `bulkActions` strony i Wyczyść zaznaczenie.
+
+Eksportuj CSV pobiera każdy wiersz, który znajdują wyszukiwanie i filtry, nie tylko stronę na ekranie: na serwerze prosi o strony po <RepositoryFact name="dataGridExportPageSize" /> wierszy, aż ma je wszystkie. Plik zawiera widoczne kolumny w ich kolejności, zaczyna się od znacznika kolejności bajtów, żeby arkusze kalkulacyjne czytały go jako UTF-8, i wstawia `'` przed każdą komórką, która zaczynałaby formułę. Zapisuje go `src/lib/csv.ts`.
+
+## Dostępność
+
+- Tabela ma `label` jako nazwę oraz `aria-rowcount`; każdy wiersz ma swój `aria-rowindex`, liczony przez wszystkie strony.
+- Sortowalne nagłówki są przyciskami i mają `aria-sort`.
+- Każda kontrolka działa z klawiatury: menu i listy obsługują strzałki i wyszukiwanie przez pisanie z React Aria, Escape je zamyka, a zmiana szerokości używa strzałek na separatorze nagłówka.
+- Przesuwanie, przypinanie, ukrywanie, sortowanie z menu i przywracanie układu są ogłaszane w uprzejmym regionie live; liczba wyników i liczba zaznaczonych wierszy też są ogłaszane na bieżąco.
+
+## Tłumaczenia
+
+Własne teksty siatki są w `messages/<locale>/components.custom.data-grid.json`. Strona przekazuje jej tylko etykiety kolumn, opcje filtrów, etykietę wyszukiwania i komunikat o braku danych.
+
+## DataTable
+
+Starszy `DataTable` (`src/presentation/components/custom/data-table.tsx`) nadal renderuje tabele, których jeszcze nie przeniesiono do siatki: użytkowników, klientów, kursy, produkty i kategorie, filmy oraz tabele pulpitu. Przyjmuje `columns`, `data`, `empty`, `filters` (kontrolki wyszukiwania i wyboru powiązane z ID kolumn) i `options` (`query`, `selectable`, `initialState`) i nie ma nic z układu, filtrów według typu ani eksportu siatki. Każda z tych tabel przechodzi na `DataGrid` we własnej zmianie, a `DataTable` zniknie, gdy nie zostanie żadna.
+
+## Testy
+
+`src/presentation/components/custom/__test__/` obejmuje siatkę w pamięci (`data-grid.component.test.tsx`), jej filtry (`data-grid-filter.component.test.tsx`), jej układ (`data-grid-layout.component.test.tsx`) i tryb serwerowy (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` używa jej na `/admin/orders` w przeglądarce.
+
+## Powiązane strony
+
+- [Formularze i tabele](/docs/conventions/forms-and-tables)
+- [Dodawanie siatki danych](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Zamówienia i klienci](/docs/features/orders)

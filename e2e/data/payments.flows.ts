@@ -26,7 +26,7 @@ export const PAYMENTS_FLOWS = [
     area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-orders-list",
     outcome:
-      "/admin/orders lists the orders copied from Polar, searched by customer and filtered by status and product on the server, and opens an order with Polar's live payment, discount, billing country and invoice",
+      "/admin/orders lists the orders copied from Polar, searched by order, customer or product and filtered by status and product on the server, and opens an order with Polar's live payment, discount, billing country and invoice",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
@@ -47,6 +47,46 @@ export const PAYMENTS_FLOWS = [
         title: "the admin filters the buyer's orders by discount and billing country, and sees both in the list",
       },
     ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-total-days-sort",
+    outcome:
+      "/admin/orders filters the orders by a range of totals and by the days they were placed, and sorts them by their total, all on the server",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-orders.spec.ts",
+        title: "the admin narrows the buyer's orders by total and day and sorts them by total on the server",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-layout",
+    outcome:
+      "/admin/orders hides, shows, pins and moves its columns, keeps that layout in the browser after a reload and puts the defaults back on reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-orders.spec.ts",
+        title: "the admin hides, shows, pins and moves columns, keeps the layout after a reload and resets it",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-export",
+    outcome: "/admin/orders downloads every order the search and filters find, across pages, as a CSV of the visible columns",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-orders.spec.ts", title: "the admin exports the orders the search finds to a CSV with the visible columns" }],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-keyboard",
+    outcome: "/admin/orders filters the orders, hides a column, resizes one and selects a row with the keyboard alone",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-orders.spec.ts", title: "the admin filters, hides a column, resizes one and selects a row from the keyboard" }],
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,

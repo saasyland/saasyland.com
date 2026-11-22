@@ -1,6 +1,6 @@
 ---
 title: "Formularios y tablas"
-description: "Todos los formularios siguen la guía de TanStack Form de shadcn con el esquema Zod del módulo y los campos de shadcn; todas las tablas son el único DataTable genérico con un archivo de columnas."
+description: "Todos los formularios siguen la guía de TanStack Form de shadcn con el esquema Zod del módulo y los campos de shadcn; todas las tablas son el único DataGrid con un archivo de columnas."
 ---
 
 Los formularios y las tablas son los dos lugares donde más rápido se multiplican las variantes hechas a mano. Hay una sola forma de construir cada uno, tomada de las guías de los propios proveedores en lugar de inventada aquí.
@@ -121,45 +121,57 @@ El ejemplo completo más pequeño es `src/presentation/components/custom/newslet
 
 ## Tablas
 
-Todas las tablas son el `DataTable` genérico de `src/presentation/components/custom/data-table.tsx`, usado directamente en la página:
+Todas las tablas son el `DataGrid` de `src/presentation/components/custom/data-grid.tsx`, usado directamente en la página:
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 Sus props son toda su interfaz:
 
-| Prop      | Contiene                                                                                                                |
-| --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `columns` | El conjunto de columnas de `<entity>-columns.tsx`                                                                       |
-| `data`    | Filas que ya están en memoria, para una tabla que pagina en el cliente                                                  |
-| `options` | `query` (del estado de la página a las opciones de consulta, para paginar en el servidor), `selectable`, `initialState` |
-| `filters` | Controles de búsqueda y de selección vinculados a los ID de columna                                                     |
+| Prop          | Contiene                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `columns`     | El conjunto de columnas del hook de `<entity>-columns.tsx`                                              |
+| `id`          | La clave del diseño que guarda el navegador y el comienzo del nombre del archivo CSV                    |
+| `label`       | El nombre accesible de la tabla                                                                         |
+| `data`        | Filas que ya están en memoria, para una cuadrícula que trabaja en el cliente                            |
+| `query`       | De la petición de la cuadrícula a las opciones de query, para una cuadrícula que trabaja en el servidor |
+| `search`      | La etiqueta del cuadro de búsqueda; sin ella no hay búsqueda                                            |
+| `empty`       | Lo que dice la cuadrícula antes de que exista ninguna fila                                              |
+| `selectable`  | Selección de filas con la barra de selección                                                            |
+| `bulkActions` | Más botones para las filas seleccionadas                                                                |
 
-`DataTable` sigue el modelo de la [tabla de datos de React Aria de shadcn](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` y `useTable` de TanStack Table v9, renderizados con las primitivas de tabla de shadcn. La paginación, la ordenación, el filtrado, la selección, las filas de carga y la barra de paginación viven dentro de él. No escribas un componente de tabla, cabecera, fila o paginación para cada página, ni añadas una opción que todavía no use ninguna página.
+La búsqueda, los filtros por tipo de columna, la ordenación, la visibilidad, la fijación, el orden y el ancho de las columnas, la densidad, el tamaño de página, el diseño guardado, la selección, la exportación a CSV, el esqueleto y los estados vacíos viven dentro de él ([Cuadrícula de datos](/docs/ui/data-grid)). No escribas un componente de tabla, cabecera, fila, barra de herramientas o paginación por página. Las tablas que aún no han pasado siguen usando el `DataTable` anterior (`custom/data-table.tsx`); pasan a la cuadrícula una a una, y las tablas nuevas empiezan en la cuadrícula.
 
 ### Columnas
 
-Un conjunto de columnas vive en `custom/<area>/<entity>-columns.tsx` y se construye con `createColumnHelper<DataTableFeatures, Row>()`, donde el tipo de fila viene de la interfaz del módulo (`Course["listRow"]`):
+Un conjunto de columnas es un hook en `custom/<area>/<entity>-columns.tsx`, construido con `createColumnHelper<DataGridFeatures, Row>()`, donde el tipo de fila viene de la interfaz del módulo (`Order["listRow"]`). Lee sus traducciones y los datos que ofrecen sus filtros, y devuelve las columnas memorizadas:
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- Cada celda es un pequeño componente del mismo archivo que lee sus propias traducciones (`KindCell`, `StatusCell`) y, en el caso de las acciones, sus propias mutaciones (`ActionsCell`).
-- Las etiquetas de las cabeceras vienen de un componente de cabecera que lee el espacio de nombres de la página, nunca de cadenas en la definición de la columna.
-- La columna de acciones usa `DataTableActionsHeader`, que da a los lectores de pantalla un nombre de columna.
-- Las acciones que solo tienen un icono llevan un `aria-label` que nombra la fila: `t("actions.edit", { title })`.
+- `header` es la etiqueta traducida como cadena; la cuadrícula la necesita como texto para sus menús, sus chips, sus anuncios y el CSV.
+- `meta.filter` declara el tipo de filtro y, para una elección, sus opciones; `meta.hidden` y `meta.pinned` fijan el diseño por defecto; `meta.export` escribe el texto del CSV.
+- Cada celda es un pequeño componente del mismo archivo que lee sus propias traducciones (`StatusCell`, `CountryCell`) y, en el caso de las acciones, sus propias mutaciones.
+- Los anchos iniciales viven en una constante en `src/data` (`ORDER_COLUMN_SIZES`) que leen tanto las columnas como el esqueleto de la ruta.
 
 ## Páginas relacionadas
 
 - [Formularios y validación](/docs/guides/forms-and-validation)
-- [Añadir una tabla de datos](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [Añadir una cuadrícula de datos](/docs/guides/add-a-data-table)
+- [Cuadrícula de datos](/docs/ui/data-grid)

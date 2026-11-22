@@ -1,0 +1,138 @@
+---
+title: "Datenraster"
+description: "Die Tabellenkomponente: Suche, Filter nach Spaltentyp, Sortierung, ein Layout, das jeder Admin umstellen und behalten kann, Auswahl, CSV-Export sowie Client- oder Serverdaten."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) ist die Tabellenkomponente. Es baut eine TanStack-Table-v9-Instanz aus den Features in `src/integrations/tanstack-table/table.features.ts` und rendert sie mit den shadcn-Tabellenprimitiven und React-Aria-Steuerelementen. Eine Seite übergibt ihm ihre Spalten und entweder ihre Zeilen oder eine Query; alles andere, von der Werkzeugleiste bis zur Paginierungsleiste, steckt darin.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Zweck                                                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `columns`     | Der Spaltensatz aus der `<entity>-columns.tsx` der Seite. Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient |
+| `id`          | Benennt das Raster: der Schlüssel seines gespeicherten Layouts im Browser und der Anfang seines CSV-Dateinamens        |
+| `label`       | Der zugängliche Name der Tabelle, meist der Seitentitel                                                                |
+| `data`        | Zeilen im Arbeitsspeicher, für ein Raster, das auf dem Client sucht, filtert, sortiert und paginiert                   |
+| `query`       | Servermodus: eine Funktion der Anfrage des Rasters, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen   |
+| `search`      | Beschriftung und Platzhalter des Suchfelds; ohne sie hat das Raster keine Suche                                        |
+| `empty`       | Was das Raster sagt, solange es keine Zeilen hat und weder Suche noch Filter gesetzt sind                              |
+| `selectable`  | Fügt eine Checkbox-Spalte und die Auswahlleiste hinzu                                                                  |
+| `bulkActions` | Eine Funktion der ausgewählten Zeilen, die weitere Schaltflächen in der Auswahlleiste rendert                          |
+
+## Spalten
+
+Ein Spaltensatz ist ein Hook in `custom/<area>/<entity>-columns.tsx`, etwa `useOrderColumns`. Er liest seine Übersetzungen und die Daten, die seine Filter anbieten, und gibt die Spalten memoisiert zurück, sodass jede Beschriftung ein einfacher String ist, den das Raster in seinen Menüs, seinen Ansagen und der CSV-Kopfzeile verwenden kann. Jede Zelle ist eine kleine Komponente in derselben Datei, die ihre eigenen Übersetzungen liest.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` ist das, was das Raster aus einer Spalte liest:
+
+| Schlüssel | Wirkung                                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `filter`  | Der Filter der Spalte: seine `kind` und bei einer Auswahl die `options` als `{ label, value }`                                                                     |
+| `hidden`  | Ausgeblendet, bis der Admin sie im Menü Spalten einblendet                                                                                                         |
+| `pinned`  | Am `start` oder am `end` angeheftet, bis der Admin sie löst                                                                                                        |
+| `export`  | Der Text, den die CSV für eine Zeile erhält. Ohne ihn übernimmt die CSV Strings und Zahlen unverändert, Datumswerte als ISO-Zeitpunkte und lässt alles andere leer |
+
+`size` ist die Anfangsbreite der Spalte in Pixeln. Eine Spalte ist sortierbar, sofern sie nicht `enableSorting: false` setzt; im Servermodus sollten nur die Spalten sortierbar sein, nach denen das Zod-Schema des Moduls sortieren kann.
+
+## Filter [#filters]
+
+Die Filterarten sind <RepositoryFact name="dataGridFilterKinds" />. Jede hat einen eigenen Editor, der sich über die Schaltfläche Filtern in der Werkzeugleiste oder über den Chip des Filters öffnet:
+
+| Art           | Editor                                                                                                       | Wert                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `text`        | Ein Textfeld, angewendet, sobald das Tippen <RepositoryFact name="dataGridTypingDelayMs" /> ms lang pausiert | Der getrimmte Text     |
+| `select`      | Eine Liste von Optionen; die gewählte noch einmal zu wählen, hebt sie auf                                    | Ein `value`            |
+| `multiSelect` | Eine Liste von Optionen, mehrere auf einmal; eine lange Liste erhält ein Suchfeld                            | Ein Array von `value`s |
+| `numberRange` | Zwei Zahlenfelder, Mindestens und Höchstens, jedes darf leer bleiben                                         | `{ min?, max? }`       |
+| `dateRange`   | Letzte 7 Tage, Letzte 30 Tage, Letzte 12 Monate oder beliebige Tage in einem Kalender                        | `{ from?, to? }` in ms |
+
+Tage werden in der Zeitzone des Admins in Zeitpunkte umgewandelt, vom Beginn des ersten Tages bis zur letzten Millisekunde des letzten, sodass der Server einfache Zeitpunkte vergleicht. Jeder aktive Filter erscheint als Chip mit einer kurzen Zusammenfassung, etwa mindestens 40, Bezahlt oder Erstattet, oder 3 ausgewählt; sein × entfernt ihn, und Filter entfernen entfernt alle. Eine Änderung der Suche, eines Filters oder der Sortierung springt zurück auf die erste Seite und hebt die Auswahl auf.
+
+## Servermodus
+
+Mit `query` paginiert, sortiert, sucht und filtert das Raster auf dem Server. Es ruft `query` auf mit:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` enthält die ID jeder gefilterten Spalte mit ihrem Wert. Die Route validiert die Anfrage mit dem Zod-Schema des Moduls, bevor sie die Serverfunktion erreicht, wie es `/admin/orders` mit `orderZodSchemas.getOrders.parse(request)` tut. Bis die erste Seite ankommt, zeigt das Raster Skeleton-Zeilen; während eine spätere Seite lädt, behält es die bisherigen Zeilen abgeblendet, markiert die Tabelle als beschäftigt und deaktiviert das Blättern. Query-Fehler gelangen bis zur Error Boundary der Route.
+
+## Layout
+
+Der Admin stellt das Raster um, und der Browser speichert es unter der `id` des Rasters in `localStorage` (`src/hooks/use-data-grid-preferences.ts`): welche Spalten sichtbar sind, ihre Reihenfolge, welche angeheftet sind, ihre Breiten, die Zeilendichte und die Seitengröße. Suche, Filter, Sortierung und Auswahl werden nicht gespeichert. Layout zurücksetzen stellt die Standardwerte wieder her. Verweigert der Browser den Speicher, bleibt das Layout nur für den Besuch erhalten.
+
+- **Menü Spalten.** Blendet jede Spalte ein und aus, die sich ausblenden lässt.
+- **Spaltenmenü.** Die Schaltfläche ⋮ jeder Kopfzeile sortiert aufsteigend oder absteigend, hebt die Sortierung auf, heftet die Spalte links oder rechts an, löst sie, verschiebt sie innerhalb ihrer Seite um eine Stelle nach links oder rechts und blendet sie aus.
+- **Ziehen.** Eine Kopfzeile, die auf eine andere Kopfzeile derselben Seite gezogen wird, nimmt deren Platz ein.
+- **Größe ändern.** Der Rand einer Kopfzeile lässt sich ziehen, um die Breite zu ändern; er ist auch ein Trenner, den die Pfeiltasten verbreitern oder verschmälern, und ein Doppelklick stellt die Anfangsbreite wieder her.
+- **Sortierung.** Ein Klick auf eine Kopfzeile sortiert nach ihr; mit Umschalt fügt er die Spalte der Sortierung hinzu, bis zu <RepositoryFact name="dataGridMaxSortedColumns" /> Spalten, nummeriert in der Kopfzeile.
+- **Dichte.** Geräumige oder kompakte Zeilen.
+- **Seitengröße.** <RepositoryFact name="dataGridPageSizes" /> Zeilen pro Seite.
+
+Die Kopfzeile bleibt sichtbar, während die Zeilen innerhalb des Rasters scrollen, und angeheftete Spalten bleiben sichtbar, während das Raster seitwärts scrollt; so zeigt ein Smartphone eine breite Tabelle.
+
+## Auswahl und Export
+
+Mit `selectable` wählt eine Checkbox eine Zeile aus, und die Checkbox der Kopfzeile wählt die Seite aus. Dann schwebt eine Leiste am unteren Fensterrand mit der Anzahl, Auswahl exportieren, den `bulkActions` der Seite und Auswahl aufheben.
+
+CSV exportieren lädt jede Zeile herunter, die Suche und Filter finden, nicht nur die Seite auf dem Bildschirm: Auf dem Server fragt es Seiten zu <RepositoryFact name="dataGridExportPageSize" /> Zeilen ab, bis es alle hat. Die Datei enthält die sichtbaren Spalten in ihrer Reihenfolge, beginnt mit einer Byte Order Mark, damit Tabellenkalkulationen sie als UTF-8 lesen, und setzt ein `'` vor jede Zelle, die mit einer Formel beginnen würde. `src/lib/csv.ts` schreibt sie.
+
+## Barrierefreiheit
+
+- Die Tabelle trägt `label` als Namen und `aria-rowcount`, jede Zeile ihren `aria-rowindex`, über die Seiten hinweg gezählt.
+- Sortierbare Kopfzeilen sind Schaltflächen und tragen `aria-sort`.
+- Jedes Steuerelement funktioniert mit der Tastatur: Die Menüs und Listen folgen den Pfeiltasten und der Tippsuche von React Aria, Escape schließt sie, und die Größe ändert sich mit den Pfeiltasten am Trenner der Kopfzeile.
+- Verschieben, Anheften, Ausblenden, Sortieren über ein Menü und das Zurücksetzen des Layouts werden in einer höflichen Live-Region angesagt; die Ergebnisanzahl und die Auswahlanzahl sind ebenfalls live.
+
+## Übersetzungen
+
+Die eigenen Texte des Rasters stehen in `messages/<locale>/components.custom.data-grid.json`. Eine Seite übergibt ihm nur die Spaltenbeschriftungen, die Filteroptionen, die Beschriftung der Suche und die Leermeldung.
+
+## DataTable
+
+Die ältere `DataTable` (`src/presentation/components/custom/data-table.tsx`) rendert noch die Tabellen, die noch nicht auf das Raster umgezogen sind: Benutzer, Kunden, Kurse, Produkte und Kategorien, Videos und die Tabellen des Dashboards. Sie nimmt `columns`, `data`, `empty`, `filters` (Such- und Auswahlsteuerelemente, die an Spalten-IDs gebunden sind) und `options` (`query`, `selectable`, `initialState`) und hat nichts von Layout, Filtern nach Typ oder Export des Rasters. Jede dieser Tabellen zieht in einer eigenen Änderung auf `DataGrid` um, und `DataTable` entfällt, sobald keine mehr übrig ist.
+
+## Tests
+
+`src/presentation/components/custom/__test__/` deckt das Raster im Arbeitsspeicher (`data-grid.component.test.tsx`), seine Filter (`data-grid-filter.component.test.tsx`), sein Layout (`data-grid-layout.component.test.tsx`) und den Servermodus (`data-grid-query.component.test.tsx`) ab. `e2e/specs/admin-orders.spec.ts` verwendet es auf `/admin/orders` in einem Browser.
+
+## Verwandte Seiten
+
+- [Formulare und Tabellen](/docs/conventions/forms-and-tables)
+- [Datenraster hinzufügen](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Bestellungen und Kunden](/docs/features/orders)

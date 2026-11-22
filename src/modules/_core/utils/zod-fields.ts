@@ -21,3 +21,7 @@ export const slugField = zod
   .string()
   .max(SLUG_MAX_LENGTH, { message: "slugTooLong" })
   .regex(/^[\da-z]+(?:-[\da-z]+)*$/u, { message: "slugInvalid" })
+
+export const numberRangeField = zod.object({ max: zod.number().optional(), min: zod.number().optional() })
+
+export const dateRangeField = zod.object({ from: zod.int().optional(), to: zod.int().optional() })

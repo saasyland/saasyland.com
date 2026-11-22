@@ -1,43 +1,38 @@
 ---
 title: "TanStack Table"
-description: "1 つの汎用 DataTable の裏で動く TanStack Table v9 です。"
+description: "唯一の DataGrid の裏で動く TanStack Table v9 です。登録する機能、絞り込み関数、グリッドが読み取るカラムの meta を説明します。"
 ---
 
-すべてのテーブルは、`src/presentation/components/custom/data-table.tsx` にある 1 つの汎用 `DataTable` で描画されます。`DataTable` は `tableFeatures`（カラムフィルタリング、ソート、ページネーション、行選択）と `useTable` で TanStack Table v9 のインスタンスを作成し、shadcn のテーブルプリミティブ、読み込み中のスケルトン行、ローカライズされた空状態を描画します。
+新しいテーブルはすべて、`src/presentation/components/custom/data-grid.tsx` の `DataGrid` で描画されます（[データグリッド](/docs/ui/data-grid)）。その土台となる TanStack Table v9 の設定は `src/integrations/tanstack-table/` にあります。
 
-```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
-```
+| ファイル            | 内容                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `table.features.ts` | `tableFeatures` のレジストリである `dataGridFeatures`、絞り込みの種類とその絞り込み関数、密度と固定の値、グリッドが読み取る `ColumnMeta` |
+| `table.columns.ts`  | カラムのヘルパー。`meta` からの既定の表示状態と固定、カラムのラベル、固定したカラムの sticky オフセット、並べ替え、CSV の値              |
 
-## プロパティ
+## 機能
 
-| プロパティ             | 目的                                                                                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | 行の型に対応するカラム定義。すべての行に `id` が必要です                                                                                    |
-| `data`                 | クライアント側でソート、フィルター、ページネーションを行うテーブルの行                                                                      |
-| `options.initialState` | `pagination` と `sorting` の初期値                                                                                                          |
-| `options.query`        | サーバー側のページングとソート。`pageIndex`、`pageSize`、`sorting` を受け取り、`rows` と `total` に解決されるクエリオプションを返す関数です |
-| `options.selectable`   | 行選択用のチェックボックスカラムを追加します                                                                                                |
-| `filters`              | 検索フィルター（`type: "search"`、`columnId`、`placeholder`）または選択フィルター（`type: "select"`、`columnId`、`label`、`options`）       |
+`dataGridFeatures` は、カラムの絞り込み、順序、固定、サイズ、サイズ変更、表示状態、グローバルフィルター、ページネーション、行選択、ソートを、絞り込み済み、ソート済み、ページ分割済みの行モデルとともに登録します。`query` を持つグリッドは `manualFiltering`、`manualPagination`、`manualSorting` を設定するため、これらの行モデルが動くのは `data` を持つグリッドだけです。
 
-`options.query` を指定すると、テーブルは手動のページネーションとソートに切り替わります。ページを読み込んでいる間はスケルトン行を表示して前へボタンと次へボタンを無効にし、行数には前回の合計件数を保ち、ソートが変わると最初のページに戻ります。
+## 絞り込み関数
 
-## カラム
+絞り込みの種類はそれぞれ `DATA_GRID_FILTER_FNS` に登録された 1 つの関数に対応し、グリッドは `meta.filter` を宣言したすべてのカラムにその関数を割り当てます。
 
-カラムはページのウィジェットと同じ場所にある `<entity>-columns.tsx` ファイルに置き、`createColumnHelper<DataTableFeatures, Row>()` を使います。セルとヘッダーは自身の翻訳を読み込む小さなコンポーネントなので、ルートからラベルを渡す必要はありません。
+| 種類          | 関数             |
+| ------------- | ---------------- |
+| `text`        | `includesString` |
+| `select`      | `equalsString`   |
+| `multiSelect` | `arrHas`         |
+| `numberRange` | `numberInRange`  |
+| `dateRange`   | `dateInRange`    |
 
-```tsx
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+`numberInRange` と `dateInRange` は、グリッドのエディターが書き込む `{ min?, max? }` と `{ from?, to? }` の値のために `constructFilterFn` で作られており、どちらの境界も持たない範囲は無視します。同じ形が `src/modules/_core/utils/zod-fields.ts` の `numberRangeField` と `dateRangeField` で、モジュールの Zod スキーマはこれを使ってグリッドのリクエストを読み取ります。
 
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-])
-```
+## 状態
 
-完全な例は `src/presentation/components/custom/admin/users/user-columns.tsx` で、`src/routes/admin.users.all.tsx` から描画されています。
+グリッドは、使う状態のすべてを自分で制御します。ページネーション、ソート、カラムの絞り込み、検索、選択はコンポーネントの state に置かれ、検索、絞り込み、ソート、ページのいずれかが変わると最初のページと空の選択に戻ります。カラムの表示状態、順序、固定、サイズは、密度とページサイズとともに `useDataGridPreferences`（`src/hooks/use-data-grid-preferences.ts`）から取得されます。このフックは `useSyncExternalStore` を通じて `localStorage` に読み書きし、サーバーでは既定値をレンダリングします。
 
-## 関連ガイド
+## 関連ページ
 
-- [DataTable](/docs/ui/data-table)
-- [DataTable を追加する](/docs/guides/add-a-data-table)
+- [データグリッド](/docs/ui/data-grid)
+- [データグリッドを追加する](/docs/guides/add-a-data-table)

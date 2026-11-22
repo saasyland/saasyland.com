@@ -1,6 +1,6 @@
 ---
 title: "Форми та таблиці"
-description: "Кожна форма дотримується посібника shadcn для TanStack Form зі схемою Zod модуля й полями shadcn; кожна таблиця — це єдиний універсальний DataTable з файлом стовпців."
+description: "Кожна форма дотримується посібника shadcn для TanStack Form зі схемою Zod модуля й полями shadcn; кожна таблиця — це єдиний DataGrid з файлом стовпців."
 ---
 
 Форми й таблиці — два місця, де саморобні варіанти розмножуються найшвидше. Для кожного з них є один спосіб побудови, узятий із власних посібників постачальників, а не вигаданий тут.
@@ -121,45 +121,57 @@ onError: (error) => {
 
 ## Таблиці
 
-Кожна таблиця — це універсальний `DataTable` з `src/presentation/components/custom/data-table.tsx`, використаний безпосередньо на сторінці:
+Кожна таблиця — це `DataGrid` з `src/presentation/components/custom/data-grid.tsx`, використаний безпосередньо на сторінці:
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 Його властивості — це весь його інтерфейс:
 
-| Властивість | Містить                                                                                                                  |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `columns`   | Набір стовпців з `<entity>-columns.tsx`                                                                                  |
-| `data`      | Рядки, які вже є в пам’яті, для таблиці з посторінковим поділом на клієнті                                               |
-| `options`   | `query` (перетворення стану сторінки на опції запиту для посторінкового поділу на сервері), `selectable`, `initialState` |
-| `filters`   | Елементи пошуку й вибору, прив’язані до ідентифікаторів стовпців                                                         |
+| Властивість   | Містить                                                                    |
+| ------------- | -------------------------------------------------------------------------- |
+| `columns`     | Набір стовпців із хука в `<entity>-columns.tsx`                            |
+| `id`          | Ключ макета, який зберігає браузер, і початок назви CSV-файлу              |
+| `label`       | Доступна назва таблиці                                                     |
+| `data`        | Рядки, які вже є в пам’яті, для сітки, що працює на клієнті                |
+| `query`       | Перетворення запиту сітки на опції запиту, для сітки, що працює на сервері |
+| `search`      | Мітка поля пошуку; без неї пошуку немає                                    |
+| `empty`       | Що каже сітка, поки не існує жодного рядка                                 |
+| `selectable`  | Вибір рядків із панеллю вибору                                             |
+| `bulkActions` | Додаткові кнопки для вибраних рядків                                       |
 
-`DataTable` побудовано за зразком [таблиці даних shadcn на React Aria](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` і `useTable` з TanStack Table v9, відрендерені примітивами таблиці shadcn. Посторінковий поділ, сортування, фільтрування, вибір, рядки завантаження й панель пагінації — усе це всередині нього. Не пишіть окремих для сторінки компонентів таблиці, заголовка, рядка чи пагінації й не додавайте опцію, яку ще не використовує жодна сторінка.
+Пошук, фільтри за типом стовпця, сортування, видимість, закріплення, порядок і ширини стовпців, щільність, розмір сторінки, збережений макет, вибір, експорт у CSV, скелетон і порожні стани містяться всередині нього ([Сітка даних](/docs/ui/data-grid)). Не пишіть окремий компонент таблиці, заголовка, рядка, панелі інструментів чи пагінації для однієї сторінки. Таблиці, які ще не перейшли, досі використовують старіший `DataTable` (`custom/data-table.tsx`); вони переходять на сітку одна за одною, а нові таблиці одразу починаються на сітці.
 
 ### Стовпці
 
-Набір стовпців лежить у `custom/<area>/<entity>-columns.tsx` і будується через `createColumnHelper<DataTableFeatures, Row>()`, де тип рядка береться з інтерфейсу модуля (`Course["listRow"]`):
+Набір стовпців — це хук у `custom/<area>/<entity>-columns.tsx`, побудований через `createColumnHelper<DataGridFeatures, Row>()`, де тип рядка береться з інтерфейсу модуля (`Order["listRow"]`). Він читає свої переклади й дані, які пропонують його фільтри, і повертає мемоізовані стовпці:
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- Кожна комірка — це невеликий компонент у тому самому файлі, який сам читає свої переклади (`KindCell`, `StatusCell`), а для дій — і свої мутації (`ActionsCell`).
-- Мітки заголовків надходять із компонента заголовка, який читає простір імен сторінки, а не з рядків у визначенні стовпця.
-- Стовпець дій використовує `DataTableActionsHeader`, який дає стовпцю назву для екранних зчитувачів.
-- Дії лише з іконкою мають `aria-label`, що називає рядок: `t("actions.edit", { title })`.
+- `header` — перекладена мітка у вигляді рядка; сітці вона потрібна як текст для меню, чипів, оголошень і CSV.
+- `meta.filter` оголошує вид фільтра, а для вибору — його варіанти; `meta.hidden` і `meta.pinned` задають типовий макет; `meta.export` записує текст для CSV.
+- Кожна комірка — це невеликий компонент у тому самому файлі, який сам читає свої переклади (`StatusCell`, `CountryCell`), а для дій — свої мутації.
+- Початкові ширини лежать в одній константі в `src/data` (`ORDER_COLUMN_SIZES`), яку читають і стовпці, і скелетон маршруту.
 
 ## Пов’язані сторінки
 
 - [Форми та валідація](/docs/guides/forms-and-validation)
-- [Додавання таблиці даних](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [Додавання сітки даних](/docs/guides/add-a-data-table)
+- [Сітка даних](/docs/ui/data-grid)

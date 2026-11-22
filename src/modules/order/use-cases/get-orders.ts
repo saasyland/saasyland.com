@@ -1,26 +1,26 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { type SQL, and, asc, count, desc, eq, gte, isNotNull, isNull, or } from "drizzle-orm"
+import { type SQL, type SQLWrapper, and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, or } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { type TimeRange, timeSeries } from "~/src/modules/_core/utils/time-series"
 import { ORDER_DISCOUNT_FILTER, ORDER_QUERY_KEYS } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import type { Order } from "~/src/modules/order/order.types"
-import { accountId, billingCountryOf, containsText, moneyOf, orderDiscountOf } from "~/src/modules/order/order.utils"
+import { accountId, billingCountryOf, containsText, inMinorUnits, moneyOf, orderDiscountOf } from "~/src/modules/order/order.utils"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { user } from "~/src/modules/user/user.schema"
 
 const sortColumns = {
   placedAt: order.placedAt,
+  refundedAmount: order.refundedAmount,
   status: order.status,
   totalAmount: order.totalAmount,
 }
 
-const searching = (text: string | undefined): SQL | undefined => {
-  if (text === undefined || text.length === 0) {
+const searching = (text: string): SQL | undefined => {
+  if (text.length === 0) {
     return undefined
   }
 
@@ -33,14 +33,38 @@ const searching = (text: string | undefined): SQL | undefined => {
   )
 }
 
-const placedWithin = (range: TimeRange | undefined): SQL | undefined => {
+const ofCustomer = (text: string | undefined): SQL | undefined => {
+  if (text === undefined || text.length === 0) {
+    return undefined
+  }
+
+  return or(containsText(order.customerId, text), containsText(user.name, text), containsText(user.email, text))
+}
+
+const placedWithin = (range: Order["orderFilters"]["placedAt"]): SQL | undefined => {
   if (range === undefined) {
     return undefined
   }
 
-  const { since } = timeSeries(range, new Date())
+  const { from, to } = range
 
-  return gte(order.placedAt, since)
+  return and(
+    from === undefined ? undefined : gte(order.placedAt, new Date(from)),
+    to === undefined ? undefined : lte(order.placedAt, new Date(to)),
+  )
+}
+
+const totalWithin = (range: Order["orderFilters"]["totalAmount"]): SQL | undefined => {
+  if (range === undefined) {
+    return undefined
+  }
+
+  const { max, min } = range
+
+  return and(
+    min === undefined ? undefined : gte(order.totalAmount, inMinorUnits(min, order.currency)),
+    max === undefined ? undefined : lte(order.totalAmount, inMinorUnits(max, order.currency)),
+  )
 }
 
 const discounted = (discount: string | undefined): SQL | undefined => {
@@ -59,21 +83,34 @@ const discounted = (discount: string | undefined): SQL | undefined => {
   return eq(order.discountId, discount)
 }
 
-const matching = ({ country, customer, discount, placedAt, product, status }: Order["orderFilters"]): SQL | undefined =>
+const oneOf = (column: SQLWrapper, values: readonly string[] | undefined): SQL | undefined => {
+  if (values === undefined || values.length === 0) {
+    return undefined
+  }
+
+  return inArray(column, values)
+}
+
+const matching = (
+  search: string,
+  { country, customer, discount, placedAt, product, status, totalAmount }: Order["orderFilters"],
+): SQL | undefined =>
   and(
-    searching(customer),
+    searching(search),
+    ofCustomer(customer),
     discounted(discount),
-    country === undefined ? undefined : eq(order.billingCountry, country),
+    oneOf(order.billingCountry, country),
     placedWithin(placedAt),
-    product === undefined ? undefined : eq(order.productId, product),
-    status === undefined ? undefined : eq(order.status, status),
+    oneOf(order.productId, product),
+    oneOf(order.status, status),
+    totalWithin(totalAmount),
   )
 
 export const getOrders = createServerFn({ method: "GET" })
   .middleware([authorized({ order: ["read"] })])
   .validator((input: Order["getOrders"]) => orderZodSchemas.getOrders.parse(input))
   .handler(async ({ data }) => {
-    const where = matching(data.filters)
+    const where = matching(data.search, data.filters)
     const [rows, totals] = await db.batch([
       db
         .select({

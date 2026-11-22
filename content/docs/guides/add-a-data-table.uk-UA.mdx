@@ -1,89 +1,120 @@
 ---
-title: "Додавання таблиці даних"
-description: "Визначте колонки й відрендерте їх універсальним DataTable з даними на клієнті або на сервері."
+title: "Додавання сітки даних"
+description: "Напишіть хук колонок із фільтрами, прихованими й закріпленими колонками та значеннями для CSV, а потім відрендерте його через DataGrid з рядків на клієнті або із запиту на сервері."
 ---
 
-Кожна таблиця рендериться одним компонентом — `DataTable` у `src/presentation/components/custom/data-table.tsx`. Він побудований на TanStack Table v9 (`tableFeatures` і `useTable`) та примітивах таблиць shadcn і забезпечує сортування, пагінацію, вибір рядків, фільтри, скелетони завантаження й порожній стан. Таблиці потрібні лише файл колонок і один виклик `<DataTable columns data options filters />`.
+Кожна нова таблиця рендериться через `DataGrid` у `src/presentation/components/custom/data-grid.tsx` ([Сітка даних](/docs/ui/data-grid)). Він дає пошук, фільтри, сортування, макет, який кожен адміністратор може переставити й зберегти, вибір рядків, експорт у CSV, рядки-скелетони та порожні стани. Таблиці потрібні хук колонок і один `<DataGrid />`. Повний приклад — `/admin/orders`: `src/presentation/components/custom/admin/payments/order-columns.tsx` і `src/routes/admin.orders.index.tsx`.
 
-## 1. Визначте колонки
+## 1. Напишіть хук колонок
 
-Створіть `<entity>-columns.tsx` поруч з іншими віджетами сторінки. Клітинки й заголовки — це невеликі компоненти, що самі читають свої переклади. Скорочена версія `src/presentation/components/custom/admin/users/user-columns.tsx`:
+Створіть `<entity>-columns.tsx` поруч з іншими віджетами сторінки. Експортуйте хук, який читає переклади й дані, що їх пропонують фільтри, і повертає мемоізовані колонки. Клітинки — це невеликі компоненти в тому самому файлі, що самі читають свої переклади. Скорочено з `order-columns.tsx`:
 
 ```tsx
-const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
-  const t = useTranslations("pages.admin.users.table.headers")
+const columnHelper = createColumnHelper<DataGridFeatures, OrderRow>()
 
-  return t(id)
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("placedAt", {
+          cell: PlacedCell,
+          header: t("pages.admin.orders.table.headers.placedAt"),
+          meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE }, pinned: DATA_GRID_PIN.START },
+          size: ORDER_COLUMN_SIZES.placedAt,
+        }),
+        columnHelper.accessor("description", {
+          cell: ProductCell,
+          enableSorting: false,
+          header: t("pages.admin.orders.table.headers.product"),
+          id: "product",
+          meta: { filter: { kind: DATA_GRID_FILTER.MULTI_SELECT, options: products.map(({ id, name }) => ({ label: name, value: id })) } },
+          size: ORDER_COLUMN_SIZES.product,
+        }),
+        columnHelper.accessor("refunded", {
+          cell: RefundedCell,
+          header: t("pages.admin.orders.table.headers.refundedAmount"),
+          id: "refundedAmount",
+          meta: { export: ({ refunded }) => exportedMoney(refunded), hidden: true },
+          size: ORDER_COLUMN_SIZES.refundedAmount,
+        }),
+      ]),
+    [products, t],
+  )
 }
-
-const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.table.booleans")
-
-  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
-}
-
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
-
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: DataTableActionsHeader, id: "actions" }),
-])
 ```
 
 - Рядки мають мати рядковий `id`; він стає ідентифікатором рядка для вибору.
-- `DataTableFeatures` — спільний набір можливостей. Функції сортування: `alphanumeric`, `basic`, `datetime` і `text`.
-- Дії з рядком — це колонка відображення, клітинка якої є окремим компонентом (`UserRowActions` у `row-actions.tsx`), а заголовок — `DataTableActionsHeader` з `data-table.tsx`, назва колонки, яку чують лише програми зчитування з екрана.
+- `header` — перекладена мітка у вигляді рядка. Сітка використовує її в заголовку, меню, чипах фільтрів, своїх оголошеннях і CSV.
+- `meta.filter` дає колонці фільтр одного виду: <RepositoryFact name="dataGridFilterKinds" />. Вибір перелічує свої `options` у вигляді `{ label, value }`.
+- `meta.hidden` ховає колонку, доки адміністратор її не покаже, `meta.pinned` закріплює її на `start` або на `end`, а `meta.export` записує текст колонки в CSV для рядка.
+- `size` — початкова ширина в пікселях. Тримайте розміри в одній константі в `src/data/<area>.ts`, як-от `ORDER_COLUMN_SIZES` у `payments.ts`, щоб скелетон маршруту теж міг їх використати.
+- Колонка, за якою сервер не вміє сортувати, задає `enableSorting: false`.
 
-## 2. Рендеринг з даними на клієнті
+## 2. Відрендерте її
 
-Передайте рядки в `data`. Сортування, пагінація й фільтри працюють у браузері. З `src/routes/admin.index.tsx`:
-
-```tsx
-<DataTable
-  columns={dashboardUserColumns}
-  data={users.rows}
-  filters={[
-    { columnId: "user", placeholder: t("users.search"), type: "search" },
-    {
-      columnId: "status",
-      label: t("users.filters.status"),
-      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
-      type: "select",
-    },
-  ]}
-  options={{ initialState: { pagination: ADMIN_DASHBOARD_PREVIEW_PAGINATION }, selectable: true }}
-/>
-```
-
-- `filters` приймає `{ type: "search", columnId, placeholder }` і `{ type: "select", columnId, label, options }`. Список вибору додає варіант «усі» з міткою `label`.
-- `options.initialState` задає початкові `pagination` і `sorting`; типовий розмір сторінки — <RepositoryFact name="defaultPageSize" />.
-- `options.selectable` додає колонку прапорців і показує кількість вибраних рядків.
-
-## 3. Рендеринг із пагінацією на сервері
-
-Передайте `options.query`: функцію від `{ pageIndex, pageSize, sorting }`, яка повертає параметри запиту, що розв'язуються в `{ rows, total }`. Тоді таблиця розбиває на сторінки й сортує на сервері. Поки завантажується сторінка, зокрема перша, вона відображає скелетони рядків і вимикає кнопки попередньої та наступної сторінки; кількість рядків та індикатор сторінки зберігають попередню загальну кількість. З `src/routes/admin.users.all.tsx`:
+Передайте колонки, унікальний `id`, `label` таблиці й або `data`, або `query`:
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+const OrdersPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.orders")
+  const columns = useOrderColumns()
+
+  return (
+    <DataGrid
+      columns={columns}
+      empty={t("empty")}
+      id={ORDER_GRID_ID}
+      label={t("title")}
+      query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+      search={t("filters.search")}
+      selectable
+    />
+  )
+}
 ```
 
-`getUsersPageQuery` додає провалідовані вхідні дані до ключа запиту, а `getUsers` перевіряє `sorting` за ідентифікаторами колонок, які можна сортувати:
+З `data` сітка шукає, фільтрує, сортує й ділить рядки на сторінки в браузері. З `query` вона надсилає `{ filters, pageIndex, pageSize, search, sorting }`, а все це робить сервер.
+
+## 3. Прочитайте запит на сервері
+
+Схема Zod модуля приймає запит таким, як він є. `filters` містить відфільтровані колонки за id зі значеннями, описаними на сторінці [Сітка даних](/docs/ui/data-grid#filters), тож схема повторно використовує спільні поля, з `src/modules/order/order.zod.ts`:
 
 ```ts
-export const getUsersPageQuery = (input: User["getUsers"] = {}) =>
-  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
-    queryFn: () => getUsers({ data: input }),
-    queryKey: [...USER_QUERY_KEYS.LIST, userZodSchemas.getUsers.parse(input)],
-  })
+const orderFilters = zod.object({
+  country: zod.array(countryCodeField).max(COUNTRY_CODES.length).optional(),
+  customer: searchField.optional(),
+  discount: idField.optional(),
+  placedAt: dateRangeField.optional(),
+  product: zod.array(idField).max(MAX_FILTER_VALUES).optional(),
+  status: zod.array(choiceOf(ORDER_STATUSES)).max(ORDER_STATUSES.length).optional(),
+  totalAmount: numberRangeField.optional(),
+})
+
+const getOrders = paginationSchema.extend({
+  filters: orderFilters.default({}),
+  search: searchField.default(""),
+  sorting: sortingOf(ORDER_SORT_COLUMNS),
+})
 ```
 
-Завантажте першу сторінку заздалегідь у loader маршруту через `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. Щоб передати додаткові фільтри, обгорніть запит: `src/routes/admin.products.index.tsx` використовує `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Фільтри колонок `filters` працюють у браузері над рядками, які має таблиця, тож використовуйте їх разом із `data`.
+`numberRangeField`, `dateRangeField` і обмеження `SEARCH_MAX_LENGTH`, `MAX_SORTED_COLUMNS` та `MAX_FILTER_VALUES` беруться з `src/modules/_core/utils/`; це ті самі значення, що їх використовує сітка, тож поле пошуку приймає <RepositoryFact name="dataGridSearchMaxLength" /> символів, а сітка сортує щонайбільше за <RepositoryFact name="dataGridMaxSortedColumns" /> колонками. `getOrders` перетворює кожен фільтр на SQL; діапазон грошових сум порівнює кожне замовлення в його власній валюті через `inMinorUnits`.
 
-## 4. Повідомлення
+Завантажте першу сторінку заздалегідь у loader маршруту через `context.queryClient.query({ ...getOrdersQuery, staleTime: "static" })`; перший запит сітки після парсингу дає той самий ключ запиту.
 
-Порожній стан і мітки пагінації та вибору беруться з `components.custom.data-table`, який завантажує кожна сторінка. Заголовки колонок і тексти клітинок належать до простору імен сторінки, наприклад `pages.admin.users.table.headers`.
+## 4. Відобразіть її у скелетоні
 
-Коли мутація змінює рядки, інвалідуйте ключі запитів модуля; таблиця повторно завантажить поточну сторінку. Див. [Додавання сценарію використання](/docs/guides/add-a-use-case).
+`pendingComponent` маршруту рендерить `DataGridPending` з `data-grid-pending.tsx` з одним скелетоном клітинки й шириною для кожної видимої колонки, як це робить `AdminOrdersPending` у `payments-pending.tsx`.
+
+## 5. Повідомлення
+
+Панель інструментів, фільтри, меню, пагінація, вибір і порожні стани сітки беруться з `components.custom.data-grid`, який завантажує кожна сторінка. Мітки колонок, варіанти фільтрів і повідомлення про порожній стан належать до простору імен сторінки, наприклад `pages.admin.orders`.
+
+Коли мутація змінює рядки, інвалідуйте ключі запитів модуля; сітка повторно завантажить поточну сторінку. Див. [Додавання сценарію використання](/docs/guides/add-a-use-case).
+
+## Таблиці, які ще працюють на DataTable
+
+Таблиці, які ще не перейшли, досі використовують `DataTable` (`custom/data-table.tsx`) з масивом колонок на рівні модуля та його пропом `filters`; [Сітка даних](/docs/ui/data-grid#datatable) їх перелічує. Перенести одну з них означає перетворити її колонки на хук, як вище, дати її фільтрам `meta.filter` і, для серверної таблиці, навчити її схему Zod читати запит сітки.

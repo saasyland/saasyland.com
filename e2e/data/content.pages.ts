@@ -25,7 +25,7 @@ export const CONTENT_PAGES = [
   { path: "/docs/project/changelog" },
   { path: "/docs/reference/routes" },
   { path: "/docs/tooling/playwright" },
-  { path: "/docs/ui/data-table" },
+  { path: "/docs/ui/data-grid" },
   { path: "/blog" },
   { path: "/blog/page/2" },
   { path: "/blog/ai-coding-agents-repository-readiness" },

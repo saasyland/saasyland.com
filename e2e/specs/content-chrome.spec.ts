@@ -52,6 +52,7 @@ const SNAPSHOT_LINE = /^\s*- (?<role>[a-z]+)(?: "(?<name>[^"]*)")?[^:]*(?::(?: (
 const NAMED_ROLES = new Set(["button", "combobox", "heading", "navigation", "region", "searchbox", "text", "textbox"])
 const TAGS_BLOCK = /^tags:\n(?<block>(?: {2}- .+\n)+)/mu
 const TAG_ITEM = /^ {2}- /u
+const TITLE_LINE = /^title: "(?<title>.+)"$/mu
 
 const treeSchema = zod.record(zod.string(), zod.unknown())
 const blogSchema = zod.object({ tags: zod.record(zod.string(), zod.string()) })
@@ -95,8 +96,12 @@ const untranslatedFumadocsNames = async (page: Page, locale: SupportedLocale): P
     .map(({ name, role }) => `${role} "${name}"`)
 }
 
+const postSource = (slug: string, locale: SupportedLocale): string => readFileSync(`content/blog/${slug}.${locale}.mdx`, "utf8")
+
+const titleOf = (slug: string, locale: SupportedLocale): string => TITLE_LINE.exec(postSource(slug, locale))?.groups?.["title"] ?? ""
+
 const tagsOf = (slug: string, locale: SupportedLocale): string[] =>
-  (TAGS_BLOCK.exec(readFileSync(`content/blog/${slug}.${locale}.mdx`, "utf8"))?.groups?.["block"] ?? "")
+  (TAGS_BLOCK.exec(postSource(slug, locale))?.groups?.["block"] ?? "")
     .split("\n")
     .filter((line) => TAG_ITEM.test(line))
     .map((line) => line.replace(TAG_ITEM, "").trim())
@@ -214,7 +219,8 @@ for (const locale of LOCALES) {
       const { tags } = blogSchema.parse(readMessages(locale, "pages.blog"))
       const labels = tagsOf(TAGGED_POST, locale).map((tag) => tags[tag])
       expect(labels.length).toBeGreaterThan(0)
-      await visit(page, localizePathname({ locale, pathname: ROUTES.BLOG }))
+      const search = new URLSearchParams({ q: titleOf(TAGGED_POST, locale) })
+      await visit(page, `${localizePathname({ locale, pathname: ROUTES.BLOG })}?${search.toString()}`)
       await expect(page.getByText(labels.join(" · "), { exact: true }).first()).toBeVisible()
     })
   })

@@ -1,0 +1,519 @@
+---
+title: "Documentation Drift vermeiden: Jede Zahl kommt aus dem Code"
+description: "Wie du Documentation Drift verhinderst, wenn KI-Agenten deine Dokumentation und deine Texte schreiben: Anzahlen zur Build-Zeit messen, Werte aus dem Code ausgeben, prüfen, was eingetippt bleiben muss, und jedem Feature einen Status geben."
+excerpt: "Eine Zahl, die in eine Seite eingetippt wird, ist eine Kopie von etwas, das der Code weiß, und jede Kopie driftet. Wenn Agenten Dokumentation, Beiträge und Übersetzungen schreiben, driftet sie in jeder Sprache zugleich. Dieser Leitfaden ordnet jede Art von Aussage auf einer Website danach, wo ihre Wahrheit liegt, und zeigt den Build-Schritt, die Komponenten, die Prüfungen und die Status, die saasyland.com davon abhalten, etwas zu behaupten, was der Code nicht tut."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-22
+updated: 2026-11-22
+image: /images/blog/documentation-drift-numbers-from-code.webp
+tags:
+  - ai-agents
+  - tooling
+  - architecture
+faq:
+  - question: Was ist Documentation Drift?
+    answer: >-
+      Die Lücke, die sich zwischen dem auftut, was die Dokumentation, die Marketingtexte oder die
+      README sagen, und dem, was der Code tut, weil sich eines davon geändert hat und das andere
+      nicht. Sie beginnt in dem Moment, in dem ein Fakt an zwei Orten existiert: Eine in eine Seite
+      eingetippte Zahl ist eine Kopie von etwas, das der Code weiß, und nichts hält die Kopie auf dem
+      Stand, wenn sich der Code bewegt.
+  - question: Warum verschlimmern KI-Coding-Agenten Documentation Drift?
+    answer: >-
+      Weil sie die Kopien vervielfachen. Ein Agent, der eine Seite schreibt, kopiert die Zahl, die er
+      auf einer anderen Seite gesehen hat, ein Übersetzungsagent kopiert sie in jede Sprache, und
+      mehrere parallel arbeitende Agenten kopieren jeweils eine andere Version. Auf saasyland.com
+      waren eingetippte Anzahlen auf der Landingpage innerhalb von Wochen falsch, und Übersetzungen,
+      die aus einer älteren englischen Seite entstanden waren, beschrieben einen Stack, den die
+      Website nicht mehr verwendete.
+  - question: Wie hältst du Zahlen in der Dokumentation mit dem Code synchron?
+    answer: >-
+      Tippe sie nicht ein. Miss Anzahlen zur Build-Zeit und stelle sie den Seiten als Modul bereit,
+      importiere Werte, die der Code deklariert, etwa Preise und Limits, aus der Datei, die sie
+      deklariert, und gib beides über eine Komponente aus, die sie für die Sprache des Lesers
+      formatiert. Eine Seite zeigt dann, was der Build gemessen hat, in jeder Sprache, ohne dass
+      jemand sie bearbeitet.
+  - question: Was sollte nie in Dokumentation oder Marketingtexte eingetippt werden?
+    answer: >-
+      Alles, was der Code beantworten kann: Anzahlen, Preise, Limits, Versionen, Dateipfade, Befehle,
+      Flags, Listen unterstützter Optionen und ob ein Feature verfügbar ist. Tippe nur ein, was der
+      Code nicht wissen kann: Erklärungen, Gründe, Urteile und datierte Fakten über die Außenwelt mit
+      einem Link zu ihrer Quelle.
+  - question: Wie verhinderst du, dass Codebeispiele in der Dokumentation veralten?
+    answer: >-
+      Führe sie entweder aus, wie es die Dokumentationstests von Rust tun, oder prüfe sie gegen den
+      Quellcode. Auf saasyland.com muss ein Codeblock, dessen Titel ein Repository-Pfad ist, ein
+      exakter Auszug aus dieser Datei sein, und die Inhaltsprüfung lässt die CI scheitern, wenn sich
+      die Datei ändert und der Auszug nicht mehr passt.
+  - question: Wie zeigst du Features, die noch nicht ausgeliefert sind, ohne zu viel zu versprechen?
+    answer: >-
+      Gib jedem Feature einen Status im Code, „verfügbar“ oder „kommt noch“, und schreib jeden Satz,
+      der davon abhängt, als Nachricht mit beiden Versionen. Die Seite zeigt dann die Version, die zum
+      Status passt, und das Ändern einer einzigen Konstante bewegt jeden Satz in jeder Sprache
+      zugleich. Wo der Status davon abhängt, was der Code wirklich tut, leite ihn aus diesem Code ab,
+      statt ihn von Hand zu setzen.
+  - question: Wie bleiben zwei Repositories bei gemeinsamen Werten einig?
+    answer: >-
+      Leg die gemeinsamen Werte in ein Paket, das beide importieren, verknüpfe den Rest auf
+      Typebene, sodass eine Änderung auf der einen Seite auf der anderen nicht kompiliert, und teste
+      das veröffentlichte Paar End-to-End. Ein Vertragspaket beseitigt den größten Teil des Drifts
+      zwischen Repositories; es beseitigt nicht den Versionsversatz zwischen den Deployments, die es
+      verwenden.
+  - question: Was ist ein Behauptungsregister?
+    answer: >-
+      Eine Datei, die jedes Versprechen auflistet, das deine Website, deine Dokumentation und deine
+      Beiträge über ein Produkt machen, jedes mit dem Test, der es beweist, der Änderung, die es
+      beweisen wird, oder einem Vermerk, dass es heute nicht stimmt. Eine Prüfung schlägt fehl, wenn
+      eine bewiesene Behauptung auf einen Test zeigt, den es nicht mehr gibt, sodass ein Versprechen
+      seinen Beweis nicht unbemerkt verlieren kann.
+  - question: Lohnt es sich, Werte in der Dokumentation aus dem Code zu erzeugen?
+    answer: >-
+      Für eine Website in mehreren Sprachen fast immer: Eine falsche Zahl kostet eine Korrektur pro
+      Sprache, und ein eingetippter Wert wird jedes Mal falsch, wenn sich der Code ändert. Für eine
+      einzelne Seite, die zwei Zahlen nennt, reicht ein Test, der die Seite mit dem Code vergleicht.
+      Die Kosten sind real: ein Build-Schritt, Komponenten und Prüfungen, die gepflegt werden müssen,
+      und Prosa, die so geschrieben ist, dass sich ein Wert ändern kann, ohne dass der Satz
+      kaputtgeht.
+---
+
+<Callout title="Was dieser Artikel ist">
+
+Ein praktischer Leitfaden dafür, Dokumentation, Marketingtexte und Blogbeiträge wahr zu halten, wenn sich der Code jeden Tag ändert und KI-Agenten die meisten Wörter schreiben. Er gilt für jeden Stack. Jeder Abschnitt nennt zuerst die Regel und zeigt dann, wie saasyland.com sie anwendet, mit seinen echten Dateien, Pull Requests und den Fehlern, die jede Regel nötig gemacht haben. Er behandelt:
+
+1. Was Documentation Drift ist und warum Agenten ihn schneller und breiter machen.
+2. Die sechs Arten von Aussagen auf einer Website und wo die Wahrheit jeder einzelnen liegt.
+3. Messen zur Build-Zeit und Werte über Komponenten ausgeben, statt sie einzutippen.
+4. Prüfen, was eingetippt bleiben muss, etwa Codeauszüge und Referenztabellen.
+5. Status statt Zeitformen für das, was noch nicht ausgeliefert ist, und abgeleitete Zahlen, die nicht von selbst steigen können.
+6. Ein einziger Vertrag zwischen zwei Repositories, ein Behauptungsregister, ein Golden Diff, externe Fakten, die Kosten, die Lücken und ein Starter-Kit.
+
+</Callout>
+
+_Zuletzt geprüft am 22. November 2026. Was Vite, npm, Rust, ICU und die FTC sagen, stammt aus deren eigener Dokumentation, gelesen an diesem Tag; The Pragmatic Programmer wird nach dem kostenlosen Auszug seines Verlags zitiert. Alles über saasyland.com stammt aus seinem öffentlichen Repository und seinen Pull Requests; das CLI-Repository ist privat, deshalb beschreibt dieser Artikel dessen Prozess und zitiert nur das veröffentlichte Paket. Dies ist der dritte Beitrag einer Serie über das Bauen von Software mit KI-Coding-Agenten, nach [den Leitplanken, die eine falsche Änderung scheitern lassen](/blog/ai-coding-agent-guardrails) und [dem Einsatz eines Teams von Agenten auf einer einzigen Codebasis](/blog/running-ai-coding-agents-in-parallel)._
+
+## Die kurze Antwort
+
+Jeder Fakt auf einer Seite sollte genau eine Quelle haben, und die Seite sollte ihn von dort ausgeben. Ordne, was deine Website sagt, nach Arten. Anzahlen über deinen Code misst der Build. Werte, die das Unternehmen festlegt, etwa Preise und Limits, werden einmal im Code deklariert und importiert. Zahlen, die daraus abgeleitet sind, werden berechnet, und zwar vorsichtig. Ob ein Feature funktioniert, ist ein Status im Code, und jeder Satz, der davon abhängt, hat eine Version für jeden Status. Versprechen über Verhalten werden mit dem Test aufgelistet, der sie beweist. Fakten über die Außenwelt tragen ein Datum und einen Link. Was eingetippt bleiben muss, etwa ein Codeauszug oder eine Referenztabelle, vergleicht eine Prüfung, die die CI scheitern lässt, mit dem Code. Dann ist das Einzige, was eine Person oder ein Agent noch falsch machen kann, die Prosa rund um die Werte, und genau dafür ist das Review da.
+
+## Was Documentation Drift ist und warum Agenten ihn verschlimmern
+
+Documentation Drift ist die Lücke zwischen dem, was deine Worte sagen, und dem, was dein Code tut. Dafür muss niemand einen Fehler machen. Eine Seite, die „12 Integrationen“ sagt, war an dem Tag wahr, an dem sie geschrieben wurde; der Code bekam eine dreizehnte, die Seite nicht, und jetzt ist sie falsch. Die Ursache ist nicht Nachlässigkeit, sondern Duplikation: Derselbe Fakt lebt an zwei Orten, und nur einen davon pflegt das, was ihn ändert.
+
+Dave Thomas und Andy Hunt haben das Prinzip in _The Pragmatic Programmer_ benannt: „Jedes Stück Wissen muss innerhalb eines Systems eine einzige, eindeutige, maßgebliche Repräsentation haben“ („Every piece of knowledge must have a single, unambiguous, authoritative representation within a system.“). Sie sagen ausdrücklich, dass Dokumentation dazugehört. Ihr Test für einen Verstoß lautet: „Wenn sich eine einzelne Facette des Codes ändern muss, nimmst du diese Änderung dann an mehreren Stellen und in mehreren verschiedenen Formaten vor? Musst du Code und Dokumentation ändern …? Wenn ja, ist dein Code nicht DRY“ („when some single facet of the code has to change, do you find yourself making that change in multiple places, and in multiple different formats? Do you have to change code and documentation …? If so, your code isn’t DRY.“).
+
+Der Dokumentationsleitfaden von Google liefert die praktische Fassung: „Ändere deine Dokumentation in derselben CL wie die Codeänderung“ („Change your documentation in the same CL as the code change.“). Diese Regel funktioniert, solange die Person, die den Code ändert, jede Seite kennt, die ihn erwähnt. In großem Maßstab funktioniert sie nicht mehr, und KI-Coding-Agenten bringen den Maßstab mit.
+
+### Drei Arten, wie Agenten Kopien vervielfachen
+
+**Geschwindigkeit.** Ein Agent schreibt eine Dokumentationsseite in Minuten, und er schreibt die Zahlen, die er sieht. Wenn eine andere Seite 176 Testdateien nennt, nennt die neue Seite auch 176. Jede Seite, die ein Agent aus anderen Seiten schreibt, erbt deren Fehler und fügt eine Kopie hinzu.
+
+**Sprachen.** saasyland.com erscheint in <RepositoryFact name="languages" /> Sprachen. Eine eingetippte Zahl existiert einmal pro Sprache, und Übersetzungsagenten arbeiten mit dem englischen Text, den sie bekommen haben. Am 12. November 2026 stellten wir fest, dass die übersetzten Blogbeiträge aus einer älteren englischen Version entstanden waren: Sie beschrieben einen Stack aus Next.js, Bun, Elysia und Neon, den die Website nicht mehr verwendete, 54 Sprachen, 141 Testdateien und 472 Tests (#116). Jede Übersetzung war in sich stimmig, flüssig und falsch.
+
+**Parallele Sessions.** Mehrere gleichzeitig arbeitende Agenten kopieren jeweils die Version eines Fakts, die galt, als ihre Session begann. Zwei Pull Requests, die beide eine Anzahl erwähnen, können in beliebiger Reihenfolge gemergt werden, und der zweite gewinnt, ob seine Zahl die neuere ist oder nicht.
+
+Agenten übersetzen auch, was nicht übersetzt werden darf, weil für einen Übersetzer eine Zahl oder ein Pfad in einem Satz wie Text aussieht. Unser Konsistenz-Audit vom 15. November fand in der Liste der Belege auf der Landingpage `bun run テスト` auf Japanisch und `src/intégrations/` auf Französisch (#169). Der Demo-Preisbildschirm im Admin hatte Preise, die in die Nachrichten jeder Sprache eingetippt waren, und die Übersetzer hatten sie umgerechnet: Die polnische Seite zeigte 129 zł, die brasilianische 58 Reais und die deutsche 58 €, neben einem Dollarpreis von 290 $ (#169). Zwei Locales hatten die Kontakt-E-Mail-Adresse selbst übersetzt (#132). Jeder dieser Fälle war ein Satz, der einen Wert enthielt, und der Wert wurde als Teil des Satzes behandelt.
+
+### Wie unser eigener Drift aussah
+
+Die Landingpage von saasyland.com sagte einmal, jede Zahl darauf sei aus diesem öffentlichen Repository erzeugt. Am 12. November galt das nur für zwei: die Anzahl der GitHub-Sterne und die Hauptversion von React. Der Rest war in die Nachrichtendateien eingetippt worden und gedriftet (#115):
+
+| Behauptung auf der Seite                    | Was das Repository hatte |
+| ------------------------------------------- | ------------------------ |
+| 176 Testdateien                             | 221                      |
+| 8 Playwright-Suites                         | 12                       |
+| 13 Admin-Bereiche, an anderer Stelle „zehn“ | 9                        |
+| „Zwölf“ Fragen der CLI                      | 13                       |
+
+Keine davon war eine Lüge, als sie eingetippt wurde. Jede war eine Momentaufnahme, über die der Code hinausgegangen war. Genau darum geht es: Du kannst Drift nicht beheben, indem du sorgfältiger bist, denn die Kopie ist richtig bis zu dem Tag, an dem sie es nicht mehr ist, und nichts sagt dir, welcher Tag das ist.
+
+## Sechs Arten von Aussagen und wo die Wahrheit jeder einzelnen liegt
+
+Bevor du irgendetwas baust, ordne, was deine Website sagt. Jede Art hat eine andere Quelle der Wahrheit und braucht einen anderen Mechanismus.
+
+| Art        | Beispiel                                                | Quelle der Wahrheit                  | Mechanismus                                    | Was fehlschlägt, wenn sie driftet                                |
+| ---------- | ------------------------------------------------------- | ------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------- |
+| Gemessen   | Eine Anzahl von Tests, Seiten oder Sprachen             | Das Repository                       | Vom Build gezählt                              | Nichts kann driften: Der Build gibt die heutige Anzahl aus       |
+| Deklariert | Ein Preis, das Limit einer Stufe, eine Erstattungsfrist | Eine Konstante im Code               | Importiert, pro Locale formatiert              | Ein Test, der externe Systeme mit der Konstante vergleicht       |
+| Abgeleitet | Gesparte Stunden, ein Preis in Stunden ausgedrückt      | Eine Formel über deklarierten Werten | Im Code berechnet, vorsichtig gerundet         | Ein Test, dass die Behauptung noch gilt                          |
+| Status     | Ob ein Feature verfügbar ist oder noch kommt            | Eine Statuskonstante pro Feature     | Nachrichten mit einer Version pro Status       | Ein Test, der beide Versionen rendert                            |
+| Verhalten  | „Eine Erstattung beendet die Lizenz“                    | Das Verhalten des Codes              | Ein Test, der neben der Behauptung genannt ist | Eine Prüfung, dass jede bewiesene Behauptung ihren Test noch hat |
+| Extern     | Ein Umfrageergebnis, der Preis eines Konkurrenten       | Die Seite eines anderen              | Ein datiertes Zitat, erneut geprüft            | Nichts Automatisches; ein Datum für das Review                   |
+
+Aus der Tabelle folgen zwei Regeln. Erstens lässt sich jede Art außer der letzten so einrichten, dass eine Prüfung fehlschlägt, wenn sie driftet, also gehört deine Aufmerksamkeit im Review der letzten Art. Zweitens hängt der Mechanismus von der Art ab, nicht davon, wo die Aussage erscheint: Derselbe Preis taucht auf einer Preiskarte, in einem Blogbeitrag, in einer FAQ-Antwort und in der Meta-Beschreibung einer Seite auf, und jede dieser Stellen braucht dieselbe Quelle.
+
+## Zur Build-Zeit messen
+
+Eine Anzahl über dein Repository sollte der Build berechnen, der die Seite veröffentlicht, aus denselben Dateien, um die es bei der Anzahl geht. Die meisten Bundler haben dafür einen Ort. Die Plugin-API von Vite nennt ihn ein virtuelles Modul: „Virtuelle Module erlauben es dir, Informationen aus der Build-Zeit mit der normalen ESM-Importsyntax an die Quelldateien zu übergeben“ („Virtual modules allow you to pass build time information to the source files using normal ESM import syntax.“). Ein Plugin berechnet die Werte, wenn der Build startet, und jede Seite importiert sie wie ein normales Modul.
+
+Unseres ist `scripts/repository-facts.ts`, das `virtual:repository-facts` bereitstellt. Es zählt Testdateien, Playwright-Specs und UI-Komponenten mit Globs, listet die Browsertests auf, indem es Playwright fragt, und liest Einstellungen direkt aus den Dateien der Werkzeuge: die Coverage-Schwelle, die Lint-Limits und die Zeilenbreiten des Formatters aus `vite.config.ts`, die Node-Version aus `.nvmrc`, die Bun-Version aus `package.json`, die Anzahl der CI-Shards aus den Workflow-Dateien. Ein paar seiner Zeilen zeigen, wie direkt die Messungen sind:
+
+```ts title="scripts/repository-facts.ts"
+    e2eShards: readShards(E2E_WORKFLOW),
+    e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
+    e2eSpecsPath,
+    e2eTests: browserTests.length,
+```
+
+Das Plugin selbst ist etwa zwanzig Zeilen lang: Es baut den Quelltext des Moduls im `config`-Hook von Vite und stellt ihn unter einer aufgelösten ID bereit, die mit `\0` beginnt, so wie es der Plugin-Leitfaden von Vite für virtuelle Module zeigt.
+
+```ts title="scripts/repository-facts.ts"
+    enforce: "pre",
+    load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),
+    name: "saasyland:repository-facts",
+    resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),
+```
+
+Drei Designentscheidungen machen es vertrauenswürdig.
+
+**Miss das, worum es in der Behauptung geht, keinen Stellvertreter.** Unsere erste Version zählte die Admin-Bereiche anhand der Beschriftungen der Sidebar, weil das Zählen der Sidebar selbst 3,7 KB gzip-komprimierten Admin-Code in die Landingpage gezogen hätte (#115). Ein Test hielt die Beschriftungen mit der Sidebar gleich. Später änderte die Anzahl ihre Bedeutung: Die Landingpage behauptete Admin-Bereiche, die funktionieren, und fünf der elf zeigten Demodaten. Also bekam jeder Eintrag im Admin-Menü einen Status, der Fakt zählte nur die funktionierenden, und die Zahl fiel von 11 auf 6 (#177). Dann wurden die Demo-Bildschirme ganz gelöscht (#259). Der Fakt lautet jetzt <RepositoryFact name="adminSections" />, und er zählt jeden Eintrag, weil jeder Eintrag ein funktionierender Bildschirm ist.
+
+**Lehne eine Konfiguration ab, die die Dokumentation nicht beschreiben kann.** Eine Seite, die sagt, die Coverage werde bei 100 % gehalten, setzt eine einzige Schwelle voraus. Wenn jemand die Schwelle für Verzweigungen auf 95 und die für Zeilen auf 100 setzt, wird der Satz mehrdeutig. Unser Plugin validiert die Konfiguration, die es liest, mit einem Schema, und das Schema lehnt vier verschiedene Schwellen ab:
+
+```ts title="scripts/repository-facts.ts"
+const thresholdsSchema = zod
+  .object({ branches: zod.number(), functions: zod.number(), lines: zod.number(), statements: zod.number() })
+  .refine(
+    ({ branches, functions, lines, statements }) => [branches, functions, statements].every((threshold) => threshold === lines),
+    "The docs state one coverage threshold for all four metrics",
+  )
+```
+
+Der Build schlägt mit dieser Meldung fehl, und die Person oder der Agent, der die Schwelle geändert hat, muss entscheiden, was die Dokumentation sagen soll. Das ist eine Prüfung der Form eines Fakts, nicht nur seines Werts.
+
+**Auch Pfade und Befehle sind Fakten.** Ein Satz, der Leser auffordert, `coverage/coverage-summary.json` zu öffnen oder `bun run test:coverage` auszuführen, enthält zwei Werte, die dem Code gehören. Seit #169 nimmt die Landingpage sie aus demselben Modul: den Pfad der Zusammenfassung aus `reportsDirectory` in der Vite-Konfiguration, das Verzeichnis der Specs aus `testDir` von Playwright, die Befehle aus `package.json`. Ein Test prüft, dass jeder genannte Pfad existiert und jeder Befehl ein Skript ist. Kein Übersetzer kann daraus je wieder `bun run テスト` machen, weil die Übersetzung sie nie enthält.
+
+## Werte über Komponenten ausgeben, nicht über Strings
+
+Sobald ein Wert im Code existiert, gib ihn über eine einzige Komponente aus, und tippe nie ihr Ergebnis ein. In unserer Dokumentation und unserem Blog ist diese Komponente `<RepositoryFact>`. In MDX gibt `<RepositoryFact name="testFiles" />` den Wert <RepositoryFact name="testFiles" /> aus, `<RepositoryFact name="e2eTests" />` den Wert <RepositoryFact name="e2eTests" /> und `<RepositoryFact name="coverageThreshold" unit="percent" />` den Wert <RepositoryFact name="coverageThreshold" unit="percent" />, formatiert für die Sprache der Seite, die du gerade liest. Die ganze Formatierungsregel passt in ein Dutzend Zeilen:
+
+```tsx title="src/presentation/components/custom/repository-fact.tsx"
+const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS | undefined; readonly value: Value }): JSX.Element => {
+  const format = useFormatter()
+
+  if (typeof value === "number") {
+    return <>{format.number(value, unit === undefined ? undefined : UNIT_FORMATS[unit])}</>
+  }
+
+  if (typeof value === "string") {
+    return <code>{value}</code>
+  }
+
+  return <>{format.list(value.map((item) => <code key={item}>{item}</code>))}</>
+}
+```
+
+Eine Zahl wird mit den Trennzeichen der Locale formatiert und, mit einer `unit`, mit dem Wort der Locale für Sekunden, Stunden, Tage oder Prozent, im richtigen Plural. Ein String wird als Code ausgegeben, weil jeder String-Fakt ein Pfad, ein Befehl oder ein Bezeichner ist, der in jeder Sprache gleich aussehen muss. Eine Liste wird zur Liste von Code in der Locale: „a, b and c“ auf Englisch, „a, b et c“ auf Französisch.
+
+Tabellen werden genauso behandelt. `<RepositoryTable>` gibt Zeilen aus, die der Code baut, unter Spaltennamen, die die Seite übersetzt: die Berechtigungs-Statements jeder Rolle, die Commit-Typen und ihre Emoji, die regionalen Preismultiplikatoren mit ihren Ländern, die Anredeformen, die jede Sprache nicht verwenden darf. Eine Tabelle, die in neun Sprachen eingetippt ist, sind neun Kopien einer Datenstruktur; eine Tabelle, die aus der Struktur ausgegeben wird, ist eine.
+
+An drei Orten lässt sich keine Komponente rendern, und jeder braucht seine eigene Antwort:
+
+- **Nachrichtendateien.** Texte der Oberfläche liegen in JSON-Nachrichten, nicht in MDX. Werte gelangen als ICU-Argumente hinein, wie in `{testFiles, number} test files`, und die Komponente, die die Nachricht rendert, übergibt das Faktenmodul. Der Rat von ICU gilt für jede solche Nachricht: „Schreibe vollständige Sätze in ihre Untermeldungen“ („write full sentences in their sub-messages“), denn einen aus Fragmenten zusammengesetzten Satz kann ein Übersetzer nicht umstellen.
+- **Frontmatter.** Titel, Beschreibung und FAQ eines Beitrags sind YAML, das den Kopf der Seite, den Feed und die strukturierten Daten speist. Die Titel und FAQ-Antworten unserer Beiträge sind ICU-Nachrichten, die `formatPostText` mit den Fakten formatiert, sodass eine FAQ-Antwort die Anzahl der Sprachen enthalten kann. Die Meta-Beschreibung kann das nicht, also wird sie ohne Zahlen geschrieben.
+- **Codeblöcke.** Ein Codeblock wird Byte für Byte kopiert. Für ihn braucht es den nächsten Mechanismus.
+
+Das Ergebnis ist in unserer Historie sichtbar. Als #137 jeden eingetippten Wert in der Dokumentation ersetzte, hatte allein der Blog bereits 81 Verwendungen einer früheren Version der Komponente, die umbenannt werden mussten, und die Dokumentation bekam ausgegebene Werte für Rate-Limits, Coverage, Lint-Limits, Timeouts, Einstellungen der Videokodierung, Lebensdauern signierter URLs, Polling-Intervalle, Seitengrößen, Preise, Versionen, Wiederholungen und Zeitpläne, die zuvor jeweils in neun Sprachen eingetippt waren.
+
+## Wenn ein Wert eingetippt bleiben muss, prüfe ihn
+
+Mancher Text muss den Wert selbst enthalten: ein Codeauszug, eine Tabelle der Routen, eine Liste der Umgebungsvariablen. Dafür gilt die Regel, die Seite in einer Prüfung, die fehlschlagen kann, mit dem Code zu vergleichen.
+
+**Führe die Beispiele aus, oder vergleiche sie mit dem Quellcode.** Rust baut das in sein Dokumentationswerkzeug ein: „rustdoc unterstützt das Ausführen deiner Dokumentationsbeispiele als Tests. So ist sichergestellt, dass die Beispiele in deiner Dokumentation aktuell sind und funktionieren“ („rustdoc supports executing your documentation examples as tests. This makes sure that examples within your documentation are up to date and working.“). Für eine TypeScript-Website ist es schwerer, jedes Snippet auszuführen, also vergleichen wir stattdessen. Ein Codeblock, dessen Titel ein Repository-Pfad ist, muss ein exakter Auszug aus dieser Datei sein:
+
+```ts title="scripts/check-content.ts"
+const quotedSourceProblems = ({ label, target }: Translation): string[] =>
+  [...target.matchAll(QUOTED_SOURCE_PATTERN)].flatMap(({ groups }) => {
+    const path = groups?.["path"] ?? ""
+    const file = join(REPOSITORY_DIR, path)
+
+    if (existsSync(file) && readFileSync(file, "utf8").includes(groups?.["code"] ?? "")) {
+      return []
+    }
+
+    return [`A code block in ${label} is not an excerpt of ${path}`]
+  })
+```
+
+Jeder Codeblock mit Titel in diesem Artikel wird so geprüft, in allen neun Sprachen, bei jedem Pull Request. Wenn jemand eine der oben zitierten Dateien ändert, nennt `bun run check` diesen Beitrag und schlägt fehl, bis der Auszug aktualisiert ist.
+
+**Erzeuge Referenztabellen, oder vergleiche sie.** Eine Routen-Referenz, eine Seite mit Skripten und eine Tabelle der Umgebungsvariablen sind Listen, die der Code schon hat. Unsere Inhaltsprüfung schlägt fehl, wenn die Routen-Seite einer Routenkonstante den falschen Pfad gibt, wenn die Seite der Skripte ein Skript aus `package.json` auslässt oder eines aufführt, das es nicht gibt, und wenn die Tabellen der Umgebungsvariablen ein in `wrangler.jsonc` deklariertes Secret auslassen. Sie schlägt auch fehl, wenn eine Dokumentationsseite einen lokalen Host oder eine Subdomain nennt, die kein Build-Modus zulässt.
+
+**Halte Übersetzungen an die Struktur der englischen Seite.** Eine Übersetzung muss dieselben Inline-Code-Spans, dieselben Komponenten mit denselben Props, dieselben Links und dieselbe Zahl von Tabellenzeilen haben wie die englische Seite. Das ist die Prüfung, die übersetzten Befehlen und Pfaden endgültig ein Ende gemacht hat: Ein Übersetzer, Mensch oder Agent, kann jeden Satz umformulieren, aber kein einziges Zeichen zwischen Backticks ändern.
+
+**Prüfe externe Systeme vor einem Deploy gegen den Code.** Preise sind in `TIER_PRICES` deklariert; der Zahlungsanbieter hat eine eigene Kopie in seinem Produktkatalog, und eine Abweichung dort würde einen Preis berechnen, während die Seite einen anderen zeigt. Unser Deploy führt vor dem Build `polar:verify` aus und schlägt fehl, wenn der Preis eines Polar-Produkts von der Konstante abweicht oder seine Lizenzschlüssel eine andere Zahl von Geräten erlauben als `LICENSE_ACTIVATION_LIMITS`. Die Fehlermeldung nennt die Konstante, sodass jeder, der sie liest, weiß, welche Seite die Quelle ist.
+
+## Status statt Zeitformen
+
+Die Behauptungen, die am schwersten wahr zu halten sind, betreffen die Zukunft. „Generiert deine Abrechnung“ ist falsch, bis es ausgeliefert ist, danach wahr, und jeder Satz, der das sagt, muss sich am selben Tag ändern. Prosa geht damit schlecht um: Sätze im Futur bleiben im Futur, nachdem das Feature ausgeliefert ist, und Sätze im Präsens werden zu früh geschrieben, weil sie besser klingen.
+
+Die Lösung ist, die Verfügbarkeit zu einem Wert im Code zu machen. Jedes Feature bekommt einen Status, und jeder Satz, der davon abhängt, ist eine Nachricht mit einer Version pro Status.
+
+Wir haben zwei Status, `FEATURE_STATUS.AVAILABLE` und `FEATURE_STATUS.ARRIVING`. Die Features jeder Stufe sind mit ihrem Status in `TIER_FEATURES` aufgeführt, und die Preiskarten gruppieren sie unter **Jetzt verfügbar** und **Kommt noch**, sodass keine Sprache einen Status eintippt. Als die CLI noch keine Projekte generieren konnte, lebte dieser Fakt in Prosa: elf Nachrichten, in neun Sprachen. #189 verlegte ihn in eine einzige Konstante, `CLI_GENERATION`, und machte aus jeder dieser Nachrichten ein ICU-Select:
+
+```json title="messages/en-US/components.custom.pricing.json"
+      "tagline": "{generation, select, available {The CLI and the generated source with its tests.} other {The CLI now, the generated source and tests as they arrive.}}",
+```
+
+ICU beschreibt den Mechanismus als ein „select“-Argument, das über eine feste Menge von Schlüsselwörtern Untermeldungen auswählt („a ‚select‘ argument to select sub-messages via a fixed set of keywords“). Jede Version ist ein vollständiger Satz, sodass jede Sprache ihn auf ihre eigene Weise schreiben kann. Ein Test rendert jeden solchen Satz mit beiden Status in jeder Sprache, sodass auch die Version, die heute niemand sieht, korrekt sein muss, und ein anderer schlägt fehl, wenn eine Sprache „kommt noch“ außerhalb des Selects sagt, wo der Status sie nicht erreichen kann.
+
+Am 20. November lieferte die CLI die Projektgenerierung aus, und #251 stellte die Konstante auf verfügbar um. Jedes Select schaltete von selbst um, in jeder Sprache: der Hero, der Konfigurator, die FAQ, die Slogans der Preiskarten, der Kundenbereich. Derselbe Pull Request musste trotzdem Prosa in zehn Blogbeiträgen, in der Dokumentation und in der README von Hand aktualisieren, weil diese Sätze die Generierung auf eine Weise beschrieben, die das Select nicht erreichte. Die Lehre: Leite jeden Satz über ein noch nicht ausgeliefertes Feature ab dem Tag, an dem du ihn schreibst, über den Status, auch die Sätze in langen Inhalten.
+
+### Leite den Status ab, wo du kannst
+
+Ein von Hand gesetzter Status kann trotzdem zu früh gesetzt werden. Wo der Code selbst weiß, ob ein Feature funktioniert, leite den Status aus diesem Wissen ab. Unsere CLI veröffentlicht, welche Antworten ihre Templates unterstützen, und die Website leitet daraus den Status der Abrechnung ab:
+
+```ts title="src/data/marketing.ts"
+const TEMPLATES_GENERATE_BILLING = CLI_TEMPLATE_SUPPORT.choices.billing.some((option) => option !== NONE)
+
+export const BILLING_GENERATION: FeatureStatus = TEMPLATES_GENERATE_BILLING ? CLI_GENERATION : FEATURE_STATUS.ARRIVING
+```
+
+Als `CLI_GENERATION` umschaltete, blieb die Abrechnung unter **Kommt noch**, weil noch kein Template die Abrechnung generierte (#233). Niemand musste daran denken, dass die Abrechnung eine Ausnahme war; ein Release der Templates, das die Abrechnung generiert, wird sie verschieben.
+
+### Schreib Sätze, die auf die Quelle verweisen
+
+Manche Behauptungen sind Listen, die wachsen werden. „Generiert TanStack Start, Cloudflare, D1, Drizzle, Better Auth und Resend“ ist für ein Release wahr und für das nächste unvollständig. #233 schrieb solche Sätze so um, dass sie die Quelle nennen, statt sie zu wiederholen: Die Generierung schreibt „die Optionen, die du im Konfigurator wählen kannst“, und der Konfigurator schaltet genau die Optionen frei, die die Templates unterstützen. Der Satz bleibt wahr, während die Liste wächst, und die Liste lebt an einem einzigen Ort.
+
+## Abgeleitete Zahlen: abrunden, deckeln und die Zeilen zeigen
+
+Marketingzahlen sind oft abgeleitet: gesparte Stunden, gespartes Geld, die Zeit bis zum ersten Deploy. Sie lassen sich am leichtesten aufblähen und am schwersten prüfen, deshalb gelten drei Regeln.
+
+1. **Berechne sie im Code aus einzeln aufgeführten Eingaben**, sodass jede Eingabe gelesen und angefochten werden kann.
+2. **Runde zu Ungunsten des Lesers**, und deckle die Hauptzahl, damit die Behauptung nicht von selbst wächst, wenn eine Zeile hinzukommt.
+3. **Veröffentliche die Zeilen** überall dort, wo die Hauptzahl in ausführlicher Form erscheint.
+
+Unsere Behauptung zum „Vorsprung“, den Stunden an Senior-Arbeit, die ein generiertes Projekt spart, folgt seit #184 allen dreien. `HEAD_START_ROWS` in `src/data/head-start.ts` listet jeden Teil des Standardprojekts auf, den die Templates generieren, die Template-Schicht, in der er ausgeliefert wird, und eine niedrige und eine hohe Schätzung der Stunden, die er von Hand kosten würde. Abrechnung, Organisationen, Mandantenfähigkeit und Beispiel-Commerce haben keine Zeile, weil noch kein Template sie generiert. Die Zeilen summieren sich heute auf <RepositoryFact name="headStartLowHours" /> bis <RepositoryFact name="headStartHighHours" /> Stunden, und die Hauptzahl nimmt das untere Ende:
+
+```ts title="src/data/head-start.ts"
+export const HEAD_START_HOURS = Math.min(
+  HEAD_START_CLAIM_MAX_HOURS,
+  Math.floor(HEAD_START_LOW_HOURS / HEAD_START_ROUNDING_HOURS) * HEAD_START_ROUNDING_HOURS,
+)
+```
+
+Die Hauptzahl lautet <RepositoryFact name="headStartHours" />. Die Obergrenze ist die Zahl, die die Website schon behauptete, bevor es die Zeilen gab, sodass die Aufschlüsselung die Behauptung nur bestätigen oder senken konnte. Wird eine Zeile entfernt, fällt die Zahl, ohne dass jemand eine Seite bearbeitet. Beiträge, die sie besprechen, geben jede Zeile mit ihrer Schätzung aus, sodass ein Leser, der einer Schätzung nicht zustimmt, sieht, welcher und um wie viel.
+
+Dasselbe gilt für jede Zahl, die aus einem Preis abgeleitet ist. Die Behauptung, dass Core weniger kostet als <RepositoryFact name="corePriceInHours" unit="hour" /> Arbeitszeit eines Senior-Engineers, ist `CORE_PRICE_IN_HOURS`, berechnet aus dem Preis und einem beispielhaften Stundensatz, der daneben deklariert ist, und ein Test schlägt fehl, falls der Preis je nicht mehr unter so vielen Stunden bleibt. #132 entfernte jede in Prosa eingetippte Summe, die aus Preisen abgeleitet war, etwa die Differenz zwischen zwei Stufen, weil eine eingetippte Differenz an dem Tag falsch ist, an dem sich einer der beiden Preise ändert.
+
+## Ein einziger Vertrag zwischen zwei Repositories
+
+Drift zwischen zwei Repositories ist dasselbe Problem auf größere Entfernung. _The Pragmatic Programmer_ nennt es repräsentationale Duplikation: „Dein Code muss Wissen haben, das auch in dem externen Ding vorhanden ist … Ändere es an einem Ende, und das andere Ende bricht“ („your code has to have knowledge that is also present in the external thing … Change it at one end, and the other end breaks.“).
+
+SaaSy Land hat zwei Repositories: diese Website, die Lizenzen verkauft und eine Lizenz-API bereitstellt, und eine private CLI, die Kunden ausführen. Beide brauchen dieselben Stufen, API-Routen, Fehlercodes, Limits, Exit-Codes und die Liste der Stack-Optionen. Dieses Wissen lebt in einem einzigen Paket, `@saasyland/stack`, das unter der MIT-Lizenz auf npm veröffentlicht ist. Die CLI baut es; die Website importiert es.
+
+Wie viel man importiert, ist eine Abwägung, und bei uns hat eine Messung sie entschieden. Die Stufen-Konstanten des Pakets zur Laufzeit erneut zu exportieren, hätte einen Chunk von 12.072 Byte, gzip-komprimiert 4.493 Byte, in das JavaScript der Landingpage gebracht, weil das Paket keine Seiteneffekte deklarierte und sich nichts per Tree-Shaking entfernen ließ (#160). Die Website behält ihre eigenen Stufennamen und verknüpft sie auf Typebene mit dem Vertrag, was zur Laufzeit nichts kostet:
+
+```ts title="src/modules/license/license.constants.ts"
+export const LICENSE_TIER = {
+  AGENCY: "agency",
+  COMPLETE: "complete",
+  CORE: "core",
+} as const satisfies Record<string, Api["tier"]>
+```
+
+Wird auf einer der beiden Seiten eine Stufe hinzugefügt oder entfernt, kompiliert die Website nicht mehr, und ein Test vergleicht die Werte. Seit #244 liest auch der Konfigurator auf der Landingpage die Fragen, Optionen und Regeln des Stacks aus dem Paket, sodass die Website keine Kopie der Matrix mehr hat.
+
+Ein gemeinsamer Vertrag beseitigt dupliziertes Wissen. Er beseitigt keinen Versionsversatz zwischen Deployments. Am 20. November schickte die veröffentlichte CLI ein Feld, das die Website in Produktion, noch auf der vorherigen Version des Vertrags, ablehnte. Beide Repositories bestanden jeden Test gegen die Version, die sie festgelegt hatten. [Der erste Beitrag dieser Serie](/blog/ai-coding-agent-guardrails) erzählt diese Geschichte; die Regel, die daraus entstand, lautet, dass eine Vertragsänderung auf dem Server live ist, bevor der Client, der sie verwendet, veröffentlicht wird.
+
+### Drift, den wir beim Schreiben gefunden haben
+
+Die README des Pakets ist eine Seite wie jede andere, und sie driftet wie jede andere. Die README, die mit `@saasyland/stack` 0.1.0-beta.5 veröffentlicht wurde, sagt noch immer, der Konfigurator auf saasyland.com behalte seine eigene Kopie der Matrix („The configurator on saasyland.com keeps its own copy of the matrix.“). Das stimmte bis #244, gemergt am 20. November, der die Kopie entfernte. npm macht diese Art von Drift hartnäckig: „Die Datei `README.md` wird auf der Seite des Pakets erst aktualisiert, wenn du eine neue Version deines Pakets veröffentlichst“ („The `README.md` file will only be updated on the package page when you publish a new version of your package.“). Eine README, die ein anderes Repository beschreibt, ist eine Kopie eines Fakts, der diesem Repository gehört, und die Lösung ist, nur zu sagen, was das Paket selbst tut.
+
+## Ein Behauptungsregister für das, was ein Test beweisen kann
+
+Manche Behauptungen betreffen Verhalten: „Erstattete Lizenzen funktionieren nicht mehr“, „die CLI schreibt nur die Optionen, die du gewählt hast“, „jeder Text ist übersetzt“. Der Code kann sie nicht ausgeben. Ein Test kann sie beweisen, und ein Register kann jede Behauptung mit ihrem Test verbinden.
+
+Das CLI-Repository führt eines. Seine `docs/acceptance.md` listet jedes Versprechen auf, das saasyland.com, seine Dokumentation, seine Rechtsseiten, seine Beiträge und die eigenen READMEs der CLI über die CLI und die Projekte machen, die sie generiert. Jede Zeile hat eine stabile ID, den genauen Wortlaut der Behauptung, jede Stelle, die sie macht, die Testebene, die sie beweist, und eine Beweiszelle in einem von drei Zuständen:
+
+- **Bewiesen:** ein oder mehrere Tests, jeder mit Datei und Titel genannt.
+- **Geplant:** der Pull Request, der den Beweis hinzufügen wird.
+- **Offen:** Die Behauptung ist heute falsch oder nicht beweisbar, und die Zeile sagt, was sich ändern müsste: das Produkt oder der Text.
+
+`bun run check` schlägt fehl, wenn eine bewiesene Behauptung eine Testdatei oder einen Testtitel nennt, den es nicht gibt, wenn eine geplante Behauptung keinen geplanten Pull Request nennt oder wenn zwei Behauptungen dieselbe ID haben. Eine Behauptung, die ein Test im Website-Repository beweist, wird gegen die Website auf einem festgelegten Commit geprüft, von demselben CI-Job, der den Golden Diff weiter unten ausführt. Ein Pull Request, der den Test für eine geplante Behauptung hinzufügt, ersetzt die geplante Zelle im selben Commit durch diesen Test, und ein Pull Request, der ändert, was die CLI tut, prüft die Zeilen, die es beschreiben.
+
+Eine offene Zeile ist die nützlichste Art. Sie hält einen Satz fest, den der Text sagt und den das Produkt noch nicht tut, an einer Stelle, die jeder Pull Request sehen kann, und sie muss in einer Entscheidung enden: das Feature bauen oder den Text umformulieren.
+
+Die Website hat ein eigenes Register für eine Art von Behauptung. Jeder Nutzer- und Admin-Ablauf ist in `e2e/data/<area>.flows.ts` mit dem Browsertest aufgeführt, der ihn End-to-End durchläuft, oder mit dem Grund, warum das noch kein Test tut, und `bun run check` schlägt fehl, wenn ein Ablauf einen Test nennt, den es nicht mehr gibt (#253). Die Dokumentationsseite zur [Testabdeckung](/docs/tooling/test-coverage) gibt das Inventar aus: Heute sind <RepositoryFact name="flowsCovered" /> von <RepositoryFact name="flows" /> Abläufen abgedeckt, bei <RepositoryFact name="flowsMissing" /> fehlt ein Browsertest, und <RepositoryFact name="flowsToBuild" /> sind Features, die noch gebaut werden müssen. Derselbe Pull Request machte die Aussagen zur Abdeckung exakt: Aus „100 % Testabdeckung“ wurde überall, wo es vorkam, „100 % Codeabdeckung“, denn die Zahl misst Zeilen, die Unit-, Integrations- und Komponententests ausführen, nicht Abläufe, die in einem Browser bewiesen sind.
+
+### Was ein Register nicht abfängt
+
+Ein Register prüft Beweise, nicht Behauptungen. Eine Prüfung, die nur die Beweiszellen liest, vergleicht nie den Wortlaut einer Zeile mit der Seite, die sie nennt, also kann eine Zeile einen Satz weiter zitieren, nachdem der Text umformuliert oder gestrichen wurde. Wenn du ein Register führst, lass die Prüfung die genannten Stellen ebenso lesen wie die genannten Tests, und lösche eine Zeile, sobald ihre Behauptung die Website verlässt.
+
+## Der Golden Diff: generierte Ausgabe gegen das echte Produkt
+
+Ein Produkt, das Code generiert, hat noch eine Behauptung, die es halten muss: dass das generierte Projekt das ist, was das Marketing zeigt. Das CLI-Repository vergleicht beides direkt. Sein `golden`-Skript generiert den Referenz-Stack aus den Templates genau so, wie es `init` tun würde, holt die Website auf einem festgelegten Commit und vergleicht die beiden Bäume Datei für Datei: identisch, absichtlich angepasst, verschieden oder fehlend. Eine committete Liste nennt jeden beabsichtigten Unterschied mit einem Grund, etwa die Rechtsseiten, die die eigene Verpflichtung des Kunden sind und nicht generiert werden. Der Bericht läuft bei jedem Pull Request. Er blockiert noch keine Merges; eine geplante Änderung macht ihn zu einem Gate, mit einem nächtlichen Bericht über Drift.
+
+Für die eigenen Dokumente des generierten Projekts gilt derselbe Maßstab. Tests generieren die Stacks, ohne sie zu installieren, und lesen ihre README, `AGENTS.md` und ihren CI-Workflow: Diese Dokumente dürfen kein Skript nennen, das der generierten `package.json` fehlt, keine Umgebungsvariable, die das Projekt nicht definiert, keinen Pfad, den es weder enthält noch erzeugt, und keine Version, denn die überlassen sie den Dateien, die Versionen festlegen. Die Dokumentation eines Templates kann deshalb nur sagen, was für den Stack wahr ist, der sie enthält.
+
+## Externe Fakten: datieren, zitieren, erneut prüfen
+
+Fakten über die Außenwelt lassen sich nicht aus deinem Code ausgeben, und sie driften am schnellsten: Preise, Umfrageergebnisse, Features von Konkurrenten, das Verhalten eines Werkzeugs nach seinem nächsten Release. Drei Regeln halten sie ehrlich.
+
+1. **Nenne die Primärquelle**, verlinkt, und zitiere sie wörtlich, statt eine Zahl zu paraphrasieren.
+2. **Datiere jede Prüfung.** Unsere Beiträge beginnen mit einer Zeile „Zuletzt geprüft“ und enden mit einem Vermerk, wann die Quellen gelesen wurden.
+3. **Prüfe nach einem Zeitplan erneut**, und aktualisiere das Datum `updated` des Beitrags, wenn sich ein Fakt ändert.
+
+Erneutes Prüfen findet mehr, als du erwartest. Am 17. November haben wir jeden Beitrag gegen seine Quellen geprüft (#241). Eine Statistik von Stack Overflow war als 45 % zitiert worden, wo die Umfrage 66 % sagt; 45 % war der zweite Punkt derselben Liste. Ein Anteil von 25 bis 38 % an Verwendungen veralteter APIs war dem falschen Fachartikel zugeschrieben. Eine GitClear zugeschriebene Fehlerzahl stand überhaupt nicht auf der öffentlichen Seite von GitClear. Preise und Anzahlen von Konkurrenten hatten sich verändert. Agenten hatten diese Sätze mit Überzeugung geschrieben, und die Sätze bestanden jede Prüfung, die wir hatten, weil keine Prüfung eine Umfrage liest.
+
+Der geschäftliche Grund, sich darum zu kümmern, geht über Glaubwürdigkeit hinaus. In den Vereinigten Staaten sagt der Leitfaden der FTC für Werbetreibende: „Werbetreibende müssen Belege für ihre Behauptungen haben“ („Advertisers must have evidence to back up their claims“), und: „Das Gesetz verlangt, dass Werbetreibende den Beweis haben, bevor die Anzeige läuft“ („The law requires that advertisers have proof before the ad runs.“). Eine Produktseite, die ihre Behauptungen aus dem Code ausgibt und ihre Verhaltensbehauptungen mit ihren Tests auflistet, hat diese Belege schon durch ihre Bauweise in der Akte.
+
+## Was es kostet
+
+Nichts davon ist kostenlos, und die Kosten zu kennen lohnt sich, bevor du anfängst.
+
+**Ein Build-Schritt und Komponenten, die gepflegt werden müssen.** Das Fakten-Plugin, die Komponenten, die Formatierungsregeln und ihre Tests sind Code wie jeder andere. Sie brauchen Review, und sie scheitern auf eine Weise, wie eingetippter Text es nicht tut: Ein Fakt, der eine Datei liest, die der Build nicht findet, stoppt den Build.
+
+**Bundle-Größe, wenn du unvorsichtig bist.** Einen Wert zu importieren kann sein ganzes Modul importieren. Zweimal hätte der naheliegende Weg, einen Wert zu teilen, Code in die Landingpage gezogen, den sie nicht brauchte: 3,7 KB Admin-Code, um Admin-Bereiche zu zählen (#115), und 12 KB der Stack-Matrix und der Vertragsschemas, um drei Stufennamen zu teilen (#160). Miss das Bundle, wenn du einen Wert in eine öffentliche Seite importierst, und bevorzuge Verknüpfungen auf Typebene oder schmale Module.
+
+**Prosa, die Änderungen verträgt.** Ein Satz, der eine Zahl ausgibt, muss sich für jede Zahl richtig lesen: „1 Testdatei“ und „221 Testdateien“, und auf Polnisch, dessen Plural mehr Formen hat als der englische. Wir schreiben solche Sätze mit ICU-Pluralen oder formulieren sie so um, dass die Zahl für sich steht, und manche Grammatik sträubt sich: Eine ausgegebene Zahl kann nicht immer den Kasus annehmen, den ein Satz im Deutschen oder Polnischen braucht, also wird der Satz um sie herum umgeschrieben.
+
+**Frontmatter ohne Zahlen.** Meta-Beschreibungen und Auszüge können keinen Code ausführen, also beschreiben sie, statt zu zählen. Das kostet in den Snippets der Suchergebnisse ein wenig.
+
+**Große Änderungen, einmal.** Das Ersetzen eingetippter Werte berührte in #137 insgesamt 643 Dateien, weil jeder Wert in neun Sprachen existierte. Es früh zu tun, ist viel billiger, als es spät zu tun.
+
+Was es einbringt: Die Anzahlen, Preise, Limits, Versionen und Sprachenzahlen, die unsere Dokumentation und unsere Beiträge über saasyland.com nennen, werden in jeder Sprache aus dem Code ausgegeben, und eine Änderung am Code, die einen zitierten Auszug oder eine Referenztabelle falsch machen würde, lässt die CI mit dem Namen der Seite scheitern.
+
+## Was weiterhin driftet
+
+Manches erreichen die Mechanismen oben nicht, und dort tauchen weiterhin Fehler auf.
+
+- **Prosa ohne Wert.** Welche Browser bei Pull Requests laufen und welche nur auf `main`, ist ein Fakt über den CI-Workflow, in dem keine Zahl steckt, und die Landingpage hatte ihn bis #115 in jeder Sprache falsch. Einen solchen Satz fängt nur das Review ab, oder ein Test, der den Workflow liest.
+- **Historische Zahlen.** Dieser Artikel tippt Zahlen wie 176, 221 und 643 absichtlich ein: Sie beschreiben, wie das Repository an einem bestimmten Tag aussah, und jede ist an einen Pull Request gebunden. Sie driften nicht, weil sie Aussagen über die Vergangenheit sind. Zahlen im Präsens werden ausgegeben.
+- **Werte in Nachrichten ohne Argumente.** Die Prüfung der Nachrichten vergleicht die Argumente einer Übersetzung mit dem Englischen, sucht aber nicht nach Zahlen in einer Nachricht, die keine Argumente hat. Beim Schreiben dieses Artikels haben wir eine gefunden: Der Slogan neben dem Anmeldeformular hatte seine Coverage-Zahl in jeder Sprache eingetippt.
+- **Dokumente außerhalb des Builds**, etwa die auf npm veröffentlichte README eines Pakets, die sich nur ändern, wenn jemand veröffentlicht.
+- **Externe Fakten** zwischen zwei Prüfungen.
+
+## Ein Starter-Kit zum Übernehmen
+
+Diese Teile passen zu den meisten TypeScript-Websites, die mit Vite gebaut werden. Sie sind minimale Versionen dessen, was oben beschrieben ist; pass die Namen an.
+
+**Ein Fakten-Plugin**, das zur Build-Zeit misst und ein virtuelles Modul bereitstellt:
+
+```ts
+import { globSync, readFileSync } from "node:fs"
+import type { Plugin } from "vite"
+
+const MODULE_ID = "virtual:facts"
+const RESOLVED_ID = `\0${MODULE_ID}`
+
+const collectFacts = () => ({
+  testFiles: globSync("src/**/*.test.{ts,tsx}").length,
+  nodeVersion: readFileSync(".nvmrc", "utf8").trim(),
+})
+
+export const facts = (): Plugin => ({
+  name: "facts",
+  resolveId: (id) => (id === MODULE_ID ? RESOLVED_ID : undefined),
+  load: (id) => (id === RESOLVED_ID ? `export default ${JSON.stringify(collectFacts())}` : undefined),
+})
+```
+
+**Eine Komponente**, die einen Fakt für die Locale der Seite ausgibt, und Code als Code:
+
+```tsx
+import facts from "virtual:facts"
+
+export const Fact = ({ name, locale }: { name: keyof typeof facts; locale: string }) => {
+  const value = facts[name]
+
+  return typeof value === "number" ? <>{new Intl.NumberFormat(locale).format(value)}</> : <code>{value}</code>
+}
+```
+
+**Ein Status und eine Nachricht mit beiden Versionen**, dazu ein Test, der beide rendert:
+
+```ts
+export const FEATURE_STATUS = { ARRIVING: "arriving", AVAILABLE: "available" } as const
+
+export const BILLING = FEATURE_STATUS.ARRIVING
+```
+
+```json
+{
+  "billing": "{billing, select, available {Billing is wired in.} other {Billing is arriving in a later release.}}"
+}
+```
+
+**Eine Prüfung der Auszüge** für Codeblöcke, deren Titel ein Pfad ist, zum Ausführen in der CI:
+
+````ts
+import { readFileSync } from "node:fs"
+
+const TITLED_BLOCK = /^```\w*\s+title="(?<path>[^"]+)"\n(?<code>[\s\S]*?)^```$/gmu
+
+export const excerptProblems = (page: string, source: string): string[] =>
+  [...source.matchAll(TITLED_BLOCK)].flatMap(({ groups }) =>
+    readFileSync(groups?.path ?? "", "utf8").includes(groups?.code ?? "") ? [] : [`${page}: not an excerpt of ${groups?.path}`],
+  )
+````
+
+**Ein Behauptungsregister**, als Tabelle in deinem Repository, mit einer Prüfung, dass der Test jeder bewiesenen Zeile existiert:
+
+```md
+| ID        | Claim                            | Where                | Proof                                                   |
+| --------- | -------------------------------- | -------------------- | ------------------------------------------------------- |
+| CLAIM-001 | "Refunded licences stop working" | pricing page, FAQ q4 | `test/licence.test.ts` › "a refund revokes the licence" |
+| CLAIM-002 | "Exports to CSV"                 | features page        | Planned: the export pull request                        |
+| CLAIM-003 | "Works offline"                  | landing page hero    | Open: no offline mode exists; reword or build it        |
+```
+
+**Eine Review-Regel** für alles andere, in deiner Anweisungsdatei:
+
+```md
+## Numbers and claims
+
+- Never type a count, price, limit, version, path or command into docs, copy or messages: print it from code.
+- Every sentence about a feature that has not shipped goes through its status.
+- Every external fact has a link to its primary source and the date it was checked.
+```
+
+## Weiterführende Artikel
+
+<Cards>
+
+<Card title="KI-generierten Code reviewen: Was Tests nicht abfangen können" href="/blog/reviewing-ai-generated-code">
+  Der nächste Beitrag dieser Serie: was ein Reviewer prüft, das kein Test prüfen kann, von Belegen und Workarounds bis zu Schlupflöchern im
+  Typsystem und Behauptungen in Prosa.
+</Card>
+
+<Card title="Leitplanken statt Prompts: Wie wir KI-geschriebenen Code auslieferbar halten" href="/blog/ai-coding-agent-guardrails">
+  Der erste Beitrag dieser Serie: welche Regeln in Prüfungen gehören und welche in Anweisungen, einschließlich der Inhaltsprüfungen, auf die
+  sich dieser Artikel stützt.
+</Card>
+
+<Card
+  title="Lehren aus dem Einsatz eines Teams von KI-Coding-Agenten auf einer einzigen Codebasis"
+  href="/blog/running-ai-coding-agents-in-parallel"
+>
+  Der zweite Beitrag dieser Serie: Worktrees, Ports, eine einzige Merge-Queue und die Vorfälle, die entstehen, wenn sich mehrere Agenten ein
+  Repository teilen.
+</Card>
+
+<Card title="KI-Coding-Agenten für SaaS im Jahr 2026: Warum das Repository entscheidet" href="/blog/ai-coding-agents-repository-readiness">
+  Time to No und eine Scorecard dafür, ob ein Repository eine falsche Änderung zurückweisen kann, bevor ein Mensch sie sieht.
+</Card>
+
+</Cards>
+
+<Callout title="Lies die Fakten an ihrer Quelle">
+
+Die Konventionen zu [Übersetzungen und Inhalten](/docs/conventions/translations) beschreiben jeden Mechanismus dieses Artikels so, wie das Repository ihn durchsetzt, die [Blog-Dokumentation](/docs/features/blog) listet die Werte auf, die ein Beitrag ausgeben kann, und [Testabdeckung](/docs/tooling/test-coverage) gibt das Ablaufinventar aus. Jede Anzahl auf den [Preiskarten](/#pricing) stammt aus demselben Code: eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt.
+
+</Callout>
+
+## Häufig gestellte Fragen
+
+<PostFaq entries={frontmatter.faq} />
+
+### Quellen
+
+- _The Pragmatic Programmer_, Ausgabe zum 20. Jubiläum, von David Thomas und Andrew Hunt: [der kostenlose Auszug „DRY: The Evils of Duplication“](https://media.pragprog.com/titles/tpp20/dry.pdf)
+- Google: [Documentation Best Practices](https://google.github.io/styleguide/docguide/best_practices.html)
+- Vite: [Plugin-API](https://vite.dev/guide/api-plugin), zu virtuellen Modulen; Rust: [Dokumentationstests](https://doc.rust-lang.org/rustdoc/write-documentation/documentation-tests.html); ICU: [Nachrichten formatieren](https://unicode-org.github.io/icu/userguide/format_parse/messages/)
+- npm: [README-Dateien von Paketen](https://docs.npmjs.com/about-package-readme-files); das [Paket `@saasyland/stack`](https://www.npmjs.com/package/@saasyland/stack)
+- Federal Trade Commission: [Advertising FAQ’s: A Guide for Small Business](https://www.ftc.gov/business-guidance/resources/advertising-faqs-guide-small-business)
+- saasyland.com: die Konventionen zu [Übersetzungen und Inhalten](/docs/conventions/translations) und die Pull Requests [#115](https://github.com/saasyland/saasyland.com/pull/115), [#116](https://github.com/saasyland/saasyland.com/pull/116), [#132](https://github.com/saasyland/saasyland.com/pull/132), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#160](https://github.com/saasyland/saasyland.com/pull/160), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#177](https://github.com/saasyland/saasyland.com/pull/177), [#184](https://github.com/saasyland/saasyland.com/pull/184), [#189](https://github.com/saasyland/saasyland.com/pull/189), [#233](https://github.com/saasyland/saasyland.com/pull/233), [#241](https://github.com/saasyland/saasyland.com/pull/241), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#251](https://github.com/saasyland/saasyland.com/pull/251), [#253](https://github.com/saasyland/saasyland.com/pull/253) und [#259](https://github.com/saasyland/saasyland.com/pull/259)
+
+_Geschrieben von Piotr J. Borowiecki, der saasyland.com und die Agenten betreibt, die daran arbeiten. Die externen Quellen wurden am 22. November 2026 gelesen und können sich seitdem geändert haben; die Links führen zur Quelle. Wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

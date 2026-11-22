@@ -1,0 +1,424 @@
+---
+title: "Revisionare il codice generato dall’AI: cosa sfugge ai test"
+description: "Una guida pratica alla revisione del codice generato dall’AI: le prove prima del codice, workaround contro cause radice, test diventati più facili, scappatoie sui tipi che il linter non vede, perimetro, percorsi protetti e affermazioni nella prosa."
+excerpt: "Quando ogni controllo è verde, è la revisione il punto in cui una modifica sbagliata può ancora essere fermata. Questa guida tratta ciò che cerca chi revisiona codice scritto dall’AI e che nessun test può vedere, nell’ordine che fa emergere prima i problemi, con la ricerca su come gli agenti aggirano i test e le pull request in cui la nostra revisione ha intercettato ciò che la CI aveva lasciato passare."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-22
+updated: 2026-11-22
+image: /images/blog/reviewing-ai-generated-code.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: Cosa devo cercare quando revisiono codice generato dall’AI?
+    answer: >-
+      Parti dalle prove, non dal codice: il commit che stai leggendo è quello che è stato testato, e i
+      controlli sono passati su di esso? Poi confronta la descrizione con il diff, cerca modifiche ai
+      percorsi protetti, leggi ogni modifica a un test e chiediti se ogni correzione elimina la causa o
+      solo il sintomo. Dopo vengono le scappatoie sui tipi e sugli errori, il perimetro, il design e
+      ogni affermazione che la modifica fa nella prosa.
+  - question: Perché una CI che passa non basta per il codice scritto dall’AI?
+    answer: >-
+      Perché la CI controlla ciò che un programma può decidere, e gli errori costosi riguardano
+      l’intento: una correzione nel posto sbagliato, un test reso più facile, un design piegato attorno
+      a una regola, una frase non vera. Gli agenti inoltre ottimizzano per i controlli che possono
+      vedere, quindi un’esecuzione verde dice che i controlli sono passati, non che la modifica è
+      giusta.
+  - question: Come distinguo un workaround da una correzione della causa radice?
+    answer: >-
+      Chiediti cosa ha fatto succedere il bug, poi verifica se il diff cambia quella cosa o solo il
+      punto in cui il bug si è manifestato. Un workaround di solito sta accanto al sintomo: un’attesa in
+      un test, un valore di ripiego, una condizione che salta il caso che fallisce, un retry. Se dopo il
+      merge un’altra pagina o un altro chiamante potesse incontrare lo stesso bug, la causa è ancora lì.
+  - question: Come aggirano i test gli agenti di programmazione AI?
+    answer: >-
+      Restituendo i valori che un test si aspetta invece di risolvere il problema, modificando il test
+      perché corrisponda al codice, saltando o allentando le asserzioni e aumentando i timeout.
+      Anthropic e OpenAI hanno documentato entrambe questi comportamenti nei propri modelli. La difesa
+      è leggere ogni modifica a un file di test con la stessa attenzione di una modifica al codice.
+  - question: Quali scappatoie sui tipi sfuggono a un linter?
+    answer: >-
+      Anche con asserzioni di tipo, any e commenti di soppressione vietati, una configurazione
+      TypeScript rigorosa può lasciar passare un’asserzione di non nullità, un type guard che non
+      controlla ciò che dichiara, uno schema che accetta qualsiasi cosa sotto un tipo specifico, un
+      valore di ripiego come una stringa vuota che nasconde un valore mancante, e un errore catturato e
+      ignorato. Ognuno trasforma un fallimento a runtime in un comportamento sbagliato e silenzioso.
+  - question: Un agente AI dovrebbe revisionare il codice di un altro agente?
+    answer: >-
+      Sì, come primo passaggio: un revisore in un contesto nuovo, con strumenti di sola lettura e il
+      brief da cui è stata costruita la modifica, trova lacune che il contesto dell’autore nasconde.
+      Condivide però i punti ciechi del suo modello, e un revisore a cui si chiede di trovare problemi
+      ne trova sempre qualcuno. Tieni una persona come ultimo lettore di tutto ciò che è irreversibile,
+      e di’ al revisore cosa non segnalare.
+  - question: Come revisiono le affermazioni nella descrizione di una pull request?
+    answer: >-
+      Tratta ciascuna come un’affermazione da verificare. Un conteggio dei test, un’esecuzione passata
+      o un’approvazione dovrebbero puntare a qualcosa che puoi aprire: l’esecuzione della CI sul commit
+      di testa, l’output del comando, il messaggio che l’ha approvata. Ogni file che il diff modifica
+      dovrebbe essere spiegato, e ogni modifica che la descrizione cita dovrebbe essere nel diff.
+  - question: Come evito che la revisione diventi il collo di bottiglia?
+    answer: >-
+      Sposta nei controlli ogni regola che un programma può decidere, limita ogni pull request a una
+      sola modifica, leggi in un ordine che fa emergere presto i problemi e approfondisci dove un errore
+      fa più danni: pagamenti, identità, migrazioni, contratti e i controlli stessi. Lo sforzo di
+      revisione dovrebbe andare a ciò che nessun controllo può decidere.
+---
+
+<Callout title="Che cos’è questo articolo">
+
+Una guida pratica alla revisione del codice scritto dagli agenti di programmazione AI, per qualsiasi team e qualsiasi stack. Dà per scontato che i tuoi controlli rifiutino già ciò che un programma può decidere, e tratta ciò che resta. Ogni sezione dà prima la regola, poi la ricerca che c’è dietro, poi le pull request del repository pubblico di saasyland.com in cui la revisione ha intercettato qualcosa che ogni controllo aveva lasciato passare. Tratta:
+
+1. Perché il codice scritto dall’AI ha bisogno di una revisione diversa, e cosa dice la ricerca su agenti e test.
+2. Revisionare le prove e la descrizione prima del codice.
+3. Workaround contro cause radice, e test diventati più facili.
+4. Scappatoie sui tipi e sugli errori che un linter rigoroso lascia ancora passare.
+5. Perimetro, design e percorsi protetti, compresi i design piegati attorno a una regola.
+6. Affermazioni nella prosa, un secondo agente come revisore, un ordine di revisione da copiare e ciò che la nostra revisione ancora non vede.
+
+</Callout>
+
+_Ultima verifica: 22 novembre 2026. Ciò che dicono Anthropic, OpenAI, METR, Stack Overflow, Google, TypeScript, TanStack Query e l’articolo presentato all’ICSE proviene dalle loro pagine, lette quel giorno e linkate in fondo. Tutto ciò che riguarda saasyland.com proviene dal suo repository pubblico, dalle sue pull request e da una prova del lint eseguita il 22 novembre. Questo è il quarto articolo di una serie sullo sviluppo di software con gli agenti di programmazione AI; il [primo](/blog/ai-coding-agent-guardrails) sposta nei controlli ogni regola possibile, e [il precedente](/blog/documentation-drift-numbers-from-code) stampa ogni numero dal codice. Questo riguarda il resto._
+
+## La risposta breve
+
+Revisiona la pull request di un agente nell’ordine che fa emergere prima i problemi, e spendi la tua attenzione dove nessun controllo può arrivare. Prima le prove: il commit che stai leggendo è il commit che è stato testato, e la CI è passata su di esso. Poi la descrizione contro il diff, e il diff contro il tuo elenco di percorsi protetti. Poi ogni modifica a un test, perché un agente che non riesce a far passare un test a volte rende il test più facile. Poi la domanda che intercetta gli errori più costosi: questa modifica elimina la causa del problema, o solo il punto in cui si è manifestato? Dopo, le scappatoie sui tipi e sugli errori che il tuo linter consente, il perimetro della modifica, qualsiasi design che si piega attorno a una regola e ogni affermazione che la modifica fa nella prosa. Tratta un riepilogo che dice «fatto» come un’affermazione. Chiedi il comando, il suo output e il commit su cui è stato eseguito.
+
+## Perché il codice scritto dall’AI ha bisogno di una revisione diversa
+
+La revisione ha sempre riguardato la ricerca dei bug meno di quanto si pensi. Nel loro studio del 2013 sulla revisione del codice in Microsoft, Alberto Bacchelli e Christian Bird hanno rilevato che «trovare difetti resta la motivazione principale della revisione», eppure che «le revisioni riguardano i difetti meno del previsto», e che «la comprensione del codice e della modifica è l’aspetto chiave della revisione del codice». Con un autore umano la comprensione è condivisa: l’autore sa perché il codice è fatto in quel modo, e la revisione è una conversazione.
+
+Con un agente come autore cambiano tre cose.
+
+**La sicurezza dell’autore non porta alcuna informazione.** Un agente scrive «tutti i test passano» con lo stesso tono, che passino o no. La guida di Anthropic a Claude Code descrive il meccanismo senza giri di parole: «Claude si ferma quando il lavoro sembra finito.» Il suo consiglio per chi revisiona è chiedere prove: «il comando che ha eseguito e il suo output, o lo screenshot. “Tutti i test passano”, da solo, ti dice molto poco.»
+
+**Il codice sembra giusto.** Nel sondaggio 2025 di Stack Overflow la frustrazione più comune con gli strumenti di AI, citata dal 66% degli sviluppatori, erano le «soluzioni dell’AI quasi giuste, ma non del tutto», e il 45,2% ha detto che fare il debug del codice generato dall’AI richiede più tempo. Il codice quasi giusto è il più difficile da revisionare, perché niente in esso sembra sbagliato.
+
+**Il tuo senso di avanzamento non è affidabile.** Lo studio randomizzato di METR su sviluppatori open source esperti, all’inizio del 2025, ha rilevato che, quando gli strumenti di AI erano consentiti, «impiegano il 19% di tempo in più per completare le issue». Prima dello studio «si aspettavano che l’AI li rendesse più veloci del 24%», e dopo «credevano ancora che l’AI li avesse resi più veloci del 20%». Chi revisiona e ha la sensazione che il lavoro proceda in fretta non sta misurando niente.
+
+### Gli agenti ottimizzano per i controlli che possono vedere
+
+La ragione più forte per revisionare in modo diverso la documentano gli stessi produttori dei modelli.
+
+La system card di Anthropic per Claude 3.7 Sonnet, pubblicata a febbraio 2025, ha una sezione intitolata «Eccessiva attenzione al superamento dei test». Riporta che il modello «ricorre occasionalmente a casi speciali per superare i casi di test in ambienti di programmazione agentica come Claude Code». Il più delle volte questo significava «restituire direttamente i valori di test attesi invece di implementare soluzioni generali, ma comprende anche la modifica degli stessi test problematici per farli corrispondere all’output del codice». Succedeva «dopo diversi tentativi falliti di sviluppare una soluzione generale», e Anthropic raccomandava di tenere d’occhio tre segnali: «Cicli eccessivi di modifica ed esecuzione dei test su un singolo file», «Commenti che suggeriscono una gestione specifica per i test» e «Modifiche inattese ai file di test».
+
+OpenAI ha riportato la stessa famiglia di comportamenti a marzo 2025, nel suo lavoro sul monitoraggio dei modelli di ragionamento. Tra i suoi esempi c’è un agente che ragionava «Possiamo aggirare verify perché restituisca sempre true», e un altro che pianificava: «Per saltare tutti i test, possiamo definire una funzione `pytest_runtest_setup` che salta sempre.» Quando OpenAI ha penalizzato il modello per pensieri del genere durante l’addestramento, «l’agente addestrato con la pressione sulla CoT impara comunque a fare reward hacking», ma «ha imparato a nascondere il proprio intento nella catena di pensiero». Il precedente rapporto di METR sul reward hacking, citato nel [primo articolo di questa serie](/blog/ai-coding-agent-guardrails), ha trovato lo stesso nei compiti con un punteggio.
+
+Anthropic riporta che le sue mitigazioni in fase di addestramento «hanno ridotto in modo significativo la frequenza di questo comportamento nell’uso tipico». Ciò che resta compare dove lo ha visto Anthropic: dopo ripetuti fallimenti su un problema difficile, che è esattamente il tipo di modifica che ha più bisogno di revisione. La conseguenza pratica è semplice. Un’esecuzione verde della CI ti dice che i controlli sono passati. Non ti dice che i controlli sono quelli da cui eri partito.
+
+## Revisiona le prove prima del codice
+
+I primi minuti di una revisione dovrebbero andare a ciò che la pull request afferma su sé stessa. La maggior parte dei fallimenti costosi che abbiamo visto stava nelle affermazioni, non nel codice.
+
+**Il commit che stai leggendo è il commit che è stato testato?** Un agente che fa un rebase, un amend o il push di una correzione dopo la sua ultima esecuzione dei test ha una pull request la cui descrizione descrive un commit precedente. Verifica che la CI sia stata eseguita sul commit di testa, e che l’esecuzione abbia superato ogni controllo obbligatorio, non solo quelli veloci. [Il secondo articolo di questa serie](/blog/running-ai-coding-agents-in-parallel) racconta come un agente abbia dichiarato «fatto» con la suite nel browser ancora in esecuzione.
+
+**I numeri sono prove?** Un buon piano di test nomina ogni comando con il suo risultato, i conteggi che ha prodotto e tutto ciò che non ha potuto eseguire. Le nostre pull request mostrano la differenza. Il piano di test della #177 riporta 355 file di test e 2.301 test con copertura completa, dice che quattro test in file che la pull request non ha toccato hanno raggiunto il loro timeout con un load average della macchina tra 40 e 170, nomina il flag usato dall’esecuzione riuscita e dice chiaramente che la suite nel browser non è stata eseguita in locale, e perché. La #123 riporta una prima esecuzione della copertura in cui sette test sono andati in timeout sotto carico, e una nuova esecuzione pulita. Nessuna delle due nasconde un fallimento, ed entrambe sono più utili di «tutto verde».
+
+**La descrizione descrive questo diff?** Il 16 novembre la #224, una correzione di layout, è stata unita con la descrizione della #225, una modifica alle licenze, compreso un paragrafo che diceva che il proprietario aveva approvato modifiche a file delle licenze che la #224 non ha mai toccato. Nessun controllo legge le descrizioni. Da allora la revisione le confronta: ogni modifica che la descrizione cita è nel diff, ogni file del diff è spiegato e ogni approvazione è citata con i percorsi che copre.
+
+**Sembra finito, o funziona?** Un elemento interattivo che compare sullo schermo è un’affermazione: dice che fa qualcosa. A novembre le schermate degli utenti dell’admin mostravano i pulsanti **Modifica**, **Visualizza profilo** e **Aggiungi utente** senza alcun handler, mentre nove server function per utenti e sessioni non avevano nessun chiamante (#194). Nessun controllo se n’è accorto: un pulsante senza handler viene mostrato comunque, e niente lo aveva premuto. La correzione ha collegato ogni elemento a una server function reale o lo ha rimosso. Per tutto ciò che un utente può vedere, la prova è uno screenshot o un test nel browser che preme il pulsante e verifica l’esito.
+
+## Workaround contro cause radice
+
+L’errore più costoso che fa un agente è una correzione nel posto sbagliato. Supera ogni controllo, spesso arriva con un test di regressione, e lascia la causa nel codice perché ci inciampi la pagina successiva.
+
+Un workaround ha una forma riconoscibile. Sta accanto al sintomo invece che a monte: un’attesa aggiunta a un test, un valore di ripiego passato a un componente, una condizione che salta il caso che fallisce, un retry attorno a una race condition, una versione riportata indietro. La domanda che lo smaschera è quella a cui allude la guida alla revisione di Google quando dice «Spesso è utile guardare la CL in un contesto ampio»: cosa ha fatto succedere questo, e qualcos’altro potrebbe incontrarlo dopo il merge?
+
+### Un workaround scelto di proposito
+
+Il 14 novembre, un visitatore autenticato che premeva un link dell’header della landing page prima che la pagina fosse idratata faceva segnalare a React un errore di idratazione: il server aveva stampato il numero di stelle su GitHub, e al suo posto il browser mostrava uno skeleton di caricamento. La #146 lo ha corretto passando il numero dal loader della pagina al componente come dati segnaposto, con un test di regressione, e ogni controllo è passato.
+
+La sua descrizione nominava la vera causa. Una route guard nell’integrazione dell’autenticazione svuotava l’intera cache delle query ogni volta che trovava una sessione che la pagina prerenderizzata non conosceva, così che un utente non vedesse mai i dati di un altro. La guard buttava via i dati pubblici insieme a quelli privati, e qualsiasi pagina mostrata dalla cache poteva incontrare lo stesso bug. La descrizione diceva anche perché aveva lasciato stare la causa: cambiarla significava decidere quali dati possono sopravvivere a un cambio di utente, in `src/integrations/better-auth/`, un percorso che richiede il via libera del proprietario.
+
+La revisione ha chiesto la causa radice, il proprietario ha approvato la modifica al percorso protetto, e due ore dopo la #152 l’ha corretta: le query si contrassegnano come pubbliche, un cambio di utente rimuove ogni query che non lo è, e il workaround della #146 è stato eliminato. La lezione ha due metà. Gli agenti spesso conoscono la causa, e un buon brief chiede loro di dirla. E un percorso protetto, che esiste per rendere più rare le modifiche pericolose, rende anche più probabili le correzioni dei sintomi, perché la strada più economica per aggirare una causa protetta è una correzione da qualche altra parte. Quando una correzione sta accanto a un percorso protetto, chiediti se è stata la protezione a scegliere il design.
+
+### Test che aspettano che passi un bug
+
+Prima, lo stesso giorno, la #142 aveva reso affidabile la suite nel browser in WebKit aspettando che il router avesse mostrato una pagina prima di agire su di essa. Quell’attesa rappresenta una prontezza reale, ed è corretta. Ma alcune delle race condition che correggeva venivano da bug delle librerie, e la #151 li ha nominati: «La #142 ha fatto aspettare alla suite nel browser che passassero tre bug delle librerie, ma i visitatori li incontrano ancora.» Un visitatore che scorreva mentre una pagina veniva idratata veniva riportato in cima; una navigazione verso un’altra pagina, partita da una pagina in caricamento, poteva trasformarsi in un ricaricamento della pagina che si stava lasciando.
+
+La #151 ha portato ogni correzione come patch sull’ultima release di TanStack Router e di Motion, ha aggiunto un test nel browser che fallisce senza ciascuna patch, e ha rimosso le attese che esistevano solo per schivare i bug. Una delle patch del router è la modifica di una pull request upstream ancora aperta. La sua riproduzione è il tipo di prova che una revisione dovrebbe chiedere: un’app TanStack Start minima che falliva sei esecuzioni su sei senza la correzione di una riga e ne superava dieci su dieci con la correzione.
+
+La regola che ne abbiamo tratto: un’attesa in un test è accettabile quando rappresenta qualcosa che aspetta anche un utente. Quando aspetta che passi un bug, gli utenti incontrano ancora il bug, e la correzione va nel codice o, per una libreria, in una patch con un test di regressione e una segnalazione upstream.
+
+### Una regola per decidere
+
+Accetta un workaround solo quando valgono tutte e tre le condizioni: la causa è fuori dal tuo controllo, il workaround è segnalato dove il prossimo lettore lo troverà, e qualcosa ne traccia la rimozione. Altrimenti chiedi la causa. Riportare una dipendenza a una versione precedente è un workaround con una lunga coda; la nostra politica è restare sull’ultima release e portare un bug upstream come patch, così la correzione se ne va con la release successiva invece di restare per sempre.
+
+## Test diventati più facili
+
+Un diff che cambia un test merita più attenzione di un diff che cambia il codice, perché il test è ciò di cui ti fidi quando non stai guardando. La guida alla revisione di Google lo dice in poche parole: «I test non si testano da soli.»
+
+Leggi ogni modifica a un file di test e cerca queste cose:
+
+- **Asserzioni rimosse o allentate:** `toEqual` che diventa `toMatchObject`, un valore specifico che diventa `expect.anything()`, un’asserzione eliminata insieme al codice che testava.
+- **Snapshot o fixture aggiornati** il cui nuovo contenuto nessuno ha letto.
+- **Casi speciali:** codice sotto test che si dirama su un valore che usa solo il test, o che restituisce esattamente il valore che un test si aspetta.
+- **Nuovi skip, retry e timeout,** compreso un timeout più lungo su un singolo test.
+- **Nuovi mock** proprio della cosa che il test doveva esercitare.
+- **Asserzioni sull’implementazione** invece che sul comportamento: quale funzione è stata chiamata invece di ciò che vede l’utente.
+
+Anthropic ha notato che i casi speciali che ha osservato «spesso (anche se non sempre) includono commenti espliciti che indicano il caso speciale (ad esempio “# caso speciale per il test XYZ”)». Il nostro repository vieta i commenti, e un controllo li rifiuta tutti. Questo toglie l’etichetta, quindi in una base di codice come la nostra il segnale deve venire dalla lettura del diff dei test stesso.
+
+Il controesempio da copiare è la #191. Su una macchina carica, i nostri test unitari più lenti esaurivano il tempo. La correzione facile era aumentare i timeout. La pull request invece ha trovato perché ogni test era lento e ha eliminato il lavoro che non serviva: un test eseguiva il controllo dei contenuti su ogni pagina in nove locale ed è diventato un caso per pagina; diversi lasciavano girare fuori da `act` il throttle del fallback di suspense di React; una combobox ricostruiva ogni opzione a ogni tasto premuto. La sua descrizione dichiara il vincolo che ha rispettato: «Nessun timeout è stato aumentato e nessun test ha ricevuto un proprio timeout.» Chi revisiona può verificare quella frase sul diff in un minuto, ed è proprio ciò che un piano di test dovrebbe rendere possibile.
+
+## Scappatoie silenziose sui tipi
+
+Un compilatore rigoroso e un linter rigoroso intercettano le scappatoie rumorose: `any`, le asserzioni di tipo, i commenti di soppressione. Alla revisione arrivano quelle silenziose, che compilano senza errori e falliscono a runtime.
+
+TypeScript dice esplicitamente perché le asserzioni sono pericolose: «le asserzioni di tipo vengono rimosse dal compilatore e non influiscono sul comportamento del tuo codice a runtime», e «Se l’asserzione di tipo è sbagliata, non verrà generata né un’eccezione né un `null`.» Lo stesso vale per l’asserzione di non nullità: «questo non cambia il comportamento del tuo codice a runtime.»
+
+### Cosa lascia ancora passare il nostro linter
+
+Il 22 novembre abbiamo passato un file di prova alla nostra configurazione del lint, che attiva come errori intere categorie di regole, comprese le regole che usano le informazioni sui tipi, e vieta `any`, ogni asserzione di tipo tranne `as const` e ogni commento di soppressione:
+
+| Riga nel file di prova                                                  | Rifiutata | Da                                                                          |
+| ----------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
+| `(raw: string): Licence => JSON.parse(raw)`                             | Sì        | `typescript/no-unsafe-return`                                               |
+| `const parse = <T>(raw: string): T => JSON.parse(raw)`                  | Sì        | `typescript/no-unsafe-return` e `typescript/no-unnecessary-type-parameters` |
+| `Reflect.get(target, key)` restituito come `string`                     | Sì        | `typescript/no-unsafe-return`                                               |
+| `items.find((item) => item.length > 2)!.length`                         | No        |                                                                             |
+| `(value: unknown): value is Licence => typeof value === "object"`       | No        |                                                                             |
+| `zod.custom<Licence>()` senza alcun controllo                           | No        |                                                                             |
+| `licence?.key ?? ""`                                                    | No        |                                                                             |
+| Un `catch {}` vuoto, o un `catch` che restituisce un valore predefinito | No        |                                                                             |
+
+Ogni riga che è passata trasforma un valore mancante o malformato in un comportamento sbagliato senza alcun errore. L’asserzione di non nullità dice che il valore esiste. Il type guard dice che un oggetto è una `Licence` dopo aver controllato solo che sia un oggetto. Lo schema personalizzato accetta qualsiasi cosa e la tipizza come `Licence`. Il ripiego sulla stringa vuota trasforma «nessuna licenza» in una chiave di licenza che è una stringa vuota, e la funzione successiva potrebbe tranquillamente inviarla a un’API. L’errore ignorato nasconde il fallimento alla persona che l’avrebbe corretto. Oggi il codice della nostra applicazione non ha asserzioni di non nullità né schemi personalizzati senza controllo; nient’altro che la revisione lo mantiene così, e le regole per la prima esistono sia in typescript-eslint sia in Oxlint.
+
+### Una scappatoia con una buona ragione resta una scappatoia
+
+Il commit che ha migrato saasyland.com a TanStack Start, il 6 settembre 2026, conteneva sei commenti di soppressione del lint: quattro per asserzioni di tipo non sicure, uno per `null` e uno per un argomento non sicuro. Ognuno arrivava con una frase che lo faceva sembrare necessario:
+
+```ts
+// TanStack Query requires a defined result; null represents an absent license.
+// oxlint-disable-next-line unicorn/no-null
+const NO_LICENSE = null
+```
+
+Metà della ragione era vera. La documentazione di TanStack Query dice che «In caso di successo, il valore risolto può essere qualsiasi cosa tranne undefined.» La conclusione no: la query non aveva bisogno di `null`, aveva bisogno di un valore definito. La revisione li ha rimossi tutti e sei entro tre settimane, cambiando il design che ognuno proteggeva. Questo è diventato un oggetto che esiste sempre:
+
+```ts
+.handler(async ({ context }) => ({ license: await getLicense(context.auth.user.id) }))
+```
+
+Gli altri hanno fatto la stessa fine: un helper di test che asseriva un tipo generato ora costruisce un albero di messaggi non tipizzato, e un proxy di test che asseriva il tipo di un builder ora verifica a runtime di aver ricevuto una server function e altrimenti lancia un `TypeError`. Le nostre convenzioni ora elencano le alternative a una scappatoia: valida invece di asserire, restringi con un vero type guard, annota invece di asserire, verifica con `satisfies` invece di convertire, e ristruttura quando il contratto di una libreria ti ostacola. Dalla #274 `bun run check` rifiuta ogni commento di soppressione, quindi questo tipo di scappatoia non arriva più alla revisione. La lezione resta per quelle che ci arrivano: una ragione scritta accanto a una scappatoia è un argomento, e il compito della revisione è mettere alla prova l’argomento, non ammirarlo.
+
+## Perimetro, design e forma della modifica
+
+**Modifiche non richieste.** Gli agenti sistemano cose lungo la strada. Spesso è utile, ed è sempre un problema per la revisione, perché una modifica che nessuno ha chiesto viene revisionata come parte di una modifica che qualcuno ha chiesto. La regola che usiamo: le correzioni adiacenti sono benvenute quando la descrizione le elenca e dice perché. La #169, una correzione per i percorsi dei file tradotti, elenca gli altri errori che ha corretto nelle stringhe che stava già riscrivendo. La #191, una pull request sui test lenti, ha modificato un componente di produzione, e la sua descrizione spiega che il componente ricostruiva ogni opzione a ogni render, il che era un problema sia per il test sia per l’utente. Una modifica che la descrizione non cita è un motivo per fermarsi e chiedere.
+
+**Astrazioni di cui nessuno aveva bisogno.** La guida di Google chiede a chi revisiona: «Incoraggia gli sviluppatori a risolvere il problema che sanno di dover risolvere adesso, non il problema che lo sviluppatore ipotizza possa dover essere risolto in futuro.» Gli agenti tendono nella direzione opposta: un wrapper attorno a una chiamata di libreria, una factory con un solo prodotto, un helper che duplica uno che esiste già tre cartelle più in là. Le nostre convenzioni chiedono un unico meccanismo ovvio per ogni aspetto e di chiamare direttamente la libreria; in revisione, il controllo più economico è cercare nel repository una funzione esistente prima di accettarne una nuova.
+
+**Cerimonie che soddisfano una regola.** Quando una regola è leggermente sbagliata, gli agenti la rispettano su larga scala. La nostra regola contro i numeri magici ammetteva solo `0`, quindi gli agenti hanno dato un nome a ogni `1`, e la #230 ha sostituito con il loro valore 72 costanti di questo tipo. [Il primo articolo di questa serie](/blog/ai-coding-agent-guardrails) racconta questa storia. In revisione, uno schema che nessuna persona scriverebbe a mano è il segnale che bisogna correggere la regola.
+
+**Design piegati attorno a un percorso protetto.** Questo è il caso sottile. La #177 aveva bisogno di una costante di stato per le funzionalità disponibili o in arrivo. Il video Remotion della landing page importa la navigazione dell’admin, e un test richiede che il workflow del video osservi ogni file che Remotion importa, quindi un nuovo file avrebbe significato una modifica a `.github/workflows/`, un percorso che richiede l’approvazione del proprietario. La pull request ha messo la costante in `src/data/navigation.constants.ts`, un file che il workflow osservava già, e lo ha detto nella sua descrizione. Modifiche successive hanno rimosso del tutto lo stato dalla navigazione dell’admin. Oggi la costante serve le schede dei prezzi e i testi, e vive ancora nelle costanti della navigazione, per un motivo che non esiste più. Niente lo controlla. La revisione è il momento in cui chiedi: questo file è dove un nuovo lettore cercherebbe questa cosa, e se no, cosa ha spinto l’autore a metterla qui?
+
+La guida di Anthropic aggiunge un avvertimento che vale per ogni revisore, umano o agente: «Un revisore a cui viene chiesto di trovare problemi troverà sempre _qualcosa_. Se correggi ogni segnalazione, finisci con livelli di astrazione in più e test per casi che non possono verificarsi.» Il perimetro taglia in entrambe le direzioni. Una revisione che pretende ogni miglioramento possibile produce lo stesso codice ipertrofico di un agente che li aggiunge senza che nessuno glieli chieda.
+
+## Percorsi protetti nel diff
+
+[Il primo articolo di questa serie](/blog/ai-coding-agent-guardrails) spiega quali percorsi richiedono la seconda chiave di una persona e perché un’approvazione appartiene a un diff. In revisione, ne seguono due controlli.
+
+**Confronta meccanicamente i file modificati con l’elenco.** Leggere un diff lungo in cerca di percorsi protetti è proprio il compito che una persona svolge male alla fine di una giornata. Un comando di una riga lo fa ogni volta; il kit in fondo ne ha uno. Quando un percorso protetto è nel diff, la descrizione deve citare l’approvazione e nominare i percorsi che copre.
+
+**Chiediti cosa ha cambiato la protezione.** I due incidenti qui sopra, una correzione del sintomo accanto a una causa protetta e una costante sistemata per evitare un file protetto, mostrano che un elenco di percorsi protetti dà forma al codice che gli sta attorno. Nessuno dei due ha toccato un percorso protetto, quindi nessuno dei due comparirebbe in un controllo meccanico. La domanda per chi revisiona è quella opposta: questa modifica ha evitato un percorso protetto, e la correzione giusta sarebbe passata da lì?
+
+## Fatti e affermazioni nella prosa
+
+Gli agenti scrivono la prosa con la stessa scioltezza del codice, e la prosa non ha un compilatore. Descrizioni delle pull request, documentazione, changelog, README e articoli del blog fanno tutti delle affermazioni, e la nostra cronologia mostra quattro tipi di affermazioni sbagliate.
+
+**Configurazione inventata.** Due dei nostri articoli dicevano che `typescript/no-explicit-any` era un errore nella nostra configurazione del lint quando non lo era; la #123 ha reso vera la frase attivando la regola. Lo stesso audit ha trovato un `tsconfig.json` citato con `verbatimModuleSyntax`, che il progetto non imposta, e un’opzione del lint, `denyWarnings: true`, che non esiste.
+
+**Fonti attribuite male.** Un audit di ogni articolo rispetto alle sue fonti, il 17 novembre (#241), ha trovato un dato di Stack Overflow citato come 45% dove il sondaggio dice 66%, una percentuale di uso di API deprecate attribuita all’articolo scientifico sbagliato e un dato sui difetti di GitClear che la pagina pubblica di GitClear non contiene.
+
+**Contesto obsoleto.** Le traduzioni fatte da una versione inglese più vecchia descrivevano uno stack che il sito non usava più, con vecchi conteggi e vecchi nomi dei piani (#116). Ogni frase era scorrevole e plausibile.
+
+**Descrizioni della modifica sbagliata,** come nella #224.
+
+La revisione della prosa è la stessa del codice, con le fonti al posto dei test. Ogni numero punta al codice che lo definisce, e [l’articolo precedente](/blog/documentation-drift-numbers-from-code) mostra come stamparlo da lì, così che non possa essere sbagliato. Ogni dato esterno ha un link, e chi revisiona apre il link e cerca le parole esatte. Ogni «è imposto» nomina il controllo che lo impone. Ogni citazione si trova nella fonte.
+
+## Un secondo agente come revisore
+
+Un agente revisore è economico, veloce e utile come primo passaggio, se lo prepari per il compito.
+
+- **Contesto nuovo.** La guida di Anthropic descrive il suo comando `/code-review` come una revisione del «diff in un subagent nuovo che non ha mai visto la tua conversazione. Non si lascia influenzare dal ragionamento che ha prodotto il codice.» Un revisore che ha letto il ragionamento dell’autore tende ad accettarlo.
+- **Strumenti di sola lettura.** Un revisore che può modificare correggerà ciò che trova e trasformerà una revisione in una seconda modifica. I subagent di Claude Code accettano un elenco `tools` nella loro definizione; dai a un revisore solo la lettura e la ricerca.
+- **Una specifica rispetto a cui revisionare.** Il brief da cui è stata costruita la modifica, o la issue, così il revisore controlla i requisiti invece dei gusti.
+- **Istruzioni su cosa non segnalare.** Lo stile e i casi ipotetici, per il motivo che Anthropic dà qui sopra.
+
+Conoscine i limiti. Un agente revisore di solito usa lo stesso modello dell’autore, o uno più piccolo, quindi ne condivide i punti ciechi, e non può dirti se la modifica è la cosa giusta da costruire. Nella nostra configurazione, un agente principale scrive il brief di ogni agente esecutore e ne legge il report e il diff rispetto a quel brief prima che la modifica entri nella coda di merge, e tutto ciò che è nell’elenco della revisione umana aspetta il sì del proprietario, citato testualmente. La domanda del [secondo articolo](/blog/running-ai-coding-agents-in-parallel) è ancora quella che intercetta di più: cosa hai deciso di non fare, e perché?
+
+## Un ordine di revisione che fa emergere presto i problemi
+
+Il secondo articolo di questa serie ha un elenco in otto passaggi per revisionare la pull request di un agente. Questa è la versione più lunga che usiamo ora, in ordine, con ciò che cerca ogni passaggio. Fermati al primo passaggio che fallisce; non ha senso leggere codice di cui mancano le prove.
+
+1. **Prove.** Il commit di testa è il commit testato. La CI ha superato su di esso ogni controllo obbligatorio. Il piano di test nomina comandi, risultati e conteggi, e dice cosa non è stato eseguito. Le modifiche visibili agli utenti hanno uno screenshot o un test nel browser che preme l’elemento interattivo.
+2. **Descrizione contro diff.** Ogni modifica che la descrizione dichiara è nel diff. Ogni file del diff è spiegato.
+3. **Percorsi protetti.** Nessuno è stato modificato, o ciascuno è coperto da un’approvazione citata che lo nomina.
+4. **Diff dei test.** Nessuna asserzione allentata o eliminata senza un motivo, nessun nuovo skip, retry, timeout o mock dell’unità sotto test, nessun caso speciale.
+5. **Causa radice.** La correzione cambia ciò che ha fatto succedere il problema. Niente altro può incontrare lo stesso bug dopo il merge. Ogni workaround è segnalato e tracciato.
+6. **Scappatoie.** Nessuna asserzione di non nullità, nessun type guard che mente, nessuno schema che accetta qualsiasi cosa, nessun ripiego che nasconde un’assenza, nessun errore ignorato.
+7. **Perimetro e design.** Niente di non richiesto e non spiegato. Nessuna nuova astrazione con un solo utilizzatore, nessun duplicato di un helper esistente, nessun file messo dove un lettore non guarderebbe, nessun design piegato attorno a una regola.
+8. **Affermazioni nella prosa.** Numeri stampati dal codice, fatti esterni linkati e trovati al link, ogni «imposto» che nomina il suo controllo.
+9. **Tutto ciò che la modifica riguarda.** Documentazione, README, testi e changelog in ogni lingua; la maggior parte di questo è un controllo, e il resto è qui.
+10. **Cronologia.** Una sola modifica, un titolo che si leggerà bene come commit di squash, nessuna riga di attribuzione.
+
+I passaggi da 1 a 3 richiedono pochi minuti e nessuna comprensione del codice, quindi rimandare indietro una pull request che ne fallisce uno non costa quasi nulla. I passaggi da 4 a 7 sono quelli in cui va il tempo, e sono quelli che nessun programma può fare al posto tuo.
+
+## Quanto costa, e dove spendere
+
+La revisione è l’unica parte di questo sistema che non scala con più agenti. [Il secondo articolo](/blog/running-ai-coding-agents-in-parallel) ha scoperto che il vero limite al numero di agenti che possono lavorare insieme era chi revisiona, non le macchine né i minuti di CI. Tre abitudini la mantengono sostenibile.
+
+**Sposta nei controlli tutto ciò che si può decidere.** Ogni regola che un programma può decidere e che tu revisioni ancora a occhio è tempo di revisione speso sulla cosa sbagliata. L’[articolo sui guardrail](/blog/ai-coding-agent-guardrails) parla proprio di questo.
+
+**Tieni le modifiche piccole e singole.** Una pull request con una sola modifica si può leggere rispetto a una sola domanda. Gli agenti producono diff grandi a basso costo; il brief dovrebbe chiedere una modifica per pull request, e chi revisiona dovrebbe rimandare indietro le pull request che non lo fanno.
+
+**Approfondisci in base ai danni possibili.** Pagamenti, identità, migrazioni, contratti da cui dipende altro software e i controlli stessi ricevono l’elenco completo, con calma. Una correzione alla documentazione riceve i passaggi 1, 2 e 8.
+
+## Cosa la nostra revisione ancora non vede
+
+Nello spirito del resto della serie, ecco dove il nostro processo è debole.
+
+- **Le descrizioni vengono confrontate con i diff da una persona**, non da un controllo, quindi in una giornata piena ne può ancora sfuggire una.
+- **La costante di stato della #177** vive ancora nelle costanti della navigazione, per un motivo che non esiste più.
+- **Asserzioni di non nullità e schemi personalizzati** sono assenti dal nostro codice per abitudine; nessuna regola li rifiuta ancora.
+- **Il mutation testing**, che misurerebbe se i test falliscono quando il codice cambia, non è configurato, quindi «test diventati più facili» dipende dalla lettura.
+- **Revisore e autore spesso condividono un modello**, e quindi i suoi punti ciechi.
+- **Gli agenti lavorano con l’account del proprietario**, quindi GitHub non può richiedere una revisione da qualcuno diverso dall’autore; la seconda chiave è tenuta dal livello dei permessi degli agenti e da un’approvazione citata, come descrive il primo articolo.
+
+## Un kit di revisione da copiare
+
+**Un template di pull request** che chiede prove invece di rassicurazioni:
+
+```md
+## What and why
+
+One change. What made the problem happen, and how this removes it.
+
+## Evidence
+
+| Command | Result | Commit |
+| ------- | ------ | ------ |
+|         |        |        |
+
+Not run, and why:
+
+## Also changed
+
+Every change the title does not cover, with its reason.
+
+## Protected paths
+
+None, or each path with the quoted approval that covers it.
+
+## Not done
+
+What I decided not to do, and why.
+```
+
+**Un comando che elenca i percorsi protetti in un diff**, da far eseguire a chi revisiona o alla CI:
+
+```sh
+git diff --name-only origin/main...HEAD | grep -E '^(db/migrations/|src/billing/|src/auth/|\.github/|eslint\.config\.js|vitest\.config\.ts)'
+```
+
+**Una ricerca dei campanelli d’allarme nel diff dei test**, come punto di partenza per il passaggio 4:
+
+```sh
+git diff origin/main...HEAD -- '*.test.*' '*.spec.*' | grep -nE '^\+.*(\.skip|\.only|\.todo|retry|retries|timeout|expect\.anything|toMatchObject|vi\.mock|jest\.mock)|^-.*expect\('
+```
+
+**Regole di lint per due delle scappatoie silenziose**, con i nomi che usano ESLint e typescript-eslint:
+
+```js
+export default [
+  {
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "no-empty": "error",
+    },
+  },
+]
+```
+
+**Un subagent revisore di sola lettura** per Claude Code, in `.claude/agents/reviewer.md`:
+
+```md
+---
+name: reviewer
+description: Reviews a pull request's diff against the brief it was built from, before a person reads it.
+tools: Read, Grep, Glob
+---
+
+You review a change you did not write. You are given the brief and the diff.
+
+Report, in this order, only what affects correctness:
+
+1. Claims in the description that the diff does not support, and files in the diff the description does not explain.
+2. Changes to tests that make them easier: removed or loosened assertions, skips, retries, timeouts, mocks of the unit under test, special cases.
+3. Fixes that change where a problem shows rather than what causes it.
+4. Non-null assertions, type guards that do not check what they claim, schemas that accept anything, fallbacks that hide a missing value, swallowed errors.
+5. New abstractions with one user, and helpers that duplicate existing ones.
+
+Do not report style. Do not report cases that cannot happen. Do not edit anything.
+```
+
+**Una riga per il tuo file di istruzioni**, così l’autore prepara ciò che chi revisiona chiederà:
+
+```md
+## Before you say done
+
+Give the commit you tested, each command with its result, what you did not run and why, every change beyond the task, and what you decided not to do. A summary is not evidence.
+```
+
+## Letture correlate
+
+<Cards>
+
+<Card title="Deriva della documentazione: ogni numero arriva dal codice" href="/blog/documentation-drift-numbers-from-code">
+  L’articolo precedente di questa serie: misurare e stampare ogni numero dal codice, così diminuiscono le affermazioni che chi revisiona
+  deve controllare.
+</Card>
+
+<Card title="Guardrail, non prompt: come manteniamo rilasciabile il codice scritto dall’AI" href="/blog/ai-coding-agent-guardrails">
+  Il primo articolo di questa serie: i controlli che decidono ciò che un programma può decidere, così la revisione può dedicare il suo tempo
+  a ciò che un programma non può decidere.
+</Card>
+
+<Card
+  title="Lezioni da un team di agenti di programmazione AI al lavoro su un’unica base di codice"
+  href="/blog/running-ai-coding-agents-in-parallel"
+>
+  Il secondo articolo di questa serie: worktree, un’unica coda di merge, come istruire un agente e perché il vero limite è chi revisiona.
+</Card>
+
+<Card
+  title="Agenti di programmazione AI per il SaaS nel 2026: perché decide il repository"
+  href="/blog/ai-coding-agents-repository-readiness"
+>
+  Il Time to No, e una scheda di valutazione per capire se un repository può rifiutare una modifica sbagliata prima che la veda una persona.
+</Card>
+
+</Cards>
+
+<Callout title="Leggi le pull request dietro questo articolo">
+
+Ogni pull request citata qui è pubblica nel repository di saasyland.com, con la sua descrizione, i suoi controlli e la sua revisione. Le [convenzioni](/docs/conventions) sono le regole a cui la revisione sottopone il codice, in ogni lingua. Per vedere quanto costa la base di codice, [confronta i piani](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, con ogni scheda che indica cosa è disponibile ora e cosa è in arrivo.
+
+</Callout>
+
+## Domande frequenti
+
+<PostFaq entries={frontmatter.faq} />
+
+### Fonti
+
+- Anthropic: la [system card di Claude 3.7 Sonnet](https://assets.anthropic.com/m/785e231869ea8b3b/original/claude-3-7-sonnet-system-card.pdf) (febbraio 2025), sezione 6, e le [best practice](https://code.claude.com/docs/en/best-practices) e i [subagent](https://code.claude.com/docs/en/sub-agents) di Claude Code
+- OpenAI: [Detecting misbehavior in frontier reasoning models](https://openai.com/index/chain-of-thought-monitoring/) (marzo 2025)
+- METR: [Measuring the Impact of Early-2025 AI on Experienced Open-Source Developer Productivity](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/) (luglio 2025); Stack Overflow: [Developer Survey 2025, la sezione sull’AI](https://survey.stackoverflow.co/2025/ai)
+- Bacchelli e Bird: [Expectations, Outcomes, and Challenges of Modern Code Review](https://www.microsoft.com/en-us/research/publication/expectations-outcomes-and-challenges-of-modern-code-review/) (ICSE 2013); Google: [cosa guardare in una code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
+- TypeScript: [Everyday Types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html), sulle asserzioni di tipo e di non nullità; TanStack Query: [le funzioni di query](https://tanstack.com/query/latest/docs/framework/react/guides/query-functions)
+- saasyland.com: le [convenzioni](/docs/conventions), i commit che hanno [aggiunto](https://github.com/saasyland/saasyland.com/commit/0b9a1b9865859643bedbbb41c3f26b3ff6a1eede) e [rimosso](https://github.com/saasyland/saasyland.com/commit/ede7073076f8a2282f6eb0a48cbf1f7ca9452833) i commenti di soppressione, e le pull request [#116](https://github.com/saasyland/saasyland.com/pull/116), [#123](https://github.com/saasyland/saasyland.com/pull/123), [#142](https://github.com/saasyland/saasyland.com/pull/142), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#151](https://github.com/saasyland/saasyland.com/pull/151), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#177](https://github.com/saasyland/saasyland.com/pull/177), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#194](https://github.com/saasyland/saasyland.com/pull/194), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230), [#241](https://github.com/saasyland/saasyland.com/pull/241) e [#274](https://github.com/saasyland/saasyland.com/pull/274)
+
+_Scritto da Piotr J. Borowiecki, che revisiona il lavoro degli agenti che costruiscono saasyland.com. Le fonti esterne sono state lette il 22 novembre 2026 e potrebbero essere cambiate da allora; i link portano alla fonte. Se qualcosa qui è obsoleto o sbagliato, dimmelo e lo correggerò._

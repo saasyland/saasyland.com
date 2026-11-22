@@ -5,7 +5,23 @@ description: "Restare sulle versioni più recenti, adattare il codice all'uso do
 
 Il repository usa l'ultima release di ogni dipendenza. Un aggiornamento che rompe qualcosa si risolve andando avanti, nel codice o upstream, mai tornando indietro.
 
-## Versioni della toolchain
+## Versioni della toolchain [#upgrading]
+
+Aggiorna le dipendenze e le skill per agenti con un solo comando, su un branch dedicato:
+
+```sh
+bun run deps:update
+```
+
+`scripts/update-dependencies.ts` esegue, in quest'ordine:
+
+1. `vp migrate` dell'ultima release di Vite+ quando è più recente del `vite-plus` in `package.json`, che sposta insieme `vite-plus`, l'alias `vite` e `vitest`;
+2. `bun update --latest` per ogni dipendenza dichiarata con un intervallo `^` o `~`, che la porta all'ultima release, anche a una nuova major, e mantiene l'intervallo;
+3. `bun run skills:update`, che porta le [skill per agenti](/docs/tooling/agent-skills) agli ultimi commit delle loro sorgenti e registra le versioni dei pacchetti che documentano.
+
+Lascia invariati i pin esatti, perché ognuno ha un motivo in questa pagina, e alla fine nomina ogni pacchetto bloccato che ha una release più recente. `bun run check` fallisce finché un pacchetto documentato da una skill si è spostato dall'ultimo `skills:update`, così dipendenze e skill non possono andare alla deriva. Ogni settimana il workflow `updates.yml` elenca gli aggiornamenti disponibili in una sola issue GitHub; vedi [CI/CD](/docs/tooling/ci-cd#updates).
+
+Poi, per ogni pacchetto che si è spostato:
 
 - Bun è il package manager e l'esecutore degli script. `packageManager` in `package.json` (Bun <RepositoryFact name="bunVersion" />) è l'unico punto in cui è impostata la sua versione; la CI la legge da lì. `bun.lock` è versionato.
 - Node proviene da `.nvmrc` (<RepositoryFact name="nodeVersion" />), e `engines.node` richiede almeno quella versione.
@@ -77,7 +93,7 @@ Queste righe, e lo stesso alias `vite` e la stessa versione di `vitest` sotto `o
 
 ## Aggiungere una dipendenza
 
-Verifica prima se un pacchetto già presente in `package.json` fa il lavoro, così ogni aspetto mantiene una sola libreria. Aggiungi una dipendenza di runtime con `bun add`, uno strumento con `bun add --dev`, e usa la skill per agenti del fornitore da `skills-lock.json` quando esiste (vedi [Skill per agenti](/docs/tooling/agent-skills)).
+Verifica prima se un pacchetto già presente in `package.json` fa il lavoro, così ogni aspetto mantiene una sola libreria. Aggiungi una dipendenza di runtime con `bun add`, uno strumento con `bun add --dev`, e usa la skill per agenti del fornitore da `skills-lock.json` quando esiste (vedi [Skill per agenti](/docs/tooling/agent-skills)). Quando una skill di un fornitore documenta il nuovo pacchetto, aggiungi il pacchetto alla sua sorgente in `SKILL_SOURCES` (`src/data/skills.ts`) ed esegui `bun run skills:update`.
 
 ## Pagine correlate
 

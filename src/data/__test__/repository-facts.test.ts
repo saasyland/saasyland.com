@@ -239,6 +239,10 @@ describe("REPOSITORY_FACTS", () => {
     expect(readFileSync(".github/workflows/journey.yml", "utf8")).toContain(`cron: "${REPOSITORY_FACTS.journeySchedule}"`)
   })
 
+  it("reads the schedule of the weekly updates report from its workflow", () => {
+    expect(readFileSync(".github/workflows/updates.yml", "utf8")).toContain(`cron: "${REPOSITORY_FACTS.updatesSchedule}"`)
+  })
+
   it("counts the shards the browser suite runs on from its workflow's matrix", () => {
     const shards = Array.from({ length: REPOSITORY_FACTS.e2eShards }, (_, index) => index + 1)
 

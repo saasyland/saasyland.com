@@ -5,7 +5,23 @@ description: "Rester sur les dernières versions, adapter le code à l'usage doc
 
 Le dépôt utilise la dernière version de chaque dépendance. Une mise à jour qui casse quelque chose se corrige vers l'avant, dans le code ou en amont, jamais en revenant en arrière.
 
-## Versions de la chaîne d'outils
+## Versions de la chaîne d'outils [#upgrading]
+
+Mettez à jour les dépendances et les skills pour agents avec une seule commande, sur une branche dédiée :
+
+```sh
+bun run deps:update
+```
+
+`scripts/update-dependencies.ts` exécute, dans cet ordre :
+
+1. `vp migrate` de la dernière version de Vite+ lorsqu'elle est plus récente que le `vite-plus` de `package.json`, ce qui déplace ensemble `vite-plus`, l'alias `vite` et `vitest` ;
+2. `bun update --latest` pour chaque dépendance déclarée avec une plage `^` ou `~`, ce qui l'amène à sa dernière version, y compris une nouvelle version majeure, et conserve la plage ;
+3. `bun run skills:update`, qui amène les [skills pour agents](/docs/tooling/agent-skills) aux derniers commits de leurs sources et enregistre les versions des paquets qu'elles documentent.
+
+Il laisse les versions épinglées exactes telles quelles, car chacune a une raison sur cette page, et termine en nommant chaque paquet épinglé qui a une version plus récente. `bun run check` échoue tant qu'un paquet documenté par une skill a bougé depuis le dernier `skills:update`, si bien que les dépendances et les skills ne peuvent pas diverger. Chaque semaine, le workflow `updates.yml` liste les mises à jour disponibles dans une seule issue GitHub ; voir [CI/CD](/docs/tooling/ci-cd#updates).
+
+Ensuite, pour chaque paquet qui a bougé :
 
 - Bun est le gestionnaire de paquets et le lanceur de scripts. `packageManager` dans `package.json` (Bun <RepositoryFact name="bunVersion" />) est le seul endroit où sa version est définie ; la CI la lit à cet endroit. `bun.lock` est versionné.
 - Node provient de `.nvmrc` (<RepositoryFact name="nodeVersion" />), et `engines.node` exige au moins cette version.
@@ -77,7 +93,7 @@ Ces lignes, ainsi que le même alias `vite` et la même version de `vitest` sous
 
 ## Ajouter une dépendance
 
-Vérifiez d'abord si un paquet déjà présent dans `package.json` fait l'affaire, pour que chaque préoccupation garde une seule bibliothèque. Ajoutez une dépendance d'exécution avec `bun add`, un outil avec `bun add --dev`, et utilisez la skill pour agents de l'éditeur listée dans `skills-lock.json` lorsqu'il en existe une (voir [Skills pour agents](/docs/tooling/agent-skills)).
+Vérifiez d'abord si un paquet déjà présent dans `package.json` fait l'affaire, pour que chaque préoccupation garde une seule bibliothèque. Ajoutez une dépendance d'exécution avec `bun add`, un outil avec `bun add --dev`, et utilisez la skill pour agents de l'éditeur listée dans `skills-lock.json` lorsqu'il en existe une (voir [Skills pour agents](/docs/tooling/agent-skills)). Lorsqu'une skill d'un fournisseur documente le nouveau paquet, ajoutez le paquet à sa source dans `SKILL_SOURCES` (`src/data/skills.ts`) et exécutez `bun run skills:update`.
 
 ## Pages associées
 

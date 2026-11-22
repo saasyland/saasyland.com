@@ -1,15 +1,15 @@
 ---
 title: "Навички агентів"
-description: "Навички від постачальників для агентів програмування, відновлювані з skills-lock.json."
+description: "Навички від постачальників для агентів програмування, зафіксовані в skills-lock.json, оновлювані разом із пакетами, які вони описують, і перевірені bun run check."
 ---
 
-`skills-lock.json` фіксує навички агентів, які використовуються з цим репозиторієм. Встановлені навички не комітяться: `.agents/` і `.claude/` ігноруються Git.
+`skills-lock.json` фіксує навички агентів, які використовуються з цим репозиторієм. Встановлені навички не комітяться: `.agents/` і `.claude/` ігноруються Git. CLI `skills`, що їх встановлює, є залежністю для розробки, тож `bun.lock` фіксує її версію.
 
 ```sh
 bun run skills:sync
 ```
 
-`scripts/sync-skills.ts` видаляє `.agents/skills` і `.claude/skills`, повторно встановлює кожну зафіксовану навичку через `bunx skills experimental_install`, переміщує кожну навичку в групу постачальника за шляхом `.agents/skills/<group>/<skill>/SKILL.md` і створює посилання на кожну групу в `.claude/skills`. Скрипт завершується помилкою, коли для джерела навички немає зіставлення з групою.
+`scripts/sync-skills.ts` видаляє `.agents/skills` і `.claude/skills`, повторно встановлює кожну зафіксовану навичку через `bunx skills experimental_install`, переміщує кожну навичку в групу постачальника за шляхом `.agents/skills/<group>/<skill>/SKILL.md` і створює посилання на кожну групу в `.claude/skills`. Скрипт завершується помилкою, коли джерело навички не має групи в `SKILL_SOURCES`.
 
 Кожен запис зберігає Git-`commit`, з якого походить навичка, і `computedHash` її файлів, тож `skills:sync` відновлює ті самі файли на кожному комп'ютері. Щоб перевести кожну навичку на найновіший коміт її джерела:
 
@@ -17,18 +17,26 @@ bun run skills:sync
 bun run skills:update
 ```
 
-Оновлення відновлює зафіксовані навички, запускає `bunx skills update --project --yes`, яке просуває кожен `commit` і `computedHash` у `skills-lock.json`, а потім групує та зв'язує навички так само, як `skills:sync`. Навичка, видалена в джерелі, зберігає свій запис і позначається як видалена; видаліть цей запис із `skills-lock.json`.
+Оновлення відновлює зафіксовані навички й запускає `bunx skills update --project --yes`, яке просуває `commit` і `computedHash` кожної навички, файли якої змінилися в джерелі. Потім воно групує та зв'язує навички так само, як `skills:sync`, і записує в `skills-packages.json` версію, до якої `bun.lock` розв'язує кожен пакет, описаний джерелом навичок. Навичка, видалена в джерелі, зберігає свій запис і позначається як видалена; видаліть цей запис із `skills-lock.json`. Щоб оновити залежності й навички за один раз, запустіть `bun run deps:update` (див. [Залежності](/docs/conventions/dependencies#upgrading)).
 
-| Група                                                 | Джерело                                                            |
-| ----------------------------------------------------- | ------------------------------------------------------------------ |
-| `anthropic`                                           | `anthropics/skills`                                                |
-| `better-auth`                                         | `better-auth/skills`                                               |
-| `cloudflare`                                          | `cloudflare/skills`                                                |
-| `polar`                                               | `polarsource/skills`                                               |
-| `resend`                                              | `resend/resend-skills`                                             |
-| `tanstack`                                            | `TanStack/router` (`router`, `start`) і `TanStack/table` (`table`) |
-| `remotion`                                            | `remotion-dev/skills`                                              |
-| `matt-pocock`, `impeccable`, `taste`, `coreyhaines31` | Загальні навички з інженерії, дизайну та маркетингу                |
+## Джерела та їхні пакети [#sources]
+
+`SKILL_SOURCES` у `src/data/skills.ts` — єдиний список джерел навичок: група, до якої потрапляють навички кожного джерела, і пакети, які вони описують. `@polar-sh/*` означає кожен пакет цього scope у `package.json`, а навички `TanStack/router` з його пакетів Start потрапляють до `tanstack/start`.
+
+<RepositoryTable columns={["Джерело", "Група", "Пакети"]} name="skillSources" />
+
+TanStack Start, Router і Table також постачають навички всередині своїх npm-пакетів, у `node_modules/@tanstack/<package>/skills`; вони завжди відповідають встановленій версії.
+
+## Перевірки розбіжностей [#drift-checks]
+
+`bun run check` запускає `bun run check:skills` (`scripts/check-skills.ts`). Перевірка завершується помилкою, коли:
+
+- джерела з `skills-lock.json` немає в `SKILL_SOURCES` або джерело з `SKILL_SOURCES` не має жодної зафіксованої навички;
+- пакет із `SKILL_SOURCES` не відповідає жодній залежності в `package.json`;
+- `bun.lock` розв'язує описаний пакет до іншої версії, ніж у `skills-packages.json`, тож зміна, яка зсуває `resend`, `better-auth` або `wrangler` без `bun run skills:update`, завершується помилкою і в CI, і локально;
+- `.agents/skills` існує, а зафіксованої навички бракує, її файли більше не відповідають її `computedHash`, там лежить файл чи папка, якої немає в lock-файлі, або посилання групи в `.claude/skills` відсутнє чи веде деінде. Локальна правка або перервана синхронізація завершуються так помилкою, а `bun run skills:sync` це виправляє. Без `.agents/skills`, як у CI, немає встановлених навичок для порівняння.
+
+Хеш той самий, що записує CLI skills: SHA-256 за шляхом і вмістом кожного файлу, відсортованими за шляхом, без `metadata.json` і `.git`, з нормалізованими кінцями рядків Windows і з переходом за посиланнями лише всередині навички.
 
 Синхронізація замінює обидві папки, тож зберігайте власні навички деінде. `bun run clean:hardcore` видаляє `skills-lock.json`.
 

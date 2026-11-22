@@ -5,7 +5,23 @@ description: "常に最新バージョンを使い、ドキュメントどおり
 
 このリポジトリは、すべての依存関係の最新リリースで動作しています。アップグレードで何かが壊れた場合は、元に戻すのではなく、コードかアップストリームで前に進む形で修正します。
 
-## ツールチェーンのバージョン
+## ツールチェーンのバージョン [#upgrading]
+
+依存関係とエージェントスキルは、専用のブランチで 1 つのコマンドでまとめて更新します。
+
+```sh
+bun run deps:update
+```
+
+`scripts/update-dependencies.ts` は次の順に実行します。
+
+1. Vite+ の最新リリースが `package.json` の `vite-plus` より新しい場合は、そのリリースの `vp migrate`。`vite-plus`、`vite` エイリアス、`vitest` をまとめて動かします。
+2. `^` または `~` の範囲で宣言されたすべての依存関係に対する `bun update --latest`。新しいメジャーバージョンを含む最新リリースに移し、範囲の書き方は保ちます。
+3. `bun run skills:update`。[エージェントスキル](/docs/tooling/agent-skills)を各ソースの最新コミットに移し、スキルが説明するパッケージのバージョンを記録します。
+
+完全一致で固定したバージョンは、どれもこのページに理由があるため変更せず、最後に新しいリリースがある固定パッケージをすべて表示します。スキルが説明するパッケージが前回の `skills:update` 以降に動いている間は `bun run check` が失敗するため、依存関係とスキルがずれることはありません。毎週、`updates.yml` ワークフローが利用できる更新を 1 つの GitHub Issue にまとめます。[CI/CD](/docs/tooling/ci-cd#updates) を参照してください。
+
+そのうえで、動いた各パッケージについて次を行います。
 
 - Bun はパッケージマネージャー兼スクリプトランナーです。そのバージョンを設定する場所は `package.json` の `packageManager`（Bun <RepositoryFact name="bunVersion" />）だけで、CI もそこから読み取ります。`bun.lock` はコミットします。
 - Node のバージョンは `.nvmrc`（<RepositoryFact name="nodeVersion" />）で決まり、`engines.node` はそれ以上のバージョンを要求します。
@@ -77,7 +93,7 @@ Dependabot のアラートは `remotion/package-lock.json` を対象にします
 
 ## 依存関係を追加する
 
-1 つの関心事に使うライブラリを 1 つに保つため、まず `package.json` にすでにあるパッケージでその役割を果たせないかを確認します。ランタイムの依存関係は `bun add` で、ツールは `bun add --dev` で追加し、ベンダーのエージェントスキルが `skills-lock.json` にあればそれを使います（[エージェントスキル](/docs/tooling/agent-skills)を参照）。
+1 つの関心事に使うライブラリを 1 つに保つため、まず `package.json` にすでにあるパッケージでその役割を果たせないかを確認します。ランタイムの依存関係は `bun add` で、ツールは `bun add --dev` で追加し、ベンダーのエージェントスキルが `skills-lock.json` にあればそれを使います（[エージェントスキル](/docs/tooling/agent-skills)を参照）。 ベンダーのスキルが新しいパッケージを説明している場合は、`SKILL_SOURCES`（`src/data/skills.ts`）のそのソースにパッケージを追加し、`bun run skills:update` を実行します。
 
 ## 関連ページ
 

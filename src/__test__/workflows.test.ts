@@ -10,6 +10,8 @@ import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { POLAR_SERVER } from "~/src/data/polar"
 
+import { REPORT_MODE } from "~/scripts/report-updates"
+
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
 const DEPLOY_WORKFLOW = ".github/workflows/deploy-reusable.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
@@ -18,6 +20,7 @@ const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MAIN_WORKFLOW = ".github/workflows/deploy.yml"
 const PREVIEW_WORKFLOW = ".github/workflows/preview.yml"
 const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"
+const UPDATES_WORKFLOW = ".github/workflows/updates.yml"
 const JOURNEY_SETTINGS_FILE = "e2e/journey/settings.ts"
 const SETUP_ACTION = ".github/actions/setup/action.yml"
 const REMOTION = readFileSync(REMOTION_WORKFLOW, "utf8")
@@ -28,6 +31,7 @@ const CI = readFileSync(CI_WORKFLOW, "utf8")
 const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
 const PREVIEW = readFileSync(PREVIEW_WORKFLOW, "utf8")
 const JOURNEY = readFileSync(JOURNEY_WORKFLOW, "utf8")
+const UPDATES = readFileSync(UPDATES_WORKFLOW, "utf8")
 const JOURNEY_SETTINGS = readFileSync(JOURNEY_SETTINGS_FILE, "utf8")
 const JOURNEY_SPEC = readFileSync("e2e/journey/journey.spec.ts", "utf8")
 const SETUP = readFileSync(SETUP_ACTION, "utf8")
@@ -69,6 +73,9 @@ const AFTER_PREVIEW = `if: ${expression("!cancelled() && needs.deploy-preview.re
 const PULL_REQUEST_CANCELLATION = `cancel-in-progress: ${expression("github.event_name == 'pull_request'")}`
 
 const ALL_JOURNEYS = "all"
+const WEEKLY_SCHEDULE = /^ {4}- cron: "\d+ \d+ \* \* [0-6]"\n/mu
+const UPDATES_FILE = '"$RUNNER_TEMP/updates.json"'
+const ISSUE_PERMISSIONS = "\npermissions:\n  contents: read\n  issues: write\n\n"
 const UPGRADE_JOURNEY = "upgrade"
 const JOURNEY_FILTER = 'filter=(--grep "@$JOURNEY")'
 const JOURNEY_SUMMARY = 'run: bun scripts/journey-summary.ts playwright-report/journey.json >> "$GITHUB_STEP_SUMMARY"'
@@ -438,5 +445,30 @@ describe("the release tag of a production deploy", () => {
     expect(DEPLOY).toMatch(DEPLOY_JOB_RELEASE_TAG)
     expect(DEPLOY).toMatch(WORKFLOW_RELEASE_TAG)
     expect(jobOf(MAIN, "release")).toMatch(PUBLISH_RELEASE_TAG)
+  })
+})
+
+describe(UPDATES_WORKFLOW, () => {
+  it("looks for updates once a week and by hand, and never cancels a run that is writing the issue", () => {
+    expect(triggersOf(UPDATES)).toStrictEqual(["schedule:", "workflow_dispatch:"])
+    expect(UPDATES).toMatch(WEEKLY_SCHEDULE)
+    expect(concurrencyOf(UPDATES)).toContain("cancel-in-progress: false")
+  })
+
+  it("may only read the repository and write issues", () => {
+    expect(UPDATES).toContain(ISSUE_PERMISSIONS)
+    expect(UPDATES.split("permissions:")).toHaveLength(2)
+  })
+
+  it("finds the updates in a step without a token and hands the token only to the step that writes the issue", () => {
+    const job = jobOf(UPDATES, "report")
+    const find = job.indexOf(`run: bun scripts/report-updates.ts ${REPORT_MODE.FIND} ${UPDATES_FILE}`)
+    const issue = job.indexOf(`run: bun scripts/report-updates.ts ${REPORT_MODE.ISSUE} ${UPDATES_FILE}`)
+
+    expect(find).toBeGreaterThan(0)
+    expect(issue).toBeGreaterThan(find)
+    expect(job.split("github.token")).toHaveLength(2)
+    expect(job.indexOf("GH_TOKEN")).toBeGreaterThan(issue)
+    expect(job).toContain("persist-credentials: false")
   })
 })

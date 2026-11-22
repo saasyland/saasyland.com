@@ -1,15 +1,15 @@
 ---
 title: "エージェントスキル"
-description: "skills-lock.json から復元する、コーディングエージェント向けのベンダー製スキルです。"
+description: "skills-lock.json で固定し、説明対象のパッケージと一緒に更新して bun run check で検査する、コーディングエージェント向けのベンダー製スキルです。"
 ---
 
-`skills-lock.json` は、このリポジトリで使うエージェントスキルのバージョンを固定します。インストールされたスキルはコミットしません。`.agents/` と `.claude/` は Git の管理対象外です。
+`skills-lock.json` は、このリポジトリで使うエージェントスキルのバージョンを固定します。インストールされたスキルはコミットしません。`.agents/` と `.claude/` は Git の管理対象外です。スキルをインストールする `skills` CLI は開発依存関係なので、そのバージョンも `bun.lock` が固定します。
 
 ```sh
 bun run skills:sync
 ```
 
-`scripts/sync-skills.ts` は `.agents/skills` と `.claude/skills` を削除し、ロックされているすべてのスキルを `bunx skills experimental_install` で再インストールします。そのうえで各スキルを `.agents/skills/<group>/<skill>/SKILL.md` のベンダーグループに移動し、すべてのグループを `.claude/skills` にリンクします。グループの対応付けがないスキルのソースがあると失敗します。
+`scripts/sync-skills.ts` は `.agents/skills` と `.claude/skills` を削除し、ロックされているすべてのスキルを `bunx skills experimental_install` で再インストールします。そのうえで各スキルを `.agents/skills/<group>/<skill>/SKILL.md` のベンダーグループに移動し、すべてのグループを `.claude/skills` にリンクします。`SKILL_SOURCES` にグループがないスキルのソースがあると失敗します。
 
 各エントリーには、スキルの取得元である Git の `commit` と、そのファイルの `computedHash` が記録されるため、`skills:sync` はどのマシンでも同じファイルを復元します。すべてのスキルを取得元の最新コミットに更新するには、次を実行します。
 
@@ -17,18 +17,26 @@ bun run skills:sync
 bun run skills:update
 ```
 
-更新では、ロックされたスキルを復元し、`skills-lock.json` の各 `commit` と `computedHash` を進める `bunx skills update --project --yes` を実行したうえで、`skills:sync` と同じようにスキルをグループ化してリンクします。上流で削除されたスキルはエントリーが残り、削除済みとして報告されます。そのエントリーは `skills-lock.json` から削除してください。
+更新では、ロックされたスキルを復元し、上流でファイルが変わったスキルの `commit` と `computedHash` を進める `bunx skills update --project --yes` を実行します。続いて `skills:sync` と同じようにスキルをグループ化してリンクし、スキルのソースが説明する各パッケージについて `bun.lock` が解決したバージョンを `skills-packages.json` に書き込みます。上流で削除されたスキルはエントリーが残り、削除済みとして報告されます。そのエントリーは `skills-lock.json` から削除してください。依存関係とスキルを一度に更新するには `bun run deps:update` を実行します（[依存関係](/docs/conventions/dependencies#upgrading)を参照）。
 
-| グループ                                              | ソース                                                               |
-| ----------------------------------------------------- | -------------------------------------------------------------------- |
-| `anthropic`                                           | `anthropics/skills`                                                  |
-| `better-auth`                                         | `better-auth/skills`                                                 |
-| `cloudflare`                                          | `cloudflare/skills`                                                  |
-| `polar`                                               | `polarsource/skills`                                                 |
-| `resend`                                              | `resend/resend-skills`                                               |
-| `tanstack`                                            | `TanStack/router`（`router`、`start`）と `TanStack/table`（`table`） |
-| `remotion`                                            | `remotion-dev/skills`                                                |
-| `matt-pocock`, `impeccable`, `taste`, `coreyhaines31` | エンジニアリング、デザイン、マーケティング全般のスキル               |
+## ソースと対応するパッケージ [#sources]
+
+`src/data/skills.ts` の `SKILL_SOURCES` が、スキルのソースの唯一の一覧です。各ソースのスキルを置くグループと、そのスキルが説明するパッケージを定めます。`@polar-sh/*` は `package.json` にあるそのスコープのすべてのパッケージを表し、`TanStack/router` のスキルのうち Start のパッケージから来るものは `tanstack/start` に入ります。
+
+<RepositoryTable columns={["ソース", "グループ", "パッケージ"]} name="skillSources" />
+
+TanStack Start、Router、Table は npm パッケージの中にもスキルを同梱しています（`node_modules/@tanstack/<package>/skills`）。こちらは常にインストール済みのバージョンと一致します。
+
+## ずれの検査 [#drift-checks]
+
+`bun run check` は `bun run check:skills`（`scripts/check-skills.ts`）を実行します。次の場合に失敗します。
+
+- `skills-lock.json` のソースが `SKILL_SOURCES` にない、または `SKILL_SOURCES` のソースにロックされたスキルがない。
+- `SKILL_SOURCES` のパッケージが `package.json` のどの依存関係とも一致しない。
+- 説明対象のパッケージを `bun.lock` が `skills-packages.json` と異なるバージョンに解決している。そのため `resend`、`better-auth`、`wrangler` を `bun run skills:update` なしで動かす変更は、CI でもローカルでも失敗します。
+- `.agents/skills` があり、ロックされたスキルが欠けている、ファイルが `computedHash` と一致しない、ロックにないファイルやディレクトリがある、または `.claude/skills` のグループのリンクがないか別の場所を指している。ローカルでの編集や中断された同期はこれで失敗し、`bun run skills:sync` で直ります。CI のように `.agents/skills` がない場合は、比較するインストール済みのスキルがありません。
+
+ハッシュは skills CLI が書き込むものと同じです。すべてのファイルのパスと内容をパス順に並べた SHA-256 で、`metadata.json` と `.git` を除き、Windows の改行を正規化し、リンクはスキルの内側にあるものだけをたどります。
 
 同期は両方のディレクトリを置き換えるため、独自のスキルは別の場所に置いてください。`bun run clean:hardcore` は `skills-lock.json` を削除します。
 

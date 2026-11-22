@@ -16,6 +16,7 @@ import { BUNDLE_BINDING, LICENSE_API_ENDPOINTS } from "../src/modules/license/li
 import { type BrowserTest, FLOWS, TITLE_SEPARATOR, listBrowserTests, testLabel } from "./check-flows.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 import { LOCAL_ADMIN } from "./local-admin.ts"
+import { ISSUE_TITLE } from "./report-updates.ts"
 import { readBucketNames } from "./wrangler-config.ts"
 
 const MODULE_ID = "virtual:repository-facts"
@@ -24,6 +25,7 @@ const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
 const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
+const UPDATES_WORKFLOW = ".github/workflows/updates.yml"
 const MESSAGES_PATH = "messages/"
 const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
 const COVERAGE_COMMAND = "bun run test:coverage"
@@ -343,6 +345,8 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     textSpecPixels: smallText.spec,
     timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
+    updatesIssueTitle: ISSUE_TITLE,
+    updatesSchedule: readSchedule(UPDATES_WORKFLOW),
     vitestShards: readShards(CI_WORKFLOW),
   }
 }

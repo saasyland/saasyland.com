@@ -1,112 +1,159 @@
-import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, renameSync, rmSync, symlinkSync } from "node:fs"
+import { dirname, join } from "node:path"
 import process from "node:process"
-import { z } from "zod/v4"
+
+import { skillGroup } from "../src/data/skills.ts"
+import { readDependencies } from "./dependencies.ts"
+import { runCommand } from "./run-command.ts"
+import { type LockedSkill, type SkillsLock, readSkillsLock, skillPackageVersions, writeRecordedVersions } from "./skills-lock.ts"
+
+export const AGENTS_SKILLS = ".agents/skills"
+export const CLAUDE_SKILLS = ".claude/skills"
+export const UPDATE_ARGUMENT = "update"
+export const SKILLS_INSTALL: readonly string[] = ["experimental_install"]
+export const SKILLS_UPDATE: readonly string[] = ["update", "--project", "--yes"]
+export const SKILLS_UPDATE_SCRIPT: readonly string[] = ["scripts/sync-skills.ts", UPDATE_ARGUMENT]
 
 const FAILURE_EXIT_CODE = 1
-
-const GROUPS: Record<string, string> = {
-  "Leonxlnx/taste-skill": "taste",
-  "TanStack/router": "tanstack/router",
-  "TanStack/table": "tanstack/table",
-  "anthropics/skills": "anthropic",
-  "better-auth/skills": "better-auth",
-  "cloudflare/skills": "cloudflare",
-  "coreyhaines31/marketingskills": "coreyhaines31",
-  "mattpocock/skills": "matt-pocock",
-  "pbakaus/impeccable": "impeccable",
-  "polarsource/skills": "polar",
-  "remotion-dev/skills": "remotion",
-  "resend/resend-skills": "resend",
-}
-
-const START_PACKAGE = /^packages\/(?:react-start|start-[^/]+)\//u
-
-const skillSchema = z.object({ skillPath: z.string().optional(), source: z.string().optional() })
-const skillsLockSchema = z.object({ skills: z.record(z.string(), skillSchema).default({}) })
-
-const resolveGroup = ({ skillPath = "", source = "" }: z.infer<typeof skillSchema>): string | undefined => {
-  if (source === "TanStack/router" && START_PACKAGE.test(skillPath)) {
-    return "tanstack/start"
-  }
-
-  return GROUPS[source]
-}
-
-const AGENTS_DIR = ".agents/skills"
-const CLAUDE_DIR = ".claude/skills"
-
-rmSync(AGENTS_DIR, { force: true, recursive: true })
-rmSync("agent", { force: true, recursive: true })
-
+const SUCCESS_EXIT_CODE = 0
+const LEGACY_AGENT_DIRECTORY = "agent"
+const STAGING_DIRECTORY = ".staging"
+const GROUP_SEPARATOR = "/"
 const FIXED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
 
-const runSkills = (args: string[]): void => {
-  const result = spawnSync(process.execPath, ["x", "--bun", "skills", ...args], {
-    env: { ...process.env, PATH: FIXED_PATH },
-    stdio: "inherit",
-  })
+export type RunSkills = (args: readonly string[]) => number
 
-  if (result.status !== 0) {
-    console.error(`✗ skills ${args.join(" ")} failed`)
-    process.exit(result.status ?? FAILURE_EXIT_CODE)
+export interface SyncResult {
+  readonly failures: readonly string[]
+  readonly summary: string
+  readonly warnings: readonly string[]
+}
+
+export const skillLocation = (name: string, entry: LockedSkill): string => {
+  const group = skillGroup(entry)
+
+  return group === undefined ? name : `${group}${GROUP_SEPARATOR}${name}`
+}
+
+export const groupRoot = (location: string): string => location.split(GROUP_SEPARATOR)[0] ?? location
+
+export const linkTarget = (root: string): string => `../../${AGENTS_SKILLS}/${root}`
+
+const sorted = (values: Iterable<string>): string[] => [...new Set(values)].toSorted((left, right) => left.localeCompare(right))
+
+interface SkillDirectories {
+  readonly agents: string
+  readonly staging: string
+}
+
+interface Placement {
+  readonly roots: readonly string[]
+  readonly ungrouped: readonly string[]
+  readonly warnings: readonly string[]
+}
+
+const stageSkills = (directories: SkillDirectories, names: readonly string[]): void => {
+  mkdirSync(directories.staging, { recursive: true })
+  for (const name of names) {
+    if (existsSync(join(directories.agents, name))) {
+      renameSync(join(directories.agents, name), join(directories.staging, name))
+    }
   }
 }
 
-runSkills(["experimental_install"])
-
-if (process.argv.includes("update")) {
-  runSkills(["update", "--project", "--yes"])
-}
-
-const { skills } = skillsLockSchema.parse(JSON.parse(readFileSync("skills-lock.json", "utf8")))
-
-const staging = join(AGENTS_DIR, ".staging")
-mkdirSync(staging, { recursive: true })
-for (const name of Object.keys(skills)) {
-  if (existsSync(join(AGENTS_DIR, name))) {
-    renameSync(join(AGENTS_DIR, name), join(staging, name))
-  }
-}
-
-const grouped: string[] = []
-const roots = new Set<string>()
-const ungrouped: string[] = []
-for (const [name, entry] of Object.entries(skills)) {
-  const group = resolveGroup(entry)
-  const staged = join(staging, name)
+const placeSkill = (directories: SkillDirectories, name: string, entry: LockedSkill): Placement => {
+  const staged = join(directories.staging, name)
 
   if (!existsSync(staged)) {
-    console.warn(`! ${name} was not restored by the skills CLI; run bunx skills add for it.`)
-  } else if (group === undefined) {
-    const source = entry.source ?? "unknown source"
-    console.warn(`! ${name} (${source}) has no group mapping; leaving it at the top level.`)
-    renameSync(staged, join(AGENTS_DIR, name))
-    ungrouped.push(source)
-  } else {
-    mkdirSync(join(AGENTS_DIR, group), { recursive: true })
-    renameSync(staged, join(AGENTS_DIR, group, name))
-    roots.add(group.split("/")[0] ?? group)
-    grouped.push(name)
+    return { roots: [], ungrouped: [], warnings: [`${name} was not restored by the skills CLI; run bunx skills add for it.`] }
+  }
+
+  const location = skillLocation(name, entry)
+  mkdirSync(dirname(join(directories.agents, location)), { recursive: true })
+  renameSync(staged, join(directories.agents, location))
+
+  if (location === name) {
+    return {
+      roots: [],
+      ungrouped: [entry.source],
+      warnings: [`${name} (${entry.source}) has no group in SKILL_SOURCES; leaving it at the top level.`],
+    }
+  }
+
+  return { roots: [groupRoot(location)], ungrouped: [], warnings: [] }
+}
+
+const linkGroups = (root: string, groups: readonly string[]): void => {
+  const directory = join(root, CLAUDE_SKILLS)
+  rmSync(directory, { force: true, recursive: true })
+  mkdirSync(directory, { recursive: true })
+  for (const group of groups) {
+    symlinkSync(linkTarget(group), join(directory, group))
   }
 }
 
-rmSync(staging, { force: true, recursive: true })
+export const arrangeSkills = (root: string, skills: SkillsLock): SyncResult => {
+  const directories = { agents: join(root, AGENTS_SKILLS), staging: join(root, AGENTS_SKILLS, STAGING_DIRECTORY) }
+  stageSkills(directories, Object.keys(skills))
+  const placements = Object.entries(skills).map(([name, entry]) => placeSkill(directories, name, entry))
+  rmSync(directories.staging, { force: true, recursive: true })
 
-rmSync(CLAUDE_DIR, { force: true, recursive: true })
-mkdirSync(CLAUDE_DIR, { recursive: true })
-const groupRoots = [...roots].toSorted((left, right) => left.localeCompare(right))
-for (const root of groupRoots) {
-  symlinkSync(`../../${AGENTS_DIR}/${root}`, join(CLAUDE_DIR, root))
+  const grouped = placements.flatMap(({ roots }) => roots)
+  const ungrouped = placements.flatMap((placement) => placement.ungrouped)
+  const warnings = placements.flatMap((placement) => placement.warnings)
+  const linked = sorted(grouped)
+  linkGroups(root, linked)
+
+  const summary = `Restored ${String(Object.keys(skills).length)} skills, grouped ${String(grouped.length)}, linked ${linked.join(", ")} into ${CLAUDE_SKILLS}.`
+
+  if (ungrouped.length === 0) {
+    return { failures: [], summary, warnings }
+  }
+
+  const sources = sorted(ungrouped).join(", ")
+
+  return {
+    failures: [`${String(ungrouped.length)} skills stayed at the top level. Add these sources to SKILL_SOURCES: ${sources}`],
+    summary,
+    warnings,
+  }
 }
 
-console.log(
-  `\n✓ Restored ${Object.keys(skills).length} skills, grouped ${grouped.length}, linked ${groupRoots.join(", ")} into ${CLAUDE_DIR}.`,
-)
+export const syncSkills = ({ root, run, update }: { root: string; run: RunSkills; update: boolean }): SyncResult => {
+  rmSync(join(root, AGENTS_SKILLS), { force: true, recursive: true })
+  rmSync(join(root, LEGACY_AGENT_DIRECTORY), { force: true, recursive: true })
 
-if (ungrouped.length > 0) {
-  const sources = [...new Set(ungrouped)].toSorted((left, right) => left.localeCompare(right)).join(", ")
-  console.error(`\n✗ ${ungrouped.length} skills stayed at the top level. Add these sources to GROUPS: ${sources}`)
-  process.exit(FAILURE_EXIT_CODE)
+  const commands = update ? [SKILLS_INSTALL, SKILLS_UPDATE] : [SKILLS_INSTALL]
+  const failed = commands.find((args) => run(args) !== SUCCESS_EXIT_CODE)
+
+  if (failed !== undefined) {
+    return { failures: [`skills ${failed.join(" ")} failed`], summary: "", warnings: [] }
+  }
+
+  const result = arrangeSkills(root, readSkillsLock(root))
+
+  if (update) {
+    writeRecordedVersions(root, skillPackageVersions(readDependencies(root)))
+  }
+
+  return result
+}
+
+if (import.meta.main) {
+  const run: RunSkills = (args) =>
+    runCommand(process.execPath, ["x", "--bun", "skills", ...args], { env: { ...process.env, PATH: FIXED_PATH } }).status
+  const { failures, summary, warnings } = syncSkills({ root: process.cwd(), run, update: process.argv.includes(UPDATE_ARGUMENT) })
+
+  for (const warning of warnings) {
+    console.warn(`! ${warning}`)
+  }
+
+  if (summary.length > 0) {
+    console.log(`\n✓ ${summary}`)
+  }
+
+  if (failures.length > 0) {
+    console.error(`\n✗ ${failures.join("\n✗ ")}`)
+    process.exit(FAILURE_EXIT_CODE)
+  }
 }

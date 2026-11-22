@@ -1,15 +1,15 @@
 ---
 title: "Skills para agentes"
-description: "Skills de proveedores para agentes de programación, restauradas a partir de skills-lock.json."
+description: "Skills de proveedores para agentes de programación, fijadas en skills-lock.json, actualizadas junto con los paquetes que documentan y comprobadas por bun run check."
 ---
 
-`skills-lock.json` fija las skills para agentes que se usan con este repositorio. Las skills instaladas no se incluyen en el repositorio: Git ignora `.agents/` y `.claude/`.
+`skills-lock.json` fija las skills para agentes que se usan con este repositorio. Las skills instaladas no se incluyen en el repositorio: Git ignora `.agents/` y `.claude/`. La CLI `skills` que las instala es una dependencia de desarrollo, así que `bun.lock` fija su versión.
 
 ```sh
 bun run skills:sync
 ```
 
-`scripts/sync-skills.ts` elimina `.agents/skills` y `.claude/skills`, reinstala cada skill fijada con `bunx skills experimental_install`, mueve cada skill a un grupo de proveedor en `.agents/skills/<group>/<skill>/SKILL.md` y enlaza cada grupo en `.claude/skills`. Falla cuando el origen de una skill no tiene asignado ningún grupo.
+`scripts/sync-skills.ts` elimina `.agents/skills` y `.claude/skills`, reinstala cada skill fijada con `bunx skills experimental_install`, mueve cada skill a un grupo de proveedor en `.agents/skills/<group>/<skill>/SKILL.md` y enlaza cada grupo en `.claude/skills`. Falla cuando el origen de una skill no tiene grupo en `SKILL_SOURCES`.
 
 Cada entrada registra el `commit` de Git del que procede su skill y un `computedHash` de sus archivos, de modo que `skills:sync` restaura los mismos archivos en todas las máquinas. Para llevar cada skill al último commit de su origen:
 
@@ -17,18 +17,26 @@ Cada entrada registra el `commit` de Git del que procede su skill y un `computed
 bun run skills:update
 ```
 
-La actualización restaura las skills fijadas, ejecuta `bunx skills update --project --yes`, que avanza cada `commit` y `computedHash` en `skills-lock.json`, y después agrupa y enlaza las skills igual que `skills:sync`. Una skill eliminada en el origen conserva su entrada y se informa como eliminada; quita esa entrada de `skills-lock.json`.
+La actualización restaura las skills fijadas y ejecuta `bunx skills update --project --yes`, que avanza el `commit` y el `computedHash` de cada skill cuyos archivos cambiaron en el origen. Después agrupa y enlaza las skills igual que `skills:sync` y escribe en `skills-packages.json` la versión a la que `bun.lock` resuelve cada paquete que documenta un origen de skills. Una skill eliminada en el origen conserva su entrada y se informa como eliminada; quita esa entrada de `skills-lock.json`. Para actualizar las dependencias y las skills de una vez, ejecuta `bun run deps:update` (consulta [Dependencias](/docs/conventions/dependencies#upgrading)).
 
-| Grupo                                                 | Origen                                                             |
-| ----------------------------------------------------- | ------------------------------------------------------------------ |
-| `anthropic`                                           | `anthropics/skills`                                                |
-| `better-auth`                                         | `better-auth/skills`                                               |
-| `cloudflare`                                          | `cloudflare/skills`                                                |
-| `polar`                                               | `polarsource/skills`                                               |
-| `resend`                                              | `resend/resend-skills`                                             |
-| `tanstack`                                            | `TanStack/router` (`router`, `start`) y `TanStack/table` (`table`) |
-| `remotion`                                            | `remotion-dev/skills`                                              |
-| `matt-pocock`, `impeccable`, `taste`, `coreyhaines31` | Skills generales de ingeniería, diseño y marketing                 |
+## Orígenes y sus paquetes [#sources]
+
+`SKILL_SOURCES` en `src/data/skills.ts` es la única lista de orígenes de skills: el grupo al que van las skills de cada origen y los paquetes que documentan. `@polar-sh/*` representa todos los paquetes de ese ámbito en `package.json`, y las skills de `TanStack/router` que proceden de sus paquetes de Start van a `tanstack/start`.
+
+<RepositoryTable columns={["Origen", "Grupo", "Paquetes"]} name="skillSources" />
+
+TanStack Start, Router y Table también incluyen skills dentro de sus paquetes de npm, en `node_modules/@tanstack/<package>/skills`; esas coinciden siempre con la versión instalada.
+
+## Comprobaciones de desviación [#drift-checks]
+
+`bun run check` ejecuta `bun run check:skills` (`scripts/check-skills.ts`). Falla cuando:
+
+- un origen de `skills-lock.json` falta en `SKILL_SOURCES`, o un origen de `SKILL_SOURCES` no tiene ninguna skill fijada;
+- un paquete de `SKILL_SOURCES` no coincide con ninguna dependencia de `package.json`;
+- `bun.lock` resuelve un paquete documentado a una versión distinta de la de `skills-packages.json`, de modo que un cambio que mueve `resend`, `better-auth` o `wrangler` sin `bun run skills:update` falla, tanto en CI como en local;
+- `.agents/skills` existe y falta una skill fijada, sus archivos ya no coinciden con su `computedHash`, contiene un archivo o directorio que no está en el lock, o un enlace de grupo de `.claude/skills` falta o apunta a otro sitio. Una edición local o una sincronización interrumpida falla así, y `bun run skills:sync` lo repara. Sin `.agents/skills`, como en CI, no hay nada instalado que comparar.
+
+El hash es el que escribe la CLI de skills: SHA-256 sobre la ruta y el contenido de cada archivo, ordenados por ruta, sin `metadata.json` ni `.git`, con los finales de línea de Windows normalizados y siguiendo los enlaces solo dentro de la skill.
 
 La sincronización sustituye ambos directorios, así que guarda las skills personalizadas en otro lugar. `bun run clean:hardcore` elimina `skills-lock.json`.
 

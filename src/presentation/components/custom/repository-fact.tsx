@@ -111,6 +111,7 @@ import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, 
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { SKILL_SOURCES } from "~/src/data/skills"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
@@ -314,6 +315,7 @@ const TABLES = {
   permissionChecks: moduleTables.permissions,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
+  skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),
   toBuildFlowTable: flowTables.toBuild,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 

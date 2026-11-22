@@ -5,7 +5,23 @@ description: "Auf den neuesten Versionen bleiben, Code an die dokumentierte Verw
 
 Das Repository läuft auf dem neuesten Release jeder Abhängigkeit. Ein Upgrade, das etwas kaputt macht, wird nach vorn behoben, im Code oder upstream, niemals durch einen Rückschritt.
 
-## Versionen der Toolchain
+## Versionen der Toolchain [#upgrading]
+
+Aktualisiere die Abhängigkeiten und die Agent-Skills mit einem Befehl, auf einem eigenen Branch:
+
+```sh
+bun run deps:update
+```
+
+`scripts/update-dependencies.ts` führt in dieser Reihenfolge aus:
+
+1. `vp migrate` aus dem neuesten Vite+-Release, wenn es neuer ist als das `vite-plus` in `package.json`; das bewegt `vite-plus`, den `vite`-Alias und `vitest` gemeinsam;
+2. `bun update --latest` für jede Abhängigkeit, die mit einem `^`- oder `~`-Bereich angegeben ist; das bringt sie auf ihr neuestes Release, auch auf eine neue Major-Version, und behält den Bereich bei;
+3. `bun run skills:update`, das die [Agent-Skills](/docs/tooling/agent-skills) auf die neuesten Commits ihrer Quellen bringt und die Versionen der Pakete festhält, die sie beschreiben.
+
+Exakte Pins lässt es unverändert, weil jeder einen Grund auf dieser Seite hat, und am Ende nennt es jedes fixierte Paket, für das es ein neueres Release gibt. `bun run check` schlägt fehl, solange sich ein Paket, das ein Skill beschreibt, seit dem letzten `skills:update` bewegt hat, sodass Abhängigkeiten und Skills nicht auseinanderlaufen können. Jede Woche listet der Workflow `updates.yml` die verfügbaren Updates in einem GitHub-Issue auf; siehe [CI/CD](/docs/tooling/ci-cd#updates).
+
+Danach für jedes Paket, das sich bewegt hat:
 
 - Bun ist Paketmanager und Skript-Runner. `packageManager` in `package.json` (Bun <RepositoryFact name="bunVersion" />) ist die einzige Stelle, an der seine Version festgelegt wird; die CI liest sie von dort. `bun.lock` ist eingecheckt.
 - Node stammt aus `.nvmrc` (<RepositoryFact name="nodeVersion" />), und `engines.node` verlangt mindestens diese Version.
@@ -77,7 +93,7 @@ Diese Zeilen sowie derselbe `vite`-Alias und dieselbe `vitest`-Version unter `ov
 
 ## Eine Abhängigkeit hinzufügen
 
-Prüfe zuerst, ob ein Paket, das bereits in `package.json` steht, die Aufgabe erledigt, damit jeder Belang bei einer Bibliothek bleibt. Füge eine Laufzeitabhängigkeit mit `bun add` hinzu, ein Werkzeug mit `bun add --dev`, und verwende den Agent-Skill des Anbieters aus `skills-lock.json`, wenn es einen gibt (siehe [Agent-Skills](/docs/tooling/agent-skills)).
+Prüfe zuerst, ob ein Paket, das bereits in `package.json` steht, die Aufgabe erledigt, damit jeder Belang bei einer Bibliothek bleibt. Füge eine Laufzeitabhängigkeit mit `bun add` hinzu, ein Werkzeug mit `bun add --dev`, und verwende den Agent-Skill des Anbieters aus `skills-lock.json`, wenn es einen gibt (siehe [Agent-Skills](/docs/tooling/agent-skills)). Beschreibt ein Skill eines Anbieters das neue Paket, trage das Paket bei seiner Quelle in `SKILL_SOURCES` (`src/data/skills.ts`) ein und führe `bun run skills:update` aus.
 
 ## Verwandte Seiten
 

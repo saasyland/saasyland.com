@@ -15,7 +15,7 @@ description: "データをキャッシュする場所：リクエストごとの
 | ルーターの `defaultPreloadStaleTime` | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                  |
 | プリロード                           | インテント時。ページがアイドルになると[ヘッダーのページ](/docs/conventions/performance#the-headers-pages-load-before-a-click)も |
 
-ローダーは `queryClient.query({ ...options, staleTime: "static" })` でキャッシュを埋め、コンポーネントは `useSuspenseQuery` で同じキーを読み取ります。例外はコースのページと管理画面のコースエディターです。`invalidateQueries` は `static` のクエリを再取得しないため、レッスンの完了後やエディターで変更を保存した後にカリキュラムを更新できるよう、これらのクエリは `staleTime: COURSE_STALE_MS`（1 分）を使います。`setupRouterSsrQueryIntegration` はサーバーのキャッシュを HTML にシリアライズし、ブラウザでハイドレートします。
+ローダーは `queryClient.query({ ...options, staleTime: "static" })` でキャッシュを埋め、コンポーネントは `useSuspenseQuery` で同じキーを読み取ります。例外はコースのページと管理画面のコースエディターです。`invalidateQueries` は `static` のクエリを再取得しないため、レッスンの完了後やエディターで変更を保存した後にカリキュラムを更新できるよう、これらのクエリは `staleTime: COURSE_STALE_MS`（<RepositoryFact name="courseStaleMinutes" unit="minute" />）を使います。`setupRouterSsrQueryIntegration` はサーバーのキャッシュを HTML にシリアライズし、ブラウザでハイドレートします。
 
 - **翻訳メッセージ**は、ロケールと名前空間ごとに、`staleTime` と `gcTime` を無限に設定してキャッシュされます。
 - **セッションクエリ**（`getCurrentSessionQuery`）の `staleTime` は 1 分です。ルートガードは実際のナビゲーション時にこれを再取得し、サインイン中のユーザーが変わると、`meta: { public: true }` が付いていないすべてのクエリを削除します。翻訳や、プリレンダリングされたページのレンダリングに使われたスター数などの公開クエリは、キャッシュに残ります。[公開クエリ](/docs/conventions/data-fetching#public-queries) を参照してください。
@@ -31,7 +31,7 @@ Worker は、アプリケーションを読み込む前に、`ASSETS` バイン�
 
 ## KV と D1
 
-- **KV（`CACHE`）** には、`src/lib/github.ts` 用の GitHub スター数を保存します。1 時間より古いスター数はそのまま即座に返され、`waitUntil` によってバックグラウンドで更新されます。
+- **KV（`CACHE`）** には、`src/lib/github.ts` 用の GitHub スター数を保存します。<RepositoryFact name="starCountRefreshHours" unit="hour" />より古いスター数はそのまま即座に返され、`waitUntil` によってバックグラウンドで更新されます。
 - **D1（`DB`）** にはセッションとレート制限のカウンターを保存します。サーバー関数のセッションチェックは Better Auth のクッキーキャッシュを経由せず、結果はリクエストの残りの処理の間メモ化されます。
 - **Workers のキャッシュ** には、`serveMedia` が R2 から読み取った動画ファイルを、署名を除いた `/media/_/<videoId>/<file>` の下に保持します。そのため、同じエッジロケーションの視聴者は、キャッシュされた 1 つのコピーを共有します。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
 - サーバー関数が、キャッシュされたデータをもとに権限を判断することはありません。

@@ -31,6 +31,7 @@ import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
+import dataTableMessages from "~/messages/en-US/components.custom.data-table.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
@@ -158,18 +159,18 @@ describe("admin user management", () => {
     expect(screen.getAllByText("ada@example.com")[0]).toBeVisible()
     expect(screen.getByRole("link", { name: ada.name })).toHaveAttribute("href", "/admin/users/ada")
     expect(screen.getByRole("img", { name: "Grace" })).toHaveAttribute("src", "https://example.com/grace.jpg")
-    const [first] = screen.getAllByRole("checkbox", { name: labels.table.selectRow })
+    const [first] = screen.getAllByRole("checkbox", { name: dataTableMessages.selectRow })
     if (!first) {
       throw new Error("Missing row checkbox")
     }
     await userEvent.click(first)
     expect(first).toBeChecked()
-    const all = screen.getByRole("checkbox", { name: labels.table.selectAll })
+    const all = screen.getByRole("checkbox", { name: dataTableMessages.selectAll })
     expect(all).toBePartiallyChecked()
     await userEvent.click(all)
     expect(
       screen
-        .getAllByRole("checkbox", { name: labels.table.selectRow })
+        .getAllByRole("checkbox", { name: dataTableMessages.selectRow })
         .every(
           (checkbox) => checkbox.getAttribute("aria-checked") === "true" || (checkbox instanceof HTMLInputElement && checkbox.checked),
         ),

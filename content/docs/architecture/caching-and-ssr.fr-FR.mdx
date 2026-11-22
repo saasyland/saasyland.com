@@ -15,7 +15,7 @@ description: "Où les données sont mises en cache : le cache de queries propre 
 | `defaultPreloadStaleTime` du routeur | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                               |
 | Préchargement                        | Sur intention, et les [pages de l'en-tête](/docs/conventions/performance#the-headers-pages-load-before-a-click) dès qu'une page est inactive |
 
-Les loaders remplissent le cache avec `queryClient.query({ ...options, staleTime: "static" })` et les composants lisent les mêmes clés avec `useSuspenseQuery`. Les pages de cours et l'éditeur de cours de l'administration font exception : leurs requêtes gardent `staleTime: COURSE_STALE_MS` (une minute), car `invalidateQueries` ne recharge jamais une requête `static`, et terminer une leçon ou enregistrer une modification dans l'éditeur doit rafraîchir le programme. `setupRouterSsrQueryIntegration` sérialise le cache du serveur dans le HTML et l'hydrate dans le navigateur.
+Les loaders remplissent le cache avec `queryClient.query({ ...options, staleTime: "static" })` et les composants lisent les mêmes clés avec `useSuspenseQuery`. Les pages de cours et l'éditeur de cours de l'administration font exception : leurs requêtes gardent `staleTime: COURSE_STALE_MS` (<RepositoryFact name="courseStaleMinutes" unit="minute" />), car `invalidateQueries` ne recharge jamais une requête `static`, et terminer une leçon ou enregistrer une modification dans l'éditeur doit rafraîchir le programme. `setupRouterSsrQueryIntegration` sérialise le cache du serveur dans le HTML et l'hydrate dans le navigateur.
 
 - **Les messages de traduction** sont mis en cache par locale et par namespace, avec un `staleTime` et un `gcTime` infinis.
 - **La query de session** (`getCurrentSessionQuery`) a un `staleTime` d'une minute. Les guards de route la récupèrent à nouveau lors des vraies navigations et, quand l'utilisateur connecté change, suppriment toutes les queries qui ne sont pas marquées `meta: { public: true }`. Les queries publiques, comme les traductions et le nombre d'étoiles avec lequel une page prérendue a été rendue, restent en cache. Voir [Queries publiques](/docs/conventions/data-fetching#public-queries).
@@ -31,7 +31,7 @@ Le prérendu s'exécute sur un build du Worker qui contient toutes les pages. Le
 
 ## KV et D1
 
-- **KV (`CACHE`)** stocke le nombre d'étoiles GitHub pour `src/lib/github.ts`. Un nombre d'étoiles de plus d'une heure est renvoyé immédiatement, puis rafraîchi en arrière-plan avec `waitUntil`.
+- **KV (`CACHE`)** stocke le nombre d'étoiles GitHub pour `src/lib/github.ts`. Un nombre d'étoiles de plus de <RepositoryFact name="starCountRefreshHours" unit="hour" /> est renvoyé immédiatement, puis rafraîchi en arrière-plan avec `waitUntil`.
 - **D1 (`DB`)** stocke les sessions et les compteurs de limitation de débit. Les vérifications de session des fonctions serveur contournent le cache de cookies de Better Auth et sont mémoïsées pour le reste de la requête.
 - **Le cache des Workers** conserve les fichiers vidéo que `serveMedia` lit depuis R2 sous `/media/_/<videoId>/<file>`, sans la signature, de sorte que les spectateurs d'un même point de présence partagent une seule copie en cache. Voir [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Les fonctions serveur ne prennent jamais de décision de permission à partir de données en cache.

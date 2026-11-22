@@ -40,6 +40,7 @@ import {
   COURSE_IMPORT_PROBLEMS_MAX,
   COURSE_LEVELS,
   COURSE_SHOWCASE,
+  COURSE_STALE_MS,
 } from "~/src/modules/course/course.constants"
 import {
   COURSE_COVER_MAX_MEGABYTES,
@@ -200,6 +201,7 @@ const FACTS = {
   courseLevels: COURSE_LEVELS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
+  courseStaleMinutes: COURSE_STALE_MS / MILLISECONDS_PER_MINUTE,
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,

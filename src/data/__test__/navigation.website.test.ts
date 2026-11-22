@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
+import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { USER_TABS } from "~/src/data/user-tabs"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
+import { loadLocaleMessages } from "~/scripts/i18n-messages"
 import { ROUTES } from "~/src/routes"
+
+const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)["navigation"]
+const BREADCRUMBS = "breadcrumbs"
+const USER_TABS_GROUP = "userTabs"
+
+const leafKeys = (value: unknown, prefix: string): string[] => {
+  if (typeof value !== "object" || value === null) {
+    return [prefix]
+  }
+
+  return Object.entries(value).flatMap(([key, nested]) => leafKeys(nested, prefix.length > 0 ? `${prefix}.${key}` : key))
+}
+
+const LABELS = leafKeys(NAVIGATION_MESSAGES, "")
+
+const SECTION_ACTIONS = Object.values(ROUTES).flatMap((route) => {
+  const [, admin, section, action] = typeof route === "string" ? route.split("/") : []
+  const item = ADMIN_NAVIGATION.flatMap(({ items }) => items).find(({ to }) => to === `/${admin}/${section}`)
+
+  return item === undefined || action === undefined ? [] : [`${item.area}.${BREADCRUMBS}.${action}`]
+})
 
 describe("the website's navigation", () => {
   it("arranges the website's navigation as before the areas contributed it", () => {
@@ -27,6 +53,20 @@ describe("the website's navigation", () => {
 
   it("labels exactly the admin groups in the admin sidebar", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
+  })
+
+  it("labels exactly the entries and user tabs that the areas declare, and only breadcrumbs of their sections", () => {
+    const entryLabels = Object.values(AREA_NAVIGATION)
+      .flat()
+      .flatMap(({ area, key, placement, ...entry }) =>
+        [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${area}.${placement}.${label}`),
+      )
+    const tabLabels = USER_TABS.map(({ area, key }) => `${area}.${USER_TABS_GROUP}.${key}`)
+
+    expect(LABELS.filter((label) => !label.includes(`.${BREADCRUMBS}.`)).toSorted()).toStrictEqual(
+      [...new Set([...entryLabels, ...tabLabels])].toSorted(),
+    )
+    expect(SECTION_ACTIONS).toEqual(expect.arrayContaining(LABELS.filter((label) => label.includes(`.${BREADCRUMBS}.`))))
   })
 
   it("counts every admin section on the landing page", () => {

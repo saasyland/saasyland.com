@@ -1,5 +1,8 @@
 #!/usr/bin/env bun
 
+import * as STACK from "@saasyland/stack"
+import * as STACK_API from "@saasyland/stack/api"
+import * as STACK_CLI from "@saasyland/stack/cli"
 import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
@@ -172,33 +175,25 @@ const checkStaticKeys = (): boolean => {
   return false
 }
 
-interface KeyUsage {
-  readonly dynamicScopes: Set<string>
-  readonly names: Set<string>
-  readonly patterns: RegExp[]
+interface KeyTemplate {
+  readonly parts: readonly string[]
 }
 
-const escapeRegExp = (value: string): string => value.replaceAll(/[$()*+.?[\\\]^{|}]/gu, String.raw`\$&`)
+export interface KeyUsage {
+  readonly dynamicScopes: Set<string>
+  readonly keys: Set<string>
+  readonly names: Set<string>
+  readonly templates: KeyTemplate[]
+}
 
-const keyPattern = (key: string): RegExp => new RegExp(`^${key}(?:\\..+)?$`, "u")
+export const emptyKeyUsage = (): KeyUsage => ({ dynamicScopes: new Set(), keys: new Set(), names: new Set(), templates: [] })
 
 const quotedKeys = (argument: string): string[] => [...argument.matchAll(QUOTED_PATTERN)].map((match) => match.groups?.["key"] ?? "")
 
-const templateKeys = (argument: string): string[] =>
-  [...argument.matchAll(TEMPLATE_PATTERN)].map((match) =>
-    (match.groups?.["template"] ?? "")
-      .split(PLACEHOLDER_PATTERN)
-      .map((part) => escapeRegExp(part))
-      .join(".+"),
-  )
+const templateParts = (argument: string): string[][] =>
+  [...argument.matchAll(TEMPLATE_PATTERN)].map((match) => (match.groups?.["template"] ?? "").split(PLACEHOLDER_PATTERN))
 
-const argumentPatterns = (argument: string, prefix: string): RegExp[] => [
-  ...quotedKeys(argument).map((key) => keyPattern(escapeRegExp(`${prefix}${key}`))),
-  ...templateKeys(argument).map((key) => keyPattern(`${escapeRegExp(prefix)}${key}`)),
-]
-
-const recordFileUsage = (file: string, usage: KeyUsage): void => {
-  const source = readFileSync(file, "utf8")
+export const recordSourceUsage = (source: string, usage: KeyUsage): void => {
   const scopes = translationScopes(source)
 
   for (const match of source.matchAll(NAME_PATTERN)) {
@@ -209,32 +204,88 @@ const recordFileUsage = (file: string, usage: KeyUsage): void => {
     const argument = ARGUMENT_PATTERN.exec(source.slice(call.index + call[0].length))?.[0] ?? ""
     const scope = scopes.find(({ end, start }) => start <= call.index && call.index < end)
     const prefix = scope === undefined ? "" : `${scope.namespace}${KEY_SEPARATOR}`
-    const patterns = argumentPatterns(argument, prefix)
+    const keys = quotedKeys(argument)
+    const templates = templateParts(argument)
 
-    if (patterns.length === 0) {
+    if (keys.length === 0 && templates.length === 0) {
       usage.dynamicScopes.add(prefix)
     }
-    usage.patterns.push(...patterns)
+
+    for (const key of keys) {
+      usage.keys.add(`${prefix}${key}`)
+    }
+
+    for (const [first = "", ...rest] of templates) {
+      usage.templates.push({ parts: [`${prefix}${first}`, ...rest] })
+    }
   }
 }
 
-const keySuffixes = (path: string): string[] =>
-  path.split(KEY_SEPARATOR).map((_, index, segments) => segments.slice(index).join(KEY_SEPARATOR))
+const stringValues = (value: unknown): string[] => {
+  if (typeof value === "string") {
+    return [value]
+  }
 
-const isUsedKey = (key: string, usage: KeyUsage): boolean =>
+  if (value === null || typeof value !== "object") {
+    return []
+  }
+
+  return Object.values(value).flatMap((nested) => stringValues(nested))
+}
+
+export const recordContractNames = (modules: readonly unknown[], usage: KeyUsage): void => {
+  for (const name of modules.flatMap((module) => stringValues(module))) {
+    usage.names.add(name)
+  }
+}
+
+const isKeyOrChild = (key: string, path: string): boolean => key === path || key.startsWith(`${path}${KEY_SEPARATOR}`)
+
+const matchesParts = (key: string, parts: readonly string[], names: Set<string>): boolean => {
+  const [first = "", ...rest] = parts
+
+  if (!key.startsWith(first)) {
+    return false
+  }
+
+  const remaining = key.slice(first.length)
+
+  if (rest.length === 0) {
+    return remaining.length === 0 || remaining.startsWith(KEY_SEPARATOR)
+  }
+
+  return Array.from({ length: remaining.length }, (_, index) => index + 1).some(
+    (end) => names.has(remaining.slice(0, end)) && matchesParts(remaining.slice(end), rest, names),
+  )
+}
+
+const isNamePath = (path: string, names: Set<string>): boolean => {
+  const segments = path.split(KEY_SEPARATOR)
+
+  return (
+    names.has(path) ||
+    segments.some(
+      (_, index) =>
+        index > 0 && names.has(segments.slice(0, index).join(KEY_SEPARATOR)) && names.has(segments.slice(index).join(KEY_SEPARATOR)),
+    )
+  )
+}
+
+export const isUsedKey = (key: string, usage: KeyUsage): boolean =>
   CATALOGUE_NAMESPACES.some((namespace) => key.startsWith(`${namespace}${KEY_SEPARATOR}`)) ||
   PAGE_METADATA_PATTERN.test(key) ||
-  usage.patterns.some((pattern) => pattern.test(key)) ||
-  [...usage.dynamicScopes].some(
-    (scope) => key.startsWith(scope) && keySuffixes(key.slice(scope.length)).some((suffix) => usage.names.has(suffix)),
-  )
+  [...usage.keys].some((path) => isKeyOrChild(key, path)) ||
+  usage.templates.some(({ parts }) => matchesParts(key, parts, usage.names)) ||
+  [...usage.dynamicScopes].some((scope) => key.startsWith(scope) && isNamePath(key.slice(scope.length), usage.names))
 
 const checkUnusedKeys = (): boolean => {
-  const usage: KeyUsage = { dynamicScopes: new Set(), names: new Set(), patterns: [] }
+  const usage = emptyKeyUsage()
 
   for (const file of collectSourceFiles(SOURCE_ROOT).filter((path) => isApplicationSource(path))) {
-    recordFileUsage(file, usage)
+    recordSourceUsage(readFileSync(file, "utf8"), usage)
   }
+
+  recordContractNames([STACK, STACK_API, STACK_CLI], usage)
 
   const unused = [...loadLocaleKeys(SOURCE_LOCALE)].filter((key) => !isUsedKey(key, usage)).toSorted(compareAlphabetically)
 
@@ -249,10 +300,6 @@ const checkUnusedKeys = (): boolean => {
   return false
 }
 
-const run = (): void => {
-  if (!checkLocaleParity() || !checkStaticKeys() || !checkUnusedKeys()) {
-    process.exit(FAILURE_EXIT_CODE)
-  }
+if (import.meta.main && (!checkLocaleParity() || !checkStaticKeys() || !checkUnusedKeys())) {
+  process.exit(FAILURE_EXIT_CODE)
 }
-
-run()

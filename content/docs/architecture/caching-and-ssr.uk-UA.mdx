@@ -15,7 +15,7 @@ description: "Де кешуються дані: кеш запитів, окре�
 | `defaultPreloadStaleTime` роутера | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                                |
 | Попереднє завантаження            | За наміром користувача, а [сторінки заголовка](/docs/conventions/performance#the-headers-pages-load-before-a-click) — щойно сторінка простоює |
 
-Loader-функції заповнюють кеш через `queryClient.query({ ...options, staleTime: "static" })`, а компоненти читають ті самі ключі через `useSuspenseQuery`. Виняток — сторінки курсів і редактор курсів в адмінпанелі: їхні запити мають `staleTime: COURSE_STALE_MS` (одна хвилина), бо `invalidateQueries` ніколи не перезавантажує `static`-запит, а завершення уроку чи збереження зміни в редакторі має оновити програму. `setupRouterSsrQueryIntegration` серіалізує серверний кеш у HTML і гідратує його в браузері.
+Loader-функції заповнюють кеш через `queryClient.query({ ...options, staleTime: "static" })`, а компоненти читають ті самі ключі через `useSuspenseQuery`. Виняток — сторінки курсів і редактор курсів в адмінпанелі: їхні запити мають `staleTime: COURSE_STALE_MS` (<RepositoryFact name="courseStaleMinutes" unit="minute" />), бо `invalidateQueries` ніколи не перезавантажує `static`-запит, а завершення уроку чи збереження зміни в редакторі має оновити програму. `setupRouterSsrQueryIntegration` серіалізує серверний кеш у HTML і гідратує його в браузері.
 
 - **Повідомлення перекладів** кешуються для кожної локалі та простору імен із нескінченними `staleTime` і `gcTime`.
 - **Запит сесії** (`getCurrentSessionQuery`) має `staleTime` в одну хвилину. Guard-функції маршрутів повторно отримують його під час справжніх переходів, а коли змінюється користувач, що увійшов, видаляють усі запити, не позначені `meta: { public: true }`. Публічні запити, як-от переклади й кількість зірок, з якою було пререндерено сторінку, лишаються в кеші. Див. [Публічні запити](/docs/conventions/data-fetching#public-queries).
@@ -31,7 +31,7 @@ Worker віддає попередньо відрендерений HTML із п
 
 ## KV і D1
 
-- **KV (`CACHE`)** зберігає кількість зірок на GitHub для `src/lib/github.ts`. Кількість зірок, старша за одну годину, повертається одразу й оновлюється у фоні через `waitUntil`.
+- **KV (`CACHE`)** зберігає кількість зірок на GitHub для `src/lib/github.ts`. Кількість зірок, старша за <RepositoryFact name="starCountRefreshHours" unit="hour" />, повертається одразу й оновлюється у фоні через `waitUntil`.
 - **D1 (`DB`)** зберігає сесії та лічильники обмеження частоти запитів. Перевірки сесії для серверних функцій оминають кеш cookie у Better Auth і мемоізуються до кінця запиту.
 - **Кеш Workers** зберігає відеофайли, які `serveMedia` читає з R2, під `/media/_/<videoId>/<file>`, без підпису, тож глядачі на одному периферійному вузлі спільно використовують одну кешовану копію. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Серверні функції ніколи не ухвалюють рішень щодо дозволів на основі кешованих даних.

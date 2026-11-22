@@ -5,5 +5,6 @@ declare module "virtual:repository-facts" {
   export const seededAccounts: import("~/scripts/repository-facts").SeededAccounts
   export const flowTables: import("~/scripts/repository-facts").FlowTables
   export const coverageScope: import("~/scripts/repository-facts").CoverageScope
+  export const moduleTables: import("~/scripts/repository-facts").ModuleTables
   export default facts
 }

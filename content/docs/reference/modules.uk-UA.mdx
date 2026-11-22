@@ -5,27 +5,7 @@ description: "Усі модулі в src/modules, таблиці, якими в�
 
 Модуль існує лише для справжньої таблиці бази даних. Кожну таблицю зареєстровано в `src/integrations/drizzle-orm/drizzle.schemas.ts`.
 
-| Модуль                  | Таблиці                            | Сценарії використання                                                                                                                                                                                                                                                   |
-| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `account`               | `account`                          | `sign-up-with-password`, `sign-out-user`, `update-user`, `change-email`, `change-password`, `set-password`, `list-accounts`, `unlink-account`, `send-change-email-confirmation-email`                                                                                   |
-| `chapter`               | `chapter`                          | `create-chapter`, `update-chapter`, `delete-chapter`, `move-chapter`                                                                                                                                                                                                    |
-| `course`                | `course`                           | `get-catalogue`, `get-course`, `get-course-showcase`, `get-courses`, `get-course-editor`, `create-course`, `update-course`, `move-course`, `delete-course`                                                                                                              |
-| `category`              | `category`                         | `get-categories`, `get-category`, `create-category`, `update-category`, `delete-category`                                                                                                                                                                               |
-| `lesson`                | `lesson`                           | `get-lesson`, `get-lesson-playback`, `get-lesson-title`, `create-lesson`, `update-lesson`, `replace-lesson-video`, `delete-lesson`, `move-lesson`                                                                                                                       |
-| `lesson-attachment`     | `lesson_attachment`                | `create-lesson-attachment`, `upload-lesson-attachment`, `update-lesson-attachment`, `move-lesson-attachment`, `delete-lesson-attachment`                                                                                                                                |
-| `lesson-progress`       | `lesson_progress`                  | `save-lesson-progress`                                                                                                                                                                                                                                                  |
-| `license`               | `license`, `revoked_license_order` | `get-current-license`, `get-current-license-activations`, `get-license`, `get-user-license`, `get-user-activations`, `get-unlicensed-orders`, `start-checkout`, `deactivate-license`, `grant-license`, `revoke-license`, `revoke-account-license`, `attach-license-key` |
-| `newsletter-subscriber` | `newsletter_subscriber`            | `subscribe-to-newsletter`, `confirm-newsletter-subscription`, `unsubscribe-from-newsletter`, `get-newsletter-subscription`, `set-newsletter-subscription`                                                                                                               |
-| `order`                 | `order`                            | `record-order`                                                                                                                                                                                                                                                          |
-| `product`               | `product`                          | `get-products`, `get-product`, `create-product`, `update-product`, `delete-product`                                                                                                                                                                                     |
-| `rate-limit`            | `rate_limit`                       | немає; використовується в `src/lib/rate-limit.ts`                                                                                                                                                                                                                       |
-| `session`               | `session`                          | `get-active-sessions`, `revoke-session`, `revoke-other-sessions`, `list-user-sessions`, `revoke-user-session`, `revoke-user-sessions`                                                                                                                                   |
-| `subscription`          | `subscription`                     | `record-subscription`                                                                                                                                                                                                                                                   |
-| `two-factor`            | `two_factor`                       | `enable-two-factor`, `disable-two-factor`, `generate-backup-codes`, `verify-totp`, `verify-backup-code`                                                                                                                                                                 |
-| `user`                  | `user`                             | `get-users`, `get-user`, `create-user`, `update-user`, `update-preferences`, `delete-user`, `ban-user`, `unban-user`, `set-user-role`, `set-user-password`, `impersonate-user`, `stop-impersonating-user`, `request-account-deletion`, `confirm-account-deletion`       |
-| `verification`          | `verification`                     | `send-verification-email`, `send-verify-email`, `request-password-reset`, `reset-password`, `send-reset-password-email`                                                                                                                                                 |
-| `video`                 | `video`                            | `get-videos`, `get-video-playback`, `set-video-placeholder`, `delete-video`                                                                                                                                                                                             |
-| `withdrawal`            | `withdrawal`                       | `submit-withdrawal`, `get-withdrawal-contract`, `get-user-withdrawals`, `record-withdrawal`, `send-withdrawal-acknowledgement`, `send-withdrawal-notification`                                                                                                          |
+<RepositoryTable name="moduleUseCases" columns={["Модуль", "Таблиці", "Сценарії використання"]} />
 
 `_core` не володіє жодною таблицею. Він містить спільні коди помилок, каталоги й допоміжні функції, описані на сторінці [Спільне ядро core](/docs/architecture/core).
 
@@ -54,10 +34,17 @@ description: "Усі модулі в src/modules, таблиці, якими в�
 - `video/video.playback.ts`: підписані шляхи відтворення (`createPlayback`, `verifyPlayback`)
 - `video/video.delivery.ts`: `serveMedia`, який відповідає на запити `/media/` з кешу Workers або з R2
 - `video/video.encoding.ts`: план FFmpeg (варіанти якості, аргументи, розкадровка), який виконує `scripts/publish-video.ts`
+- `account/account.links.ts`: `accountEmailLinks`, посилання для входу й скидання пароля в локалі callback-адреси листа облікового запису
+- `course/course.cover.ts`: ключі R2, розміри й ширини обкладинки, її форма завантаження та зображення, які сторінка курсу показує й поширює (`courseCoverImage`, `courseShareImage`)
+- `course/course.delivery.ts`: `serveCover`, що відповідає на запити `/media/covers/` з edge-кешу або з R2
+- `course/course.objects.ts`: `removeCoverObjects`, що видаляє з R2 замінену або прибрану обкладинку
+- `course/course.transfer.ts`: документ курсів, який записує експорт і читає імпорт, його пробний прогін та імпорт (`exportCourseDocument`, `planCourseImport`, `applyCourseImport`)
+- `license/license.upgrades.ts`: рівні, вищі за рівень ліцензії, і метадані checkout-а оновлення (`higherTiers`, `upgradeMetadata`)
+- `order/order.polar.ts`: `polarOrderTerms`, знижка й країна оплати замовлення Polar
 
 ## Звичайні серверні сценарії використання
 
-Ці сценарії використання — асинхронні функції без RPC-ендпоінта. Їх викликають хуки Better Auth, обробники вебхуків Polar або інші сценарії використання: `send-verify-email`, `send-reset-password-email`, `send-change-email-confirmation-email`, `send-delete-account-email`, `grant-license`, `upgrade-license`, `revert-license-upgrade`, `send-purchase-confirmation-email`, `send-unmatched-order-alert`, `revoke-license`, `revoke-account-license`, `attach-license-key`, `record-lesson-opened` і `get-license`.
+Ці сценарії використання — асинхронні функції без RPC-ендпоінта. Їх викликають хуки Better Auth, обробники вебхуків Polar або інші сценарії використання: <RepositoryFact name="plainUseCases" />.
 
 ## Пов'язані сторінки
 

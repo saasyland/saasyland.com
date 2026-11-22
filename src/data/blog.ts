@@ -56,10 +56,16 @@ export const BLOG_ARCHIVE = {
 
 export const BLOG_FINDER_CLASSES = {
   BAR: "sticky top-header z-30 -mx-6 border-b border-border bg-background/72 px-6 py-3 backdrop-blur-xl md:-mx-10 md:px-10 lg:static lg:z-auto lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none",
+  BODY: "custom-scrollbar hidden lg:mt-4 lg:-mr-3 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-y-auto lg:pr-3",
+  INDEX: "flex min-h-32 flex-1 flex-col",
+  INDEX_LIST:
+    "-mr-3 min-h-0 flex-1 scroll-pt-3 scroll-pb-10 pt-3 pb-10 [mask-image:linear-gradient(to_bottom,transparent,#000_0.75rem,#000_calc(100%-2.5rem),transparent)]",
   LAYOUT: "mt-8 md:mt-10 lg:mt-16 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-x-12 xl:grid-cols-[16rem_minmax(0,1fr)] xl:gap-x-16",
   MAIN: "mt-10 min-w-0 md:mt-14 lg:mt-0",
   PANEL: "lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100dvh-7.5rem)] lg:flex-col",
 } as const
+
+export const BLOG_FINDER_TOPICS = 4
 
 export const BLOG_HIGHLIGHTS = {
   LATEST: 3,

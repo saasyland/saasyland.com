@@ -4,7 +4,7 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { BLOG_ARCHIVE, BLOG_FINDER_CLASSES, BLOG_HIGHLIGHTS, BLOG_SORTS, FEATURED_BLOG_POSTS } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_FINDER_CLASSES, BLOG_FINDER_TOPICS, BLOG_HIGHLIGHTS, BLOG_SORTS, FEATURED_BLOG_POSTS } from "~/src/data/blog"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -16,7 +16,7 @@ const ROWS = Array.from({ length: BLOG_ARCHIVE.PAGE_SIZE }, (_, index) => index)
 const SIDE_POSTS = FEATURED_BLOG_POSTS.slice(1)
 const LATEST = Array.from({ length: BLOG_HIGHLIGHTS.LATEST }, (_, index) => index)
 const UPDATED = Array.from({ length: BLOG_HIGHLIGHTS.UPDATED }, (_, index) => index)
-const TOPICS = ["all", "first", "second", "third", "fourth", "fifth"] as const
+const TOPICS = Array.from({ length: BLOG_FINDER_TOPICS + 1 }, (_, index) => index)
 const PARAGRAPHS = ["first", "second", "third", "fourth"] as const
 const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as const
 const RAIL_POSTS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"] as const
@@ -51,8 +51,8 @@ const PostFinderPending = (): JSX.Element => (
         <Skeleton className="h-10 min-w-0 flex-1 rounded-md" />
         <Skeleton className="h-10 w-28 rounded-md lg:hidden" />
       </div>
-      <div className="hidden lg:mt-6 lg:flex lg:flex-col lg:gap-8">
-        <div>
+      <div className={BLOG_FINDER_CLASSES.BODY}>
+        <div className="shrink-0">
           <LabelPending />
           <div className="mt-3 flex flex-col">
             {BLOG_SORTS.map((sort) => (
@@ -62,7 +62,7 @@ const PostFinderPending = (): JSX.Element => (
             ))}
           </div>
         </div>
-        <div>
+        <div className="shrink-0">
           <LabelPending />
           <div className="mt-3 flex flex-col">
             {TOPICS.map((topic) => (
@@ -70,11 +70,16 @@ const PostFinderPending = (): JSX.Element => (
                 <Skeleton className="h-lh w-3/4 scale-y-70" />
               </div>
             ))}
+            <div className="border-l border-border py-1.5 pl-4 text-body-sm">
+              <Skeleton className="h-lh w-2/3 scale-y-70" />
+            </div>
           </div>
         </div>
-        <div>
+        <div className={BLOG_FINDER_CLASSES.INDEX}>
           <LabelPending />
-          <RailPending rows={RAIL_POSTS.slice(0, TOPICS.length)} />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <RailPending rows={RAIL_POSTS} />
+          </div>
         </div>
       </div>
     </div>

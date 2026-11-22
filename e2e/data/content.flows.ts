@@ -65,10 +65,31 @@ export const CONTENT_FLOWS = [
     area: FLOW_AREA.CONTENT,
     id: "blog-finder",
     outcome:
-      "On a wide screen the blog and its archive pages keep a finder beside the posts, with the search, the sort, the topics and an index of every post, and a change in it brings the reader to the matching posts",
+      "On a wide screen the blog and its archive pages keep a finder beside the posts, with the search, the sort and the topics in place above an index of every post that scrolls on its own, every topic a popover away, and a change in it brings the reader to the matching posts",
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "blog-index.spec.ts", title: "keeps the finder beside the posts from the featured posts through the archive" },
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps the search, the sort and the topics in place while the page and the finder's index scroll, and scrolls only the index",
+      },
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps a few posts of the finder's index in view on a window 700px high, and the controls in place from 800px",
+      },
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps a few posts of the finder's index in view on a window 800px high, and the controls in place from 800px",
+      },
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps a few posts of the finder's index in view on a window 900px high, and the controls in place from 800px",
+      },
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps a few posts of the finder's index in view on a window 1100px high, and the controls in place from 800px",
+      },
+      { spec: "blog-index.spec.ts", title: "opens every topic from the finder in a popover and keeps the finder's controls the same height" },
       {
         spec: "blog-index.spec.ts",
         title: "brings the reader from the featured posts to the posts a finder filter matches, and clears every filter in one press",

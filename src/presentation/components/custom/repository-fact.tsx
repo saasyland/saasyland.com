@@ -5,7 +5,7 @@ import { CI_PROVIDER, CI_PROVIDERS, CI_REPOSITORY_VARIABLE, PLATFORM } from "@sa
 import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
-import { cliApiTables, commitEmojis, coverageScope, flowTables, seededAccounts } from "virtual:repository-facts"
+import { cliApiTables, commitEmojis, coverageScope, flowTables, moduleTables, seededAccounts } from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
@@ -229,6 +229,7 @@ const FACTS = {
   localizedListItemMaxLength: LOCALIZED_LIST_ITEM_MAX_LENGTH,
   localizedListMaxItems: LOCALIZED_LIST_MAX_ITEMS,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
+  modules: moduleTables.modules.map(([module]) => module),
   nameMaxLength: NAME_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
@@ -239,8 +240,10 @@ const FACTS = {
   oauthProviderIds: OAUTH_PROVIDERS.map(({ id }) => id),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
+  plainUseCases: moduleTables.plainUseCases,
   posterSmallWidth: POSTER_SMALL_WIDTH,
   posterWidth: POSTER_WIDTH,
+  publicUseCases: moduleTables.publicUseCases,
   queryGcTimeMinutes: QUERY_GC_TIME_MS / MILLISECONDS_PER_MINUTE,
   queryStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
@@ -270,6 +273,11 @@ const FACTS = {
   testServerLastPort: String(TEST_SERVER_PORTS.LAST),
   tokenRateLimit: RATE_LIMITS.TOKEN.max,
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
+  uncheckedStatements: Object.entries(APP_STATEMENTS).flatMap(([resource, actions]) =>
+    actions
+      .filter((action) => !moduleTables.checkedPermissions.includes(`${resource}.${action}`))
+      .map((action) => `${resource}: ["${action}"]`),
+  ),
   unlistedRoutes: UNLISTED_ROUTES,
   verificationPollSeconds: VERIFICATION_POLL_MS / MILLISECONDS_PER_SECOND,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
@@ -302,6 +310,8 @@ const TABLES = {
     return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
   missingFlowTable: flowTables.missing,
+  moduleUseCases: moduleTables.modules,
+  permissionChecks: moduleTables.permissions,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
   toBuildFlowTable: flowTables.toBuild,

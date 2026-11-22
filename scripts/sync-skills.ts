@@ -37,23 +37,30 @@ const resolveGroup = ({ skillPath = "", source = "" }: z.infer<typeof skillSchem
 const AGENTS_DIR = ".agents/skills"
 const CLAUDE_DIR = ".claude/skills"
 
-const { skills } = skillsLockSchema.parse(JSON.parse(readFileSync("skills-lock.json", "utf8")))
-
 rmSync(AGENTS_DIR, { force: true, recursive: true })
-rmSync(CLAUDE_DIR, { force: true, recursive: true })
 rmSync("agent", { force: true, recursive: true })
 
 const FIXED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
 
-const result = spawnSync(process.execPath, ["x", "--bun", "skills", "experimental_install"], {
-  env: { ...process.env, PATH: FIXED_PATH },
-  stdio: "inherit",
-})
+const runSkills = (args: string[]): void => {
+  const result = spawnSync(process.execPath, ["x", "--bun", "skills", ...args], {
+    env: { ...process.env, PATH: FIXED_PATH },
+    stdio: "inherit",
+  })
 
-if (result.status !== 0) {
-  console.error("✗ skills experimental_install failed")
-  process.exit(result.status ?? FAILURE_EXIT_CODE)
+  if (result.status !== 0) {
+    console.error(`✗ skills ${args.join(" ")} failed`)
+    process.exit(result.status ?? FAILURE_EXIT_CODE)
+  }
 }
+
+runSkills(["experimental_install"])
+
+if (process.argv.includes("update")) {
+  runSkills(["update", "--project", "--yes"])
+}
+
+const { skills } = skillsLockSchema.parse(JSON.parse(readFileSync("skills-lock.json", "utf8")))
 
 const staging = join(AGENTS_DIR, ".staging")
 mkdirSync(staging, { recursive: true })
@@ -87,6 +94,7 @@ for (const [name, entry] of Object.entries(skills)) {
 
 rmSync(staging, { force: true, recursive: true })
 
+rmSync(CLAUDE_DIR, { force: true, recursive: true })
 mkdirSync(CLAUDE_DIR, { recursive: true })
 const groupRoots = [...roots].toSorted((left, right) => left.localeCompare(right))
 for (const root of groupRoots) {

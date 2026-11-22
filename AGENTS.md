@@ -68,4 +68,4 @@ The framework versions here are newer than most training data. Read the installe
 
 - Vite+: `node_modules/vite-plus/docs`.
 - TanStack Start, Router and Table ship agent skills inside their packages: `node_modules/@tanstack/react-start/skills`, `node_modules/@tanstack/react-router/skills`, `node_modules/@tanstack/react-table/skills`.
-- Vendor skills for Better Auth, Cloudflare, Polar, Resend, TanStack and others are pinned in `skills-lock.json`; `bun run skills:sync` installs them into `.agents/skills` and links them into `.claude/skills`.
+- Vendor skills for Better Auth, Cloudflare, Polar, Resend, TanStack and others are pinned in `skills-lock.json`; `bun run skills:sync` installs them into `.agents/skills` and links them into `.claude/skills`, and `bun run skills:update` moves every pin to the latest commit of its source.

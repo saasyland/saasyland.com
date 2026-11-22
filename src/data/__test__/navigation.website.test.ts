@@ -11,7 +11,8 @@ describe("the website's navigation", () => {
   it("arranges the website's navigation as before the areas contributed it", () => {
     expect(ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
       [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
-      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS, ROUTES.ADMIN_ORDERS]],
+      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
+      [ADMIN_NAVIGATION_GROUP.SALES, [ROUTES.ADMIN_ORDERS]],
       [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES, ROUTES.ADMIN_VIDEOS]],
       [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
     ])

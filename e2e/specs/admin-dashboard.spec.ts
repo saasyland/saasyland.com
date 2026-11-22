@@ -22,6 +22,9 @@ import paymentsDashboardMessages from "../../messages/en-US/dashboard.payments.j
 import notFoundMessages from "../../messages/en-US/errors.not-found.json" with { type: "json" }
 import pagesAdminDashboardMessages from "../../messages/en-US/pages.admin.dashboard.json" with { type: "json" }
 import pagesAdminSidebarMessages from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
+import navigationPaymentsMessages from "../../messages/en-US/navigation.payments.json" with { type: "json" }
+import navigationProductsMessages from "../../messages/en-US/navigation.products.json" with { type: "json" }
+import sidebarMessages from "../../messages/en-US/components.shadcn.sidebar.json" with { type: "json" }
 
 const [admin, customer] = TEST_ACCOUNTS
 
@@ -135,6 +138,34 @@ test("the admin menu and the command palette list only working screens", async (
   const palette = page.getByRole("dialog")
   await expect(palette.getByRole("menuitem")).toHaveCount(sections.length)
   expect(await palette.getByRole("menuitem").allTextContents()).toStrictEqual(sections)
+})
+
+test("the admin menu files orders under Sales and keeps only the products under Offerings, on a desktop and a phone", async ({
+  page,
+}, testInfo) => {
+  const { groups } = pagesAdminSidebarMessages
+  await page.setViewportSize({ height: 800, width: 1280 })
+  await signInAsAdmin(page)
+
+  const sidebar = page.getByRole("navigation", { name: pagesAdminSidebarMessages.navigationLabel })
+  await expect(sidebar.getByRole("group", { exact: true, name: groups.offerings }).getByRole("link")).toHaveText([
+    navigationProductsMessages.admin.products,
+  ])
+  const sales = sidebar.getByRole("group", { exact: true, name: groups.sales })
+  await expect(sales.getByRole("link")).toHaveText([navigationPaymentsMessages.admin.orders])
+  await sales.getByRole("link", { exact: true, name: navigationPaymentsMessages.admin.orders }).click()
+  await expect(page).toHaveURL(/\/admin\/orders$/u)
+  await expect(sales.getByRole("link", { exact: true, name: navigationPaymentsMessages.admin.orders })).toHaveAttribute("aria-current", "page")
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("admin-sidebar-1280.png") })
+
+  await page.setViewportSize({ height: 844, width: 390 })
+  await page.getByRole("button", { exact: true, name: sidebarMessages.toggle }).click()
+  const sheet = page.getByRole("dialog", { exact: true, name: sidebarMessages.title })
+  await expect(sheet).toBeInViewport({ ratio: 1 })
+  await expect(sheet.getByRole("group", { exact: true, name: groups.sales }).getByRole("link")).toHaveText([
+    navigationPaymentsMessages.admin.orders,
+  ])
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("admin-sidebar-390.png") })
 })
 
 for (const path of REMOVED_SCREENS) {

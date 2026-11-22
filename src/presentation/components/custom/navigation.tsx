@@ -3,8 +3,8 @@ import { type JSX, useEffect } from "react"
 import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { headerDestination, useSignedInVisitor } from "~/src/hooks/use-header-navigation"
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
@@ -49,7 +49,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 export const Navigation = (): JSX.Element => {
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
-  const signedIn = useSignedInVisitor()
+  const workspace = useVisitorWorkspace()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
   const contentId = useMatches({
     select: (matches) => matches.map(({ staticData }) => staticData.contentId).findLast((id) => id !== undefined) ?? SITE_CONTENT_ID,
@@ -61,10 +61,10 @@ export const Navigation = (): JSX.Element => {
     () =>
       preloadWhenIdle(() => {
         for (const entry of HEADER_NAVIGATION) {
-          void router.preloadRoute({ to: headerDestination(entry, signedIn).to })
+          void router.preloadRoute({ to: signedInDestination(entry, workspace).to })
         }
       }),
-    [router, shownPath, signedIn],
+    [router, shownPath, workspace],
   )
 
   return (
@@ -85,7 +85,7 @@ export const Navigation = (): JSX.Element => {
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden items-center gap-1 lg:flex">
               {HEADER_NAVIGATION.map((entry) => {
-                const { key, to } = headerDestination(entry, signedIn)
+                const { key, to } = signedInDestination(entry, workspace)
 
                 return (
                   <Link

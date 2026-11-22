@@ -36,13 +36,21 @@ export const AUTH_NAVIGATION = [
   },
   { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
-  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
+  {
+    area: AREA,
+    column: FOOTER_COLUMN.PRODUCT,
+    key: "signIn",
+    order: 40,
+    placement: NAVIGATION_PLACEMENT.FOOTER,
+    signedIn: { key: "account" },
+    to: ROUTES.SIGN_IN,
+  },
   {
     area: AREA,
     key: "signIn",
     order: 50,
     placement: NAVIGATION_PLACEMENT.HEADER,
-    signedIn: { key: "account", to: ROUTES.APP },
+    signedIn: { key: "account" },
     to: ROUTES.SIGN_IN,
   },
 ] as const satisfies readonly NavigationEntry[]

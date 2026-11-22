@@ -43,7 +43,7 @@ export const AdminSidebar = (): JSX.Element => {
       <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-3 py-0">
         <Link
           className="flex h-9 items-center rounded-md px-2 transition-colors duration-200 ease-exp hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          to={ROUTES.ADMIN}
+          to={ROUTES.HOME}
         >
           <Wordmark />
         </Link>
@@ -56,7 +56,7 @@ export const AdminSidebar = (): JSX.Element => {
               <div className="mb-1.5 px-2 text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
                 {t(`groups.${group.key}`)}
               </div>
-              <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5">
+              <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5" role="group">
                 {group.items.map((item) => {
                   const isActive = isActiveUrl(pathname, item.to)
 

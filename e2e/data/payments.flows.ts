@@ -11,6 +11,19 @@ export const PAYMENTS_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-sales-group",
+    outcome:
+      "The admin menu lists Orders under Sales and only Products under Offerings, on a desktop and in the phone's sidebar, and Orders opens /admin/orders",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-dashboard.spec.ts",
+        title: "the admin menu files orders under Sales and keeps only the products under Offerings, on a desktop and a phone",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-orders-list",
     outcome:
       "/admin/orders lists the orders copied from Polar, searched by customer and filtered by status and product on the server, and opens an order with Polar's live payment, discount, billing country and invoice",

@@ -5,8 +5,8 @@ import { ArrowUpRight, Menu, X } from "lucide-react"
 import { Dialog, DialogTrigger, Modal, ModalOverlay } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
-import { headerDestination, useSignedInVisitor } from "~/src/hooks/use-header-navigation"
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
 import { CTA_CLASSES } from "~/src/data/cta"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
@@ -25,7 +25,7 @@ export const MobileMenu = (): JSX.Element => {
 
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
-  const signedIn = useSignedInVisitor()
+  const workspace = useVisitorWorkspace()
   const startBuilding = useLinkProps({
     hash: MARKETING_SECTION_IDS.PRICING,
     onClick: () => {
@@ -58,23 +58,27 @@ export const MobileMenu = (): JSX.Element => {
               <div className="mx-auto w-full max-w-site px-6 pb-10 md:px-10">
                 <nav aria-label={t("ariaLabel")}>
                   <ul className="divide-y divide-border">
-                    {HEADER_NAVIGATION.map((entry) => (
-                      <li key={entry.key}>
-                        <Link
-                          {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
-                          className="group flex items-center justify-between gap-6 py-4 text-lead font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
-                          onClick={close}
-                          to={headerDestination(entry, signedIn).to}
-                        >
-                          {navigationLabel({ area: entry.area, key: headerDestination(entry, signedIn).key, placement: entry.placement })}
-                          <ArrowUpRight
-                            aria-hidden
-                            className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"
-                            strokeWidth={1.5}
-                          />
-                        </Link>
-                      </li>
-                    ))}
+                    {HEADER_NAVIGATION.map((entry) => {
+                      const { key, to } = signedInDestination(entry, workspace)
+
+                      return (
+                        <li key={entry.key}>
+                          <Link
+                            {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
+                            className="group flex items-center justify-between gap-6 py-4 text-lead font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
+                            onClick={close}
+                            to={to}
+                          >
+                            {navigationLabel({ area: entry.area, key, placement: entry.placement })}
+                            <ArrowUpRight
+                              aria-hidden
+                              className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"
+                              strokeWidth={1.5}
+                            />
+                          </Link>
+                        </li>
+                      )
+                    })}
                   </ul>
                 </nav>
                 <a {...startBuilding} aria-current={undefined} className={cn("mt-6 w-full", CTA_CLASSES.PRIMARY)}>

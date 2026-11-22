@@ -171,9 +171,29 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.ACCOUNT,
     id: "header-account",
-    outcome: "A signed-in visitor sees Your account in the site header instead of Sign in",
+    outcome:
+      "A signed-in visitor sees Your account instead of Sign in in the site header, the footer and the mobile menu, and it opens /admin for an admin and /app for a customer, in the visitor's language",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth-journeys.spec.ts", title: "signing in again › offers a signed-in visitor their account in the header instead of sign-in" }],
+    tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "signing in again › leads a signed-in admin from Your account in the header, the footer and the mobile menu to their workspace",
+      },
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "signing in again › leads a signed-in customer from Your account in the header, the footer and the mobile menu to their workspace",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "workspace-wordmark-home",
+    outcome: "The wordmark in the admin console and in the customer workspace opens the home page, in the visitor's language",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "workspaces.spec.ts", title: "the wordmark takes admin from the workspace to the home page, in English and in Polish" },
+      { spec: "workspaces.spec.ts", title: "the wordmark takes customer from the workspace to the home page, in English and in Polish" },
+    ],
   },
   {
     area: FLOW_AREA.ACCOUNT,

@@ -2,7 +2,9 @@ import type { Page } from "@playwright/test"
 
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { APP_NAME } from "../../src/presentation/branding"
 import { THEME } from "../../src/presentation/theme"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { workspacePages } from "../data/pages"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -10,6 +12,8 @@ import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
 const PAGE_AUDIT_TIMEOUT_MS = 10_000
+
+const POLISH_PREFIX = "/pl-PL"
 
 const visit = async (page: Page, path: string): Promise<void> => {
   const response = await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -120,6 +124,29 @@ for (const account of TEST_ACCOUNTS) {
       await appPage.waitForAppReady()
     }
     expect(errors).toEqual([])
+  })
+}
+
+for (const account of TEST_ACCOUNTS) {
+  test(`the wordmark takes ${account.role} from the workspace to the home page, in English and in Polish`, async ({
+    appPage,
+    authPage,
+    landingPage,
+    page,
+  }) => {
+    const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN_SETTINGS : ROUTES.APP_SETTINGS
+    await authPage.signIn(account.email)
+    await appPage.waitForAppReady()
+
+    for (const prefix of ["", POLISH_PREFIX]) {
+      await visit(page, `${prefix}${workspace}`)
+      const wordmark = page.getByRole("link", { exact: true, name: APP_NAME })
+      await expect(wordmark).toHaveAttribute("href", prefix.length > 0 ? prefix : ROUTES.HOME)
+      await wordmark.click()
+      await expect(page).toHaveURL((url) => url.pathname === (prefix.length > 0 ? prefix : ROUTES.HOME))
+      await appPage.waitForAppReady()
+      await expect(landingPage.heroHeading()).toBeVisible()
+    }
   })
 }
 

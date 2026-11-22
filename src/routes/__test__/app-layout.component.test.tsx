@@ -91,11 +91,12 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   const nested = createRoute({ component: () => <p>Session details</p>, getParentRoute: () => AppRoute, path: "/settings/details" })
   const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const docs = createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS })
+  const home = createRoute({ component: () => <h1>Home page</h1>, getParentRoute: () => root, path: ROUTES.HOME })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, nested])]),
+    routeTree: root.addChildren([home, signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, nested])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -190,17 +191,26 @@ describe("customer workspace routes", () => {
     expect(within(region).getAllByText(session.user.email)).toHaveLength(2)
   })
 
-  it("allows sidebar navigation, the brand shortcut, and documentation links", async () => {
+  it("allows sidebar navigation and documentation links", async () => {
     const { router, user } = await renderApp(ROUTES.APP)
     await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })
     const nav = screen.getByRole("navigation", { name: navigation.label })
     await user.click(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings }))
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: APP_NAME }))
-    expect(await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })).toBeVisible()
     await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
     expect(await screen.findByRole("heading", { name: "Documentation" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.DOCS)
+  })
+
+  it("takes the wordmark to the home page", async () => {
+    const { router, user } = await renderApp(ROUTES.APP_SETTINGS)
+    await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })
+    const brand = screen.getByRole("link", { name: APP_NAME })
+
+    expect(brand).toHaveAttribute("href", ROUTES.HOME)
+    await user.click(brand)
+    expect(await screen.findByRole("heading", { name: "Home page" })).toBeVisible()
+    expect(router.state.location.pathname).toBe(ROUTES.HOME)
   })
 })
 

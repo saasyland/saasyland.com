@@ -4,7 +4,7 @@ import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
-import { BasePage, LandingPage } from "../pages"
+import { BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const LANDING_CPU_SLOWDOWN = 4
@@ -65,13 +65,16 @@ for (const account of TEST_ACCOUNTS) {
         await tab.close()
       }
     }
-    const fromLanding = await context.newPage()
-    await new LandingPage(fromLanding).goto()
-    await fromLanding.locator('a[href^="/auth/sign-in"]').first().click()
-    await expect(fromLanding).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
-    await new BasePage(fromLanding).waitForAppReady()
-    await expect(fromLanding.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
-    await fromLanding.close()
+    const fromForgotPassword = await context.newPage()
+    await fromForgotPassword.goto(ROUTES.FORGOT_PASSWORD, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    const forgotPasswordPage = new BasePage(fromForgotPassword)
+    await forgotPasswordPage.waitForAppReady()
+    await forgotPasswordPage.waitForHydration(fromForgotPassword.getByRole("main"))
+    await fromForgotPassword.locator(`a[href^="${ROUTES.SIGN_IN}"]`).first().click()
+    await expect(fromForgotPassword).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
+    await forgotPasswordPage.waitForAppReady()
+    await expect(fromForgotPassword.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+    await fromForgotPassword.close()
     expect(errors).toEqual([])
   })
 }

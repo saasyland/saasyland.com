@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test"
 
 import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "../../src/integrations/better-auth/auth.constants"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { RECIPIENT_EMAILS_PER_HOUR } from "../../src/modules/rate-limit/rate-limit.constants"
 import { RESEND_COOLDOWN_SECONDS } from "../../src/modules/verification/verification.constants"
 import { APP_SLUG } from "../../src/presentation/branding"
@@ -10,9 +11,17 @@ import { expect, test } from "../fixtures/auth"
 import { expectResetPasswordEmail, expectVerificationEmail } from "../fixtures/emails"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+import navigationMessages from "../../messages/en-US/components.custom.navigation.json" with { type: "json" }
+import navigationAuthMessages from "../../messages/en-US/navigation.auth.json" with { type: "json" }
+import polishNavigationMessages from "../../messages/pl-PL/components.custom.navigation.json" with { type: "json" }
+import polishNavigationAuthMessages from "../../messages/pl-PL/navigation.auth.json" with { type: "json" }
+
 const [, customer] = TEST_ACCOUNTS
 const PASSWORD = "StrongPassword123!"
 const NEW_PASSWORD = "AnotherPassword456!"
+const POLISH_PREFIX = "/pl-PL"
+const DESKTOP_VIEWPORT = { height: 800, width: 1280 }
+const PHONE_VIEWPORT = { height: 844, width: 390 }
 const MS_PER_SECOND = 1000
 const PAST_THE_COOLDOWN_MS = (RESEND_COOLDOWN_SECONDS + 1) * MS_PER_SECOND
 
@@ -197,15 +206,41 @@ test.describe("signing in again", () => {
     await expect(page.getByRole("status")).toHaveText("Your session ended. Sign in to continue to Settings.")
   })
 
-  test("offers a signed-in visitor their account in the header instead of sign-in", async ({ appPage, authPage, landingPage, page }) => {
-    await authPage.signIn(customer.email)
-    await expect(page).toHaveURL("/app")
+  for (const account of TEST_ACCOUNTS) {
+    test(`leads a signed-in ${account.role} from Your account in the header, the footer and the mobile menu to their workspace`, async ({
+      appPage,
+      authPage,
+      landingPage,
+      page,
+    }) => {
+      const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN : ROUTES.APP
+      await page.setViewportSize(DESKTOP_VIEWPORT)
+      await authPage.signIn(account.email)
+      await expect(page).toHaveURL(workspace)
 
-    await landingPage.goto()
-    await appPage.waitForAppReady()
+      await landingPage.goto()
+      await appPage.waitForAppReady()
+      const header = page.getByRole("navigation", { name: navigationMessages.ariaLabel })
+      const accountLink = header.getByRole("link", { exact: true, name: navigationAuthMessages.header.account })
+      await expect(accountLink).toHaveAttribute("href", workspace)
+      await expect(header.getByRole("link", { exact: true, name: navigationAuthMessages.header.signIn })).toHaveCount(0)
+      const footer = page.getByRole("contentinfo")
+      await expect(footer.getByRole("link", { exact: true, name: navigationAuthMessages.footer.account })).toHaveAttribute("href", workspace)
+      await expect(footer.getByRole("link", { exact: true, name: navigationAuthMessages.footer.signIn })).toHaveCount(0)
+      await accountLink.click()
+      await expect(page).toHaveURL(workspace)
+      await appPage.waitForAppReady()
 
-    const header = page.getByRole("navigation", { name: "Primary" })
-    await expect(header.getByRole("link", { name: "Your account" })).toHaveAttribute("href", ROUTES.APP)
-    await expect(header.getByRole("link", { name: "Sign in", exact: true })).toHaveCount(0)
-  })
+      await page.setViewportSize(PHONE_VIEWPORT)
+      await landingPage.goto(POLISH_PREFIX)
+      await appPage.waitForAppReady()
+      await page.getByRole("button", { exact: true, name: polishNavigationMessages.openMenu }).click()
+      const menu = page.getByRole("dialog", { exact: true, name: polishNavigationMessages.menu })
+      const polishAccount = menu.getByRole("link", { exact: true, name: polishNavigationAuthMessages.header.account })
+      await expect(polishAccount).toHaveAttribute("href", `${POLISH_PREFIX}${workspace}`)
+      await expect(menu.getByRole("link", { exact: true, name: polishNavigationAuthMessages.header.signIn })).toHaveCount(0)
+      await polishAccount.click()
+      await expect(page).toHaveURL(`${POLISH_PREFIX}${workspace}`)
+    })
+  }
 })

@@ -1,89 +1,120 @@
 ---
-title: "Aggiungere una tabella dati"
-description: "Definisci le colonne e mostrale con il DataTable generico, con dati lato client o lato server."
+title: "Aggiungere una griglia dati"
+description: "Scrivi un hook delle colonne con filtri, colonne nascoste e fissate e valori CSV, poi mostralo con DataGrid a partire da righe lato client o da una query sul server."
 ---
 
-Ogni tabella viene resa da un unico componente, `DataTable` in `src/presentation/components/custom/data-table.tsx`. Si basa su TanStack Table v9 (`tableFeatures` e `useTable`) e sulle primitive di tabella di shadcn e offre ordinamento, paginazione, selezione delle righe, filtri, scheletri di caricamento e stato vuoto. Una tabella richiede solo un file di colonne e una chiamata a `<DataTable columns data options filters />`.
+Ogni nuova tabella viene resa da `DataGrid` in `src/presentation/components/custom/data-grid.tsx` ([Griglia dati](/docs/ui/data-grid)). Porta con sé la ricerca, i filtri, l'ordinamento, il layout che ogni amministratore può riorganizzare e conservare, la selezione, l'esportazione CSV, le righe scheletro e gli stati vuoti. Una tabella ha bisogno di un hook delle colonne e di un `<DataGrid />`. `/admin/orders` è l'esempio completo: `src/presentation/components/custom/admin/payments/order-columns.tsx` e `src/routes/admin.orders.index.tsx`.
 
-## 1. Definisci le colonne
+## 1. Scrivi l'hook delle colonne
 
-Crea `<entity>-columns.tsx` accanto agli altri widget della pagina. Celle e intestazioni sono piccoli componenti che leggono da sé le proprie traduzioni. Versione ridotta di `src/presentation/components/custom/admin/users/user-columns.tsx`:
+Crea `<entity>-columns.tsx` accanto agli altri widget della pagina. Esporta un hook che legge le traduzioni e i dati che offrono i filtri, e restituisce le colonne memoizzate. Le celle sono piccoli componenti nello stesso file che leggono da sé le proprie traduzioni. Versione ridotta di `order-columns.tsx`:
 
 ```tsx
-const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
-  const t = useTranslations("pages.admin.users.table.headers")
+const columnHelper = createColumnHelper<DataGridFeatures, OrderRow>()
 
-  return t(id)
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("placedAt", {
+          cell: PlacedCell,
+          header: t("pages.admin.orders.table.headers.placedAt"),
+          meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE }, pinned: DATA_GRID_PIN.START },
+          size: ORDER_COLUMN_SIZES.placedAt,
+        }),
+        columnHelper.accessor("description", {
+          cell: ProductCell,
+          enableSorting: false,
+          header: t("pages.admin.orders.table.headers.product"),
+          id: "product",
+          meta: { filter: { kind: DATA_GRID_FILTER.MULTI_SELECT, options: products.map(({ id, name }) => ({ label: name, value: id })) } },
+          size: ORDER_COLUMN_SIZES.product,
+        }),
+        columnHelper.accessor("refunded", {
+          cell: RefundedCell,
+          header: t("pages.admin.orders.table.headers.refundedAmount"),
+          id: "refundedAmount",
+          meta: { export: ({ refunded }) => exportedMoney(refunded), hidden: true },
+          size: ORDER_COLUMN_SIZES.refundedAmount,
+        }),
+      ]),
+    [products, t],
+  )
 }
-
-const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.table.booleans")
-
-  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
-}
-
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
-
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: DataTableActionsHeader, id: "actions" }),
-])
 ```
 
 - Le righe devono avere un `id` di tipo stringa, che diventa l'identificatore della riga per la selezione.
-- `DataTableFeatures` è l'insieme di funzionalità condiviso. Le funzioni di ordinamento sono `alphanumeric`, `basic`, `datetime` e `text`.
-- Le azioni di riga sono una colonna di visualizzazione la cui cella è un componente a sé (`UserRowActions` in `row-actions.tsx`) e la cui intestazione è `DataTableActionsHeader` di `data-table.tsx`, un nome di colonna che sentono solo gli screen reader.
+- `header` è l'etichetta tradotta come stringa. La griglia la usa nell'intestazione, nei menu, nei chip dei filtri, nei suoi annunci e nel CSV.
+- `meta.filter` dà alla colonna un filtro di un tipo: <RepositoryFact name="dataGridFilterKinds" />. Una scelta elenca le sue `options` come `{ label, value }`.
+- `meta.hidden` nasconde la colonna finché l'amministratore non la mostra, `meta.pinned` la fissa a `start` o a `end`, e `meta.export` scrive il testo CSV della colonna per una riga.
+- `size` è la larghezza iniziale in pixel. Tieni le dimensioni in una costante in `src/data/<area>.ts`, come `ORDER_COLUMN_SIZES` in `payments.ts`, così anche lo scheletro della route può usarle.
+- Una colonna per cui il server non può ordinare imposta `enableSorting: false`.
 
-## 2. Mostrare dati lato client
+## 2. Mostrala
 
-Passa le righe in `data`. Ordinamento, paginazione e filtri vengono eseguiti nel browser. Da `src/routes/admin.index.tsx`:
-
-```tsx
-<DataTable
-  columns={dashboardUserColumns}
-  data={users.rows}
-  filters={[
-    { columnId: "user", placeholder: t("users.search"), type: "search" },
-    {
-      columnId: "status",
-      label: t("users.filters.status"),
-      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
-      type: "select",
-    },
-  ]}
-  options={{ initialState: { pagination: ADMIN_DASHBOARD_PREVIEW_PAGINATION }, selectable: true }}
-/>
-```
-
-- `filters` accetta `{ type: "search", columnId, placeholder }` e `{ type: "select", columnId, label, options }`. La selezione aggiunge un'opzione «tutti» con l'etichetta `label`.
-- `options.initialState` imposta `pagination` e `sorting` iniziali; la dimensione di pagina predefinita è <RepositoryFact name="defaultPageSize" />.
-- `options.selectable` aggiunge una colonna di caselle di controllo e mostra il numero di righe selezionate.
-
-## 3. Mostrare dati con paginazione lato server
-
-Passa `options.query`: una funzione di `{ pageIndex, pageSize, sorting }` che restituisce opzioni di query risolte in `{ rows, total }`. La tabella allora pagina e ordina sul server. Mentre una pagina si carica, compresa la prima, mostra righe scheletro e disattiva i pulsanti precedente e successivo; il numero di righe e l'indicatore di pagina mantengono il totale precedente. Da `src/routes/admin.users.all.tsx`:
+Passa le colonne, un `id` univoco, il `label` della tabella e `data` oppure `query`:
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+const OrdersPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.orders")
+  const columns = useOrderColumns()
+
+  return (
+    <DataGrid
+      columns={columns}
+      empty={t("empty")}
+      id={ORDER_GRID_ID}
+      label={t("title")}
+      query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+      search={t("filters.search")}
+      selectable
+    />
+  )
+}
 ```
 
-`getUsersPageQuery` inserisce l'input validato nella chiave della query e `getUsers` valida `sorting` rispetto agli identificatori delle colonne ordinabili:
+Con `data`, la griglia cerca, filtra, ordina e pagina le righe nel browser. Con `query`, invia `{ filters, pageIndex, pageSize, search, sorting }` e il server fa tutto.
+
+## 3. Leggi la richiesta sul server
+
+Lo schema Zod del modulo prende la richiesta così com'è. `filters` contiene le colonne filtrate per id con i valori descritti in [Griglia dati](/docs/ui/data-grid#filters), quindi lo schema riusa i campi condivisi, da `src/modules/order/order.zod.ts`:
 
 ```ts
-export const getUsersPageQuery = (input: User["getUsers"] = {}) =>
-  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
-    queryFn: () => getUsers({ data: input }),
-    queryKey: [...USER_QUERY_KEYS.LIST, userZodSchemas.getUsers.parse(input)],
-  })
+const orderFilters = zod.object({
+  country: zod.array(countryCodeField).max(COUNTRY_CODES.length).optional(),
+  customer: searchField.optional(),
+  discount: idField.optional(),
+  placedAt: dateRangeField.optional(),
+  product: zod.array(idField).max(MAX_FILTER_VALUES).optional(),
+  status: zod.array(choiceOf(ORDER_STATUSES)).max(ORDER_STATUSES.length).optional(),
+  totalAmount: numberRangeField.optional(),
+})
+
+const getOrders = paginationSchema.extend({
+  filters: orderFilters.default({}),
+  search: searchField.default(""),
+  sorting: sortingOf(ORDER_SORT_COLUMNS),
+})
 ```
 
-Precarica la prima pagina nel loader della route con `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. Per passare filtri aggiuntivi, avvolgi la query: `src/routes/admin.products.index.tsx` usa `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. I `filters` di colonna vengono eseguiti nel browser sulle righe presenti nella tabella, quindi usali insieme a `data`.
+`numberRangeField`, `dateRangeField` e i limiti `SEARCH_MAX_LENGTH`, `MAX_SORTED_COLUMNS` e `MAX_FILTER_VALUES` vengono da `src/modules/_core/utils/`, gli stessi valori che usa la griglia, così la casella di ricerca accetta <RepositoryFact name="dataGridSearchMaxLength" /> caratteri e la griglia ordina per al massimo <RepositoryFact name="dataGridMaxSortedColumns" /> colonne. `getOrders` trasforma ogni filtro in SQL; un intervallo di importi confronta ogni ordine nella sua valuta con `inMinorUnits`.
 
-## 4. Messaggi
+Precarica la prima pagina nel loader della route con `context.queryClient.query({ ...getOrdersQuery, staleTime: "static" })`; la prima richiesta della griglia si traduce nella stessa chiave di query.
 
-Lo stato vuoto e le etichette di paginazione e selezione provengono da `components.custom.data-table`, caricato da ogni pagina. Le intestazioni delle colonne e i testi delle celle appartengono al namespace della pagina, come `pages.admin.users.table.headers`.
+## 4. Riproducila nello scheletro
 
-Quando una mutation modifica le righe, invalida le chiavi di query del modulo; la tabella ricarica la pagina corrente. Vedi [Aggiungere un caso d'uso](/docs/guides/add-a-use-case).
+Il `pendingComponent` della route mostra `DataGridPending` da `data-grid-pending.tsx` con uno scheletro di cella e una larghezza per ogni colonna visibile, come fa `AdminOrdersPending` in `payments-pending.tsx`.
+
+## 5. Messaggi
+
+Barra degli strumenti, filtri, menu, paginazione, selezione e stati vuoti della griglia provengono da `components.custom.data-grid`, caricato da ogni pagina. Etichette delle colonne, opzioni dei filtri e messaggio vuoto appartengono al namespace della pagina, come `pages.admin.orders`.
+
+Quando una mutation modifica le righe, invalida le chiavi di query del modulo; la griglia ricarica la pagina corrente. Vedi [Aggiungere un caso d'uso](/docs/guides/add-a-use-case).
+
+## Tabelle ancora su DataTable
+
+Le tabelle non ancora passate alla griglia usano ancora `DataTable` (`custom/data-table.tsx`) con un array di colonne a livello di modulo e la sua prop `filters`; [Griglia dati](/docs/ui/data-grid#datatable) le elenca. Spostarne una significa trasformare le sue colonne in un hook come sopra, dare ai suoi filtri un `meta.filter` e, per una tabella lato server, far leggere al suo schema Zod la richiesta della griglia.

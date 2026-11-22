@@ -1,0 +1,138 @@
+---
+title: "Grille de données"
+description: "Le composant de tableau : recherche, filtres par type de colonne, tri, une disposition que chaque administrateur peut réorganiser et conserver, sélection, export CSV, et données côté client ou serveur."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) est le composant de tableau. Il construit une instance TanStack Table v9 à partir des fonctionnalités de `src/integrations/tanstack-table/table.features.ts` et l’affiche avec les primitives de tableau shadcn et des contrôles React Aria. Une page lui donne ses colonnes et soit ses lignes, soit une query ; tout le reste, de la barre d’outils à la barre de pagination, se trouve à l’intérieur.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Rôle                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`     | Le jeu de colonnes du `<entity>-columns.tsx` de la page. Chaque ligne a besoin d’un `id` de type chaîne, utilisé comme identifiant de ligne |
+| `id`          | Nomme la grille : la clé de sa disposition enregistrée dans le navigateur et le début du nom de son fichier CSV                             |
+| `label`       | Le nom accessible du tableau, en général le titre de la page                                                                                |
+| `data`        | Des lignes en mémoire, pour une grille qui recherche, filtre, trie et pagine côté client                                                    |
+| `query`       | Mode serveur : une fonction de la demande de la grille qui renvoie des options de query résolues en `{ rows, total }`                       |
+| `search`      | Le libellé et le texte indicatif du champ de recherche ; sans lui, la grille n’a pas de recherche                                           |
+| `empty`       | Ce que dit la grille tant qu’elle n’a aucune ligne et qu’aucune recherche ni aucun filtre n’est défini                                      |
+| `selectable`  | Ajoute une colonne de cases à cocher et la barre de sélection                                                                               |
+| `bulkActions` | Une fonction des lignes sélectionnées qui affiche d’autres boutons dans la barre de sélection                                               |
+
+## Colonnes
+
+Un jeu de colonnes est un hook dans `custom/<area>/<entity>-columns.tsx`, comme `useOrderColumns`. Il lit ses traductions et les données que proposent ses filtres, et renvoie les colonnes mémoïsées, si bien que chaque libellé est une simple chaîne que la grille peut utiliser dans ses menus, ses annonces et l’en-tête du CSV. Chaque cellule est un petit composant du même fichier qui lit ses propres traductions.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` est ce que la grille lit d’une colonne :
+
+| Clé      | Effet                                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `filter` | Le filtre de la colonne : son `kind` et, pour un choix, les `options` sous la forme `{ label, value }`                                                             |
+| `hidden` | Masquée jusqu’à ce que l’administrateur l’affiche depuis le menu Colonnes                                                                                          |
+| `pinned` | Épinglée côté `start` ou côté `end` jusqu’à ce que l’administrateur la détache                                                                                     |
+| `export` | Le texte que reçoit le CSV pour une ligne. Sans lui, le CSV reprend les chaînes et les nombres tels quels, les dates en instants ISO, et laisse vide tout le reste |
+
+`size` est la largeur de départ de la colonne en pixels. Une colonne est triable sauf si elle définit `enableSorting: false` ; en mode serveur, seules les colonnes selon lesquelles le schéma Zod du module peut trier devraient être triables.
+
+## Filtres [#filters]
+
+Les types de filtre sont <RepositoryFact name="dataGridFilterKinds" />. Chacun a son propre éditeur, ouvert depuis le bouton Filtrer de la barre d’outils ou depuis la puce du filtre :
+
+| Type          | Éditeur                                                                                                              | Valeur                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `text`        | Un champ de texte, appliqué dès que la saisie marque une pause de <RepositoryFact name="dataGridTypingDelayMs" /> ms | Le texte sans espaces superflus |
+| `select`      | Une liste d’options ; choisir à nouveau l’option choisie la retire                                                   | Une `value`                     |
+| `multiSelect` | Une liste d’options, plusieurs à la fois ; une longue liste reçoit un champ de recherche                             | Un tableau de `value`           |
+| `numberRange` | Deux champs numériques, au moins et au plus, chacun pouvant rester vide                                              | `{ min?, max? }`                |
+| `dateRange`   | 7 derniers jours, 30 derniers jours, 12 derniers mois, ou n’importe quels jours d’un calendrier                      | `{ from?, to? }` en ms          |
+
+Les jours sont convertis en instants dans le fuseau horaire de l’administrateur, du début du premier jour à la dernière milliseconde du dernier, si bien que le serveur compare de simples instants. Chaque filtre actif apparaît sous forme de puce avec un court résumé, comme au moins 40, Payée ou Remboursée, ou 3 sélectionnées ; son × le retire et Retirer les filtres les retire tous. Modifier la recherche, un filtre ou le tri ramène à la première page et vide la sélection.
+
+## Mode serveur
+
+Avec `query`, la grille pagine, trie, recherche et filtre sur le serveur. Elle appelle `query` avec :
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` contient l’identifiant de chaque colonne filtrée avec sa valeur. La route valide la demande avec le schéma Zod du module avant qu’elle n’atteigne la fonction serveur, comme le fait `/admin/orders` avec `orderZodSchemas.getOrders.parse(request)`. Jusqu’à l’arrivée de la première page, la grille affiche des lignes squelettes ; pendant le chargement d’une page suivante, elle garde les lignes précédentes estompées, marque le tableau comme occupé et désactive la pagination. Les erreurs de query remontent jusqu’à l’error boundary de la route.
+
+## Disposition
+
+L’administrateur réorganise la grille, et le navigateur la conserve sous l’`id` de la grille dans `localStorage` (`src/hooks/use-data-grid-preferences.ts`) : les colonnes affichées, leur ordre, celles qui sont épinglées, leurs largeurs, la densité des lignes et la taille de page. La recherche, les filtres, le tri et la sélection ne sont pas conservés. Réinitialiser la disposition rétablit les valeurs par défaut. Lorsque le navigateur refuse le stockage, la disposition dure le temps de la visite.
+
+- **Menu Colonnes.** Affiche et masque chaque colonne qui peut être masquée.
+- **Menu de colonne.** Le bouton ⋮ de chaque en-tête trie par ordre croissant ou décroissant, efface le tri, épingle la colonne à gauche ou à droite, la détache, la déplace d’une place vers la gauche ou la droite de son côté, et la masque.
+- **Glisser.** Un en-tête glissé sur un autre en-tête du même côté prend sa place.
+- **Redimensionner.** Le bord d’un en-tête se fait glisser pour redimensionner ; c’est aussi un séparateur que les touches fléchées élargissent ou rétrécissent, et un double clic rétablit la largeur de départ.
+- **Tri.** Appuyer sur un en-tête trie selon cette colonne ; avec Maj, la colonne s’ajoute au tri, jusqu’à <RepositoryFact name="dataGridMaxSortedColumns" /> colonnes, numérotées dans l’en-tête.
+- **Densité.** Lignes aérées ou compactes.
+- **Taille de page.** <RepositoryFact name="dataGridPageSizes" /> lignes par page.
+
+La ligne d’en-tête reste visible pendant que les lignes défilent dans la grille, et les colonnes épinglées restent visibles pendant que la grille défile horizontalement ; c’est ainsi qu’un téléphone affiche un tableau large.
+
+## Sélection et export
+
+Avec `selectable`, une case à cocher sélectionne une ligne et celle de l’en-tête sélectionne la page. Une barre flotte alors en bas de la fenêtre avec le nombre, Exporter la sélection, les `bulkActions` de la page et Annuler la sélection.
+
+Exporter en CSV télécharge chaque ligne que trouvent la recherche et les filtres, pas seulement la page affichée : côté serveur, l’export demande des pages de <RepositoryFact name="dataGridExportPageSize" /> lignes jusqu’à les avoir toutes. Le fichier contient les colonnes visibles dans leur ordre, commence par une marque d’ordre des octets pour que les tableurs le lisent en UTF-8, et place un `'` devant toute cellule qui commencerait une formule. `src/lib/csv.ts` l’écrit.
+
+## Accessibilité
+
+- Le tableau porte `label` comme nom et `aria-rowcount` ; chaque ligne porte son `aria-rowindex`, compté sur l’ensemble des pages.
+- Les en-têtes triables sont des boutons et portent `aria-sort`.
+- Chaque contrôle fonctionne au clavier : les menus et les listes suivent les touches fléchées et la recherche par saisie de React Aria, Échap les ferme, et le redimensionnement utilise les touches fléchées sur le séparateur de l’en-tête.
+- Déplacer, épingler, masquer, trier depuis un menu et réinitialiser la disposition sont annoncés dans une région live polie ; le nombre de résultats et le nombre de lignes sélectionnées sont live aussi.
+
+## Traductions
+
+Les textes propres à la grille se trouvent dans `messages/<locale>/components.custom.data-grid.json`. Une page ne lui donne que les libellés des colonnes, les options des filtres, le libellé de la recherche et le message vide.
+
+## DataTable
+
+L’ancien `DataTable` (`src/presentation/components/custom/data-table.tsx`) affiche encore les tableaux qui ne sont pas encore passés à la grille : utilisateurs, clients, cours, produits et catégories, vidéos, et les tableaux du tableau de bord. Il prend `columns`, `data`, `empty`, `filters` (des contrôles de recherche et de sélection liés aux identifiants de colonne) et `options` (`query`, `selectable`, `initialState`), et n’a rien de la disposition, des filtres par type ni de l’export de la grille. Chacun de ces tableaux passe à `DataGrid` dans son propre changement, et `DataTable` disparaîtra quand il n’en restera plus aucun.
+
+## Tests
+
+`src/presentation/components/custom/__test__/` couvre la grille en mémoire (`data-grid.component.test.tsx`), ses filtres (`data-grid-filter.component.test.tsx`), sa disposition (`data-grid-layout.component.test.tsx`) et le mode serveur (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` l’utilise sur `/admin/orders` dans un navigateur.
+
+## Pages associées
+
+- [Formulaires et tableaux](/docs/conventions/forms-and-tables)
+- [Ajouter une grille de données](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Commandes et clients](/docs/features/orders)

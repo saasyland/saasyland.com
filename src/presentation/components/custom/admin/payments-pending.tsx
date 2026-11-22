@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
-import { ORDER_MIRROR_DETAILS, ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
+import { ORDER_COLUMN_SIZES, ORDER_MIRROR_DETAILS, ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -14,8 +14,7 @@ import {
   SortableHeadPending,
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
-
-const ORDER_FILTERS = ["status", "product", "discount", "country", "placedAt"] as const
+import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 const USER_ORDER_ROWS = ["first", "second"] as const
 
@@ -34,31 +33,15 @@ const TextPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70
 
 const BadgePending = (): JSX.Element => <Skeleton className="h-5.5 w-16 rounded-md" />
 
-const OrderRowPending = (): JSX.Element => (
-  <TableRow>
-    <TableCell>
-      <NamePending />
-    </TableCell>
-    <TableCell>
-      <NamePending />
-    </TableCell>
-    <TableCell>
-      <TextPending />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-16 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <NamePending />
-    </TableCell>
-    <TableCell>
-      <TextPending />
-    </TableCell>
-    <TableCell>
-      <BadgePending />
-    </TableCell>
-  </TableRow>
-)
+const ORDER_PENDING_COLUMNS = [
+  { cell: <NamePending />, id: "placedAt", width: ORDER_COLUMN_SIZES.placedAt },
+  { cell: <NamePending />, id: "customer", width: ORDER_COLUMN_SIZES.customer },
+  { cell: <TextPending />, id: "product", width: ORDER_COLUMN_SIZES.product },
+  { cell: <Skeleton className="h-lh w-16 scale-y-70 text-sm" />, id: "totalAmount", width: ORDER_COLUMN_SIZES.totalAmount },
+  { cell: <NamePending />, id: "discount", width: ORDER_COLUMN_SIZES.discount },
+  { cell: <TextPending />, id: "country", width: ORDER_COLUMN_SIZES.country },
+  { cell: <BadgePending />, id: "status", width: ORDER_COLUMN_SIZES.status },
+] as const
 
 export const AdminOrdersPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
@@ -66,49 +49,7 @@ export const AdminOrdersPending = (): JSX.Element => (
       <TitlePending />
       <LongDescriptionPending />
     </div>
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <SearchPending />
-        {ORDER_FILTERS.map((filter) => (
-          <Skeleton className="h-10 w-full rounded-md sm:w-48" key={filter} />
-        ))}
-      </div>
-      <TableContainer>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <HeadPending />
-              </TableHead>
-              <TableHead>
-                <HeadPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <HeadPending />
-              </TableHead>
-              <TableHead>
-                <HeadPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {PAGE_ROWS.map((row) => (
-              <OrderRowPending key={row} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <PaginationPending />
-    </div>
+    <DataGridPending columns={ORDER_PENDING_COLUMNS} isSelectable />
   </div>
 )
 

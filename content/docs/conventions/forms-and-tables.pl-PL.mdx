@@ -1,6 +1,6 @@
 ---
 title: "Formularze i tabele"
-description: "Każdy formularz stosuje przewodnik shadcn dla TanStack Form ze schematem Zod modułu i polami shadcn; każda tabela to jeden generyczny DataTable z plikiem kolumn."
+description: "Każdy formularz stosuje przewodnik shadcn dla TanStack Form ze schematem Zod modułu i polami shadcn; każda tabela to jeden DataGrid z plikiem kolumn."
 ---
 
 Formularze i tabele to dwa miejsca, w których ręcznie pisane warianty mnożą się najszybciej. Każde z nich buduje się w jeden sposób, zaczerpnięty z przewodników samych dostawców, a nie wymyślony tutaj.
@@ -121,45 +121,57 @@ Najmniejszym kompletnym przykładem jest `src/presentation/components/custom/new
 
 ## Tabele
 
-Każda tabela to generyczny `DataTable` z `src/presentation/components/custom/data-table.tsx`, używany bezpośrednio na stronie:
+Każda tabela to `DataGrid` z `src/presentation/components/custom/data-grid.tsx`, używany bezpośrednio na stronie:
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 Jego właściwości to cały interfejs:
 
-| Właściwość | Zawartość                                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------- |
-| `columns`  | Zestaw kolumn z `<entity>-columns.tsx`                                                                              |
-| `data`     | Wiersze już obecne w pamięci, dla tabeli stronicowanej po stronie klienta                                           |
-| `options`  | `query` (ze stanu strony tworzy opcje zapytania, do stronicowania po stronie serwera), `selectable`, `initialState` |
-| `filters`  | Kontrolki wyszukiwania i wyboru powiązane z ID kolumn                                                               |
+| Właściwość    | Zawartość                                                                   |
+| ------------- | --------------------------------------------------------------------------- |
+| `columns`     | Zestaw kolumn z hooka w `<entity>-columns.tsx`                              |
+| `id`          | Klucz układu, który zapisuje przeglądarka, i początek nazwy pliku CSV       |
+| `label`       | Dostępna nazwa tabeli                                                       |
+| `data`        | Wiersze już obecne w pamięci, dla siatki działającej po stronie klienta     |
+| `query`       | Z żądania siatki tworzy opcje zapytania, dla siatki działającej na serwerze |
+| `search`      | Etykieta pola wyszukiwania; bez niej nie ma wyszukiwania                    |
+| `empty`       | Co mówi siatka, zanim pojawi się jakikolwiek wiersz                         |
+| `selectable`  | Zaznaczanie wierszy z paskiem zaznaczenia                                   |
+| `bulkActions` | Dodatkowe przyciski dla zaznaczonych wierszy                                |
 
-`DataTable` jest wzorowany na [tabeli danych React Aria z shadcn](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` i `useTable` z TanStack Table v9, renderowane prymitywami tabeli shadcn. Stronicowanie, sortowanie, filtrowanie, zaznaczanie, wiersze ładowania i pasek paginacji znajdują się w jego wnętrzu. Nie pisz osobnego komponentu tabeli, nagłówka, wiersza ani paginacji dla jednej strony i nie dodawaj opcji, której żadna strona jeszcze nie używa.
+Wyszukiwanie, filtry według typu kolumny, sortowanie, widoczność, przypięcie, kolejność i szerokości kolumn, gęstość, rozmiar strony, zapisany układ, zaznaczanie, eksport CSV, szkielet i stany puste znajdują się w nim ([Siatka danych](/docs/ui/data-grid)). Nie pisz osobnego komponentu tabeli, nagłówka, wiersza, paska narzędzi ani paginacji dla jednej strony. Tabele, których jeszcze nie przeniesiono, nadal używają starszego `DataTable` (`custom/data-table.tsx`); przechodzą na siatkę jedna po drugiej, a nowe tabele od początku powstają na siatce.
 
 ### Kolumny
 
-Zestaw kolumn znajduje się w `custom/<area>/<entity>-columns.tsx` i jest budowany przez `createColumnHelper<DataTableFeatures, Row>()`, gdzie typ wiersza pochodzi z interfejsu modułu (`Course["listRow"]`):
+Zestaw kolumn to hook w `custom/<area>/<entity>-columns.tsx`, budowany przez `createColumnHelper<DataGridFeatures, Row>()`, gdzie typ wiersza pochodzi z interfejsu modułu (`Order["listRow"]`). Odczytuje swoje tłumaczenia i dane, które oferują jego filtry, i zwraca zmemoizowane kolumny:
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- Każda komórka to mały komponent w tym samym pliku, który sam odczytuje swoje tłumaczenia (`KindCell`, `StatusCell`), a w przypadku akcji także własne mutacje (`ActionsCell`).
-- Etykiety nagłówków pochodzą z komponentu nagłówka, który odczytuje przestrzeń nazw strony, nigdy z tekstów w definicji kolumny.
-- Kolumna akcji używa `DataTableActionsHeader`, który podaje czytnikom ekranu nazwę kolumny.
-- Akcje złożone wyłącznie z ikony mają `aria-label`, który nazywa wiersz: `t("actions.edit", { title })`.
+- `header` to przetłumaczona etykieta jako tekst; siatka potrzebuje jej jako tekstu do swoich menu, chipów, komunikatów dla czytników ekranu i CSV.
+- `meta.filter` deklaruje rodzaj filtra, a dla wyboru jego opcje; `meta.hidden` i `meta.pinned` ustawiają domyślny układ; `meta.export` zapisuje tekst CSV.
+- Każda komórka to mały komponent w tym samym pliku, który sam odczytuje swoje tłumaczenia (`StatusCell`, `CountryCell`), a w przypadku akcji także własne mutacje.
+- Początkowe szerokości są w jednej stałej w `src/data` (`ORDER_COLUMN_SIZES`), którą odczytują zarówno kolumny, jak i szkielet trasy.
 
 ## Powiązane strony
 
 - [Formularze i walidacja](/docs/guides/forms-and-validation)
-- [Dodawanie tabeli danych](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [Dodawanie siatki danych](/docs/guides/add-a-data-table)
+- [Siatka danych](/docs/ui/data-grid)

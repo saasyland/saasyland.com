@@ -30,3 +30,14 @@ export const ORDER_MIRROR_DETAILS = [
 export const ORDER_POLAR_AMOUNTS = ["subtotal", "discount", "net", "tax", "total", "refunded", "refundedTax"] as const
 
 export const ORDER_POLAR_DETAILS = ["status", "discountName", "billingName", "billingCountry", "customerName", "customerEmail"] as const
+
+export const ORDER_COLUMN_SIZES = {
+  country: 136,
+  customer: 216,
+  discount: 200,
+  placedAt: 200,
+  product: 168,
+  refundedAmount: 152,
+  status: 148,
+  totalAmount: 136,
+} as const

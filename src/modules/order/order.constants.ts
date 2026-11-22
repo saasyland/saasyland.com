@@ -17,13 +17,9 @@ export const REVENUE_ORDER_STATUSES = [
   POLAR_ORDER_STATUS.REFUNDED,
 ] as const satisfies readonly OrderStatus[]
 
-export const ORDER_SORT_COLUMNS = ["placedAt", "totalAmount", "status"] as const
+export const ORDER_SORT_COLUMNS = ["placedAt", "totalAmount", "refundedAmount", "status"] as const
 
 export const CUSTOMER_SORT_COLUMNS = ["customer", "orders", "lastOrderAt", "signedUpAt"] as const
-
-export const ORDER_SORT_COLUMNS_MAX = 3
-
-export const ORDER_SEARCH_MAX_LENGTH = 120
 
 export const ORDER_DISCOUNT_FILTER = {
   ANY: "any",

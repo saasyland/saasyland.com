@@ -1,43 +1,38 @@
 ---
 title: "TanStack Table"
-description: "TanStack Table v9 por trás de um único DataTable genérico."
+description: "TanStack Table v9 por trás do único DataGrid: os recursos que ele registra, as suas funções de filtro e o meta de coluna que a grade lê."
 ---
 
-Toda tabela é renderizada por um único `DataTable` genérico em `src/presentation/components/custom/data-table.tsx`. Ele cria uma instância do TanStack Table v9 com `tableFeatures` (filtragem de colunas, ordenação, paginação e seleção de linhas) e `useTable`, e renderiza primitivos de tabela do shadcn, linhas de skeleton durante o carregamento e um estado vazio localizado.
+Toda tabela nova é renderizada pelo `DataGrid` em `src/presentation/components/custom/data-grid.tsx` ([Grade de dados](/docs/ui/data-grid)). A configuração do TanStack Table v9 sobre a qual ele é construído fica em `src/integrations/tanstack-table/`:
 
-```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
-```
+| Arquivo             | Contém                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `table.features.ts` | `dataGridFeatures`, o registro de `tableFeatures`; os tipos de filtro e as suas funções de filtro; os valores de densidade e de fixação; o `ColumnMeta` que a grade lê   |
+| `table.columns.ts`  | Helpers de coluna: a visibilidade e a fixação padrão a partir de `meta`, o rótulo da coluna, os deslocamentos sticky das colunas fixadas, a reordenação e o valor do CSV |
 
-## Props
+## Recursos
 
-| Prop                   | Finalidade                                                                                                                                          |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | Definições de colunas para o tipo de linha; toda linha precisa de um `id`                                                                           |
-| `data`                 | Linhas para uma tabela que ordena, filtra e pagina no cliente                                                                                       |
-| `options.initialState` | `pagination` e `sorting` iniciais                                                                                                                   |
-| `options.query`        | Paginação e ordenação no servidor: uma função de `pageIndex`, `pageSize` e `sorting` que retorna opções de query que resolvem para `rows` e `total` |
-| `options.selectable`   | Adiciona uma coluna de checkbox para seleção de linhas                                                                                              |
-| `filters`              | Filtros de busca (`type: "search"`, `columnId`, `placeholder`) ou filtros de seleção (`type: "select"`, `columnId`, `label`, `options`)             |
+`dataGridFeatures` registra filtragem, ordem, fixação, dimensionamento, redimensionamento e visibilidade das colunas, o filtro global, a paginação, a seleção de linhas e a ordenação, com os modelos de linhas filtrado, ordenado e paginado. Uma grade com `query` define `manualFiltering`, `manualPagination` e `manualSorting`, então esses modelos de linhas só rodam em uma grade com `data`.
 
-Com `options.query`, a tabela passa a usar paginação e ordenação manuais, mostra linhas esqueleto e desativa os botões de anterior e próxima enquanto uma página carrega, mantém o total anterior na contagem de linhas e volta para a primeira página quando a ordenação muda.
+## Funções de filtro
 
-## Colunas
+Cada tipo de filtro corresponde a uma função registrada em `DATA_GRID_FILTER_FNS`, que a grade atribui a toda coluna que declara `meta.filter`:
 
-As colunas ficam em um arquivo `<entity>-columns.tsx` ao lado dos widgets da página e usam `createColumnHelper<DataTableFeatures, Row>()`. Células e cabeçalhos são pequenos componentes que leem as próprias traduções, então a rota não passa nenhum rótulo:
+| Tipo          | Função           |
+| ------------- | ---------------- |
+| `text`        | `includesString` |
+| `select`      | `equalsString`   |
+| `multiSelect` | `arrHas`         |
+| `numberRange` | `numberInRange`  |
+| `dateRange`   | `dateInRange`    |
 
-```tsx
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+`numberInRange` e `dateInRange` são construídas com `constructFilterFn` para os valores `{ min?, max? }` e `{ from?, to? }` que os editores da grade escrevem, e descartam um intervalo que não tem nenhum limite. As mesmas formas são `numberRangeField` e `dateRangeField` em `src/modules/_core/utils/zod-fields.ts`, que o schema Zod de um módulo usa para ler a requisição da grade.
 
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-])
-```
+## Estado
 
-O exemplo completo é `src/presentation/components/custom/admin/users/user-columns.tsx`, renderizado por `src/routes/admin.users.all.tsx`.
+A grade controla cada parte do estado que usa. Paginação, ordenação, filtros de coluna, a busca e a seleção ficam no estado do componente e voltam para a primeira página e uma seleção vazia quando a busca, um filtro, a ordenação ou a página mudam. Visibilidade, ordem, fixação e dimensionamento das colunas, com a densidade e o tamanho da página, vêm de `useDataGridPreferences` (`src/hooks/use-data-grid-preferences.ts`), que os lê e grava em `localStorage` por meio de `useSyncExternalStore` e renderiza os padrões no servidor.
 
-## Guias relacionados
+## Páginas relacionadas
 
-- [DataTable](/docs/ui/data-table)
-- [Adicionar um DataTable](/docs/guides/add-a-data-table)
+- [Grade de dados](/docs/ui/data-grid)
+- [Adicionar uma grade de dados](/docs/guides/add-a-data-table)

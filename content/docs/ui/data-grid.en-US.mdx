@@ -1,0 +1,138 @@
+---
+title: "Data grid"
+description: "The table component: search, filters by column type, sorting, a layout each admin can rearrange and keep, selection, CSV export, and client or server data."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) is the table component. It builds a TanStack Table v9 instance from the features in `src/integrations/tanstack-table/table.features.ts` and renders it with the shadcn table primitives and React Aria controls. A page gives it its columns and either its rows or a query; everything else, from the toolbar to the pagination bar, lives inside it.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Purpose                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| `columns`     | The column set from the page's `<entity>-columns.tsx`. Every row needs a string `id`, used as the row id |
+| `id`          | Names the grid: the key of its saved layout in the browser and the start of its CSV file name            |
+| `label`       | The table's accessible name, usually the page title                                                      |
+| `data`        | Rows held in memory, for a grid that searches, filters, sorts and pages on the client                    |
+| `query`       | Server mode: a function of the grid's request that returns query options resolving `{ rows, total }`     |
+| `search`      | The label and placeholder of the search box; without it the grid has no search                           |
+| `empty`       | What the grid says while it has no rows and no search or filter is set                                   |
+| `selectable`  | Adds a checkbox column and the selection bar                                                             |
+| `bulkActions` | A function of the selected rows that renders more buttons in the selection bar                           |
+
+## Columns
+
+A column set is a hook in `custom/<area>/<entity>-columns.tsx`, such as `useOrderColumns`. It reads its translations and the data its filters offer, and returns the columns memoised, so every label is a plain string the grid can use in its menus, its announcements and the CSV header. Each cell is a small component in the same file that reads its own translations.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` is what the grid reads from a column:
+
+| Key      | Effect                                                                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | The column's filter: its `kind`, and for a choice the `options` as `{ label, value }`                                                           |
+| `hidden` | Hidden until the admin shows it from the Columns menu                                                                                           |
+| `pinned` | Pinned to the `start` or the `end` until the admin unpins it                                                                                    |
+| `export` | The text the CSV gets for a row. Without it the CSV takes strings and numbers as they are, dates as ISO moments, and leaves anything else blank |
+
+`size` is the column's starting width in pixels. A column sorts unless it sets `enableSorting: false`; in server mode only the columns the module's Zod schema can sort by should sort.
+
+## Filters
+
+The filter kinds are <RepositoryFact name="dataGridFilterKinds" />. Each has its own editor, opened from the toolbar's Filter button or from the filter's chip:
+
+| Kind          | Editor                                                                                          | Value                  |
+| ------------- | ----------------------------------------------------------------------------------------------- | ---------------------- |
+| `text`        | A text field, applied once typing pauses for <RepositoryFact name="dataGridTypingDelayMs" /> ms | The trimmed text       |
+| `select`      | A list of options; choosing the chosen one again clears it                                      | One `value`            |
+| `multiSelect` | A list of options, several at once; a long list gets a search field                             | An array of `value`s   |
+| `numberRange` | Two number fields, at least and at most, either left empty                                      | `{ min?, max? }`       |
+| `dateRange`   | Last 7 days, last 30 days, last 12 months, or any days on a calendar                            | `{ from?, to? }` in ms |
+
+Days are turned into moments in the admin's time zone, from the start of the first day to the last millisecond of the last, so the server compares plain moments. Every active filter shows as a chip with a short summary, such as at least 40, Paid or Refunded, or 3 selected; its × removes it and Clear filters removes them all. Changing the search, a filter or the sorting goes back to the first page and clears the selection.
+
+## Server mode
+
+With `query`, the grid pages, sorts, searches and filters on the server. It calls `query` with:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` holds each filtered column's id with its value. The route validates the request with the module's Zod schema before it reaches the server function, as `/admin/orders` does with `orderZodSchemas.getOrders.parse(request)`. Until the first page arrives the grid shows skeleton rows; while a later page loads it keeps the previous rows dimmed, marks the table busy and disables paging. Query errors reach the route error boundary.
+
+## Layout
+
+The admin rearranges the grid, and the browser keeps it under the grid's `id` in `localStorage` (`src/hooks/use-data-grid-preferences.ts`): which columns show, their order, which are pinned, their widths, the row density and the page size. Search, filters, sorting and selection are not kept. Reset layout puts the defaults back. When the browser refuses storage the layout lasts for the visit.
+
+- **Columns menu.** Shows and hides every column that may hide.
+- **Column menu.** Each header's ⋮ button sorts ascending or descending, clears the sorting, pins the column to the left or the right, unpins it, moves it one place left or right within its side, and hides it.
+- **Dragging.** A header dragged onto another header of the same side takes its place.
+- **Resizing.** The edge of a header drags to resize; it is also a separator that the arrow keys widen or narrow, and a double click puts the starting width back.
+- **Sorting.** Pressing a header sorts by it; with Shift it adds the column to the sorting, up to <RepositoryFact name="dataGridMaxSortedColumns" /> columns, numbered in the header.
+- **Density.** Comfortable or compact rows.
+- **Page size.** <RepositoryFact name="dataGridPageSizes" /> rows per page.
+
+The header row stays in view while the rows scroll inside the grid, and pinned columns stay in view while the grid scrolls sideways, which is how a phone shows a wide table.
+
+## Selection and export
+
+With `selectable`, a checkbox selects a row and the header's checkbox selects the page. A bar then floats at the bottom of the window with the count, Export selected, the page's `bulkActions` and Clear selection.
+
+Export CSV downloads every row the search and filters find, not only the page on screen: on the server it asks for pages of <RepositoryFact name="dataGridExportPageSize" /> rows until it has them all. The file has the visible columns in their order, starts with a byte order mark so spreadsheets read it as UTF-8, and puts a `'` before any cell that would start a formula. `src/lib/csv.ts` writes it.
+
+## Accessibility
+
+- The table carries `label` as its name and `aria-rowcount`; each row its `aria-rowindex`, counted across pages.
+- Sortable headers are buttons and carry `aria-sort`.
+- Every control works from the keyboard: the menus and lists follow React Aria's arrow keys and type-ahead, Escape closes them, and resizing uses the arrow keys on the header's separator.
+- Moving, pinning, hiding, sorting from a menu and resetting the layout are announced in a polite live region; the result count and the selection count are live too.
+
+## Translations
+
+The grid's own words are in `messages/<locale>/components.custom.data-grid.json`. A page gives it only the column labels, the filter options, the search label and the empty message.
+
+## DataTable
+
+The older `DataTable` (`src/presentation/components/custom/data-table.tsx`) still renders the tables that have not moved to the grid yet: users, customers, courses, products and categories, videos, and the dashboard's tables. It takes `columns`, `data`, `empty`, `filters` (search and select controls bound to column ids) and `options` (`query`, `selectable`, `initialState`), and has none of the grid's layout, filters by type or export. Each of those tables moves to `DataGrid` in its own change, and `DataTable` goes once none is left.
+
+## Tests
+
+`src/presentation/components/custom/__test__/` covers the grid in memory (`data-grid.component.test.tsx`), its filters (`data-grid-filter.component.test.tsx`), its layout (`data-grid-layout.component.test.tsx`) and server mode (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` uses it on `/admin/orders` in a browser.
+
+## Related pages
+
+- [Forms and tables](/docs/conventions/forms-and-tables)
+- [Add a data grid](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Orders and customers](/docs/features/orders)

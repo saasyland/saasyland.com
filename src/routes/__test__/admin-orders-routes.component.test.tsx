@@ -1,9 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { act, render, screen, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
@@ -12,6 +12,7 @@ import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
+import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { LICENSE_MACHINES } from "~/src/modules/license/license.constants"
 import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
@@ -19,13 +20,16 @@ import type { Order } from "~/src/modules/order/order.types"
 import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
 import { orderFiltersQuery } from "~/src/modules/order/use-cases/get-order-filters"
-import { getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
+import { getOrdersPageQuery, getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
 import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
 
 import { Route as OrderRoute } from "~/src/routes/admin.orders.$orderId"
 import { Route as OrdersRoute } from "~/src/routes/admin.orders.index"
 import { Route as CustomersRoute } from "~/src/routes/admin.users.customers"
 
+import * as download from "~/src/lib/download"
+
+import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 import { adminMessages, adminQueryClient, renderAdmin, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import {
   adminCustomerRow,
@@ -38,6 +42,7 @@ import { AdminUsersPending } from "~/src/presentation/components/custom/admin/ad
 import { AdminCustomersPending, AdminOrderPending, AdminOrdersPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { UserOrders } from "~/src/presentation/components/custom/admin/payments/user-orders"
 
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import countriesMessages from "~/messages/en-US/countries.json"
 import customersMessages from "~/messages/en-US/pages.admin.customers.json"
 import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
@@ -55,7 +60,7 @@ const cellsOf = (row: HTMLElement): string[] =>
     .getAllByRole("cell")
     .map((cell) => cell.textContent)
 
-const bodyRows = (): HTMLElement[] => screen.getAllByRole("row").slice(1)
+const bodyRows = (): HTMLElement[] => screen.getAllByRole("row", { hidden: true }).slice(1)
 
 const cardOf = (title: string): HTMLElement => {
   const card = screen.getByRole("heading", { level: 2, name: title }).closest<HTMLElement>("[data-slot=card]")
@@ -75,6 +80,7 @@ const polarValue = (term: string): Element | null => valueIn(polarLabels.title, 
 const renderOrders = (rows: readonly Order["listRow"][]) => {
   const queryClient = adminQueryClient()
   queryClient.setQueryData(getOrdersQuery.queryKey, { rows: [...rows], total: rows.length })
+  queryClient.setQueryData(getOrdersPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows: [...rows], total: rows.length })
   queryClient.setQueryData(orderFiltersQuery.queryKey, {
     countries: ["DE", "PL"],
     discounts: [
@@ -117,7 +123,23 @@ const renderOrder = async (polar: Order["detail"]["polar"], order: Order["detail
   await act(() => router.load())
 }
 
+const { filters: gridFilters, toolbar: gridToolbar } = gridMessages
+
+const fixtureMoment = fixtureDate.toISOString()
+
+const ORDER_HEADERS = ["", "placedAt", "customer", "product", "totalAmount", "discount", "country", "status"] as const
+
+const headerOf = (id: (typeof ORDER_HEADERS)[number]): string => (id === "" ? "" : ordersMessages.table.headers[id])
+
 describe("orders page", () => {
+  beforeEach(() => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
   it("lists each order with its date, account, product, total, refund and status, and links it to its page", () => {
     renderOrders([
       adminOrderRow({ refunded: { amount: 50, currency: "USD" }, status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED }),
@@ -133,9 +155,11 @@ describe("orders page", () => {
     ])
 
     expect(screen.getByRole("heading", { level: 1, name: ordersMessages.title })).toBeVisible()
-    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual(Object.values(ordersMessages.table.headers))
+    expect(screen.getByRole("table", { name: ordersMessages.title })).toBeVisible()
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual(ORDER_HEADERS.map((id) => headerOf(id)))
     const [partly, guest] = bodyRows()
     expect(cellsOf(partly ?? document.body)).toStrictEqual([
+      "",
       "Jan 1, 2025, 12:00 PM UTCord_complete",
       "Ada Lovelaceada@example.com",
       "Complete",
@@ -150,6 +174,7 @@ describe("orders page", () => {
     )
     expect(within(partly ?? document.body).getByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/admin/users/ada")
     expect(cellsOf(guest ?? document.body)).toStrictEqual([
+      "",
       "Jan 1, 2025, 12:00 PM UTCord_guest",
       `${ordersMessages.customer.noAccount}cus_guest`,
       "Agency",
@@ -160,43 +185,107 @@ describe("orders page", () => {
     ])
   })
 
-  it("offers a search and filters by status, product, discount, billing country and period", async () => {
+  it("shows the refunded amount in its own column when the admin turns it on", async () => {
+    const user = userEvent.setup()
+    renderOrders([adminOrderRow({ id: "ord_refunded", refunded: { amount: 50, currency: "USD" } }), adminOrderRow()])
+
+    await user.click(screen.getByRole("button", { name: gridToolbar.columns }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: ordersMessages.table.headers.refundedAmount }))
+    await user.keyboard("{Escape}")
+
+    const index = screen
+      .getAllByRole("columnheader", { hidden: true })
+      .findIndex((cell) => cell.textContent === ordersMessages.table.headers.refundedAmount)
+    expect(bodyRows().map((row) => within(row).getAllByRole("cell", { hidden: true })[index]?.textContent)).toStrictEqual([
+      "$50.00",
+      ordersMessages.table.noRefund,
+    ])
+  })
+})
+
+describe("orders page filters and export", () => {
+  beforeEach(() => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it("filters by the customer, product, total, discount, billing country, status and the day the order was placed", async () => {
     const user = userEvent.setup()
     renderOrders([])
 
-    expect(screen.getByRole("textbox", { name: ordersMessages.filters.search })).toBeVisible()
-    for (const label of [
-      ordersMessages.filters.status,
-      ordersMessages.filters.product,
-      ordersMessages.filters.discount,
-      ordersMessages.filters.country,
-      ordersMessages.filters.placedAt,
-    ]) {
-      expect(screen.getByRole("button", { name: new RegExp(label, "u") })).toBeVisible()
-    }
-
-    await user.click(screen.getByRole("button", { name: new RegExp(ordersMessages.filters.discount, "u") }))
+    expect(screen.getByRole("searchbox", { name: ordersMessages.filters.search })).toBeVisible()
+    await user.click(screen.getByRole("button", { name: gridFilters.filter }))
     expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([
-      ordersMessages.filters.discount,
+      ordersMessages.table.headers.placedAt,
+      ordersMessages.table.headers.customer,
+      ordersMessages.table.headers.product,
+      ordersMessages.table.headers.totalAmount,
+      ordersMessages.table.headers.discount,
+      ordersMessages.table.headers.country,
+      ordersMessages.table.headers.status,
+    ])
+
+    await user.click(screen.getByRole("option", { name: ordersMessages.table.headers.discount }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([
       ordersMessages.filters.discounts.any,
       ordersMessages.filters.discounts.none,
       "Launch week (LAUNCH)",
       "dsc_partner",
     ])
-    await user.keyboard("{Escape}")
 
-    await user.click(screen.getByRole("button", { name: new RegExp(ordersMessages.filters.country, "u") }))
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([
-      ordersMessages.filters.country,
-      countriesMessages.DE,
-      countriesMessages.PL,
+    await user.click(screen.getByRole("button", { name: gridFilters.back }))
+    await user.click(screen.getByRole("option", { name: ordersMessages.table.headers.country }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([countriesMessages.DE, countriesMessages.PL])
+
+    await user.click(screen.getByRole("button", { name: gridFilters.back }))
+    await user.click(screen.getByRole("option", { name: ordersMessages.table.headers.status }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual(Object.values(ordersMessages.status))
+
+    await user.click(screen.getByRole("button", { name: gridFilters.back }))
+    await user.click(screen.getByRole("option", { name: ordersMessages.table.headers.product }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual(["Agency"])
+  })
+
+  it("exports the orders with the customer, money, discount, country and status a spreadsheet can read", async () => {
+    const user = userEvent.setup()
+    renderOrders([
+      adminOrderRow(),
+      adminOrderRow({
+        billingCountry: undefined,
+        customerId: "cus_guest",
+        discount: { amount: { amount: 71.92, currency: "EUR" }, code: null, id: "dsc_partner", name: null },
+        id: "ord_guest",
+        status: POLAR_ORDER_STATUS.REFUNDED,
+        total: { amount: 3000, currency: "JPY" },
+        user: null,
+      }),
+    ])
+
+    await user.click(screen.getByRole("button", { name: gridToolbar.columns }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: ordersMessages.table.headers.refundedAmount }))
+    await user.keyboard("{Escape}")
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+    })
+    await user.click(screen.getByRole("button", { name: gridToolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n").slice(0, 3)).toStrictEqual([
+      "\uFEFFPlaced,Customer,Product,Total,Refunded,Discount,Country,Status",
+      `${fixtureMoment},Ada Lovelace <ada@example.com>,Complete,199.00 USD,0.00 USD,,DE,Paid`,
+      `${fixtureMoment},cus_guest,Complete,3000 JPY,0.00 USD,dsc_partner,,Refunded`,
     ])
   })
 
   it("says that no orders exist yet while no filter is set", () => {
     renderOrders([])
 
-    expect(screen.getByRole("cell", { name: ordersMessages.empty })).toBeVisible()
+    expect(screen.getByRole("status")).toHaveTextContent(ordersMessages.empty)
   })
 
   it("mirrors the page in its skeleton", () => {

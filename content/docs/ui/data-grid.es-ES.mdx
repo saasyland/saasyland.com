@@ -1,0 +1,138 @@
+---
+title: "Cuadrícula de datos"
+description: "El componente de tabla: búsqueda, filtros por tipo de columna, ordenación, un diseño que cada administrador puede reorganizar y conservar, selección, exportación a CSV y datos en el cliente o en el servidor."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) es el componente de tabla. Construye una instancia de TanStack Table v9 a partir de las funcionalidades de `src/integrations/tanstack-table/table.features.ts` y la renderiza con las primitivas de tabla de shadcn y controles de React Aria. Una página le da sus columnas y, o bien sus filas, o bien una query; todo lo demás, desde la barra de herramientas hasta la barra de paginación, vive dentro de él.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Propósito                                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`     | El conjunto de columnas del `<entity>-columns.tsx` de la página. Cada fila necesita un `id` de tipo cadena, que sirve de ID de fila |
+| `id`          | Da nombre a la cuadrícula: la clave de su diseño guardado en el navegador y el comienzo del nombre de su archivo CSV                |
+| `label`       | El nombre accesible de la tabla, normalmente el título de la página                                                                 |
+| `data`        | Filas en memoria, para una cuadrícula que busca, filtra, ordena y pagina en el cliente                                              |
+| `query`       | Modo servidor: una función de la petición de la cuadrícula que devuelve opciones de query que se resuelven en `{ rows, total }`     |
+| `search`      | La etiqueta y el placeholder del cuadro de búsqueda; sin ella la cuadrícula no tiene búsqueda                                       |
+| `empty`       | Lo que dice la cuadrícula mientras no tiene filas y no hay ninguna búsqueda ni filtro                                               |
+| `selectable`  | Añade una columna de casillas y la barra de selección                                                                               |
+| `bulkActions` | Una función de las filas seleccionadas que renderiza más botones en la barra de selección                                           |
+
+## Columnas
+
+Un conjunto de columnas es un hook en `custom/<area>/<entity>-columns.tsx`, como `useOrderColumns`. Lee sus traducciones y los datos que ofrecen sus filtros, y devuelve las columnas memorizadas, de modo que cada etiqueta es una cadena simple que la cuadrícula puede usar en sus menús, en sus anuncios y en la cabecera del CSV. Cada celda es un pequeño componente del mismo archivo que lee sus propias traducciones.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` es lo que la cuadrícula lee de una columna:
+
+| Clave    | Efecto                                                                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | El filtro de la columna: su `kind` y, para una elección, las `options` como `{ label, value }`                                                              |
+| `hidden` | Oculta hasta que el administrador la muestra desde el menú Columnas                                                                                         |
+| `pinned` | Fijada al `start` o al `end` hasta que el administrador la desfija                                                                                          |
+| `export` | El texto que recibe el CSV para una fila. Sin él, el CSV toma las cadenas y los números tal cual, las fechas como instantes ISO, y deja vacío todo lo demás |
+
+`size` es el ancho inicial de la columna en píxeles. Una columna se puede ordenar salvo que fije `enableSorting: false`; en modo servidor solo deberían ordenarse las columnas por las que el esquema Zod del módulo puede ordenar.
+
+## Filtros [#filters]
+
+Los tipos de filtro son <RepositoryFact name="dataGridFilterKinds" />. Cada uno tiene su propio editor, que se abre desde el botón Filtrar de la barra de herramientas o desde el chip del filtro:
+
+| Tipo          | Editor                                                                                                               | Valor                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `text`        | Un campo de texto, que se aplica cuando dejas de escribir durante <RepositoryFact name="dataGridTypingDelayMs" /> ms | El texto sin espacios en los extremos |
+| `select`      | Una lista de opciones; volver a elegir la elegida la quita                                                           | Un `value`                            |
+| `multiSelect` | Una lista de opciones, varias a la vez; una lista larga recibe un campo de búsqueda                                  | Un array de `value`                   |
+| `numberRange` | Dos campos numéricos, como mínimo y como máximo, cualquiera de ellos vacío                                           | `{ min?, max? }`                      |
+| `dateRange`   | Últimos 7 días, últimos 30 días, últimos 12 meses o cualquier día de un calendario                                   | `{ from?, to? }` en ms                |
+
+Los días se convierten en instantes en la zona horaria del administrador, desde el inicio del primer día hasta el último milisegundo del último, de modo que el servidor compara instantes simples. Cada filtro activo aparece como un chip con un breve resumen, como al menos 40, Pagado o Reembolsado, o 3 seleccionadas; su × lo quita y Quitar filtros los quita todos. Cambiar la búsqueda, un filtro o la ordenación vuelve a la primera página y vacía la selección.
+
+## Modo servidor
+
+Con `query`, la cuadrícula pagina, ordena, busca y filtra en el servidor. Llama a `query` con:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` contiene el id de cada columna filtrada con su valor. La ruta valida la petición con el esquema Zod del módulo antes de que llegue a la función de servidor, como hace `/admin/orders` con `orderZodSchemas.getOrders.parse(request)`. Hasta que llega la primera página, la cuadrícula muestra filas esqueleto; mientras carga una página posterior, mantiene atenuadas las filas anteriores, marca la tabla como ocupada y desactiva la paginación. Los errores de la query llegan al error boundary de la ruta.
+
+## Diseño
+
+El administrador reorganiza la cuadrícula, y el navegador lo guarda bajo el `id` de la cuadrícula en `localStorage` (`src/hooks/use-data-grid-preferences.ts`): qué columnas se muestran, su orden, cuáles están fijadas, sus anchos, la densidad de filas y el tamaño de página. La búsqueda, los filtros, la ordenación y la selección no se guardan. Restablecer diseño vuelve a los valores por defecto. Cuando el navegador rechaza el almacenamiento, el diseño dura lo que dura la visita.
+
+- **Menú Columnas.** Muestra y oculta cada columna que se puede ocultar.
+- **Menú de columna.** El botón ⋮ de cada cabecera ordena de forma ascendente o descendente, quita la ordenación, fija la columna a la izquierda o a la derecha, la desfija, la mueve un puesto a la izquierda o a la derecha dentro de su lado y la oculta.
+- **Arrastrar.** Una cabecera arrastrada sobre otra cabecera del mismo lado ocupa su lugar.
+- **Redimensionar.** El borde de una cabecera se arrastra para cambiar el ancho; también es un separador que las flechas del teclado ensanchan o estrechan, y un doble clic devuelve el ancho inicial.
+- **Ordenación.** Pulsar una cabecera ordena por ella; con Mayús añade la columna a la ordenación, hasta <RepositoryFact name="dataGridMaxSortedColumns" /> columnas, numeradas en la cabecera.
+- **Densidad.** Filas holgadas o compactas.
+- **Tamaño de página.** <RepositoryFact name="dataGridPageSizes" /> filas por página.
+
+La fila de cabecera sigue a la vista mientras las filas se desplazan dentro de la cuadrícula, y las columnas fijadas siguen a la vista mientras la cuadrícula se desplaza en horizontal, que es como un móvil muestra una tabla ancha.
+
+## Selección y exportación
+
+Con `selectable`, una casilla selecciona una fila y la casilla de la cabecera selecciona la página. Entonces flota una barra en la parte inferior de la ventana con el recuento, Exportar selección, las `bulkActions` de la página y Quitar selección.
+
+Exportar CSV descarga todas las filas que encuentran la búsqueda y los filtros, no solo la página que está en pantalla: en el servidor pide páginas de <RepositoryFact name="dataGridExportPageSize" /> filas hasta tenerlas todas. El archivo tiene las columnas visibles en su orden, empieza con una marca de orden de bytes para que las hojas de cálculo lo lean como UTF-8 y pone un `'` delante de cualquier celda que empezaría una fórmula. `src/lib/csv.ts` lo escribe.
+
+## Accesibilidad
+
+- La tabla lleva `label` como nombre y `aria-rowcount`; cada fila, su `aria-rowindex`, contado a lo largo de las páginas.
+- Las cabeceras ordenables son botones y llevan `aria-sort`.
+- Todos los controles funcionan con el teclado: los menús y las listas siguen las flechas y la búsqueda al escribir de React Aria, Escape los cierra, y el redimensionado usa las flechas sobre el separador de la cabecera.
+- Mover, fijar, ocultar, ordenar desde un menú y restablecer el diseño se anuncian en una región en vivo educada; el recuento de resultados y el de selección también están en vivo.
+
+## Traducciones
+
+Los textos propios de la cuadrícula están en `messages/<locale>/components.custom.data-grid.json`. Una página solo le da las etiquetas de columna, las opciones de filtro, la etiqueta de búsqueda y el mensaje vacío.
+
+## DataTable
+
+El `DataTable` anterior (`src/presentation/components/custom/data-table.tsx`) sigue renderizando las tablas que todavía no han pasado a la cuadrícula: usuarios, clientes, cursos, productos y categorías, vídeos y las tablas del panel. Recibe `columns`, `data`, `empty`, `filters` (controles de búsqueda y de selección vinculados a los ID de columna) y `options` (`query`, `selectable`, `initialState`), y no tiene nada del diseño, los filtros por tipo ni la exportación de la cuadrícula. Cada una de esas tablas pasa a `DataGrid` en su propio cambio, y `DataTable` desaparece cuando no quede ninguna.
+
+## Pruebas
+
+`src/presentation/components/custom/__test__/` cubre la cuadrícula en memoria (`data-grid.component.test.tsx`), sus filtros (`data-grid-filter.component.test.tsx`), su diseño (`data-grid-layout.component.test.tsx`) y el modo servidor (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` la usa en `/admin/orders` en un navegador.
+
+## Páginas relacionadas
+
+- [Formularios y tablas](/docs/conventions/forms-and-tables)
+- [Añadir una cuadrícula de datos](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Pedidos y clientes](/docs/features/orders)

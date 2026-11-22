@@ -1,43 +1,38 @@
 ---
 title: "TanStack Table"
-description: "TanStack Table v9 za jednym generycznym komponentem DataTable."
+description: "TanStack Table v9 za jednym DataGrid: funkcje, które rejestruje, jego funkcje filtrów i meta kolumn, które odczytuje siatka."
 ---
 
-Każda tabela jest renderowana przez jeden generyczny `DataTable` w `src/presentation/components/custom/data-table.tsx`. Tworzy on instancję TanStack Table v9 za pomocą `tableFeatures` (filtrowanie kolumn, sortowanie, paginacja i zaznaczanie wierszy) oraz `useTable`, a następnie renderuje prymitywy tabeli shadcn, szkieletowe wiersze podczas ładowania i zlokalizowany stan pusty.
+Każda nowa tabela jest renderowana przez `DataGrid` w `src/presentation/components/custom/data-grid.tsx` ([Siatka danych](/docs/ui/data-grid)). Konfiguracja TanStack Table v9, na której się opiera, znajduje się w `src/integrations/tanstack-table/`:
 
-```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
-```
+| Plik                | Zawiera                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `table.features.ts` | `dataGridFeatures`, rejestr `tableFeatures`; rodzaje filtrów i ich funkcje filtrów; wartości gęstości i przypięcia; `ColumnMeta`, które odczytuje siatka |
+| `table.columns.ts`  | Pomocniki kolumn: domyślna widoczność i przypięcie z `meta`, etykieta kolumny, przesunięcia sticky przypiętych kolumn, zmiana kolejności i wartość CSV   |
 
-## Propsy
+## Funkcje
 
-| Prop                   | Przeznaczenie                                                                                                                                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | Definicje kolumn dla typu wiersza; każdy wiersz musi mieć `id`                                                                                                        |
-| `data`                 | Wiersze tabeli, która sortuje, filtruje i paginuje po stronie klienta                                                                                                 |
-| `options.initialState` | Początkowe `pagination` i `sorting`                                                                                                                                   |
-| `options.query`        | Paginacja i sortowanie po stronie serwera: funkcja przyjmująca `pageIndex`, `pageSize` i `sorting`, która zwraca opcje zapytania rozwiązujące się do `rows` i `total` |
-| `options.selectable`   | Dodaje kolumnę z polami wyboru do zaznaczania wierszy                                                                                                                 |
-| `filters`              | Filtry wyszukiwania (`type: "search"`, `columnId`, `placeholder`) lub filtry wyboru (`type: "select"`, `columnId`, `label`, `options`)                                |
+`dataGridFeatures` rejestruje filtrowanie, kolejność, przypinanie, rozmiary, zmianę szerokości i widoczność kolumn, filtr globalny, paginację, zaznaczanie wierszy i sortowanie, wraz z przefiltrowanym, posortowanym i stronicowanym modelem wierszy. Siatka z `query` ustawia `manualFiltering`, `manualPagination` i `manualSorting`, więc te modele wierszy działają tylko w siatce z `data`.
 
-Z `options.query` tabela przełącza się na ręczną paginację i sortowanie, podczas ładowania strony pokazuje wiersze szkieletowe i wyłącza przyciski poprzedniej i następnej strony, dla licznika wierszy zachowuje poprzednią łączną liczbę i wraca na pierwszą stronę po zmianie sortowania.
+## Funkcje filtrów
 
-## Kolumny
+Każdy rodzaj filtra odpowiada jednej zarejestrowanej funkcji w `DATA_GRID_FILTER_FNS`, którą siatka przypisuje każdej kolumnie deklarującej `meta.filter`:
 
-Kolumny znajdują się w pliku `<entity>-columns.tsx` obok widżetów strony i używają `createColumnHelper<DataTableFeatures, Row>()`. Komórki i nagłówki to małe komponenty, które same odczytują swoje tłumaczenia, więc trasa nie przekazuje żadnych etykiet:
+| Rodzaj        | Funkcja          |
+| ------------- | ---------------- |
+| `text`        | `includesString` |
+| `select`      | `equalsString`   |
+| `multiSelect` | `arrHas`         |
+| `numberRange` | `numberInRange`  |
+| `dateRange`   | `dateInRange`    |
 
-```tsx
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+`numberInRange` i `dateInRange` są zbudowane przez `constructFilterFn` dla wartości `{ min?, max? }` i `{ from?, to? }`, które zapisują edytory siatki, i pomijają zakres bez żadnej granicy. Te same kształty to `numberRangeField` i `dateRangeField` w `src/modules/_core/utils/zod-fields.ts`, których schemat Zod modułu używa do odczytania żądania siatki.
 
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-])
-```
+## Stan
 
-Pełny przykład to `src/presentation/components/custom/admin/users/user-columns.tsx`, renderowany przez `src/routes/admin.users.all.tsx`.
+Siatka kontroluje każdą część stanu, której używa. Paginacja, sortowanie, filtry kolumn, wyszukiwanie i zaznaczenie żyją w stanie komponentu i wracają do pierwszej strony i pustego zaznaczenia, gdy zmienia się wyszukiwanie, filtr, sortowanie lub strona. Widoczność, kolejność, przypięcie i rozmiary kolumn, razem z gęstością i rozmiarem strony, pochodzą z `useDataGridPreferences` (`src/hooks/use-data-grid-preferences.ts`), który odczytuje je i zapisuje w `localStorage` przez `useSyncExternalStore` i na serwerze renderuje wartości domyślne.
 
-## Powiązane przewodniki
+## Powiązane strony
 
-- [DataTable](/docs/ui/data-table)
-- [Dodawanie DataTable](/docs/guides/add-a-data-table)
+- [Siatka danych](/docs/ui/data-grid)
+- [Dodawanie siatki danych](/docs/guides/add-a-data-table)

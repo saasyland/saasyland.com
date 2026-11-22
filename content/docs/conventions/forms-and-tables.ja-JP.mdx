@@ -1,6 +1,6 @@
 ---
 title: "フォームとテーブル"
-description: "すべてのフォームはモジュールの Zod スキーマと shadcn のフィールドを使い、shadcn の TanStack Form ガイドに従います。すべてのテーブルは、カラムのファイルを持つ唯一の汎用 DataTable です。"
+description: "すべてのフォームはモジュールの Zod スキーマと shadcn のフィールドを使い、shadcn の TanStack Form ガイドに従います。すべてのテーブルは、カラムのファイルを持つ唯一の DataGrid です。"
 ---
 
 フォームとテーブルは、独自に作ったバリエーションが最も早く増えていく 2 つの場所です。どちらにも構築方法は 1 つだけあり、それはここで考案したものではなく、ベンダー自身のガイドから採用したものです。
@@ -121,45 +121,57 @@ onError: (error) => {
 
 ## テーブル
 
-すべてのテーブルは `src/presentation/components/custom/data-table.tsx` の汎用 `DataTable` で、ページ内で直接使います。
+すべてのテーブルは `src/presentation/components/custom/data-grid.tsx` の `DataGrid` で、ページ内で直接使います。
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 その props がインターフェースのすべてです。
 
-| Prop      | 内容                                                                                                        |
-| --------- | ----------------------------------------------------------------------------------------------------------- |
-| `columns` | `<entity>-columns.tsx` のカラムセット                                                                       |
-| `data`    | クライアント側でページングするテーブル用の、すでにメモリ上にある行                                          |
-| `options` | `query`（サーバー側のページング用に、ページの状態からクエリオプションを作る）、`selectable`、`initialState` |
-| `filters` | カラム ID に結び付けた検索コントロールと選択コントロール                                                    |
+| Prop          | 内容                                                                           |
+| ------------- | ------------------------------------------------------------------------------ |
+| `columns`     | `<entity>-columns.tsx` のフックが返すカラムセット                              |
+| `id`          | ブラウザが保持するレイアウトのキーで、CSV ファイル名の先頭にもなる             |
+| `label`       | テーブルのアクセシブルな名前                                                   |
+| `data`        | クライアントで処理するグリッド用の、すでにメモリ上にある行                     |
+| `query`       | サーバーで処理するグリッド用に、グリッドのリクエストからクエリオプションを作る |
+| `search`      | 検索ボックスのラベル。指定しないと検索はない                                   |
+| `empty`       | 行がまだ 1 件もないときにグリッドが表示する内容                                |
+| `selectable`  | 選択バー付きの行選択                                                           |
+| `bulkActions` | 選択した行に対する追加のボタン                                                 |
 
-`DataTable` は [shadcn の React Aria データテーブル](https://ui.shadcn.com/docs/components/aria/data-table)をモデルにしています。TanStack Table v9 の `tableFeatures` と `useTable` を使い、shadcn のテーブルプリミティブで描画します。ページング、ソート、フィルタリング、選択、読み込み中の行、ページネーションバーはすべてその中にあります。ページごとのテーブル、ヘッダー、行、ページネーションのコンポーネントを書いてはいけません。また、まだどのページも使っていないオプションを追加してはいけません。
+検索、カラムの型ごとの絞り込み、ソート、カラムの表示状態・固定・順序・幅、密度、ページサイズ、保存されるレイアウト、選択、CSV の書き出し、スケルトン、空の状態は、すべてその内部にあります（[データグリッド](/docs/ui/data-grid)）。ページごとのテーブル、ヘッダー、行、ツールバー、ページネーションのコンポーネントは書かないでください。まだ移行していないテーブルは、以前からある `DataTable`（`custom/data-table.tsx`）を使い続けています。これらは 1 つずつグリッドに移行し、新しいテーブルは最初からグリッドで作ります。
 
 ### カラム
 
-カラムセットは `custom/<area>/<entity>-columns.tsx` に置き、`createColumnHelper<DataTableFeatures, Row>()` で組み立てます。行の型はモジュールのインターフェース（`Course["listRow"]`）から取ります。
+カラムセットは `custom/<area>/<entity>-columns.tsx` にあるフックで、`createColumnHelper<DataGridFeatures, Row>()` で組み立てます。行の型はモジュールのインターフェース（`Order["listRow"]`）から取ります。フックは自分の翻訳と、絞り込みが選択肢として示すデータを読み込み、カラムをメモ化して返します。
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- 各セルは同じファイル内の小さなコンポーネントで、自分の翻訳を読み込み（`KindCell`、`StatusCell`）、アクションの場合は自分のミューテーションも持ちます（`ActionsCell`）。
-- ヘッダーのラベルは、ページの名前空間を読み込むヘッダーコンポーネントから取得し、カラム定義内の文字列は使いません。
-- アクションのカラムには `DataTableActionsHeader` を使います。これによりスクリーンリーダーにカラム名が伝わります。
-- アイコンだけのアクションには、行を特定する `aria-label` を付けます（`t("actions.edit", { title })`）。
+- `header` は翻訳済みのラベルの文字列です。グリッドはメニュー、チップ、読み上げ、CSV のために、これをテキストとして必要とします。
+- `meta.filter` は絞り込みの種類と、選択式の場合はその選択肢を宣言します。`meta.hidden` と `meta.pinned` は既定のレイアウトを決めます。`meta.export` は CSV のテキストを書きます。
+- 各セルは同じファイル内の小さなコンポーネントで、自分の翻訳を読み込み（`StatusCell`、`CountryCell`）、アクションの場合は自分のミューテーションも持ちます。
+- 初期幅は `src/data` の 1 つの定数（`ORDER_COLUMN_SIZES`）にあり、カラムとルートのスケルトンの両方がこれを読み取ります。
 
 ## 関連ページ
 
 - [フォームとバリデーション](/docs/guides/forms-and-validation)
-- [データテーブルを追加する](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [データグリッドを追加する](/docs/guides/add-a-data-table)
+- [データグリッド](/docs/ui/data-grid)

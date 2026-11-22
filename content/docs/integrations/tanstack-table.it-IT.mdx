@@ -1,43 +1,38 @@
 ---
 title: "TanStack Table"
-description: "TanStack Table v9 dietro un'unica DataTable generica."
+description: "TanStack Table v9 dietro l'unico DataGrid: le funzionalità che registra, le sue funzioni di filtro e i meta di colonna che la griglia legge."
 ---
 
-Ogni tabella viene renderizzata tramite un'unica `DataTable` generica in `src/presentation/components/custom/data-table.tsx`. Crea un'istanza di TanStack Table v9 con `tableFeatures` (filtro delle colonne, ordinamento, paginazione e selezione delle righe) e `useTable`, e renderizza le primitive di tabella shadcn, righe skeleton durante il caricamento e uno stato vuoto localizzato.
+Ogni nuova tabella viene renderizzata tramite `DataGrid` in `src/presentation/components/custom/data-grid.tsx` ([Griglia dati](/docs/ui/data-grid)). La configurazione di TanStack Table v9 su cui si basa si trova in `src/integrations/tanstack-table/`:
 
-```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
-```
+| File                | Contiene                                                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `table.features.ts` | `dataGridFeatures`, il registro `tableFeatures`; i tipi di filtro e le loro funzioni di filtro; i valori di densità e di fissaggio; il `ColumnMeta` che la griglia legge   |
+| `table.columns.ts`  | Helper per le colonne: la visibilità e il fissaggio predefiniti da `meta`, l'etichetta della colonna, gli offset sticky delle colonne fissate, il riordino e il valore CSV |
 
-## Props
+## Funzionalità
 
-| Prop                   | Scopo                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | Definizioni delle colonne per il tipo di riga; ogni riga deve avere un `id`                                                                                   |
-| `data`                 | Righe per una tabella che ordina, filtra e pagina sul client                                                                                                  |
-| `options.initialState` | `pagination` e `sorting` iniziali                                                                                                                             |
-| `options.query`        | Paginazione e ordinamento lato server: una funzione di `pageIndex`, `pageSize` e `sorting` che restituisce query options che si risolvono in `rows` e `total` |
-| `options.selectable`   | Aggiunge una colonna di checkbox per la selezione delle righe                                                                                                 |
-| `filters`              | Filtri di ricerca (`type: "search"`, `columnId`, `placeholder`) o filtri di selezione (`type: "select"`, `columnId`, `label`, `options`)                      |
+`dataGridFeatures` registra filtro, ordine, fissaggio, dimensionamento, ridimensionamento e visibilità delle colonne, il filtro globale, la paginazione, la selezione delle righe e l'ordinamento, con i modelli di riga filtrato, ordinato e paginato. Una griglia con `query` imposta `manualFiltering`, `manualPagination` e `manualSorting`, così quei modelli di riga vengono eseguiti solo per una griglia con `data`.
 
-Con `options.query` la tabella passa a paginazione e ordinamento manuali, mostra righe skeleton e disattiva i pulsanti precedente e successivo mentre una pagina si carica, mantiene il totale precedente per il numero di righe e torna alla prima pagina quando cambia l'ordinamento.
+## Funzioni di filtro
 
-## Colonne
+Ogni tipo di filtro corrisponde a una funzione registrata in `DATA_GRID_FILTER_FNS`, che la griglia assegna a ogni colonna che dichiara `meta.filter`:
 
-Le colonne si trovano in un file `<entity>-columns.tsx` accanto ai widget della pagina e usano `createColumnHelper<DataTableFeatures, Row>()`. Celle e intestazioni sono piccoli componenti che leggono le proprie traduzioni, quindi la route non passa alcuna etichetta:
+| Tipo          | Funzione         |
+| ------------- | ---------------- |
+| `text`        | `includesString` |
+| `select`      | `equalsString`   |
+| `multiSelect` | `arrHas`         |
+| `numberRange` | `numberInRange`  |
+| `dateRange`   | `dateInRange`    |
 
-```tsx
-const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+`numberInRange` e `dateInRange` sono costruite con `constructFilterFn` per i valori `{ min?, max? }` e `{ from?, to? }` che scrivono gli editor della griglia, e scartano un intervallo che non ha nessun estremo. Le stesse forme sono `numberRangeField` e `dateRangeField` in `src/modules/_core/utils/zod-fields.ts`, che lo schema Zod di un modulo usa per leggere la richiesta della griglia.
 
-export const userColumns = columnHelper.columns([
-  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
-  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
-])
-```
+## Stato
 
-L'esempio completo è `src/presentation/components/custom/admin/users/user-columns.tsx`, renderizzato da `src/routes/admin.users.all.tsx`.
+La griglia controlla ogni parte dello stato che usa. Paginazione, ordinamento, filtri delle colonne, ricerca e selezione vivono nello stato del componente e tornano alla prima pagina e a una selezione vuota quando cambiano la ricerca, un filtro, l'ordinamento o la pagina. Visibilità, ordine, fissaggio e dimensioni delle colonne, insieme alla densità e alla dimensione della pagina, vengono da `useDataGridPreferences` (`src/hooks/use-data-grid-preferences.ts`), che li legge e li scrive in `localStorage` tramite `useSyncExternalStore` e mostra i valori predefiniti sul server.
 
-## Guide correlate
+## Pagine correlate
 
-- [DataTable](/docs/ui/data-table)
-- [Aggiungere una DataTable](/docs/guides/add-a-data-table)
+- [Griglia dati](/docs/ui/data-grid)
+- [Aggiungere una griglia dati](/docs/guides/add-a-data-table)

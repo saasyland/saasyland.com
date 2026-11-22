@@ -1,0 +1,138 @@
+---
+title: "Griglia dati"
+description: "Il componente tabella: ricerca, filtri per tipo di colonna, ordinamento, un layout che ogni amministratore può riorganizzare e conservare, selezione, esportazione CSV e dati lato client o server."
+---
+
+`DataGrid` (`src/presentation/components/custom/data-grid.tsx`) è il componente tabella. Costruisce un’istanza di TanStack Table v9 dalle funzionalità di `src/integrations/tanstack-table/table.features.ts` e la mostra con le primitive tabella di shadcn e i controlli di React Aria. Una pagina gli passa le sue colonne e, in alternativa, le sue righe o una query; tutto il resto, dalla barra degli strumenti alla barra di paginazione, sta al suo interno.
+
+```tsx
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
+```
+
+## Props
+
+| Prop          | Scopo                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`     | L’insieme di colonne del `<entity>-columns.tsx` della pagina. Ogni riga ha bisogno di un `id` stringa, usato come ID della riga |
+| `id`          | Dà un nome alla griglia: la chiave del suo layout salvato nel browser e l’inizio del nome del suo file CSV                      |
+| `label`       | Il nome accessibile della tabella, di solito il titolo della pagina                                                             |
+| `data`        | Righe in memoria, per una griglia che cerca, filtra, ordina e pagina sul client                                                 |
+| `query`       | Modalità server: una funzione della richiesta della griglia che restituisce opzioni di query risolte in `{ rows, total }`       |
+| `search`      | L’etichetta e il segnaposto della casella di ricerca; senza, la griglia non ha ricerca                                          |
+| `empty`       | Cosa dice la griglia finché non ha righe e non è impostata nessuna ricerca né filtro                                            |
+| `selectable`  | Aggiunge una colonna di caselle di controllo e la barra di selezione                                                            |
+| `bulkActions` | Una funzione delle righe selezionate che mostra altri pulsanti nella barra di selezione                                         |
+
+## Colonne
+
+Un insieme di colonne è un hook in `custom/<area>/<entity>-columns.tsx`, come `useOrderColumns`. Legge le sue traduzioni e i dati che offrono i suoi filtri, e restituisce le colonne memoizzate, così ogni etichetta è una semplice stringa che la griglia può usare nei suoi menu, nei suoi annunci e nell’intestazione del CSV. Ogni cella è un piccolo componente nello stesso file che legge le proprie traduzioni.
+
+```tsx
+columnHelper.accessor("status", {
+  cell: StatusCell,
+  header: t("pages.admin.orders.table.headers.status"),
+  meta: {
+    export: ({ status }) => t(`pages.admin.orders.status.${status}`),
+    filter: {
+      kind: DATA_GRID_FILTER.MULTI_SELECT,
+      options: ORDER_STATUSES.map((value) => ({ label: t(`pages.admin.orders.status.${value}`), value })),
+    },
+  },
+  size: ORDER_COLUMN_SIZES.status,
+})
+```
+
+`meta` è ciò che la griglia legge da una colonna:
+
+| Chiave   | Effetto                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | Il filtro della colonna: il suo `kind` e, per una scelta, le `options` come `{ label, value }`                                                          |
+| `hidden` | Nascosta finché l’amministratore non la mostra dal menu Colonne                                                                                         |
+| `pinned` | Fissata a `start` o a `end` finché l’amministratore non la sblocca                                                                                      |
+| `export` | Il testo che il CSV riceve per una riga. Senza, il CSV prende stringhe e numeri così come sono, le date come istanti ISO, e lascia vuoto tutto il resto |
+
+`size` è la larghezza iniziale della colonna in pixel. Una colonna è ordinabile a meno che non imposti `enableSorting: false`; in modalità server dovrebbero essere ordinabili solo le colonne per cui lo schema Zod del modulo può ordinare.
+
+## Filtri [#filters]
+
+I tipi di filtro sono <RepositoryFact name="dataGridFilterKinds" />. Ognuno ha il proprio editor, che si apre dal pulsante Filtra della barra degli strumenti o dal chip del filtro:
+
+| Tipo          | Editor                                                                                                             | Valore                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| `text`        | Un campo di testo, applicato quando la digitazione si ferma per <RepositoryFact name="dataGridTypingDelayMs" /> ms | Il testo senza spazi iniziali e finali |
+| `select`      | Un elenco di opzioni; scegliere di nuovo quella scelta la rimuove                                                  | Un `value`                             |
+| `multiSelect` | Un elenco di opzioni, più d’una alla volta; un elenco lungo riceve un campo di ricerca                             | Un array di `value`                    |
+| `numberRange` | Due campi numerici, almeno e al massimo, ciascuno può restare vuoto                                                | `{ min?, max? }`                       |
+| `dateRange`   | Ultimi 7 giorni, ultimi 30 giorni, ultimi 12 mesi o qualsiasi giorno su un calendario                              | `{ from?, to? }` in ms                 |
+
+I giorni vengono trasformati in istanti nel fuso orario dell’amministratore, dall’inizio del primo giorno all’ultimo millisecondo dell’ultimo, così il server confronta semplici istanti. Ogni filtro attivo compare come un chip con un breve riepilogo, come almeno 40, Pagato o Rimborsato, oppure 3 selezionate; la sua × lo rimuove e Rimuovi filtri li rimuove tutti. Cambiare la ricerca, un filtro o l’ordinamento torna alla prima pagina e svuota la selezione.
+
+## Modalità server
+
+Con `query`, la griglia pagina, ordina, cerca e filtra sul server. Chiama `query` con:
+
+```ts
+interface DataGridRequest {
+  readonly filters: Readonly<Record<string, unknown>>
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly search: string
+  readonly sorting: SortingState
+}
+```
+
+`filters` contiene l’id di ogni colonna filtrata con il suo valore. La route valida la richiesta con lo schema Zod del modulo prima che arrivi alla funzione server, come fa `/admin/orders` con `orderZodSchemas.getOrders.parse(request)`. Finché non arriva la prima pagina la griglia mostra righe scheletro; mentre si carica una pagina successiva mantiene attenuate le righe precedenti, segna la tabella come occupata e disattiva la paginazione. Gli errori della query arrivano all’error boundary della route.
+
+## Layout
+
+L’amministratore riorganizza la griglia e il browser la conserva sotto l’`id` della griglia in `localStorage` (`src/hooks/use-data-grid-preferences.ts`): quali colonne sono visibili, il loro ordine, quali sono fissate, le loro larghezze, la densità delle righe e la dimensione della pagina. Ricerca, filtri, ordinamento e selezione non vengono conservati. Ripristina layout rimette i valori predefiniti. Quando il browser rifiuta l’archiviazione, il layout resta solo per la durata della visita.
+
+- **Menu Colonne.** Mostra e nasconde ogni colonna che si può nascondere.
+- **Menu della colonna.** Il pulsante ⋮ di ogni intestazione ordina in modo crescente o decrescente, toglie l’ordinamento, fissa la colonna a sinistra o a destra, la sblocca, la sposta di un posto a sinistra o a destra all’interno del suo lato e la nasconde.
+- **Trascinamento.** Un’intestazione trascinata su un’altra intestazione dello stesso lato ne prende il posto.
+- **Ridimensionamento.** Il bordo di un’intestazione si trascina per ridimensionare; è anche un separatore che i tasti freccia allargano o restringono, e un doppio clic rimette la larghezza iniziale.
+- **Ordinamento.** Premere un’intestazione ordina per quella colonna; con Maiusc aggiunge la colonna all’ordinamento, fino a <RepositoryFact name="dataGridMaxSortedColumns" /> colonne, numerate nell’intestazione.
+- **Densità.** Righe ariose o compatte.
+- **Dimensione della pagina.** <RepositoryFact name="dataGridPageSizes" /> righe per pagina.
+
+La riga di intestazione resta in vista mentre le righe scorrono dentro la griglia, e le colonne fissate restano in vista mentre la griglia scorre in orizzontale: è così che uno smartphone mostra una tabella larga.
+
+## Selezione ed esportazione
+
+Con `selectable`, una casella di controllo seleziona una riga e quella dell’intestazione seleziona la pagina. Allora una barra fluttua in fondo alla finestra con il conteggio, Esporta selezione, le `bulkActions` della pagina e Annulla selezione.
+
+Esporta CSV scarica ogni riga che trovano la ricerca e i filtri, non solo la pagina sullo schermo: sul server chiede pagine da <RepositoryFact name="dataGridExportPageSize" /> righe finché non le ha tutte. Il file ha le colonne visibili nel loro ordine, comincia con un byte order mark perché i fogli di calcolo lo leggano come UTF-8 e mette un `'` davanti a ogni cella che inizierebbe una formula. `src/lib/csv.ts` lo scrive.
+
+## Accessibilità
+
+- La tabella porta `label` come nome e `aria-rowcount`; ogni riga il suo `aria-rowindex`, contato attraverso le pagine.
+- Le intestazioni ordinabili sono pulsanti e portano `aria-sort`.
+- Ogni controllo funziona da tastiera: i menu e gli elenchi seguono i tasti freccia e la ricerca durante la digitazione di React Aria, Esc li chiude, e il ridimensionamento usa i tasti freccia sul separatore dell’intestazione.
+- Spostare, fissare, nascondere, ordinare da un menu e ripristinare il layout vengono annunciati in una live region cortese; anche il conteggio dei risultati e quello della selezione sono live.
+
+## Traduzioni
+
+I testi propri della griglia sono in `messages/<locale>/components.custom.data-grid.json`. Una pagina le passa solo le etichette delle colonne, le opzioni dei filtri, l’etichetta della ricerca e il messaggio vuoto.
+
+## DataTable
+
+Il vecchio `DataTable` (`src/presentation/components/custom/data-table.tsx`) mostra ancora le tabelle non ancora passate alla griglia: utenti, clienti, corsi, prodotti e categorie, video e le tabelle della dashboard. Accetta `columns`, `data`, `empty`, `filters` (controlli di ricerca e di selezione collegati agli ID delle colonne) e `options` (`query`, `selectable`, `initialState`), e non ha nulla del layout, dei filtri per tipo o dell’esportazione della griglia. Ognuna di queste tabelle passa a `DataGrid` con una propria modifica, e `DataTable` sparirà quando non ne resterà nessuna.
+
+## Test
+
+`src/presentation/components/custom/__test__/` copre la griglia in memoria (`data-grid.component.test.tsx`), i suoi filtri (`data-grid-filter.component.test.tsx`), il suo layout (`data-grid-layout.component.test.tsx`) e la modalità server (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` la usa su `/admin/orders` in un browser.
+
+## Pagine correlate
+
+- [Form e tabelle](/docs/conventions/forms-and-tables)
+- [Aggiungere una griglia dati](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)
+- [Ordini e clienti](/docs/features/orders)

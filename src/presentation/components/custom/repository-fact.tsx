@@ -21,6 +21,7 @@ import {
 } from "~/src/integrations/better-auth/auth.constraints"
 import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/better-auth/auth.middleware"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
+import { DATA_GRID_DENSITIES, DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
@@ -29,7 +30,7 @@ import {
   LOCALIZED_LIST_MAX_ITEMS,
   LOCALIZED_TEXT_MAX_LENGTH,
 } from "~/src/modules/_core/utils/localized-text"
-import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_SORTED_COLUMNS, PAGE_SIZES, SEARCH_MAX_LENGTH } from "~/src/modules/_core/utils/pagination"
 import { DEFAULT_TIME_RANGE, TIME_RANGES } from "~/src/modules/_core/utils/time-series"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import {
@@ -206,6 +207,13 @@ const FACTS = {
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,
+  dataGridDensities: DATA_GRID_DENSITIES,
+  dataGridExportPageSize: MAX_PAGE_SIZE,
+  dataGridFilterKinds: Object.values(DATA_GRID_FILTER),
+  dataGridMaxSortedColumns: MAX_SORTED_COLUMNS,
+  dataGridPageSizes: PAGE_SIZES.map(String),
+  dataGridSearchMaxLength: SEARCH_MAX_LENGTH,
+  dataGridTypingDelayMs: DATA_GRID_TYPING_DELAY_MS,
   declaredEmailColumnLength: DECLARED_COLUMN_LENGTH.EMAIL,
   declaredNameColumnLength: DECLARED_COLUMN_LENGTH.NAME,
   defaultDashboardRange: DEFAULT_TIME_RANGE,

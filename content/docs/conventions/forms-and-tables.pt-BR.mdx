@@ -1,6 +1,6 @@
 ---
 title: "Formulários e tabelas"
-description: "Todo formulário segue o guia de TanStack Form do shadcn com o schema Zod do módulo e os campos do shadcn; toda tabela é o único DataTable genérico com um arquivo de colunas."
+description: "Todo formulário segue o guia de TanStack Form do shadcn com o schema Zod do módulo e os campos do shadcn; toda tabela é o único DataGrid com um arquivo de colunas."
 ---
 
 Formulários e tabelas são os dois lugares onde as variantes feitas à mão se multiplicam mais rápido. Há uma única maneira de construir cada um, tirada dos guias dos próprios fornecedores em vez de inventada aqui.
@@ -121,45 +121,57 @@ O menor exemplo completo é `src/presentation/components/custom/newsletter-form.
 
 ## Tabelas
 
-Toda tabela é o `DataTable` genérico de `src/presentation/components/custom/data-table.tsx`, usado diretamente na página:
+Toda tabela é o `DataGrid` de `src/presentation/components/custom/data-grid.tsx`, usado diretamente na página:
 
 ```tsx
-<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={ORDER_GRID_ID}
+  label={t("title")}
+  query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}
+  search={t("filters.search")}
+  selectable
+/>
 ```
 
 As suas props são toda a interface:
 
-| Prop      | Contém                                                                                                   |
-| --------- | -------------------------------------------------------------------------------------------------------- |
-| `columns` | O conjunto de colunas de `<entity>-columns.tsx`                                                          |
-| `data`    | Linhas já em memória, para uma tabela que pagina no cliente                                              |
-| `options` | `query` (do estado da página às query options, para paginação no servidor), `selectable`, `initialState` |
-| `filters` | Controles de busca e de seleção vinculados aos IDs das colunas                                           |
+| Prop          | Contém                                                                           |
+| ------------- | -------------------------------------------------------------------------------- |
+| `columns`     | O conjunto de colunas do hook de `<entity>-columns.tsx`                          |
+| `id`          | A chave do layout que o navegador guarda e o começo do nome do arquivo CSV       |
+| `label`       | O nome acessível da tabela                                                       |
+| `data`        | Linhas já em memória, para uma grade que trabalha no cliente                     |
+| `query`       | Da requisição da grade às query options, para uma grade que trabalha no servidor |
+| `search`      | O rótulo da caixa de busca; sem ele, não há busca                                |
+| `empty`       | O que a grade diz antes que exista qualquer linha                                |
+| `selectable`  | Seleção de linhas com a barra de seleção                                         |
+| `bulkActions` | Mais botões para as linhas selecionadas                                          |
 
-`DataTable` segue o modelo da [tabela de dados com React Aria do shadcn](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` e `useTable` do TanStack Table v9, renderizados com os primitivos de tabela do shadcn. Paginação, ordenação, filtragem, seleção, linhas de carregamento e a barra de paginação ficam todos dentro dele. Não escreva um componente de tabela, de cabeçalho, de linha ou de paginação por página, e não adicione uma opção que nenhuma página usa ainda.
+A busca, os filtros por tipo de coluna, a ordenação, a visibilidade, a fixação, a ordem e a largura das colunas, a densidade, o tamanho da página, o layout salvo, a seleção, a exportação em CSV, o esqueleto e os estados vazios ficam todos dentro dele ([Grade de dados](/docs/ui/data-grid)). Não escreva um componente de tabela, cabeçalho, linha, barra de ferramentas ou paginação por página. As tabelas que ainda não passaram para a grade continuam usando o `DataTable` mais antigo (`custom/data-table.tsx`); elas passam para a grade uma a uma, e as tabelas novas já começam na grade.
 
 ### Colunas
 
-Um conjunto de colunas fica em `custom/<area>/<entity>-columns.tsx` e é montado com `createColumnHelper<DataTableFeatures, Row>()`, em que o tipo da linha vem da interface do módulo (`Course["listRow"]`):
+Um conjunto de colunas é um hook em `custom/<area>/<entity>-columns.tsx`, montado com `createColumnHelper<DataGridFeatures, Row>()`, em que o tipo da linha vem da interface do módulo (`Order["listRow"]`). Ele lê as suas traduções e os dados que os seus filtros oferecem e retorna as colunas memoizadas:
 
 ```tsx
-export const courseColumns = columnHelper.columns([
-  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
-  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
-  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
-  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
-  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
+  const t = useTranslations()
+
+  const { countries, discounts, products } = useSuspenseQuery(orderFiltersQuery).data
+
+  return useMemo(() => columnHelper.columns([...]), [countries, discountLabel, discounts, products, t])
+}
 ```
 
-- Cada célula é um componente pequeno no mesmo arquivo, que lê as suas próprias traduções (`KindCell`, `StatusCell`) e, no caso das ações, as suas próprias mutations (`ActionsCell`).
-- Os rótulos dos cabeçalhos vêm de um componente de cabeçalho que lê o namespace da página, nunca de strings na definição da coluna.
-- A coluna de ações usa `DataTableActionsHeader`, que dá um nome à coluna para os leitores de tela.
-- As ações só com ícone levam um `aria-label` que nomeia a linha: `t("actions.edit", { title })`.
+- `header` é o rótulo traduzido como string; a grade precisa dele como texto para os seus menus, chips, anúncios e o CSV.
+- `meta.filter` declara o tipo de filtro e, para uma escolha, as suas opções; `meta.hidden` e `meta.pinned` definem o layout padrão; `meta.export` escreve o texto do CSV.
+- Cada célula é um componente pequeno no mesmo arquivo, que lê as suas próprias traduções (`StatusCell`, `CountryCell`) e, no caso das ações, as suas próprias mutations.
+- As larguras iniciais ficam em uma constante em `src/data` (`ORDER_COLUMN_SIZES`) que tanto as colunas quanto o esqueleto da rota leem.
 
 ## Páginas relacionadas
 
 - [Formulários e validação](/docs/guides/forms-and-validation)
-- [Adicionar uma tabela de dados](/docs/guides/add-a-data-table)
-- [DataTable](/docs/ui/data-table)
+- [Adicionar uma grade de dados](/docs/guides/add-a-data-table)
+- [Grade de dados](/docs/ui/data-grid)

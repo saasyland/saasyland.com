@@ -153,6 +153,17 @@ Measured on a `bun run build:test` build served by `bun run start:test`, in Chro
 
 `e2e/specs/admin-navigation.spec.ts` checks that every console page opens a second time without a request, and that a session ended elsewhere leads to sign-in at the first server function that refuses it.
 
+## React Aria links preload like router links
+
+`defaultPreload: "intent"` belongs to TanStack Router's `<Link>`. The sidebars, `LinkButton` and the other link buttons were React Aria `Link`s that navigate through React Aria's `RouterProvider`, so resting the pointer on them loaded nothing and a click waited for the page's code and server functions. `LinkButton` is now `createLink(AnchorButton)` and `SidebarMenuLink` is `createLink(SidebarMenuButton)`, which TanStack Router documents for React Aria Components: they take `to`, with `params` and `search`, and preload on intent, on focus and on touch like `<Link>`. `AnchorButton` stays for addresses outside the route tree. `TabsLink`, the tabs of `/admin/users`, calls `router.preloadRoute` when the pointer rests on a tab or it takes focus, and a result of `AdminCommandPalette` does the same when the pointer rests on it.
+
+The same harness as above, one round of five runs per build, the pointer resting 250 ms on each sidebar entry before the press:
+
+| Measure                                  | Before          | After         |
+| ---------------------------------------- | --------------- | ------------- |
+| From the press to the page, first visit  | 128 ms (38–270) | 34 ms (16–91) |
+| From the press to the page, return visit | 16 ms (14–34)   | 16 ms (9–33)  |
+
 ## Keep the ORM out of the browser
 
 Drizzle runs only in the Worker. The browser needs a module's Zod schemas for its forms and its enum tuples for its selects, so both live in files that import nothing from Drizzle: `<table>.zod.ts` and `<table>.constants.ts` (see [Modules](/docs/conventions/modules)). A browser import that reaches a `<table>.schema.ts` runs `sqliteTable(...)`, a call the bundler has to keep, and brings `drizzle-orm` with it.

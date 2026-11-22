@@ -41,8 +41,6 @@ import { ChapterDialog } from "~/src/presentation/components/custom/admin/course
 import { LessonDialog } from "~/src/presentation/components/custom/admin/courses/lesson-dialog"
 import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
 
-import { ROUTES } from "~/src/routes"
-
 const ICON_BUTTON_CLASSNAME = "size-8 text-muted-foreground"
 const LESSON_NUMBER_BASE = 1
 
@@ -141,8 +139,9 @@ const LessonRow = ({
           <LinkButton
             aria-label={t("curriculum.edit", { name: title })}
             className={ICON_BUTTON_CLASSNAME}
-            href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`}
+            params={{ courseId, lessonId: lesson.id }}
             size="icon"
+            to="/admin/courses/$courseId/lessons/$lessonId"
             variant="ghost"
           >
             <Pencil aria-hidden className="size-4" />

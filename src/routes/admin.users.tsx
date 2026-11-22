@@ -10,7 +10,7 @@ import { AUTH_USER_TABS } from "~/src/data/auth.user-tabs"
 import { layoutNamespaces } from "~/src/data/namespaces"
 import { USER_TABS } from "~/src/data/user-tabs"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
+import { Tabs, TabsContent, TabsLink, TabsList } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminUsersPending } from "~/src/presentation/components/custom/admin/admin-users-pending"
@@ -27,9 +27,9 @@ const AdminUsersLayout = (): JSX.Element => {
         tabs={
           <TabsList className="no-scrollbar justify-start gap-6 overflow-x-auto" variant="line">
             {USER_TABS.map((tab) => (
-              <TabsTrigger className="flex-none px-0 text-sm" href={tab.to} id={tab.key} key={tab.key}>
+              <TabsLink className="flex-none px-0 text-sm" href={tab.to} id={tab.key} key={tab.key}>
                 {t(`navigation.${tab.area}.userTabs.${tab.key}`)}
-              </TabsTrigger>
+              </TabsLink>
             ))}
           </TabsList>
         }

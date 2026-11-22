@@ -17,8 +17,8 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuLink,
 } from "~/src/presentation/components/shadcn/sidebar"
 
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
@@ -66,10 +66,10 @@ export const AdminSidebar = (): JSX.Element => {
 
                   return (
                     <SidebarMenuItem key={item.key}>
-                      <SidebarMenuButton
-                        {...(isActive && { "aria-current": "page" })}
+                      <SidebarMenuLink
+                        activeOptions={{ exact: item.to === ROUTES.ADMIN }}
                         className="relative h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent group-data-[collapsible=icon]:before:hidden data-active:font-medium data-active:before:bg-ring"
-                        href={item.to}
+                        to={item.to}
                         isActive={isActive}
                         tooltip={label}
                       >
@@ -82,7 +82,7 @@ export const AdminSidebar = (): JSX.Element => {
                           strokeWidth={1.5}
                         />
                         <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>{label}</span>
-                      </SidebarMenuButton>
+                      </SidebarMenuLink>
                     </SidebarMenuItem>
                   )
                 })}

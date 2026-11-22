@@ -1,3 +1,6 @@
+import type { ComponentProps } from "react"
+
+import { useRouter } from "@tanstack/react-router"
 import { type VariantProps, cva } from "class-variance-authority"
 import {
   TabList as TabListPrimitive,
@@ -49,8 +52,20 @@ const TabsTrigger = ({ className, ...props }: Omit<TabProps, "className"> & { cl
   />
 )
 
+type TabsLinkProps = Omit<ComponentProps<typeof TabsTrigger>, "href" | "onFocus" | "onHoverStart"> & { href: string }
+
+const TabsLink = ({ href, ...props }: TabsLinkProps) => {
+  const router = useRouter()
+
+  const preload = (): void => {
+    void router.preloadRoute({ to: href })
+  }
+
+  return <TabsTrigger {...props} href={href} onFocus={preload} onHoverStart={preload} />
+}
+
 const TabsContent = ({ className, ...props }: Omit<TabPanelProps, "className"> & { className?: string }) => (
   <TabPanelPrimitive className={cn("flex-1 text-sm outline-none", className)} data-slot="tabs-content" {...props} />
 )
 
-export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants }
+export { Tabs, TabsContent, TabsLink, TabsList, TabsTrigger, tabsListVariants }

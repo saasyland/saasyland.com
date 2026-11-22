@@ -17,7 +17,7 @@ import { CLI_KEY_LINES, SCAFFOLD_DIR } from "~/src/data/cli"
 import { LICENSE_OFFER_ID } from "~/src/data/license"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
-import { LinkButton, buttonVariants } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton, buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
@@ -71,12 +71,12 @@ const InactiveLicense = ({
     <div className="flex flex-col items-start gap-4">
       <p className="text-sm text-destructive">{t(status)}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <LinkButton href={`#${LICENSE_OFFER_ID}`} size="sm">
+        <AnchorButton href={`#${LICENSE_OFFER_ID}`} size="sm">
           {t("inactive.buyAgain")}
-        </LinkButton>
-        <LinkButton href={`mailto:${CONTACT_EMAIL}`} size="sm" variant="outline">
+        </AnchorButton>
+        <AnchorButton href={`mailto:${CONTACT_EMAIL}`} size="sm" variant="outline">
           {t("inactive.support")}
-        </LinkButton>
+        </AnchorButton>
       </div>
     </div>
   )

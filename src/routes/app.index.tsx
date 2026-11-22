@@ -12,7 +12,7 @@ import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 
 import { AppOverviewPending } from "~/src/presentation/components/custom/app/auth-pending"
 
@@ -37,18 +37,18 @@ const OverviewPage = (): JSX.Element => {
             <h2 className="text-sm font-semibold">{t("overview.docs.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("overview.docs.description", CLI_GENERATION_VALUES)}</p>
           </div>
-          <LinkButton href={ROUTES.DOCS_CLI} size="sm" variant="outline">
+          <AnchorButton href={ROUTES.DOCS_CLI} size="sm" variant="outline">
             {t("overview.docs.action")}
-          </LinkButton>
+          </AnchorButton>
         </section>
         <section className="flex flex-col items-start gap-3">
           <div className="space-y-1">
             <h2 className="text-sm font-semibold">{t("overview.support.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("overview.support.description")}</p>
           </div>
-          <LinkButton href={`mailto:${CONTACT_EMAIL}`} size="sm" variant="outline">
+          <AnchorButton href={`mailto:${CONTACT_EMAIL}`} size="sm" variant="outline">
             {t("overview.support.action")}
-          </LinkButton>
+          </AnchorButton>
         </section>
       </div>
     </div>

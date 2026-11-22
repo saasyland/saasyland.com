@@ -5,7 +5,7 @@ import { useTranslations } from "use-intl/react"
 
 import { cn } from "~/src/lib/cn"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 
 const Pagination = ({
   ariaLabel,
@@ -32,12 +32,12 @@ const PaginationContent = ({ className, ...props }: ComponentProps<"ul">) => (
 
 const PaginationItem = ({ ...props }: ComponentProps<"li">) => <li data-slot="pagination-item" {...props} />
 
-interface PaginationLinkProps extends Omit<ComponentProps<typeof LinkButton>, "variant"> {
+interface PaginationLinkProps extends Omit<ComponentProps<typeof AnchorButton>, "variant"> {
   isActive?: boolean
 }
 
 const PaginationLink = ({ className, isActive, size = "icon", ...props }: PaginationLinkProps) => (
-  <LinkButton
+  <AnchorButton
     {...(isActive === true && { "aria-current": "page" })}
     className={cn(className)}
     data-active={isActive}

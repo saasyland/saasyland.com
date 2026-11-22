@@ -40,7 +40,14 @@ const CourseEditorPage = (): JSX.Element => {
           <>
             <ExportCoursesButton course={data.course} />
             {data.course.status === COURSE_STATUS.PUBLISHED && (
-              <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
+              <LinkButton
+                className="h-9 gap-2"
+                params={{ course: data.course.slug }}
+                size="sm"
+                target="_blank"
+                to="/courses/$course"
+                variant="outline"
+              >
                 <ExternalLink aria-hidden className="size-4" />
                 {t("view")}
               </LinkButton>

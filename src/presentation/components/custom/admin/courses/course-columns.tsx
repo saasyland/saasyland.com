@@ -34,8 +34,6 @@ import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
-import { ROUTES } from "~/src/routes"
-
 type CourseRow = Course["listRow"]
 
 type CourseHeaderId = "course" | "kind" | "lessons" | "status" | "updated"
@@ -113,8 +111,9 @@ const ActionsCell = ({ row, table }: CellContext<DataTableFeatures, CourseRow>):
       <LinkButton
         aria-label={t("actions.edit", { title })}
         className="size-8 text-muted-foreground"
-        href={`${ROUTES.ADMIN_COURSES}/${row.original.id}`}
+        params={{ courseId: row.original.id }}
         size="icon"
+        to="/admin/courses/$courseId"
         variant="ghost"
       >
         <Pencil aria-hidden className="size-4" />

@@ -63,7 +63,7 @@ const DashboardPage = (): JSX.Element => {
         />
 
         <div className="flex justify-end">
-          <LinkButton className="h-7 px-2.5" href={ROUTES.ADMIN_USERS} size="sm" variant="outline">
+          <LinkButton className="h-7 px-2.5" to={ROUTES.ADMIN_USERS} size="sm" variant="outline">
             {t("users.table.pagination.viewAll")}
           </LinkButton>
         </div>

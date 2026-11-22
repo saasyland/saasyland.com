@@ -1,5 +1,6 @@
 import type { RefAttributes } from "react"
 
+import { createLink } from "@tanstack/react-router"
 import {
   Button as ButtonPrimitive,
   type ButtonProps as ButtonPrimitiveProps,
@@ -30,12 +31,12 @@ const Button = ({ className, size = "default", variant = "default", ...props }: 
   />
 )
 
-type LinkButtonProps = Omit<LinkPrimitiveProps, "className"> &
+type AnchorButtonProps = Omit<LinkPrimitiveProps, "className"> &
   ButtonVariantProps & {
     className?: string
   }
 
-const LinkButton = ({ className, size = "default", variant = "default", ...props }: LinkButtonProps) => (
+const AnchorButton = ({ className, size = "default", variant = "default", ...props }: AnchorButtonProps) => (
   <LinkPrimitive
     className={cn(buttonVariants({ className, size, variant }))}
     data-size={size}
@@ -46,5 +47,7 @@ const LinkButton = ({ className, size = "default", variant = "default", ...props
 )
 
 export { buttonVariants, type ButtonVariantProps } from "~/src/presentation/components/shadcn/_lib/button-variants"
-export { Button, LinkButton }
-export type { ButtonProps, LinkButtonProps }
+const LinkButton = createLink(AnchorButton)
+
+export { AnchorButton, Button, LinkButton }
+export type { AnchorButtonProps, ButtonProps }

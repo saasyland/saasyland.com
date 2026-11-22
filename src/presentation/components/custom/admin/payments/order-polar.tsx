@@ -7,7 +7,7 @@ import type { Order } from "~/src/modules/order/order.types"
 
 import { ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
 import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
@@ -87,9 +87,9 @@ const PolarFigures = ({ live }: { readonly live: Order["polarOrder"] }): JSX.Ele
         ))}
       </dl>
       {live.invoiceUrl !== undefined && (
-        <LinkButton className="w-fit" href={live.invoiceUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
+        <AnchorButton className="w-fit" href={live.invoiceUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
           {t("pages.admin.orders.detail.polar.invoice")}
-        </LinkButton>
+        </AnchorButton>
       )}
       {live.invoiceUrl === undefined && <p className="text-sm text-muted-foreground">{t("pages.admin.orders.detail.polar.noInvoice")}</p>}
     </div>

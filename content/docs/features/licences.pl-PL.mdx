@@ -117,7 +117,7 @@ Po `grantLicense` handler `onOrderPaid` wysyła kupującemu potwierdzenie na trw
 - **Zamówienie**: numer faktury albo, dopóki zamówienie go nie ma, identyfikator zamówienia Polar; data zamówienia; plan, nazwany tak, jak nazywają go karty cennika w tym języku; oraz `total_amount` w walucie zamówienia, przeliczone z najmniejszych jednostek przez `fromMinorUnits`.
 - **Prawo odstąpienia od umowy**: gdy `custom_field_data` zawiera zgodę, e-mail powtarza, że kupujący poprosił o natychmiastowe dostarczenie i przyjął do wiadomości utratę prawa odstąpienia od umowy, więc to prawo nie dotyczy tego zamówienia. Bez zgody e-mail informuje, że kupujący może odstąpić od umowy w ciągu <RepositoryFact name="refundWithdrawalDays" unit="day" /> od daty zamówienia.
 - **Zwrot pieniędzy**: termin pełnego zwrotu pieniędzy przed pierwszym użyciem, `refundDeadline` (`license.refunds.ts`), czyli czas zakupu powiększony o `REFUND_TERMS.WITHDRAWAL_DAYS`, ta sama data, której używa `refundEligibility`. Pełny zwrot wymaga, jak mówią Zasady zwrotów, by za pomocą CLI nie wygenerowano żadnego projektu i nie otwarto płatnej lekcji.
-- **Linki**: strona licencji, [przewodnik po CLI](/docs/cli), Regulamin, Licencja komercyjna i Zasady zwrotów w języku e-maila, na hoście, który odebrał webhook. Pod przyciskiem `EmailFallbackLink` wypisuje adres strony licencji dla czytelnika, którego program pocztowy ukrywa przycisk.
+- **Linki**: strona licencji, [przewodnik po CLI](/docs/cli), Regulamin, Licencja komercyjna, Zasady zwrotów i [funkcja odstąpienia od umowy](#withdrawal-function), do której prowadzą wiersze o prawie odstąpienia od umowy i o zwrocie, w języku e-maila, na hoście, który odebrał webhook. Pod przyciskiem `EmailFallbackLink` wypisuje adres strony licencji dla czytelnika, którego program pocztowy ukrywa przycisk.
 - **Pierwsze kroki**: blok pod zamówieniem z przyciskiem prowadzącym do strony licencji, na której jest klucz, poleceniami <RepositoryFact name="cliSetupCommands" /> z `CLI_SETUP_LINES`, linkiem do przewodnika po CLI i wierszami, które inne obszary dodają dla kupującego, `PURCHASE_EMAIL_STEPS` (`src/data/purchase-email.ts`), łączonymi przez `src/data/purchase-email.entries.ts`. Obszar kursów dodaje link do kursów dla kupującego z dostępem do nich (`src/data/courses.purchase-email.ts`, przestrzeń nazw `purchase-email.courses`).
 - **Marka**: `EmailBrandHeader` umieszcza nazwę serwisu nad e-mailem, tak jak w e-mailach logowania.
 
@@ -157,6 +157,44 @@ Każdy wiersz (`unlicensed-order-columns.tsx`) pokazuje identyfikator zamówieni
 3. W ustawieniach webhooków Polar otwórz dostarczenia endpointu, znajdź zdarzenie `order.paid` tego zamówienia i wybierz **Redeliver**, a potem zrób to samo z jego zdarzeniem `benefit_grant.created`. `onOrderPaid` przyznaje licencję i wysyła potwierdzenie zakupu na adres konta, a `onBenefitGrantCreated` zapisuje klucz licencyjny; `benefit_grant.created`, które przyjdzie jako pierwsze, kończy się błędem, dopóki licencja nie istnieje, a Polar je ponawia. Zamówienie znika wtedy z listy w panelu administracyjnym.
 
 Polar może ponownie dostarczyć zdarzenie tylko tak długo, jak przechowuje jego dane, które serwer Polar archiwizuje po 90 dniach.
+
+## Funkcja odstąpienia od umowy [#withdrawal-function]
+
+Art. 11a dyrektywy w sprawie praw konsumentów (2011/83/UE), dodany dyrektywą (UE) 2023/2673 i stosowany od 19 czerwca 2026 r., wymaga, by przedsiębiorca zawierający umowy za pośrednictwem strony internetowej udostępniał na niej funkcję odstąpienia od umowy: element oznaczony „odstąp od umowy tutaj”, wyraźnie wyeksponowany i dostępny przez cały okres na odstąpienie od umowy, który otwiera oświadczenie o odstąpieniu od umowy online, w którym konsument podaje lub potwierdza swoje imię i nazwisko, umowę oraz adres elektroniczny do potwierdzenia i które składa za pomocą elementu oznaczonego wyłącznie „potwierdź odstąpienie od umowy”. Przedsiębiorca wysyła następnie bez zbędnej zwłoki, na trwałym nośniku, potwierdzenie otrzymania zawierające treść oświadczenia oraz datę i godzinę jego złożenia. Złożenie oświadczenia przed upływem terminu wystarcza do terminowego wykonania prawa.
+
+### Gdzie się znajduje
+
+- `/withdrawal` (`ROUTES.WITHDRAWAL`, `_site._marketing.withdrawal.tsx`, przestrzeń nazw `pages.withdrawal`) to publiczna, prerenderowana strona, która działa bez logowania. Stopka każdej strony prowadzi do niej linkiem **Odstąp od umowy tutaj** (`LICENSE_NAVIGATION` w `src/data/license.navigation.ts`), podobnie jak Zasady zwrotów, Regulamin i potwierdzenie zakupu.
+- `WithdrawalCard` (`src/presentation/components/custom/app/withdrawal-card.tsx`) znajduje się na `/app/license` pod aktywną licencją. Podaje plan, numer zamówienia i datę zakupu, informuje na podstawie `refundEligibility` według czasu serwera, czy nadal przysługuje prawo odstąpienia od umowy lub pełny zwrot przed pierwszym użyciem, i przyciskiem **Odstąp od umowy tutaj** otwiera oświadczenie w oknie dialogowym, z wpisanymi już imieniem i nazwiskiem, adresem e-mail i numerem zamówienia konta. Po złożeniu oświadczenia podaje, kiedy je otrzymano.
+
+Obie korzystają z `WithdrawalForm` (`src/presentation/components/custom/withdrawal-form.tsx`): zdania oświadczenia, imienia i nazwiska, adresu e-mail do potwierdzenia otrzymania i numeru zamówienia, walidowanych przez `withdrawalZodSchemas.submitWithdrawal` i komunikaty z `withdrawal.validations`, oraz przycisku wysyłania **Potwierdź odstąpienie od umowy**. Formularz nigdy nie odrzuca oświadczenia dlatego, że prawo już nie przysługuje; rozstrzyga się to później. Po złożeniu oświadczenia formularz ustępuje miejsca podsumowaniu: treści oświadczenia, czasowi jego otrzymania i informacji, czy potwierdzenie otrzymania wysłano e-mailem.
+
+### Składanie oświadczenia
+
+`submitWithdrawal` (`src/modules/withdrawal/use-cases/submit-withdrawal.ts`) uruchamia `withRateLimit("submit-withdrawal", RATE_LIMITS.SENSITIVE)` (limit oświadczeń na klienta na minutę: <RepositoryFact name="sensitiveRateLimit" />) i odczytuje sesję, jeśli istnieje. `matchContract` (`src/modules/withdrawal/withdrawal.contracts.ts`) znajduje aktywną licencję, której bieżące zamówienie ma podany numer, jako identyfikator zamówienia Polar lub numer faktury, bez względu na wielkość liter; oświadczenie należy do tej licencji, gdy jest ona własnością zalogowanego konta albo gdy podany adres e-mail jest adresem tego konta. Następnie `recordWithdrawal` (`record-withdrawal.ts`, tylko po stronie serwera):
+
+1. zapisuje oświadczenie w tabeli `withdrawal` wraz z warunkami zwrotu dopasowanej licencji w tej chwili albo z `unmatched`;
+2. wysyła `WithdrawalAcknowledgementEmail` (przestrzeń nazw `emails.withdrawal-acknowledgement-email`) na podany adres, w języku strony, z oświadczeniem, imieniem i nazwiskiem, numerem zamówienia, adresem i czasem złożenia, najwyżej <RepositoryFact name="recipientEmailsPerHour" /> na adres na godzinę, i zapisuje w `acknowledged_at`, kiedy Resend go przyjął;
+3. wysyła `WithdrawalNotificationEmail` (przestrzeń nazw `emails.withdrawal-notification-email`) z adresu `NOTIFICATIONS_EMAIL` na `CONTACT_EMAIL`, w języku `I18N.DEFAULT_LOCALE`: oświadczenie, sposób identyfikacji kupującego, licencję, warunki zwrotu, informację, czy potwierdzenie otrzymania zostało wysłane, datę, do której należy zwrócić pieniądze (<RepositoryFact name="refundReimbursementDays" unit="day" /> od otrzymania, `REFUND_TERMS.REIMBURSEMENT_DAYS`), oraz linki do konta w panelu administracyjnym i do zamówienia w Polar.
+
+E-mail, którego nie da się wysłać, jest logowany i nie usuwa oświadczenia: podsumowanie informuje wtedy, że potwierdzenie otrzymania zostanie dopiero wysłane, a powiadomienie, że nie zostało wysłane. Kluczami idempotencji są `WITHDRAWAL_ACKNOWLEDGEMENT` i `WITHDRAWAL_NOTIFICATION` (`src/data/license.email-purposes.ts`) z identyfikatorem odstąpienia.
+
+Nic nie jest zwracane ani unieważniane automatycznie: zwrot pozostaje decyzją właściciela. Aby przyjąć odstąpienie od umowy, zwróć pieniądze za zamówienie w Polar; `order.refunded` oznacza wtedy licencję jako zwróconą i unieważnia jej klucz, jak opisuje sekcja [Webhooki i licencje](#webhooks-and-licences), a potem odpowiedz kupującemu.
+
+### Tabela withdrawal
+
+| Kolumna                                   | Zawartość                                                                                                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                      | UUID v7                                                                                                                                                                          |
+| `name`, `email`, `reference`              | Imię i nazwisko, adres e-mail do potwierdzenia otrzymania i numer zamówienia w postaci podanej przez kupującego                                                                  |
+| `locale`                                  | Język strony, którego używa potwierdzenie otrzymania                                                                                                                             |
+| `channel`                                 | `account`, gdy kupujący był zalogowany, w przeciwnym razie `public` (`WITHDRAWAL_CHANNEL`)                                                                                       |
+| `user_id`, `license_id`, `polar_order_id` | Dopasowane konto, licencja i zamówienie Polar, a bez dopasowania konto zalogowanego kupującego; `ON DELETE SET NULL` zachowuje oświadczenie, gdy któreś z nich zostanie usunięte |
+| `eligibility`                             | Warunki zwrotu w chwili otrzymania oświadczenia: rodzaj z `REFUND_ELIGIBILITY` albo `unmatched` (`WITHDRAWAL_ELIGIBILITY`)                                                       |
+| `acknowledged_at`                         | Kiedy Resend przyjął potwierdzenie otrzymania; puste, dopóki potwierdzenie nie zostało wysłane                                                                                   |
+| `created_at`                              | Kiedy otrzymano oświadczenie, czyli czas podany w potwierdzeniu otrzymania                                                                                                       |
+
+Profil użytkownika w panelu administracyjnym wyświetla oświadczenia konta od najnowszych; zobacz [Użytkownicy (admin)](/docs/features/users-admin#profile).
 
 ## Ekrany klienta
 

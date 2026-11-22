@@ -4,6 +4,8 @@ import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import * as zod from "zod"
 
+import { renderWithRouter } from "~/src/platform/testing/lib/render"
+
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
@@ -91,7 +93,7 @@ it.each(I18N.SUPPORTED_LOCALES)("renders every legal document completely in %s",
     if (Page === undefined) {
       throw new Error(`The ${document} route has no page component`)
     }
-    const view = render(
+    const view = renderWithRouter(
       <IntlProvider locale={locale} messages={messages}>
         <Page />
       </IntlProvider>,

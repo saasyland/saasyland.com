@@ -67,7 +67,7 @@ const TERMS_VALUES: Record<string, number | string> = {
   program: AFFILIATE_PROGRAM,
 }
 
-const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks }
+const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks, withdrawal: (chunks: string) => chunks }
 
 const legalText = (body: string): string => createTranslator({ locale: "en-US", messages: { body } }).markup("body", LEGAL_VALUES)
 

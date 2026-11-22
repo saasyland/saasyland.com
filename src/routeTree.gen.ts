@@ -40,6 +40,7 @@ import { Route as SiteMarketingLicenceRouteImport } from './routes/_site._market
 import { Route as SiteMarketingPrivacyRouteImport } from './routes/_site._marketing.privacy'
 import { Route as SiteMarketingRefundsRouteImport } from './routes/_site._marketing.refunds'
 import { Route as SiteMarketingTermsRouteImport } from './routes/_site._marketing.terms'
+import { Route as SiteMarketingWithdrawalRouteImport } from './routes/_site._marketing.withdrawal'
 import { Route as SiteDocsIndexRouteImport } from './routes/_site.docs.index'
 import { Route as SiteDocsSplatRouteImport } from './routes/_site.docs.$'
 import { Route as AdminCoursesIndexRouteImport } from './routes/admin.courses.index'
@@ -220,6 +221,11 @@ const SiteMarketingTermsRoute = SiteMarketingTermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => SiteMarketingRoute,
 } as any)
+const SiteMarketingWithdrawalRoute = SiteMarketingWithdrawalRouteImport.update({
+  id: '/withdrawal',
+  path: '/withdrawal',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
 const SiteDocsIndexRoute = SiteDocsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -390,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof SiteMarketingPrivacyRoute
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
+  '/withdrawal': typeof SiteMarketingWithdrawalRoute
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -440,6 +447,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof SiteMarketingPrivacyRoute
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
+  '/withdrawal': typeof SiteMarketingWithdrawalRoute
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -499,6 +507,7 @@ export interface FileRoutesById {
   '/_site/_marketing/privacy': typeof SiteMarketingPrivacyRoute
   '/_site/_marketing/refunds': typeof SiteMarketingRefundsRoute
   '/_site/_marketing/terms': typeof SiteMarketingTermsRoute
+  '/_site/_marketing/withdrawal': typeof SiteMarketingWithdrawalRoute
   '/_site/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -559,6 +568,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refunds'
     | '/terms'
+    | '/withdrawal'
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -609,6 +619,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refunds'
     | '/terms'
+    | '/withdrawal'
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -667,6 +678,7 @@ export interface FileRouteTypes {
     | '/_site/_marketing/privacy'
     | '/_site/_marketing/refunds'
     | '/_site/_marketing/terms'
+    | '/_site/_marketing/withdrawal'
     | '/_site/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -926,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteMarketingTermsRouteImport
       parentRoute: typeof SiteMarketingRoute
     }
+    '/_site/_marketing/withdrawal': {
+      id: '/_site/_marketing/withdrawal'
+      path: '/withdrawal'
+      fullPath: '/withdrawal'
+      preLoaderRoute: typeof SiteMarketingWithdrawalRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
     '/_site/docs/': {
       id: '/_site/docs/'
       path: '/'
@@ -1150,6 +1169,7 @@ interface SiteMarketingRouteChildren {
   SiteMarketingPrivacyRoute: typeof SiteMarketingPrivacyRoute
   SiteMarketingRefundsRoute: typeof SiteMarketingRefundsRoute
   SiteMarketingTermsRoute: typeof SiteMarketingTermsRoute
+  SiteMarketingWithdrawalRoute: typeof SiteMarketingWithdrawalRoute
   SiteMarketingIndexRoute: typeof SiteMarketingIndexRoute
   SiteMarketingNewsletterConfirmRoute: typeof SiteMarketingNewsletterConfirmRoute
   SiteMarketingNewsletterUnsubscribeRoute: typeof SiteMarketingNewsletterUnsubscribeRoute
@@ -1164,6 +1184,7 @@ const SiteMarketingRouteChildren: SiteMarketingRouteChildren = {
   SiteMarketingPrivacyRoute: SiteMarketingPrivacyRoute,
   SiteMarketingRefundsRoute: SiteMarketingRefundsRoute,
   SiteMarketingTermsRoute: SiteMarketingTermsRoute,
+  SiteMarketingWithdrawalRoute: SiteMarketingWithdrawalRoute,
   SiteMarketingIndexRoute: SiteMarketingIndexRoute,
   SiteMarketingNewsletterConfirmRoute: SiteMarketingNewsletterConfirmRoute,
   SiteMarketingNewsletterUnsubscribeRoute:

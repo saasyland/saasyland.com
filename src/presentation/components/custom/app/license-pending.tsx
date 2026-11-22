@@ -274,6 +274,19 @@ export const LicenseActivationsPending = (): JSX.Element => (
   </Card>
 )
 
+export const WithdrawalCardPending = (): JSX.Element => (
+  <Card>
+    <CardHeader>
+      <Skeleton className="h-lh w-24 scale-y-70 text-base leading-snug" />
+      <Skeleton className="h-lh w-80 max-w-full scale-y-70 text-sm" />
+    </CardHeader>
+    <CardContent className="flex flex-col items-start gap-4">
+      <TextLines className="text-sm" />
+      <Skeleton className="h-7 w-52 rounded-md" />
+    </CardContent>
+  </Card>
+)
+
 export const LicenseOverviewPending = (): JSX.Element => {
   const view = usePendingLicenseView()
 
@@ -302,6 +315,7 @@ export const AppLicensePending = (): JSX.Element => {
       {view.showsUpgrade && <UpgradeOfferPending />}
       {view.showsLicense && <LicenseCardPending isActive={view.hasActiveLicense} />}
       {view.hasActivations && <LicenseActivationsPending />}
+      {view.hasActiveLicense && <WithdrawalCardPending />}
       {view.isBuying && <LicenseOfferPending hasChosenTier={view.showsChosenTier} />}
       <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
     </div>

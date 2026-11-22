@@ -240,6 +240,7 @@ const FACTS = {
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
   reactprojectsAccess: REACTPROJECTS_ACCESS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
+  refundReimbursementDays: REFUND_TERMS.REIMBURSEMENT_DAYS,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,

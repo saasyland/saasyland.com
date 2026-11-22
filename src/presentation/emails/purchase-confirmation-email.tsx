@@ -54,6 +54,7 @@ export interface PurchaseConfirmationLinks {
   readonly licence: string
   readonly refunds: string
   readonly terms: string
+  readonly withdrawal: string
 }
 
 export interface PurchaseConfirmationStep {
@@ -146,10 +147,17 @@ export const PurchaseConfirmationEmail = ({
             <Section>
               {withdrawalConsent && <Text className={PARAGRAPH_CLASSNAME}>{t("withdrawal.waived", { days })}</Text>}
               {!withdrawalConsent && (
-                <Text className={PARAGRAPH_CLASSNAME}>{t.rich("withdrawal.open", { ...MAIL_TAGS, days, email: CONTACT_EMAIL })}</Text>
+                <Text className={PARAGRAPH_CLASSNAME}>
+                  {t.rich("withdrawal.open", { ...MAIL_TAGS, days, email: CONTACT_EMAIL, withdrawal: linkTo(links.withdrawal) })}
+                </Text>
               )}
               <Text className={PARAGRAPH_CLASSNAME}>
-                {t.rich("refund", { ...MAIL_TAGS, deadline: format.dateTime(refundDeadline, DEADLINE_FORMAT), email: CONTACT_EMAIL })}
+                {t.rich("refund", {
+                  ...MAIL_TAGS,
+                  deadline: format.dateTime(refundDeadline, DEADLINE_FORMAT),
+                  email: CONTACT_EMAIL,
+                  withdrawal: linkTo(links.withdrawal),
+                })}
               </Text>
               <Hr className="my-6 border-neutral-200" />
               <Text className="m-0 text-sm text-neutral-500">

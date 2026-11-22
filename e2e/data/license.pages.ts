@@ -9,4 +9,5 @@ export const LICENSE_PAGES = [
   { path: `/app?tier=${LICENSE_TIER.COMPLETE}`, role: ROLE_CODES.CUSTOMER },
   { path: `/app/license?tier=${LICENSE_TIER.CORE}`, role: ROLE_CODES.CUSTOMER },
   { path: `/app?checkoutId=${TEST_CHECKOUT_ID}`, role: ROLE_CODES.CUSTOMER },
+  { path: "/withdrawal" },
 ] as const satisfies readonly PageEntry[]

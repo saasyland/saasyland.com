@@ -1,4 +1,5 @@
 import { LICENSE_STATUS, LICENSE_TIERS, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { WITHDRAWAL_CHANNELS, WITHDRAWAL_ELIGIBILITIES } from "~/src/modules/withdrawal/withdrawal.constants"
 
 import { USER_LICENSE_DETAILS } from "~/src/data/license"
 
@@ -10,4 +11,9 @@ export const LICENSE_LABELS = [
   { keys: Object.values(LICENSE_STATUS), labels: "pages.admin.users.license.status" },
   { keys: Object.values(REFUND_ELIGIBILITY), labels: "pages.admin.users.license.refund" },
   { keys: USER_LICENSE_DETAILS, labels: "pages.admin.users.license.details" },
+  { keys: Object.values(REFUND_ELIGIBILITY), labels: "pages.withdrawal.card.terms" },
+  { keys: WITHDRAWAL_CHANNELS, labels: "pages.admin.users.license.withdrawals.channel" },
+  { keys: WITHDRAWAL_ELIGIBILITIES, labels: "pages.admin.users.license.withdrawals.eligibility" },
+  { keys: WITHDRAWAL_CHANNELS, labels: "emails.withdrawal-notification-email.channel" },
+  { keys: WITHDRAWAL_ELIGIBILITIES, labels: "emails.withdrawal-notification-email.eligibility" },
 ]

@@ -183,10 +183,10 @@ describe("license skeletons", () => {
     expect(refunded.querySelectorAll(SELECTORS.CARD)).toHaveLength(1)
   })
 
-  it("mirrors the key and machine cards on the license page of a license owner", () => {
+  it("mirrors the key, machine and withdrawal cards on the license page of a license owner", () => {
     const container = renderAt(<AppLicensePending />, "/app/license", { owned: license() })
 
-    expect(container.querySelectorAll(SELECTORS.CARD)).toHaveLength(2)
+    expect(container.querySelectorAll(SELECTORS.CARD)).toHaveLength(3)
     expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(0)
   })
 

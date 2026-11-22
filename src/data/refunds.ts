@@ -1,3 +1,4 @@
 export const REFUND_TERMS = {
+  REIMBURSEMENT_DAYS: 14,
   WITHDRAWAL_DAYS: 14,
 } as const

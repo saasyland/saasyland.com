@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
+import { userWithdrawalsQuery } from "~/src/modules/withdrawal/use-cases/get-user-withdrawals"
 
 import { AUTH_USER_PROFILE } from "~/src/data/auth.user-profile"
 import { LICENSE_USER_PROFILE } from "~/src/data/license.user-profile"
@@ -53,12 +54,15 @@ describe("admin user profile composition", () => {
     expect(profile.USER_PROFILE_SECTIONS).toStrictEqual([])
   })
 
-  it("loads the licence of the user whose profile is open", async () => {
+  it("loads the licence and the withdrawal statements of the user whose profile is open", async () => {
     const queryClient = new QueryClient()
     const query = vi.spyOn(queryClient, "query").mockResolvedValue({ license: undefined })
 
     await Promise.all(LICENSE_USER_PROFILE.map(({ load }) => load({ queryClient, userId: USER_ID })))
 
-    expect(query).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ queryKey: userLicenseQuery({ userId: USER_ID }).queryKey }))
+    expect(query.mock.calls.map(([options]) => options.queryKey)).toStrictEqual([
+      userLicenseQuery({ userId: USER_ID }).queryKey,
+      userWithdrawalsQuery({ userId: USER_ID }).queryKey,
+    ])
   })
 })

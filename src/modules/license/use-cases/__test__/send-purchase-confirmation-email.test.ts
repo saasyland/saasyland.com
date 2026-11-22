@@ -19,6 +19,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 
 import plMessages from "~/messages/pl-PL/emails.purchase-confirmation-email.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
 const RECIPIENT = "buyer@example.test"
 const BUYER = { email: RECIPIENT, id: "buyer-1" }
@@ -86,7 +87,7 @@ describe("the purchase confirmation", () => {
       "You can still get a full refund until Oct 8, 2026, 10:00 AM UTC if you have not generated a project with the CLI or opened a paid lesson.",
     )
     expect(email.text).toContain("in force on Sep 24, 2026 apply to this purchase.")
-    for (const path of ["/app/license", "/docs/cli", "/terms", "/licence", "/refunds"]) {
+    for (const path of [ROUTES.APP_LICENSE, ROUTES.DOCS_CLI, ROUTES.TERMS, ROUTES.LICENCE, ROUTES.REFUNDS, ROUTES.WITHDRAWAL]) {
       expect(email.html).toContain(`href="${ORIGIN}${path}"`)
     }
     expect(email.html).toContain(`href="mailto:${CONTACT_EMAIL}"`)
@@ -124,8 +125,9 @@ describe("the purchase confirmation", () => {
 
     const { text } = onlyEmail()
     expect(text).toContain(
-      `You can withdraw from this purchase within ${String(REFUND_TERMS.WITHDRAWAL_DAYS)} days of the order date without giving a reason. Write to <a href="mailto:${CONTACT_EMAIL}"`,
+      `You can withdraw from this purchase within ${String(REFUND_TERMS.WITHDRAWAL_DAYS)} days of the order date without giving a reason: use <a href="${ORIGIN}${ROUTES.WITHDRAWAL}"`,
     )
+    expect(text).toContain(`or write to <a href="mailto:${CONTACT_EMAIL}"`)
     expect(text).not.toContain("the right of withdrawal does not apply")
   })
 
@@ -147,6 +149,7 @@ describe("the purchase confirmation", () => {
     expect(email.text).toContain(waived)
     expect(email.html).toContain(`href="${ORIGIN}/pl-PL/app/license"`)
     expect(email.html).toContain(`href="${ORIGIN}/pl-PL/refunds"`)
+    expect(email.html).toContain(`href="${ORIGIN}/pl-PL/withdrawal"`)
   })
 
   it.each([

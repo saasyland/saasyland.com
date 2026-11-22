@@ -17,6 +17,12 @@ const archivePath = (page: number): string => `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAG
 const SECOND_PAGE = archivePath(BLOG_ARCHIVE.FIRST_PAGE + 1)
 const LAST_PAGE = Math.ceil(POSTS / BLOG_ARCHIVE.PAGE_SIZE)
 const WIDE = { height: 900, width: 1280 }
+const PHONE = { height: 844, width: 390 }
+const PANEL_TOP = 96
+const PANEL_INSET_LIMIT = 8
+const HEADER_HEIGHT = 64
+const SHOW_RESULTS = /^Show \d+ posts?$/u
+const ACTIVE_FILTERS = (count: number): RegExp => new RegExp(`^${archive.filters}.*${String(count)} active$`, "u")
 const [LEAD] = FEATURED_BLOG_POSTS
 const HYDRATION_ERROR = /hydrat/iu
 const [UPDATED_LABEL = ""] = pagesBlog.post.updated.split("<")
@@ -25,6 +31,15 @@ const PAGE_NUMBER = "{page, number}"
 const archiveSection = (page: Page): Locator => page.getByRole("region", { exact: true, name: archive.title })
 
 const archiveTitles = (page: Page): Promise<string[]> => archiveSection(page).getByRole("heading", { level: 3 }).allTextContents()
+
+const finder = (page: Page): Locator => page.getByRole("complementary", { name: archive.finder })
+
+const archiveHeading = (page: Page): Locator => page.getByRole("heading", { level: 2, name: archive.title })
+
+const scrollToFraction = (page: Page, fraction: number): Promise<void> =>
+  page.evaluate((share) => {
+    window.scrollTo({ behavior: "instant", top: document.documentElement.scrollHeight * share })
+  }, fraction)
 
 const openBlog = async (page: Page, path: string = ROUTES.BLOG): Promise<void> => {
   await page.goto(path)
@@ -145,6 +160,104 @@ test("hydrates a filtered address onto the prerendered blog without a browser er
   await expect.poll(() => archiveTitles(page)).toHaveLength(POSTS)
   await expect(page.getByRole("radio", { name: archive.sorts["reading-time"] })).toBeChecked()
   expect(errors).toEqual([])
+})
+
+test("keeps the finder beside the posts from the featured posts through the archive", async ({ page }) => {
+  await page.setViewportSize(WIDE)
+  await openBlog(page)
+  const search = finder(page).getByRole("searchbox", { name: archive.search })
+
+  await expect(finder(page).getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link")).toHaveCount(POSTS)
+
+  const top = async (): Promise<number> => Math.round((await search.boundingBox())?.y ?? 0)
+  const resting: number[] = []
+
+  for (const target of [
+    page.getByRole("heading", { level: 2, name: index.latest }),
+    archiveHeading(page),
+    archiveSection(page).getByRole("heading", { level: 3 }).nth(BLOG_ARCHIVE.PAGE_SIZE / 2),
+  ]) {
+    await target.scrollIntoViewIfNeeded()
+    await expect(search).toBeInViewport()
+    resting.push(await top())
+  }
+
+  expect(new Set(resting).size).toBe(1)
+  expect(resting[0]).toBeGreaterThanOrEqual(PANEL_TOP)
+  expect(resting[0]).toBeLessThan(PANEL_TOP + PANEL_INSET_LIMIT)
+})
+
+test("brings the reader from the featured posts to the posts a finder filter matches, and clears every filter in one press", async ({ page }) => {
+  await page.setViewportSize(WIDE)
+  await openBlog(page)
+  const panel = finder(page)
+  const topic = panel.getByRole("radiogroup", { name: archive.topics }).getByRole("radio").nth(1)
+  const label = (await topic.textContent())?.replace(/\d+$/u, "") ?? ""
+
+  await topic.click()
+
+  await expect(page).toHaveURL(/[?&]tag=/u)
+  await expect(archiveHeading(page)).toBeInViewport()
+  await expect(panel.getByRole("group", { name: archive.activeFilters })).toContainText(label)
+  const titles = await archiveTitles(page)
+  await expect(panel.getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link")).toHaveText(titles)
+
+  await panel.getByRole("button", { name: archive.clearAll }).click()
+
+  await expect(page).toHaveURL(ROUTES.BLOG)
+  await expect(panel.getByRole("group", { name: archive.activeFilters })).toBeHidden()
+  await expect(panel.getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link")).toHaveCount(POSTS)
+})
+
+test("searches every post from an archive page and opens the blog at the matching posts", async ({ page }) => {
+  await page.setViewportSize(WIDE)
+  await page.goto(SECOND_PAGE)
+  const panel = finder(page)
+  const search = panel.getByRole("searchbox", { name: archive.search })
+  await expect(search).not.toHaveAttribute("readonly")
+  const title = (await panel.getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link").last().textContent()) ?? ""
+
+  await search.fill(title)
+
+  await expect(panel.getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link")).toContainText([title])
+  await expect(page).toHaveURL(SECOND_PAGE)
+
+  await search.press("Enter")
+
+  await expect(page).toHaveURL((url) => url.pathname === ROUTES.BLOG && url.searchParams.get("q") === title)
+  await expect.poll(() => archiveTitles(page)).toContain(title)
+  await expect(archiveHeading(page)).toBeInViewport()
+})
+
+test("keeps the search under the header on a phone and filters the posts from a sheet that shows and clears the active filters", async ({ page }) => {
+  await page.setViewportSize(PHONE)
+  await openBlog(page)
+  const bar = finder(page)
+
+  await scrollToFraction(page, 0.5)
+
+  await expect(bar.getByRole("searchbox", { name: archive.search })).toBeInViewport()
+  await expect.poll(async () => Math.round((await bar.boundingBox())?.y ?? 0)).toBe(HEADER_HEIGHT)
+
+  await bar.getByRole("button", { name: archive.filters }).click()
+  const sheet = page.getByRole("dialog", { name: archive.filters })
+  await sheet.getByRole("radio", { name: archive.sorts["reading-time"] }).click()
+  await sheet.getByRole("radiogroup", { name: archive.topics }).getByRole("radio").nth(1).click()
+  await sheet.getByRole("button", { name: SHOW_RESULTS }).click()
+
+  await expect(sheet).toBeHidden()
+  await expect(page).toHaveURL(new RegExp(`sort=${BLOG_SORT.READING_TIME}`, "u"))
+  await expect(archiveHeading(page)).toBeInViewport()
+  await expect(bar.getByRole("button", { name: ACTIVE_FILTERS(2) })).toBeVisible()
+  const active = bar.getByRole("group", { name: archive.activeFilters })
+  await expect(active.getByRole("button")).toHaveCount(3)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+
+  await active.getByRole("button", { name: archive.clearAll }).click()
+
+  await expect(page).toHaveURL(ROUTES.BLOG)
+  await expect(active).toBeHidden()
+  await expect(bar.getByRole("button", { name: archive.filters, exact: true })).toBeVisible()
 })
 
 test("lists every post beside a post and marks the one being read", async ({ page }) => {

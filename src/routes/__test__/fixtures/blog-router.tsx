@@ -137,6 +137,7 @@ export const createBlogRouter = ({
       offset: BLOG_ARCHIVE.PAGE_SIZE,
       page: 2,
       pages: 2,
+      posts,
       total: BLOG_ARCHIVE.PAGE_SIZE + posts.length,
       ...archive,
     }),

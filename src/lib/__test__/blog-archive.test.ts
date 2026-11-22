@@ -118,12 +118,17 @@ describe("sorting posts", () => {
 })
 
 describe("topic counts", () => {
-  it("counts the posts of each topic in the order of BLOG_TAGS, leaving out topics without posts", () => {
-    const posts = [post("a", { tags: [BLOG_TAG.TESTING, BLOG_TAG.AUTH] }), post("b", { tags: [BLOG_TAG.AUTH] })]
+  it("counts the posts of each topic, the largest first and topics of the same size in the order of BLOG_TAGS, leaving out topics without posts", () => {
+    const posts = [
+      post("a", { tags: [BLOG_TAG.TESTING, BLOG_TAG.AUTH] }),
+      post("b", { tags: [BLOG_TAG.TESTING] }),
+      post("c", { tags: [BLOG_TAG.PAYMENTS] }),
+    ]
 
     expect(countBlogTags(posts)).toStrictEqual([
-      [BLOG_TAG.AUTH, 2],
-      [BLOG_TAG.TESTING, 1],
+      [BLOG_TAG.TESTING, 2],
+      [BLOG_TAG.AUTH, 1],
+      [BLOG_TAG.PAYMENTS, 1],
     ])
   })
 })

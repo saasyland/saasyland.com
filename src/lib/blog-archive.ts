@@ -61,4 +61,6 @@ export const filterBlogPosts = <TPost extends ArchivePost>({
 }
 
 export const countBlogTags = (posts: readonly Pick<ArchivePost, "tags">[]): [BlogTag, number][] =>
-  BLOG_TAGS.map((tag): [BlogTag, number] => [tag, posts.filter(({ tags }) => tags.includes(tag)).length]).filter(([, count]) => count > 0)
+  BLOG_TAGS.map((tag): [BlogTag, number] => [tag, posts.filter(({ tags }) => tags.includes(tag)).length])
+    .filter(([, count]) => count > 0)
+    .toSorted(([, first], [, second]) => second - first)

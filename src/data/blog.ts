@@ -51,6 +51,14 @@ export const BLOG_ARCHIVE = {
   FIRST_PAGE: 1,
   PAGE_SEGMENT: "page",
   PAGE_SIZE: 12,
+  SECTION_ID: "all-posts",
+} as const
+
+export const BLOG_FINDER_CLASSES = {
+  BAR: "sticky top-header z-30 -mx-6 border-b border-border bg-background/72 px-6 py-3 backdrop-blur-xl md:-mx-10 md:px-10 lg:static lg:z-auto lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none",
+  LAYOUT: "mt-8 md:mt-10 lg:mt-16 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-x-12 xl:grid-cols-[16rem_minmax(0,1fr)] xl:gap-x-16",
+  MAIN: "mt-10 min-w-0 md:mt-14 lg:mt-0",
+  PANEL: "lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100dvh-7.5rem)] lg:flex-col",
 } as const
 
 export const BLOG_HIGHLIGHTS = {

@@ -63,6 +63,33 @@ export const CONTENT_FLOWS = [
   },
   {
     area: FLOW_AREA.CONTENT,
+    id: "blog-finder",
+    outcome:
+      "On a wide screen the blog and its archive pages keep a finder beside the posts, with the search, the sort, the topics and an index of every post, and a change in it brings the reader to the matching posts",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "blog-index.spec.ts", title: "keeps the finder beside the posts from the featured posts through the archive" },
+      {
+        spec: "blog-index.spec.ts",
+        title: "brings the reader from the featured posts to the posts a finder filter matches, and clears every filter in one press",
+      },
+      { spec: "blog-index.spec.ts", title: "searches every post from an archive page and opens the blog at the matching posts" },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
+    id: "blog-finder-phone",
+    outcome: "On a phone the blog keeps its search under the header and filters the posts from a sheet, showing the active filters and clearing them in one press",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "blog-index.spec.ts",
+        title: "keeps the search under the header on a phone and filters the posts from a sheet that shows and clears the active filters",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
     id: "blog-more-posts",
     outcome:
       "A visitor loads more posts in place with JavaScript, or follows the archive's pages without it, and each archive page names its own canonical address and neighbours",

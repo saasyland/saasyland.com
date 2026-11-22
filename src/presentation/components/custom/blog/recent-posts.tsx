@@ -55,7 +55,7 @@ export const RecentPosts = (): JSX.Element | undefined => {
   }
 
   return (
-    <div className="mt-20 grid gap-x-16 gap-y-14 md:mt-28 md:grid-cols-2">
+    <div className="grid gap-x-12 gap-y-14 md:grid-cols-2">
       <PostList id="latest-posts" posts={latest} title={t("latest")} />
       <PostList id="updated-posts" isUpdated posts={updated} title={t("updated")} />
     </div>

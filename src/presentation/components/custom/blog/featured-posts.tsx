@@ -33,10 +33,10 @@ const ReadPost = (): JSX.Element => {
 }
 
 const LeadPost = ({ post }: { readonly post: BlogPostSummary }): JSX.Element => (
-  <article className={cn(CARD_CLASSNAME, "flex-col lg:grid lg:grid-cols-[1.4fr_1fr]")}>
-    <div className="relative overflow-hidden border-b border-border lg:border-r lg:border-b-0">
+  <article className={cn(CARD_CLASSNAME, "flex-col xl:grid xl:grid-cols-[1.3fr_1fr]")}>
+    <div className="relative overflow-hidden border-b border-border xl:border-r xl:border-b-0">
       <PostCover className={COVER_CLASSNAME} image={post.image} isPriority />
-      <span aria-hidden className="absolute inset-0 hidden bg-linear-to-r from-transparent via-transparent to-card/80 lg:block" />
+      <span aria-hidden className="absolute inset-0 hidden bg-linear-to-r from-transparent via-transparent to-card/80 xl:block" />
     </div>
     <div className="flex flex-col p-7 md:p-10">
       <PostFacts post={post} />
@@ -85,7 +85,7 @@ export const FeaturedPosts = (): JSX.Element | undefined => {
   }
 
   return (
-    <section aria-labelledby="featured-posts" className="mt-14 md:mt-20">
+    <section aria-labelledby="featured-posts">
       <h2 className="text-headline-support text-balance text-foreground" id="featured-posts">
         {t("featured")}
       </h2>

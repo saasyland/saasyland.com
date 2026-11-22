@@ -78,7 +78,12 @@ describe("data grid filters", () => {
     await closePopover(user)
 
     await user.click(within(chip("Name")).getByRole("button", { name: "Name: contains “ad”" }))
-    expect(within(screen.getByRole("dialog")).getByRole("textbox", { name: "Name" })).toHaveValue("ad")
+    const field = within(screen.getByRole("dialog")).getByRole("textbox", { name: "Name" })
+    expect(field).toHaveValue("ad")
+    await user.clear(field)
+    await waitFor(() => {
+      expect(columnTexts("Name")).toHaveLength(3)
+    })
   })
 
   it("keeps one option of a single choice and lets the visitor take it back", async () => {
@@ -214,7 +219,7 @@ describe("data grid range filters", () => {
   it("reads the days in UTC when the page sets no time zone", async () => {
     vi.useFakeTimers({ now: NOW, shouldAdvanceTime: true, toFake: ["Date"] })
     const user = userEvent.setup()
-    renderGrid({}, { timeZone: undefined })
+    renderGrid({}, { withoutTimeZone: true })
 
     await user.click(within(await openFilter(user, "Joined")).getByRole("button", { name: filters.date.last7Days }))
 

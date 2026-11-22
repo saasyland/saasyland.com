@@ -201,11 +201,8 @@ const DataGridHead = <TData extends DataGridRow>({
             <SortIndicator column={column} sorts={table.state.sorting.length} />
           </ButtonPrimitive>
         )}
-        {!column.getCanSort() && (
-          <span className="truncate">
-            <table.FlexRender header={header} />
-          </span>
-        )}
+        {!column.getCanSort() && typeof column.columnDef.header === "string" && <span className="truncate">{label}</span>}
+        {!column.getCanSort() && typeof column.columnDef.header !== "string" && <table.FlexRender header={header} />}
         {isMovable && <DataGridColumnMenu announce={announce} column={column} table={table} />}
       </div>
       {column.getCanResize() && <ColumnResizer header={header} label={label} table={table} />}

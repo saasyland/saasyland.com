@@ -42,6 +42,8 @@ type OptionsFilter = Extract<DataGridFilter, { readonly options: unknown }>
 
 const OPTION_SEARCH_MIN = 8
 
+const FIRST_OPTION = "first"
+
 const SUMMARY_LABELS_MAX = 2
 
 const LAST_MOMENT_OF_DAY_MS = 1
@@ -191,7 +193,7 @@ const OptionsList = <TData extends DataGridRow>({
   return (
     <SelectList
       aria-label={label}
-      autoFocus={filter.options.length < OPTION_SEARCH_MIN}
+      autoFocus={filter.options.length < OPTION_SEARCH_MIN && FIRST_OPTION}
       className="max-h-64"
       escapeKeyBehavior="none"
       onSelectionChange={(keys: Selection) => {
@@ -393,7 +395,7 @@ const ColumnChooser = <TData extends DataGridRow>({
       </Heading>
       <SelectList
         aria-label={t("choose")}
-        autoFocus
+        autoFocus={FIRST_OPTION}
         onAction={(key) => {
           onChoose(String(key))
         }}

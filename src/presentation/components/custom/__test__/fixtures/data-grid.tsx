@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { QueryClient } from "@tanstack/react-query"
 import { createColumnHelper } from "@tanstack/react-table"
 import { screen, waitFor, within } from "@testing-library/react"
+import { type IntlError, IntlErrorCode } from "use-intl"
 import { IntlProvider } from "use-intl/react"
 import { expect } from "vite-plus/test"
 
@@ -64,15 +65,28 @@ export const messages = getTestMessages("en-US")
 export const gridQueryClient = (): QueryClient =>
   new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
 
+const expectOnlyTheMissingTimeZone = (error: IntlError): void => {
+  expect(error.code).toBe(IntlErrorCode.ENVIRONMENT_FALLBACK)
+}
+
+const INTL_WITHOUT_TIME_ZONE = { onError: expectOnlyTheMissingTimeZone }
+
+const INTL_WITH_TIME_ZONE = { timeZone: I18N.DEFAULT_TIMEZONE }
+
 export const renderGrid = (
   props: Partial<DataGridProps<Person>> = {},
   {
     queryClient = gridQueryClient(),
-    timeZone = I18N.DEFAULT_TIMEZONE,
-  }: { readonly queryClient?: QueryClient; readonly timeZone?: string | undefined } = {},
+    withoutTimeZone = false,
+  }: { readonly queryClient?: QueryClient; readonly withoutTimeZone?: boolean } = {},
 ) =>
   renderWithRouter(
-    <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={messages} timeZone={timeZone}>
+    <IntlProvider
+      formats={I18N.FORMATS}
+      locale="en-US"
+      messages={messages}
+      {...(withoutTimeZone ? INTL_WITHOUT_TIME_ZONE : INTL_WITH_TIME_ZONE)}
+    >
       <DataGrid columns={PEOPLE_COLUMNS} data={PEOPLE} id={crypto.randomUUID()} label="People" {...props} />
     </IntlProvider>,
     { queryClient },

@@ -38,17 +38,17 @@ queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 
 サインインしているのが誰であっても、すべての訪問者に同じ結果を返すクエリは `meta: { public: true }` を宣言します。
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-翻訳（`messagesQueryOptions`）、GitHub のスター数（`starCountQuery`）、コースカタログ（`catalogueQuery`）、ランディングページのコースブロック（`courseShowcaseQuery`）は公開クエリです。それ以外のクエリはすべてサインイン中のユーザーのものです。ユーザーが変わると、`auth.session.ts` の `removeUserData` がそれらのクエリとすべてのミューテーションを削除し、公開クエリは残します。そのため、次のユーザーが前のユーザーのデータを目にすることはなく、プリレンダーされたページはレンダリングされたときのデータを保ちます。このフラグは、サーバーがページにデハイドレートするすべてのクエリに付いたまま届くためです。フラグを省いたクエリは次のユーザーのために再取得されます。その分リクエストが 1 回増えますが、データが漏れることはありません。そのため、クエリを公開にするのは、そのサーバー関数がセッションを一切読まない場合だけにしてください。`auth.session.test.ts` はすべての公開クエリを実行し、いずれかがセッションを読んだ場合や、テストが実行しない公開クエリをソースファイルが宣言している場合に失敗します。各エリアは、このテストのための公開クエリを `src/integrations/better-auth/__test__/<area>.public-queries.ts` に列挙します。
+翻訳（`messagesQueryOptions`）と GitHub のスター数（`starCountQuery`）は公開クエリです。それ以外のクエリはすべてサインイン中のユーザーのものです。ユーザーが変わると、`auth.session.ts` の `removeUserData` がそれらのクエリとすべてのミューテーションを削除し、公開クエリは残します。そのため、次のユーザーが前のユーザーのデータを目にすることはなく、プリレンダーされたページはレンダリングされたときのデータを保ちます。このフラグは、サーバーがページにデハイドレートするすべてのクエリに付いたまま届くためです。フラグを省いたクエリは次のユーザーのために再取得されます。その分リクエストが 1 回増えますが、データが漏れることはありません。そのため、クエリを公開にするのは、そのサーバー関数がセッションを一切読まない場合だけにしてください。`auth.session.test.ts` はすべての公開クエリを実行し、いずれかがセッションを読んだ場合や、テストが実行しない公開クエリをソースファイルが宣言している場合に失敗します。各エリアは、このテストのための公開クエリを `src/integrations/better-auth/__test__/<area>.public-queries.ts` に列挙します。
 
 ## データの鮮度
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-別の鮮度が必要なクエリは、その理由がわかる名前付きの定数で `staleTime` を設定します。`PLAYBACK_STALE_MS`（1 時間。署名付き再生 URL の有効期間内に収まる長さ）、GitHub のスター数には `REFRESH_AFTER_MS`、デプロイ時にしか変わらない翻訳メッセージには `Infinity` を使います。モジュールレベルで `QueryClient` を作成してはいけません。サーバー上では、あるユーザーのデータが次のリクエストと共有されてしまいます。
+別の鮮度が必要なクエリは、その理由がわかる名前付きの定数で `staleTime` を設定します。`PLAYBACK_STALE_MS`（1 時間。署名付き再生 URL の有効期間内に収まる長さ）、GitHub のスター数には `STAR_COUNT_REFRESH_AFTER_MS`、デプロイ時にしか変わらない翻訳メッセージには `Infinity` を使います。モジュールレベルで `QueryClient` を作成してはいけません。サーバー上では、あるユーザーのデータが次のリクエストと共有されてしまいます。
 
 ## ローダーはプリフェッチし、コンポーネントは読み取る
 

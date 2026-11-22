@@ -38,17 +38,17 @@ The list key stores the parsed input, so `getCoursesPageQuery()` and `getCourses
 
 A query whose result is the same for every visitor, whoever is signed in, declares `meta: { public: true }`:
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-The translations (`messagesQueryOptions`), the GitHub star count (`starCountQuery`), the course catalogue (`catalogueQuery`) and the landing page's course showcase (`courseShowcaseQuery`) are public. Every other query belongs to the signed-in user. When the user changes, `removeUserData` in `auth.session.ts` removes those queries and every mutation and keeps the public ones, so the next user never sees the previous user's data and a prerendered page keeps the data it was rendered with: the flag travels with every query the server dehydrates into the page. A query that leaves the flag out is fetched again for the next user, which costs a request and never leaks data, so mark a query public only when its server function never reads the session. `auth.session.test.ts` runs every public query and fails if one reads the session, or if a source file declares a public query the test does not run. Each area lists its public queries for that test in `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+The translations (`messagesQueryOptions`) and the GitHub star count (`starCountQuery`) are public. Every other query belongs to the signed-in user. When the user changes, `removeUserData` in `auth.session.ts` removes those queries and every mutation and keeps the public ones, so the next user never sees the previous user's data and a prerendered page keeps the data it was rendered with: the flag travels with every query the server dehydrates into the page. A query that leaves the flag out is fetched again for the next user, which costs a request and never leaks data, so mark a query public only when its server function never reads the session. `auth.session.test.ts` runs every public query and fails if one reads the session, or if a source file declares a public query the test does not run. Each area lists its public queries for that test in `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Freshness
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-A query that needs other freshness sets `staleTime` with a named constant that says why: `PLAYBACK_STALE_MS` (an hour, inside the lifetime of a signed playback URL), `REFRESH_AFTER_MS` for the GitHub star count, `Infinity` for translation messages, which only change with a deploy. Never create a `QueryClient` at module level; on the server it would share one user's data with the next request.
+A query that needs other freshness sets `staleTime` with a named constant that says why: `PLAYBACK_STALE_MS` (an hour, inside the lifetime of a signed playback URL), `STAR_COUNT_REFRESH_AFTER_MS` for the GitHub star count, `Infinity` for translation messages, which only change with a deploy. Never create a `QueryClient` at module level; on the server it would share one user's data with the next request.
 
 ## Loaders prefetch, components read
 

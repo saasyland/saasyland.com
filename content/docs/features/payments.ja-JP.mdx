@@ -5,7 +5,7 @@ description: "Polar のエリア。Better Auth の Polar プラグイン、カ�
 
 決済は、Polar のエリアが `src/data/polar.auth-plugins.ts` で Better Auth に追加する `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
 
-```ts
+```ts title="src/data/polar.auth-plugins.ts"
 export const POLAR_AUTH_PLUGINS = [
   {
     plugin: polar({
@@ -14,10 +14,26 @@ export const POLAR_AUTH_PLUGINS = [
     }),
     rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
   },
+  {
+    plugin: {
+      hooks: {
+        before: [
+          {
+            handler: requireVerifiedEmail,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+          },
+        ],
+      },
+      id: "polar-verified-customer",
+    },
+    rateLimitExemptPaths: [],
+  },
 ] as const satisfies readonly AuthPluginEntry[]
 ```
 
 プラグインはカスタマーポータルと Webhook を追加し、Webhook は Better Auth のレート制限の対象外です。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/data/__test__/polar.auth-plugins.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。販売を行うエリアは、独自のチェックを行った後、Polar SDK で購入セッションを作成します。ライセンスのエリアの `startCheckout` がその例です（[ライセンス](/docs/features/licences)を参照）。
+
+2 つ目のエントリー `polar-verified-customer` は独立したプラグインで、`/customer/` 以下のすべてのエンドポイントの前に `requireVerifiedEmail`（`auth.hooks.ts`）を実行します。そのため、アカウントのアドレスが確認されるまで、カスタマーポータルは `403 EMAIL_NOT_VERIFIED` を返します（[メール確認](/docs/features/email-verification)）。
 
 `src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のエリアのパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/data/polar.routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 

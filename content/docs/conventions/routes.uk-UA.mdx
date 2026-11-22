@@ -9,7 +9,7 @@ description: "Єдина форма маршруту сторінки й мар�
 
 `src/routes/admin.courses.index.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.index.tsx"
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
 
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 Сторінка, заголовок якої береться із запису, чекає на цей запис і будує свій head з даних loader, як це робить `admin.courses.$courseId.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 
 `src/routes/admin.courses.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.tsx"
 const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
 
 export const Route = createFileRoute("/admin/courses")({
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Макет оголошує `const NAMESPACES = [...] as const` над `export const Route` і завантажує їх наперед. Якщо просторів імен немає, опцію пропускають; `namespaces: []` не буває.
-- Простір імен, потрібний компоненту іншого розділу в макеті, додає цей розділ у `src/data/<area>.namespaces.ts`, який називає макет за ідентифікатором маршруту, а макет розгортає `...layoutNamespaces("/app")` у свої `NAMESPACES`. Розділ ліцензій додає `pages.license` до `/app`, огляд якого показує картку ліцензії та пропозицію, а розділ розсилки додає `auth.validations` до `/_site/_marketing` і `/_site/docs`, футери яких показують форму підписки на розсилку. `namespaces.test.ts` під час компіляції перевіряє, що кожен макет, який називає розділ, є ідентифікатором маршруту.
+- Простір імен, потрібний компоненту іншого розділу в макеті, додає цей розділ у `src/data/<area>.namespaces.ts`, який називає макет за ідентифікатором маршруту, а макет розгортає `...layoutNamespaces("/app")` у свої `NAMESPACES`. Розділ ліцензій додає `pages.license`, `pages.withdrawal` і `withdrawal.validations` до `/app`, огляд якого показує картку ліцензії та пропозицію, а сторінка ліцензії — картку відмови від договору, `withdrawal.validations` — до `/_site/_marketing`, а `pages.admin.users.license` — до `/admin/users`; розділ платежів додає `pages.admin.customers` і `pages.admin.orders` до `/admin/users`; а розділ розсилки додає `auth.validations` до `/_site/_marketing` і `/_site/docs`, футери яких показують форму підписки на розсилку. `namespaces.test.ts` під час компіляції перевіряє, що кожен макет, який називає розділ, є ідентифікатором маршруту.
 - Компонент, якщо макет його рендерить, називається `<Name>Layout` і розміщує `<Outlet />`.
 - Guard розміщується в `beforeLoad` макета, якому належить розділ: `beforeLoad: requireAdmin` в `admin.tsx`, `requireSignedIn` в `app.tsx`, обидва — макети розділу автентифікації. Guard-и вирішують лише навігацію; кожна серверна функція все одно перевіряє власний дозвіл.
 
@@ -99,9 +99,9 @@ export const Route = createFileRoute("/admin/courses")({
 
 `sort-keys` вимкнено в `src/routes`, бо TanStack Router виводить типи в порядку оголошення. Опції йдуть за алфавітом, але `validateSearch` стоїть першим, перед усім, що читає параметри пошуку:
 
-```tsx
+```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     error: searchText(),
     token: searchText(),
   }),
@@ -224,11 +224,11 @@ export const AUTH_NAVIGATION = [
 
 Статистика панелі має `prefetch`, який виконує loader `/admin`, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число.
 
-Скелетон сторінки пов’язує `to` сторінки з її `pendingComponent`, тим самим скелетоном, який задає маршрут сторінки. Скелетони макетів `AdminPending`, `AppPending` і `MarketingPending` малюють скелетон поточного шляху, коли хтось заходить у їхній макет з іншого місця. Розділ оголошує скелетони всіх своїх сторінок, хоч би який макет їх показував: розділ ліцензії оголошує `/app` і `/app/license`, а юридичний розділ — свої п’ять публічних сторінок.
+Скелетон сторінки пов’язує `to` сторінки з її `pendingComponent`, тим самим скелетоном, який задає маршрут сторінки. Скелетони макетів `AdminPending`, `AppPending` і `MarketingPending` малюють скелетон поточного шляху, коли хтось заходить у їхній макет з іншого місця. Розділ оголошує скелетони всіх своїх сторінок, хоч би який макет їх показував: розділ ліцензії оголошує `/app/license` і `/withdrawal`, а юридичний розділ — свої п’ять публічних сторінок.
 
 Файл доступу розділу оголошує декларації дозволів його ресурсів і ролі, яким він їх надає. `auth.access.ts` будує контроль доступу Better Auth з `APP_STATEMENTS`, а кожну роль — з `grantsOf(role)`, тож інтеграція автентифікації не називає жодного розділу, а `APP_STATEMENTS` падає, коли два розділи оголошують той самий ресурс (див. [Ролі та дозволи](/docs/guides/roles-and-permissions)).
 
-Списки в `src/data/navigation.ts` і `PAGE_SKELETONS` мають оголошені типи, `NavigationEntry` і `PageSkeleton`, а не типи пунктів, які розділи оголошують зараз, тож розміщення, яке не заповнює жоден розділ, як-от дії панелі в проєкті без розділу продуктів, є порожнім списком, що все одно проходить перевірку типів. `navigation.test.ts` і `skeletons.test.ts` під час компіляції перевіряють, що `to` кожного пункту й кожного скелетона, які оголошує розділ, є шляхом дерева маршрутів (`FileRouteTypes["to"]` із `src/routeTree.gen.ts`).
+Списки в `src/data/navigation.ts` і `PAGE_SKELETONS` мають оголошені типи, `NavigationEntry` і `PageSkeleton`, а не типи пунктів, які розділи оголошують зараз, тож розміщення, яке не заповнює жоден розділ, як-от дії панелі в проєкті без розділу платежів, є порожнім списком, що все одно проходить перевірку типів. `navigation.test.ts` і `skeletons.test.ts` під час компіляції перевіряють, що `to` кожного пункту й кожного скелетона, які оголошує розділ, є шляхом дерева маршрутів (`FileRouteTypes["to"]` із `src/routeTree.gen.ts`).
 
 Пункт вказує свій розділ у полі `area`, а розділ підписує його у власному файлі повідомлень: `<placement>.<key>` у `messages/<locale>/navigation.<area>.json`, як-от `admin.courses` і `header.courses` у `navigation.courses.json`. Статистику панелі підписано за її `key` у `dashboard.<area>.json`, а секція адмін-панелі підписує свої підсторінки для хлібних крихт під `breadcrumbs.<segment>` у своєму `navigation.<area>.json`, як-от `breadcrumbs.create`; вкладку керування користувачами підписано під `userTabs.<key>`, що називає вкладку та її сторінку в хлібних крихтах, а панель панелі керування тримає свої тексти під своїм `key` у `dashboard.<area>.json`. Обидва види файлів є кореневими просторами імен, тож кожне меню може підписати кожен пункт, а `useNavigationLabel` у `src/hooks/use-navigation-label.ts` повертає підпис пункту. Те, що належить самому меню, лишається в його просторі імен: `groups.<group>` у `pages.admin.sidebar`, `columns.<column>` у `components.custom.footer` і заклик до дії, кнопка меню та посилання для переходу до вмісту із заголовка в `components.custom.navigation`. `enum-labels.test.ts` падає, коли пункту чи статистиці бракує підпису в якійсь локалі.
 

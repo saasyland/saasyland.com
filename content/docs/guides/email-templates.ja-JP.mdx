@@ -3,21 +3,25 @@ title: "メールテンプレート"
 description: "翻訳済みのメッセージを使う React Email テンプレートを書き、ユースケースから Resend 経由で送信します。"
 ---
 
-メールは 3 つの部分で構成されます。`src/presentation/emails/` にあるテンプレート、`messages/<locale>/emails.<name>.json` にあるメッセージの名前空間、そしてメッセージを読み込み、テンプレートをレンダリングして送信するユースケースです。テンプレートは `verify-email`、`reset-password-email`、`change-email-confirmation-email`、`newsletter-confirmation-email`、`newsletter-notification-email`、`purchase-confirmation-email` です。
+メールは 3 つの部分で構成されます。`src/presentation/emails/` にあるテンプレート、`messages/<locale>/emails.<name>.json` にあるメッセージの名前空間、そしてメッセージを読み込み、テンプレートをレンダリングして送信するユースケースです。すべてのテンプレートと、それを送信するユースケースは [Resend](/docs/integrations/resend) のページにまとめています。
 
 ## テンプレート
 
 テンプレートはマークアップだけを含み、自分の名前空間をエクスポートします。React のコンテキストの外でレンダリングされるため、`use-intl` の `createTranslator` で翻訳します。`src/presentation/emails/verify-email.tsx`：
 
-```tsx
+```tsx title="src/presentation/emails/verify-email.tsx"
 import type { JSX } from "react"
 
 import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
 import { createTranslator } from "use-intl"
 
+import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+import { APP_NAME } from "~/src/presentation/branding"
+import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
+import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
 
 export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
 
@@ -38,8 +42,9 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
       <Tailwind config={TAILWIND_CONFIG}>
         <Head />
         <Body className="font-sans">
-          <Preview>{t("preview")}</Preview>
+          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
           <Container className="mx-auto px-5 py-10">
+            <EmailBrandHeader />
             <Section>
               <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
               <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
@@ -49,6 +54,8 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
               >
                 {t("button")}
               </Button>
+              <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
+              <EmailFallbackLink label={t("fallback")} url={verifyUrl} />
               <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
             </Section>
           </Container>
@@ -63,13 +70,15 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 すべてのロケールに `messages/<locale>/emails.<name>.json` を作成します。`subject` キーを含めてください。ユースケースは、これを本文とは別に翻訳します。
 
-```json
+```json title="messages/en-US/emails.verify-email.json"
 {
   "subject": "Verify your email address",
-  "preview": "Verify your email for SaaSy Land",
+  "preview": "Verify your email for {appName}",
   "heading": "Verify your email",
   "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
   "button": "Verify email",
+  "expiry": "The link works for {hours, plural, one {# hour} other {# hours}}.",
+  "fallback": "If the button does not work, copy this link into your browser:",
   "footer": "If you did not create an account, you can safely ignore this email."
 }
 ```
@@ -80,7 +89,7 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 ユースケースは受け取ったコールバック URL からロケールを取り出し、受信者ごとの上限を確認し、メッセージを読み込み、`localizePathname` で絶対リンクを組み立て、`sendEmail` を呼び出します。`src/modules/verification/use-cases/send-verify-email.ts`：
 
-```ts
+```ts title="src/modules/verification/use-cases/send-verify-email.ts"
 export const sendVerifyEmail = async ({
   callbackURL,
   token,
@@ -118,10 +127,12 @@ export const sendVerifyEmail = async ({
 
 ## 誰が何を送るか
 
-- `src/integrations/better-auth/auth.server.ts` の Better Auth のフックが、`RESEND_AUTH_EMAILS`（`src/data/resend.auth-emails.ts`）を通じてユースケースを呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、認証済みアカウントでの再度のサインアップには `sendExistingAccountEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`emailAndPassword.onPasswordReset` には `sendPasswordChangedEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail` を使います。
+- `src/integrations/better-auth/auth.server.ts` の Better Auth のフックが、`RESEND_AUTH_EMAILS`（`src/data/resend.auth-emails.ts`）を通じてユースケースを呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、認証済みアカウントでの再度のサインアップには `sendExistingAccountEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`emailAndPassword.onPasswordReset` には `sendPasswordChangedEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail`、`user.deleteUser.sendDeleteAccountVerification` には `sendDeleteAccountEmail` を使います。
 - Better Auth へのリクエストはロケールのプレフィックスなしで `/api/auth` に届くため、フックはフローの `callbackURL`（ローカライズされたページのパス）から、`src/integrations/use-intl/i18n.paths.ts` の `extractLocaleFromCallbackURL` または `extractLocaleFromPath` を使ってメールのロケールを決めます。フォールバックは英語です。
 - ニュースレターのユースケースは、ニュースレターの確認メールと通知メールを自ら送信します。例えば `subscribeToNewsletter` です。
 - ライセンスのエリアの Webhook ハンドラー `onOrderPaid` は、ライセンスを付与した後に `sendPurchaseConfirmationEmail` を呼び出します。このメールは、言語を注文の `metadata.locale` から、リンクを Webhook を受け取ったホストから、冪等性トークンを Polar の注文 ID から得ます。送信に失敗するとハンドラーも失敗し、Polar が再送します。
+- 支払い済みのライセンスの注文がどのアカウントにも対応しない場合、`onOrderPaid` は何も付与せずに `sendUnmatchedOrderAlert` を呼び出し、サイトのオーナーに英語で知らせます。
+- `submitWithdrawal` が呼び出す `recordWithdrawal` は、撤回の意思表示の受領確認を送信元のページの言語で送り、撤回の通知をサイトのオーナーに英語で送ります。送信に失敗してもログに記録するだけで、意思表示の受け付けは失敗しません。
 - `sendVerifyEmail`、`sendResetPasswordEmail`、`sendExistingAccountEmail`、`subscribeToNewsletter` は、送信前に `withinRecipientRateLimit`（`src/lib/rate-limit.ts`）を呼び出します。アドレスの SHA-256 ハッシュをキーとして、1 種類のメールにつきアドレスごとに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までです。上限を超えると警告をログに記録し、何も送信しません。アカウントなしで訪問者が送信をトリガーできるメールには、同じチェックを追加してください。
 
 ## メールを追加する

@@ -38,17 +38,17 @@ La clave de la lista guarda la entrada ya parseada, así que `getCoursesPageQuer
 
 Una consulta cuyo resultado es el mismo para cualquier visitante, sea quien sea el usuario con sesión iniciada, declara `meta: { public: true }`:
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-Las traducciones (`messagesQueryOptions`), el número de estrellas de GitHub (`starCountQuery`), el catálogo de cursos (`catalogueQuery`) y el bloque de cursos de la página de inicio (`courseShowcaseQuery`) son públicos. Cualquier otra consulta pertenece al usuario con sesión iniciada. Cuando cambia el usuario, `removeUserData` en `auth.session.ts` elimina esas consultas y todas las mutaciones y conserva las públicas, así que el siguiente usuario nunca ve los datos del anterior y una página prerenderizada conserva los datos con los que se renderizó: el indicador viaja con cada consulta que el servidor deshidrata en la página. Una consulta sin el indicador se vuelve a pedir para el siguiente usuario, lo que cuesta una petición pero nunca filtra datos, así que marca una consulta como pública solo cuando su función de servidor nunca lee la sesión. `auth.session.test.ts` ejecuta cada consulta pública y falla si alguna lee la sesión, o si un archivo fuente declara una consulta pública que la prueba no ejecuta. Cada área enumera sus consultas públicas para esa prueba en `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+Las traducciones (`messagesQueryOptions`) y el número de estrellas de GitHub (`starCountQuery`) son públicos. Cualquier otra consulta pertenece al usuario con sesión iniciada. Cuando cambia el usuario, `removeUserData` en `auth.session.ts` elimina esas consultas y todas las mutaciones y conserva las públicas, así que el siguiente usuario nunca ve los datos del anterior y una página prerenderizada conserva los datos con los que se renderizó: el indicador viaja con cada consulta que el servidor deshidrata en la página. Una consulta sin el indicador se vuelve a pedir para el siguiente usuario, lo que cuesta una petición pero nunca filtra datos, así que marca una consulta como pública solo cuando su función de servidor nunca lee la sesión. `auth.session.test.ts` ejecuta cada consulta pública y falla si alguna lee la sesión, o si un archivo fuente declara una consulta pública que la prueba no ejecuta. Cada área enumera sus consultas públicas para esa prueba en `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Frescura
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-Una consulta que necesita otra frescura establece `staleTime` con una constante con nombre que explica el motivo: `PLAYBACK_STALE_MS` (una hora, dentro de la vida útil de una URL de reproducción firmada), `REFRESH_AFTER_MS` para el número de estrellas de GitHub e `Infinity` para los mensajes de traducción, que solo cambian con un despliegue. Nunca crees un `QueryClient` a nivel de módulo; en el servidor compartiría los datos de un usuario con la siguiente petición.
+Una consulta que necesita otra frescura establece `staleTime` con una constante con nombre que explica el motivo: `PLAYBACK_STALE_MS` (una hora, dentro de la vida útil de una URL de reproducción firmada), `STAR_COUNT_REFRESH_AFTER_MS` para el número de estrellas de GitHub e `Infinity` para los mensajes de traducción, que solo cambian con un despliegue. Nunca crees un `QueryClient` a nivel de módulo; en el servidor compartiría los datos de un usuario con la siguiente petición.
 
 ## Los loaders precargan, los componentes leen
 

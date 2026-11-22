@@ -38,17 +38,17 @@ Der Listen-Key speichert die geparste Eingabe, sodass `getCoursesPageQuery()` un
 
 Eine Query, deren Ergebnis für jeden Besucher gleich ist, egal wer angemeldet ist, deklariert `meta: { public: true }`:
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-Die Übersetzungen (`messagesQueryOptions`), die Anzahl der GitHub-Sterne (`starCountQuery`), der Kurskatalog (`catalogueQuery`) und der Kursblock der Landingpage (`courseShowcaseQuery`) sind öffentlich. Jede andere Query gehört dem angemeldeten Nutzer. Wechselt der Nutzer, entfernt `removeUserData` in `auth.session.ts` diese Queries und jede Mutation und behält die öffentlichen, sodass der nächste Nutzer nie die Daten des vorherigen sieht und eine vorgerenderte Seite die Daten behält, mit denen sie gerendert wurde: Das Flag reist mit jeder Query mit, die der Server in die Seite dehydriert. Eine Query ohne das Flag wird für den nächsten Nutzer neu geladen, was eine Anfrage kostet, aber nie Daten preisgibt; markiere eine Query deshalb nur dann als öffentlich, wenn ihre Server Function nie die Session liest. `auth.session.test.ts` führt jede öffentliche Query aus und schlägt fehl, wenn eine davon die Session liest oder wenn eine Quelldatei eine öffentliche Query deklariert, die der Test nicht ausführt. Jeder Bereich listet seine öffentlichen Abfragen für diesen Test in `src/integrations/better-auth/__test__/<area>.public-queries.ts` auf.
+Die Übersetzungen (`messagesQueryOptions`) und die Anzahl der GitHub-Sterne (`starCountQuery`) sind öffentlich. Jede andere Query gehört dem angemeldeten Nutzer. Wechselt der Nutzer, entfernt `removeUserData` in `auth.session.ts` diese Queries und jede Mutation und behält die öffentlichen, sodass der nächste Nutzer nie die Daten des vorherigen sieht und eine vorgerenderte Seite die Daten behält, mit denen sie gerendert wurde: Das Flag reist mit jeder Query mit, die der Server in die Seite dehydriert. Eine Query ohne das Flag wird für den nächsten Nutzer neu geladen, was eine Anfrage kostet, aber nie Daten preisgibt; markiere eine Query deshalb nur dann als öffentlich, wenn ihre Server Function nie die Session liest. `auth.session.test.ts` führt jede öffentliche Query aus und schlägt fehl, wenn eine davon die Session liest oder wenn eine Quelldatei eine öffentliche Query deklariert, die der Test nicht ausführt. Jeder Bereich listet seine öffentlichen Abfragen für diesen Test in `src/integrations/better-auth/__test__/<area>.public-queries.ts` auf.
 
 ## Aktualität
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-Eine Query, die eine andere Aktualität braucht, setzt `staleTime` mit einer benannten Konstante, die den Grund nennt: `PLAYBACK_STALE_MS` (eine Stunde, innerhalb der Lebensdauer einer signierten Wiedergabe-URL), `REFRESH_AFTER_MS` für die Anzahl der GitHub-Sterne, `Infinity` für Übersetzungsnachrichten, die sich nur mit einem Deployment ändern. Erstelle nie einen `QueryClient` auf Modulebene; auf dem Server würde er die Daten eines Nutzers mit der nächsten Anfrage teilen.
+Eine Query, die eine andere Aktualität braucht, setzt `staleTime` mit einer benannten Konstante, die den Grund nennt: `PLAYBACK_STALE_MS` (eine Stunde, innerhalb der Lebensdauer einer signierten Wiedergabe-URL), `STAR_COUNT_REFRESH_AFTER_MS` für die Anzahl der GitHub-Sterne, `Infinity` für Übersetzungsnachrichten, die sich nur mit einem Deployment ändern. Erstelle nie einen `QueryClient` auf Modulebene; auf dem Server würde er die Daten eines Nutzers mit der nächsten Anfrage teilen.
 
 ## Loader laden vor, Komponenten lesen
 

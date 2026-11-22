@@ -3,7 +3,7 @@ title: "Code style"
 description: "What the formatter, linter, compiler and comment check enforce: no comments, no escape hatches, one-line ternaries, no ?? undefined and named constants."
 ---
 
-`bun run check` runs `bun run check:comments` and then `vp check`, which formats with oxfmt, lints with oxlint and type-checks with TypeScript in one pass, with the configuration in `vite.config.ts` and `tsconfig.json`. CI runs the same command. Nothing here is a matter of taste: if the tools accept code that breaks a rule on this page, review rejects it.
+`bun run check` runs `bun run generate:cn`, `bun run check:comments`, `bun run check:i18n` and `bun run check:flows`, and then `vp check`, which formats with oxfmt, lints with oxlint and type-checks with TypeScript in one pass, with the configuration in `vite.config.ts` and `tsconfig.json`. CI runs the same command. Nothing here is a matter of taste: if the tools accept code that breaks a rule on this page, review rejects it.
 
 ## What the tools enforce
 
@@ -24,8 +24,11 @@ oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspi
 | `code-style/no-comments`                | `error`                                                       | No comment, directive comments included                   |
 | `code-style/no-multiline-ternary`       | `error`                                                       | A ternary fits on one line                                |
 | `code-style/no-undefined-fallback`      | `error`                                                       | No `?? undefined`                                         |
+| `radius/no-off-scale`                   | `error`                                                       | Every corner takes a radius from the scale                |
+| `type/no-off-scale`                     | `error`                                                       | Every text size is a step of the type scale               |
+| `type/mono-for-code`                    | `error`                                                       | The monospaced face is only for code                      |
 
-The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null`, `hydration/no-clock-or-locale-in-render` and `admin-data/no-literal-data`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)); and the admin's routes, components and data files turn on `admin-data/no-literal-data` (see [Admin dashboard](/docs/features/admin-dashboard#real-data-only)).
+The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null`, `hydration/no-clock-or-locale-in-render` and `admin-data/no-literal-data`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)); and the admin's routes, components and data files turn on `admin-data/no-literal-data` (see [Admin dashboard](/docs/features/admin-dashboard#real-data-only)). All of `src` turns on `radius/no-off-scale`, `type/no-off-scale` and `type/mono-for-code`, which tests and `src/platform/testing` turn off again, and `src/presentation/social-card.tsx` turns off `type/no-off-scale`, because Takumi renders the social card as an image of a fixed size whose text sizes are set in inline styles rather than on the page's type scale (see [Theme](/docs/ui/theme#type-scale)).
 
 `tsconfig.json` adds the strict flags that change how code is written: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` and `noUnusedParameters`. An indexed read is possibly `undefined`, an optional property cannot be set to `undefined` explicitly, and an index signature is read as `record["key"]`.
 
@@ -73,7 +76,7 @@ Never write `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`
 
 ## Null and undefined
 
-Outside tests and `src/platform/testing`, an absent value is `undefined`, and `null` is never written as a value. The linter allows it where an API defines it: in a comparison with a value that can be `null`, such as a nullable column (`entry.completedAt !== null` in `get-course.ts`), and in a React DOM ref, which starts as `useRef<HTMLElement>(null)` because React types `ref` as `RefObject<T | null>` and sets it back to `null` on unmount (`course-showcase.tsx`). Never bridge an API that returns `null` with `?? undefined`; `code-style/no-undefined-fallback` fails it. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
+Outside tests and `src/platform/testing`, an absent value is `undefined`, and `null` is never written as a value. The linter allows it where an API defines it: in a comparison with a value that can be `null`, such as a nullable column (`entry.completedAt !== null` in `course.outline.ts`), and in a React DOM ref, which starts as `useRef<HTMLElement>(null)` because React types `ref` as `RefObject<T | null>` and sets it back to `null` on unmount (`course-showcase.tsx`). Never bridge an API that returns `null` with `?? undefined`; `code-style/no-undefined-fallback` fails it. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
 
 ```ts
 export const authSearchSchema = zod.object({

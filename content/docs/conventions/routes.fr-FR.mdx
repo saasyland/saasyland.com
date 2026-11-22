@@ -9,7 +9,7 @@ Chaque fichier de `src/routes` a la même forme : qui en connaît un les connaî
 
 `src/routes/admin.courses.index.tsx` :
 
-```tsx
+```tsx title="src/routes/admin.courses.index.tsx"
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
 
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 Une page dont le titre provient d'un enregistrement attend cet enregistrement et construit son head à partir des données du loader, comme le fait `admin.courses.$courseId.tsx` :
 
-```tsx
+```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 
 `src/routes/admin.courses.tsx` :
 
-```tsx
+```tsx title="src/routes/admin.courses.tsx"
 const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
 
 export const Route = createFileRoute("/admin/courses")({
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Un layout déclare `const NAMESPACES = [...] as const` au-dessus de `export const Route` et les précharge. Lorsqu'il n'en a aucun, il omet l'option ; il n'y a pas de `namespaces: []`.
-- Un namespace dont un composant d'une autre zone a besoin dans le layout est ajouté par cette zone dans `src/data/<area>.namespaces.ts`, qui nomme le layout par son identifiant de route, et le layout étale `...layoutNamespaces("/app")` dans ses `NAMESPACES`. La zone de la licence ajoute `pages.license` à `/app`, dont la vue d'ensemble affiche la carte et l'offre de licence, et la zone de la newsletter ajoute `auth.validations` à `/_site/_marketing` et `/_site/docs`, dont les pieds de page affichent le formulaire de la newsletter. `namespaces.test.ts` vérifie à la compilation que chaque layout qu'une zone nomme est un identifiant de route.
+- Un namespace dont un composant d'une autre zone a besoin dans le layout est ajouté par cette zone dans `src/data/<area>.namespaces.ts`, qui nomme le layout par son identifiant de route, et le layout étale `...layoutNamespaces("/app")` dans ses `NAMESPACES`. La zone de la licence ajoute `pages.license`, `pages.withdrawal` et `withdrawal.validations` à `/app`, dont la vue d'ensemble affiche la carte et l'offre de licence et dont la page de licence affiche la carte de rétractation, `withdrawal.validations` à `/_site/_marketing` et `pages.admin.users.license` à `/admin/users` ; la zone des paiements ajoute `pages.admin.customers` et `pages.admin.orders` à `/admin/users` ; et la zone de la newsletter ajoute `auth.validations` à `/_site/_marketing` et `/_site/docs`, dont les pieds de page affichent le formulaire de la newsletter. `namespaces.test.ts` vérifie à la compilation que chaque layout qu'une zone nomme est un identifiant de route.
 - Le composant, lorsque le layout en affiche un, est nommé `<Name>Layout` et place un `<Outlet />`.
 - Un guard va dans le `beforeLoad` du layout qui possède la zone : `beforeLoad: requireAdmin` dans `admin.tsx`, `requireSignedIn` dans `app.tsx`, les deux layouts de la zone d'authentification. Les guards ne décident que de la navigation ; chaque fonction serveur vérifie toujours sa propre permission.
 
@@ -99,9 +99,9 @@ export const Route = createFileRoute("/admin/courses")({
 
 `sort-keys` est désactivé dans `src/routes`, car TanStack Router infère les types dans l'ordre de déclaration. Les options sont classées par ordre alphabétique, sauf `validateSearch`, qui vient en premier, avant tout ce qui lit la recherche :
 
-```tsx
+```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     error: searchText(),
     token: searchText(),
   }),
@@ -224,11 +224,11 @@ La zone de la licence ajoute son entrée **Licence** à la barre latérale de l'
 
 Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` exécute, et un hook `useValue`, que `DashboardStats` appelle pour lire le nombre.
 
-Un squelette de page associe le `to` de la page à son `pendingComponent`, le même squelette que celui que définit la route de la page. Les squelettes de layout `AdminPending`, `AppPending` et `MarketingPending` affichent celui du chemin courant quand on entre dans leur layout depuis une autre partie du site. Une zone déclare les squelettes de toutes ses pages, quel que soit le layout qui les affiche : la zone de la licence déclare `/app` et `/app/license`, et la zone juridique ses cinq pages publiques.
+Un squelette de page associe le `to` de la page à son `pendingComponent`, le même squelette que celui que définit la route de la page. Les squelettes de layout `AdminPending`, `AppPending` et `MarketingPending` affichent celui du chemin courant quand on entre dans leur layout depuis une autre partie du site. Une zone déclare les squelettes de toutes ses pages, quel que soit le layout qui les affiche : la zone de la licence déclare `/app/license` et `/withdrawal`, et la zone juridique ses cinq pages publiques.
 
 Le fichier d'accès d'une zone contient les déclarations de permissions de ses ressources et les rôles auxquels elle les accorde. `auth.access.ts` construit le contrôle d'accès de Better Auth à partir de `APP_STATEMENTS` et chaque rôle à partir de `grantsOf(role)` : l'intégration d'authentification ne nomme donc aucune zone, et `APP_STATEMENTS` échoue quand deux zones déclarent la même ressource (voir [Rôles et permissions](/docs/guides/roles-and-permissions)).
 
-Les listes de `src/data/navigation.ts` et `PAGE_SKELETONS` ont des types déclarés, `NavigationEntry` et `PageSkeleton`, plutôt que les types des entrées que les zones déclarent à un moment donné : un emplacement qu'aucune zone ne remplit, comme les actions du tableau de bord dans un projet sans la zone des produits, est donc une liste vide qui passe toujours la vérification des types. `navigation.test.ts` et `skeletons.test.ts` vérifient à la compilation que le `to` de chaque entrée et de chaque squelette qu'une zone déclare est un chemin de l'arbre des routes (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`).
+Les listes de `src/data/navigation.ts` et `PAGE_SKELETONS` ont des types déclarés, `NavigationEntry` et `PageSkeleton`, plutôt que les types des entrées que les zones déclarent à un moment donné : un emplacement qu'aucune zone ne remplit, comme les actions du tableau de bord dans un projet sans la zone des paiements, est donc une liste vide qui passe toujours la vérification des types. `navigation.test.ts` et `skeletons.test.ts` vérifient à la compilation que le `to` de chaque entrée et de chaque squelette qu'une zone déclare est un chemin de l'arbre des routes (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`).
 
 Une entrée indique son `area`, et la zone lui donne son libellé dans son propre fichier de messages : `<placement>.<key>` dans `messages/<locale>/navigation.<area>.json`, comme `admin.courses` et `header.courses` dans `navigation.courses.json`. Une statistique du tableau de bord a son libellé sous sa `key` dans `dashboard.<area>.json`, et une section d'administration définit les libellés de ses sous-pages dans le fil d'Ariane sous `breadcrumbs.<segment>` dans son `navigation.<area>.json`, comme `breadcrumbs.create` ; un onglet de la gestion des utilisateurs a son libellé sous `userTabs.<key>`, qui nomme l’onglet et sa page dans le fil d'Ariane, et un panneau du tableau de bord garde ses textes sous sa `key` dans `dashboard.<area>.json`. Ces deux sortes de fichiers sont des namespaces racine : chaque menu peut donc afficher le libellé de n'importe quelle entrée, et `useNavigationLabel` dans `src/hooks/use-navigation-label.ts` renvoie le libellé d'une entrée. Ce qui appartient au menu lui-même reste dans son namespace : `groups.<group>` dans `pages.admin.sidebar`, `columns.<column>` dans `components.custom.footer` et l'appel à l'action, le bouton du menu et le lien d'évitement de l'en-tête dans `components.custom.navigation`. `enum-labels.test.ts` échoue quand une entrée ou une statistique n'a pas de libellé dans une locale.
 

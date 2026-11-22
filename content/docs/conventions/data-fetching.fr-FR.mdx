@@ -38,17 +38,17 @@ La clé de la liste stocke l'entrée analysée, si bien que `getCoursesPageQuery
 
 Une query dont le résultat est le même pour chaque visiteur, quel que soit l'utilisateur connecté, déclare `meta: { public: true }` :
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-Les traductions (`messagesQueryOptions`), le nombre d'étoiles GitHub (`starCountQuery`), le catalogue des cours (`catalogueQuery`) et le bloc des cours de la page d'accueil (`courseShowcaseQuery`) sont publics. Toute autre query appartient à l'utilisateur connecté. Quand l'utilisateur change, `removeUserData` dans `auth.session.ts` supprime ces queries et toutes les mutations et garde les queries publiques : l'utilisateur suivant ne voit donc jamais les données du précédent, et une page prérendue garde les données avec lesquelles elle a été rendue, car l'indicateur accompagne chaque query que le serveur déshydrate dans la page. Une query sans l'indicateur est récupérée à nouveau pour l'utilisateur suivant, ce qui coûte une requête mais ne divulgue jamais de données ; ne marquez donc une query comme publique que si sa fonction serveur ne lit jamais la session. `auth.session.test.ts` exécute chaque query publique et échoue si l'une d'elles lit la session, ou si un fichier source déclare une query publique que le test n'exécute pas. Chaque zone liste ses requêtes publiques pour ce test dans `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+Les traductions (`messagesQueryOptions`) et le nombre d'étoiles GitHub (`starCountQuery`) sont publics. Toute autre query appartient à l'utilisateur connecté. Quand l'utilisateur change, `removeUserData` dans `auth.session.ts` supprime ces queries et toutes les mutations et garde les queries publiques : l'utilisateur suivant ne voit donc jamais les données du précédent, et une page prérendue garde les données avec lesquelles elle a été rendue, car l'indicateur accompagne chaque query que le serveur déshydrate dans la page. Une query sans l'indicateur est récupérée à nouveau pour l'utilisateur suivant, ce qui coûte une requête mais ne divulgue jamais de données ; ne marquez donc une query comme publique que si sa fonction serveur ne lit jamais la session. `auth.session.test.ts` exécute chaque query publique et échoue si l'une d'elles lit la session, ou si un fichier source déclare une query publique que le test n'exécute pas. Chaque zone liste ses requêtes publiques pour ce test dans `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Fraîcheur
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-Une query qui a besoin d'une autre fraîcheur définit `staleTime` avec une constante nommée qui en dit la raison : `PLAYBACK_STALE_MS` (une heure, dans la durée de vie d'une URL de lecture signée), `REFRESH_AFTER_MS` pour le nombre d'étoiles GitHub, `Infinity` pour les messages de traduction, qui ne changent qu'avec un déploiement. Ne créez jamais de `QueryClient` au niveau du module ; côté serveur, il partagerait les données d'un utilisateur avec la requête suivante.
+Une query qui a besoin d'une autre fraîcheur définit `staleTime` avec une constante nommée qui en dit la raison : `PLAYBACK_STALE_MS` (une heure, dans la durée de vie d'une URL de lecture signée), `STAR_COUNT_REFRESH_AFTER_MS` pour le nombre d'étoiles GitHub, `Infinity` pour les messages de traduction, qui ne changent qu'avec un déploiement. Ne créez jamais de `QueryClient` au niveau du module ; côté serveur, il partagerait les données d'un utilisateur avec la requête suivante.
 
 ## Les loaders préchargent, les composants lisent
 

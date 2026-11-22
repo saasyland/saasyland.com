@@ -1,18 +1,25 @@
-import type { JSX } from "react"
+import { type JSX, Suspense } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
+import type { LicenseTier } from "~/src/modules/license/license.constants"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
 import { DeactivateActivationButton } from "~/src/presentation/components/custom/app/deactivate-activation-button"
+import { LicenseActivationsPending } from "~/src/presentation/components/custom/app/license-pending"
 
-export const LicenseActivations = (): JSX.Element => {
+interface LicenseActivationsProps {
+  readonly polarLicenseKeyId: string
+  readonly tier: LicenseTier
+}
+
+const ActivationsCard = (issued: LicenseActivationsProps): JSX.Element => {
   const t = useTranslations()
 
-  const { activations, limitActivations } = useSuspenseQuery(licenseActivationsQuery).data
+  const { activations, limitActivations } = useSuspenseQuery(licenseActivationsQuery(issued)).data
 
   return (
     <Card>
@@ -45,3 +52,9 @@ export const LicenseActivations = (): JSX.Element => {
     </Card>
   )
 }
+
+export const LicenseActivations = (issued: LicenseActivationsProps): JSX.Element => (
+  <Suspense fallback={<LicenseActivationsPending />}>
+    <ActivationsCard {...issued} />
+  </Suspense>
+)

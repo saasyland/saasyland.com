@@ -22,6 +22,17 @@ const CHECKOUT_REFUSED = {
   title: "checkout funnel › a browser that cannot show Polar's checkout over the page goes to Polar's checkout page instead",
 } as const
 
+const CHECKOUT_HOSTED_PAID = {
+  spec: "checkout-funnel.spec.ts",
+  title:
+    "checkout funnel › a buyer who pays on Polar's own checkout page comes back without Polar's customer session token in any address, signed in or not",
+} as const
+
+const KEY_ARRIVES_IN_PLACE = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a key that arrives while the licence page is open shows its machine limit at once, without a reload",
+} as const
+
 const CHECKOUT_POLICY = {
   spec: "content-security-policy.spec.ts",
   title: "content security policy › a customer pays in Polar's checkout over the workspace under its policy, which frames only Polar's checkout",
@@ -156,6 +167,14 @@ export const LICENSE_FLOWS = [
   },
   {
     area: FLOW_AREA.PURCHASE,
+    id: "checkout-hosted-paid",
+    outcome:
+      "A buyer who pays on Polar's own checkout page comes back to Payment received at an address without the customer session token Polar appends, and a signed-out buyer signs in through a link that does not carry it either",
+    status: FLOW_STATUS.COVERED,
+    tests: [CHECKOUT_HOSTED_PAID],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
     id: "unconfirmed-buyer-gates",
     outcome:
       "A buyer who paid before confirming the address sees no key, no invoices link and no paid lesson until the link is opened, and the portal refuses them",
@@ -259,6 +278,13 @@ export const LICENSE_FLOWS = [
     outcome: "The key from the benefit_grant.created webhook appears on /app/license with the CLI commands, each with a copy button",
     status: FLOW_STATUS.COVERED,
     tests: [BUY_CORE, BUY_COMPLETE_WITH_KEY, BUY_AGENCY],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
+    id: "key-arrives-in-place",
+    outcome: "A key that arrives while /app/license is open appears there with its machine limit, without a reload and without a limit of zero",
+    status: FLOW_STATUS.COVERED,
+    tests: [KEY_ARRIVES_IN_PLACE],
   },
   {
     area: FLOW_AREA.PURCHASE,
@@ -497,6 +523,14 @@ export const LICENSE_FLOWS = [
     id: "upgrade-tier",
     outcome:
       "A Core holder opens the upgrade to Complete from the licence page, pays the higher tier's price less what was paid, and keeps the same key with Complete's machine limit",
+    status: FLOW_STATUS.COVERED,
+    tests: [UPGRADE],
+  },
+  {
+    area: FLOW_AREA.LICENCE,
+    id: "upgrade-activation",
+    outcome:
+      "After paying an upgrade the page says Payment received until the higher tier applies and then thanks the buyer for that tier, never for the one they had",
     status: FLOW_STATUS.COVERED,
     tests: [UPGRADE],
   },

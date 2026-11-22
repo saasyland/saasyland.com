@@ -69,7 +69,7 @@ test.describe("content security policy", () => {
 
     expect(frameSources).toStrictEqual([`frame-src ${new URL(await checkoutOverlay(page).getAttribute("src") ?? "").origin}`])
     await payInCheckoutOverlay(page)
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(page).toHaveURL(new RegExp(String.raw`/app\?checkoutId=[\da-f-]{36}&tier=${LICENSE_TIER.COMPLETE}$`, "u"))
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
   })
 })

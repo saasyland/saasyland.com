@@ -69,9 +69,9 @@ export const startCheckout = createServerFn({ method: "POST" })
     }
 
     const productId = POLAR_PRODUCT_IDS[tier]
-    const returnTo = redirect === undefined ? "" : `&${new URLSearchParams({ redirect }).toString()}`
+    const purchase = new URLSearchParams({ ...(redirect === undefined ? {} : { redirect }), tier })
     const successUrl = new URL(
-      `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}${returnTo}`,
+      `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}&${purchase.toString()}`,
       origin,
     )
     const { id, url } = await polar.checkouts.create({

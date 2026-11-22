@@ -130,7 +130,7 @@ describe("checkout", () => {
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       return_url: `${TEST_APP_URL}${RETURN_PATH}`,
-      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${checkout.id}`,
+      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.COMPLETE}`,
     })
   })
 
@@ -163,7 +163,7 @@ describe("checkout", () => {
     const checkout = await startCheckout(buyer, { redirect: "/courses/the-walkthrough/billing", tier: LICENSE_TIER.COMPLETE })
 
     expect(checkout.success_url).toBe(
-      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${checkout.id}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling`,
+      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${checkout.id}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling&tier=${LICENSE_TIER.COMPLETE}`,
     )
   })
 
@@ -547,13 +547,18 @@ describe("Polar webhook signatures", () => {
   })
 })
 
+const machinesOf = (grant: models.BenefitGrantLicenseKeysWebhook) =>
+  licenseActivationsQuery({ polarLicenseKeyId: polarLicenseKeyOf(grant).id, tier: LICENSE_TIER.CORE })
+
 describe("licence activations", () => {
-  it("shows nothing to manage before Polar has granted the key", async () => {
+  it("shows nothing to manage before Polar has granted the key, whatever key a stale page asks about", async () => {
     const buyer = await signUpAndVerify()
     await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, await paidOrder(buyer, LICENSE_TIER.CORE))
     actAs(buyer)
 
-    await expect(executeQuery(licenseActivationsQuery)).resolves.toStrictEqual({ activations: [], limitActivations: 0 })
+    const staleKey = { polarLicenseKeyId: crypto.randomUUID(), tier: LICENSE_TIER.CORE }
+
+    await expect(executeQuery(licenseActivationsQuery(staleKey))).resolves.toStrictEqual({ activations: [], limitActivations: 0 })
   })
 
   it("lists the machines activated with the buyer's key and the key's limit", async () => {
@@ -562,7 +567,7 @@ describe("licence activations", () => {
     const server = activatePolarLicenseKey(grant, "CI server")
     actAs(buyer)
 
-    await expect(executeQuery(licenseActivationsQuery)).resolves.toStrictEqual({
+    await expect(executeQuery(machinesOf(grant))).resolves.toStrictEqual({
       activations: [laptop, server],
       limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE],
     })
@@ -577,7 +582,7 @@ describe("licence activations", () => {
     await expect(executeMutation(deactivateLicenseMutation, { activationId: laptop.id })).resolves.toStrictEqual({ deactivated: true })
 
     expect(polarLicenseKeyOf(grant).activations).toStrictEqual([server])
-    await expect(executeQuery(licenseActivationsQuery)).resolves.toMatchObject({ activations: [server] })
+    await expect(executeQuery(machinesOf(grant))).resolves.toMatchObject({ activations: [server] })
   })
 
   it("answers NOT_FOUND for a machine activated with another buyer's key and leaves it activated", async () => {

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
 
 import { LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { hasReachedTier } from "~/src/modules/license/license.upgrades"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { CLI_KEY_LINES, CLI_SETUP_LINES } from "~/src/data/cli"
@@ -33,11 +34,12 @@ const usePendingLicenseView = () => {
   return {
     hasActivations: hasActiveLicense && typeof license.polarLicenseKeyId === "string",
     hasActiveLicense,
+    hasPaymentActivated: search.checkoutId !== undefined && hasReachedTier(license, search.tier),
     isAwaitingPayment: search.checkoutId !== undefined,
     isBuying,
     showsChosenTier: isBuying && search.tier !== undefined,
     showsLicense,
-    showsUpgrade: hasActiveLicense && search.tier !== undefined,
+    showsUpgrade: search.checkoutId === undefined && hasActiveLicense && search.tier !== undefined,
   }
 }
 
@@ -259,7 +261,7 @@ const GetStartedPending = (): JSX.Element => (
   </div>
 )
 
-const LicenseActivationsPending = (): JSX.Element => (
+export const LicenseActivationsPending = (): JSX.Element => (
   <Card>
     <CardHeader>
       <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
@@ -278,7 +280,7 @@ export const LicenseOverviewPending = (): JSX.Element => {
   return (
     <>
       {view.isAwaitingPayment && <ActivationPending />}
-      {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
+      {view.hasPaymentActivated && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsUpgrade && <UpgradeOfferPending />}
       {view.showsLicense && <LicenseStatusCardPending />}
@@ -295,7 +297,7 @@ export const AppLicensePending = (): JSX.Element => {
     <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
       <PageHeaderPending />
       {view.isAwaitingPayment && <ActivationPending />}
-      {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
+      {view.hasPaymentActivated && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsUpgrade && <UpgradeOfferPending />}
       {view.showsLicense && <LicenseCardPending isActive={view.hasActiveLicense} />}

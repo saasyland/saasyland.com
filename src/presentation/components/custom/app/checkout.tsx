@@ -83,7 +83,7 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
           buttonRef.current?.focus()
         },
         onPaid: () => {
-          void navigate({ search: { checkoutId: checkout.checkoutId, redirect }, to: ROUTES.APP })
+          void navigate({ search: { checkoutId: checkout.checkoutId, redirect, tier }, to: ROUTES.APP })
         },
         onUnavailable: () => {
           globalThis.location.href = checkout.url

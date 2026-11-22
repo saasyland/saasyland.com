@@ -158,6 +158,8 @@ const checkOut = async (
 ): Promise<void> => {
   const startedAt = page.url()
   const events = await overlayEvents(page)
+  const otherTiers = LICENSE_TIERS.filter((other) => other !== tier)
+  const thanked = await Promise.all(otherTiers.map(async (other) => appPage.watchForText(`Thank you for buying ${TIER_NAMES[other]}.`)))
   await button.click()
   await expect(checkoutOverlay(page)).toHaveAttribute("src", POLAR_SANDBOX_CHECKOUT)
   await expect(checkoutOverlay(page)).toBeFocused()
@@ -165,6 +167,7 @@ const checkOut = async (
   await new PolarCheckoutPage(page).pay(buyer)
 
   await page.waitForURL(/\/app\?checkoutId=/u, { timeout: WEBHOOK_TIMEOUT_MS })
+  expect(Object.fromEntries(new URL(page.url()).searchParams)).toMatchObject({ tier })
   await expect(checkoutOverlay(page)).toHaveCount(0)
   expect(events).toEqual([OVERLAY_EVENT.LOADED, OVERLAY_EVENT.CONFIRMED, OVERLAY_EVENT.SUCCESS])
   test.info().annotations.push({ description: `${TIER_NAMES[tier]}: ${events.join(", ")}`, type: "overlay events" })
@@ -172,6 +175,7 @@ const checkOut = async (
   await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible({ timeout: WEBHOOK_TIMEOUT_MS })
   await expect(page.getByText(`Thank you for buying ${TIER_NAMES[tier]}.`, { exact: false })).toBeVisible()
   await expect(page.getByRole("region", { name: "Get started" })).toBeVisible()
+  expect(await Promise.all(thanked.map(async (saw) => saw()))).toStrictEqual(otherTiers.map(() => false))
 }
 
 const buy = async (pages: Pages, buyer: Buyer, price: number): Promise<void> => {

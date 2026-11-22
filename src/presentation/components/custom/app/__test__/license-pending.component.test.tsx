@@ -108,10 +108,13 @@ describe("license skeletons", () => {
   it.each([
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
-  ])("mirrors the upgrade card of a license owner who picks a tier at %s", (path, Page) => {
+  ])("mirrors the upgrade card of a license owner who picks a tier at %s, and leaves it out once that upgrade is paid", (path, Page) => {
     expect(renderAt(<Page />, path, { owned: license() }).querySelector(SELECTORS.UPGRADE)).toBeNull()
     cleanup()
     expect(renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`, { owned: license() }).querySelector(SELECTORS.UPGRADE)).not.toBeNull()
+    cleanup()
+    const paid = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: license() })
+    expect(paid.querySelector(SELECTORS.UPGRADE)).toBeNull()
   })
 
   it.each([
@@ -154,10 +157,20 @@ describe("license skeletons", () => {
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
   ])("mirrors the first steps under the activation panel once the payment has activated the license at %s", (path, Page) => {
-    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}`, { owned: license() })
+    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.CORE}`, { owned: license() })
 
     expect(container.querySelector(SELECTORS.ACTIVATION)).not.toBeNull()
     expect(container.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(CLI_SETUP_LINES.length + 2)
+  })
+
+  it.each([
+    ["/app", AppOverviewPending],
+    ["/app/license", AppLicensePending],
+  ])("leaves the first steps out while an upgrade activates at %s, as the page does", (path, Page) => {
+    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: license() })
+
+    expect(container.querySelector(SELECTORS.ACTIVATION)).not.toBeNull()
+    expect(container.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(0)
   })
 
   it("mirrors the key and every command on the license page of an active license, and none on a refunded one", () => {

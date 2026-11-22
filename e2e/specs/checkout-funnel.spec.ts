@@ -10,23 +10,31 @@ import { TEST_BUNDLE, TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
-import { buyLicense, deliverPaidOrder, payCheckout, startedCheckouts } from "../fixtures/license"
+import { buyLicense, deliverPaidOrder, orderLicense, payCheckout, startedCheckouts } from "../fixtures/license"
 import {
+  POLAR_CUSTOMER_SESSION_TOKEN,
   checkoutOverlay,
   closeCheckoutOverlay,
   isPolarCheckoutPage,
   payInCheckoutOverlay,
+  payOnPolarCheckoutPage,
   refusePolarCheckoutEmbedding,
 } from "../fixtures/polar-checkout"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
 import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { pppMultiplierKey, regionalPrice } from "../../src/modules/license/license.pricing"
 import { TIER_PRICES } from "../../src/data/marketing"
-import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER, LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import {
+  LICENSE_ACTIVATION_LIMITS,
+  LICENSE_CHECKOUT_METADATA,
+  LICENSE_TIER,
+  LICENSE_TIERS,
+} from "../../src/modules/license/license.constants"
 import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
 import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
@@ -146,7 +154,7 @@ test.describe("checkout funnel", () => {
     })
     await payInCheckoutOverlay(page)
 
-    await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
+    await expect(page).toHaveURL(new RegExp(String.raw`/app\?checkoutId=[\da-f-]{36}&tier=${LICENSE_TIER.COMPLETE}$`, "u"))
     await expect(checkoutOverlay(page)).toHaveCount(0)
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
@@ -302,6 +310,51 @@ test.describe("checkout funnel", () => {
 
     await page.waitForURL(isPolarCheckoutPage, { timeout: CHECKOUT_OVERLAY_GRACE_MS * 2 })
     await expect(page.getByRole("heading", { name: "Polar checkout test double" })).toBeVisible()
+  })
+
+  test("a buyer who pays on Polar's own checkout page comes back without Polar's customer session token in any address, signed in or not", async ({
+    appPage,
+    authPage,
+    baseURL,
+    context,
+    page,
+    request,
+  }) => {
+    await refusePolarCheckoutEmbedding(context)
+    await authPage.gotoSignUp()
+    const { email, userId } = await signUpAndVerify({ authPage, page, request })
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
+    await page.waitForURL(isPolarCheckoutPage, { timeout: CHECKOUT_OVERLAY_GRACE_MS * 2 })
+    const [checkout] = await startedCheckouts(request, userId)
+    assert(checkout !== undefined)
+    const success = `${ROUTES.APP}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.CORE}`
+    const fromPolar = new URL(`${success}&${POLAR_CUSTOMER_SESSION_TOKEN_PARAM}=${POLAR_CUSTOMER_SESSION_TOKEN}`, baseURL).href
+    const carriers: string[] = []
+    page.on("request", (sent) => {
+      if (`${sent.url()} ${sent.headers()["referer"] ?? ""}`.includes(POLAR_CUSTOMER_SESSION_TOKEN)) {
+        carriers.push(sent.url())
+      }
+    })
+
+    await payOnPolarCheckoutPage(page)
+
+    await expect(page).toHaveURL(success)
+    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+
+    await context.clearCookies()
+    await page.goto(fromPolar, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await authPage.waitForAppReady()
+
+    await expect(page).toHaveURL(`${ROUTES.SIGN_IN}?${new URLSearchParams({ redirect: success }).toString()}`)
+    expect(await page.content()).not.toContain(POLAR_CUSTOMER_SESSION_TOKEN)
+    await authPage.emailField().fill(email)
+    await authPage.passwordField().fill(SIGN_UP_PASSWORD)
+    await authPage.signInSubmitButton().click()
+    await expect(page).toHaveURL(success)
+    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+    expect(carriers).toStrictEqual([fromPolar, fromPolar])
   })
 
   test("a slow activation ends in an honest message with the contact email and checkout reference", async ({ appPage, authPage, page }) => {
@@ -516,11 +569,16 @@ test.describe("checkout funnel", () => {
     const [upgrade] = await startedCheckouts(request, userId)
     assert(upgrade !== undefined)
     expect(upgrade).toMatchObject({ total_amount: toMinorUnits(difference, DEFAULT_CURRENCY_CODE) })
-    await payCheckout(request, upgrade.id)
+    const sawCoreThanks = await appPage.watchForText("Thank you for buying Core.")
     await payInCheckoutOverlay(page)
-    await expect(page).toHaveURL(`/app?checkoutId=${upgrade.id}`)
+    await expect(page).toHaveURL(`/app?checkoutId=${upgrade.id}&tier=${LICENSE_TIER.COMPLETE}`)
+    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Upgrade to Complete" })).toHaveCount(0)
+
+    await payCheckout(request, upgrade.id)
 
     await expect(page.getByText("Thank you for buying Complete.", { exact: false })).toBeVisible()
+    expect(await sawCoreThanks()).toBe(false)
     await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
@@ -528,6 +586,32 @@ test.describe("checkout funnel", () => {
     await expect(page.getByText("0 of 5 in use")).toBeVisible()
     await expect(page.getByRole("link", { name: "Upgrade to Agency" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Upgrade to Complete" })).toHaveCount(0)
+  })
+
+  test("a key that arrives while the licence page is open shows its machine limit at once, without a reload", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    await authPage.gotoSignUp()
+    const { userId } = await signUpAndVerify({ authPage, page, request })
+    const { issueKey } = await orderLicense(request, { tier: LICENSE_TIER.CORE, userId })
+    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const pending = page.getByText("Your key is being issued. It appears here by itself in a few seconds.", { exact: true })
+    await expect(pending).toBeVisible()
+    await appPage.waitForHydration(pending)
+    await expect(page.getByRole("heading", { name: "Machines" })).toHaveCount(0)
+    await markPage(page)
+    const sawNoLimit = await appPage.watchForText("0 of 0 in use")
+
+    await issueKey()
+
+    await expect(page.getByRole("button", { name: "Copy licence key" })).toBeVisible()
+    await expect(page.getByText(`0 of ${String(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE])} in use`)).toBeVisible()
+    expect(await sawNoLimit()).toBe(false)
+    expect(await isSamePage(page)).toBe(true)
   })
 
   test("a buyer from a regional-price country pays the whole-dollar price the cards show, or the full price after declining it", async ({

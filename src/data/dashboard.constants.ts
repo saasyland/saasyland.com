@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import type { QueryClient } from "@tanstack/react-query"
+import type { AsyncRouteComponent } from "@tanstack/react-router"
 
 export const DASHBOARD_PLACEMENT = {
   PANEL: "panel",
@@ -20,7 +21,7 @@ export interface AdminDashboardStat extends Entry {
 }
 
 export interface AdminDashboardPanel extends Entry {
-  readonly Panel: () => JSX.Element
+  readonly Panel: AsyncRouteComponent<unknown>
   readonly Pending: () => JSX.Element
   readonly placement: typeof DASHBOARD_PLACEMENT.PANEL
   readonly prefetch?: (queryClient: QueryClient) => Promise<unknown>

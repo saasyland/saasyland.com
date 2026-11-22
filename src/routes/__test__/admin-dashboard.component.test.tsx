@@ -2,7 +2,7 @@ import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRou
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -13,6 +13,8 @@ import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
+
+import { ADMIN_DASHBOARD_PANELS } from "~/src/data/dashboard"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
@@ -25,6 +27,14 @@ import newsletterDashboardMessages from "~/messages/en-US/dashboard.newsletter.j
 import paymentsDashboardMessages from "~/messages/en-US/dashboard.payments.json"
 import productsDashboardMessages from "~/messages/en-US/dashboard.products.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+
+beforeAll(() =>
+  Promise.all(
+    ADMIN_DASHBOARD_PANELS.map(async ({ Panel }) => {
+      await Panel.preload?.()
+    }),
+  ),
+)
 
 afterEach(() => vi.restoreAllMocks())
 

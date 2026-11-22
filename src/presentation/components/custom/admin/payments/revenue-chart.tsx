@@ -7,21 +7,15 @@ import { DEFAULT_TIME_RANGE, type TimeBucket, type TimeRange } from "~/src/modul
 import type { Order } from "~/src/modules/order/order.types"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
 
+import { REVENUE_SUMMARY } from "~/src/data/payments"
+
 import { cn } from "~/src/lib/cn"
 
 import { Card } from "~/src/presentation/components/shadcn/card"
-import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
 import { EmptyPanel } from "~/src/presentation/components/custom/admin/dashboard/empty-panel"
-import {
-  RangePicker,
-  RangePickerPending,
-  TimeSeriesChart,
-  TimeSeriesChartPending,
-} from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
-
-const SUMMARY = ["net", "orders", "refunded"] as const
+import { RangePicker, TimeSeriesChart } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 
 interface CurrencyRevenueProps {
   readonly bucket: TimeBucket
@@ -37,7 +31,7 @@ const CurrencyRevenue = ({ bucket, revenue }: CurrencyRevenueProps): JSX.Element
   return (
     <div className="flex flex-col gap-5">
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {SUMMARY.map((figure) => (
+        {REVENUE_SUMMARY.map((figure) => (
           <div key={figure}>
             <dt className="text-label text-muted-foreground uppercase">{t(figure)}</dt>
             <dd className="mt-1 text-headline-support text-foreground tabular-nums">{figures[figure]}</dd>
@@ -101,30 +95,3 @@ export const RevenueChart = (): JSX.Element => {
     </Card>
   )
 }
-
-export const RevenueChartPending = (): JSX.Element => (
-  <Card className="flex flex-col gap-5 p-5">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="max-w-2xl">
-        <Skeleton className="h-lh w-28 scale-y-70 text-title" />
-        <div className="mt-1 flex flex-col text-body-sm">
-          <Skeleton className="h-lh w-120 max-w-full scale-y-70" />
-          <Skeleton className="h-lh w-80 max-w-full scale-y-70" />
-        </div>
-      </div>
-      <RangePickerPending />
-    </div>
-    <div className="flex flex-col gap-5">
-      <Skeleton className="h-8 w-28 rounded-md" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {SUMMARY.map((figure) => (
-          <div key={figure}>
-            <Skeleton className="h-lh w-24 scale-y-70 text-label" />
-            <Skeleton className="mt-1 h-lh w-28 scale-y-70 text-headline-support" />
-          </div>
-        ))}
-      </div>
-      <TimeSeriesChartPending />
-    </div>
-  </Card>
-)

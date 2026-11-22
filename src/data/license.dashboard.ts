@@ -1,16 +1,18 @@
+import { lazyRouteComponent } from "@tanstack/react-router"
+
 import { licenseCountsQuery } from "~/src/modules/license/use-cases/get-license-counts"
 import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlicensed-orders"
 
 import { type AdminDashboardPanel, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
 
-import { LicenseCounts, LicenseCountsPending } from "~/src/presentation/components/custom/admin/license/license-counts"
-import { UnlicensedOrders, UnlicensedOrdersPending } from "~/src/presentation/components/custom/admin/license/unlicensed-orders"
+import { LicenseCountsPending } from "~/src/presentation/components/custom/admin/license/license-counts-pending"
+import { UnlicensedOrdersPending } from "~/src/presentation/components/custom/admin/license/unlicensed-orders-pending"
 
 const AREA = "license"
 
 export const LICENSE_DASHBOARD = [
   {
-    Panel: UnlicensedOrders,
+    Panel: lazyRouteComponent(() => import("~/src/presentation/components/custom/admin/license/unlicensed-orders"), "UnlicensedOrders"),
     Pending: UnlicensedOrdersPending,
     area: AREA,
     key: "unlicensedOrders",
@@ -19,7 +21,7 @@ export const LICENSE_DASHBOARD = [
     prefetch: (queryClient) => queryClient.query({ ...unlicensedOrdersQuery, staleTime: "static" }),
   },
   {
-    Panel: LicenseCounts,
+    Panel: lazyRouteComponent(() => import("~/src/presentation/components/custom/admin/license/license-counts"), "LicenseCounts"),
     Pending: LicenseCountsPending,
     area: AREA,
     key: "licenses",

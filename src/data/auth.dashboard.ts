@@ -1,11 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { lazyRouteComponent } from "@tanstack/react-router"
 
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { type AdminDashboardEntry, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
 
-import { SignupsChart, SignupsChartPending } from "~/src/presentation/components/custom/admin/dashboard/signups-chart"
+import { SignupsChartPending } from "~/src/presentation/components/custom/admin/dashboard/signups-chart-pending"
 
 const AREA = "auth"
 
@@ -27,7 +28,7 @@ export const AUTH_DASHBOARD = [
     useValue: () => useSuspenseQuery(getUsersQuery).data.pendingVerification,
   },
   {
-    Panel: SignupsChart,
+    Panel: lazyRouteComponent(() => import("~/src/presentation/components/custom/admin/dashboard/signups-chart"), "SignupsChart"),
     Pending: SignupsChartPending,
     area: AREA,
     key: "signups",

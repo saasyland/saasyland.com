@@ -39,6 +39,19 @@ describe("admin dashboard composition", () => {
     expect(keys(ADMIN_DASHBOARD_PANELS)).toStrictEqual(keys(entries.filter(({ placement }) => placement === DASHBOARD_PLACEMENT.PANEL)))
   })
 
+  it("loads each panel's component on demand, which the dashboard's loader preloads", async () => {
+    const preloads = ADMIN_DASHBOARD_PANELS.map(({ Panel }) => Panel.preload)
+
+    expect(preloads.every((preload) => typeof preload === "function")).toBe(true)
+    await expect(
+      Promise.all(
+        preloads.map(async (preload) => {
+          await preload?.()
+        }),
+      ),
+    ).resolves.toHaveLength(ADMIN_DASHBOARD_PANELS.length)
+  })
+
   it("orders the stats and the panels of every area", async () => {
     const first = stat("first", 20)
     const second = panel("second", 20)

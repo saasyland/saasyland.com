@@ -1,0 +1,303 @@
+import { QueryClientProvider } from "@tanstack/react-query"
+import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
+import { act, render, screen, within } from "@testing-library/react"
+import { IntlProvider } from "use-intl/react"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
+import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
+
+import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
+
+import { POLAR_READ } from "~/src/modules/order/order.constants"
+import type { Order } from "~/src/modules/order/order.types"
+import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
+import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
+import { orderProductsQuery } from "~/src/modules/order/use-cases/get-order-products"
+import { getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
+import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
+
+import { Route as OrderRoute } from "~/src/routes/admin.orders.$orderId"
+import { Route as OrdersRoute } from "~/src/routes/admin.orders.index"
+import { Route as CustomersRoute } from "~/src/routes/admin.users.customers"
+
+import { adminMessages, adminQueryClient, renderAdmin, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import {
+  adminCustomerRow,
+  adminOrderDetail,
+  adminOrderRow,
+  adminPolarOrder,
+} from "~/src/presentation/components/custom/admin/__test__/orders.fixtures"
+import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
+import { AdminUsersPending } from "~/src/presentation/components/custom/admin/admin-users-pending"
+import { AdminCustomersPending, AdminOrderPending, AdminOrdersPending } from "~/src/presentation/components/custom/admin/payments-pending"
+import { UserOrders } from "~/src/presentation/components/custom/admin/payments/user-orders"
+
+import countriesMessages from "~/messages/en-US/countries.json"
+import customersMessages from "~/messages/en-US/pages.admin.customers.json"
+import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
+import type { RouterContext } from "~/src/router"
+import { ROUTES } from "~/src/routes"
+
+const { detail } = ordersMessages
+const polarLabels = detail.polar
+
+afterEach(() => vi.restoreAllMocks())
+
+const cellsOf = (row: HTMLElement): string[] =>
+  within(row)
+    .getAllByRole("cell")
+    .map((cell) => cell.textContent)
+
+const bodyRows = (): HTMLElement[] => screen.getAllByRole("row").slice(1)
+
+const valueOf = (term: string): Element | null => screen.getByText(term, { exact: true, selector: "dt" }).nextElementSibling
+
+const renderOrders = (rows: readonly Order["listRow"][]) => {
+  const queryClient = adminQueryClient()
+  queryClient.setQueryData(getOrdersQuery.queryKey, { rows: [...rows], total: rows.length })
+  queryClient.setQueryData(orderProductsQuery.queryKey, { products: [{ id: "prod_agency", name: "Agency" }] })
+  return renderAdminPage(OrdersRoute.options.component, { queryClient })
+}
+
+const renderOrder = async (polar: Order["detail"]["polar"], order: Order["detail"]["order"] = adminOrderDetail()) => {
+  const queryClient = adminQueryClient()
+  queryClient.setQueryData(getOrderQuery({ orderId: order.id }).queryKey, {
+    order,
+    polar,
+    polarUrl: `https://sandbox.polar.sh/dashboard/saasyland/sales/${order.id}`,
+  })
+  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
+  Object.assign(OrderRoute.options, {
+    getParentRoute: () => root,
+    id: "/admin/orders/$orderId",
+    loader: () => ({ locale: "en-US", pathname: `${ROUTES.ADMIN_ORDERS}/${order.id}`, title: order.description }),
+    path: "/admin/orders/$orderId",
+  })
+  const router = createRouter({
+    context: { queryClient },
+    defaultPendingMinMs: 0,
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.ADMIN_ORDERS}/${order.id}`] }),
+    rewrite: LOCALE_REWRITE,
+    routeTree: root.addChildren([OrderRoute]),
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={adminMessages} timeZone={I18N.DEFAULT_TIMEZONE}>
+        <RouterProvider router={router} />
+      </IntlProvider>
+    </QueryClientProvider>,
+  )
+  await act(() => router.load())
+}
+
+describe("orders page", () => {
+  it("lists each order with its date, account, product, total, refund and status, and links it to its page", () => {
+    renderOrders([
+      adminOrderRow({ refunded: { amount: 50, currency: "USD" }, status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED }),
+      adminOrderRow({
+        customerId: "cus_guest",
+        description: "Agency",
+        id: "ord_guest",
+        total: { amount: 719.2, currency: "EUR" },
+        user: null,
+      }),
+    ])
+
+    expect(screen.getByRole("heading", { level: 1, name: ordersMessages.title })).toBeVisible()
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual(Object.values(ordersMessages.table.headers))
+    const [partly, guest] = bodyRows()
+    expect(cellsOf(partly ?? document.body)).toStrictEqual([
+      "Jan 1, 2025, 12:00 PM UTCord_complete",
+      "Ada Lovelaceada@example.com",
+      "Complete",
+      "$199.00$50.00 refunded",
+      ordersMessages.status.partially_refunded,
+    ])
+    expect(within(partly ?? document.body).getByRole("link", { name: /ord_complete/u })).toHaveAttribute(
+      "href",
+      "/admin/orders/ord_complete",
+    )
+    expect(within(partly ?? document.body).getByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/admin/users/ada")
+    expect(cellsOf(guest ?? document.body)).toStrictEqual([
+      "Jan 1, 2025, 12:00 PM UTCord_guest",
+      `${ordersMessages.customer.noAccount}cus_guest`,
+      "Agency",
+      "€719.20",
+      ordersMessages.status.paid,
+    ])
+  })
+
+  it("offers a search and filters by status, product and period", () => {
+    renderOrders([])
+
+    expect(screen.getByRole("textbox", { name: ordersMessages.filters.search })).toBeVisible()
+    for (const label of [ordersMessages.filters.status, ordersMessages.filters.product, ordersMessages.filters.placedAt]) {
+      expect(screen.getByRole("button", { name: new RegExp(label, "u") })).toBeVisible()
+    }
+  })
+
+  it("mirrors the page in its skeleton", () => {
+    const page = markupOf(<AdminOrdersPending />)
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/orders") })
+
+    expect(busyMarkup(container)).toBe(page)
+  })
+})
+
+describe("order page", () => {
+  it("shows the saved copy, the account and Polar's live payment with its discount code, country and invoice", async () => {
+    await renderOrder(adminPolarOrder())
+
+    expect(screen.getByRole("heading", { level: 1, name: "Complete" })).toBeVisible()
+    expect(screen.getByRole("link", { name: detail.openInPolar })).toHaveAttribute(
+      "href",
+      "https://sandbox.polar.sh/dashboard/saasyland/sales/ord_complete",
+    )
+    expect(screen.getByRole("link", { name: detail.back })).toHaveAttribute("href", ROUTES.ADMIN_ORDERS)
+    expect(valueOf(detail.mirror.fields.invoiceNumber)).toHaveTextContent("SAASY-0001")
+    expect(valueOf(detail.mirror.fields.subscription)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.customerId)).toHaveTextContent("cus_ada")
+    expect(screen.getByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/admin/users/ada")
+    expect(valueOf(polarLabels.amounts.subtotal)).toHaveTextContent("$248.75")
+    expect(valueOf(polarLabels.amounts.discount)).toHaveTextContent("$49.75")
+    expect(valueOf(polarLabels.amounts.refundedTax)).toHaveTextContent("$1.60")
+    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent("Launch week (LAUNCH)")
+    expect(valueOf(polarLabels.fields.billingCountry)).toHaveTextContent(countriesMessages.DE)
+    expect(valueOf(polarLabels.fields.billingName)).toHaveTextContent("Ada GmbH")
+    expect(screen.getByRole("link", { name: polarLabels.invoice })).toHaveAttribute(
+      "href",
+      "https://sandbox.polar.sh/invoices/ord_complete.pdf",
+    )
+  })
+
+  it("names a discount without a code and says what Polar did not give", async () => {
+    await renderOrder(
+      {
+        ...adminPolarOrder(),
+        billingCountry: undefined,
+        billingName: null,
+        customerEmail: undefined,
+        customerName: "",
+        discountCode: null,
+        invoiceUrl: undefined,
+      },
+      adminOrderDetail({ invoiceNumber: null, subscriptionId: "sub_monthly" }),
+    )
+
+    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent("Launch week")
+    expect(valueOf(polarLabels.fields.billingCountry)).toHaveTextContent(detail.none)
+    expect(valueOf(polarLabels.fields.billingName)).toHaveTextContent(detail.none)
+    expect(valueOf(polarLabels.fields.customerEmail)).toHaveTextContent(detail.none)
+    expect(valueOf(polarLabels.fields.customerName)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.invoiceNumber)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.subscription)).toHaveTextContent("sub_monthly")
+    expect(screen.getByText(polarLabels.noInvoice)).toBeVisible()
+  })
+
+  it("says no discount applied when the order had none", async () => {
+    await renderOrder({ ...adminPolarOrder(), discountCode: undefined, discountName: undefined })
+
+    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent(detail.none)
+  })
+
+  it("keeps the saved copy and says so when Polar cannot be read, and says when no account matches", async () => {
+    await renderOrder({ read: POLAR_READ.UNAVAILABLE }, adminOrderDetail({ user: null }))
+
+    expect(screen.getByRole("status")).toHaveTextContent(polarLabels.unavailable.title)
+    expect(screen.queryByText(polarLabels.amounts.subtotal)).toBeNull()
+    expect(valueOf(detail.mirror.fields.total)).toHaveTextContent("$199.00")
+    expect(screen.getByText(detail.account.none)).toBeVisible()
+  })
+
+  it("renders its skeleton while the order loads", () => {
+    const { container } = render(<AdminOrderPending />)
+
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+  })
+})
+
+describe("customers tab", () => {
+  it("lists each customer with their account, sign-up, verification, orders, what they paid and their last order", () => {
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getCustomersQuery.queryKey, {
+      rows: [adminCustomerRow(), adminCustomerRow({ customerId: "cus_guest", id: "cus_guest", orders: 1, revenue: [], user: null })],
+      total: 2,
+    })
+    renderAdminPage(CustomersRoute.options.component, { queryClient })
+
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual(
+      Object.values(customersMessages.table.headers),
+    )
+    const [ada, guest] = bodyRows()
+    expect(cellsOf(ada ?? document.body)).toStrictEqual([
+      "Ada Lovelaceada@example.com",
+      "Jan 1, 2025, 12:00 PM UTC",
+      customersMessages.table.yes,
+      "2",
+      "€519.20$199.00",
+      "Jan 1, 2025, 12:00 PM UTC",
+    ])
+    expect(cellsOf(guest ?? document.body)).toStrictEqual([
+      `${customersMessages.table.noAccount}cus_guest`,
+      customersMessages.table.noAccount,
+      customersMessages.table.noAccount,
+      "1",
+      customersMessages.table.noRevenue,
+      "Jan 1, 2025, 12:00 PM UTC",
+    ])
+    expect(screen.getByRole("textbox", { name: customersMessages.search })).toBeVisible()
+  })
+
+  it("says when a customer has not verified their email", () => {
+    const queryClient = adminQueryClient()
+    const row = adminCustomerRow()
+    queryClient.setQueryData(getCustomersQuery.queryKey, {
+      rows: [{ ...row, user: row.user === null ? null : { ...row.user, emailVerified: false } }],
+      total: 1,
+    })
+    renderAdminPage(CustomersRoute.options.component, { queryClient })
+
+    expect(cellsOf(bodyRows()[0] ?? document.body)[2]).toBe(customersMessages.table.no)
+  })
+
+  it("mirrors the tab in the skeleton of user management", () => {
+    const page = markupOf(<AdminCustomersPending />)
+    const { container } = renderWithRouter(<AdminUsersPending />, { router: createTestRouter(ROUTES.ADMIN_USERS_CUSTOMERS) })
+
+    expect(container.innerHTML).toContain(page)
+  })
+})
+
+describe("orders on a profile", () => {
+  it("lists the account's orders with links and totals what it paid after refunds per currency", () => {
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(userOrdersQuery({ userId: "ada" }).queryKey, {
+      orders: [
+        {
+          description: "Agency",
+          id: "ord_agency",
+          placedAt: new Date("2025-01-01T12:00:00Z"),
+          refunded: { amount: 0, currency: "EUR" },
+          status: POLAR_ORDER_STATUS.PAID,
+          total: { amount: 719.2, currency: "EUR" },
+        },
+      ],
+      revenue: [{ amount: 719.2, currency: "EUR" }],
+    })
+    renderAdmin(<UserOrders userId="ada" />, { queryClient })
+
+    expect(screen.getByRole("heading", { level: 2, name: customersMessages.profile.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: /^Agency/u })).toHaveAttribute("href", "/admin/orders/ord_agency")
+    expect(screen.getAllByText("€719.20")).toHaveLength(2)
+  })
+
+  it("says when the account has not ordered or paid", () => {
+    renderAdmin(<UserOrders userId="ada" />)
+
+    expect(screen.getByText(customersMessages.profile.none)).toBeVisible()
+    expect(screen.getByText(customersMessages.table.noRevenue)).toBeVisible()
+  })
+})

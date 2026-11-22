@@ -45,10 +45,13 @@ import { Route as SiteDocsSplatRouteImport } from './routes/_site.docs.$'
 import { Route as AdminCoursesIndexRouteImport } from './routes/admin.courses.index'
 import { Route as AdminCoursesCourseIdRouteImport } from './routes/admin.courses.$courseId'
 import { Route as AdminCoursesCreateRouteImport } from './routes/admin.courses.create'
+import { Route as AdminOrdersIndexRouteImport } from './routes/admin.orders.index'
+import { Route as AdminOrdersOrderIdRouteImport } from './routes/admin.orders.$orderId'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin.products.index'
 import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
+import { Route as AdminUsersCustomersRouteImport } from './routes/admin.users.customers'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
 import { Route as SiteMarketingBlogSplatRouteImport } from './routes/_site._marketing.blog.$'
@@ -242,6 +245,16 @@ const AdminCoursesCreateRoute = AdminCoursesCreateRouteImport.update({
   path: '/create',
   getParentRoute: () => AdminCoursesRoute,
 } as any)
+const AdminOrdersIndexRoute = AdminOrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersOrderIdRoute = AdminOrdersOrderIdRouteImport.update({
+  id: '/orders/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsIndexRoute = AdminProductsIndexRouteImport.update({
   id: '/products/',
   path: '/products/',
@@ -260,6 +273,11 @@ const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
 const AdminUsersAllRoute = AdminUsersAllRouteImport.update({
   id: '/all',
   path: '/all',
+  getParentRoute: () => AdminUsersRoute,
+} as any)
+const AdminUsersCustomersRoute = AdminUsersCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
   getParentRoute: () => AdminUsersRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -375,11 +393,14 @@ export interface FileRoutesByFullPath {
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
+  '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
+  '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
   '/blog/$': typeof SiteMarketingBlogSplatRoute
@@ -422,11 +443,14 @@ export interface FileRoutesByTo {
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
+  '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/docs': typeof SiteDocsIndexRoute
   '/admin/courses': typeof AdminCoursesIndexRoute
+  '/admin/orders': typeof AdminOrdersIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
   '/blog/$': typeof SiteMarketingBlogSplatRoute
@@ -478,12 +502,15 @@ export interface FileRoutesById {
   '/_site/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
+  '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_site/_marketing/': typeof SiteMarketingIndexRoute
   '/_site/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
+  '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
   '/_site/_marketing/blog/$': typeof SiteMarketingBlogSplatRoute
@@ -535,11 +562,14 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
+    | '/admin/users/customers'
     | '/api/auth/$'
     | '/docs/'
     | '/admin/courses/'
+    | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
     | '/blog/$'
@@ -582,11 +612,14 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
+    | '/admin/users/customers'
     | '/api/auth/$'
     | '/docs'
     | '/admin/courses'
+    | '/admin/orders'
     | '/admin/products'
     | '/admin/users'
     | '/blog/$'
@@ -637,12 +670,15 @@ export interface FileRouteTypes {
     | '/_site/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
+    | '/admin/users/customers'
     | '/api/auth/$'
     | '/_site/_marketing/'
     | '/_site/docs/'
     | '/admin/courses/'
+    | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
     | '/_site/_marketing/blog/$'
@@ -925,6 +961,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCoursesCreateRouteImport
       parentRoute: typeof AdminCoursesRoute
     }
+    '/admin/orders/': {
+      id: '/admin/orders/'
+      path: '/orders'
+      fullPath: '/admin/orders/'
+      preLoaderRoute: typeof AdminOrdersIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders/$orderId': {
+      id: '/admin/orders/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/admin/orders/$orderId'
+      preLoaderRoute: typeof AdminOrdersOrderIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products/': {
       id: '/admin/products/'
       path: '/products'
@@ -951,6 +1001,13 @@ declare module '@tanstack/react-router' {
       path: '/all'
       fullPath: '/admin/users/all'
       preLoaderRoute: typeof AdminUsersAllRouteImport
+      parentRoute: typeof AdminUsersRoute
+    }
+    '/admin/users/customers': {
+      id: '/admin/users/customers'
+      path: '/customers'
+      fullPath: '/admin/users/customers'
+      preLoaderRoute: typeof AdminUsersCustomersRouteImport
       parentRoute: typeof AdminUsersRoute
     }
     '/api/auth/$': {
@@ -1165,12 +1222,14 @@ const AdminCoursesRouteWithChildren = AdminCoursesRoute._addFileChildren(
 interface AdminUsersRouteChildren {
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminUsersAllRoute: typeof AdminUsersAllRoute
+  AdminUsersCustomersRoute: typeof AdminUsersCustomersRoute
   AdminUsersIndexRoute: typeof AdminUsersIndexRoute
 }
 
 const AdminUsersRouteChildren: AdminUsersRouteChildren = {
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
   AdminUsersAllRoute: AdminUsersAllRoute,
+  AdminUsersCustomersRoute: AdminUsersCustomersRoute,
   AdminUsersIndexRoute: AdminUsersIndexRoute,
 }
 
@@ -1184,6 +1243,8 @@ interface AdminRouteChildren {
   AdminUsersRoute: typeof AdminUsersRouteWithChildren
   AdminVideosRoute: typeof AdminVideosRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminOrdersOrderIdRoute: typeof AdminOrdersOrderIdRoute
+  AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
   AdminProductsIndexRoute: typeof AdminProductsIndexRoute
 }
 
@@ -1193,6 +1254,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminUsersRoute: AdminUsersRouteWithChildren,
   AdminVideosRoute: AdminVideosRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminOrdersOrderIdRoute: AdminOrdersOrderIdRoute,
+  AdminOrdersIndexRoute: AdminOrdersIndexRoute,
   AdminProductsIndexRoute: AdminProductsIndexRoute,
 }
 

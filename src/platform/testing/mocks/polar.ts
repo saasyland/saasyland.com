@@ -39,6 +39,7 @@ const CHECKOUT_LIFETIME_MS = 3_600_000
 const LICENSE_KEY_PATH = /^\/v1\/license-keys\/(?<id>[^/]+)$/u
 const AD_HOC_CURRENCY = "usd" satisfies models.PresentmentCurrency
 const ORDER_PATH = /^\/v1\/orders\/(?<id>[^/]+)$/u
+const ORDER_INVOICE_PATH = /^\/v1\/orders\/(?<id>[^/]+)\/invoice$/u
 
 const AREAS: Readonly<Record<string, PolarCatalogue>> = AREA_POLAR_CATALOGUES
 
@@ -512,6 +513,16 @@ const listOrders = (url: URL) => {
   } satisfies models.ListResourceOrder)
 }
 
+export const polarInvoiceUrl = (orderId: string): string => `${polarCheckoutOrigin(env.POLAR_SERVER)}/invoices/${orderId}.pdf`
+
+const readInvoice = (orderId: string): Response => {
+  const order = orders.get(orderId)
+  if (order?.is_invoice_generated !== true) {
+    return notFound()
+  }
+  return respond(HTTP_STATUS.OK, { url: polarInvoiceUrl(orderId) } satisfies models.OrderInvoice)
+}
+
 const read = (value: models.LicenseKeyWithActivations | models.Order | undefined): Response =>
   value === undefined ? notFound() : respond(HTTP_STATUS.OK, value)
 
@@ -550,6 +561,10 @@ const route = (request: Request) => {
   const orderId = request.method === "GET" ? ORDER_PATH.exec(url.pathname)?.groups?.["id"] : undefined
   if (orderId !== undefined) {
     return read(currentOrder(orderId))
+  }
+  const invoiceOrderId = request.method === "GET" ? ORDER_INVOICE_PATH.exec(url.pathname)?.groups?.["id"] : undefined
+  if (invoiceOrderId !== undefined) {
+    return readInvoice(invoiceOrderId)
   }
   return refuse(HTTP_STATUS.NOT_FOUND, { detail: "Not Found" }, `the test double does not serve ${endpoint}`)
 }

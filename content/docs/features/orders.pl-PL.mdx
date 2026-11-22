@@ -1,0 +1,45 @@
+---
+title: "Zamówienia i klienci"
+description: "Lista i strona zamówień w panelu administratora, które czytają kopie zamówień Polar w D1 i sam Polar, oraz karta klientów w zarządzaniu użytkownikami."
+---
+
+## Zamówienia
+
+Strona `/admin/orders` (`src/routes/admin.orders.index.tsx`) wyświetla kopie zamówień Polar w D1 ([Płatności](/docs/features/payments#orders-and-subscriptions-in-d1)) w jednym `DataTable` z `orderColumns` (`src/presentation/components/custom/admin/payments/order-columns.tsx`). Obszar płatności dodaje ją do grupy Oferta na pasku bocznym i linkuje do niej oraz do klientów z pulpitu w `src/data/payments.navigation.ts`.
+
+- `getOrdersPageQuery` wywołuje `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`). Stronicowanie, sortowanie według daty, sumy lub statusu, wyszukiwanie i filtry działają na serwerze.
+- Wyszukiwanie obejmuje ID zamówienia, ID klienta Polar, produkt oraz nazwę i e-mail pasującego konta i jest wysyłane, gdy pisanie ustanie.
+- Filtry to status z `ORDER_STATUSES`, produkt z `getOrderProducts`, które wymienia każdy zamówiony produkt pod nazwą jego najnowszego zamówienia, oraz okres: <RepositoryFact name="dashboardRanges" />.
+- Każdy wiersz pokazuje, kiedy złożono zamówienie, i jego ID, konto albo Brak konta z ID klienta Polar, produkt, sumę w walucie zamówienia ze zwróconą kwotą oraz status. Kwoty są przeliczane przez `fromMinorUnits` i zawierają podatek.
+
+## Strona zamówienia
+
+`/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) wczytuje `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
+
+| Część      | Źródło                                                                                                                                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`    | Kopia w D1: złożenie i ostatnia zmiana, produkt, suma, zwrot, numer faktury, subskrypcja i klient Polar, z pasującym kontem                                                                                                                                     |
+| `polar`    | `polar.orders.get` przy wczytaniu strony: suma częściowa, rabat, kwota po rabacie, podatek, suma, zwroty i zwrócony podatek, status, nazwa i kod rabatu, nazwa i kraj rozliczenia, imię i e-mail klienta oraz `polar.orders.invoice` gdy Polar wystawił fakturę |
+| `polarUrl` | Zamówienie w panelu Polar                                                                                                                                                                                                                                       |
+
+Gdy Polar nie odpowiada, `polar` ma wartość `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`), a strona zachowuje kopię i informuje, że nie udało się połączyć z Polar. Zamówienie, którego nie ma w kopii, daje stronę „nie znaleziono”. Karta konta prowadzi do profilu, na którym są licencja i każde zamówienie konta.
+
+## Klienci
+
+Obszar płatności dodaje kartę Klienci do zarządzania użytkownikami (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) oraz zamówienia konta do jego profilu (`src/data/payments.user-profile.ts`).
+
+- `getCustomersPageQuery` wywołuje `getCustomers` (`get-customers.ts`, `order: ["read"]`), które grupuje kopie według klienta Polar i łączy konto, do którego pasowały jego zamówienia. Każdy wiersz pokazuje konto z datą rejestracji i informacją, czy e-mail jest potwierdzony, liczbę zamówień, kwotę zapłaconą po zwrotach w każdej walucie, licząc zamówienia o statusie z <RepositoryFact name="revenueOrderStatuses" />, oraz ostatnie zamówienie. Waluty nigdy nie są sumowane.
+- Wyszukiwanie obejmuje nazwę, e-mail i ID klienta Polar, a sortowanie według klienta, rejestracji, zamówień i ostatniego zamówienia działa na serwerze.
+- `UserOrders` (`user-orders.tsx`) wyświetla na profilu zamówienia konta, każde z linkiem do jego strony, oraz kwotę zapłaconą po zwrotach w każdej walucie. Karta licencji pokazuje limit urządzeń pakietu z `LICENSE_ACTIVATION_LIMITS`.
+
+## Jeszcze niezbudowane
+
+- Kopia zamówienia nie zawiera rabatu ani kraju rozliczenia, więc lista nie może według nich filtrować; ich dodanie wymaga migracji D1.
+- Zwroty wykonuje się w panelu Polar, do którego prowadzi strona zamówienia.
+- Liczbę urządzeń aktywowanych kluczem licencji odczytuje się z Polar klucz po kluczu i ani karta klientów, ani karta licencji jeszcze jej nie pokazują.
+
+## Powiązane strony
+
+- [Płatności](/docs/features/payments)
+- [Użytkownicy (administracja)](/docs/features/users-admin)
+- [Pulpit administratora](/docs/features/admin-dashboard)

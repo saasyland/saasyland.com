@@ -1,0 +1,45 @@
+---
+title: "注文と顧客"
+description: "D1 に保存した Polar の注文のコピーと Polar 自体を読む管理画面の注文一覧と注文ページ、そしてユーザー管理の顧客タブ。"
+---
+
+## 注文
+
+ページ `/admin/orders` (`src/routes/admin.orders.index.tsx`) は、D1 に保存した Polar の注文のコピー ([決済](/docs/features/payments#orders-and-subscriptions-in-d1)) を、唯一の `DataTable` と `orderColumns` (`src/presentation/components/custom/admin/payments/order-columns.tsx`) で一覧にします。決済のエリアは、サイドバーの商品構成グループへの追加と、ダッシュボードからこのページと顧客へのリンクを次のファイルで行います: `src/data/payments.navigation.ts`。
+
+- `getOrdersPageQuery` は `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`) を呼び出します。ページ送り、日時・合計・ステータスでの並べ替え、検索、絞り込みはすべてサーバーで行います。
+- 検索は注文 ID、Polar の顧客 ID、商品、一致したアカウントの名前とメールアドレスを対象にし、入力が止まった時点で送信されます。
+- 絞り込みは、 `ORDER_STATUSES`によるステータス、 `getOrderProducts`（注文のある商品を最新の注文の名前で一覧にします）による商品、そして期間です: <RepositoryFact name="dashboardRanges" />.
+- 各行には、注文日時と ID、アカウント（一致しない場合はアカウントなしと Polar の顧客 ID）、商品、注文の通貨での合計と返金額、ステータスが表示されます。金額は `fromMinorUnits` で変換した税込み額です。
+
+## 注文ページ
+
+`/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) は次の `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
+
+| 部分       | 取得元                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`    | D1 のコピー: 注文日時と最終更新、商品、合計、返金、請求書番号、サブスクリプション、Polar の顧客、一致したアカウント                                                                                                                                     |
+| `polar`    | `polar.orders.get` （ページの読み込み時）: 小計、割引、割引後の金額、税金、合計、返金額と返金された税金、ステータス、割引の名前とコード、請求先の名前と国、顧客の名前とメールアドレス、そして `polar.orders.invoice` （Polar が請求書を作成済みの場合） |
+| `polarUrl` | Polar のダッシュボードでの注文                                                                                                                                                                                                                          |
+
+Polar が応答しない場合、 `polar` は `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`) になり、ページはコピーを表示したまま Polar に接続できなかったことを伝えます。コピーにない注文は見つからないページになります。アカウントカードはプロフィールにリンクし、そこにアカウントのライセンスとすべての注文があります。
+
+## 顧客
+
+決済のエリアは、ユーザー管理に顧客タブを (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) 、アカウントのプロフィールにその注文を追加します (`src/data/payments.user-profile.ts`).
+
+- `getCustomersPageQuery` は `getCustomers` (`get-customers.ts`, `order: ["read"]`) を呼び出し、コピーを Polar の顧客ごとにまとめ、注文が一致したアカウントを結び付けます。各行には、登録日時とメール確認の有無を含むアカウント、注文数、通貨ごとの返金後の支払額（ステータスが <RepositoryFact name="revenueOrderStatuses" />の注文を数えます）、最新の注文が表示されます。通貨を合算することはありません。
+- 検索は名前、メールアドレス、Polar の顧客 ID を対象にし、顧客・登録・注文数・最新の注文による並べ替えはサーバーで行います。
+- `UserOrders` (`user-orders.tsx`) は、プロフィールにアカウントの注文をそれぞれのページへのリンク付きで一覧にし、通貨ごとの返金後の支払額を表示します。ライセンスカードにはパッケージの端末の上限を表示し、その値は次から取ります: `LICENSE_ACTIVATION_LIMITS`.
+
+## まだ作られていないもの
+
+- 注文のコピーには割引も請求先の国も含まれないため、一覧ではそれらで絞り込めません。追加するには D1 のマイグレーションが必要です。
+- 返金は Polar のダッシュボードで行います。注文ページからそこへリンクしています。
+- ライセンスキーが有効化した端末の数はキーごとに Polar から読み取るもので、顧客タブにもライセンスカードにもまだ表示されません。
+
+## 関連ページ
+
+- [決済](/docs/features/payments)
+- [ユーザー（管理）](/docs/features/users-admin)
+- [管理ダッシュボード](/docs/features/admin-dashboard)

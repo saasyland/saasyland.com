@@ -1,0 +1,45 @@
+---
+title: "Orders and customers"
+description: "The admin's order list and order page, which read the D1 copies of Polar's orders and Polar itself, and the customers tab of user management."
+---
+
+## Orders
+
+The page `/admin/orders` (`src/routes/admin.orders.index.tsx`) lists the D1 copies of Polar's orders ([Payments](/docs/features/payments#orders-and-subscriptions-in-d1)) in the one `DataTable` with `orderColumns` (`src/presentation/components/custom/admin/payments/order-columns.tsx`). The payments area adds it to the Offerings group of the sidebar, and links to it and to the customers from the dashboard, in `src/data/payments.navigation.ts`.
+
+- `getOrdersPageQuery` calls `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`). Paging, sorting by date, total or status, the search and the filters all run on the server.
+- The search matches the order ID, the Polar customer ID, the product and the name and email of the matching account, and is sent once typing pauses.
+- The filters are the status, from `ORDER_STATUSES`, the product, from `getOrderProducts`, which lists each product that has an order under the name of its newest order, and the period: <RepositoryFact name="dashboardRanges" />.
+- Each row shows when the order was placed and its ID, the account, or No account with the Polar customer ID, the product, the total in the order's currency with what was refunded, and the status. Amounts are converted with `fromMinorUnits` and include tax.
+
+## Order page
+
+`/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) loads `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
+
+| Part       | Source                                                                                                                                                                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`    | The D1 copy: placed and last changed, product, total, refunded, invoice number, subscription and Polar customer, with the matching account                                                                                                                                                      |
+| `polar`    | `polar.orders.get` when the page loads: subtotal, discount, amount after discount, tax, total, refunds and refunded tax, the status, the discount's name and code, the billing name and country, the customer's name and email, and `polar.orders.invoice` once Polar has generated the invoice |
+| `polarUrl` | The order in Polar's dashboard                                                                                                                                                                                                                                                                  |
+
+When Polar does not answer, `polar` is `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`) and the page keeps the copy and says that Polar could not be reached. An order the copy does not have is a not found page. The account card links to the profile, where the licence and every order of the account are.
+
+## Customers
+
+The payments area adds the Customers tab to user management (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) and the orders of an account to its profile (`src/data/payments.user-profile.ts`).
+
+- `getCustomersPageQuery` calls `getCustomers` (`get-customers.ts`, `order: ["read"]`), which groups the copies by Polar customer and joins the account their orders matched. Each row shows the account with its sign-up date and whether its email is verified, the number of orders, what the customer paid after refunds in each currency, counting the orders whose status is one of <RepositoryFact name="revenueOrderStatuses" />, and the last order. Currencies are never added together.
+- The search matches the name, the email and the Polar customer ID, and sorting by customer, sign-up, orders and last order runs on the server.
+- `UserOrders` (`user-orders.tsx`) lists the account's orders on its profile, each linked to its page, with what it paid after refunds per currency. The licence card shows the tier's machine limit from `LICENSE_ACTIVATION_LIMITS`.
+
+## Not built yet
+
+- The copy of an order holds no discount and no billing country, so the list cannot filter by them; adding them takes a D1 migration.
+- Refunds are made in Polar's dashboard, which the order page links to.
+- The number of machines a licence key has activated is read from Polar key by key, and neither the customers tab nor the licence card shows it yet.
+
+## Related pages
+
+- [Payments](/docs/features/payments)
+- [Users (admin)](/docs/features/users-admin)
+- [Admin dashboard](/docs/features/admin-dashboard)

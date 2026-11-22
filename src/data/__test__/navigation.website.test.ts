@@ -11,11 +11,11 @@ describe("the website's navigation", () => {
   it("arranges the website's navigation as before the areas contributed it", () => {
     expect(ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
       [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
-      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
+      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS, ROUTES.ADMIN_ORDERS]],
       [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES, ROUTES.ADMIN_VIDEOS]],
       [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
     ])
-    expect(ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
+    expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_ORDERS, ROUTES.ADMIN_USERS_CUSTOMERS])
     expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.APP, ROUTES.APP_LICENSE, ROUTES.COURSES, ROUTES.APP_SETTINGS])
     expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME, ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS, ROUTES.SIGN_IN])
     expect(FOOTER_NAVIGATION.map(({ key, links }) => [key, links.map(({ to }) => to)])).toStrictEqual([

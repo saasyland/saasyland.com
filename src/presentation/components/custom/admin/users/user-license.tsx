@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
-import { REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
 import type { RefundEligibility } from "~/src/modules/license/license.refunds"
 import type { License } from "~/src/modules/license/license.types"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
@@ -61,6 +61,7 @@ const LicenseDetails = ({ license }: { readonly license: LicenseView }): JSX.Ele
   const values: Record<UserLicenseDetail, string> = {
     firstActivation: firstTime(license.activatedAt),
     firstDownload: firstTime(license.deliveredAt),
+    machineLimit: t("pages.admin.users.license.machines", { count: LICENSE_ACTIVATION_LIMITS[license.tier] }),
     purchasedAt: dateTime(license.purchaseCreatedAt),
     status: t(`pages.admin.users.license.status.${license.status}`),
     tier: t(`components.custom.pricing.tiers.${license.tier}.name`),

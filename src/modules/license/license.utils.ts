@@ -9,11 +9,10 @@ import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
 import { LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
-
 import type pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 
 export { currencyCodeField as orderCurrencySchema } from "~/src/modules/_core/utils/zod-fields"
+export { polarOrderUrl } from "~/src/modules/order/order.utils"
 
 export const POLAR_PRODUCT_IDS = {
   [LICENSE_TIER.AGENCY]: env.POLAR_PRODUCT_ID_AGENCY,
@@ -23,12 +22,6 @@ export const POLAR_PRODUCT_IDS = {
 
 export const licenseTierForProduct = (productId: string): LicenseTier | undefined =>
   LICENSE_TIERS.find((tier) => POLAR_PRODUCT_IDS[tier] === productId)
-
-export const polarOrderUrl = (orderId: string): string =>
-  new URL(
-    `/dashboard/${POLAR_ORGANIZATION_SLUG}/sales/${encodeURIComponent(orderId)}`,
-    `https://${POLAR_DASHBOARD_HOSTS[env.POLAR_SERVER]}`,
-  ).toString()
 
 export const localizedTierName = async (locale: SupportedLocale, tier: LicenseTier): Promise<string> => {
   const messages = await loadNamespace<typeof pricingMessages>({ locale, namespace: "components.custom.pricing" })

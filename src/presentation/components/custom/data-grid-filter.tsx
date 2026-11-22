@@ -23,6 +23,8 @@ import { dateRangeField, numberRangeField } from "~/src/modules/_core/utils/zod-
 
 import { useDebouncedCallback } from "~/src/hooks/use-debounced-callback"
 
+import { cn } from "~/src/lib/cn"
+
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { ButtonGroup } from "~/src/presentation/components/shadcn/button-group"
@@ -281,10 +283,11 @@ const DateRangeFilter = <TData extends DataGridRow>({
   const days = from !== undefined && to !== undefined && { defaultValue: { end: dayOf(to, timeZone), start: dayOf(from, timeZone) } }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-wrap gap-1.5 sm:w-36 sm:flex-col sm:border-r sm:border-border sm:pr-3">
         {DATE_PRESETS.map(({ name, span }) => (
           <Button
+            className="sm:justify-start"
             key={name}
             onPress={() => {
               const end = today(timeZone)
@@ -299,7 +302,7 @@ const DateRangeFilter = <TData extends DataGridRow>({
       </div>
       <RangeCalendar
         aria-label={label}
-        className="mx-auto"
+        className="mx-auto sm:mx-0"
         key={`${String(from)}-${String(to)}`}
         onChange={(value: RangeValue<DateValue>) => {
           column.setFilterValue(dayRange(value.start, value.end, timeZone))
@@ -453,7 +456,7 @@ export const DataGridFilterMenu = <TData extends DataGridRow>({ table }: { reado
           </Badge>
         )}
       </Button>
-      <Popover className="w-80 p-3" placement="bottom start">
+      <Popover className={cn("w-80 p-3", { "sm:w-auto": editing?.filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
         <Dialog aria-label={t("filter")} className="outline-hidden">
           {editing === undefined && <ColumnChooser filterable={filterable} onChoose={setColumnId} />}
           {editing !== undefined && (
@@ -489,7 +492,7 @@ const FilterChip = <TData extends DataGridRow>({
           <span className="shrink-0 text-muted-foreground">{label}</span>
           <span className="truncate">{value}</span>
         </Button>
-        <Popover className="w-80 p-3" placement="bottom start">
+        <Popover className={cn("w-80 p-3", { "sm:w-auto": filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
           <Dialog aria-label={label} className="outline-hidden">
             <FilterEditor column={column} filter={filter} />
           </Dialog>

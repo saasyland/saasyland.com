@@ -338,7 +338,7 @@ export const DataGridTable = <TData extends DataGridRow>({
 
   return (
     <TableContainer
-      className="group/grid max-h-[max(24rem,calc(100dvh-18rem))] overflow-auto overscroll-x-contain rounded-lg border border-border bg-background"
+      className="group/grid max-h-[max(24rem,calc(100dvh-14rem))] overflow-auto overscroll-x-contain rounded-lg border border-border bg-background"
       data-density={density}
     >
       <Table

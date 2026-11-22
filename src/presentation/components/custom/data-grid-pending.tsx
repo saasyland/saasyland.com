@@ -35,7 +35,7 @@ export const DataGridPending = ({
         ))}
       </div>
     </div>
-    <TableContainer className="max-h-[max(24rem,calc(100dvh-18rem))] overflow-auto rounded-lg border border-border bg-background">
+    <TableContainer className="max-h-[max(24rem,calc(100dvh-14rem))] overflow-auto rounded-lg border border-border bg-background">
       <Table className="table-fixed border-separate border-spacing-0">
         <colgroup>
           {isSelectable && <col className="w-11" />}

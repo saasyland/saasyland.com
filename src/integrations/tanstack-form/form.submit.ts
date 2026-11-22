@@ -17,6 +17,7 @@ const isFieldName = <TName extends string>(fieldMeta: Partial<Record<TName, unkn
 export const submitForm = async <TName extends string>(
   event: SubmitEvent<HTMLFormElement>,
   form: SubmittableForm<TName>,
+  revealInvalid?: () => void,
 ): Promise<void> => {
   event.preventDefault()
   const element = event.currentTarget
@@ -29,6 +30,7 @@ export const submitForm = async <TName extends string>(
     for (const name of Object.keys(fieldMeta).filter((key) => isFieldName(fieldMeta, key))) {
       form.setFieldMeta(name, (meta) => ({ ...meta, isBlurred: true }))
     }
+    revealInvalid?.()
   })
   element.querySelector<HTMLElement>(INVALID_CONTROL_SELECTOR)?.focus()
 }

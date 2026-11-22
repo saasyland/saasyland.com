@@ -39,7 +39,9 @@ import { Route as LessonEditorRoute } from "~/src/routes/admin.courses.$courseId
 
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"
+import locales from "~/messages/en-US/locales.json"
 import labels from "~/messages/en-US/pages.admin.courses.json"
+import adminLabels from "~/messages/en-US/pages.admin.json"
 import type { RouterContext } from "~/src/router"
 
 const mutations = vi.hoisted(() => ({
@@ -192,6 +194,25 @@ const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement
   await user.paste(text)
 }
 
+const chooseLanguage = async (user: ReturnType<typeof userEvent.setup>, locale: string): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: new RegExp(adminLabels.components.formLanguages.label, "u") }))
+  await user.click(await screen.findByRole("option", { name: new RegExp(locale, "u") }))
+}
+
+const fillPolishInPanel = async (
+  user: ReturnType<typeof userEvent.setup>,
+  entries: readonly (readonly [string, string])[],
+): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: adminLabels.components.formLanguages.panel.open }))
+  const panel = await screen.findByRole("dialog", { name: adminLabels.components.formLanguages.panel.title })
+  for (const [tab, text] of entries) {
+    await user.click(within(panel).getByRole("tab", { name: new RegExp(`^${tab}`, "u") }))
+    await user.click(within(panel).getByLabelText(locales["pl-PL"]))
+    await user.paste(text)
+  }
+  await user.click(within(panel).getByRole("button", { name: adminLabels.components.formLanguages.panel.done }))
+}
+
 const card = (title: string): HTMLElement => {
   const element = screen.getByRole("heading", { level: 2, name: title }).closest("[data-slot=card]")
   if (!(element instanceof HTMLElement)) {
@@ -274,9 +295,7 @@ describe("lesson editor", () => {
     await user.clear(screen.getByLabelText("Time of moment 2"))
     await fill(user, screen.getByLabelText("Time of moment 2"), "0:30")
     await fill(user, screen.getByLabelText("Label of moment 2"), "Clone")
-    await user.click(
-      within(screen.getByRole("tablist", { name: labels.lessonEditor.keyMoments.languages })).getByRole("tab", { name: "pl-PL" }),
-    )
+    await chooseLanguage(user, "pl-PL")
     await fill(user, screen.getByLabelText("Label of moment 1"), "Instalacja")
     await user.click(screen.getByRole("button", { name: labels.lesson.save }))
 
@@ -302,10 +321,30 @@ describe("lesson editor", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
   })
 
+  it("fills the title and the description of another language in the all-languages panel", async () => {
+    const { user } = await renderLessonEditor()
+
+    await fillPolishInPanel(user, [
+      [labels.lesson.title, "Granice"],
+      [labels.lessonEditor.description, "Opis."],
+    ])
+    await user.click(screen.getByRole("button", { name: labels.lesson.save }))
+
+    await waitFor(() => {
+      expect(mutations.updateLesson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: { "en-US": "Read the code.", "pl-PL": "Opis." },
+          title: { "en-US": "Boundaries", "pl-PL": "Granice" },
+        }),
+        expect.anything(),
+      )
+    })
+  })
+
   it("starts an empty description in a language that has none", async () => {
     const { user } = await renderLessonEditor()
 
-    await user.click(within(screen.getByRole("tablist", { name: labels.lesson.textLanguages })).getByRole("tab", { name: "pl-PL" }))
+    await chooseLanguage(user, "pl-PL")
 
     expect(screen.getByLabelText(labels.lessonEditor.description)).toHaveValue("")
     expect(screen.queryByRole("region", { name: labels.lessonEditor.descriptionPreview })).toBeNull()
@@ -405,11 +444,13 @@ describe("new lesson materials", () => {
       throw new Error("Missing file input")
     }
     await user.upload(input, new File(["%PDF"], "workbook.pdf", { type: "application/pdf" }))
+    await fillPolishInPanel(user, [[labels.materials.titleLabel, "Zeszyt"]])
     await user.click(dialog.getByRole("button", { name: labels.materials.save }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.TOO_MANY_REQUESTS)
     })
+    expect(mutations.uploadAttachment.mock.calls[0]?.[0].get(`${UPLOAD_FIELDS.TITLE}.pl-PL`)).toBe("Zeszyt")
     expect(screen.getByRole("dialog")).toBeVisible()
   })
 
@@ -442,11 +483,12 @@ describe("new lesson materials", () => {
 
     await user.clear(dialog.getByLabelText(labels.materials.url))
     await fill(user, dialog.getByLabelText(labels.materials.url), "https://github.com/saasyland/cli")
+    await fillPolishInPanel(user, [[labels.materials.titleLabel, "Kod"]])
     await user.click(dialog.getByRole("button", { name: labels.materials.save }))
 
     await waitFor(() => {
       expect(mutations.createAttachment).toHaveBeenCalledWith(
-        { lessonId: LESSON_ID, title: { "en-US": "Source" }, url: "https://github.com/saasyland/cli" },
+        { lessonId: LESSON_ID, title: { "en-US": "Source", "pl-PL": "Kod" }, url: "https://github.com/saasyland/cli" },
         expect.anything(),
       )
     })
@@ -476,12 +518,16 @@ describe("lesson material changes", () => {
     const dialog = within(await screen.findByRole("dialog"))
     await user.clear(dialog.getByLabelText(labels.materials.titleLabel))
     await fill(user, dialog.getByLabelText(labels.materials.titleLabel), "Deck")
+    await fillPolishInPanel(user, [[labels.materials.titleLabel, "Slajdy"]])
     await user.click(dialog.getByRole("button", { name: labels.materials.save }))
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(labels.materials.saved)
     })
-    expect(mutations.updateAttachment).toHaveBeenCalledWith({ attachmentId: FILE.id, title: { "en-US": "Deck" } }, expect.anything())
+    expect(mutations.updateAttachment).toHaveBeenCalledWith(
+      { attachmentId: FILE.id, title: { "en-US": "Deck", "pl-PL": "Slajdy" } },
+      expect.anything(),
+    )
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()

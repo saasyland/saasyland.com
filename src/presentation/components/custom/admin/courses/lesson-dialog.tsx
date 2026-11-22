@@ -18,6 +18,7 @@ import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-less
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useFormLocale } from "~/src/hooks/use-form-locale"
 import { useVideoLibrary } from "~/src/hooks/use-video-library"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -25,7 +26,7 @@ import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "
 import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 
 import { CourseOptionField, CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
-import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
+import { FormLanguages, TranslationsSheet } from "~/src/presentation/components/custom/admin/form-languages"
 
 const NO_VIDEO = "none"
 
@@ -76,6 +77,8 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
     validators: { onChange: lessonFormSchema },
   })
 
+  const languages = useFormLocale(form, ({ summary, title }) => ({ texts: { summary, title } }))
+
   const videoLabels = new Map([[NO_VIDEO, t("noVideo")], ...library])
 
   return (
@@ -86,25 +89,59 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            void submitForm(event, form)
+            void submitForm(event, form, languages.showFirstInvalid)
           }}
         >
           <DialogHeader>
             <DialogTitle>{t("add")}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
-            <LocaleTabs label={t("textLanguages")}>
-              {(locale) => (
-                <div className="flex flex-col gap-4">
-                  <form.Field name={`title.${locale}`}>
-                    {(field) => <CourseTextField field={field} id={`lesson-title-${locale}`} label={t("title")} lang={locale} />}
+            <FormLanguages languages={languages}>
+              <TranslationsSheet
+                fields={[
+                  { id: "title", label: t("title") },
+                  { id: "summary", label: t("summary") },
+                ]}
+                languages={languages}
+              >
+                {(text, language, label) => (
+                  <form.Field name={`${text}.${language}`}>
+                    {(field) => (
+                      <>
+                        {text === "title" && (
+                          <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                        )}
+                        {text === "summary" && (
+                          <CourseTextAreaField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                        )}
+                      </>
+                    )}
                   </form.Field>
-                  <form.Field name={`summary.${locale}`}>
-                    {(field) => <CourseTextAreaField field={field} id={`lesson-summary-${locale}`} label={t("summary")} lang={locale} />}
-                  </form.Field>
-                </div>
+                )}
+              </TranslationsSheet>
+            </FormLanguages>
+            <form.Field key={`title-${languages.locale}`} name={`title.${languages.locale}`}>
+              {(field) => (
+                <CourseTextField
+                  field={field}
+                  id={`lesson-title-${languages.locale}`}
+                  label={t("title")}
+                  lang={languages.locale}
+                  source={languages.texts.title[I18N.DEFAULT_LOCALE]}
+                />
               )}
-            </LocaleTabs>
+            </form.Field>
+            <form.Field key={`summary-${languages.locale}`} name={`summary.${languages.locale}`}>
+              {(field) => (
+                <CourseTextAreaField
+                  field={field}
+                  id={`lesson-summary-${languages.locale}`}
+                  label={t("summary")}
+                  lang={languages.locale}
+                  source={languages.texts.summary[I18N.DEFAULT_LOCALE]}
+                />
+              )}
+            </form.Field>
 
             <form.Field name="slug">{(field) => <CourseTextField field={field} id="lesson-slug" isCode label={t("slug")} />}</form.Field>
 

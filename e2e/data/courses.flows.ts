@@ -5,6 +5,11 @@ const BUILD_COURSE = {
   title: "an administrator builds a course whose free lesson visitors can watch",
 } as const
 
+const TRANSLATE_COURSE = {
+  spec: "course-admin.spec.ts",
+  title: "an administrator translates a course from one language control and visitors read it in their language",
+} as const
+
 const WRITE_LESSON = {
   spec: "course-admin.spec.ts",
   title: "an administrator writes a lesson, swaps its video and adds materials that visitors download",
@@ -294,6 +299,13 @@ export const COURSES_FLOWS = [
     outcome: "The admin creates a published course with a chapter and a free lesson on a video, and a visitor plays that lesson",
     status: FLOW_STATUS.COVERED,
     tests: [BUILD_COURSE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-translate-course",
+    outcome: "The admin fills a course in another language from the form's language control and in the all-languages panel, and the course page shows each translation",
+    status: FLOW_STATUS.COVERED,
+    tests: [TRANSLATE_COURSE],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,

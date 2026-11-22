@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test"
 
+import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE } from "../data/courses"
@@ -65,21 +67,23 @@ test("the admin course form and tables keep every line of text whole, clear of t
   }
 })
 
-test("the admin course form shows every locale tab", async ({ appPage, authPage, page }) => {
+test("the admin course form keeps one language control, and its list reaches every language, at every width", async ({ appPage, authPage, page }) => {
   await signInAsAdmin(page, authPage)
 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport)
     await page.goto(`${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    const tabList = page.getByRole("tablist").first()
-    await tabList.scrollIntoViewIfNeeded()
-    const tabs = tabList.getByRole("tab")
+    await expect(page.getByRole("tablist")).toHaveCount(0)
+    const picker = page.getByRole("button", { name: new RegExp(labels.components.formLanguages.label, "u") })
+    await picker.scrollIntoViewIfNeeded()
+    await expect(picker).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("button", { name: labels.components.formLanguages.panel.open })).toBeInViewport({ ratio: 1 })
 
-    expect(await tabs.count()).toBeGreaterThan(1)
-    for (const tab of await tabs.all()) {
-      await expect(tab).toBeInViewport({ ratio: 1 })
-    }
+    await picker.click()
+    await expect(page.getByRole("option")).toHaveCount(I18N.SUPPORTED_LOCALES.length)
+    await expect(page.getByRole("listbox")).toBeInViewport({ ratio: 1 })
+    await page.keyboard.press("Escape")
   }
 })
 

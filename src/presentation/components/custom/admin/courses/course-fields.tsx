@@ -1,9 +1,10 @@
 import type { JSX, ReactNode } from "react"
 
 import { Plus, X } from "lucide-react"
+import { useTranslations } from "use-intl/react"
 
 import { type StringField, fieldErrorMessage, isFieldInvalid } from "~/src/integrations/tanstack-form/form.fields"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COURSE_VALIDATION_PARAMS } from "~/src/modules/course/course.constants"
 
@@ -23,7 +24,37 @@ interface TextFieldProps {
   readonly field: StringField
   readonly id: string
   readonly label: string
-  readonly lang?: SupportedLocale
+  readonly lang?: SupportedLocale | undefined
+  readonly source?: string | undefined
+}
+
+const describedBy = (id: string): string => `${id}-language ${id}-source ${id}-error`
+
+const FieldHeading = ({ id, label, lang }: Omit<TextFieldProps, "field" | "source">): JSX.Element => (
+  <div className="flex items-center justify-between gap-3">
+    <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    {lang !== undefined && (
+      <span className="font-mono text-spec text-muted-foreground" id={`${id}-language`}>
+        {lang}
+      </span>
+    )}
+  </div>
+)
+
+const SourceText = ({ id, lang, source }: Omit<TextFieldProps, "field" | "label">): JSX.Element | undefined => {
+  const t = useTranslations()
+
+  if (lang === I18N.DEFAULT_LOCALE || source === undefined || source.trim().length === 0) {
+    return undefined
+  }
+  return (
+    <FieldDescription className="line-clamp-3" id={`${id}-source`}>
+      <span className="font-medium text-foreground/80">
+        {t("pages.admin.courses.fields.source", { language: t(`locales.${I18N.DEFAULT_LOCALE}`) })}
+      </span>{" "}
+      <span lang={I18N.DEFAULT_LOCALE}>{source}</span>
+    </FieldDescription>
+  )
 }
 
 const FieldMessage = ({ field, id }: { readonly field: StringField; readonly id: string }): JSX.Element | undefined => {
@@ -46,11 +77,12 @@ export const CourseTextField = ({
   isCode = false,
   label,
   lang,
+  source,
 }: TextFieldProps & { readonly isCode?: boolean }): JSX.Element => (
   <Field data-invalid={isFieldInvalid(field)}>
-    <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <FieldHeading id={id} label={label} lang={lang} />
     <Input
-      aria-describedby={`${id}-error`}
+      aria-describedby={describedBy(id)}
       aria-invalid={isFieldInvalid(field)}
       className={cn({ "font-mono": isCode })}
       id={id}
@@ -62,15 +94,16 @@ export const CourseTextField = ({
       }}
       value={field.state.value ?? ""}
     />
+    <SourceText id={id} lang={lang} source={source} />
     <FieldMessage field={field} id={id} />
   </Field>
 )
 
-export const CourseTextAreaField = ({ field, id, label, lang }: TextFieldProps): JSX.Element => (
+export const CourseTextAreaField = ({ field, id, label, lang, source }: TextFieldProps): JSX.Element => (
   <Field data-invalid={isFieldInvalid(field)}>
-    <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <FieldHeading id={id} label={label} lang={lang} />
     <Textarea
-      aria-describedby={`${id}-error`}
+      aria-describedby={describedBy(id)}
       aria-invalid={isFieldInvalid(field)}
       id={id}
       lang={lang}
@@ -81,6 +114,7 @@ export const CourseTextAreaField = ({ field, id, label, lang }: TextFieldProps):
       }}
       value={field.state.value ?? ""}
     />
+    <SourceText id={id} lang={lang} source={source} />
     <FieldMessage field={field} id={id} />
   </Field>
 )
@@ -90,15 +124,15 @@ interface RichTextFieldProps extends TextFieldProps {
   readonly previewLabel: string
 }
 
-export const CourseRichTextField = ({ field, hint, id, label, lang, previewLabel }: RichTextFieldProps): JSX.Element => {
+export const CourseRichTextField = ({ field, hint, id, label, lang, previewLabel, source }: RichTextFieldProps): JSX.Element => {
   const text = field.state.value ?? ""
 
   return (
     <div className="flex flex-col gap-3">
       <Field data-invalid={isFieldInvalid(field)}>
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <FieldHeading id={id} label={label} lang={lang} />
         <Textarea
-          aria-describedby={`${id}-hint ${id}-error`}
+          aria-describedby={`${id}-hint ${describedBy(id)}`}
           aria-invalid={isFieldInvalid(field)}
           className="min-h-40 font-mono text-spec"
           id={id}
@@ -111,6 +145,7 @@ export const CourseRichTextField = ({ field, hint, id, label, lang, previewLabel
           value={text}
         />
         <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>
+        <SourceText id={id} lang={lang} source={source} />
         <FieldMessage field={field} id={id} />
       </Field>
       {text.trim().length > 0 && (
@@ -132,15 +167,21 @@ interface CourseListFieldProps {
   readonly children: (index: number) => ReactNode
   readonly field: ListField
   readonly label: string
+  readonly lang: SupportedLocale
   readonly max: number
 }
 
-export const CourseListField = ({ addLabel, children, field, label, max }: CourseListFieldProps): JSX.Element => {
+export const CourseListField = ({ addLabel, children, field, label, lang, max }: CourseListFieldProps): JSX.Element => {
   const items = field.state.value ?? []
 
   return (
     <FieldSet className="gap-2">
-      <FieldLegend variant="label">{label}</FieldLegend>
+      <div className="flex items-center justify-between gap-3">
+        <FieldLegend className="mb-0" variant="label">
+          {label}
+        </FieldLegend>
+        <span className="font-mono text-spec text-muted-foreground">{lang}</span>
+      </div>
       {items.length > 0 && (
         <ol className="flex flex-col gap-2">
           {items.map((_, index) => (

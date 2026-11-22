@@ -46,6 +46,7 @@ const NAMESPACES = [
   "auth.security",
   "auth.validations",
   "countries",
+  "locales",
   "pages.admin",
   "pages.admin.sidebar",
   "timezones",

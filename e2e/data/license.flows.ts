@@ -118,7 +118,7 @@ const JOURNEY_STEP = {
   UPGRADE_REFUND: "a refund of the upgrade returns the lower tier and its limit, and the key still works",
 } as const
 
-const JOURNEY_ONLY = "Only the journey suite does this, against preview and the Polar sandbox, and no CI runs it yet."
+const JOURNEY_ONLY = "Only the journey suite does this, against preview and the Polar sandbox, every night and outside the pull request checks."
 
 export const LICENSE_FLOWS = [
   {
@@ -607,7 +607,7 @@ export const LICENSE_FLOWS = [
     id: "upgrade-refunded",
     outcome: "A full refund of an upgrade order puts the licence back on its earlier tier and machine limit",
     journey: JOURNEY_STEP.UPGRADE_REFUND,
-    reason: "No browser test sends order.refunded for an upgrade; the integration suite and the journey suite refund one, and no CI runs the journey yet.",
+    reason: "No browser test sends order.refunded for an upgrade; the integration suite and the journey suite refund one, and the journey runs every night, outside the pull request checks.",
     status: FLOW_STATUS.MISSING,
   },
   {

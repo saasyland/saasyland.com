@@ -1,0 +1,74 @@
+name: Journey
+
+on:
+  schedule:
+    - cron: "40 4 * * *"
+  workflow_dispatch:
+    inputs:
+      journey:
+        description: Journey to run, or all of them.
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - core
+          - complete
+          - agency
+          - upgrade
+
+concurrency:
+  group: journey
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+
+jobs:
+  journey:
+    name: Journey on preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: Preview
+      deployment: false
+    env:
+      JOURNEY: ${{ inputs.journey || 'all' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('node_modules/playwright-core/package.json') }}
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps chromium
+      - name: Journey suite
+        env:
+          POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
+          POLAR_PRODUCT_ID_AGENCY: ${{ secrets.POLAR_PRODUCT_ID_AGENCY }}
+          POLAR_PRODUCT_ID_COMPLETE: ${{ secrets.POLAR_PRODUCT_ID_COMPLETE }}
+          POLAR_PRODUCT_ID_CORE: ${{ secrets.POLAR_PRODUCT_ID_CORE }}
+          POLAR_SERVER: sandbox
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          filter=()
+          if [[ "$JOURNEY" != "all" ]]; then
+            filter=(--grep "@$JOURNEY")
+          fi
+          bun run test:journey "${filter[@]}"
+      - name: Summarise the journey
+        if: ${{ !cancelled() }}
+        run: bun scripts/journey-summary.ts playwright-report/journey.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: journey-report
+          path: |
+            playwright-report/
+            test-results/journey/
+          retention-days: 14
+          if-no-files-found: ignore

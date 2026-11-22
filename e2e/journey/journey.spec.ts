@@ -65,6 +65,8 @@ const UPGRADE = { from: LICENSE_TIER.CORE, journey: "upgrade", to: LICENSE_TIER.
 
 type Journey = LicenseTier | typeof UPGRADE.journey
 
+const journeyTag = (journey: Journey): string => `@${journey}`
+
 const RUN = crypto.randomUUID().slice(0, 8)
 const WEBHOOK_TIMEOUT_MS = 120_000
 const WORKSTATION_SLOT = 1
@@ -252,7 +254,7 @@ for (const tier of LICENSE_TIERS) {
   const limit = LICENSE_ACTIVATION_LIMITS[tier]
   const label = `Journey ${TIER_NAMES[tier]} workstation`
 
-  test(`${TIER_NAMES[tier]}: pays in the Polar sandbox, uses its ${String(limit)} machines with the published CLI and loses the key to a refund`, async ({
+  test(`${TIER_NAMES[tier]}: pays in the Polar sandbox, uses its ${String(limit)} machines with the published CLI and loses the key to a refund`, { tag: journeyTag(tier) }, async ({
     appPage,
     authPage,
     baseURL,
@@ -375,7 +377,7 @@ for (const tier of LICENSE_TIERS) {
   const label = `Journey ${TIER_NAMES[from]} to ${TIER_NAMES[to]} workstation`
   const upgradeName = `Upgrade to ${TIER_NAMES[to]}`
 
-  test(`${TIER_NAMES[from]} to ${TIER_NAMES[to]}: pays the difference in the Polar sandbox, keeps the key with ${String(toLimit)} machines, and a refund of the upgrade returns ${TIER_NAMES[from]}`, async ({
+  test(`${TIER_NAMES[from]} to ${TIER_NAMES[to]}: pays the difference in the Polar sandbox, keeps the key with ${String(toLimit)} machines, and a refund of the upgrade returns ${TIER_NAMES[from]}`, { tag: journeyTag(journey) }, async ({
     appPage,
     authPage,
     baseURL,

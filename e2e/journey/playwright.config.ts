@@ -16,7 +16,11 @@ export default defineConfig<AppOptions>({
   fullyParallel: true,
   outputDir: "../../test-results/journey",
   projects: [{ name: "journey", use: { ...devices["Desktop Chrome"] } }],
-  reporter: [[isCI ? "github" : "list"], ["html", { open: "never", outputFolder: "../../playwright-report/journey" }]],
+  reporter: [
+    [isCI ? "github" : "list"],
+    ["html", { open: "never", outputFolder: "../../playwright-report/journey" }],
+    ["json", { outputFile: "../../playwright-report/journey.json" }],
+  ],
   retries: 0,
   testDir: ".",
   timeout: JOURNEY_TIMEOUT_MS,

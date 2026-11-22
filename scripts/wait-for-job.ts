@@ -4,12 +4,12 @@ import { z } from "zod/v4"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+import { MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
+
 const SCRIPT_ARGUMENTS_START = 2
 const FAILURE_EXIT_CODE = 1
 const POLL_INTERVAL_MS = 5000
 const REQUEST_TIMEOUT_MS = 30_000
-const MS_PER_SECOND = 1000
-const SECONDS_PER_MINUTE = 60
 
 export const WAIT_LIMIT_MINUTES = 15
 
@@ -91,7 +91,7 @@ if (import.meta.main) {
   const { GH_TOKEN, GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = environmentSchema.parse(process.env)
   const target = { job, step }
   const started = Date.now()
-  const deadline = started + WAIT_LIMIT_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND
+  const deadline = started + WAIT_LIMIT_MINUTES * MILLISECONDS_PER_MINUTE
 
   const request = async (path: string, conditions: Readonly<Record<string, string>>): Promise<Response> => {
     try {
@@ -135,7 +135,7 @@ if (import.meta.main) {
       const state = jobState(current, step)
 
       if (state === JOB_STATE.READY) {
-        const waited = Math.round((Date.now() - started) / MS_PER_SECOND)
+        const waited = Math.round((Date.now() - started) / MILLISECONDS_PER_SECOND)
         process.stdout.write(`"${current.name}" finished its step "${step}" after ${String(waited)} s of waiting.\n`)
 
         return

@@ -2,6 +2,7 @@ import type { APIRequestContext, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS } from "../data/accounts"
+import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import {
@@ -15,6 +16,7 @@ import type { AuthPage } from "../pages"
 import type { BasePage } from "../pages/base-page"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
@@ -24,7 +26,22 @@ const BUYER_NAME = "Withdrawing Buyer"
 const SIGN_UP_PASSWORD = "StrongPassword123!"
 const ORDER_REFERENCE = /Order (?<reference>[^\s<]+) ·/u
 
+const [preview, , paid] = TEST_LESSONS
+const NOT_USED_YET =
+  /^You asked for immediate supply at checkout, so the right of withdrawal ended when your licence key was issued\. You have not used the purchase yet, so a withdrawal until .+ still gets you a full refund under the Refund Policy\.$/u
+const USED_IN_A_LESSON =
+  /^You asked for immediate supply at checkout, so the right of withdrawal ended when your licence key was issued, and you first used the purchase on (?<date>.+), when you opened a paid lesson\. You can still send a withdrawal statement, and we will reply\.$/u
+const ANY_SPACE = /\s/gu
+
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const DATE_TIME = new Intl.DateTimeFormat(I18N.DEFAULT_LOCALE, {
+  ...I18N.FORMATS.dateTime.date,
+  ...I18N.FORMATS.dateTime.time,
+  timeZone: I18N.DEFAULT_TIMEZONE,
+})
+
+const printedAs = (value: Date): string => DATE_TIME.format(value).replaceAll(ANY_SPACE, " ")
 
 const useOwnRateLimit = async (page: Page): Promise<string> => {
   const id = crypto.randomUUID()
@@ -67,6 +84,20 @@ const expectAccessible = async (page: Page): Promise<void> => {
     await page.emulateMedia({ colorScheme })
     expect(await accessibilityViolations(page)).toEqual([])
   }
+}
+
+const withdrawalCard = (page: Page) =>
+  page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Withdrawal" }) })
+
+const visit = async (appPage: BasePage, page: Page, path: string): Promise<void> => {
+  await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+}
+
+const openLesson = async (appPage: BasePage, page: Page, lesson: (typeof TEST_LESSONS)[number]): Promise<void> => {
+  await visit(appPage, page, `${ROUTES.COURSES}/${TEST_COURSE.slug}/${lesson.slug}`)
+  await expect(page.getByRole("heading", { level: 1, name: lesson.title["en-US"] })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Mark as complete" })).toBeVisible()
 }
 
 const openWithdrawalPage = async (appPage: BasePage, page: Page, url: string): Promise<void> => {
@@ -158,6 +189,30 @@ test.describe("withdrawal function", () => {
     await expect(statements.getByRole("definition").filter({ hasText: "The signed-in account" })).toBeVisible()
     await expect(statements.getByRole("definition").filter({ hasText: /^Refundable\. The buyer consented to immediate delivery/u })).toBeVisible()
     await expect(statements.getByRole("definition").filter({ hasText: /^Emailed / })).toBeVisible()
+  })
+
+  test("a buyer who opens a paid lesson has used the purchase from that moment, and a free preview does not count", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    const { userId } = await signUpBuyer({ authPage, page, request })
+    await buyLicense(request, { tier: LICENSE_TIER.COMPLETE, userId })
+
+    await openLesson(appPage, page, preview)
+    await visit(appPage, page, ROUTES.APP_LICENSE)
+    await expect(withdrawalCard(page).getByText(NOT_USED_YET)).toBeVisible()
+
+    const openedFrom = new Date()
+    await openLesson(appPage, page, paid)
+    const openedUntil = new Date()
+    await visit(appPage, page, ROUTES.APP_LICENSE)
+
+    const terms = withdrawalCard(page).getByText(USED_IN_A_LESSON)
+    await expect(terms).toBeVisible()
+    const printed = USED_IN_A_LESSON.exec((await terms.textContent()) ?? "")?.groups?.["date"]?.replaceAll(ANY_SPACE, " ")
+    expect([printedAs(openedFrom), printedAs(openedUntil)]).toContain(printed)
   })
 
   test("the footer of every page and the Refund Policy lead to the withdrawal function", async ({ appPage, page }) => {

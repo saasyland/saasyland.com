@@ -1,28 +1,47 @@
-import { REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { FIRST_USE, type FirstUse, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { MILLISECONDS_PER_DAY } from "~/src/lib/duration"
 
-interface RefundEligibilityInput extends Pick<License["select"], "deliveredAt" | "purchaseCreatedAt" | "withdrawalConsentAt"> {
+type UseRecords = Pick<License["select"], "deliveredAt" | "lessonOpenedAt">
+
+interface RefundEligibilityInput extends UseRecords, Pick<License["select"], "purchaseCreatedAt" | "withdrawalConsentAt"> {
   readonly now: Date
+}
+
+interface Use {
+  readonly usedAt: Date
+  readonly via: FirstUse
 }
 
 export type RefundEligibility =
   | { readonly endedAt: Date; readonly kind: typeof REFUND_ELIGIBILITY.EXPIRED }
   | { readonly kind: typeof REFUND_ELIGIBILITY.REFUNDABLE; readonly until: Date }
   | { readonly kind: typeof REFUND_ELIGIBILITY.STATUTORY_WITHDRAWAL; readonly until: Date }
-  | { readonly deliveredAt: Date; readonly kind: typeof REFUND_ELIGIBILITY.USED }
+  | (Use & { readonly kind: typeof REFUND_ELIGIBILITY.USED })
 
 export const refundDeadline = (purchaseCreatedAt: Date): Date =>
   new Date(purchaseCreatedAt.getTime() + REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
 
+const firstUse = ({ deliveredAt, lessonOpenedAt }: UseRecords): Use | undefined => {
+  if (lessonOpenedAt !== null && (deliveredAt === null || lessonOpenedAt < deliveredAt)) {
+    return { usedAt: lessonOpenedAt, via: FIRST_USE.LESSON }
+  }
+
+  if (deliveredAt === null) {
+    return undefined
+  }
+
+  return { usedAt: deliveredAt, via: FIRST_USE.TEMPLATES }
+}
+
 export const refundEligibility = ({
-  deliveredAt,
   now,
   purchaseCreatedAt,
   withdrawalConsentAt,
+  ...records
 }: RefundEligibilityInput): RefundEligibility => {
   const until = refundDeadline(purchaseCreatedAt)
 
@@ -34,21 +53,25 @@ export const refundEligibility = ({
     return { kind: REFUND_ELIGIBILITY.STATUTORY_WITHDRAWAL, until }
   }
 
-  if (deliveredAt === null) {
+  const use = firstUse(records)
+
+  if (use === undefined) {
     return { kind: REFUND_ELIGIBILITY.REFUNDABLE, until }
   }
 
-  return { deliveredAt, kind: REFUND_ELIGIBILITY.USED }
+  return { ...use, kind: REFUND_ELIGIBILITY.USED }
 }
 
-export const refundEligibilityDate = (refund: RefundEligibility): Date => {
+type RefundEligibilityValues = { readonly date: Date } | { readonly date: Date; readonly via: FirstUse }
+
+export const refundEligibilityValues = (refund: RefundEligibility): RefundEligibilityValues => {
   if (refund.kind === REFUND_ELIGIBILITY.EXPIRED) {
-    return refund.endedAt
+    return { date: refund.endedAt }
   }
 
   if (refund.kind === REFUND_ELIGIBILITY.USED) {
-    return refund.deliveredAt
+    return { date: refund.usedAt, via: refund.via }
   }
 
-  return refund.until
+  return { date: refund.until }
 }

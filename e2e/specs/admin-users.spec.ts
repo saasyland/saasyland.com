@@ -169,8 +169,9 @@ test("admin reads a buyer's licence, consent, first uses and refund terms on the
   await expect(detail("Consent to immediate delivery")).toHaveText(/^Given on /u)
   await expect(detail("First activation")).toHaveText("Never")
   await expect(detail("First template download")).toHaveText("Never")
+  await expect(detail("First paid lesson opened")).toHaveText("Never")
   await expect(detail("Refund")).toHaveText(
-    /^Refundable until .+\. The buyer consented to immediate delivery, and the CLI has not downloaded templates with this licence yet\.$/u,
+    /^Refundable until .+\. The buyer consented to immediate delivery, the CLI has not downloaded templates with this licence, and no paid lesson has been opened yet\.$/u,
   )
   for (const colorScheme of COLOR_SCHEMES) {
     await page.emulateMedia({ colorScheme })

@@ -3,8 +3,9 @@ import { createServerOnlyFn } from "@tanstack/react-start"
 
 import { LICENSE_STATUS, LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
+import { recordLessonOpened } from "~/src/modules/license/use-cases/record-lesson-opened"
 
-import type { CourseAccessGrant } from "~/src/data/course-access"
+import type { CourseAccessGrant, CourseAccessUse } from "~/src/data/course-access"
 import { TIER_PRICES } from "~/src/data/marketing"
 
 import { ROUTES } from "~/src/routes"
@@ -24,6 +25,7 @@ export const LICENSE_COURSE_ACCESS = [
     key: "license",
     offer: `components.custom.pricing.tiers.${OFFERED_TIER}.name`,
     price: TIER_PRICES[OFFERED_TIER],
+    recordUse: createServerOnlyFn((use: CourseAccessUse) => recordLessonOpened({ ...use, tiers: COURSE_TIERS })),
     unlock: (redirect) => linkOptions({ search: { redirect, tier: OFFERED_TIER }, to: ROUTES.APP_LICENSE }),
   },
 ] as const satisfies readonly CourseAccessGrant[]

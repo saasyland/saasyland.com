@@ -91,26 +91,27 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 
 ## 記録と返金 [#records-and-refunds]
 
-`license` 行は、現在の購入について 3 つの記録を保持します。いずれも、そのできごとが起こるまでは空のままです。
+`license` 行は、現在の購入について 4 つの記録を保持します。いずれも、そのできごとが起こるまでは空のままです。
 
-| 列                      | 記録する内容                                                                                             | 書き込み元                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `withdrawal_consent_at` | 購入者がチェックアウトで即時提供に同意し、撤回権を失うことを了承した日時。注文が作成された時刻を使います | `order.paid` を受けた `grantLicense`                                |
-| `activated_at`          | いずれかの端末でのキーの最初のアクティベーション                                                         | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
-| `delivered_at`          | CLI がそのキーで初めてテンプレートをダウンロードした日時                                                 | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
+| 列                                     | 記録する内容                                                                                             | 書き込み元                                                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `withdrawal_consent_at`                | 購入者がチェックアウトで即時提供に同意し、撤回権を失うことを了承した日時。注文が作成された時刻を使います | `order.paid` を受けた `grantLicense`                                                                          |
+| `activated_at`                         | いずれかの端末でのキーの最初のアクティベーション                                                         | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use)                                           |
+| `delivered_at`                         | CLI がそのキーで初めてテンプレートをダウンロードした日時                                                 | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use)                                           |
+| `lesson_opened_at`、`opened_lesson_id` | ライセンスで解放される有料レッスンを購入者が初めて開いた日時と、そのレッスンの ID                        | ライセンスの[コースアクセス](/docs/features/courses#access-levels)を通じた `getLesson` と `getLessonPlayback` |
 
-購入者は Polar のチェックアウトで必須のチェックボックスにチェックを入れて同意します（[即時提供への同意](#consent-to-immediate-supply)）。同意は注文に `custom_field_data.<slug>` として保存されます。スラッグは <RepositoryFact name="licenseWithdrawalConsentField" />（`license.constants.ts` の `LICENSE_CHECKOUT_FIELD`）です。`src/lib/polar.ts` の `WITHDRAWAL_CONSENT_FIELD` はフィールドの名前、タイプ、英語のラベルを保持し、このフィールドを必須にしていない商品がある間は `polar:verify` が失敗します（[Polar の設定](/docs/getting-started/polar-setup#consent-checkbox)を参照）。`onOrderPaid` は Zod でこのフィールドを検証し、値が `true` の場合にだけ同意を記録します。返金後の購入など、同じアカウントの新しい注文は、同意をその注文自身の同意で置き換え、`activated_at` と `delivered_at` を空にします。そのため、記録は常に現在の購入を表します。これらの記録が導入される前に購入されたライセンスには、その当時の記録はありません。
+購入者は Polar のチェックアウトで必須のチェックボックスにチェックを入れて同意します（[即時提供への同意](#consent-to-immediate-supply)）。同意は注文に `custom_field_data.<slug>` として保存されます。スラッグは <RepositoryFact name="licenseWithdrawalConsentField" />（`license.constants.ts` の `LICENSE_CHECKOUT_FIELD`）です。`src/lib/polar.ts` の `WITHDRAWAL_CONSENT_FIELD` はフィールドの名前、タイプ、英語のラベルを保持し、このフィールドを必須にしていない商品がある間は `polar:verify` が失敗します（[Polar の設定](/docs/getting-started/polar-setup#consent-checkbox)を参照）。`onOrderPaid` は Zod でこのフィールドを検証し、値が `true` の場合にだけ同意を記録します。返金後の購入など、同じアカウントの新しい注文は、同意をその注文自身の同意で置き換え、`activated_at`、`delivered_at`、`lesson_opened_at`、`opened_lesson_id` を空にします。そのため、記録は常に現在の購入を表します。これらの記録が導入される前に購入されたライセンスには、その当時の記録はありません。
 
-`refundEligibility`（`src/modules/license/license.refunds.ts`）は、購入時刻、同意、最初のダウンロード、現在時刻だけから結果を求める純粋関数です。期間は購入から <RepositoryFact name="refundWithdrawalDays" unit="day" />で、この数値を宣言する唯一の場所である `src/data/refunds.ts` の `REFUND_TERMS.WITHDRAWAL_DAYS` で定められています。戻り値は `REFUND_ELIGIBILITY` のいずれか 1 つの種類です。
+`refundEligibility`（`src/modules/license/license.refunds.ts`）は、購入時刻、同意、最初のダウンロード、最初の有料レッスン、現在時刻だけから結果を求める純粋関数です。期間は購入から <RepositoryFact name="refundWithdrawalDays" unit="day" />で、この数値を宣言する唯一の場所である `src/data/refunds.ts` の `REFUND_TERMS.WITHDRAWAL_DAYS` で定められています。戻り値は `REFUND_ELIGIBILITY` のいずれか 1 つの種類です。
 
-| 種類                  | 条件                                                                                     | 含む値        |
-| --------------------- | ---------------------------------------------------------------------------------------- | ------------- |
-| `refundable`          | 期間内で、購入者が同意しており、CLI がまだテンプレートをダウンロードしていない場合       | `until`       |
-| `statutoryWithdrawal` | 期間内で、同意が記録されていないため、使用の有無にかかわらず法定の撤回権が適用される場合 | `until`       |
-| `used`                | 期間内で、購入者が同意しており、CLI がすでにテンプレートをダウンロードした場合           | `deliveredAt` |
-| `expired`             | 期間が終了した場合                                                                       | `endedAt`     |
+| 種類                  | 条件                                                                                                             | 含む値          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------- |
+| `refundable`          | 期間内で、購入者が同意しており、CLI がまだテンプレートをダウンロードしておらず、有料レッスンも開かれていない場合 | `until`         |
+| `statutoryWithdrawal` | 期間内で、同意が記録されていないため、使用の有無にかかわらず法定の撤回権が適用される場合                         | `until`         |
+| `used`                | 期間内で、購入者が同意しており、CLI がすでにテンプレートをダウンロードしたか、有料レッスンが開かれた場合         | `usedAt`、`via` |
+| `expired`             | 期間が終了した場合                                                                                               | `endedAt`       |
 
-管理者は、ユーザーのプロフィールで記録と、その結果を説明する文を確認できます。[ユーザー（管理）](/docs/features/users-admin#profile)を参照してください。
+`used` の購入は、2 つの最初の使用のうち早い方を `usedAt` として、それがどちらだったかを `via` として持ちます。値は `FIRST_USE.TEMPLATES` または `FIRST_USE.LESSON`（`license.constants.ts`）です。管理者は、ユーザーのプロフィールで記録と、その結果を説明する文を確認できます。[ユーザー（管理）](/docs/features/users-admin#profile)を参照してください。
 
 ## 購入確認 [#purchase-confirmation]
 
@@ -168,7 +169,7 @@ Polar がイベントを再配信できるのは、そのイベントのペイ�
 ### 設置場所
 
 - `/withdrawal`（`ROUTES.WITHDRAWAL`、`_site._marketing.withdrawal.tsx`、名前空間 `pages.withdrawal`）は、サインインしていなくても使える、プリレンダリングされた公開ページです。すべてのページのフッターが **ここで契約を撤回する**（`src/data/license.navigation.ts` の `LICENSE_NAVIGATION`）としてこのページにリンクし、返金ポリシー、利用規約、購入確認メールもリンクします。
-- `WithdrawalCard`（`src/presentation/components/custom/app/withdrawal-card.tsx`）は、`/app/license` の有効なライセンスの下にあります。プラン、注文番号、購入日を示し、撤回権または初回利用前の全額返金がまだ適用されるかどうかを、サーバーの時刻での `refundEligibility` に基づいて伝えます。また、**ここで契約を撤回する** で、アカウントの氏名、メールアドレス、注文番号が入力済みの意思表示をダイアログで開きます。意思表示の後は、それを受領した日時を表示します。
+- `WithdrawalCard`（`src/presentation/components/custom/app/withdrawal-card.tsx`）は、`/app/license` の有効なライセンスの下にあります。プラン、注文番号、購入日を示し、撤回権または初回利用前の全額返金がまだ適用されるかどうか、あるいは購入がいつ、どのように初めて利用されたかを、サーバーの時刻での `refundEligibility` に基づいて伝えます。また、**ここで契約を撤回する** で、アカウントの氏名、メールアドレス、注文番号が入力済みの意思表示をダイアログで開きます。意思表示の後は、それを受領した日時を表示します。
 
 どちらも `WithdrawalForm`（`src/presentation/components/custom/withdrawal-form.tsx`）を使います。フォームには、意思表示の文、氏名、受領確認の送信先メールアドレス、注文番号があり、`withdrawalZodSchemas.submitWithdrawal` と `withdrawal.validations` のメッセージで検証されます。送信ボタンは **撤回を確定する** です。権利がもう適用されないことを理由に、フォームが意思表示を拒むことはありません。その判断は後で行います。意思表示を受け付けると、フォームは受付内容の表示に替わります。表示するのは、意思表示、受領した日時、受領確認をメールで送信したかどうかです。
 

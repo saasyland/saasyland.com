@@ -8,6 +8,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup } from "~/src/platform/testing/lib/skeleton"
 
+import { licenseRow } from "~/src/modules/license/__test__/fixtures/license-row"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -31,24 +32,6 @@ const SELECTORS = {
   TIER_COLUMN: "[class~='@container'] > .overflow-hidden > div",
   UPGRADE: "[class*='lg:grid-cols-[1fr_18rem]']",
 } as const
-
-const license = (overrides: Partial<License["select"]> = {}): License["select"] => ({
-  activatedAt: null,
-  createdAt: new Date("2026-09-08T10:00:00Z"),
-  deliveredAt: null,
-  id: "license-1",
-  key: "key",
-  polarCustomerId: "customer-1",
-  polarLicenseKeyId: "polar-license-1",
-  polarOrderId: "order-1",
-  purchaseCreatedAt: new Date(0),
-  status: LICENSE_STATUS.ACTIVE,
-  tier: LICENSE_TIER.CORE,
-  updatedAt: new Date("2026-09-08T10:00:00Z"),
-  userId: "user-1",
-  withdrawalConsentAt: null,
-  ...overrides,
-})
 
 vi.mock("~/src/data/license-offer.entries", () => ({
   TEST_LICENSE_OFFER: [
@@ -109,11 +92,13 @@ describe("license skeletons", () => {
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
   ])("mirrors the upgrade card of a license owner who picks a tier at %s, and leaves it out once that upgrade is paid", (path, Page) => {
-    expect(renderAt(<Page />, path, { owned: license() }).querySelector(SELECTORS.UPGRADE)).toBeNull()
+    expect(renderAt(<Page />, path, { owned: licenseRow() }).querySelector(SELECTORS.UPGRADE)).toBeNull()
     cleanup()
-    expect(renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`, { owned: license() }).querySelector(SELECTORS.UPGRADE)).not.toBeNull()
+    expect(
+      renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`, { owned: licenseRow() }).querySelector(SELECTORS.UPGRADE),
+    ).not.toBeNull()
     cleanup()
-    const paid = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: license() })
+    const paid = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: licenseRow() })
     expect(paid.querySelector(SELECTORS.UPGRADE)).toBeNull()
   })
 
@@ -123,7 +108,7 @@ describe("license skeletons", () => {
   ])("ends the offer with the skeleton of what other areas include at %s", (path, Page) => {
     expect(renderAt(<Page />, path).querySelectorAll(SELECTORS.SECTION)).toHaveLength(1)
     cleanup()
-    expect(renderAt(<Page />, path, { owned: license() }).querySelectorAll(SELECTORS.SECTION)).toHaveLength(0)
+    expect(renderAt(<Page />, path, { owned: licenseRow() }).querySelectorAll(SELECTORS.SECTION)).toHaveLength(0)
   })
 
   it.each([
@@ -138,18 +123,18 @@ describe("license skeletons", () => {
   })
 
   it("mirrors the license status card on the overview of a license owner", () => {
-    const container = renderAt(<AppOverviewPending />, "/app", { owned: license() })
+    const container = renderAt(<AppOverviewPending />, "/app", { owned: licenseRow() })
 
     expect(container.querySelector(SELECTORS.STATUS_BADGE)).not.toBeNull()
     expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(0)
   })
 
   it("mirrors the first steps under the status card of an active license on the overview", () => {
-    const container = renderAt(<AppOverviewPending />, "/app", { owned: license() })
+    const container = renderAt(<AppOverviewPending />, "/app", { owned: licenseRow() })
 
     expect(container.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(CLI_SETUP_LINES.length + 2)
     cleanup()
-    const refunded = renderAt(<AppOverviewPending />, "/app", { owned: license({ status: LICENSE_STATUS.REFUNDED }) })
+    const refunded = renderAt(<AppOverviewPending />, "/app", { owned: licenseRow({ status: LICENSE_STATUS.REFUNDED }) })
     expect(refunded.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(0)
   })
 
@@ -157,7 +142,7 @@ describe("license skeletons", () => {
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
   ])("mirrors the first steps under the activation panel once the payment has activated the license at %s", (path, Page) => {
-    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.CORE}`, { owned: license() })
+    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.CORE}`, { owned: licenseRow() })
 
     expect(container.querySelector(SELECTORS.ACTIVATION)).not.toBeNull()
     expect(container.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(CLI_SETUP_LINES.length + 2)
@@ -167,24 +152,24 @@ describe("license skeletons", () => {
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
   ])("leaves the first steps out while an upgrade activates at %s, as the page does", (path, Page) => {
-    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: license() })
+    const container = renderAt(<Page />, `${path}?checkoutId=${CHECKOUT_ID}&tier=${LICENSE_TIER.AGENCY}`, { owned: licenseRow() })
 
     expect(container.querySelector(SELECTORS.ACTIVATION)).not.toBeNull()
     expect(container.querySelectorAll(SELECTORS.SETUP_STEP)).toHaveLength(0)
   })
 
   it("mirrors the key and every command on the license page of an active license, and none on a refunded one", () => {
-    const container = renderAt(<AppLicensePending />, "/app/license", { owned: license() })
+    const container = renderAt(<AppLicensePending />, "/app/license", { owned: licenseRow() })
 
     expect(container.querySelectorAll(SELECTORS.COMMAND)).toHaveLength(CLI_KEY_LINES.length + 1)
     cleanup()
-    const refunded = renderAt(<AppLicensePending />, "/app/license", { owned: license({ status: LICENSE_STATUS.REFUNDED }) })
+    const refunded = renderAt(<AppLicensePending />, "/app/license", { owned: licenseRow({ status: LICENSE_STATUS.REFUNDED }) })
     expect(refunded.querySelectorAll(SELECTORS.COMMAND)).toHaveLength(0)
     expect(refunded.querySelectorAll(SELECTORS.CARD)).toHaveLength(1)
   })
 
   it("mirrors the key, machine and withdrawal cards on the license page of a license owner", () => {
-    const container = renderAt(<AppLicensePending />, "/app/license", { owned: license() })
+    const container = renderAt(<AppLicensePending />, "/app/license", { owned: licenseRow() })
 
     expect(container.querySelectorAll(SELECTORS.CARD)).toHaveLength(3)
     expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(0)
@@ -192,7 +177,7 @@ describe("license skeletons", () => {
 
   it("leaves the machine card out until the key exists and keeps the offer next to a refunded license", () => {
     const container = renderAt(<AppLicensePending />, "/app/license", {
-      owned: license({ polarLicenseKeyId: JSON_NULL, status: LICENSE_STATUS.REVOKED }),
+      owned: licenseRow({ polarLicenseKeyId: JSON_NULL, status: LICENSE_STATUS.REVOKED }),
     })
 
     expect(container.querySelectorAll(SELECTORS.CARD)).toHaveLength(1)

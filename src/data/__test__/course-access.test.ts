@@ -31,6 +31,18 @@ describe("course access composition", () => {
     await expect(holdsCourseAccess("third")).resolves.toBe(false)
   })
 
+  it("records a use of course access with the grant of every area", async () => {
+    const first = { ...grantingTo("first"), recordUse: vi.fn<CourseAccessGrant["recordUse"]>(() => Promise.resolve()) }
+    const second = { ...grantingTo("second"), recordUse: vi.fn<CourseAccessGrant["recordUse"]>(() => Promise.resolve()) }
+    const { recordCourseAccessUse } = await composeWith({ FIRST_COURSE_ACCESS: [first], SECOND_COURSE_ACCESS: [second] })
+    const use = { lessonId: "lesson", userId: "first" }
+
+    await recordCourseAccessUse(use)
+
+    expect(first.recordUse).toHaveBeenCalledExactlyOnceWith(use)
+    expect(second.recordUse).toHaveBeenCalledExactlyOnceWith(use)
+  })
+
   it("keeps paid lessons for staff when no area grants course access", async () => {
     const { COURSE_ACCESS_GRANTS, holdsCourseAccess } = await composeWith({})
 

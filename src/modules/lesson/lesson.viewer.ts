@@ -6,8 +6,10 @@ import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { getRequestSession } from "~/src/integrations/better-auth/auth.session"
 
 import { GUEST, type Viewer } from "~/src/modules/lesson/lesson.access"
+import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import type { Lesson } from "~/src/modules/lesson/lesson.types"
 
-import { holdsCourseAccess } from "~/src/data/course-access"
+import { holdsCourseAccess, recordCourseAccessUse } from "~/src/data/course-access"
 
 export const resolveViewer = async (): Promise<Viewer> => {
   const session = await getRequestSession(getRequest())
@@ -23,4 +25,12 @@ export const resolveViewer = async (): Promise<Viewer> => {
     mustConfirmEmail: holdsAccess && !session.user.emailVerified,
     userId: session.user.id,
   }
+}
+
+export const recordPaidLessonOpened = async (lesson: Pick<Lesson["select"], "access" | "id">, viewer: Viewer): Promise<void> => {
+  if (lesson.access !== LESSON_ACCESS.PAID || !viewer.entitled) {
+    return
+  }
+
+  await recordCourseAccessUse({ lessonId: lesson.id, userId: viewer.userId })
 }

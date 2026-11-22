@@ -41,6 +41,7 @@ export const USER_LICENSE_DETAILS = [
   "withdrawalConsent",
   "firstActivation",
   "firstDownload",
+  "firstLesson",
 ] as const
 
 export const LICENSE_OFFER_ID = "license-offer"

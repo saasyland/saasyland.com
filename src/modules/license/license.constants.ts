@@ -51,6 +51,13 @@ export const REFUND_ELIGIBILITY = {
   USED: "used",
 } as const
 
+export const FIRST_USE = {
+  LESSON: "lesson",
+  TEMPLATES: "templates",
+} as const
+
+export type FirstUse = (typeof FIRST_USE)[keyof typeof FIRST_USE]
+
 export const LICENSE_CHECKOUT_FIELD = {
   WITHDRAWAL_CONSENT: "withdrawal_consent",
 } as const

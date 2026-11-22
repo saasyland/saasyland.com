@@ -13,6 +13,7 @@ export interface User {
   getUser: zod.input<typeof userZodSchemas.getUser>
   getUserSignups: zod.input<typeof userZodSchemas.getUserSignups>
   getUsers: zod.input<typeof userZodSchemas.getUsers>
+  userFilters: zod.output<typeof userZodSchemas.getUsers>["filters"]
   impersonateUser: zod.input<typeof userZodSchemas.impersonateUser>
   requestAccountDeletion: zod.input<typeof userZodSchemas.requestAccountDeletion>
   searchUsers: zod.input<typeof userZodSchemas.searchUsers>

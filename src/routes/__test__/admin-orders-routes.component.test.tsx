@@ -17,7 +17,7 @@ import { LICENSE_MACHINES } from "~/src/modules/license/license.constants"
 import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import type { Order } from "~/src/modules/order/order.types"
-import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
+import { getCustomersPageQuery, getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
 import { orderFiltersQuery } from "~/src/modules/order/use-cases/get-order-filters"
 import { getOrdersPageQuery, getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
@@ -29,6 +29,7 @@ import { Route as CustomersRoute } from "~/src/routes/admin.users.customers"
 
 import * as download from "~/src/lib/download"
 
+import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 import { adminMessages, adminQueryClient, renderAdmin, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import {
@@ -383,27 +384,58 @@ describe("order page", () => {
   })
 })
 
-describe("customers tab", () => {
-  it("lists each customer with their account, sign-up, verification, orders, what they paid, their last order and their machines", () => {
-    const queryClient = adminQueryClient()
-    queryClient.setQueryData(userActivationsQuery({ userIds: ["ada"] }).queryKey, {
-      machines: [{ activations: [], limit: 3, state: LICENSE_MACHINES.LISTED, userId: "ada" }],
-    })
-    queryClient.setQueryData(getCustomersQuery.queryKey, {
-      rows: [adminCustomerRow(), adminCustomerRow({ customerId: "cus_guest", id: "cus_guest", orders: 1, revenue: [], user: null })],
-      total: 2,
-    })
-    renderAdminPage(CustomersRoute.options.component, { queryClient })
+const renderCustomers = (rows: Order["customerRow"][]) => {
+  const queryClient = adminQueryClient()
+  queryClient.setQueryData(userActivationsQuery({ userIds: ["ada"] }).queryKey, {
+    machines: [{ activations: [], limit: 3, state: LICENSE_MACHINES.LISTED, userId: "ada" }],
+  })
+  queryClient.setQueryData(getCustomersQuery.queryKey, { rows, total: rows.length })
+  queryClient.setQueryData(getCustomersPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows, total: rows.length })
+  renderAdminPage(CustomersRoute.options.component, { queryClient })
+  return userEvent.setup()
+}
 
+const showVerification = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: gridToolbar.columns }))
+  await user.click(screen.getByRole("menuitemcheckbox", { name: customersMessages.table.headers.emailVerified }))
+  await user.keyboard("{Escape}")
+}
+
+describe("customers tab", () => {
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  const GUEST = adminCustomerRow({ customerId: "cus_guest", id: "cus_guest", orders: 1, revenue: [], user: null })
+
+  const buyer = adminUser()
+
+  const CUSTOMERS = [
+    adminCustomerRow(),
+    adminCustomerRow({
+      customerId: "cus_unverified",
+      id: "cus_unverified",
+      user: { createdAt: buyer.createdAt, email: buyer.email, emailVerified: false, id: buyer.id, name: buyer.name },
+    }),
+    GUEST,
+  ]
+
+  it("lists each customer with their account, sign-up, orders, what they paid, their last order and their machines", () => {
+    renderCustomers([adminCustomerRow(), GUEST])
+
+    const { headers } = customersMessages.table
     expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual([
-      ...Object.values(customersMessages.table.headers),
+      headers.customer,
+      headers.signedUpAt,
+      headers.orders,
+      headers.revenue,
+      headers.lastOrderAt,
       licenseMessages.activations.header,
     ])
     const [ada, guest] = bodyRows()
     expect(cellsOf(ada ?? document.body)).toStrictEqual([
       "Ada Lovelaceada@example.com",
       "Jan 1, 2025, 12:00 PM UTC",
-      customersMessages.table.yes,
       "2",
       "€519.20$199.00",
       "Jan 1, 2025, 12:00 PM UTC",
@@ -412,25 +444,42 @@ describe("customers tab", () => {
     expect(cellsOf(guest ?? document.body)).toStrictEqual([
       `${customersMessages.table.noAccount}cus_guest`,
       customersMessages.table.noAccount,
-      customersMessages.table.noAccount,
       "1",
       customersMessages.table.noRevenue,
       "Jan 1, 2025, 12:00 PM UTC",
       customersMessages.table.noAccount,
     ])
-    expect(screen.getByRole("textbox", { name: customersMessages.search })).toBeVisible()
+    expect(screen.getByRole("searchbox", { name: customersMessages.search })).toBeVisible()
   })
 
-  it("says when a customer has not verified their email", () => {
-    const queryClient = adminQueryClient()
-    const row = adminCustomerRow()
-    queryClient.setQueryData(getCustomersQuery.queryKey, {
-      rows: [{ ...row, user: row.user === null ? null : { ...row.user, emailVerified: false } }],
-      total: 1,
-    })
-    renderAdminPage(CustomersRoute.options.component, { queryClient })
+  it("shows whether each account verified its email once the admin shows the column", async () => {
+    const user = renderCustomers(CUSTOMERS)
 
-    expect(cellsOf(bodyRows()[0] ?? document.body)[2]).toBe(customersMessages.table.no)
+    await showVerification(user)
+
+    expect(bodyRows().map((cells) => cellsOf(cells)[2])).toStrictEqual([
+      customersMessages.table.yes,
+      customersMessages.table.no,
+      customersMessages.table.noAccount,
+    ])
+  })
+
+  it("exports the customers with their account, verification and what they paid in each currency", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const user = renderCustomers(CUSTOMERS)
+    await showVerification(user)
+
+    await user.click(screen.getByRole("button", { name: gridToolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    const [header, verified, unverified, guest] =
+      vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.replace("\uFEFF", "").split("\r\n") ?? []
+    expect(header).toBe([...Object.values(customersMessages.table.headers), licenseMessages.activations.header].join(","))
+    expect(verified).toBe("Ada Lovelace <ada@example.com>,2025-01-01T12:00:00.000Z,Yes,2,519.20 EUR; 199.00 USD,2025-01-01T12:00:00.000Z,")
+    expect(unverified).toContain(",No,")
+    expect(guest).toBe("cus_guest,,,1,,2025-01-01T12:00:00.000Z,")
   })
 
   it("mirrors the tab in the skeleton of user management", () => {

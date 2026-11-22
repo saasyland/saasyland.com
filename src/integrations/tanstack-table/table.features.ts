@@ -111,8 +111,6 @@ export type DataGridFilter =
 
 export const DATA_GRID_TYPING_DELAY_MS = 300
 
-export const DATA_GRID_ACTIONS_SIZE = 56
-
 export const DATA_GRID_DENSITY = {
   COMFORTABLE: "comfortable",
   COMPACT: "compact",

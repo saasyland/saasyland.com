@@ -41,7 +41,7 @@ test("the customers tab and the profile show the machines a licence has activate
   await page.goto(ROUTES.ADMIN_USERS_CUSTOMERS)
   await appPage.waitForAppReady()
 
-  await page.getByRole("textbox", { name: customersMessages.search }).fill(licensee.email)
+  await page.getByRole("searchbox", { name: customersMessages.search }).fill(licensee.email)
   const row = page.getByRole("table").locator("tbody tr")
   await expect(row).toHaveCount(1)
   await row.getByRole("button", { name: machinesInUse }).click()

@@ -31,7 +31,6 @@ import {
   withFixedColumnsPinned,
 } from "~/src/integrations/tanstack-table/table.columns"
 import {
-  DATA_GRID_ACTIONS_SIZE,
   DATA_GRID_DENSITY,
   DATA_GRID_FILTER_FNS,
   DATA_GRID_TYPING_DELAY_MS,
@@ -44,6 +43,8 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_SORTED_COLUMNS, PAGE_SIZES, type 
 
 import { useDataGridPreferences } from "~/src/hooks/use-data-grid-preferences"
 import { useDebouncedCallback } from "~/src/hooks/use-debounced-callback"
+
+import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 
 import { Checkbox } from "~/src/presentation/components/shadcn/checkbox"
 

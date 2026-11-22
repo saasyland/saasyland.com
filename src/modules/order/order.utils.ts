@@ -2,10 +2,10 @@ import "@tanstack/react-start/server-only"
 
 import { env } from "cloudflare:workers"
 
-import { type SQL, type SQLWrapper, inArray, sql } from "drizzle-orm"
+import { type SQL, inArray, sql } from "drizzle-orm"
 
 import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
-import { CURRENCY_CODES, type CurrencyCode, fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { type CurrencyCode, fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { currencyCodeField } from "~/src/modules/_core/utils/zod-fields"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
@@ -22,11 +22,6 @@ export const polarOrderUrl = (orderId: string): string =>
 export const netAmount: SQL<number> = sql<number>`coalesce(sum(${order.totalAmount} - ${order.refundedAmount}), 0)`.mapWith(Number)
 
 export const countsAsRevenue: SQL = inArray(order.status, REVENUE_ORDER_STATUSES)
-
-const MINOR_UNITS_PER_MAJOR = JSON.stringify(Object.fromEntries(CURRENCY_CODES.map((code) => [code, toMinorUnits(1, code)])))
-
-export const inMinorUnits = (amount: number, currency: SQLWrapper): SQL<number> =>
-  sql<number>`round(${amount} * json_extract(${MINOR_UNITS_PER_MAJOR}, '$.' || upper(${currency})))`.mapWith(Number)
 
 export const accountId = sql<string>`${user.id}`.as("account_id")
 

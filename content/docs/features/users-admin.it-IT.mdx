@@ -1,6 +1,6 @@
 ---
 title: "Utenti (admin)"
-description: "Gestione utenti in /admin/users: una tabella utenti reale, una pagina di profilo per ogni utente e azioni che chiamano l’API di amministrazione di Better Auth."
+description: "Gestione utenti in /admin/users: una griglia utenti con ricerca e filtri sul server, una pagina di profilo per ogni utente e azioni che chiamano l’API di amministrazione di Better Auth."
 ---
 
 ## Rotte
@@ -9,7 +9,7 @@ description: "Gestione utenti in /admin/users: una tabella utenti reale, una pag
 
 | Rotta                      | Contenuto                                                                               |
 | -------------------------- | --------------------------------------------------------------------------------------- |
-| `/admin/users/all`         | Tabella utenti reale                                                                    |
+| `/admin/users/all`         | Tutti gli account nella griglia dati, con ricerca e filtri sul server                   |
 | `/admin/users/customers`   | Ogni cliente Polar con il suo account, i suoi ordini e quanto ha pagato dopo i rimborsi |
 | `/admin/users/invitations` | Gli inviti aperti, con **Invita utente**, **Invia di nuovo** e **Revoca**               |
 | `/admin/users/$userId`     | Profilo di un utente: dati dell’account, sessioni e card aggiunte da altre aree         |
@@ -17,12 +17,23 @@ description: "Gestione utenti in /admin/users: una tabella utenti reale, una pag
 ## Tutti gli utenti
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` chiama la funzione server `getUsers` (`src/modules/user/use-cases/get-users.ts`, permesso `user: ["list"]`). Paginazione e ordinamento avvengono sul server per nome, ruolo, stato, verifica dell’email, 2FA, fuso orario e date di creazione e aggiornamento.
-- Lo stato non è una colonna. `getUserStatus` (`user.utils.ts`) ricava `banned`, `pending` o `active` da `banned` ed `emailVerified`, e il server ordina con la stessa espressione SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) lo mostra nella tabella e nel profilo.
-- `userColumns` si trova in `src/presentation/components/custom/admin/users/user-columns.tsx`; ogni nome porta al profilo dell’utente. Le date di creazione e di aggiornamento usano il messaggio `common.dateTime`, nel fuso orario di chi le consulta e con la sua sigla, così entrambe le colonne si leggono e si ordinano in un solo fuso. Il fuso di ciascun utente ha una colonna a sé.
+- `getUsersPageQuery` chiama la funzione server `getUsers` (`src/modules/user/use-cases/get-users.ts`, permesso `user: ["list"]`). `userZodSchemas.getUsers` convalida la richiesta della griglia, e paginazione, ordinamento, ricerca e ogni filtro avvengono sul server.
+- La ricerca trova nome ed email. I filtri sono l’utente come testo, ruolo e stato a scelta multipla, verifica dell’email e 2FA come sì o no, il fuso orario a scelta multipla, e le date di creazione e aggiornamento come intervalli di giorni.
+- Lo stato non è una colonna. `getUserStatus` (`user.utils.ts`) ricava `banned`, `pending` o `active` da `banned` ed `emailVerified`, e il server ordina e filtra con la stessa espressione SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) lo mostra nella tabella e nel profilo.
+- `useUserColumns` si trova in `src/presentation/components/custom/admin/users/user-columns.tsx`; ogni nome porta al profilo dell’utente, e la colonna dell’utente è fissata a sinistra. All’inizio sono visibili utente, ruolo, stato, verifica dell’email e data di creazione; 2FA, fuso orario e data di aggiornamento si mostrano dal menu Colonne. Le date di creazione e di aggiornamento usano il messaggio `common.dateTime`, nel fuso orario di chi le consulta e con la sua sigla, così entrambe le colonne si leggono e si ordinano in un solo fuso.
+- Ogni riga termina con `UserRowActions`, il `rowActions` della griglia, fissato a destra. Il CSV scrive l’utente come `name <email>` e ruolo, stato e sì o no così come li mostra la tabella.
 
 **Aggiungi utente** apre `CreateUserDialog` (`create-user-dialog.tsx`), un form TanStack Form validato da `userZodSchemas.createUser`: nome, email, una password iniziale e un ruolo. Chiama `createUser` (`user: ["create"]`, e per il ruolo Better Auth controlla anche `user: ["set-role"]`), poi apre il profilo del nuovo utente. Better Auth crea l’account con l’email non verificata, quindi il primo accesso porta a `/auth/verify-email`, che invia il link di verifica.
 
@@ -77,7 +88,7 @@ La tabella `invitation` registra chi ha invitato chi e che cosa è successo all�
 
 Le chiavi esterne verso gli utenti sono `ON DELETE SET NULL`, quindi il record sopravvive agli account che nomina. Un indice univoco parziale su `email` per le righe in cui `accepted_at` e `revoked_at` sono vuoti consente un solo invito aperto per indirizzo.
 
-La scheda elenca gli inviti aperti con `listInvitations` (`user: ["list"]`), in attesa o con il link scaduto, in `DataTable` con `invitationColumns` (`invitation-columns.tsx`). **Invia di nuovo** (`resendInvitation`, limitato come l’invito) invia un nuovo link, che sostituisce il token e fa ripartire la validità, così il link precedente smette di funzionare. **Revoca** (`revokeInvitation`) chiede prima conferma, poi registra l’amministratore e l’ora; da quel momento il link dice che l’invito è stato ritirato.
+La scheda elenca gli inviti aperti con `listInvitations` (`user: ["list"]`), in attesa o con il link scaduto, nel `DataGrid` con `useInvitationColumns` (`invitation-columns.tsx`), che nel browser cerca per email e per chi ha invitato e filtra per email, ruolo, stato, chi ha invitato e giorni di invio e di scadenza; `InvitationRowActions` chiude ogni riga con un menu che offre **Invia di nuovo** e **Revoca**. **Invia di nuovo** (`resendInvitation`, limitato come l’invito) invia un nuovo link, che sostituisce il token e fa ripartire la validità, così il link precedente smette di funzionare. **Revoca** (`revokeInvitation`) chiede prima conferma, poi registra l’amministratore e l’ora; da quel momento il link dice che l’invito è stato ritirato.
 
 Il link apre `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` restituisce l’indirizzo invitato, il ruolo e lo stato del link (`INVITATION_STATUS`), e la pagina mostra una di queste schermate:
 

@@ -9,13 +9,11 @@ import {
   strictPasswordSchema,
 } from "~/src/integrations/better-auth/auth.zod"
 
-import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { choiceOf, flagFilterField, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { searchSchema } from "~/src/modules/_core/utils/search"
 import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
-import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
-
-const MAX_SORT_COLUMNS = 8
+import { MIN_FIELD_LENGTH, dateRangeField, idField } from "~/src/modules/_core/utils/zod-fields"
+import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES, USER_SORT_COLUMNS, USER_STATUSES } from "~/src/modules/user/user.constants"
 
 const timezone = zod.enum(TIMEZONE_CODES)
 
@@ -44,14 +42,24 @@ const deleteUser = userIdInput
 
 const getUser = userIdInput
 
-const userSortSchema = zod.object({
-  desc: zod.boolean(),
-  id: zod.string().pipe(zod.enum(["user", "role", "status", "emailVerified", "twoFactorEnabled", "timezone", "createdAt", "updatedAt"])),
-})
-
 const getUserSignups = timeRangeSchema
 
-const getUsers = paginationSchema.extend({ sorting: zod.array(userSortSchema).max(MAX_SORT_COLUMNS).default([]) })
+const userFilters = zod.object({
+  createdAt: dateRangeField.optional(),
+  emailVerified: flagFilterField.optional(),
+  role: zod.array(choiceOf(ROLE_VALUES)).max(ROLE_VALUES.length).optional(),
+  status: zod.array(choiceOf(USER_STATUSES)).max(USER_STATUSES.length).optional(),
+  timezone: zod.array(choiceOf(TIMEZONE_CODES)).max(TIMEZONE_CODES.length).optional(),
+  twoFactorEnabled: flagFilterField.optional(),
+  updatedAt: dateRangeField.optional(),
+  user: searchTextField.optional(),
+})
+
+const getUsers = paginationSchema.extend({
+  filters: userFilters.default({}),
+  search: searchTextField.default(""),
+  sorting: sortingOf(USER_SORT_COLUMNS),
+})
 
 const impersonateUser = userIdInput
 

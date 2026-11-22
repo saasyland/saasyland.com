@@ -8,8 +8,11 @@ import { expectVerificationEmail } from "../fixtures/emails"
 import { deliverPaidOrder } from "../fixtures/license"
 import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
+import gridMessages from "../../messages/en-US/components.custom.data-grid.json" with { type: "json" }
+import usersMessages from "../../messages/en-US/pages.admin.users.json" with { type: "json" }
 
-const [admin] = TEST_ACCOUNTS
+const [admin, customer] = TEST_ACCOUNTS
+const { headers } = usersMessages.table
 
 const BROWSER_TIMEZONE = "America/Los_Angeles"
 const BROWSER_TIME = new Date("2026-11-16T00:05:00Z")
@@ -39,29 +42,101 @@ const addUser = async ({ appPage, page }: { appPage: BasePage; page: Page }, nam
 
 const userActions = (page: Page, name: string) => page.getByRole("button", { name: `Actions for ${name}`, exact: true })
 
-test("admin sorts the user table by name and selects every row", async ({ appPage, authPage, page }) => {
-  await signInAsAdmin({ appPage, authPage, page })
+const usersTable = (page: Page) => page.getByRole("table", { name: usersMessages.table.label })
+
+const gotoUsers = async ({ appPage, page }: { appPage: BasePage; page: Page }): Promise<void> => {
   await page.goto("/admin/users/all", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
+}
 
-  const table = page.getByRole("table")
-  const userHeader = table.getByRole("columnheader", { name: /^User/u })
+const filterBy = async (page: Page, column: string, option: string): Promise<void> => {
+  await page.getByRole("button", { name: new RegExp(`^${gridMessages.filters.filter}`, "u") }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("option", { name: new RegExp(`^${column}`, "u") }).click()
+  await dialog.getByRole("option", { exact: true, name: option }).click()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+}
+
+test("admin sorts the user table by name and selects every row", async ({ appPage, authPage, page }) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  await gotoUsers({ appPage, page })
+
+  const table = usersTable(page)
+  const userHeader = table.getByRole("columnheader", { name: new RegExp(`^${headers.user}`, "u") })
+  const sortByUser = table.getByRole("button", { exact: true, name: headers.user })
   const names = table.locator("tbody tr td:nth-child(2) a")
-  await userHeader.getByRole("button", { name: /^User/u }).click()
+  await sortByUser.click()
   await expect(userHeader).toHaveAttribute("aria-sort", "ascending")
-  await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeVisible()
+  await expect(table).toHaveAttribute("aria-busy", "false")
   const ascending = await names.allTextContents()
   expect(ascending.length).toBeGreaterThan(1)
   expect(ascending).toEqual(ascending.toSorted())
-  await userHeader.getByRole("button", { name: /^User/u }).click()
+  await sortByUser.click()
   await expect(userHeader).toHaveAttribute("aria-sort", "descending")
-  await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeVisible()
+  await expect(table).toHaveAttribute("aria-busy", "false")
   const descending = await names.allTextContents()
-  expect(descending.length).toBeGreaterThan(1)
   expect(descending).toEqual(descending.toSorted().toReversed())
-  await table.locator("label").filter({ has: page.getByRole("checkbox", { name: "Select all rows" }) }).click()
-  await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeChecked()
-  await expect(table.getByRole("checkbox", { name: "Select row" }).last()).toBeChecked()
+  await table.getByRole("checkbox", { name: gridMessages.selection.selectPage }).focus()
+  await page.keyboard.press("Space")
+  await expect(table.getByRole("checkbox", { name: gridMessages.selection.selectRow }).first()).toBeChecked()
+  await expect(table.getByRole("checkbox", { name: gridMessages.selection.selectRow }).last()).toBeChecked()
+  await expect(page.getByRole("region", { name: gridMessages.selection.region })).toContainText(String(descending.length))
+})
+
+test("the admin finds users by name or email and filters them by role and status on the server", async ({ appPage, authPage, page }) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  await gotoUsers({ appPage, page })
+  const rows = usersTable(page).locator("tbody tr")
+  const search = page.getByRole("searchbox", { name: usersMessages.table.search })
+
+  await search.fill(customer.email)
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText(customer.name)
+  await search.fill(customer.name)
+  await expect(rows.filter({ hasText: customer.email })).toHaveCount(1)
+
+  await filterBy(page, headers.status, usersMessages.filters.status.options.pending)
+  await expect(page.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })).toBeVisible()
+  await page.getByRole("button", { name: gridMessages.filters.remove.replace("{column}", headers.status) }).click()
+  await expect(rows).toHaveCount(1)
+
+  await search.fill(admin.email)
+  await filterBy(page, headers.role, usersMessages.filters.role.options.admin)
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText(admin.name)
+  await search.fill(customer.email)
+  await expect(page.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })).toBeVisible()
+  await page.getByRole("button", { name: gridMessages.empty.clear }).click()
+  await expect(search).toHaveValue("")
+  await expect(rows.filter({ hasText: customer.email })).toHaveCount(1)
+})
+
+test("the admin hides and shows the users' columns, keeps the layout after a reload and resets it", async ({ appPage, authPage, page }) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  await gotoUsers({ appPage, page })
+
+  const headerNames = usersTable(page).getByRole("columnheader")
+  const defaults = ["", headers.user, headers.role, headers.status, headers.emailVerified, headers.createdAt, gridMessages.actions.header]
+  await expect(headerNames).toHaveText(defaults)
+
+  await page.getByRole("button", { name: gridMessages.toolbar.columns }).click()
+  await page.getByRole("menuitemcheckbox", { name: headers.emailVerified }).click()
+  await page.getByRole("menuitemcheckbox", { name: headers.timezone }).click()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("menu")).toHaveCount(0)
+  await page.getByRole("button", { name: `${headers.role} column options` }).click()
+  await page.getByRole("menuitem", { name: gridMessages.column.hide }).click()
+
+  const arranged = ["", headers.user, headers.status, headers.timezone, headers.createdAt, gridMessages.actions.header]
+  await expect(headerNames).toHaveText(arranged)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await expect(headerNames).toHaveText(arranged)
+  await expect(page.getByRole("columnheader", { name: new RegExp(`^${headers.user}`, "u") })).toHaveCSS("position", "sticky")
+
+  await page.getByRole("button", { name: gridMessages.toolbar.reset }).click()
+  await expect(headerNames).toHaveText(defaults)
 })
 
 test("admin adds a user, renames them and makes them an admin", async ({ appPage, authPage, page }) => {

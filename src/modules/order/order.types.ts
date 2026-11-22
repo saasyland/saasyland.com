@@ -25,6 +25,7 @@ export interface Order {
   polarOrder: Extract<OrderDetail["polar"], { amounts: unknown }>
   userOrders: Awaited<ReturnType<typeof getUserOrders>>
   orderFilters: zod.output<typeof orderZodSchemas.getOrders>["filters"]
+  customerFilters: zod.output<typeof orderZodSchemas.getCustomers>["filters"]
   getCustomers: zod.input<typeof orderZodSchemas.getCustomers>
   getOrder: zod.input<typeof orderZodSchemas.getOrder>
   getOrders: zod.input<typeof orderZodSchemas.getOrders>

@@ -1,0 +1,1 @@
+export const DATA_GRID_ACTIONS_SIZE = 56

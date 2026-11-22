@@ -11,7 +11,7 @@ import type { License } from "~/src/modules/license/license.types"
 import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { CustomerMachines, CustomerMachinesHeader } from "~/src/presentation/components/custom/admin/users/license-machines"
+import { CustomerMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
 
 import labels from "~/messages/en-US/pages.admin.users.license.json"
 
@@ -34,21 +34,14 @@ const MACHINES: License["userMachines"][] = [
 const renderCell = (userId: string) => {
   const queryClient = adminQueryClient()
   queryClient.setQueryData(userActivationsQuery({ userIds: ACCOUNTS }).queryKey, { machines: [...MACHINES] })
-  return renderAdmin(
-    <>
-      <CustomerMachinesHeader />
-      <CustomerMachines accounts={ACCOUNTS} userId={userId} />
-    </>,
-    { queryClient },
-  )
+  return renderAdmin(<CustomerMachines accounts={ACCOUNTS} userId={userId} />, { queryClient })
 }
 
 describe("machines of a customer", () => {
-  it("counts a licence's machines under its own header and lists them on request", async () => {
+  it("counts a licence's machines and lists them on request", async () => {
     renderCell("ada")
 
-    expect(await screen.findByText(labels.activations.header)).toBeVisible()
-    await userEvent.click(screen.getByRole("button", { name: t("activations.count", { limit: 3, used: 1 }) }))
+    await userEvent.click(await screen.findByRole("button", { name: t("activations.count", { limit: 3, used: 1 }) }))
 
     const dialog = await screen.findByRole("dialog", { name: labels.activations.title })
     expect(within(dialog).getByText("Build box")).toBeVisible()

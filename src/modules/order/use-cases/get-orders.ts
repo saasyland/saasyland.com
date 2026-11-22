@@ -1,15 +1,15 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { type SQL, type SQLWrapper, and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, or } from "drizzle-orm"
+import { type SQL, and, asc, count, desc, eq, isNotNull, isNull } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { containsText } from "~/src/integrations/drizzle-orm/drizzle.search"
+import { anyContains, oneOf, withinAmounts, withinDates } from "~/src/integrations/drizzle-orm/drizzle.search"
 
 import { ORDER_DISCOUNT_FILTER, ORDER_QUERY_KEYS } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import type { Order } from "~/src/modules/order/order.types"
-import { accountId, billingCountryOf, inMinorUnits, moneyOf, orderDiscountOf } from "~/src/modules/order/order.utils"
+import { accountId, billingCountryOf, moneyOf, orderDiscountOf } from "~/src/modules/order/order.utils"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -20,76 +20,21 @@ const sortColumns = {
   totalAmount: order.totalAmount,
 }
 
-const searching = (text: string): SQL | undefined => {
-  if (text.length === 0) {
-    return undefined
-  }
+const SEARCHED = [order.id, order.customerId, order.description, user.name, user.email]
 
-  return or(
-    containsText(order.id, text),
-    containsText(order.customerId, text),
-    containsText(order.description, text),
-    containsText(user.name, text),
-    containsText(user.email, text),
-  )
+const CUSTOMER_TEXT = [order.customerId, user.name, user.email]
+
+const DISCOUNT_PRESENCE: Readonly<Record<string, SQL>> = {
+  [ORDER_DISCOUNT_FILTER.ANY]: isNotNull(order.discountId),
+  [ORDER_DISCOUNT_FILTER.NONE]: isNull(order.discountId),
 }
 
-const ofCustomer = (text: string | undefined): SQL | undefined => {
-  if (text === undefined || text.length === 0) {
-    return undefined
-  }
-
-  return or(containsText(order.customerId, text), containsText(user.name, text), containsText(user.email, text))
-}
-
-const placedWithin = (range: Order["orderFilters"]["placedAt"]): SQL | undefined => {
-  if (range === undefined) {
-    return undefined
-  }
-
-  const { from, to } = range
-
-  return and(
-    from === undefined ? undefined : gte(order.placedAt, new Date(from)),
-    to === undefined ? undefined : lte(order.placedAt, new Date(to)),
-  )
-}
-
-const totalWithin = (range: Order["orderFilters"]["totalAmount"]): SQL | undefined => {
-  if (range === undefined) {
-    return undefined
-  }
-
-  const { max, min } = range
-
-  return and(
-    min === undefined ? undefined : gte(order.totalAmount, inMinorUnits(min, order.currency)),
-    max === undefined ? undefined : lte(order.totalAmount, inMinorUnits(max, order.currency)),
-  )
-}
-
-const discounted = (discount: string | undefined): SQL | undefined => {
+const discounted = (discount: string | undefined): SQL[] => {
   if (discount === undefined) {
-    return undefined
+    return []
   }
 
-  if (discount === ORDER_DISCOUNT_FILTER.ANY) {
-    return isNotNull(order.discountId)
-  }
-
-  if (discount === ORDER_DISCOUNT_FILTER.NONE) {
-    return isNull(order.discountId)
-  }
-
-  return eq(order.discountId, discount)
-}
-
-const oneOf = (column: SQLWrapper, values: readonly string[] | undefined): SQL | undefined => {
-  if (values === undefined || values.length === 0) {
-    return undefined
-  }
-
-  return inArray(column, values)
+  return [DISCOUNT_PRESENCE[discount] ?? eq(order.discountId, discount)]
 }
 
 const matching = (
@@ -97,14 +42,14 @@ const matching = (
   { country, customer, discount, placedAt, product, status, totalAmount }: Order["orderFilters"],
 ): SQL | undefined =>
   and(
-    searching(search),
-    ofCustomer(customer),
-    discounted(discount),
-    oneOf(order.billingCountry, country),
-    placedWithin(placedAt),
-    oneOf(order.productId, product),
-    oneOf(order.status, status),
-    totalWithin(totalAmount),
+    ...anyContains(SEARCHED, search),
+    ...anyContains(CUSTOMER_TEXT, customer),
+    ...discounted(discount),
+    ...oneOf(order.billingCountry, country),
+    ...withinDates(order.placedAt, placedAt),
+    ...oneOf(order.productId, product),
+    ...oneOf(order.status, status),
+    ...withinAmounts(order.totalAmount, order.currency, totalAmount),
   )
 
 export const getOrders = createServerFn({ method: "GET" })

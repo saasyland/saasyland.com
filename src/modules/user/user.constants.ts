@@ -10,6 +10,19 @@ export const USER_STATUS = {
   PENDING: "pending",
 } as const
 
+export const USER_STATUSES = [USER_STATUS.ACTIVE, USER_STATUS.PENDING, USER_STATUS.BANNED] as const
+
+export const USER_SORT_COLUMNS = [
+  "user",
+  "role",
+  "status",
+  "emailVerified",
+  "twoFactorEnabled",
+  "timezone",
+  "createdAt",
+  "updatedAt",
+] as const
+
 export const USER_QUERY_KEYS = {
   ALL: ["user"],
   DETAIL: ["user", "getUser"],

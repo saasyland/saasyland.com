@@ -22,36 +22,81 @@ type LessonView = (typeof LESSON_VIEW)[keyof typeof LESSON_VIEW]
 
 const ALIGNMENT_VIEWPORTS = [
   { height: 900, width: 1280 },
+  { height: 1024, width: 768 },
   { height: 844, width: 390 },
 ] as const
 
-const FIRST_LINE_TOLERANCE_PX = 1
+const ZOOMED_VIEW = { deviceScaleFactor: 2, viewport: { height: 450, width: 640 } } as const
+
+const CENTRE_TOLERANCE_PX = 1
+
+const BASELINE_TOLERANCE_PX = 0.5
 
 const COLUMN_TOLERANCE_PX = 0.5
 
 const curriculumAlignment = async (list: Locator) =>
   list.evaluate((section) => {
-    const firstLine = (element: Element): number =>
-      element.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(element).lineHeight) / 2
-    const centre = (element: Element): number => element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2
-    const drift = (title: Element, selectors: readonly string[]): number => {
-      const marks = selectors.flatMap((selector) => [...(title.parentElement?.querySelectorAll(selector) ?? [])])
-      return Math.max(...marks.map((mark) => Math.abs(centre(mark) - firstLine(title))))
+    const firstLineCentre = (element: Element): number => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      const [line] = range.getClientRects()
+      return (line?.top ?? Number.NaN) + (line?.height ?? Number.NaN) / 2
     }
+    const baseline = (element: Element): number => {
+      const probe = document.createElement("span")
+      probe.style.display = "inline-block"
+      probe.style.marginRight = "-100vw"
+      element.prepend(probe)
+      const { bottom } = probe.getBoundingClientRect()
+      probe.remove()
+      return bottom
+    }
+    const centre = (element: Element): number => element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2
+    const marks = (title: Element, selector: string): Element[] => [...(title.parentElement?.querySelectorAll(selector) ?? [])]
+    const drift = (title: Element): number =>
+      Math.max(
+        ...marks(title, "[data-slot=lesson-icon] svg, [data-slot=lesson-lock] svg, [data-slot=chapter-toggle]").map((mark) =>
+          Math.abs(centre(mark) - firstLineCentre(title)),
+        ),
+        ...marks(title, "[data-slot=lesson-number], [data-slot=chapter-number]").map((number) =>
+          Math.abs(firstLineCentre(number) - firstLineCentre(title)),
+        ),
+      )
+    const baselineDrift = (title: Element): number =>
+      Math.max(
+        0,
+        ...marks(title, "[data-slot=lesson-number], [data-slot=chapter-number]").map((number) => Math.abs(baseline(number) - baseline(title))),
+      )
     const visible = (selector: string): Element[] => [...section.querySelectorAll(selector)].filter((element) => element.getClientRects().length > 0)
     const lessons = visible("[data-slot=lesson-title]")
     const chapters = visible("[data-slot=chapter-title]")
+    const titles = [...chapters, ...lessons]
 
     return {
-      chapterDrift: Math.max(...chapters.map((title) => drift(title, ["[data-slot=chapter-number] > span"]))),
+      baselineDrift: Math.max(...titles.map((title) => baselineDrift(title))),
+      centreDrift: Math.max(...titles.map((title) => drift(title))),
       chapterLefts: chapters.map((title) => title.getBoundingClientRect().left),
-      lessonDrift: Math.max(
-        ...lessons.map((title) => drift(title, ["[data-slot=lesson-icon] svg", "[data-slot=lesson-number] > span", "[data-slot=lesson-lock] svg"])),
-      ),
       lessonLefts: lessons.map((title) => title.getBoundingClientRect().left),
+      marks: titles.flatMap((title) => marks(title, "[data-slot=lesson-icon] svg, [data-slot=chapter-toggle]")).length,
       wrapped: lessons.filter((title) => title.getBoundingClientRect().height > Number.parseFloat(getComputedStyle(title).lineHeight) * 1.5).length,
     }
   })
+
+const fontsLoaded = async (view: Page): Promise<void> => {
+  await view.evaluate(async () => {
+    await document.fonts.ready
+  })
+}
+
+const expectOneCentreLine = (alignment: Awaited<ReturnType<typeof curriculumAlignment>>): void => {
+  expect(alignment.marks).toBeGreaterThan(0)
+  expect(alignment.centreDrift).toBeLessThanOrEqual(CENTRE_TOLERANCE_PX)
+  expect(alignment.baselineDrift).toBeLessThanOrEqual(BASELINE_TOLERANCE_PX)
+  const [chapterLeft] = alignment.chapterLefts
+  for (const left of [...alignment.chapterLefts, ...alignment.lessonLefts]) {
+    expect(Math.abs(left - (chapterLeft ?? 0))).toBeLessThanOrEqual(COLUMN_TOLERANCE_PX)
+  }
+}
 
 const lessonPath = (slug: string, prefix = ""): string => `${prefix}/courses/${TEST_COURSE.slug}/${slug}`
 
@@ -164,34 +209,40 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("link", { name: new RegExp(`${recording.title["en-US"]}.*Coming soon`, "u") })).toBeVisible()
   })
 
-  test("the curriculum hangs each lesson's icon, number and lock on its title's first line, in the chapter title's column", async ({ page }) => {
+  test("the curriculum sets each lesson's icon, number and lock and each chapter's number on the centre and baseline of its title's first line", async ({
+    baseURL,
+    browser,
+    page,
+  }) => {
+    const curriculum = (view: Page): Locator => view.locator("section[aria-labelledby=course-curriculum]")
+
     for (const viewport of ALIGNMENT_VIEWPORTS) {
       await page.setViewportSize(viewport)
       await page.goto(`/courses/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-      await page.locator("section[aria-labelledby=course-curriculum]").scrollIntoViewIfNeeded()
+      await fontsLoaded(page)
+      await curriculum(page).scrollIntoViewIfNeeded()
 
-      const alignment = await curriculumAlignment(page.locator("section[aria-labelledby=course-curriculum]"))
-      const [chapterLeft] = alignment.chapterLefts
+      const alignment = await curriculumAlignment(curriculum(page))
 
       expect(alignment.lessonLefts.length).toBeGreaterThan(0)
-      expect(alignment.lessonDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
-      expect(alignment.chapterDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
-      for (const left of [...alignment.chapterLefts, ...alignment.lessonLefts]) {
-        expect(Math.abs(left - (chapterLeft ?? 0))).toBeLessThanOrEqual(COLUMN_TOLERANCE_PX)
-      }
-      if (viewport.width < ALIGNMENT_VIEWPORTS[0].width) {
+      expectOneCentreLine(alignment)
+      if (viewport.width < ALIGNMENT_VIEWPORTS[0].width / 2) {
         expect(alignment.wrapped).toBeGreaterThan(0)
       }
     }
 
     await page.setViewportSize(ALIGNMENT_VIEWPORTS[0])
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    const contents = await curriculumAlignment(page.locator("#lesson-sidebar"))
-    expect(contents.lessonDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
-    expect(contents.chapterDrift).toBeLessThanOrEqual(FIRST_LINE_TOLERANCE_PX)
-    for (const left of contents.lessonLefts) {
-      expect(Math.abs(left - (contents.chapterLefts[0] ?? 0))).toBeLessThanOrEqual(COLUMN_TOLERANCE_PX)
-    }
+    await fontsLoaded(page)
+    expectOneCentreLine(await curriculumAlignment(page.locator("#lesson-sidebar")))
+
+    const zoomed = await browser.newContext({ ...ZOOMED_VIEW, ...(baseURL === undefined ? {} : { baseURL }) })
+    const zoomedPage = await zoomed.newPage()
+    await zoomedPage.goto(`/courses/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await fontsLoaded(zoomedPage)
+    await curriculum(zoomedPage).scrollIntoViewIfNeeded()
+    expectOneCentreLine(await curriculumAlignment(curriculum(zoomedPage)))
+    await zoomed.close()
   })
 
   test("the unlock panel sticks below the header with the same gap at every scroll", async ({ page }) => {

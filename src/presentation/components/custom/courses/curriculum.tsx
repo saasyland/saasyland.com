@@ -28,7 +28,9 @@ const TITLE_COLUMN = "col-[-3/-2]"
 
 const END_COLUMN = "col-[-2/-1]"
 
-const FIRST_LINE = "flex h-lh items-center"
+const MARK = "relative h-[1cap]"
+
+const MARK_ICON = "absolute inset-0 m-auto"
 
 type Lesson = Course["pageLesson"]
 
@@ -36,21 +38,21 @@ type Chapter = Course["page"]["chapters"][number]
 
 const padNumber = (value: number | undefined): string => String(value).padStart(NUMBER_PAD, "0")
 
-const outline = (compact: boolean): string => cn("grid gap-x-3", { [COMPACT_COLUMNS]: compact, [FULL_COLUMNS]: !compact })
+const outline = (compact: boolean): string => cn("grid items-baseline gap-x-3", { [COMPACT_COLUMNS]: compact, [FULL_COLUMNS]: !compact })
 
 const LessonIcon = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   if (lesson.completed) {
-    return <Check aria-hidden className="size-3.5 text-ring" strokeWidth={2.5} />
+    return <Check aria-hidden className={cn(MARK_ICON, "size-3.5 text-ring")} strokeWidth={2.5} />
   }
 
   if (isPlayable(lesson)) {
-    return <Play aria-hidden className="size-3 fill-current text-ring" strokeWidth={0} />
+    return <Play aria-hidden className={cn(MARK_ICON, "size-3 fill-current text-ring")} strokeWidth={0} />
   }
 
-  return <Play aria-hidden className="size-3 text-muted-foreground" data-slot="lesson-recording" strokeWidth={2} />
+  return <Play aria-hidden className={cn(MARK_ICON, "size-3 text-muted-foreground")} data-slot="lesson-recording" strokeWidth={2} />
 }
 
-const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
+const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element | undefined => {
   const t = useTranslations("pages.courses")
 
   if (lesson.completed) {
@@ -58,10 +60,10 @@ const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   }
 
   if (!lesson.locked) {
-    return <span aria-hidden className="w-3" />
+    return undefined
   }
 
-  return <Lock aria-hidden className="size-3 text-muted-foreground" strokeWidth={2.25} />
+  return <Lock aria-hidden className={cn(MARK_ICON, "size-3 text-muted-foreground")} strokeWidth={2.25} />
 }
 
 interface LessonListProps {
@@ -79,18 +81,18 @@ const LessonList = ({ compact, courseSlug, lessons, numbers }: LessonListProps):
           activeOptions={{ exact: true }}
           className={cn(
             outline(compact),
-            "group items-start rounded-md px-3 text-body-sm no-underline transition-colors duration-200 ease-exp hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:bg-ring/10",
+            "group rounded-md px-3 text-body-sm no-underline transition-colors duration-200 ease-exp hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:bg-ring/10",
             { "py-2.5": compact, "py-3.5": !compact },
           )}
           params={{ course: courseSlug, lesson: lesson.slug }}
           to="/courses/$course/$lesson"
         >
-          <span className={cn(FIRST_LINE, "justify-center")} data-slot="lesson-icon">
+          <span className={MARK} data-slot="lesson-icon">
             <LessonIcon lesson={lesson} />
           </span>
           {!compact && (
-            <span aria-hidden className={FIRST_LINE} data-slot="lesson-number">
-              <span className="font-mono text-spec text-muted-foreground tabular-nums">{padNumber(numbers.get(lesson.id))}</span>
+            <span aria-hidden className="text-muted-foreground tabular-nums" data-slot="lesson-number">
+              {padNumber(numbers.get(lesson.id))}
             </span>
           )}
           <span
@@ -103,7 +105,7 @@ const LessonList = ({ compact, courseSlug, lessons, numbers }: LessonListProps):
           >
             {lesson.title}
           </span>
-          <span className={cn(END_COLUMN, FIRST_LINE, "justify-end")} data-slot="lesson-lock">
+          <span className={cn(END_COLUMN, MARK, "w-3")} data-slot="lesson-lock">
             <LessonLock lesson={lesson} />
           </span>
           <LessonMeta className={cn(TITLE_COLUMN, "mt-1")} compact={compact} lesson={lesson} />
@@ -149,22 +151,24 @@ const ChapterHeading = ({ chapter, compact, number, signedIn }: ChapterHeadingPr
         { "py-3.5": compact, "py-5": !compact },
       )}
     >
-      <span className={cn(outline(compact), "min-w-0 flex-1 items-start", { "text-body-sm": compact, "text-title": !compact })}>
-        <span aria-hidden className={cn(LEAD_COLUMN, FIRST_LINE)} data-slot="chapter-number">
-          <span className="font-mono text-spec font-normal text-muted-foreground tabular-nums">{padNumber(number)}</span>
+      <span className={cn(outline(compact), "min-w-0 flex-1", { "text-body-sm": compact, "text-title": !compact })}>
+        <span aria-hidden className={cn(LEAD_COLUMN, "font-normal text-muted-foreground tabular-nums")} data-slot="chapter-number">
+          {padNumber(number)}
         </span>
         <span className={cn(TITLE_COLUMN, "text-pretty text-foreground")} data-slot="chapter-title">
           {chapter.title}
         </span>
-        <span className={cn(END_COLUMN, FIRST_LINE, "justify-end gap-4")}>
+        <span className={cn(END_COLUMN, "flex items-baseline justify-end gap-4")}>
           {signedIn && (
-            <span className="font-mono text-spec font-normal text-muted-foreground tabular-nums">
+            <span className="font-normal text-muted-foreground tabular-nums">
               {completed}/{chapter.lessons.length}
             </span>
           )}
-          <span aria-hidden className="relative size-3 shrink-0">
-            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground transition-colors duration-200 ease-exp group-aria-expanded/accordion-trigger:bg-foreground" />
-            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground transition-[opacity,transform] duration-300 ease-exp group-aria-expanded/accordion-trigger:scale-y-0 group-aria-expanded/accordion-trigger:opacity-0 motion-reduce:transition-none" />
+          <span aria-hidden className={cn(MARK, "w-3 shrink-0")}>
+            <span className={cn(MARK_ICON, "size-3")} data-slot="chapter-toggle">
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground transition-colors duration-200 ease-exp group-aria-expanded/accordion-trigger:bg-foreground" />
+              <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground transition-[opacity,transform] duration-300 ease-exp group-aria-expanded/accordion-trigger:scale-y-0 group-aria-expanded/accordion-trigger:opacity-0 motion-reduce:transition-none" />
+            </span>
           </span>
         </span>
         {!compact && <ChapterSummary chapter={chapter} />}

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vite-plus
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { claimReload, listenForPreloadErrors } from "~/src/lib/stale-build"
+import { claimReload, listenForStaleBuilds } from "~/src/lib/stale-build"
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 
@@ -133,7 +133,7 @@ it.each([
   ["its code", MISSING_CHUNK],
   ["a stylesheet Vite preloads for it", MISSING_STYLESHEET],
 ])("loads the destination as a new page when a newer deploy removed %s", async (_, error) => {
-  onTestFinished(listenForPreloadErrors())
+  onTestFinished(listenForStaleBuilds())
   failPreload(MISSING_STYLESHEET)
   const { navigate, router } = renderStaleBuild(error)
   expect(await screen.findByText("Home content")).toBeVisible()
@@ -147,6 +147,25 @@ it.each([
   })
   expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true")
   expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+})
+
+it("leaves a visitor who is going to another page alone and loads the page again only when they stay", async () => {
+  onTestFinished(listenForStaleBuilds())
+  failPreload(MISSING_STYLESHEET)
+  const { navigate, router } = renderStaleBuild(MISSING_STYLESHEET)
+  expect(await screen.findByText("Home content")).toBeVisible()
+  globalThis.dispatchEvent(new Event("beforeunload"))
+
+  act(() => {
+    router.history.push(DESTINATION)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true")
+  })
+  expect(navigate).not.toHaveBeenCalled()
+  globalThis.dispatchEvent(new Event("pageshow"))
+  expect(navigate).toHaveBeenCalledWith(RELOAD)
 })
 
 it("shows the error page when the destination's code is still missing after its reload", async () => {

@@ -197,7 +197,7 @@ test.describe("signing in again", () => {
     await authPage.signIn(customer.email)
     await expect(page).toHaveURL("/app")
     await appPage.waitForAppReady()
-    await context.addCookies([{ name: `${APP_SLUG}.session_token`, url: baseURL ?? "", value: "ended" }])
+    await context.addCookies([{ name: `${APP_SLUG}.session_token`, url: baseURL ?? "", httpOnly: true, sameSite: "Lax", value: "ended" }])
 
     await page.goto(ROUTES.APP_SETTINGS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 

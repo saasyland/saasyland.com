@@ -43,7 +43,7 @@ const MessageContent = ({ className, ...props }: ComponentProps<"div">) => (
 const MessageHeader = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     className={cn(
-      "flex max-w-full min-w-0 items-center px-3 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0",
+      "flex max-w-full min-w-0 items-center px-3 text-label text-muted-foreground group-has-data-[variant=ghost]/message:px-0",
       className,
     )}
     data-slot="message-header"
@@ -54,7 +54,7 @@ const MessageHeader = ({ className, ...props }: ComponentProps<"div">) => (
 const MessageFooter = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     className={cn(
-      "flex max-w-full min-w-0 items-center px-3 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
+      "flex max-w-full min-w-0 items-center px-3 text-label text-muted-foreground group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
       className,
     )}
     data-slot="message-footer"

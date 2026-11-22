@@ -62,7 +62,7 @@ export const MobileMenu = (): JSX.Element => {
                       <li key={entry.key}>
                         <Link
                           {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
-                          className="group flex items-center justify-between gap-6 py-4 text-[1.0625rem] font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
+                          className="group flex items-center justify-between gap-6 py-4 text-lead font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
                           onClick={close}
                           to={headerDestination(entry, signedIn).to}
                         >

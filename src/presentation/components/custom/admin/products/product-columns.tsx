@@ -32,7 +32,7 @@ const ProductHeader = ({ id }: { readonly id: "pricing" | "product" | "status" |
 export const ItemName = ({ description, name }: { readonly description: string; readonly name: string }): JSX.Element => (
   <div className="whitespace-normal">
     <div className="text-sm font-medium text-foreground">{name}</div>
-    <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
+    <div className="mt-0.5 text-spec text-muted-foreground">{description}</div>
   </div>
 )
 
@@ -40,7 +40,7 @@ const TypeCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, Produ
   const t = useTranslations("pages.admin.products.table.typeLabels")
 
   return (
-    <Badge variant="outline" className="px-2 py-1 text-xs font-medium text-muted-foreground">
+    <Badge variant="outline" className="px-2 py-1 text-label text-muted-foreground">
       {t(getValue())}
     </Badge>
   )
@@ -51,7 +51,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, Pro
   const color = PRODUCT_STATUS_COLORS[getValue()]
 
   return (
-    <Badge variant="outline" className={cn("px-2 py-1 text-xs font-medium", ADMIN_STATUS_BADGE_CLASSES[color])}>
+    <Badge variant="outline" className={cn("px-2 py-1 text-label", ADMIN_STATUS_BADGE_CLASSES[color])}>
       <span className={cn("mr-1.5 size-1.5 rounded-full", ADMIN_STATUS_DOT_CLASSES[color])} />
       {t(getValue())}
     </Badge>

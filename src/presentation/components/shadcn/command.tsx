@@ -129,7 +129,7 @@ const CommandGroup = <TValue extends object>({
   heading: string
 }) => (
   <MenuSection className={cn("overflow-hidden p-1 text-foreground", className)} data-slot="command-group" {...props}>
-    <Header className="px-2 py-1.5 text-xs font-medium text-muted-foreground" data-slot="command-group-heading">
+    <Header className="px-2 py-1.5 text-label text-muted-foreground" data-slot="command-group-heading">
       {heading}
     </Header>
     <Collection {...(items === undefined ? {} : { items })}>{children}</Collection>
@@ -166,7 +166,7 @@ const CommandItem = <TValue extends object>({ children, className, textValue, ..
 const CommandShortcut = ({ className, ...props }: ComponentProps<"span">) => (
   <span
     className={cn(
-      "ml-auto text-xs tracking-widest text-muted-foreground group-data-focused/command-item:text-foreground group-data-selected/command-item:text-foreground",
+      "ml-auto text-spec tracking-widest text-muted-foreground group-data-focused/command-item:text-foreground group-data-selected/command-item:text-foreground",
       className,
     )}
     data-slot="command-shortcut"

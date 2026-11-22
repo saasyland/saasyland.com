@@ -39,7 +39,7 @@ export const StudioSection = (): JSX.Element => {
               <p className="mt-3 max-w-[52ch] text-body text-pretty text-muted-foreground">{t("builder.body")}</p>
               <p className="mt-7 flex items-center gap-2.5">
                 <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
-                <span className="font-mono text-spec text-foreground">{t("builder.spec")}</span>
+                <span className="text-spec text-foreground">{t("builder.spec")}</span>
               </p>
             </div>
           </article>

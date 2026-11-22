@@ -130,7 +130,7 @@ const OfferPrices = (): JSX.Element[] => {
   const format = useFormatter()
 
   return COURSE_ACCESS_GRANTS.map(({ key, offer, price }) => (
-    <p className="mt-4 font-mono text-spec text-ring uppercase" key={key}>
+    <p className="mt-4 text-label text-ring uppercase" key={key}>
       {t("paid.price", { offer: tName(offer), price: format.number(price, CURRENCY_FORMAT) })}
     </p>
   ))

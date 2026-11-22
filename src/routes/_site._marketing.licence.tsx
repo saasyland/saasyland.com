@@ -32,7 +32,7 @@ const LicencePage = (): JSX.Element => {
 
   return (
     <ContentPage lead={t("description")} title={t("title")}>
-      <p className="mt-6 font-mono text-spec text-muted-foreground">{t("lastUpdated")}</p>
+      <p className="mt-6 text-spec text-muted-foreground">{t("lastUpdated")}</p>
 
       <div className="mt-12 flex max-w-3xl flex-col gap-10">
         {SECTIONS.map((section) => (

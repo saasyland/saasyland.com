@@ -64,7 +64,7 @@ const ProblemItem = ({ problem }: { readonly problem: ImportProblem }): JSX.Elem
 
   return (
     <li>
-      <code className="font-mono text-xs">{problem.path}</code> {message}
+      <code className="font-mono text-spec">{problem.path}</code> {message}
     </li>
   )
 }
@@ -228,7 +228,7 @@ export const ImportCoursesDialog = (): JSX.Element => {
                         {t("dialog.chooseFile")}
                       </Button>
                     </FileTrigger>
-                    {fileName !== "" && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{fileName}</span>}
+                    {fileName !== "" && <span className="min-w-0 truncate font-mono text-spec text-muted-foreground">{fileName}</span>}
                   </div>
                   <FieldDescription>{t("dialog.fileHint")}</FieldDescription>
                   {isFieldInvalid(field) && (

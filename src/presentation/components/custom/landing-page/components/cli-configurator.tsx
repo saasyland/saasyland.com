@@ -52,7 +52,7 @@ const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
 const OPTION_CLASSNAME =
-  "h-auto cursor-pointer gap-0.5 rounded-md border border-border px-1.5 py-1 text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground"
+  "h-auto cursor-pointer gap-0.5 rounded-md border border-border px-1.5 py-1 text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground disabled:border-dashed disabled:opacity-100"
 
 const keepExtras = (extras: readonly StackExtra[], answers: Stack["partialAnswers"]): readonly StackExtra[] =>
   extras.filter((extra) => CLI_TEMPLATE_SUPPORT.extras.includes(extra.id) && isOptionAvailable(extra, answers))
@@ -90,7 +90,7 @@ const OptionGroupRow = ({ children, label, shared }: OptionGroupRowProps): JSX.E
 
   return (
     <div aria-labelledby={labelId} className="grid gap-1.5 sm:col-span-2 sm:grid-cols-subgrid sm:items-baseline" role="group">
-      <span className="font-mono text-label text-muted-foreground" id={labelId}>
+      <span className="text-label text-muted-foreground" id={labelId}>
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -142,7 +142,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
 
   return (
     <div className="grid gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-3.5">
-      <dt className="font-mono text-label text-muted-foreground uppercase" id={labelId}>
+      <dt className="text-label text-muted-foreground uppercase" id={labelId}>
         {t(`choices.${choiceId}.label`)}
       </dt>
       <dd className="grid gap-3">
@@ -177,7 +177,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
 }
 
 const PaneLabel = ({ children }: Readonly<{ children: string }>): JSX.Element => (
-  <span className="font-mono text-label text-muted-foreground uppercase">{children}</span>
+  <span className="text-label text-muted-foreground uppercase">{children}</span>
 )
 
 const CommandBlock = ({ lines }: Readonly<{ lines: readonly string[] }>): JSX.Element => {
@@ -218,7 +218,7 @@ const RunCount = ({ value }: Readonly<{ value: number }>): JSX.Element => {
     }
   }, [count, value])
 
-  return <m.span className="font-mono tabular-nums">{rounded}</m.span>
+  return <m.span className="tabular-nums">{rounded}</m.span>
 }
 
 const RunOutput = ({ modules }: Readonly<{ modules: readonly string[] }>): JSX.Element => {
@@ -228,7 +228,7 @@ const RunOutput = ({ modules }: Readonly<{ modules: readonly string[] }>): JSX.E
     <div className="w-full flex-1 px-4 py-6 md:px-7 md:py-7">
       <PaneLabel>{t("run.label")}</PaneLabel>
 
-      <ul className="mt-4 grid w-fit grid-cols-2 gap-x-14 gap-y-3 font-mono text-spec text-muted-foreground">
+      <ul className="mt-4 grid w-fit grid-cols-2 gap-x-14 gap-y-3 text-spec text-muted-foreground">
         <AnimatePresence initial={false} mode="popLayout">
           {modules.map((name) => (
             <m.li
@@ -322,9 +322,7 @@ export const CliConfigurator = (): JSX.Element => {
         <div className="divide-y divide-border">
           {GROUPS.map((group) => (
             <Fragment key={group}>
-              <div className="bg-muted/25 px-4 py-2 font-mono text-label text-muted-foreground uppercase md:px-7">
-                {t(`groups.${group}`)}
-              </div>
+              <div className="bg-muted/25 px-4 py-2 text-label text-muted-foreground uppercase md:px-7">{t(`groups.${group}`)}</div>
               <dl className="divide-y divide-border">
                 {rows
                   .filter(({ choice }) => choice.group === group)

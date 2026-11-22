@@ -8,7 +8,7 @@ const LEGAL_SECTIONS = ["first", "second", "third", "fourth"] as const
 
 export const LegalPending = (): JSX.Element => (
   <ContentPagePending>
-    <Skeleton className="mt-6 h-lh w-48 scale-y-70 font-mono text-spec" />
+    <Skeleton className="mt-6 h-lh w-48 scale-y-70 text-spec" />
 
     <div className="mt-12 flex max-w-3xl flex-col gap-10">
       {LEGAL_SECTIONS.map((section) => (

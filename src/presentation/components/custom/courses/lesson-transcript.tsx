@@ -62,7 +62,7 @@ const TranscriptCues = ({ caption }: { readonly caption: Caption }): JSX.Element
                 void player.seek(cue.startTime)
               }}
             >
-              <span className="w-12 shrink-0 font-mono text-spec tabular-nums">{formatClock(cue.startTime * MILLISECONDS_PER_SECOND)}</span>{" "}
+              <span className="w-12 shrink-0 text-spec tabular-nums">{formatClock(cue.startTime * MILLISECONDS_PER_SECOND)}</span>{" "}
               <span className="min-w-0 flex-1 text-pretty">{cue.text}</span>
             </Button>
           </li>

@@ -16,7 +16,7 @@ export const CourseProgressBadge = (): JSX.Element | undefined => {
 
   return (
     <>
-      <span aria-hidden className="font-mono text-label text-muted-foreground">
+      <span aria-hidden className="text-label text-muted-foreground">
         {t("short", data)}
       </span>
       <span className="sr-only">{t("label", data)}</span>

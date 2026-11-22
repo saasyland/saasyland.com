@@ -193,7 +193,7 @@ const ComboboxGroup = <TValue extends object>({ className, ...props }: Readonly<
 )
 
 const ComboboxLabel = ({ className, ...props }: Readonly<HeaderProps>) => (
-  <HeaderPrimitive className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)} data-slot="combobox-label" {...props} />
+  <HeaderPrimitive className={cn("px-2 py-1.5 text-spec text-muted-foreground", className)} data-slot="combobox-label" {...props} />
 )
 
 const ComboboxEmpty = ({ className, ...props }: ComponentProps<"div">) => (
@@ -279,7 +279,7 @@ const ComboboxChip = ({
 }) => (
   <TagPrimitive
     className={cn(
-      "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 text-xs font-medium whitespace-nowrap text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0",
+      "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 text-label whitespace-nowrap text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0",
       className,
     )}
     data-slot="combobox-chip"

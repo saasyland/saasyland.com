@@ -34,7 +34,7 @@ export const RunnerTabs = ({ className, onSelect, taken }: RunnerTabsProps): JSX
     >
       {PACKAGE_MANAGERS.map((runner) => (
         <ToggleGroupItem
-          className="h-auto min-w-0 cursor-pointer rounded-md py-1 font-mono text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:bg-transparent hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-selected:bg-muted data-selected:text-foreground"
+          className="h-auto min-w-0 cursor-pointer rounded-md py-1 text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:bg-transparent hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-selected:bg-muted data-selected:text-foreground"
           id={runner.id}
           key={runner.id}
         >

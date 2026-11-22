@@ -60,7 +60,7 @@ const COURSE_HEADER = "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4"
 
 const COURSE_COVER = "row-start-2 lg:row-span-3 lg:row-start-1"
 
-const COURSE_KICKER = "col-span-2 mb-3 font-mono text-label lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:self-end"
+const COURSE_KICKER = "col-span-2 mb-3 text-label lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:self-end"
 
 const COURSE_TITLE = "col-start-2 row-start-2 text-title lg:mt-1 lg:self-start lg:text-title-lg"
 

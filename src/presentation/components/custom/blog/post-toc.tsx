@@ -14,7 +14,7 @@ export const PostToc = (): JSX.Element => {
   return (
     <aside className="hidden lg:block">
       <nav aria-labelledby="post-toc-title" className="sticky top-24">
-        <p className="font-mono text-label text-muted-foreground uppercase" id="post-toc-title">
+        <p className="text-label text-muted-foreground uppercase" id="post-toc-title">
           {t("contents")}
         </p>
         <TableOfContents className="mt-4 max-h-[calc(100dvh-11rem)]" items={post.toc} />

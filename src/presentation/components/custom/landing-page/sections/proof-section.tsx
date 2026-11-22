@@ -27,8 +27,8 @@ export const ProofSection = (): JSX.Element => {
         <HighlightGroup className="grid grid-cols-2 gap-px bg-border md:grid-cols-5" element="dl" name="proof-highlight">
           {FACT_KEYS.map((key) => (
             <HighlightItem className="bg-background" contentClassName="px-6 py-8 md:px-8 md:py-10" id={key} key={key}>
-              <dt className="font-mono text-label break-words text-muted-foreground uppercase">{t(`facts.${key}.label`)}</dt>
-              <dd className="mt-3 text-[1.75rem] leading-none font-semibold tracking-[-0.035em] text-foreground tabular-nums">
+              <dt className="text-label break-words text-muted-foreground uppercase">{t(`facts.${key}.label`)}</dt>
+              <dd className="mt-3 text-headline-support leading-none text-foreground tabular-nums">
                 {key === "stars" ? starCount : t(`facts.${key}.value`, REPOSITORY_FACTS)}
               </dd>
               <dd className="mt-2 text-body-sm text-pretty text-muted-foreground">{t(`facts.${key}.note`, REPOSITORY_FACTS)}</dd>

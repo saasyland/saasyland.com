@@ -52,7 +52,7 @@ const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => {
     <html
       lang={locale}
       dir={getLocaleDirection(locale)}
-      className="h-full bg-background text-foreground antialiased"
+      className="h-full bg-background text-foreground"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >

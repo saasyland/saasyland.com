@@ -7,7 +7,7 @@ const TableContainer = ({ className, ...props }: ComponentProps<"div">): JSX.Ele
 )
 
 const Table = ({ className, ...props }: ComponentProps<"table">): JSX.Element => (
-  <table data-slot="table" className={cn("w-full caption-bottom text-[0.8125rem]", className)} {...props} />
+  <table data-slot="table" className={cn("w-full caption-bottom text-spec", className)} {...props} />
 )
 
 const TableHeader = ({ className, ...props }: ComponentProps<"thead">): JSX.Element => (
@@ -37,7 +37,7 @@ const TableHead = ({ className, ...props }: ComponentProps<"th">): JSX.Element =
   <th
     data-slot="table-head"
     className={cn(
-      "h-9 px-3 text-left align-middle text-[0.6875rem] font-medium tracking-[0.04em] whitespace-nowrap text-muted-foreground uppercase has-[[role=checkbox]]:pr-0",
+      "h-9 px-3 text-left align-middle text-label whitespace-nowrap text-muted-foreground uppercase has-[[role=checkbox]]:pr-0",
       className,
     )}
     {...props}
@@ -53,7 +53,7 @@ const TableCell = ({ className, ...props }: ComponentProps<"td">): JSX.Element =
 )
 
 const TableCaption = ({ className, ...props }: ComponentProps<"caption">): JSX.Element => (
-  <caption data-slot="table-caption" className={cn("mt-4 text-xs text-muted-foreground", className)} {...props} />
+  <caption data-slot="table-caption" className={cn("mt-4 text-spec text-muted-foreground", className)} {...props} />
 )
 
 export { Table, TableBody, TableCaption, TableCell, TableContainer, TableFooter, TableHead, TableHeader, TableRow }

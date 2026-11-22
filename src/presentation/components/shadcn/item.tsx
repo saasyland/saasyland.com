@@ -100,7 +100,7 @@ const ItemTitle = ({ className, ...props }: ComponentProps<"div">) => (
 const ItemDescription = ({ className, ...props }: ComponentProps<"p">) => (
   <p
     className={cn(
-      "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+      "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-spec [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
       className,
     )}
     data-slot="item-description"

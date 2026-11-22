@@ -35,9 +35,7 @@ const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLe
 
   return (
     <Progress className="mt-8 max-w-md **:data-[slot=progress-indicator]:bg-ring" maxValue={lessons.length} value={completed}>
-      <ProgressLabel className="font-mono text-spec text-muted-foreground">
-        {t("progress", { completed, total: lessons.length })}
-      </ProgressLabel>
+      <ProgressLabel className="text-spec text-muted-foreground">{t("progress", { completed, total: lessons.length })}</ProgressLabel>
     </Progress>
   )
 }

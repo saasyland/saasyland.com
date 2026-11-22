@@ -30,7 +30,7 @@ export const HomePending = (): JSX.Element => (
           ))}
         </div>
         <div className="flex items-center justify-between gap-4 border-b border-border bg-background/40 py-2 pr-2 pl-4">
-          <Skeleton className="h-lh w-64 scale-y-70 font-mono text-spec" />
+          <Skeleton className="h-lh w-64 scale-y-70 text-spec" />
           <Skeleton className="size-7 rounded-md" />
         </div>
         <Skeleton className="aspect-8/5 w-[190%] max-w-none rounded-none sm:w-[135%] md:w-full" />

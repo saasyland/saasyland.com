@@ -16,7 +16,7 @@ export const TwoFactorBackupCodes = ({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{t("backupCodesDescription")}</p>
-      <ul className="grid grid-cols-2 gap-2 rounded-lg bg-muted/60 p-3 font-mono text-xs text-foreground">
+      <ul className="grid grid-cols-2 gap-2 rounded-lg bg-muted/60 p-3 font-mono text-spec text-foreground">
         {backupCodes.map((code) => (
           <li key={code}>{code}</li>
         ))}

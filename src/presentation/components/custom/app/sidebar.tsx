@@ -93,7 +93,7 @@ export const AppSidebar = (): JSX.Element => {
         </nav>
         <nav aria-label={t("navigation.resources")}>
           <SidebarGroup className="p-0">
-            <p className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase">{t("navigation.resources")}</p>
+            <p className="mb-1.5 px-2 text-label text-muted-foreground uppercase">{t("navigation.resources")}</p>
             <SidebarMenu className="gap-1">
               {APP_RESOURCE_NAVIGATION.map((item) => (
                 <SidebarMenuItem key={item.to}>
@@ -121,7 +121,7 @@ export const AppSidebar = (): JSX.Element => {
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate text-body-sm font-medium">{name}</span>
-            <span className="truncate text-label text-muted-foreground">{user.email}</span>
+            <span className="truncate text-spec text-muted-foreground">{user.email}</span>
           </div>
           <SignOutButton />
         </section>

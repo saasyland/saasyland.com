@@ -33,7 +33,7 @@ const MaterialSize = ({ attachment }: { readonly attachment: Lesson["attachment"
     return undefined
   }
 
-  return <span className="font-mono text-spec text-muted-foreground tabular-nums">{fileSize(attachment.sizeBytes)}</span>
+  return <span className="text-spec text-muted-foreground tabular-nums">{fileSize(attachment.sizeBytes)}</span>
 }
 
 export const MaterialsList = ({ attachments }: { readonly attachments: readonly Lesson["attachment"][] }): JSX.Element => {

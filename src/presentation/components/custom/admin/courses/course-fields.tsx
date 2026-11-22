@@ -100,7 +100,7 @@ export const CourseRichTextField = ({ field, hint, id, label, lang, previewLabel
         <Textarea
           aria-describedby={`${id}-hint ${id}-error`}
           aria-invalid={isFieldInvalid(field)}
-          className="min-h-40 font-mono text-xs"
+          className="min-h-40 font-mono text-spec"
           id={id}
           lang={lang}
           name={field.name}

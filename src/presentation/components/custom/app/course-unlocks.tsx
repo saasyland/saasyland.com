@@ -46,7 +46,7 @@ export const CourseUnlocks = (): JSX.Element | undefined => {
             >
               <Lock aria-hidden className="size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
               <span className="min-w-0 flex-1 font-medium text-foreground">{course.title}</span>
-              <span className="font-mono text-spec whitespace-nowrap text-muted-foreground">{t("lessons", { count: course.paid })}</span>
+              <span className="text-spec whitespace-nowrap text-muted-foreground">{t("lessons", { count: course.paid })}</span>
               <ArrowRight
                 aria-hidden
                 className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-0.5 group-hover:text-foreground"

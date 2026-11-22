@@ -38,7 +38,7 @@ export const ResendLinkButton = ({
     {isPending && <Loader2 aria-hidden className="size-4 animate-spin" strokeWidth={1.5} />}
     {children}
     {cooldownSeconds > 0 && (
-      <span aria-hidden className="font-mono text-spec tabular-nums opacity-80">
+      <span aria-hidden className="text-spec tabular-nums opacity-80">
         {formatClock(cooldownSeconds * MILLISECONDS_PER_SECOND)}
       </span>
     )}

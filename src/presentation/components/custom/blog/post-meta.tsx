@@ -27,7 +27,7 @@ export const PostMeta = (): JSX.Element => {
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 font-mono text-body-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-body-sm text-muted-foreground tabular-nums">
       <span className="flex items-center gap-2.5">
         <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
         <span>{t.rich("post.published", { date: dateOf(published), time: timeTag(published) })}</span>

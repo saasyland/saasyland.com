@@ -112,61 +112,63 @@ const LessonRow = ({
   const remove = useCurriculumMutation(deleteLessonMutation)
 
   return (
-    <li className="flex flex-col gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center">
-      <span aria-hidden className="w-6 font-mono text-xs text-muted-foreground tabular-nums">
+    <li className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-baseline gap-x-2 gap-y-2 border-b border-border py-3 last:border-b-0">
+      <span aria-hidden className="text-spec text-muted-foreground tabular-nums">
         {index + LESSON_NUMBER_BASE}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-mono">{lesson.slug}</span>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-pretty text-foreground">{title}</p>
+        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-spec text-muted-foreground">
+          <span className="font-mono wrap-anywhere">{lesson.slug}</span>
           <span aria-hidden>·</span>
           <span>{lesson.video === null ? t("curriculum.noVideo") : videoLabel(lesson.video)}</span>
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {(lesson.video === null || lesson.video.placeholder) && (
-          <Badge className={cn("text-[10px]", ADMIN_STATUS_BADGE_CLASSES.amber)} variant="outline">
-            {t("curriculum.recording")}
+      <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(lesson.video === null || lesson.video.placeholder) && (
+            <Badge className={ADMIN_STATUS_BADGE_CLASSES.amber} variant="outline">
+              {t("curriculum.recording")}
+            </Badge>
+          )}
+          <Badge variant="outline">{t(`lesson.accessLevels.${lesson.access}`, { holders })}</Badge>
+          <Badge
+            className={cn({
+              [ADMIN_STATUS_BADGE_CLASSES.emerald]: lesson.status === LESSON_STATUS.PUBLISHED,
+              [ADMIN_STATUS_BADGE_CLASSES.neutral]: lesson.status === LESSON_STATUS.DRAFT,
+            })}
+            variant="outline"
+          >
+            {t(`lesson.statuses.${lesson.status}`)}
           </Badge>
-        )}
-        <Badge className="text-[10px]" variant="outline">
-          {t(`lesson.accessLevels.${lesson.access}`, { holders })}
-        </Badge>
-        <Badge
-          className={cn("text-[10px]", {
-            [ADMIN_STATUS_BADGE_CLASSES.emerald]: lesson.status === LESSON_STATUS.PUBLISHED,
-            [ADMIN_STATUS_BADGE_CLASSES.neutral]: lesson.status === LESSON_STATUS.DRAFT,
-          })}
-          variant="outline"
-        >
-          {t(`lesson.statuses.${lesson.status}`)}
-        </Badge>
-        <MoveButtons
-          isFirst={index === 0}
-          isLast={index === chapter.lessons.length - 1}
-          name={title}
-          onMove={(direction) => {
-            move.mutate({ direction, lessonId: lesson.id })
-          }}
-        />
-        <LinkButton
-          aria-label={t("curriculum.edit", { name: title })}
-          className={ICON_BUTTON_CLASSNAME}
-          href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`}
-          size="icon"
-          variant="ghost"
-        >
-          <Pencil aria-hidden className="size-4" />
-        </LinkButton>
-        <ConfirmDelete
-          body={t("curriculum.deleteLessonBody", { name: title })}
-          label={t("curriculum.remove", { name: title })}
-          onConfirm={() => {
-            remove.mutate({ lessonId: lesson.id })
-          }}
-          title={t("curriculum.deleteLessonTitle")}
-        />
+        </div>
+        <div className="ml-auto flex items-center">
+          <MoveButtons
+            isFirst={index === 0}
+            isLast={index === chapter.lessons.length - 1}
+            name={title}
+            onMove={(direction) => {
+              move.mutate({ direction, lessonId: lesson.id })
+            }}
+          />
+          <LinkButton
+            aria-label={t("curriculum.edit", { name: title })}
+            className={ICON_BUTTON_CLASSNAME}
+            href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`}
+            size="icon"
+            variant="ghost"
+          >
+            <Pencil aria-hidden className="size-4" />
+          </LinkButton>
+          <ConfirmDelete
+            body={t("curriculum.deleteLessonBody", { name: title })}
+            label={t("curriculum.remove", { name: title })}
+            onConfirm={() => {
+              remove.mutate({ lessonId: lesson.id })
+            }}
+            title={t("curriculum.deleteLessonTitle")}
+          />
+        </div>
       </div>
     </li>
   )
@@ -192,12 +194,12 @@ const ChapterSection = ({
 
   return (
     <li className="rounded-lg border border-border">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {summary.length > 0 && <p className="mt-0.5 text-xs text-muted-foreground">{summary}</p>}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-border bg-muted/40 px-4 py-3">
+        <div className="min-w-0 flex-1 basis-48">
+          <h3 className="text-sm font-semibold text-pretty text-foreground">{title}</h3>
+          {summary.length > 0 && <p className="mt-0.5 text-spec text-pretty text-muted-foreground">{summary}</p>}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1">
           <MoveButtons
             isFirst={index === 0}
             isLast={index === total - 1}

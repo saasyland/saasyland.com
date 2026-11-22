@@ -43,10 +43,10 @@ export const SettingsSessions = (): JSX.Element => {
       <div className="flex flex-col justify-between gap-4 border-b border-border p-5 sm:flex-row sm:items-center">
         <div>
           <h2 className="mb-1 text-base font-medium text-foreground">{t("title")}</h2>
-          <p className="text-xs text-muted-foreground">{t("description")}</p>
+          <p className="text-spec text-muted-foreground">{t("description")}</p>
         </div>
         <Button
-          className="h-8 shrink-0 px-3 text-xs"
+          className="h-8 shrink-0 px-3 text-spec"
           isDisabled={revokeOtherSessions.isPending}
           onPress={() => {
             revokeOtherSessions.mutate()

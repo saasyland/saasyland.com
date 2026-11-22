@@ -51,7 +51,7 @@ const CourseHeader = ({ id }: { readonly id: CourseHeaderId }): string => {
 const TitleCell = ({ row }: CellContext<DataTableFeatures, CourseRow, CourseRow["title"]>): JSX.Element => (
   <div className="flex min-w-0 flex-col">
     <span className="truncate text-sm font-medium text-foreground">{localize(row.original.title, getCurrentLocale())}</span>
-    <span className="truncate font-mono text-xs text-muted-foreground">/courses/{row.original.slug}</span>
+    <span className="truncate font-mono text-spec text-muted-foreground">/courses/{row.original.slug}</span>
   </div>
 )
 
@@ -67,7 +67,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Cour
 
   return (
     <Badge
-      className={cn("px-2 py-1 text-[10px] font-medium", {
+      className={cn("px-2 py-1 text-label", {
         [ADMIN_STATUS_BADGE_CLASSES.emerald]: status === COURSE_STATUS.PUBLISHED,
         [ADMIN_STATUS_BADGE_CLASSES.neutral]: status === COURSE_STATUS.DRAFT,
       })}
@@ -79,7 +79,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Cour
 }
 
 const LessonsCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, number>): JSX.Element => (
-  <span className="font-mono text-sm text-muted-foreground tabular-nums">{getValue()}</span>
+  <span className="text-sm text-muted-foreground tabular-nums">{getValue()}</span>
 )
 
 const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Date>): JSX.Element => {

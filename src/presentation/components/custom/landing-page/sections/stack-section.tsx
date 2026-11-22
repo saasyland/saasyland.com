@@ -34,7 +34,7 @@ export const StackSection = (): JSX.Element => {
   return (
     <section aria-label={t("title")} className="relative border-t border-border">
       <div className="mx-auto flex w-full max-w-site items-stretch overflow-hidden">
-        <p className="hidden shrink-0 items-center border-r border-border px-6 font-mono text-label text-muted-foreground uppercase md:flex md:px-8">
+        <p className="hidden shrink-0 items-center border-r border-border px-6 text-label text-muted-foreground uppercase md:flex md:px-8">
           {t("title")}
         </p>
 

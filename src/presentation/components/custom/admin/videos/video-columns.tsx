@@ -28,16 +28,16 @@ const VideoHeader = ({ id }: { readonly id: VideoHeaderId }): string => {
 const TitleCell = ({ row }: CellContext<DataTableFeatures, VideoRow, string>): JSX.Element => (
   <div className="flex min-w-0 flex-col">
     <span className="truncate text-sm font-medium text-foreground">{row.original.title}</span>
-    <span className="truncate font-mono text-xs text-muted-foreground">{row.original.id}</span>
+    <span className="truncate font-mono text-spec text-muted-foreground">{row.original.id}</span>
   </div>
 )
 
 const DurationCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, number>): JSX.Element => (
-  <span className="font-mono text-sm text-muted-foreground tabular-nums">{formatClock(getValue())}</span>
+  <span className="text-sm text-muted-foreground tabular-nums">{formatClock(getValue())}</span>
 )
 
 const ResolutionCell = ({ row }: CellContext<DataTableFeatures, VideoRow, number>): JSX.Element => (
-  <span className="font-mono text-sm text-muted-foreground tabular-nums">
+  <span className="text-sm text-muted-foreground tabular-nums">
     {row.original.width}×{row.original.height}
   </span>
 )
@@ -61,7 +61,7 @@ const CaptionsCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Vid
   return (
     <div className="flex flex-wrap gap-1">
       {locales.map((locale) => (
-        <Badge className="font-mono text-[10px]" key={locale} variant="outline">
+        <Badge className="font-mono" key={locale} variant="outline">
           {locale}
         </Badge>
       ))}

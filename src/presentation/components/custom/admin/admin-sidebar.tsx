@@ -53,7 +53,7 @@ export const AdminSidebar = (): JSX.Element => {
         <nav aria-label={t("navigationLabel")} className="flex flex-col gap-5">
           {ADMIN_NAVIGATION.map((group) => (
             <SidebarGroup className="p-0" key={group.key}>
-              <div className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
+              <div className="mb-1.5 px-2 text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
                 {t(`groups.${group.key}`)}
               </div>
               <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5">
@@ -64,7 +64,7 @@ export const AdminSidebar = (): JSX.Element => {
                     <SidebarMenuItem key={item.key}>
                       <SidebarMenuButton
                         {...(isActive && { "aria-current": "page" })}
-                        className="h-8 gap-2.5 rounded-md px-2 text-[0.8125rem] transition-colors duration-200 ease-exp data-active:font-medium"
+                        className="h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp data-active:font-medium"
                         href={item.to}
                         isActive={isActive}
                       >

@@ -54,7 +54,7 @@ const CourseProgress = ({ course }: { readonly course: CatalogueCourse }): JSX.E
 
   return (
     <Progress className="mt-5 **:data-[slot=progress-indicator]:bg-ring" maxValue={course.lessons} value={course.completed}>
-      <ProgressLabel className="font-mono text-spec text-muted-foreground">
+      <ProgressLabel className="text-spec text-muted-foreground">
         {t("progress", { completed: course.completed, total: course.lessons })}
       </ProgressLabel>
     </Progress>

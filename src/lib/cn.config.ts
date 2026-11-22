@@ -8,6 +8,7 @@ export default {
           text: [
             "body",
             "body-sm",
+            "code",
             "display-blast",
             "display-gate",
             "display-hero",

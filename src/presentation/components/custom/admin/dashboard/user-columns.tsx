@@ -31,7 +31,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, 
   return (
     <div className="flex items-center gap-2">
       <div className={cn("size-2 rounded-full", ADMIN_STATUS_DOT_CLASSES[USER_STATUS_COLORS[status]])} />
-      <span className="text-xs text-muted-foreground">{t(status)}</span>
+      <span className="text-spec text-muted-foreground">{t(status)}</span>
     </div>
   )
 }
@@ -39,7 +39,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, 
 const JoinedCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, Date>): JSX.Element => {
   const format = useFormatter()
 
-  return <span className="text-xs text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
+  return <span className="text-spec text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, DashboardUser>()
@@ -50,7 +50,7 @@ export const dashboardUserColumns = columnHelper.columns([
       <div className="flex items-center gap-3">
         <Avatar className="size-8 border border-border">
           {row.original.image !== null && <AvatarImage alt={row.original.name} src={row.original.image} />}
-          <AvatarFallback className="bg-muted text-[0.6875rem] font-semibold text-foreground">
+          <AvatarFallback className="bg-muted text-label font-semibold text-foreground">
             {getUserInitials(row.original.name)}
           </AvatarFallback>
         </Avatar>
@@ -62,7 +62,7 @@ export const dashboardUserColumns = columnHelper.columns([
           >
             {row.original.name}
           </Link>
-          <p className="text-xs text-muted-foreground">{row.original.email}</p>
+          <p className="text-spec text-muted-foreground">{row.original.email}</p>
         </div>
       </div>
     ),

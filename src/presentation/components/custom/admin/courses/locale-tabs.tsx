@@ -11,9 +11,9 @@ interface LocaleTabsProps {
 
 export const LocaleTabs = ({ children, label }: LocaleTabsProps): JSX.Element => (
   <Tabs defaultSelectedKey={I18N.DEFAULT_LOCALE}>
-    <TabsList aria-label={label} className="no-scrollbar h-auto w-full justify-start overflow-x-auto" variant="line">
+    <TabsList aria-label={label} className="w-full flex-wrap justify-start gap-y-2 group-data-horizontal/tabs:h-auto" variant="line">
       {I18N.SUPPORTED_LOCALES.map((locale) => (
-        <TabsTrigger className="flex-none font-mono text-xs" id={locale} key={locale}>
+        <TabsTrigger className="flex-none font-mono text-spec" id={locale} key={locale}>
           {locale}
         </TabsTrigger>
       ))}

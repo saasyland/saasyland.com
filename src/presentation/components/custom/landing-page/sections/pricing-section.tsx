@@ -73,7 +73,7 @@ export const PricingSection = (): JSX.Element => {
         <Reveal className="mt-12 md:mt-14" delay={GRID_DELAY_MS} variant="quiet">
           <div className="grid gap-x-12 gap-y-7 rounded-lg border border-border bg-card p-7 md:grid-cols-[1fr_auto] md:items-center md:p-8">
             <div>
-              <p className="font-mono text-label text-muted-foreground uppercase">{t("consulting.label")}</p>
+              <p className="text-label text-muted-foreground uppercase">{t("consulting.label")}</p>
               <h3 className="mt-3 max-w-[26ch] text-title text-balance text-foreground">{t("consulting.title")}</h3>
               <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">{t("consulting.body")}</p>
             </div>
@@ -81,7 +81,7 @@ export const PricingSection = (): JSX.Element => {
             <div className="flex flex-col items-stretch gap-4">
               <p className="flex items-baseline gap-2 md:justify-end">
                 <span className="text-price text-foreground tabular-nums">{format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}</span>
-                <span className="font-mono text-spec text-muted-foreground">{t("consulting.period")}</span>
+                <span className="text-spec text-muted-foreground">{t("consulting.period")}</span>
               </p>
               <a
                 className="inline-flex h-11 items-center justify-center rounded-md border border-border px-5 text-body-sm font-semibold whitespace-nowrap text-foreground transition-[background-color,border-color,transform] duration-200 ease-exp hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"

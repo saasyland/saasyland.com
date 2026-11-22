@@ -26,7 +26,7 @@ export const PostAuthor = (): JSX.Element => {
         />
       )}
       <div className="min-w-0">
-        <p className="font-mono text-label text-muted-foreground uppercase">{t("label")}</p>
+        <p className="text-label text-muted-foreground uppercase">{t("label")}</p>
         {post.authorUrl === undefined && <p className="mt-1 text-body font-medium text-foreground">{post.authorName}</p>}
         {post.authorUrl !== undefined && (
           <a

@@ -36,7 +36,7 @@ export const CasesSection = (): JSX.Element => {
                 id={product.id}
                 key={product.id}
               >
-                <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-label text-muted-foreground uppercase">
+                <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-label text-muted-foreground uppercase">
                   <span
                     aria-hidden
                     className={cn("size-1.25 shrink-0 rounded-full", {
@@ -75,8 +75,8 @@ export const CasesSection = (): JSX.Element => {
                 </p>
 
                 <div className="mt-auto pt-8">
-                  <p className="font-mono text-label text-muted-foreground uppercase">{t("modulesLabel")}</p>
-                  <p className="mt-2 font-mono text-spec text-pretty text-muted-foreground">{t(`items.${product.id}.modules`)}</p>
+                  <p className="text-label text-muted-foreground uppercase">{t("modulesLabel")}</p>
+                  <p className="mt-2 text-spec text-pretty text-muted-foreground">{t(`items.${product.id}.modules`)}</p>
                 </div>
               </HighlightItem>
             ))}

@@ -44,7 +44,7 @@ const ALL_TOPICS = "all"
 
 const TOPICS_PREVIEW = 5
 
-const LABEL_CLASSNAME = "font-mono text-label text-muted-foreground uppercase"
+const LABEL_CLASSNAME = "text-label text-muted-foreground uppercase"
 
 const FOCUS_CLASSNAME =
   "focus-visible:border-transparent focus-visible:ring-0 data-focus-visible:outline-2 data-focus-visible:outline-solid data-focus-visible:outline-ring"
@@ -55,7 +55,7 @@ const OPTION_CLASSNAME = cn(
 )
 
 const Count = ({ children }: { readonly children: ReactNode }): JSX.Element => (
-  <span aria-hidden className="font-mono text-spec text-muted-foreground tabular-nums">
+  <span aria-hidden className="text-spec text-muted-foreground tabular-nums">
     {children}
   </span>
 )
@@ -235,7 +235,7 @@ const PostIndex = ({ finder, total }: FinderPartProps & { readonly total: number
         <p className={LABEL_CLASSNAME} id={titleId}>
           {t("post.rail")}
         </p>
-        <p className="font-mono text-spec text-muted-foreground tabular-nums">
+        <p className="text-spec text-muted-foreground tabular-nums">
           {!isFiltered && format.number(total)}
           {isFiltered && t("archive.indexCount", { shown: matches.length, total })}
         </p>
@@ -266,7 +266,7 @@ const FiltersSheet = ({ finder, onShowResults, posts }: FiltersSheetProps): JSX.
           <>
             <span
               aria-hidden
-              className="inline-flex min-w-5 justify-center rounded-full bg-ring/15 px-1.5 font-mono text-spec text-foreground tabular-nums"
+              className="inline-flex min-w-5 justify-center rounded-full bg-ring/15 px-1.5 text-spec text-foreground tabular-nums"
             >
               {active}
             </span>

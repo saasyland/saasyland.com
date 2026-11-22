@@ -37,7 +37,7 @@ export const LessonStage = ({ course, lesson, number, viewer }: LessonStageProps
       <span aria-hidden className="absolute inset-0 -z-10 bg-radial from-background/50 to-background/95 to-75%" />
       {lesson.recording && (
         <div className="flex flex-col items-center px-6 text-center">
-          <p className="font-mono text-spec text-muted-foreground">{t("number", { number })}</p>
+          <p className="text-spec text-muted-foreground">{t("number", { number })}</p>
           <RecordingNow className="mt-4 text-title" />
           <p className="mt-3 max-w-[40ch] text-body text-balance text-muted-foreground">{t("noVideo")}</p>
         </div>

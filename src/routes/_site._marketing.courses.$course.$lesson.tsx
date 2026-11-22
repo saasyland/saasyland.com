@@ -54,7 +54,7 @@ const CompletionControl = ({ lesson }: { readonly lesson: Lesson }): JSX.Element
 
   if (lesson.completed) {
     return (
-      <p className="inline-flex h-8 items-center gap-2 font-mono text-spec text-ring">
+      <p className="inline-flex h-8 items-center gap-2 text-spec text-ring">
         <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
         {t("completed")}
       </p>
@@ -83,7 +83,7 @@ const NeighbourLink = ({
   return (
     <Link className={NEIGHBOUR_LINK_CLASSNAME} params={{ course: courseSlug, lesson: lesson.slug }} to="/courses/$course/$lesson">
       <span
-        className={cn("inline-flex items-center gap-1.5 font-mono text-label text-muted-foreground uppercase", {
+        className={cn("inline-flex items-center gap-1.5 text-label text-muted-foreground uppercase", {
           "self-end": direction === "next",
         })}
       >

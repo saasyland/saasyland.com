@@ -41,7 +41,7 @@ const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): J
       )}
       {(image === null || image === "") && (
         <div
-          className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[0.6875rem] font-semibold", {
+          className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-label font-semibold", {
             "text-foreground": !banned,
             "text-muted-foreground": banned,
           })}
@@ -60,7 +60,7 @@ const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): J
         >
           {name}
         </Link>
-        <p className="text-xs text-muted-foreground">{email}</p>
+        <p className="text-spec text-muted-foreground">{email}</p>
       </div>
     </div>
   )

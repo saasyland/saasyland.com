@@ -55,7 +55,7 @@ export const LastUsedBadge = (): JSX.Element => {
   const t = useTranslations("auth.oauth")
 
   return (
-    <Badge className="ml-auto font-mono text-label uppercase" variant="secondary">
+    <Badge className="ml-auto text-label uppercase" variant="secondary">
       {t("lastUsed")}
     </Badge>
   )

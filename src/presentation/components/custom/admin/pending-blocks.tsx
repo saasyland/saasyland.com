@@ -35,7 +35,7 @@ export const RowActionPending = (): JSX.Element => (
 )
 
 export const PaginationPending = (): JSX.Element => (
-  <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs">
+  <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-spec">
     <Skeleton className="h-lh w-10 scale-y-70" />
     <div className="flex items-center gap-2">
       <Skeleton className="h-lh w-15 scale-y-70" />

@@ -362,17 +362,17 @@ bun scripts/enqueue-pr.ts <number>
 
 Até 21 de novembro, a lista local terminava com a suíte inteira, e um pull request fazia merge por um script que esperava um deploy do preview compartilhado. [O próximo post desta série](/blog/running-ai-coding-agents-in-parallel#update-november-2026) conta por que as duas coisas mudaram. Veja quanto tempo cada etapa levou na execução de CI de 20 de novembro de 2026 que rodou quando o nosso recurso de compartilhamento do blog chegou à `main`, e na execução da fila de merge para o pull request que trouxe a fila de merge, em 21 de novembro:
 
-| Etapa                                  | 20 de novembro, um runner por job | 21 de novembro, na fila de merge                                                     |
-| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
-| Preparar o toolchain e as dependências | 1 min 11 s                        | 24 s                                                                                 |
-| `bun run check`                        | 16 s                              | 31 s                                                                                 |
-| `bun run test:coverage`                | 3 min 44 s                        | 7 min 21 s                                                                           |
-| `bun run build:test`                   | 2 min 59 s                        | 2 min 48 s                                                                           |
-| A suíte de navegador no Chromium       | 12 min 2 s                        | De 2 min 15 s a 3 min 10 s em cada um dos <RepositoryFact name="e2eShards" /> shards |
-| Upload do Worker que não serve tráfego | Ainda não era uma verificação     | 3 min 24 s, ao lado do build                                                         |
-| Do primeiro job ao verde               | 16 min 35 s                       | 8 min 24 s                                                                           |
+| Etapa                                  | 20 de novembro, um runner por job | 21 de novembro, na fila de merge                   |
+| -------------------------------------- | --------------------------------- | -------------------------------------------------- |
+| Preparar o toolchain e as dependências | 1 min 11 s                        | 24 s                                               |
+| `bun run check`                        | 16 s                              | 31 s                                               |
+| `bun run test:coverage`                | 3 min 44 s                        | 7 min 21 s                                         |
+| `bun run build:test`                   | 2 min 59 s                        | 2 min 48 s                                         |
+| A suíte de navegador no Chromium       | 12 min 2 s                        | De 2 min 15 s a 3 min 10 s em cada um dos 4 shards |
+| Upload do Worker que não serve tráfego | Ainda não era uma verificação     | 3 min 24 s, ao lado do build                       |
+| Do primeiro job ao verde               | 16 min 35 s                       | 8 min 24 s                                         |
 
-A suíte de navegador passou de 12 minutos em um único runner para cerca de 3 em cada um dos <RepositoryFact name="e2eShards" />, e a preparação do toolchain perdeu uma segunda restauração do mesmo cache. Os testes unitários com cobertura levaram cerca do dobro do tempo da véspera e agora são o job mais lento, o que nos diz onde olhar em seguida.
+A suíte de navegador passou de 12 minutos em um único runner para cerca de 3 em cada um dos 4, e a preparação do toolchain perdeu uma segunda restauração do mesmo cache. Os testes unitários com cobertura levaram cerca do dobro do tempo da véspera e agora são o job mais lento, o que nos diz onde olhar em seguida.
 
 Todo comando está na lista porque algo passou sem ele. Em 12 de novembro, uma atualização de dependências (#94) passou no `check` e em 1.255 testes com cobertura total enquanto o build de produção estava quebrado duas vezes: um novo SDK da Polar não conseguia entrar no bundle, e uma versão do TanStack Start mudou a sua saída de um jeito que fez um script pós-build falhar. Os testes unitários nunca rodam o build do Cloudflare, então `build:test` entrou na lista, e a documentação das convenções registra o motivo.
 
@@ -504,7 +504,7 @@ Você não precisa de tudo isso na segunda-feira. Esta é a ordem que rende mais
 
 Guardrails não são de graça, e quem diz que são nunca manteve nenhum.
 
-**Tempo em cada mudança.** A nossa CI levava cerca de 16 minutos e meio do push ao verde em 20 de novembro, a maior parte na suíte de navegador em um único runner. Desde que a suíte roda em <RepositoryFact name="e2eShards" /> runners em paralelo, a execução de um pull request leva cerca de 8 a 10 minutos, e a fila de merge a roda mais uma vez antes do merge, mais o que uma execução local levar antes do push. Os shards compram esse tempo com minutos de runner, porque cada um prepara de novo o toolchain e o navegador. Para um repositório público, os próprios minutos de CI não custam nada nos runners padrão do GitHub, que o GitHub documenta como gratuitos para repositórios públicos; um repositório privado paga cada minuto, e a suíte de navegador é para onde esses minutos vão.
+**Tempo em cada mudança.** A nossa CI levava cerca de 16 minutos e meio do push ao verde em 20 de novembro, a maior parte na suíte de navegador em um único runner. Desde que a suíte roda em <RepositoryFact name="e2eShards" /> runners em paralelo, a execução de um pull request leva cerca de 7 a 9 minutos, e a fila de merge a roda mais uma vez antes do merge, mais o que uma execução local levar antes do push. Os shards compram esse tempo com minutos de runner, porque cada um prepara de novo o toolchain e o navegador. Para um repositório público, os próprios minutos de CI não custam nada nos runners padrão do GitHub, que o GitHub documenta como gratuitos para repositórios públicos; um repositório privado paga cada minuto, e a suíte de navegador é para onde esses minutos vão.
 
 **Código para escrever e manter.** As nossas verificações de conteúdo e de tradução, o verificador de build, o plugin de hidratação e o hook de commit somam mais de mil linhas de TypeScript, com testes próprios. Eles são código como qualquer outro: têm bugs, como mostram o shebang e o “ton” francês, e precisam da mesma revisão.
 

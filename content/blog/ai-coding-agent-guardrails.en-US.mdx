@@ -356,17 +356,17 @@ bun scripts/enqueue-pr.ts <number>
 
 Until 21 November the local list ended with the whole suite, and a pull request merged through a script that waited for a shared preview deployment. [The next post in this series](/blog/running-ai-coding-agents-in-parallel#update-november-2026) tells why both changed. Here is what each step took on the CI run of 20 November 2026 that ran when our blog sharing feature reached `main`, and on the merge queue’s run for the pull request that brought in the merge queue, on 21 November:
 
-| Step                                        | 20 November, one runner per job | 21 November, in the merge queue                                                |
-| ------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
-| Set up the toolchain and dependencies       | 1 min 11 s                      | 24 s                                                                           |
-| `bun run check`                             | 16 s                            | 31 s                                                                           |
-| `bun run test:coverage`                     | 3 min 44 s                      | 7 min 21 s                                                                     |
-| `bun run build:test`                        | 2 min 59 s                      | 2 min 48 s                                                                     |
-| The browser suite in Chromium               | 12 min 2 s                      | 2 min 15 s to 3 min 10 s on each of <RepositoryFact name="e2eShards" /> shards |
-| Upload of the Worker that serves no traffic | Not a check yet                 | 3 min 24 s, beside the build                                                   |
-| From the first job to green                 | 16 min 35 s                     | 8 min 24 s                                                                     |
+| Step                                        | 20 November, one runner per job | 21 November, in the merge queue                 |
+| ------------------------------------------- | ------------------------------- | ----------------------------------------------- |
+| Set up the toolchain and dependencies       | 1 min 11 s                      | 24 s                                            |
+| `bun run check`                             | 16 s                            | 31 s                                            |
+| `bun run test:coverage`                     | 3 min 44 s                      | 7 min 21 s                                      |
+| `bun run build:test`                        | 2 min 59 s                      | 2 min 48 s                                      |
+| The browser suite in Chromium               | 12 min 2 s                      | 2 min 15 s to 3 min 10 s on each of four shards |
+| Upload of the Worker that serves no traffic | Not a check yet                 | 3 min 24 s, beside the build                    |
+| From the first job to green                 | 16 min 35 s                     | 8 min 24 s                                      |
 
-The browser suite went from 12 minutes on one runner to about 3 on each of <RepositoryFact name="e2eShards" />, and the toolchain setup lost a second restore of the same cache. The unit tests with coverage took about twice as long as the day before and are now the slowest job, which tells us where to look next.
+The browser suite went from 12 minutes on one runner to about 3 on each of four, and the toolchain setup lost a second restore of the same cache. The unit tests with coverage took about twice as long as the day before and are now the slowest job, which tells us where to look next.
 
 Every command is in the list because something passed without it. On 12 November a dependency upgrade (#94) passed `check` and 1,255 tests at full coverage while the production build was broken twice: a new Polar SDK could not be bundled, and a TanStack Start release changed its output so that a post-build script failed. Unit tests never run the Cloudflare build, so `build:test` joined the list, and the conventions docs record why.
 
@@ -498,7 +498,7 @@ You do not need all of this on Monday. This is the order that buys the most per 
 
 Guardrails are not free, and anyone who tells you they are has not maintained any.
 
-**Time on every change.** Our CI took about 16 and a half minutes from push to green on 20 November, most of it in the browser suite on one runner. Since the suite runs on <RepositoryFact name="e2eShards" /> runners in parallel, a pull request’s run takes about 8 to 10 minutes, and the merge queue runs it once more before the merge, plus whatever a local run takes before the push. Shards buy that time with runner minutes, because each one sets up the toolchain and the browser again. For a public repository the CI minutes themselves cost nothing on GitHub’s standard runners, which GitHub documents as free for public repositories; a private repository pays for every minute, and a browser suite is where those minutes go.
+**Time on every change.** Our CI took about 16 and a half minutes from push to green on 20 November, most of it in the browser suite on one runner. Since the suite runs on <RepositoryFact name="e2eShards" /> runners in parallel, a pull request’s run takes about 7 to 9 minutes, and the merge queue runs it once more before the merge, plus whatever a local run takes before the push. Shards buy that time with runner minutes, because each one sets up the toolchain and the browser again. For a public repository the CI minutes themselves cost nothing on GitHub’s standard runners, which GitHub documents as free for public repositories; a private repository pays for every minute, and a browser suite is where those minutes go.
 
 **Code to write and keep.** Our content and translation checks, the build verifier, the hydration plugin and the commit hook are more than a thousand lines of TypeScript between them, with tests of their own. They are code like any other: they have bugs, as the shebang and French "ton" show, and they need the same review.
 

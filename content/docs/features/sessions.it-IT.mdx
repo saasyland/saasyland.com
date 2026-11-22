@@ -1,24 +1,26 @@
 ---
 title: "Sessioni"
-description: "Sessioni Better Auth in D1, con revoca self-service nelle impostazioni di amministrazione e revoca delle sessioni di qualsiasi utente dal suo profilo di amministrazione."
+description: "Sessioni Better Auth in D1 con il paese da cui è stato effettuato l’accesso, revoca self-service nelle impostazioni e revoca delle sessioni di qualsiasi utente dal suo profilo di amministrazione."
 ---
 
 Le sessioni si trovano nella tabella `session` di D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` le legge con `getRequestSession`, memorizzata per richiesta, ed espone `getCurrentSessionQuery` a rotte e componenti. La copia lato client non include mai il token di sessione.
 
+Ogni sessione salva anche `country`, un campo aggiuntivo di Better Auth che l’hook di database `session.create.before` in `auth.server.ts` compila dall’intestazione `cf-ipcountry` che Cloudflare aggiunge a ogni richiesta (`COUNTRY_HEADER`). Viene conservato solo un codice del catalogo `COUNTRIES`, quindi gli indirizzi Tor (`T1`) e sconosciuti (`XX`) lo lasciano vuoto. Il browser e il sistema operativo derivano dallo user agent: `sessionDevice` in `src/modules/session/session.utils.ts` riconosce per nome i browser e i sistemi più comuni e distingue i telefoni dai tablet.
+
 ## Casi d’uso
 
-| Caso d’uso                                | Middleware                         | Usato da           |
-| ----------------------------------------- | ---------------------------------- | ------------------ |
-| `getActiveSessions`                       | autenticato                        | `SettingsSessions` |
-| `revokeSession`                           | autenticato; solo sessioni proprie | `SessionRow`       |
-| `revokeOtherSessions`                     | autenticato                        | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`                | `UserSessions`     |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`              | `UserSessions`     |
+| Caso d’uso                                | Middleware                         | Usato da       |
+| ----------------------------------------- | ---------------------------------- | -------------- |
+| `getActiveSessions`                       | autenticato                        | `SessionsCard` |
+| `revokeSession`                           | autenticato; solo sessioni proprie | `SessionRow`   |
+| `revokeOtherSessions`                     | autenticato                        | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`                | `UserSessions` |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`              | `UserSessions` |
 
 `getActiveSessions` restituisce le sessioni non scadute dell’utente corrente, dalla più recente, ed esclude le sessioni di impersonificazione. `listUserSessions` restituisce le sessioni non scadute di un altro utente tramite `listUserSessions` di Better Auth, dalla più recente e senza i loro token, comprese quelle di impersonificazione. `revokeUserSession` riceve l’ID di una sessione e ne cerca il token sul server, così nessun token arriva al browser.
 
 ## Interfaccia
 
-**Impostazioni → Sicurezza** in `/admin/settings` mostra `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Ogni `SessionRow` mostra il dispositivo (user agent o indirizzo IP), l’ultima attività e un badge sulla sessione corrente, e può revocare quella sessione. Un pulsante nell’intestazione revoca tutte le altre sessioni. Anche il cambio della password aggiorna l’elenco delle sessioni.
+La scheda **Sicurezza** di `/app/settings` e `/admin/settings` mostra `SessionsCard` (`src/presentation/components/custom/settings/sessions-card.tsx`), con questo browser per primo. Ogni `SessionRow` indica il browser e il sistema, come «Firefox su Windows», segnala **Questo dispositivo** e mostra il paese, l’indirizzo IP, quando la sessione è stata attiva l’ultima volta e quando è iniziata. Ogni altra riga ha **Disconnetti**, il cui nome accessibile indica il dispositivo, e la card termina con **Disconnetti gli altri dispositivi** finché ce n’è almeno uno. Anche cambiare o impostare la password disconnette tutte le altre sessioni e aggiorna l’elenco.
 
-Il profilo di un utente in `/admin/users` mostra `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): per ogni sessione il dispositivo e quando è iniziata ed è stata attiva l’ultima volta, un pulsante che la revoca e, dopo una conferma, un pulsante che disconnette l’utente ovunque. Vedi [Utenti (admin)](/docs/features/users-admin).
+Il profilo di un utente in `/admin/users` mostra `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): per ogni sessione il dispositivo, ricavato dallo stesso `useSessionDeviceName`, e quando è iniziata ed è stata attiva l’ultima volta, un pulsante che la revoca e, dopo una conferma, un pulsante che disconnette l’utente ovunque. Vedi [Utenti (admin)](/docs/features/users-admin).

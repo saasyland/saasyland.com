@@ -1,7 +1,8 @@
 import type { JSX } from "react"
 
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
@@ -32,7 +33,11 @@ export const ChangeEmailForm = ({ onDone }: { readonly onDone: () => void }): JS
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
 
+  const router = useRouter()
+
   const { hrefWithRedirect } = useAuthRedirect()
+
+  const currentUser = useSuspenseQuery(getCurrentSessionQuery).data?.user
 
   const changeEmail = useMutation({
     ...changeEmailMutation,
@@ -40,6 +45,11 @@ export const ChangeEmailForm = ({ onDone }: { readonly onDone: () => void }): JS
       toast.error(errorMessage(error))
     },
     onSuccess: async (_, { newEmail }) => {
+      if (currentUser?.emailVerified === true) {
+        toast.success(t("confirmationSent", { email: currentUser.email, newEmail }))
+        onDone()
+        return
+      }
       const session = await queryClient.query({ ...getCurrentSessionQuery, staleTime: 0 })
       if (session?.user.email === newEmail.trim().toLowerCase()) {
         toast.success(t("changed", { email: session.user.email }))
@@ -54,7 +64,12 @@ export const ChangeEmailForm = ({ onDone }: { readonly onDone: () => void }): JS
     defaultValues: { newEmail: "" },
     listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
-      changeEmail.mutate({ callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK), newEmail: value.newEmail })
+      const returnHere = router.buildLocation({
+        search: { redirect: router.state.location.publicHref },
+        to: ROUTES.AUTH_CALLBACK,
+      }).publicHref
+      const callbackURL = currentUser?.emailVerified === true ? returnHere : hrefWithRedirect(ROUTES.AUTH_CALLBACK)
+      changeEmail.mutate({ callbackURL, newEmail: value.newEmail })
     },
     validators: { onChange: newEmailSchema },
   })

@@ -5,6 +5,7 @@ import { createPolarOrder, grantPolarLicenseKey, polarLicenseKeyOf } from "~/src
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
@@ -35,6 +36,7 @@ const purchase = () => {
 }
 
 beforeEach(async () => {
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values({ email: "key@example.test", id: USER_ID, name: "Buyer" })
 })

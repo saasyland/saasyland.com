@@ -20,6 +20,11 @@ describe("license schema", () => {
     expect(getTableConfig(revokedLicenseOrder).foreignKeys[0]?.reference().foreignColumns[0]).toBe(user.id)
   })
 
+  it("keeps a licence with no account when its account is deleted", () => {
+    expect(getTableConfig(license).foreignKeys.map((key) => key.onDelete)).toStrictEqual(["set null"])
+    expect(license.userId.notNull).toBe(false)
+  })
+
   it("defines enums and updatedAt onUpdate", () => {
     expect.hasAssertions()
     expect(LICENSE_TIERS).toStrictEqual(["core", "complete", "agency"])

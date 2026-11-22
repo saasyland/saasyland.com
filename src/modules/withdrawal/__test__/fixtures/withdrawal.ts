@@ -33,6 +33,7 @@ export const PURCHASED_AT = new Date("2026-11-10T09:30:00.000Z")
 export const seedWithdrawalBuyers = async (): Promise<void> => {
   await db.delete(withdrawal)
   await db.delete(order)
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values([
     { ...WITHDRAWAL_USERS.ADMIN, role: ROLE_CODES.ADMIN },

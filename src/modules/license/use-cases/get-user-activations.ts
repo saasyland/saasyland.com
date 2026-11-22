@@ -1,7 +1,7 @@
 import { API_ENDPOINT } from "@saasyland/stack/api"
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -16,6 +16,7 @@ import {
 import { license } from "~/src/modules/license/license.schema"
 import type { License } from "~/src/modules/license/license.types"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
+import { user } from "~/src/modules/user/user.schema"
 
 const platformSchema = API_ENDPOINT.ACTIVATE.request.shape.body.pick({ platform: true })
 
@@ -51,8 +52,9 @@ export const getUserActivations = createServerFn({ method: "GET" })
   .validator((input: License["getUserActivations"]) => licenseZodSchemas.getUserActivations.parse(input))
   .handler(async ({ data: { userIds } }) => {
     const rows = await db
-      .select({ polarLicenseKeyId: license.polarLicenseKeyId, userId: license.userId })
+      .select({ polarLicenseKeyId: license.polarLicenseKeyId, userId: user.id })
       .from(license)
+      .innerJoin(user, eq(user.id, license.userId))
       .where(inArray(license.userId, userIds))
 
     const machines = await Promise.all(

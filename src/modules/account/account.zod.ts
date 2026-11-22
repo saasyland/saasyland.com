@@ -9,6 +9,8 @@ import {
   strictPasswordSchema,
 } from "~/src/integrations/better-auth/auth.zod"
 
+import { idField } from "~/src/modules/_core/utils/zod-fields"
+
 const changeEmail = zod.object({
   callbackURL: callbackPathSchema,
   newEmail: emailSchema,
@@ -17,10 +19,15 @@ const changeEmail = zod.object({
 const changePassword = zod.object({
   currentPassword: signInPasswordSchema,
   newPassword: strictPasswordSchema,
-  revokeOtherSessions: zod.boolean().optional(),
 })
 
-const changePasswordForm = changePassword.pick({ currentPassword: true, newPassword: true })
+const setPassword = zod.object({
+  newPassword: strictPasswordSchema,
+})
+
+const unlinkAccount = zod.object({
+  accountId: idField,
+})
 
 const updateUser = zod.object({
   name: nameSchema,
@@ -29,7 +36,8 @@ const updateUser = zod.object({
 export const accountZodSchemas = {
   changeEmail,
   changePassword,
-  changePasswordForm,
+  setPassword,
   signUpWithPassword: signUpWithPasswordSchema,
+  unlinkAccount,
   updateUser,
 }

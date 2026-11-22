@@ -26,9 +26,8 @@ export const license = sqliteTable(
     status: text("status", { enum: LICENSE_STATUSES }).notNull().default(LICENSE_STATUS.ACTIVE),
     tier: text("tier", { enum: LICENSE_TIERS }).notNull(),
     userId: text("user_id")
-      .notNull()
       .unique()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "set null" }),
     withdrawalConsentAt: integer("withdrawal_consent_at", { mode: "timestamp_ms" }),
     ...timestamps(),
   },

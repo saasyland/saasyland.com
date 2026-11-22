@@ -124,3 +124,17 @@ export const expectWithdrawalNotification = async (request: APIRequestContext, r
   return email.html
 }
 
+
+export const expectChangeEmailConfirmation = async (request: APIRequestContext, recipient: string): Promise<URL> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, 1)
+
+  expect(email.subject).toBe("Confirm your new email address")
+  return linkTo(email.html, "/api/auth/verify-email")
+}
+
+export const expectDeleteAccountEmail = async (request: APIRequestContext, recipient: string): Promise<URL> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.DELETE_ACCOUNT, 1)
+
+  expect(email.subject).toBe("Confirm that you want to delete your account")
+  return linkTo(email.html, "/app/settings/delete-account")
+}

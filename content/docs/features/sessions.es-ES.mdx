@@ -1,24 +1,26 @@
 ---
 title: "Sesiones"
-description: "Sesiones de Better Auth en D1, con revocación de autoservicio en los ajustes de administración y revocación de las sesiones de cualquier usuario desde su perfil de administración."
+description: "Sesiones de Better Auth en D1 con el país desde el que se iniciaron, revocación de autoservicio en los ajustes y revocación de las sesiones de cualquier usuario desde su perfil de administración."
 ---
 
 Las sesiones se guardan en la tabla `session` de D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` las lee con `getRequestSession`, memorizada por petición, y expone `getCurrentSessionQuery` a rutas y componentes. La copia del cliente nunca incluye el token de sesión.
 
+Cada sesión guarda también `country`, un campo adicional de Better Auth que el hook de base de datos `session.create.before` de `auth.server.ts` rellena a partir de la cabecera `cf-ipcountry` que Cloudflare añade a cada petición (`COUNTRY_HEADER`). Solo se conserva un código del catálogo `COUNTRIES`, así que las direcciones de Tor (`T1`) y las desconocidas (`XX`) lo dejan vacío. El navegador y el sistema operativo salen del agente de usuario: `sessionDevice` de `src/modules/session/session.utils.ts` reconoce por su nombre los navegadores y sistemas habituales y distingue los móviles de las tabletas.
+
 ## Casos de uso
 
-| Caso de uso                               | Middleware                        | Lo usa             |
-| ----------------------------------------- | --------------------------------- | ------------------ |
-| `getActiveSessions`                       | con sesión                        | `SettingsSessions` |
-| `revokeSession`                           | con sesión; solo sesiones propias | `SessionRow`       |
-| `revokeOtherSessions`                     | con sesión                        | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`               | `UserSessions`     |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`             | `UserSessions`     |
+| Caso de uso                               | Middleware                        | Lo usa         |
+| ----------------------------------------- | --------------------------------- | -------------- |
+| `getActiveSessions`                       | con sesión                        | `SessionsCard` |
+| `revokeSession`                           | con sesión; solo sesiones propias | `SessionRow`   |
+| `revokeOtherSessions`                     | con sesión                        | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`               | `UserSessions` |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`             | `UserSessions` |
 
 `getActiveSessions` devuelve las sesiones no caducadas del usuario actual, de la más reciente a la más antigua, y omite las sesiones de suplantación. `listUserSessions` devuelve las sesiones no caducadas de otro usuario a partir del `listUserSessions` de Better Auth, de la más reciente a la más antigua y sin sus tokens, incluidas las de suplantación. `revokeUserSession` recibe un ID de sesión y busca su token en el servidor, así que ningún token llega al navegador.
 
 ## Interfaz
 
-**Ajustes → Seguridad** en `/admin/settings` muestra `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Cada `SessionRow` muestra el dispositivo (agente de usuario o dirección IP), la última actividad y una etiqueta en la sesión actual, y puede revocar esa sesión. Un botón de la cabecera revoca todas las demás sesiones. Cambiar la contraseña también actualiza la lista de sesiones.
+La pestaña **Seguridad** de `/app/settings` y `/admin/settings` muestra `SessionsCard` (`src/presentation/components/custom/settings/sessions-card.tsx`), con este navegador primero. Cada `SessionRow` nombra el navegador y el sistema, como «Firefox en Windows», marca **Este dispositivo** y muestra el país, la dirección IP, cuándo tuvo actividad la sesión por última vez y cuándo se inició. Todas las demás filas tienen **Cerrar sesión**, cuyo nombre accesible nombra el dispositivo, y la tarjeta termina con **Cerrar sesión en los demás dispositivos** mientras haya alguno. Cambiar o establecer la contraseña también cierra todas las demás sesiones y actualiza la lista.
 
-El perfil de un usuario en `/admin/users` muestra `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): el dispositivo de cada sesión y cuándo se inició y tuvo actividad por última vez, un botón que la revoca y, tras una confirmación, un botón que cierra la sesión del usuario en todas partes. Consulta [Usuarios (admin)](/docs/features/users-admin).
+El perfil de un usuario en `/admin/users` muestra `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): el dispositivo de cada sesión, a partir del mismo `useSessionDeviceName`, y cuándo se inició y tuvo actividad por última vez, un botón que la revoca y, tras una confirmación, un botón que cierra la sesión del usuario en todas partes. Consulta [Usuarios (admin)](/docs/features/users-admin).

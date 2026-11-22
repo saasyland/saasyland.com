@@ -54,6 +54,7 @@ import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$user
 import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
 import { Route as AdminUsersCustomersRouteImport } from './routes/admin.users.customers'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as AppSettingsDeleteAccountRouteImport } from './routes/app.settings_.delete-account'
 import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
 import { Route as SiteMarketingBlogSplatRouteImport } from './routes/_site._marketing.blog.$'
 import { Route as SiteMarketingCoursesIndexRouteImport } from './routes/_site._marketing.courses.index'
@@ -291,6 +292,12 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppSettingsDeleteAccountRoute =
+  AppSettingsDeleteAccountRouteImport.update({
+    id: '/settings_/delete-account',
+    path: '/settings/delete-account',
+    getParentRoute: () => AppRoute,
+  } as any)
 const SiteMarketingBlogIndexRoute = SiteMarketingBlogIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -405,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
@@ -456,6 +464,7 @@ export interface FileRoutesByTo {
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs': typeof SiteDocsIndexRoute
   '/admin/courses': typeof AdminCoursesIndexRoute
   '/admin/orders': typeof AdminOrdersIndexRoute
@@ -516,6 +525,7 @@ export interface FileRoutesById {
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings_/delete-account': typeof AppSettingsDeleteAccountRoute
   '/_site/_marketing/': typeof SiteMarketingIndexRoute
   '/_site/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
@@ -577,6 +587,7 @@ export interface FileRouteTypes {
     | '/admin/users/all'
     | '/admin/users/customers'
     | '/api/auth/$'
+    | '/app/settings/delete-account'
     | '/docs/'
     | '/admin/courses/'
     | '/admin/orders/'
@@ -628,6 +639,7 @@ export interface FileRouteTypes {
     | '/admin/users/all'
     | '/admin/users/customers'
     | '/api/auth/$'
+    | '/app/settings/delete-account'
     | '/docs'
     | '/admin/courses'
     | '/admin/orders'
@@ -687,6 +699,7 @@ export interface FileRouteTypes {
     | '/admin/users/all'
     | '/admin/users/customers'
     | '/api/auth/$'
+    | '/app/settings_/delete-account'
     | '/_site/_marketing/'
     | '/_site/docs/'
     | '/admin/courses/'
@@ -1036,6 +1049,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/settings_/delete-account': {
+      id: '/app/settings_/delete-account'
+      path: '/settings/delete-account'
+      fullPath: '/app/settings/delete-account'
+      preLoaderRoute: typeof AppSettingsDeleteAccountRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_site/_marketing/blog/': {
       id: '/_site/_marketing/blog/'
       path: '/'
@@ -1286,12 +1306,14 @@ interface AppRouteChildren {
   AppLicenseRoute: typeof AppLicenseRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppSettingsDeleteAccountRoute: typeof AppSettingsDeleteAccountRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppLicenseRoute: AppLicenseRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppSettingsDeleteAccountRoute: AppSettingsDeleteAccountRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

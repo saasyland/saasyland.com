@@ -8,6 +8,8 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { Route as AdminRoute } from "~/src/routes/admin"
 import { Route as SettingsRoute } from "~/src/routes/admin.settings"
 
+import { SETTINGS_TAB } from "~/src/data/auth"
+
 import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
 import {
@@ -19,11 +21,11 @@ import {
 import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
 
+import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
-import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -105,18 +107,28 @@ describe("admin navigation", () => {
 })
 
 describe("general workspace settings", () => {
-  it("renders security controls safely when the current session is unavailable", async () => {
+  it("renders the general settings safely when the current session is unavailable", () => {
+    vi.spyOn(SettingsRoute, "useSearch").mockReturnValue({ tab: SETTINGS_TAB.GENERAL })
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, null)
     renderAdminPage(SettingsRoute.options.component, { queryClient })
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages.UTC)
-    await userEvent.click(screen.getByRole("tab", { name: pagesAdminSettingsMessages.tabs.security }))
-    expect(screen.getByRole("button", { name: pagesAdminSettingsMessages.security.twoFactor.enable })).toBeVisible()
-    expect(screen.getByRole("heading", { name: pagesAdminSettingsMessages.security.sessions.title })).toBeVisible()
-    expect(screen.getByLabelText(pagesAdminSettingsMessages.security.password.current)).toHaveValue("")
+    expect(screen.getByRole("tab", { name: authSecurityMessages.tabs.security })).toHaveAttribute("href", "/admin/settings?tab=security")
+  })
+
+  it("renders security controls safely when the current session is unavailable", async () => {
+    vi.spyOn(SettingsRoute, "useSearch").mockReturnValue({ tab: SETTINGS_TAB.SECURITY })
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getCurrentSessionQuery.queryKey, null)
+    renderAdminPage(SettingsRoute.options.component, { queryClient })
+    expect(await screen.findByRole("tab", { name: authSecurityMessages.tabs.security })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("button", { name: authSecurityMessages.twoFactor.enable })).toBeVisible()
+    expect(screen.getByRole("heading", { name: authSecurityMessages.sessions.title })).toBeVisible()
+    expect(screen.getByLabelText(authSecurityMessages.password.current)).toHaveValue("")
   })
 
   it("shows only the admin's own saved time zone, with no unconnected workspace controls", () => {
+    vi.spyOn(SettingsRoute, "useSearch").mockReturnValue({ tab: SETTINGS_TAB.GENERAL })
     renderAdminPage(SettingsRoute.options.component)
     expect(screen.queryByRole("textbox")).toBeNull()
     expect(screen.queryByRole("button", { name: /delete/iu })).toBeNull()

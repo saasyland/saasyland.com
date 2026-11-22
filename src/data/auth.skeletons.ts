@@ -2,7 +2,7 @@ import type { PageSkeleton } from "~/src/data/skeletons"
 
 import { AdminUsersPending } from "~/src/presentation/components/custom/admin/admin-users-pending"
 import { AdminDashboardPending, AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
-import { AppOverviewPending, AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
+import { AppDeleteAccountPending, AppOverviewPending, AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 
 import { ROUTES } from "~/src/routes"
 
@@ -12,5 +12,6 @@ export const AUTH_SKELETONS = [
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_ALL },
   { pendingComponent: AppOverviewPending, to: ROUTES.APP },
+  { pendingComponent: AppDeleteAccountPending, to: ROUTES.APP_DELETE_ACCOUNT },
   { pendingComponent: AppSettingsPending, to: ROUTES.APP_SETTINGS },
 ] as const satisfies readonly PageSkeleton[]

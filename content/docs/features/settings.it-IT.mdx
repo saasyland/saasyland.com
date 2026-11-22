@@ -1,26 +1,53 @@
 ---
 title: "Impostazioni"
-description: "Le schermate /admin/settings e /app/settings: la preferenza del fuso orario e una scheda sicurezza reale."
+description: "Le schermate /app/settings e /admin/settings: preferenze, indirizzo email, password, autenticazione a due fattori, account collegati, sessioni ed eliminazione dell’account."
 ---
 
-`src/routes/admin.settings.tsx` mostra due schede da `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`), **Generale** e **Sicurezza**, composte da widget di `src/presentation/components/custom/admin/settings` e dal `PreferencesCard` condiviso. Una scheda arriva con l’area che la riempie; nessuna area riempie ancora una scheda per team, fatturazione, integrazioni o chiavi API, quindi la pagina non ne ha. Il loader precarica `getActiveSessionsQuery`. I clienti hanno una propria pagina di impostazioni, `/app/settings` (`src/routes/app.settings.tsx`), che mostra solo `PreferencesCard`.
+`src/routes/app.settings.tsx` e `src/routes/admin.settings.tsx` mostrano due schede da `SETTINGS_TABS` (`src/data/auth.ts`), **Generale** e **Sicurezza**. La scheda è il parametro di ricerca `tab`, convalidato da `settingsSearchSchema` e tolto dall’indirizzo quando è quella predefinita, così un link OAuth torna a `?tab=security`. Le card si trovano in `src/presentation/components/custom/settings`, condividono il namespace `auth.security`, caricato dai layout di `/app` e `/admin`, e servono sia i clienti sia gli amministratori; solo la scheda Generale del cliente termina con **Elimina account**. Entrambi i loader precaricano l’elenco delle sessioni (`getActiveSessionsQuery`) e i metodi di accesso (`listAccountsQuery`), e `/app/settings` esegue anche i caricamenti degli avvisi sull’eliminazione dell’account.
 
-## Preferenze (reale)
+| Scheda    | `/app/settings`                                                          | `/admin/settings`                                                        |
+| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Generale  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
+| Sicurezza | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+
+## Preferenze
 
 `PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) modifica il fuso orario dell’utente autenticato, l’unica preferenza di visualizzazione salvata con l’account. Legge il fuso salvato dalla query della sessione corrente.
 
 - Una casella combinata con ricerca elenca tutti i fusi di `TIMEZONE_CODES` (`src/modules/user/user.constants.ts`, derivato da `TIMEZONES`) con il loro nome nel namespace `timezones`, caricato dai layout di `/admin` e `/app`.
 - **Rileva da questo browser** seleziona il fuso indicato dal browser. Confronta i fusi così come li risolve `Intl.DateTimeFormat`, quindi un alias come `Asia/Calcutta` trova `Asia/Kolkata`; un fuso che non è nell’elenco mostra un messaggio e mantiene la scelta attuale.
-- **Salva preferenze** chiama `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, autenticato), che convalida il fuso con `userZodSchemas.updatePreferences` e lo salva tramite `updateUser` di Better Auth. La scheda invalida poi la query della sessione corrente, e `TranslationsProvider` mostra tutte le date nel nuovo fuso ([Internazionalizzazione e lingue](/docs/features/internationalization)).
+- **Salva preferenze** chiama `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, autenticato), che convalida il fuso con `userZodSchemas.updatePreferences` e lo salva tramite `updateUser` di Better Auth. La card invalida poi la query della sessione corrente, e `TranslationsProvider` mostra tutte le date nel nuovo fuso ([Internazionalizzazione e lingue](/docs/features/internationalization)).
 
 La lingua non viene salvata: è il locale nell’URL, si cambia con `LocaleSelect` e determina anche l’ordine delle date, l’orologio a 12 o 24 ore e i separatori dei numeri.
 
-`PreferencesCardPending`, in `preferences-card-pending.tsx`, è il suo scheletro in `AdminSettingsPending` e `AppSettingsPending`. Ha un file proprio perché ogni pagina carica gli scheletri e il file della scheda contiene il form (vedi [Prestazioni](/docs/conventions/performance#skeletons-stay-in-the-entry-script)).
+## Indirizzo email
 
-## Sicurezza (reale)
+`EmailCard` mostra l’indirizzo e se è verificato, e **Cambia email** apre `ChangeEmailForm` (`custom/auth/change-email-form.tsx`), il modulo usato dal banner di verifica. Chiama `changeEmail` (autenticato, limitato). Un indirizzo verificato cambia in due passaggi: Better Auth invia all’indirizzo attuale un link di conferma (`ChangeEmailConfirmationEmail`) e, una volta aperto, invia al nuovo indirizzo un link di verifica, che salva la modifica. Entrambi i link riportano alla pagina da cui è partita la modifica. Un indirizzo non verificato cambia subito e riceve un nuovo link di verifica. Quando il nuovo indirizzo ha già un account, Better Auth non invia nulla e risponde come per qualsiasi altro indirizzo, quindi la notifica dice che il link è in arrivo se l’indirizzo può essere usato.
 
-- `SettingsPasswordForm` chiede la password attuale e quella nuova, ognuna con un pulsante per mostrarla o nasconderla e senza campo di conferma, spunta la regola della lunghezza della nuova con `PasswordRequirements` e chiama `changePassword` (`src/modules/account/use-cases/change-password.ts`, autenticato e limitato). Al termine aggiorna l’elenco delle sessioni.
-- `SettingsTwoFactor` attiva o disattiva TOTP ([Autenticazione a due fattori](/docs/features/two-factor)).
-- `SettingsSessions` elenca e revoca le sessioni ([Sessioni](/docs/features/sessions)).
+## Password
 
-La scheda **Generale** contiene solo `PreferencesCard`. Non c’è un profilo dello spazio di lavoro né uno spazio di lavoro da eliminare: l’app non ha un modello di spazio di lavoro (vedi [Organizzazioni](/docs/features/organizations)). `updateUser` e `changeEmail` in `src/modules/account/use-cases` sono le funzioni server da collegare quando si crea un modulo del profilo.
+`PasswordCard` legge i metodi di accesso. Con una password, chiede quella attuale e quella nuova e chiama `changePassword` (autenticato, limitato), che disconnette sempre tutte le altre sessioni. Un account che accede solo con GitHub o Google riceve invece **Imposta una password**, che chiama `setPassword` (autenticato, limitato): il `setPassword` di Better Auth riservato al server, poi `revokeOtherSessions`. Entrambi i moduli spuntano la regola della lunghezza con `PasswordRequirements`, segnalano sotto il campo una password trovata in una violazione di dati nota e terminano con `PasswordChangedEmail` all’account, inviata dall’hook `password-change-notice` per una modifica e da `setPassword` per una nuova password.
+
+## Autenticazione a due fattori
+
+`TwoFactorCard` mostra se TOTP è attivo e apre `TwoFactorDialog` per attivarlo, disattivarlo o creare nuovi codici di backup, ogni volta dopo la password attuale. A un account senza password viene chiesto di impostarne prima una, perché il secondo fattore protegge l’accesso con password. Vedi [Autenticazione a due fattori](/docs/features/two-factor).
+
+## Account collegati
+
+`ConnectedAccountsCard` elenca GitHub e Google da `OAUTH_PROVIDERS` con la data in cui ciascuno è stato collegato. **Collega** chiama `linkSocial` di Better Auth dal browser, che passa dal provider e torna a `?tab=security`; un errore torna come `?error=` e mostra il suo messaggio di `auth.errors` nella card. Better Auth collega anche un account il cui indirizzo presso il provider è diverso da quello dell’account (`accountLinking.allowDifferentEmails`), perché è il proprietario autenticato ad avviare il collegamento. **Scollega** chiama `unlinkAccount` (autenticato, limitato) con l’ID della riga dell’account. La card lo offre solo finché l’account ha un altro modo per accedere, e Better Auth si rifiuta comunque di scollegare l’ultimo; a un account che accede solo tramite un provider viene chiesto di impostare una password o di collegare prima un altro account.
+
+## Sessioni
+
+`SessionsCard` elenca i browser con cui è stato effettuato l’accesso, questo per primo. Vedi [Sessioni](/docs/features/sessions).
+
+## Elimina account [#delete-account]
+
+`DeleteAccountCard` elenca ciò che l’eliminazione rimuove: il profilo, i metodi di accesso, le impostazioni a due fattori e i progressi nei corsi, seguiti dagli avvisi che aggiungono le altre aree (`ACCOUNT_DELETION_NOTICES` in `src/data/account-deletion.ts`, riuniti da `src/data/<area>.account-deletion.ts`). Ogni avviso ha un componente e i dati che carica la sua pagina. L’area delle licenze aggiunge `LicenseDeletionNotice`, mostrato finché l’account ha una licenza attiva: la licenza termina con l’account, la sua chiave smette di funzionare, l’eliminazione non rimborsa nulla e la funzione di recesso viene prima. L’area legale aggiunge `AccountDeletionRecords`: i documenti di pagamento e fiscali, e la licenza con le sue registrazioni di consegna, vengono conservati come descritto nell’Informativa sulla privacy, non più collegati all’account.
+
+**Elimina account** apre una finestra di dialogo che chiede la password attuale, o niente per un account che non ne ha una, e chiama `requestAccountDeletion` (autenticato, limitato). Better Auth verifica la password e chiama `sendDeleteAccountVerification`, e `sendDeleteAccountEmail` invia via email un link a `/app/settings/delete-account?token=…` nella lingua della pagina. Il link è valido per `EMAIL_LINK_LIFETIME_HOURS`. Quella pagina (`src/routes/app.settings_.delete-account.tsx`) è protetta dall’accesso di `/app`, ripete le conseguenze ed elimina l’account solo quando si preme **Elimina il mio account**: `confirmAccountDeletion` (autenticato, limitato come un token) passa il token a `deleteUser` di Better Auth, che elimina l’utente e le sue sessioni e fa scadere il cookie, poi la pagina rimuove dalla cache delle query i dati dell’account, va alla home page e lo comunica. Un link aperto altrove chiede prima di accedere, e una pagina senza token offre la via per tornare alle Impostazioni. Aprire il link da solo non fa nulla, quindi uno scanner di posta che segue i link non può eliminare un account.
+
+L’eliminazione dell’utente si propaga a cascata alle sue sessioni, ai metodi di accesso, alla riga a due fattori e ai progressi nei corsi; la sua licenza, le copie degli ordini e degli abbonamenti di Polar ed eventuali dichiarazioni di recesso mantengono le loro righe senza utente, come indica l’[Informativa sulla privacy](/privacy), e una licenza attiva viene prima revocata ([Licenze](/docs/features/licences#records-and-refunds)).
+
+## Scheletri
+
+`PreferencesCardPending`, in `preferences-card-pending.tsx`, e `SettingsTabsPending`, `EmailCardPending` e `DeleteAccountCardPending`, in `custom/settings/settings-pending.tsx`, disegnano `AdminSettingsPending`, `AppSettingsPending` e `AppDeleteAccountPending`. Hanno file propri perché ogni pagina carica gli scheletri, e i file delle card contengono i moduli (vedi [Prestazioni](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Uno scheletro disegna la scheda Generale.

@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { TIME_BUCKET } from "~/src/modules/_core/utils/time-series"
+import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
@@ -9,6 +12,10 @@ import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
+
+beforeEach(() => {
+  vi.spyOn(auth.api, "listUserAccounts").mockResolvedValue([])
+})
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -32,6 +39,9 @@ describe("admin route loaders", () => {
 
   it("populates required query data before rendering /admin/settings", async () => {
     vi.spyOn(getActiveSessionsQuery, "queryFn")
-    expectPrefetched(await loadAsAdmin("/admin/settings"), getActiveSessionsQuery, [])
+    vi.spyOn(listAccountsQuery, "queryFn")
+    const router = await loadAsAdmin("/admin/settings")
+    expectPrefetched(router, getActiveSessionsQuery, [])
+    expectPrefetched(router, listAccountsQuery, [])
   })
 })

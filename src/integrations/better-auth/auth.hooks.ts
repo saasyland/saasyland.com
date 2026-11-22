@@ -4,7 +4,10 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { setSessionCookie } from "better-auth/cookies"
 import zod from "zod/v4"
 
+import { pageCallbackURL } from "~/src/integrations/better-auth/auth.callbacks"
 import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+
+import { AUTH_EMAILS } from "~/src/data/auth-emails"
 
 import { ROUTES } from "~/src/routes"
 
@@ -19,6 +22,7 @@ const INPUT_POLICY: Readonly<Record<string, zod.ZodType>> = {
   [ROUTES.API_AUTH.CHANGE_EMAIL]: zod.object({ newEmail: emailSchema }),
   [ROUTES.API_AUTH.CHANGE_PASSWORD]: passwordChange,
   [ROUTES.API_AUTH.RESET_PASSWORD]: passwordChange,
+  [ROUTES.API_AUTH.SET_PASSWORD]: passwordChange,
   [ROUTES.API_AUTH.SIGN_UP_EMAIL]: zod.object({
     email: emailSchema,
     image: imageUrlSchema.optional(),
@@ -29,6 +33,8 @@ const INPUT_POLICY: Readonly<Record<string, zod.ZodType>> = {
 }
 
 const signUpResponseSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const passwordChangeResponseSchema = zod.object({ user: zod.object({ email: zod.string(), name: zod.string() }) })
 
 export const enforceInputPolicy = createAuthMiddleware(async ({ body, path }) => {
   const policy = INPUT_POLICY[path]
@@ -66,4 +72,22 @@ export const requireVerifiedEmail = createAuthMiddleware(async (ctx) => {
   if (session?.user.emailVerified === false) {
     throw APIError.from("FORBIDDEN", { code: "EMAIL_NOT_VERIFIED", message: "Confirm the email address of this account first" })
   }
+})
+
+const sendPasswordChangeNotice = async (recipient: { readonly email: string; readonly name: string }): Promise<void> => {
+  try {
+    await AUTH_EMAILS.sendPasswordChanged({ callbackURL: pageCallbackURL(), user: recipient })
+  } catch (error) {
+    console.error("[email] the password change notice could not be sent", error)
+  }
+}
+
+export const notifyPasswordChange = createAuthMiddleware(async (ctx) => {
+  const response = passwordChangeResponseSchema.safeParse(ctx.context.returned)
+
+  if (!response.success) {
+    return
+  }
+
+  await ctx.context.runInBackgroundOrAwait(sendPasswordChangeNotice(response.data.user))
 })

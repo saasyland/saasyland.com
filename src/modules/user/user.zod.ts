@@ -1,11 +1,17 @@
 import zod from "zod/v4"
 
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
-import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+import {
+  callbackPathSchema,
+  emailSchema,
+  nameSchema,
+  signInPasswordSchema,
+  strictPasswordSchema,
+} from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
-import { idField } from "~/src/modules/_core/utils/zod-fields"
+import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 const MAX_SORT_COLUMNS = 8
@@ -20,6 +26,10 @@ const banUser = zod.object({
   banExpiresIn: zod.int().positive().optional(),
   banReason: zod.string().trim().max(BAN_REASON_MAX_LENGTH).optional(),
   userId: idField,
+})
+
+const confirmAccountDeletion = zod.object({
+  token: zod.string().min(MIN_FIELD_LENGTH),
 })
 
 const createUser = zod.object({
@@ -43,6 +53,11 @@ const getUserSignups = timeRangeSchema
 const getUsers = paginationSchema.extend({ sorting: zod.array(userSortSchema).max(MAX_SORT_COLUMNS).default([]) })
 
 const impersonateUser = userIdInput
+
+const requestAccountDeletion = zod.object({
+  callbackURL: callbackPathSchema,
+  password: signInPasswordSchema.optional(),
+})
 
 const setUserPassword = zod.object({
   newPassword: strictPasswordSchema,
@@ -69,12 +84,14 @@ const updateUser = zod.object({
 
 export const userZodSchemas = {
   banUser,
+  confirmAccountDeletion,
   createUser,
   deleteUser,
   getUser,
   getUserSignups,
   getUsers,
   impersonateUser,
+  requestAccountDeletion,
   setUserPassword,
   setUserPasswordForm,
   setUserRole,

@@ -15,6 +15,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { license } from "~/src/modules/license/license.schema"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -101,6 +102,7 @@ const resetUseCases = (): void => {
 const guestOrder = () => createGuestPolarOrder({ ...GUEST, productId: env.POLAR_PRODUCT_ID_AGENCY })
 
 beforeEach(async () => {
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values({ email: BUYER_EMAIL, id: USER_ID, name: "Buyer" })
 })

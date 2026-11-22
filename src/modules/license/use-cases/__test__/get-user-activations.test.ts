@@ -53,6 +53,7 @@ const insertLicences = async (polarLicenseKeyId: string): Promise<void> => {
 
 beforeEach(async () => {
   vi.useFakeTimers({ now: FIRST_ACTIVATION, toFake: ["Date"] })
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values([
     { email: "admin@example.test", id: ADMIN_ID, name: "Admin", role: ROLE_CODES.ADMIN },

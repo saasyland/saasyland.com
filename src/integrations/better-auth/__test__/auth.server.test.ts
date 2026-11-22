@@ -28,8 +28,16 @@ describe("Cloudflare auth configuration", () => {
   it("reads every session from D1 with Better Auth's default lifetimes", async () => {
     const { sessionConfig } = await auth.$context
 
-    expect(auth.options).not.toHaveProperty("session")
+    expect(auth.options.session).toStrictEqual({ additionalFields: { country: { input: false, required: false, type: "string" } } })
     expect(sessionConfig).toMatchObject({ expiresIn: 604_800, freshAge: 86_400, updateAge: 86_400 })
+  })
+  it("leaves the country of a session created outside a request empty", async () => {
+    const createdAt = new Date(0)
+    const session = { createdAt, expiresAt: createdAt, id: "session", token: "token", updatedAt: createdAt, userId: "user" }
+
+    await expect(auth.options.databaseHooks.session.create.before(session, null)).resolves.toStrictEqual({
+      data: { ...session, country: undefined },
+    })
   })
   it("uses the database adapter without an external secondary store", () => {
     expect(auth.options.database).toBeTypeOf("function")

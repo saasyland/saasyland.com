@@ -1,29 +1,30 @@
 ---
 title: "Two-factor authentication"
-description: "TOTP two-factor authentication with backup codes, set up in admin settings."
+description: "TOTP two-factor authentication with a QR code, backup codes to copy or download and new codes on demand, set up in settings."
 ---
 
 The Better Auth `twoFactor` plugin runs with `APP_NAME` as the issuer. Its server functions live in `src/modules/two-factor/use-cases`:
 
-| Use case           | Middleware              | Used by                                |
-| ------------------ | ----------------------- | -------------------------------------- |
-| `enableTwoFactor`  | signed in, rate limited | `TwoFactorPasswordStep`                |
-| `disableTwoFactor` | signed in, rate limited | `TwoFactorPasswordStep`                |
-| `verifyTotp`       | rate limited            | `TwoFactorVerifyStep`, `TwoFactorForm` |
-| `verifyBackupCode` | rate limited            | `TwoFactorForm`                        |
+| Use case              | Middleware              | Used by                                |
+| --------------------- | ----------------------- | -------------------------------------- |
+| `enableTwoFactor`     | signed in, rate limited | `TwoFactorPasswordStep`                |
+| `disableTwoFactor`    | signed in, rate limited | `TwoFactorPasswordStep`                |
+| `generateBackupCodes` | signed in, rate limited | `TwoFactorPasswordStep`                |
+| `verifyTotp`          | rate limited            | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode`    | rate limited            | `TwoFactorForm`                        |
 
 ## Setup
 
-**Settings → Security** in `/admin/settings` renders `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+The **Security** tab of `/app/settings` and `/admin/settings` renders `TwoFactorCard`, which opens `TwoFactorDialog` (`src/presentation/components/custom/settings`) with one of the `TWO_FACTOR_INTENT` values in `src/data/auth.ts`:
 
-1. The password step calls `enableTwoFactor` and receives the TOTP URI and backup codes.
-2. The verify step shows the secret from the URI (`extractTotpSecret`) for manual entry in an authenticator app and confirms a <RepositoryFact name="twoFactorCodeLength" />-digit code with `verifyTotp`.
-3. The last step shows the backup codes.
+1. The password step calls `enableTwoFactor` and receives the TOTP URI and the backup codes.
+2. The verify step draws the URI as a QR code (`TwoFactorQrCode`, which encodes it with `uqr` and draws the modules as one SVG path, black on white in both themes), shows the setup key from the URI (`extractTotpSecret`) with a copy button for manual entry, and confirms a <RepositoryFact name="twoFactorCodeLength" />-digit code with `verifyTotp`. Better Auth turns 2FA on only after that code.
+3. `BackupCodes` shows the codes once, with **Copy codes** and **Download**, a text file named from `APP_SLUG` and headed with the application's name and the account's address, and the dialog cannot be dismissed by a click outside it until **I've saved them**.
 
-When 2FA is on, the same button opens the password step with `disableTwoFactor`. The button reads `twoFactorEnabled` from the current session.
+With 2FA on, **New backup codes** asks for the password, calls `generateBackupCodes`, which replaces every code, and shows the new ones the same way; **Turn off** asks for the password and calls `disableTwoFactor`. The card reads `twoFactorEnabled` from the current session and keeps its buttons disabled while a two-factor request is running, and a step closed before its request ends shows nothing when it does. Better Auth requires a password for these calls, so an account that signs in only with GitHub or Google is told to set one first.
 
 ## Sign-in challenge
 
-For an account with 2FA, Better Auth answers the sign-in with `twoFactorRedirect`, and `SignInForm` opens `/auth/two-factor`, keeping `redirect`. `TwoFactorForm` accepts a <RepositoryFact name="twoFactorCodeLength" />-digit code (`InputOTP`) or, after switching, a backup code, and sends `trustDevice: true`. On success `finishSignIn` from `useAuthRedirect` continues to `/auth/callback`.
+For an account with 2FA, Better Auth answers the sign-in with `twoFactorRedirect`, and `SignInForm` opens `/auth/two-factor`, keeping `redirect`. `TwoFactorForm` accepts a <RepositoryFact name="twoFactorCodeLength" />-digit code (`InputOTP`) or, after switching, a backup code, and sends `trustDevice: true`. On success `finishSignIn` from `useAuthRedirect` continues to `/auth/callback`. Each backup code signs in once.
 
 Code lengths are in `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` is <RepositoryFact name="twoFactorCodeLength" />, backup codes are <RepositoryFact name="backupCodeMinLength" /> to <RepositoryFact name="backupCodeMaxLength" /> characters.

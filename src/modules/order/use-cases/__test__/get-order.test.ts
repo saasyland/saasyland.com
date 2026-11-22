@@ -14,6 +14,7 @@ import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import {
   ADMIN_ID,
@@ -38,6 +39,7 @@ const dashboardUrl = (orderId: string): string =>
 
 beforeEach(async () => {
   await db.delete(order)
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values(ORDER_USERS)
   await db.insert(order).values(ORDERS)

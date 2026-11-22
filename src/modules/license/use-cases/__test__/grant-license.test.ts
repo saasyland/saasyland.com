@@ -28,6 +28,7 @@ const purchase = {
 } as const
 
 beforeEach(async () => {
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values({ email: "grant@example.test", id: USER_ID, name: "Buyer" })
 })

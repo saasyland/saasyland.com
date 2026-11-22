@@ -6,6 +6,11 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
+import {
+  DeleteAccountCardPending,
+  EmailCardPending,
+  SettingsTabsPending,
+} from "~/src/presentation/components/custom/settings/settings-pending"
 
 const DocsStepPending = (): JSX.Element => (
   <div className="flex flex-col items-start gap-3">
@@ -46,6 +51,20 @@ export const AppOverviewPending = (): JSX.Element => (
 export const AppSettingsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
     <PageHeaderPending />
-    <PreferencesCardPending />
+    <div className="flex w-full flex-col gap-6">
+      <SettingsTabsPending />
+      <PreferencesCardPending />
+      <EmailCardPending />
+      <DeleteAccountCardPending />
+    </div>
+  </div>
+)
+
+export const AppDeleteAccountPending = (): JSX.Element => (
+  <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
+    <PageHeaderPending />
+    <div className="max-w-2xl">
+      <DeleteAccountCardPending />
+    </div>
   </div>
 )

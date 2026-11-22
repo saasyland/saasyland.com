@@ -12,6 +12,12 @@ interface ChangeEmailConfirmation {
   readonly user: Recipient
 }
 
+interface DeleteAccount {
+  readonly token: string
+  readonly url: string
+  readonly user: Recipient
+}
+
 interface AccountHolder extends Recipient {
   readonly id: string
 }
@@ -40,6 +46,7 @@ interface Verification {
 
 export interface AuthEmails {
   readonly sendChangeEmailConfirmation: (email: ChangeEmailConfirmation) => Promise<void>
+  readonly sendDeleteAccount: (email: DeleteAccount) => Promise<void>
   readonly sendExistingAccount: (email: ExistingAccount) => Promise<void>
   readonly sendPasswordChanged: (email: PasswordChanged) => Promise<void>
   readonly sendResetPassword: (email: ResetPassword) => Promise<void>
@@ -51,6 +58,9 @@ const AREAS: readonly AuthEmails[] = Object.values(AREA_AUTH_EMAILS)
 export const AUTH_EMAILS: AuthEmails = {
   sendChangeEmailConfirmation: async (email) => {
     await Promise.all(AREAS.map((area) => area.sendChangeEmailConfirmation(email)))
+  },
+  sendDeleteAccount: async (email) => {
+    await Promise.all(AREAS.map((area) => area.sendDeleteAccount(email)))
   },
   sendExistingAccount: async (email) => {
     await Promise.all(AREAS.map((area) => area.sendExistingAccount(email)))

@@ -1,24 +1,26 @@
 ---
 title: "セッション"
-description: "D1 に保存される Better Auth のセッションと、管理画面の設定でのセルフサービスの失効、そして管理画面のプロフィールからの任意のユーザーのセッションの失効。"
+description: "D1 に保存され、サインインした国を記録する Better Auth のセッションと、設定でのセルフサービスの失効、そして管理画面のプロフィールからの任意のユーザーのセッションの失効。"
 ---
 
 セッションは D1 の `session` テーブル（`src/modules/session/session.schema.ts`）に保存されます。`auth.session.ts` はリクエスト単位でメモ化される `getRequestSession` で読み取り、ルートとコンポーネントに `getCurrentSessionQuery` を提供します。クライアント側のコピーにセッショントークンが含まれることはありません。
 
+各セッションには `country` も保存されます。これは Better Auth の追加フィールドで、`auth.server.ts` の `session.create.before` データベースフックが、Cloudflare がすべてのリクエストに付ける `cf-ipcountry` ヘッダー（`COUNTRY_HEADER`）から値を入れます。保存するのは `COUNTRIES` カタログにあるコードだけなので、Tor（`T1`）や不明（`XX`）のアドレスでは空のままです。ブラウザーとオペレーティングシステムはユーザーエージェントから取得します。`src/modules/session/session.utils.ts` の `sessionDevice` が、一般的なブラウザーとシステムを名前で認識し、スマートフォンとタブレットを区別します。
+
 ## ユースケース
 
-| ユースケース                              | ミドルウェア                         | 利用箇所           |
-| ----------------------------------------- | ------------------------------------ | ------------------ |
-| `getActiveSessions`                       | サインイン必須                       | `SettingsSessions` |
-| `revokeSession`                           | サインイン必須、自分のセッションのみ | `SessionRow`       |
-| `revokeOtherSessions`                     | サインイン必須                       | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`                  | `UserSessions`     |
-| `revokeUserSession`、`revokeUserSessions` | `session: ["revoke"]`                | `UserSessions`     |
+| ユースケース                              | ミドルウェア                         | 利用箇所       |
+| ----------------------------------------- | ------------------------------------ | -------------- |
+| `getActiveSessions`                       | サインイン必須                       | `SessionsCard` |
+| `revokeSession`                           | サインイン必須、自分のセッションのみ | `SessionRow`   |
+| `revokeOtherSessions`                     | サインイン必須                       | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`                  | `UserSessions` |
+| `revokeUserSession`、`revokeUserSessions` | `session: ["revoke"]`                | `UserSessions` |
 
 `getActiveSessions` は現在のユーザーの有効期限内のセッションを新しい順に返し、なりすましセッションは除外します。`listUserSessions` は Better Auth の `listUserSessions` を使って、別のユーザーの有効期限内のセッションを新しい順に、トークンを除いて返します。なりすましセッションも含まれます。`revokeUserSession` はセッション ID を受け取り、サーバー側でそのトークンを調べるため、トークンがブラウザーに届くことはありません。
 
 ## UI
 
-`/admin/settings` の **設定 → セキュリティ** は `SettingsSessions`（`src/presentation/components/custom/admin/settings/sessions.tsx`）を表示します。各 `SessionRow` はデバイス（ユーザーエージェントまたは IP アドレス）、最終アクティビティ、現在のセッションを示すバッジを表示し、そのセッションを失効できます。ヘッダーのボタンで他のすべてのセッションを失効できます。パスワードを変更したときもセッション一覧が更新されます。
+`/app/settings` と `/admin/settings` の **セキュリティ** タブは、`SessionsCard`（`src/presentation/components/custom/settings/sessions-card.tsx`）を、このブラウザーを先頭にして表示します。各 `SessionRow` は「Windows の Firefox」のようにブラウザーとシステムを示し、**このデバイス** に印を付け、国、IP アドレス、セッションが最後にアクティブだった日時、サインインした日時を表示します。ほかの各行には **ログアウト** があり、そのアクセシブルネームにはデバイス名が入ります。ほかのデバイスがある間は、カードの最後に **ほかのデバイスをログアウト** が表示されます。パスワードを変更または設定したときも、ほかのすべてのセッションがサインアウトされ、一覧が更新されます。
 
-`/admin/users` のユーザーのプロフィールは `UserSessions`（`src/presentation/components/custom/admin/users/user-sessions.tsx`）を表示します。各セッションのデバイス、サインインした日時と最後にアクティブだった日時、そのセッションを失効させるボタン、そして確認のうえでユーザーをすべての場所からサインアウトさせるボタンがあります。[ユーザー（管理）](/docs/features/users-admin)を参照してください。
+`/admin/users` のユーザーのプロフィールは `UserSessions`（`src/presentation/components/custom/admin/users/user-sessions.tsx`）を表示します。同じ `useSessionDeviceName` による各セッションのデバイス、サインインした日時と最後にアクティブだった日時、そのセッションを失効させるボタン、そして確認のうえでユーザーをすべての場所からサインアウトさせるボタンがあります。[ユーザー（管理）](/docs/features/users-admin)を参照してください。

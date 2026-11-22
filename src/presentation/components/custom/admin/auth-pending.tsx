@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_SETTINGS_TABS, ADMIN_USER_DETAILS } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_USER_DETAILS } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
@@ -20,6 +20,7 @@ import {
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
+import { EmailCardPending, SettingsTabsPending } from "~/src/presentation/components/custom/settings/settings-pending"
 
 const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
 
@@ -133,15 +134,10 @@ export const AdminSettingsPending = (): JSX.Element => (
       <LongDescriptionPending />
     </div>
     <div className="flex w-full flex-col gap-2">
-      <div className="border-b border-border">
-        <div className="no-scrollbar flex h-8 w-full items-center justify-start gap-6 overflow-x-auto p-[3px]">
-          {ADMIN_SETTINGS_TABS.map((tab) => (
-            <Skeleton className="h-lh w-18 shrink-0 scale-y-70 text-sm" key={tab} />
-          ))}
-        </div>
-      </div>
-      <div className="mt-8 grid grid-cols-1 gap-6 text-sm lg:grid-cols-2">
+      <SettingsTabsPending />
+      <div className="mt-8 grid grid-cols-1 items-start gap-6 text-sm lg:grid-cols-2">
         <PreferencesCardPending />
+        <EmailCardPending />
       </div>
     </div>
   </div>

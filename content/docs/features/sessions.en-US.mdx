@@ -1,24 +1,26 @@
 ---
 title: "Sessions"
-description: "Better Auth sessions in D1, with self-service revocation in admin settings and revocation of any user's sessions from their admin profile."
+description: "Better Auth sessions in D1 with the country they signed in from, self-service revocation in settings and revocation of any user's sessions from their admin profile."
 ---
 
 Sessions live in the D1 `session` table (`src/modules/session/session.schema.ts`). `auth.session.ts` reads them with `getRequestSession`, memoized per request, and exposes `getCurrentSessionQuery` to routes and components. The client copy never includes the session token.
 
+Each session also stores `country`, a Better Auth additional field that the `session.create.before` database hook in `auth.server.ts` fills from the `cf-ipcountry` header Cloudflare adds to every request (`COUNTRY_HEADER`). Only a code from the `COUNTRIES` catalogue is kept, so Tor (`T1`) and unknown (`XX`) addresses leave it empty. The browser and the operating system come from the user agent: `sessionDevice` in `src/modules/session/session.utils.ts` recognizes the common browsers and systems by name and tells phones and tablets apart.
+
 ## Use cases
 
-| Use case                                  | Middleware                   | Used by            |
-| ----------------------------------------- | ---------------------------- | ------------------ |
-| `getActiveSessions`                       | signed in                    | `SettingsSessions` |
-| `revokeSession`                           | signed in; own sessions only | `SessionRow`       |
-| `revokeOtherSessions`                     | signed in                    | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`          | `UserSessions`     |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`        | `UserSessions`     |
+| Use case                                  | Middleware                   | Used by        |
+| ----------------------------------------- | ---------------------------- | -------------- |
+| `getActiveSessions`                       | signed in                    | `SessionsCard` |
+| `revokeSession`                           | signed in; own sessions only | `SessionRow`   |
+| `revokeOtherSessions`                     | signed in                    | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`          | `UserSessions` |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`        | `UserSessions` |
 
 `getActiveSessions` returns the current user's unexpired sessions, newest first, and leaves out impersonation sessions. `listUserSessions` returns another user's unexpired sessions from Better Auth's `listUserSessions`, newest first and without their tokens, impersonation sessions included. `revokeUserSession` takes a session ID and looks its token up on the server, so no token reaches the browser.
 
 ## UI
 
-**Settings → Security** in `/admin/settings` renders `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Each `SessionRow` shows the device (user agent or IP address), the last activity and a badge on the current session, and can revoke that session. A header button revokes all other sessions. Changing the password also refreshes the session list.
+The **Security** tab of `/app/settings` and `/admin/settings` renders `SessionsCard` (`src/presentation/components/custom/settings/sessions-card.tsx`), with this browser first. Each `SessionRow` names the browser and the system, such as "Firefox on Windows", marks **This device**, and shows the country, the IP address, when the session was last active and when it signed in. Every other row has **Sign out**, whose accessible name names the device, and the card ends with **Sign out other devices** while there is one. Changing or setting the password signs out every other session as well and refreshes the list.
 
-A user's profile in `/admin/users` renders `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): each session's device and when it signed in and was last active, a button that revokes it and, after a confirmation, a button that signs the user out everywhere. See [Users (admin)](/docs/features/users-admin).
+A user's profile in `/admin/users` renders `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): each session's device, from the same `useSessionDeviceName`, and when it signed in and was last active, a button that revokes it and, after a confirmation, a button that signs the user out everywhere. See [Users (admin)](/docs/features/users-admin).

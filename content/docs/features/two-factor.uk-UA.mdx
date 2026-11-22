@@ -1,29 +1,30 @@
 ---
 title: "Двофакторна автентифікація"
-description: "Двофакторна автентифікація TOTP з резервними кодами, що налаштовується в налаштуваннях адмінпанелі."
+description: "Двофакторна автентифікація TOTP із QR-кодом, резервними кодами, які можна скопіювати чи завантажити, і новими кодами на вимогу, що налаштовується в налаштуваннях."
 ---
 
 Плагін `twoFactor` з Better Auth використовує `APP_NAME` як видавця. Його серверні функції розташовані в `src/modules/two-factor/use-cases`:
 
-| Сценарій           | Middleware             | Використовує                           |
-| ------------------ | ---------------------- | -------------------------------------- |
-| `enableTwoFactor`  | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
-| `disableTwoFactor` | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
-| `verifyTotp`       | з обмеженням           | `TwoFactorVerifyStep`, `TwoFactorForm` |
-| `verifyBackupCode` | з обмеженням           | `TwoFactorForm`                        |
+| Сценарій              | Middleware             | Використовує                           |
+| --------------------- | ---------------------- | -------------------------------------- |
+| `enableTwoFactor`     | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
+| `disableTwoFactor`    | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
+| `generateBackupCodes` | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
+| `verifyTotp`          | з обмеженням           | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode`    | з обмеженням           | `TwoFactorForm`                        |
 
 ## Налаштування
 
-**Налаштування → Безпека** в `/admin/settings` показує `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+Вкладка **Безпека** в `/app/settings` і `/admin/settings` показує `TwoFactorCard`, який відкриває `TwoFactorDialog` (`src/presentation/components/custom/settings`) з одним зі значень `TWO_FACTOR_INTENT` з `src/data/auth.ts`:
 
 1. Крок пароля викликає `enableTwoFactor` і отримує URI TOTP та резервні коди.
-2. Крок перевірки показує секрет з URI (`extractTotpSecret`) для ручного введення в застосунку-автентифікаторі й підтверджує <RepositoryFact name="twoFactorCodeLength" />-значний код через `verifyTotp`.
-3. Останній крок показує резервні коди.
+2. Крок перевірки малює URI як QR-код (`TwoFactorQrCode`, який кодує його через `uqr` і малює модулі одним контуром SVG, чорним на білому в обох темах), показує ключ налаштування з URI (`extractTotpSecret`) з кнопкою копіювання для ручного введення й підтверджує <RepositoryFact name="twoFactorCodeLength" />-значний код через `verifyTotp`. Better Auth вмикає 2FA лише після цього коду.
+3. `BackupCodes` показує коди один раз, з кнопками **Копіювати коди** і **Завантажити** (текстовий файл, назва якого походить від `APP_SLUG`, а заголовок містить назву застосунку й адресу облікового запису), і діалог не закривається клацанням поза ним, доки не натиснуто **Коди збережено**.
 
-Коли 2FA увімкнено, та сама кнопка відкриває крок пароля з `disableTwoFactor`. Кнопка читає `twoFactorEnabled` з поточної сесії.
+Коли 2FA увімкнено, **Нові резервні коди** запитує пароль, викликає `generateBackupCodes`, який замінює всі коди, і так само показує нові; **Вимкнути** запитує пароль і викликає `disableTwoFactor`. Картка читає `twoFactorEnabled` з поточної сесії й тримає свої кнопки вимкненими, поки виконується запит двофакторної автентифікації, а крок, закритий до завершення свого запиту, нічого не показує, коли запит завершується. Better Auth вимагає пароль для цих викликів, тож обліковому запису, що входить лише через GitHub або Google, картка пропонує спершу задати пароль.
 
 ## Перевірка під час входу
 
-Для облікового запису з 2FA Better Auth відповідає на вхід `twoFactorRedirect`, і `SignInForm` відкриває `/auth/two-factor`, зберігаючи `redirect`. `TwoFactorForm` приймає <RepositoryFact name="twoFactorCodeLength" />-значний код (`InputOTP`) або, після перемикання, резервний код і надсилає `trustDevice: true`. У разі успіху `finishSignIn` з `useAuthRedirect` переходить на `/auth/callback`.
+Для облікового запису з 2FA Better Auth відповідає на вхід `twoFactorRedirect`, і `SignInForm` відкриває `/auth/two-factor`, зберігаючи `redirect`. `TwoFactorForm` приймає <RepositoryFact name="twoFactorCodeLength" />-значний код (`InputOTP`) або, після перемикання, резервний код і надсилає `trustDevice: true`. У разі успіху `finishSignIn` з `useAuthRedirect` переходить на `/auth/callback`. Кожен резервний код дає змогу увійти один раз.
 
 Довжини кодів задано в `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` дорівнює <RepositoryFact name="twoFactorCodeLength" />, а довжина резервних кодів у символах — від <RepositoryFact name="backupCodeMinLength" /> до <RepositoryFact name="backupCodeMaxLength" />.

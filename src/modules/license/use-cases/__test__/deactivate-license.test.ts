@@ -34,6 +34,7 @@ const seedLicenseKey = async () => {
 }
 
 beforeEach(async () => {
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values({ email: "deactivate@example.test", id: USER_ID, name: "Buyer" })
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))

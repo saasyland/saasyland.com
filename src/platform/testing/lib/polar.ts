@@ -92,6 +92,34 @@ export const polarCustomer = (organizationId: string, externalId: string): model
   type: "individual",
 })
 
+export const polarOrderDiscount = ({
+  basisPoints,
+  code,
+  name,
+  organizationId,
+}: {
+  readonly basisPoints: number
+  readonly code: string | null
+  readonly name: string
+  readonly organizationId: string
+}): models.DiscountPercentageOnceForeverDurationBase => ({
+  basis_points: basisPoints,
+  code,
+  created_at: new Date().toISOString(),
+  duration: "once",
+  ends_at: null,
+  id: crypto.randomUUID(),
+  max_redemptions: null,
+  max_redemptions_per_customer: null,
+  metadata: {},
+  modified_at: null,
+  name,
+  organization_id: organizationId,
+  redemptions_count: 0,
+  starts_at: null,
+  type: "percentage",
+})
+
 interface PolarOrderInput {
   readonly checkoutId: string | null
   readonly customer: models.CustomerIndividual

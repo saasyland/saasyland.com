@@ -9,6 +9,8 @@ import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibilit
 import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
+const PAGE_AUDIT_TIMEOUT_MS = 10_000
+
 const visit = async (page: Page, path: string): Promise<void> => {
   const response = await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   expect(response?.ok()).toBe(true)
@@ -174,6 +176,7 @@ for (const account of TEST_ACCOUNTS) {
   for (const colorScheme of COLOR_SCHEMES) {
     test(`${account.role} workspace pages meet WCAG 2.2 AA in the ${colorScheme} theme`, async ({ authPage, page }) => {
       const paths = workspacePages(account.role).map(({ path }) => path)
+      test.setTimeout(Math.max(test.info().timeout, paths.length * PAGE_AUDIT_TIMEOUT_MS))
       await page.emulateMedia({ colorScheme })
       await authPage.signIn(account.email)
       await expect(authPage.signInSubmitButton()).toHaveCount(0)

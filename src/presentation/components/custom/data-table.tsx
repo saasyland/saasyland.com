@@ -1,4 +1,4 @@
-import { type JSX, useMemo, useState } from "react"
+import { type JSX, useEffect, useMemo, useRef, useState } from "react"
 
 import { type UseQueryOptions, keepPreviousData, skipToken, useQuery } from "@tanstack/react-query"
 import {
@@ -28,6 +28,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Search } from "lucide-react"
 import { Button as ButtonPrimitive } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { DEFAULT_PAGINATION } from "~/src/modules/_core/utils/pagination"
 
@@ -54,10 +55,12 @@ export type DataTableFeatures = typeof features
 
 export type DataTableColumnDef<TData extends { id: string }> = ColumnDef<DataTableFeatures, TData>
 
+export type DataTableFilterValues = Readonly<Record<string, string>>
+
 export interface DataTableOptions<TData extends { id: string }> {
   readonly initialState?: { readonly pagination?: PaginationState; readonly sorting?: SortingState }
   readonly query?: (
-    state: PaginationState & { sorting: SortingState },
+    state: PaginationState & { filters: DataTableFilterValues; sorting: SortingState },
   ) => Pick<UseQueryOptions<{ rows: TData[]; total: number }>, "queryFn" | "queryKey">
   readonly selectable?: boolean
 }
@@ -82,6 +85,8 @@ const EMPTY_DATA: never[] = []
 const FIRST_PAGE = 1
 const SKELETON_ROWS = ["first", "second", "third", "fourth", "fifth"] as const
 const ALL_VALUES = "all"
+const SERVER_SEARCH_DELAY_MS = 300
+const SERVER_STATE = { autoResetPageIndex: false, manualFiltering: true, manualPagination: true, manualSorting: true } as const
 
 const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown, none: ChevronsUpDown } as const
 const ARIA_SORT = { asc: "ascending", desc: "descending", none: "none" } as const
@@ -94,13 +99,29 @@ const keepFirstPage = (pagination: PaginationState): PaginationState => {
   return { ...pagination, pageIndex: 0 }
 }
 
+const filterValuesSchema = zod.record(zod.string(), zod.string())
+
+const filterValues = (columnFilters: ColumnFiltersState): DataTableFilterValues =>
+  filterValuesSchema.parse(Object.fromEntries(columnFilters.map(({ id, value }) => [id, value])))
+
 const DataTableFilterControl = ({
+  delay,
   filter,
   onChange,
 }: {
+  readonly delay: number
   readonly filter: DataTableFilter
   readonly onChange: (value: string | undefined) => void
 }): JSX.Element => {
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+    },
+    [],
+  )
+
   if (filter.type === "search") {
     return (
       <div className="group relative flex-1">
@@ -112,7 +133,15 @@ const DataTableFilterControl = ({
           aria-label={filter.placeholder}
           className="h-10 w-full pl-10"
           onChange={(event) => {
-            onChange(event.target.value)
+            const { value } = event.target
+            clearTimeout(timer.current)
+            if (delay === 0) {
+              onChange(value)
+              return
+            }
+            timer.current = setTimeout(() => {
+              onChange(value)
+            }, delay)
           }}
           placeholder={filter.placeholder}
         />
@@ -253,7 +282,7 @@ export const DataTable = <TData extends { id: string }>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const query = options?.query
-  const queryOptions = query?.({ ...pagination, sorting })
+  const queryOptions = query?.({ ...pagination, filters: filterValues(columnFilters), sorting })
   const page = useQuery({
     ...queryOptions,
     placeholderData: keepPreviousData,
@@ -272,7 +301,10 @@ export const DataTable = <TData extends { id: string }>({
     enableRowSelection: selectable,
     features,
     getRowId: (row) => row.id,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: (updater: Updater<ColumnFiltersState>) => {
+      setColumnFilters(updater)
+      setPagination(keepFirstPage)
+    },
     onPaginationChange: setPagination,
     onRowSelectionChange: setRowSelection,
     onSortingChange: (updater: Updater<SortingState>) => {
@@ -280,7 +312,8 @@ export const DataTable = <TData extends { id: string }>({
       setPagination(keepFirstPage)
     },
     state: { columnFilters, pagination, rowSelection, sorting },
-    ...(query ? { autoResetPageIndex: false, manualPagination: true, manualSorting: true, rowCount: page.data?.total ?? 0 } : {}),
+    ...(query && SERVER_STATE),
+    ...(query && { rowCount: page.data?.total ?? 0 }),
   })
 
   const headers = table.getFlatHeaders()
@@ -292,6 +325,7 @@ export const DataTable = <TData extends { id: string }>({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           {filters.map((filter) => (
             <DataTableFilterControl
+              delay={query === undefined ? 0 : SERVER_SEARCH_DELAY_MS}
               filter={filter}
               key={filter.columnId}
               onChange={(value) => {

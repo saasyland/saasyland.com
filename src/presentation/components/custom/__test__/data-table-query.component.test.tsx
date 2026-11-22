@@ -9,7 +9,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { DataTable, type DataTableFeatures, type DataTableOptions } from "~/src/presentation/components/custom/data-table"
+import {
+  DataTable,
+  type DataTableFeatures,
+  type DataTableFilter,
+  type DataTableOptions,
+} from "~/src/presentation/components/custom/data-table"
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 
 import errorsGlobalMessages from "~/messages/en-US/errors.global.json"
@@ -27,7 +32,14 @@ type TableQuery = NonNullable<DataTableOptions<Person>["query"]>
 type Request = Parameters<TableQuery>[0]
 
 const helper = createColumnHelper<DataTableFeatures, Person>()
-const columns = helper.columns([helper.accessor("name", { header: "Name", id: "name" })])
+const columns = helper.columns([
+  helper.accessor("name", { header: "Name", id: "name" }),
+  helper.accessor("id", { enableSorting: false, header: "Team", id: "team" }),
+])
+const FILTERS: readonly DataTableFilter[] = [
+  { columnId: "name", placeholder: "Search people", type: "search" },
+  { columnId: "team", label: "Every team", options: [{ label: "Compilers", value: "compilers" }], type: "select" },
+]
 const messages = getTestMessages("en-US")
 const firstPage: Page = {
   rows: [
@@ -38,7 +50,11 @@ const firstPage: Page = {
 }
 const lastPage: Page = { rows: [{ id: "alan", name: "Alan" }], total: 3 }
 
-const renderTable = async (fetchPage: (state: Request) => Promise<Page>, options: DataTableOptions<Person> = {}) => {
+const renderTable = async (
+  fetchPage: (state: Request) => Promise<Page>,
+  options: DataTableOptions<Person> = {},
+  filters: readonly DataTableFilter[] = [],
+) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   const root = createRootRoute({
     component: () => (
@@ -51,6 +67,7 @@ const renderTable = async (fetchPage: (state: Request) => Promise<Page>, options
     component: () => (
       <DataTable
         columns={columns}
+        filters={filters}
         options={{
           initialState: { pagination: { pageIndex: 0, pageSize: 2 } },
           query: (state) => queryOptions<Page>({ queryFn: () => fetchPage(state), queryKey: ["people", state] }),
@@ -80,7 +97,7 @@ describe("data table server queries", () => {
     await renderTable(fetchPage, { initialState: { pagination: { pageIndex: 1, pageSize: 2 }, sorting: [{ desc: false, id: "name" }] } })
 
     expect(await screen.findByText("Grace")).toBeVisible()
-    expect(fetchPage).toHaveBeenCalledWith({ pageIndex: 1, pageSize: 2, sorting: [{ desc: false, id: "name" }] })
+    expect(fetchPage).toHaveBeenCalledWith({ filters: {}, pageIndex: 1, pageSize: 2, sorting: [{ desc: false, id: "name" }] })
     expect(within(screen.getAllByRole("row")[1]!).getByText("Grace")).toBeVisible()
     expect(screen.getByText("Ada")).toBeVisible()
     expect(screen.getByText("Page 2 of 2")).toBeVisible()
@@ -100,7 +117,7 @@ describe("data table server queries", () => {
     expect(await screen.findByText("Grace")).toBeVisible()
 
     await userEvent.click(screen.getByRole("button", { name: "Next page" }))
-    expect(fetchPage).toHaveBeenLastCalledWith({ pageIndex: 1, pageSize: 2, sorting: [] })
+    expect(fetchPage).toHaveBeenLastCalledWith({ filters: {}, pageIndex: 1, pageSize: 2, sorting: [] })
     expect(screen.getByText("Page 2 of 2")).toBeVisible()
     expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled()
@@ -122,7 +139,7 @@ describe("data table server queries", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Name/u }))
     expect(await screen.findByText("Grace")).toBeVisible()
-    expect(fetchPage).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 2, sorting: [{ desc: false, id: "name" }] })
+    expect(fetchPage).toHaveBeenLastCalledWith({ filters: {}, pageIndex: 0, pageSize: 2, sorting: [{ desc: false, id: "name" }] })
     expect(screen.getByText("Page 1 of 2")).toBeVisible()
 
     fetchPage.mockResolvedValue({ rows: [], total: 0 })
@@ -142,6 +159,28 @@ describe("data table server queries", () => {
     expect(await screen.findByText("Grace")).toBeVisible()
     await waitFor(() => {
       expect(fetchPage).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it("asks the server for the search once typing pauses and for a selected filter at once, from the first page", async () => {
+    const fetchPage = vi.fn<(state: Request) => Promise<Page>>().mockResolvedValue(firstPage)
+    await renderTable(fetchPage, { initialState: { pagination: { pageIndex: 1, pageSize: 2 } } }, FILTERS)
+    expect(await screen.findByText("Grace")).toBeVisible()
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Search people" }), "gr")
+    expect(fetchPage).not.toHaveBeenCalledWith(expect.objectContaining({ filters: { name: "g" } }))
+    await waitFor(() => {
+      expect(fetchPage).toHaveBeenLastCalledWith({ filters: { name: "gr" }, pageIndex: 0, pageSize: 2, sorting: [] })
+    })
+    expect(fetchPage).not.toHaveBeenCalledWith(expect.objectContaining({ filters: { name: "g" } }))
+
+    await userEvent.click(screen.getByRole("button", { name: /Every team/u }))
+    await userEvent.click(await screen.findByRole("option", { name: "Compilers" }))
+    expect(fetchPage).toHaveBeenLastCalledWith({ filters: { name: "gr", team: "compilers" }, pageIndex: 0, pageSize: 2, sorting: [] })
+
+    await userEvent.clear(screen.getByRole("textbox", { name: "Search people" }))
+    await waitFor(() => {
+      expect(fetchPage).toHaveBeenLastCalledWith({ filters: { team: "compilers" }, pageIndex: 0, pageSize: 2, sorting: [] })
     })
   })
 })

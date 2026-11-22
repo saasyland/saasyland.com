@@ -1,42 +1,22 @@
-import { type JSX, type MouseEvent, useState } from "react"
+import type { JSX, MouseEvent } from "react"
 
-import { Link, getRouteApi, useHydrated } from "@tanstack/react-router"
-import { SearchIcon, X } from "lucide-react"
-import { Button, SearchField } from "react-aria-components"
+import { Link, getRouteApi } from "@tanstack/react-router"
+import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
-import { BLOG_ARCHIVE, BLOG_SORT, BLOG_SORTS, BLOG_TAGS, type BlogSort, type BlogTag } from "~/src/data/blog"
+import { useBlogView } from "~/src/hooks/use-blog-view"
+
+import { BLOG_ARCHIVE, BLOG_SORT } from "~/src/data/blog"
 import { CTA_CLASSES } from "~/src/data/cta"
 
-import { countBlogTags, filterBlogPosts, sortBlogPosts } from "~/src/lib/blog-archive"
 import { cn } from "~/src/lib/cn"
-
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/src/presentation/components/shadcn/input-group"
-import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
 
 import { PostRow } from "~/src/presentation/components/custom/blog/post-row"
 import { HighlightGroup } from "~/src/presentation/components/custom/highlight"
 
 const route = getRouteApi("/_site/_marketing/blog/")
 
-const POST_ARCHIVE_ID = "all-posts"
-
-const ALL_TOPICS = "all"
-
-interface ArchiveView {
-  readonly page?: number | undefined
-  readonly q?: string | undefined
-  readonly sort: BlogSort
-  readonly tag?: BlogTag | undefined
-}
-
-const STATIC_VIEW: ArchiveView = { sort: BLOG_SORT.NEWEST }
-
-const CHIP_CLASSNAME =
-  "h-8 shrink-0 cursor-pointer gap-1.5 rounded-full border border-border px-3 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring/40 hover:bg-transparent hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-selected:border-ring/50 data-selected:bg-ring/10 data-selected:text-foreground"
-
-const SORT_CLASSNAME =
-  "h-8 min-w-0 flex-1 cursor-pointer rounded-md px-3 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:bg-transparent hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-selected:bg-muted data-selected:text-foreground sm:flex-none"
+const TITLE_ID = `${BLOG_ARCHIVE.SECTION_ID}-title`
 
 const opensElsewhere = (event: MouseEvent<HTMLAnchorElement>): boolean => event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
 
@@ -55,34 +35,13 @@ const NoMatches = ({ onShowAll }: { readonly onShowAll: () => void }): JSX.Eleme
 
 export const PostArchive = (): JSX.Element => {
   const t = useTranslations("pages.blog")
-  const hydrated = useHydrated()
 
   const { locale, posts } = route.useLoaderData()
-  const search = route.useSearch()
   const navigate = route.useNavigate()
-  const [draft, setDraft] = useState<string>()
+  const { isFiltered, matches, update, view } = useBlogView({ locale, posts })
 
-  const view = hydrated ? search : STATIC_VIEW
-  const query = draft ?? view.q ?? ""
-  const label = (tag: BlogTag): string => t(`tags.${tag}`)
-  const matches = sortBlogPosts(filterBlogPosts({ label, locale, posts, query, tag: view.tag }), view.sort)
   const loadedPages = view.page ?? BLOG_ARCHIVE.FIRST_PAGE
   const shown = matches.slice(0, loadedPages * BLOG_ARCHIVE.PAGE_SIZE)
-  const isFiltered = query.trim().length > 0 || view.tag !== undefined
-
-  const update = (next: Partial<ArchiveView>): void => {
-    void navigate({ replace: true, resetScroll: false, search: (previous) => ({ ...previous, page: undefined, ...next }) })
-  }
-
-  const changeQuery = (value: string): void => {
-    setDraft(value)
-    update({ q: value.trim().length > 0 ? value : undefined })
-  }
-
-  const showAll = (): void => {
-    setDraft("")
-    update({ q: undefined, tag: undefined })
-  }
 
   const loadMore = (event: MouseEvent<HTMLAnchorElement>): void => {
     if (opensElsewhere(event)) {
@@ -95,12 +54,12 @@ export const PostArchive = (): JSX.Element => {
 
   return (
     <section
-      aria-labelledby={`${POST_ARCHIVE_ID}-title`}
-      className="mt-20 scroll-mt-24 border-t border-border pt-16 md:mt-28 md:pt-20"
-      id={POST_ARCHIVE_ID}
+      aria-labelledby={TITLE_ID}
+      className="scroll-mt-6 border-t border-border pt-16 md:pt-20 lg:min-h-[calc(100dvh-1rem)] lg:-scroll-mt-12 max-lg:[:root:has([data-active-filters])_&]:scroll-mt-16"
+      id={BLOG_ARCHIVE.SECTION_ID}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h2 className="text-headline-support text-balance text-foreground" id={`${POST_ARCHIVE_ID}-title`}>
+        <h2 className="text-headline-support text-balance text-foreground" id={TITLE_ID}>
           {t("archive.title")}
         </h2>
         <p aria-live="polite" className="font-mono text-spec text-muted-foreground tabular-nums">
@@ -109,72 +68,13 @@ export const PostArchive = (): JSX.Element => {
         </p>
       </div>
 
-      <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <SearchField aria-label={t("archive.search")} className="w-full md:max-w-sm" onChange={changeQuery} value={query}>
-          <InputGroup className="h-10 bg-card/60 dark:bg-card/60">
-            <InputGroupAddon>
-              <SearchIcon aria-hidden className="size-4" />
-            </InputGroupAddon>
-            <InputGroupInput
-              className="text-body-sm [&::-webkit-search-cancel-button]:hidden"
-              placeholder={t("archive.searchPlaceholder")}
-            />
-            {query.length > 0 && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton aria-label={t("archive.clearSearch")} size="icon-xs">
-                  <X aria-hidden />
-                </InputGroupButton>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-        </SearchField>
-
-        <ToggleGroup
-          aria-label={t("archive.sort")}
-          className="w-full gap-1 rounded-lg border border-border bg-card/60 p-1 sm:w-fit"
-          disallowEmptySelection
-          onSelectionChange={(keys) => {
-            for (const sort of BLOG_SORTS) {
-              if (keys.has(sort)) {
-                update({ sort })
-              }
-            }
+      {matches.length === 0 && (
+        <NoMatches
+          onShowAll={() => {
+            update({ q: undefined, tag: undefined })
           }}
-          selectedKeys={[view.sort]}
-          selectionMode="single"
-        >
-          {BLOG_SORTS.map((sort) => (
-            <ToggleGroupItem className={SORT_CLASSNAME} id={sort} key={sort}>
-              {t(`archive.sorts.${sort}`)}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-
-      <ToggleGroup
-        aria-label={t("archive.topics")}
-        className="-mx-6 mt-4 w-auto max-w-none [scrollbar-width:none] flex-nowrap gap-2 overflow-x-auto px-6 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
-        disallowEmptySelection
-        onSelectionChange={(keys) => {
-          update({ tag: BLOG_TAGS.find((tag) => keys.has(tag)) })
-        }}
-        selectedKeys={[view.tag ?? ALL_TOPICS]}
-        selectionMode="single"
-      >
-        <ToggleGroupItem className={CHIP_CLASSNAME} id={ALL_TOPICS}>
-          {t("archive.allTopics")}
-        </ToggleGroupItem>
-        {countBlogTags(posts).map(([tag, count]) => (
-          <ToggleGroupItem aria-label={t("archive.topic", { count, topic: label(tag) })} className={CHIP_CLASSNAME} id={tag} key={tag}>
-            {label(tag)}
-            <span aria-hidden className="font-mono text-spec text-muted-foreground tabular-nums">
-              {count}
-            </span>
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-
-      {matches.length === 0 && <NoMatches onShowAll={showAll} />}
+        />
+      )}
 
       {shown.length > 0 && (
         <HighlightGroup className="-mx-4 mt-10 divide-y divide-border border-y border-border md:-mx-6" name="blog-highlight">

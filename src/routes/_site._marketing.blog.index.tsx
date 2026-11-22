@@ -27,6 +27,7 @@ import { type PageLoaderData, buildBlogStructuredDataHtml, buildPageHead } from 
 import { BlogIndexPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { FeaturedPosts } from "~/src/presentation/components/custom/blog/featured-posts"
 import { PostArchive } from "~/src/presentation/components/custom/blog/post-archive"
+import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post-finder"
 import { RecentPosts } from "~/src/presentation/components/custom/blog/recent-posts"
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 
@@ -65,13 +66,15 @@ const BlogIndexPage = (): JSX.Element => {
       )}
 
       {posts.length > 0 && (
-        <>
-          <FeaturedPosts />
-          <RecentPosts />
-          <MotionProvider>
-            <PostArchive />
-          </MotionProvider>
-        </>
+        <PostFinderLayout locale={locale} posts={posts}>
+          <div className="flex flex-col gap-20 md:gap-28">
+            <FeaturedPosts />
+            <RecentPosts />
+            <MotionProvider>
+              <PostArchive />
+            </MotionProvider>
+          </div>
+        </PostFinderLayout>
       )}
     </ContentPage>
   )

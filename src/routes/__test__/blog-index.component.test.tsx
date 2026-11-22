@@ -16,6 +16,7 @@ import { GUIDE, createBlogRouter, renderBlog, routers, section, useBlogTestEnvir
 import { BLOG_ARCHIVE, BLOG_SORT, BLOG_TAG } from "~/src/data/blog"
 
 import { PostArchive } from "~/src/presentation/components/custom/blog/post-archive"
+import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post-finder"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
@@ -51,8 +52,11 @@ const ARCHIVE = [
   indexPost("release-notes", { date: "2026-08-15", readingTimeMinutes: 22, tags: [BLOG_TAG.RELEASE], updated: "2026-11-21" }),
 ]
 
+const archiveSection = (): HTMLElement =>
+  section(screen.getByRole("heading", { level: 2, name: pagesBlogMessages.archive.title }), "section")
+
 const archiveRows = (): string[] =>
-  within(section(screen.getByRole("heading", { level: 2, name: pagesBlogMessages.archive.title }), "section"))
+  within(archiveSection())
     .queryAllByRole("heading", { level: 3 })
     .map((heading) => heading.textContent)
 
@@ -165,7 +169,7 @@ describe("searching, filtering and sorting the blog", () => {
     const topics = within(screen.getByRole("radiogroup", { name: archiveMessages.topics }))
 
     expect(topics.getAllByRole("radio").map((radio) => radio.textContent)).toStrictEqual([
-      archiveMessages.allTopics,
+      `${archiveMessages.allTopics}${String(ARCHIVE.length)}`,
       `${pagesBlogMessages.tags[BLOG_TAG.AUTH]}1`,
       `${pagesBlogMessages.tags[BLOG_TAG.PAYMENTS]}1`,
       `${pagesBlogMessages.tags[BLOG_TAG.RELEASE]}1`,
@@ -228,7 +232,8 @@ describe("searching, filtering and sorting the blog", () => {
     await user.type(screen.getByRole("searchbox", { name: archiveMessages.search }), "stripe")
 
     expect(await screen.findByText(archiveMessages.empty)).toBeVisible()
-    expect(screen.getByText("No matches")).toBeVisible()
+    expect(within(archiveSection()).getByText("No matches")).toBeVisible()
+    expect(within(screen.getByRole("navigation", { name: pagesBlogMessages.post.rail })).getByText("No matches")).toBeVisible()
     expect(archiveRows()).toStrictEqual([])
 
     await user.click(screen.getByRole("button", { name: archiveMessages.showAll }))
@@ -282,7 +287,7 @@ describe("loading more posts", () => {
 })
 
 describe("the server-rendered blog index", () => {
-  it("renders every post in the default order whatever the address asks for, so the page hydrates onto its prerendered HTML", async () => {
+  it("renders every post in the default order and an empty finder whatever the address asks for, so the page hydrates onto its prerendered HTML", async () => {
     vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/blog"))
     const router = createBlogRouter({
       archive: {},
@@ -299,16 +304,21 @@ describe("the server-rendered blog index", () => {
     const html = renderToString(
       <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={getTestMessages("en-US")} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterContextProvider router={router}>
-          <PostArchive />
+          <PostFinderLayout locale="en-US" posts={ARCHIVE}>
+            <PostArchive />
+          </PostFinderLayout>
         </RouterContextProvider>
       </IntlProvider>,
     )
+    const rows = html.slice(html.indexOf('id="all-posts"'))
 
-    expect(ARCHIVE.map(({ title }) => html.indexOf(`>${title}</a>`))).toStrictEqual(
-      ARCHIVE.map(({ title }) => html.indexOf(`>${title}</a>`)).toSorted((first, second) => first - second),
+    expect(ARCHIVE.map(({ title }) => rows.indexOf(`>${title}</a>`))).toStrictEqual(
+      ARCHIVE.map(({ title }) => rows.indexOf(`>${title}</a>`)).toSorted((first, second) => first - second),
     )
     expect(html).toContain('value=""')
     expect(html).toContain("3 posts")
+    expect(html).not.toContain(archiveMessages.activeFilters)
+    expect(html).toMatch(/aria-checked="true"[^>]*>All topics/u)
   })
 })
 

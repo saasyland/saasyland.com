@@ -1,10 +1,10 @@
-import type { JSX } from "react"
+import type { JSX, ReactNode } from "react"
 
 import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { BLOG_ARCHIVE, BLOG_HIGHLIGHTS, BLOG_SORTS, FEATURED_BLOG_POSTS } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_FINDER_CLASSES, BLOG_HIGHLIGHTS, BLOG_SORTS, FEATURED_BLOG_POSTS } from "~/src/data/blog"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -16,7 +16,7 @@ const ROWS = Array.from({ length: BLOG_ARCHIVE.PAGE_SIZE }, (_, index) => index)
 const SIDE_POSTS = FEATURED_BLOG_POSTS.slice(1)
 const LATEST = Array.from({ length: BLOG_HIGHLIGHTS.LATEST }, (_, index) => index)
 const UPDATED = Array.from({ length: BLOG_HIGHLIGHTS.UPDATED }, (_, index) => index)
-const TOPICS = ["all", "first", "second", "third", "fourth", "fifth", "sixth"] as const
+const TOPICS = ["all", "first", "second", "third", "fourth", "fifth"] as const
 const PARAGRAPHS = ["first", "second", "third", "fourth"] as const
 const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as const
 const RAIL_POSTS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"] as const
@@ -30,6 +30,63 @@ const FeedLinkPending = (): JSX.Element => (
 )
 
 const FactsPending = (): JSX.Element => <Skeleton className="h-lh w-44 scale-y-70 font-mono text-spec" />
+
+const LabelPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
+
+const RailPending = ({ rows }: { readonly rows: readonly string[] }): JSX.Element => (
+  <div className="mt-4 flex flex-col">
+    {rows.map((item) => (
+      <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={item}>
+        <Skeleton className="h-lh w-full scale-y-70" />
+        <Skeleton className="h-lh w-2/3 scale-y-70" />
+      </div>
+    ))}
+  </div>
+)
+
+const PostFinderPending = (): JSX.Element => (
+  <div className={BLOG_FINDER_CLASSES.BAR}>
+    <div className={BLOG_FINDER_CLASSES.PANEL}>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-10 min-w-0 flex-1 rounded-md" />
+        <Skeleton className="h-10 w-28 rounded-md lg:hidden" />
+      </div>
+      <div className="hidden lg:mt-6 lg:flex lg:flex-col lg:gap-8">
+        <div>
+          <LabelPending />
+          <div className="mt-3 flex flex-col">
+            {BLOG_SORTS.map((sort) => (
+              <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={sort}>
+                <Skeleton className="h-lh w-1/2 scale-y-70" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <LabelPending />
+          <div className="mt-3 flex flex-col">
+            {TOPICS.map((topic) => (
+              <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={topic}>
+                <Skeleton className="h-lh w-3/4 scale-y-70" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <LabelPending />
+          <RailPending rows={RAIL_POSTS.slice(0, TOPICS.length)} />
+        </div>
+      </div>
+    </div>
+  </div>
+)
+
+const PostFinderLayoutPending = ({ children }: { readonly children: ReactNode }): JSX.Element => (
+  <div className={BLOG_FINDER_CLASSES.LAYOUT}>
+    <PostFinderPending />
+    <div className={BLOG_FINDER_CLASSES.MAIN}>{children}</div>
+  </div>
+)
 
 const PostRowsPending = ({ className }: { readonly className?: string }): JSX.Element => (
   <div className={className}>
@@ -72,74 +129,67 @@ const RecentListPending = ({ rows }: { readonly rows: readonly number[] }): JSX.
 export const BlogIndexPending = (): JSX.Element => (
   <ContentPagePending>
     <FeedLinkPending />
-    <div className="mt-14 md:mt-20">
-      <Skeleton className="h-lh w-36 scale-y-75 text-headline-support" />
-      <div className="mt-6 flex flex-col overflow-hidden rounded-lg border border-border bg-card lg:grid lg:grid-cols-[1.4fr_1fr]">
-        <Skeleton className="aspect-[2.4/1] rounded-none lg:aspect-auto lg:h-full" />
-        <div className="flex flex-col p-7 md:p-10">
-          <FactsPending />
-          <div className="mt-5 flex flex-col text-headline-support">
-            <Skeleton className="h-lh w-full scale-y-75" />
-            <Skeleton className="h-lh w-2/3 scale-y-75" />
-          </div>
-          <div className="mt-4 flex flex-col text-body">
-            <Skeleton className="h-lh w-full scale-y-70" />
-            <Skeleton className="h-lh w-full scale-y-70" />
-            <Skeleton className="h-lh w-1/2 scale-y-70" />
-          </div>
-          <Skeleton className="mt-6 h-lh w-56 scale-y-70 font-mono text-label" />
-        </div>
-      </div>
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        {SIDE_POSTS.map((post) => (
-          <div className="overflow-hidden rounded-lg border border-border bg-card" key={post}>
-            <Skeleton className="aspect-[2.4/1] rounded-none" />
-            <div className="p-6 md:p-8">
+    <PostFinderLayoutPending>
+      <div className="flex flex-col gap-20 md:gap-28">
+        <div>
+          <Skeleton className="h-lh w-36 scale-y-75 text-headline-support" />
+          <div className="mt-6 flex flex-col overflow-hidden rounded-lg border border-border bg-card xl:grid xl:grid-cols-[1.3fr_1fr]">
+            <Skeleton className="aspect-[2.4/1] rounded-none xl:aspect-auto xl:h-full" />
+            <div className="flex flex-col p-7 md:p-10">
               <FactsPending />
-              <Skeleton className="mt-4 h-lh w-4/5 scale-y-70 text-title md:text-lead" />
-              <div className="mt-3 flex flex-col text-body-sm">
-                <Skeleton className="h-lh w-full scale-y-70" />
-                <Skeleton className="h-lh w-2/3 scale-y-70" />
+              <div className="mt-5 flex flex-col text-headline-support">
+                <Skeleton className="h-lh w-full scale-y-75" />
+                <Skeleton className="h-lh w-2/3 scale-y-75" />
               </div>
+              <div className="mt-4 flex flex-col text-body">
+                <Skeleton className="h-lh w-full scale-y-70" />
+                <Skeleton className="h-lh w-full scale-y-70" />
+                <Skeleton className="h-lh w-1/2 scale-y-70" />
+              </div>
+              <Skeleton className="mt-6 h-lh w-56 scale-y-70 font-mono text-label" />
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-    <div className="mt-20 grid gap-x-16 gap-y-14 md:mt-28 md:grid-cols-2">
-      <RecentListPending rows={LATEST} />
-      <RecentListPending rows={UPDATED} />
-    </div>
-    <div className="mt-20 border-t border-border pt-16 md:mt-28 md:pt-20">
-      <div className="flex items-baseline justify-between gap-6">
-        <Skeleton className="h-lh w-36 scale-y-75 text-headline-support" />
-        <Skeleton className="h-lh w-16 scale-y-70 font-mono text-spec" />
-      </div>
-      <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Skeleton className="h-10 w-full rounded-lg md:max-w-sm" />
-        <div className="flex gap-1 rounded-lg border border-border p-1">
-          {BLOG_SORTS.map((sort) => (
-            <Skeleton className="h-8 flex-1 rounded-md sm:w-24 sm:flex-none" key={sort} />
-          ))}
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            {SIDE_POSTS.map((post) => (
+              <div className="overflow-hidden rounded-lg border border-border bg-card" key={post}>
+                <Skeleton className="aspect-[2.4/1] rounded-none" />
+                <div className="p-6 md:p-8">
+                  <FactsPending />
+                  <Skeleton className="mt-4 h-lh w-4/5 scale-y-70 text-title md:text-lead" />
+                  <div className="mt-3 flex flex-col text-body-sm">
+                    <Skeleton className="h-lh w-full scale-y-70" />
+                    <Skeleton className="h-lh w-2/3 scale-y-70" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-x-12 gap-y-14 md:grid-cols-2">
+          <RecentListPending rows={LATEST} />
+          <RecentListPending rows={UPDATED} />
+        </div>
+        <div className="border-t border-border pt-16 md:pt-20">
+          <div className="flex items-baseline justify-between gap-6">
+            <Skeleton className="h-lh w-36 scale-y-75 text-headline-support" />
+            <Skeleton className="h-lh w-16 scale-y-70 font-mono text-spec" />
+          </div>
+          <PostRowsPending className="mt-10" />
         </div>
       </div>
-      <div className="mt-4 flex gap-2 overflow-hidden">
-        {TOPICS.map((topic) => (
-          <Skeleton className="h-8 w-24 shrink-0 rounded-full" key={topic} />
-        ))}
-      </div>
-      <PostRowsPending className="mt-10" />
-    </div>
+    </PostFinderLayoutPending>
   </ContentPagePending>
 )
 
 export const BlogArchivePending = (): JSX.Element => (
   <ContentPagePending>
-    <PostRowsPending className="mt-10 md:mt-14" />
-    <div className="mt-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-      <Skeleton className="h-11 w-40 rounded-lg" />
-      <Skeleton className="h-lh w-24 scale-y-70 font-mono text-spec" />
-    </div>
+    <PostFinderLayoutPending>
+      <PostRowsPending />
+      <div className="mt-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <Skeleton className="h-11 w-40 rounded-lg" />
+        <Skeleton className="h-lh w-24 scale-y-70 font-mono text-spec" />
+      </div>
+    </PostFinderLayoutPending>
   </ContentPagePending>
 )
 
@@ -182,14 +232,7 @@ export const BlogPostPending = (): JSX.Element => (
       <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr] xl:grid-cols-[13rem_minmax(0,1fr)_15rem] xl:gap-x-12">
         <div className="hidden xl:block">
           <Skeleton className="h-lh w-20 scale-y-70 font-mono text-label" />
-          <div className="mt-4 flex flex-col">
-            {RAIL_POSTS.map((item) => (
-              <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={item}>
-                <Skeleton className="h-lh w-full scale-y-70" />
-                <Skeleton className="h-lh w-2/3 scale-y-70" />
-              </div>
-            ))}
-          </div>
+          <RailPending rows={RAIL_POSTS} />
         </div>
         <div className="flex min-w-0 flex-col gap-6 text-lg/[1.72]">
           {PARAGRAPHS.map((paragraph) => (

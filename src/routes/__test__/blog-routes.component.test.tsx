@@ -111,7 +111,7 @@ describe("blog routes", () => {
 
   it("renders summaries, tags and reading times without empty placeholders", async () => {
     await renderBlog({ locale: "en-US", path: "/blog", posts: [GUIDE, MINIMAL] })
-    const ledger = within(section(screen.getByRole("heading", { level: 1, name: pagesBlogMessages.index.title }), "section"))
+    const ledger = within(section(screen.getByRole("heading", { level: 2, name: pagesBlogMessages.archive.title }), "section"))
     expect(ledger.getByText("Article summary")).toBeVisible()
     expect(ledger.getByText(`${pagesBlogMessages.tags[BLOG_TAG.TANSTACK_START]} · ${pagesBlogMessages.tags[BLOG_TAG.SAAS]}`)).toBeVisible()
     expect(ledger.getByText("5 min read")).toBeVisible()

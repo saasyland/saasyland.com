@@ -10,7 +10,8 @@ import { licenseCountsQuery } from "~/src/modules/license/use-cases/get-license-
 
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
-import { LicenseCounts, LicenseCountsPending } from "~/src/presentation/components/custom/admin/license/license-counts"
+import { LicenseCounts } from "~/src/presentation/components/custom/admin/license/license-counts"
+import { LicenseCountsPending } from "~/src/presentation/components/custom/admin/license/license-counts-pending"
 
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import dashboardMessages from "~/messages/en-US/dashboard.license.json"

@@ -27,6 +27,8 @@ export const ORDER_MIRROR_DETAILS = [
   "customerId",
 ] as const
 
+export const REVENUE_SUMMARY = ["net", "orders", "refunded"] as const
+
 export const ORDER_POLAR_AMOUNTS = ["subtotal", "discount", "net", "tax", "total", "refunded", "refundedTax"] as const
 
 export const ORDER_POLAR_DETAILS = ["status", "discountName", "billingName", "billingCountry", "customerName", "customerEmail"] as const

@@ -89,6 +89,7 @@ export const Route = createFileRoute("/admin/")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
       ...[...ADMIN_DASHBOARD_STATS, ...ADMIN_DASHBOARD_PANELS].map((entry) => entry.prefetch?.(context.queryClient)),
+      ...ADMIN_DASHBOARD_PANELS.map(({ Panel }) => Panel.preload?.()),
     ])
     return { locale, metadata }
   },

@@ -1,11 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { lazyRouteComponent } from "@tanstack/react-router"
 
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { type AdminDashboardEntry, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
 
-import { CourseProgress, CourseProgressPending } from "~/src/presentation/components/custom/admin/courses/course-progress"
+import { CourseProgressPending } from "~/src/presentation/components/custom/admin/courses/course-progress-pending"
 
 const AREA = "courses"
 
@@ -27,7 +28,7 @@ export const COURSES_DASHBOARD = [
     useValue: () => useSuspenseQuery(getVideosQuery).data.total,
   },
   {
-    Panel: CourseProgress,
+    Panel: lazyRouteComponent(() => import("~/src/presentation/components/custom/admin/courses/course-progress"), "CourseProgress"),
     Pending: CourseProgressPending,
     area: AREA,
     key: "progress",

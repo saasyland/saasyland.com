@@ -40,6 +40,11 @@ const BLOB_REPORT_ARTIFACT = `name: blob-report-${BROWSER}-${expression("matrix.
 const AGGREGATE_CHECK = `name: Build and E2E (${BROWSER})`
 const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}`
 const REQUIRED_CHECK = "name: Format, lint, types, i18n, tests"
+const BUILD_JOB = `Build the test Worker (${BROWSER})`
+const BUILD_STEP = "Upload the test build"
+const WAIT_FOR_BUILD = 'run: bun scripts/wait-for-job.ts "$BUILD_JOB" "$BUILD_STEP"'
+const ACTIONS_READ = "\n      actions: read\n"
+const JOBS_WITH_ACTIONS_READ = 4
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
 const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
 const MERGE_COMMAND = "run: bun run test:coverage --merge-reports"
@@ -181,9 +186,31 @@ describe(E2E_WORKFLOW, () => {
     expect(build).toContain("git tag --list | LC_ALL=C sort > test-worker.tags")
     expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test test-worker.tags")
     expect(build).toContain(TEST_WORKER_ARTIFACT)
-    expect(shard).toContain("needs: build")
     expect(shard).toContain(TEST_WORKER_ARTIFACT)
     expect(shard).not.toContain("build:test")
+  })
+
+  it("starts the shards beside the build and has each one wait for the build's upload only once its browser is installed", () => {
+    const shard = jobOf(E2E, "shard")
+
+    expect(shard).not.toContain("needs:")
+    expect(jobOf(E2E, "build")).toContain(`name: ${BUILD_JOB}`)
+    expect(jobOf(E2E, "build")).toContain(`- name: ${BUILD_STEP}\n        uses: actions/upload-artifact@v`)
+    expect(shard).toContain(`BUILD_JOB: ${BUILD_JOB}`)
+    expect(shard).toContain(`BUILD_STEP: ${BUILD_STEP}`)
+    expect(shard).toContain(WAIT_FOR_BUILD)
+    expect(shard.indexOf("bunx playwright install")).toBeLessThan(shard.indexOf(WAIT_FOR_BUILD))
+    expect(shard.indexOf(WAIT_FOR_BUILD)).toBeLessThan(shard.indexOf(TEST_WORKER_ARTIFACT))
+  })
+
+  it("gives only the shards actions: read, which the wait needs to read the run's jobs, and every caller grants it", () => {
+    expect(jobOf(E2E, "shard")).toContain(ACTIONS_READ)
+    expect(jobOf(E2E, "build")).not.toContain(ACTIONS_READ)
+    expect(jobOf(E2E, "report")).not.toContain(ACTIONS_READ)
+    expect(jobOf(CI, "e2e")).toContain(ACTIONS_READ)
+    expect(jobOf(E2E_FULL, "e2e")).toContain(ACTIONS_READ)
+    expect(jobOf(MAIN, "checks")).toContain(ACTIONS_READ)
+    expect([CI, E2E_FULL, MAIN, E2E].join("\n").split(ACTIONS_READ)).toHaveLength(JOBS_WITH_ACTIONS_READ + 1)
   })
 
   it("gives the shards the release tags the build read, so a release tagged in between cannot change the changelog they expect", () => {

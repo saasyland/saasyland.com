@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -160,13 +160,13 @@ Die Regeln dahinter: Was über den Zugriff entscheidet, liegt an einem konsisten
 
 saasyland.com folgt der Tabelle mit fünf Bindings, deklariert in `wrangler.jsonc`:
 
-| Binding   | Produkt                      | Was es enthält                                                                                                   | Wo im Code                                             |
-| --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ASSETS`  | Statische Assets von Workers | Vorgerenderte Seiten, Skripte, Styles, Schriften und Bilder aus dem Build                                        | `src/server.ts`                                        |
-| `DB`      | D1                           | Nutzer, Sitzungen, Lizenzen, Kopien der Bestellungen von Polar, Kurse, Videos und die Zähler der Ratenbegrenzung | `src/integrations/drizzle-orm/` und `src/modules/`     |
-| `CACHE`   | KV                           | Eine zwischengespeicherte Antwort aus der API eines anderen Dienstes                                             | `src/lib/github.ts`                                    |
-| `MEDIA`   | R2                           | Kursvideos und Lektionsmaterialien                                                                               | `src/modules/video/`, `src/modules/lesson-attachment/` |
-| `BUNDLES` | R2                           | Das Vorlagen-Bundle jedes Releases der CLI                                                                       | `src/modules/license/`                                 |
+| Binding   | Produkt                      | Was es enthält                                                                                                   | Wo im Code                                                                    |
+| --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`  | Statische Assets von Workers | Vorgerenderte Seiten, Skripte, Styles, Schriften und Bilder aus dem Build                                        | `src/server.ts`                                                               |
+| `DB`      | D1                           | Nutzer, Sitzungen, Lizenzen, Kopien der Bestellungen von Polar, Kurse, Videos und die Zähler der Ratenbegrenzung | `src/integrations/drizzle-orm/` und `src/modules/`                            |
+| `CACHE`   | KV                           | Eine zwischengespeicherte Antwort aus der API eines anderen Dienstes                                             | `src/lib/github.ts`                                                           |
+| `MEDIA`   | R2                           | Kursvideos, Titelbilder der Kurse und Lektionsmaterialien                                                        | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                           | Das Vorlagen-Bundle jedes Releases der CLI                                                                       | `src/modules/license/`                                                        |
 
 Ein Durable Object gibt es noch nicht: Jeder Zähler der Website liegt in D1, wie der Abschnitt über Ratenbegrenzungen zeigt.
 
@@ -189,7 +189,7 @@ Die Konfigurationsdatei eines Workers ist die Landkarte deines ganzen Systems, u
 
 ### Praxisbeispiel: vier Umgebungen und zwei Deploy-Checks
 
-`wrangler.jsonc` definiert vier Umgebungen mit denselben Bindings: `production`, `preview`, `development`, das die Preview-Ressourcen entfernt nutzt, und `test`, das für die Browser-Suite eine lokale D1-Datenbank, einen KV-Namespace und Buckets unter `.wrangler/test` hält. Jede Umgebung führt die Secrets auf, die sie braucht. Vor jedem Deploy schlägt `scripts/verify-bindings.ts` fehl, wenn einer Umgebung ein Binding fehlt, sie noch eine Platzhalter-ID für D1 oder KV hat oder Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt, und `scripts/prepare-deploy-secrets.ts` schlägt fehl, wenn ein erforderliches Secret fehlt, leer oder ein Platzhalter ist, und nennt dabei den Schlüssel, ohne seinen Wert auszugeben.
+`wrangler.jsonc` definiert vier Umgebungen mit denselben Bindings: `production`, `preview`, `development`, das für `bun run dev` eine eigene lokale D1-Datenbank, einen eigenen KV-Namespace und eigene Buckets bindet, und `test`, das für die Browser-Suite eine lokale D1-Datenbank, einen KV-Namespace und Buckets unter `.wrangler/test` hält. Jede Umgebung führt die Secrets auf, die sie braucht. Vor jedem Deploy schlägt `scripts/verify-bindings.ts` fehl, wenn einer Umgebung ein Binding fehlt, sie noch eine Platzhalter-ID für D1 oder KV hat oder Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt, und `scripts/prepare-deploy-secrets.ts` schlägt fehl, wenn ein erforderliches Secret fehlt, leer oder ein Platzhalter ist, und nennt dabei den Schlüssel, ohne seinen Wert auszugeben.
 
 Der zweite Check geht auf einen echten Fehler zurück, festgehalten in [#223](https://github.com/saasyland/saasyland.com/pull/223). Die Datei mit den Produktions-Secrets enthielt als Client-ID für Google OAuth noch `[UPDATE]`, der Deploy lud sie hoch, weil der Check damals nur leere Werte ablehnte, und die Anmeldung mit Google scheiterte mit `invalid_client`. Die Korrektur kam in zwei Schichten: ein Live-Check nach jedem Deploy, der mit jedem Anbieter eine Anmeldung startet und die URL prüft, an die sie weiterleitet, und eine Ablehnung von Platzhalterwerten, noch bevor der Build beginnt. Jede Schicht hätte den Fehler allein gefunden; zusammen finden sie ihn doppelt.
 
@@ -424,7 +424,7 @@ Bei saasyland.com liegen die Schemas in den Tabellenmodulen. `bun run db:generat
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-Ein Pull Request, der die Checks und die Browser-Suite besteht, wird in die Preview-Umgebung deployt, und ein Merge nach `main` wird in Produktion deployt. Beide durchlaufen dieselben Schritte: die Bindings prüfen, bauen, die Migrationen der Umgebung anwenden, dann `wrangler deploy`. Die Datenbank ändert sich zuerst, also läuft der Worker, der noch live ist, für kurze Zeit gegen das neue Schema. Die Migration, die Zustellungsdaten für Lizenzen hinzugefügt hat, zeigt die Art von Änderung, die das übersteht: drei Spalten, die NULL zulassen und die das vorherige Release einfach ignoriert hat. Sie beginnt so:
+Ein Pull Request lädt eine neue Version des Preview-Workers hoch, ohne sie zu deployen, und Cloudflare prüft sie wie ein Deployment; ein Merge nach `main` deployt die gemeinsame Preview und danach die Produktion. Beide Deployments durchlaufen dieselben Schritte: die Bindings prüfen, bauen, die Migrationen der Umgebung anwenden, dann `wrangler deploy`. Die Datenbank ändert sich zuerst, also läuft der Worker, der noch live ist, für kurze Zeit gegen das neue Schema. Die Migration, die Zustellungsdaten für Lizenzen hinzugefügt hat, zeigt die Art von Änderung, die das übersteht: drei Spalten, die NULL zulassen und die das vorherige Release einfach ignoriert hat. Sie beginnt so:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -509,7 +509,7 @@ Egal, wofür du dich entscheidest, beide Arten von URL sind Bearer-Tokens. Die D
 
 ### Praxisbeispiel: Kursvideos und CLI-Bundles
 
-saasyland.com hält Kursvideos und Lektionsmaterialien in `MEDIA` und die Vorlagen-Bundles der CLI in `BUNDLES`, beide privat. Eine Aufnahme wird auf dem Rechner, von dem aus sie veröffentlicht wird, mit FFmpeg in adaptives HLS kodiert, mit Renditions bis <RepositoryFact name="videoTopRendition" />, Segmenten von <RepositoryFact name="videoSegmentSeconds" unit="second" />, einem Poster, einem Storyboard für Vorschaubilder beim Spulen und Untertiteln pro Sprache, und mit Wrangler hochgeladen. Der Worker nimmt nie einen Video-Upload an. Eine Lektion in D1 verweist auf eine Zeile der Tabelle `video`, und eine Lektion, deren Video als Platzhalter markiert ist, wird als „Wird aufgezeichnet“ geführt, statt abgespielt zu werden.
+saasyland.com hält Kursvideos, Titelbilder der Kurse und Lektionsmaterialien in `MEDIA` und die Vorlagen-Bundles der CLI in `BUNDLES`, beide privat. Eine Aufnahme wird auf dem Rechner, von dem aus sie veröffentlicht wird, mit FFmpeg in adaptives HLS kodiert, mit Renditions bis <RepositoryFact name="videoTopRendition" />, Segmenten von <RepositoryFact name="videoSegmentSeconds" unit="second" />, einem Poster, einem Storyboard für Vorschaubilder beim Spulen und Untertiteln pro Sprache, und mit Wrangler hochgeladen. Der Worker nimmt nie einen Video-Upload an. Eine Lektion in D1 verweist auf eine Zeile der Tabelle `video`, und eine Lektion, deren Video als Platzhalter markiert ist, wird als „Wird aufgezeichnet“ geführt, statt abgespielt zu werden.
 
 Wenn ein Besucher eine Lektion öffnet, lädt `getLessonPlayback` sie aus D1, prüft mit `hasLessonAccess`, ob dieser Betrachter sie ansehen darf, und signiert erst dann die Pfade:
 
@@ -529,7 +529,7 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-Die Signatur ist ein HMAC-SHA-256 mit einem Schlüssel, den HKDF allein für die Videowiedergabe aus dem Auth-Secret ableitet. Der Ablaufzeitpunkt liegt mindestens <RepositoryFact name="signedMediaHours" unit="hour" /> in der Zukunft und ist auf die volle Stunde aufgerundet. `serveMedia` prüft die Methode, den Dateinamen und die Signatur, beantwortet `Range`-Requests mit `206` direkt aus R2 und hält ganze Dateien im Workers-Cache unter einem Schlüssel ohne die Signatur. Lektionsmaterialien nutzen dasselbe Schema unter `/media/downloads/`, mit einem eigenen Schlüssel und Links, die mindestens <RepositoryFact name="signedDownloadHours" unit="hour" /> gültig sind; sie sind der einzige Upload, den der Worker annimmt, bis zu <RepositoryFact name="attachmentMaxMegabytes" /> MB von einem Admin.
+Die Signatur ist ein HMAC-SHA-256 mit einem Schlüssel, den HKDF allein für die Videowiedergabe aus dem Auth-Secret ableitet. Der Ablaufzeitpunkt liegt mindestens <RepositoryFact name="signedMediaHours" unit="hour" /> in der Zukunft und ist auf die volle Stunde aufgerundet. `serveMedia` prüft die Methode, den Dateinamen und die Signatur, beantwortet `Range`-Requests mit `206` direkt aus R2 und hält ganze Dateien im Workers-Cache unter einem Schlüssel ohne die Signatur. Lektionsmaterialien nutzen dasselbe Schema unter `/media/downloads/`, mit einem eigenen Schlüssel und Links, die mindestens <RepositoryFact name="signedDownloadHours" unit="hour" /> gültig sind; sie und die Titelbilder der Kurse sind die beiden Uploads, die der Worker annimmt, von einem Admin, bis zu <RepositoryFact name="attachmentMaxMegabytes" /> MB je Material und <RepositoryFact name="courseCoverMaxMegabytes" /> MB je Größe eines Titelbilds. Titelbilder sind öffentlich: `serveCover` liefert sie unsigniert unter `/media/covers/` aus, ein Jahr lang cachebar, weil jedes neue Titelbild eine neue ID bekommt.
 
 Die Bundles zeigen die Regel zu den Metadaten. Jedes Release der CLI lädt sein Vorlagen-Bundle mit dem SHA-256 seines Inhalts als benutzerdefinierten Metadaten in R2 hoch, und die Lizenz-API beantwortet eine Anfrage nach einem Bundle, indem sie diesen Digest mit `head()` liest, und signiert dann eine Download-URL, die <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> gültig ist. Vor [#208](https://github.com/saasyland/saasyland.com/pull/208) hat der Worker das Archiv bei jedem Request heruntergeladen, entpackt und gehasht, in unseren lokalen Messungen etwa 31 ms CPU-Zeit für ein Bundle von 1,7 MB; das Lesen der Metadaten brachte das auf etwa 3 ms, unabhängig von der Größe des Bundles.
 

@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Die Buckets MEDIA und BUNDLES: privater Speicher für Videos und Lektionsmaterialien und die Vorlagen-Bundles der CLI, die der Worker über signierte, ablaufende Pfade ausliefert."
+description: "Die Buckets MEDIA und BUNDLES: privater Speicher für Videos, Lektionsmaterialien und Titelbilder der Kurse und die Vorlagen-Bundles der CLI, die alle der Worker ausliefert."
 ---
 
 Jede Umgebung bindet in `wrangler.jsonc` einen R2-Bucket als `MEDIA`: `saasyland` in Produktion, `saasyland-preview` für Preview, einen lokalen Bucket `saasyland-local` für `bun run dev` und einen lokalen Bucket `saasyland-test` für den Test-Build. Die Buckets sind privat: Öffentlicher Zugriff und die `r2.dev`-URL bleiben deaktiviert, und jeder Lesezugriff läuft über den Worker. Der Lizenzbereich bindet einen zweiten Bucket, `BUNDLES`, für die Vorlagen-Bundles der CLI (siehe [Vorlagen-Bundles](#template-bundles)).
@@ -10,6 +10,8 @@ Jede Umgebung bindet in `wrangler.jsonc` einen R2-Bucket als `MEDIA`: `saasyland
 Die Dateien jedes Videos liegen unter `videos/<videoId>/`, wobei `videoId` die ID der `video`-Zeile ist. `videoObjectKey` und `videoDirectory` in `src/modules/video/video.files.ts` bauen die Schlüssel, und `mediaContentType` listet die einzigen Dateinamen, die hochgeladen oder ausgeliefert werden dürfen, mit ihren Medientypen auf. Alles andere wird abgelehnt.
 
 Jedes hochgeladene Lektionsmaterial liegt unter `attachments/<attachmentId>/<fileName>`, wobei `attachmentId` die ID der `lesson_attachment`-Zeile ist und `fileName` der hochgeladene Name, reduziert auf Buchstaben, Ziffern, Punkte, Bindestriche und Unterstriche. `attachmentObjectKey` und `attachmentContentType` in `src/modules/lesson-attachment/lesson-attachment.files.ts` bauen den Schlüssel und liefern den Medientyp der Endungen <RepositoryFact name="attachmentFileTypes" />, die hochgeladen oder ausgeliefert werden dürfen.
+
+Jedes Titelbild eines Kurses liegt in voller Größe unter `covers/<courseId>/<coverId>.<extension>`, und jede kleinere Größe daneben als `<coverId>-<width>.<extension>`. `coverObjectKey` und `coverVariantKey` in `src/modules/course/course.cover.ts` bilden die Schlüssel, und `coverContentType` liefert den Medientyp eines gespeicherten Titelbilds, WebP oder JPEG.
 
 ## Signierte Auslieferung
 
@@ -23,7 +25,7 @@ Der Player sieht nie einen Bucket-Schlüssel. Eine Server Function ruft `createP
 - `signature` ist ein HMAC-SHA-256 von `<videoId>.<expiry>` mit einem Schlüssel, der per HKDF aus `AUTH_SECRET` abgeleitet wird; so ist kein zusätzliches Secret nötig, und der Schlüssel dient keinem anderen Zweck.
 - Playlists verweisen über relative Pfade auf Renditions, Segmente und Untertitel, sodass ein signiertes Präfix den gesamten Stream abdeckt.
 
-`src/server.ts` leitet jeden `/media/`-Request noch vor der Locale-Middleware und TanStack Start an `serveMedia` (`src/modules/video/video.delivery.ts`) weiter und fügt die üblichen Sicherheits-Header hinzu. `serveMedia`:
+`src/server.ts` leitet jeden `/media/`-Request noch vor der Locale-Middleware und TanStack Start an den Handler des Kursbereichs in `src/data/courses.worker.ts` weiter und fügt die üblichen Sicherheits-Header hinzu. Der Handler lädt `serveCover` für `/media/covers/`, `serveAttachment` für `/media/downloads/` und `serveMedia` (`src/modules/video/video.delivery.ts`) für jeden anderen Pfad, jeweils mit einem dynamischen `import()`. `serveMedia`:
 
 - akzeptiert nur `GET` und `HEAD` (sonst `405`);
 - gibt `404` für einen Pfad zurück, der keine aufgeführte Mediendatei ist, und `403` für eine abgelaufene oder falsche Signatur;
@@ -34,11 +36,13 @@ Signierte Pfade funktionieren bis zu ihrem Ablauf wie Bearer-Links: Wer einen da
 
 Lektionsmaterialien nutzen dasselbe Schema unter `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, mit einem eigenen Schlüssel und einer Gültigkeit von mindestens <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` signiert sie nur für Betrachter, die die Lektion öffnen dürfen. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) erhält vom Handler für `/media/` die Anfragen unter `/media/downloads/` anstelle von `serveMedia`, akzeptiert nur `GET` und `HEAD`, antwortet mit `403` bei einer abgelaufenen oder falschen Signatur und mit `404` bei einer Datei, die nicht vorhanden ist, und liefert die Datei mit `Content-Disposition: attachment` und `Cache-Control: private, no-store` aus.
 
+Die Titelbilder der Kurse sind öffentlich und unsigniert, unter `/media/covers/<courseId>/<file>`, weil der Katalog, die Kursseiten und die Landingpage sie jedem Besucher zeigen. `serveCover` (`src/modules/course/course.delivery.ts`) nimmt nur `GET` und `HEAD` an (sonst `405`), antwortet mit `404` auf einen Pfad, der kein Titelbild nennt, und auf eine Datei, die nicht da ist, liefert das Titelbild mit `Cache-Control: public, max-age=31536000, immutable` aus und hält eine Kopie im Workers-Cache `covers`. Jedes neue Titelbild bekommt eine neue ID, daher veraltet keine zwischengespeicherte Kopie; siehe [Titelbilder der Kurse](/docs/features/courses#course-covers).
+
 ## Uploads
 
 Der Worker nimmt keine Video-Uploads an. `scripts/publish-video.ts` schreibt mit `wrangler r2 bulk put --remote` und deiner Anmeldung per `bunx wrangler login` in den Bucket; siehe [Videos](/docs/features/videos). Wird ein Video im Admin-Bereich gelöscht, wird das Präfix aufgelistet und die Objekte werden seitenweise über das Binding gelöscht.
 
-Lektionsmaterialien sind der einzige Upload, den der Worker annimmt: `uploadLessonAttachment` nimmt von einem Admin eine Datei mit bis zu <RepositoryFact name="attachmentMaxMegabytes" /> MB entgegen und schreibt sie über das Binding. Das Löschen eines Materials oder der Lektion, des Kapitels oder des Kurses, zu dem es gehört, löscht sein Objekt; siehe [Kurse](/docs/features/courses#materials).
+Lektionsmaterialien und die Titelbilder der Kurse sind die beiden Uploads, die der Worker annimmt. `uploadLessonAttachment` nimmt von einem Admin eine Datei mit bis zu <RepositoryFact name="attachmentMaxMegabytes" /> MB entgegen und schreibt sie über das Binding. Das Löschen eines Materials oder der Lektion, des Kapitels oder des Kurses, zu dem es gehört, löscht sein Objekt; siehe [Kurse](/docs/features/courses#materials). `uploadCourseCover` nimmt von einem Admin die Größen eines Titelbilds entgegen, jede mit bis zu <RepositoryFact name="courseCoverMaxMegabytes" /> MB, und das Ersetzen oder Entfernen des Titelbilds oder das Löschen des Kurses löscht seine Dateien.
 
 ## Vorlagen-Bundles [#template-bundles]
 

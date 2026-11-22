@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -111,13 +111,13 @@ saasyland.com は最初の種類のプロダクトです。ほどほどのリレ
 
 saasyland.com は、`wrangler.jsonc` で宣言した 5 つのバインディングでこの表に従っています。
 
-| バインディング | プロダクト             | 保持するもの                                                                                 | コード内の場所                                         |
-| -------------- | ---------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ASSETS`       | Workers の静的アセット | ビルドで生成されたプリレンダリング済みのページ、スクリプト、スタイル、フォント、画像         | `src/server.ts`                                        |
-| `DB`           | D1                     | ユーザー、セッション、ライセンス、Polar の注文のコピー、コース、動画、レート制限のカウンター | `src/integrations/drizzle-orm/` と `src/modules/`      |
-| `CACHE`        | KV                     | ほかのサービスの API からの 1 つのキャッシュ済みの応答                                       | `src/lib/github.ts`                                    |
-| `MEDIA`        | R2                     | コースの動画とレッスンの資料                                                                 | `src/modules/video/`、`src/modules/lesson-attachment/` |
-| `BUNDLES`      | R2                     | CLI の各リリースのテンプレートバンドル                                                       | `src/modules/license/`                                 |
+| バインディング | プロダクト             | 保持するもの                                                                                 | コード内の場所                                                                |
+| -------------- | ---------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`       | Workers の静的アセット | ビルドで生成されたプリレンダリング済みのページ、スクリプト、スタイル、フォント、画像         | `src/server.ts`                                                               |
+| `DB`           | D1                     | ユーザー、セッション、ライセンス、Polar の注文のコピー、コース、動画、レート制限のカウンター | `src/integrations/drizzle-orm/` と `src/modules/`                             |
+| `CACHE`        | KV                     | ほかのサービスの API からの 1 つのキャッシュ済みの応答                                       | `src/lib/github.ts`                                                           |
+| `MEDIA`        | R2                     | コースの動画とカバー画像、レッスンの資料                                                     | `src/modules/video/`、`src/modules/course/`、`src/modules/lesson-attachment/` |
+| `BUNDLES`      | R2                     | CLI の各リリースのテンプレートバンドル                                                       | `src/modules/license/`                                                        |
 
 Durable Object はまだありません。レート制限のセクションで示すとおり、このサイトが持つカウンターはすべて D1 にあります。
 
@@ -140,7 +140,7 @@ Worker の設定ファイルはシステム全体の地図であり、コード�
 
 ### 実例：4 つの環境と 2 つのデプロイ前チェック
 
-`wrangler.jsonc` は、同じバインディングを持つ 4 つの環境を定義しています。`production`、`preview`、プレビュー用のリソースをリモートで使う `development`、そしてブラウザーテストのスイートのために `.wrangler/test` 配下にローカルの D1 データベース、KV 名前空間、バケットを置く `test` です。各環境は必要なシークレットを列挙しています。どのデプロイの前にも、`scripts/verify-bindings.ts` は、環境にバインディングが欠けている場合、D1 や KV の ID がプレースホルダーのままの場合、本番環境がデータベース、名前空間、バケットをプレビューと共有している場合に失敗し、`scripts/prepare-deploy-secrets.ts` は、必要なシークレットが欠けている、空である、またはプレースホルダーである場合に、値を表示せずにキーの名前を挙げて失敗します。
+`wrangler.jsonc` は、同じバインディングを持つ 4 つの環境を定義しています。`production`、`preview`、`bun run dev` のために専用のローカルの D1 データベース、KV 名前空間、バケットをバインドする `development`、そしてブラウザーテストのスイートのために `.wrangler/test` 配下にローカルの D1 データベース、KV 名前空間、バケットを置く `test` です。各環境は必要なシークレットを列挙しています。どのデプロイの前にも、`scripts/verify-bindings.ts` は、環境にバインディングが欠けている場合、D1 や KV の ID がプレースホルダーのままの場合、本番環境がデータベース、名前空間、バケットをプレビューと共有している場合に失敗し、`scripts/prepare-deploy-secrets.ts` は、必要なシークレットが欠けている、空である、またはプレースホルダーである場合に、値を表示せずにキーの名前を挙げて失敗します。
 
 2 つ目のチェックは、[#223](https://github.com/saasyland/saasyland.com/pull/223) に記録した実際のミスから生まれました。本番のシークレットファイルに Google OAuth のクライアント ID として `[UPDATE]` が残ったままで、当時のチェックは空の値しか拒否しなかったためデプロイがそれをアップロードし、Google でのサインインが `invalid_client` で失敗しました。修正は 2 層で行いました。デプロイのたびに各プロバイダーでサインインを開始し、送られる先の URL を検証する稼働中のサイトのチェックと、ビルドが始まる前のプレースホルダーの値の拒否です。どちらの層も単独でこのミスを見つけられたはずで、2 つ合わせれば二重に見つけられます。
 
@@ -375,7 +375,7 @@ saasyland.com では、スキーマはテーブルのモジュールにありま
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-チェックとブラウザーテストのスイートに合格したプルリクエストはプレビュー環境にデプロイされ、`main` へのマージは本番環境にデプロイされます。どちらも同じ手順を実行します。バインディングを確認し、ビルドし、その環境のマイグレーションを適用してから、`wrangler deploy` を実行します。データベースが先に変わるので、短い間、まだ稼働している Worker が新しいスキーマに対して動きます。ライセンスの配信記録を追加したマイグレーションは、これに耐えられる種類の変更を示しています。以前のリリースが単に無視する、NULL を許容する 3 つのカラムです。冒頭は次のとおりです。
+プルリクエストはプレビューの Worker の新しいバージョンをデプロイせずにアップロードし、Cloudflare はそれをデプロイと同じように検査します。`main` へのマージは共有のプレビューを、続いて本番環境をデプロイします。どちらのデプロイも同じ手順を実行します。バインディングを確認し、ビルドし、その環境のマイグレーションを適用してから、`wrangler deploy` を実行します。データベースが先に変わるので、短い間、まだ稼働している Worker が新しいスキーマに対して動きます。ライセンスの配信記録を追加したマイグレーションは、これに耐えられる種類の変更を示しています。以前のリリースが単に無視する、NULL を許容する 3 つのカラムです。冒頭は次のとおりです。
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -460,7 +460,7 @@ R2 は大きなオブジェクトをエグレス料金なしで保存するの�
 
 ### 実例：コースの動画と CLI のバンドル
 
-saasyland.com は、コースの動画とレッスンの資料を `MEDIA` に、CLI のテンプレートバンドルを `BUNDLES` に置いており、どちらも非公開です。録画は、公開する人のマシン上で FFmpeg によってアダプティブ HLS にエンコードされます。最大 <RepositoryFact name="videoTopRendition" /> のレンディション、<RepositoryFact name="videoSegmentSeconds" unit="second" />のセグメント、ポスター、シークプレビュー用のストーリーボード、言語ごとの字幕を含み、Wrangler でアップロードされます。Worker が動画のアップロードを受け付けることはありません。D1 のレッスンは `video` テーブルの行を指し、動画がプレースホルダーとしてマークされたレッスンは、再生される代わりに収録中として表示されます。
+saasyland.com は、コースの動画とカバー画像、レッスンの資料を `MEDIA` に、CLI のテンプレートバンドルを `BUNDLES` に置いており、どちらも非公開です。録画は、公開する人のマシン上で FFmpeg によってアダプティブ HLS にエンコードされます。最大 <RepositoryFact name="videoTopRendition" /> のレンディション、<RepositoryFact name="videoSegmentSeconds" unit="second" />のセグメント、ポスター、シークプレビュー用のストーリーボード、言語ごとの字幕を含み、Wrangler でアップロードされます。Worker が動画のアップロードを受け付けることはありません。D1 のレッスンは `video` テーブルの行を指し、動画がプレースホルダーとしてマークされたレッスンは、再生される代わりに収録中として表示されます。
 
 訪問者がレッスンを開くと、`getLessonPlayback` が D1 からレッスンを読み込み、`hasLessonAccess` でこの視聴者がそれを視聴できることを確認し、そのうえで初めてパスに署名します。
 
@@ -480,7 +480,7 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-署名は、HKDF が動画の再生専用に認証シークレットから導出した鍵による HMAC-SHA-256 です。有効期限は少なくとも <RepositoryFact name="signedMediaHours" unit="hour" />先で、1 時間単位に切り上げられます。`serveMedia` はメソッド、ファイル名、署名を確認し、`Range` リクエストには R2 から直接 `206` で応答し、ファイル全体を署名を含まないキーで Workers のキャッシュに保持します。レッスンの資料も `/media/downloads/` の下で同じ方式を使い、専用の鍵と、少なくとも <RepositoryFact name="signedDownloadHours" unit="hour" />有効なリンクを持ちます。資料は Worker が受け付ける唯一のアップロードで、管理者から最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB まで受け付けます。
+署名は、HKDF が動画の再生専用に認証シークレットから導出した鍵による HMAC-SHA-256 です。有効期限は少なくとも <RepositoryFact name="signedMediaHours" unit="hour" />先で、1 時間単位に切り上げられます。`serveMedia` はメソッド、ファイル名、署名を確認し、`Range` リクエストには R2 から直接 `206` で応答し、ファイル全体を署名を含まないキーで Workers のキャッシュに保持します。レッスンの資料も `/media/downloads/` の下で同じ方式を使い、専用の鍵と、少なくとも <RepositoryFact name="signedDownloadHours" unit="hour" />有効なリンクを持ちます。Worker が管理者から受け付けるアップロードは資料とコースのカバー画像の 2 つで、資料は 1 件あたり最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB、カバー画像はサイズごとに最大 <RepositoryFact name="courseCoverMaxMegabytes" /> MB です。カバー画像は公開されており、`serveCover` が `/media/covers/` の下で署名なしに配信し、新しいカバー画像には毎回新しい ID が付くため、1 年間キャッシュできます。
 
 バンドルはメタデータのルールを示しています。CLI の各リリースは、内容の SHA-256 を R2 のカスタムメタデータとして付けてテンプレートバンドルをアップロードし、ライセンス API はバンドルのリクエストに対して、そのダイジェストを `head()` で読み取り、<RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />有効なダウンロード URL に署名します。[#208](https://github.com/saasyland/saasyland.com/pull/208) より前は、Worker がリクエストのたびにアーカイブをダウンロードし、展開し、ハッシュを計算しており、ローカルでの計測では 1.7 MB のバンドルで約 31 ms の CPU 時間がかかっていました。メタデータを読むようにしたことで、バンドルのサイズにかかわらず約 3 ms になりました。
 

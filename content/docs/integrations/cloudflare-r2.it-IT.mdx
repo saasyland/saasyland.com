@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "I bucket MEDIA e BUNDLES: archiviazione privata dei video e dei materiali delle lezioni e i bundle di template della CLI, serviti dal Worker tramite percorsi firmati con scadenza."
+description: "I bucket MEDIA e BUNDLES: archiviazione privata di video, materiali delle lezioni e copertine dei corsi, e i bundle di template della CLI, tutti serviti dal Worker."
 ---
 
 Ogni ambiente collega un bucket R2 come `MEDIA` in `wrangler.jsonc`: `saasyland` in produzione, `saasyland-preview` per la preview, un bucket locale `saasyland-local` per `bun run dev` e un bucket locale `saasyland-test` per la build di test. I bucket sono privati: l'accesso pubblico e l'URL `r2.dev` restano disattivati, e ogni lettura passa dal Worker. L'area delle licenze collega un secondo bucket, `BUNDLES`, per i bundle di template della CLI (vedi [Bundle di template](#template-bundles)).
@@ -10,6 +10,8 @@ Ogni ambiente collega un bucket R2 come `MEDIA` in `wrangler.jsonc`: `saasyland`
 I file di ogni video si trovano sotto `videos/<videoId>/`, dove `videoId` è l'id della riga `video`. `videoObjectKey` e `videoDirectory` in `src/modules/video/video.files.ts` costruiscono le chiavi, e `mediaContentType` elenca gli unici nomi di file che possono essere caricati o serviti, con i relativi media type. Tutto il resto viene rifiutato.
 
 Ogni materiale di una lezione caricato si trova sotto `attachments/<attachmentId>/<fileName>`, dove `attachmentId` è l'id della riga `lesson_attachment` e `fileName` è il nome caricato ridotto a lettere, cifre, punti, trattini e trattini bassi. `attachmentObjectKey` e `attachmentContentType` in `src/modules/lesson-attachment/lesson-attachment.files.ts` costruiscono la chiave e danno il media type delle estensioni <RepositoryFact name="attachmentFileTypes" /> che possono essere caricate o servite.
+
+Ogni copertina di corso si trova in `covers/<courseId>/<coverId>.<extension>` a dimensione piena, e ogni dimensione minore accanto come `<coverId>-<width>.<extension>`. `coverObjectKey` e `coverVariantKey` in `src/modules/course/course.cover.ts` costruiscono le chiavi, e `coverContentType` dà il tipo di media di una copertina salvata, WebP o JPEG.
 
 ## Distribuzione firmata
 
@@ -23,7 +25,7 @@ Il player non vede mai una chiave del bucket. Una server function chiama `create
 - `signature` è un HMAC-SHA-256 di `<videoId>.<expiry>` con una chiave derivata da `AUTH_SECRET` tramite HKDF, quindi non serve alcun secret aggiuntivo e la chiave non viene usata per nient'altro.
 - Le playlist fanno riferimento a rendition, segmenti e sottotitoli con percorsi relativi, così un solo prefisso firmato copre l'intero stream.
 
-`src/server.ts` passa ogni richiesta `/media/` a `serveMedia` (`src/modules/video/video.delivery.ts`) prima del middleware del locale e di TanStack Start, e aggiunge i consueti header di sicurezza. `serveMedia`:
+`src/server.ts` passa ogni richiesta `/media/` all’handler dell’area dei corsi in `src/data/courses.worker.ts` prima del middleware del locale e di TanStack Start, e aggiunge i consueti header di sicurezza. L’handler carica `serveCover` per `/media/covers/`, `serveAttachment` per `/media/downloads/` e `serveMedia` (`src/modules/video/video.delivery.ts`) per ogni altro percorso, ciascuno con un `import()` dinamico. `serveMedia`:
 
 - accetta solo `GET` e `HEAD` (altrimenti `405`);
 - restituisce `404` per un percorso che non è un file media elencato e `403` per una firma scaduta o errata;
@@ -34,11 +36,13 @@ I percorsi firmati funzionano come link al portatore finché non scadono: chiunq
 
 I materiali delle lezioni usano lo stesso schema sotto `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, con una chiave propria e una durata di almeno <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` li firma solo per uno spettatore che può aprire la lezione. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) riceve dal gestore di `/media/` le richieste sotto `/media/downloads/` al posto di `serveMedia`, accetta solo `GET` e `HEAD`, risponde `403` a una firma scaduta o errata e `404` per un file che non c'è, e serve il file con `Content-Disposition: attachment` e `Cache-Control: private, no-store`.
 
+Le copertine dei corsi sono pubbliche e non firmate, in `/media/covers/<courseId>/<file>`, perché il catalogo, le pagine dei corsi e la landing page le mostrano a ogni visitatore. `serveCover` (`src/modules/course/course.delivery.ts`) accetta solo `GET` e `HEAD` (`405` altrimenti), risponde `404` a un percorso che non indica una copertina e a un file che non c’è, serve la copertina con `Cache-Control: public, max-age=31536000, immutable` e ne tiene una copia nella cache dei Workers `covers`. Ogni nuova copertina riceve un nuovo id, quindi nessuna copia in cache diventa obsoleta; vedi [Copertine dei corsi](/docs/features/courses#course-covers).
+
 ## Caricamenti
 
 Il Worker non accetta caricamenti di video. `scripts/publish-video.ts` scrive nel bucket con `wrangler r2 bulk put --remote`, usando il tuo `bunx wrangler login`; vedi [Video](/docs/features/videos). Quando si elimina un video dall'amministrazione, il prefisso viene elencato e gli oggetti vengono eliminati pagina per pagina tramite il binding.
 
-I materiali delle lezioni sono l'unico caricamento che il Worker accetta: `uploadLessonAttachment` riceve da un amministratore un file fino a <RepositoryFact name="attachmentMaxMegabytes" /> MB e lo scrive tramite il binding. Eliminare un materiale, o la lezione, il capitolo o il corso a cui appartiene, ne elimina l'oggetto; vedi [Corsi](/docs/features/courses#materials).
+I materiali delle lezioni e le copertine dei corsi sono i due caricamenti che il Worker accetta. `uploadLessonAttachment` riceve da un amministratore un file fino a <RepositoryFact name="attachmentMaxMegabytes" /> MB e lo scrive tramite il binding. Eliminare un materiale, o la lezione, il capitolo o il corso a cui appartiene, ne elimina l'oggetto; vedi [Corsi](/docs/features/courses#materials). `uploadCourseCover` riceve da un amministratore le dimensioni di una copertina, ciascuna fino a <RepositoryFact name="courseCoverMaxMegabytes" /> MB, e sostituire o rimuovere la copertina, o eliminare il corso, ne elimina i file.
 
 ## Bundle di template [#template-bundles]
 

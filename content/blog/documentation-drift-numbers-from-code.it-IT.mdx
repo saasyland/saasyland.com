@@ -1,0 +1,517 @@
+---
+title: "Deriva della documentazione: ogni numero arriva dal codice"
+description: "Come fermare la deriva della documentazione quando gli agenti AI scrivono la tua documentazione e i tuoi testi: misura i conteggi al momento della build, stampa i valori dal codice, controlla ciò che deve restare scritto a mano e dai uno stato a ogni funzionalità."
+excerpt: "Un numero scritto a mano in una pagina è una copia di qualcosa che il codice sa, e ogni copia va alla deriva. Con gli agenti che scrivono documentazione, articoli e traduzioni, va alla deriva in ogni lingua nello stesso momento. Questa guida divide ogni tipo di affermazione di un sito in base a dove sta la sua verità, e mostra il passaggio di build, i componenti, i controlli e gli stati che impediscono a saasyland.com di affermare qualcosa che il codice non fa."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-22
+updated: 2026-11-22
+image: /images/blog/documentation-drift-numbers-from-code.webp
+tags:
+  - ai-agents
+  - tooling
+  - architecture
+faq:
+  - question: Che cos’è la deriva della documentazione?
+    answer: >-
+      Il divario che si apre tra ciò che dicono la documentazione, i testi di marketing o il README e
+      ciò che fa il codice, perché uno dei due è cambiato e l’altro no. Comincia nel momento in cui un
+      fatto esiste in due posti: un numero scritto a mano in una pagina è una copia di qualcosa che il
+      codice sa, e niente mantiene allineata la copia quando il codice si sposta.
+  - question: Perché gli agenti di programmazione AI peggiorano la deriva della documentazione?
+    answer: >-
+      Perché moltiplicano le copie. Un agente che scrive una pagina copia il numero che ha visto in
+      un’altra pagina, un agente traduttore lo copia in ogni lingua, e più agenti che lavorano in
+      parallelo copiano ciascuno una versione diversa. Su saasyland.com i conteggi scritti a mano
+      nella landing page erano sbagliati nel giro di poche settimane, e le traduzioni fatte da una
+      pagina inglese più vecchia descrivevano uno stack che il sito non usava più.
+  - question: Come si mantengono allineati al codice i numeri della documentazione?
+    answer: >-
+      Non scriverli a mano. Misura i conteggi al momento della build ed esponili alle pagine come un
+      modulo, importa i valori che il codice dichiara, come prezzi e limiti, dal file che li
+      dichiara, e stampali entrambi tramite un componente che li formatta per la lingua del lettore.
+      Una pagina mostra allora ciò che la build ha misurato, in ogni lingua, senza che nessuno la
+      modifichi.
+  - question: Cosa non si dovrebbe mai scrivere a mano nella documentazione o nei testi di marketing?
+    answer: >-
+      Tutto ciò a cui il codice sa rispondere: conteggi, prezzi, limiti, versioni, percorsi dei file,
+      comandi, flag, elenchi delle opzioni supportate e se una funzionalità è disponibile. Scrivi a
+      mano solo ciò che il codice non può sapere: spiegazioni, motivazioni, giudizi e fatti datati sul
+      mondo esterno, con un link alla loro fonte.
+  - question: Come si evita che gli esempi di codice nella documentazione diventino obsoleti?
+    answer: >-
+      O li esegui, come fanno i test della documentazione di Rust, o li confronti con il sorgente. Su
+      saasyland.com un blocco di codice che ha come titolo un percorso del repository deve essere un
+      estratto esatto di quel file, e il controllo dei contenuti fa fallire la CI quando il file cambia
+      e l’estratto non corrisponde più.
+  - question: Come si mostrano le funzionalità non ancora rilasciate senza promettere troppo?
+    answer: >-
+      Dai a ogni funzionalità uno stato nel codice, disponibile o in arrivo, e scrivi ogni frase che ne
+      dipende come un messaggio con entrambe le versioni. La pagina mostra allora la versione che
+      corrisponde allo stato, e cambiare una costante sposta ogni frase in ogni lingua nello stesso
+      momento. Dove lo stato dipende da ciò che il codice fa davvero, ricavalo da quel codice invece di
+      impostarlo a mano.
+  - question: Come restano d’accordo due repository sui valori condivisi?
+    answer: >-
+      Metti i valori condivisi in un unico pacchetto che entrambi importano, collega il resto a livello
+      di tipi così che una modifica da una parte non compili dall’altra, e testa end-to-end la coppia
+      pubblicata. Un pacchetto di contratto elimina la maggior parte della deriva tra repository; non
+      elimina il disallineamento di versione tra i deploy che lo usano.
+  - question: Che cos’è un registro delle affermazioni?
+    answer: >-
+      Un file che elenca ogni promessa che il tuo sito, la tua documentazione e i tuoi articoli fanno su
+      un prodotto, ciascuna con il test che la dimostra, la modifica che la dimostrerà o una nota che
+      dice che oggi è falsa. Un controllo fallisce quando un’affermazione dimostrata punta a un test che
+      non esiste più, così una promessa non può perdere la sua prova in silenzio.
+  - question: Vale la pena generare dal codice i valori della documentazione?
+    answer: >-
+      Per un sito in più lingue, quasi sempre: un numero sbagliato costa una correzione per ogni lingua,
+      e un valore scritto a mano diventa sbagliato ogni volta che il codice cambia. Per una singola
+      pagina che cita due numeri basta un test che confronti la pagina con il codice. Il costo è reale:
+      un passaggio di build, componenti e controlli da mantenere, e una prosa scritta in modo che un
+      valore possa cambiare senza che la frase si rompa.
+---
+
+<Callout title="Che cos’è questo articolo">
+
+Una guida pratica per mantenere veri la documentazione, i testi di marketing e gli articoli del blog quando il codice cambia ogni giorno e gli agenti AI scrivono la maggior parte delle parole. Vale per qualsiasi stack. Ogni sezione dà prima la regola, poi mostra come la applica saasyland.com, con i suoi file reali, le sue pull request e gli errori che hanno reso necessaria ogni regola. Tratta:
+
+1. Che cos’è la deriva della documentazione, e perché gli agenti la rendono più rapida e più estesa.
+2. I sei tipi di affermazione di un sito, e dove sta la verità di ciascuno.
+3. Misurare al momento della build, e stampare i valori tramite componenti invece di scriverli a mano.
+4. Controllare ciò che deve restare scritto a mano, come gli estratti di codice e le tabelle di riferimento.
+5. Stati invece di tempi verbali per ciò che non è ancora stato rilasciato, e numeri derivati che non possono crescere da soli.
+6. Un unico contratto tra due repository, un registro delle affermazioni, un golden diff, i fatti esterni, i costi, le lacune e uno starter kit.
+
+</Callout>
+
+_Ultima verifica: 22 novembre 2026. Ciò che dicono Vite, npm, Rust, ICU e la FTC proviene dalla loro documentazione, letta quel giorno; The Pragmatic Programmer è citato dall’estratto gratuito pubblicato dal suo editore. Tutto ciò che riguarda saasyland.com proviene dal suo repository pubblico e dalle sue pull request; il repository della CLI è privato, quindi questo articolo ne descrive il processo e cita solo il pacchetto pubblicato. È il terzo articolo di una serie sullo sviluppo di software con gli agenti di programmazione AI, dopo [i guardrail che fanno fallire una modifica sbagliata](/blog/ai-coding-agent-guardrails) e [un team di agenti al lavoro su un’unica base di codice](/blog/running-ai-coding-agents-in-parallel)._
+
+## La risposta breve
+
+Ogni fatto in una pagina dovrebbe avere esattamente una fonte, e la pagina dovrebbe stamparlo da lì. Dividi per tipi ciò che dice il tuo sito. I conteggi sul tuo codice li misura la build. I valori che stabilisce l’azienda, come prezzi e limiti, si dichiarano una sola volta nel codice e si importano. I numeri derivati da questi si calcolano, e si calcolano in modo prudente. Se una funzionalità funziona è uno stato nel codice, e ogni frase che ne dipende ha una versione per ogni stato. Le promesse sul comportamento si elencano con il test che le dimostra. I fatti sul mondo esterno portano una data e un link. Ciò che deve restare scritto a mano, come un estratto di codice o una tabella di riferimento, viene confrontato con il codice da un controllo che fa fallire la CI. A quel punto l’unica cosa che una persona o un agente può sbagliare è la prosa attorno ai valori, ed è a questo che serve la revisione.
+
+## Che cos’è la deriva della documentazione, e perché gli agenti la peggiorano
+
+La deriva della documentazione è il divario tra ciò che dicono le tue parole e ciò che fa il tuo codice. Non serve che qualcuno commetta un errore. Una pagina che dice «12 integrazioni» era vera il giorno in cui è stata scritta; il codice ne ha guadagnata una tredicesima, la pagina no, e ora è falsa. La causa non è la disattenzione ma la duplicazione: lo stesso fatto vive in due posti, e solo uno dei due viene mantenuto da ciò che lo cambia.
+
+Dave Thomas e Andy Hunt hanno dato un nome al principio in _The Pragmatic Programmer_: «Ogni elemento di conoscenza deve avere una rappresentazione unica, non ambigua e autorevole all’interno di un sistema.» Dicono esplicitamente che la documentazione rientra nel principio. Il loro test per riconoscere una violazione è: «quando un singolo aspetto del codice deve cambiare, ti ritrovi a fare quella modifica in più punti, e in più formati diversi? Devi cambiare codice e documentazione …? Se sì, il tuo codice non è DRY.»
+
+La guida alla documentazione di Google ne dà la versione operativa: «Modifica la documentazione nella stessa CL della modifica al codice.» Questa regola funziona quando chi modifica il codice conosce ogni pagina che lo cita. Smette di funzionare su larga scala, e la scala la portano gli agenti di programmazione AI.
+
+### Tre modi in cui gli agenti moltiplicano le copie
+
+**Velocità.** Un agente scrive una pagina della documentazione in pochi minuti, e scrive i numeri che vede. Se un’altra pagina dice 176 file di test, anche la nuova pagina dice 176. Ogni pagina che un agente scrive partendo da altre pagine ne eredita gli errori e aggiunge una copia.
+
+**Lingue.** saasyland.com è pubblicato in <RepositoryFact name="languages" /> lingue. Un numero scritto a mano esiste una volta per ogni lingua, e gli agenti traduttori lavorano su qualunque testo inglese sia stato dato loro. Il 12 novembre 2026 abbiamo scoperto che gli articoli tradotti del blog erano stati fatti da una versione inglese più vecchia: descrivevano uno stack Next.js, Bun, Elysia e Neon che il sito non usava più, 54 lingue, 141 file di test e 472 test (#116). Ogni traduzione era coerente al suo interno, scorrevole, e sbagliata.
+
+**Sessioni in parallelo.** Più agenti che lavorano nello stesso momento copiano ciascuno la versione di un fatto che era vera quando è iniziata la loro sessione. Due pull request che citano entrambe un conteggio possono essere unite in qualsiasi ordine, e vince la seconda, che il suo numero sia il più recente o no.
+
+Gli agenti traducono anche cose che non vanno tradotte, perché per un traduttore un numero o un percorso dentro una frase sembra testo. Il nostro audit di coerenza del 15 novembre ha trovato l’elenco delle prove della landing page che mostrava `bun run テスト` in giapponese e `src/intégrations/` in francese (#169). La schermata demo dei prezzi nell’admin aveva i prezzi scritti a mano nei messaggi di ogni lingua, e i traduttori li avevano convertiti: la pagina polacca mostrava 129 zł, quella brasiliana 58 reais e quella tedesca 58 €, accanto a un prezzo in dollari di $290 (#169). Due locale avevano tradotto persino l’indirizzo email di contatto (#132). Ognuno di questi casi era una frase che conteneva un valore, e il valore era stato trattato come parte della frase.
+
+### Com’era la nostra deriva
+
+La landing page di saasyland.com un tempo diceva che ogni suo numero era generato da questo repository pubblico. Il 12 novembre lo erano solo due: il numero di stelle su GitHub e la versione principale di React. Gli altri erano stati scritti a mano nei file dei messaggi ed erano andati alla deriva (#115):
+
+| Affermazione nella pagina                | Cosa c’era nel repository |
+| ---------------------------------------- | ------------------------- |
+| 176 file di test                         | 221                       |
+| 8 suite Playwright                       | 12                        |
+| 13 sezioni dell’admin, e «dieci» altrove | 9                         |
+| «Dodici» domande della CLI               | 13                        |
+
+Nessuno di questi numeri era una bugia quando è stato scritto. Ognuno era un’istantanea che il codice si era lasciato alle spalle. È proprio questo il punto: non puoi correggere la deriva facendo più attenzione, perché la copia è corretta fino al giorno in cui non lo è più, e niente ti dice quale sia quel giorno.
+
+## Sei tipi di affermazione, e dove sta la verità di ciascuno
+
+Prima di costruire qualsiasi cosa, dividi ciò che dice il tuo sito. Ogni tipo ha una diversa fonte di verità e richiede un meccanismo diverso.
+
+| Tipo            | Esempio                                                   | Fonte di verità                        | Meccanismo                                         | Cosa fallisce quando va alla deriva                                    |
+| --------------- | --------------------------------------------------------- | -------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| Misurata        | Un conteggio di test, pagine o lingue                     | Il repository                          | Contata dalla build                                | Niente può andare alla deriva: la build stampa il conteggio di oggi    |
+| Dichiarata      | Un prezzo, un limite di un piano, un periodo di rimborso  | Una costante nel codice                | Importata, formattata per ogni locale              | Un test che confronta i sistemi esterni con la costante                |
+| Derivata        | Ore risparmiate, un prezzo espresso in ore                | Una formula sui valori dichiarati      | Calcolata nel codice, arrotondata in modo prudente | Un test che verifica che l’affermazione regga ancora                   |
+| Di stato        | Se una funzionalità è disponibile o in arrivo             | Una costante di stato per funzionalità | Messaggi con una versione per stato                | Un test che mostra entrambe le versioni                                |
+| Comportamentale | «Un rimborso pone fine alla licenza»                      | Il comportamento del codice            | Un test indicato accanto all’affermazione          | Un controllo che ogni affermazione dimostrata abbia ancora il suo test |
+| Esterna         | Il risultato di un sondaggio, il prezzo di un concorrente | La pagina di qualcun altro             | Una citazione datata, ricontrollata                | Niente di automatico; una data di revisione                            |
+
+Dalla tabella seguono due regole. Primo, ogni tipo tranne l’ultimo può essere fatto fallire in un controllo quando va alla deriva, quindi è sull’ultimo che va concentrata l’attenzione della revisione. Secondo, il meccanismo dipende dal tipo, non da dove compare l’affermazione: lo stesso prezzo compare su una scheda dei prezzi, in un articolo del blog, nella risposta di una FAQ e nella meta description di una pagina, e ognuno di questi posti ha bisogno della stessa fonte.
+
+## Misura al momento della build
+
+Un conteggio sul tuo repository dovrebbe essere calcolato dalla build che pubblica la pagina, a partire dagli stessi file a cui si riferisce. La maggior parte dei bundler ha un posto per farlo. L’API dei plugin di Vite lo chiama modulo virtuale: «I moduli virtuali ti permettono di passare informazioni del momento della build ai file sorgente usando la normale sintassi di import ESM.» Un plugin calcola i valori quando parte la build, e qualsiasi pagina li importa come un normale modulo.
+
+Il nostro è `scripts/repository-facts.ts`, che fornisce `virtual:repository-facts`. Conta file di test, spec di Playwright e componenti UI con dei glob, elenca i test nel browser chiedendoli a Playwright, e legge le impostazioni dagli stessi file degli strumenti: la soglia di copertura, i limiti del lint e le larghezze del formatter da `vite.config.ts`, la versione di Node da `.nvmrc`, la versione di Bun da `package.json`, il numero di shard della CI dai file dei workflow. Alcune delle sue righe mostrano quanto sono dirette le misure:
+
+```ts title="scripts/repository-facts.ts"
+    e2eShards: readShards(E2E_WORKFLOW),
+    e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
+    e2eSpecsPath,
+    e2eTests: browserTests.length,
+```
+
+Il plugin in sé è una ventina di righe: costruisce il sorgente del modulo nell’hook `config` di Vite e lo fornisce con un id risolto che inizia con `\0`, come mostra la guida ai plugin di Vite per i moduli virtuali.
+
+```ts title="scripts/repository-facts.ts"
+    enforce: "pre",
+    load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),
+    name: "saasyland:repository-facts",
+    resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),
+```
+
+Tre scelte di design lo rendono affidabile.
+
+**Misura la cosa a cui si riferisce l’affermazione, non un’approssimazione.** La nostra prima versione contava le sezioni dell’admin dalle etichette della sidebar, perché contare la sidebar stessa avrebbe portato nella landing page 3,7 KB di codice dell’admin compresso con gzip (#115). Un test manteneva le etichette uguali alla sidebar. Poi il conteggio ha cambiato significato: la landing page dichiarava sezioni dell’admin funzionanti, e cinque delle undici mostravano dati demo. Così ogni voce del menu dell’admin ha ricevuto uno stato, il dato ha contato solo quelle funzionanti, e il numero è sceso da 11 a 6 (#177). Poi le schermate demo sono state eliminate del tutto (#259). Oggi il dato indica <RepositoryFact name="adminSections" />, e conta ogni voce perché ogni voce è una schermata funzionante.
+
+**Rifiuta una configurazione che la documentazione non sa descrivere.** Una pagina che dice «la copertura è mantenuta al 100%» presuppone un’unica soglia. Se qualcuno imposta i branch a 95 e le righe a 100, la frase diventa ambigua. Il nostro plugin valida con uno schema la configurazione che legge, e lo schema rifiuta quattro soglie diverse:
+
+```ts title="scripts/repository-facts.ts"
+const thresholdsSchema = zod
+  .object({ branches: zod.number(), functions: zod.number(), lines: zod.number(), statements: zod.number() })
+  .refine(
+    ({ branches, functions, lines, statements }) => [branches, functions, statements].every((threshold) => threshold === lines),
+    "The docs state one coverage threshold for all four metrics",
+  )
+```
+
+La build fallisce con quel messaggio, e la persona o l’agente che ha cambiato la soglia deve decidere cosa dovrebbe dire la documentazione. È un controllo sulla forma di un fatto, non solo sul suo valore.
+
+**Anche percorsi e comandi sono fatti.** Una frase che dice ai lettori di aprire `coverage/coverage-summary.json` o di eseguire `bun run test:coverage` contiene due valori che appartengono al codice. Dalla #169 la landing page li prende dallo stesso modulo: il percorso del riepilogo da `reportsDirectory` nella configurazione di Vite, la cartella delle spec dal `testDir` di Playwright, i comandi da `package.json`. Un test verifica che ogni percorso citato esista e che ogni comando sia uno script. Nessun traduttore può trasformarli di nuovo in `bun run テスト`, perché la traduzione non li contiene mai.
+
+## Stampa i valori tramite componenti, non stringhe
+
+Quando un valore esiste nel codice, stampalo tramite un unico componente, e non scriverne mai a mano il risultato. Nella nostra documentazione e nel nostro blog quel componente è `<RepositoryFact>`. In MDX, `<RepositoryFact name="testFiles" />` stampa <RepositoryFact name="testFiles" />, `<RepositoryFact name="e2eTests" />` stampa <RepositoryFact name="e2eTests" />, e `<RepositoryFact name="coverageThreshold" unit="percent" />` stampa <RepositoryFact name="coverageThreshold" unit="percent" />, formattati per la lingua della pagina che stai leggendo. L’intera regola di formattazione sta in una dozzina di righe:
+
+```tsx title="src/presentation/components/custom/repository-fact.tsx"
+const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS | undefined; readonly value: Value }): JSX.Element => {
+  const format = useFormatter()
+
+  if (typeof value === "number") {
+    return <>{format.number(value, unit === undefined ? undefined : UNIT_FORMATS[unit])}</>
+  }
+
+  if (typeof value === "string") {
+    return <code>{value}</code>
+  }
+
+  return <>{format.list(value.map((item) => <code key={item}>{item}</code>))}</>
+}
+```
+
+Un numero viene formattato con i separatori del locale e, con una `unit`, con la parola del locale per secondi, ore, giorni o percentuale, al plurale giusto. Una stringa viene stampata come codice, perché ogni dato di tipo stringa è un percorso, un comando o un identificatore che deve apparire uguale in ogni lingua. Un elenco diventa l’elenco di codice del locale: «a, b and c» in inglese, «a, b et c» in francese.
+
+Le tabelle ricevono lo stesso trattamento. `<RepositoryTable>` stampa righe costruite dal codice, sotto nomi di colonna che la pagina traduce: gli statement dei permessi di ogni ruolo, i tipi di commit e le loro emoji, i moltiplicatori di prezzo regionali con i loro paesi, le forme di cortesia che ogni lingua non deve usare. Una tabella scritta a mano in nove lingue è nove copie di una struttura dati; una tabella stampata dalla struttura è una sola.
+
+Tre posti non possono mostrare un componente, e ognuno ha bisogno di una risposta propria:
+
+- **File dei messaggi.** I testi dell’interfaccia vivono in messaggi JSON, non in MDX. I valori vi entrano come argomenti ICU, come in `{testFiles, number} test files`, e il componente che mostra il messaggio passa il modulo dei dati. La raccomandazione di ICU vale per ogni messaggio di questo tipo: «scrivi frasi complete nei loro sotto-messaggi», perché una frase concatenata da frammenti non può essere riordinata da un traduttore.
+- **Frontmatter.** Il titolo, la descrizione e le FAQ di un articolo sono YAML, che alimenta l’head della pagina, il feed e i dati strutturati. I titoli e le risposte delle FAQ dei nostri articoli sono messaggi ICU che `formatPostText` formatta con i dati, quindi la risposta di una FAQ può contenere il numero delle lingue. La meta description no, quindi è scritta senza numeri.
+- **Blocchi di codice.** Un blocco di codice viene copiato byte per byte. Ha bisogno del meccanismo successivo.
+
+Il risultato si vede nella nostra cronologia. Quando la #137 ha sostituito ogni valore scritto a mano nella documentazione, il solo blog aveva già 81 usi di una versione precedente del componente da rinominare, e la documentazione ha ottenuto valori stampati per limiti di richieste, copertura, limiti del lint, timeout, impostazioni di codifica video, durata degli URL firmati, intervalli di polling, dimensioni delle pagine, prezzi, versioni, tentativi e pianificazioni, ognuno dei quali prima era scritto a mano in nove lingue.
+
+## Quando un valore deve restare scritto a mano, controllalo
+
+Alcuni testi devono contenere il valore stesso: un estratto di codice, una tabella delle route, un elenco di variabili d’ambiente. Per questi la regola è confrontare la pagina con il codice in un controllo che fallisce.
+
+**Esegui gli esempi, o confrontali con il sorgente.** Rust lo integra nel suo strumento per la documentazione: «rustdoc supporta l’esecuzione degli esempi della tua documentazione come test. Questo garantisce che gli esempi nella tua documentazione siano aggiornati e funzionanti.» Per un sito TypeScript eseguire ogni snippet è più difficile, quindi confrontiamo. Un blocco di codice il cui titolo è un percorso del repository deve essere un estratto esatto di quel file:
+
+```ts title="scripts/check-content.ts"
+const quotedSourceProblems = ({ label, target }: Translation): string[] =>
+  [...target.matchAll(QUOTED_SOURCE_PATTERN)].flatMap(({ groups }) => {
+    const path = groups?.["path"] ?? ""
+    const file = join(REPOSITORY_DIR, path)
+
+    if (existsSync(file) && readFileSync(file, "utf8").includes(groups?.["code"] ?? "")) {
+      return []
+    }
+
+    return [`A code block in ${label} is not an excerpt of ${path}`]
+  })
+```
+
+Ogni blocco di codice con un titolo in questo articolo viene controllato in questo modo, in tutte e nove le lingue, su ogni pull request. Se qualcuno modifica uno dei file citati qui sopra, `bun run check` nomina questo articolo e fallisce finché l’estratto non viene aggiornato.
+
+**Genera le tabelle di riferimento, o confrontale.** Un riferimento delle route, una pagina degli script e una tabella delle variabili d’ambiente sono elenchi che il codice contiene già. Il nostro controllo dei contenuti fallisce quando la pagina delle route assegna a una costante di route il percorso sbagliato, quando la pagina degli script omette uno script di `package.json` o ne elenca uno che non esiste, e quando le tabelle dell’ambiente omettono un segreto dichiarato in `wrangler.jsonc`. Fallisce anche quando una pagina della documentazione nomina un host locale o un sottodominio che nessuna modalità di build consente.
+
+**Vincola le traduzioni alla struttura della pagina inglese.** Una traduzione deve avere gli stessi span di codice inline, gli stessi componenti con le stesse prop, gli stessi link e lo stesso numero di righe di tabella della pagina inglese. È il controllo che ha messo fine per sempre a comandi e percorsi tradotti: un traduttore, umano o agente, può riformulare ogni frase, ma non può cambiare un solo carattere tra i backtick.
+
+**Controlla i sistemi esterni rispetto al codice prima di un deploy.** I prezzi sono dichiarati in `TIER_PRICES`; il fornitore dei pagamenti ne tiene una propria copia nel suo catalogo prodotti, e una discrepanza lì addebiterebbe un prezzo mentre la pagina ne mostra un altro. Il nostro deploy esegue `polar:verify` prima della build, e fallisce quando il prezzo di un prodotto Polar differisce dalla costante o quando le sue chiavi di licenza consentono un numero di dispositivi diverso da `LICENSE_ACTIVATION_LIMITS`. Il messaggio di errore nomina la costante, così chi lo legge sa quale lato è la fonte.
+
+## Stati, non tempi verbali
+
+Le affermazioni più difficili da mantenere vere sono quelle sul futuro. «Genera la tua fatturazione» è falso finché la funzionalità non viene rilasciata, vero dopo, e ogni frase che lo dice deve cambiare lo stesso giorno. La prosa lo gestisce male: le frasi al futuro restano al futuro dopo il rilascio della funzionalità, e le frasi al presente vengono scritte in anticipo perché suonano meglio.
+
+La soluzione è fare della disponibilità un valore nel codice. Ogni funzionalità riceve uno stato, e ogni frase che ne dipende è un messaggio con una versione per stato.
+
+Il nostro sistema ha due stati, `FEATURE_STATUS.AVAILABLE` e `FEATURE_STATUS.ARRIVING`. Le funzionalità di ogni piano sono elencate in `TIER_FEATURES` con il loro stato, e le schede dei prezzi le raggruppano sotto **Disponibile ora** e **In arrivo**, così nessuna lingua scrive a mano uno stato. Quando la CLI non poteva ancora generare progetti, quel fatto viveva nella prosa: undici messaggi, in nove lingue. La #189 lo ha spostato in un’unica costante, `CLI_GENERATION`, e ha trasformato ognuno di quei messaggi in una select ICU:
+
+```json title="messages/en-US/components.custom.pricing.json"
+      "tagline": "{generation, select, available {The CLI and the generated source with its tests.} other {The CLI now, the generated source and tests as they arrive.}}",
+```
+
+ICU descrive il meccanismo come l’uso di «un argomento “select” per selezionare i sotto-messaggi tramite un insieme fisso di parole chiave». Ogni versione è una frase completa, così ogni lingua può scriverla a modo suo. Un test mostra ognuna di queste frasi con entrambi gli stati in ogni lingua, così anche la versione che oggi nessuno vede deve essere corretta, e un altro fallisce quando una lingua dice «in arrivo» fuori dalla select, dove lo stato non può raggiungerla.
+
+Il 20 novembre la CLI ha rilasciato la generazione dei progetti, e la #251 ha portato la costante su disponibile. Ogni select è cambiata da sola, in ogni lingua: la sezione hero, il configuratore, le FAQ, le tagline dei piani, l’area clienti. La stessa pull request ha comunque dovuto aggiornare a mano la prosa in dieci articoli del blog, nella documentazione e nel README, perché quelle frasi descrivevano la generazione in un modo che la select non raggiungeva. La lezione è far passare per lo stato ogni frase su una funzionalità non ancora rilasciata fin dal giorno in cui la scrivi, comprese quelle nei contenuti lunghi.
+
+### Ricava lo stato dove puoi
+
+Uno stato impostato a mano può comunque essere impostato in anticipo. Dove il codice stesso sa se una funzionalità funziona, ricava lo stato da quella conoscenza. La nostra CLI pubblica quali risposte supportano i suoi template, e il sito ne ricava lo stato della fatturazione:
+
+```ts title="src/data/marketing.ts"
+const TEMPLATES_GENERATE_BILLING = CLI_TEMPLATE_SUPPORT.choices.billing.some((option) => option !== NONE)
+
+export const BILLING_GENERATION: FeatureStatus = TEMPLATES_GENERATE_BILLING ? CLI_GENERATION : FEATURE_STATUS.ARRIVING
+```
+
+Quando `CLI_GENERATION` è cambiata, la fatturazione è rimasta sotto **In arrivo**, perché nessun template generava ancora la fatturazione (#233). Nessuno ha dovuto ricordarsi che la fatturazione era un’eccezione; a spostarla sarà una release dei template che genera la fatturazione.
+
+### Scrivi frasi che rimandano alla fonte
+
+Alcune affermazioni sono elenchi destinati a crescere. «Genera TanStack Start, Cloudflare, D1, Drizzle, Better Auth e Resend» è vero per una release e incompleto per la successiva. La #233 ha riscritto frasi del genere perché nominassero la fonte invece di ripeterla: la generazione scrive «le opzioni che puoi scegliere nel configuratore», e il configuratore abilita esattamente le opzioni che i template supportano. La frase resta vera mentre l’elenco cresce, e l’elenco vive in un solo posto.
+
+## Numeri derivati: arrotonda per difetto, metti un tetto e mostra le righe
+
+I numeri del marketing sono spesso derivati: ore risparmiate, denaro risparmiato, tempo fino al primo deploy. Sono i più facili da gonfiare e i più difficili da controllare, quindi valgono tre regole.
+
+1. **Calcolali nel codice da input dettagliati voce per voce**, così ogni input può essere letto e contestato.
+2. **Arrotonda a sfavore del lettore**, e metti un tetto alla cifra in evidenza, così l’affermazione non può crescere da sola quando si aggiunge una riga.
+3. **Pubblica le righe** ovunque la cifra in evidenza compaia in forma estesa.
+
+La nostra affermazione sul «vantaggio iniziale», le ore di lavoro senior che fa risparmiare un progetto generato, segue tutte e tre le regole dalla #184. `HEAD_START_ROWS` in `src/data/head-start.ts` elenca ogni parte del progetto predefinito che generano i template, il livello dei template in cui viene rilasciata e una stima bassa e una alta delle ore che richiederebbe a mano. Fatturazione, organizzazioni, multi-tenancy e commercio di esempio non hanno una riga, perché nessun template li genera ancora. Oggi le righe sommano da <RepositoryFact name="headStartLowHours" /> a <RepositoryFact name="headStartHighHours" /> ore, e la cifra in evidenza prende l’estremo inferiore:
+
+```ts title="src/data/head-start.ts"
+export const HEAD_START_HOURS = Math.min(
+  HEAD_START_CLAIM_MAX_HOURS,
+  Math.floor(HEAD_START_LOW_HOURS / HEAD_START_ROUNDING_HOURS) * HEAD_START_ROUNDING_HOURS,
+)
+```
+
+La cifra in evidenza stampa <RepositoryFact name="headStartHours" />. Il tetto è il numero che il sito dichiarava già prima che esistessero le righe, quindi dettagliare le voci poteva solo confermare l’affermazione o abbassarla. Se si toglie una riga, la cifra scende senza che nessuno modifichi una pagina. Gli articoli che ne parlano stampano ogni riga con la sua stima, così un lettore che non è d’accordo con una stima può vedere quale e di quanto.
+
+Lo stesso vale per qualsiasi cifra derivata da un prezzo. L’affermazione che Core costa meno di <RepositoryFact name="corePriceInHours" unit="hour" /> del tempo di un ingegnere senior è `CORE_PRICE_IN_HOURS`, calcolata dal prezzo e da una tariffa oraria indicativa dichiarata accanto, e un test fallisce se il prezzo smette di restare sotto quel numero di ore. La #132 ha eliminato ogni somma derivata dai prezzi che era scritta a mano nella prosa, come la differenza tra due piani, perché una differenza scritta a mano è sbagliata il giorno in cui cambia uno dei due prezzi.
+
+## Un unico contratto tra due repository
+
+La deriva tra due repository è lo stesso problema a una distanza maggiore. _The Pragmatic Programmer_ la chiama duplicazione rappresentazionale: «il tuo codice deve possedere una conoscenza che è presente anche nella cosa esterna … Cambiala da una parte, e l’altra parte si rompe.»
+
+SaaSy Land ha due repository: questo sito, che vende licenze e fornisce un’API delle licenze, e una CLI privata che eseguono i clienti. Entrambi hanno bisogno degli stessi piani, delle stesse route dell’API, degli stessi codici di errore, limiti e codici di uscita e dello stesso elenco delle opzioni dello stack. Questa conoscenza vive in un unico pacchetto, `@saasyland/stack`, pubblicato su npm con licenza MIT. La CLI lo costruisce; il sito lo importa.
+
+Quanto importare è un compromesso, e a deciderlo per noi è stata una misura. Riesportare a runtime le costanti dei piani del pacchetto avrebbe messo nel JavaScript della landing page un chunk di 12.072 byte, 4.493 byte compressi con gzip, perché il pacchetto non dichiarava nulla sui propri side effect e niente poteva essere eliminato con il tree-shaking (#160). Il sito tiene i propri nomi dei piani e li collega al contratto a livello di tipi, il che a runtime non costa nulla:
+
+```ts title="src/modules/license/license.constants.ts"
+export const LICENSE_TIER = {
+  AGENCY: "agency",
+  COMPLETE: "complete",
+  CORE: "core",
+} as const satisfies Record<string, Api["tier"]>
+```
+
+Un piano aggiunto o rimosso da una delle due parti fa fallire la compilazione del sito, e un test confronta i valori. Dalla #244 anche il configuratore della landing page legge dal pacchetto le domande, le opzioni e le regole dello stack, così il sito non tiene alcuna copia della matrice.
+
+Un contratto condiviso elimina la conoscenza duplicata. Non elimina il disallineamento di versione tra i deploy. Il 20 novembre la CLI pubblicata ha inviato un campo che il sito di produzione, ancora sulla versione precedente del contratto, ha rifiutato. Entrambi i repository superavano ogni test contro la versione che fissavano. [Il primo articolo di questa serie](/blog/ai-coding-agent-guardrails) racconta questa storia; la regola che ne è nata è che una modifica al contratto è attiva sul server prima che venga rilasciato il client che la usa.
+
+### La deriva che abbiamo trovato scrivendo questo articolo
+
+Il README del pacchetto è una pagina come le altre, e va alla deriva come le altre. Il README pubblicato con `@saasyland/stack` 0.1.0-beta.5 dice ancora che «Il configuratore su saasyland.com mantiene una propria copia della matrice.» Era vero fino alla #244, unita il 20 novembre, che ha eliminato la copia. npm rende persistente questo tipo di deriva: «Il file `README.md` verrà aggiornato sulla pagina del pacchetto solo quando pubblichi una nuova versione del tuo pacchetto.» Un README che descrive un altro repository è una copia di un fatto che appartiene a quel repository, e la soluzione è dichiarare solo ciò che fa il pacchetto stesso.
+
+## Un registro delle affermazioni per ciò che un test può dimostrare
+
+Alcune affermazioni riguardano il comportamento: «le licenze rimborsate smettono di funzionare», «la CLI scrive solo le opzioni che hai scelto», «ogni stringa è tradotta». Il codice non può stamparle. Un test può dimostrarle, e un registro può collegare ogni affermazione al suo test.
+
+Il repository della CLI ne tiene uno. Il suo `docs/acceptance.md` elenca ogni promessa che saasyland.com, la sua documentazione, le sue pagine legali, i suoi articoli e i README della CLI stessa fanno sulla CLI e sui progetti che genera. Ogni riga ha un id stabile, le parole esatte dell’affermazione, ogni punto in cui viene fatta, il livello di test che la dimostra e una cella della prova in uno di tre stati:
+
+- **Dimostrata:** uno o più test, ciascuno indicato per file e titolo.
+- **Pianificata:** la pull request che aggiungerà la prova.
+- **Aperta:** l’affermazione oggi è falsa o non dimostrabile, e la riga dice cosa dovrebbe cambiare: il prodotto o il testo.
+
+`bun run check` fallisce quando un’affermazione dimostrata nomina un file di test o un titolo di test che non esiste, quando un’affermazione pianificata non nomina nessuna pull request pianificata, o quando due affermazioni condividono un id. Un’affermazione dimostrata da un test nel repository del sito viene verificata contro il sito a un commit fissato, dallo stesso job della CI che esegue il golden diff descritto più sotto. Una pull request che aggiunge il test di un’affermazione pianificata sostituisce la cella pianificata con quel test nello stesso commit, e una pull request che cambia ciò che fa la CLI controlla le righe che lo descrivono.
+
+Una riga aperta è il tipo più utile. Registra una frase che i testi dicono e che il prodotto non fa ancora, dove ogni pull request può vederla, e deve chiudersi con una decisione: realizzare la funzionalità o riformulare il testo.
+
+Il sito ha un proprio registro per un tipo di affermazione. Ogni flusso utente e di amministrazione è elencato in `e2e/data/<area>.flows.ts` con il test nel browser che lo esegue end-to-end, o con il motivo per cui nessun test lo fa ancora, e `bun run check` fallisce quando un flusso nomina un test che non c’è più (#253). La pagina della documentazione sulla [copertura dei test](/docs/tooling/test-coverage) stampa l’inventario: oggi i flussi coperti sono <RepositoryFact name="flowsCovered" /> su <RepositoryFact name="flows" />, quelli senza un test nel browser <RepositoryFact name="flowsMissing" /> e quelli che sono funzionalità ancora da realizzare <RepositoryFact name="flowsToBuild" />. La stessa pull request ha reso esatte le affermazioni sulla copertura: «copertura dei test al 100%» è diventata «copertura del codice al 100%» ovunque comparisse, perché il numero misura le righe eseguite dai test unitari, di integrazione e dei componenti, non i flussi dimostrati in un browser.
+
+### Cosa non intercetta un registro
+
+Un registro controlla le prove, non le affermazioni. Un controllo che legge solo le celle delle prove non confronta mai le parole di una riga con la pagina che cita, quindi una riga può continuare a citare una frase dopo che il testo è stato riformulato o eliminato. Se tieni un registro, fai in modo che il controllo legga i punti citati oltre ai test citati, ed elimina una riga quando la sua affermazione lascia il sito.
+
+## Il golden diff: l’output generato contro il prodotto reale
+
+Un prodotto che genera codice ha un’affermazione in più da mantenere: che il progetto generato sia quello che mostra il marketing. Il repository della CLI li confronta direttamente. Il suo script `golden` genera lo stack di riferimento dai template esattamente come farebbe `init`, scarica il sito a un commit fissato e confronta i due alberi file per file: identici, personalizzati di proposito, diversi o mancanti. Un elenco versionato nel repository nomina ogni differenza voluta, con un motivo, come le pagine legali, che sono un impegno del cliente stesso e non vengono generate. Il report gira su ogni pull request. Non blocca ancora i merge; una modifica pianificata lo renderà un controllo bloccante, con un report notturno della deriva.
+
+Ai documenti del progetto generato si applica lo stesso standard. I test generano gli stack senza installarli e ne leggono il README, `AGENTS.md` e il workflow della CI: quei documenti non possono nominare uno script che manca nel `package.json` generato, una variabile d’ambiente che il progetto non definisce, un percorso che il progetto non contiene né crea, né una versione, che lasciano ai file che fissano le versioni. La documentazione di un template può quindi dire solo ciò che è vero per lo stack che la include.
+
+## Fatti esterni: datali, citali, ricontrollali
+
+I fatti sul mondo esterno non si possono stampare dal tuo codice, e vanno alla deriva più in fretta di tutti: prezzi, risultati di sondaggi, funzionalità dei concorrenti, il comportamento di uno strumento dopo la sua prossima release. Tre regole li mantengono onesti.
+
+1. **Cita la fonte primaria**, con un link, e riportane le parole invece di parafrasare un numero.
+2. **Data ogni verifica.** I nostri articoli si aprono con una riga «Ultima verifica» e si chiudono con una nota su quando sono state lette le fonti.
+3. **Ricontrolla a intervalli regolari**, e aggiorna la data `updated` dell’articolo quando un fatto cambia.
+
+Ricontrollare trova più di quanto ti aspetti. Il 17 novembre abbiamo verificato ogni articolo rispetto alle sue fonti (#241). Una statistica di Stack Overflow era stata citata come 45% dove il sondaggio dice 66%; il 45% era la seconda voce dello stesso elenco. Una percentuale di uso di API deprecate tra il 25 e il 38% era attribuita all’articolo scientifico sbagliato. Un dato sui difetti attribuito a GitClear non compariva affatto nella pagina pubblica di GitClear. I prezzi e i conteggi dei concorrenti erano cambiati. Gli agenti avevano scritto quelle frasi con sicurezza e avevano superato ogni controllo che avevamo, perché nessun controllo legge un sondaggio.
+
+La ragione commerciale per tenerci va oltre la credibilità. Negli Stati Uniti, le linee guida della FTC per gli inserzionisti dicono che «Gli inserzionisti devono avere prove a sostegno delle loro affermazioni», e che «La legge richiede che gli inserzionisti abbiano le prove prima che l’annuncio venga diffuso.» Una pagina di prodotto che stampa le proprie affermazioni dal codice, ed elenca le sue affermazioni sul comportamento con i loro test, ha quelle prove in archivio per costruzione.
+
+## Quanto costa
+
+Niente di tutto questo è gratis, e vale la pena conoscere i costi prima di cominciare.
+
+**Un passaggio di build e componenti da mantenere.** Il plugin dei dati, i componenti, le regole di formattazione e i loro test sono codice come qualsiasi altro. Hanno bisogno di revisione, e falliscono in modi in cui il testo scritto a mano non fallisce: un dato che legge un file che la build non trova ferma la build.
+
+**La dimensione del bundle, se non stai attento.** Importare un valore può importare il suo intero modulo. Due volte, il modo ovvio di condividere un valore avrebbe portato nella landing page codice di cui non aveva bisogno: 3,7 KB di codice dell’admin per contare le sezioni dell’admin (#115), e 12 KB della matrice dello stack e degli schemi del contratto per condividere tre nomi di piani (#160). Misura il bundle quando importi un valore in una pagina pubblica, e preferisci i collegamenti a livello di tipi o i moduli ristretti.
+
+**Una prosa che tollera il cambiamento.** Una frase che stampa un numero deve leggersi correttamente con qualsiasi numero: «1 test file» e «221 test files» in inglese, e in polacco, i cui plurali hanno più forme dell’inglese. Scriviamo queste frasi con i plurali ICU o le riformuliamo in modo che il numero stia da solo, e alcune grammatiche resistono: un numero stampato non può sempre prendere il caso che una frase richiede in tedesco o in polacco, quindi la frase viene riscritta attorno al numero.
+
+**Frontmatter senza numeri.** Meta description ed excerpt non possono eseguire codice, quindi descrivono invece di contare. Costa un po’ negli snippet dei risultati di ricerca.
+
+**Grandi modifiche, una volta sola.** Sostituire i valori scritti a mano ha toccato 643 file nella #137, perché ogni valore esisteva in nove lingue. Farlo presto costa molto meno che farlo tardi.
+
+Cosa si compra: i conteggi, i prezzi, i limiti, le versioni e il numero delle lingue che la nostra documentazione e i nostri articoli dichiarano su saasyland.com vengono stampati dal codice in ogni lingua, e una modifica al codice che renderebbe sbagliati un estratto citato o una tabella di riferimento fa fallire la CI con il nome della pagina.
+
+## Cosa va ancora alla deriva
+
+Alcune cose i meccanismi descritti sopra non le raggiungono, ed è lì che compaiono ancora errori.
+
+- **Prosa senza un valore.** Quali browser girano sulle pull request e quali solo su `main` è un fatto sul workflow della CI senza alcun numero dentro, e la landing page lo riportava sbagliato in ogni lingua fino alla #115. Una frase del genere la intercetta solo la revisione, o un test che legge il workflow.
+- **Numeri storici.** Questo articolo scrive a mano di proposito numeri come 176, 221 e 643: descrivono com’era il repository in un dato giorno, e ognuno è legato a una pull request. Non vanno alla deriva, perché sono affermazioni sul passato. I numeri al presente sono stampati.
+- **Valori in messaggi che non hanno argomenti.** Il controllo dei messaggi confronta gli argomenti di una traduzione con l’inglese, ma non cerca numeri in un messaggio che non ne ha. Scrivendo questo articolo ne abbiamo trovato uno: la tagline accanto al modulo di accesso scriveva a mano il suo dato di copertura in ogni lingua.
+- **Documenti fuori dalla build,** come il README di un pacchetto pubblicato su npm, che cambiano solo quando qualcuno pubblica.
+- **Fatti esterni** tra una verifica e l’altra.
+
+## Uno starter kit da copiare
+
+Questi pezzi vanno bene per la maggior parte dei siti TypeScript costruiti con Vite. Sono versioni minime di quanto descritto sopra; adatta i nomi.
+
+**Un plugin dei dati** che misura al momento della build e fornisce un modulo virtuale:
+
+```ts
+import { globSync, readFileSync } from "node:fs"
+import type { Plugin } from "vite"
+
+const MODULE_ID = "virtual:facts"
+const RESOLVED_ID = `\0${MODULE_ID}`
+
+const collectFacts = () => ({
+  testFiles: globSync("src/**/*.test.{ts,tsx}").length,
+  nodeVersion: readFileSync(".nvmrc", "utf8").trim(),
+})
+
+export const facts = (): Plugin => ({
+  name: "facts",
+  resolveId: (id) => (id === MODULE_ID ? RESOLVED_ID : undefined),
+  load: (id) => (id === RESOLVED_ID ? `export default ${JSON.stringify(collectFacts())}` : undefined),
+})
+```
+
+**Un componente** che stampa un dato per il locale della pagina, e il codice come codice:
+
+```tsx
+import facts from "virtual:facts"
+
+export const Fact = ({ name, locale }: { name: keyof typeof facts; locale: string }) => {
+  const value = facts[name]
+
+  return typeof value === "number" ? <>{new Intl.NumberFormat(locale).format(value)}</> : <code>{value}</code>
+}
+```
+
+**Uno stato e un messaggio con entrambe le versioni**, più un test che le mostra entrambe:
+
+```ts
+export const FEATURE_STATUS = { ARRIVING: "arriving", AVAILABLE: "available" } as const
+
+export const BILLING = FEATURE_STATUS.ARRIVING
+```
+
+```json
+{
+  "billing": "{billing, select, available {Billing is wired in.} other {Billing is arriving in a later release.}}"
+}
+```
+
+**Un controllo degli estratti** per i blocchi di codice che hanno come titolo un percorso, da eseguire nella CI:
+
+````ts
+import { readFileSync } from "node:fs"
+
+const TITLED_BLOCK = /^```\w*\s+title="(?<path>[^"]+)"\n(?<code>[\s\S]*?)^```$/gmu
+
+export const excerptProblems = (page: string, source: string): string[] =>
+  [...source.matchAll(TITLED_BLOCK)].flatMap(({ groups }) =>
+    readFileSync(groups?.path ?? "", "utf8").includes(groups?.code ?? "") ? [] : [`${page}: not an excerpt of ${groups?.path}`],
+  )
+````
+
+**Un registro delle affermazioni**, come tabella nel tuo repository, con un controllo che il test di ogni riga dimostrata esista:
+
+```md
+| ID        | Claim                            | Where                | Proof                                                   |
+| --------- | -------------------------------- | -------------------- | ------------------------------------------------------- |
+| CLAIM-001 | "Refunded licences stop working" | pricing page, FAQ q4 | `test/licence.test.ts` › "a refund revokes the licence" |
+| CLAIM-002 | "Exports to CSV"                 | features page        | Planned: the export pull request                        |
+| CLAIM-003 | "Works offline"                  | landing page hero    | Open: no offline mode exists; reword or build it        |
+```
+
+**Una regola di revisione** per tutto il resto, nel tuo file di istruzioni:
+
+```md
+## Numbers and claims
+
+- Never type a count, price, limit, version, path or command into docs, copy or messages: print it from code.
+- Every sentence about a feature that has not shipped goes through its status.
+- Every external fact has a link to its primary source and the date it was checked.
+```
+
+## Letture correlate
+
+<Cards>
+
+<Card title="Revisionare il codice generato dall’AI: cosa sfugge ai test" href="/blog/reviewing-ai-generated-code">
+  Il prossimo articolo di questa serie: cosa controlla chi revisiona che nessun test può controllare, dalle prove e dai workaround alle
+  scappatoie sui tipi e alle affermazioni nella prosa.
+</Card>
+
+<Card title="Guardrail, non prompt: come manteniamo rilasciabile il codice scritto dall’AI" href="/blog/ai-coding-agent-guardrails">
+  Il primo articolo di questa serie: quali regole vanno nei controlli e quali nelle istruzioni, compresi i controlli dei contenuti su cui si
+  basa questo articolo.
+</Card>
+
+<Card
+  title="Lezioni da un team di agenti di programmazione AI al lavoro su un’unica base di codice"
+  href="/blog/running-ai-coding-agents-in-parallel"
+>
+  Il secondo articolo di questa serie: worktree, porte, un’unica coda di merge e gli incidenti che nascono quando più agenti condividono un
+  repository.
+</Card>
+
+<Card
+  title="Agenti di programmazione AI per il SaaS nel 2026: perché decide il repository"
+  href="/blog/ai-coding-agents-repository-readiness"
+>
+  Il Time to No, e una scheda di valutazione per capire se un repository può rifiutare una modifica sbagliata prima che la veda una persona.
+</Card>
+
+</Cards>
+
+<Callout title="Leggi i dati alla loro fonte">
+
+Le convenzioni [Traduzioni e contenuti](/docs/conventions/translations) descrivono ogni meccanismo di questo articolo così come lo impone il repository, la [documentazione del blog](/docs/features/blog) elenca i valori che un articolo può stampare, e [Copertura dei test](/docs/tooling/test-coverage) stampa l’inventario dei flussi. Ogni conteggio delle [schede dei prezzi](/#pricing) viene dallo stesso codice: un unico pagamento a partire da <TierPrice tier="core" />, con ogni scheda che indica cosa è disponibile ora e cosa è in arrivo.
+
+</Callout>
+
+## Domande frequenti
+
+<PostFaq entries={frontmatter.faq} />
+
+### Fonti
+
+- _The Pragmatic Programmer_, edizione per il 20° anniversario, di David Thomas e Andrew Hunt: [l’estratto gratuito «DRY: The Evils of Duplication»](https://media.pragprog.com/titles/tpp20/dry.pdf)
+- Google: [buone pratiche per la documentazione](https://google.github.io/styleguide/docguide/best_practices.html)
+- Vite: [l’API dei plugin](https://vite.dev/guide/api-plugin), sui moduli virtuali; Rust: [i test della documentazione](https://doc.rust-lang.org/rustdoc/write-documentation/documentation-tests.html); ICU: [formattare i messaggi](https://unicode-org.github.io/icu/userguide/format_parse/messages/)
+- npm: [i file README dei pacchetti](https://docs.npmjs.com/about-package-readme-files); il [pacchetto `@saasyland/stack`](https://www.npmjs.com/package/@saasyland/stack)
+- Federal Trade Commission: [FAQ sulla pubblicità: una guida per le piccole imprese](https://www.ftc.gov/business-guidance/resources/advertising-faqs-guide-small-business)
+- saasyland.com: le convenzioni [Traduzioni e contenuti](/docs/conventions/translations) e le pull request [#115](https://github.com/saasyland/saasyland.com/pull/115), [#116](https://github.com/saasyland/saasyland.com/pull/116), [#132](https://github.com/saasyland/saasyland.com/pull/132), [#137](https://github.com/saasyland/saasyland.com/pull/137), [#160](https://github.com/saasyland/saasyland.com/pull/160), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#177](https://github.com/saasyland/saasyland.com/pull/177), [#184](https://github.com/saasyland/saasyland.com/pull/184), [#189](https://github.com/saasyland/saasyland.com/pull/189), [#233](https://github.com/saasyland/saasyland.com/pull/233), [#241](https://github.com/saasyland/saasyland.com/pull/241), [#244](https://github.com/saasyland/saasyland.com/pull/244), [#251](https://github.com/saasyland/saasyland.com/pull/251), [#253](https://github.com/saasyland/saasyland.com/pull/253) e [#259](https://github.com/saasyland/saasyland.com/pull/259)
+
+_Scritto da Piotr J. Borowiecki, che gestisce saasyland.com e gli agenti che ci lavorano. Le fonti esterne sono state lette il 22 novembre 2026 e potrebbero essere cambiate da allora; i link portano alla fonte. Se qualcosa qui è obsoleto o sbagliato, dimmelo e lo correggerò._

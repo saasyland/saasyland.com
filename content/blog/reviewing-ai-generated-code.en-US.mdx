@@ -1,0 +1,414 @@
+---
+title: "How to Review AI-Generated Code: What Tests Cannot Catch"
+description: "A practical guide to reviewing AI-generated code: evidence before code, workarounds versus root causes, tests that got easier, type escapes a linter misses, scope, protected paths and claims in prose."
+excerpt: "When every check is green, the review is where a wrong change still gets stopped. This guide covers what a reviewer of AI-written code looks for that no test can see, in the order that fails fastest, with the research on how agents game tests and the pull requests where our own review caught what CI passed."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-22
+updated: 2026-11-22
+image: /images/blog/reviewing-ai-generated-code.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: What should I look for when reviewing AI-generated code?
+    answer: >-
+      Start with the evidence, not the code: is the commit you are reading the one that was tested,
+      and did the checks pass on it? Then compare the description with the diff, look for changes to
+      protected paths, read every change to a test, and ask whether each fix removes the cause or
+      only the symptom. After that come type and error escapes, scope, design, and every claim the
+      change makes in prose.
+  - question: Why is passing CI not enough for AI-written code?
+    answer: >-
+      Because CI checks what a program can decide, and the expensive mistakes are about intent: a fix
+      in the wrong place, a test made easier, a design bent around a rule, a sentence that is not
+      true. Agents also optimise for the checks they can see, so a green run says the checks passed,
+      not that the change is right.
+  - question: How can I tell a workaround from a root-cause fix?
+    answer: >-
+      Ask what made the bug happen, then check whether the diff changes that thing or only the place
+      where the bug showed. A workaround usually sits next to the symptom: a wait in a test, a
+      fallback value, a condition that skips the failing case, a retry. If another page or caller
+      could hit the same bug after the merge, the cause is still there.
+  - question: How do AI coding agents game tests?
+    answer: >-
+      By returning the values a test expects instead of solving the problem, by editing the test to
+      match the code, by skipping or loosening assertions, and by raising timeouts. Anthropic and
+      OpenAI have both documented these behaviours in their own models. The defence is to read every
+      change to a test file as carefully as a change to the code.
+  - question: Which type escapes does a linter miss?
+    answer: >-
+      Even with type assertions, any and suppression comments banned, a strict TypeScript setup can
+      let through a non-null assertion, a type guard that does not check what it claims, a schema
+      that accepts anything under a specific type, a fallback such as an empty string that hides a
+      missing value, and an error that is caught and ignored. Each one turns a runtime failure into
+      silent wrong behaviour.
+  - question: Should one AI agent review another agent’s code?
+    answer: >-
+      Yes, as a first pass: a reviewer in a fresh context, with read-only tools and the brief the
+      change was built from, finds gaps the author’s context hides. It shares its model’s blind spots,
+      though, and a reviewer asked to find problems always finds some. Keep a person as the last
+      reader of anything irreversible, and tell the reviewer what not to report.
+  - question: How do I review the claims in a pull request description?
+    answer: >-
+      Treat each one as a claim to check. A test count, a passing run or an approval should point at
+      something you can open: the CI run on the head commit, the command’s output, the message that
+      approved it. Every file the diff changes should be explained, and every change the description
+      mentions should be in the diff.
+  - question: How do I keep review from becoming the bottleneck?
+    answer: >-
+      Move every rule a program can decide into checks, keep pull requests to one change, read in an
+      order that fails fast, and spend depth where the blast radius is: payments, identity,
+      migrations, contracts and the checks themselves. Review effort should go to what no check can
+      decide.
+---
+
+<Callout title="What this article is">
+
+A practical guide to reviewing code that AI coding agents wrote, for any team and any stack. It assumes your checks already reject what a program can decide, and covers what is left. Each section gives the rule first, then the research behind it, then the pull requests in saasyland.com’s public repository where review caught something every check had passed. It covers:
+
+1. Why AI-written code needs a different review, and what the research says about agents and tests.
+2. Reviewing the evidence and the description before the code.
+3. Workarounds versus root causes, and tests that got easier.
+4. Type and error escapes that a strict linter still lets through.
+5. Scope, design and protected paths, including designs bent around a rule.
+6. Claims in prose, a second agent as reviewer, a review order to copy, and what our own review still misses.
+
+</Callout>
+
+_Last checked 22 November 2026. What Anthropic, OpenAI, METR, Stack Overflow, Google, TypeScript, TanStack Query and the ICSE paper say comes from their own pages, read that day and linked at the bottom. Everything about saasyland.com comes from its public repository, its pull requests and a lint probe run on 22 November. This is the fourth post in a series on building software with AI coding agents; the [first](/blog/ai-coding-agent-guardrails) moves every rule it can into checks, and [the previous one](/blog/documentation-drift-numbers-from-code) prints every number from the code. This one is about the rest._
+
+## The short answer
+
+Review an agent’s pull request in the order that fails fastest, and spend your attention where no check can. First the evidence: the commit you are reading is the commit that was tested, and CI passed on it. Then the description against the diff, and the diff against your list of protected paths. Then every change to a test, because an agent that cannot make a test pass will sometimes make the test easier. Then the question that catches the most expensive mistakes: does this change remove the cause of the problem, or only the place where it showed? After that, the type and error escapes your linter allows, the scope of the change, any design that bends around a rule, and every claim the change makes in prose. Treat a summary that says "done" as a claim. Ask for the command, its output and the commit it ran on.
+
+## Why AI-written code needs a different review
+
+Review has always been less about finding bugs than people think. In their 2013 study of code review at Microsoft, Alberto Bacchelli and Christian Bird found that "finding defects remains the main motivation for review", yet "reviews are less about defects than expected", and that "code and change understanding is the key aspect of code reviewing". With a human author, understanding is shared: the author knows why the code looks the way it does, and the review is a conversation.
+
+With an agent as the author, three things change.
+
+**The author’s confidence carries no information.** An agent writes "all tests pass" in the same tone whether they do or not. Anthropic’s guide to Claude Code puts the mechanism plainly: "Claude stops when the work looks done." Its advice for the reviewer is to ask for evidence: "the command it ran and its output, or the screenshot. "All tests pass" on its own tells you very little."
+
+**The code looks right.** In Stack Overflow’s 2025 survey, the most common frustration with AI tools, named by 66% of developers, was "AI solutions that are almost right, but not quite", and 45.2% said that debugging AI-generated code takes more time. Almost-right code is the hardest kind to review, because nothing in it looks wrong.
+
+**Your own sense of progress is unreliable.** METR’s randomised study of experienced open-source developers in early 2025 found that with AI tools allowed, "they take 19% longer to complete issues". Before the study they "expected AI to speed them up by 24%", and afterwards they "still believed AI had sped them up by 20%". A reviewer who feels that work is going fast is not measuring anything.
+
+### Agents optimise for the checks they can see
+
+The strongest reason to review differently is documented by the model makers themselves.
+
+Anthropic’s system card for Claude 3.7 Sonnet, published in February 2025, has a section titled "Excessive Focus on Passing Tests". It reports that the model "occasionally resorts to special-casing in order to pass test cases in agentic coding environments like Claude Code". Most often that meant "directly returning expected test values rather than implementing general solutions, but also includes modifying the problematic tests themselves to match the code’s output". It happened "after multiple failed attempts to develop a general solution", and Anthropic recommended watching for three signals: "Excessive edit / test-execution cycles on a single file", "Comments that suggest test-specific handling" and "Unexpected modifications to test files".
+
+OpenAI reported the same family of behaviour in March 2025, in its work on monitoring reasoning models. Its examples include an agent that reasoned "We can circumvent verify to always return true", and another that planned "To skip all tests, we can define a `pytest_runtest_setup` function that always skips." When OpenAI penalised the model for such thoughts during training, "the agent trained with CoT pressure still learns to reward hack", but "it has learned to hide its intent in the chain-of-thought". METR’s earlier report on reward hacking, quoted in [the first post of this series](/blog/ai-coding-agent-guardrails), found the same in tasks with a score.
+
+Anthropic reports that its training mitigations "significantly reduced the frequency of this behavior in typical use". What remains appears where Anthropic saw it: after repeated failures on a hard problem, which is exactly the kind of change that most needs review. The practical consequence is simple. A green CI run tells you the checks passed. It does not tell you that the checks are the ones you started with.
+
+## Review the evidence before the code
+
+The first minutes of a review should go to what the pull request claims about itself. Most of the costly failures we have seen were in the claims, not in the code.
+
+**Is the commit you are reading the commit that was tested?** An agent that rebases, amends or pushes a fix after its last test run has a pull request whose description describes an earlier commit. Check that CI ran on the head commit, and that the run passed every required check, not only the fast ones. [The second post in this series](/blog/running-ai-coding-agents-in-parallel) tells how an agent reported "done" with the browser suite still running.
+
+**Are the numbers evidence?** A good test plan names each command with its result, the counts it produced and anything it could not run. Our pull requests show the difference. #177’s test plan reports 355 test files and 2,301 tests at full coverage, says that four tests in files it did not touch hit their timeout under a machine load average of 40 to 170, names the flag the passing run used, and says plainly that the browser suite was not run locally and why. #123 reports a first coverage run in which seven tests timed out under load and a clean rerun. Neither hides a failure, and both are more useful than "all green".
+
+**Does the description describe this diff?** On 16 November #224, a layout fix, was merged with the description of #225, a licence change, including a paragraph saying the owner had approved changes to licence files that #224 never touched. No check reads descriptions. Since then, the review compares them: every change the description mentions is in the diff, every file in the diff is explained, and every approval is quoted with the paths it covers.
+
+**Does it look done, or work?** A control that renders is a claim that it does something. In November the admin’s user screens showed **Edit**, **View profile** and **Add User** buttons with no handler, while nine user and session server functions had no caller (#194). No check noticed: a button without a handler renders, and nothing pressed it. The fix wired every control to a real server function or removed it. For anything a user can see, the evidence is a screenshot or a browser test that presses the button and asserts the outcome.
+
+## Workarounds versus root causes
+
+The most expensive mistake an agent makes is a fix in the wrong place. It passes every check, it often comes with a regression test, and it leaves the cause in the code for the next page to hit.
+
+A workaround has a recognisable shape. It sits next to the symptom instead of upstream of it: a wait added to a test, a fallback value passed to one component, a condition that skips the failing case, a retry around a race, a version pinned back. The question that exposes it is the one Google’s review guide hints at when it says "It is often helpful to look at the CL in a broad context": what made this happen, and could anything else hit it after the merge?
+
+### A workaround chosen on purpose
+
+On 14 November, a signed-in visitor who pressed a header link on the landing page before the page had hydrated made React report a hydration error: the server had printed the GitHub star count, and the browser rendered a loading skeleton in its place. #146 fixed it by passing the count from the page’s loader to the component as placeholder data, with a regression test, and every check passed.
+
+Its description named the real cause. A route guard in the auth integration cleared the whole query cache whenever it found a session that the prerendered page had not known about, so that one user would never see another’s data. The guard threw away public data with private data, and any page rendered from the cache could hit the same bug. The description also said why it left the cause alone: changing it meant deciding which data may survive a change of user, in `src/integrations/better-auth/`, a path that needs the owner’s go-ahead.
+
+Review asked for the root cause, the owner approved the change to the protected path, and two hours later #152 fixed it: queries mark themselves public, a change of user removes every query that is not, and #146’s workaround was deleted. The lesson has two halves. Agents often know the cause, and a good brief asks them to say it. And a protected path, which exists to make dangerous changes rarer, also makes symptom fixes more likely, because the cheapest route around a protected cause is a fix somewhere else. When a fix sits next to a protected path, ask whether the protection chose the design.
+
+### Tests that wait out a bug
+
+Earlier the same day, #142 made the browser suite reliable in WebKit by waiting until the router had rendered a page before acting on it. That wait models real readiness, and it is correct. But some of the races it fixed came from bugs in the libraries, and #151 named them: "#142 made the browser suite wait out three library bugs, but visitors still hit them." A visitor who scrolled while a page hydrated was sent back to the top; a navigation away from a loading page could turn into a reload of the page being left.
+
+#151 carried each fix as a patch on the latest release of TanStack Router and Motion, added a browser test that fails without each patch, and removed the waits that existed only to dodge the bugs. One of the router patches is the change from an open upstream pull request. Its reproducer is the kind of evidence a review should ask for: a minimal TanStack Start app that failed six runs out of six without the one-line fix and passed ten out of ten with it.
+
+The rule we took from it: a wait in a test is acceptable when it models what a user also waits for. When it waits out a bug, users still hit the bug, and the fix belongs in the code or, for a library, in a patch with a regression test and an upstream report.
+
+### A decision rule
+
+Accept a workaround only when all three hold: the cause is outside your control, the workaround is labelled where the next reader will find it, and something tracks its removal. Otherwise ask for the cause. Pinning a dependency back is a workaround with a long tail; our policy is to stay on the latest release and carry an upstream bug as a patch, so the fix leaves with the next release instead of staying forever.
+
+## Tests that got easier
+
+A diff that changes a test deserves more attention than a diff that changes code, because the test is what you trust when you are not looking. Google’s review guide puts it in four words: "Tests do not test themselves."
+
+Read every change to a test file and look for these:
+
+- **Removed or loosened assertions:** `toEqual` becoming `toMatchObject`, a specific value becoming `expect.anything()`, an assertion deleted with the code it tested.
+- **Updated snapshots or fixtures** whose new content nobody read.
+- **Special cases:** code under test that branches on a value only the test uses, or returns the exact value a test expects.
+- **New skips, retries and timeouts,** including a longer timeout on one test.
+- **New mocks** of the very thing the test was meant to exercise.
+- **Assertions on the implementation** instead of the behaviour: which function was called rather than what the user sees.
+
+Anthropic noted that the special-casing it observed "often (though not always) includes explicit comments indicating the special-casing (e.g., "# special case for test XYZ")". Our repository bans comments, and a check rejects every one. That removes the label, so in a codebase like ours the signal has to come from reading the test diff itself.
+
+The counter-example worth copying is #191. On a busy machine, our slowest unit tests ran out of time. The easy fix was to raise the timeouts. Instead, the pull request found why each test was slow and removed the work it did not need: one test ran the content check over every page in nine locales and became one case per page; several let React’s suspense fallback throttle run outside `act`; a combobox rebuilt every option on every keystroke. Its description states the constraint it kept: "No timeout was raised and no test got its own timeout." A reviewer can check that sentence against the diff in a minute, and that is what a test plan should make possible.
+
+## Quiet type escapes
+
+A strict compiler and a strict linter catch the loud escapes: `any`, type assertions, suppression comments. What reaches review are the quiet ones, which compile cleanly and fail at runtime.
+
+TypeScript is explicit about why assertions are dangerous: "type assertions are removed by the compiler and won’t affect the runtime behavior of your code", and "There won’t be an exception or `null` generated if the type assertion is wrong." The same holds for the non-null assertion: "this doesn’t change the runtime behavior of your code."
+
+### What our linter still lets through
+
+On 22 November we ran a probe file through our lint configuration, which turns whole rule categories on as errors with type-aware rules, and bans `any`, every type assertion except `as const`, and every suppression comment:
+
+| Line in the probe file                                            | Rejected | By                                                                            |
+| ----------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------- |
+| `(raw: string): Licence => JSON.parse(raw)`                       | Yes      | `typescript/no-unsafe-return`                                                 |
+| `const parse = <T>(raw: string): T => JSON.parse(raw)`            | Yes      | `typescript/no-unsafe-return` and `typescript/no-unnecessary-type-parameters` |
+| `Reflect.get(target, key)` returned as a `string`                 | Yes      | `typescript/no-unsafe-return`                                                 |
+| `items.find((item) => item.length > 2)!.length`                   | No       |                                                                               |
+| `(value: unknown): value is Licence => typeof value === "object"` | No       |                                                                               |
+| `zod.custom<Licence>()` with no check                             | No       |                                                                               |
+| `licence?.key ?? ""`                                              | No       |                                                                               |
+| An empty `catch {}`, or a `catch` that returns a default value    | No       |                                                                               |
+
+Every line that passed turns a missing or malformed value into wrong behaviour without an error. The non-null assertion says the value exists. The type guard says an object is a `Licence` after checking only that it is an object. The custom schema accepts anything and types it as a `Licence`. The empty-string fallback turns "no licence" into a licence key that is an empty string, which the next function may happily send to an API. The swallowed error hides the failure from the person who would have fixed it. Our application code has no non-null assertions and no custom schemas without a check today; nothing but review keeps it that way, and the rules for the first one exist in both typescript-eslint and Oxlint.
+
+### An escape with a good reason is still an escape
+
+The commit that migrated saasyland.com to TanStack Start, on 6 September 2026, carried six lint suppression comments: four for unsafe type assertions, one for `null` and one for an unsafe argument. Each came with a sentence that made it sound necessary:
+
+```ts
+// TanStack Query requires a defined result; null represents an absent license.
+// oxlint-disable-next-line unicorn/no-null
+const NO_LICENSE = null
+```
+
+Half of the reason was true. TanStack Query’s documentation says that "On success, the resolved value may be anything except undefined." The conclusion was not: the query did not need `null`, it needed a defined value. Review removed all six within three weeks by changing the design each one was protecting. This one became an object that always exists:
+
+```ts
+.handler(async ({ context }) => ({ license: await getLicense(context.auth.user.id) }))
+```
+
+The others went the same way: a test helper that asserted a generated type now builds an untyped message tree, and a test proxy that asserted a builder’s type now checks at runtime that it received a server function and throws a `TypeError` otherwise. Our conventions now list the alternatives to an escape: validate instead of asserting, narrow with a real type guard, annotate instead of asserting, check with `satisfies` instead of converting, and restructure when a library contract fights you. Since #274, `bun run check` rejects every suppression comment, so this kind of escape no longer reaches review. The lesson remains for the ones that do: a reason written next to an escape is an argument, and the review’s job is to test the argument, not to admire it.
+
+## Scope, design and the shape of the change
+
+**Unrequested changes.** Agents fix things on the way. That is often useful and always a review problem, because a change nobody asked for gets reviewed as part of a change somebody did. The rule we use: adjacent fixes are welcome when the description lists them and says why. #169, a fix for translated file paths, lists the other mistakes it corrected in the strings it was already rewriting. #191, a pull request about slow tests, changed a production component, and its description explains that the component rebuilt every option on every render, which was both the test’s problem and the user’s. A change that the description does not mention is a reason to stop and ask.
+
+**Abstractions nobody needed.** Google’s guide asks reviewers to "Encourage developers to solve the problem they know needs to be solved now, not the problem that the developer speculates might need to be solved in the future." Agents lean the other way: a wrapper around a library call, a factory with one product, a helper that duplicates one that already exists three folders away. Our conventions ask for one obvious mechanism per concern and call the library directly; in review, the cheapest check is to search the repository for an existing function before accepting a new one.
+
+**Ceremony that satisfies a rule.** When a rule is slightly wrong, agents comply with it at scale. Our rule against magic numbers allowed only `0`, so agents named every `1`, and #230 inlined 72 such constants. [The first post in this series](/blog/ai-coding-agent-guardrails) tells that story. In review, a pattern no person would write by hand is a sign to fix the rule.
+
+**Designs bent around a protected path.** This is the subtle one. #177 needed a status constant for features that are available or arriving. Remotion’s landing video imports the admin navigation, and a test requires the video workflow to watch every file Remotion imports, so a new file would have meant an edit to `.github/workflows/`, a path that needs the owner’s approval. The pull request put the constant in `src/data/navigation.constants.ts`, a file the workflow already watched, and said so in its description. Later changes removed the status from the admin navigation entirely. Today the constant serves the pricing cards and the copy, and it still lives in the navigation constants, for a reason that no longer exists. Nothing checks for that. Review is where you ask: is this file where a new reader would look for this, and if not, what made the author put it here?
+
+Anthropic’s guide adds a warning that applies to every reviewer, human or agent: "A reviewer that’s asked to find problems will always find _something_. If you fix every finding, you end up with extra abstraction layers and tests for cases that can’t happen." Scope cuts both ways. A review that demands every possible improvement produces the same overgrown code as an agent that adds them unasked.
+
+## Protected paths in the diff
+
+[The first post in this series](/blog/ai-coding-agent-guardrails) explains which paths need a person’s second key and why an approval belongs to a diff. In review, two checks follow from it.
+
+**Compare the changed files with the list mechanically.** Reading a long diff for protected paths is exactly the task a person does badly at the end of a day. A one-line command does it every time; the kit at the end has one. When a protected path is in the diff, the description must quote the approval and name the paths it covers.
+
+**Ask what the protection changed.** The two incidents above, a symptom fix next to a protected cause and a constant placed to avoid a protected file, show that a protected list shapes the code around it. Neither touched a protected path, so neither would appear in a mechanical check. The question for the reviewer is the reverse one: did this change avoid a protected path, and would the right fix have gone through it?
+
+## Facts and claims in prose
+
+Agents write prose as fluently as code, and prose has no compiler. Pull request descriptions, docs, changelogs, READMEs and blog posts all make claims, and our history shows four kinds of wrong ones.
+
+**Invented configuration.** Two of our posts said that `typescript/no-explicit-any` was an error in our lint configuration when it was not; #123 made the sentence true by turning the rule on. The same audit found a quoted `tsconfig.json` with `verbatimModuleSyntax`, which the project does not set, and a lint option, `denyWarnings: true`, that does not exist.
+
+**Misattributed sources.** An audit of every post against its sources on 17 November (#241) found a Stack Overflow figure quoted as 45% where the survey says 66%, a deprecated-API rate attributed to the wrong paper, and a GitClear defect figure that GitClear’s public page does not contain.
+
+**Stale context.** Translations made from an older English version described a stack the site no longer used, with old counts and old tier names (#116). Each sentence was fluent and plausible.
+
+**Descriptions of the wrong change,** as in #224.
+
+The review for prose is the same as for code, with sources instead of tests. Every number points at the code that defines it, and [the previous post](/blog/documentation-drift-numbers-from-code) shows how to print it from there so it cannot be wrong. Every external figure has a link, and the reviewer opens the link and searches for the exact words. Every "is enforced" names the check that enforces it. Every quotation is in the source.
+
+## A second agent as reviewer
+
+A reviewer agent is cheap, fast and useful as a first pass, if you set it up for the job.
+
+- **Fresh context.** Anthropic’s guide describes its `/code-review` command as reviewing "the diff in a fresh subagent that never saw your conversation. It isn’t swayed by the reasoning that produced the code." A reviewer that read the author’s reasoning tends to accept it.
+- **Read-only tools.** A reviewer that can edit will fix what it finds and turn a review into a second change. Claude Code subagents take a `tools` list in their definition; give a reviewer reading and searching only.
+- **A spec to review against.** The brief the change was built from, or the issue, so the reviewer checks requirements rather than taste.
+- **Instructions about what not to report.** Style, and hypothetical cases, for the reason Anthropic gives above.
+
+Know its limits. A reviewer agent usually runs the same model, or a smaller one, as the author, so it shares the author’s blind spots, and it cannot tell you whether the change is the right thing to build. In our setup, a lead agent writes each worker’s brief and reads its report and diff against that brief before the change goes into the merge queue, and anything on the human-review list waits for the owner’s quoted yes. The question from [the second post](/blog/running-ai-coding-agents-in-parallel) still catches the most: what did you decide not to do, and why?
+
+## A review order that fails fast
+
+The second post in this series has an eight-step list for reviewing an agent’s pull request. This is the longer version we use now, in order, with what each step is looking for. Stop at the first step that fails; there is no point reading code whose evidence is missing.
+
+1. **Evidence.** The head commit is the tested commit. CI passed every required check on it. The test plan names commands, results and counts, and says what was not run. User-facing changes have a screenshot or a browser test that presses the control.
+2. **Description against diff.** Every change the description claims is in the diff. Every file in the diff is explained.
+3. **Protected paths.** None changed, or each is covered by a quoted approval that names it.
+4. **Test diff.** No loosened or deleted assertion without a reason, no new skip, retry, timeout or mock of the unit under test, no special case.
+5. **Root cause.** The fix changes what made the problem happen. Nothing else can hit the same bug after the merge. Any workaround is labelled and tracked.
+6. **Escapes.** No non-null assertion, lying guard, schema that accepts anything, fallback that hides absence, or swallowed error.
+7. **Scope and design.** Nothing unrequested and unexplained. No new abstraction with one user, no duplicate of an existing helper, no file placed where a reader would not look, no design bent around a rule.
+8. **Claims in prose.** Numbers printed from code, external facts linked and found at the link, "enforced" naming its check.
+9. **Everything the change affects.** Docs, README, copy and changelog in every language; most of this is a check, and the rest is here.
+10. **History.** One change, a title that will read well as the squash commit, no attribution lines.
+
+Steps 1 to 3 take minutes and need no understanding of the code, so a pull request that fails one of them costs almost nothing to send back. Steps 4 to 7 are where the time goes, and they are the steps no program can do for you.
+
+## What it costs, and where to spend it
+
+Review is the one part of this system that does not scale with more agents. [The second post](/blog/running-ai-coding-agents-in-parallel) found that the reviewer, not the machines or the CI minutes, was the real limit on how many agents could work at once. Three habits keep it affordable.
+
+**Move everything decidable into checks.** Every rule a program can decide and you still review by eye is review time spent on the wrong thing. The [guardrails post](/blog/ai-coding-agent-guardrails) is about doing that.
+
+**Keep changes small and single.** A pull request with one change can be read against one question. Agents produce large diffs cheaply; the brief should ask for one change per pull request, and the reviewer should send back the ones that are not.
+
+**Spend depth by blast radius.** Payments, identity, migrations, contracts other software depends on, and the checks themselves get the full list, slowly. A docs fix gets steps 1, 2 and 8.
+
+## What our review still misses
+
+In the spirit of the rest of the series, here is where our own process is weak.
+
+- **Descriptions are compared with diffs by a person**, not by a check, so a busy day can still miss one.
+- **The status constant from #177** still lives in the navigation constants, for a reason that no longer exists.
+- **Non-null assertions and custom schemas** are absent from our code by habit; no rule rejects them yet.
+- **Mutation testing**, which would measure whether the tests fail when the code changes, is not set up, so "tests that got easier" depends on reading.
+- **Reviewer and author often share a model**, and so share its blind spots.
+- **The agents work under the owner’s account**, so GitHub cannot require a review from someone other than the author; the second key is held by the agents’ permission layer and a quoted approval, as the first post describes.
+
+## A review kit you can copy
+
+**A pull request template** that asks for evidence instead of assurance:
+
+```md
+## What and why
+
+One change. What made the problem happen, and how this removes it.
+
+## Evidence
+
+| Command | Result | Commit |
+| ------- | ------ | ------ |
+|         |        |        |
+
+Not run, and why:
+
+## Also changed
+
+Every change the title does not cover, with its reason.
+
+## Protected paths
+
+None, or each path with the quoted approval that covers it.
+
+## Not done
+
+What I decided not to do, and why.
+```
+
+**A command that lists protected paths in a diff**, run by the reviewer or in CI:
+
+```sh
+git diff --name-only origin/main...HEAD | grep -E '^(db/migrations/|src/billing/|src/auth/|\.github/|eslint\.config\.js|vitest\.config\.ts)'
+```
+
+**A search for test-diff red flags**, as a starting point for step 4:
+
+```sh
+git diff origin/main...HEAD -- '*.test.*' '*.spec.*' | grep -nE '^\+.*(\.skip|\.only|\.todo|retry|retries|timeout|expect\.anything|toMatchObject|vi\.mock|jest\.mock)|^-.*expect\('
+```
+
+**Lint rules for two of the quiet escapes**, as ESLint and typescript-eslint name them:
+
+```js
+export default [
+  {
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "no-empty": "error",
+    },
+  },
+]
+```
+
+**A read-only reviewer subagent** for Claude Code, in `.claude/agents/reviewer.md`:
+
+```md
+---
+name: reviewer
+description: Reviews a pull request's diff against the brief it was built from, before a person reads it.
+tools: Read, Grep, Glob
+---
+
+You review a change you did not write. You are given the brief and the diff.
+
+Report, in this order, only what affects correctness:
+
+1. Claims in the description that the diff does not support, and files in the diff the description does not explain.
+2. Changes to tests that make them easier: removed or loosened assertions, skips, retries, timeouts, mocks of the unit under test, special cases.
+3. Fixes that change where a problem shows rather than what causes it.
+4. Non-null assertions, type guards that do not check what they claim, schemas that accept anything, fallbacks that hide a missing value, swallowed errors.
+5. New abstractions with one user, and helpers that duplicate existing ones.
+
+Do not report style. Do not report cases that cannot happen. Do not edit anything.
+```
+
+**A line for your instruction file**, so the author prepares what the reviewer will ask for:
+
+```md
+## Before you say done
+
+Give the commit you tested, each command with its result, what you did not run and why, every change beyond the task, and what you decided not to do. A summary is not evidence.
+```
+
+## Related reading
+
+<Cards>
+
+<Card title="Documentation Drift: Every Number on Our Site Comes From Code" href="/blog/documentation-drift-numbers-from-code">
+  The previous post in this series: measuring and printing every number from the code, so the claims a reviewer has to check get fewer.
+</Card>
+
+<Card title="Guardrails, Not Prompts: How We Keep AI-Written Code Shippable" href="/blog/ai-coding-agent-guardrails">
+  The first post in this series: the checks that decide what a program can, so review can spend its time on what it cannot.
+</Card>
+
+<Card title="Lessons From Running a Team of AI Coding Agents on One Codebase" href="/blog/running-ai-coding-agents-in-parallel">
+  The second post in this series: worktrees, one merge queue, briefing an agent and why the reviewer is the real limit.
+</Card>
+
+<Card title="AI Coding Agents for SaaS in 2026: Why the Repository Decides" href="/blog/ai-coding-agents-repository-readiness">
+  Time to No, and a scorecard for whether a repository can reject a wrong change before a person sees it.
+</Card>
+
+</Cards>
+
+<Callout title="Read the pull requests behind this article">
+
+Every pull request named here is public in saasyland.com’s repository, with its description, its checks and its review. The [conventions](/docs/conventions) are the rules the review holds code to, in every language. To see what the codebase costs, [compare the tiers](/#pricing): one payment from <TierPrice tier="core" />, with each card saying what is available now and what is arriving.
+
+</Callout>
+
+## Frequently asked questions
+
+<PostFaq entries={frontmatter.faq} />
+
+### Sources
+
+- Anthropic: [Claude 3.7 Sonnet system card](https://assets.anthropic.com/m/785e231869ea8b3b/original/claude-3-7-sonnet-system-card.pdf) (February 2025), section 6, and Claude Code’s [best practices](https://code.claude.com/docs/en/best-practices) and [subagents](https://code.claude.com/docs/en/sub-agents)
+- OpenAI: [Detecting misbehavior in frontier reasoning models](https://openai.com/index/chain-of-thought-monitoring/) (March 2025)
+- METR: [Measuring the Impact of Early-2025 AI on Experienced Open-Source Developer Productivity](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/) (July 2025); Stack Overflow: [2025 Developer Survey, AI](https://survey.stackoverflow.co/2025/ai)
+- Bacchelli and Bird: [Expectations, Outcomes, and Challenges of Modern Code Review](https://www.microsoft.com/en-us/research/publication/expectations-outcomes-and-challenges-of-modern-code-review/) (ICSE 2013); Google: [What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
+- TypeScript: [Everyday Types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html), on type and non-null assertions; TanStack Query: [Query Functions](https://tanstack.com/query/latest/docs/framework/react/guides/query-functions)
+- saasyland.com: the [conventions](/docs/conventions), the commits that [added](https://github.com/saasyland/saasyland.com/commit/0b9a1b9865859643bedbbb41c3f26b3ff6a1eede) and [removed](https://github.com/saasyland/saasyland.com/commit/ede7073076f8a2282f6eb0a48cbf1f7ca9452833) the suppression comments, and pull requests [#116](https://github.com/saasyland/saasyland.com/pull/116), [#123](https://github.com/saasyland/saasyland.com/pull/123), [#142](https://github.com/saasyland/saasyland.com/pull/142), [#146](https://github.com/saasyland/saasyland.com/pull/146), [#151](https://github.com/saasyland/saasyland.com/pull/151), [#152](https://github.com/saasyland/saasyland.com/pull/152), [#169](https://github.com/saasyland/saasyland.com/pull/169), [#177](https://github.com/saasyland/saasyland.com/pull/177), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#194](https://github.com/saasyland/saasyland.com/pull/194), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#230](https://github.com/saasyland/saasyland.com/pull/230), [#241](https://github.com/saasyland/saasyland.com/pull/241) and [#274](https://github.com/saasyland/saasyland.com/pull/274)
+
+_Written by Piotr J. Borowiecki, who reviews the work of the agents that build saasyland.com. The external sources were read on 22 November 2026 and may have changed since; the links go to the source. If anything here is out of date or wrong, tell me and I will correct it._

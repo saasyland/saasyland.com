@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 L'installation des dépendances et le build ne migrent jamais une base de données.
 
+SQLite n’impose pas la longueur d’un type de colonne comme `text(<length>)`, et drizzle-kit la modifie en reconstruisant la table : une nouvelle table, chaque ligne copiée dedans, l’ancienne supprimée. Les limites sont donc celles que valident les formulaires et les fonctions serveur, et une colonne garde la longueur avec laquelle elle a été créée. `user.email` et `newsletter_subscriber.email` restent `text(<RepositoryFact name="declaredEmailColumnLength" />)` et `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` grâce à `DECLARED_COLUMN_LENGTH` dans `auth.constraints.ts`, alors qu’une adresse peut compter <RepositoryFact name="emailMaxLength" /> caractères (`EMAIL_MAX_LENGTH`, la limite de chemin de la RFC 5321) et un nom <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Une migration générée qui contient ``CREATE TABLE `__new_`` reconstruit une table ; relisez-la avant de la committer.
+
 ## Commandes
 
 | Commande                                                            | Base de données                     | Effet                                                                                                                |
@@ -78,6 +80,7 @@ Arrêtez le serveur de développement avant `db:reset:local`. `db:seed:local` (`
 
 - Un administrateur, <RepositoryFact name="localAdminEmail" />, avec une adresse e-mail vérifiée. Son mot de passe est `LOCAL_ADMIN_PASSWORD` de `.env.development`, ou <RepositoryFact name="localAdminPassword" /> lorsqu'il n'est pas défini, et il doit respecter les règles de l'inscription. Chaque exécution redéfinit le mot de passe. Utilisez un mot de passe qui n'existe que sur votre machine, jamais un mot de passe de production : le seed n'écrit que dans la base de données locale.
 - Le programme des cours de `content/courses/saasy-land-courses.json`, importé avec `planCourseImport` et `applyCourseImport` de `src/modules/course/course.transfer.ts`, le même code que **Importer** dans l'administration. Ses leçons n'ont pas encore de vidéo : elles apparaissent donc [en cours d'enregistrement](/docs/features/courses#being-recorded).
+- Les couvertures de `content/courses/covers/`, nommées d’après leur slug, pour les cours qui n’en ont pas : chaque taille va dans le bucket `MEDIA` local et le cours reçoit sa clé, si bien que le catalogue local ressemble à celui de la production.
 - Les licences, la commande sans licence et le bundle de modèles de la CLI du seed de test (`e2e/data/license.seed.ts`), pour que le tableau de bord de l'administration et les pages des licences aient des données de forme réelle. Leurs comptes clients utilisent le mot de passe <RepositoryFact name="testPassword" />.
 
 Connectez-vous sur http://localhost:3000/auth/sign-in avec l'administrateur et ouvrez `/admin/courses` pour voir les cours.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - les lignes `video` qu'utilisent ces leçons, comme vidéos provisoires. Les fichiers d'une vidéo sont dans le bucket `MEDIA` de la production et ne sont pas copiés : en préversion, ses leçons apparaissent donc [en cours d'enregistrement](/docs/features/courses#being-recorded) au lieu d'échouer à la lecture. Une ligne `video` que la préversion possède déjà garde son indicateur de vidéo provisoire.
 
 Dans les cours qu'il copie, il supprime les chapitres, les leçons et les pièces jointes de type lien que la production n'a plus, avec la progression de la préversion sur ces leçons, et il supprime un cours de la préversion que la production ne publie plus. Il ne copie aucune pièce jointe de type fichier, dont les fichiers sont dans le bucket de la production, ni rien en dehors de ces tables : ni utilisateurs, ni sessions, ni licences, ni commandes, ni abonnements, ni progression. Une leçon que vous faites pointer vers une autre vidéo dans l'éditeur de leçons de la préversion pointe de nouveau vers la vidéo de la production après l'exécution suivante.
+
+Il laisse `course.cover` hors de la copie : les fichiers d’une couverture sont dans le bucket `MEDIA` de la production, donc un cours nouveau en preview n’a pas de couverture, et un cours que preview a déjà garde la couverture envoyée là-bas.
 
 Il s'arrête avant d'écrire si un cours de la préversion porte le slug d'un cours de la production avec un autre identifiant, par exemple un cours importé depuis le fichier du programme ; supprimez ce cours dans l'administration de la préversion, puis relancez-le. Il affiche ce qu'il a créé, mis à jour et supprimé dans chaque table, puis compte les lignes de la préversion et échoue si elles diffèrent de celles de la production.
 

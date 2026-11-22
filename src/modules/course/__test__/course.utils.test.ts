@@ -34,6 +34,7 @@ describe("course utils", () => {
       courseLessons({
         ...page,
         course: {
+          cover: null,
           icon: COURSE_ICON.BOOK_OPEN,
           id: "c",
           kind: COURSE_KIND.COURSE,
@@ -101,6 +102,7 @@ describe("findEditorLesson", () => {
         { id: "two", lessons: [editorLesson("b")], position: 2, summary: {}, title: { "en-US": "Two" } },
       ],
       course: {
+        cover: null,
         createdAt: UPDATED_AT,
         icon: COURSE_ICON.ROCKET,
         id: "course",

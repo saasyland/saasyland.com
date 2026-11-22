@@ -27,6 +27,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - 新しい行は `draft`、新しいレッスンは `paid` になります。一覧表示や配信の対象になるのは `published` のコースとレッスンだけで、それ以外のスラッグでは Not Found ページが表示されます。
 - コースは `position` 順、チャプターはコース内の `position` 順、レッスンはチャプター内の `position` 順に並びます。レッスン番号はコース全体を通して振られます。
 - `video_id` は `video` テーブルを参照し、動画が削除されると `NULL` になります。コースやチャプターを削除するとそのレッスンが削除され、レッスンを削除するとその資料が削除されます。レッスンやユーザーを削除するとその進捗が削除されます。
+- `cover` は `20261121231021_overjoyed_bastion.sql` で追加され、既定は `NULL` です。コースのカバー画像の R2 キーを保持し、URL は保持しません。[コースのカバー画像](#course-covers)を参照してください。
 
 ## 収録中 [#being-recorded]
 
@@ -87,9 +88,11 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - **主な場面**（`key-moments.tsx`）はボタンで、押すとプレーヤーを画面内に表示し、その場面にシークして再生します。`chapters` トラックとしても追加されるため、タイムスライダーにも表示されます。再生されないレッスンでは、主要な場面がボタンなしで一覧表示されます。
 - **文字起こし**（`lesson-transcript.tsx`）は、ページの言語の字幕を、なければ英語の字幕を、それもなければ最初の字幕を `metadata` トラックとして読み込み、その行を時刻とともに一覧表示します。再生中の行に印を付けてそれに追従し、行が押されるとその位置にシークします。動画に字幕がないレッスンや、字幕に行がないレッスンでは、文字起こしは表示されません。
 
-### コースのカバー画像
+### コースのカバー画像 [#course-covers]
 
-`src/data/course-covers.ts` の `courseCover(slug)` は、コースのカバー画像 `public/images/courses/<slug>.webp` を幅 1600、960、480 ピクセルで返し、あわせて `components.custom.course-covers` にある代替テキストのキーを返します。代替テキストはすべてのロケールで翻訳されています。`CourseCover`（`course-cover.tsx`）は、幅と高さ、`srcset` と `sizes` を指定してカバー画像を描画します。ページで最も大きい画像になる場所では高い優先度で、それ以外の場所では遅延読み込みで描画し、テキストがすでにコースの名前を示しているカードの中では装飾として扱います。カバー画像のないコースには、代わりにティール色の光を背景にしたアイコンが表示されます。カバー画像は現時点ではスラッグをキーとするファイルです。`course.cover` 列ができた後は、`courseCover` がそれを読む唯一の場所になります。
+`course.cover` はフルサイズのカバー画像の R2 キー `covers/<courseId>/<coverId>.webp` を保持し、小さいサイズは `<coverId>-480.webp` のように幅を名前に含めてその隣に置かれます。`src/modules/course/course.cover.ts` の `courseCoverImage` は、キーを `/media/covers/` 以下の `src` と `srcset`（幅 <RepositoryFact name="courseCoverWidths" /> ピクセル）に変換します。`CourseCover`（`course-cover.tsx`）は、<RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> で `srcset` と `sizes` を付けて描画し、ページで最も大きな画像になる場所では高い優先度で、それ以外では遅延して読み込み、代替テキストにはコースのタイトルを使い、テキストがすでにコース名を示しているカードの中では装飾として扱います。カバー画像のないコースは、代わりにティールの光の上にアイコンを表示します。カタログ、コースページとそのパネル、レッスンページ、ランディングページのコースブロックは、それぞれのクエリ（`getCatalogue`、`getCourse`、`getLesson`、`getCourseShowcase`）からカバー画像を読み込みます。
+
+カバー画像は Worker 自身が配信します。コースエリアの `/media/` ハンドラーの後ろで、`serveCover`（`course.delivery.ts`）は、コース ID、カバー ID、任意の幅、`.webp` または `.jpg` を含むパスへの `GET` と `HEAD` に `Cache-Control: public, max-age=31536000, immutable` で応答し、Workers のキャッシュにコピーを保持します。新しいカバー画像には毎回新しい ID が付くため、キャッシュされたコピーが古くなることはありません。コースページはフルサイズのカバー画像をリンクプレビューとして共有します（`courseShareImage`）。`og:image` と `twitter:image` に、その種類、サイズ、代替テキストとしてのコースのタイトルを付けます。カバー画像のないコースはサイトのカードを共有します。
 
 ## ランディングページ [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - **アイコン**: 名前付きのアイコンのいずれか。フィールドの横に表示されます。
 - **受講者ができるようになること** と **前提条件**。ロケールごとにタブがあります。**到達目標を追加** と **前提条件を追加** で行を追加し、行の横のバツ印でその行を削除します。空の行は受け付けられません。
 
+### カバー [#cover]
+
+コースフォームの下にある **カバー** カード（`course-cover-card.tsx`）は、コースのカバー画像、またはティールの光の上のアイコンを表示します。**画像を選択** は、最大 <RepositoryFact name="courseCoverMaxMegabytes" /> MB の <RepositoryFact name="courseCoverSourceTypes" /> ファイルを受け付けます。**カバーをアップロード**（カバーがある場合は **カバーを置き換える**）は、ブラウザーで画像を中央から 16:9 に切り抜き、`encodeImages`（`src/lib/image-encoding.ts`）で各幅の WebP に、WebP をエンコードできないブラウザーでは JPEG にエンコードして、すべてのサイズを 1 回のリクエストで送信します。**カバーを削除** するとアイコンに戻ります。カバー画像はコースが存在してから付けるため、このカードは作成フォームではなくコースエディターにあります。
+
 ### カリキュラム
 
 カリキュラムエディター（`curriculum-editor.tsx`）は、チャプターを順に表示し、それぞれのレッスンを並べます。
@@ -175,6 +182,8 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - 資料を削除すると、その資料はレッスンから取り除かれます。
 
 行は外部キーの `ON DELETE CASCADE` によって削除され、アップロードされたファイルは削除のユースケースが R2 から削除します（`lesson-attachment.objects.ts` の `attachmentObjectKeys` と `removeAttachmentObjects`）。コース、チャプター、レッスンと一緒に動画が削除されることはなく、動画はライブラリに残ります。
+
+コースを削除すると、そのカバー画像のファイルも削除されます（`course.objects.ts` の `removeCoverObjects`）。
 
 ### インポートとエクスポート [#import-and-export]
 
@@ -241,6 +250,8 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 インポートの後は、データベースが信頼できる唯一の情報源です。コースは管理画面で編集し、多数のレッスンをまとめて変更する場合は、エクスポートしてファイルを編集し、インポートしてください。
 
+ファイルにカバー画像は含まれません。インポートは各コースのカバー画像をそのまま残し、コースを削除するインポートはそのカバー画像のファイルも削除します。ドライランではそれらもファイルとして数えます。`content/courses/covers/` には、saasyland.com のコースのカバー画像が各幅で slug を名前にして収められています。`bun run db:seed:local` はカバー画像のないローカルのコースにそれらをアップロードし、本番では管理者が各コースの **カバー** カードで `<slug>.webp` をアップロードします。
+
 `content/courses/saasy-land-courses.json` は、saasyland.com のカリキュラムをすべてのロケールで収めたもので、コースは公開済み、レッスンはすべて収録中です。新しいデータベースにインポートするためのファイルで、アプリケーションが読むデータではありません。コースは、管理者が本番でインポートするか、`bun run db:seed:local` が同じコードでローカルのデータベースにインポートするか、`bun run courses:sync:preview` が本番のコースをプレビューにコピーして初めて存在します（[データベース](/docs/tooling/database#course-data-in-each-environment)を参照）。`course-curriculum.test.ts` は、インポートがこのファイルを受け付けることを確認します。
 
 ### サーバー関数
@@ -250,6 +261,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 - `getCourseEditor` は、すべてのレッスンを説明、主要な場面、動画（プレースホルダーのフラグ付き）、資料とともに返すため、コースエディターとレッスンエディターは 1 つのクエリを共有します。
 - `uploadLessonAttachment` は `FormData`（ファイル、レッスン、ロケールごとのタイトル。`uploadFormData` が組み立てます）を受け取り、さらに `withRateLimit` でアップロードを 1 アドレスあたり 1 分に <RepositoryFact name="attachmentUploadsPerMinute" /> 回までに制限します。行を書き込んでからファイルを書き込み、R2 がファイルを拒否した場合は行を削除します。
+- `uploadCourseCover` は `coverFormData` が組み立てた `FormData`（コースと、幅ごとに 1 枚の画像）を受け取ります。さらに `withRateLimit` でアップロードを 1 アドレスあたり 1 分に <RepositoryFact name="courseCoverUploadsPerMinute" /> 回までに制限し、欠けているサイズ、空のファイル、<RepositoryFact name="courseCoverMaxMegabytes" /> MB を超えるファイル、WebP と JPEG 以外の種類、種類の異なるサイズを拒否します。各サイズを R2 に保存し、キーをコースに記録してから、置き換えたカバー画像のファイルを削除します。R2 がサイズを拒否した場合やコースがなくなっていた場合は、保存したものを削除します。`removeCourseCover` はキーを空にしてファイルを削除します。
 - `setVideoPlaceholder` はレッスンが再生されるかどうかを決めるため、受講者が視聴できるものを変えるほかの書き込みと同じく `course: ["update"]` をチェックします。
 - レッスンのダイアログとレッスンエディターの動画一覧は `getVideos` から取得し、これには `video: ["read"]` が必要です。
 - すでに使われているスラッグには `CONFLICT` を返します。`rethrowAsConflict`（`src/integrations/drizzle-orm/drizzle.errors.ts`）が D1 の一意制約エラーを `AppError` に変換します。どの行にも一致しない ID には `NOT_FOUND` を返します。

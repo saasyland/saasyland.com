@@ -27,6 +27,7 @@ Cada tabela tem o próprio módulo em `src/modules`. A migração `2026111300440
 - Linhas novas são `draft`, e aulas novas são `paid`. Só cursos e aulas `published` são listados ou servidos; qualquer outro slug mostra a página de não encontrado.
 - Os cursos são ordenados por `position`, os capítulos por `position` dentro do curso e as aulas por `position` dentro do capítulo. As aulas são numeradas ao longo do curso inteiro.
 - `video_id` aponta para a tabela `video` e passa a `NULL` quando o vídeo é excluído. Excluir um curso ou um capítulo exclui as aulas dele, e excluir uma aula exclui os materiais dela; excluir uma aula ou um usuário exclui o progresso correspondente.
+- `cover`, adicionada por `20261121231021_overjoyed_bastion.sql` e `NULL` por padrão, guarda a chave do R2 da capa do curso, nunca uma URL; veja [Capas dos cursos](#course-covers).
 
 ## Em gravação [#being-recorded]
 
@@ -87,9 +88,11 @@ O player e os componentes que o acompanham compartilham um único store do Video
 - Os **Momentos-chave** (`key-moments.tsx`) são botões que trazem o player para a área visível, saltam até o momento e reproduzem. Eles também são adicionados como uma faixa `chapters`, então o controle deslizante de tempo os mostra. Uma aula que não é reproduzida lista os momentos-chave sem botões.
 - A **Transcrição** (`lesson-transcript.tsx`) carrega as legendas no idioma da página, senão em inglês, senão as primeiras, como uma faixa `metadata`, lista as linhas delas com os tempos, marca e acompanha a linha que está tocando e salta até uma linha quando ela é pressionada. Uma aula cujo vídeo não tem legendas, ou cujas legendas não têm linhas, não mostra transcrição.
 
-### Capas dos cursos
+### Capas dos cursos [#course-covers]
 
-`courseCover(slug)` em `src/data/course-covers.ts` devolve a capa de um curso, `public/images/courses/<slug>.webp`, com 1600, 960 e 480 pixels de largura, e a chave do texto alternativo dela em `components.custom.course-covers`, traduzido em todos os locales. `CourseCover` (`course-cover.tsx`) a desenha com a largura e a altura, `srcset` e `sizes`, com prioridade alta onde é a maior imagem da página, com carregamento lento nos outros lugares, e como decoração dentro de um card cujo texto já nomeia o curso. Um curso sem capa recebe, no lugar dela, o ícone dele sobre um brilho verde-azulado. Por enquanto, as capas são arquivos identificados pelo slug; quando existir uma coluna `course.cover`, `courseCover` será o único lugar que a lê.
+`course.cover` guarda a chave do R2 da capa em tamanho cheio, `covers/<courseId>/<coverId>.webp`, e os tamanhos menores ficam ao lado, com a largura no nome, como `<coverId>-480.webp`. `courseCoverImage`, em `src/modules/course/course.cover.ts`, transforma a chave em um `src` e um `srcset` sob `/media/covers/`, com <RepositoryFact name="courseCoverWidths" /> pixels de largura. `CourseCover` (`course-cover.tsx`) a desenha em <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> com `srcset` e `sizes`, com prioridade alta onde é a maior imagem da página e de forma adiada no resto, com o título do curso como texto alternativo, e como decoração dentro de um cartão cujo texto já nomeia o curso. Um curso sem capa mostra no lugar seu ícone sobre um brilho verde-azulado. O catálogo, a página do curso com seu painel, a página da aula e o bloco de cursos da página inicial leem a capa das próprias consultas (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+O Worker serve as capas ele mesmo: atrás do manipulador `/media/` da área de cursos, `serveCover` (`course.delivery.ts`) responde a `GET` e `HEAD` para um caminho com um id de curso, um id de capa, uma largura opcional e `.webp` ou `.jpg`, com `Cache-Control: public, max-age=31536000, immutable`, e guarda uma cópia no cache do Workers. Cada capa nova recebe um id novo, então nenhuma cópia em cache fica desatualizada. A página do curso compartilha a capa em tamanho cheio como prévia do link (`courseShareImage`): `og:image` e `twitter:image` com seu tipo, seu tamanho e o título do curso como texto alternativo. Um curso sem capa compartilha o cartão do site.
 
 ## Na landing page [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ O formulário do curso (`course-form.tsx`) tem estes campos:
 - **Ícone**: um dos ícones nomeados, mostrado ao lado do campo.
 - **O que os alunos saberão fazer** e **Pré-requisitos**, com uma aba por locale: **Adicionar um objetivo** e **Adicionar um pré-requisito** adicionam uma linha, e o X ao lado de uma linha a remove. Uma linha vazia é recusada.
 
+### Capa [#cover]
+
+O cartão **Capa**, abaixo do formulário do curso (`course-cover-card.tsx`), mostra a capa do curso ou seu ícone sobre um brilho verde-azulado. **Escolher uma imagem** aceita um arquivo <RepositoryFact name="courseCoverSourceTypes" /> de no máximo <RepositoryFact name="courseCoverMaxMegabytes" /> MB. **Enviar capa**, ou **Substituir capa** quando já existe uma, recorta a imagem em 16:9 a partir do centro no navegador e a codifica em cada largura com `encodeImages` (`src/lib/image-encoding.ts`), em WebP, ou em JPEG em um navegador que não codifica WebP, e envia os tamanhos em uma única requisição. **Remover capa** traz o ícone de volta. Um curso recebe uma capa depois de existir, por isso o cartão fica no editor do curso, e não no formulário de criação.
+
 ### Conteúdo programático
 
 O editor do conteúdo programático (`curriculum-editor.tsx`) mostra os capítulos em ordem, cada um com as suas aulas.
@@ -175,6 +182,8 @@ Toda exclusão pede confirmação antes.
 - Excluir um material o remove da aula.
 
 As chaves estrangeiras removem as linhas com `ON DELETE CASCADE`, e os casos de uso de exclusão removem do R2 os arquivos enviados (`attachmentObjectKeys` e `removeAttachmentObjects` em `lesson-attachment.objects.ts`). Os vídeos nunca são excluídos com um curso, um capítulo ou uma aula: eles continuam na biblioteca.
+
+Excluir um curso também exclui os arquivos da sua capa (`removeCoverObjects` em `course.objects.ts`).
 
 ### Importar e exportar [#import-and-export]
 
@@ -241,6 +250,8 @@ Ela grava só o que difere, então importar o mesmo arquivo duas vezes não muda
 
 Depois de uma importação, o banco de dados é a fonte da verdade: edite os cursos na administração e, para uma mudança em muitas aulas de uma vez, exporte, edite o arquivo e importe-o.
 
+O arquivo não contém capas. Uma importação deixa a capa de cada curso como está, e uma que remove um curso também exclui os arquivos da capa dele, que o teste a seco conta entre os arquivos. `content/courses/covers/` contém as capas dos cursos do saasyland.com em cada largura, com o slug como nome: `bun run db:seed:local` as envia para os cursos locais que não têm nenhuma, e em produção um administrador envia `<slug>.webp` no cartão **Capa** de cada curso.
+
 `content/courses/saasy-land-courses.json` é o conteúdo programático do saasyland.com em todos os locales, publicado, com todas as aulas em gravação. É o arquivo a importar em um banco de dados novo, não dados que a aplicação lê: os cursos só existem depois que um admin o importa na produção, que `bun run db:seed:local` o importa no banco de dados local com o mesmo código ou que `bun run courses:sync:preview` copia os cursos da produção para o preview (veja [Banco de dados](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` verifica que a importação o aceita.
 
 ### Funções de servidor
@@ -250,6 +261,7 @@ Depois de uma importação, o banco de dados é a fonte da verdade: edite os cur
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ Depois de uma importação, o banco de dados é a fonte da verdade: edite os cur
 
 - `getCourseEditor` devolve cada aula com a descrição, os momentos-chave, o vídeo (com a flag de provisório) e os materiais, então o editor do curso e o editor da aula compartilham uma única consulta.
 - `uploadLessonAttachment` recebe `FormData` (o arquivo, a aula e o título por locale, montados por `uploadFormData`) e também executa `withRateLimit` com <RepositoryFact name="attachmentUploadsPerMinute" /> envios por endereço por minuto. Ela grava a linha, depois o arquivo, e remove a linha de novo se o R2 recusar o arquivo.
+- `uploadCourseCover` recebe um `FormData` montado por `coverFormData`: o curso e uma imagem por largura. Também executa `withRateLimit` com <RepositoryFact name="courseCoverUploadsPerMinute" /> envios por endereço por minuto, e recusa um tamanho ausente, um arquivo vazio, um acima de <RepositoryFact name="courseCoverMaxMegabytes" /> MB, um tipo diferente de WebP ou JPEG e tamanhos de tipos diferentes. Guarda os tamanhos no R2, registra a chave no curso e só então exclui os arquivos da capa que substitui; quando o R2 recusa um tamanho ou o curso não existe mais, exclui o que guardou. `removeCourseCover` limpa a chave e exclui os arquivos.
 - `setVideoPlaceholder` decide se as aulas são reproduzidas, então verifica `course: ["update"]`, como as outras escritas que mudam o que os alunos podem assistir.
 - A lista de vídeos do diálogo da aula e do editor da aula vem de `getVideos`, que exige `video: ["read"]`.
 - Um slug que já está em uso responde `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) transforma o erro de restrição única do D1 em um `AppError`. Um id que não corresponde a nenhuma linha responde `NOT_FOUND`.

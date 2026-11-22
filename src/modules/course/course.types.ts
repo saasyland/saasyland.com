@@ -28,6 +28,7 @@ export interface Course {
   listRow: Awaited<ReturnType<typeof getCourses>>["rows"][number]
   importResult: Awaited<ReturnType<typeof importCourses>>
   document: zod.output<typeof courseZodSchemas.courseDocument>
+  courseCoverSource: zod.input<typeof courseZodSchemas.courseCoverSource>
   courseDocument: zod.input<typeof courseZodSchemas.courseDocument>
   createCourse: zod.input<typeof courseZodSchemas.createCourse>
   deleteCourse: zod.input<typeof courseZodSchemas.deleteCourse>
@@ -39,5 +40,7 @@ export interface Course {
   getCourses: zod.input<typeof courseZodSchemas.getCourses>
   importCourses: zod.input<typeof courseZodSchemas.importCourses>
   moveCourse: zod.input<typeof courseZodSchemas.moveCourse>
+  removeCourseCover: zod.input<typeof courseZodSchemas.removeCourseCover>
   updateCourse: zod.input<typeof courseZodSchemas.updateCourse>
+  uploadCourseCover: zod.input<typeof courseZodSchemas.uploadCourseCover>
 }

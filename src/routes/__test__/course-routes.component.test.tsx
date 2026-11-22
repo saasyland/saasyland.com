@@ -15,6 +15,7 @@ import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verificat
 
 import {
   CATALOGUE_COURSES,
+  COVER_KEY,
   CUSTOMER_PAGE,
   GUEST_PAGE,
   LEARNER_PAGE,
@@ -35,7 +36,6 @@ import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 
-import covers from "~/messages/en-US/components.custom.course-covers.json"
 import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
@@ -352,16 +352,16 @@ describe("course page panel and lists", () => {
       ],
       course: {
         ...GUEST_PAGE.course,
+        cover: COVER_KEY,
         materials: 3,
         outcomes: ["Ship it"],
         prerequisites: ["Know React", "Laptop"],
-        slug: "code-walkthrough",
       },
     }
     await renderCourses({ data, path: "/courses/the-walkthrough" })
 
     expect(screen.getByText("Foundations in short.")).toBeVisible()
-    expect(screen.getByRole("img", { name: covers.codeWalkthrough })).toHaveAttribute("fetchpriority", "high")
+    expect(screen.getByRole("img", { name: "The walkthrough" })).toHaveAttribute("fetchpriority", "high")
     expect(screen.getAllByText("3 of 4 lessons recorded")).toHaveLength(3)
     const outcomes = screen.getByRole("heading", { level: 2, name: messages.course.outcomes }).nextElementSibling
     expect(outcomes).toHaveTextContent("Ship it")

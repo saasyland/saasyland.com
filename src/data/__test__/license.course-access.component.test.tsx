@@ -26,6 +26,7 @@ const CATALOGUE = {
   courses: [
     {
       completed: 0,
+      cover: null,
       durationMs: 0,
       icon: COURSE_ICON.BOOK_OPEN,
       id: "walkthrough",

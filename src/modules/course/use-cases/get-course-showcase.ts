@@ -20,7 +20,15 @@ import { video } from "~/src/modules/video/video.schema"
 
 const readCourses = () =>
   db
-    .select({ icon: course.icon, id: course.id, kind: course.kind, level: course.level, slug: course.slug, title: course.title })
+    .select({
+      cover: course.cover,
+      icon: course.icon,
+      id: course.id,
+      kind: course.kind,
+      level: course.level,
+      slug: course.slug,
+      title: course.title,
+    })
     .from(course)
     .where(eq(course.status, COURSE_STATUS.PUBLISHED))
     .orderBy(asc(course.position), asc(course.id))
@@ -53,6 +61,7 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
       const own = lessonsByCourse.get(entry.id) ?? []
 
       return {
+        cover: entry.cover,
         durationMs: own.reduce((total, { durationMs }) => total + (durationMs ?? 0), 0),
         icon: entry.icon,
         id: entry.id,

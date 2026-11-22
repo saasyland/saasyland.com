@@ -27,6 +27,7 @@ const CATALOGUE_KEY = catalogueQuery({ locale: I18N.DEFAULT_LOCALE }).queryKey
 
 const course = (id: string, paid: number): Course["catalogueCourse"] => ({
   completed: 0,
+  cover: null,
   durationMs: 0,
   icon: COURSE_ICON.BOOK_OPEN,
   id,

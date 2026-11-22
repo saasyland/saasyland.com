@@ -100,6 +100,7 @@ export const page = ({
     { id: "chapter-two", lessons: lessons.slice(2), summary: "", title: "Product" },
   ],
   course: {
+    cover: null,
     icon: COURSE_ICON.BOOK_OPEN,
     id: "course",
     kind: COURSE_KIND.COURSE,
@@ -153,6 +154,7 @@ export const completeLesson = (source: Course["page"], slug: string): Course["pa
 
 export const WALKTHROUGH_ROW: Course["catalogueCourse"] = {
   completed: 0,
+  cover: null,
   durationMs: 375_000,
   icon: COURSE_ICON.BOOK_OPEN,
   id: "course",
@@ -167,8 +169,11 @@ export const WALKTHROUGH_ROW: Course["catalogueCourse"] = {
   title: "The walkthrough",
 }
 
+export const COVER_KEY = "covers/0195a2b4-6c8d-7e9f-8a0b-00000000c0c0/0195a2b4-6c8d-7e9f-8a0b-0000000c0ve1.webp"
+
 export const TUTORIAL_ROW: Course["catalogueCourse"] = {
   ...WALKTHROUGH_ROW,
+  cover: COVER_KEY,
   durationMs: 0,
   id: "tutorial",
   kind: COURSE_KIND.TUTORIAL,

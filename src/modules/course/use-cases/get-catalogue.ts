@@ -34,6 +34,7 @@ const readCompleted = (userId: string | undefined) => {
 const readCourses = () =>
   db
     .select({
+      cover: course.cover,
       durationMs: sql<number>`coalesce(sum(${video.durationMs}), 0)`,
       icon: course.icon,
       id: course.id,
@@ -64,6 +65,7 @@ export const getCatalogue = createServerFn({ method: "GET" })
 
     const courses = rows.map((row) => ({
       completed: completedByCourse.get(row.id) ?? 0,
+      cover: row.cover,
       durationMs: row.durationMs,
       icon: row.icon,
       id: row.id,

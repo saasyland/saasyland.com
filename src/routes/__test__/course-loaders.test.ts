@@ -1,4 +1,5 @@
 import { createMemoryHistory } from "@tanstack/react-router"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
@@ -7,9 +8,11 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IDS, LESSON_IDS, USERS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { course } from "~/src/modules/course/course.schema"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
@@ -57,11 +60,25 @@ describe("course route loaders", () => {
     const router = await load("/courses/the-walkthrough")
 
     expect(router.state.matches.at(-1)?.loaderData).toStrictEqual({
+      cover: null,
       locale: "en-US",
       pathname: "/courses/the-walkthrough",
       summary: "How it works.",
       title: "The walkthrough",
     })
+  })
+
+  it("shares the course's cover as its link preview image", async () => {
+    signOut()
+    const cover = `covers/${IDS.COURSE}/0195a2b4-6c8d-7e9f-8a0b-00000000c0e1.webp`
+    await db.update(course).set({ cover }).where(eq(course.id, IDS.COURSE))
+
+    const router = await load("/courses/the-walkthrough")
+    const page = router.state.matches.at(-1)
+
+    expect(page?.meta).toContainEqual({ content: `${APP_URL}/media/${cover}`, property: "og:image" })
+    expect(page?.meta).toContainEqual({ content: "image/webp", property: "og:image:type" })
+    expect(page?.meta).toContainEqual({ content: "The walkthrough", property: "og:image:alt" })
   })
 
   it("signs the stream before rendering a lesson the viewer may watch", async () => {

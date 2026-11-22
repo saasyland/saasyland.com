@@ -134,6 +134,7 @@ const LESSON: Course["editorLesson"] = {
 const editor = (lesson: Course["editorLesson"], status: Course["select"]["status"] = COURSE_STATUS.PUBLISHED): Course["editor"] => ({
   chapters: [{ id: "chapter-one", lessons: [lesson], position: 1, summary: {}, title: { "en-US": "Foundations" } }],
   course: {
+    cover: null,
     createdAt: UPDATED_AT,
     icon: COURSE_ICON.ROCKET,
     id: COURSE_ID,

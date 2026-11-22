@@ -52,6 +52,7 @@ describe("getCatalogue", () => {
     expect(catalogue.courses).toStrictEqual([
       {
         completed: 0,
+        cover: null,
         durationMs: 375_000,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.COURSE,
@@ -67,6 +68,7 @@ describe("getCatalogue", () => {
       },
       {
         completed: 0,
+        cover: null,
         durationMs: 0,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.TUTORIAL,
@@ -127,6 +129,7 @@ describe("getCourse", () => {
     const page = await executeQuery(courseQuery({ locale: "pl-PL", slug: "the-walkthrough" }))
 
     expect(page.course).toStrictEqual({
+      cover: null,
       icon: COURSE_ICON.BOOK_OPEN,
       id: IDS.COURSE,
       kind: COURSE_KIND.COURSE,

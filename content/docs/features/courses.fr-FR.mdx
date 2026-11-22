@@ -27,6 +27,7 @@ Chaque table a son propre module dans `src/modules`. La migration `2026111300440
 - Les nouvelles lignes sont `draft`, et les nouvelles leçons sont `paid`. Seuls les cours et les leçons `published` sont listés ou servis ; tout autre slug affiche la page introuvable.
 - Les cours sont triés par `position`, les chapitres par `position` au sein de leur cours et les leçons par `position` au sein de leur chapitre. Les leçons sont numérotées sur l’ensemble du cours.
 - `video_id` pointe vers la table `video` et passe à `NULL` quand la vidéo est supprimée. Supprimer un cours ou un chapitre supprime ses leçons, et supprimer une leçon supprime ses ressources ; supprimer une leçon ou un utilisateur supprime sa progression.
+- `cover`, ajoutée par `20261121231021_overjoyed_bastion.sql` et `NULL` par défaut, contient la clé R2 de la couverture du cours, jamais une URL ; voir [Couvertures des cours](#course-covers).
 
 ## En cours d’enregistrement [#being-recorded]
 
@@ -87,9 +88,11 @@ Le lecteur et ses compagnons partagent un seul store Video.js : `LessonMedia` (`
 - Les **Moments clés** (`key-moments.tsx`) sont des boutons qui ramènent le lecteur dans la zone visible, l’amènent au moment choisi et lancent la lecture. Ils sont aussi ajoutés comme piste `chapters`, si bien que le curseur temporel les affiche. Une leçon qui n’est pas lisible liste ses moments clés sans boutons.
 - La **Transcription** (`lesson-transcript.tsx`) charge les sous-titres dans la langue de la page, sinon en anglais, sinon les premiers, comme piste `metadata`, liste leurs lignes avec leurs horaires, signale la ligne en cours de lecture et la suit, et amène la lecture à une ligne quand on appuie dessus. Une leçon dont la vidéo n’a pas de sous-titres, ou dont les sous-titres n’ont aucune ligne, n’affiche pas de transcription.
 
-### Couvertures des cours
+### Couvertures des cours [#course-covers]
 
-`courseCover(slug)` dans `src/data/course-covers.ts` renvoie la couverture d’un cours, `public/images/courses/<slug>.webp`, en 1600, 960 et 480 pixels de large, ainsi que la clé de son texte alternatif dans `components.custom.course-covers`, traduit dans chaque locale. `CourseCover` (`course-cover.tsx`) l’affiche avec sa largeur et sa hauteur, `srcset` et `sizes`, en haute priorité là où elle est la plus grande image de la page, en chargement différé ailleurs, et comme décoration dans une carte dont le texte nomme déjà le cours. Un cours sans couverture reçoit à la place son icône sur un halo bleu sarcelle. Les couvertures sont pour l’instant des fichiers nommés d’après le slug ; dès qu’une colonne `course.cover` existera, `courseCover` sera le seul endroit qui la lit.
+`course.cover` contient la clé R2 de la couverture en pleine taille, `covers/<courseId>/<coverId>.webp`, et ses tailles plus petites se trouvent à côté, avec leur largeur dans le nom, comme `<coverId>-480.webp`. `courseCoverImage`, dans `src/modules/course/course.cover.ts`, transforme la clé en un `src` et un `srcset` sous `/media/covers/`, de <RepositoryFact name="courseCoverWidths" /> pixels de large. `CourseCover` (`course-cover.tsx`) la dessine en <RepositoryFact name="courseCoverWidth" /> × <RepositoryFact name="courseCoverHeight" /> avec `srcset` et `sizes`, en priorité haute là où c’est la plus grande image de la page, en différé ailleurs, avec le titre du cours comme texte alternatif, et comme décoration dans une carte dont le texte nomme déjà le cours. Un cours sans couverture affiche à la place son icône sur un halo turquoise. Le catalogue, la page du cours et son panneau, la page de la leçon et le bloc des cours de la page d’accueil lisent la couverture dans leurs propres requêtes (`getCatalogue`, `getCourse`, `getLesson`, `getCourseShowcase`).
+
+Le Worker sert lui-même les couvertures : derrière le gestionnaire `/media/` de l’espace des cours, `serveCover` (`course.delivery.ts`) répond à `GET` et `HEAD` pour un chemin qui nomme un id de cours, un id de couverture, une largeur facultative et `.webp` ou `.jpg`, avec `Cache-Control: public, max-age=31536000, immutable`, et en garde une copie dans le cache de Workers. Chaque nouvelle couverture reçoit un nouvel id, donc aucune copie en cache ne devient obsolète. La page du cours partage la couverture en pleine taille comme aperçu de lien (`courseShareImage`) : `og:image` et `twitter:image` avec son type, sa taille et le titre du cours comme texte alternatif. Un cours sans couverture partage la carte du site.
 
 ## Sur la page d’accueil [#on-the-landing-page]
 
@@ -141,6 +144,10 @@ Le formulaire du cours (`course-form.tsx`) contient ces champs :
 - **Icône** : l’une des icônes nommées, affichée à côté du champ.
 - **Ce que les apprenants sauront faire** et **Prérequis**, avec un onglet par locale : **Ajouter un objectif** et **Ajouter un prérequis** ajoutent une ligne, et la croix à côté d’une ligne la retire. Une ligne vide est refusée.
 
+### Couverture [#cover]
+
+La carte **Couverture**, sous le formulaire du cours (`course-cover-card.tsx`), affiche la couverture du cours ou son icône sur un halo turquoise. **Choisir une image** accepte un fichier <RepositoryFact name="courseCoverSourceTypes" /> de <RepositoryFact name="courseCoverMaxMegabytes" /> Mo au plus. **Envoyer la couverture**, ou **Remplacer la couverture** quand il y en a une, la recadre en 16:9 depuis son centre dans le navigateur et l’encode à chaque largeur avec `encodeImages` (`src/lib/image-encoding.ts`), en WebP, ou en JPEG dans un navigateur qui ne sait pas encoder le WebP, puis envoie les tailles en une seule requête. **Retirer la couverture** rétablit l’icône. Un cours reçoit une couverture une fois qu’il existe : la carte est donc dans l’éditeur du cours, pas dans le formulaire de création.
+
 ### Programme
 
 L’éditeur de programme (`curriculum-editor.tsx`) affiche les chapitres dans l’ordre, chacun avec ses leçons.
@@ -175,6 +182,8 @@ Chaque suppression demande d’abord une confirmation.
 - Supprimer une ressource la retire de la leçon.
 
 Les clés étrangères suppriment les lignes avec `ON DELETE CASCADE`, et les cas d’usage de suppression retirent de R2 les fichiers téléversés (`attachmentObjectKeys` et `removeAttachmentObjects` dans `lesson-attachment.objects.ts`). Les vidéos ne sont jamais supprimées avec un cours, un chapitre ou une leçon : elles restent dans la vidéothèque.
+
+Supprimer un cours supprime aussi les fichiers de sa couverture (`removeCoverObjects` dans `course.objects.ts`).
 
 ### Import et export [#import-and-export]
 
@@ -241,6 +250,8 @@ Il n’écrit que ce qui diffère : importer deux fois le même fichier ne chang
 
 Après un import, la base de données fait foi : modifiez les cours dans l’administration et, pour modifier de nombreuses leçons à la fois, exportez, modifiez le fichier et importez-le.
 
+Le fichier ne contient aucune couverture. Une importation laisse la couverture de chaque cours telle quelle, et une importation qui retire un cours supprime aussi les fichiers de sa couverture, que la simulation compte parmi les fichiers. `content/courses/covers/` contient les couvertures des cours de saasyland.com à chaque largeur, nommées d’après leur slug : `bun run db:seed:local` les envoie pour les cours locaux qui n’en ont pas, et en production un administrateur envoie `<slug>.webp` dans la carte **Couverture** de chaque cours.
+
 `content/courses/saasy-land-courses.json` est le programme de saasyland.com dans chaque locale, publié, avec chaque leçon en cours d’enregistrement. C’est le fichier à importer dans une nouvelle base de données, et non des données que lit l’application : les cours n’existent qu’une fois qu’un administrateur l’a importé en production, que `bun run db:seed:local` l’a importé dans la base de données locale avec le même code, ou que `bun run courses:sync:preview` a copié les cours de la production en préversion (voir [Base de données](/docs/tooling/database#course-data-in-each-environment)). `course-curriculum.test.ts` vérifie que l’import l’accepte.
 
 ### Fonctions serveur
@@ -250,6 +261,7 @@ Après un import, la base de données fait foi : modifiez les cours dans l’adm
 | `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
 | `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
 | `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                     |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
 | `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
@@ -259,6 +271,7 @@ Après un import, la base de données fait foi : modifiez les cours dans l’adm
 
 - `getCourseEditor` renvoie chaque leçon avec sa description, ses moments clés, sa vidéo (avec son indicateur de vidéo provisoire) et ses ressources, si bien que l’éditeur de cours et l’éditeur de leçon partagent une seule requête.
 - `uploadLessonAttachment` reçoit des `FormData` (le fichier, la leçon et le titre par locale, construits par `uploadFormData`) et exécute aussi `withRateLimit` avec <RepositoryFact name="attachmentUploadsPerMinute" /> téléversements par adresse et par minute. Elle écrit la ligne, puis le fichier, et supprime de nouveau la ligne si R2 refuse le fichier.
+- `uploadCourseCover` reçoit un `FormData` construit par `coverFormData` : le cours et une image par largeur. Il exécute aussi `withRateLimit` avec <RepositoryFact name="courseCoverUploadsPerMinute" /> envois par adresse et par minute, et refuse une taille manquante, un fichier vide, un fichier de plus de <RepositoryFact name="courseCoverMaxMegabytes" /> Mo, un type autre que WebP ou JPEG et des tailles de types différents. Il enregistre les tailles dans R2, inscrit la clé sur le cours et ne supprime qu’ensuite les fichiers de la couverture remplacée ; quand R2 refuse une taille ou que le cours a disparu, il supprime ce qu’il a enregistré. `removeCourseCover` efface la clé et supprime les fichiers.
 - `setVideoPlaceholder` décide si des leçons sont lues ; elle vérifie donc `course: ["update"]`, comme les autres écritures qui changent ce que les apprenants peuvent regarder.
 - La liste des vidéos de la boîte de dialogue de leçon et de l’éditeur de leçon provient de `getVideos`, qui exige `video: ["read"]`.
 - Un slug déjà pris reçoit la réponse `CONFLICT` : `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) transforme l’erreur de contrainte d’unicité de D1 en `AppError`. Un id qui ne correspond à aucune ligne reçoit la réponse `NOT_FOUND`.

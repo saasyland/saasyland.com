@@ -37,6 +37,8 @@ bun run db:migrate:test
 
 Installing dependencies and building never migrate a database.
 
+SQLite does not enforce the length in a column type such as `text(<length>)`, and drizzle-kit changes one by rebuilding the table: a new table, every row copied into it, the old one dropped. So the limits are the ones the forms and the server functions validate, and a column keeps the length it was created with. `user.email` and `newsletter_subscriber.email` stay `text(<RepositoryFact name="declaredEmailColumnLength" />)` and `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` through `DECLARED_COLUMN_LENGTH` in `auth.constraints.ts`, while an address may have <RepositoryFact name="emailMaxLength" /> characters (`EMAIL_MAX_LENGTH`, the path limit of RFC 5321) and a name <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). A generated migration that contains ``CREATE TABLE `__new_`` rebuilds a table; review it before you commit it.
+
 ## Commands
 
 | Command                                                             | Database                         | Does                                                                                                         |
@@ -78,6 +80,7 @@ Stop the dev server before `db:reset:local`. `db:seed:local` (`scripts/seed-loca
 
 - An admin, <RepositoryFact name="localAdminEmail" />, with a verified email address. Its password is `LOCAL_ADMIN_PASSWORD` from `.env.development`, or <RepositoryFact name="localAdminPassword" /> when that is not set, and it must meet the sign-up rules. Each run sets the password again. Use a password that exists only on your machine, never a production one: the seed writes only the local database.
 - The curriculum from `content/courses/saasy-land-courses.json`, imported with `planCourseImport` and `applyCourseImport` from `src/modules/course/course.transfer.ts`, the same code as **Import** in the admin. Its lessons have no video yet, so they show as [being recorded](/docs/features/courses#being-recorded).
+- The covers in `content/courses/covers/`, named by slug, for the courses that have none: each size goes to the local `MEDIA` bucket and the course gets its key, so the local catalogue looks like production's.
 - The licences, the order without a licence and the CLI template bundle of the test seed (`e2e/data/license.seed.ts`), so the admin dashboard and the licence pages have real-shaped data. Their customer accounts use the password <RepositoryFact name="testPassword" />.
 
 Sign in at http://localhost:3000/auth/sign-in with the admin and open `/admin/courses` to see the courses.
@@ -101,6 +104,8 @@ bun run courses:sync:preview
 - the `video` rows those lessons use, as placeholders. A video's files are in production's `MEDIA` bucket and are not copied, so on preview its lessons show as [being recorded](/docs/features/courses#being-recorded) instead of failing to play. A video row preview already has keeps its placeholder flag.
 
 Within the courses it copies, it deletes the chapters, lessons and link attachments that production no longer has, with preview's progress on those lessons, and it deletes a preview course that production no longer publishes. It copies no file attachments, whose files are in production's bucket, and nothing outside these tables: no users, sessions, licences, orders, subscriptions or progress. A lesson pointed at another video in preview's lesson editor points at production's video again after the next run.
+
+It leaves `course.cover` out of the copy: a cover's files are in production's `MEDIA` bucket, so a course new to preview has no cover, and a course preview already has keeps the cover uploaded there.
 
 It stops before writing when a preview course has the slug of a production course with another id, such as one imported from the curriculum file; delete that course in preview's admin, then run it again. It prints what it created, updated and removed in each table, then counts the rows in preview and fails if they differ from production's.
 

@@ -69,7 +69,10 @@ const approach = (): void => {
   })
 }
 
+const COVER_KEY = "covers/0195a2b4-6c8d-7e9f-8a0b-00000000c0c0/0195a2b4-6c8d-7e9f-8a0b-0000000c0ve1.webp"
+
 const WALKTHROUGH: ShowcaseCourse = {
+  cover: COVER_KEY,
   durationMs: 1_500_000,
   icon: COURSE_ICON.MAP,
   id: "walkthrough",
@@ -88,6 +91,7 @@ const WALKTHROUGH: ShowcaseCourse = {
 }
 
 const TUTORIAL: ShowcaseCourse = {
+  cover: null,
   durationMs: 0,
   icon: COURSE_ICON.BOOK_OPEN,
   id: "tutorial",
@@ -102,6 +106,7 @@ const TUTORIAL: ShowcaseCourse = {
 }
 
 const UNRECORDED: ShowcaseCourse = {
+  cover: null,
   durationMs: 0,
   icon: COURSE_ICON.ROCKET,
   id: "project",
@@ -203,7 +208,7 @@ describe("course showcase data", () => {
     expect(screen.queryByRole("link", { name: /Billing/u })).toBeNull()
     expect(screen.getByText("Billing").parentElement).toHaveTextContent(withOffer(meta.locked.paid))
     expect(screen.getByRole("link", { name: "+ 5 more lessons" })).toHaveAttribute("href", "/courses/code-walkthrough")
-    expect(container.querySelector('img[src="/images/courses/code-walkthrough.webp"]')).toHaveAttribute("alt", "")
+    expect(container.querySelector(`img[src="/media/${COVER_KEY}"]`)).toHaveAttribute("alt", "")
     expect(container.querySelector('[data-slot="skeleton"]')).toBeNull()
   })
 

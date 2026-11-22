@@ -13,6 +13,14 @@ import {
   COURSE_LEVELS,
   COURSE_STATUSES,
 } from "~/src/modules/course/course.constants"
+import {
+  COURSE_COVER_MAX_BYTES,
+  COURSE_COVER_SOURCE_TYPES,
+  COURSE_COVER_STORED_TYPES,
+  COURSE_COVER_WIDTHS,
+  coverEntries,
+  coverExtension,
+} from "~/src/modules/course/course.cover"
 import { lessonAttachmentZodSchemas } from "~/src/modules/lesson-attachment/lesson-attachment.zod"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
@@ -88,6 +96,36 @@ const courseDocument = zod
     }
   })
 
+const coverImage = zod
+  .file({ message: "fileRequired" })
+  .min(MIN_FIELD_LENGTH, { message: "fileRequired" })
+  .max(COURSE_COVER_MAX_BYTES, { message: "coverTooLarge" })
+
+const courseCoverSource = zod.object({
+  file: coverImage.mime(Object.values(COURSE_COVER_SOURCE_TYPES), { message: "coverTypeUnsupported" }),
+})
+
+const coverVariants = zod
+  .array(zod.object({ image: coverImage, width: zod.literal(COURSE_COVER_WIDTHS) }))
+  .transform((variants, context) => {
+    const extensions = new Set(variants.map(({ image }) => coverExtension(image.type)))
+    const [extension] = extensions
+    if (extensions.size !== 1 || extension === undefined) {
+      context.addIssue({ code: "custom", input: variants, message: "coverTypeUnsupported" })
+      return zod.NEVER
+    }
+
+    return { contentType: COURSE_COVER_STORED_TYPES[extension], extension, variants }
+  })
+
+const uploadCourseCover = zod
+  .instanceof(FormData)
+  .transform((form) => coverEntries(form))
+  .pipe(zod.object({ courseId: idField, variants: coverVariants }))
+  .transform(({ courseId, variants }) => ({ courseId, ...variants }))
+
+const removeCourseCover = courseIdInput
+
 const deleteCourse = courseIdInput
 
 const exportCourses = zod.object({
@@ -125,6 +163,7 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
 export const courseZodSchemas = {
+  courseCoverSource,
   courseDocument,
   createCourse,
   deleteCourse,
@@ -136,5 +175,7 @@ export const courseZodSchemas = {
   getCourses,
   importCourses,
   moveCourse,
+  removeCourseCover,
   updateCourse,
+  uploadCourseCover,
 }

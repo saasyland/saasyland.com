@@ -130,8 +130,17 @@ type Preview = Awaited<ReturnType<typeof readPreview>>
 
 const listOf = (parts: SQLChunk[]): SQL => sql.join(parts, sql`, `)
 
-const upsert = ({ keep = [], row, table }: { keep?: readonly string[]; row: Row; table: SQLiteTable }): string => {
-  const columns = Object.values(getTableColumns(table)).map(({ name }) => name)
+interface Upsert {
+  readonly keep?: readonly string[]
+  readonly omit?: readonly string[]
+  readonly row: Row
+  readonly table: SQLiteTable
+}
+
+const upsert = ({ keep = [], omit = [], row, table }: Upsert): string => {
+  const columns = Object.values(getTableColumns(table))
+    .map(({ name }) => name)
+    .filter((name) => !omit.includes(name))
   const names = listOf(columns.map((name) => sql.identifier(name)))
   const values = listOf(columns.map((name) => sql`${cellSchema.parse(row[name])}`))
   const updates = columns
@@ -168,13 +177,14 @@ const planSync = (catalogue: Catalogue, preview: Preview) => {
   const lessons = missingFrom(preview.lessons, catalogue.lessons)
   const chapters = missingFrom(preview.chapters, catalogue.chapters)
   const keepPlaceholder = [video.placeholder.name]
+  const fileColumns = [course.cover.name]
 
   const statements = [
     deleteRows(course, inArray(course.id, retired)),
     deleteRows(lessonAttachment, inArray(lessonAttachment.id, links)),
     deleteRows(lesson, inArray(lesson.id, lessons)),
     deleteRows(chapter, inArray(chapter.id, chapters)),
-    ...catalogue.courses.map((row) => upsert({ row, table: course })),
+    ...catalogue.courses.map((row) => upsert({ omit: fileColumns, row, table: course })),
     ...catalogue.chapters.map((row) => upsert({ row, table: chapter })),
     ...catalogue.videos.map((row) => upsert({ keep: keepPlaceholder, row: asPlaceholder(row), table: video })),
     ...catalogue.lessons.map((row) => upsert({ row, table: lesson })),

@@ -18,6 +18,7 @@ import { buildPageHead } from "~/src/lib/seo"
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
 import { AdminCourseEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
+import { CourseCoverCard } from "~/src/presentation/components/custom/admin/courses/course-cover-card"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 import { CurriculumEditor } from "~/src/presentation/components/custom/admin/courses/curriculum-editor"
 import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
@@ -49,7 +50,10 @@ const CourseEditorPage = (): JSX.Element => {
         </div>
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
-        <CourseForm course={data.course} key={data.course.updatedAt.getTime()} />
+        <div className="flex flex-col gap-6">
+          <CourseForm course={data.course} key={data.course.updatedAt.getTime()} />
+          <CourseCoverCard course={data.course} />
+        </div>
         <CurriculumEditor editor={data} />
       </div>
     </div>

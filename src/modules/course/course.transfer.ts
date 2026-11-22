@@ -11,6 +11,7 @@ import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { nextPosition } from "~/src/modules/_core/utils/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { COURSE_DOCUMENT, COURSE_IMPORT_PROBLEMS_MAX, type CourseDocumentEntity } from "~/src/modules/course/course.constants"
+import { coverObjectKeys } from "~/src/modules/course/course.cover"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
@@ -394,10 +395,14 @@ const planChapters = (plan: Plan, state: State, { chapters, ...owner }: CourseTa
   }
 }
 
-const dropCourse = (plan: Plan, state: State, courseId: string): void => {
+const dropCourse = (plan: Plan, state: State, { cover, id: courseId }: Course["select"]): void => {
   const lessons = rowsOf(state.lessonsByCourse, courseId)
   plan.tallies.chapters.remove += rowsOf(state.chaptersByCourse, courseId).length
   plan.tallies.lessons.remove += lessons.length
+
+  if (cover !== null) {
+    plan.objectKeys.push(...coverObjectKeys(cover))
+  }
 
   for (const row of lessons) {
     dropAttachments(plan, state, row.id)
@@ -427,7 +432,7 @@ const planCourses = (plan: Plan, state: State, document: Course["document"]): vo
   const slugs = new Set(document.courses.map(({ slug }) => slug))
   for (const row of state.courses.filter(({ slug }) => !slugs.has(slug))) {
     if (planMissing(plan, "courses", () => db.delete(course).where(eq(course.id, row.id)))) {
-      dropCourse(plan, state, row.id)
+      dropCourse(plan, state, row)
     }
   }
 }

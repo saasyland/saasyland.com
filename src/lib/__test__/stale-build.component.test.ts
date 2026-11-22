@@ -1,6 +1,6 @@
-import { afterEach, expect, it, vi } from "vite-plus/test"
+import { afterEach, expect, it, onTestFinished, vi } from "vite-plus/test"
 
-import { claimReload, isStaleBuildError, listenForPreloadErrors } from "~/src/lib/stale-build"
+import { claimReload, isStaleBuildError, listenForStaleBuilds, whenPageStays } from "~/src/lib/stale-build"
 
 const DESTINATION = "/blog"
 
@@ -13,6 +13,10 @@ const runBuild = (src: string): void => {
 
 const failPreload = (error: Error): void => {
   globalThis.dispatchEvent(Object.assign(new Event("vite:preloadError"), { payload: error }))
+}
+
+const dispatch = (event: string): void => {
+  globalThis.dispatchEvent(new Event(event))
 }
 
 afterEach(() => {
@@ -37,7 +41,7 @@ it.each([new Error("private database details"), "Failed to fetch dynamically imp
 )
 
 it("recognises a dependency Vite failed to preload while it listens for them", () => {
-  const stopListening = listenForPreloadErrors()
+  const stopListening = listenForStaleBuilds()
   const stylesheet = new Error("Unable to preload CSS for /assets/video-player-CQyycmlF.css")
   failPreload(stylesheet)
   stopListening()
@@ -46,6 +50,51 @@ it("recognises a dependency Vite failed to preload while it listens for them", (
 
   expect(isStaleBuildError(stylesheet)).toBe(true)
   expect(isStaleBuildError(afterwards)).toBe(false)
+})
+
+it("runs at once while the visitor stays on the page", () => {
+  onTestFinished(listenForStaleBuilds())
+  const run = vi.fn<() => void>()
+
+  whenPageStays(run)
+
+  expect(run).toHaveBeenCalledOnce()
+})
+
+it.each(["pageshow", "pointerdown", "keydown"])("waits while the visitor leaves the page and runs once a %s shows they stayed", (event) => {
+  onTestFinished(listenForStaleBuilds())
+  const run = vi.fn<() => void>()
+  dispatch("beforeunload")
+
+  whenPageStays(run)
+  expect(run).not.toHaveBeenCalled()
+  dispatch(event)
+  dispatch(event)
+
+  expect(run).toHaveBeenCalledOnce()
+  whenPageStays(run)
+  expect(run).toHaveBeenCalledTimes(2)
+})
+
+it("runs nothing once its wait is cancelled", () => {
+  onTestFinished(listenForStaleBuilds())
+  const run = vi.fn<() => void>()
+  dispatch("beforeunload")
+
+  whenPageStays(run)()
+  dispatch("pageshow")
+
+  expect(run).not.toHaveBeenCalled()
+})
+
+it("ignores the visitor leaving once it stops listening", () => {
+  listenForStaleBuilds()()
+  const run = vi.fn<() => void>()
+  dispatch("beforeunload")
+
+  whenPageStays(run)
+
+  expect(run).toHaveBeenCalledOnce()
 })
 
 it("claims one reload for each destination in each build", () => {

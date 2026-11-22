@@ -1,4 +1,4 @@
-import { type Page, expect, test as base } from "@playwright/test"
+import { type Page, type PlaywrightWorkerOptions, expect, test as base } from "@playwright/test"
 
 import { BasePage, LandingPage } from "../pages"
 import { RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
@@ -7,6 +7,12 @@ import { servePolarCheckout } from "./polar-checkout"
 export const CSP_VIOLATION = "Content Security Policy violation:"
 
 const PERMISSIONS_POLICY_ERROR = /^Error with Permissions-Policy header/u
+
+const CLIPBOARD_PERMISSIONS = {
+  chromium: ["clipboard-read", "clipboard-write"],
+  firefox: [],
+  webkit: ["clipboard-read"],
+} as const satisfies Record<PlaywrightWorkerOptions["browserName"], readonly string[]>
 
 const reportCspViolations = (prefix: string): void => {
   document.addEventListener("securitypolicyviolation", ({ blockedURI, lineNumber, sourceFile, violatedDirective }) => {
@@ -22,6 +28,7 @@ interface AppFixtures {
   checkPermissionsPolicy: void
   cspViolations: string[]
   polarCheckout: void
+  readClipboard: () => Promise<string>
   recordRenders: void
 }
 
@@ -75,6 +82,10 @@ export const test = base.extend<AppFixtures & AppOptions>({
     { auto: true },
   ],
   polarCheckoutDouble: [true, { option: true }],
+  readClipboard: async ({ browserName, context, page }, runWith) => {
+    await context.grantPermissions([...CLIPBOARD_PERMISSIONS[browserName]])
+    await runWith(async () => page.evaluate(async () => navigator.clipboard.readText()))
+  },
   recordRenders: [
     async ({ context }, runWith) => {
       await context.addInitScript(recordRenderedLocations, RENDERED_LOCATION_KEY)

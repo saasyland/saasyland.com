@@ -61,8 +61,7 @@ test("shares the post's canonical URL on every network from under the title and 
   await expect(email).not.toHaveAttribute("target")
 })
 
-test("copies the canonical URL and confirms it on screen", async ({ appPage, context, page }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"])
+test("copies the canonical URL and confirms it on screen", async ({ appPage, page, readClipboard }) => {
   await page.goto(POST)
   await appPage.waitForAppReady()
   const copy = page.getByRole("button", { name: share.copy }).first()
@@ -70,7 +69,7 @@ test("copies the canonical URL and confirms it on screen", async ({ appPage, con
   await copy.click()
 
   await expect(page.getByText(share.copied)).toBeVisible()
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(CANONICAL)
+  expect(await readClipboard()).toBe(CANONICAL)
 })
 
 test("hands the post to the system share sheet where the browser has one", async ({ appPage, page }) => {

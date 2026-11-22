@@ -457,11 +457,10 @@ test.describe("checkout funnel", () => {
     appPage,
     authPage,
     baseURL,
-    context,
     page,
+    readClipboard,
     request,
   }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"])
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
     await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
@@ -473,10 +472,10 @@ test.describe("checkout funnel", () => {
 
     await page.getByRole("button", { name: "Copy licence key" }).click()
     await expect(stepDone(page, "Copy your licence key")).toBeAttached()
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(key)
+    expect(await readClipboard()).toBe(key)
     for (const { command } of CLI_SETUP_LINES) {
       await page.getByRole("button", { name: `Copy ${command}` }).click()
-      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+      expect(await readClipboard()).toBe(command)
     }
 
     const machine = await deriveMachineId(ACTIVATION_KIND.MACHINE, [crypto.randomUUID()])

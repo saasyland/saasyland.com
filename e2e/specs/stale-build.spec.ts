@@ -4,19 +4,27 @@ import errors from "../../messages/en-US/errors.global.json" with { type: "json"
 import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ROUTES } from "../../src/routes"
+import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"
 
 const BLOG_CODE = /\/assets\/_site\._marketing\.blog[.-][\w.-]+\.js$/u
 
+const VIDEO_PLAYER_STYLES = /\/assets\/video-player-[\w-]+\.css$/u
+
+const [freeLesson] = TEST_LESSONS
+
+const LESSON = `${ROUTES.COURSES}/${TEST_COURSE.slug}/${freeLesson.slug}`
+
 const RELOADS_BEFORE_THE_ERROR_PAGE = 2
 
-const isBlogDocument = (request: Request): boolean => request.isNavigationRequest() && new URL(request.url()).pathname === ROUTES.BLOG
+const isDocument = (request: Request, pathname: string): boolean =>
+  request.isNavigationRequest() && new URL(request.url()).pathname === pathname
 
-const recordBlogDocuments = (page: Page): Request[] => {
+const recordDocuments = (page: Page, pathname: string): Request[] => {
   const documents: Request[] = []
   page.on("request", (request) => {
-    if (isBlogDocument(request)) {
+    if (isDocument(request, pathname)) {
       documents.push(request)
     }
   })
@@ -52,7 +60,7 @@ const openHome = async (page: Page): Promise<Locator> => {
 test.describe("a tab opened before a deploy", () => {
   test("lands on the page a visitor clicks when the deploy removed that page's code", async ({ appPage, page }) => {
     const blogLink = await openHome(page)
-    const documents = recordBlogDocuments(page)
+    const documents = recordDocuments(page, ROUTES.BLOG)
     await removeBlogCodeUntilNextPageLoad(page)
 
     await blogLink.click()
@@ -66,7 +74,7 @@ test.describe("a tab opened before a deploy", () => {
 
   test("lands on the page after a hover failed to preload the removed code", async ({ appPage, page }) => {
     const blogLink = await openHome(page)
-    const documents = recordBlogDocuments(page)
+    const documents = recordDocuments(page, ROUTES.BLOG)
     await removeBlogCodeUntilNextPageLoad(page)
     const preload = page.waitForResponse((response) => BLOG_CODE.test(response.url()) && response.status() === HTTP_STATUS.NOT_FOUND)
 
@@ -84,7 +92,7 @@ test.describe("a tab opened before a deploy", () => {
 
   test("shows the error page instead of loading the page again when its code is still missing", async ({ page }) => {
     const blogLink = await openHome(page)
-    const documents = recordBlogDocuments(page)
+    const documents = recordDocuments(page, ROUTES.BLOG)
     await removeBlogCode(page)
 
     await blogLink.click()
@@ -92,5 +100,21 @@ test.describe("a tab opened before a deploy", () => {
     await expect(page.getByRole("alert").filter({ hasText: errors.title })).toBeVisible()
     await expect(page).toHaveURL(ROUTES.BLOG)
     expect(documents).toHaveLength(RELOADS_BEFORE_THE_ERROR_PAGE)
+  })
+})
+
+test.describe("a visitor leaving a page", () => {
+  test("goes where they asked when leaving cancels the code the page still loads", async ({ appPage, page }) => {
+    const lessons = recordDocuments(page, LESSON)
+    const styles = Promise.withResolvers<Route>()
+    await page.route(VIDEO_PLAYER_STYLES, (route) => {
+      styles.resolve(route)
+    })
+    await page.goto(LESSON, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+
+    await appPage.leaveWhileLoading(await styles.promise, ROUTES.PRIVACY)
+
+    await expect(page).toHaveURL(ROUTES.PRIVACY)
+    expect(lessons).toHaveLength(1)
   })
 })

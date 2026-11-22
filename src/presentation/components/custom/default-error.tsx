@@ -4,7 +4,7 @@ import { useQueryErrorResetBoundary } from "@tanstack/react-query"
 import { type ErrorComponentProps, useRouter } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { claimReload, isStaleBuildError } from "~/src/lib/stale-build"
+import { claimReload, isStaleBuildError, whenPageStays } from "~/src/lib/stale-build"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
@@ -15,15 +15,26 @@ export const DefaultError = ({ error }: ErrorComponentProps): JSX.Element => {
   const [isReloading, setIsReloading] = useState(() => isStaleBuildError(error))
 
   useEffect(() => {
-    const destination = router.history.location.href
-    if (isStaleBuildError(error) && claimReload(destination)) {
-      void router.navigate({ href: destination, ignoreBlocker: true, reloadDocument: true, replace: true })
+    const showError = (): void => {
+      setIsReloading(false)
+      console.error(error)
+      queryErrorResetBoundary.reset()
+    }
+
+    if (!isStaleBuildError(error)) {
+      showError()
       return
     }
 
-    setIsReloading(false)
-    console.error(error)
-    queryErrorResetBoundary.reset()
+    return whenPageStays(() => {
+      const destination = router.history.location.href
+      if (claimReload(destination)) {
+        void router.navigate({ href: destination, ignoreBlocker: true, reloadDocument: true, replace: true })
+        return
+      }
+
+      showError()
+    })
   }, [error, queryErrorResetBoundary, router])
 
   if (isReloading) {

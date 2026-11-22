@@ -18,7 +18,7 @@ import { ROOT_COMPONENTS } from "~/src/data/root"
 import { THEME } from "~/src/presentation/theme"
 
 import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"
-import { listenForPreloadErrors } from "~/src/lib/stale-build"
+import { listenForStaleBuilds } from "~/src/lib/stale-build"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
@@ -28,7 +28,7 @@ import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-a
 import type { RouterContext } from "~/src/router"
 
 const RootComponent = () => {
-  useEffect(listenForPreloadErrors, [])
+  useEffect(listenForStaleBuilds, [])
 
   return (
     <AriaProvider>

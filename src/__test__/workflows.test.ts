@@ -50,7 +50,9 @@ const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --sha
 const REQUIRED_CHECK = "name: Format, lint, types, i18n, tests"
 const BUILD_JOB = `Build the test Worker (${BROWSER})`
 const BUILD_STEP = "Upload the test build"
-const WAIT_FOR_BUILD = 'run: bun scripts/wait-for-job.ts "$BUILD_JOB" "$BUILD_STEP"'
+const BUILD_ARTIFACT = `BUILD_ARTIFACT: test-worker-${BROWSER}`
+const WAIT_FOR_BUILD = 'run: bun scripts/download-artifact.ts "$BUILD_JOB" "$BUILD_STEP" "$BUILD_ARTIFACT" test-worker.zip'
+const UNZIP_BUILD = "unzip -q test-worker.zip"
 const ACTIONS_READ = "\n      actions: read\n"
 const JOBS_WITH_ACTIONS_READ = 4
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
@@ -217,7 +219,7 @@ describe(E2E_WORKFLOW, () => {
     expect(build).toContain("git tag --list | LC_ALL=C sort > test-worker.tags")
     expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test test-worker.tags")
     expect(build).toContain(TEST_WORKER_ARTIFACT)
-    expect(shard).toContain(TEST_WORKER_ARTIFACT)
+    expect(shard).toContain(BUILD_ARTIFACT)
     expect(shard).not.toContain("build:test")
   })
 
@@ -231,7 +233,14 @@ describe(E2E_WORKFLOW, () => {
     expect(shard).toContain(`BUILD_STEP: ${BUILD_STEP}`)
     expect(shard).toContain(WAIT_FOR_BUILD)
     expect(shard.indexOf("bunx playwright install")).toBeLessThan(shard.indexOf(WAIT_FOR_BUILD))
-    expect(shard.indexOf(WAIT_FOR_BUILD)).toBeLessThan(shard.indexOf(TEST_WORKER_ARTIFACT))
+    expect(shard.indexOf(WAIT_FOR_BUILD)).toBeLessThan(shard.indexOf(UNZIP_BUILD))
+  })
+
+  it("has the wait download the build itself, so no other step can ask for it before GitHub serves it", () => {
+    const shard = jobOf(E2E, "shard")
+
+    expect(shard).not.toContain("actions/download-artifact")
+    expect(shard).toContain("rm test-worker.zip test-worker.tar.zst test-worker.tags")
   })
 
   it("gives only the shards actions: read, which the wait needs to read the run's jobs, and every caller grants it", () => {

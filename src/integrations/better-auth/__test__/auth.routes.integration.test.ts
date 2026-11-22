@@ -1,22 +1,34 @@
 import { QueryClient } from "@tanstack/react-query"
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors"
 import { ROLE_CODES, type Role } from "~/src/integrations/better-auth/auth.roles"
-import { redirectAfterAuth, redirectIfSignedIn, requireAdmin, requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
+import {
+  recheckRefusedSession,
+  redirectAfterAuth,
+  redirectIfSignedIn,
+  requireAdmin,
+  requireSignedIn,
+} from "~/src/integrations/better-auth/auth.routes"
 import { type getCurrentSession, getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
-import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
+import { SESSION_QUERY_KEYS, SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
 
 import { starCountQuery } from "~/src/lib/github"
 
 const getSession = vi.hoisted(() => vi.fn<typeof getCurrentSession>())
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const original = await importOriginal()
-  return { ...original, getCurrentSessionQuery: { ...original.getCurrentSessionQuery, queryFn: getSession } }
+  return {
+    ...original,
+    getCurrentSessionQuery: { ...original.getCurrentSessionQuery, queryFn: getSession },
+    recheckSessionQuery: { ...original.recheckSessionQuery, queryFn: getSession },
+  }
 })
 const routeContext = () => ({ context: { queryClient: new QueryClient() } })
 const protectedPageContext = (publicHref = "/app") => ({ ...routeContext(), location: { publicHref } })
@@ -24,6 +36,12 @@ const authPageContext = (search: AuthSearch = {}) => ({ ...routeContext(), searc
 beforeEach(() => {
   getSession.mockReset()
 })
+afterEach(() => {
+  vi.useRealTimers()
+})
+const outliveTheCachedSession = (): void => {
+  vi.useFakeTimers({ now: Date.now() + SESSION_STALE_TIME_MS + 1 })
+}
 const session = (role: Role) => getSession.mockResolvedValue(createAuthSessionFixture({ role }))
 const signedOut = () => getSession.mockResolvedValue(null)
 
@@ -67,20 +85,30 @@ describe("route authorization and locale handling", () => {
     session(role)
     await expect(redirectIfSignedIn(authPageContext())).rejects.toHaveProperty("options", expect.objectContaining({ replace: true, to }))
   })
-  it("rechecks a cached admin session and rejects it after revocation", async () => {
+  it("admits navigations on the cached session while it is fresh, without asking the server again", async () => {
+    const context = protectedPageContext()
+    session(ROLE_CODES.ADMIN)
+    await requireAdmin(context)
+    await requireAdmin(context)
+    await requireAdmin(context)
+    expect(getSession).toHaveBeenCalledOnce()
+  })
+  it("rechecks a cached admin session once it is stale and rejects it after revocation", async () => {
     const context = protectedPageContext()
     session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
     signedOut()
+    outliveTheCachedSession()
     await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
     expect(getSession).toHaveBeenCalledTimes(2)
   })
-  it("rechecks roles instead of trusting a cached admin role", async () => {
+  it("rechecks a stale admin role instead of trusting it", async () => {
     const context = protectedPageContext()
     session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
     session(ROLE_CODES.CUSTOMER)
+    outliveTheCachedSession()
     await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/app")
   })
   it("shares an in-flight session check and caches it for page consumers", async () => {
@@ -94,16 +122,12 @@ describe("route authorization and locale handling", () => {
     expect(getSession).toHaveBeenCalledOnce()
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toEqual(currentSession)
   })
-  it("reuses the session for link preloads but rechecks before actual navigation", async () => {
-    const context = protectedPageContext()
-    session(ROLE_CODES.ADMIN)
-    await requireAdmin(context)
-    await requireAdmin({ ...context, preload: true })
-    await requireAdmin({ ...context, preload: true })
-    expect(getSession).toHaveBeenCalledOnce()
-
+  it("rechecks the session after a sign-in even while the cached one is fresh", async () => {
+    const context = authPageContext()
     signedOut()
-    await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
+    await redirectIfSignedIn(context)
+    session(ROLE_CODES.CUSTOMER)
+    await expect(redirectAfterAuth(context)).rejects.toHaveProperty("options.to", "/app")
     expect(getSession).toHaveBeenCalledTimes(2)
   })
   it("keeps server failures as errors instead of granting access or looping through sign-in", async () => {
@@ -160,6 +184,7 @@ describe("cached data when the visitor changes", () => {
     await requireSignedIn(context)
     await fillCache(context.context.queryClient)
     signedOut()
+    outliveTheCachedSession()
     await expect(requireSignedIn(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
     expectOnlyPublicData(context.context.queryClient)
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
@@ -171,6 +196,7 @@ describe("cached data when the visitor changes", () => {
     await fillCache(context.context.queryClient)
     const nextSession = createAuthSessionFixture({ userId: "another-customer" })
     getSession.mockResolvedValue(nextSession)
+    outliveTheCachedSession()
     await expect(requireSignedIn(context)).resolves.toEqual({ session: nextSession })
     expectOnlyPublicData(context.context.queryClient)
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toEqual(nextSession)
@@ -180,6 +206,7 @@ describe("cached data when the visitor changes", () => {
     session(ROLE_CODES.CUSTOMER)
     await requireSignedIn(context)
     await fillCache(context.context.queryClient)
+    outliveTheCachedSession()
     await requireSignedIn(context)
     expect(context.context.queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toEqual([{ id: "previous-session" }])
     expect(context.context.queryClient.getMutationCache().getAll()).toHaveLength(1)
@@ -215,5 +242,72 @@ describe("return path through authentication", () => {
       "options",
       expect.objectContaining({ search: { redirect: "/app/settings" }, to: "/auth/sign-in" }),
     )
+  })
+})
+
+const guardedRouter = () => ({ invalidate: vi.fn<() => Promise<void>>().mockResolvedValue(undefined), isServer: false })
+
+const signedInContext = async (role: Role) => {
+  const context = protectedPageContext("/admin/courses")
+  session(role)
+  await requireSignedIn(context)
+  return context
+}
+
+describe("a server function that refuses the cached session", () => {
+  it("runs the guards again when the session has ended, and they send the visitor to sign in with the expired notice", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const { queryClient } = context.context
+    queryClient.setQueryData(SESSION_QUERY_KEYS.ACTIVE, [{ id: "previous-session" }])
+    const watched = guardedRouter()
+    signedOut()
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.UNAUTHORIZED), queryClient, router: watched })
+    expect(watched.invalidate).toHaveBeenCalledOnce()
+    await expect(requireAdmin(context)).rejects.toHaveProperty(
+      "options",
+      expect.objectContaining({ search: { error: SESSION_EXPIRED_CODE, redirect: "/admin/courses" }, to: "/auth/sign-in" }),
+    )
+    expect(queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toBeUndefined()
+  })
+  it("runs the guards again when the account lost the role a page needs", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const watched = guardedRouter()
+    session(ROLE_CODES.CUSTOMER)
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.FORBIDDEN), queryClient: context.context.queryClient, router: watched })
+    expect(watched.invalidate).toHaveBeenCalledOnce()
+    await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/app")
+  })
+  it("leaves the page alone when the session is unchanged, so a refusal can never loop", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const watched = guardedRouter()
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.FORBIDDEN), queryClient: context.context.queryClient, router: watched })
+    expect(getSession).toHaveBeenCalledTimes(2)
+    expect(watched.invalidate).not.toHaveBeenCalled()
+    await requireAdmin(context)
+    expect(getSession).toHaveBeenCalledTimes(2)
+  })
+  it("keeps the session the page has when the recheck itself fails", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const watched = guardedRouter()
+    getSession.mockRejectedValue(new Error("Session service unavailable"))
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.UNAUTHORIZED), queryClient: context.context.queryClient, router: watched })
+    expect(watched.invalidate).not.toHaveBeenCalled()
+    await expect(requireAdmin(context)).resolves.toHaveProperty("session.user.role", ROLE_CODES.ADMIN)
+  })
+  it("ignores every other error", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const watched = guardedRouter()
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.INTERNAL_ERROR), queryClient: context.context.queryClient, router: watched })
+    await recheckRefusedSession({ error: "not an error", queryClient: context.context.queryClient, router: watched })
+    expect(getSession).toHaveBeenCalledOnce()
+    expect(watched.invalidate).not.toHaveBeenCalled()
+  })
+  it("does nothing while rendering on the server, where the guards have just checked the session", async () => {
+    const context = await signedInContext(ROLE_CODES.ADMIN)
+    const watched = { ...guardedRouter(), isServer: true }
+    signedOut()
+    await recheckRefusedSession({ error: new Error(ERROR_CODES.UNAUTHORIZED), queryClient: context.context.queryClient, router: watched })
+    expect(getSession).toHaveBeenCalledOnce()
+    expect(watched.invalidate).not.toHaveBeenCalled()
   })
 })

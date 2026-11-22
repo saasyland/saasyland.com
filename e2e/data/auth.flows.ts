@@ -165,7 +165,7 @@ export const AUTH_FLOWS = [
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "auth-journeys.spec.ts", title: "signing in again › says a session ended and names the page it returns to" },
-      { spec: "auth-routing.spec.ts", title: "client navigation rechecks an ended session despite cached workspace data" },
+      { spec: "auth-routing.spec.ts", title: "a client navigation once the cached session is stale rechecks an ended session despite cached workspace data" },
     ],
   },
   {
@@ -483,6 +483,16 @@ export const AUTH_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-instant-navigation",
+    outcome:
+      "An admin opens a console page they opened before without waiting for the server: while the cached session is fresh the click needs no session check and no server function",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "admin-navigation.spec.ts", title: "an admin opens every console page again without a request, so returning to a page waits for nothing" },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
     id: "admin-dashboard-refused",
     outcome: "A customer who opens /admin is sent to the workspace and sees none of the dashboard's figures",
     status: FLOW_STATUS.COVERED,
@@ -575,13 +585,14 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.SECURITY,
     id: "account-switch-clears-data",
-    outcome: "After another account signs in, in the same tab or after signing out, no page shows the previous account's licence or email",
+    outcome:
+      "After another account signs in, no page shows the previous account's licence or email: a sign-in in the same tab or after signing out clears it at once, one in another tab at the first navigation once the cached session is stale",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "license.spec.ts",
         title:
-          "cached data when the account changes › a client navigation after another account signs in shows that account's licence, not the previous one's",
+          "cached data when the account changes › a client navigation once the cached session is stale after another account signs in shows that account's licence, not the previous one's",
       },
       {
         spec: "license.spec.ts",
@@ -592,9 +603,13 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.SECURITY,
     id: "ended-session-recheck",
-    outcome: "A client navigation after the session ended elsewhere leads to sign-in and shows none of the account's data",
+    outcome:
+      "After the session ended elsewhere, the first server function that refuses it or a client navigation once the cached session is stale leads to sign-in and shows none of the account's data",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth-routing.spec.ts", title: "client navigation rechecks an ended session despite cached workspace data" }],
+    tests: [
+      { spec: "auth-routing.spec.ts", title: "a client navigation once the cached session is stale rechecks an ended session despite cached workspace data" },
+      { spec: "admin-navigation.spec.ts", title: "an admin whose session ended elsewhere is sent to sign-in by the first server function that refuses it" },
+    ],
   },
   {
     area: FLOW_AREA.SECURITY,

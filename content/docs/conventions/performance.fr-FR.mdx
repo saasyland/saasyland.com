@@ -136,6 +136,23 @@ La page d'accueil n'est pas plus lente. Lighthouse sur `/`, sur un build `bun ru
 
 `e2e/specs/navigation.spec.ts` attend la fin des préchargements de l'en-tête sur `/` et sur `/docs`, retient toutes les fonctions serveur et clique sur chaque lien de l'en-tête, sur ordinateur et dans le menu du téléphone ; chaque page s'ouvre quand même. Il vérifie aussi que, pour un visiteur qui a activé l'économiseur de données, rien n'est chargé avant un clic.
 
+## Les guards réutilisent la session en cache [#guards-reuse-the-cached-session]
+
+TanStack Router exécute le `beforeLoad` d'un layout à chaque navigation en dessous et ne lance les loaders qu'une fois qu'il a fini. `requireSignedIn` et `requireAdmin` lisaient `getCurrentSessionQuery` avec `staleTime: 0`, donc chaque clic dans `/app` et `/admin`, même pour revenir à une page déjà ouverte, attendait une requête de session avant que les requêtes de la page puissent commencer. Sur saasyland.com, cette requête prenait 60 à 70 ms de chaque clic de 190 à 300 ms dans la barre latérale de l'admin.
+
+Les guards lisent désormais la session avec son propre délai de péremption, `SESSION_STALE_TIME_MS` (<RepositoryFact name="sessionStaleTimeMinutes" unit="minute" />) : une session fraîche laisse passer la navigation sans requête, et une session périmée est récupérée à nouveau avant le chargement de la page. Les guards décident seulement de ce que voit le visiteur ; chaque fonction serveur vérifie toujours la session de sa propre requête (voir [Authentification et sécurité](/docs/architecture/security-model)). Pour qu'une session terminée soit tout de même remarquée aussitôt, `getRouter` donne à son `QueryCache` et à son `MutationCache` un même `onError`. Quand une fonction serveur répond `UNAUTHORIZED` ou `FORBIDDEN`, `recheckRefusedSession` récupère la session dans une entrée de cache à part ; si l'utilisateur ou le rôle a changé, il marque la session en cache comme périmée et réexécute les guards avec `router.invalidate()`, qui envoient le visiteur vers la connexion avec l'avis que sa session a pris fin, ou un ancien admin vers `/app`. Une session inchangée laisse la page tranquille, si bien qu'un refus ne boucle jamais.
+
+Mesuré sur un build `bun run build:test` servi par `bun run start:test`, dans Chromium avec 40 ms de latence ajoutée par requête, connecté en tant qu'admin du seed, en 2 tours entrelacés de 5 exécutions par build. Chaque exécution a ouvert `/admin` puis chaque entrée de la barre latérale deux fois, le pointeur restant 250 ms sur l'entrée avant l'appui ; un clic est mesuré de l'appui à la première image après que le routeur a rendu la page. Chaque cellule donne la médiane sur toutes les entrées et, entre parenthèses, l'étendue :
+
+| Mesure                                                           | Avant                         | Après                                  |
+| ---------------------------------------------------------------- | ----------------------------- | -------------------------------------- |
+| De l'appui à la page, première visite                            | 209 ms (83–1 206)             | 156 ms (41–647)                        |
+| De l'appui à la page, visite de retour                           | 68 ms (49–406)                | 18 ms (11–56)                          |
+| Requêtes de session par clic                                     | 1, 2 pour **User Management** | aucune tant que la session est fraîche |
+| Requêtes de fonctions serveur attendues par une visite de retour | 1–2                           | 0                                      |
+
+`e2e/specs/admin-navigation.spec.ts` vérifie que chaque page de la console s'ouvre une deuxième fois sans requête, et qu'une session terminée ailleurs mène à la connexion dès la première fonction serveur qui la refuse.
+
 ## Gardez l'ORM hors du navigateur [#keep-the-orm-out-of-the-browser]
 
 Drizzle ne s'exécute que dans le Worker. Le navigateur a besoin des schémas Zod d'un module pour ses formulaires et de ses tuples d'enum pour ses listes déroulantes : les deux se trouvent donc dans des fichiers qui n'importent rien de Drizzle, `<table>.zod.ts` et `<table>.constants.ts` (voir [Modules](/docs/conventions/modules)). Un import du navigateur qui atteint un `<table>.schema.ts` exécute `sqliteTable(...)`, un appel que le bundler doit conserver, et entraîne `drizzle-orm` avec lui.

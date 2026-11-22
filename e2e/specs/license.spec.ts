@@ -5,6 +5,7 @@ import { TIER_PRICES } from "../../src/data/marketing"
 import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "../../src/data/polar"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
+import { SESSION_STALE_TIME_MS } from "../../src/modules/session/session.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE, TEST_LICENSED_ACCOUNT, TEST_UNLICENSED_ORDER } from "../data/licenses"
 import { TEST_POLAR } from "../data/polar-settings"
@@ -119,12 +120,13 @@ test("admin finds a paid licence order without a licence on the dashboard, linke
 })
 
 test.describe("cached data when the account changes", () => {
-  test("a client navigation after another account signs in shows that account's licence, not the previous one's", async ({
+  test("a client navigation once the cached session is stale after another account signs in shows that account's licence, not the previous one's", async ({
     appPage,
     baseURL,
     page,
   }) => {
     const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
+    await page.clock.install()
     const licensedSignIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
       headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
@@ -142,6 +144,7 @@ test.describe("cached data when the account changes", () => {
       headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(customerSignIn.ok()).toBe(true)
+    await page.clock.fastForward(SESSION_STALE_TIME_MS)
     await navigation.getByRole("link", { name: "Licence", exact: true }).click()
     await expect(page).toHaveURL("/app/license")
     await appPage.waitForAppReady()

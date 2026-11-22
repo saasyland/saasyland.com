@@ -569,7 +569,7 @@ export const LICENSE_FLOWS = [
       {
         spec: "license.spec.ts",
         title:
-          "cached data when the account changes › a client navigation after another account signs in shows that account's licence, not the previous one's",
+          "cached data when the account changes › a client navigation once the cached session is stale after another account signs in shows that account's licence, not the previous one's",
       },
     ],
   },

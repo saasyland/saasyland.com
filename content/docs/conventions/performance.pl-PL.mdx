@@ -136,6 +136,23 @@ Strona główna nie jest wolniejsza. Lighthouse na `/`, na buildzie `bun run bui
 
 `e2e/specs/navigation.spec.ts` czeka, aż wstępne ładowanie nagłówka zakończy się na `/` i na `/docs`, wstrzymuje wszystkie funkcje serwerowe i klika każdy link nagłówka, na komputerze i w menu na telefonie; każda strona i tak się otwiera. Sprawdza też, że dla odwiedzających z włączonym oszczędzaniem danych nic nie jest ładowane przed kliknięciem.
 
+## Guardy używają sesji z cache [#guards-reuse-the-cached-session]
+
+TanStack Router uruchamia `beforeLoad` layoutu przy każdej nawigacji poniżej niego i uruchamia loadery dopiero, gdy się zakończy. `requireSignedIn` i `requireAdmin` czytały dotąd `getCurrentSessionQuery` ze `staleTime: 0`, więc każde kliknięcie w `/app` i `/admin`, nawet powrót do już otwartej strony, czekało na zapytanie o sesję, zanim mogły ruszyć zapytania samej strony. Na saasyland.com to zapytanie zajmowało 60–70 ms z każdego kliknięcia w pasku bocznym panelu admina, trwającego 190–300 ms.
+
+Guardy czytają teraz sesję z jej własnym czasem świeżości, `SESSION_STALE_TIME_MS` (<RepositoryFact name="sessionStaleTimeMinutes" unit="minute" />): świeża sesja przepuszcza nawigację bez zapytania, a nieświeża jest pobierana ponownie, zanim strona się załaduje. Guardy decydują tylko o tym, co widzi odwiedzający; każda funkcja serwerowa nadal sprawdza sesję własnego zapytania (zobacz [Uwierzytelnianie i bezpieczeństwo](/docs/architecture/security-model)). Żeby zakończona sesja i tak została zauważona od razu, `getRouter` daje swoim `QueryCache` i `MutationCache` jeden wspólny `onError`. Gdy funkcja serwerowa odpowie `UNAUTHORIZED` lub `FORBIDDEN`, `recheckRefusedSession` pobiera sesję do osobnego wpisu w cache; jeśli zmienił się użytkownik albo rola, oznacza sesję z cache jako nieświeżą i uruchamia guardy ponownie przez `router.invalidate()`, a te wysyłają odwiedzającego do logowania z informacją, że sesja się zakończyła, albo byłego admina do `/app`. Niezmieniona sesja zostawia stronę w spokoju, więc odmowa nigdy się nie zapętla.
+
+Zmierzone na buildzie `bun run build:test` serwowanym przez `bun run start:test`, w Chromium z 40 ms dodatkowego opóźnienia na zapytanie, po zalogowaniu jako admin z seeda, w 2 przeplatanych rundach po 5 przebiegów na build. Każdy przebieg otwierał `/admin`, a potem każdą pozycję paska bocznego dwa razy, z kursorem na pozycji przez 250 ms przed naciśnięciem; kliknięcie mierzono od naciśnięcia do pierwszej klatki po tym, jak router wyrenderował stronę. Każda komórka podaje medianę ze wszystkich pozycji, a w nawiasie zakres:
+
+| Pomiar                                                  | Przed                        | Po                                |
+| ------------------------------------------------------- | ---------------------------- | --------------------------------- |
+| Od naciśnięcia do strony, pierwsza wizyta               | 209 ms (83–1206)             | 156 ms (41–647)                   |
+| Od naciśnięcia do strony, powrót                        | 68 ms (49–406)               | 18 ms (11–56)                     |
+| Zapytania o sesję na kliknięcie                         | 1, 2 dla **User Management** | żadnych, dopóki sesja jest świeża |
+| Zapytania do funkcji serwerowych, na które czeka powrót | 1–2                          | 0                                 |
+
+`e2e/specs/admin-navigation.spec.ts` sprawdza, że każda strona konsoli otwiera się drugi raz bez zapytania i że sesja zakończona gdzie indziej prowadzi do logowania przy pierwszej funkcji serwerowej, która ją odrzuci.
+
 ## ORM poza przeglądarką [#keep-the-orm-out-of-the-browser]
 
 Drizzle działa tylko w Workerze. Przeglądarka potrzebuje schematów Zod modułu do formularzy i jego krotek enumów do list rozwijanych, więc jedne i drugie znajdują się w plikach, które nie importują niczego z Drizzle: `<table>.zod.ts` i `<table>.constants.ts` (zobacz [Moduły](/docs/conventions/modules)). Import w przeglądarce, który dociera do pliku `<table>.schema.ts`, wykonuje `sqliteTable(...)`, czyli wywołanie, które bundler musi zachować, i ciągnie za sobą `drizzle-orm`.

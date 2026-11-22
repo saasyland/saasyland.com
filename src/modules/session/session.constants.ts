@@ -4,6 +4,7 @@ export const SESSION_QUERY_KEYS = {
   ACTIVE: ["session", "getActiveSessions"],
   ALL: ["session"],
   CURRENT: ["session", "getCurrentSession"],
+  RECHECK: ["session", "recheckCurrentSession"],
   USER: ["session", "listUserSessions"],
 } as const
 
@@ -13,3 +14,5 @@ export const SESSION_MUTATION_KEYS = {
   REVOKE_USER: ["session", "revokeUserSession"],
   REVOKE_USER_SESSIONS: ["session", "revokeUserSessions"],
 } as const
+
+export const SESSION_STALE_TIME_MS = 60_000

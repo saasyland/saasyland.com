@@ -5,7 +5,7 @@ import { getSessionCookie } from "better-auth/cookies"
 
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
+import { SESSION_QUERY_KEYS, SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
 
 import { APP_SLUG } from "~/src/presentation/branding"
 
@@ -14,8 +14,6 @@ declare module "@tanstack/react-query" {
     queryMeta: { public?: true }
   }
 }
-
-const SESSION_STALE_TIME_MS = 60_000
 
 const requestSessions = new WeakMap<Request, ReturnType<typeof auth.api.getSession>>()
 
@@ -45,6 +43,14 @@ export const getCurrentSessionQuery = queryOptions({
   refetchOnWindowFocus: false,
   retry: false,
   staleTime: SESSION_STALE_TIME_MS,
+})
+
+export const recheckSessionQuery = queryOptions({
+  gcTime: 0,
+  queryFn: () => getCurrentSession(),
+  queryKey: SESSION_QUERY_KEYS.RECHECK,
+  retry: false,
+  staleTime: 0,
 })
 
 export const hasSessionCookie = createIsomorphicFn()

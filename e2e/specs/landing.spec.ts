@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
+import { BADGE_INK_TOLERANCE_PX, META_ROW_TOLERANCE_PX, TITLE_GAP_TOLERANCE_PX, badgeLayout } from "../fixtures/badge-layout"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -15,6 +16,12 @@ const LAYOUT_SHIFTS_KEY = "__layoutShifts"
 const COURSES_FAILED_TIMEOUT_MS = 20_000
 const NO_COURSES = /^No course is published yet/u
 const SHOWCASE_FIELD = '"lessonCount"'
+const META_GAP_PX = 8
+const BADGE_VIEWPORTS = [
+  { height: 900, width: 1280 },
+  { height: 1024, width: 768 },
+  { height: 844, width: 390 },
+] as const
 
 const COURSE_BLOCK_VIEWPORTS = [
   { maxEmptyLines: 1, name: "desktop", viewport: { height: 720, width: 1280 } },
@@ -157,6 +164,32 @@ test.describe("landing page", () => {
     await tile.getByRole("link", { name: new RegExp(`^${freeLesson.title["en-US"]}`, "u") }).click()
     await expect(page).toHaveURL(`/courses/${TEST_COURSE.slug}/${freeLesson.slug}`)
     await expect(page.getByRole("heading", { level: 1, name: freeLesson.title["en-US"] })).toBeVisible()
+  })
+
+  test("each lesson in the course showcase centres its badge's label on one line with its length, the same gap below its title", async ({
+    landingPage,
+    page,
+  }) => {
+    for (const viewport of BADGE_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      await landingPage.goto()
+      const showcase = landingPage.courseShowcase()
+      await showcase.scrollIntoViewIfNeeded()
+      await expect(showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })).toBeVisible()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+
+      const layout = await badgeLayout(showcase)
+      const label = `${String(viewport.width)}px`
+      expect(layout.badges, label).toBeGreaterThan(0)
+      expect(layout.inkOffset, label).toBeLessThanOrEqual(BADGE_INK_TOLERANCE_PX)
+      expect(layout.metaDrift, label).toBeLessThanOrEqual(META_ROW_TOLERANCE_PX)
+      expect(layout.titleGaps.length, label).toBeGreaterThan(0)
+      for (const gap of layout.titleGaps) {
+        expect(Math.abs(gap - META_GAP_PX), label).toBeLessThanOrEqual(TITLE_GAP_TOLERANCE_PX)
+      }
+    }
   })
 
   test("course tour plays in place from its poster", async ({ landingPage }) => {

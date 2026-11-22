@@ -9,16 +9,14 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localize } from "~/src/modules/_core/utils/localized-text"
-import { COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
 import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
-
-import { cn } from "~/src/lib/cn"
+import { COURSE_STATUS_BADGES } from "~/src/data/course-badges"
 
 import {
   AlertDialog,
@@ -63,19 +61,8 @@ const KindCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Course
 
 const StatusCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, CourseRow["status"]>): JSX.Element => {
   const t = useTranslations("pages.admin.courses.form.statuses")
-  const status = getValue()
 
-  return (
-    <Badge
-      className={cn("px-2 py-1 text-label", {
-        [ADMIN_STATUS_BADGE_CLASSES.emerald]: status === COURSE_STATUS.PUBLISHED,
-        [ADMIN_STATUS_BADGE_CLASSES.neutral]: status === COURSE_STATUS.DRAFT,
-      })}
-      variant="outline"
-    >
-      {t(status)}
-    </Badge>
-  )
+  return <Badge variant={COURSE_STATUS_BADGES[getValue()]}>{t(getValue())}</Badge>
 }
 
 const LessonsCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, number>): JSX.Element => (

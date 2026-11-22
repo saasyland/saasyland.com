@@ -8,6 +8,7 @@ import type { Course } from "~/src/modules/course/course.types"
 
 import { cn } from "~/src/lib/cn"
 
+import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
@@ -34,13 +35,9 @@ export const CourseBadges = ({
   const t = useTranslations("pages.courses")
 
   return (
-    <p className={cn("flex flex-wrap gap-2 text-spec font-medium", className)}>
-      <span className="rounded-md border border-ring/40 bg-background/80 px-2.5 py-1 text-ring backdrop-blur-sm">
-        {t(`kinds.${course.kind}`)}
-      </span>
-      <span className="rounded-md border border-border bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm">
-        {t(`levels.${course.level}`)}
-      </span>
+    <p className={cn("flex flex-wrap gap-2", className)}>
+      <Badge variant="accent">{t(`kinds.${course.kind}`)}</Badge>
+      <Badge>{t(`levels.${course.level}`)}</Badge>
     </p>
   )
 }
@@ -98,7 +95,7 @@ export const CourseCard = ({ course }: { readonly course: CatalogueCourse }): JS
   <Link className={cn(CARD_CLASSNAME, "h-full flex-col")} params={{ course: course.slug }} to="/courses/$course">
     <div className="relative overflow-hidden border-b border-border">
       <CourseCover className={COVER_CLASSNAME} course={course} isDecorative sizes={CARD_SIZES} />
-      <CourseBadges className="absolute bottom-4 left-4" course={course} />
+      <CourseBadges className="absolute bottom-4 left-4 gap-1 rounded-lg bg-background/85 p-1 backdrop-blur-sm" course={course} />
     </div>
     <div className="flex flex-1 flex-col p-6 md:p-8">
       <h2 className="text-headline-support text-balance text-foreground">{course.title}</h2>

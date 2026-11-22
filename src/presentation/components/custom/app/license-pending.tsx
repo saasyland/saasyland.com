@@ -169,7 +169,7 @@ const LicenseStatusCardPending = (): JSX.Element => (
       <Skeleton className="h-lh w-28 scale-y-70 text-base leading-snug" />
       <Skeleton className="h-lh w-72 max-w-full scale-y-70 text-sm" />
       <CardAction>
-        <Skeleton className="h-5 w-14 rounded-md" />
+        <Skeleton className="h-5.5 w-14 rounded-md" />
       </CardAction>
     </CardHeader>
     <CardContent className="flex flex-wrap items-center justify-between gap-4">

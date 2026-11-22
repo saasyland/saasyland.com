@@ -2,14 +2,14 @@ import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import type { OrderStatus } from "~/src/modules/order/order.constants"
 
-import type { AdminStatusColor } from "~/src/data/admin"
+import type { BadgeVariant } from "~/src/presentation/components/shadcn/badge"
 
-export const ORDER_STATUS_COLORS: Record<OrderStatus, AdminStatusColor> = {
+export const ORDER_STATUS_BADGES: Record<OrderStatus, BadgeVariant> = {
   [POLAR_ORDER_STATUS.DRAFT]: "neutral",
-  [POLAR_ORDER_STATUS.PAID]: "emerald",
-  [POLAR_ORDER_STATUS.PARTIALLY_REFUNDED]: "amber",
-  [POLAR_ORDER_STATUS.PENDING]: "amber",
-  [POLAR_ORDER_STATUS.REFUNDED]: "rose",
+  [POLAR_ORDER_STATUS.PAID]: "accent",
+  [POLAR_ORDER_STATUS.PARTIALLY_REFUNDED]: "warning",
+  [POLAR_ORDER_STATUS.PENDING]: "warning",
+  [POLAR_ORDER_STATUS.REFUNDED]: "destructive",
   [POLAR_ORDER_STATUS.VOID]: "neutral",
 }
 

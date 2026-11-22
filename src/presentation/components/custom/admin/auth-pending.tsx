@@ -38,7 +38,7 @@ const DashboardUserRowPending = (): JSX.Element => (
       </div>
     </TableCell>
     <TableCell>
-      <Skeleton className="h-5 w-18 rounded-md" />
+      <Skeleton className="h-5.5 w-18 rounded-md" />
     </TableCell>
     <TableCell>
       <div className="flex items-center gap-2 text-spec">
@@ -165,7 +165,7 @@ const UserRowPending = (): JSX.Element => (
       <Skeleton className="h-lh w-14 scale-y-70" />
     </TableCell>
     <TableCell>
-      <Skeleton className="h-5 w-13 rounded-md" />
+      <Skeleton className="h-5.5 w-13 rounded-md" />
     </TableCell>
     <TableCell>
       <Skeleton className="h-lh w-7 scale-y-70" />

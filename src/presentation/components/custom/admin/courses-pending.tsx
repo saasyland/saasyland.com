@@ -144,8 +144,8 @@ export const AdminCourseEditorPending = (): JSX.Element => (
                     <Skeleton className="mt-0.5 h-lh w-2/5 scale-y-70 text-spec" />
                   </div>
                   <div className="col-start-2 flex items-center gap-1.5">
-                    <Skeleton className="h-5 w-24 rounded-md" />
-                    <Skeleton className="h-5 w-16 rounded-md" />
+                    <Skeleton className="h-5.5 w-24 rounded-md" />
+                    <Skeleton className="h-5.5 w-16 rounded-md" />
                   </div>
                 </div>
               ))}

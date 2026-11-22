@@ -16,10 +16,6 @@ import { replaceLessonVideoMutation } from "~/src/modules/lesson/use-cases/repla
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { useVideoLabel, useVideoLibrary } from "~/src/hooks/use-video-library"
 
-import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
-
-import { cn } from "~/src/lib/cn"
-
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
@@ -36,15 +32,8 @@ const CurrentVideo = ({ video }: { readonly video: Course["editorLesson"]["video
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
       <p className="text-sm font-medium text-foreground">{video === null ? t("none") : videoLabel(video)}</p>
-      <Badge
-        className={cn("self-start", {
-          [ADMIN_STATUS_BADGE_CLASSES.amber]: recording,
-          [ADMIN_STATUS_BADGE_CLASSES.emerald]: !recording,
-        })}
-        variant="outline"
-      >
-        {t(recording ? "recording" : "playable")}
-      </Badge>
+      {recording && <Badge variant="warning">{t("recording")}</Badge>}
+      {!recording && <Badge variant="accent">{t("playable")}</Badge>}
     </div>
   )
 }

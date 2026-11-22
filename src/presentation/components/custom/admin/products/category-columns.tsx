@@ -1,22 +1,22 @@
 import type { JSX } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { Eye, EyeOff } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CATEGORY_KIND, type CATEGORY_KINDS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 
-import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
-
-import { cn } from "~/src/lib/cn"
-
-import { Badge } from "~/src/presentation/components/shadcn/badge"
+import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/badge"
 
 import { ItemName } from "~/src/presentation/components/custom/admin/products/product-columns"
 import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type CategoryRow = Category["select"]
+
+const VISIBILITY_BADGES: Record<CategoryRow["visibility"], BadgeVariant> = {
+  [CATEGORY_VISIBILITY.HIDDEN]: "neutral",
+  [CATEGORY_VISIBILITY.PUBLIC]: "accent",
+}
 
 type CategoryKind = (typeof CATEGORY_KINDS)[number]
 
@@ -38,21 +38,8 @@ const CategoryHeader = ({ id }: { readonly id: "lastUpdated" | "visibility" }): 
 
 const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, CategoryRow["visibility"]>): JSX.Element => {
   const t = useTranslations("pages.admin.products.table.visibilityLabels")
-  const visibility = getValue()
 
-  return (
-    <Badge
-      className={cn("px-2 py-1 text-label", {
-        [ADMIN_STATUS_BADGE_CLASSES.emerald]: visibility === CATEGORY_VISIBILITY.PUBLIC,
-        [ADMIN_STATUS_BADGE_CLASSES.neutral]: visibility === CATEGORY_VISIBILITY.HIDDEN,
-      })}
-      variant="outline"
-    >
-      {visibility === CATEGORY_VISIBILITY.PUBLIC && <Eye className="mr-1.5 size-3" />}
-      {visibility === CATEGORY_VISIBILITY.HIDDEN && <EyeOff className="mr-1.5 size-3" />}
-      {t(visibility)}
-    </Badge>
-  )
+  return <Badge variant={VISIBILITY_BADGES[getValue()]}>{t(getValue())}</Badge>
 }
 
 const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, Date>): JSX.Element => {

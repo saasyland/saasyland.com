@@ -9,10 +9,10 @@ const AREA = "payments"
 export const PAYMENTS_NAVIGATION = [
   {
     area: AREA,
-    group: ADMIN_NAVIGATION_GROUP.OFFERINGS,
+    group: ADMIN_NAVIGATION_GROUP.SALES,
     icon: ReceiptText,
     key: "orders",
-    order: 20,
+    order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_ORDERS,
   },

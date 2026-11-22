@@ -1,9 +1,12 @@
-import { cleanup, screen, within } from "@testing-library/react"
+import { cleanup, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "~/src/integrations/better-auth/auth.constants"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
@@ -14,12 +17,20 @@ import { Footer } from "~/src/presentation/components/custom/footer"
 
 import footerMessages from "~/messages/en-US/components.custom.footer.json"
 import newsletterFormMessages from "~/messages/en-US/components.custom.newsletter-form.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const pageLabel = getNavigationLabel("en-US")
 
 const facts = vi.hoisted(() => ({ buildYear: 0 }))
+
+const sessionRequest = vi.hoisted(() => vi.fn())
+
+vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
+})
 
 vi.mock(import("~/src/data/repository-facts"), async (importOriginal) => {
   const { REPOSITORY_FACTS } = await importOriginal()
@@ -121,5 +132,26 @@ describe("marketing footer", () => {
     facts.buildYear = year
     renderFooter()
     expect(screen.getByRole("contentinfo")).toHaveTextContent(expected)
+  })
+})
+
+describe("the footer for a signed-in visitor", () => {
+  afterEach(() => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+  })
+
+  it.each([
+    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
+    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
+  ])("leads a $role from its account link to $workspace instead of sign-in", async ({ role, workspace }) => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+    sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
+    renderFooter()
+    const footer = screen.getByRole("contentinfo")
+
+    await waitFor(() => {
+      expect(within(footer).getByRole("link", { name: navigationAuthMessages.footer.account })).toHaveAttribute("href", workspace)
+    })
+    expect(within(footer).queryByRole("link", { name: navigationAuthMessages.footer.signIn })).not.toBeInTheDocument()
   })
 })

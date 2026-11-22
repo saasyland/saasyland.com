@@ -40,11 +40,13 @@ export const ADMIN_NAVIGATION_GROUP = {
   CONTENT: "content",
   OFFERINGS: "offerings",
   OVERVIEW: "overview",
+  SALES: "sales",
 } as const
 
 export const ADMIN_NAVIGATION_GROUPS = [
   ADMIN_NAVIGATION_GROUP.OVERVIEW,
   ADMIN_NAVIGATION_GROUP.OFFERINGS,
+  ADMIN_NAVIGATION_GROUP.SALES,
   ADMIN_NAVIGATION_GROUP.CONTENT,
   ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
 ] as const
@@ -87,12 +89,13 @@ interface DashboardEntry extends Entry {
 interface FooterEntry extends Entry {
   readonly column: (typeof FOOTER_COLUMNS)[number]
   readonly placement: typeof NAVIGATION_PLACEMENT.FOOTER
+  readonly signedIn?: Pick<Entry, "key">
 }
 
 interface HeaderEntry extends Entry {
   readonly hash?: string
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
-  readonly signedIn?: Pick<Entry, "key" | "to">
+  readonly signedIn?: Pick<Entry, "key">
 }
 
 export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | DashboardEntry | FooterEntry | HeaderEntry

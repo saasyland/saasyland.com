@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
@@ -32,6 +33,7 @@ const PROFILE_LINKS = [
 export const Footer = (): JSX.Element => {
   const t = useTranslations("components.custom.footer")
   const navigationLabel = useNavigationLabel()
+  const workspace = useVisitorWorkspace()
 
   const { buildYear } = REPOSITORY_FACTS
   const years = buildYear > APP_FOUNDED_YEAR ? `${APP_FOUNDED_YEAR}–${buildYear}` : String(APP_FOUNDED_YEAR)
@@ -71,13 +73,17 @@ export const Footer = (): JSX.Element => {
                       </Link>
                     </li>
                   ))}
-                {column.links.map((link) => (
-                  <li key={link.key}>
-                    <Link className={LINK_CLASSNAME} to={link.to}>
-                      {navigationLabel(link)}
-                    </Link>
-                  </li>
-                ))}
+                {column.links.map((link) => {
+                  const { key, to } = signedInDestination(link, workspace)
+
+                  return (
+                    <li key={link.key}>
+                      <Link className={LINK_CLASSNAME} to={to}>
+                        {navigationLabel({ area: link.area, key, placement: link.placement })}
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}

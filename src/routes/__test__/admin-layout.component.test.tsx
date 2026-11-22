@@ -25,6 +25,8 @@ import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
+import { APP_NAME } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -36,6 +38,12 @@ describe("admin navigation", () => {
     renderAdminPage(AdminRoute.options.component, { path })
     expect(screen.getAllByRole("link", { name: navigationAuthMessages.admin.dashboard }).length).toBeGreaterThan(0)
     expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
+  })
+
+  it.each(["/admin", "/admin/orders"])("links the wordmark to the home page from %s", (path) => {
+    renderAdminPage(AdminRoute.options.component, { path })
+
+    expect(screen.getByRole("link", { name: APP_NAME })).toHaveAttribute("href", ROUTES.HOME)
   })
 
   it("leaves a sub-page out of the breadcrumbs when its area does not name it", () => {

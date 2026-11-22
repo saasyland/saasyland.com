@@ -51,7 +51,7 @@ export const AppSidebar = (): JSX.Element => {
         <Link
           className="flex h-9 items-center rounded-md px-2 transition-colors duration-200 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={closeMobile}
-          to={ROUTES.APP}
+          to={ROUTES.HOME}
         >
           <Wordmark />
         </Link>

@@ -8,8 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
-import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import {
+  createAuthSessionFixture,
+  createMissingAuthSessionResult,
+} from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "~/src/integrations/better-auth/auth.constants"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
@@ -407,16 +411,36 @@ describe("signed-in visitors", () => {
     document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
   })
 
-  it("asks a browser that has signed in before for its session, and offers its account instead of sign-in", async () => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
-    sessionRequest.mockResolvedValue(createAuthSessionFixture())
-    renderNavigation()
-    const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
+  it.each([
+    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
+    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
+  ])(
+    "asks a browser that has signed in before for its session, and leads a $role from its account link to $workspace",
+    async ({ role, workspace }) => {
+      document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
+      sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
+      renderNavigation()
+      const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
-    expect(await within(nav).findByRole("link", { name: accountLabel })).toHaveAttribute("href", ROUTES.APP)
-    expect(within(nav).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
-    await userEvent.setup({ delay: null }).click(menuButton())
-    expect(within(menu()).getByRole("link", { name: accountLabel })).toHaveAttribute("href", ROUTES.APP)
+      expect(await within(nav).findByRole("link", { name: accountLabel })).toHaveAttribute("href", workspace)
+      expect(within(nav).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
+      await userEvent.setup({ delay: null }).click(menuButton())
+      expect(within(menu()).getByRole("link", { name: accountLabel })).toHaveAttribute("href", workspace)
+      expect(within(menu()).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
+    },
+  )
+
+  it("keeps sign-in for a browser whose session has ended", async () => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+    sessionRequest.mockResolvedValue(createMissingAuthSessionResult())
+    renderNavigation()
+
+    await waitFor(() => {
+      expect(sessionRequest).toHaveBeenCalledOnce()
+    })
+    expect(
+      within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).getByRole("link", { name: signInLabel }),
+    ).toHaveAttribute("href", ROUTES.SIGN_IN)
   })
 
   it("keeps sign-in, and asks for no session, in a browser that has never signed in", () => {

@@ -7,7 +7,7 @@ import { executeQuery } from "~/src/platform/testing/lib/query"
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import * as AREA_PUBLIC_QUERIES from "~/src/integrations/better-auth/__test__/public-queries.entries"
 import { auth } from "~/src/integrations/better-auth/auth.server"
-import { getCurrentSessionQuery, getRequestSession } from "~/src/integrations/better-auth/auth.session"
+import { getCurrentSessionQuery, getRequestSession, recheckSessionQuery } from "~/src/integrations/better-auth/auth.session"
 
 const SOURCES = "src/**/*.{ts,tsx}"
 const UNSCANNED_SOURCES = /\/__test__\/|^src\/platform\/testing\//u
@@ -37,6 +37,15 @@ describe("current session query", () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
 
     await expect(executeQuery(getCurrentSessionQuery)).resolves.toBeNull()
+  })
+
+  it("rechecks through the same server function into an entry of its own that it keeps for no one", async () => {
+    vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/app"))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
+
+    await expect(executeQuery(recheckSessionQuery)).resolves.toBeNull()
+    expect(recheckSessionQuery.queryKey).not.toStrictEqual(getCurrentSessionQuery.queryKey)
+    expect(recheckSessionQuery).toMatchObject({ gcTime: 0, staleTime: 0 })
   })
 })
 

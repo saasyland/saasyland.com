@@ -1,6 +1,7 @@
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { SESSION_STALE_TIME_MS } from "../../src/modules/session/session.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
@@ -79,8 +80,14 @@ for (const account of TEST_ACCOUNTS) {
   })
 }
 
-test("client navigation rechecks an ended session despite cached workspace data", async ({ appPage, authPage, baseURL, page }) => {
+test("a client navigation once the cached session is stale rechecks an ended session despite cached workspace data", async ({
+  appPage,
+  authPage,
+  baseURL,
+  page,
+}) => {
   const customer = TEST_ACCOUNTS[1]
+  await page.clock.install()
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
     headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
@@ -90,6 +97,7 @@ test("client navigation rechecks an ended session despite cached workspace data"
   await appPage.waitForAppReady()
   const signedOut = await page.request.post("/api/auth/sign-out", { data: {}, headers: { Origin: new URL(page.url()).origin } })
   expect(signedOut.ok()).toBe(true)
+  await page.clock.fastForward(SESSION_STALE_TIME_MS)
   await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Settings", exact: true }).click()
   await expect(page).toHaveURL(
     (url) =>

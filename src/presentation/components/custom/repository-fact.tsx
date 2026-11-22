@@ -70,6 +70,7 @@ import {
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
+import { SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
 import { RESEND_COOLDOWN_SECONDS, VERIFICATION_POLL_MS } from "~/src/modules/verification/verification.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
@@ -253,6 +254,7 @@ const FACTS = {
   secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
   secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
+  sessionStaleTimeMinutes: SESSION_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   signedDownloadHours: LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS / SECONDS_PER_HOUR,
   signedMediaHours: PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR,
   slugMaxLength: SLUG_MAX_LENGTH,

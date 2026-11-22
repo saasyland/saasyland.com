@@ -9,11 +9,19 @@ import { runWithStartContext } from "@tanstack/start-storage-context"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 
+import { recheckRefusedSession } from "~/src/integrations/better-auth/auth.routes"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import { getRouter } from "~/src/router"
 
 const beforeLoad = vi.hoisted(() => vi.fn<() => void>())
+
+vi.mock(import("~/src/integrations/better-auth/auth.routes"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  recheckRefusedSession: vi.fn<typeof recheckRefusedSession>().mockResolvedValue(undefined),
+}))
 
 vi.mock(import("@tanstack/react-start/server"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -30,7 +38,10 @@ vi.mock("~/src/routeTree.gen", async () => {
   }
 })
 
-afterEach(() => beforeLoad.mockReset())
+afterEach(() => {
+  beforeLoad.mockReset()
+  vi.mocked(recheckRefusedSession).mockClear()
+})
 
 it("gives the router the nonce of the request it renders, so its scripts match the page's policy", () => {
   vi.mocked(getGlobalStartContext).mockImplementationOnce(readStartContext)
@@ -84,4 +95,23 @@ it("renders a translated root loading failure during SSR without private details
   expect(html).toContain("Something went wrong")
   expect(html).toContain("Reload")
   expect(html).not.toContain("private server failure")
+})
+
+it("hands every failed query and mutation to the session recheck with the router that runs the guards", async () => {
+  const router = getRouter()
+  const { queryClient } = router.options.context
+  const refused = new Error(ERROR_CODES.UNAUTHORIZED)
+
+  await expect(queryClient.query({ queryFn: () => Promise.reject(refused), queryKey: ["refused"] })).rejects.toBe(refused)
+  await expect(
+    queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationFn: () => Promise.reject(refused) })
+      .execute(undefined),
+  ).rejects.toBe(refused)
+
+  expect(vi.mocked(recheckRefusedSession).mock.calls).toEqual([
+    [{ error: refused, queryClient, router }],
+    [{ error: refused, queryClient, router }],
+  ])
 })

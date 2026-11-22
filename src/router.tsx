@@ -1,8 +1,9 @@
-import { QueryClient } from "@tanstack/react-query"
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { getGlobalStartContext } from "@tanstack/react-start"
 
+import { recheckRefusedSession } from "~/src/integrations/better-auth/auth.routes"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import "~/src/integrations/zod/zod.config"
@@ -19,6 +20,10 @@ export interface RouterContext {
 }
 
 export const getRouter = () => {
+  const onError = (error: Error): void => {
+    void recheckRefusedSession({ error, queryClient, router })
+  }
+
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -26,6 +31,8 @@ export const getRouter = () => {
         staleTime: QUERY_STALE_TIME_MS,
       },
     },
+    mutationCache: new MutationCache({ onError }),
+    queryCache: new QueryCache({ onError }),
   })
 
   const router = createRouter({

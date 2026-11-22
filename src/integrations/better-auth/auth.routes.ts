@@ -1,16 +1,25 @@
+import type { QueryClient } from "@tanstack/react-query"
 import { type ParsedLocation, redirect } from "@tanstack/react-router"
+import zod from "zod/v4"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors"
-import { getCurrentSessionQuery, hasSessionCookie, removeUserData } from "~/src/integrations/better-auth/auth.session"
+import {
+  type getCurrentSession,
+  getCurrentSessionQuery,
+  hasSessionCookie,
+  recheckSessionQuery,
+  removeUserData,
+} from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
+
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
 interface AuthRouteContext {
   context: RouterContext
-  preload?: boolean
 }
 
 interface ProtectedRouteContext extends AuthRouteContext {
@@ -21,9 +30,19 @@ interface AuthPageContext extends AuthRouteContext {
   search: AuthSearch
 }
 
-const loadRouteSession = async ({ context: { queryClient }, preload = false }: AuthRouteContext, { recheck }: { recheck: boolean }) => {
+interface RefusalRecheck {
+  readonly error: unknown
+  readonly queryClient: QueryClient
+  readonly router: { readonly invalidate: () => Promise<void>; readonly isServer: boolean }
+}
+
+type RouteSession = Awaited<ReturnType<typeof getCurrentSession>>
+
+const refusalSchema = zod.object({ message: zod.enum([ERROR_CODES.FORBIDDEN, ERROR_CODES.UNAUTHORIZED]) })
+
+const loadRouteSession = async ({ context: { queryClient } }: AuthRouteContext, { fresh }: { fresh: boolean }): Promise<RouteSession> => {
   const previousSession = queryClient.getQueryData(getCurrentSessionQuery.queryKey)
-  const session = await queryClient.query({ ...getCurrentSessionQuery, ...(recheck && !preload ? { staleTime: 0 } : {}) })
+  const session = await queryClient.query(fresh ? { ...getCurrentSessionQuery, staleTime: 0 } : getCurrentSessionQuery)
   if (previousSession?.user.id !== session?.user.id) {
     removeUserData(queryClient)
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
@@ -44,9 +63,9 @@ const goToRedirectOrWorkspace = (search: AuthSearch, role: string | null | undef
   throw redirect({ replace: true, to: isAdmin(role) ? ROUTES.ADMIN : ROUTES.APP })
 }
 
-const requireSession = async (context: AuthRouteContext, search: AuthSearch) => {
+const requireSession = async (context: AuthRouteContext, search: AuthSearch, { fresh }: { fresh: boolean }) => {
   const hadSession = context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)?.user !== undefined || hasSessionCookie()
-  const session = await loadRouteSession(context, { recheck: true })
+  const session = await loadRouteSession(context, { fresh })
   if (!session) {
     return signInFirst(hadSession ? { ...search, error: SESSION_EXPIRED_CODE } : search)
   }
@@ -54,21 +73,21 @@ const requireSession = async (context: AuthRouteContext, search: AuthSearch) => 
 }
 
 export const redirectIfSignedIn = async (context: AuthPageContext): Promise<void> => {
-  const session = await loadRouteSession(context, { recheck: false })
+  const session = await loadRouteSession(context, { fresh: false })
   if (session) {
     goToRedirectOrWorkspace(context.search, session.user.role)
   }
 }
 
 export const redirectIfVerified = async (context: AuthPageContext): Promise<void> => {
-  const session = await loadRouteSession(context, { recheck: false })
+  const session = await loadRouteSession(context, { fresh: false })
   if (session?.user.emailVerified === true) {
     goToRedirectOrWorkspace(context.search, session.user.role)
   }
 }
 
 export const requireSignedIn = async (context: ProtectedRouteContext) => ({
-  session: await requireSession(context, { redirect: context.location.publicHref }),
+  session: await requireSession(context, { redirect: context.location.publicHref }, { fresh: false }),
 })
 
 export const requireAdmin = async (context: ProtectedRouteContext) => {
@@ -80,6 +99,18 @@ export const requireAdmin = async (context: ProtectedRouteContext) => {
 }
 
 export const redirectAfterAuth = async (context: AuthPageContext): Promise<never> => {
-  const session = await requireSession(context, context.search)
+  const session = await requireSession(context, context.search, { fresh: true })
   return goToRedirectOrWorkspace(context.search, session.user.role)
+}
+
+export const recheckRefusedSession = async ({ error, queryClient, router }: RefusalRecheck): Promise<void> => {
+  if (router.isServer || !refusalSchema.safeParse(error).success) {
+    return
+  }
+  const admitted = queryClient.getQueryData(getCurrentSessionQuery.queryKey)
+  const current = await queryClient.query(recheckSessionQuery).catch(() => admitted)
+  if (admitted?.user.id !== current?.user.id || admitted?.user.role !== current?.user.role) {
+    await queryClient.invalidateQueries({ exact: true, queryKey: getCurrentSessionQuery.queryKey, refetchType: "none" })
+    await router.invalidate()
+  }
 }

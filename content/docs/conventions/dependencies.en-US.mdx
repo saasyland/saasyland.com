@@ -5,7 +5,23 @@ description: "Stay on the latest versions, adapt code to documented usage, carry
 
 The repository runs on the latest release of every dependency. An upgrade that breaks something is fixed forward, in the code or upstream, never by going back.
 
-## Toolchain versions
+## Toolchain versions [#upgrading]
+
+Update the dependencies and the agent skills with one command, on a branch of its own:
+
+```sh
+bun run deps:update
+```
+
+`scripts/update-dependencies.ts` runs, in this order:
+
+1. `vp migrate` from the newest Vite+ release when it is newer than the `vite-plus` in `package.json`, which moves `vite-plus`, the `vite` alias and `vitest` together;
+2. `bun update --latest` for every dependency declared with a `^` or `~` range, which moves it to its newest release, a new major included, and keeps the range;
+3. `bun run skills:update`, which moves the [agent skills](/docs/tooling/agent-skills) to the newest commits of their sources and records the versions of the packages they document.
+
+It leaves the exact pins alone, because each one has a reason on this page, and ends by naming every pinned package that has a newer release. `bun run check` fails while a package that a skill documents has moved since the last `skills:update`, so the dependencies and the skills cannot drift apart. Every week the `updates.yml` workflow lists the available updates in one GitHub issue; see [CI/CD](/docs/tooling/ci-cd#updates).
+
+Then, for every package that moved:
 
 - Bun is the package manager and script runner. `packageManager` in `package.json` (Bun <RepositoryFact name="bunVersion" />) is the one place its version is set; CI reads it from there. `bun.lock` is committed.
 - Node comes from `.nvmrc` (<RepositoryFact name="nodeVersion" />), and `engines.node` requires at least that version.
@@ -77,7 +93,7 @@ These lines, and the same `vite` alias and `vitest` version under `overrides`, a
 
 ## Adding a dependency
 
-Check first whether a package already in `package.json` does the job, so each concern keeps one library. Add a runtime dependency with `bun add`, a tool with `bun add --dev`, and use the vendor's agent skill from `skills-lock.json` when there is one (see [Agent skills](/docs/tooling/agent-skills)).
+Check first whether a package already in `package.json` does the job, so each concern keeps one library. Add a runtime dependency with `bun add`, a tool with `bun add --dev`, and use the vendor's agent skill from `skills-lock.json` when there is one (see [Agent skills](/docs/tooling/agent-skills)). When a vendor skill documents the new package, add the package to its source in `SKILL_SOURCES` (`src/data/skills.ts`) and run `bun run skills:update`.
 
 ## Related pages
 

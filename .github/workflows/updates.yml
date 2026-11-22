@@ -1,0 +1,32 @@
+name: Updates
+
+on:
+  schedule:
+    - cron: "20 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: updates
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    name: Report dependency and skills updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Find dependency and skills updates
+        run: bun scripts/report-updates.ts find "$RUNNER_TEMP/updates.json"
+      - name: Open, update or close the updates issue
+        run: bun scripts/report-updates.ts issue "$RUNNER_TEMP/updates.json"
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}

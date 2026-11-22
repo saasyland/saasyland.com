@@ -1,15 +1,15 @@
 ---
 title: "Skills para agentes"
-description: "Skills de fornecedores para agentes de programação, restauradas a partir de skills-lock.json."
+description: "Skills de fornecedores para agentes de programação, fixadas em skills-lock.json, atualizadas junto com os pacotes que documentam e verificadas por bun run check."
 ---
 
-`skills-lock.json` fixa as skills para agentes usadas com este repositório. As skills instaladas não são versionadas: `.agents/` e `.claude/` são ignorados pelo Git.
+`skills-lock.json` fixa as skills para agentes usadas com este repositório. As skills instaladas não são versionadas: `.agents/` e `.claude/` são ignorados pelo Git. A CLI `skills` que as instala é uma dependência de desenvolvimento, então `bun.lock` fixa a versão dela.
 
 ```sh
 bun run skills:sync
 ```
 
-`scripts/sync-skills.ts` apaga `.agents/skills` e `.claude/skills`, reinstala todas as skills do lockfile com `bunx skills experimental_install`, move cada skill para um grupo de fornecedor em `.agents/skills/<group>/<skill>/SKILL.md` e cria links de cada grupo em `.claude/skills`. Ele falha quando a origem de uma skill não tem mapeamento de grupo.
+`scripts/sync-skills.ts` apaga `.agents/skills` e `.claude/skills`, reinstala todas as skills do lockfile com `bunx skills experimental_install`, move cada skill para um grupo de fornecedor em `.agents/skills/<group>/<skill>/SKILL.md` e cria links de cada grupo em `.claude/skills`. Ele falha quando a origem de uma skill não tem grupo em `SKILL_SOURCES`.
 
 Cada entrada registra o `commit` do Git de onde veio a skill e um `computedHash` dos arquivos dela, para que `skills:sync` restaure os mesmos arquivos em todas as máquinas. Para levar cada skill ao commit mais recente da sua origem:
 
@@ -17,18 +17,26 @@ Cada entrada registra o `commit` do Git de onde veio a skill e um `computedHash`
 bun run skills:update
 ```
 
-A atualização restaura as skills travadas, executa `bunx skills update --project --yes`, que avança cada `commit` e `computedHash` em `skills-lock.json`, e depois agrupa e vincula as skills como `skills:sync`. Uma skill excluída na origem mantém a entrada e é informada como excluída; remova essa entrada de `skills-lock.json`.
+A atualização restaura as skills travadas e executa `bunx skills update --project --yes`, que avança o `commit` e o `computedHash` de cada skill cujos arquivos mudaram na origem. Depois agrupa e vincula as skills como `skills:sync` e grava em `skills-packages.json` a versão para a qual `bun.lock` resolve cada pacote documentado por uma origem de skills. Uma skill excluída na origem mantém a entrada e é informada como excluída; remova essa entrada de `skills-lock.json`. Para atualizar as dependências e as skills de uma vez, execute `bun run deps:update` (veja [Dependências](/docs/conventions/dependencies#upgrading)).
 
-| Grupo                                                 | Origem                                                             |
-| ----------------------------------------------------- | ------------------------------------------------------------------ |
-| `anthropic`                                           | `anthropics/skills`                                                |
-| `better-auth`                                         | `better-auth/skills`                                               |
-| `cloudflare`                                          | `cloudflare/skills`                                                |
-| `polar`                                               | `polarsource/skills`                                               |
-| `resend`                                              | `resend/resend-skills`                                             |
-| `tanstack`                                            | `TanStack/router` (`router`, `start`) e `TanStack/table` (`table`) |
-| `remotion`                                            | `remotion-dev/skills`                                              |
-| `matt-pocock`, `impeccable`, `taste`, `coreyhaines31` | Skills gerais de engenharia, design e marketing                    |
+## Origens e seus pacotes [#sources]
+
+`SKILL_SOURCES` em `src/data/skills.ts` é a única lista de origens de skills: o grupo para onde vão as skills de cada origem e os pacotes que elas documentam. `@polar-sh/*` representa todos os pacotes desse escopo em `package.json`, e as skills de `TanStack/router` que vêm dos pacotes do Start vão para `tanstack/start`.
+
+<RepositoryTable columns={["Origem", "Grupo", "Pacotes"]} name="skillSources" />
+
+TanStack Start, Router e Table também distribuem skills dentro dos pacotes npm, em `node_modules/@tanstack/<package>/skills`; essas sempre correspondem à versão instalada.
+
+## Verificações de desvio [#drift-checks]
+
+`bun run check` executa `bun run check:skills` (`scripts/check-skills.ts`). Ele falha quando:
+
+- uma origem de `skills-lock.json` não está em `SKILL_SOURCES`, ou uma origem de `SKILL_SOURCES` não tem nenhuma skill travada;
+- um pacote de `SKILL_SOURCES` não corresponde a nenhuma dependência de `package.json`;
+- `bun.lock` resolve um pacote documentado para uma versão diferente da que está em `skills-packages.json`, então uma mudança que move `resend`, `better-auth` ou `wrangler` sem `bun run skills:update` falha, no CI e localmente;
+- `.agents/skills` existe e falta uma skill travada, os arquivos dela não correspondem mais ao seu `computedHash`, há ali um arquivo ou diretório que não está no lock, ou um link de grupo em `.claude/skills` falta ou aponta para outro lugar. Uma edição local ou uma sincronização interrompida falha assim, e `bun run skills:sync` corrige. Sem `.agents/skills`, como no CI, não há nada instalado para comparar.
+
+O hash é o mesmo que a CLI skills grava: SHA-256 sobre o caminho e o conteúdo de cada arquivo, ordenados por caminho, sem `metadata.json` e `.git`, com as quebras de linha do Windows normalizadas e seguindo links apenas dentro da skill.
 
 A sincronização substitui os dois diretórios, então mantenha skills personalizadas em outro lugar. `bun run clean:hardcore` apaga `skills-lock.json`.
 

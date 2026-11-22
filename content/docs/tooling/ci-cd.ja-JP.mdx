@@ -3,7 +3,7 @@ title: "CI/CD"
 description: "チェック、ブラウザーテスト、デプロイ、リリースのための GitHub Actions ワークフローです。"
 ---
 
-ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`journey.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
+ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`journey.yml`、`updates.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
 | ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -12,6 +12,7 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 | `preview.yml`         | 手動実行                                                                                    | チェックが成功したブランチを共有プレビューにデプロイ                                                             |
 | `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                           |
 | `journey.yml`         | UTC のスケジュール <RepositoryFact name="journeySchedule" />、手動実行                      | 共有プレビューに対する Polar サンドボックスでの[ジャーニースイート](#journey-suite)                              |
+| `updates.yml`         | UTC のスケジュール <RepositoryFact name="updatesSchedule" />、手動実行                      | [更新の Issue](#updates) を作成、更新、またはクローズ                                                            |
 | `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック |
 | `deploy-reusable.yml` | `ci.yml`、`deploy.yml`、`preview.yml` から呼び出し                                          | ビルド、その後 D1 マイグレーションと `wrangler deploy`、または `wrangler versions upload`                        |
 | `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                |
@@ -26,7 +27,7 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 | ジョブ                                                | 実行内容                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check`                                               | `bun run check`：クラス名テーブル、i18n とコンテンツのチェック、[フロー一覧](/docs/tooling/test-coverage#flow-coverage)、フォーマット、リント、型チェック                                                                                                  |
+| `check`                                               | `bun run check`：クラス名テーブル、i18n とコンテンツのチェック、[フロー一覧](/docs/tooling/test-coverage#flow-coverage)、[エージェントスキル](/docs/tooling/agent-skills#drift-checks)、フォーマット、リント、型チェック                                   |
 | `test`                                                | シャードごとに 1 ジョブ、<RepositoryFact name="vitestShards" /> 個を並列に実行：Vitest の blob レポーター付きで `bun run test:coverage --shard=<n>/<total>` を実行し、そのシャードのカバレッジを含む blob レポートをアップロード                           |
 | `verify`（名前は `Format, lint, types, i18n, tests`） | すべてのシャードが成功すると blob レポートをダウンロードし、カバレッジを統合してしきい値を適用する `bun run test:coverage --merge-reports` を実行してから、カバレッジレポートをアップロード。`check`、すべてのシャード、統合のいずれかが成功しなければ失敗 |
 
@@ -80,6 +81,12 @@ gh workflow run journey.yml --ref <branch> -f journey=all
 `journey` は `all`、`core`、`complete`、`agency`、`upgrade` のいずれかで、`all` 以外の値はそのタグを持つテストだけを実行します。ジョブはデプロイを記録せずに（`deployment: false`）、GitHub の環境 `Preview` から次のシークレットを読みます: `POLAR_ACCESS_TOKEN`、`POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY`、`RESEND_API_KEY`。`POLAR_SERVER` にはスイートが受け付ける唯一の値 `sandbox` を設定し、スイートは Polar クライアントをサンドボックス向けに作るので、このワークフローが本番の Polar に届くことはありません。実行はキューに並び、互いにキャンセルしません。キャンセルされた実行は注文を支払い済みのまま残してしまうからです。ジョブは各テストの結果と所要時間、失敗した各テストのエラーを実行のサマリーに書き、HTML レポート、`playwright-report/journey.json`、失敗したテストのトレース、動画、マシンディレクトリを成果物 `journey-report` としてアップロードします。
 
 このワークフローは `main` のデプロイのたびには実行しません。各実行はテストごとにプレビューでアカウントを登録し、Polar サンドボックスで注文を支払って返金し、確認メールと購入確認メールを、プレビューが本番と共有している Resend アカウントから送ります。`main` は忙しい日には何度もデプロイされるため、デプロイごとに実行すると、本番のメールが頼る送信上限に対してこれらのメールが何倍にも増えます。しかも何も止められません。ジャーニーが何を見つけても、本番はプレビューの直後にデプロイされるからです。夜間の実行なら、壊れた購入を 1 日以内に見つけられます。決済、ライセンス、CLI ライセンス API を変更した後や、マージ前のブランチを `gh workflow run preview.yml --ref <branch>` でテストした後は、手動で起動してください。
+
+## 更新 [#updates]
+
+`updates.yml` は、UTC のスケジュール <RepositoryFact name="updatesSchedule" /> と手動実行で、依存関係とエージェントスキルの更新を探します。最初のステップ `bun scripts/report-updates.ts find` は、npm レジストリにすべての直接依存関係の最新リリースを問い合わせ、ランナーのチェックアウトで `bun run skills:update` を実行して、上流で変わったスキルを確認します。このチェックアウトからは何もコミットしません。2 つ目のステップ `bun scripts/report-updates.ts issue` は 1 つの Issue <RepositoryFact name="updatesIssueTitle" /> を管理します。更新があれば Issue を作成し、以降の実行で書き直し、すべてが最新になったらクローズします。Issue には、古くなった各パッケージを `bun run deps:update` で動くものか固定のものかを示して並べ、各スキルを移動前後のコミットとともに並べます。
+
+このワークフローに許されているのはリポジトリの読み取りと Issue の書き込みだけで、トークンを受け取るのは 2 つ目のステップだけです。プルリクエストは作成しません。ワークフロー自身のトークンで作成したプルリクエストに対して GitHub はワークフローを起動しないため、そのチェックが実行されないからです。代わりにブランチで `bun run deps:update` を実行してください。
 
 ## リリースとタグ [#releases-and-tags]
 

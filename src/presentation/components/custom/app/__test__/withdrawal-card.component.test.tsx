@@ -10,7 +10,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { FIRST_USE, LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
 import { type getWithdrawalContract, withdrawalContractQuery } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
 import type { submitWithdrawalMutation } from "~/src/modules/withdrawal/use-cases/submit-withdrawal"
 import { WITHDRAWAL_MUTATION_KEYS, WITHDRAWAL_QUERY_KEYS } from "~/src/modules/withdrawal/withdrawal.constants"
@@ -88,9 +88,10 @@ describe("withdrawal card", () => {
     },
     { eligibility: { kind: REFUND_ELIGIBILITY.REFUNDABLE, until: UNTIL }, text: t("card.terms.refundable", { date: dateTime(UNTIL) }) },
     {
-      eligibility: { deliveredAt: DELIVERED_AT, kind: REFUND_ELIGIBILITY.USED },
-      text: t("card.terms.used", { date: dateTime(DELIVERED_AT) }),
+      eligibility: { kind: REFUND_ELIGIBILITY.USED, usedAt: DELIVERED_AT, via: FIRST_USE.TEMPLATES },
+      text: t("card.terms.used", { date: dateTime(DELIVERED_AT), via: FIRST_USE.TEMPLATES }),
     },
+
     {
       eligibility: { endedAt: UNTIL, kind: REFUND_ELIGIBILITY.EXPIRED },
       text: t("card.terms.expired", { date: dateTime(UNTIL), days: REFUND_TERMS.WITHDRAWAL_DAYS }),
@@ -107,6 +108,16 @@ describe("withdrawal card", () => {
     expect(within(shown).getByText(text)).toBeTruthy()
     expect(within(shown).getByRole("button", { name: card.open })).toHaveTextContent("Withdraw from contract here")
     expect(within(shown).queryByRole("status")).toBeNull()
+  })
+
+  it("says that opening a paid lesson was the first use of the purchase", () => {
+    renderCard(contract({ eligibility: { kind: REFUND_ELIGIBILITY.USED, usedAt: DELIVERED_AT, via: FIRST_USE.LESSON } }))
+
+    expect(
+      screen.getByText(
+        "You asked for immediate supply at checkout, so the right of withdrawal ended when your licence key was issued, and you first used the purchase on Nov 11, 2026, 4:20 PM UTC, when you opened a paid lesson. You can still send a withdrawal statement, and we will reply.",
+      ),
+    ).toBeTruthy()
   })
 
   it("opens the statement with the account's details, sends it and then says when it was received", async () => {

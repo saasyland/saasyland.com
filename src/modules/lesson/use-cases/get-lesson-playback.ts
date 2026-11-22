@@ -15,7 +15,7 @@ import { LESSON_QUERY_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.co
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
-import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
+import { recordPaidLessonOpened, resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createPlayback } from "~/src/modules/video/video.playback"
 import { video } from "~/src/modules/video/video.schema"
@@ -27,7 +27,7 @@ export const getLessonPlayback = createServerFn({ method: "GET" })
   .validator((input: Lesson["getLessonPlayback"]) => lessonZodSchemas.getLessonPlayback.parse(input))
   .handler(async ({ data: { courseSlug, lessonSlug } }) => {
     const [row] = await db
-      .select({ access: lesson.access, captionLocales: video.captionLocales, id: video.id })
+      .select({ access: lesson.access, captionLocales: video.captionLocales, id: video.id, lessonId: lesson.id })
       .from(lesson)
       .innerJoin(course, eq(course.id, lesson.courseId))
       .innerJoin(video, playableVideo)
@@ -49,6 +49,8 @@ export const getLessonPlayback = createServerFn({ method: "GET" })
     if (!hasLessonAccess(row.access, viewer)) {
       throw new AppError(viewer.userId === undefined ? ERROR_CODES.UNAUTHORIZED : ERROR_CODES.FORBIDDEN)
     }
+
+    await recordPaidLessonOpened({ access: row.access, id: row.lessonId }, viewer)
 
     return createPlayback({ now: Date.now(), secret: env.AUTH_SECRET, video: row })
   })

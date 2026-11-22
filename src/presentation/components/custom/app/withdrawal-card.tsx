@@ -3,7 +3,7 @@ import { type JSX, Suspense } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
-import { refundEligibilityDate } from "~/src/modules/license/license.refunds"
+import { refundEligibilityValues } from "~/src/modules/license/license.refunds"
 import { withdrawalContractQuery } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
 import { WITHDRAWAL_QUERY_KEYS } from "~/src/modules/withdrawal/withdrawal.constants"
 
@@ -27,6 +27,7 @@ const ContractWithdrawal = (): JSX.Element | undefined => {
   }
 
   const dateTime = (value: Date): string => t("common.dateTime", { value })
+  const { date, ...use } = refundEligibilityValues(contract.eligibility)
   const description = t("pages.withdrawal.card.contract", {
     date: dateTime(contract.purchasedAt),
     reference: contract.reference,
@@ -44,7 +45,8 @@ const ContractWithdrawal = (): JSX.Element | undefined => {
       <CardContent className="flex flex-col items-start gap-4">
         <p className="text-sm text-pretty text-muted-foreground">
           {t(`pages.withdrawal.card.terms.${contract.eligibility.kind}`, {
-            date: dateTime(refundEligibilityDate(contract.eligibility)),
+            ...use,
+            date: dateTime(date),
             days: REFUND_TERMS.WITHDRAWAL_DAYS,
           })}
         </p>

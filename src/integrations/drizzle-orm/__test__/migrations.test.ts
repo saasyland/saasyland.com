@@ -315,3 +315,44 @@ describe("the migration that adds the withdrawal statements", () => {
     ])
   })
 })
+
+const LESSON_RECORDS = "20261122030940_confused_mystique.sql"
+const LESSON_RECORD_COLUMNS = [
+  ["lesson_opened_at", "INTEGER"],
+  ["opened_lesson_id", "TEXT"],
+] as const
+
+describe("the migration that records the first paid lesson", () => {
+  it("adds a nullable column for the time and one for the lesson to the license table, and nothing else", () => {
+    expect(statements(LESSON_RECORDS)).toStrictEqual(
+      LESSON_RECORD_COLUMNS.map(([column, type]) => `ALTER TABLE \`${LICENSE_TABLE}\` ADD \`${column}\` ${type.toLowerCase()};`),
+    )
+  })
+
+  it("keeps every other table, every index and every licence as it was, with no lesson recorded yet", () => {
+    const database = databaseBefore(LESSON_RECORDS)
+    database.prepare("INSERT INTO user (id, name, email) VALUES (?, ?, ?)").run(BUYER.id, BUYER.name, BUYER.email)
+    database
+      .prepare("INSERT INTO license (id, polar_customer_id, delivered_at, tier, user_id) VALUES (?, ?, ?, ?, ?)")
+      .run("migrated-license", "cus_migrated", PURCHASED_AT, LICENSE_TIER.COMPLETE, BUYER.id)
+    const before = schemaOf(database)
+    const columnsBefore = columnsOf(database, LICENSE_TABLE)
+    const [licenseBefore] = licenseRows(database)
+
+    database.exec(migrationSql(LESSON_RECORDS))
+
+    expect(schemaOf(database).filter((entry) => !isLicenseTable(entry))).toStrictEqual(before.filter((entry) => !isLicenseTable(entry)))
+    expect(columnsOf(database, LICENSE_TABLE)).toStrictEqual([
+      ...columnsBefore,
+      ...LESSON_RECORD_COLUMNS.map(([name, type], index) => ({
+        cid: columnsBefore.length + index,
+        dflt_value: null,
+        name,
+        notnull: 0,
+        pk: 0,
+        type,
+      })),
+    ])
+    expect(licenseRows(database)).toStrictEqual([{ ...licenseBefore, lesson_opened_at: null, opened_lesson_id: null }])
+  })
+})

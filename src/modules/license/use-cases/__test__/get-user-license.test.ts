@@ -9,7 +9,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { LICENSE_STATUS, LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { FIRST_USE, LICENSE_STATUS, LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 import { user } from "~/src/modules/user/user.schema"
@@ -24,12 +24,14 @@ const NON_BUYER_ID = "01900000-0000-7000-8000-000000000013"
 const PURCHASED_AT = new Date("2026-11-10T09:30:00.000Z")
 const ACTIVATED_AT = new Date("2026-11-10T09:45:00.000Z")
 const DELIVERED_AT = new Date("2026-11-10T09:50:00.000Z")
+const LESSON_OPENED_AT = new Date("2026-11-10T09:40:00.000Z")
 const SERVER_NOW = new Date("2026-11-12T12:00:00.000Z")
 const PERIOD_END = new Date(PURCHASED_AT.getTime() + REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
 
 const RECORDED_PURCHASE = {
   activatedAt: ACTIVATED_AT,
   deliveredAt: null,
+  lessonOpenedAt: null,
   purchaseCreatedAt: PURCHASED_AT,
   status: LICENSE_STATUS.ACTIVE,
   tier: LICENSE_TIER.COMPLETE,
@@ -66,7 +68,20 @@ describe("get-user-license", () => {
     await db.update(license).set({ deliveredAt: DELIVERED_AT })
 
     await expect(executeQuery(userLicenseQuery({ userId: BUYER_ID }))).resolves.toMatchObject({
-      license: { deliveredAt: DELIVERED_AT, refund: { deliveredAt: DELIVERED_AT, kind: REFUND_ELIGIBILITY.USED } },
+      license: { deliveredAt: DELIVERED_AT, refund: { kind: REFUND_ELIGIBILITY.USED, usedAt: DELIVERED_AT, via: FIRST_USE.TEMPLATES } },
+    })
+  })
+
+  it("reports the licence as used from the first paid lesson when it was opened before any template download", async () => {
+    await db.update(license).set({ deliveredAt: DELIVERED_AT, lessonOpenedAt: LESSON_OPENED_AT, openedLessonId: "lesson-1" })
+
+    await expect(executeQuery(userLicenseQuery({ userId: BUYER_ID }))).resolves.toStrictEqual({
+      license: {
+        ...RECORDED_PURCHASE,
+        deliveredAt: DELIVERED_AT,
+        lessonOpenedAt: LESSON_OPENED_AT,
+        refund: { kind: REFUND_ELIGIBILITY.USED, usedAt: LESSON_OPENED_AT, via: FIRST_USE.LESSON },
+      },
     })
   })
 

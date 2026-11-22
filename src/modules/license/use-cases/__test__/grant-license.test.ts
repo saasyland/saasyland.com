@@ -16,6 +16,8 @@ const PURCHASED_AT = "2026-09-24T10:00:00.000Z"
 const REPURCHASED_AT = "2026-10-30T08:15:00.000Z"
 const FIRST_ACTIVATION = new Date("2026-09-24T10:05:00.000Z")
 const FIRST_DOWNLOAD = new Date("2026-09-24T10:06:00.000Z")
+const FIRST_LESSON = new Date("2026-09-24T10:07:00.000Z")
+const OPENED_LESSON_ID = "lesson-1"
 const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
@@ -41,13 +43,17 @@ describe("grant-license", () => {
 
   it("records the buyer's consent with the purchase and keeps every record when the same order arrives again", async () => {
     await grantLicense({ ...purchase, withdrawalConsentAt: new Date(PURCHASED_AT) })
-    await db.update(license).set({ activatedAt: FIRST_ACTIVATION, deliveredAt: FIRST_DOWNLOAD })
+    await db
+      .update(license)
+      .set({ activatedAt: FIRST_ACTIVATION, deliveredAt: FIRST_DOWNLOAD, lessonOpenedAt: FIRST_LESSON, openedLessonId: OPENED_LESSON_ID })
 
     await grantLicense({ ...purchase, withdrawalConsentAt: new Date(PURCHASED_AT) })
 
     expect(await getLicense(USER_ID)).toMatchObject({
       activatedAt: FIRST_ACTIVATION,
       deliveredAt: FIRST_DOWNLOAD,
+      lessonOpenedAt: FIRST_LESSON,
+      openedLessonId: OPENED_LESSON_ID,
       withdrawalConsentAt: new Date(PURCHASED_AT),
     })
   })
@@ -55,12 +61,24 @@ describe("grant-license", () => {
   it("records a purchase without consent as such", async () => {
     await grantLicense(purchase)
 
-    expect(await getLicense(USER_ID)).toMatchObject({ activatedAt: null, deliveredAt: null, withdrawalConsentAt: null })
+    expect(await getLicense(USER_ID)).toMatchObject({
+      activatedAt: null,
+      deliveredAt: null,
+      lessonOpenedAt: null,
+      openedLessonId: null,
+      withdrawalConsentAt: null,
+    })
   })
 
   it("starts the records again for a new order, so they describe the current purchase", async () => {
     await grantLicense(purchase)
-    await db.update(license).set({ activatedAt: FIRST_ACTIVATION, deliveredAt: FIRST_DOWNLOAD, status: LICENSE_STATUS.REFUNDED })
+    await db.update(license).set({
+      activatedAt: FIRST_ACTIVATION,
+      deliveredAt: FIRST_DOWNLOAD,
+      lessonOpenedAt: FIRST_LESSON,
+      openedLessonId: OPENED_LESSON_ID,
+      status: LICENSE_STATUS.REFUNDED,
+    })
 
     await grantLicense({
       ...purchase,
@@ -72,6 +90,8 @@ describe("grant-license", () => {
     expect(await getLicense(USER_ID)).toMatchObject({
       activatedAt: null,
       deliveredAt: null,
+      lessonOpenedAt: null,
+      openedLessonId: null,
       polarOrderId: "ord_2",
       purchaseCreatedAt: new Date(REPURCHASED_AT),
       status: LICENSE_STATUS.ACTIVE,

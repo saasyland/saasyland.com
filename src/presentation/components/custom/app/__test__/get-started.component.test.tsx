@@ -62,6 +62,8 @@ const license = (fields: Partial<License["select"]> = {}): License["select"] => 
   deliveredAt: JSON_NULL,
   id: "license-1",
   key: LICENSE_KEY,
+  lessonOpenedAt: JSON_NULL,
+  openedLessonId: JSON_NULL,
   polarCustomerId: "customer-1",
   polarLicenseKeyId: "polar-license-1",
   polarOrderId: "order-1",

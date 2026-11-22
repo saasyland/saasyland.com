@@ -4,7 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
 import { LICENSE_ACTIVATION_LIMITS } from "~/src/modules/license/license.constants"
-import { refundEligibilityDate } from "~/src/modules/license/license.refunds"
+import { refundEligibilityValues } from "~/src/modules/license/license.refunds"
 import type { License } from "~/src/modules/license/license.types"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 
@@ -43,15 +43,15 @@ const LicenseDetails = ({ license }: { readonly license: LicenseView }): JSX.Ele
       return t("pages.admin.users.license.refund.inactive")
     }
 
-    return t(`pages.admin.users.license.refund.${refund.kind}`, {
-      date: dateTime(refundEligibilityDate(refund)),
-      days: REFUND_TERMS.WITHDRAWAL_DAYS,
-    })
+    const { date, ...use } = refundEligibilityValues(refund)
+
+    return t(`pages.admin.users.license.refund.${refund.kind}`, { ...use, date: dateTime(date), days: REFUND_TERMS.WITHDRAWAL_DAYS })
   }
 
   const values: Record<UserLicenseDetail, string> = {
     firstActivation: firstTime(license.activatedAt),
     firstDownload: firstTime(license.deliveredAt),
+    firstLesson: firstTime(license.lessonOpenedAt),
     machineLimit: t("pages.admin.users.license.machines", { count: LICENSE_ACTIVATION_LIMITS[license.tier] }),
     purchasedAt: dateTime(license.purchaseCreatedAt),
     status: t(`pages.admin.users.license.status.${license.status}`),

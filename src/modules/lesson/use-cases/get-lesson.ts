@@ -24,7 +24,7 @@ import { LESSON_QUERY_KEYS, LESSON_STALE_MS, LESSON_STATUS } from "~/src/modules
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
-import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
+import { recordPaidLessonOpened, resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { video } from "~/src/modules/video/video.schema"
 
@@ -103,13 +103,16 @@ export const getLesson = createServerFn({ method: "GET" })
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
+    const [lessonAttachments] = await Promise.all([
+      Promise.all(attachments.map(({ attachment }) => publicAttachment({ attachment, locale, unlocked: !entry.locked }))),
+      recordPaidLessonOpened(entry, viewer),
+    ])
+
     return {
       ...outline,
       lesson: {
         ...entry,
-        attachments: await Promise.all(
-          attachments.map(({ attachment }) => publicAttachment({ attachment, locale, unlocked: !entry.locked })),
-        ),
+        attachments: lessonAttachments,
         captionLocales: details.captionLocales ?? [],
         description: localize(details.description, locale),
         keyMoments: details.keyMoments.map(({ label, seconds }) => ({ label: localize(label, locale), seconds })),

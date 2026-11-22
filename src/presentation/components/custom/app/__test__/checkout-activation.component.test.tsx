@@ -59,6 +59,8 @@ const grantedLicense: License["select"] = {
   deliveredAt: null,
   id: "license-1",
   key: null,
+  lessonOpenedAt: null,
+  openedLessonId: null,
   polarCustomerId: "customer-1",
   polarLicenseKeyId: null,
   polarOrderId: "order-1",

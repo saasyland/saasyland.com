@@ -63,6 +63,8 @@ export const grantLicense = async ({
       polar_license_key_id = null,
       activated_at = null,
       delivered_at = null,
+      lesson_opened_at = null,
+      opened_lesson_id = null,
       updated_at = ${Date.now()}
     where (license.polar_order_id is null or license.polar_order_id <> excluded.polar_order_id)
       and license.purchase_created_at < excluded.purchase_created_at

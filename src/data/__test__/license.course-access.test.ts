@@ -16,6 +16,7 @@ import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
+import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
@@ -47,6 +48,9 @@ const VIEWERS = [
   { name: "staff", role: ROLE_CODES.ADMIN, userId: "learner-staff" },
 ]
 
+const FIRST_OPENED_AT = new Date("2026-11-20T10:00:00.000Z")
+const LATER = new Date("2026-11-21T10:00:00.000Z")
+
 const outcome = (run: () => Promise<unknown>): Promise<string> => run().then(() => "allowed", String)
 
 const viewAs = ({ role, userId }: (typeof VIEWERS)[number]): void => {
@@ -73,6 +77,20 @@ const decisions = async (viewer: (typeof VIEWERS)[number]): Promise<Record<strin
   return Object.fromEntries(entries)
 }
 
+const openEveryLesson = async (viewer: (typeof VIEWERS)[number], slugs: readonly string[]): Promise<void> => {
+  viewAs(viewer)
+  for (const lessonSlug of slugs) {
+    await outcome(() => executeQuery(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug, locale: "en-US" })))
+    await outcome(() => executeQuery(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug })))
+  }
+}
+
+const firstLessons = async () => {
+  const rows = await db.select({ at: license.lessonOpenedAt, lessonId: license.openedLessonId, userId: license.userId }).from(license)
+
+  return rows.filter(({ at }) => at !== null).toSorted((left, right) => left.userId.localeCompare(right.userId))
+}
+
 beforeEach(async () => {
   await seedCatalogue()
   await db.delete(license)
@@ -88,6 +106,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe("course access through a licence", () => {
@@ -104,6 +123,40 @@ describe("course access through a licence", () => {
         unlock: { search: { redirect: lesson, tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP_LICENSE },
       },
     ])
+  })
+
+  it("records the first paid lesson an active Complete or Agency licence opens as the first use of the purchase, and only that one", async () => {
+    vi.useFakeTimers({ now: FIRST_OPENED_AT, toFake: ["Date"] })
+    for (const viewer of VIEWERS) {
+      await openEveryLesson(viewer, ["boundaries", "sessions"])
+    }
+    expect(await firstLessons()).toStrictEqual([])
+
+    for (const viewer of VIEWERS) {
+      await openEveryLesson(viewer, ["billing"])
+    }
+    vi.setSystemTime(LATER)
+    for (const viewer of VIEWERS) {
+      await openEveryLesson(viewer, ["coverage", "billing"])
+    }
+
+    expect(await firstLessons()).toStrictEqual(
+      [LICENSE_TIER.AGENCY, LICENSE_TIER.COMPLETE].map((tier) => ({
+        at: FIRST_OPENED_AT,
+        lessonId: LESSON_IDS.PAID,
+        userId: `learner-${tier}-${LICENSE_STATUS.ACTIVE}`,
+      })),
+    )
+  })
+
+  it("records nothing for a Complete holder who must still confirm their email", async () => {
+    const holder = createAuthSessionFixture({ userId: `learner-${LICENSE_TIER.COMPLETE}-${LICENSE_STATUS.ACTIVE}` })
+    vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/"))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({ ...holder, user: { ...holder.user, emailVerified: false } })
+
+    await executeQuery(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug: "billing", locale: "en-US" }))
+
+    expect(await firstLessons()).toStrictEqual([])
   })
 
   it("keeps paid lessons locked for a Complete holder until they confirm their email, on the course page, the catalogue and the landing page", async () => {

@@ -21,6 +21,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { licenseRow } from "~/src/modules/license/__test__/fixtures/license-row"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_MUTATION_KEYS,
@@ -142,22 +143,7 @@ vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
 
-const ownedLicense: License["select"] = {
-  activatedAt: null,
-  createdAt: new Date("2026-09-08T10:00:00Z"),
-  deliveredAt: null,
-  id: "license-1",
-  key: LICENSE_KEY,
-  polarCustomerId: "customer-1",
-  polarLicenseKeyId: "polar-license-1",
-  polarOrderId: "order-1",
-  purchaseCreatedAt: new Date(0),
-  status: LICENSE_STATUS.ACTIVE,
-  tier: LICENSE_TIER.AGENCY,
-  updatedAt: new Date("2026-09-08T10:00:00Z"),
-  userId: "user-1",
-  withdrawalConsentAt: null,
-}
+const ownedLicense = licenseRow({ key: LICENSE_KEY, tier: LICENSE_TIER.AGENCY })
 
 const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   const queryClient = new QueryClient({

@@ -65,6 +65,11 @@ const SECOND_CHECKOUT = {
   title: "checkout funnel › a page left open after buying refuses a second checkout and shows the license instead",
 } as const
 
+const FIRST_USE_LESSON = {
+  spec: "withdrawal.spec.ts",
+  title: "withdrawal function › a buyer who opens a paid lesson has used the purchase from that moment, and a free preview does not count",
+} as const
+
 const BUYER_PROFILE = {
   spec: "admin-users.spec.ts",
   title: "admin reads a buyer's licence, consent, first uses and refund terms on the profile",
@@ -432,6 +437,14 @@ export const LICENSE_FLOWS = [
       "A signed-in buyer opens Withdraw from contract here on /app/license, which says whether the right still applies, finds the account's name, email address and order number filled in, presses Confirm withdrawal, sees the receipt and then the time the statement arrived on the card, receives the acknowledgement, and the admin sees the statement on the buyer's profile",
     status: FLOW_STATUS.COVERED,
     tests: [WITHDRAWAL_SIGNED_IN],
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "first-use-paid-lesson",
+    outcome:
+      "A buyer whose licence unlocks the courses opens a free preview, and the withdrawal card on /app/license still offers the full refund before first use; after they open a paid lesson, the card says they first used the purchase then, by opening a paid lesson",
+    status: FLOW_STATUS.COVERED,
+    tests: [FIRST_USE_LESSON],
   },
   {
     area: FLOW_AREA.AFTER_SALE,

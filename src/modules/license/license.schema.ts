@@ -15,6 +15,8 @@ export const license = sqliteTable(
     deliveredAt: integer("delivered_at", { mode: "timestamp_ms" }),
     id: text("id").primaryKey(),
     key: text("key", { length: API_LIMIT.LICENSE_KEY_MAX_LENGTH }).unique(),
+    lessonOpenedAt: integer("lesson_opened_at", { mode: "timestamp_ms" }),
+    openedLessonId: text("opened_lesson_id"),
     polarCustomerId: text("polar_customer_id", { length: POLAR_ID_MAX_LENGTH }).notNull(),
     polarLicenseKeyId: text("polar_license_key_id", { length: POLAR_ID_MAX_LENGTH }).unique(),
     polarOrderId: text("polar_order_id", { length: POLAR_ID_MAX_LENGTH }),

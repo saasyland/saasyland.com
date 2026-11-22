@@ -12,7 +12,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
+import { FIRST_USE, LICENSE_TIER, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { order } from "~/src/modules/order/order.schema"
 import {
@@ -74,6 +74,16 @@ describe("get-withdrawal-contract", () => {
         reference: WITHDRAWAL_ORDERS.BUYER.invoiceNumber,
         tier: LICENSE_TIER.COMPLETE,
       },
+    })
+  })
+
+  it("says that the purchase was used when the buyer opened a paid lesson, and when", async () => {
+    const openedAt = new Date("2026-11-11T08:00:00.000Z")
+    await db.update(license).set({ lessonOpenedAt: openedAt, openedLessonId: "lesson-1" }).where(eq(license.id, WITHDRAWAL_LICENSES.BUYER))
+    signInAs(WITHDRAWAL_USERS.BUYER.id)
+
+    await expect(executeQuery(withdrawalContractQuery)).resolves.toMatchObject({
+      contract: { eligibility: { kind: REFUND_ELIGIBILITY.USED, usedAt: openedAt, via: FIRST_USE.LESSON } },
     })
   })
 

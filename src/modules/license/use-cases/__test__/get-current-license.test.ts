@@ -19,6 +19,8 @@ const ownedLicense = {
   deliveredAt: null,
   id: "owned",
   key: "key",
+  lessonOpenedAt: null,
+  openedLessonId: null,
   polarCustomerId: "customer",
   polarLicenseKeyId: "polar-license",
   polarOrderId: null,

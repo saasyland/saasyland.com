@@ -18,6 +18,7 @@ const activeContracts = (match: SQL | undefined) =>
     .select({
       deliveredAt: license.deliveredAt,
       email: user.email,
+      lessonOpenedAt: license.lessonOpenedAt,
       licenseId: license.id,
       polarOrderId: license.polarOrderId,
       purchaseCreatedAt: license.purchaseCreatedAt,

@@ -96,7 +96,18 @@ export const LICENSE_QUERY_KEYS = {
   UNLICENSED_ORDERS: ["license", "getUnlicensedOrders"],
   UPGRADE_PRICE: ["license", "upgradePrice"],
   USER: ["license", "getUserLicense"],
+  USER_ACTIVATIONS: ["license", "getUserActivations"],
 } as const
+
+export const LICENSE_ACTIVATIONS_TIMEOUT_SECONDS = 3
+
+export const LICENSE_MACHINES = {
+  LISTED: "listed",
+  NO_KEY: "noKey",
+  UNAVAILABLE: "unavailable",
+} as const
+
+export const LICENSE_ACTIVATIONS_STALE_MS = 60_000
 
 export const LICENSE_MUTATION_KEYS = {
   DEACTIVATE: ["license", "deactivateLicense"],

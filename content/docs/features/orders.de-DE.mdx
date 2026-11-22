@@ -9,34 +9,38 @@ Die Seite `/admin/orders` (`src/routes/admin.orders.index.tsx`) listet die D1-Ko
 
 - `getOrdersPageQuery` ruft `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`) auf. Blättern, Sortieren nach Datum, Gesamtbetrag oder Status, die Suche und die Filter laufen alle auf dem Server.
 - Die Suche findet die Bestell-ID, die ID des Polar-Kunden, das Produkt sowie Name und E-Mail des passenden Kontos und wird gesendet, sobald das Tippen pausiert.
-- Die Filter sind der Status aus `ORDER_STATUSES`, das Produkt aus `getOrderProducts`, das jedes Produkt mit einer Bestellung unter dem Namen seiner neuesten Bestellung listet, und der Zeitraum: <RepositoryFact name="dashboardRanges" />.
-- Jede Zeile zeigt, wann die Bestellung aufgegeben wurde, ihre ID, das Konto oder Kein Konto mit der ID des Polar-Kunden, das Produkt, den Gesamtbetrag in der Währung der Bestellung mit dem erstatteten Betrag und den Status. Beträge werden mit `fromMinorUnits` umgerechnet und enthalten Steuern.
+- Die Filter sind der Status aus `ORDER_STATUSES`; das Produkt; der Rabatt: mit Rabatt, ohne Rabatt oder ein bestimmter Rabatt; das Rechnungsland; und der Zeitraum: <RepositoryFact name="dashboardRanges" />. `getOrderFilters` (`get-order-filters.ts`, `order: ["read"]`) listet die Produkte, die Rabatte und die Rechnungsländer, die die Kopien enthalten, jedes Produkt und jeden Rabatt unter dem Namen seiner neuesten Bestellung.
+- Jede Zeile zeigt, wann die Bestellung aufgegeben wurde, ihre ID, das Konto oder Kein Konto mit der ID des Polar-Kunden, das Produkt, den Gesamtbetrag in der Währung der Bestellung mit dem erstatteten Betrag, den Rabatt mit Code und Betrag, das Rechnungsland und den Status. Beträge werden mit `fromMinorUnits` umgerechnet und enthalten Steuern.
+- Ist kein Filter gesetzt und noch keine Bestellung kopiert, sagt die Tabelle, dass es noch keine Bestellungen gibt; ein Filter ohne Treffer zeigt die übliche leere Zeile der Tabelle.
 
 ## Bestellseite
 
 `/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) lädt `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
 
-| Teil       | Quelle                                                                                                                                                                                                                                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `order`    | Die D1-Kopie: aufgegeben und zuletzt geändert, Produkt, Gesamtbetrag, Erstattung, Rechnungsnummer, Abonnement und Polar-Kunde, mit dem passenden Konto                                                                                                                                                       |
-| `polar`    | `polar.orders.get` beim Laden der Seite: Zwischensumme, Rabatt, Betrag nach Rabatt, Steuer, Gesamtbetrag, Erstattungen und erstattete Steuer, der Status, Name und Code des Rabatts, Rechnungsname und -land, Name und E-Mail des Kunden sowie `polar.orders.invoice` sobald Polar die Rechnung erstellt hat |
-| `polarUrl` | Die Bestellung im Dashboard von Polar                                                                                                                                                                                                                                                                        |
+| Teil       | Quelle                                                                                                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`    | Die D1-Kopie: aufgegeben und zuletzt geändert, Produkt, Gesamtbetrag, Erstattung, der Rabatt und sein Betrag, das Rechnungsland, Rechnungsnummer, Abonnement und Polar-Kunde, mit dem passenden Konto. Eine Bestellung, die kopiert wurde, bevor Rabatt und Rechnungsland gespeichert wurden, zeigt für beide Noch nicht übernommen |
+| `polar`    | `polar.orders.get` beim Laden der Seite: Zwischensumme, Rabatt, Betrag nach Rabatt, Steuer, Gesamtbetrag, Erstattungen und erstattete Steuer, der Status, Name und Code des Rabatts, Rechnungsname und -land, Name und E-Mail des Kunden sowie `polar.orders.invoice` sobald Polar die Rechnung erstellt hat                        |
+| `polarUrl` | Die Bestellung im Dashboard von Polar                                                                                                                                                                                                                                                                                               |
 
 Antwortet Polar nicht, ist `polar` gleich `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`), und die Seite behält die Kopie und sagt, dass Polar nicht erreichbar war. Eine Bestellung, die die Kopie nicht hat, ist eine Seite „nicht gefunden“. Die Kontokarte verlinkt das Profil, auf dem die Lizenz und jede Bestellung des Kontos stehen.
 
-## Kunden
+## Kunden [#customers]
 
 Der Zahlungsbereich fügt der Benutzerverwaltung den Tab Kunden hinzu (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) und dem Profil eines Kontos seine Bestellungen (`src/data/payments.user-profile.ts`).
 
 - `getCustomersPageQuery` ruft `getCustomers` (`get-customers.ts`, `order: ["read"]`) auf, das die Kopien nach Polar-Kunde gruppiert und das Konto verbindet, zu dem ihre Bestellungen passten. Jede Zeile zeigt das Konto mit Registrierungsdatum und ob seine E-Mail bestätigt ist, die Zahl der Bestellungen, was der Kunde nach Erstattungen in jeder Währung bezahlt hat, gezählt über die Bestellungen mit einem Status aus <RepositoryFact name="revenueOrderStatuses" />, und die letzte Bestellung. Währungen werden nie addiert.
 - Die Suche findet Name, E-Mail und ID des Polar-Kunden, und das Sortieren nach Kunde, Registrierung, Bestellungen und letzter Bestellung läuft auf dem Server.
-- `UserOrders` (`user-orders.tsx`) listet auf dem Profil die Bestellungen des Kontos, jede mit ihrer Seite verlinkt, und was es nach Erstattungen pro Währung bezahlt hat. Die Lizenzkarte zeigt das Gerätelimit des Pakets aus `LICENSE_ACTIVATION_LIMITS`.
+- Andere Bereiche fügen der Tabelle Spalten in `src/data/<area>.customer-columns.ts` hinzu, die `src/data/customer-columns.entries.ts` in `CUSTOMER_COLUMNS` (`src/data/customer-columns.ts`) zusammenführt; der Zahlungsbereich fügt keine hinzu. Der Lizenzbereich fügt **Geräte** (`license-machines.tsx`) hinzu: Für jeden Kunden mit Konto zeigt die Spalte, wie viele Geräte die Lizenz gemessen an ihrem Limit aktiviert hat, etwa 2 von 5 Geräten belegt, und öffnet die Liste der Geräte mit Bezeichnung, System und Aktivierungszeit. Die Zellen einer Seite teilen sich eine `userActivationsQuery` für die Konten dieser Seite (siehe [Benutzer (Admin)](/docs/features/users-admin#profile)).
+- `UserOrders` (`user-orders.tsx`) listet auf dem Profil die Bestellungen des Kontos, jede mit ihrer Seite verlinkt, und was es nach Erstattungen pro Währung bezahlt hat.
+
+## Rabatte und Rechnungsländer älterer Bestellungen [#discounts-and-billing-countries-of-older-orders]
+
+`recordOrder` kopiert Rabatt und Rechnungsland bei jedem Bestellereignis, sodass eine Bestellung, die Polar erneut ändert, sie mit ihrem nächsten Webhook erhält. Bestellungen, die vor `20261122143452_familiar_tusk.sql` kopiert wurden, behalten bis dahin ein leeres `discount_amount`. `bun run orders:backfill:<local|preview|production>` kopiert sie auf einmal aus der API von Polar; siehe [Datenbank](/docs/tooling/database#discounts-and-billing-countries-of-older-orders).
 
 ## Noch nicht gebaut
 
-- Die Kopie einer Bestellung enthält keinen Rabatt und kein Rechnungsland, daher kann die Liste nicht danach filtern; dafür braucht es eine D1-Migration.
 - Erstattungen werden im Dashboard von Polar vorgenommen, das die Bestellseite verlinkt.
-- Wie viele Geräte ein Lizenzschlüssel aktiviert hat, liest Polar Schlüssel für Schlüssel aus, und weder der Kunden-Tab noch die Lizenzkarte zeigen es bisher.
 
 ## Verwandte Seiten
 

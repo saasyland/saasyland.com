@@ -1,3 +1,5 @@
+import { PLATFORM } from "@saasyland/stack/api"
+
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_STATUS, LICENSE_TIER, type LicenseStatus, type LicenseTier } from "../../src/modules/license/license.constants"
 
@@ -61,6 +63,23 @@ const cliTestLicense = (parallelIndex: number) => {
 export const TEST_CLI_LICENSES = Array.from({ length: PARALLEL_WORKERS }, (_, parallelIndex) => cliTestLicense(parallelIndex))
 
 export const TEST_LICENSES = [TEST_LICENSE, TEST_COURSE_LICENSE, ...TEST_CLI_LICENSES]
+
+export const TEST_MACHINES_LICENSE = {
+  activations: [
+    { createdAt: "2026-11-01T10:00:00.000Z", id: "7c1e4b2a-3d5f-4a6b-8c9d-0e1f2a3b4c50", label: "Studio Mac", platform: PLATFORM.MACOS },
+    { createdAt: "2026-11-05T10:00:00.000Z", id: "7c1e4b2a-3d5f-4a6b-8c9d-0e1f2a3b4c51", label: "Release runner", platform: PLATFORM.LINUX },
+  ],
+  id: "test-machines-license",
+  key: "SAASY-TEST-MACHINES",
+  lessonOpenedAt: "2026-11-02T10:00:00.000Z",
+  order: { id: "ord_test-machines", placedAt: "2026-11-01T09:00:00.000Z" },
+  polarCustomerId: "cus_test-machines",
+  polarLicenseKeyId: "lk_test-machines",
+  polarOrderId: "ord_test-machines",
+  status: LICENSE_STATUS.ACTIVE,
+  tier: LICENSE_TIER.COMPLETE,
+  user: { email: "machines@example.test", id: "test-machines", name: "Test Machines Licensee", role: ROLE_CODES.CUSTOMER },
+} as const
 
 const tierTestLicense = (tier: LicenseTier, status: LicenseStatus) => {
   const id = `test-${tier}-${status}`

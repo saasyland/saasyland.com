@@ -109,6 +109,18 @@ Lascia `course.cover` fuori dalla copia: i file di una copertina sono nel bucket
 
 Si ferma prima di scrivere se un corso di preview ha lo slug di un corso della produzione con un altro id, come uno importato dal file del programma; elimina quel corso nell'amministrazione di preview, poi eseguilo di nuovo. Stampa ciò che ha creato, aggiornato e rimosso in ogni tabella, poi conta le righe su preview e fallisce se sono diverse da quelle della produzione.
 
+## Sconti e paesi di fatturazione degli ordini precedenti [#discounts-and-billing-countries-of-older-orders]
+
+La migrazione `20261122143452_familiar_tusk.sql` ha aggiunto lo sconto e il paese di fatturazione alla copia `order` ([Pagamenti](/docs/features/payments#orders-and-subscriptions-in-d1)). I nuovi webhook li compilano, e un ordine copiato prima della migrazione ha `discount_amount` vuoto finché Polar non lo invia di nuovo. Per compilare tutti questi ordini in una volta:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` legge `POLAR_ACCESS_TOKEN` e `POLAR_SERVER` da `.env.<environment>`, elenca gli ordini con `discount_amount` vuoto con `wrangler d1 execute` (in remoto per preview e produzione, in locale per `orders:backfill:local`) e legge ciascuno da Polar con `polar.orders.get`, uno alla volta, aspettando quanto chiede Polar quando risponde 429. Scrive tutti gli ordini in un’unica esecuzione `--file`, ogni `UPDATE` limitato al suo ID e a un `discount_amount` vuoto, quindi non sovrascrive mai una copia che un webhook ha compilato nel frattempo e una seconda esecuzione non cambia nulla. Stampa quanti ordini ha copiato ed esce con un errore finché ne resta qualcuno, come un ordine che Polar non restituisce più. Applica prima la migrazione.
+
 ## Il primo amministratore [#the-first-admin]
 
 L'applicazione non ha alcun endpoint, seed o variabile che assegni il ruolo `admin`. Su preview e in produzione, il primo amministratore viene creato con uno script, e questo è l'unico modo:

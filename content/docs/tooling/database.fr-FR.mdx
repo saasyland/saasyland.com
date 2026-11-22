@@ -109,6 +109,18 @@ Il laisse `course.cover` hors de la copie : les fichiers d’une couverture sont
 
 Il s'arrête avant d'écrire si un cours de la préversion porte le slug d'un cours de la production avec un autre identifiant, par exemple un cours importé depuis le fichier du programme ; supprimez ce cours dans l'administration de la préversion, puis relancez-le. Il affiche ce qu'il a créé, mis à jour et supprimé dans chaque table, puis compte les lignes de la préversion et échoue si elles diffèrent de celles de la production.
 
+## Remises et pays de facturation des commandes plus anciennes [#discounts-and-billing-countries-of-older-orders]
+
+La migration `20261122143452_familiar_tusk.sql` a ajouté la remise et le pays de facturation à la copie `order` ([Paiements](/docs/features/payments#orders-and-subscriptions-in-d1)). Les nouveaux webhooks les remplissent, et une commande copiée avant la migration a un `discount_amount` vide jusqu’à ce que Polar l’envoie de nouveau. Pour remplir toutes ces commandes en une fois :
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` lit `POLAR_ACCESS_TOKEN` et `POLAR_SERVER` dans `.env.<environment>`, liste les commandes dont le `discount_amount` est vide avec `wrangler d1 execute` (à distance pour la préversion et la production, en local pour `orders:backfill:local`), et lit chacune dans Polar avec `polar.orders.get`, une à la fois, en attendant aussi longtemps que Polar le demande lorsqu’il répond 429. Il écrit toutes les commandes en une seule exécution `--file`, chaque `UPDATE` limité à son ID et à un `discount_amount` vide, si bien qu’il n’écrase jamais une copie qu’un webhook a remplie entre-temps et qu’une deuxième exécution ne change rien. Il affiche combien de commandes il a copiées et se termine avec une erreur tant qu’il en reste une, par exemple une commande que Polar ne renvoie plus. Appliquez d’abord la migration.
+
 ## Le premier administrateur [#the-first-admin]
 
 L'application n'a aucun endpoint, seed ou variable qui accorde le rôle `admin`. En préversion et en production, le premier administrateur est créé avec un script, et c'est le seul moyen :

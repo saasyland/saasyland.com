@@ -1,6 +1,8 @@
 import { QueryClient } from "@tanstack/react-query"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { lessonTitleQuery } from "~/src/modules/lesson/use-cases/get-lesson-title"
+import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 import { userWithdrawalsQuery } from "~/src/modules/withdrawal/use-cases/get-user-withdrawals"
 
@@ -10,6 +12,7 @@ import { USER_PROFILE_SECTIONS, type UserProfileSection } from "~/src/data/user-
 import * as AREA_USER_PROFILE from "~/src/data/user-profile.entries"
 
 const USER_ID = "grace"
+const LESSON_ID = "lesson-billing"
 
 const section = (key: string): UserProfileSection => ({
   Pending: () => <span />,
@@ -54,7 +57,7 @@ describe("admin user profile composition", () => {
     expect(profile.USER_PROFILE_SECTIONS).toStrictEqual([])
   })
 
-  it("loads the licence and the withdrawal statements of the user whose profile is open", async () => {
+  it("loads the licence, its machines in Polar and the withdrawal statements of the user whose profile is open", async () => {
     const queryClient = new QueryClient()
     const query = vi.spyOn(queryClient, "query").mockResolvedValue({ license: undefined })
 
@@ -62,7 +65,22 @@ describe("admin user profile composition", () => {
 
     expect(query.mock.calls.map(([options]) => options.queryKey)).toStrictEqual([
       userLicenseQuery({ userId: USER_ID }).queryKey,
+      userActivationsQuery({ userIds: [USER_ID] }).queryKey,
       userWithdrawalsQuery({ userId: USER_ID }).queryKey,
+    ])
+  })
+
+  it("also loads the title of the first paid lesson the licence opened", async () => {
+    const queryClient = new QueryClient()
+    const query = vi.spyOn(queryClient, "query").mockResolvedValue({ license: { openedLessonId: LESSON_ID } })
+    const [licence] = LICENSE_USER_PROFILE
+
+    await licence.load({ queryClient, userId: USER_ID })
+
+    expect(query.mock.calls.map(([options]) => options.queryKey)).toStrictEqual([
+      userLicenseQuery({ userId: USER_ID }).queryKey,
+      userActivationsQuery({ userIds: [USER_ID] }).queryKey,
+      lessonTitleQuery({ lessonId: LESSON_ID }).queryKey,
     ])
   })
 })

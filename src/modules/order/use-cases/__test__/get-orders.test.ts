@@ -14,13 +14,16 @@ import {
   ADMIN_ID,
   BUYER_ID,
   CORE_PRODUCT_ID,
+  LAUNCH_DISCOUNT,
   ORDERS,
   ORDER_USERS,
   PAID_CORE,
   PARTLY_REFUNDED_AGENCY,
+  PARTNER_DISCOUNT,
   PENDING_CORE,
   REFUNDED_GUEST,
 } from "~/src/modules/order/__test__/fixtures/order-buyers"
+import { ORDER_DISCOUNT_FILTER } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import type { Order } from "~/src/modules/order/order.types"
 import { getOrdersPageQuery, getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
@@ -54,8 +57,10 @@ describe("get-orders", () => {
     expect(total).toBe(ORDERS.length)
     expect(rows.map(({ id }) => id)).toStrictEqual([PAID_CORE.id, PENDING_CORE.id, PARTLY_REFUNDED_AGENCY.id, REFUNDED_GUEST.id])
     expect(rows[2]).toStrictEqual({
+      billingCountry: "FR",
       customerId: PARTLY_REFUNDED_AGENCY.customerId,
       description: "Agency",
+      discount: undefined,
       id: PARTLY_REFUNDED_AGENCY.id,
       placedAt: PARTLY_REFUNDED_AGENCY.placedAt,
       refunded: { amount: 200, currency: "EUR" },
@@ -64,6 +69,16 @@ describe("get-orders", () => {
       user: { email: "ada@example.test", id: BUYER_ID, name: "Ada Buyer" },
     })
     expect(rows[3]?.user).toBeNull()
+    expect(rows[0]).toMatchObject({
+      billingCountry: "DE",
+      discount: {
+        amount: { amount: 49.75, currency: "USD" },
+        code: LAUNCH_DISCOUNT.code,
+        id: LAUNCH_DISCOUNT.id,
+        name: LAUNCH_DISCOUNT.name,
+      },
+    })
+    expect(rows[1]).toMatchObject({ billingCountry: undefined, discount: undefined })
   })
 
   it("pages and sorts on the server", async () => {
@@ -111,7 +126,22 @@ describe("get-orders", () => {
     expect(total).toBe(3)
   })
 
+  it("filters by whether a discount applied, by one discount and by the billing country", async () => {
+    await expect(idsOf({ filters: { discount: ORDER_DISCOUNT_FILTER.ANY } })).resolves.toStrictEqual([PAID_CORE.id, REFUNDED_GUEST.id])
+    await expect(idsOf({ filters: { discount: ORDER_DISCOUNT_FILTER.NONE } })).resolves.toStrictEqual([
+      PENDING_CORE.id,
+      PARTLY_REFUNDED_AGENCY.id,
+    ])
+    await expect(idsOf({ filters: { discount: PARTNER_DISCOUNT.id } })).resolves.toStrictEqual([REFUNDED_GUEST.id])
+    await expect(idsOf({ filters: { country: "DE" } })).resolves.toStrictEqual([PAID_CORE.id, REFUNDED_GUEST.id])
+    await expect(idsOf({ filters: { country: "fr" } })).resolves.toStrictEqual([PARTLY_REFUNDED_AGENCY.id])
+    await expect(
+      idsOf({ filters: { country: "DE", discount: ORDER_DISCOUNT_FILTER.ANY, status: POLAR_ORDER_STATUS.PAID } }),
+    ).resolves.toStrictEqual([PAID_CORE.id])
+  })
+
   it("refuses a status, period or sort column it does not know", () => {
+    expect(() => getOrdersPageQuery({ filters: { country: "XX" } })).toThrow()
     expect(() => getOrdersPageQuery({ filters: { status: "lost" } })).toThrow()
     expect(() => getOrdersPageQuery({ filters: { placedAt: "1d" } })).toThrow()
     expect(() => getOrdersPageQuery({ sorting: [{ desc: false, id: "customer" }] })).toThrow()

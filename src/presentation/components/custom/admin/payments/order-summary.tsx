@@ -10,11 +10,13 @@ import { ORDER_MIRROR_DETAILS } from "~/src/data/payments"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
 import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
+import { useDiscountLabel } from "~/src/presentation/components/custom/admin/payments/order-columns"
 
 type MirrorDetail = (typeof ORDER_MIRROR_DETAILS)[number]
 
 export const OrderSummary = ({ order }: { readonly order: Order["detail"]["order"] }): JSX.Element => {
   const t = useTranslations()
+  const discountLabel = useDiscountLabel()
 
   const optional = (value: string | null): string => {
     if (value === null) {
@@ -24,9 +26,50 @@ export const OrderSummary = ({ order }: { readonly order: Order["detail"]["order
     return value
   }
 
+  const notCopied = t("pages.admin.orders.detail.mirror.notCopied")
+
+  const discount = (): ReactNode => {
+    if (!order.termsCopied) {
+      return notCopied
+    }
+
+    if (order.discount === undefined) {
+      return t("pages.admin.orders.detail.none")
+    }
+
+    return discountLabel(order.discount)
+  }
+
+  const discountAmount = (): ReactNode => {
+    if (!order.termsCopied) {
+      return notCopied
+    }
+
+    if (order.discount === undefined) {
+      return t("pages.admin.orders.detail.none")
+    }
+
+    return <MoneyAmount money={order.discount.amount} />
+  }
+
+  const country = (): ReactNode => {
+    if (!order.termsCopied) {
+      return notCopied
+    }
+
+    if (order.billingCountry === undefined) {
+      return t("pages.admin.orders.detail.none")
+    }
+
+    return t(`countries.${order.billingCountry}`)
+  }
+
   const values: Record<MirrorDetail, ReactNode> = {
+    billingCountry: country(),
     changedAt: t("common.dateTime", { value: order.changedAt }),
     customerId: <span className="font-mono text-spec">{order.customerId}</span>,
+    discount: discount(),
+    discountAmount: discountAmount(),
     invoiceNumber: optional(order.invoiceNumber),
     placedAt: t("common.dateTime", { value: order.placedAt }),
     product: order.description,

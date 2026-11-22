@@ -6,7 +6,7 @@ import { orderRow } from "~/src/modules/order/__test__/fixtures/order"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
-import { orderProductsQuery } from "~/src/modules/order/use-cases/get-order-products"
+import { orderFiltersQuery } from "~/src/modules/order/use-cases/get-order-filters"
 import { getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
 import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
 
@@ -21,14 +21,14 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin order route loaders", () => {
-  it("loads the orders and the products to filter them by at /admin/orders", async () => {
+  it("loads the orders and the products, discounts and countries to filter them by at /admin/orders", async () => {
     vi.spyOn(getOrdersQuery, "queryFn")
-    vi.spyOn(orderProductsQuery, "queryFn")
+    vi.spyOn(orderFiltersQuery, "queryFn")
     const router = await loadAsAdmin("/admin/orders")
 
     expectLocalizedAdminPage(router)
     expectPrefetched(router, getOrdersQuery, EMPTY_PAGE)
-    expectPrefetched(router, orderProductsQuery, { products: [] })
+    expectPrefetched(router, orderFiltersQuery, { countries: [], discounts: [], products: [] })
   })
 
   it("loads an order with the page title of its product and falls back when Polar does not know it", async () => {

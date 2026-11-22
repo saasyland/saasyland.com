@@ -500,6 +500,43 @@ export const LICENSE_FLOWS = [
     tests: [{ spec: "license.spec.ts", title: "admin finds a paid licence order without a licence on the dashboard, linked to the order in Polar" }],
   },
   {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-licence-machines",
+    outcome:
+      "The customers tab counts the machines each licence has activated in Polar against its limit and lists them with their system, and the profile's licence card lists the same machines",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-licence-machines.spec.ts",
+        title: "the customers tab and the profile show the machines a licence has activated in Polar, with their system",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-licence-opened-lesson",
+    outcome: "The profile's licence card names the first paid lesson the licence opened and its course under the time it was opened",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-licence-machines.spec.ts",
+        title: "the profile's licence card names the first paid lesson the licence opened and its course",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-licence-machines-polar-unavailable",
+    outcome: "A licence whose key Polar does not answer for keeps its card and machine limit and says Polar could not be reached",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-licence-machines.spec.ts",
+        title: "a licence whose key Polar does not answer for keeps its card and says Polar could not be reached",
+      },
+    ],
+  },
+  {
     area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-licence-counts",
     outcome: "The admin dashboard counts the licences of each tier in D1 by status: active, revoked and refunded",

@@ -9,7 +9,7 @@ import {
   type LicenseTier,
 } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS } from "../data/accounts"
-import { TEST_LICENSES, TEST_TIER_LICENSES } from "../data/licenses"
+import { TEST_LICENSES, TEST_MACHINES_LICENSE, TEST_TIER_LICENSES } from "../data/licenses"
 import { TEST_REVENUE } from "../data/payments"
 import { expect, test } from "../fixtures/auth"
 import { AuthPage } from "../pages"
@@ -43,7 +43,7 @@ const revenue = paymentsDashboardMessages.revenue
 const ranges = pagesAdminDashboardMessages.chart.range
 const licenses = licenseDashboardMessages.licenses
 
-const SEEDED_LICENSES = [...TEST_LICENSES, ...TEST_TIER_LICENSES]
+const SEEDED_LICENSES = [...TEST_LICENSES, ...TEST_TIER_LICENSES, TEST_MACHINES_LICENSE]
 
 const STATUSES_PURCHASES_ADD_TO = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REFUNDED] as const
 

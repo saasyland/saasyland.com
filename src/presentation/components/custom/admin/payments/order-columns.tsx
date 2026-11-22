@@ -14,7 +14,7 @@ import type { DataTableFeatures } from "~/src/presentation/components/custom/dat
 
 type OrderRow = Order["listRow"]
 
-type OrderColumn = "customer" | "placedAt" | "product" | "status" | "totalAmount"
+type OrderColumn = "country" | "customer" | "discount" | "placedAt" | "product" | "status" | "totalAmount"
 
 const LINK_CLASSES =
   "rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -83,6 +83,52 @@ const TotalCell = ({ row }: CellContext<DataTableFeatures, OrderRow, OrderRow["t
   )
 }
 
+type DiscountLabelled = Pick<Order["filterOptions"]["discounts"][number], "code" | "id" | "name">
+
+export const useDiscountLabel = (): ((discount: DiscountLabelled) => string) => {
+  const t = useTranslations("pages.admin.orders.discount")
+
+  return ({ code, id, name }) => {
+    const title = name ?? id
+
+    if (code === null) {
+      return title
+    }
+
+    return t("withCode", { code, name: title })
+  }
+}
+
+const DiscountCell = ({ getValue }: CellContext<DataTableFeatures, OrderRow, OrderRow["discount"]>): JSX.Element => {
+  const t = useTranslations("pages.admin.orders.table")
+  const label = useDiscountLabel()
+  const discount = getValue()
+
+  if (discount === undefined) {
+    return <span className="text-sm text-muted-foreground">{t("noDiscount")}</span>
+  }
+
+  return (
+    <div className="flex max-w-48 min-w-0 flex-col text-sm">
+      <span className="wrap-anywhere text-foreground">{label(discount)}</span>
+      <span className="text-spec text-muted-foreground">
+        <MoneyAmount money={discount.amount} />
+      </span>
+    </div>
+  )
+}
+
+const CountryCell = ({ getValue }: CellContext<DataTableFeatures, OrderRow, OrderRow["billingCountry"]>): JSX.Element => {
+  const t = useTranslations()
+  const country = getValue()
+
+  if (country === undefined) {
+    return <span className="text-sm text-muted-foreground">{t("pages.admin.orders.table.noCountry")}</span>
+  }
+
+  return <span className="text-sm text-foreground">{t(`countries.${country}`)}</span>
+}
+
 const StatusCell = ({ getValue }: CellContext<DataTableFeatures, OrderRow, OrderRow["status"]>): JSX.Element => (
   <OrderStatusBadge status={getValue()} />
 )
@@ -104,5 +150,12 @@ export const orderColumns = columnHelper.columns([
     id: "product",
   }),
   columnHelper.accessor("total", { cell: TotalCell, header: () => <ColumnHeader id="totalAmount" />, id: "totalAmount" }),
+  columnHelper.accessor("discount", { cell: DiscountCell, enableSorting: false, header: () => <ColumnHeader id="discount" /> }),
+  columnHelper.accessor("billingCountry", {
+    cell: CountryCell,
+    enableSorting: false,
+    header: () => <ColumnHeader id="country" />,
+    id: "country",
+  }),
   columnHelper.accessor("status", { cell: StatusCell, header: () => <ColumnHeader id="status" /> }),
 ])

@@ -2,7 +2,7 @@ import zod from "zod/v4"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { TIME_RANGES, timeRangeSchema } from "~/src/modules/_core/utils/time-series"
-import { idField } from "~/src/modules/_core/utils/zod-fields"
+import { countryCodeField, idField } from "~/src/modules/_core/utils/zod-fields"
 import {
   CUSTOMER_SORT_COLUMNS,
   ORDER_SEARCH_MAX_LENGTH,
@@ -22,7 +22,9 @@ const sortingOf = <const Column extends string>(columns: readonly [Column, ...Co
 }
 
 const orderFilters = zod.object({
+  country: countryCodeField.optional(),
   customer: searchField.optional(),
+  discount: idField.optional(),
   placedAt: choiceOf(TIME_RANGES).optional(),
   product: idField.optional(),
   status: choiceOf(ORDER_STATUSES).optional(),

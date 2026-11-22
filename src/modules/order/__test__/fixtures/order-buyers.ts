@@ -8,6 +8,8 @@ export const BUYER_ID = "01900000-0000-7000-8000-000000000042"
 export const OTHER_BUYER_ID = "01900000-0000-7000-8000-000000000043"
 export const CORE_PRODUCT_ID = "00000000-0000-4000-8000-0000000000c1"
 export const AGENCY_PRODUCT_ID = "00000000-0000-4000-8000-0000000000a1"
+export const LAUNCH_DISCOUNT = { code: "LAUNCH", id: "00000000-0000-4000-8000-0000000000d1", name: "Launch week" } as const
+export const PARTNER_DISCOUNT = { id: "00000000-0000-4000-8000-0000000000d2", name: "Partner" } as const
 
 export const ORDER_USERS = [
   { email: "admin@example.test", id: ADMIN_ID, name: "Admin", role: ROLE_CODES.ADMIN },
@@ -30,8 +32,13 @@ export const ORDER_USERS = [
 ]
 
 export const PAID_CORE = orderRow({
+  billingCountry: "DE",
   customerId: "cus_ada",
   description: "Core",
+  discountAmount: 4975,
+  discountCode: LAUNCH_DISCOUNT.code,
+  discountId: LAUNCH_DISCOUNT.id,
+  discountName: LAUNCH_DISCOUNT.name,
   id: "ord_paid_core",
   placedAt: new Date("2026-11-19T09:00:00.000Z"),
   productId: CORE_PRODUCT_ID,
@@ -40,9 +47,11 @@ export const PAID_CORE = orderRow({
 })
 
 export const PARTLY_REFUNDED_AGENCY = orderRow({
+  billingCountry: "FR",
   currency: "eur",
   customerId: "cus_ada",
   description: "Agency",
+  discountAmount: 0,
   id: "ord_partly_refunded_agency",
   placedAt: new Date("2026-10-01T09:00:00.000Z"),
   productId: AGENCY_PRODUCT_ID,
@@ -64,8 +73,12 @@ export const PENDING_CORE = orderRow({
 })
 
 export const REFUNDED_GUEST = orderRow({
+  billingCountry: "DE",
   customerId: "cus_guest",
   description: "Agency",
+  discountAmount: 10_000,
+  discountId: PARTNER_DISCOUNT.id,
+  discountName: PARTNER_DISCOUNT.name,
   id: "ord_refunded_guest",
   placedAt: new Date("2025-06-01T09:00:00.000Z"),
   productId: AGENCY_PRODUCT_ID,

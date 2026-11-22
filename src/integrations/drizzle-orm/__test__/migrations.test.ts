@@ -356,3 +356,64 @@ describe("the migration that records the first paid lesson", () => {
     expect(licenseRows(database)).toStrictEqual([{ ...licenseBefore, lesson_opened_at: null, opened_lesson_id: null }])
   })
 })
+
+const ORDER_TERMS = "20261122143452_familiar_tusk.sql"
+const ORDER_TABLE = "order"
+const ORDER_TERM_COLUMNS = [
+  ["billing_country", "text(2)"],
+  ["discount_amount", "INTEGER"],
+  ["discount_code", "TEXT"],
+  ["discount_id", "text(64)"],
+  ["discount_name", "TEXT"],
+] as const
+const PLACED_ORDER = { currency: "usd", id: "ord_migrated", placed: PURCHASED_AT, status: "paid", total: 4900 }
+
+const isOrderTable = (entry: Record<string, unknown>): boolean => entry["type"] === "table" && entry["tbl_name"] === ORDER_TABLE
+
+describe("the migration that copies the discount and billing country of orders", () => {
+  it("adds a nullable column for the billing country and for each part of the discount to the order table, and nothing else", () => {
+    expect(statements(ORDER_TERMS)).toStrictEqual(
+      ORDER_TERM_COLUMNS.map(([column, type]) => `ALTER TABLE \`${ORDER_TABLE}\` ADD \`${column}\` ${type.toLowerCase()};`),
+    )
+  })
+
+  it("keeps every other table, every index and every order as it was, with the new columns empty until Polar's data arrives", () => {
+    const database = databaseBefore(ORDER_TERMS)
+    database
+      .prepare(
+        "INSERT INTO `order` (id, changed_at, currency, customer_id, description, placed_at, refunded_amount, status, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        PLACED_ORDER.id,
+        PLACED_ORDER.placed,
+        PLACED_ORDER.currency,
+        "cus_migrated",
+        "Core",
+        PLACED_ORDER.placed,
+        0,
+        PLACED_ORDER.status,
+        PLACED_ORDER.total,
+      )
+    const before = schemaOf(database)
+    const columnsBefore = columnsOf(database, ORDER_TABLE)
+    const [orderBefore] = plain(database.prepare("SELECT * FROM `order`").all())
+
+    database.exec(migrationSql(ORDER_TERMS))
+
+    expect(schemaOf(database).filter((entry) => !isOrderTable(entry))).toStrictEqual(before.filter((entry) => !isOrderTable(entry)))
+    expect(columnsOf(database, ORDER_TABLE)).toStrictEqual([
+      ...columnsBefore,
+      ...ORDER_TERM_COLUMNS.map(([name, type], index) => ({
+        cid: columnsBefore.length + index,
+        dflt_value: null,
+        name,
+        notnull: 0,
+        pk: 0,
+        type,
+      })),
+    ])
+    expect(plain(database.prepare("SELECT * FROM `order`").all())).toStrictEqual([
+      { ...orderBefore, ...Object.fromEntries(ORDER_TERM_COLUMNS.map(([column]) => [column, null])) },
+    ])
+  })
+})

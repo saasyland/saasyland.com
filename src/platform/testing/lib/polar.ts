@@ -95,11 +95,13 @@ export const polarCustomer = (organizationId: string, externalId: string): model
 export const polarOrderDiscount = ({
   basisPoints,
   code,
+  id = crypto.randomUUID(),
   name,
   organizationId,
 }: {
   readonly basisPoints: number
   readonly code: string | null
+  readonly id?: string
   readonly name: string
   readonly organizationId: string
 }): models.DiscountPercentageOnceForeverDurationBase => ({
@@ -108,7 +110,7 @@ export const polarOrderDiscount = ({
   created_at: new Date().toISOString(),
   duration: "once",
   ends_at: null,
-  id: crypto.randomUUID(),
+  id,
   max_redemptions: null,
   max_redemptions_per_customer: null,
   metadata: {},

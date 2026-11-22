@@ -15,10 +15,15 @@ describe("order schema", () => {
 
   it("mirrors Polar's order fields, with only our write times defaulted", () => {
     expect(columns.map((column) => [column.name, column.getSQLType(), column.notNull, column.hasDefault])).toStrictEqual([
+      ["billing_country", "text(2)", false, false],
       ["changed_at", "integer", true, false],
       ["currency", "text(3)", true, false],
       ["customer_id", "text(64)", true, false],
       ["description", "text", true, false],
+      ["discount_amount", "integer", false, false],
+      ["discount_code", "text", false, false],
+      ["discount_id", "text(64)", false, false],
+      ["discount_name", "text", false, false],
       ["id", "text(64)", true, false],
       ["invoice_number", "text", false, false],
       ["placed_at", "integer", true, false],

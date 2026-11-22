@@ -14,11 +14,13 @@ import {
   AGENCY_PRODUCT_ID,
   BUYER_ID,
   CORE_PRODUCT_ID,
+  LAUNCH_DISCOUNT,
   ORDERS,
   ORDER_USERS,
+  PARTNER_DISCOUNT,
 } from "~/src/modules/order/__test__/fixtures/order-buyers"
 import { order } from "~/src/modules/order/order.schema"
-import { orderProductsQuery } from "~/src/modules/order/use-cases/get-order-products"
+import { orderFiltersQuery } from "~/src/modules/order/use-cases/get-order-filters"
 import { user } from "~/src/modules/user/user.schema"
 
 beforeEach(async () => {
@@ -34,6 +36,17 @@ beforeEach(async () => {
       productId: CORE_PRODUCT_ID,
     }),
     orderRow({ description: "Custom invoice", id: "ord_without_product", productId: null }),
+    orderRow({
+      billingCountry: "ZZ",
+      description: "Core",
+      discountAmount: 500,
+      discountCode: "SPRING",
+      discountId: LAUNCH_DISCOUNT.id,
+      discountName: "Launch week",
+      id: "ord_renamed_code",
+      placedAt: new Date("2026-11-20T00:00:00.000Z"),
+      productId: CORE_PRODUCT_ID,
+    }),
   ])
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_ID }))
 })
@@ -42,9 +55,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("get-order-products", () => {
-  it("lists each product ordered once, named as its newest order names it", async () => {
-    await expect(executeQuery(orderProductsQuery)).resolves.toStrictEqual({
+describe("get-order-filters", () => {
+  it("lists each product and discount used once, named as its newest order names it, and each billing country", async () => {
+    await expect(executeQuery(orderFiltersQuery)).resolves.toStrictEqual({
+      countries: ["DE", "FR"],
+      discounts: [
+        { code: "SPRING", id: LAUNCH_DISCOUNT.id, name: "Launch week" },
+        { code: null, id: PARTNER_DISCOUNT.id, name: PARTNER_DISCOUNT.name },
+      ],
       products: [
         { id: AGENCY_PRODUCT_ID, name: "Agency" },
         { id: CORE_PRODUCT_ID, name: "Core" },
@@ -55,6 +73,6 @@ describe("get-order-products", () => {
   it("rejects a caller without the permission to read orders", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: BUYER_ID }))
 
-    await expect(executeQuery(orderProductsQuery)).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
+    await expect(executeQuery(orderFiltersQuery)).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 })

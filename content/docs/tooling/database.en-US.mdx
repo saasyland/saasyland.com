@@ -109,6 +109,18 @@ It leaves `course.cover` out of the copy: a cover's files are in production's `M
 
 It stops before writing when a preview course has the slug of a production course with another id, such as one imported from the curriculum file; delete that course in preview's admin, then run it again. It prints what it created, updated and removed in each table, then counts the rows in preview and fails if they differ from production's.
 
+## Discounts and billing countries of older orders
+
+The migration `20261122143452_familiar_tusk.sql` added the discount and the billing country to the `order` copy ([Payments](/docs/features/payments#orders-and-subscriptions-in-d1)). New webhooks fill them, and an order copied before the migration has an empty `discount_amount` until Polar sends it again. To fill every such order at once:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` reads `POLAR_ACCESS_TOKEN` and `POLAR_SERVER` from `.env.<environment>`, lists the orders whose `discount_amount` is empty with `wrangler d1 execute` (remote for preview and production, local for `orders:backfill:local`), and reads each from Polar with `polar.orders.get`, one at a time, waiting as long as Polar asks when it answers 429. It writes every order in one `--file` run, each `UPDATE` limited to its ID and to an empty `discount_amount`, so it never overwrites a copy that a webhook filled meanwhile and a second run changes nothing. It prints how many orders it copied and exits with an error while any is left, such as an order Polar no longer returns. Apply the migration first.
+
 ## The first admin
 
 The application has no endpoint, seed or variable that grants the `admin` role. On preview and production, the first admin is created with a script, and this is the only way:

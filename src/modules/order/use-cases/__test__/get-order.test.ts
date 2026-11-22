@@ -15,7 +15,17 @@ import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
-import { ADMIN_ID, BUYER_ID, ORDERS, ORDER_USERS, PAID_CORE, REFUNDED_GUEST } from "~/src/modules/order/__test__/fixtures/order-buyers"
+import {
+  ADMIN_ID,
+  BUYER_ID,
+  LAUNCH_DISCOUNT,
+  ORDERS,
+  ORDER_USERS,
+  PAID_CORE,
+  PARTNER_DISCOUNT,
+  PENDING_CORE,
+  REFUNDED_GUEST,
+} from "~/src/modules/order/__test__/fixtures/order-buyers"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
@@ -61,9 +71,16 @@ describe("get-order", () => {
     const { order: copy, polar, polarUrl } = await executeQuery(getOrderQuery({ orderId: PAID_CORE.id }))
 
     expect(copy).toStrictEqual({
+      billingCountry: "DE",
       changedAt: PAID_CORE.changedAt,
       customerId: PAID_CORE.customerId,
       description: "Core",
+      discount: {
+        amount: { amount: 49.75, currency: "USD" },
+        code: LAUNCH_DISCOUNT.code,
+        id: LAUNCH_DISCOUNT.id,
+        name: LAUNCH_DISCOUNT.name,
+      },
       id: PAID_CORE.id,
       invoiceNumber: PAID_CORE.invoiceNumber,
       placedAt: PAID_CORE.placedAt,
@@ -71,6 +88,7 @@ describe("get-order", () => {
       refunded: { amount: 0, currency: "USD" },
       status: POLAR_ORDER_STATUS.PAID,
       subscriptionId: null,
+      termsCopied: true,
       total: { amount: 199, currency: "USD" },
       user: { email: "ada@example.test", id: BUYER_ID, name: "Ada Buyer" },
     })
@@ -110,7 +128,19 @@ describe("get-order", () => {
 
     expect(copy.user).toBeNull()
     expect(copy.refunded).toStrictEqual({ amount: 499, currency: "USD" })
+    expect(copy.discount).toStrictEqual({
+      amount: { amount: 100, currency: "USD" },
+      code: null,
+      id: PARTNER_DISCOUNT.id,
+      name: PARTNER_DISCOUNT.name,
+    })
     expect(polar).toStrictEqual({ read: POLAR_READ.UNAVAILABLE })
+  })
+
+  it("says when the copy does not hold the discount and billing country yet", async () => {
+    const { order: copy } = await executeQuery(getOrderQuery({ orderId: PENDING_CORE.id }))
+
+    expect(copy).toMatchObject({ billingCountry: undefined, discount: undefined, termsCopied: false })
   })
 
   it("answers not found for an order the copy does not have", async () => {

@@ -25,6 +25,13 @@ export const ORDER_SORT_COLUMNS_MAX = 3
 
 export const ORDER_SEARCH_MAX_LENGTH = 120
 
+export const ORDER_DISCOUNT_FILTER = {
+  ANY: "any",
+  NONE: "none",
+} as const
+
+export const ORDER_DISCOUNT_FILTERS = [ORDER_DISCOUNT_FILTER.ANY, ORDER_DISCOUNT_FILTER.NONE] as const
+
 export const POLAR_READ = {
   AVAILABLE: "available",
   UNAVAILABLE: "unavailable",
@@ -34,8 +41,8 @@ export const ORDER_QUERY_KEYS = {
   ALL: ["order"],
   CUSTOMERS: ["order", "getCustomers"],
   DETAIL: ["order", "getOrder"],
+  FILTERS: ["order", "getOrderFilters"],
   LIST: ["order", "getOrders"],
-  PRODUCTS: ["order", "getOrderProducts"],
   REVENUE: ["order", "getRevenue"],
   USER: ["order", "getUserOrders"],
 } as const

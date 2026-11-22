@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { act, render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -11,11 +12,13 @@ import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
+import { LICENSE_MACHINES } from "~/src/modules/license/license.constants"
+import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import type { Order } from "~/src/modules/order/order.types"
 import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
-import { orderProductsQuery } from "~/src/modules/order/use-cases/get-order-products"
+import { orderFiltersQuery } from "~/src/modules/order/use-cases/get-order-filters"
 import { getOrdersQuery } from "~/src/modules/order/use-cases/get-orders"
 import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
 
@@ -38,6 +41,7 @@ import { UserOrders } from "~/src/presentation/components/custom/admin/payments/
 import countriesMessages from "~/messages/en-US/countries.json"
 import customersMessages from "~/messages/en-US/pages.admin.customers.json"
 import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
+import licenseMessages from "~/messages/en-US/pages.admin.users.license.json"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -53,12 +57,32 @@ const cellsOf = (row: HTMLElement): string[] =>
 
 const bodyRows = (): HTMLElement[] => screen.getAllByRole("row").slice(1)
 
-const valueOf = (term: string): Element | null => screen.getByText(term, { exact: true, selector: "dt" }).nextElementSibling
+const cardOf = (title: string): HTMLElement => {
+  const card = screen.getByRole("heading", { level: 2, name: title }).closest<HTMLElement>("[data-slot=card]")
+  if (card === null) {
+    throw new Error(`${title} is outside a card`)
+  }
+  return card
+}
+
+const valueIn = (title: string, term: string): Element | null =>
+  within(cardOf(title)).getByText(term, { exact: true, selector: "dt" }).nextElementSibling
+
+const valueOf = (term: string): Element | null => valueIn(detail.mirror.title, term)
+
+const polarValue = (term: string): Element | null => valueIn(polarLabels.title, term)
 
 const renderOrders = (rows: readonly Order["listRow"][]) => {
   const queryClient = adminQueryClient()
   queryClient.setQueryData(getOrdersQuery.queryKey, { rows: [...rows], total: rows.length })
-  queryClient.setQueryData(orderProductsQuery.queryKey, { products: [{ id: "prod_agency", name: "Agency" }] })
+  queryClient.setQueryData(orderFiltersQuery.queryKey, {
+    countries: ["DE", "PL"],
+    discounts: [
+      { code: "LAUNCH", id: "dsc_launch", name: "Launch week" },
+      { code: null, id: "dsc_partner", name: null },
+    ],
+    products: [{ id: "prod_agency", name: "Agency" }],
+  })
   return renderAdminPage(OrdersRoute.options.component, { queryClient })
 }
 
@@ -98,8 +122,10 @@ describe("orders page", () => {
     renderOrders([
       adminOrderRow({ refunded: { amount: 50, currency: "USD" }, status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED }),
       adminOrderRow({
+        billingCountry: undefined,
         customerId: "cus_guest",
         description: "Agency",
+        discount: { amount: { amount: 71.92, currency: "EUR" }, code: "LAUNCH", id: "dsc_launch", name: "Launch week" },
         id: "ord_guest",
         total: { amount: 719.2, currency: "EUR" },
         user: null,
@@ -114,6 +140,8 @@ describe("orders page", () => {
       "Ada Lovelaceada@example.com",
       "Complete",
       "$199.00$50.00 refunded",
+      ordersMessages.table.noDiscount,
+      countriesMessages.DE,
       ordersMessages.status.partially_refunded,
     ])
     expect(within(partly ?? document.body).getByRole("link", { name: /ord_complete/u })).toHaveAttribute(
@@ -126,17 +154,49 @@ describe("orders page", () => {
       `${ordersMessages.customer.noAccount}cus_guest`,
       "Agency",
       "€719.20",
+      "Launch week (LAUNCH)€71.92",
+      ordersMessages.table.noCountry,
       ordersMessages.status.paid,
     ])
   })
 
-  it("offers a search and filters by status, product and period", () => {
+  it("offers a search and filters by status, product, discount, billing country and period", async () => {
+    const user = userEvent.setup()
     renderOrders([])
 
     expect(screen.getByRole("textbox", { name: ordersMessages.filters.search })).toBeVisible()
-    for (const label of [ordersMessages.filters.status, ordersMessages.filters.product, ordersMessages.filters.placedAt]) {
+    for (const label of [
+      ordersMessages.filters.status,
+      ordersMessages.filters.product,
+      ordersMessages.filters.discount,
+      ordersMessages.filters.country,
+      ordersMessages.filters.placedAt,
+    ]) {
       expect(screen.getByRole("button", { name: new RegExp(label, "u") })).toBeVisible()
     }
+
+    await user.click(screen.getByRole("button", { name: new RegExp(ordersMessages.filters.discount, "u") }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([
+      ordersMessages.filters.discount,
+      ordersMessages.filters.discounts.any,
+      ordersMessages.filters.discounts.none,
+      "Launch week (LAUNCH)",
+      "dsc_partner",
+    ])
+    await user.keyboard("{Escape}")
+
+    await user.click(screen.getByRole("button", { name: new RegExp(ordersMessages.filters.country, "u") }))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toStrictEqual([
+      ordersMessages.filters.country,
+      countriesMessages.DE,
+      countriesMessages.PL,
+    ])
+  })
+
+  it("says that no orders exist yet while no filter is set", () => {
+    renderOrders([])
+
+    expect(screen.getByRole("cell", { name: ordersMessages.empty })).toBeVisible()
   })
 
   it("mirrors the page in its skeleton", () => {
@@ -160,13 +220,16 @@ describe("order page", () => {
     expect(valueOf(detail.mirror.fields.invoiceNumber)).toHaveTextContent("SAASY-0001")
     expect(valueOf(detail.mirror.fields.subscription)).toHaveTextContent(detail.none)
     expect(valueOf(detail.mirror.fields.customerId)).toHaveTextContent("cus_ada")
+    expect(valueOf(detail.mirror.fields.discount)).toHaveTextContent("Launch week (LAUNCH)")
+    expect(valueOf(detail.mirror.fields.discountAmount)).toHaveTextContent("$49.75")
+    expect(valueOf(detail.mirror.fields.billingCountry)).toHaveTextContent(countriesMessages.DE)
     expect(screen.getByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/admin/users/ada")
-    expect(valueOf(polarLabels.amounts.subtotal)).toHaveTextContent("$248.75")
-    expect(valueOf(polarLabels.amounts.discount)).toHaveTextContent("$49.75")
-    expect(valueOf(polarLabels.amounts.refundedTax)).toHaveTextContent("$1.60")
-    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent("Launch week (LAUNCH)")
-    expect(valueOf(polarLabels.fields.billingCountry)).toHaveTextContent(countriesMessages.DE)
-    expect(valueOf(polarLabels.fields.billingName)).toHaveTextContent("Ada GmbH")
+    expect(polarValue(polarLabels.amounts.subtotal)).toHaveTextContent("$248.75")
+    expect(polarValue(polarLabels.amounts.discount)).toHaveTextContent("$49.75")
+    expect(polarValue(polarLabels.amounts.refundedTax)).toHaveTextContent("$1.60")
+    expect(polarValue(polarLabels.fields.discountName)).toHaveTextContent("Launch week (LAUNCH)")
+    expect(polarValue(polarLabels.fields.billingCountry)).toHaveTextContent(countriesMessages.DE)
+    expect(polarValue(polarLabels.fields.billingName)).toHaveTextContent("Ada GmbH")
     expect(screen.getByRole("link", { name: polarLabels.invoice })).toHaveAttribute(
       "href",
       "https://sandbox.polar.sh/invoices/ord_complete.pdf",
@@ -184,23 +247,35 @@ describe("order page", () => {
         discountCode: null,
         invoiceUrl: undefined,
       },
-      adminOrderDetail({ invoiceNumber: null, subscriptionId: "sub_monthly" }),
+      adminOrderDetail({ billingCountry: undefined, discount: undefined, invoiceNumber: null, subscriptionId: "sub_monthly" }),
     )
 
-    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent("Launch week")
-    expect(valueOf(polarLabels.fields.billingCountry)).toHaveTextContent(detail.none)
-    expect(valueOf(polarLabels.fields.billingName)).toHaveTextContent(detail.none)
-    expect(valueOf(polarLabels.fields.customerEmail)).toHaveTextContent(detail.none)
-    expect(valueOf(polarLabels.fields.customerName)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.discount)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.discountAmount)).toHaveTextContent(detail.none)
+    expect(valueOf(detail.mirror.fields.billingCountry)).toHaveTextContent(detail.none)
+
+    expect(polarValue(polarLabels.fields.discountName)).toHaveTextContent("Launch week")
+    expect(polarValue(polarLabels.fields.billingCountry)).toHaveTextContent(detail.none)
+    expect(polarValue(polarLabels.fields.billingName)).toHaveTextContent(detail.none)
+    expect(polarValue(polarLabels.fields.customerEmail)).toHaveTextContent(detail.none)
+    expect(polarValue(polarLabels.fields.customerName)).toHaveTextContent(detail.none)
     expect(valueOf(detail.mirror.fields.invoiceNumber)).toHaveTextContent(detail.none)
     expect(valueOf(detail.mirror.fields.subscription)).toHaveTextContent("sub_monthly")
     expect(screen.getByText(polarLabels.noInvoice)).toBeVisible()
   })
 
+  it("says when the saved copy does not hold the discount and billing country yet", async () => {
+    await renderOrder(adminPolarOrder(), adminOrderDetail({ billingCountry: undefined, discount: undefined, termsCopied: false }))
+
+    for (const field of [detail.mirror.fields.discount, detail.mirror.fields.discountAmount, detail.mirror.fields.billingCountry]) {
+      expect(valueOf(field)).toHaveTextContent(detail.mirror.notCopied)
+    }
+  })
+
   it("says no discount applied when the order had none", async () => {
     await renderOrder({ ...adminPolarOrder(), discountCode: undefined, discountName: undefined })
 
-    expect(valueOf(polarLabels.fields.discountName)).toHaveTextContent(detail.none)
+    expect(polarValue(polarLabels.fields.discountName)).toHaveTextContent(detail.none)
   })
 
   it("keeps the saved copy and says so when Polar cannot be read, and says when no account matches", async () => {
@@ -220,17 +295,21 @@ describe("order page", () => {
 })
 
 describe("customers tab", () => {
-  it("lists each customer with their account, sign-up, verification, orders, what they paid and their last order", () => {
+  it("lists each customer with their account, sign-up, verification, orders, what they paid, their last order and their machines", () => {
     const queryClient = adminQueryClient()
+    queryClient.setQueryData(userActivationsQuery({ userIds: ["ada"] }).queryKey, {
+      machines: [{ activations: [], limit: 3, state: LICENSE_MACHINES.LISTED, userId: "ada" }],
+    })
     queryClient.setQueryData(getCustomersQuery.queryKey, {
       rows: [adminCustomerRow(), adminCustomerRow({ customerId: "cus_guest", id: "cus_guest", orders: 1, revenue: [], user: null })],
       total: 2,
     })
     renderAdminPage(CustomersRoute.options.component, { queryClient })
 
-    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual(
-      Object.values(customersMessages.table.headers),
-    )
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual([
+      ...Object.values(customersMessages.table.headers),
+      licenseMessages.activations.header,
+    ])
     const [ada, guest] = bodyRows()
     expect(cellsOf(ada ?? document.body)).toStrictEqual([
       "Ada Lovelaceada@example.com",
@@ -239,6 +318,7 @@ describe("customers tab", () => {
       "2",
       "€519.20$199.00",
       "Jan 1, 2025, 12:00 PM UTC",
+      "0 of 3 machines in use",
     ])
     expect(cellsOf(guest ?? document.body)).toStrictEqual([
       `${customersMessages.table.noAccount}cus_guest`,
@@ -247,6 +327,7 @@ describe("customers tab", () => {
       "1",
       customersMessages.table.noRevenue,
       "Jan 1, 2025, 12:00 PM UTC",
+      customersMessages.table.noAccount,
     ])
     expect(screen.getByRole("textbox", { name: customersMessages.search })).toBeVisible()
   })

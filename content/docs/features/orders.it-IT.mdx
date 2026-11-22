@@ -9,34 +9,38 @@ La pagina `/admin/orders` (`src/routes/admin.orders.index.tsx`) elenca le copie 
 
 - `getOrdersPageQuery` chiama `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`). Paginazione, ordinamento per data, totale o stato, ricerca e filtri vengono eseguiti tutti sul server.
 - La ricerca trova l’ID dell’ordine, l’ID del cliente Polar, il prodotto e il nome e l’email dell’account corrispondente, e parte quando la digitazione si ferma.
-- I filtri sono lo stato, da `ORDER_STATUSES`, il prodotto, da `getOrderProducts`, che elenca ogni prodotto con un ordine con il nome del suo ordine più recente, e il periodo: <RepositoryFact name="dashboardRanges" />.
-- Ogni riga mostra quando è stato effettuato l’ordine e il suo ID, l’account, oppure Nessun account con l’ID del cliente Polar, il prodotto, il totale nella valuta dell’ordine con quanto rimborsato, e lo stato. Gli importi sono convertiti con `fromMinorUnits` e includono le tasse.
+- I filtri sono lo stato, da `ORDER_STATUSES`; il prodotto; lo sconto: qualsiasi sconto, nessuno sconto o uno sconto specifico; il paese di fatturazione; e il periodo: <RepositoryFact name="dashboardRanges" />. `getOrderFilters` (`get-order-filters.ts`, `order: ["read"]`) elenca i prodotti, gli sconti e i paesi di fatturazione presenti nelle copie, ogni prodotto e ogni sconto con il nome del suo ordine più recente.
+- Ogni riga mostra quando è stato effettuato l’ordine e il suo ID, l’account, oppure Nessun account con l’ID del cliente Polar, il prodotto, il totale nella valuta dell’ordine con quanto rimborsato, lo sconto con il suo codice e importo, il paese di fatturazione, e lo stato. Gli importi sono convertiti con `fromMinorUnits` e includono le tasse.
+- Senza filtri impostati e senza alcun ordine ancora copiato, la tabella dice che non esistono ancora ordini; un filtro che non trova nulla mostra la solita riga vuota della tabella.
 
 ## Pagina dell’ordine
 
 `/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) carica `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
 
-| Parte      | Origine                                                                                                                                                                                                                                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `order`    | La copia D1: effettuazione e ultima modifica, prodotto, totale, rimborso, numero di fattura, abbonamento e cliente Polar, con l’account corrispondente                                                                                                                                                             |
-| `polar`    | `polar.orders.get` al caricamento della pagina: subtotale, sconto, importo dopo lo sconto, tasse, totale, rimborsi e tasse rimborsate, lo stato, il nome e il codice dello sconto, il nome e il paese di fatturazione, il nome e l’email del cliente, e `polar.orders.invoice` quando Polar ha generato la fattura |
-| `polarUrl` | L’ordine nella dashboard di Polar                                                                                                                                                                                                                                                                                  |
+| Parte      | Origine                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `order`    | La copia D1: effettuazione e ultima modifica, prodotto, totale, rimborso, lo sconto e il suo importo, il paese di fatturazione, numero di fattura, abbonamento e cliente Polar, con l’account corrispondente. Un ordine copiato prima che venissero conservati lo sconto e il paese di fatturazione mostra Non ancora copiato per entrambi |
+| `polar`    | `polar.orders.get` al caricamento della pagina: subtotale, sconto, importo dopo lo sconto, tasse, totale, rimborsi e tasse rimborsate, lo stato, il nome e il codice dello sconto, il nome e il paese di fatturazione, il nome e l’email del cliente, e `polar.orders.invoice` quando Polar ha generato la fattura                         |
+| `polarUrl` | L’ordine nella dashboard di Polar                                                                                                                                                                                                                                                                                                          |
 
 Quando Polar non risponde, `polar` è `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`) e la pagina mantiene la copia e avvisa che Polar non è raggiungibile. Un ordine che la copia non ha è una pagina non trovata. La scheda dell’account rimanda al profilo, dove si trovano la licenza e ogni ordine dell’account.
 
-## Clienti
+## Clienti [#customers]
 
 L’area dei pagamenti aggiunge la scheda Clienti alla gestione utenti (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) e gli ordini di un account al suo profilo (`src/data/payments.user-profile.ts`).
 
 - `getCustomersPageQuery` chiama `getCustomers` (`get-customers.ts`, `order: ["read"]`), che raggruppa le copie per cliente Polar e collega l’account a cui corrispondevano i suoi ordini. Ogni riga mostra l’account con la data di registrazione e se l’email è verificata, il numero di ordini, quanto il cliente ha pagato dopo i rimborsi in ogni valuta, contando gli ordini il cui stato è uno di <RepositoryFact name="revenueOrderStatuses" />, e l’ultimo ordine. Le valute non si sommano mai.
 - La ricerca trova nome, email e ID del cliente Polar, e l’ordinamento per cliente, registrazione, ordini e ultimo ordine viene eseguito sul server.
-- `UserOrders` (`user-orders.tsx`) elenca sul profilo gli ordini dell’account, ciascuno collegato alla sua pagina, con quanto ha pagato dopo i rimborsi per valuta. La scheda della licenza mostra il limite di dispositivi del pacchetto da `LICENSE_ACTIVATION_LIMITS`.
+- Altre aree aggiungono colonne alla tabella in `src/data/<area>.customer-columns.ts`, che `src/data/customer-columns.entries.ts` riunisce in `CUSTOMER_COLUMNS` (`src/data/customer-columns.ts`); l’area dei pagamenti non ne aggiunge nessuna. L’area delle licenze aggiunge **Dispositivi** (`license-machines.tsx`): per ogni cliente con un account mostra quanti dispositivi ha attivato la licenza rispetto al suo limite, per esempio 2 su 5 dispositivi in uso, e apre l’elenco dei dispositivi con etichetta, sistema e momento dell’attivazione. Le celle di una pagina condividono una sola `userActivationsQuery` per gli account di quella pagina (vedi [Utenti (admin)](/docs/features/users-admin#profile)).
+- `UserOrders` (`user-orders.tsx`) elenca sul profilo gli ordini dell’account, ciascuno collegato alla sua pagina, con quanto ha pagato dopo i rimborsi per valuta.
+
+## Sconti e paesi di fatturazione degli ordini precedenti [#discounts-and-billing-countries-of-older-orders]
+
+`recordOrder` copia lo sconto e il paese di fatturazione a ogni evento dell’ordine, quindi un ordine che Polar modifica di nuovo li riceve con il webhook successivo. Gli ordini copiati prima di `20261122143452_familiar_tusk.sql` mantengono `discount_amount` vuoto fino ad allora. `bun run orders:backfill:<local|preview|production>` li copia tutti in una volta dall’API di Polar; vedi [Database](/docs/tooling/database#discounts-and-billing-countries-of-older-orders).
 
 ## Non ancora realizzato
 
-- La copia di un ordine non contiene lo sconto né il paese di fatturazione, quindi l’elenco non può filtrarli; aggiungerli richiede una migrazione D1.
 - I rimborsi si fanno nella dashboard di Polar, a cui rimanda la pagina dell’ordine.
-- Il numero di dispositivi attivati da una chiave di licenza si legge da Polar chiave per chiave, e né la scheda clienti né la scheda della licenza lo mostrano ancora.
 
 ## Pagine correlate
 

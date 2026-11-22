@@ -9,18 +9,19 @@ The page `/admin/orders` (`src/routes/admin.orders.index.tsx`) lists the D1 copi
 
 - `getOrdersPageQuery` calls `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`). Paging, sorting by date, total or status, the search and the filters all run on the server.
 - The search matches the order ID, the Polar customer ID, the product and the name and email of the matching account, and is sent once typing pauses.
-- The filters are the status, from `ORDER_STATUSES`, the product, from `getOrderProducts`, which lists each product that has an order under the name of its newest order, and the period: <RepositoryFact name="dashboardRanges" />.
-- Each row shows when the order was placed and its ID, the account, or No account with the Polar customer ID, the product, the total in the order's currency with what was refunded, and the status. Amounts are converted with `fromMinorUnits` and include tax.
+- The filters are the status, from `ORDER_STATUSES`; the product; the discount: any discount, no discount, or one discount; the billing country; and the period: <RepositoryFact name="dashboardRanges" />. `getOrderFilters` (`get-order-filters.ts`, `order: ["read"]`) lists the products, the discounts and the billing countries that the copies hold, each product and discount under the name of its newest order.
+- Each row shows when the order was placed and its ID, the account, or No account with the Polar customer ID, the product, the total in the order's currency with what was refunded, the discount with its code and amount, the billing country, and the status. Amounts are converted with `fromMinorUnits` and include tax.
+- With no filter set and no order copied yet, the table says that no orders exist yet; a filter that matches nothing shows the table's usual empty row.
 
 ## Order page
 
 `/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) loads `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
 
-| Part       | Source                                                                                                                                                                                                                                                                                          |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `order`    | The D1 copy: placed and last changed, product, total, refunded, invoice number, subscription and Polar customer, with the matching account                                                                                                                                                      |
-| `polar`    | `polar.orders.get` when the page loads: subtotal, discount, amount after discount, tax, total, refunds and refunded tax, the status, the discount's name and code, the billing name and country, the customer's name and email, and `polar.orders.invoice` once Polar has generated the invoice |
-| `polarUrl` | The order in Polar's dashboard                                                                                                                                                                                                                                                                  |
+| Part       | Source                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `order`    | The D1 copy: placed and last changed, product, total, refunded, the discount and its amount, the billing country, invoice number, subscription and Polar customer, with the matching account. An order copied before the discount and the billing country were kept says Not copied yet for both |
+| `polar`    | `polar.orders.get` when the page loads: subtotal, discount, amount after discount, tax, total, refunds and refunded tax, the status, the discount's name and code, the billing name and country, the customer's name and email, and `polar.orders.invoice` once Polar has generated the invoice  |
+| `polarUrl` | The order in Polar's dashboard                                                                                                                                                                                                                                                                   |
 
 When Polar does not answer, `polar` is `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`) and the page keeps the copy and says that Polar could not be reached. An order the copy does not have is a not found page. The account card links to the profile, where the licence and every order of the account are.
 
@@ -30,13 +31,16 @@ The payments area adds the Customers tab to user management (`src/data/payments.
 
 - `getCustomersPageQuery` calls `getCustomers` (`get-customers.ts`, `order: ["read"]`), which groups the copies by Polar customer and joins the account their orders matched. Each row shows the account with its sign-up date and whether its email is verified, the number of orders, what the customer paid after refunds in each currency, counting the orders whose status is one of <RepositoryFact name="revenueOrderStatuses" />, and the last order. Currencies are never added together.
 - The search matches the name, the email and the Polar customer ID, and sorting by customer, sign-up, orders and last order runs on the server.
-- `UserOrders` (`user-orders.tsx`) lists the account's orders on its profile, each linked to its page, with what it paid after refunds per currency. The licence card shows the tier's machine limit from `LICENSE_ACTIVATION_LIMITS`.
+- Other areas add columns to the table in `src/data/<area>.customer-columns.ts`, which `src/data/customer-columns.entries.ts` joins into `CUSTOMER_COLUMNS` (`src/data/customer-columns.ts`); the payments area adds none. The licence area adds **Machines** (`license-machines.tsx`): for each customer with an account it shows how many machines the licence has activated against its limit, such as 2 of 5 machines in use, and opens the list of machines with their label, system and activation time. The cells of a page share one `userActivationsQuery` for the accounts on that page (see [Users (admin)](/docs/features/users-admin#profile)).
+- `UserOrders` (`user-orders.tsx`) lists the account's orders on its profile, each linked to its page, with what it paid after refunds per currency.
+
+## Discounts and billing countries of older orders
+
+`recordOrder` copies the discount and the billing country with every order event, so an order Polar changes again gets them on its next webhook. Orders copied before `20261122143452_familiar_tusk.sql` keep `discount_amount` empty until then. `bun run orders:backfill:<local|preview|production>` copies them at once from Polar's API; see [Database](/docs/tooling/database#discounts-and-billing-countries-of-older-orders).
 
 ## Not built yet
 
-- The copy of an order holds no discount and no billing country, so the list cannot filter by them; adding them takes a D1 migration.
 - Refunds are made in Polar's dashboard, which the order page links to.
-- The number of machines a licence key has activated is read from Polar key by key, and neither the customers tab nor the licence card shows it yet.
 
 ## Related pages
 

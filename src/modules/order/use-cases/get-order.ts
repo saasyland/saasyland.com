@@ -6,16 +6,13 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
 
-import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { ORDER_QUERY_KEYS, POLAR_READ } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import type { Order } from "~/src/modules/order/order.types"
-import { accountId, moneyOf, polarOrderUrl } from "~/src/modules/order/order.utils"
+import { accountId, billingCountryOf, moneyOf, orderDiscountOf, polarOrderUrl } from "~/src/modules/order/order.utils"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { user } from "~/src/modules/user/user.schema"
-
-const billingCountryOf = (code: string | undefined): CountryCode | undefined => COUNTRIES.find(({ alpha2 }) => alpha2 === code)?.alpha2
 
 const readPolarOrder = async (orderId: string) => {
   try {
@@ -54,10 +51,15 @@ export const getOrder = createServerFn({ method: "GET" })
   .handler(async ({ data: { orderId } }) => {
     const [row] = await db
       .select({
+        billingCountry: order.billingCountry,
         changedAt: order.changedAt,
         currency: order.currency,
         customerId: order.customerId,
         description: order.description,
+        discountAmount: order.discountAmount,
+        discountCode: order.discountCode,
+        discountId: order.discountId,
+        discountName: order.discountName,
         id: order.id,
         invoiceNumber: order.invoiceNumber,
         placedAt: order.placedAt,
@@ -77,10 +79,17 @@ export const getOrder = createServerFn({ method: "GET" })
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    const { currency, refundedAmount, totalAmount, ...mirror } = row
+    const { billingCountry, currency, discountAmount, discountCode, discountId, discountName, refundedAmount, totalAmount, ...mirror } = row
 
     return {
-      order: { ...mirror, refunded: moneyOf(refundedAmount, currency), total: moneyOf(totalAmount, currency) },
+      order: {
+        ...mirror,
+        billingCountry: billingCountryOf(billingCountry),
+        discount: orderDiscountOf({ currency, discountAmount, discountCode, discountId, discountName }),
+        refunded: moneyOf(refundedAmount, currency),
+        termsCopied: discountAmount !== null,
+        total: moneyOf(totalAmount, currency),
+      },
       polar: await readPolarOrder(orderId),
       polarUrl: polarOrderUrl(orderId),
     }

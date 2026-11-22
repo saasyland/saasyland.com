@@ -9,34 +9,38 @@ Strona `/admin/orders` (`src/routes/admin.orders.index.tsx`) wyświetla kopie za
 
 - `getOrdersPageQuery` wywołuje `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`). Stronicowanie, sortowanie według daty, sumy lub statusu, wyszukiwanie i filtry działają na serwerze.
 - Wyszukiwanie obejmuje ID zamówienia, ID klienta Polar, produkt oraz nazwę i e-mail pasującego konta i jest wysyłane, gdy pisanie ustanie.
-- Filtry to status z `ORDER_STATUSES`, produkt z `getOrderProducts`, które wymienia każdy zamówiony produkt pod nazwą jego najnowszego zamówienia, oraz okres: <RepositoryFact name="dashboardRanges" />.
-- Każdy wiersz pokazuje, kiedy złożono zamówienie, i jego ID, konto albo Brak konta z ID klienta Polar, produkt, sumę w walucie zamówienia ze zwróconą kwotą oraz status. Kwoty są przeliczane przez `fromMinorUnits` i zawierają podatek.
+- Filtry to status z `ORDER_STATUSES`; produkt; rabat: dowolny rabat, brak rabatu albo jeden konkretny rabat; kraj rozliczenia; oraz okres: <RepositoryFact name="dashboardRanges" />. `getOrderFilters` (`get-order-filters.ts`, `order: ["read"]`) wymienia produkty, rabaty i kraje rozliczenia zapisane w kopiach, każdy produkt i rabat pod nazwą jego najnowszego zamówienia.
+- Każdy wiersz pokazuje, kiedy złożono zamówienie, i jego ID, konto albo Brak konta z ID klienta Polar, produkt, sumę w walucie zamówienia ze zwróconą kwotą, rabat z jego kodem i kwotą, kraj rozliczenia oraz status. Kwoty są przeliczane przez `fromMinorUnits` i zawierają podatek.
+- Gdy nie ustawiono żadnego filtra i nie skopiowano jeszcze żadnego zamówienia, tabela informuje, że nie ma jeszcze zamówień; filtr, do którego nic nie pasuje, pokazuje zwykły pusty wiersz tabeli.
 
 ## Strona zamówienia
 
 `/admin/orders/<orderId>` (`admin.orders.$orderId.tsx`) wczytuje `getOrderQuery` (`get-order.ts`, `order: ["read"]`):
 
-| Część      | Źródło                                                                                                                                                                                                                                                          |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `order`    | Kopia w D1: złożenie i ostatnia zmiana, produkt, suma, zwrot, numer faktury, subskrypcja i klient Polar, z pasującym kontem                                                                                                                                     |
-| `polar`    | `polar.orders.get` przy wczytaniu strony: suma częściowa, rabat, kwota po rabacie, podatek, suma, zwroty i zwrócony podatek, status, nazwa i kod rabatu, nazwa i kraj rozliczenia, imię i e-mail klienta oraz `polar.orders.invoice` gdy Polar wystawił fakturę |
-| `polarUrl` | Zamówienie w panelu Polar                                                                                                                                                                                                                                       |
+| Część      | Źródło                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `order`    | Kopia w D1: złożenie i ostatnia zmiana, produkt, suma, zwrot, rabat i jego kwota, kraj rozliczenia, numer faktury, subskrypcja i klient Polar, z pasującym kontem. Zamówienie skopiowane, zanim zaczęto zapisywać rabat i kraj rozliczenia, pokazuje przy obu Jeszcze nie skopiowano |
+| `polar`    | `polar.orders.get` przy wczytaniu strony: suma częściowa, rabat, kwota po rabacie, podatek, suma, zwroty i zwrócony podatek, status, nazwa i kod rabatu, nazwa i kraj rozliczenia, imię i e-mail klienta oraz `polar.orders.invoice` gdy Polar wystawił fakturę                      |
+| `polarUrl` | Zamówienie w panelu Polar                                                                                                                                                                                                                                                            |
 
 Gdy Polar nie odpowiada, `polar` ma wartość `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`), a strona zachowuje kopię i informuje, że nie udało się połączyć z Polar. Zamówienie, którego nie ma w kopii, daje stronę „nie znaleziono”. Karta konta prowadzi do profilu, na którym są licencja i każde zamówienie konta.
 
-## Klienci
+## Klienci [#customers]
 
 Obszar płatności dodaje kartę Klienci do zarządzania użytkownikami (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) oraz zamówienia konta do jego profilu (`src/data/payments.user-profile.ts`).
 
 - `getCustomersPageQuery` wywołuje `getCustomers` (`get-customers.ts`, `order: ["read"]`), które grupuje kopie według klienta Polar i łączy konto, do którego pasowały jego zamówienia. Każdy wiersz pokazuje konto z datą rejestracji i informacją, czy e-mail jest potwierdzony, liczbę zamówień, kwotę zapłaconą po zwrotach w każdej walucie, licząc zamówienia o statusie z <RepositoryFact name="revenueOrderStatuses" />, oraz ostatnie zamówienie. Waluty nigdy nie są sumowane.
 - Wyszukiwanie obejmuje nazwę, e-mail i ID klienta Polar, a sortowanie według klienta, rejestracji, zamówień i ostatniego zamówienia działa na serwerze.
-- `UserOrders` (`user-orders.tsx`) wyświetla na profilu zamówienia konta, każde z linkiem do jego strony, oraz kwotę zapłaconą po zwrotach w każdej walucie. Karta licencji pokazuje limit urządzeń pakietu z `LICENSE_ACTIVATION_LIMITS`.
+- Inne obszary dodają kolumny do tabeli w `src/data/<area>.customer-columns.ts`, a `src/data/customer-columns.entries.ts` łączy je w `CUSTOMER_COLUMNS` (`src/data/customer-columns.ts`); obszar płatności nie dodaje żadnej. Obszar licencji dodaje **Urządzenia** (`license-machines.tsx`): dla każdego klienta z kontem pokazuje, ile urządzeń aktywowała licencja wobec swojego limitu, na przykład 2 z 5 urządzeń w użyciu, i otwiera listę urządzeń z ich etykietą, systemem i czasem aktywacji. Komórki jednej strony współdzielą jedno `userActivationsQuery` dla kont z tej strony (zobacz [Użytkownicy (admin)](/docs/features/users-admin#profile)).
+- `UserOrders` (`user-orders.tsx`) wyświetla na profilu zamówienia konta, każde z linkiem do jego strony, oraz kwotę zapłaconą po zwrotach w każdej walucie.
+
+## Rabaty i kraje rozliczenia starszych zamówień [#discounts-and-billing-countries-of-older-orders]
+
+`recordOrder` kopiuje rabat i kraj rozliczenia przy każdym zdarzeniu zamówienia, więc zamówienie, które Polar znów zmieni, dostaje je w następnym webhooku. Zamówienia skopiowane przed `20261122143452_familiar_tusk.sql` mają do tego czasu puste `discount_amount`. `bun run orders:backfill:<local|preview|production>` kopiuje je od razu z API Polar; zobacz [Baza danych](/docs/tooling/database#discounts-and-billing-countries-of-older-orders).
 
 ## Jeszcze niezbudowane
 
-- Kopia zamówienia nie zawiera rabatu ani kraju rozliczenia, więc lista nie może według nich filtrować; ich dodanie wymaga migracji D1.
 - Zwroty wykonuje się w panelu Polar, do którego prowadzi strona zamówienia.
-- Liczbę urządzeń aktywowanych kluczem licencji odczytuje się z Polar klucz po kluczu i ani karta klientów, ani karta licencji jeszcze jej nie pokazują.
 
 ## Powiązane strony
 

@@ -24,6 +24,19 @@ export const PAYMENTS_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-discount-country",
+    outcome:
+      "/admin/orders shows each order's discount and billing country from the copy, filters by any discount, no discount, one discount and the billing country on the server, and says nothing matches a filter that finds no order",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-orders.spec.ts",
+        title: "the admin filters the buyer's orders by discount and billing country, and sees both in the list",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-order-polar-unavailable",
     outcome: "An order page whose order Polar does not answer for shows the saved copy and says Polar could not be reached",
     status: FLOW_STATUS.COVERED,

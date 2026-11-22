@@ -10,7 +10,7 @@ export const UserLicensePending = (): JSX.Element => (
     <CardHeader className="border-b">
       <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
     </CardHeader>
-    <CardContent>
+    <CardContent className="flex flex-col gap-4">
       <div className="divide-y divide-border text-sm">
         {USER_LICENSE_DETAILS.map((detail) => (
           <div className="flex items-center justify-between gap-4 py-2.5" key={detail}>
@@ -24,6 +24,14 @@ export const UserLicensePending = (): JSX.Element => (
             <Skeleton className="h-lh w-full scale-y-70" />
             <Skeleton className="h-lh w-2/3 scale-y-70" />
           </div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-3 border-t border-border pt-4 text-sm">
+        <Skeleton className="h-lh w-32 scale-y-70" />
+        <Skeleton className="h-lh w-24 scale-y-70" />
+        <div className="flex flex-col gap-0.5">
+          <Skeleton className="h-lh w-40 scale-y-70" />
+          <Skeleton className="h-lh w-48 scale-y-70 text-spec" />
         </div>
       </div>
     </CardContent>

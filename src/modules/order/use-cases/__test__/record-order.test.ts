@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
-import { type PolarProduct, polarCustomer, polarOrder } from "~/src/platform/testing/lib/polar"
+import { type PolarProduct, polarCustomer, polarOrder, polarOrderDiscount } from "~/src/platform/testing/lib/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
@@ -21,6 +21,8 @@ const PRODUCT = {
   price: { amount: 4900, currency: DEFAULT_CURRENCY_CODE },
   recurringInterval: JSON_NULL,
 } as const satisfies PolarProduct
+
+const DISCOUNT = { basisPoints: 1000, code: "RECORDED10", name: "Recorded discount" } as const
 
 const PLACED_AT = "2026-11-16T10:00:00.000Z"
 const PAID_AT = "2026-11-16T10:00:05.000Z"
@@ -67,11 +69,16 @@ describe("recording a Polar order", () => {
 
     const stored = await storedOrder(placed.id)
     expect(stored).toStrictEqual({
+      billingCountry: JSON_NULL,
       changedAt: new Date(PLACED_AT),
       createdAt: stored?.createdAt,
       currency: DEFAULT_CURRENCY_CODE.toLowerCase(),
       customerId: placed.customer_id,
       description: PRODUCT.name,
+      discountAmount: 0,
+      discountCode: JSON_NULL,
+      discountId: JSON_NULL,
+      discountName: JSON_NULL,
       id: placed.id,
       invoiceNumber: "SAASY-0001",
       placedAt: new Date(PLACED_AT),
@@ -82,6 +89,47 @@ describe("recording a Polar order", () => {
       totalAmount: PRODUCT.price.amount,
       updatedAt: stored?.updatedAt,
       userId: buyer,
+    })
+  })
+
+  it("copies the discount and billing country Polar applied to the order", async () => {
+    const discount = polarOrderDiscount({ ...DISCOUNT, organizationId: env.POLAR_ORGANIZATION_ID })
+    const placed: models.Order = {
+      ...placedOrder(await createAccount()),
+      billing_address: { country: "PL" },
+      discount,
+      discount_amount: 490,
+      discount_id: discount.id,
+    }
+
+    await recordOrder(placed)
+
+    expect(await storedOrder(placed.id)).toMatchObject({
+      billingCountry: "PL",
+      discountAmount: 490,
+      discountCode: DISCOUNT.code,
+      discountId: discount.id,
+      discountName: DISCOUNT.name,
+    })
+  })
+
+  it("keeps a discount without a code, and the copied terms when a later version omits the address", async () => {
+    const discount = polarOrderDiscount({ ...DISCOUNT, code: JSON_NULL, organizationId: env.POLAR_ORGANIZATION_ID })
+    const placed: models.Order = {
+      ...placedOrder(await createAccount()),
+      billing_address: { country: "PL" },
+      discount,
+      discount_id: discount.id,
+    }
+
+    await recordOrder(placed)
+    await recordOrder({ ...paid(placed), billing_address: JSON_NULL })
+
+    expect(await storedOrder(placed.id)).toMatchObject({
+      billingCountry: "PL",
+      discountCode: JSON_NULL,
+      discountName: DISCOUNT.name,
+      status: POLAR_ORDER_STATUS.PAID,
     })
   })
 

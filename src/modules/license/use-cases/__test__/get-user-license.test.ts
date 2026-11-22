@@ -32,6 +32,7 @@ const RECORDED_PURCHASE = {
   activatedAt: ACTIVATED_AT,
   deliveredAt: null,
   lessonOpenedAt: null,
+  openedLessonId: null,
   purchaseCreatedAt: PURCHASED_AT,
   status: LICENSE_STATUS.ACTIVE,
   tier: LICENSE_TIER.COMPLETE,
@@ -80,6 +81,7 @@ describe("get-user-license", () => {
         ...RECORDED_PURCHASE,
         deliveredAt: DELIVERED_AT,
         lessonOpenedAt: LESSON_OPENED_AT,
+        openedLessonId: "lesson-1",
         refund: { kind: REFUND_ELIGIBILITY.USED, usedAt: LESSON_OPENED_AT, via: FIRST_USE.LESSON },
       },
     })

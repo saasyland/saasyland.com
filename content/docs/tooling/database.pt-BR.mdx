@@ -109,6 +109,18 @@ Ele deixa `course.cover` fora da cópia: os arquivos de uma capa estão no bucke
 
 Ele para antes de gravar quando um curso do preview tem o slug de um curso da produção com outro id, como um importado do arquivo do conteúdo programático; exclua esse curso no admin do preview e execute de novo. Ele mostra o que criou, atualizou e removeu em cada tabela, depois conta as linhas no preview e falha se forem diferentes das da produção.
 
+## Descontos e países de cobrança de pedidos antigos [#discounts-and-billing-countries-of-older-orders]
+
+A migração `20261122143452_familiar_tusk.sql` adicionou o desconto e o país de cobrança à cópia `order` ([Pagamentos](/docs/features/payments#orders-and-subscriptions-in-d1)). Os novos webhooks os preenchem, e um pedido copiado antes da migração tem `discount_amount` vazio até a Polar enviá-lo de novo. Para preencher todos esses pedidos de uma vez:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` lê `POLAR_ACCESS_TOKEN` e `POLAR_SERVER` de `.env.<environment>`, lista com `wrangler d1 execute` os pedidos cujo `discount_amount` está vazio (remoto para preview e produção, local para `orders:backfill:local`) e lê cada um da Polar com `polar.orders.get`, um de cada vez, esperando o tempo que a Polar pedir quando ela responde 429. Ele grava todos os pedidos em uma única execução com `--file`, cada `UPDATE` limitado ao seu ID e a um `discount_amount` vazio, então nunca sobrescreve uma cópia que um webhook preencheu nesse meio-tempo e uma segunda execução não muda nada. Ele mostra quantos pedidos copiou e termina com erro enquanto restar algum, como um pedido que a Polar não retorna mais. Aplique a migração primeiro.
+
 ## O primeiro administrador [#the-first-admin]
 
 A aplicação não tem nenhum endpoint, seed ou variável que conceda o papel `admin`. No preview e na produção, o primeiro administrador é criado com um script, e essa é a única forma:

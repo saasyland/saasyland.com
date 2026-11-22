@@ -77,6 +77,7 @@ export type DataTableFilter =
 export interface DataTableProps<TData extends { id: string }> {
   readonly columns: DataTableColumnDef<TData>[]
   readonly data?: readonly TData[]
+  readonly empty?: string | undefined
   readonly filters?: readonly DataTableFilter[]
   readonly options?: DataTableOptions<TData>
 }
@@ -124,7 +125,7 @@ const DataTableFilterControl = ({
 
   if (filter.type === "search") {
     return (
-      <div className="group relative flex-1">
+      <div className="group relative flex-1 sm:min-w-64">
         <Search
           aria-hidden
           className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground"
@@ -272,6 +273,7 @@ export const DataTableActionsHeader = (): JSX.Element => {
 export const DataTable = <TData extends { id: string }>({
   columns,
   data = EMPTY_DATA,
+  empty,
   filters,
   options,
 }: DataTableProps<TData>): JSX.Element => {
@@ -282,7 +284,9 @@ export const DataTable = <TData extends { id: string }>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const query = options?.query
-  const queryOptions = query?.({ ...pagination, filters: filterValues(columnFilters), sorting })
+  const activeFilters = filterValues(columnFilters)
+  const queryOptions = query?.({ ...pagination, filters: activeFilters, sorting })
+  const filtered = Object.values(activeFilters).some((value) => value.length > 0)
   const page = useQuery({
     ...queryOptions,
     placeholderData: keepPreviousData,
@@ -322,7 +326,7 @@ export const DataTable = <TData extends { id: string }>({
   return (
     <>
       {filters && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           {filters.map((filter) => (
             <DataTableFilterControl
               delay={query === undefined ? 0 : SERVER_SEARCH_DELAY_MS}
@@ -382,7 +386,7 @@ export const DataTable = <TData extends { id: string }>({
             {!isLoading && rows.length === 0 && (
               <TableRow>
                 <TableCell className="h-24 text-center text-muted-foreground" colSpan={headers.length}>
-                  {t("empty")}
+                  {filtered || empty === undefined ? t("empty") : empty}
                 </TableCell>
               </TableRow>
             )}

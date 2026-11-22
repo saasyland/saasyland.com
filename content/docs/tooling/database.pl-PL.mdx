@@ -109,6 +109,18 @@ Pomija przy kopiowaniu `course.cover`: pliki okładki są w buckecie `MEDIA` pro
 
 Zatrzymuje się przed zapisem, gdy kurs na preview ma slug kursu z produkcji, ale inny identyfikator, na przykład kurs zaimportowany z pliku programu; usuń ten kurs w panelu administracyjnym preview i uruchom skrypt ponownie. Wypisuje, co utworzył, zaktualizował i usunął w każdej tabeli, a potem liczy wiersze na preview i kończy się błędem, jeśli różnią się od tych na produkcji.
 
+## Rabaty i kraje rozliczenia starszych zamówień [#discounts-and-billing-countries-of-older-orders]
+
+Migracja `20261122143452_familiar_tusk.sql` dodała rabat i kraj rozliczenia do kopii `order` ([Płatności](/docs/features/payments#orders-and-subscriptions-in-d1)). Nowe webhooki je wypełniają, a zamówienie skopiowane przed migracją ma puste `discount_amount`, dopóki Polar nie wyśle go ponownie. Aby wypełnić wszystkie takie zamówienia naraz:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` odczytuje `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` z `.env.<environment>`, wyszukuje przez `wrangler d1 execute` zamówienia z pustym `discount_amount` (zdalnie dla preview i produkcji, lokalnie dla `orders:backfill:local`) i odczytuje każde z Polar przez `polar.orders.get`, jedno po drugim, czekając tak długo, jak prosi Polar, gdy odpowiada 429. Zapisuje wszystkie zamówienia w jednym uruchomieniu `--file`, każde `UPDATE` ograniczone do jego ID i do pustego `discount_amount`, więc nigdy nie nadpisuje kopii, którą w międzyczasie wypełnił webhook, a drugie uruchomienie niczego nie zmienia. Wypisuje, ile zamówień skopiował, i kończy się błędem, dopóki zostaje jakieś zamówienie, na przykład takie, którego Polar już nie zwraca. Najpierw zastosuj migrację.
+
 ## Pierwszy administrator [#the-first-admin]
 
 Aplikacja nie ma żadnego endpointu, danych początkowych ani zmiennej, które nadają rolę `admin`. Na preview i produkcji pierwszego administratora tworzy skrypt i jest to jedyny sposób:

@@ -55,6 +55,8 @@ const getLesson = zod.object({
   locale: localeField,
 })
 
+const getLessonTitle = lessonIdInput
+
 const getLessonPlayback = zod.object({
   courseSlug: slugField,
   lessonSlug: slugField,
@@ -71,6 +73,7 @@ export const lessonZodSchemas = {
   deleteLesson,
   getLesson,
   getLessonPlayback,
+  getLessonTitle,
   moveLesson,
   replaceLessonVideo,
   updateLesson,

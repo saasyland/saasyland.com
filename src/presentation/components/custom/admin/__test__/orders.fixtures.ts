@@ -9,8 +9,10 @@ import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__
 const BUYER = adminUser()
 
 export const adminOrderRow = (overrides: Partial<Order["listRow"]> = {}): Order["listRow"] => ({
+  billingCountry: "DE",
   customerId: "cus_ada",
   description: "Complete",
+  discount: undefined,
   id: "ord_complete",
   placedAt: fixtureDate,
   refunded: { amount: 0, currency: "USD" },
@@ -34,9 +36,11 @@ export const adminCustomerRow = (overrides: Partial<Order["customerRow"]> = {}):
 })
 
 export const adminOrderDetail = (overrides: Partial<Order["detail"]["order"]> = {}): Order["detail"]["order"] => ({
+  billingCountry: "DE",
   changedAt: fixtureDate,
   customerId: "cus_ada",
   description: "Complete",
+  discount: { amount: { amount: 49.75, currency: "USD" }, code: "LAUNCH", id: "dsc_launch", name: "Launch week" },
   id: "ord_complete",
   invoiceNumber: "SAASY-0001",
   placedAt: fixtureDate,
@@ -44,6 +48,7 @@ export const adminOrderDetail = (overrides: Partial<Order["detail"]["order"]> = 
   refunded: { amount: 0, currency: "USD" },
   status: POLAR_ORDER_STATUS.PAID,
   subscriptionId: null,
+  termsCopied: true,
   total: { amount: 199, currency: "USD" },
   user: { email: BUYER.email, id: BUYER.id, name: BUYER.name },
   ...overrides,

@@ -37,7 +37,7 @@ export const ORDER_COLUMN_SIZES = {
   discount: 200,
   placedAt: 200,
   product: 168,
-  refundedAmount: 128,
+  refundedAmount: 152,
   status: 148,
   totalAmount: 136,
 } as const

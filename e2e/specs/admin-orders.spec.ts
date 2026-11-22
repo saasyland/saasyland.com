@@ -201,9 +201,11 @@ test("the admin hides, shows, pins and moves columns, keeps the layout after a r
   await page.getByRole("menuitemcheckbox", { name: headers.discount }).click()
   await page.getByRole("menuitemcheckbox", { name: headers.refundedAmount }).click()
   await page.keyboard.press("Escape")
+  await expect(page.getByRole("menu")).toHaveCount(0)
 
   await page.getByRole("button", { name: `${headers.status} column options` }).click()
   await page.getByRole("menuitem", { name: gridMessages.column.moveStart }).click()
+  await expect(page.getByRole("menu")).toHaveCount(0)
   await page.getByRole("button", { name: `${headers.customer} column options` }).click()
   await page.getByRole("menuitem", { name: gridMessages.column.pinStart }).click()
 

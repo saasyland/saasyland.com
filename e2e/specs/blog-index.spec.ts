@@ -3,7 +3,7 @@ import { globSync } from "node:fs"
 import type { Locator, Page } from "@playwright/test"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import { BLOG_ARCHIVE, BLOG_SORT, FEATURED_BLOG_POSTS } from "../../src/data/blog"
+import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, FEATURED_BLOG_POSTS } from "../../src/data/blog"
 import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
@@ -21,6 +21,10 @@ const PHONE = { height: 844, width: 390 }
 const PANEL_TOP = 96
 const PANEL_INSET_LIMIT = 8
 const HEADER_HEIGHT = 64
+const INDEX_MIN_HEIGHT = 128
+const WINDOW_HEIGHTS = [700, 800, 900, 1100]
+const FIXED_CONTROLS_FROM = 800
+const WHEEL_STEP = 400
 const SHOW_RESULTS = /^Show \d+ posts?$/u
 const ACTIVE_FILTERS = (count: number): RegExp => new RegExp(`^${archive.filters}.*${String(count)} active$`, "u")
 const [LEAD] = FEATURED_BLOG_POSTS
@@ -35,6 +39,31 @@ const archiveTitles = (page: Page): Promise<string[]> => archiveSection(page).ge
 const finder = (page: Page): Locator => page.getByRole("complementary", { name: archive.finder })
 
 const archiveHeading = (page: Page): Locator => page.getByRole("heading", { level: 2, name: archive.title })
+
+const finderIndex = (page: Page): Locator => finder(page).getByRole("navigation", { name: pagesBlog.post.rail })
+
+const finderControls = (page: Page): Locator[] => [
+  finder(page).getByRole("searchbox", { name: archive.search }),
+  finder(page).getByRole("radiogroup", { name: archive.sort }),
+  finder(page).getByRole("radiogroup", { name: archive.topics }),
+]
+
+const topOf = async (locator: Locator): Promise<number> => Math.round((await locator.boundingBox())?.y ?? 0)
+
+const heightOf = async (locator: Locator): Promise<number> => Math.round((await locator.boundingBox())?.height ?? 0)
+
+const scrollingInFinder = (page: Page): Promise<string[]> =>
+  finder(page).evaluate((aside) =>
+    [aside, ...aside.querySelectorAll("*")]
+      .filter((element) => ["auto", "scroll"].includes(getComputedStyle(element).overflowY) && element.scrollHeight > element.clientHeight)
+      .map((element) => element.tagName),
+  )
+
+const centreOf = async (locator: Locator): Promise<{ x: number; y: number }> => {
+  const box = (await locator.boundingBox()) ?? { height: 0, width: 0, x: 0, y: 0 }
+
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
 
 const scrollToFraction = (page: Page, fraction: number): Promise<void> =>
   page.evaluate((share) => {
@@ -185,6 +214,84 @@ test("keeps the finder beside the posts from the featured posts through the arch
   expect(new Set(resting).size).toBe(1)
   expect(resting[0]).toBeGreaterThanOrEqual(PANEL_TOP)
   expect(resting[0]).toBeLessThan(PANEL_TOP + PANEL_INSET_LIMIT)
+})
+
+test("keeps the search, the sort and the topics in place while the page and the finder's index scroll, and scrolls only the index", async ({ page }) => {
+  await page.setViewportSize(WIDE)
+  await openBlog(page)
+  await archiveHeading(page).scrollIntoViewIfNeeded()
+  const controls = finderControls(page)
+  const list = finderIndex(page).getByRole("list")
+  const resting = await Promise.all(controls.map((control) => topOf(control)))
+
+  expect(await scrollingInFinder(page)).toEqual(["UL"])
+
+  const { x, y } = await centreOf(controls[1] ?? list)
+  await page.mouse.move(x, y)
+  const scrolled = await page.evaluate(() => window.scrollY)
+  await page.mouse.wheel(0, WHEEL_STEP)
+
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrolled)
+  for (const [index, control] of controls.entries()) {
+    await expect(control).toBeInViewport({ ratio: 1 })
+    expect(await topOf(control)).toBe(resting[index])
+  }
+
+  const listCentre = await centreOf(list)
+  await page.mouse.move(listCentre.x, listCentre.y)
+  const pageAt = await page.evaluate(() => window.scrollY)
+  await page.mouse.wheel(0, WHEEL_STEP)
+
+  await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageAt)
+  await expect(finderIndex(page).getByText(String(POSTS), { exact: true })).toBeInViewport()
+  for (const [index, control] of controls.entries()) {
+    expect(await topOf(control)).toBe(resting[index])
+  }
+})
+
+for (const height of WINDOW_HEIGHTS) {
+  test(`keeps a few posts of the finder's index in view on a window ${String(height)}px high, and the controls in place from ${String(FIXED_CONTROLS_FROM)}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height, width: WIDE.width })
+    await openBlog(page)
+    await archiveHeading(page).scrollIntoViewIfNeeded()
+
+    expect(await heightOf(finderIndex(page))).toBeGreaterThanOrEqual(INDEX_MIN_HEIGHT)
+    await expect(finder(page).getByRole("searchbox", { name: archive.search })).toBeInViewport({ ratio: 1 })
+    await expect(finderIndex(page).getByRole("link").first()).toBeInViewport()
+
+    if (height >= FIXED_CONTROLS_FROM) {
+      expect(await scrollingInFinder(page)).toEqual(["UL"])
+      for (const control of finderControls(page)) {
+        await expect(control).toBeInViewport({ ratio: 1 })
+      }
+    }
+  })
+}
+
+test("opens every topic from the finder in a popover and keeps the finder's controls the same height", async ({ page }) => {
+  await page.setViewportSize(WIDE)
+  await openBlog(page)
+  const panel = finder(page)
+  const topics = panel.getByRole("radiogroup", { name: archive.topics })
+  await expect(topics.getByRole("radio")).toHaveCount(BLOG_FINDER_TOPICS + 1)
+  const height = await heightOf(topics)
+
+  await panel.getByRole("button", { name: /^Show all \d+ topics$/u }).click()
+
+  const popover = page.getByRole("dialog", { name: archive.topics })
+  const last = popover.getByRole("radio").last()
+  const name = (await last.getAttribute("aria-label")) ?? ""
+  await last.click()
+
+  await expect(popover).toBeHidden()
+  await expect(page).toHaveURL(/[?&]tag=/u)
+  await expect(topics.getByRole("radio", { name })).toBeChecked()
+  await expect(topics.getByRole("radio")).toHaveCount(BLOG_FINDER_TOPICS + 1)
+  expect(await heightOf(topics)).toBe(height)
+  await expect(archiveHeading(page)).toBeInViewport()
 })
 
 test("brings the reader from the featured posts to the posts a finder filter matches, and clears every filter in one press", async ({ page }) => {

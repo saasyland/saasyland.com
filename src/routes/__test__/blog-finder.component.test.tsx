@@ -6,7 +6,7 @@ import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 
 import { renderBlog, section, useBlogTestEnvironment } from "~/src/routes/__test__/fixtures/blog-router"
 
-import { BLOG_ARCHIVE, BLOG_SORT, BLOG_TAG, BLOG_TAGS } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, BLOG_TAG, BLOG_TAGS } from "~/src/data/blog"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import { ROUTES } from "~/src/routes"
@@ -105,27 +105,37 @@ describe("the post finder beside the blog", () => {
     })
   })
 
-  it("shows the largest topics first, keeps the chosen one in view and shows or hides the rest", async () => {
-    const user = userEvent.setup({ delay: null })
+  it("shows the largest topics first and keeps the chosen one in view in their place", async () => {
     const chosen = BLOG_TAG.PAYMENTS
     await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}?tag=${chosen}`, posts: MANY_TOPICS })
-    const topics = () => within(finder().getByRole("radiogroup", { name: archive.topics })).getAllByRole("radio")
+    const topics = within(finder().getByRole("radiogroup", { name: archive.topics })).getAllByRole("radio")
 
-    expect(topics().map((radio) => radio.textContent)).toStrictEqual([
+    expect(topics.map((radio) => radio.textContent)).toStrictEqual([
       `${archive.allTopics}${String(TOPIC_COUNT)}`,
-      ...BLOG_TAGS.slice(0, 5).map((tag, index) => `${tags[tag]}${String(TOPIC_COUNT - index)}`),
+      ...BLOG_TAGS.slice(0, BLOG_FINDER_TOPICS - 1).map((tag, index) => `${tags[tag]}${String(TOPIC_COUNT - index)}`),
       `${tags[chosen]}1`,
     ])
     expect(finder().getByRole("radio", { name: `${tags[chosen]}, 1 post` })).toBeChecked()
+  })
+
+  it("opens every topic in a popover that closes on the topic the reader picks", async () => {
+    const user = userEvent.setup({ delay: null })
+    const router = await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: MANY_TOPICS })
+
+    expect(within(finder().getByRole("radiogroup", { name: archive.topics })).getAllByRole("radio")).toHaveLength(BLOG_FINDER_TOPICS + 1)
 
     await user.click(finder().getByRole("button", { name: `Show all ${String(TOPIC_COUNT)} topics` }))
 
-    expect(topics()).toHaveLength(TOPIC_COUNT + 1)
-    expect(finder().getByRole("button", { name: archive.fewerTopics })).toHaveAttribute("aria-expanded", "true")
+    const popover = within(await screen.findByRole("dialog", { name: archive.topics }))
+    expect(popover.getAllByRole("radio")).toHaveLength(TOPIC_COUNT + 1)
 
-    await user.click(finder().getByRole("button", { name: archive.fewerTopics }))
+    await user.click(popover.getByRole("radio", { name: `${tags[BLOG_TAG.PAYMENTS]}, 1 post` }))
 
-    expect(topics()).toHaveLength(TOPIC_COUNT)
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+    expect(router.state.location.search).toEqual({ tag: BLOG_TAG.PAYMENTS })
+    expect(finder().getByRole("radio", { name: `${tags[BLOG_TAG.PAYMENTS]}, 1 post` })).toBeChecked()
   })
 
   it("lists the active topic and sort as filters that each remove themselves", async () => {

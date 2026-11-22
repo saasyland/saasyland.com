@@ -1,7 +1,7 @@
 import { type JSX, type ReactNode, useId, useState } from "react"
 
-import { ChevronDown, SearchIcon, SlidersHorizontal, X } from "lucide-react"
-import { SearchField } from "react-aria-components"
+import { ChevronRight, SearchIcon, SlidersHorizontal, X } from "lucide-react"
+import { Dialog, SearchField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
@@ -9,13 +9,14 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { type BlogViewState, useBlogView } from "~/src/hooks/use-blog-view"
 
-import { BLOG_FINDER_CLASSES, BLOG_SORT, BLOG_SORTS, BLOG_TAGS } from "~/src/data/blog"
+import { BLOG_FINDER_CLASSES, BLOG_FINDER_TOPICS, BLOG_SORT, BLOG_SORTS, BLOG_TAGS, type BlogTag } from "~/src/data/blog"
 
 import { countBlogTags } from "~/src/lib/blog-archive"
 import { cn } from "~/src/lib/cn"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/src/presentation/components/shadcn/input-group"
+import { Popover, PopoverTrigger } from "~/src/presentation/components/shadcn/popover"
 import { Sheet, SheetClose, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "~/src/presentation/components/shadcn/sheet"
 import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
 
@@ -31,8 +32,13 @@ interface FinderPartProps {
 }
 
 interface TopicOptionsProps extends FinderPartProps {
-  readonly isCollapsible: boolean
   readonly posts: readonly BlogPostSummary[]
+}
+
+interface TopicGroupProps extends TopicOptionsProps {
+  readonly labelId: string
+  readonly onPick: (tag: BlogTag | undefined) => void
+  readonly topics: readonly (readonly [BlogTag, number])[]
 }
 
 interface FiltersSheetProps extends FinderPartProps {
@@ -42,15 +48,13 @@ interface FiltersSheetProps extends FinderPartProps {
 
 const ALL_TOPICS = "all"
 
-const TOPICS_PREVIEW = 5
-
 const LABEL_CLASSNAME = "text-label text-muted-foreground uppercase"
 
 const FOCUS_CLASSNAME =
   "focus-visible:border-transparent focus-visible:ring-0 data-focus-visible:outline-2 data-focus-visible:outline-solid data-focus-visible:outline-ring"
 
 const OPTION_CLASSNAME = cn(
-  "h-auto w-full min-w-0 cursor-pointer justify-between gap-3 rounded-none border-l border-border py-1.5 pr-1 pl-4 text-left text-body-sm font-normal whitespace-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:bg-transparent hover:text-foreground data-focus-visible:-outline-offset-2 data-selected:border-ring data-selected:bg-transparent data-selected:text-foreground",
+  "h-auto w-full min-w-0 cursor-pointer justify-between gap-3 rounded-none border-0 border-l border-border py-1.5 pr-1 pl-4 text-left text-body-sm font-normal whitespace-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:bg-transparent hover:text-foreground data-focus-visible:-outline-offset-2 data-selected:border-ring data-selected:bg-transparent data-selected:text-foreground",
   FOCUS_CLASSNAME,
 )
 
@@ -162,61 +166,103 @@ const SortOptions = ({ finder }: FinderPartProps): JSX.Element => {
   )
 }
 
-const TopicOptions = ({ finder, isCollapsible, posts }: TopicOptionsProps): JSX.Element => {
+const TopicGroup = ({ finder, labelId, onPick, posts, topics }: TopicGroupProps): JSX.Element => {
   const t = useTranslations("pages.blog.archive")
-  const labelId = useId()
-  const listId = useId()
-  const [isExpanded, setExpanded] = useState(false)
 
-  const { label, update, view } = finder
-  const topics = countBlogTags(posts)
-  const isPreview = isCollapsible && !isExpanded
-  const shown = topics.filter(([tag], index) => !isPreview || index < TOPICS_PREVIEW || tag === view.tag)
+  const { label, view } = finder
 
   return (
-    <div className="shrink-0" id={listId}>
+    <ToggleGroup
+      aria-labelledby={labelId}
+      className="mt-3 w-full gap-0"
+      disallowEmptySelection
+      onSelectionChange={(keys) => {
+        onPick(BLOG_TAGS.find((tag) => keys.has(tag)))
+      }}
+      orientation="vertical"
+      selectedKeys={[view.tag ?? ALL_TOPICS]}
+      selectionMode="single"
+    >
+      <ToggleGroupItem className={OPTION_CLASSNAME} id={ALL_TOPICS}>
+        {t("allTopics")}
+        <Count>{posts.length}</Count>
+      </ToggleGroupItem>
+      {topics.map(([tag, count]) => (
+        <ToggleGroupItem aria-label={t("topic", { count, topic: label(tag) })} className={OPTION_CLASSNAME} id={tag} key={tag}>
+          {label(tag)}
+          <Count>{count}</Count>
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
+
+const TopicOptions = ({ finder, posts }: TopicOptionsProps): JSX.Element => {
+  const t = useTranslations("pages.blog.archive")
+  const labelId = useId()
+
+  return (
+    <div className="shrink-0">
       <p className={LABEL_CLASSNAME} id={labelId}>
         {t("topics")}
       </p>
-      <ToggleGroup
-        aria-labelledby={labelId}
-        className="mt-3 w-full gap-0"
-        disallowEmptySelection
-        onSelectionChange={(keys) => {
-          update({ tag: BLOG_TAGS.find((tag) => keys.has(tag)) })
+      <TopicGroup
+        finder={finder}
+        labelId={labelId}
+        onPick={(tag) => {
+          finder.update({ tag })
         }}
-        orientation="vertical"
-        selectedKeys={[view.tag ?? ALL_TOPICS]}
-        selectionMode="single"
-      >
-        <ToggleGroupItem className={OPTION_CLASSNAME} id={ALL_TOPICS}>
-          {t("allTopics")}
-          <Count>{posts.length}</Count>
-        </ToggleGroupItem>
-        {shown.map(([tag, count]) => (
-          <ToggleGroupItem aria-label={t("topic", { count, topic: label(tag) })} className={OPTION_CLASSNAME} id={tag} key={tag}>
-            {label(tag)}
-            <Count>{count}</Count>
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      {isCollapsible && topics.length > TOPICS_PREVIEW && (
-        <Button
-          aria-controls={listId}
-          aria-expanded={isExpanded}
-          className={cn(
-            "mt-1 h-8 cursor-pointer gap-1.5 px-2 text-body-sm font-normal text-muted-foreground hover:text-foreground",
-            FOCUS_CLASSNAME,
-          )}
-          onPress={() => {
-            setExpanded(!isExpanded)
-          }}
-          size="sm"
-          variant="ghost"
-        >
-          <ChevronDown aria-hidden className={cn("transition-transform duration-200 ease-exp", { "rotate-180": isExpanded })} />
-          {isExpanded ? t("fewerTopics") : t("moreTopics", { count: topics.length })}
-        </Button>
+        posts={posts}
+        topics={countBlogTags(posts)}
+      />
+    </div>
+  )
+}
+
+const TopicPreview = ({ finder, posts }: TopicOptionsProps): JSX.Element => {
+  const t = useTranslations("pages.blog.archive")
+  const labelId = useId()
+  const allLabelId = useId()
+  const [isOpen, setOpen] = useState(false)
+
+  const topics = countBlogTags(posts)
+  const chosen = topics.filter(([tag], index) => index >= BLOG_FINDER_TOPICS && tag === finder.view.tag)
+  const shown = [...topics.slice(0, BLOG_FINDER_TOPICS - chosen.length), ...chosen]
+
+  const pick = (tag: BlogTag | undefined): void => {
+    finder.update({ tag })
+  }
+
+  return (
+    <div className="shrink-0">
+      <p className={LABEL_CLASSNAME} id={labelId}>
+        {t("topics")}
+      </p>
+      <TopicGroup finder={finder} labelId={labelId} onPick={pick} posts={posts} topics={shown} />
+      {topics.length > BLOG_FINDER_TOPICS && (
+        <PopoverTrigger isOpen={isOpen} onOpenChange={setOpen}>
+          <Button className={OPTION_CLASSNAME} variant="ghost">
+            {t("moreTopics", { count: topics.length })}
+            <ChevronRight aria-hidden className="text-muted-foreground" />
+          </Button>
+          <Popover className="w-64 p-0" placement="right top">
+            <Dialog aria-labelledby={allLabelId} className="custom-scrollbar min-h-0 overflow-y-auto overscroll-contain p-4 outline-hidden">
+              <p className={LABEL_CLASSNAME} id={allLabelId}>
+                {t("topics")}
+              </p>
+              <TopicGroup
+                finder={finder}
+                labelId={allLabelId}
+                onPick={(tag) => {
+                  pick(tag)
+                  setOpen(false)
+                }}
+                posts={posts}
+                topics={topics}
+              />
+            </Dialog>
+          </Popover>
+        </PopoverTrigger>
       )}
     </div>
   )
@@ -230,8 +276,8 @@ const PostIndex = ({ finder, total }: FinderPartProps & { readonly total: number
   const { isFiltered, matches } = finder
 
   return (
-    <nav aria-labelledby={titleId}>
-      <div className="flex items-baseline justify-between gap-3">
+    <nav aria-labelledby={titleId} className={BLOG_FINDER_CLASSES.INDEX}>
+      <div className="flex shrink-0 items-baseline justify-between gap-3">
         <p className={LABEL_CLASSNAME} id={titleId}>
           {t("post.rail")}
         </p>
@@ -240,7 +286,7 @@ const PostIndex = ({ finder, total }: FinderPartProps & { readonly total: number
           {isFiltered && t("archive.indexCount", { shown: matches.length, total })}
         </p>
       </div>
-      {matches.length > 0 && <PostRailList className="mt-3 overflow-visible pr-0" posts={matches} />}
+      {matches.length > 0 && <PostRailList className={BLOG_FINDER_CLASSES.INDEX_LIST} posts={matches} />}
       {matches.length === 0 && (
         <p className="mt-3 border-l border-border py-1.5 pl-4 text-body-sm text-muted-foreground">{t("archive.matches", { count: 0 })}</p>
       )}
@@ -280,7 +326,7 @@ const FiltersSheet = ({ finder, onShowResults, posts }: FiltersSheetProps): JSX.
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto overscroll-contain px-6 py-6">
           <SortOptions finder={finder} />
-          <TopicOptions finder={finder} isCollapsible={false} posts={posts} />
+          <TopicOptions finder={finder} posts={posts} />
         </div>
         <SheetFooter className="flex-row gap-3 border-t border-border px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button className="h-11 flex-1 cursor-pointer" isDisabled={!isFiltered && active === 0} onPress={clear} variant="outline">
@@ -354,9 +400,9 @@ const PostFinder = ({ locale, posts }: PostFinderProps): JSX.Element => {
           />
         </div>
         <ActiveFilters finder={finder} />
-        <div className="custom-scrollbar hidden lg:mt-6 lg:-mr-3 lg:flex lg:min-h-0 lg:flex-col lg:gap-8 lg:overflow-y-auto lg:overscroll-contain lg:pr-3 lg:pb-2">
+        <div className={BLOG_FINDER_CLASSES.BODY}>
           <SortOptions finder={finder} />
-          <TopicOptions finder={finder} isCollapsible posts={posts} />
+          <TopicPreview finder={finder} posts={posts} />
           <PostIndex finder={finder} total={posts.length} />
         </div>
       </div>

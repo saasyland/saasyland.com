@@ -8,6 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 
@@ -18,10 +19,7 @@ const CourseCreatePage = (): JSX.Element => {
 
   return (
     <div className="flex w-full max-w-3xl animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div>
-        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <AdminPageHeader description={t("description")} title={t("title")} />
       <CourseForm />
     </div>
   )

@@ -2,6 +2,7 @@ import zod from "zod/v4"
 
 import { COUNTRY_CODES } from "~/src/modules/_core/constants/country"
 import { MAX_FILTER_VALUES, MAX_SORTED_COLUMNS, SEARCH_MAX_LENGTH, paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { searchSchema } from "~/src/modules/_core/utils/search"
 import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { countryCodeField, dateRangeField, idField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 import { CUSTOMER_SORT_COLUMNS, ORDER_SORT_COLUMNS, ORDER_STATUSES } from "~/src/modules/order/order.constants"
@@ -42,10 +43,13 @@ const getRevenue = timeRangeSchema
 
 const getUserOrders = zod.object({ userId: idField })
 
+const searchOrders = searchSchema
+
 export const orderZodSchemas = {
   getCustomers,
   getOrder,
   getOrders,
   getRevenue,
   getUserOrders,
+  searchOrders,
 }

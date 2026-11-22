@@ -7,16 +7,36 @@ description: "Struktura /admin i pulpit: liczniki, przychody, nowi użytkownicy,
 
 `src/routes/admin.tsx` chroni każdą stronę administracyjną za pomocą `requireAdmin` i wstępnie ładuje wspólne przestrzenie nazw. Layout wyświetla:
 
-- `AdminSidebar`, `AdminBreadcrumbs` i `AdminCommandPalette` (otwierane skrótem ⌘K), zbudowane na podstawie `ADMIN_NAVIGATION` w `src/data/navigation.ts`, które grupuje pozycje dodane przez obszary, każdą z jej ikoną: Przegląd (Pulpit), Oferta (Produkty), Sprzedaż (Zamówienia), Treści (Kursy, Wideo) i Administracja (Zarządzanie użytkownikami, Ustawienia). Każda pozycja otwiera działający ekran; ekran bez prawdziwego źródła danych nie ma trasy, pozycji w menu ani pozycji w palecie poleceń (zobacz [Tylko prawdziwe dane](#real-data-only)).
+- `AdminSidebar`, zbudowany z `ADMIN_NAVIGATION` w `src/data/navigation.ts`, który grupuje wpisy dodane przez obszary, każdy z ikoną: Przegląd (Pulpit), Oferta (Produkty), Sprzedaż (Zamówienia), Treści (Kursy, Wideo) i Administracja (Zarządzanie użytkownikami, Ustawienia). Każdy wpis otwiera działający ekran; ekran bez prawdziwego źródła danych nie ma trasy, wpisu w menu ani wpisu w palecie (zobacz [Tylko prawdziwe dane](#real-data-only)). Wpis wyświetlanej strony ma `aria-current="page"` i pasek akcentu. Przycisk obok okruszków zwija pasek boczny do ikon, z nazwą każdej w podpowiedzi, a na telefonie otwiera go jako panel.
+- `AdminBreadcrumbs` i przycisk wyszukiwania `AdminCommandPalette` na górnym pasku.
+- `AdminPageHeader` (`custom/admin/admin-page-header.tsx`) na górze każdej strony panelu: tytuł, opis, akcje strony po prawej, opcjonalny link powrotu nad tytułem i opcjonalne karty pod nim, zamknięte linią. `AdminPageHeaderPending` rysuje ten sam kształt w `pendingComponent` każdej strony.
 - Widżet użytkownika u dołu paska bocznego z linkiem do ustawień i `SignOutButton`.
 - Logo na górze paska bocznego, które prowadzi do strony głównej.
+
+### Paleta poleceń [#command-palette]
+
+⌘K albo Ctrl+K, albo przycisk wyszukiwania na górnym pasku, który pokazuje skrót platformy odwiedzającego, otwiera `AdminCommandPalette`. Jej lista przewija się wewnątrz okna i grupuje to, co znajdzie, a każdy wiersz ma ikonę, nazwę i wiersz szczegółów:
+
+- **Ostatnie**: ostatnio otwarte z palety strony i rekordy, najwyżej `RECENT_LIMIT`, widoczne, dopóki wyszukiwanie jest puste. Są przechowywane tylko w `localStorage` przeglądarki.
+- **Szybkie akcje**: wpisy z `ADMIN_COMMAND_ACTIONS`, które obszary umieszczają jako `NAVIGATION_PLACEMENT.COMMAND`: **Nowy kurs** z obszaru kursów i **Otwórz stronę** z obszaru uwierzytelniania.
+- **Strony**: każdy wpis z `ADMIN_NAVIGATION` z jego grupą z paska bocznego, filtrowane w przeglądarce.
+- Rekordy: wyszukiwania z `COMMAND_SEARCHES` w `src/data/command-search.ts`, które każdy obszar dodaje w `src/data/<area>.command-search.ts`. Gdy wyszukiwanie ma `SEARCH_TEXT_MIN_LENGTH` znaków i pisanie się zatrzyma, paleta uruchamia równolegle każde wyszukiwanie, na które pozwala rola zalogowanego konta, a każde zwraca najwyżej `SEARCH_HITS_LIMIT` wyników.
+
+| Grupa       | Obszar     | Funkcja serwerowa | Uprawnienie    | Dopasowuje                                                             |
+| ----------- | ---------- | ----------------- | -------------- | ---------------------------------------------------------------------- |
+| Użytkownicy | `auth`     | `searchUsers`     | `user: list`   | Imię i nazwisko albo e-mail                                            |
+| Zamówienia  | `payments` | `searchOrders`    | `order: read`  | ID zamówienia, ID klienta w Polar, imię i nazwisko albo e-mail klienta |
+| Kursy       | `courses`  | `searchCourses`   | `course: read` | Tytuł w dowolnym języku albo slug                                      |
+| Lekcje      | `courses`  | `searchLessons`   | `course: read` | Tytuł w dowolnym języku albo slug; szczegóły podają kurs               |
+
+Każde wyszukiwanie to funkcja serwerowa za `authorized(...)`, a paleta pomija wyszukiwania, na które nie pozwalają uprawnienia roli, więc nigdy nie prosi o rekordy, których konto nie może czytać. Strzałki przesuwają po wynikach, Enter otwiera wynik, Escape czyści wyszukiwanie, a potem zamyka paletę, a region na żywo mówi czytnikowi ekranu, kiedy paleta szuka i ile wyników znalazła.
 
 ## Pulpit [#dashboard]
 
 `/admin` (`src/routes/admin.index.tsx`) wstępnie ładuje `getUsersQuery` oraz, przez ich `prefetch`, zapytanie każdej statystyki i każdego panelu pulpitu, a następnie składa widżety z `src/presentation/components/custom/admin/dashboard` z panelami, które dodają obszary:
 
 - `DashboardActions`: link dla każdej pozycji z `ADMIN_DASHBOARD_ACTIONS` w kolejności ich `order`, z etykietą z pliku `navigation.<area>.json` swojego obszaru. Obszar płatności dodaje **Zamówienia** i **Klienci** (zobacz [Zamówienia i klienci](/docs/features/orders)).
-- `DashboardStats`: statystyki z `ADMIN_DASHBOARD_STATS`, czyli wpisy z `src/data/<area>.dashboard.ts` umieszczone jako `DASHBOARD_PLACEMENT.STAT`, w kolejności ich `order`, każda z etykietą z pliku `dashboard.<area>.json` swojego obszaru i sformatowana zgodnie z językiem strony.
+- `DashboardStats`: statystyki z `ADMIN_DASHBOARD_STATS`, czyli wpisy z `src/data/<area>.dashboard.ts` umieszczone jako `DASHBOARD_PLACEMENT.STAT`, w kolejności ich `order`, każda z etykietą z pliku `dashboard.<area>.json` swojego obszaru i sformatowana zgodnie z językiem strony. Każda karta pokazuje `icon` statystyki, a statystyka z `to` łączy całą swoją kartę ze stroną, która wymienia to, co liczy.
 - Panele z `ADMIN_DASHBOARD_PANELS`, czyli wpisy umieszczone jako `DASHBOARD_PLACEMENT.PANEL`, w kolejności ich `order`, każdy ze szkieletem, który pokazuje dla niego `AdminDashboardPending`. Każdy wpis wskazuje swój panel przez `lazyRouteComponent`, więc kod panelu z jego wykresami i tabelami ładuje się we własnym chunku, który loader pulpitu wstępnie ładuje razem z danymi panelu; szkielet pochodzi z pliku `-pending.tsx` panelu.
 - Karta użytkowników: najnowsze konta, wyświetlane po <RepositoryFact name="adminPreviewPageSize" /> na stronę, z filtrami wyszukiwania i statusu. Imię i nazwisko każdego użytkownika prowadzi do jego profilu, gdzie znajdują się akcje.
 

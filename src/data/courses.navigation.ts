@@ -1,4 +1,4 @@
-import { Clapperboard, GraduationCap } from "lucide-react"
+import { Clapperboard, GraduationCap, SquarePen } from "lucide-react"
 
 import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
@@ -26,5 +26,13 @@ export const COURSES_NAVIGATION = [
     to: ROUTES.ADMIN_VIDEOS,
   },
   { area: AREA, icon: GraduationCap, key: "courses", order: 25, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.COURSES },
+  {
+    area: AREA,
+    icon: SquarePen,
+    key: "newCourse",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.COMMAND,
+    to: ROUTES.ADMIN_COURSES_CREATE,
+  },
   { area: AREA, key: "courses", order: 20, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
 ] as const satisfies readonly NavigationEntry[]

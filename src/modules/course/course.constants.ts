@@ -72,6 +72,7 @@ export const COURSE_QUERY_KEYS = {
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SEARCH: ["course", "searchCourses"],
   SHOWCASE: ["course", "showcase"],
 } as const
 

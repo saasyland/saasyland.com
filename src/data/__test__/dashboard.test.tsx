@@ -1,3 +1,4 @@
+import { Hash } from "lucide-react"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
@@ -13,6 +14,7 @@ const SAMPLE_AREA = "sample"
 
 const stat = (key: string, order: number): AdminDashboardStat => ({
   area: SAMPLE_AREA,
+  icon: Hash,
   key,
   order,
   placement: DASHBOARD_PLACEMENT.STAT,

@@ -10,13 +10,8 @@ import { Card, CardContent, CardHeader } from "~/src/presentation/components/sha
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-import {
-  DescriptionPending,
-  FieldPending,
-  PAGE_ROWS,
-  PaginationPending,
-  TitlePending,
-} from "~/src/presentation/components/custom/admin/pending-blocks"
+import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+import { FieldPending, PAGE_ROWS, PaginationPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 
 import { ROUTES } from "~/src/routes"
 
@@ -28,17 +23,12 @@ const COURSE_COLUMNS = [
   { id: "updated", width: "w-16" },
 ] as const
 const COURSE_FORM_FIELDS = ["title", "summary", "slug"] as const
+const COURSE_LIST_ACTIONS = 3
 const CURRICULUM_LESSONS = ["first", "second", "third"] as const
 
 export const AdminCoursesPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <TitlePending />
-        <DescriptionPending />
-      </div>
-      <Skeleton className="h-9 w-32 rounded-md" />
-    </div>
+    <AdminPageHeaderPending actions={COURSE_LIST_ACTIONS} />
     <div className="space-y-4">
       <TableContainer>
         <Table>
@@ -95,23 +85,14 @@ const CourseFormPending = (): JSX.Element => (
 
 export const AdminCourseCreatePending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full max-w-3xl flex-col space-y-8">
-    <div>
-      <TitlePending />
-      <DescriptionPending />
-    </div>
+    <AdminPageHeaderPending />
     <CourseFormPending />
   </div>
 )
 
 export const AdminCourseEditorPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <TitlePending />
-        <DescriptionPending />
-      </div>
-      <Skeleton className="h-9 w-32 rounded-md" />
-    </div>
+    <AdminPageHeaderPending actions={1} />
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
       <div className="flex flex-col gap-6">
         <CourseFormPending />
@@ -162,14 +143,7 @@ const LESSON_SIDE_CARDS = ["video", "materials"] as const
 
 export const AdminLessonEditorPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <Skeleton className="h-lh w-32 scale-y-70 text-sm" />
-        <TitlePending />
-        <DescriptionPending />
-      </div>
-      <Skeleton className="h-9 w-32 rounded-md" />
-    </div>
+    <AdminPageHeaderPending actions={1} hasBack />
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
       <Card>
         <CardHeader>
@@ -259,10 +233,7 @@ const VideoRowPending = (): JSX.Element => (
 
 export const AdminVideosPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div>
-      <TitlePending />
-      <DescriptionPending />
-    </div>
+    <AdminPageHeaderPending />
     <div className="space-y-4">
       <TableContainer>
         <Table>

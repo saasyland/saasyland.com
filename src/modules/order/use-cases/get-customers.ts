@@ -4,11 +4,12 @@ import { type SQL, and, asc, count, desc, eq, inArray, max, or, sql } from "driz
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { containsText } from "~/src/integrations/drizzle-orm/drizzle.search"
 
 import { ORDER_QUERY_KEYS } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import type { Order } from "~/src/modules/order/order.types"
-import { accountId, containsText, countsAsRevenue, netAmount, revenueByCurrency } from "~/src/modules/order/order.utils"
+import { accountId, countsAsRevenue, netAmount, revenueByCurrency } from "~/src/modules/order/order.utils"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { user } from "~/src/modules/user/user.schema"
 

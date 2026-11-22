@@ -25,6 +25,7 @@ export const LESSON_QUERY_KEYS = {
   ALL: ["lesson"],
   DETAIL: ["lesson", "getLesson"],
   PLAYBACK: ["lesson", "getLessonPlayback"],
+  SEARCH: ["lesson", "searchLessons"],
   TITLE: ["lesson", "getLessonTitle"],
 } as const
 

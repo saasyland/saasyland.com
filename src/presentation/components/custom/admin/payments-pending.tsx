@@ -7,13 +7,8 @@ import { Card, CardContent, CardHeader } from "~/src/presentation/components/sha
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-import {
-  LongDescriptionPending,
-  PAGE_ROWS,
-  PaginationPending,
-  SortableHeadPending,
-  TitlePending,
-} from "~/src/presentation/components/custom/admin/pending-blocks"
+import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+import { PAGE_ROWS, PaginationPending, SortableHeadPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 const USER_ORDER_ROWS = ["first", "second"] as const
@@ -45,10 +40,7 @@ const ORDER_PENDING_COLUMNS = [
 
 export const AdminOrdersPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div>
-      <TitlePending />
-      <LongDescriptionPending />
-    </div>
+    <AdminPageHeaderPending />
     <DataGridPending columns={ORDER_PENDING_COLUMNS} isSelectable />
   </div>
 )
@@ -73,14 +65,9 @@ const CardHeaderPending = (): JSX.Element => (
 
 export const AdminOrderPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col gap-6 pb-6">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex min-w-0 flex-col gap-1">
-        <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
-        <TitlePending />
-        <Skeleton className="h-lh w-56 max-w-full scale-y-70 font-mono text-spec" />
-      </div>
-      <Skeleton className="h-9 w-36 rounded-md" />
-    </div>
+    <AdminPageHeaderPending actions={1} hasBack>
+      <Skeleton className="h-lh w-56 max-w-full scale-y-70 font-mono text-spec" />
+    </AdminPageHeaderPending>
     <div className="grid items-start gap-6 lg:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-6">
         <Card>

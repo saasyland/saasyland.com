@@ -1,4 +1,4 @@
-import { Home, Settings, Users } from "lucide-react"
+import { Globe, Home, Settings, Users } from "lucide-react"
 
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
@@ -36,6 +36,7 @@ export const AUTH_NAVIGATION = [
   },
   { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
   {
     area: AREA,
     column: FOOTER_COLUMN.PRODUCT,

@@ -2,6 +2,7 @@ import { Home, Settings } from "lucide-react"
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
 import {
+  ADMIN_COMMAND_ACTIONS,
   ADMIN_DASHBOARD_ACTIONS,
   ADMIN_NAVIGATION,
   APP_NAVIGATION,
@@ -46,6 +47,7 @@ const FOOTER_LINKS = FOOTER_NAVIGATION.flatMap(({ links }) => links)
 
 const PLACEMENT_LISTS = [
   [NAVIGATION_PLACEMENT.ADMIN, ADMIN_ITEMS],
+  [NAVIGATION_PLACEMENT.COMMAND, ADMIN_COMMAND_ACTIONS],
   [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS],
   [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION],
   [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION],
@@ -55,6 +57,7 @@ const PLACEMENT_LISTS = [
 
 const ORDERED_LISTS = [
   ...ADMIN_NAVIGATION.map(({ items, key }) => [`${NAVIGATION_PLACEMENT.ADMIN} ${key}`, items] as const),
+  [NAVIGATION_PLACEMENT.COMMAND, ADMIN_COMMAND_ACTIONS] as const,
   [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS] as const,
   [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION] as const,
   [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION] as const,
@@ -118,6 +121,7 @@ describe("navigation composition", () => {
     ])
     expect(navigation.APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME])
     expect(navigation.APP_RESOURCE_NAVIGATION).toStrictEqual([])
+    expect(navigation.ADMIN_COMMAND_ACTIONS).toStrictEqual([])
     expect(navigation.ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
     expect(navigation.FOOTER_NAVIGATION).toStrictEqual([])
     expect(navigation.HEADER_NAVIGATION).toStrictEqual([])

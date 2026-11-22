@@ -13,6 +13,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminCoursesPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { courseColumns } from "~/src/presentation/components/custom/admin/courses/course-columns"
 import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
@@ -26,20 +27,20 @@ const CoursesPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ImportCoursesDialog />
-          <ExportCoursesButton />
-          <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
-            <PlusCircle aria-hidden className="size-4" />
-            {t("actions.create")}
-          </LinkButton>
-        </div>
-      </div>
+      <AdminPageHeader
+        actions={
+          <>
+            <ImportCoursesDialog />
+            <ExportCoursesButton />
+            <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+              <PlusCircle aria-hidden className="size-4" />
+              {t("actions.create")}
+            </LinkButton>
+          </>
+        }
+        description={t("description")}
+        title={t("title")}
+      />
 
       <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
     </div>

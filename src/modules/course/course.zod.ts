@@ -3,6 +3,7 @@ import zod from "zod/v4"
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
 import { MIN_FIELD_LENGTH, idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import {
@@ -162,6 +163,8 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
+const searchCourses = localizedSearchSchema
+
 export const courseZodSchemas = {
   courseCoverSource,
   courseDocument,
@@ -176,6 +179,7 @@ export const courseZodSchemas = {
   importCourses,
   moveCourse,
   removeCourseCover,
+  searchCourses,
   updateCourse,
   uploadCourseCover,
 }

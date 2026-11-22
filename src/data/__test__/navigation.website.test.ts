@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
@@ -15,6 +16,7 @@ import { ROUTES } from "~/src/routes"
 const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)["navigation"]
 const BREADCRUMBS = "breadcrumbs"
 const USER_TABS_GROUP = "userTabs"
+const COMMAND_SEARCH_GROUP = "search"
 
 const leafKeys = (value: unknown, prefix: string): string[] => {
   if (typeof value !== "object" || value === null) {
@@ -55,16 +57,17 @@ describe("the website's navigation", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
   })
 
-  it("labels exactly the entries and user tabs that the areas declare, and only breadcrumbs of their sections", () => {
+  it("labels exactly the entries, user tabs and command palette searches that the areas declare, and only breadcrumbs of their sections", () => {
     const entryLabels = Object.values(AREA_NAVIGATION)
       .flat()
       .flatMap(({ area, key, placement, ...entry }) =>
         [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${area}.${placement}.${label}`),
       )
     const tabLabels = USER_TABS.map(({ area, key }) => `${area}.${USER_TABS_GROUP}.${key}`)
+    const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${area}.${COMMAND_SEARCH_GROUP}.${key}`)
 
     expect(LABELS.filter((label) => !label.includes(`.${BREADCRUMBS}.`)).toSorted()).toStrictEqual(
-      [...new Set([...entryLabels, ...tabLabels])].toSorted(),
+      [...new Set([...entryLabels, ...tabLabels, ...searchLabels])].toSorted(),
     )
     expect(SECTION_ACTIONS).toEqual(expect.arrayContaining(LABELS.filter((label) => label.includes(`.${BREADCRUMBS}.`))))
   })

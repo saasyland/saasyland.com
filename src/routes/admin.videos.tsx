@@ -10,6 +10,7 @@ import { getVideosPageQuery, getVideosQuery } from "~/src/modules/video/use-case
 
 import { pageHead } from "~/src/lib/seo"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminVideosPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { PublishVideoCard } from "~/src/presentation/components/custom/admin/videos/publish-video-card"
 import { videoColumns } from "~/src/presentation/components/custom/admin/videos/video-columns"
@@ -22,10 +23,7 @@ const VideosPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div>
-        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <AdminPageHeader description={t("description")} title={t("title")} />
 
       <DataTable columns={videoColumns} options={{ query: ({ pageIndex, pageSize }) => getVideosPageQuery({ pageIndex, pageSize }) }} />
 

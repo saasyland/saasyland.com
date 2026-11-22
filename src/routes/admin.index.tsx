@@ -18,6 +18,7 @@ import { pageHead } from "~/src/lib/seo"
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
@@ -32,13 +33,7 @@ const DashboardPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 pb-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
-        </div>
-        <DashboardActions />
-      </div>
+      <AdminPageHeader actions={<DashboardActions />} description={t("metadata.description")} title={t("metadata.title")} />
 
       <DashboardStats />
 

@@ -2,6 +2,7 @@ import type { JSX } from "react"
 
 import type { QueryClient } from "@tanstack/react-query"
 import type { AsyncRouteComponent } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 
 export const DASHBOARD_PLACEMENT = {
   PANEL: "panel",
@@ -15,7 +16,9 @@ interface Entry {
 }
 
 export interface AdminDashboardStat extends Entry {
+  readonly icon: LucideIcon
   readonly placement: typeof DASHBOARD_PLACEMENT.STAT
+  readonly to?: string
   readonly prefetch: (queryClient: QueryClient) => Promise<unknown>
   readonly useValue: () => number
 }

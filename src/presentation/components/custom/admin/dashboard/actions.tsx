@@ -10,13 +10,13 @@ export const DashboardActions = (): JSX.Element => {
   const navigationLabel = useNavigationLabel()
 
   return (
-    <div className="flex items-center gap-3">
+    <>
       {ADMIN_DASHBOARD_ACTIONS.map((action) => (
-        <LinkButton className="h-9 gap-2 shadow-sm" href={action.to} key={action.key}>
+        <LinkButton className="h-9 gap-2" href={action.to} key={action.key} size="sm" variant="outline">
           <action.icon aria-hidden className="size-4" />
           {navigationLabel(action)}
         </LinkButton>
       ))}
-    </div>
+    </>
   )
 }

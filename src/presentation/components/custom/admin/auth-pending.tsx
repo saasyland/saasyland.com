@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_USER_DETAILS } from "~/src/data/admin"
+import { SETTINGS_TABS } from "~/src/data/auth"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
@@ -9,18 +10,16 @@ import { Card, CardContent, CardHeader } from "~/src/presentation/components/sha
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
+import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import {
   CheckboxPending,
-  DescriptionPending,
-  LongDescriptionPending,
   PAGE_ROWS,
   PaginationPending,
   RowActionPending,
   SortableHeadPending,
-  TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
-import { EmailCardPending, SettingsTabsPending } from "~/src/presentation/components/custom/settings/settings-pending"
+import { EmailCardPending } from "~/src/presentation/components/custom/settings/settings-pending"
 
 const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
 
@@ -55,22 +54,15 @@ const DashboardUserRowPending = (): JSX.Element => (
 
 export const AdminDashboardPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <TitlePending />
-        <DescriptionPending />
-      </div>
-      <div className="flex items-center gap-3">
-        {ADMIN_DASHBOARD_ACTIONS.map((action) => (
-          <Skeleton className="h-9 w-32 rounded-md" key={action.key} />
-        ))}
-      </div>
-    </div>
-    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
+    <AdminPageHeaderPending actions={ADMIN_DASHBOARD_ACTIONS.length} />
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 lg:grid-cols-3">
       {ADMIN_DASHBOARD_STATS.map((stat) => (
-        <div className="bg-card px-5 py-5" key={stat.key}>
-          <Skeleton className="h-lh w-32 scale-y-70 text-label" />
-          <Skeleton className="mt-3 h-lh w-10 scale-y-70 text-headline-support" />
+        <div className="flex flex-col gap-4 bg-card p-4 sm:p-5" key={stat.key}>
+          <div className="flex items-start justify-between gap-3">
+            <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />
+            <Skeleton className="size-8 rounded-md" />
+          </div>
+          <Skeleton className="h-lh w-10 scale-y-70 text-headline-support" />
         </div>
       ))}
     </div>
@@ -128,17 +120,11 @@ export const AdminDashboardPending = (): JSX.Element => (
 )
 
 export const AdminSettingsPending = (): JSX.Element => (
-  <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <div>
-      <TitlePending />
-      <LongDescriptionPending />
-    </div>
-    <div className="flex w-full flex-col gap-2">
-      <SettingsTabsPending />
-      <div className="mt-8 grid grid-cols-1 items-start gap-6 text-sm lg:grid-cols-2">
-        <PreferencesCardPending />
-        <EmailCardPending />
-      </div>
+  <div aria-busy="true" className="flex w-full flex-col">
+    <AdminPageHeaderPending tabs={SETTINGS_TABS.length} />
+    <div className="mt-8 grid grid-cols-1 items-start gap-6 text-sm lg:grid-cols-2">
+      <PreferencesCardPending />
+      <EmailCardPending />
     </div>
   </div>
 )

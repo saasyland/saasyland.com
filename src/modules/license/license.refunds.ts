@@ -40,3 +40,15 @@ export const refundEligibility = ({
 
   return { deliveredAt, kind: REFUND_ELIGIBILITY.USED }
 }
+
+export const refundEligibilityDate = (refund: RefundEligibility): Date => {
+  if (refund.kind === REFUND_ELIGIBILITY.EXPIRED) {
+    return refund.endedAt
+  }
+
+  if (refund.kind === REFUND_ELIGIBILITY.USED) {
+    return refund.deliveredAt
+  }
+
+  return refund.until
+}

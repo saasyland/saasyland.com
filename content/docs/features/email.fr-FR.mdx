@@ -7,17 +7,19 @@ description: "Modèles React Email dans src/presentation/emails, envoyés par le
 
 Les modèles se trouvent dans `src/presentation/emails`. Chaque fichier ne contient que du balisage et exporte sa constante d’espace de noms :
 
-| Modèle                         | Espace de noms                           | Envoyé par                                                           |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------- |
-| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook Better Auth)                                 |
-| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook Better Auth)                          |
-| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook Better Auth)                |
-| `ExistingAccountEmail`         | `emails.existing-account-email`          | `sendExistingAccountEmail` (`onExistingUserSignUp` de Better Auth)   |
-| `PasswordChangedEmail`         | `emails.password-changed-email`          | `sendPasswordChangedEmail` (`onPasswordReset` de Better Auth)        |
-| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                              |
-| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, vers `CONTACT_EMAIL`                |
-| `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail` (Polar `order.paid`)                 |
-| `UnmatchedOrderAlertEmail`     | `emails.unmatched-order-alert-email`     | `sendUnmatchedOrderAlert` (Polar `order.paid`), vers `CONTACT_EMAIL` |
+| Modèle                           | Espace de noms                            | Envoyé par                                                              |
+| -------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `VerifyEmail`                    | `emails.verify-email`                     | `sendVerifyEmail` (hook Better Auth)                                    |
+| `ResetPasswordEmail`             | `emails.reset-password-email`             | `sendResetPasswordEmail` (hook Better Auth)                             |
+| `ChangeEmailConfirmationEmail`   | `emails.change-email-confirmation-email`  | `sendChangeEmailConfirmationEmail` (hook Better Auth)                   |
+| `ExistingAccountEmail`           | `emails.existing-account-email`           | `sendExistingAccountEmail` (`onExistingUserSignUp` de Better Auth)      |
+| `PasswordChangedEmail`           | `emails.password-changed-email`           | `sendPasswordChangedEmail` (`onPasswordReset` de Better Auth)           |
+| `NewsletterConfirmationEmail`    | `emails.newsletter-confirmation-email`    | `subscribeToNewsletter`                                                 |
+| `NewsletterNotificationEmail`    | `emails.newsletter-notification-email`    | `confirmNewsletterSubscription`, vers `CONTACT_EMAIL`                   |
+| `PurchaseConfirmationEmail`      | `emails.purchase-confirmation-email`      | `sendPurchaseConfirmationEmail` (Polar `order.paid`)                    |
+| `UnmatchedOrderAlertEmail`       | `emails.unmatched-order-alert-email`      | `sendUnmatchedOrderAlert` (Polar `order.paid`), vers `CONTACT_EMAIL`    |
+| `WithdrawalAcknowledgementEmail` | `emails.withdrawal-acknowledgement-email` | `sendWithdrawalAcknowledgement` (`submitWithdrawal`)                    |
+| `WithdrawalNotificationEmail`    | `emails.withdrawal-notification-email`    | `sendWithdrawalNotification` (`submitWithdrawal`), vers `CONTACT_EMAIL` |
 
 Un modèle reçoit `locale` et `messages` et traduit avec `createTranslator` de use-intl :
 
@@ -51,11 +53,11 @@ await sendEmail({
 })
 ```
 
-`sendEmail` (`src/integrations/resend/resend.utils.ts`) envoie via Resend depuis `RESEND_EMAIL_FROM`, sauf si un `from` est fourni (la notification au propriétaire et l’alerte de commande sans compte utilisent `NOTIFICATIONS_EMAIL`), transmet la clé d’idempotence et lève une erreur en cas d’échec.
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) envoie via Resend depuis `RESEND_EMAIL_FROM`, sauf si un `from` est fourni (la notification au propriétaire, l’alerte de commande sans compte et la notification de rétractation utilisent `NOTIFICATIONS_EMAIL`), transmet la clé d’idempotence et lève une erreur en cas d’échec.
 
-Les e-mails de compte utilisent la langue de la page où le parcours a commencé, lue dans le `callbackURL` du lien de l’e-mail ; pour une inscription répétée, elle provient du `callbackURL` de la requête d’inscription. Un parcours qui ne nomme aucun callback, une connexion à un compte non vérifié ou une réinitialisation du mot de passe, prend la langue et le `redirect` de la page qui a envoyé la requête (son `Referer`, lorsqu’il est sur ce site). Les e-mails de newsletter utilisent la langue envoyée avec le formulaire ; la notification au propriétaire est toujours en `en-US`. La confirmation d’achat utilise la langue que `startCheckout` a enregistrée dans les métadonnées de la commande, et l’anglais lorsqu’il n’y en a aucune ; elle confirme sur un support durable le consentement de l’acheteur à la fourniture immédiate, voir [Licences](/docs/features/licences#purchase-confirmation). L’alerte de commande sans compte, qui signale au site une commande de licence payée dont le client ne correspond à aucun compte, est en `I18N.DEFAULT_LOCALE`, voir [Licences](/docs/features/licences#orders-that-match-no-account).
+Les e-mails de compte utilisent la langue de la page où le parcours a commencé, lue dans le `callbackURL` du lien de l’e-mail ; pour une inscription répétée, elle provient du `callbackURL` de la requête d’inscription. Un parcours qui ne nomme aucun callback, une connexion à un compte non vérifié ou une réinitialisation du mot de passe, prend la langue et le `redirect` de la page qui a envoyé la requête (son `Referer`, lorsqu’il est sur ce site). Les e-mails de newsletter utilisent la langue envoyée avec le formulaire ; la notification au propriétaire est toujours en `en-US`. La confirmation d’achat utilise la langue que `startCheckout` a enregistrée dans les métadonnées de la commande, et l’anglais lorsqu’il n’y en a aucune ; elle confirme sur un support durable le consentement de l’acheteur à la fourniture immédiate, voir [Licences](/docs/features/licences#purchase-confirmation). L’alerte de commande sans compte, qui signale au site une commande de licence payée dont le client ne correspond à aucun compte, est en `I18N.DEFAULT_LOCALE`, voir [Licences](/docs/features/licences#orders-that-match-no-account). L’accusé de réception d’une rétractation utilise la langue de la page où la déclaration a été envoyée, et la notification de rétractation adressée au site est en `I18N.DEFAULT_LOCALE`, voir [Licences](/docs/features/licences#withdrawal-function).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) autorise au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails de chaque type (vérification, réinitialisation du mot de passe, compte existant et confirmation de newsletter) par adresse et par heure, comptés dans la table `rate_limit` sous un hachage SHA-256 de l’adresse. Au-delà de la limite, l’e-mail est ignoré et la requête reçoit quand même sa réponse habituelle. La confirmation de changement d’e-mail, l’avis de changement de mot de passe, la notification au propriétaire, la confirmation d’achat et l’alerte de commande sans compte ne sont pas limitées ; un changement de mot de passe exige un jeton de réinitialisation, et c’est le webhook de Polar, et non un visiteur, qui déclenche ces deux dernières, une fois par commande.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) autorise au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails de chaque type (vérification, réinitialisation du mot de passe, compte existant, confirmation de newsletter et accusé de réception d’une rétractation) par adresse et par heure, comptés dans la table `rate_limit` sous un hachage SHA-256 de l’adresse. Au-delà de la limite, l’e-mail est ignoré et la requête reçoit quand même sa réponse habituelle. La confirmation de changement d’e-mail, l’avis de changement de mot de passe, la notification au propriétaire, la confirmation d’achat, l’alerte de commande sans compte et la notification de rétractation ne sont pas limitées ; un changement de mot de passe exige un jeton de réinitialisation, c’est le webhook de Polar, et non un visiteur, qui déclenche la confirmation d’achat et l’alerte de commande sans compte, une fois par commande, et la notification de rétractation n’est envoyée qu’au site, au plus <RepositoryFact name="sensitiveRateLimit" /> par client et par minute.
 
 ## Guides associés
 

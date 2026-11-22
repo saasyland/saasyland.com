@@ -35,6 +35,7 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 import type { getCurrentLicenseActivations } from "~/src/modules/license/use-cases/get-current-license-activations"
 import type { getUpgradePrice } from "~/src/modules/license/use-cases/get-upgrade-price"
 import type { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
+import type { getWithdrawalContract } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
 
 import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
@@ -85,6 +86,7 @@ const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicen
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const triggerConfettiMock = vi.hoisted(() => vi.fn<() => void>())
 const overlayMock = vi.hoisted(() => vi.fn<typeof openCheckoutOverlay>())
+const withdrawalContractMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getWithdrawalContract>>())
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -105,6 +107,10 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-key"), async
     currentLicenseKeyQuery: { ...actual.currentLicenseKeyQuery, queryFn: licenseKeyMock },
     licenseKeySetupQuery: { ...actual.licenseKeySetupQuery, queryFn: licenseKeyMock },
   }
+})
+vi.mock(import("~/src/modules/withdrawal/use-cases/get-withdrawal-contract"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, withdrawalContractQuery: { ...actual.withdrawalContractQuery, queryFn: withdrawalContractMock } }
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -216,6 +222,7 @@ beforeEach(() => {
   currentLicenseMock.mockReset().mockResolvedValue({ license: undefined })
   licenseKeyMock.mockReset().mockResolvedValue({ key: LICENSE_KEY })
   activationsMock.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
+  withdrawalContractMock.mockReset().mockResolvedValue({ contract: undefined })
   sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
   overlayMock.mockReset().mockResolvedValue(undefined)
@@ -765,10 +772,12 @@ describe("license cards", () => {
 })
 
 describe("the license in the customer workspace", () => {
-  it("marks the license active in the navigation, sets the page metadata and looks the license up once", async () => {
+  it("marks the license active in the navigation, sets the page metadata and text, links back and looks the license up once", async () => {
     const { router } = await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
+    expect(screen.getByText(pagesLicenseMessages.metadata.description)).toBeVisible()
+    expect(screen.getByRole("link", { name: pagesLicenseMessages.back })).toHaveAttribute("href", ROUTES.APP)
     const navigation = screen.getByRole("navigation", { name: pagesAppSidebarMessages.navigation.label })
     expect(within(navigation).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
     expect(currentLicenseMock).toHaveBeenCalledOnce()
@@ -786,15 +795,5 @@ describe("the license in the customer workspace", () => {
 
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
-  })
-})
-
-describe("license page text", () => {
-  it("keeps its heading and description and links back to the overview", async () => {
-    await renderApp(ROUTES.APP_LICENSE)
-
-    expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
-    expect(screen.getByText(pagesLicenseMessages.metadata.description)).toBeVisible()
-    expect(screen.getByRole("link", { name: pagesLicenseMessages.back })).toHaveAttribute("href", ROUTES.APP)
   })
 })

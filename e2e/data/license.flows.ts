@@ -85,6 +85,23 @@ const REFUNDED_LICENCE = {
   title: "checkout funnel › a refunded licence says so without its key, commands or a pending key, and offers a new one",
 } as const
 
+const WITHDRAWAL_SIGNED_OUT = {
+  spec: "withdrawal.spec.ts",
+  title:
+    "withdrawal function › a signed-out buyer withdraws through the link in the purchase confirmation and gets the acknowledgement by email",
+} as const
+
+const WITHDRAWAL_SIGNED_IN = {
+  spec: "withdrawal.spec.ts",
+  title:
+    "withdrawal function › a signed-in buyer withdraws from the licence page with the account's details filled in, and the admin sees the statement",
+} as const
+
+const WITHDRAWAL_LINKS = {
+  spec: "withdrawal.spec.ts",
+  title: "withdrawal function › the footer of every page and the Refund Policy lead to the withdrawal function",
+} as const
+
 const JOURNEY_STEP = {
   ACTIVATE: "activate this machine with the key",
   FILL_SLOTS: "CI machines fill the remaining slots and the next one is refused",
@@ -398,6 +415,44 @@ export const LICENSE_FLOWS = [
     id: "partial-refund-keeps-licence",
     outcome: "A partially refunded order keeps its licence active",
     reason: "No spec sends order.refunded.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "withdrawal-signed-out",
+    outcome:
+      "A signed-out buyer follows Withdraw from contract here from the purchase confirmation, gives a name, the email address for the acknowledgement and the order number, presses Confirm withdrawal, sees the receipt with the time it arrived, and receives the acknowledgement with the statement and its time by email, while the site's contact address is told which licence it concerns",
+    status: FLOW_STATUS.COVERED,
+    tests: [WITHDRAWAL_SIGNED_OUT],
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "withdrawal-signed-in",
+    outcome:
+      "A signed-in buyer opens Withdraw from contract here on /app/license, which says whether the right still applies, finds the account's name, email address and order number filled in, presses Confirm withdrawal, sees the receipt and then the time the statement arrived on the card, receives the acknowledgement, and the admin sees the statement on the buyer's profile",
+    status: FLOW_STATUS.COVERED,
+    tests: [WITHDRAWAL_SIGNED_IN],
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "withdrawal-links",
+    outcome: "The footer of every public page and the Refund Policy link Withdraw from contract here to /withdrawal",
+    status: FLOW_STATUS.COVERED,
+    tests: [WITHDRAWAL_LINKS],
+  },
+  {
+    area: FLOW_AREA.AFTER_SALE,
+    id: "withdrawal-unmatched",
+    outcome:
+      "A statement whose order number and email address match no active licence is still stored and acknowledged, and the site's contact address is asked to find the order by hand",
+    reason: "Only the unit tests of submitWithdrawal send an order number or email address that matches no licence.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.I18N,
+    id: "withdrawal-localized",
+    outcome: "A statement sent from a page in another language gets its acknowledgement of receipt in that language",
+    reason: "The browser suite withdraws in English only; the unit tests read a Polish acknowledgement.",
     status: FLOW_STATUS.MISSING,
   },
   {

@@ -12,6 +12,7 @@ import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
+import { withdrawalContractQuery } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
 
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
@@ -26,6 +27,7 @@ import { LicenseCard } from "~/src/presentation/components/custom/app/license-ca
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
 import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
 import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-offer"
+import { WithdrawalCard } from "~/src/presentation/components/custom/app/withdrawal-card"
 
 import { ROUTES } from "~/src/routes"
 
@@ -56,6 +58,7 @@ const LicensePage = (): JSX.Element => {
       {isUpgrading && <UpgradeOffer tier={tier} />}
       {showsLicense && <LicenseCard />}
       {hasIssuedKey(license) && <LicenseActivations polarLicenseKeyId={license.polarLicenseKeyId} tier={license.tier} />}
+      {hasActiveLicense && <WithdrawalCard />}
       {isBuying && <LicenseOffer />}
       <Link
         className="w-fit text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -81,6 +84,11 @@ export const Route = createFileRoute("/app/license")({
       context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }).then(async ({ license }) => {
         if (hasIssuedKey(license)) {
           await context.queryClient.query({ ...licenseActivationsQuery(license), staleTime: "static" })
+        }
+      }),
+      context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }).then(async ({ license }) => {
+        if (license?.status === LICENSE_STATUS.ACTIVE) {
+          await context.queryClient.query({ ...withdrawalContractQuery, staleTime: "static" })
         }
       }),
       context.queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),

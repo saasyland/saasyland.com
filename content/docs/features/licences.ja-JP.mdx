@@ -120,7 +120,7 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 - **注文**: 請求書番号（注文にまだ請求書番号がない場合は Polar の注文 ID）、注文日、その言語の料金カードと同じ名前で示すプラン、そして注文の通貨での `total_amount` です。`total_amount` は `fromMinorUnits` で補助単位から変換します。
 - **撤回権**: `custom_field_data` に同意が含まれている場合、メールは、購入者が即時提供を求め、撤回権を失うことを了承したことを改めて示し、そのためこの注文には撤回権が適用されないことを伝えます。同意がない場合、メールは、購入者が注文日から <RepositoryFact name="refundWithdrawalDays" unit="day" />以内に撤回できることを伝えます。
 - **返金**: 初回使用前の全額返金の期限 `refundDeadline`（`license.refunds.ts`）です。購入時刻に `REFUND_TERMS.WITHDRAWAL_DAYS` を加えた日付で、`refundEligibility` が使うのと同じ日付です。返金ポリシーのとおり、全額返金には CLI でプロジェクトを生成しておらず、有料レッスンも開いていないことが必要です。
-- **リンク**: メールの言語のライセンスページ、[CLI ガイド](/docs/cli)、利用規約、商用ライセンス、返金ポリシーです。リンク先は Webhook を受け取ったホストです。ボタンの下には、メールクライアントがボタンを隠す読者のために、`EmailFallbackLink` がライセンスページのアドレスを書き出します。
+- **リンク**: メールの言語のライセンスページ、[CLI ガイド](/docs/cli)、利用規約、商用ライセンス、返金ポリシー、[撤回機能](#withdrawal-function)です。撤回機能へは、撤回権と返金についての文からリンクします。リンク先は Webhook を受け取ったホストです。ボタンの下には、メールクライアントがボタンを隠す読者のために、`EmailFallbackLink` がライセンスページのアドレスを書き出します。
 - **はじめに**: 注文の下のブロックです。キーがあるライセンスページへのボタン、`CLI_SETUP_LINES` のコマンド <RepositoryFact name="cliSetupCommands" />、CLI ガイドへのリンク、ほかのエリアが購入者に向けて追加する行である `PURCHASE_EMAIL_STEPS`（`src/data/purchase-email.ts`。`src/data/purchase-email.entries.ts` がまとめます）を含みます。コースのエリアは、コースを利用できる購入者にコースへのリンクを追加します（`src/data/courses.purchase-email.ts`、名前空間 `purchase-email.courses`）。
 - **ブランド**: 認証のメールと同じく、`EmailBrandHeader` がメールの上にサイト名を置きます。
 
@@ -160,6 +160,44 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 3. Polar の Webhook の設定でエンドポイントの配信履歴を開き、その注文の `order.paid` イベントを見つけて **Redeliver** を選びます。続いて、`benefit_grant.created` イベントでも同じ操作をします。`onOrderPaid` がライセンスを付与してアカウントのアドレスに購入確認メールを送り、`onBenefitGrantCreated` がライセンスキーを保存します。`benefit_grant.created` が先に届いた場合は、ライセンスができるまで失敗し、Polar が再試行します。その後、注文は管理画面の一覧から消えます。
 
 Polar がイベントを再配信できるのは、そのイベントのペイロードを保持している間だけです。Polar のサーバーはペイロードを 90 日後にアーカイブします。
+
+## 撤回機能 [#withdrawal-function]
+
+消費者権利指令（2011/83/EU）の第 11a 条は、指令 (EU) 2023/2673 によって追加され、2026 年 6 月 19 日から適用されます。この条は、ウェブサイトで契約を締結する事業者に、そのサイトで撤回機能を提供することを求めています。撤回機能とは、「ここで契約を撤回する」と表示され、目立つように配置され、撤回期間中いつでも利用できる操作要素で、オンラインの撤回の意思表示を開きます。消費者はそこで氏名、契約、確認の送信先となる電子アドレスを入力または確認し、「撤回を確定する」とだけ表示された操作要素で送信します。事業者はその後、意思表示の内容と送信日時を記載した受領確認を、永続的な媒体で、不当な遅滞なく送ります。期間の終了前に送信された意思表示は、期限内に権利を行使したものとなります。
+
+### 設置場所
+
+- `/withdrawal`（`ROUTES.WITHDRAWAL`、`_site._marketing.withdrawal.tsx`、名前空間 `pages.withdrawal`）は、サインインしていなくても使える、プリレンダリングされた公開ページです。すべてのページのフッターが **ここで契約を撤回する**（`src/data/license.navigation.ts` の `LICENSE_NAVIGATION`）としてこのページにリンクし、返金ポリシー、利用規約、購入確認メールもリンクします。
+- `WithdrawalCard`（`src/presentation/components/custom/app/withdrawal-card.tsx`）は、`/app/license` の有効なライセンスの下にあります。プラン、注文番号、購入日を示し、撤回権または初回利用前の全額返金がまだ適用されるかどうかを、サーバーの時刻での `refundEligibility` に基づいて伝えます。また、**ここで契約を撤回する** で、アカウントの氏名、メールアドレス、注文番号が入力済みの意思表示をダイアログで開きます。意思表示の後は、それを受領した日時を表示します。
+
+どちらも `WithdrawalForm`（`src/presentation/components/custom/withdrawal-form.tsx`）を使います。フォームには、意思表示の文、氏名、受領確認の送信先メールアドレス、注文番号があり、`withdrawalZodSchemas.submitWithdrawal` と `withdrawal.validations` のメッセージで検証されます。送信ボタンは **撤回を確定する** です。権利がもう適用されないことを理由に、フォームが意思表示を拒むことはありません。その判断は後で行います。意思表示を受け付けると、フォームは受付内容の表示に替わります。表示するのは、意思表示、受領した日時、受領確認をメールで送信したかどうかです。
+
+### 送信
+
+`submitWithdrawal`（`src/modules/withdrawal/use-cases/submit-withdrawal.ts`）は `withRateLimit("submit-withdrawal", RATE_LIMITS.SENSITIVE)` を実行し（クライアントごとに 1 分あたり <RepositoryFact name="sensitiveRateLimit" /> 件の意思表示まで）、セッションがあれば読み取ります。`matchContract`（`src/modules/withdrawal/withdrawal.contracts.ts`）は、現在の注文が入力された番号を持つ有効なライセンスを探します。番号は Polar の注文 ID でも請求書番号でもよく、大文字と小文字は区別しません。サインイン中のアカウントがそのライセンスを所有している場合、または入力されたメールアドレスがそのアカウントのものである場合、意思表示はそのライセンスに属します。続いて `recordWithdrawal`（`record-withdrawal.ts`、サーバー専用）が次の処理を行います。
+
+1. 意思表示を、一致したライセンスのその時点の返金条件、または `unmatched` とともに `withdrawal` テーブルに保存します。
+2. `WithdrawalAcknowledgementEmail`（名前空間 `emails.withdrawal-acknowledgement-email`）を、入力されたアドレスにページの言語で送ります。内容は意思表示、氏名、注文番号、アドレス、送信日時で、送信はアドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までです。Resend が受け付けた日時を `acknowledged_at` に記録します。
+3. `WithdrawalNotificationEmail`（名前空間 `emails.withdrawal-notification-email`）を `I18N.DEFAULT_LOCALE` で、`NOTIFICATIONS_EMAIL` から `CONTACT_EMAIL` に送ります。内容は意思表示、購入者の特定方法、ライセンス、返金条件、受領確認を送信したかどうか、返金の期限（受領から <RepositoryFact name="refundReimbursementDays" unit="day" />後、`REFUND_TERMS.REIMBURSEMENT_DAYS`）、管理画面のアカウントと Polar の注文へのリンクです。
+
+送信できなかったメールはログに記録され、意思表示はそのまま残ります。その場合、受付内容の表示は受領確認がこれから届くことを伝え、通知には受領確認が送信されていないことが記載されます。冪等性キーは `WITHDRAWAL_ACKNOWLEDGEMENT` と `WITHDRAWAL_NOTIFICATION`（`src/data/license.email-purposes.ts`）と撤回の ID の組み合わせです。
+
+自動的に返金や取り消しが行われることはなく、返金するかどうかはオーナーが判断します。撤回を受け入れるには、Polar で注文を返金します。すると `order.refunded` がライセンスを返金済みにし、そのキーを取り消します（[Webhook とライセンス](#webhooks-and-licences)を参照）。そのうえで購入者に返信してください。
+
+### withdrawal テーブル
+
+| 列                                        | 保持する内容                                                                                                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                      | UUID v7                                                                                                                                                                     |
+| `name`、`email`、`reference`              | 購入者が入力したとおりの氏名、受領確認の送信先メールアドレス、注文番号                                                                                                      |
+| `locale`                                  | ページの言語。受領確認はこの言語を使います                                                                                                                                  |
+| `channel`                                 | 購入者がサインインしていた場合は `account`、そうでない場合は `public`（`WITHDRAWAL_CHANNEL`）                                                                               |
+| `user_id`、`license_id`、`polar_order_id` | 一致したアカウント、ライセンス、Polar の注文。一致しない場合は、サインインしていた購入者のアカウント。`ON DELETE SET NULL` により、いずれかが削除されても意思表示は残ります |
+| `eligibility`                             | 意思表示が届いた時点の返金条件。`REFUND_ELIGIBILITY` の種類のいずれか、または `unmatched`（`WITHDRAWAL_ELIGIBILITY`）                                                       |
+| `acknowledged_at`                         | Resend が受領確認を受け付けた日時。受領確認が未送信の間は空です                                                                                                             |
+| `created_at`                              | 意思表示を受領した日時。受領確認に記載される日時です                                                                                                                        |
+
+管理画面のユーザープロフィールには、アカウントの意思表示が新しい順に表示されます。[ユーザー（管理）](/docs/features/users-admin#profile)を参照してください。
 
 ## 顧客向け画面
 

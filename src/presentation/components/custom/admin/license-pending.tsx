@@ -29,3 +29,14 @@ export const UserLicensePending = (): JSX.Element => (
     </CardContent>
   </Card>
 )
+
+export const UserWithdrawalsPending = (): JSX.Element => (
+  <Card>
+    <CardHeader className="border-b">
+      <Skeleton className="h-lh w-44 scale-y-70 text-base leading-snug" />
+    </CardHeader>
+    <CardContent>
+      <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-sm" />
+    </CardContent>
+  </Card>
+)

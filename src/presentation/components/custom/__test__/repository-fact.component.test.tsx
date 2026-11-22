@@ -535,6 +535,12 @@ describe("licence refund terms", () => {
     )
   })
 
+  it("prints the days a refund for a withdrawal is due within, from the refund terms", () => {
+    renderInLocale("en-US", <RepositoryFact name="refundReimbursementDays" unit="day" />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(`${String(REFUND_TERMS.REIMBURSEMENT_DAYS)} days`)
+  })
+
   it("prints the slug of the checkout's consent field as code", () => {
     renderInLocale("en-US", <RepositoryFact name="licenseWithdrawalConsentField" />)
 

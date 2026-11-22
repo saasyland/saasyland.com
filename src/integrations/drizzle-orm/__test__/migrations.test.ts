@@ -3,9 +3,12 @@ import { resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import { describe, expect, it } from "vite-plus/test"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { COURSE_ICON, COURSE_LEVEL } from "~/src/modules/course/course.constants"
 import { LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY } from "~/src/modules/withdrawal/withdrawal.constants"
 
 const MIGRATIONS = resolve("src/integrations/drizzle-orm/migrations")
 const BILLING_MIRRORS = "20261116002710_cute_thunderball.sql"
@@ -252,5 +255,63 @@ describe("the migration that adds the course content", () => {
     database.prepare("DELETE FROM lesson WHERE id = ?").run(EXISTING_LESSON.id)
 
     expect(plain(database.prepare("SELECT id FROM lesson_attachment").all())).toStrictEqual([])
+  })
+})
+
+const WITHDRAWALS = "20261122012118_true_garia.sql"
+const WITHDRAWAL_TABLE = "withdrawal"
+
+const isWithdrawalEntry = (entry: Record<string, unknown>): boolean => entry["tbl_name"] === WITHDRAWAL_TABLE
+
+describe("the migration that adds the withdrawal statements", () => {
+  it("creates the withdrawal table and its index, and nothing else", () => {
+    const created = statements(WITHDRAWALS)
+
+    expect(created.filter((statement) => !ONE_CREATE_STATEMENT.test(statement))).toStrictEqual([])
+    expect(created.map((statement) => STATEMENT_HEAD.exec(statement)?.[0].trim())).toStrictEqual([
+      "CREATE TABLE `withdrawal`",
+      "CREATE INDEX `withdrawal_user_created_at_idx` ON `withdrawal`",
+    ])
+  })
+
+  it("leaves every table and index that existed before it as it was", () => {
+    const database = databaseBefore(WITHDRAWALS)
+    const before = schemaOf(database)
+
+    database.exec(migrationSql(WITHDRAWALS))
+
+    expect(before.filter((entry) => isWithdrawalEntry(entry))).toStrictEqual([])
+    expect(schemaOf(database).filter((entry) => !isWithdrawalEntry(entry))).toStrictEqual(before)
+  })
+
+  it("keeps a statement, without its links, when the account that sent it is deleted", () => {
+    const database = databaseBefore(WITHDRAWALS)
+    database.exec(migrationSql(WITHDRAWALS))
+    database.exec("PRAGMA foreign_keys = ON")
+    database.prepare("INSERT INTO user (id, email, name) VALUES (?, ?, ?)").run(BUYER.id, BUYER.email, BUYER.name)
+    database
+      .prepare("INSERT INTO license (id, polar_customer_id, tier, user_id) VALUES (?, ?, ?, ?)")
+      .run("migrated-license", "cus_migrated", LICENSE_TIER.CORE, BUYER.id)
+    database
+      .prepare(
+        "INSERT INTO withdrawal (id, channel, eligibility, email, license_id, locale, name, reference, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        "migrated-withdrawal",
+        WITHDRAWAL_CHANNEL.PUBLIC,
+        WITHDRAWAL_ELIGIBILITY.REFUNDABLE,
+        BUYER.email,
+        "migrated-license",
+        I18N.DEFAULT_LOCALE,
+        BUYER.name,
+        "SAASY-0001",
+        BUYER.id,
+      )
+
+    database.prepare("DELETE FROM user WHERE id = ?").run(BUYER.id)
+
+    expect(plain(database.prepare("SELECT id, license_id, user_id FROM withdrawal").all())).toStrictEqual([
+      { id: "migrated-withdrawal", license_id: null, user_id: null },
+    ])
   })
 })

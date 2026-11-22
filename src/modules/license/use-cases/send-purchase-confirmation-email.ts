@@ -56,6 +56,7 @@ const confirmationLinks = (locale: SupportedLocale): PurchaseConfirmationLinks =
   licence: absoluteUrl(locale, ROUTES.LICENCE),
   refunds: absoluteUrl(locale, ROUTES.REFUNDS),
   terms: absoluteUrl(locale, ROUTES.TERMS),
+  withdrawal: absoluteUrl(locale, ROUTES.WITHDRAWAL),
 })
 
 const nextSteps = async (locale: SupportedLocale, userId: string): Promise<PurchaseConfirmationStep[]> => {

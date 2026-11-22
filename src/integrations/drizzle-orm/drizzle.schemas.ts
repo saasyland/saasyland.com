@@ -16,3 +16,4 @@ export { twoFactor, twoFactorRelations } from "~/src/modules/two-factor/two-fact
 export { user, userRelations } from "~/src/modules/user/user.schema"
 export { verification } from "~/src/modules/verification/verification.schema"
 export { video } from "~/src/modules/video/video.schema"
+export { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"

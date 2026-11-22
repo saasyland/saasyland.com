@@ -117,7 +117,7 @@ Depois de `grantLicense`, `onOrderPaid` envia ao comprador a confirmação em su
 - **Pedido**: o número da fatura, ou o ID do pedido na Polar enquanto o pedido ainda não tem um; a data do pedido; o plano, com o nome que os cards de preços dão a ele nesse idioma; e `total_amount` na moeda do pedido, convertido da menor unidade da moeda com `fromMinorUnits`.
 - **Direito de desistência**: quando `custom_field_data` traz o consentimento, o e-mail repete que o comprador pediu o fornecimento imediato e reconheceu que perde o direito de desistência, então esse direito não se aplica a este pedido. Sem o consentimento, o e-mail diz que o comprador pode desistir em até <RepositoryFact name="refundWithdrawalDays" unit="day" /> a partir da data do pedido.
 - **Reembolso**: o prazo para um reembolso integral antes do primeiro uso, `refundDeadline` (`license.refunds.ts`), o momento da compra mais `REFUND_TERMS.WITHDRAWAL_DAYS`, a mesma data que `refundEligibility` usa. Um reembolso integral exige, como diz a Política de Reembolso, que nenhum projeto tenha sido gerado com a CLI e nenhuma aula paga aberta.
-- **Links**: a página de licença, o [guia da CLI](/docs/cli), os Termos de Serviço, a Licença Comercial e a Política de Reembolso no idioma do e-mail, no host que recebeu o webhook. Abaixo do botão, `EmailFallbackLink` escreve o endereço da página de licença para quem usa um cliente de e-mail que esconde o botão.
+- **Links**: a página de licença, o [guia da CLI](/docs/cli), os Termos de Serviço, a Licença Comercial, a Política de Reembolso e a [função de desistência](#withdrawal-function), à qual levam as linhas sobre o direito de desistência e sobre o reembolso, no idioma do e-mail, no host que recebeu o webhook. Abaixo do botão, `EmailFallbackLink` escreve o endereço da página de licença para quem usa um cliente de e-mail que esconde o botão.
 - **Primeiros passos**: um bloco abaixo do pedido com um botão para a página de licença, onde está a chave, os comandos <RepositoryFact name="cliSetupCommands" /> de `CLI_SETUP_LINES`, um link para o guia da CLI e as linhas que outras áreas adicionam para o comprador, `PURCHASE_EMAIL_STEPS` (`src/data/purchase-email.ts`), que `src/data/purchase-email.entries.ts` reúne. A área de cursos adiciona um link para os cursos para um comprador com acesso a eles (`src/data/courses.purchase-email.ts`, namespace `purchase-email.courses`).
 - **Marca**: `EmailBrandHeader` coloca o nome do site acima do e-mail, como nos e-mails de autenticação.
 
@@ -157,6 +157,44 @@ Cada linha (`unlicensed-order-columns.tsx`) mostra o ID do pedido, que abre o pe
 3. Nas configurações de webhooks da Polar, abra as entregas do endpoint, encontre o evento `order.paid` do pedido e escolha **Redeliver**; depois, faça o mesmo com o evento `benefit_grant.created` dele. `onOrderPaid` concede a licença e envia a confirmação da compra para o endereço da conta, e `onBenefitGrantCreated` grava a chave de licença; um `benefit_grant.created` que chegue antes falha até a licença existir, e a Polar o reenvia. Depois disso, o pedido sai da lista do admin.
 
 A Polar só reenvia um evento enquanto guarda o payload dele, que o servidor da Polar arquiva depois de 90 dias.
+
+## Função de desistência [#withdrawal-function]
+
+O artigo 11a da Diretiva de Direitos do Consumidor (2011/83/UE), inserido pela Diretiva (UE) 2023/2673 e aplicável a partir de 19 de junho de 2026, exige que um comerciante que celebra contratos em um site ofereça ali uma função de desistência: um controle com o rótulo “desistir do contrato aqui”, exibido em destaque e disponível durante todo o prazo de desistência, que abre uma declaração de desistência online na qual o consumidor informa ou confirma o próprio nome, o contrato e o endereço eletrônico para a confirmação, e a envia com um controle com o rótulo apenas “confirmar desistência”. O comerciante então envia, sem demora injustificada, um aviso de recebimento em suporte duradouro, com o conteúdo da declaração e a data e a hora do seu envio. Uma declaração enviada antes do fim do prazo exerce o direito dentro do prazo.
+
+### Onde ela fica
+
+- `/withdrawal` (`ROUTES.WITHDRAWAL`, `_site._marketing.withdrawal.tsx`, namespace `pages.withdrawal`) é uma página pública e pré-renderizada que funciona sem login. O rodapé de todas as páginas leva a ela como **Desistir do contrato aqui** (`LICENSE_NAVIGATION` em `src/data/license.navigation.ts`), assim como a Política de Reembolso, os Termos de Serviço e a confirmação da compra.
+- `WithdrawalCard` (`src/presentation/components/custom/app/withdrawal-card.tsx`) fica em `/app/license`, abaixo de uma licença ativa. Ele mostra o plano, o número do pedido e a data da compra, diz se o direito de desistência ou o reembolso integral antes do primeiro uso ainda se aplica, a partir de `refundEligibility` no horário do servidor, e abre a declaração em um diálogo com **Desistir do contrato aqui**, com o nome, o endereço de e-mail e o número do pedido da conta já preenchidos. Depois de uma declaração, ele informa quando ela foi recebida.
+
+Ambos usam `WithdrawalForm` (`src/presentation/components/custom/withdrawal-form.tsx`): a frase da declaração, o nome, o endereço de e-mail para o aviso de recebimento e o número do pedido, validados com `withdrawalZodSchemas.submitWithdrawal` e as mensagens de `withdrawal.validations`, e o botão de envio **Confirmar desistência**. O formulário nunca recusa uma declaração porque o direito não se aplica mais; isso é decidido depois. Assim que a declaração é recebida, o formulário dá lugar ao comprovante: a declaração, o horário em que foi recebida e se o aviso de recebimento foi enviado por e-mail.
+
+### Envio
+
+`submitWithdrawal` (`src/modules/withdrawal/use-cases/submit-withdrawal.ts`) executa `withRateLimit("submit-withdrawal", RATE_LIMITS.SENSITIVE)`, <RepositoryFact name="sensitiveRateLimit" /> declarações por cliente por minuto, e lê a sessão quando existe uma. `matchContract` (`src/modules/withdrawal/withdrawal.contracts.ts`) encontra a licença ativa cujo pedido atual tem o número informado, como ID do pedido na Polar ou número da fatura, sem diferenciar maiúsculas de minúsculas; a declaração pertence a essa licença quando a conta conectada é dona dela ou quando o endereço de e-mail informado é o da conta. Em seguida, `recordWithdrawal` (`record-withdrawal.ts`, apenas no servidor):
+
+1. armazena a declaração na tabela `withdrawal`, com as condições de reembolso da licença correspondente naquele momento, ou `unmatched`;
+2. envia `WithdrawalAcknowledgementEmail` (namespace `emails.withdrawal-acknowledgement-email`) para o endereço informado, no idioma da página, com a declaração, o nome, o número do pedido, o endereço e o horário do envio, no máximo <RepositoryFact name="recipientEmailsPerHour" /> por endereço por hora, e registra em `acknowledged_at` quando o Resend o aceitou;
+3. envia `WithdrawalNotificationEmail` (namespace `emails.withdrawal-notification-email`) de `NOTIFICATIONS_EMAIL` para `CONTACT_EMAIL` em `I18N.DEFAULT_LOCALE`: a declaração, como o comprador foi identificado, a licença, as condições de reembolso, se o aviso de recebimento foi enviado, a data limite do reembolso, <RepositoryFact name="refundReimbursementDays" unit="day" /> após o recebimento (`REFUND_TERMS.REIMBURSEMENT_DAYS`), e links para a conta no admin e para o pedido na Polar.
+
+Um e-mail que não pode ser enviado é registrado no log e mantém a declaração: o comprovante então diz que o aviso de recebimento ainda será enviado, e a notificação diz que ele não foi enviado. As chaves de idempotência são `WITHDRAWAL_ACKNOWLEDGEMENT` e `WITHDRAWAL_NOTIFICATION` (`src/data/license.email-purposes.ts`) com o ID da desistência.
+
+Nada é reembolsado ou revogado automaticamente: o reembolso continua sendo decisão do proprietário. Para aceitar uma desistência, reembolse o pedido na Polar; `order.refunded` então marca a licença como reembolsada e revoga a chave dela, como descreve [Webhooks e licenças](#webhooks-and-licences), e responda ao comprador.
+
+### A tabela withdrawal
+
+| Coluna                                    | Guarda                                                                                                                                                                                         |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                      | Um UUID v7                                                                                                                                                                                     |
+| `name`, `email`, `reference`              | O nome, o endereço de e-mail para o aviso de recebimento e o número do pedido, como o comprador os informou                                                                                    |
+| `locale`                                  | O idioma da página, que o aviso de recebimento usa                                                                                                                                             |
+| `channel`                                 | `account` quando o comprador estava conectado, `public` caso contrário (`WITHDRAWAL_CHANNEL`)                                                                                                  |
+| `user_id`, `license_id`, `polar_order_id` | A conta, a licença e o pedido da Polar correspondentes e, sem correspondência, a conta de um comprador conectado; `ON DELETE SET NULL` mantém a declaração quando qualquer um deles é excluído |
+| `eligibility`                             | As condições de reembolso quando a declaração chegou: um tipo de `REFUND_ELIGIBILITY` ou `unmatched` (`WITHDRAWAL_ELIGIBILITY`)                                                                |
+| `acknowledged_at`                         | Quando o Resend aceitou o aviso de recebimento; vazio enquanto o aviso estiver pendente                                                                                                        |
+| `created_at`                              | Quando a declaração foi recebida, o horário que o aviso de recebimento informa                                                                                                                 |
+
+O perfil de usuário do admin lista as declarações de uma conta, das mais recentes para as mais antigas; veja [Usuários (admin)](/docs/features/users-admin#profile).
 
 ## Telas do cliente
 

@@ -104,3 +104,23 @@ export const expectPurchaseConfirmation = async (request: APIRequestContext, rec
   expect(email.to).toEqual([recipient])
   return `${email.subject}\n${email.html}`
 }
+
+export const expectWithdrawalAcknowledgement = async (request: APIRequestContext, recipient: string): Promise<string> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, 1)
+
+  expect(email.subject).toBe("We received your withdrawal")
+  return email.html
+}
+
+export const expectWithdrawalNotification = async (request: APIRequestContext, recipient: string, reference: string): Promise<string> => {
+  const isNotification = ({ html, idempotencyKey }: { html: string; idempotencyKey: string }): boolean =>
+    idempotencyKey.startsWith(`${EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/`) && html.includes(reference)
+
+  await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isNotification).length).toBe(1)
+
+  const [email] = (await getSentEmails(request, recipient)).filter(isNotification)
+  if (!email) throw new Error(`No withdrawal notification for ${reference} was sent to ${recipient}`)
+
+  return email.html
+}
+

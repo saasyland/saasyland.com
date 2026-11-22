@@ -117,7 +117,7 @@ After `grantLicense`, `onOrderPaid` sends the buyer the confirmation that the co
 - **Order**: the invoice number, or the Polar order ID before the order has one; the order date; the tier, named as the pricing cards name it in that language; and `total_amount` in the order's currency, converted from minor units with `fromMinorUnits`.
 - **Right of withdrawal**: when `custom_field_data` holds the consent, the email repeats that the buyer asked for immediate supply and acknowledged losing the right of withdrawal, so it does not apply to this order. Without it, the email says that the buyer can withdraw within <RepositoryFact name="refundWithdrawalDays" unit="day" /> of the order date.
 - **Refund**: the deadline for a full refund before first use, `refundDeadline` (`license.refunds.ts`), the purchase time plus `REFUND_TERMS.WITHDRAWAL_DAYS`, the same date `refundEligibility` uses. A full refund needs, as the Refund Policy says, that no project has been generated with the CLI and no paid lesson opened.
-- **Links**: the licence page, the [CLI guide](/docs/cli), the Terms of Service, the Commercial Licence and the Refund Policy in the email's language, on the host that received the webhook. Under the button, `EmailFallbackLink` writes out the licence page's address for a reader whose email client hides the button.
+- **Links**: the licence page, the [CLI guide](/docs/cli), the Terms of Service, the Commercial Licence, the Refund Policy and the [withdrawal function](#withdrawal-function), which the lines on the right of withdrawal and the refund link, in the email's language, on the host that received the webhook. Under the button, `EmailFallbackLink` writes out the licence page's address for a reader whose email client hides the button.
 - **Get started**: a block under the order with a button to the licence page, where the key is, the commands <RepositoryFact name="cliSetupCommands" /> from `CLI_SETUP_LINES`, a link to the CLI guide and the lines other areas add for the buyer, `PURCHASE_EMAIL_STEPS` (`src/data/purchase-email.ts`), which `src/data/purchase-email.entries.ts` joins. The courses area adds a link to the courses for a buyer who holds course access (`src/data/courses.purchase-email.ts`, namespace `purchase-email.courses`).
 - **Brand**: `EmailBrandHeader` puts the site's name above the email, as in the auth emails.
 
@@ -157,6 +157,44 @@ Each row (`unlicensed-order-columns.tsx`) shows the order ID, which opens the or
 3. In Polar's webhook settings, open the endpoint's deliveries, find the order's `order.paid` event and choose **Redeliver**, then do the same for its `benefit_grant.created` event. `onOrderPaid` grants the licence and sends the purchase confirmation to the account's address, and `onBenefitGrantCreated` stores the licence key; a `benefit_grant.created` that arrives first fails until the licence exists, and Polar retries it. The order then leaves the admin list.
 
 Polar redelivers an event only while it keeps the event's payload, which Polar's server archives after 90 days.
+
+## Withdrawal function
+
+Article 11a of the Consumer Rights Directive (2011/83/EU), inserted by Directive (EU) 2023/2673 and applied from 19 June 2026, requires a trader who concludes contracts on a website to offer a withdrawal function there: a control labelled "withdraw from contract here", prominently displayed and available throughout the withdrawal period, that opens an online withdrawal statement in which the consumer gives or confirms their name, the contract and the electronic address for the confirmation, and submits it with a control labelled only "confirm withdrawal". The trader then sends an acknowledgement of receipt on a durable medium, with the statement's content and the date and time of its submission, without undue delay. A statement submitted before the period ends exercises the right in time.
+
+### Where it is
+
+- `/withdrawal` (`ROUTES.WITHDRAWAL`, `_site._marketing.withdrawal.tsx`, namespace `pages.withdrawal`) is a public, prerendered page that works signed out. The footer of every page links it as **Withdraw from contract here** (`LICENSE_NAVIGATION` in `src/data/license.navigation.ts`), and so do the Refund Policy, the Terms of Service and the purchase confirmation.
+- `WithdrawalCard` (`src/presentation/components/custom/app/withdrawal-card.tsx`) sits on `/app/license` below an active licence. It names the tier, the order number and the purchase date, says whether the right of withdrawal or the full refund before first use still applies, from `refundEligibility` at the server's time, and opens the statement in a dialog with **Withdraw from contract here**, with the account's name, email address and order number filled in. After a statement it says when the statement was received.
+
+Both use `WithdrawalForm` (`src/presentation/components/custom/withdrawal-form.tsx`): the statement sentence, the name, the email address for the acknowledgement and the order number, validated with `withdrawalZodSchemas.submitWithdrawal` and the messages in `withdrawal.validations`, and the submit button **Confirm withdrawal**. The form never refuses a statement because the right no longer applies; that is decided afterwards. Once the statement is in, the form gives way to the receipt: the statement, the time it was received and whether the acknowledgement was emailed.
+
+### Submission
+
+`submitWithdrawal` (`src/modules/withdrawal/use-cases/submit-withdrawal.ts`) runs `withRateLimit("submit-withdrawal", RATE_LIMITS.SENSITIVE)`, <RepositoryFact name="sensitiveRateLimit" /> statements per client a minute, and reads the session when there is one. `matchContract` (`src/modules/withdrawal/withdrawal.contracts.ts`) finds the active licence whose current order has the number given, as Polar's order ID or invoice number in any letter case; the statement belongs to that licence when the signed-in account owns it or the email address given is the account's. `recordWithdrawal` (`record-withdrawal.ts`, server-only) then:
+
+1. stores the statement in the `withdrawal` table, with the refund terms of the matched licence at that moment, or `unmatched`;
+2. sends `WithdrawalAcknowledgementEmail` (namespace `emails.withdrawal-acknowledgement-email`) to the address given, in the language of the page, with the statement, the name, the order number, the address and the time of submission, at most <RepositoryFact name="recipientEmailsPerHour" /> per address per hour, and records when Resend accepted it in `acknowledged_at`;
+3. sends `WithdrawalNotificationEmail` (namespace `emails.withdrawal-notification-email`) from `NOTIFICATIONS_EMAIL` to `CONTACT_EMAIL` in `I18N.DEFAULT_LOCALE`: the statement, how the buyer was identified, the licence, the refund terms, whether the acknowledgement went out, the date a refund is due by, <RepositoryFact name="refundReimbursementDays" unit="day" /> after receipt (`REFUND_TERMS.REIMBURSEMENT_DAYS`), and links to the account in the admin and the order in Polar.
+
+An email that cannot be sent is logged and leaves the statement in place: the receipt then says that the acknowledgement is still to come, and the notification says it was not sent. The idempotency keys are `WITHDRAWAL_ACKNOWLEDGEMENT` and `WITHDRAWAL_NOTIFICATION` (`src/data/license.email-purposes.ts`) with the withdrawal's ID.
+
+Nothing is refunded or revoked automatically: a refund stays the owner's decision. To accept a withdrawal, refund the order in Polar; `order.refunded` then marks the licence refunded and revokes its key, as [Webhooks and licences](#webhooks-and-licences) describes, and reply to the buyer.
+
+### The withdrawal table
+
+| Column                                    | Holds                                                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                      | A UUID v7                                                                                                                                                      |
+| `name`, `email`, `reference`              | The name, the email address for the acknowledgement and the order number as the buyer gave them                                                                |
+| `locale`                                  | The language of the page, which the acknowledgement uses                                                                                                       |
+| `channel`                                 | `account` when the buyer was signed in, `public` otherwise (`WITHDRAWAL_CHANNEL`)                                                                              |
+| `user_id`, `license_id`, `polar_order_id` | The matched account, licence and Polar order, and a signed-in buyer's account without a match; `ON DELETE SET NULL` keeps the statement when either is deleted |
+| `eligibility`                             | The refund terms when the statement arrived: a kind of `REFUND_ELIGIBILITY`, or `unmatched` (`WITHDRAWAL_ELIGIBILITY`)                                         |
+| `acknowledged_at`                         | When Resend accepted the acknowledgement; empty while it is owed                                                                                               |
+| `created_at`                              | When the statement was received, the time the acknowledgement states                                                                                           |
+
+The admin's user profile lists an account's statements, newest first; see [Users (admin)](/docs/features/users-admin#profile).
 
 ## Customer screens
 

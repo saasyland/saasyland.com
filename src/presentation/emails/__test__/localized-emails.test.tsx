@@ -6,6 +6,8 @@ import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/bet
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { WITHDRAWAL_CHANNELS, WITHDRAWAL_ELIGIBILITIES } from "~/src/modules/withdrawal/withdrawal.constants"
+
 import { CLI_SETUP_LINES } from "~/src/data/cli"
 
 import type changeEmailMessages from "~/messages/en-US/emails.change-email-confirmation-email.json"
@@ -15,6 +17,8 @@ import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-
 import type resetPasswordMessages from "~/messages/en-US/emails.reset-password-email.json"
 import type unmatchedOrderAlertMessages from "~/messages/en-US/emails.unmatched-order-alert-email.json"
 import type verifyEmailMessages from "~/messages/en-US/emails.verify-email.json"
+import type withdrawalAcknowledgementMessages from "~/messages/en-US/emails.withdrawal-acknowledgement-email.json"
+import type withdrawalNotificationMessages from "~/messages/en-US/emails.withdrawal-notification-email.json"
 import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ChangeEmailConfirmationEmail } from "~/src/presentation/emails/change-email-confirmation-email"
 import { EXISTING_ACCOUNT_EMAIL_NAMESPACE, ExistingAccountEmail } from "~/src/presentation/emails/existing-account-email"
@@ -23,6 +27,14 @@ import { PURCHASE_CONFIRMATION_EMAIL_NAMESPACE, PurchaseConfirmationEmail } from
 import { ResetPasswordEmail } from "~/src/presentation/emails/reset-password-email"
 import { UNMATCHED_ORDER_ALERT_EMAIL_NAMESPACE, UnmatchedOrderAlertEmail } from "~/src/presentation/emails/unmatched-order-alert-email"
 import { VerifyEmail } from "~/src/presentation/emails/verify-email"
+import {
+  WITHDRAWAL_ACKNOWLEDGEMENT_EMAIL_NAMESPACE,
+  WithdrawalAcknowledgementEmail,
+} from "~/src/presentation/emails/withdrawal-acknowledgement-email"
+import {
+  WITHDRAWAL_NOTIFICATION_EMAIL_NAMESPACE,
+  WithdrawalNotificationEmail,
+} from "~/src/presentation/emails/withdrawal-notification-email"
 
 it.each(I18N.SUPPORTED_LOCALES)("renders account emails in %s with working action links", async (locale) => {
   const url = `https://example.com/${locale}/auth/verify-email?token=example`
@@ -125,6 +137,7 @@ const PURCHASE_LINKS = {
   licence: "https://example.com/licence",
   refunds: "https://example.com/refunds",
   terms: "https://example.com/terms",
+  withdrawal: "https://example.com/withdrawal",
 }
 
 const PURCHASE_STEP = { link: "Open the courses", text: "Your licence includes the courses.", url: "https://example.com/courses" }
@@ -186,6 +199,70 @@ it.each(I18N.SUPPORTED_LOCALES)(
 
     expect(html).toContain(`lang="${locale}"`)
     for (const value of ["ord_unmatched", "Agency", "guest@example.test", "Grace Hopper", `href="${polarUrl}"`]) {
+      expect(html).toContain(value)
+    }
+    expect(html).not.toMatch(/\{\w+\}/u)
+  },
+)
+
+const STATEMENT = {
+  acknowledgedAt: new Date("2026-11-16T09:30:04.000Z"),
+  createdAt: new Date("2026-11-16T09:30:00.000Z"),
+  email: "grace@example.test",
+  name: "Grace Hopper",
+  reference: "SAASYLAND-0042",
+}
+
+it.each(I18N.SUPPORTED_LOCALES)("renders the withdrawal acknowledgement in %s with the statement's content and time", async (locale) => {
+  const messages = await loadNamespace<typeof withdrawalAcknowledgementMessages>({
+    locale,
+    namespace: WITHDRAWAL_ACKNOWLEDGEMENT_EMAIL_NAMESPACE,
+  })
+
+  const html = await render(<WithdrawalAcknowledgementEmail locale={locale} messages={messages} statement={STATEMENT} />)
+
+  expect(html).toContain(`lang="${locale}"`)
+  for (const value of [
+    STATEMENT.email,
+    STATEMENT.name,
+    STATEMENT.reference,
+    messages.content.statement,
+    `href="mailto:${CONTACT_EMAIL}"`,
+  ]) {
+    expect(html).toContain(value)
+  }
+  expect(html).toContain("UTC")
+  expect(html).not.toMatch(/\{\w+\}|<\/?mail>/u)
+})
+
+it.each(
+  I18N.SUPPORTED_LOCALES.flatMap((locale) =>
+    WITHDRAWAL_CHANNELS.flatMap((channel) => WITHDRAWAL_ELIGIBILITIES.map((eligibility) => ({ channel, eligibility, locale }))),
+  ),
+)(
+  "renders the withdrawal notification in $locale for a $channel statement with terms $eligibility",
+  async ({ channel, eligibility, locale }) => {
+    const messages = await loadNamespace<typeof withdrawalNotificationMessages>({
+      locale,
+      namespace: WITHDRAWAL_NOTIFICATION_EMAIL_NAMESPACE,
+    })
+    const accountUrl = "https://example.com/admin/users/grace"
+    const polarUrl = "https://polar.sh/dashboard/saasyland/sales/ord_withdrawn"
+
+    const html = await render(
+      <WithdrawalNotificationEmail
+        accountUrl={accountUrl}
+        deadline={new Date("2026-11-30T09:30:00.000Z")}
+        locale={locale}
+        messages={messages}
+        polarUrl={polarUrl}
+        statement={{ ...STATEMENT, channel, eligibility }}
+        tierName="Agency"
+      />,
+    )
+
+    expect(html).toContain(`lang="${locale}"`)
+    for (const value of [STATEMENT.email, STATEMENT.name, STATEMENT.reference, "Agency", `href="${accountUrl}"`, `href="${polarUrl}"`]) {
       expect(html).toContain(value)
     }
     expect(html).not.toMatch(/\{\w+\}/u)

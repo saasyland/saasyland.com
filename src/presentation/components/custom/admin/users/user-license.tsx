@@ -3,8 +3,8 @@ import type { JSX } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
-import { LICENSE_ACTIVATION_LIMITS, REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
-import type { RefundEligibility } from "~/src/modules/license/license.refunds"
+import { LICENSE_ACTIVATION_LIMITS } from "~/src/modules/license/license.constants"
+import { refundEligibilityDate } from "~/src/modules/license/license.refunds"
 import type { License } from "~/src/modules/license/license.types"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 
@@ -16,18 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/com
 type UserLicenseDetail = (typeof USER_LICENSE_DETAILS)[number]
 
 type LicenseView = NonNullable<License["userLicense"]>
-
-const refundDate = (refund: RefundEligibility): Date => {
-  if (refund.kind === REFUND_ELIGIBILITY.EXPIRED) {
-    return refund.endedAt
-  }
-
-  if (refund.kind === REFUND_ELIGIBILITY.USED) {
-    return refund.deliveredAt
-  }
-
-  return refund.until
-}
 
 const LicenseDetails = ({ license }: { readonly license: LicenseView }): JSX.Element => {
   const t = useTranslations()
@@ -55,7 +43,10 @@ const LicenseDetails = ({ license }: { readonly license: LicenseView }): JSX.Ele
       return t("pages.admin.users.license.refund.inactive")
     }
 
-    return t(`pages.admin.users.license.refund.${refund.kind}`, { date: dateTime(refundDate(refund)), days: REFUND_TERMS.WITHDRAWAL_DAYS })
+    return t(`pages.admin.users.license.refund.${refund.kind}`, {
+      date: dateTime(refundEligibilityDate(refund)),
+      days: REFUND_TERMS.WITHDRAWAL_DAYS,
+    })
   }
 
   const values: Record<UserLicenseDetail, string> = {

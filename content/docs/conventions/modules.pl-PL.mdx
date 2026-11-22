@@ -5,7 +5,7 @@ description: "Moduł to jedna tabela bazy danych: jej schemat, stałe, schematy 
 
 `src/modules/<table>/` istnieje tylko dla rzeczywistej tabeli bazy danych. Folder odzwierciedla schemat Drizzle, więc jego utworzenie oznacza, że tabela istnieje. Kod, który obsługuje funkcję bez własnej tabeli, trafia gdzie indziej: funkcja serwerowa czytająca GitHub lub kolekcję dokumentacji znajduje się w `src/lib/<topic>.ts` lub w jedynej trasie, która jej używa, a konfiguracja dostawcy w `src/integrations/<vendor>`.
 
-Moduły to `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` i `video`. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
+Moduły to `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification`, `video` i `withdrawal`. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
 
 ## Budowa
 
@@ -183,24 +183,25 @@ Przypadek użycia, który działa tylko na serwerze i jest wywoływany przez hoo
 
 Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czystym helperem, dostaje jeden plik na zagadnienie, nazwany `<table>.<concern>.ts`:
 
-| Plik                                              | Zagadnienie                                                                  |
-| ------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `course/course.outline.ts`                        | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`       |
-| `lesson/lesson.access.ts`                         | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach      |
-| `lesson/lesson.playable.ts`                       | Złączenie z wideo lekcji, które pomija filmy zastępcze                       |
-| `lesson-attachment/lesson-attachment.download.ts` | Podpisywanie adresów URL do pobierania materiałów lekcji                     |
-| `lesson-attachment/lesson-attachment.delivery.ts` | Handler Workera dla podpisanych żądań `/media/downloads/`                    |
-| `lesson/lesson.viewer.ts`                         | Ustala na serwerze zalogowanego widza i jego dostęp do kursów                |
-| `license/license.webhooks.ts`                     | Handlery webhooków Polar, wywoływane przez `license.polar-events.ts`         |
-| `license/license.api.ts`                          | Handlery API licencji CLI, obsługiwane przez `src/routes/api/cli.v1.*.ts`    |
-| `license/license.bundles.ts`                      | Podpisywanie adresów URL paczek szablonów CLI; ich klucze obiektów           |
-| `license/license.delivery.ts`                     | Handler Workera dla podpisanych żądań `/bundles/`                            |
-| `license/license.ppp.ts`                          | Cena planu dla kupującego przy płatności, z uwzględnieniem ceny regionalnej  |
-| `license/license.pricing.ts`                      | Przedziały cen regionalnych i cookie rezygnacji; czysta logika               |
-| `license/license.upgrade-price.ts`                | Cena przejścia na wyższy plan na podstawie zamówień licencji klienta w Polar |
-| `license/license.refunds.ts`                      | Czy zakup można zwrócić, na podstawie jego zapisów; czysta logika            |
-| `video/video.delivery.ts`                         | Handler Workera dla podpisanych żądań `/media/`                              |
-| `video/video.playback.ts`, `video/video.files.ts` | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości      |
+| Plik                                              | Zagadnienie                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `course/course.outline.ts`                        | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`               |
+| `lesson/lesson.access.ts`                         | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach              |
+| `lesson/lesson.playable.ts`                       | Złączenie z wideo lekcji, które pomija filmy zastępcze                               |
+| `lesson-attachment/lesson-attachment.download.ts` | Podpisywanie adresów URL do pobierania materiałów lekcji                             |
+| `lesson-attachment/lesson-attachment.delivery.ts` | Handler Workera dla podpisanych żądań `/media/downloads/`                            |
+| `lesson/lesson.viewer.ts`                         | Ustala na serwerze zalogowanego widza i jego dostęp do kursów                        |
+| `license/license.webhooks.ts`                     | Handlery webhooków Polar, wywoływane przez `license.polar-events.ts`                 |
+| `license/license.api.ts`                          | Handlery API licencji CLI, obsługiwane przez `src/routes/api/cli.v1.*.ts`            |
+| `license/license.bundles.ts`                      | Podpisywanie adresów URL paczek szablonów CLI; ich klucze obiektów                   |
+| `license/license.delivery.ts`                     | Handler Workera dla podpisanych żądań `/bundles/`                                    |
+| `license/license.ppp.ts`                          | Cena planu dla kupującego przy płatności, z uwzględnieniem ceny regionalnej          |
+| `license/license.pricing.ts`                      | Przedziały cen regionalnych i cookie rezygnacji; czysta logika                       |
+| `license/license.upgrade-price.ts`                | Cena przejścia na wyższy plan na podstawie zamówień licencji klienta w Polar         |
+| `license/license.refunds.ts`                      | Czy zakup można zwrócić, na podstawie jego zapisów; czysta logika                    |
+| `withdrawal/withdrawal.contracts.ts`              | Aktywna licencja wskazana w oświadczeniu o odstąpieniu od umowy i jej warunki zwrotu |
+| `video/video.delivery.ts`                         | Handler Workera dla podpisanych żądań `/media/`                                      |
+| `video/video.playback.ts`, `video/video.files.ts` | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości              |
 
 Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
 

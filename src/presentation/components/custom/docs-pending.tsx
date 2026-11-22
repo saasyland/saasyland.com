@@ -48,9 +48,11 @@ const DocsTableOfContents = (): JSX.Element => (
       <Skeleton className="size-4" />
       <Skeleton className="h-lh w-22 scale-y-70" />
     </div>
-    <div className="mt-3 flex flex-col gap-1.5 border-l border-border pl-5">
+    <div className="mt-3 flex flex-col">
       {TOC_WIDTHS.map((width) => (
-        <Skeleton className={cn("h-lh scale-y-70", width)} key={width} />
+        <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={width}>
+          <Skeleton className={cn("h-lh scale-y-70", width)} />
+        </div>
       ))}
     </div>
   </>

@@ -133,6 +133,12 @@ const sectionOf = (heading: HTMLElement): HTMLElement => {
 
 const STAR_COUNT = 98_765
 
+class TestObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+
 const routers: ReturnType<typeof createMarketingRouter>[] = []
 
 const createMarketingRouter = ({ path, post, posts }: { path: string; post: BlogPost; posts: BlogPostSummary[] }) => {
@@ -218,14 +224,7 @@ const renderRoute = async (path: string, { post = COMPLETE, posts = NOTES }: { p
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.stubGlobal(
-    "IntersectionObserver",
-    class {
-      observe = vi.fn()
-      unobserve = vi.fn()
-      disconnect = vi.fn()
-    },
-  )
+  vi.stubGlobal("IntersectionObserver", TestObserver)
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({
@@ -236,6 +235,7 @@ beforeEach(() => {
       removeEventListener: vi.fn(),
     })),
   )
+  vi.stubGlobal("ResizeObserver", TestObserver)
   vi.stubGlobal("CSS", { supports: () => true })
   vi.stubGlobal("scrollTo", vi.fn())
 })

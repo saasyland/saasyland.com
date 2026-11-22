@@ -5,6 +5,8 @@ import { createMemoryHistory } from "@tanstack/react-router"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
@@ -60,7 +62,11 @@ describe("landing page star count during server rendering", () => {
 
     const html = renderToString(
       <QueryClientProvider client={queryClient}>
-        <IntlProvider locale="en-US" messages={{ pages: { landing: english } }} timeZone="UTC">
+        <IntlProvider
+          locale="en-US"
+          messages={{ navigation: getTestMessages("en-US")["navigation"], pages: { landing: english } }}
+          timeZone="UTC"
+        >
           <ProofSection />
         </IntlProvider>
       </QueryClientProvider>,

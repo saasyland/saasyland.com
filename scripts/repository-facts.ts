@@ -22,6 +22,7 @@ const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
+const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MESSAGES_PATH = "messages/"
 const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
@@ -108,8 +109,8 @@ const readBunVersion = (): string => {
   return versionMatchSchema.parse(BUN_PACKAGE_MANAGER.exec(packageManager)?.groups).version
 }
 
-const readE2eFullSchedule = (): string => {
-  const workflow = readFileSync(E2E_FULL_WORKFLOW, "utf8")
+const readSchedule = (path: string): string => {
+  const workflow = readFileSync(path, "utf8")
 
   return scheduleMatchSchema.parse(WORKFLOW_CRON.exec(workflow)?.groups).schedule
 }
@@ -238,7 +239,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     coverageSummaryPath: posix.join(test.coverage.reportsDirectory, COVERAGE_SUMMARY_FILE),
     coverageThreshold: test.coverage.thresholds.lines,
     currencies: CURRENCY_CODES.length,
-    e2eFullSchedule: readE2eFullSchedule(),
+    e2eFullSchedule: readSchedule(E2E_FULL_WORKFLOW),
     e2eShards: readShards(E2E_WORKFLOW),
     e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
     e2eSpecsPath,
@@ -251,6 +252,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     flowsToBuild: flowsWith(FLOW_STATUS.TO_BUILD),
     i18nCheckCommand: I18N_CHECK_COMMAND,
     integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
+    journeySchedule: readSchedule(JOURNEY_WORKFLOW),
     localAdminEmail: LOCAL_ADMIN.EMAIL,
     localAdminPassword: LOCAL_ADMIN.DEFAULT_PASSWORD,
     maxLines: maxLines.max,

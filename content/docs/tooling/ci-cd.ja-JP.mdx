@@ -3,7 +3,7 @@ title: "CI/CD"
 description: "チェック、ブラウザーテスト、デプロイ、リリースのための GitHub Actions ワークフローです。"
 ---
 
-ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
+ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`journey.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
 | ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -11,6 +11,7 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 | `deploy.yml`          | `main` へのプッシュ                                                                         | マージキューが実行していなければ `ci.yml` のチェック、その後プレビュー、本番、リリース                           |
 | `preview.yml`         | 手動実行                                                                                    | チェックが成功したブランチを共有プレビューにデプロイ                                                             |
 | `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                           |
+| `journey.yml`         | UTC のスケジュール <RepositoryFact name="journeySchedule" />、手動実行                      | 共有プレビューに対する Polar サンドボックスでの[ジャーニースイート](#journey-suite)                              |
 | `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック |
 | `deploy-reusable.yml` | `ci.yml`、`deploy.yml`、`preview.yml` から呼び出し                                          | ビルド、その後 D1 マイグレーションと `wrangler deploy`、または `wrangler versions upload`                        |
 | `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                |
@@ -33,11 +34,13 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `e2e` ジョブは `e2e-reusable.yml` を呼び出します。これは 1 回だけビルドし、<RepositoryFact name="e2eShards" /> 台のランナーでスイートを並列に実行します。
 
-| ジョブ                                        | 実行内容                                                                                                                                                             |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `build`                                       | `db:reset:test` と `build:test` を実行し、`dist`、Worker 設定を指す `.wrangler/deploy`、シード済みの `.wrangler/test` を 1 つのアーティファクトとしてアップロード    |
-| `shard`                                       | シャードごとに 1 つのジョブ。そのビルドをダウンロードし、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium --shard=<n>/<total>` を実行 |
-| `report`（名前は `Build and E2E (chromium)`） | ビルドとすべてのシャードが成功しない限り失敗。失敗したシャードがあれば、各シャードの blob レポートを 1 つの HTML レポートにマージしてアップロード                    |
+| ジョブ                                        | 実行内容                                                                                                                                                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `build`                                       | `db:reset:test` と `build:test` を実行し、`dist`、Worker 設定を指す `.wrangler/deploy`、シード済みの `.wrangler/test` を 1 つのアーティファクトとしてアップロード                                                  |
+| `shard`                                       | シャードごとに 1 つのジョブ。ビルドと並行して開始し、ブラウザーをインストールしてビルドのアップロードを待ち、それをダウンロードして `bunx playwright test e2e/specs --project=chromium --shard=<n>/<total>` を実行 |
+| `report`（名前は `Build and E2E (chromium)`） | ビルドとすべてのシャードが成功しない限り失敗。失敗したシャードがあれば、各シャードの blob レポートを 1 つの HTML レポートにマージしてアップロード                                                                  |
+
+シャードは `build` ジョブ全体の完了（`needs`）を待たず、`build` と同時に開始して、ビルド中にツールチェーンとブラウザーを準備します。その後 `scripts/wait-for-job.ts` が数秒ごとに GitHub の API で同じ実行の `build` ジョブを問い合わせ、そのステップ `Upload the test build` が成功した時点で、シャードが成果物をダウンロードします。スクリプトは前回の応答の ETag を送り、GitHub は変化のない応答をトークンのレート制限に数えません。ビルドのステップが失敗するか、ビルドがアップロードせずに終わると、失敗したステップとビルドへのリンクを示して、すべてのシャードが数秒で失敗します。スクリプトの上限を超えて待ったシャードも、そう伝えるエラーで失敗します。実行のジョブを読むには `actions: read` が必要で、これを求めるのは `shard` ジョブだけです。`ci.yml`、`e2e-full.yml`、`deploy.yml` の `checks` ジョブが呼び出すワークフローにこれを許可し、ほかのジョブはすべて `contents: read` のままです。
 
 Playwright 自体のリトライとワーカーは、どのシャードでも [Playwright](/docs/tooling/playwright#configuration) の説明どおりです。ブランチのルールが必須とするチェックは `report` ジョブだけなので、シャードを追加または削除しても、必須チェックの名前は変わりません。 ビルドは読み込んだリリースタグの一覧もまとめ、各シャードはそれ以降に作られたタグを削除します。`content.spec.ts` は Git からリリースタグを読むため、シャードが待っている間にリリースのタグが付くと、ビルドが一度も描画していない changelog を期待してしまうからです。
 
@@ -62,9 +65,21 @@ Playwright 自体のリトライとワーカーは、どのシャードでも [P
 
 `deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 の各バケットを使います。プレビューでは `main` が動いています。そのため、[ジャーニースイート](/docs/tooling/playwright#journey-suite)、Polar サンドボックスの Webhook、そして Better Auth が信頼する唯一のプレビューのホストである `preview.saasyland.com` でのサインインは、いずれも本番がまもなく実行するコードに対して行われ、すべてのマイグレーションは本番より先にプレビューのデータベースに適用されます。マージ前にブランチをそこで試すには、`gh workflow run preview.yml --ref <branch>` を実行します。ブランチのコミットが `main` の必須チェックに成功している場合にのみ、マイグレーションも含めてそのブランチをデプロイします。次に `main` へのプッシュがあると、プレビューは `main` に戻ります。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`upload: true` の場合は、最後の 2 つのステップの代わりに `vp exec wrangler versions upload` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入り、アップロードは並行して実行されます。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、マージキューの実行は互いにキャンセルすることがなく、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入ります（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてデプロイされます。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`upload: true` の場合は、最後の 2 つのステップの代わりに `vp exec wrangler versions upload` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報と、`Preview` にある[ジャーニースイート](#journey-suite)のサンドボックス設定しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入り、アップロードは並行して実行されます。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、マージキューの実行は互いにキャンセルすることがなく、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入ります（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてデプロイされます。
 
 Dependabot は GitHub Actions を毎週更新します。
+
+## ジャーニースイート [#journey-suite]
+
+`journey.yml` は、[ジャーニースイート](/docs/tooling/playwright#journey-suite)である `bun run test:journey` を `https://preview.saasyland.com` に対して、UTC のスケジュール <RepositoryFact name="journeySchedule" /> と手動での起動時に実行します。
+
+```sh
+gh workflow run journey.yml --ref <branch> -f journey=all
+```
+
+`journey` は `all`、`core`、`complete`、`agency`、`upgrade` のいずれかで、`all` 以外の値はそのタグを持つテストだけを実行します。ジョブはデプロイを記録せずに（`deployment: false`）、GitHub の環境 `Preview` から次のシークレットを読みます: `POLAR_ACCESS_TOKEN`、`POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY`、`RESEND_API_KEY`。`POLAR_SERVER` にはスイートが受け付ける唯一の値 `sandbox` を設定し、スイートは Polar クライアントをサンドボックス向けに作るので、このワークフローが本番の Polar に届くことはありません。実行はキューに並び、互いにキャンセルしません。キャンセルされた実行は注文を支払い済みのまま残してしまうからです。ジョブは各テストの結果と所要時間、失敗した各テストのエラーを実行のサマリーに書き、HTML レポート、`playwright-report/journey.json`、失敗したテストのトレース、動画、マシンディレクトリを成果物 `journey-report` としてアップロードします。
+
+このワークフローは `main` のデプロイのたびには実行しません。各実行はテストごとにプレビューでアカウントを登録し、Polar サンドボックスで注文を支払って返金し、確認メールと購入確認メールを、プレビューが本番と共有している Resend アカウントから送ります。`main` は忙しい日には何度もデプロイされるため、デプロイごとに実行すると、本番のメールが頼る送信上限に対してこれらのメールが何倍にも増えます。しかも何も止められません。ジャーニーが何を見つけても、本番はプレビューの直後にデプロイされるからです。夜間の実行なら、壊れた購入を 1 日以内に見つけられます。決済、ライセンス、CLI ライセンス API を変更した後や、マージ前のブランチを `gh workflow run preview.yml --ref <branch>` でテストした後は、手動で起動してください。
 
 ## リリースとタグ [#releases-and-tags]
 

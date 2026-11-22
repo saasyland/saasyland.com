@@ -80,7 +80,7 @@ axe はキーボードの操作の流れもレイアウトも確認できない�
 
 ## ジャーニースイート [#journey-suite]
 
-`bun run test:journey` は、顧客と同じ手順でライセンスを購入し、CLI を使います。対象は `https://preview.saasyland.com` のプレビューデプロイで、支払いは Polar のサンドボックスで処理されます。`e2e/journey/playwright.config.ts` は専用の Chromium プロジェクトを持ち、Web サーバーを起動しない独立した設定なので、`test:e2e` やプルリクエストのチェックでは実行されず、これを実行するワークフローもまだありません。CI で実行するために必要なことは、[テストカバレッジ](/docs/tooling/test-coverage#journey-suite)に挙げています。プランごとに独立したテストがあり、テストは並行して実行され、それぞれ次の手順を進みます。
+`bun run test:journey` は、顧客と同じ手順でライセンスを購入し、CLI を使います。対象は `https://preview.saasyland.com` のプレビューデプロイで、支払いは Polar のサンドボックスで処理されます。`e2e/journey/playwright.config.ts` は専用の Chromium プロジェクトを持ち、Web サーバーを起動しない独立した設定なので、`test:e2e` やプルリクエストのチェックでは実行されません。`journey.yml` が毎晩と手動で実行します（[CI/CD](/docs/tooling/ci-cd#journey-suite)）。プランごとに `@core`、`@complete`、`@agency` のタグを付けた独立したテストがあり、テストは並行して実行され、それぞれ次の手順を進みます。
 
 1. **アカウント。** Resend のテスト用受信箱の新しいアドレス `delivered+journey-<run>-<tier>@resend.dev`（アップグレードのテストではプランの代わりに `upgrade`）で登録し、Resend API で認証メールを見つけて、そのリンクを開きます。
 2. **価格。** `/app/license` は、`/cdn-cgi/trace` が示す、Cloudflare がランナーの所在地とみなす国の価格でプランを提示しなければなりません。`PPP_TIERS` に含まれる国では地域価格、それ以外の国では通常価格です。
@@ -89,11 +89,11 @@ axe はキーボードの操作の流れもレイアウトも確認できない�
 5. **CLI。** 公開済みの CLI は、`/app/license` のコマンドと同じく <RepositoryFact name="cliExec" /> として実行され、`SAASYLAND_API_URL` を通じてプレビューと通信します。`activate` は認証情報ファイルをモード `0600` で書き込み、もう一度アクティベートしても同じ枠のままで、`whoami` は端末を表示します。`SAASYLAND_CI_REPOSITORY` で区別される CI 端末が残りの枠（Core は最大 <ActivationLimit tier="core" /> 台、Complete は <ActivationLimit tier="complete" /> 台、Agency は <ActivationLimit tier="agency" /> 台）を埋め、次の端末は `activationLimitReached` で拒否されます。`/app/license` で枠を解放すると、拒否された端末がその枠を得て、解放された端末には `activationNotFound` が返ります。`deactivate` は最初の端末を解放し、その認証情報を削除します。
 6. **返金。** Polar サンドボックスの API で注文を返金し、`/app/license` にライセンスが返金済みと表示されるまで待ちます。その後、`whoami` は `licenseRefunded` を返し、認証情報を削除しなければなりません。
 
-4 つ目のテストはライセンスをアップグレードします。同じ手順で Core を購入して Core の <ActivationLimit tier="core" /> 台を埋め、次の端末は拒否されます。続いて `/app/license?tier=complete` が、ランナーの国での Complete の価格から Core の注文の額を引いた額で Complete を提示しなければならず、テストはその差額を、同じ方法でページに重ねて開いた Polar のチェックアウトで支払います。Polar には差額でのアップグレードの注文があり、`upgrade_from_order` と `upgrade_from_tier` に Core の注文とプランが入っていなければなりません。Core の注文のキーは Complete の <ActivationLimit tier="complete" /> 台まで認め、Polar がアップグレードの注文に付与したキーは無効になり、`/app/license` は同じキーで Complete を表示しなければなりません。そのあと拒否された端末と次の端末が有効化され、その次の端末は拒否されます。テストは Polar のサンドボックス API でアップグレードの注文を返金し、ライセンスは同じキーと Core の上限で Core に戻り、有効化済みの端末はそのまま動き、新しい端末は拒否されなければなりません。最後に Core の注文の返金でライセンスが終了します。
+`@upgrade` のタグを付けた 4 つ目のテストはライセンスをアップグレードします。同じ手順で Core を購入して Core の <ActivationLimit tier="core" /> 台を埋め、次の端末は拒否されます。続いて `/app/license?tier=complete` が、ランナーの国での Complete の価格から Core の注文の額を引いた額で Complete を提示しなければならず、テストはその差額を、同じ方法でページに重ねて開いた Polar のチェックアウトで支払います。Polar には差額でのアップグレードの注文があり、`upgrade_from_order` と `upgrade_from_tier` に Core の注文とプランが入っていなければなりません。Core の注文のキーは Complete の <ActivationLimit tier="complete" /> 台まで認め、Polar がアップグレードの注文に付与したキーは無効になり、`/app/license` は同じキーで Complete を表示しなければなりません。そのあと拒否された端末と次の端末が有効化され、その次の端末は拒否されます。テストは Polar のサンドボックス API でアップグレードの注文を返金し、ライセンスは同じキーと Core の上限で Core に戻り、有効化済みの端末はそのまま動き、新しい端末は拒否されなければなりません。最後に Core の注文の返金でライセンスが終了します。
 
 CLI の各端末はテストの出力フォルダー内のディレクトリで、CLI はそれをホームディレクトリとして使います。CLI の環境には `PATH`、そのホームディレクトリ、npm のキャッシュ、`SAASYLAND_*` 変数しかないため、スイートの認証情報が CLI に渡ることはありません。失敗したテストが支払い済みのまま残した注文は、テストの終了時に返金されます。アカウントはそれぞれ返金済みのライセンスとともにプレビューに残ります。
 
-スイートはこれらの値を環境変数から、またはファイルがあれば `.env.preview` から読み込み、値がなければ最初のテストの前に停止します。
+スイートはこれらの値を環境変数から、またはファイルがあれば `.env.preview` から読み込み、値がなければ最初のテストの前に停止します。CI では `journey.yml` が GitHub の環境 `Preview` から読み込みます。
 
 | 変数                                                                            | 用途                                                                                                                                                                 |
 | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,7 +110,7 @@ bun run polar:verify:preview
 bun run test:journey
 ```
 
-レポートは `playwright-report/journey/` に、失敗したテストのトレース、動画、端末ディレクトリは `test-results/journey/` に書き出されます。
+`bun run test:journey --grep @core` は、そのタグを持つテストだけを実行します。HTML レポートは `playwright-report/journey/` に、JSON レポートは `playwright-report/journey.json` に、失敗したテストのトレース、動画、端末ディレクトリは `test-results/journey/` に書き出されます。
 
 ## 関連ガイド
 

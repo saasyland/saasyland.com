@@ -6,6 +6,9 @@ import * as zod from "zod"
 import { importClosure } from "~/src/platform/testing/lib/import-closure"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
+
+import { POLAR_SERVER } from "~/src/data/polar"
 
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
 const DEPLOY_WORKFLOW = ".github/workflows/deploy-reusable.yml"
@@ -14,6 +17,8 @@ const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MAIN_WORKFLOW = ".github/workflows/deploy.yml"
 const PREVIEW_WORKFLOW = ".github/workflows/preview.yml"
+const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"
+const JOURNEY_SETTINGS_FILE = "e2e/journey/settings.ts"
 const SETUP_ACTION = ".github/actions/setup/action.yml"
 const REMOTION = readFileSync(REMOTION_WORKFLOW, "utf8")
 const DEPLOY = readFileSync(DEPLOY_WORKFLOW, "utf8")
@@ -22,6 +27,9 @@ const E2E_FULL = readFileSync(E2E_FULL_WORKFLOW, "utf8")
 const CI = readFileSync(CI_WORKFLOW, "utf8")
 const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
 const PREVIEW = readFileSync(PREVIEW_WORKFLOW, "utf8")
+const JOURNEY = readFileSync(JOURNEY_WORKFLOW, "utf8")
+const JOURNEY_SETTINGS = readFileSync(JOURNEY_SETTINGS_FILE, "utf8")
+const JOURNEY_SPEC = readFileSync("e2e/journey/journey.spec.ts", "utf8")
 const SETUP = readFileSync(SETUP_ACTION, "utf8")
 const E2E_SHARDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 const TEST_SHARDS = [1, 2, 3, 4]
@@ -40,6 +48,11 @@ const BLOB_REPORT_ARTIFACT = `name: blob-report-${BROWSER}-${expression("matrix.
 const AGGREGATE_CHECK = `name: Build and E2E (${BROWSER})`
 const SHARD_COMMAND = `bunx playwright test e2e/specs --project=${BROWSER} --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}`
 const REQUIRED_CHECK = "name: Format, lint, types, i18n, tests"
+const BUILD_JOB = `Build the test Worker (${BROWSER})`
+const BUILD_STEP = "Upload the test build"
+const WAIT_FOR_BUILD = 'run: bun scripts/wait-for-job.ts "$BUILD_JOB" "$BUILD_STEP"'
+const ACTIONS_READ = "\n      actions: read\n"
+const JOBS_WITH_ACTIONS_READ = 4
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
 const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
 const MERGE_COMMAND = "run: bun run test:coverage --merge-reports"
@@ -53,6 +66,14 @@ const TESTED_OR_CHECKED = "(needs.tested.outputs.tested == 'true' || needs.check
 const AFTER_PREVIEW = `if: ${expression("!cancelled() && needs.deploy-preview.result == 'success'")}`
 const PULL_REQUEST_CANCELLATION = `cancel-in-progress: ${expression("github.event_name == 'pull_request'")}`
 
+const ALL_JOURNEYS = "all"
+const UPGRADE_JOURNEY = "upgrade"
+const JOURNEY_FILTER = 'filter=(--grep "@$JOURNEY")'
+const JOURNEY_SUMMARY = 'run: bun scripts/journey-summary.ts playwright-report/journey.json >> "$GITHUB_STEP_SUMMARY"'
+const SETTINGS_SCHEMA = /const settingsSchema = zod\.object\(\{\n(?<keys>(?: {2}.+\n)+)\}\)/u
+const SETTING_KEY = /^ {2}(?<name>[A-Z_]+):/gmu
+const JOURNEY_TAG = /const journeyTag = \(journey: Journey\): string => `@\$\{journey\}`/u
+const DISPATCH_OPTIONS = /options:\n(?<options>(?: {10}- .+\n)+)/u
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
 const TRIGGER_PATH = /"(?<path>[^"]+)"/gu
 const CHECKOUT_OPTIONS = /uses: actions\/checkout@v\d+\n +with:\n(?<options>(?: {10}[\w-]+: .+\n)+)/gu
@@ -79,6 +100,21 @@ const jobHeaderSchema = zod.object({ id: zod.string() })
 const concurrencySchema = zod.object({ settings: zod.string() })
 const shardMatrixSchema = zod.object({ shards: zod.string() })
 const triggersSchema = zod.object({ triggers: zod.string() })
+const settingKeysSchema = zod.object({ keys: zod.string() })
+const settingNameSchema = zod.object({ name: zod.string() })
+const dispatchOptionsSchema = zod.object({ options: zod.string() })
+
+const JOURNEY_SETTING_NAMES = [...settingKeysSchema.parse(SETTINGS_SCHEMA.exec(JOURNEY_SETTINGS)?.groups).keys.matchAll(SETTING_KEY)].map(
+  (key) => settingNameSchema.parse(key.groups).name,
+)
+const JOURNEY_SECRET_NAMES = JOURNEY_SETTING_NAMES.filter((name) => name !== "POLAR_SERVER")
+
+const dispatchOptionsOf = (workflow: string): string[] =>
+  dispatchOptionsSchema
+    .parse(DISPATCH_OPTIONS.exec(workflow)?.groups)
+    .options.trim()
+    .split("\n")
+    .map((option) => option.replace("- ", "").trim())
 
 const listedPaths = (entries: string): string[] => [...entries.matchAll(TRIGGER_PATH)].map((entry) => pathSchema.parse(entry.groups).path)
 
@@ -181,9 +217,31 @@ describe(E2E_WORKFLOW, () => {
     expect(build).toContain("git tag --list | LC_ALL=C sort > test-worker.tags")
     expect(build).toContain("tar --zstd --create --file test-worker.tar.zst dist .wrangler/deploy .wrangler/test test-worker.tags")
     expect(build).toContain(TEST_WORKER_ARTIFACT)
-    expect(shard).toContain("needs: build")
     expect(shard).toContain(TEST_WORKER_ARTIFACT)
     expect(shard).not.toContain("build:test")
+  })
+
+  it("starts the shards beside the build and has each one wait for the build's upload only once its browser is installed", () => {
+    const shard = jobOf(E2E, "shard")
+
+    expect(shard).not.toContain("needs:")
+    expect(jobOf(E2E, "build")).toContain(`name: ${BUILD_JOB}`)
+    expect(jobOf(E2E, "build")).toContain(`- name: ${BUILD_STEP}\n        uses: actions/upload-artifact@v`)
+    expect(shard).toContain(`BUILD_JOB: ${BUILD_JOB}`)
+    expect(shard).toContain(`BUILD_STEP: ${BUILD_STEP}`)
+    expect(shard).toContain(WAIT_FOR_BUILD)
+    expect(shard.indexOf("bunx playwright install")).toBeLessThan(shard.indexOf(WAIT_FOR_BUILD))
+    expect(shard.indexOf(WAIT_FOR_BUILD)).toBeLessThan(shard.indexOf(TEST_WORKER_ARTIFACT))
+  })
+
+  it("gives only the shards actions: read, which the wait needs to read the run's jobs, and every caller grants it", () => {
+    expect(jobOf(E2E, "shard")).toContain(ACTIONS_READ)
+    expect(jobOf(E2E, "build")).not.toContain(ACTIONS_READ)
+    expect(jobOf(E2E, "report")).not.toContain(ACTIONS_READ)
+    expect(jobOf(CI, "e2e")).toContain(ACTIONS_READ)
+    expect(jobOf(E2E_FULL, "e2e")).toContain(ACTIONS_READ)
+    expect(jobOf(MAIN, "checks")).toContain(ACTIONS_READ)
+    expect([CI, E2E_FULL, MAIN, E2E].join("\n").split(ACTIONS_READ)).toHaveLength(JOBS_WITH_ACTIONS_READ + 1)
   })
 
   it("gives the shards the release tags the build read, so a release tagged in between cannot change the changelog they expect", () => {
@@ -308,6 +366,46 @@ describe(PREVIEW_WORKFLOW, () => {
     expect(jobOf(PREVIEW, "tested")).toContain('run: bun scripts/tested-commit.ts "$GITHUB_SHA" | grep --quiet --line-regexp "tested=true"')
     expect(jobOf(PREVIEW, "deploy-preview")).toContain("needs: tested")
     expect(jobOf(PREVIEW, "deploy-preview")).toContain("target: preview")
+  })
+})
+
+describe(JOURNEY_WORKFLOW, () => {
+  it("runs the journey suite every night and by hand, and never cancels a run whose orders it still has to refund", () => {
+    expect(triggersOf(JOURNEY)).toStrictEqual(["schedule:", "workflow_dispatch:"])
+    expect(concurrencyOf(JOURNEY)).toEqual(expect.arrayContaining(QUEUED))
+  })
+
+  it("lets a manual run pick all journeys, one tier or the upgrade, which the suite tags its tests with", () => {
+    expect(dispatchOptionsOf(JOURNEY)).toStrictEqual([ALL_JOURNEYS, ...LICENSE_TIERS, UPGRADE_JOURNEY])
+    expect(JOURNEY).toContain(JOURNEY_FILTER)
+    expect(JOURNEY_SPEC).toMatch(JOURNEY_TAG)
+    expect(JOURNEY_SPEC).toContain(`journey: "${UPGRADE_JOURNEY}"`)
+  })
+
+  it("reads the Preview environment's secrets without recording a deployment, and gives the suite every setting it parses", () => {
+    const job = jobOf(JOURNEY, "journey")
+
+    expect(job).toContain("environment:\n      name: Preview\n      deployment: false\n")
+    expect(JOURNEY_SECRET_NAMES).toHaveLength(JOURNEY_SETTING_NAMES.length - 1)
+
+    for (const name of JOURNEY_SECRET_NAMES) {
+      expect(job).toContain(`${name}: ${expression(`secrets.${name}`)}`)
+    }
+  })
+
+  it("pays only in the Polar sandbox", () => {
+    expect(jobOf(JOURNEY, "journey")).toContain(`POLAR_SERVER: ${POLAR_SERVER.SANDBOX}\n`)
+    expect(JOURNEY_SETTINGS).toContain("POLAR_SERVER: zod.literal(POLAR_SERVER.SANDBOX)")
+    expect(JOURNEY.split("secrets.")).toHaveLength(JOURNEY_SECRET_NAMES.length + 1)
+  })
+
+  it("summarises the run in the job summary and uploads the report unless the run was cancelled", () => {
+    const job = jobOf(JOURNEY, "journey")
+
+    expect(job).toContain(JOURNEY_SUMMARY)
+    expect(job).toContain("name: journey-report")
+    expect(job.split(UNLESS_CANCELLED)).toHaveLength(3)
+    expect(job).not.toContain("actions: read")
   })
 })
 

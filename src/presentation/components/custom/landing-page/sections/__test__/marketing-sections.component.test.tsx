@@ -21,6 +21,7 @@ import {
   ANGULARPROJECTS_URL,
   CONSULTING_HOURLY_RATE,
   COURSE_PLATFORM_VALUES,
+  PRICING_TRUST_ITEMS,
   PRODUCT_CASES,
   PRODUCT_CASE_STATUS,
   REACTPROJECTS_FACTS,
@@ -45,7 +46,6 @@ import { RallySection } from "~/src/presentation/components/custom/landing-page/
 import { RecordSection } from "~/src/presentation/components/custom/landing-page/sections/record-section"
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
-import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricing"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"

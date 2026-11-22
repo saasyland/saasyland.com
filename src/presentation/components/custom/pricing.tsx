@@ -3,14 +3,13 @@ import { type ComponentType, type JSX, type ReactNode, useId } from "react"
 import { Link, useHydrated } from "@tanstack/react-router"
 import { BadgeCheck, Check, CircleDashed, FlaskConical, Receipt, RotateCcw } from "lucide-react"
 import { CheckboxButton, CheckboxField } from "react-aria-components"
-import { useFormatter, useTranslations } from "use-intl/react"
+import { useTranslations } from "use-intl/react"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
-import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
+import { PPP_COOKIE, PPP_DECLINED } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { COURSE_PLATFORM_VALUES, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
+import { COURSE_PLATFORM_VALUES, FEATURED_TIER, PRICING_TRUST_ITEMS, TIER_PRICES, tierFeaturesWith } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -19,33 +18,13 @@ import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
+import { Price } from "~/src/presentation/components/custom/price"
 
 import { ROUTES } from "~/src/routes"
-
-export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 
 export const REGIONAL_TAGS = { percent: () => <span className="ppp-percent" />, region: () => <span className="ppp-region" /> }
 
 export type TierAction = ComponentType<Readonly<{ featured: boolean; tier: LicenseTier }>>
-
-export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => {
-  const formatter = useFormatter()
-  const t = useTranslations("components.custom.pricing")
-
-  return (
-    <>
-      {PPP_KEYS.map((key) => (
-        <span className={`pv pv-${String(key)}`} key={key}>
-          {formatter.number(regionalPrice(amount, key), CURRENCY_FORMAT)}
-        </span>
-      ))}
-      <s className="pv pv-regional ms-[0.3em] text-body-sm font-normal text-muted-foreground">
-        <span className="sr-only">{t("regularPrice")} </span>
-        {formatter.number(amount, CURRENCY_FORMAT)}
-      </s>
-    </>
-  )
-}
 
 export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} /> }
 
@@ -60,12 +39,6 @@ const storeRegionalChoice = (isSelected: boolean): void => {
 const FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...COURSE_PLATFORM_VALUES }
 
 const FEATURE_ICONS = { [FEATURE_STATUS.ARRIVING]: CircleDashed, [FEATURE_STATUS.AVAILABLE]: Check } as const
-
-export const tierFeaturesWith = (tier: LicenseTier, status: FeatureStatus): readonly { readonly id: string }[] => {
-  const features: readonly { readonly id: string; readonly status: FeatureStatus }[] = TIER_FEATURES[tier]
-
-  return features.filter((feature) => feature.status === status)
-}
 
 const TierFeature = ({ children, status }: Readonly<{ children: ReactNode; status: FeatureStatus }>): JSX.Element => {
   const Icon = FEATURE_ICONS[status]
@@ -185,8 +158,6 @@ const TRUST_TAGS = {
     </Link>
   ),
 }
-
-export const PRICING_TRUST_ITEMS = ["merchant", "tax", "refund", "beta"] as const
 
 const TRUST_ICONS = { beta: FlaskConical, merchant: BadgeCheck, refund: RotateCcw, tax: Receipt } as const
 

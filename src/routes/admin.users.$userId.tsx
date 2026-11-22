@@ -67,6 +67,7 @@ export const Route = createFileRoute("/admin/users/$userId")({
       context.queryClient.query(getUserQuery({ userId: params.userId })).catch(rethrowAsNotFound),
       context.queryClient.query(listUserSessionsQuery({ userId: params.userId })),
       ...USER_PROFILE_SECTIONS.map(({ load }) => load({ queryClient: context.queryClient, userId: params.userId })),
+      ...USER_PROFILE_SECTIONS.map(({ Section }) => Section.preload?.()),
     ])
     return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
   },

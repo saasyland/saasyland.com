@@ -7,7 +7,8 @@ import type { LicenseTier } from "~/src/modules/license/license.constants"
 import { TIER_PRICES } from "~/src/data/marketing"
 
 import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
-import { Price, REGIONAL_TAGS } from "~/src/presentation/components/custom/pricing"
+import { Price } from "~/src/presentation/components/custom/price"
+import { REGIONAL_TAGS } from "~/src/presentation/components/custom/pricing"
 
 export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
   const tTier = useTranslations("components.custom.pricing")

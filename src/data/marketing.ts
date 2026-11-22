@@ -83,3 +83,13 @@ export const CONSULTING_HOURLY_RATE = 149
 export const ILLUSTRATIVE_HOURLY_RATE = 150
 
 export const CORE_PRICE_IN_HOURS = Math.ceil(TIER_PRICES[LICENSE_TIER.CORE] / ILLUSTRATIVE_HOURLY_RATE)
+
+export const FEATURED_TIER = LICENSE_TIER.COMPLETE
+
+export const PRICING_TRUST_ITEMS = ["merchant", "tax", "refund", "beta"] as const
+
+export const tierFeaturesWith = (tier: LicenseTier, status: FeatureStatus): readonly { readonly id: string }[] => {
+  const features: readonly { readonly id: string; readonly status: FeatureStatus }[] = TIER_FEATURES[tier]
+
+  return features.filter((feature) => feature.status === status)
+}

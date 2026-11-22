@@ -17,7 +17,8 @@ import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 
 import { COURSES_LICENSE_OFFER } from "~/src/data/courses.license-offer"
 
-import { CourseUnlocks, CourseUnlocksPending } from "~/src/presentation/components/custom/app/course-unlocks"
+import { CourseUnlocks } from "~/src/presentation/components/custom/app/course-unlocks"
+import { CourseUnlocksPending } from "~/src/presentation/components/custom/app/course-unlocks-pending"
 
 import messages from "~/messages/en-US/components.custom.course-unlocks.json"
 
@@ -94,7 +95,9 @@ describe("course unlocks", () => {
 
     await section.load({ locale: I18N.DEFAULT_LOCALE, queryClient })
 
-    expect(section).toMatchObject({ Pending: CourseUnlocksPending, Section: CourseUnlocks })
+    expect(section.Pending).toBe(CourseUnlocksPending)
+    await section.Section.preload?.()
+    expect(section.Section.preload).toBeUndefined()
     expect(query).toHaveBeenCalledWith(expect.objectContaining({ queryKey: CATALOGUE_KEY }))
   })
 })

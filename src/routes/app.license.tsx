@@ -93,6 +93,7 @@ export const Route = createFileRoute("/app/license")({
       }),
       context.queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),
       ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
+      ...LICENSE_OFFER_SECTIONS.map(({ Section }) => Section.preload?.()),
     ])
     return { locale, metadata }
   },

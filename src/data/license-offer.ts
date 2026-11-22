@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import type { QueryClient } from "@tanstack/react-query"
+import type { AsyncRouteComponent } from "@tanstack/react-router"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
@@ -10,7 +11,7 @@ export interface LicenseOfferSection {
   readonly key: string
   readonly load: (context: { readonly locale: SupportedLocale; readonly queryClient: QueryClient }) => Promise<unknown>
   readonly Pending: () => JSX.Element | undefined
-  readonly Section: () => JSX.Element | undefined
+  readonly Section: AsyncRouteComponent<unknown>
 }
 
 const AREAS: Readonly<Record<string, readonly LicenseOfferSection[]>> = AREA_LICENSE_OFFER

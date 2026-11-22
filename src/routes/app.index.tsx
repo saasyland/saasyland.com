@@ -67,6 +67,7 @@ export const Route = createFileRoute("/app/")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       ...APP_OVERVIEW_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
+      ...APP_OVERVIEW_SECTIONS.map(({ Section }) => Section.preload?.()),
     ])
     return { locale, metadata }
   },

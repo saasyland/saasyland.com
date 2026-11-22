@@ -10,7 +10,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { Price } from "~/src/presentation/components/custom/pricing"
+import { Price } from "~/src/presentation/components/custom/price"
 
 import { ROUTES } from "~/src/routes"
 

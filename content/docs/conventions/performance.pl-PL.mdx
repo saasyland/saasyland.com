@@ -256,7 +256,14 @@ Ponieważ każda strona ładuje każdy szkielet, szkielet importuje `Skeleton`, 
 | Skrypt wejściowy z jego statycznymi importami | 557,8 KiB | 410,9 KiB |
 | Pliki                                         | 176       | 172       |
 
-Sekcje przeglądu klienta nadal łączą w liście obszaru każdy szkielet z jego komponentem, więc te komponenty ładują się razem ze szkieletami.
+Sekcje przeglądu klienta, oferty licencji i profilu użytkownika są wskazywane tak samo, przez `lazyRouteComponent`, a loadery `/app`, `/app/license` i `/admin/users/$userId` ładują je wstępnie. Dane cennika, które czyta szkielet licencji, `FEATURED_TIER`, `PRICING_TRUST_ITEMS` i `tierFeaturesWith`, są w `src/data/marketing.ts`, a `Price` ma własny plik, więc żaden szkielet nie importuje tabeli cen, checkoutu ani faktów z repozytorium, co sprawdza drugi test w `pending-imports.test.ts`:
+
+| Pomiar                                        | Przed     | Po        |
+| --------------------------------------------- | --------- | --------- |
+| Skrypt wejściowy z jego statycznymi importami | 410,9 KiB | 375,7 KiB |
+| Pliki                                         | 172       | 153       |
+
+Loadery zostają we własnych chunkach (`codeSplittingOptions` w `src/data/tanstack.vite.ts`). Domyślne ustawienie TanStack Router trzyma loader trasy w drzewie tras, co oszczędza nawigacji, której router nie załadował wstępnie, jednego zapytania o chunk przed danymi. W tym samym buildzie wciągnęło ono importy loaderów, w tym indeks treści strony głównej i fakty z repozytorium, do skryptu wejściowego: 375,7 KiB po gzip z rozdzielonymi loaderami, 475,7 KiB z ustawieniem domyślnym. Wstępne ładowanie przy zamiarze kliknięcia i tak ładuje chunki strony przed większością kliknięć, więc podział zostaje.
 
 ## Jeden build Tailwind
 

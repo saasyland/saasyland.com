@@ -13,7 +13,7 @@ import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
-import { Price } from "~/src/presentation/components/custom/pricing"
+import { Price } from "~/src/presentation/components/custom/price"
 
 import { ROUTES } from "~/src/routes"
 

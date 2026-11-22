@@ -10,6 +10,7 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 import { CLI_KEY_LINES, CLI_SETUP_LINES } from "~/src/data/cli"
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
+import { FEATURED_TIER, PRICING_TRUST_ITEMS, tierFeaturesWith } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"
@@ -18,8 +19,7 @@ import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/co
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
-import { UpgradeOfferPending } from "~/src/presentation/components/custom/app/upgrade-offer"
-import { FEATURED_TIER, PRICING_TRUST_ITEMS, tierFeaturesWith } from "~/src/presentation/components/custom/pricing"
+import { UpgradeOfferPending } from "~/src/presentation/components/custom/app/upgrade-offer-pending"
 
 const usePendingLicenseView = () => {
   const queryClient = useQueryClient()

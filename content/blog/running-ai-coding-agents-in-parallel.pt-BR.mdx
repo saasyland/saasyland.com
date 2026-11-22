@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -93,7 +93,7 @@ Um guia prático para rodar vários agentes de programação com IA em paralelo 
 
 </Callout>
 
-_Última verificação em 20 de novembro de 2026. Todos os fatos externos citados abaixo foram lidos nesse dia na própria fonte, com links no final. Todos os incidentes vêm do repositório público do saasyland.com; os pull requests, as execuções de CI e os commits têm links para que você possa conferi-los. Atualizado em 21 de novembro de 2026, quando trocamos o nosso script de merge e a verificação do preview compartilhado pela fila de merge do GitHub: os trechos que os descreviam agora dizem o que mudou, e [Atualização, novembro de 2026](#update-november-2026) conta a história com os tempos medidos._
+_Última verificação em 20 de novembro de 2026. Todos os fatos externos citados abaixo foram lidos nesse dia na própria fonte, com links no final. Todos os incidentes vêm do repositório público do saasyland.com; os pull requests, as execuções de CI e os commits têm links para que você possa conferi-los. Atualizado em 21 de novembro de 2026, quando trocamos o nosso script de merge e a verificação do preview compartilhado pela fila de merge do GitHub: os trechos que os descreviam agora dizem o que mudou, e [Atualização, novembro de 2026](#update-november-2026) conta a história com os tempos medidos. Atualizado de novo em 22 de novembro de 2026 com os tempos de CI depois que os testes com cobertura foram divididos em shards._
 
 ## A resposta curta
 
@@ -489,7 +489,7 @@ O #277 substituiu o script e a verificação do preview compartilhado de uma vez
 - **Um comando para o merge.** `bun scripts/enqueue-pr.ts <number>` verifica o título, dá a ele o emoji que o commit squash mantém e ativa o auto-merge, que coloca o pull request na fila assim que as verificações dele passam.
 - **Uma definição de pronto local mais curta.** A CI agora roda a suíte de navegador inteira duas vezes para cada pull request, no pull request e na fila, em runners que mais ninguém usa. Por isso os agentes rodam `check`, `test:coverage`, `build:test` e as specs que a mudança deles toca, na sua própria porta, em vez da suíte inteira em um laptop que dividem com outros agentes.
 
-Uma execução de pull request agora tem três jobs que começam juntos, as verificações com cobertura, o build de teste e o upload do Worker, seguidos pelos shards, e nas cinco primeiras execuções no novo workflow ela levou de 7,7 a 9,8 minutos. O job mais longo agora são os testes unitários com cobertura, que levaram 7 minutos e 21 segundos na execução da fila para o #277, contra 3 minutos e 44 segundos em 20 de novembro; é a próxima coisa a investigar.
+Depois do #277, uma execução de pull request tinha três jobs que começavam juntos, as verificações com cobertura, o build de teste e o upload do Worker, seguidos pelos shards, e nas cinco primeiras execuções no novo workflow ela levou de 7,7 a 9,8 minutos. O job mais longo eram então os testes unitários com cobertura, que levaram 7 minutos e 21 segundos na execução da fila para o #277, contra 3 minutos e 44 segundos em 20 de novembro, então foram a próxima coisa que mudamos.
 
 ### Antes e depois
 
@@ -503,6 +503,12 @@ Uma execução de pull request agora tem três jobs que começam juntos, as veri
 | Da fila até a produção, tempo de relógio           | Não medido: o script não registrava quando um pull request ficava pronto | 20,2 minutos para o #277 e 18,9 para o #276                                                              |
 
 Dois limites honestos. A coluna de depois tem um dia: um punhado de execuções, não um mês delas, e vamos trocá-la por medianas quando houver execuções suficientes. E a linha de vazão é um teto, não uma medição. Entre 10:26 UTC de 20 de novembro e 00:44 da noite seguinte, o script fez o merge de 23 pull requests, um por vez; no momento em que escrevemos, a nova fila tinha feito o build de dois pull requests lado a lado, o #276 e o #274, mas ainda não teve um dia movimentado.
+
+### Dividindo os testes com cobertura em shards (#285, #289, #296)
+
+Mais três mudanças entraram em 22 de novembro. O #285 roda os testes com cobertura em shards paralelos e mescla a cobertura deles na verificação obrigatória, então o gate continua medindo a base de código inteira. O #289 dividiu a suíte de navegador em mais shards, e o #296 deixa os shards de navegador instalarem o toolchain e o navegador enquanto o build roda, em vez de depois. A CI agora roda os testes em <RepositoryFact name="vitestShards" /> shards e a suíte de navegador em <RepositoryFact name="e2eShards" />.
+
+Na execução da fila de merge para o #304 em 22 de novembro de 2026, os shards de cobertura levaram de 2,1 a 3,3 minutos, o build 3,7, os shards de navegador de 5,0 a 7,7 e o upload do Worker 5,1, e a execução inteira 7,8 minutos do primeiro job ao último. As 33 execuções de pull request bem-sucedidas daquele dia levaram de 6,3 a 11,4 minutos, com mediana de 7,9. O job mais lento voltou a ser um shard de navegador.
 
 ### Lições para qualquer equipe que roda muitos agentes
 

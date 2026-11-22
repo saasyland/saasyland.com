@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -96,7 +96,7 @@ Un guide pratique pour faire tourner plusieurs agents de codage IA en parallèle
 
 </Callout>
 
-_Dernière vérification le 20 novembre 2026. Chaque fait externe cité ci-dessous a été relevé à sa source ce jour-là, et les sources sont liées en bas de page. Chaque incident provient du dépôt public de saasyland.com ; les pull requests, les exécutions de CI et les commits sont liés pour que vous puissiez les vérifier. Mis à jour le 21 novembre 2026, quand nous avons remplacé notre script de fusion et la vérification de la préversion partagée par la file de fusion de GitHub : les passages qui les décrivaient disent désormais ce qui a changé, et [Mise à jour, novembre 2026](#update-november-2026) raconte l’histoire avec les temps mesurés._
+_Dernière vérification le 20 novembre 2026. Chaque fait externe cité ci-dessous a été relevé à sa source ce jour-là, et les sources sont liées en bas de page. Chaque incident provient du dépôt public de saasyland.com ; les pull requests, les exécutions de CI et les commits sont liés pour que vous puissiez les vérifier. Mis à jour le 21 novembre 2026, quand nous avons remplacé notre script de fusion et la vérification de la préversion partagée par la file de fusion de GitHub : les passages qui les décrivaient disent désormais ce qui a changé, et [Mise à jour, novembre 2026](#update-november-2026) raconte l’histoire avec les temps mesurés. Mis à jour de nouveau le 22 novembre 2026 avec les temps de CI après la répartition des tests avec couverture en shards._
 
 ## La réponse courte
 
@@ -492,7 +492,7 @@ Sur l’exécution de #273, le job de build a fait le checkout du dépôt à 16:
 - **Une seule commande pour fusionner.** `bun scripts/enqueue-pr.ts <number>` vérifie le titre, lui donne l’émoji que garde le commit de squash et active la fusion automatique, qui place la pull request dans la file une fois ses vérifications réussies.
 - **Une définition locale de « terminé » plus courte.** La CI exécute désormais toute la suite de tests du navigateur deux fois pour chaque pull request, sur la pull request et dans la file, sur des runners que personne d’autre n’utilise. Les agents exécutent donc `check`, `test:coverage`, `build:test` et les specs que touche leur modification, sur leur propre port, au lieu de toute la suite sur un portable qu’ils partagent avec d’autres agents.
 
-Une exécution de pull request compte désormais trois jobs qui démarrent ensemble, les vérifications avec la couverture, le build de test et l’upload du Worker, suivis des shards, et lors des cinq premières exécutions sur le nouveau workflow elle a pris de 7,7 à 9,8 minutes. Le job le plus long est désormais celui des tests unitaires avec couverture, qui a pris 7 minutes 21 secondes dans l’exécution de #277 dans la file, contre 3 minutes 44 secondes le 20 novembre ; c’est le prochain point à examiner.
+Après #277, une exécution de pull request comptait trois jobs qui démarraient ensemble, les vérifications avec la couverture, le build de test et l’upload du Worker, suivis des shards, et lors des cinq premières exécutions sur le nouveau workflow elle a pris de 7,7 à 9,8 minutes. Le job le plus long était alors celui des tests unitaires avec couverture, qui a pris 7 minutes 21 secondes dans l’exécution de #277 dans la file, contre 3 minutes 44 secondes le 20 novembre : c’est donc lui que nous avons changé ensuite.
 
 ### Avant et après
 
@@ -506,6 +506,12 @@ Une exécution de pull request compte désormais trois jobs qui démarrent ensem
 | De la mise en file à la production, temps réel | Non mesuré : le script n’enregistrait pas quand une pull request était prête | 20,2 minutes pour #277 et 18,9 pour #276                                                                        |
 
 Deux limites, en toute honnêteté. La colonne après n’a qu’un jour : une poignée d’exécutions, pas un mois entier, et nous la remplacerons par des médianes dès qu’il y en aura assez. Et la ligne sur le débit est un plafond, pas une mesure. Entre 10:26 UTC le 20 novembre et 00:44 la nuit suivante, le script a fusionné 23 pull requests, une à la fois ; au moment où nous écrivons, la nouvelle file a construit deux pull requests côte à côte, #276 et #274, mais elle n’a pas encore connu de journée chargée.
+
+### Répartir les tests avec couverture en shards (#285, #289, #296)
+
+Trois autres changements sont arrivés le 22 novembre. #285 exécute les tests avec couverture sur des shards parallèles et fusionne leur couverture dans la vérification obligatoire, si bien que le seuil mesure toujours toute la base de code. #289 a découpé la suite du navigateur en davantage de shards, et #296 permet aux shards du navigateur d’installer la chaîne d’outils et le navigateur pendant le build plutôt qu’après. La CI exécute désormais les tests sur <RepositoryFact name="vitestShards" /> shards et la suite du navigateur sur <RepositoryFact name="e2eShards" />.
+
+Dans l’exécution de la file de fusion pour #304, le 22 novembre 2026, les shards de couverture ont pris de 2,1 à 3,3 minutes, le build 3,7, les shards du navigateur de 5,0 à 7,7 et l’upload du Worker 5,1, et l’exécution entière 7,8 minutes du premier job au dernier. Les 33 exécutions de pull request réussies ce jour-là ont pris de 6,3 à 11,4 minutes, avec une médiane de 7,9. Le job le plus lent est de nouveau un shard du navigateur.
 
 ### Leçons pour toute équipe qui fait tourner de nombreux agents
 

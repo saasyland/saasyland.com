@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -97,7 +97,7 @@ Ein praktischer Leitfaden dafür, mehrere KI-Coding-Agenten parallel auf einem P
 
 </Callout>
 
-_Zuletzt geprüft am 20. November 2026. Jede externe Angabe weiter unten wurde an diesem Tag an ihrer Quelle nachgelesen und ist ganz unten verlinkt. Jeder Vorfall stammt aus dem öffentlichen Repository von saasyland.com; die Pull Requests, CI-Läufe und Commits sind verlinkt, damit du sie nachprüfen kannst. Aktualisiert am 21. November 2026, als wir unser Merge-Skript und die Prüfung der gemeinsamen Preview durch die Merge-Queue von GitHub ersetzt haben: Die Passagen, die sie beschrieben, sagen jetzt, was sich geändert hat, und [Update, November 2026](#update-november-2026) erzählt die Geschichte mit den gemessenen Zeiten._
+_Zuletzt geprüft am 20. November 2026. Jede externe Angabe weiter unten wurde an diesem Tag an ihrer Quelle nachgelesen und ist ganz unten verlinkt. Jeder Vorfall stammt aus dem öffentlichen Repository von saasyland.com; die Pull Requests, CI-Läufe und Commits sind verlinkt, damit du sie nachprüfen kannst. Aktualisiert am 21. November 2026, als wir unser Merge-Skript und die Prüfung der gemeinsamen Preview durch die Merge-Queue von GitHub ersetzt haben: Die Passagen, die sie beschrieben, sagen jetzt, was sich geändert hat, und [Update, November 2026](#update-november-2026) erzählt die Geschichte mit den gemessenen Zeiten. Erneut aktualisiert am 22. November 2026 mit den CI-Zeiten, nachdem die Tests mit Coverage in Shards aufgeteilt wurden._
 
 ## Die kurze Antwort
 
@@ -493,7 +493,7 @@ Im Lauf von #273 checkte der Build-Job das Repository um 16:40 UTC aus. Um 16:44
 - **Ein Befehl zum Mergen.** `bun scripts/enqueue-pr.ts <number>` prüft den Titel, gibt ihm das Emoji, das der Squash-Commit behält, und schaltet Auto-Merge ein, was den Pull Request in die Queue stellt, sobald seine Checks bestehen.
 - **Eine kürzere lokale Definition of Done.** Die CI führt die ganze Browser-Suite jetzt für jeden Pull Request zweimal aus, im Pull Request und in der Queue, auf Runnern, die niemand sonst benutzt. Also führen Agenten `check`, `test:coverage`, `build:test` und die Specs aus, die ihre Änderung berührt, auf ihrem eigenen Port, statt der ganzen Suite auf einem Laptop, den sie sich mit anderen Agenten teilen.
 
-Ein Pull-Request-Lauf hat jetzt drei Jobs, die zusammen starten, die Checks mit Coverage, den Test-Build und den Worker-Upload, gefolgt von den Shards, und in den ersten fünf Läufen mit dem neuen Workflow dauerte er 7,7 bis 9,8 Minuten. Der längste Job sind jetzt die Unit-Tests mit Coverage, die im Lauf der Queue für #277 7 Minuten 21 Sekunden brauchten, gegenüber 3 Minuten 44 Sekunden am 20. November; dort schauen wir als Nächstes hin.
+Nach #277 hatte ein Pull-Request-Lauf drei Jobs, die zusammen starteten, die Checks mit Coverage, den Test-Build und den Worker-Upload, gefolgt von den Shards, und in den ersten fünf Läufen mit dem neuen Workflow dauerte er 7,7 bis 9,8 Minuten. Der längste Job waren damals die Unit-Tests mit Coverage, die im Lauf der Queue für #277 7 Minuten 21 Sekunden brauchten, gegenüber 3 Minuten 44 Sekunden am 20. November, also haben wir sie als Nächstes geändert.
 
 ### Vorher und nachher
 
@@ -507,6 +507,12 @@ Ein Pull-Request-Lauf hat jetzt drei Jobs, die zusammen starten, die Checks mit 
 | Von der Queue bis in Produktion, Wanduhrzeit   | Nicht gemessen: Das Skript hielt nicht fest, wann ein Pull Request fertig war | 20,2 Minuten für #277 und 18,9 für #276                                                                      |
 
 Zwei ehrliche Grenzen. Die Spalte „Nachher“ ist einen Tag alt: eine Handvoll Läufe, kein Monat davon, und wir ersetzen sie durch Mediane, sobald es genug gibt. Und die Zeile zum Durchsatz ist eine Obergrenze, keine Messung. Zwischen 10:26 UTC am 20. November und 00:44 in der Nacht danach mergte das Skript 23 Pull Requests, einen nach dem anderen; zum Zeitpunkt des Schreibens hatte die neue Queue zwei Pull Requests nebeneinander gebaut, #276 und #274, aber noch keinen vollen Tag erlebt.
+
+### Die Tests mit Coverage in Shards aufteilen (#285, #289, #296)
+
+Am 22. November kamen drei weitere Änderungen hinzu. #285 führt die Tests mit Coverage auf parallelen Shards aus und führt ihre Coverage in der erforderlichen Prüfung zusammen, sodass das Gate weiterhin die ganze Codebasis misst. #289 teilte die Browser-Suite in mehr Shards auf, und #296 lässt die Browser-Shards die Toolchain und den Browser installieren, während der Build läuft, statt danach. Die CI führt die Tests jetzt auf <RepositoryFact name="vitestShards" /> Shards aus und die Browser-Suite auf <RepositoryFact name="e2eShards" />.
+
+Im Lauf der Merge-Queue für #304 am 22. November 2026 brauchten die Coverage-Shards 2,1 bis 3,3 Minuten, der Build 3,7, die Browser-Shards 5,0 bis 7,7 und der Worker-Upload 5,1, und der ganze Lauf 7,8 Minuten vom ersten bis zum letzten Job. Die 33 erfolgreichen Pull-Request-Läufe an diesem Tag dauerten 6,3 bis 11,4 Minuten, mit einem Median von 7,9. Der langsamste Job ist wieder ein Browser-Shard.
 
 ### Lehren für jedes Team, das viele Agenten betreibt
 

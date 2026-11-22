@@ -506,7 +506,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 
 The last command builds the local test application when it starts its own server and runs the specs you name in Chromium: run the ones that cover your change. CI runs every spec on the pull request and again in the merge queue, and the pull request merges only when that run is green; `bun run test:e2e:pr` runs every spec locally. Run `bun run test:e2e` as well for changes that may behave differently in WebKit. Use the isolated test build for provider-independent checks, and validate real provider integrations separately when changing their configuration.
 
-Optional agent guidance can be restored with `bun run skills:sync`. It rebuilds `.agents/skills` from `skills-lock.json`, groups skills by vendor, and links them into `.claude/skills`. The command replaces those local skill directories; keep custom guidance elsewhere.
+Optional agent guidance can be restored with `bun run skills:sync`. It rebuilds `.agents/skills` from `skills-lock.json`, groups skills by vendor, and links them into `.claude/skills`; `bun run skills:update` moves every skill to the latest commit of its source first. The command replaces those local skill directories; keep custom guidance elsewhere.
 
 For documentation corrections, verify commands and links against the implementation. For feature changes, describe the resulting behavior, relevant validation, and any workflow left incomplete in the pull request. An admin screen ships only with a real source for its data.
 

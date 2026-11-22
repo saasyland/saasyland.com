@@ -23,7 +23,7 @@ const CI = readFileSync(CI_WORKFLOW, "utf8")
 const MAIN = readFileSync(MAIN_WORKFLOW, "utf8")
 const PREVIEW = readFileSync(PREVIEW_WORKFLOW, "utf8")
 const SETUP = readFileSync(SETUP_ACTION, "utf8")
-const E2E_SHARDS = [1, 2, 3, 4]
+const E2E_SHARDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 const TEST_SHARDS = [1, 2, 3, 4]
 const JOBS_SECTION = "\njobs:\n"
 const TRIGGERS_SECTION = /^on:\n(?<triggers>(?: {2}.+\n| {4}.+\n)+)/mu
@@ -192,7 +192,7 @@ describe(E2E_WORKFLOW, () => {
     )
   })
 
-  it("splits the browser suite across four shards that each run their part", () => {
+  it("splits the browser suite across ten shards that each run their part", () => {
     expect(shardsOf(E2E)).toStrictEqual(E2E_SHARDS)
     expect(jobOf(E2E, "shard")).toContain(`run: ${SHARD_COMMAND}`)
     expect(jobOf(E2E, "shard")).toContain("fail-fast: false")

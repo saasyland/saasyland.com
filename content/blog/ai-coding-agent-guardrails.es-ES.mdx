@@ -364,17 +364,17 @@ bun scripts/enqueue-pr.ts <number>
 
 Hasta el 21 de noviembre, la lista local terminaba con la suite completa, y una pull request se fusionaba mediante un script que esperaba un despliegue de preview compartido. [El siguiente artículo de esta serie](/blog/running-ai-coding-agents-in-parallel#update-november-2026) cuenta por qué cambiaron las dos cosas. Esto es lo que tardó cada paso en la ejecución de CI del 20 de noviembre de 2026 que se lanzó cuando la función para compartir artículos del blog llegó a `main`, y en la ejecución de la cola de fusión para la pull request que introdujo la cola de fusión, el 21 de noviembre:
 
-| Paso                                                  | 20 de noviembre, un runner por trabajo | 21 de noviembre, en la cola de fusión                                                    |
-| ----------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Preparar la cadena de herramientas y las dependencias | 1 min 11 s                             | 24 s                                                                                     |
-| `bun run check`                                       | 16 s                                   | 31 s                                                                                     |
-| `bun run test:coverage`                               | 3 min 44 s                             | 7 min 21 s                                                                               |
-| `bun run build:test`                                  | 2 min 59 s                             | 2 min 48 s                                                                               |
-| La suite del navegador en Chromium                    | 12 min 2 s                             | De 2 min 15 s a 3 min 10 s en cada uno de los <RepositoryFact name="e2eShards" /> shards |
-| Subida del Worker que no sirve tráfico                | Aún no era una comprobación            | 3 min 24 s, junto al build                                                               |
-| Del primer trabajo al verde                           | 16 min 35 s                            | 8 min 24 s                                                                               |
+| Paso                                                  | 20 de noviembre, un runner por trabajo | 21 de noviembre, en la cola de fusión                  |
+| ----------------------------------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| Preparar la cadena de herramientas y las dependencias | 1 min 11 s                             | 24 s                                                   |
+| `bun run check`                                       | 16 s                                   | 31 s                                                   |
+| `bun run test:coverage`                               | 3 min 44 s                             | 7 min 21 s                                             |
+| `bun run build:test`                                  | 2 min 59 s                             | 2 min 48 s                                             |
+| La suite del navegador en Chromium                    | 12 min 2 s                             | De 2 min 15 s a 3 min 10 s en cada uno de los 4 shards |
+| Subida del Worker que no sirve tráfico                | Aún no era una comprobación            | 3 min 24 s, junto al build                             |
+| Del primer trabajo al verde                           | 16 min 35 s                            | 8 min 24 s                                             |
 
-La suite del navegador pasó de 12 minutos en un runner a unos 3 en cada uno de los <RepositoryFact name="e2eShards" />, y la preparación de la cadena de herramientas perdió una segunda restauración de la misma caché. Las pruebas unitarias con cobertura tardaron aproximadamente el doble que el día anterior y ahora son el trabajo más lento, lo que nos dice dónde mirar a continuación.
+La suite del navegador pasó de 12 minutos en un runner a unos 3 en cada uno de los 4, y la preparación de la cadena de herramientas perdió una segunda restauración de la misma caché. Las pruebas unitarias con cobertura tardaron aproximadamente el doble que el día anterior y ahora son el trabajo más lento, lo que nos dice dónde mirar a continuación.
 
 Cada comando está en la lista porque algo pasó sin él. El 12 de noviembre, una actualización de dependencias (#94) pasó `check` y 1.255 pruebas con cobertura completa mientras el build de producción estaba roto por partida doble: un nuevo SDK de Polar no se podía empaquetar, y una versión de TanStack Start cambió su salida de modo que un script posterior al build fallaba. Las pruebas unitarias nunca ejecutan el build de Cloudflare, así que `build:test` se unió a la lista, y la documentación de convenciones recoge por qué.
 
@@ -506,7 +506,7 @@ No necesitas todo esto el lunes. Este es el orden que más rinde por cada día d
 
 Las barreras de protección no son gratis, y quien te diga que lo son no ha mantenido ninguna.
 
-**Tiempo en cada cambio.** Nuestra CI tardaba unos 16 minutos y medio del push al verde el 20 de noviembre, la mayor parte en la suite del navegador en un solo runner. Desde que la suite se ejecuta en <RepositoryFact name="e2eShards" /> runners en paralelo, la ejecución de una pull request tarda unos 8 a 10 minutos, y la cola de fusión la ejecuta una vez más antes de la fusión, más lo que tarde una ejecución local antes del push. Los shards compran ese tiempo con minutos de runner, porque cada uno vuelve a preparar la cadena de herramientas y el navegador. Para un repositorio público, los minutos de CI en sí no cuestan nada en los runners estándar de GitHub, que GitHub documenta como gratuitos para repositorios públicos; un repositorio privado paga cada minuto, y una suite del navegador es donde se van esos minutos.
+**Tiempo en cada cambio.** Nuestra CI tardaba unos 16 minutos y medio del push al verde el 20 de noviembre, la mayor parte en la suite del navegador en un solo runner. Desde que la suite se ejecuta en <RepositoryFact name="e2eShards" /> runners en paralelo, la ejecución de una pull request tarda unos 7 a 9 minutos, y la cola de fusión la ejecuta una vez más antes de la fusión, más lo que tarde una ejecución local antes del push. Los shards compran ese tiempo con minutos de runner, porque cada uno vuelve a preparar la cadena de herramientas y el navegador. Para un repositorio público, los minutos de CI en sí no cuestan nada en los runners estándar de GitHub, que GitHub documenta como gratuitos para repositorios públicos; un repositorio privado paga cada minuto, y una suite del navegador es donde se van esos minutos.
 
 **Código que escribir y mantener.** Nuestras comprobaciones de contenido y de traducciones, el verificador del build, el plugin de hidratación y el hook de commit suman más de mil líneas de TypeScript entre todos, con sus propias pruebas. Son código como cualquier otro: tienen bugs, como muestran el shebang y el «ton» francés, y necesitan la misma revisión.
 

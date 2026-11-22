@@ -368,17 +368,17 @@ bun scripts/enqueue-pr.ts <number>
 
 Jusqu’au 21 novembre, la liste locale se terminait par la suite complète, et une pull request était fusionnée par un script qui attendait un déploiement de préversion partagé. [L’article suivant de cette série](/blog/running-ai-coding-agents-in-parallel#update-november-2026) explique pourquoi les deux ont changé. Voici le temps qu’a pris chaque étape lors de l’exécution de CI du 20 novembre 2026, lancée quand notre fonctionnalité de partage des articles du blog est arrivée sur `main`, et lors de l’exécution de la file de fusion pour la pull request qui a introduit la file de fusion, le 21 novembre :
 
-| Étape                                               | 20 novembre, un runner par job | 21 novembre, dans la file de fusion                                               |
-| --------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| Installer la chaîne d’outils et les dépendances     | 1 min 11 s                     | 24 s                                                                              |
-| `bun run check`                                     | 16 s                           | 31 s                                                                              |
-| `bun run test:coverage`                             | 3 min 44 s                     | 7 min 21 s                                                                        |
-| `bun run build:test`                                | 2 min 59 s                     | 2 min 48 s                                                                        |
-| La suite de tests dans le navigateur, dans Chromium | 12 min 2 s                     | 2 min 15 s à 3 min 10 s sur chacun des <RepositoryFact name="e2eShards" /> shards |
-| Upload du Worker qui ne sert aucun trafic           | Pas encore une vérification    | 3 min 24 s, à côté du build                                                       |
-| Du premier job au vert                              | 16 min 35 s                    | 8 min 24 s                                                                        |
+| Étape                                               | 20 novembre, un runner par job | 21 novembre, dans la file de fusion             |
+| --------------------------------------------------- | ------------------------------ | ----------------------------------------------- |
+| Installer la chaîne d’outils et les dépendances     | 1 min 11 s                     | 24 s                                            |
+| `bun run check`                                     | 16 s                           | 31 s                                            |
+| `bun run test:coverage`                             | 3 min 44 s                     | 7 min 21 s                                      |
+| `bun run build:test`                                | 2 min 59 s                     | 2 min 48 s                                      |
+| La suite de tests dans le navigateur, dans Chromium | 12 min 2 s                     | 2 min 15 s à 3 min 10 s sur chacun des 4 shards |
+| Upload du Worker qui ne sert aucun trafic           | Pas encore une vérification    | 3 min 24 s, à côté du build                     |
+| Du premier job au vert                              | 16 min 35 s                    | 8 min 24 s                                      |
 
-La suite de tests dans le navigateur est passée de 12 minutes sur un runner à environ 3 sur chacun des <RepositoryFact name="e2eShards" />, et l’installation de la chaîne d’outils a perdu une seconde restauration du même cache. Les tests unitaires avec couverture ont pris environ deux fois plus de temps que la veille et sont désormais le job le plus lent, ce qui nous dit où regarder ensuite.
+La suite de tests dans le navigateur est passée de 12 minutes sur un runner à environ 3 sur chacun des 4, et l’installation de la chaîne d’outils a perdu une seconde restauration du même cache. Les tests unitaires avec couverture ont pris environ deux fois plus de temps que la veille et sont désormais le job le plus lent, ce qui nous dit où regarder ensuite.
 
 Chaque commande figure dans la liste parce que quelque chose est passé sans elle. Le 12 novembre, une mise à jour de dépendances (#94) a passé `check` et 1 255 tests avec une couverture complète alors que le build de production était cassé à deux reprises : un nouveau SDK Polar ne pouvait pas être bundlé, et une version de TanStack Start avait changé sa sortie de sorte qu’un script post-build échouait. Les tests unitaires n’exécutent jamais le build Cloudflare : `build:test` a donc rejoint la liste, et la documentation des conventions en consigne la raison.
 
@@ -510,7 +510,7 @@ Vous n’avez pas besoin de tout cela dès lundi. Voici l’ordre qui rapporte l
 
 Les garde-fous ne sont pas gratuits, et quiconque vous dit le contraire n’en a jamais maintenu.
 
-**Du temps à chaque modification.** Notre CI mettait environ 16 minutes et demie du push au vert le 20 novembre, l’essentiel dans la suite de tests du navigateur sur un seul runner. Depuis que la suite tourne sur <RepositoryFact name="e2eShards" /> runners en parallèle, l’exécution d’une pull request prend environ 8 à 10 minutes, et la file de fusion l’exécute une fois de plus avant la fusion, plus le temps que prend une exécution locale avant le push. Les shards achètent ce temps avec des minutes de runner, car chacun réinstalle la chaîne d’outils et le navigateur. Pour un dépôt public, les minutes de CI elles-mêmes ne coûtent rien sur les runners standard de GitHub, que GitHub documente comme gratuits pour les dépôts publics ; un dépôt privé paie chaque minute, et c’est dans une suite de tests dans le navigateur que partent ces minutes.
+**Du temps à chaque modification.** Notre CI mettait environ 16 minutes et demie du push au vert le 20 novembre, l’essentiel dans la suite de tests du navigateur sur un seul runner. Depuis que la suite tourne sur <RepositoryFact name="e2eShards" /> runners en parallèle, l’exécution d’une pull request prend environ 7 à 9 minutes, et la file de fusion l’exécute une fois de plus avant la fusion, plus le temps que prend une exécution locale avant le push. Les shards achètent ce temps avec des minutes de runner, car chacun réinstalle la chaîne d’outils et le navigateur. Pour un dépôt public, les minutes de CI elles-mêmes ne coûtent rien sur les runners standard de GitHub, que GitHub documente comme gratuits pour les dépôts publics ; un dépôt privé paie chaque minute, et c’est dans une suite de tests dans le navigateur que partent ces minutes.
 
 **Du code à écrire et à maintenir.** Nos vérifications du contenu et des traductions, le vérificateur de build, le plugin d’hydratation et le hook de commit représentent ensemble plus d’un millier de lignes de TypeScript, avec leurs propres tests. C’est du code comme un autre : il a des bugs, comme le montrent le shebang et le « ton » français, et il a besoin de la même revue.
 

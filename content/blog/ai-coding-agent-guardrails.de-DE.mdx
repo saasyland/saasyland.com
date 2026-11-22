@@ -366,17 +366,17 @@ bun scripts/enqueue-pr.ts <number>
 
 Bis zum 21. November endete die lokale Liste mit der ganzen Suite, und ein Pull Request wurde über ein Skript gemergt, das auf ein geteiltes Preview-Deployment wartete. [Der nächste Artikel dieser Reihe](/blog/running-ai-coding-agents-in-parallel#update-november-2026) erzählt, warum sich beides geändert hat. So lange hat jeder Schritt im CI-Lauf vom 20. November 2026 gebraucht, der lief, als unsere Funktion zum Teilen von Blogartikeln `main` erreichte, und im Lauf der Merge-Queue für den Pull Request, der die Merge-Queue eingeführt hat, am 21. November:
 
-| Schritt                                        | 20. November, ein Runner pro Job | 21. November, in der Merge-Queue                                                   |
-| ---------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| Toolchain und Abhängigkeiten einrichten        | 1 min 11 s                       | 24 s                                                                               |
-| `bun run check`                                | 16 s                             | 31 s                                                                               |
-| `bun run test:coverage`                        | 3 min 44 s                       | 7 min 21 s                                                                         |
-| `bun run build:test`                           | 2 min 59 s                       | 2 min 48 s                                                                         |
-| Die Browser-Suite in Chromium                  | 12 min 2 s                       | 2 min 15 s bis 3 min 10 s auf jedem von <RepositoryFact name="e2eShards" /> Shards |
-| Upload des Workers, der keinen Traffic bedient | Noch keine Prüfung               | 3 min 24 s, neben dem Build                                                        |
-| Vom ersten Job bis Grün                        | 16 min 35 s                      | 8 min 24 s                                                                         |
+| Schritt                                        | 20. November, ein Runner pro Job | 21. November, in der Merge-Queue                 |
+| ---------------------------------------------- | -------------------------------- | ------------------------------------------------ |
+| Toolchain und Abhängigkeiten einrichten        | 1 min 11 s                       | 24 s                                             |
+| `bun run check`                                | 16 s                             | 31 s                                             |
+| `bun run test:coverage`                        | 3 min 44 s                       | 7 min 21 s                                       |
+| `bun run build:test`                           | 2 min 59 s                       | 2 min 48 s                                       |
+| Die Browser-Suite in Chromium                  | 12 min 2 s                       | 2 min 15 s bis 3 min 10 s auf jedem von 4 Shards |
+| Upload des Workers, der keinen Traffic bedient | Noch keine Prüfung               | 3 min 24 s, neben dem Build                      |
+| Vom ersten Job bis Grün                        | 16 min 35 s                      | 8 min 24 s                                       |
 
-Die Browser-Suite ging von 12 Minuten auf einem Runner auf etwa 3 auf jedem von <RepositoryFact name="e2eShards" /> zurück, und die Einrichtung der Toolchain verlor eine zweite Wiederherstellung desselben Caches. Die Unit-Tests mit Coverage brauchten etwa doppelt so lange wie am Vortag und sind jetzt der langsamste Job, was uns sagt, wo wir als Nächstes hinschauen.
+Die Browser-Suite ging von 12 Minuten auf einem Runner auf etwa 3 auf jedem von 4 zurück, und die Einrichtung der Toolchain verlor eine zweite Wiederherstellung desselben Caches. Die Unit-Tests mit Coverage brauchten etwa doppelt so lange wie am Vortag und sind jetzt der langsamste Job, was uns sagt, wo wir als Nächstes hinschauen.
 
 Jeder Befehl steht auf der Liste, weil ohne ihn etwas durchgekommen ist. Am 12. November bestand ein Upgrade einer Abhängigkeit (#94) `check` und 1.255 Tests bei voller Coverage, während der Produktions-Build zweimal kaputt war: Ein neues Polar SDK ließ sich nicht bündeln, und ein Release von TanStack Start änderte seine Ausgabe so, dass ein Post-Build-Skript fehlschlug. Unit-Tests führen den Cloudflare-Build nie aus, also kam `build:test` auf die Liste, und die Dokumentation der Konventionen hält fest, warum.
 
@@ -508,7 +508,7 @@ Du brauchst das alles nicht schon am Montag. Das ist die Reihenfolge, die pro Ar
 
 Leitplanken sind nicht kostenlos, und wer dir etwas anderes erzählt, hat noch keine gepflegt.
 
-**Zeit bei jeder Änderung.** Unsere CI brauchte am 20. November vom Push bis Grün etwa sechzehneinhalb Minuten, den Großteil davon in der Browser-Suite auf einem Runner. Seit die Suite auf <RepositoryFact name="e2eShards" /> Runnern parallel läuft, dauert der Lauf eines Pull Requests etwa 8 bis 10 Minuten, und die Merge-Queue führt ihn vor dem Merge noch einmal aus, plus die Zeit, die ein lokaler Lauf vor dem Push braucht. Shards erkaufen diese Zeit mit Runner-Minuten, weil jeder die Toolchain und den Browser erneut einrichtet. Für ein öffentliches Repository kosten die CI-Minuten selbst auf den Standard-Runnern von GitHub nichts, die GitHub für öffentliche Repositories als kostenlos dokumentiert; ein privates Repository bezahlt jede Minute, und eine Browser-Suite ist der Ort, an dem diese Minuten verbraucht werden.
+**Zeit bei jeder Änderung.** Unsere CI brauchte am 20. November vom Push bis Grün etwa sechzehneinhalb Minuten, den Großteil davon in der Browser-Suite auf einem Runner. Seit die Suite auf <RepositoryFact name="e2eShards" /> Runnern parallel läuft, dauert der Lauf eines Pull Requests etwa 7 bis 9 Minuten, und die Merge-Queue führt ihn vor dem Merge noch einmal aus, plus die Zeit, die ein lokaler Lauf vor dem Push braucht. Shards erkaufen diese Zeit mit Runner-Minuten, weil jeder die Toolchain und den Browser erneut einrichtet. Für ein öffentliches Repository kosten die CI-Minuten selbst auf den Standard-Runnern von GitHub nichts, die GitHub für öffentliche Repositories als kostenlos dokumentiert; ein privates Repository bezahlt jede Minute, und eine Browser-Suite ist der Ort, an dem diese Minuten verbraucht werden.
 
 **Code, der geschrieben und gepflegt werden muss.** Unsere Inhalts- und Übersetzungsprüfungen, der Build-Prüfer, das Hydration-Plugin und der Commit-Hook sind zusammen mehr als tausend Zeilen TypeScript, mit eigenen Tests. Sie sind Code wie jeder andere: Sie haben Bugs, wie der Shebang und das französische „ton“ zeigen, und sie brauchen dasselbe Review.
 

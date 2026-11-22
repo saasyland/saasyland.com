@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署名済みパスを通じて配信する、非公開の動画とレッスンの資料のストレージと CLI のテンプレートバンドルです。"
+description: "MEDIA と BUNDLES のバケット：動画、レッスンの資料、コースのカバー画像を保存する非公開のストレージと、CLI のテンプレートバンドルです。いずれも Worker が配信します。"
 ---
 
 どの環境も、`wrangler.jsonc` で R2 バケットを `MEDIA` としてバインドします。本番では `saasyland`、プレビューでは `saasyland-preview`、`bun run dev` ではローカルの `saasyland-local` バケット、テストビルドではローカルの `saasyland-test` バケットです。バケットは非公開です。パブリックアクセスと `r2.dev` の URL は無効のままで、すべての読み取りは Worker を経由します。ライセンスのエリアは、CLI のテンプレートバンドル用に 2 つ目のバケット `BUNDLES` をバインドします（[テンプレートバンドル](#template-bundles)を参照）。
@@ -10,6 +10,8 @@ description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署�
 各動画のファイルは `videos/<videoId>/` 配下に置かれます。`videoId` は `video` の行の ID です。キーは `src/modules/video/video.files.ts` の `videoObjectKey` と `videoDirectory` が組み立てます。`mediaContentType` は、アップロードまたは配信できるファイル名だけを、そのメディアタイプとともに列挙します。それ以外のファイルは拒否されます。
 
 アップロードされたレッスンの資料は、それぞれ `attachments/<attachmentId>/<fileName>` 配下に置かれます。`attachmentId` は `lesson_attachment` の行の ID で、`fileName` はアップロードされた名前を英字、数字、ドット、ハイフン、アンダースコアだけに絞ったものです。`src/modules/lesson-attachment/lesson-attachment.files.ts` の `attachmentObjectKey` と `attachmentContentType` がキーを組み立て、アップロードまたは配信できる <RepositoryFact name="attachmentFileTypes" /> の拡張子のメディアタイプを返します。
+
+コースのカバー画像は、フルサイズが `covers/<courseId>/<coverId>.<extension>` に置かれ、小さいサイズはその横に `<coverId>-<width>.<extension>` として置かれます。キーは `src/modules/course/course.cover.ts` の `coverObjectKey` と `coverVariantKey` が組み立て、`coverContentType` が保存されたカバー画像（WebP または JPEG）のメディアタイプを返します。
 
 ## 署名済みの配信
 
@@ -23,7 +25,7 @@ description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署�
 - `signature` は、`AUTH_SECRET` から HKDF で導出した鍵による `<videoId>.<expiry>` の HMAC-SHA-256 です。そのため追加のシークレットは不要で、この鍵はほかの用途には使われません。
 - プレイリストはレンディション、セグメント、字幕を相対パスで参照するため、署名済みの 1 つのプレフィックスでストリーム全体をカバーできます。
 
-`src/server.ts` は、すべての `/media/` リクエストを、ロケールミドルウェアと TanStack Start より前に `serveMedia`（`src/modules/video/video.delivery.ts`）へ渡し、通常のセキュリティヘッダーを付けます。`serveMedia` の動作は次のとおりです。
+`src/server.ts` は、すべての `/media/` リクエストを、ロケールミドルウェアと TanStack Start より前にコース領域のハンドラー（`src/data/courses.worker.ts`）へ渡し、通常のセキュリティヘッダーを付けます。ハンドラーは `/media/covers/` には `serveCover` を、`/media/downloads/` には `serveAttachment` を、それ以外のパスには `serveMedia`（`src/modules/video/video.delivery.ts`）を、それぞれ動的な `import()` で読み込みます。`serveMedia` の動作は次のとおりです。
 
 - `GET` と `HEAD` だけを受け付けます（それ以外は `405`）。
 - 一覧にあるメディアファイル以外のパスには `404` を、期限切れまたは不正な署名には `403` を返します。
@@ -34,11 +36,13 @@ description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署�
 
 レッスンの資料も、`/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>` の下で同じ方式を使います。鍵は専用で、有効期間は少なくとも <RepositoryFact name="signedDownloadHours" unit="hour" />です。`getLesson` は、レッスンを開ける視聴者に対してだけ署名します。`serveAttachment`（`src/modules/lesson-attachment/lesson-attachment.delivery.ts`）は `/media/` のハンドラーから `serveMedia` の代わりに `/media/downloads/` 以下のリクエストを受け取り、`GET` と `HEAD` だけを受け付け、期限切れまたは不正な署名には `403` を、存在しないファイルには `404` を返し、`Content-Disposition: attachment` と `Cache-Control: private, no-store` を付けてファイルを配信します。
 
+コースのカバー画像は公開されており、署名なしで `/media/covers/<courseId>/<file>` に置かれます。カタログ、コースのページ、ランディングページがすべての訪問者に表示するためです。`serveCover`（`src/modules/course/course.delivery.ts`）は `GET` と `HEAD` だけを受け付け（それ以外は `405`）、カバー画像を指さないパスと存在しないファイルには `404` を返し、カバー画像を `Cache-Control: public, max-age=31536000, immutable` で配信して、Workers キャッシュ `covers` にコピーを保持します。新しいカバー画像には毎回新しい ID が付くため、キャッシュされたコピーが古くなることはありません。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。
+
 ## アップロード
 
 Worker は動画のアップロードを受け付けません。`scripts/publish-video.ts` が、`bunx wrangler login` でのログインを使い、`wrangler r2 bulk put --remote` でバケットに書き込みます。[動画](/docs/features/videos)を参照してください。管理画面から動画を削除すると、バインディングを通じてプレフィックス配下を一覧し、オブジェクトをページ単位で削除します。
 
-Worker が受け付ける唯一のアップロードはレッスンの資料です。`uploadLessonAttachment` は管理者から最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB のファイルを受け取り、バインディングを通じて書き込みます。資料、またはそれが属するレッスン、チャプター、コースを削除すると、そのオブジェクトも削除されます。[コース](/docs/features/courses#materials)を参照してください。
+Worker が受け付けるアップロードは、レッスンの資料とコースのカバー画像の 2 つです。`uploadLessonAttachment` は管理者から最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB のファイルを受け取り、バインディングを通じて書き込みます。資料、またはそれが属するレッスン、チャプター、コースを削除すると、そのオブジェクトも削除されます。[コース](/docs/features/courses#materials)を参照してください。`uploadCourseCover` は管理者からカバー画像の各サイズをそれぞれ最大 <RepositoryFact name="courseCoverMaxMegabytes" /> MB で受け取り、カバー画像を差し替えるか外すか、コースを削除すると、そのファイルが削除されます。
 
 ## テンプレートバンドル [#template-bundles]
 

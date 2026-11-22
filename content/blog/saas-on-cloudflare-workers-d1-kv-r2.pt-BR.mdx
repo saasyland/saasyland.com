@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -159,13 +159,13 @@ As regras por trás dela: o que decide o acesso fica guardado em algum lugar con
 
 O saasyland.com segue a tabela com cinco bindings, declarados em `wrangler.jsonc`:
 
-| Binding   | Produto                       | O que guarda                                                                                        | Onde fica no código                                    |
-| --------- | ----------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ASSETS`  | Arquivos estáticos do Workers | Páginas pré-renderizadas, scripts, estilos, fontes e imagens do build                               | `src/server.ts`                                        |
-| `DB`      | D1                            | Usuários, sessões, licenças, cópias dos pedidos da Polar, cursos, vídeos e contadores de rate limit | `src/integrations/drizzle-orm/` e `src/modules/`       |
-| `CACHE`   | KV                            | Uma resposta em cache da API de outro serviço                                                       | `src/lib/github.ts`                                    |
-| `MEDIA`   | R2                            | Vídeos dos cursos e materiais das aulas                                                             | `src/modules/video/`, `src/modules/lesson-attachment/` |
-| `BUNDLES` | R2                            | O pacote de templates de cada versão da CLI                                                         | `src/modules/license/`                                 |
+| Binding   | Produto                       | O que guarda                                                                                        | Onde fica no código                                                           |
+| --------- | ----------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`  | Arquivos estáticos do Workers | Páginas pré-renderizadas, scripts, estilos, fontes e imagens do build                               | `src/server.ts`                                                               |
+| `DB`      | D1                            | Usuários, sessões, licenças, cópias dos pedidos da Polar, cursos, vídeos e contadores de rate limit | `src/integrations/drizzle-orm/` e `src/modules/`                              |
+| `CACHE`   | KV                            | Uma resposta em cache da API de outro serviço                                                       | `src/lib/github.ts`                                                           |
+| `MEDIA`   | R2                            | Vídeos e capas dos cursos e materiais das aulas                                                     | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                            | O pacote de templates de cada versão da CLI                                                         | `src/modules/license/`                                                        |
 
 Ainda não há nenhum Durable Object: todos os contadores que o site mantém ficam no D1, como mostra a seção sobre rate limits.
 
@@ -188,7 +188,7 @@ O arquivo de configuração de um Worker é o mapa do seu sistema inteiro, e val
 
 ### Exemplo prático: quatro ambientes e duas verificações de deploy
 
-`wrangler.jsonc` define quatro ambientes com os mesmos bindings: `production`, `preview`, `development`, que usa os recursos de preview remotamente, e `test`, que mantém um banco D1, um namespace KV e buckets locais em `.wrangler/test` para a suíte de navegador. Cada ambiente lista os secrets de que precisa. Antes de qualquer deploy, `scripts/verify-bindings.ts` falha quando falta um binding a um ambiente, quando ele ainda tem um ID de D1 ou de KV de placeholder ou quando a produção compartilha o seu banco de dados, namespace ou bucket com o preview, e `scripts/prepare-deploy-secrets.ts` falha quando um secret obrigatório está ausente, vazio ou é um placeholder, nomeando a chave sem imprimir o valor dela.
+`wrangler.jsonc` define quatro ambientes com os mesmos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` um banco de dados D1, um namespace KV e buckets locais próprios, e `test`, que mantém um banco D1, um namespace KV e buckets locais em `.wrangler/test` para a suíte de navegador. Cada ambiente lista os secrets de que precisa. Antes de qualquer deploy, `scripts/verify-bindings.ts` falha quando falta um binding a um ambiente, quando ele ainda tem um ID de D1 ou de KV de placeholder ou quando a produção compartilha o seu banco de dados, namespace ou bucket com o preview, e `scripts/prepare-deploy-secrets.ts` falha quando um secret obrigatório está ausente, vazio ou é um placeholder, nomeando a chave sem imprimir o valor dela.
 
 A segunda verificação nasceu de um erro real, registrado no [#223](https://github.com/saasyland/saasyland.com/pull/223). O arquivo de secrets de produção ainda tinha `[UPDATE]` como client ID do OAuth do Google, o deploy o enviou porque a verificação, na época, só recusava valores vazios, e o login com o Google falhou com `invalid_client`. A correção veio em duas camadas: uma verificação no ar depois de cada deploy, que inicia um login com cada provedor e valida a URL para a qual ele é enviado, e a recusa de valores de placeholder antes mesmo de o build começar. Cada camada teria pegado o erro sozinha; juntas, elas o pegam duas vezes.
 
@@ -423,7 +423,7 @@ No saasyland.com, os schemas ficam nos módulos das tabelas. `bun run db:generat
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-Um pull request que passa nas verificações e na suíte de navegador faz deploy no ambiente de preview, e um merge na `main` faz deploy em produção. Os dois executam as mesmas etapas: verificar os bindings, fazer o build, aplicar as migrações do ambiente e então executar `wrangler deploy`. O banco de dados muda primeiro, então, por um curto período, o Worker que ainda está no ar roda com o schema novo. A migração que adicionou os registros de entrega das licenças mostra o tipo de mudança que sobrevive a isso: três colunas anuláveis que a versão anterior simplesmente ignorava. Ela começa assim:
+Um pull request envia uma nova versão do Worker de preview sem fazer o deploy dela, e a Cloudflare a verifica como verifica um deploy; um merge na `main` faz o deploy do preview compartilhado e depois da produção. Os dois deploys executam as mesmas etapas: verificar os bindings, fazer o build, aplicar as migrações do ambiente e então executar `wrangler deploy`. O banco de dados muda primeiro, então, por um curto período, o Worker que ainda está no ar roda com o schema novo. A migração que adicionou os registros de entrega das licenças mostra o tipo de mudança que sobrevive a isso: três colunas anuláveis que a versão anterior simplesmente ignorava. Ela começa assim:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -508,7 +508,7 @@ Seja qual for a sua escolha, os dois tipos de URL são tokens de portador. A doc
 
 ### Exemplo prático: vídeos dos cursos e pacotes da CLI
 
-O saasyland.com guarda os vídeos dos cursos e os materiais das aulas em `MEDIA` e os pacotes de templates da CLI em `BUNDLES`, ambos privados. Uma gravação é codificada com o FFmpeg na máquina de quem publica, em HLS adaptativo, com variantes de até <RepositoryFact name="videoTopRendition" />, segmentos de <RepositoryFact name="videoSegmentSeconds" unit="second" />, um pôster, um storyboard para as prévias ao buscar e legendas por idioma, e é enviada com o Wrangler. O Worker nunca aceita o envio de um vídeo. Uma aula no D1 aponta para uma linha da tabela `video`, e uma aula cujo vídeo está marcado como provisório aparece como em gravação em vez de ser reproduzida.
+O saasyland.com guarda os vídeos e as capas dos cursos e os materiais das aulas em `MEDIA` e os pacotes de templates da CLI em `BUNDLES`, ambos privados. Uma gravação é codificada com o FFmpeg na máquina de quem publica, em HLS adaptativo, com variantes de até <RepositoryFact name="videoTopRendition" />, segmentos de <RepositoryFact name="videoSegmentSeconds" unit="second" />, um pôster, um storyboard para as prévias ao buscar e legendas por idioma, e é enviada com o Wrangler. O Worker nunca aceita o envio de um vídeo. Uma aula no D1 aponta para uma linha da tabela `video`, e uma aula cujo vídeo está marcado como provisório aparece como em gravação em vez de ser reproduzida.
 
 Quando um visitante abre uma aula, `getLessonPlayback` a carrega do D1, verifica com `hasLessonAccess` se esse espectador pode assisti-la e só então assina os caminhos:
 
@@ -528,7 +528,7 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-A assinatura é um HMAC-SHA-256 com uma chave que o HKDF deriva do secret de autenticação apenas para a reprodução de vídeos. A expiração fica pelo menos <RepositoryFact name="signedMediaHours" unit="hour" /> à frente, arredondada para cima até a hora cheia. `serveMedia` verifica o método, o nome do arquivo e a assinatura, responde a requisições `Range` com `206` diretamente do R2 e guarda os arquivos inteiros no cache do Workers sob uma chave sem a assinatura. Os materiais das aulas usam o mesmo esquema em `/media/downloads/`, com uma chave própria e links válidos por pelo menos <RepositoryFact name="signedDownloadHours" unit="hour" />; eles são o único envio que o Worker aceita, de até <RepositoryFact name="attachmentMaxMegabytes" /> MB, feito por um admin.
+A assinatura é um HMAC-SHA-256 com uma chave que o HKDF deriva do secret de autenticação apenas para a reprodução de vídeos. A expiração fica pelo menos <RepositoryFact name="signedMediaHours" unit="hour" /> à frente, arredondada para cima até a hora cheia. `serveMedia` verifica o método, o nome do arquivo e a assinatura, responde a requisições `Range` com `206` diretamente do R2 e guarda os arquivos inteiros no cache do Workers sob uma chave sem a assinatura. Os materiais das aulas usam o mesmo esquema em `/media/downloads/`, com uma chave própria e links válidos por pelo menos <RepositoryFact name="signedDownloadHours" unit="hour" />; eles e as capas dos cursos são os dois envios que o Worker aceita, feitos por um admin, de até <RepositoryFact name="attachmentMaxMegabytes" /> MB por material e <RepositoryFact name="courseCoverMaxMegabytes" /> MB por tamanho de capa. As capas são públicas: `serveCover` as serve sem assinatura em `/media/covers/`, cacheáveis por um ano, porque cada capa nova recebe um id novo.
 
 Os pacotes mostram a regra dos metadados. Cada versão da CLI envia o seu pacote de templates com o SHA-256 do conteúdo como metadado personalizado do R2, e a API de licenças responde a uma requisição de pacote lendo esse digest com `head()` e depois assina uma URL de download válida por <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Antes do [#208](https://github.com/saasyland/saasyland.com/pull/208), o Worker baixava, descompactava e calculava o hash do arquivo compactado a cada requisição, cerca de 31 ms de CPU para um pacote de 1,7 MB nas nossas medições locais; ler os metadados reduziu isso para cerca de 3 ms, seja qual for o tamanho do pacote.
 

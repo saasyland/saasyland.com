@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Бакети MEDIA і BUNDLES: приватне сховище відео й матеріалів уроків та бандли шаблонів CLI, які Worker віддає через підписані шляхи з обмеженим терміном дії."
+description: "Бакети MEDIA і BUNDLES: приватне сховище відео, матеріалів уроків і обкладинок курсів та бандли шаблонів CLI, які віддає Worker."
 ---
 
 Кожне середовище прив'язує бакет R2 як `MEDIA` у `wrangler.jsonc`: `saasyland` у production, `saasyland-preview` для preview, локальний бакет `saasyland-local` для `bun run dev` і локальний бакет `saasyland-test` для тестової збірки. Бакети приватні: публічний доступ і URL-адреса `r2.dev` залишаються вимкненими, а кожне читання проходить через Worker. Розділ ліцензій прив'язує другий бакет, `BUNDLES`, для бандлів шаблонів CLI (див. [Бандли шаблонів](#template-bundles)).
@@ -10,6 +10,8 @@ description: "Бакети MEDIA і BUNDLES: приватне сховище в�
 Файли кожного відео лежать у `videos/<videoId>/`, де `videoId` — ідентифікатор рядка `video`. `videoObjectKey` і `videoDirectory` у `src/modules/video/video.files.ts` будують ключі, а `mediaContentType` перелічує єдині назви файлів, які можна завантажувати чи віддавати, разом із їхніми медіатипами. Усе інше відхиляється.
 
 Кожен завантажений матеріал уроку лежить у `attachments/<attachmentId>/<fileName>`, де `attachmentId` — ідентифікатор рядка `lesson_attachment`, а `fileName` — назва завантаженого файлу, у якій залишено лише літери, цифри, крапки, дефіси й підкреслення. `attachmentObjectKey` і `attachmentContentType` у `src/modules/lesson-attachment/lesson-attachment.files.ts` будують ключ і дають медіатип розширень <RepositoryFact name="attachmentFileTypes" />, які можна завантажувати чи віддавати.
+
+Кожна обкладинка курсу лежить у повному розмірі під `covers/<courseId>/<coverId>.<extension>`, а кожен менший розмір поруч як `<coverId>-<width>.<extension>`. Ключі будують `coverObjectKey` і `coverVariantKey` у `src/modules/course/course.cover.ts`, а `coverContentType` повертає тип медіа збереженої обкладинки, WebP або JPEG.
 
 ## Підписана доставка
 
@@ -23,7 +25,7 @@ description: "Бакети MEDIA і BUNDLES: приватне сховище в�
 - `signature` — це HMAC-SHA-256 від `<videoId>.<expiry>` із ключем, виведеним з `AUTH_SECRET` за допомогою HKDF, тож додатковий секрет не потрібен, а цей ключ більше ні для чого не використовується.
 - Плейлисти посилаються на варіанти якості, сегменти й субтитри відносними шляхами, тож один підписаний префікс охоплює весь потік.
 
-`src/server.ts` передає кожен запит `/media/` до `serveMedia` (`src/modules/video/video.delivery.ts`) ще до middleware локалі й TanStack Start і додає звичайні заголовки безпеки. `serveMedia`:
+`src/server.ts` передає кожен запит `/media/` до обробника розділу курсів у `src/data/courses.worker.ts` ще до middleware локалі й TanStack Start і додає звичайні заголовки безпеки. Обробник завантажує `serveCover` для `/media/covers/`, `serveAttachment` для `/media/downloads/` і `serveMedia` (`src/modules/video/video.delivery.ts`) для будь-якого іншого шляху, кожен через динамічний `import()`. `serveMedia`:
 
 - приймає лише `GET` і `HEAD` (інакше `405`);
 - повертає `404` для шляху, який не є дозволеним медіафайлом, і `403` для простроченого або неправильного підпису;
@@ -34,11 +36,13 @@ description: "Бакети MEDIA і BUNDLES: приватне сховище в�
 
 Матеріали уроків використовують ту саму схему за шляхами `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, із власним ключем і терміном дії щонайменше <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` підписує їх лише для глядача, який може відкрити урок. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) отримує від обробника `/media/` запити за шляхом `/media/downloads/` замість `serveMedia`, приймає лише `GET` і `HEAD`, відповідає `403` на прострочений або неправильний підпис і `404` на файл, якого немає, і віддає файл із `Content-Disposition: attachment` і `Cache-Control: private, no-store`.
 
+Обкладинки курсів публічні й без підпису, під `/media/covers/<courseId>/<file>`, бо каталог, сторінки курсів і головна сторінка показують їх кожному відвідувачу. `serveCover` (`src/modules/course/course.delivery.ts`) приймає лише `GET` і `HEAD` (інакше `405`), відповідає `404` на шлях, що не вказує на обкладинку, і на файл, якого немає, віддає обкладинку з `Cache-Control: public, max-age=31536000, immutable` і тримає копію в кеші Workers `covers`. Кожна нова обкладинка отримує новий ідентифікатор, тож жодна кешована копія не застаріває; див. [Обкладинки курсів](/docs/features/courses#course-covers).
+
 ## Завантаження
 
 Worker не приймає завантажень відео. `scripts/publish-video.ts` записує файли в бакет командою `wrangler r2 bulk put --remote`, використовуючи ваш вхід через `bunx wrangler login`; див. [Відео](/docs/features/videos). Видалення відео в адмінці отримує перелік об'єктів під його префіксом і видаляє їх сторінку за сторінкою через прив'язку.
 
-Матеріали уроків — єдине завантаження, яке приймає Worker: `uploadLessonAttachment` отримує від адміністратора файл розміром до <RepositoryFact name="attachmentMaxMegabytes" /> МБ і записує його через прив'язку. Видалення матеріалу або уроку, розділу чи курсу, до якого він належить, видаляє його об'єкт; див. [Курси](/docs/features/courses#materials).
+Матеріали уроків і обкладинки курсів — два завантаження, які приймає Worker. `uploadLessonAttachment` отримує від адміністратора файл розміром до <RepositoryFact name="attachmentMaxMegabytes" /> МБ і записує його через прив'язку. Видалення матеріалу або уроку, розділу чи курсу, до якого він належить, видаляє його об'єкт; див. [Курси](/docs/features/courses#materials). `uploadCourseCover` отримує від адміністратора розміри обкладинки, кожен до <RepositoryFact name="courseCoverMaxMegabytes" /> МБ, а заміна чи видалення обкладинки або видалення курсу видаляє її файли.
 
 ## Бандли шаблонів [#template-bundles]
 

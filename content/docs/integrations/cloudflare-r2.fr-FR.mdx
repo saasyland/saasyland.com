@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Les buckets MEDIA et BUNDLES : un stockage privé des vidéos et des ressources des leçons, et les bundles de modèles de la CLI, servis par le Worker via des chemins signés qui expirent."
+description: "Les buckets MEDIA et BUNDLES : un stockage privé des vidéos, des ressources des leçons et des couvertures des cours, et les bundles de modèles de la CLI, tous servis par le Worker."
 ---
 
 Chaque environnement lie un bucket R2 sous le nom `MEDIA` dans `wrangler.jsonc` : `saasyland` en production, `saasyland-preview` pour la préversion, un bucket local `saasyland-local` pour `bun run dev` et un bucket local `saasyland-test` pour le build de test. Les buckets sont privés : l'accès public et l'URL `r2.dev` restent désactivés, et chaque lecture passe par le Worker. La zone des licences lie un second bucket, `BUNDLES`, pour les bundles de modèles de la CLI (voir [Bundles de modèles](#template-bundles)).
@@ -10,6 +10,8 @@ Chaque environnement lie un bucket R2 sous le nom `MEDIA` dans `wrangler.jsonc` 
 Les fichiers de chaque vidéo se trouvent sous `videos/<videoId>/`, où `videoId` est l'identifiant de la ligne `video`. `videoObjectKey` et `videoDirectory` dans `src/modules/video/video.files.ts` construisent les clés, et `mediaContentType` liste les seuls noms de fichiers qui peuvent être téléversés ou servis, avec leurs types de média. Tout le reste est refusé.
 
 Chaque ressource de leçon téléversée se trouve sous `attachments/<attachmentId>/<fileName>`, où `attachmentId` est l'identifiant de la ligne `lesson_attachment` et `fileName` le nom téléversé réduit aux lettres, chiffres, points, traits d'union et tirets bas. `attachmentObjectKey` et `attachmentContentType` dans `src/modules/lesson-attachment/lesson-attachment.files.ts` construisent la clé et donnent le type de média des extensions <RepositoryFact name="attachmentFileTypes" /> qui peuvent être téléversées ou servies.
+
+Chaque couverture de cours se trouve sous `covers/<courseId>/<coverId>.<extension>` en taille réelle, et chaque taille plus petite à côté sous `<coverId>-<width>.<extension>`. `coverObjectKey` et `coverVariantKey` dans `src/modules/course/course.cover.ts` construisent les clés, et `coverContentType` donne le type de média d’une couverture stockée, WebP ou JPEG.
 
 ## Diffusion signée
 
@@ -23,7 +25,7 @@ Le lecteur ne voit jamais de clé de bucket. Une fonction serveur appelle `creat
 - `signature` est un HMAC-SHA-256 de `<videoId>.<expiry>` avec une clé dérivée de `AUTH_SECRET` par HKDF : aucun secret supplémentaire n'est nécessaire et la clé ne sert à rien d'autre.
 - Les playlists désignent les rendus, les segments et les sous-titres par des chemins relatifs, si bien qu'un seul préfixe signé couvre tout le flux.
 
-`src/server.ts` envoie chaque requête `/media/` à `serveMedia` (`src/modules/video/video.delivery.ts`) avant le middleware de langue et TanStack Start, et ajoute les en-têtes de sécurité habituels. `serveMedia` :
+`src/server.ts` envoie chaque requête `/media/` au handler de l’espace des cours dans `src/data/courses.worker.ts` avant le middleware de langue et TanStack Start, et ajoute les en-têtes de sécurité habituels. Le handler charge `serveCover` pour `/media/covers/`, `serveAttachment` pour `/media/downloads/` et `serveMedia` (`src/modules/video/video.delivery.ts`) pour tout autre chemin, chacun avec un `import()` dynamique. `serveMedia` :
 
 - n'accepte que `GET` et `HEAD` (`405` sinon) ;
 - renvoie `404` pour un chemin qui ne correspond pas à un fichier média listé et `403` pour une signature expirée ou erronée ;
@@ -34,11 +36,13 @@ Les chemins signés fonctionnent comme des liens au porteur jusqu'à leur expira
 
 Les ressources des leçons utilisent le même schéma sous `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, avec une clé qui leur est propre et une durée de validité d'au moins <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` ne les signe que pour un spectateur qui peut ouvrir la leçon. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) reçoit du gestionnaire de `/media/` les requêtes sous `/media/downloads/` à la place de `serveMedia`, n'accepte que `GET` et `HEAD`, répond `403` à une signature expirée ou erronée et `404` pour un fichier absent, et sert le fichier avec `Content-Disposition: attachment` et `Cache-Control: private, no-store`.
 
+Les couvertures de cours sont publiques et non signées, sous `/media/covers/<courseId>/<file>`, car le catalogue, les pages des cours et la page d’accueil les montrent à tout visiteur. `serveCover` (`src/modules/course/course.delivery.ts`) n’accepte que `GET` et `HEAD` (`405` sinon), répond `404` à un chemin qui ne désigne aucune couverture et à un fichier absent, sert la couverture avec `Cache-Control: public, max-age=31536000, immutable` et en garde une copie dans le cache Workers `covers`. Chaque nouvelle couverture reçoit un nouvel identifiant, si bien qu’aucune copie en cache ne devient périmée ; voir [Couvertures des cours](/docs/features/courses#course-covers).
+
 ## Téléversements
 
 Le Worker n'accepte aucun téléversement de vidéo. `scripts/publish-video.ts` écrit dans le bucket avec `wrangler r2 bulk put --remote`, en utilisant votre `bunx wrangler login` ; voir [Vidéos](/docs/features/videos). Supprimer une vidéo depuis l'administration liste le préfixe et supprime les objets page par page via le binding.
 
-Les ressources des leçons sont le seul téléversement qu'accepte le Worker : `uploadLessonAttachment` reçoit d'un administrateur un fichier d'au plus <RepositoryFact name="attachmentMaxMegabytes" /> Mo et l'écrit via le binding. Supprimer une ressource, ou la leçon, le chapitre ou le cours auquel elle appartient, supprime son objet ; voir [Cours](/docs/features/courses#materials).
+Les ressources des leçons et les couvertures des cours sont les deux téléversements qu'accepte le Worker. `uploadLessonAttachment` reçoit d'un administrateur un fichier d'au plus <RepositoryFact name="attachmentMaxMegabytes" /> Mo et l'écrit via le binding. Supprimer une ressource, ou la leçon, le chapitre ou le cours auquel elle appartient, supprime son objet ; voir [Cours](/docs/features/courses#materials). `uploadCourseCover` reçoit d'un administrateur les tailles d'une couverture, chacune d'au plus <RepositoryFact name="courseCoverMaxMegabytes" /> Mo, et remplacer ou retirer la couverture, ou supprimer le cours, supprime ses fichiers.
 
 ## Bundles de modèles [#template-bundles]
 

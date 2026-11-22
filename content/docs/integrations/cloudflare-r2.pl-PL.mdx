@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo i materiałów lekcji oraz paczki szablonów CLI, które Worker serwuje przez podpisane, wygasające ścieżki."
+description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo, materiałów lekcji i okładek kursów oraz paczki szablonów CLI, które serwuje Worker."
 ---
 
 Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview, lokalny bucket `saasyland-local` dla `bun run dev` i lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera. Obszar licencji wiąże drugi bucket, `BUNDLES`, na paczki szablonów CLI (zobacz [Paczki szablonów](#template-bundles)).
@@ -10,6 +10,8 @@ Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland
 Pliki każdego filmu znajdują się pod `videos/<videoId>/`, gdzie `videoId` to id wiersza `video`. Klucze budują `videoObjectKey` i `videoDirectory` w `src/modules/video/video.files.ts`, a `mediaContentType` wymienia jedyne nazwy plików, które wolno przesłać lub serwować, wraz z ich typami mediów. Wszystko inne jest odrzucane.
 
 Każdy przesłany materiał lekcji znajduje się pod `attachments/<attachmentId>/<fileName>`, gdzie `attachmentId` to id wiersza `lesson_attachment`, a `fileName` to przesłana nazwa ograniczona do liter, cyfr, kropek, myślników i podkreśleń. `attachmentObjectKey` i `attachmentContentType` w `src/modules/lesson-attachment/lesson-attachment.files.ts` budują klucz i podają typ mediów dla rozszerzeń <RepositoryFact name="attachmentFileTypes" />, które wolno przesłać lub serwować.
+
+Każda okładka kursu leży w pełnym rozmiarze pod `covers/<courseId>/<coverId>.<extension>`, a każdy mniejszy rozmiar obok jako `<coverId>-<width>.<extension>`. Klucze budują `coverObjectKey` i `coverVariantKey` w `src/modules/course/course.cover.ts`, a `coverContentType` podaje typ multimediów zapisanej okładki, WebP lub JPEG.
 
 ## Podpisane dostarczanie
 
@@ -23,7 +25,7 @@ Odtwarzacz nigdy nie widzi klucza obiektu w buckecie. Funkcja serwerowa wywołuj
 - `signature` to HMAC-SHA-256 z `<videoId>.<expiry>` z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF, więc nie jest potrzebny dodatkowy sekret, a klucz nie służy do niczego innego.
 - Playlisty odwołują się do wariantów, segmentów i napisów przez ścieżki względne, więc jeden podpisany prefiks obejmuje cały strumień.
 
-`src/server.ts` przekazuje każde żądanie `/media/` do `serveMedia` (`src/modules/video/video.delivery.ts`) przed middleware języka i TanStack Start oraz dodaje standardowe nagłówki bezpieczeństwa. `serveMedia`:
+`src/server.ts` przekazuje każde żądanie `/media/` do handlera obszaru kursów w `src/data/courses.worker.ts` przed middleware języka i TanStack Start oraz dodaje standardowe nagłówki bezpieczeństwa. Handler ładuje `serveCover` dla `/media/covers/`, `serveAttachment` dla `/media/downloads/` i `serveMedia` (`src/modules/video/video.delivery.ts`) dla każdej innej ścieżki, każdy dynamicznym `import()`. `serveMedia`:
 
 - przyjmuje tylko `GET` i `HEAD` (w przeciwnym razie `405`);
 - zwraca `404` dla ścieżki, która nie jest wymienionym plikiem multimedialnym, i `403` dla wygasłego lub błędnego podpisu;
@@ -34,11 +36,13 @@ Podpisane ścieżki działają jak linki na okaziciela, dopóki nie wygasną: ka
 
 Materiały lekcji korzystają z tego samego schematu pod `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, z własnym kluczem i okresem ważności wynoszącym co najmniej <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` podpisuje je tylko dla widza, który może otworzyć lekcję. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) otrzymuje od obsługi `/media/` żądania pod `/media/downloads/` zamiast `serveMedia`, przyjmuje tylko `GET` i `HEAD`, odpowiada `403` na wygasły lub błędny podpis i `404` na plik, którego nie ma, a plik serwuje z nagłówkami `Content-Disposition: attachment` i `Cache-Control: private, no-store`.
 
+Okładki kursów są publiczne i niepodpisane, pod `/media/covers/<courseId>/<file>`, bo katalog, strony kursów i strona główna pokazują je każdemu odwiedzającemu. `serveCover` (`src/modules/course/course.delivery.ts`) przyjmuje tylko `GET` i `HEAD` (w innym razie `405`), odpowiada `404` na ścieżkę, która nie wskazuje okładki, i na plik, którego nie ma, serwuje okładkę z `Cache-Control: public, max-age=31536000, immutable` i trzyma kopię w pamięci podręcznej Workers `covers`. Każda nowa okładka dostaje nowy identyfikator, więc żadna kopia w pamięci podręcznej się nie przedawnia; zobacz [Okładki kursów](/docs/features/courses#course-covers).
+
 ## Przesyłanie plików
 
 Worker nie przyjmuje przesyłanych filmów. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
 
-Materiały lekcji to jedyne pliki, które Worker przyjmuje: `uploadLessonAttachment` przyjmuje od administratora plik o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB i zapisuje go przez binding. Usunięcie materiału albo lekcji, rozdziału lub kursu, do którego należy, usuwa jego obiekt; zobacz [Kursy](/docs/features/courses#materials).
+Materiały lekcji i okładki kursów to dwa rodzaje plików, które Worker przyjmuje. `uploadLessonAttachment` przyjmuje od administratora plik o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB i zapisuje go przez binding. Usunięcie materiału albo lekcji, rozdziału lub kursu, do którego należy, usuwa jego obiekt; zobacz [Kursy](/docs/features/courses#materials). `uploadCourseCover` przyjmuje od administratora rozmiary okładki, każdy do <RepositoryFact name="courseCoverMaxMegabytes" /> MB, a zastąpienie lub usunięcie okładki albo usunięcie kursu usuwa jej pliki.
 
 ## Paczki szablonów [#template-bundles]
 

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -159,13 +159,13 @@ Las reglas que hay detrás: lo que decide el acceso se guarda en un sitio consis
 
 saasyland.com sigue la tabla con cinco bindings, declarados en `wrangler.jsonc`:
 
-| Binding   | Producto                    | Qué guarda                                                                                                              | Dónde está en el código                                |
-| --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ASSETS`  | Assets estáticos de Workers | Las páginas prerenderizadas, los scripts, los estilos, las fuentes y las imágenes del build                             | `src/server.ts`                                        |
-| `DB`      | D1                          | Usuarios, sesiones, licencias, copias de los pedidos de Polar, cursos, vídeos y contadores de los límites de frecuencia | `src/integrations/drizzle-orm/` y `src/modules/`       |
-| `CACHE`   | KV                          | Una respuesta cacheada de la API de otro servicio                                                                       | `src/lib/github.ts`                                    |
-| `MEDIA`   | R2                          | Los vídeos de los cursos y los materiales de las lecciones                                                              | `src/modules/video/`, `src/modules/lesson-attachment/` |
-| `BUNDLES` | R2                          | El bundle de plantillas de cada versión de la CLI                                                                       | `src/modules/license/`                                 |
+| Binding   | Producto                    | Qué guarda                                                                                                              | Dónde está en el código                                                       |
+| --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`  | Assets estáticos de Workers | Las páginas prerenderizadas, los scripts, los estilos, las fuentes y las imágenes del build                             | `src/server.ts`                                                               |
+| `DB`      | D1                          | Usuarios, sesiones, licencias, copias de los pedidos de Polar, cursos, vídeos y contadores de los límites de frecuencia | `src/integrations/drizzle-orm/` y `src/modules/`                              |
+| `CACHE`   | KV                          | Una respuesta cacheada de la API de otro servicio                                                                       | `src/lib/github.ts`                                                           |
+| `MEDIA`   | R2                          | Los vídeos y las portadas de los cursos y los materiales de las lecciones                                               | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                          | El bundle de plantillas de cada versión de la CLI                                                                       | `src/modules/license/`                                                        |
 
 Todavía no hay ningún Durable Object: todos los contadores que mantiene el sitio viven en D1, como muestra la sección de límites de frecuencia.
 
@@ -188,7 +188,7 @@ El archivo de configuración de un Worker es el mapa de todo tu sistema, y merec
 
 ### Ejemplo práctico: cuatro entornos y dos comprobaciones de despliegue
 
-`wrangler.jsonc` define cuatro entornos con los mismos bindings: `production`, `preview`, `development`, que usa en remoto los recursos de preview, y `test`, que mantiene una base de datos D1, un espacio de nombres de KV y unos buckets locales en `.wrangler/test` para la suite del navegador. Cada entorno enumera los secretos que necesita. Antes de cualquier despliegue, `scripts/verify-bindings.ts` falla cuando a un entorno le falta un binding o todavía tiene un ID de D1 o de KV de marcador de posición, o cuando producción comparte con preview su base de datos, su espacio de nombres o un bucket, y `scripts/prepare-deploy-secrets.ts` falla cuando un secreto obligatorio falta, está vacío o es un marcador de posición, y nombra la clave sin imprimir su valor.
+`wrangler.jsonc` define cuatro entornos con los mismos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` una base de datos D1, un espacio de nombres de KV y unos buckets locales propios, y `test`, que mantiene una base de datos D1, un espacio de nombres de KV y unos buckets locales en `.wrangler/test` para la suite del navegador. Cada entorno enumera los secretos que necesita. Antes de cualquier despliegue, `scripts/verify-bindings.ts` falla cuando a un entorno le falta un binding o todavía tiene un ID de D1 o de KV de marcador de posición, o cuando producción comparte con preview su base de datos, su espacio de nombres o un bucket, y `scripts/prepare-deploy-secrets.ts` falla cuando un secreto obligatorio falta, está vacío o es un marcador de posición, y nombra la clave sin imprimir su valor.
 
 La segunda comprobación nació de un error real, registrado en [#223](https://github.com/saasyland/saasyland.com/pull/223). El archivo de secretos de producción todavía contenía `[UPDATE]` como ID de cliente OAuth de Google, el despliegue lo subió porque entonces la comprobación solo rechazaba los valores vacíos, y el inicio de sesión con Google falló con `invalid_client`. La corrección llegó en dos capas: una comprobación en vivo después de cada despliegue, que empieza un inicio de sesión con cada proveedor y valida la URL a la que se dirige, y el rechazo de los valores de marcador de posición antes incluso de que empiece el build. Cada capa lo habría detectado por sí sola; juntas lo detectan dos veces.
 
@@ -423,7 +423,7 @@ En saasyland.com, los esquemas viven en los módulos de las tablas. `bun run db:
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-Una pull request que supera las comprobaciones y la suite del navegador se despliega en el entorno de preview, y un merge a `main` se despliega en producción. Los dos siguen los mismos pasos: comprobar los bindings, compilar, aplicar las migraciones del entorno y después `wrangler deploy`. La base de datos cambia primero, así que durante un breve tiempo el Worker que sigue en producción funciona con el esquema nuevo. La migración que añadió los registros de entrega de las licencias muestra el tipo de cambio que sobrevive a eso: tres columnas que admiten nulos y que la versión anterior simplemente ignoraba. Empieza así:
+Una pull request sube una versión nueva del Worker de preview sin desplegarla, que Cloudflare comprueba como comprueba un despliegue, y un merge a `main` despliega la preview compartida y después producción. Los dos despliegues siguen los mismos pasos: comprobar los bindings, compilar, aplicar las migraciones del entorno y después `wrangler deploy`. La base de datos cambia primero, así que durante un breve tiempo el Worker que sigue en producción funciona con el esquema nuevo. La migración que añadió los registros de entrega de las licencias muestra el tipo de cambio que sobrevive a eso: tres columnas que admiten nulos y que la versión anterior simplemente ignoraba. Empieza así:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -508,7 +508,7 @@ Elijas lo que elijas, los dos tipos de URL son tokens al portador. La documentac
 
 ### Ejemplo práctico: los vídeos de los cursos y los bundles de la CLI
 
-saasyland.com guarda los vídeos de los cursos y los materiales de las lecciones en `MEDIA` y los bundles de plantillas de la CLI en `BUNDLES`, los dos privados. Una grabación se codifica con FFmpeg en la máquina de quien la publica, en HLS adaptativo, con variantes de hasta <RepositoryFact name="videoTopRendition" />, segmentos de <RepositoryFact name="videoSegmentSeconds" unit="second" />, un póster, un storyboard para las vistas previas al buscar y subtítulos por idioma, y se sube con Wrangler. El Worker nunca acepta la subida de un vídeo. Una lección en D1 apunta a una fila de la tabla `video`, y una lección cuyo vídeo está marcado como provisional aparece como en grabación en lugar de reproducirse.
+saasyland.com guarda los vídeos y las portadas de los cursos y los materiales de las lecciones en `MEDIA` y los bundles de plantillas de la CLI en `BUNDLES`, los dos privados. Una grabación se codifica con FFmpeg en la máquina de quien la publica, en HLS adaptativo, con variantes de hasta <RepositoryFact name="videoTopRendition" />, segmentos de <RepositoryFact name="videoSegmentSeconds" unit="second" />, un póster, un storyboard para las vistas previas al buscar y subtítulos por idioma, y se sube con Wrangler. El Worker nunca acepta la subida de un vídeo. Una lección en D1 apunta a una fila de la tabla `video`, y una lección cuyo vídeo está marcado como provisional aparece como en grabación en lugar de reproducirse.
 
 Cuando un visitante abre una lección, `getLessonPlayback` la carga desde D1, comprueba con `hasLessonAccess` que ese espectador puede verla y solo entonces firma las rutas:
 
@@ -528,7 +528,7 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-La firma es un HMAC-SHA-256 con una clave que HKDF deriva del secreto de autenticación solo para la reproducción de vídeo. La caducidad está al menos <RepositoryFact name="signedMediaHours" unit="hour" /> en el futuro, redondeada al alza a la hora en punto. `serveMedia` comprueba el método, el nombre del archivo y la firma, responde a las peticiones `Range` con `206` directamente desde R2 y guarda los archivos completos en la caché de Workers bajo una clave sin la firma. Los materiales de las lecciones usan el mismo esquema bajo `/media/downloads/`, con una clave propia y enlaces válidos durante al menos <RepositoryFact name="signedDownloadHours" unit="hour" />; son la única subida que acepta el Worker: archivos de hasta <RepositoryFact name="attachmentMaxMegabytes" /> MB, subidos por un administrador.
+La firma es un HMAC-SHA-256 con una clave que HKDF deriva del secreto de autenticación solo para la reproducción de vídeo. La caducidad está al menos <RepositoryFact name="signedMediaHours" unit="hour" /> en el futuro, redondeada al alza a la hora en punto. `serveMedia` comprueba el método, el nombre del archivo y la firma, responde a las peticiones `Range` con `206` directamente desde R2 y guarda los archivos completos en la caché de Workers bajo una clave sin la firma. Los materiales de las lecciones usan el mismo esquema bajo `/media/downloads/`, con una clave propia y enlaces válidos durante al menos <RepositoryFact name="signedDownloadHours" unit="hour" />; ellos y las portadas de los cursos son las dos subidas que acepta el Worker, de un administrador: hasta <RepositoryFact name="attachmentMaxMegabytes" /> MB por material y <RepositoryFact name="courseCoverMaxMegabytes" /> MB por cada tamaño de una portada. Las portadas son públicas: `serveCover` las sirve sin firma bajo `/media/covers/`, cacheables durante un año, porque cada portada nueva recibe un id nuevo.
 
 Los bundles muestran la regla de los metadatos. Cada versión de la CLI sube su bundle de plantillas con el SHA-256 de su contenido como metadato personalizado de R2, y la API de licencias responde a una petición de bundle leyendo ese resumen con `head()` y después firma una URL de descarga válida durante <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Antes de [#208](https://github.com/saasyland/saasyland.com/pull/208), el Worker descargaba el archivo comprimido, lo descomprimía y calculaba su hash en cada petición, unos 31 ms de CPU para un bundle de 1,7 MB en nuestras mediciones locales; leer los metadatos lo dejó en unos 3 ms, sea cual sea el tamaño del bundle.
 

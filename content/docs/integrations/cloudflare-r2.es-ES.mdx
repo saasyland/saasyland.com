@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Los buckets MEDIA y BUNDLES: almacenamiento privado de vídeos y de materiales de las lecciones y los bundles de plantillas de la CLI, que el Worker sirve mediante rutas firmadas que caducan."
+description: "Los buckets MEDIA y BUNDLES: almacenamiento privado de vídeos, materiales de las lecciones y portadas de los cursos, y los bundles de plantillas de la CLI, que sirve el Worker."
 ---
 
 Todos los entornos vinculan un bucket de R2 como `MEDIA` en `wrangler.jsonc`: `saasyland` en producción, `saasyland-preview` para preview, un bucket local `saasyland-local` para `bun run dev` y un bucket local `saasyland-test` para la compilación de pruebas. Los buckets son privados: el acceso público y la URL `r2.dev` permanecen desactivados, y todas las lecturas pasan por el Worker. El área de licencias vincula un segundo bucket, `BUNDLES`, para los bundles de plantillas de la CLI (consulta [Bundles de plantillas](#template-bundles)).
@@ -10,6 +10,8 @@ Todos los entornos vinculan un bucket de R2 como `MEDIA` en `wrangler.jsonc`: `s
 Los archivos de cada vídeo están bajo `videos/<videoId>/`, donde `videoId` es el id de la fila de `video`. `videoObjectKey` y `videoDirectory` de `src/modules/video/video.files.ts` construyen las claves, y `mediaContentType` enumera los únicos nombres de archivo que se pueden subir o servir, con sus tipos de medio. Todo lo demás se rechaza.
 
 Cada material de lección subido está bajo `attachments/<attachmentId>/<fileName>`, donde `attachmentId` es el id de la fila de `lesson_attachment` y `fileName` es el nombre subido reducido a letras, dígitos, puntos, guiones y guiones bajos. `attachmentObjectKey` y `attachmentContentType` de `src/modules/lesson-attachment/lesson-attachment.files.ts` construyen la clave y dan el tipo de medio de las extensiones <RepositoryFact name="attachmentFileTypes" /> que se pueden subir o servir.
+
+Cada portada de curso está en `covers/<courseId>/<coverId>.<extension>` a tamaño completo, y cada tamaño menor a su lado como `<coverId>-<width>.<extension>`. `coverObjectKey` y `coverVariantKey` en `src/modules/course/course.cover.ts` construyen las claves, y `coverContentType` da el tipo de medio de una portada guardada, WebP o JPEG.
 
 ## Entrega firmada
 
@@ -23,7 +25,7 @@ El reproductor nunca ve una clave del bucket. Una función de servidor llama a `
 - `signature` es un HMAC-SHA-256 de `<videoId>.<expiry>` con una clave derivada de `AUTH_SECRET` mediante HKDF, así que no hace falta ningún secreto adicional y la clave no se usa para nada más.
 - Las playlists se refieren a las variantes, los segmentos y los subtítulos mediante rutas relativas, así que un único prefijo firmado cubre todo el stream.
 
-`src/server.ts` envía cada solicitud a `/media/` a `serveMedia` (`src/modules/video/video.delivery.ts`) antes del middleware de idioma y de TanStack Start, y añade las cabeceras de seguridad habituales. `serveMedia`:
+`src/server.ts` envía cada solicitud a `/media/` al handler del área de cursos en `src/data/courses.worker.ts` antes del middleware de idioma y de TanStack Start, y añade las cabeceras de seguridad habituales. El handler carga `serveCover` para `/media/covers/`, `serveAttachment` para `/media/downloads/` y `serveMedia` (`src/modules/video/video.delivery.ts`) para cualquier otra ruta, cada uno con un `import()` dinámico. `serveMedia`:
 
 - solo acepta `GET` y `HEAD` (`405` en cualquier otro caso);
 - devuelve `404` para una ruta que no es un archivo multimedia de la lista y `403` para una firma caducada o incorrecta;
@@ -34,11 +36,13 @@ Las rutas firmadas funcionan como enlaces al portador hasta que caducan: cualqui
 
 Los materiales de las lecciones usan el mismo esquema bajo `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, con una clave propia y una vigencia de al menos <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` solo las firma para un espectador que puede abrir la lección. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) recibe del manejador de `/media/` las solicitudes bajo `/media/downloads/` en lugar de `serveMedia`, solo acepta `GET` y `HEAD`, responde `403` ante una firma caducada o incorrecta y `404` para un archivo que no existe, y sirve el archivo con `Content-Disposition: attachment` y `Cache-Control: private, no-store`.
 
+Las portadas de los cursos son públicas y sin firma, en `/media/covers/<courseId>/<file>`, porque el catálogo, las páginas de los cursos y la página de inicio las muestran a cualquier visitante. `serveCover` (`src/modules/course/course.delivery.ts`) acepta solo `GET` y `HEAD` (`405` en otro caso), responde `404` a una ruta que no nombra una portada y a un archivo que no existe, sirve la portada con `Cache-Control: public, max-age=31536000, immutable` y guarda una copia en la caché de Workers `covers`. Cada portada nueva recibe un id nuevo, así que ninguna copia en caché queda desactualizada; consulta [Portadas de los cursos](/docs/features/courses#course-covers).
+
 ## Subidas
 
 El Worker no acepta subidas de vídeo. `scripts/publish-video.ts` escribe en el bucket con `wrangler r2 bulk put --remote`, usando tu sesión de `bunx wrangler login`; consulta [Vídeos](/docs/features/videos). Al eliminar un vídeo desde la administración, se lista el prefijo y se borran los objetos página a página a través del binding.
 
-Los materiales de las lecciones son la única subida que acepta el Worker: `uploadLessonAttachment` recibe de un administrador un archivo de hasta <RepositoryFact name="attachmentMaxMegabytes" /> MB y lo escribe a través del binding. Eliminar un material, o la lección, el capítulo o el curso al que pertenece, elimina su objeto; consulta [Cursos](/docs/features/courses#materials).
+Los materiales de las lecciones y las portadas de los cursos son las dos subidas que acepta el Worker. `uploadLessonAttachment` recibe de un administrador un archivo de hasta <RepositoryFact name="attachmentMaxMegabytes" /> MB y lo escribe a través del binding. Eliminar un material, o la lección, el capítulo o el curso al que pertenece, elimina su objeto; consulta [Cursos](/docs/features/courses#materials). `uploadCourseCover` recibe de un administrador los tamaños de una portada, cada uno de hasta <RepositoryFact name="courseCoverMaxMegabytes" /> MB, y sustituir o quitar la portada, o eliminar el curso, elimina sus archivos.
 
 ## Bundles de plantillas [#template-bundles]
 

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -151,13 +151,13 @@ The rules behind it: whatever decides access is stored somewhere consistent; wha
 
 saasyland.com follows the table with five bindings, declared in `wrangler.jsonc`:
 
-| Binding   | Product               | What it holds                                                                                | Where in the code                                      |
-| --------- | --------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ASSETS`  | Workers static assets | Prerendered pages, scripts, styles, fonts and images from the build                          | `src/server.ts`                                        |
-| `DB`      | D1                    | Users, sessions, licences, copies of Polar’s orders, courses, videos and rate-limit counters | `src/integrations/drizzle-orm/` and `src/modules/`     |
-| `CACHE`   | KV                    | One cached answer from another service’s API                                                 | `src/lib/github.ts`                                    |
-| `MEDIA`   | R2                    | Course videos and lesson materials                                                           | `src/modules/video/`, `src/modules/lesson-attachment/` |
-| `BUNDLES` | R2                    | The template bundle of each CLI release                                                      | `src/modules/license/`                                 |
+| Binding   | Product               | What it holds                                                                                | Where in the code                                                             |
+| --------- | --------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`  | Workers static assets | Prerendered pages, scripts, styles, fonts and images from the build                          | `src/server.ts`                                                               |
+| `DB`      | D1                    | Users, sessions, licences, copies of Polar’s orders, courses, videos and rate-limit counters | `src/integrations/drizzle-orm/` and `src/modules/`                            |
+| `CACHE`   | KV                    | One cached answer from another service’s API                                                 | `src/lib/github.ts`                                                           |
+| `MEDIA`   | R2                    | Course videos, course covers and lesson materials                                            | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                    | The template bundle of each CLI release                                                      | `src/modules/license/`                                                        |
 
 There is no Durable Object yet: every counter the site keeps lives in D1, as the rate-limit section shows.
 
@@ -180,7 +180,7 @@ A Worker’s configuration file is the map of your whole system, and it is worth
 
 ### Worked example: four environments and two deploy checks
 
-`wrangler.jsonc` defines four environments with the same bindings: `production`, `preview`, `development`, which uses the preview resources remotely, and `test`, which keeps a local D1 database, KV namespace and buckets under `.wrangler/test` for the browser suite. Each environment lists the secrets it requires. Before any deploy, `scripts/verify-bindings.ts` fails when an environment lacks a binding, still has a placeholder D1 or KV ID, or when production shares its database, namespace or bucket with preview, and `scripts/prepare-deploy-secrets.ts` fails when a required secret is missing, empty or a placeholder, naming the key without printing its value.
+`wrangler.jsonc` defines four environments with the same bindings: `production`, `preview`, `development`, which binds a local D1 database, KV namespace and buckets of its own for `bun run dev`, and `test`, which keeps a local D1 database, KV namespace and buckets under `.wrangler/test` for the browser suite. Each environment lists the secrets it requires. Before any deploy, `scripts/verify-bindings.ts` fails when an environment lacks a binding, still has a placeholder D1 or KV ID, or when production shares its database, namespace or bucket with preview, and `scripts/prepare-deploy-secrets.ts` fails when a required secret is missing, empty or a placeholder, naming the key without printing its value.
 
 The second check came from a real mistake, recorded in [#223](https://github.com/saasyland/saasyland.com/pull/223). The production secrets file still held `[UPDATE]` as the Google OAuth client ID, the deploy uploaded it because the check then refused only empty values, and Google sign-in failed with `invalid_client`. The fix came in two layers: a live check after every deploy that starts a sign-in with each provider and validates the URL it is sent to, and a refusal of placeholder values before the build even starts. Each layer would have caught it alone; together they catch it twice.
 
@@ -415,7 +415,7 @@ At saasyland.com, schemas live in the table modules. `bun run db:generate` turns
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-A pull request that passes the checks and the browser suite deploys to the preview environment, and a merge to `main` deploys to production. Both run the same steps: check the bindings, build, apply the environment’s migrations, then `wrangler deploy`. The database changes first, so for a short time the Worker that is still live runs against the new schema. The migration that added licence delivery records shows the kind of change that survives this: three nullable columns that the previous release simply ignored. It begins:
+A pull request uploads a new version of the preview Worker without deploying it, which Cloudflare checks as it checks a deploy, and a merge to `main` deploys the shared preview, then production. Both deploys run the same steps: check the bindings, build, apply the environment’s migrations, then `wrangler deploy`. The database changes first, so for a short time the Worker that is still live runs against the new schema. The migration that added licence delivery records shows the kind of change that survives this: three nullable columns that the previous release simply ignored. It begins:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -500,7 +500,7 @@ Whichever you choose, both kinds of URL are bearer tokens. R2’s documentation 
 
 ### Worked example: course videos and CLI bundles
 
-saasyland.com keeps course videos and lesson materials in `MEDIA` and the CLI’s template bundles in `BUNDLES`, both private. A recording is encoded on the publisher’s machine with FFmpeg into adaptive HLS, with renditions up to <RepositoryFact name="videoTopRendition" />, segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, a poster, a storyboard for seek previews and captions per language, and uploaded with Wrangler. The Worker never accepts a video upload. A lesson in D1 points at a row of the `video` table, and a lesson whose video is marked as a placeholder is listed as being recorded instead of playing.
+saasyland.com keeps course videos, course covers and lesson materials in `MEDIA` and the CLI’s template bundles in `BUNDLES`, both private. A recording is encoded on the publisher’s machine with FFmpeg into adaptive HLS, with renditions up to <RepositoryFact name="videoTopRendition" />, segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, a poster, a storyboard for seek previews and captions per language, and uploaded with Wrangler. The Worker never accepts a video upload. A lesson in D1 points at a row of the `video` table, and a lesson whose video is marked as a placeholder is listed as being recorded instead of playing.
 
 When a visitor opens a lesson, `getLessonPlayback` loads it from D1, checks with `hasLessonAccess` that this viewer may watch it, and only then signs the paths:
 
@@ -520,7 +520,7 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-The signature is an HMAC-SHA-256 with a key that HKDF derives from the auth secret for video playback alone. The expiry is at least <RepositoryFact name="signedMediaHours" unit="hour" /> ahead, rounded up to the hour. `serveMedia` checks the method, the file name and the signature, answers `Range` requests with `206` straight from R2, and keeps whole files in the Workers cache under a key without the signature. Lesson materials use the same scheme under `/media/downloads/`, with a key of their own and links valid for at least <RepositoryFact name="signedDownloadHours" unit="hour" />; they are the one upload the Worker accepts, up to <RepositoryFact name="attachmentMaxMegabytes" /> MB from an admin.
+The signature is an HMAC-SHA-256 with a key that HKDF derives from the auth secret for video playback alone. The expiry is at least <RepositoryFact name="signedMediaHours" unit="hour" /> ahead, rounded up to the hour. `serveMedia` checks the method, the file name and the signature, answers `Range` requests with `206` straight from R2, and keeps whole files in the Workers cache under a key without the signature. Lesson materials use the same scheme under `/media/downloads/`, with a key of their own and links valid for at least <RepositoryFact name="signedDownloadHours" unit="hour" />; they and course covers are the two uploads the Worker accepts, from an admin, up to <RepositoryFact name="attachmentMaxMegabytes" /> MB per material and <RepositoryFact name="courseCoverMaxMegabytes" /> MB per size of a cover. Covers are public: `serveCover` serves them unsigned under `/media/covers/`, cacheable for a year, because every new cover gets a new id.
 
 The bundles show the metadata rule. Each CLI release uploads its template bundle with the SHA-256 of its content as R2 custom metadata, and the licence API answers a bundle request by reading that digest with `head()`, then signs a download URL valid for <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Before [#208](https://github.com/saasyland/saasyland.com/pull/208), the Worker downloaded, decompressed and hashed the archive on every request, about 31 ms of CPU for a 1.7 MB bundle in our local measurements; reading the metadata brought it to about 3 ms, whatever the bundle’s size.
 

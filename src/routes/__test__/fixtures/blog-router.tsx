@@ -204,16 +204,20 @@ export const section = (element: HTMLElement, selector: "aside" | "section"): HT
   return container
 }
 
+class TestObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+
 export const useBlogTestEnvironment = (): void => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal("IntersectionObserver", TestObserver)
+    vi.stubGlobal("ResizeObserver", TestObserver)
     vi.stubGlobal(
-      "IntersectionObserver",
-      class {
-        observe = vi.fn()
-        unobserve = vi.fn()
-        disconnect = vi.fn()
-      },
+      "matchMedia",
+      vi.fn(() => ({ addEventListener: vi.fn(), matches: false })),
     )
     vi.stubGlobal("CSS", { supports: () => true })
     vi.stubGlobal("scrollTo", vi.fn())

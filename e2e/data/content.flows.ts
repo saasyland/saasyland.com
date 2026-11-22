@@ -111,6 +111,30 @@ export const CONTENT_FLOWS = [
   },
   {
     area: FLOW_AREA.CONTENT,
+    id: "article-reading-position",
+    outcome:
+      "On a wide screen the table of contents beside a blog post or a docs page marks the section being read and moves its line with the scroll, in its own list and without gliding for a reader who prefers reduced motion",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "table-of-contents.spec.ts",
+        title:
+          "the table of contents beside an article › marks the section the reader scrolls to in a blog post and glides its line to the next entry as the next heading rises",
+      },
+      {
+        spec: "table-of-contents.spec.ts",
+        title:
+          "the table of contents beside an article › marks the section the reader scrolls to in a docs page and glides its line to the next entry as the next heading rises",
+      },
+      { spec: "table-of-contents.spec.ts", title: "the table of contents beside an article › keeps the current entry in view of its own list without moving the page" },
+      {
+        spec: "table-of-contents.spec.ts",
+        title: "the table of contents beside an article › keeps the line on the current entry without gliding when the reader prefers reduced motion",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
     id: "landing-notes",
     outcome: "The landing page leads its notes with the featured post and links the latest posts in its prerendered HTML",
     status: FLOW_STATUS.COVERED,

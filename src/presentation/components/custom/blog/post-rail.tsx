@@ -22,7 +22,7 @@ export const PostRailList = ({ className, posts, ref }: PostRailListProps): JSX.
     {posts.map((item) => (
       <li key={item.url}>
         <Link
-          className="block border-l border-border py-1.5 pl-4 text-body-sm text-pretty text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:border-ring data-[status=active]:text-foreground"
+          className="block border-l border-border py-1.5 pl-4 text-body-sm text-pretty text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[status=active]:border-ring data-[status=active]:text-ring"
           to={item.url}
         >
           {item.title}

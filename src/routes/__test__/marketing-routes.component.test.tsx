@@ -26,6 +26,7 @@ import { BLOG_COVER, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
 import { starCountQuery } from "~/src/lib/github"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
@@ -65,6 +66,7 @@ const TERMS_VALUES: Record<string, number | string> = {
   }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
   portal: PORTAL_HOST,
   program: AFFILIATE_PROGRAM,
+  sidebarDays: SIDEBAR_COOKIE.DAYS,
 }
 
 const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks, withdrawal: (chunks: string) => chunks }

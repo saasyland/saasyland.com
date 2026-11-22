@@ -18,6 +18,7 @@ import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
+import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
 import affiliates from "~/messages/en-US/pages.legal.affiliates.json"
 import licence from "~/messages/en-US/pages.legal.licence.json"
@@ -81,6 +82,33 @@ const renderAffiliates = async ({ locale, program }: { locale: SupportedLocale; 
   return { copy, join: within(view.container).getByRole("heading", { name: copy.joinTitle }).nextElementSibling, view }
 }
 
+const cookiesCopySchema = zod.object({ sections: zod.object({ cookies: joinCopySchema }) })
+const privacyMessagesSchema = zod.object({ pages: zod.object({ legal: zod.object({ privacy: cookiesCopySchema }) }) })
+
+const renderPrivacy = async ({ locale, program }: { locale: SupportedLocale; program: FeatureStatus }) => {
+  vi.resetModules()
+  vi.doMock(import("~/src/data/affiliates"), async (importOriginal) => ({ ...(await importOriginal()), AFFILIATE_PROGRAM: program }))
+  const { Route } = await import("~/src/routes/_site._marketing.privacy")
+  const Page = Route.options.component
+  if (Page === undefined) {
+    throw new Error("The privacy route has no page component")
+  }
+  const t = createTranslator({ locale, messages: privacyMessagesSchema.parse(getTestMessages(locale)).pages.legal.privacy })
+  const copy = t("sections.cookies.body", {
+    cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+    email: CONTACT_EMAIL,
+    program,
+    sidebarDays: SIDEBAR_COOKIE.DAYS,
+  })
+  const view = render(
+    <IntlProvider locale={locale} messages={getTestMessages(locale)}>
+      <Page />
+    </IntlProvider>,
+  )
+
+  return { cookies: within(view.container).getByRole("heading", { name: t("sections.cookies.title") }).nextElementSibling, copy, view }
+}
+
 afterEach(() => {
   vi.doUnmock("~/src/data/affiliates")
 })
@@ -130,5 +158,19 @@ describe.each(I18N.SUPPORTED_LOCALES)("the affiliate terms in %s", (locale) => {
     expect(within(view.container).queryByRole("link", { name: PORTAL_HOST })).toBeNull()
     expect(within(view.container).getAllByRole("heading", { level: 2 })).toHaveLength(Object.keys(affiliates.sections).length)
     view.unmount()
+  })
+})
+
+describe.each(I18N.SUPPORTED_LOCALES)("the privacy policy in %s", (locale) => {
+  it("describes the referral script as loaded only while the affiliate programme is open", async () => {
+    const open = await renderPrivacy({ locale, program: FEATURE_STATUS.AVAILABLE })
+    expect(open.cookies?.textContent).toBe(open.copy)
+    open.view.unmount()
+
+    const arriving = await renderPrivacy({ locale, program: FEATURE_STATUS.ARRIVING })
+    expect(arriving.cookies?.textContent).toBe(arriving.copy)
+    expect(arriving.copy).not.toBe(open.copy)
+    expect(arriving.cookies).toHaveTextContent(String(SIDEBAR_COOKIE.DAYS))
+    arriving.view.unmount()
   })
 })

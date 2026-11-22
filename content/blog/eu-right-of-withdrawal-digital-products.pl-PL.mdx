@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-22
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -43,8 +43,8 @@ faq:
       umowy tutaj” lub równie jednoznacznym sformułowaniem. Jeśli brakuje zgody, przyjęcia do
       wiadomości lub potwierdzenia, biegnie pełny termin i funkcja musi być dostępna; jeśli wszystkie
       trzy kończą to prawo z chwilą rozpoczęcia dostarczania, zapytaj prawnika, czego nadal oczekuje
-      Twój rynek. saasyland.com nie ma jeszcze takiej funkcji: kupujący, któremu to prawo nadal
-      przysługuje, odstępuje od umowy e-mailem.
+      Twój rynek. saasyland.com oferuje ją przy każdym zakupie, jako link „Odstąp od umowy tutaj” w
+      stopce każdej strony i na stronie licencji w koncie, i potwierdza każde odstąpienie e-mailem.
   - question: Czy e-mail jest trwałym nośnikiem?
     answer: >-
       Dyrektywa definiuje trwały nośnik jako wszystko, co pozwala konsumentowi przechowywać kierowane
@@ -117,7 +117,7 @@ Ten artykuł wyjaśnia unijne przepisy i jedną ich implementację, a każde twi
 
 </Callout>
 
-_Ostatnia aktualizacja: 17 listopada 2026. Każde twierdzenie prawne prowadzi do tekstu w EUR-Lex, na oficjalnym portalu UE lub w Dzienniku Ustaw, a źródła są wymienione na dole. Każda liczba dotycząca saasyland.com na tej stronie pochodzi wprost z jego kodu._
+_Ostatnia aktualizacja: 22 listopada 2026. Każde twierdzenie prawne prowadzi do tekstu w EUR-Lex, na oficjalnym portalu UE lub w Dzienniku Ustaw, a źródła są wymienione na dole. Każda liczba dotycząca saasyland.com na tej stronie pochodzi wprost z jego kodu._
 
 ## Czy konsumentom w UE przysługuje prawo odstąpienia od umowy przy produktach cyfrowych?
 
@@ -202,15 +202,16 @@ Szablon e-maila to [`purchase-confirmation-email.tsx`](https://github.com/saasyl
 
 ### 4. Zapisy dostarczenia
 
-Licencja przechowuje trzy znaczniki czasu, a każdy pozostaje pusty, dopóki dane zdarzenie nie nastąpi:
+Licencja przechowuje cztery znaczniki czasu, a każdy pozostaje pusty, dopóki dane zdarzenie nie nastąpi:
 
 | Zapis                   | Kiedy powstaje                                                                    |
 | ----------------------- | --------------------------------------------------------------------------------- |
 | `withdrawal_consent_at` | Gdy opłacone zamówienie zawiera zgodę; zapisywany jest czas utworzenia zamówienia |
 | `activated_at`          | Przy pierwszej aktywacji klucza na dowolnej maszynie                              |
 | `delivered_at`          | Gdy CLI po raz pierwszy pobiera szablony za pomocą klucza                         |
+| `lesson_opened_at`      | Gdy licencja po raz pierwszy otwiera płatną lekcję, wraz z ID tej lekcji          |
 
-Webhook waliduje pole zgody przez Zod, zanim zapisze pierwszy znacznik, a pozostałe dwa zapisuje [API licencji CLI](/docs/features/cli-licence-api). Nowy zakup na tym samym koncie zeruje wszystkie trzy, więc zawsze opisują bieżące zamówienie. Te zapisy rozstrzygają o zwrotach, a [Zasady zwrotów](/refunds) mówią, że mogą zostać przekazane Polar, aby odpowiedzieć na wniosek o zwrot lub spór dotyczący płatności.
+Webhook waliduje pole zgody przez Zod, zanim zapisze pierwszy znacznik, [API licencji CLI](/docs/features/cli-licence-api) zapisuje `activated_at` i `delivered_at`, a strony kursów zapisują `lesson_opened_at`, gdy udostępniają pierwszą płatną lekcję. Nowy zakup na tym samym koncie zeruje wszystkie cztery, więc zawsze opisują bieżące zamówienie. Te zapisy rozstrzygają o zwrotach, a [Zasady zwrotów](/refunds) mówią, że mogą zostać przekazane Polar, aby odpowiedzieć na wniosek o zwrot lub spór dotyczący płatności.
 
 ### 5. Zasady zwrotów hojniejsze niż prawo
 
@@ -218,12 +219,12 @@ Zgoda kończy ustawowe prawo, ale saasyland.com nadal zwraca pełną kwotę w ci
 
 [`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) zamienia te zapisy na jedną z czterech odpowiedzi, którą administrator widzi w profilu kupującego:
 
-| Odpowiedź             | Kiedy                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `refundable`          | W tym okresie, kupujący wyraził zgodę, a CLI nie pobrało szablonów                     |
-| `statutoryWithdrawal` | W tym okresie, nie zapisano zgody, więc obowiązuje ustawowe prawo odstąpienia od umowy |
-| `used`                | W tym okresie, kupujący wyraził zgodę, a CLI pobrało szablony                          |
-| `expired`             | Okres się zakończył                                                                    |
+| Odpowiedź             | Kiedy                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `refundable`          | W tym okresie, kupujący wyraził zgodę, CLI nie pobrało szablonów i nie otwarto żadnej płatnej lekcji |
+| `statutoryWithdrawal` | W tym okresie, nie zapisano zgody, więc obowiązuje ustawowe prawo odstąpienia od umowy               |
+| `used`                | W tym okresie, kupujący wyraził zgodę, a CLI pobrało szablony lub otwarto płatną lekcję              |
+| `expired`             | Okres się zakończył                                                                                  |
 
 Okno zwrotów tak długie jak termin na odstąpienie od umowy sprawia, że łatwiej zaznaczyć pole wyboru: kupujący rezygnuje z ustawowego prawa, ale przez tyle samo dni, aż do pierwszego użycia, zachowuje możliwość pełnego zwrotu.
 
@@ -237,9 +238,9 @@ Kod odzwierciedla ten tekst. Gdy Polar zgłasza zamówienie zwrócone w całośc
 
 [Warunki programu partnerskiego](/affiliates) wstrzymują każdą prowizję przez <RepositoryFact name="affiliateHoldDays" unit="day" />, czyli znacznie dłużej niż okno zwrotów wynoszące <RepositoryFact name="refundWithdrawalDays" unit="day" />, aby zwroty i większość sporów dotyczących płatności zostały rozliczone, zanim cokolwiek zostanie wypłacone. Zwrot lub obciążenie zwrotne w okresie wstrzymania anuluje albo pomniejsza prowizję; jeśli nastąpi po wypłacie, prowizja zostaje potrącona z kolejnej wypłaty. Na dzień 17 listopada 2026 program jeszcze nie wystartował, ale jego warunki są już opublikowane.
 
-## Czego saasyland.com jeszcze nie robi
+### 8. Funkcja odstąpienia od umowy
 
-saasyland.com nie ma funkcji odstąpienia od umowy w rodzaju opisanym w art. 11a. Kupujący, któremu nadal przysługuje prawo odstąpienia od umowy, bo nie zapisano zgody, odstępuje od umowy, pisząc na adres podany w e-mailu z potwierdzeniem, jak wyjaśnia ten e-mail. Jeśli kopiujesz ten proces i sprzedajesz konsumentom przez własny formularz płatności, dodaj tę funkcję.
+Stopka każdej strony prowadzi linkiem **Odstąp od umowy tutaj** do [`/withdrawal`](/withdrawal), a strona licencji w koncie kupującego otwiera to samo oświadczenie w oknie dialogowym. Kupujący podaje lub potwierdza imię i nazwisko, adres e-mail do potwierdzenia otrzymania i numer zamówienia, które są już wypełnione, gdy jest zalogowany, i wysyła oświadczenie przyciskiem **Potwierdź odstąpienie od umowy**. Formularz przyjmuje oświadczenie niezależnie od tego, czy prawo nadal przysługuje; to rozstrzyga się później. [`record-withdrawal.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/withdrawal/use-cases/record-withdrawal.ts) zapisuje je razem z warunkami zwrotu, które w tej chwili obowiązywały dopasowaną licencję, wysyła kupującemu e-mailem potwierdzenie otrzymania z treścią oświadczenia oraz datą i godziną jego złożenia i powiadamia serwis, a administrator widzi oświadczenia w profilu kupującego. Nic nie jest zwracane automatycznie: zwrot wykonuje się w Polar. Cała funkcja znajduje się w [`src/modules/withdrawal/`](https://github.com/saasyland/saasyland.com/tree/main/src/modules/withdrawal).
 
 ## Lista kontrolna dla Twojego procesu zakupu
 
@@ -257,7 +258,7 @@ saasyland.com nie ma funkcji odstąpienia od umowy w rodzaju opisanym w art. 11a
 
 Trwa nagrywanie kursu na ten temat, „Selling software in the EU”; zapisz się do Dziennika budowy na dole tej strony, aby dowiedzieć się, kiedy zostanie opublikowany. Do tego czasu dokumentacja [Licencje](/docs/features/licences) opisuje każdy element powyższego procesu, a strona [Konfiguracja Polar](/docs/getting-started/polar-setup#consent-checkbox) pokazuje, jak skonfigurować pole wyboru zgody w Polar.
 
-Licencja SaaSy Land kosztuje od <TierPrice tier="core" />, w jednej płatności z dożywotnimi aktualizacjami rdzenia; [karty cenowe](/#pricing) pokazują, co każdy pakiet obejmuje teraz, a co jest w przygotowaniu. Generowanie płatności przez CLI jest w przygotowaniu, a [konfigurator](/#cli) już zadaje pytanie o płatności.
+Licencja SaaSy Land kosztuje od <TierPrice tier="core" />, w jednej płatności z dożywotnimi aktualizacjami rdzenia; [karty cenowe](/#pricing) pokazują, co każdy pakiet obejmuje teraz, a co jest w przygotowaniu. Na dzień 22 listopada 2026 generowanie płatności przez CLI jest nadal w przygotowaniu, a [konfigurator](/#cli) już zadaje pytanie o płatności.
 
 ## Powiązane teksty
 
@@ -291,6 +292,6 @@ Licencja SaaSy Land kosztuje od <TierPrice tier="core" />, w jednej płatności 
 - [Twoja Europa: zwroty i prawo odstąpienia od umowy](https://europa.eu/youreurope/citizens/consumers/shopping/returns/index_en.htm), unijne podsumowanie dla konsumentów
 - [Ustawa o prawach konsumenta, tekst jednolity, Dz.U. 2026 poz. 1244](https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20260001244), dla art. 7aa, art. 21, art. 36 i art. 38
 - [Warunki Polar dla kupujących](https://polar.sh/legal/checkout-buyer-terms), [pola niestandardowe](https://polar.sh/docs/features/custom-fields) i [lokalizacja formularza płatności](https://polar.sh/docs/features/checkout/localization)
-- [Zasady zwrotów](/refunds), [Licencja komercyjna](/licence), [Regulamin](/terms) i [warunki programu partnerskiego](/affiliates) saasyland.com oraz podlinkowane wyżej pliki źródłowe
+- [Zasady zwrotów](/refunds), [Licencja komercyjna](/licence), [Regulamin](/terms), [funkcja odstąpienia od umowy](/withdrawal) i [warunki programu partnerskiego](/affiliates) saasyland.com oraz podlinkowane wyżej pliki źródłowe
 
 _Napisał Piotr J. Borowiecki, który buduje SaaSy Land. Teksty prawne odczytano 17 listopada 2026. Ten artykuł nie jest poradą prawną; jeśli cokolwiek tutaj jest nieaktualne albo błędne, napisz, a poprawię._

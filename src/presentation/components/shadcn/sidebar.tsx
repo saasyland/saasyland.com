@@ -18,7 +18,10 @@ import { useTranslations } from "use-intl/react"
 
 import { useIsMobile } from "~/src/hooks/use-mobile"
 
+import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
+
 import { cn } from "~/src/lib/cn"
+import { SECONDS_PER_DAY } from "~/src/lib/duration"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Input } from "~/src/presentation/components/shadcn/input"
@@ -27,12 +30,7 @@ import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "~/src/presenta
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Tooltip, TooltipTrigger } from "~/src/presentation/components/shadcn/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SECONDS_PER_MINUTE = 60
-const MINUTES_PER_HOUR = 60
-const HOURS_PER_DAY = 24
-const DAYS_PER_WEEK = 7
-const SIDEBAR_COOKIE_MAX_AGE = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY * DAYS_PER_WEEK
+const SIDEBAR_COOKIE_MAX_AGE = SECONDS_PER_DAY * SIDEBAR_COOKIE.DAYS
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -107,7 +105,7 @@ const SidebarProvider = ({
         setUncontrolledOpen(openState)
       }
 
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(openState)}; path=/; max-age=${String(SIDEBAR_COOKIE_MAX_AGE)}`
+      document.cookie = `${SIDEBAR_COOKIE.NAME}=${String(openState)}; path=/; max-age=${String(SIDEBAR_COOKIE_MAX_AGE)}`
     },
     [open, setOpenProp],
   )

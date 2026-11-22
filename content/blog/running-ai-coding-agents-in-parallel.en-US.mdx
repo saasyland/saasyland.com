@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -86,7 +86,7 @@ A practical guide to running several AI coding agents in parallel on one product
 
 </Callout>
 
-_Last checked 20 November 2026. Every external fact below was read on its source that day and is linked at the bottom. Every incident comes from the public repository of saasyland.com; the pull requests, CI runs and commits are linked so you can check them. Updated 21 November 2026, when we replaced our merge script and the shared preview check with GitHub’s merge queue: the passages that described them now say what changed, and [Update, November 2026](#update-november-2026) tells the story with the measured times._
+_Last checked 20 November 2026. Every external fact below was read on its source that day and is linked at the bottom. Every incident comes from the public repository of saasyland.com; the pull requests, CI runs and commits are linked so you can check them. Updated 21 November 2026, when we replaced our merge script and the shared preview check with GitHub’s merge queue: the passages that described them now say what changed, and [Update, November 2026](#update-november-2026) tells the story with the measured times. Updated again on 22 November 2026 with the CI times after the tests with coverage were sharded._
 
 ## The short answer
 
@@ -482,7 +482,7 @@ On #273’s run, the build job checked out the repository at 16:40 UTC. At 16:44
 - **One command to merge.** `bun scripts/enqueue-pr.ts <number>` checks the title, gives it the emoji the squash commit keeps and turns on auto-merge, which puts the pull request in the queue once its checks pass.
 - **A shorter local definition of done.** CI now runs the whole browser suite twice for every pull request, on the pull request and in the queue, on runners nobody else uses. So agents run `check`, `test:coverage`, `build:test` and the specs their change touches, on their own port, instead of the whole suite on a laptop they share with other agents.
 
-A pull request run now has three jobs that start together, the checks with coverage, the test build and the Worker upload, followed by the shards, and in the first five runs on the new workflow it took 7.7 to 9.8 minutes. The longest job is now the unit tests with coverage, which took 7 minutes 21 seconds in the queue’s run of #277, against 3 minutes 44 seconds on 20 November; that is the next thing to look at.
+After #277, a pull request run had three jobs that started together, the checks with coverage, the test build and the Worker upload, followed by the shards, and in the first five runs on the new workflow it took 7.7 to 9.8 minutes. The longest job was then the unit tests with coverage, which took 7 minutes 21 seconds in the queue’s run of #277, against 3 minutes 44 seconds on 20 November, so they were the next thing we changed.
 
 ### Before and after
 
@@ -496,6 +496,12 @@ A pull request run now has three jobs that start together, the checks with cover
 | Enqueued to production, wall clock  | Not measured: the script did not record when a pull request was ready | 20.2 minutes for #277 and 18.9 for #276                                                              |
 
 Two honest limits. The after column is a day old: a handful of runs, not a month of them, and we will replace it with medians once there are enough. And the throughput row is a ceiling, not a measurement. Between 10:26 UTC on 20 November and 00:44 the next night, the script merged 23 pull requests, one at a time; by the time of writing, the new queue had built two pull requests side by side, #276 and #274, but it has not yet had a busy day.
+
+### Sharding the tests with coverage (#285, #289, #296)
+
+Three more changes went in on 22 November. #285 runs the tests with coverage on parallel shards and merges their coverage in the required check, so the gate still measures the whole codebase. #289 split the browser suite into more shards, and #296 lets the browser shards install the toolchain and the browser while the build runs instead of after it. CI now runs the tests on <RepositoryFact name="vitestShards" /> shards and the browser suite on <RepositoryFact name="e2eShards" />.
+
+In the merge queue’s run for #304 on 22 November 2026, the coverage shards took 2.1 to 3.3 minutes, the build 3.7, the browser shards 5.0 to 7.7 and the Worker upload 5.1, and the whole run 7.8 minutes from the first job to the last. The 33 successful pull request runs that day took 6.3 to 11.4 minutes, with a median of 7.9. The slowest job is a browser shard again.
 
 ### Lessons for any team running many agents
 

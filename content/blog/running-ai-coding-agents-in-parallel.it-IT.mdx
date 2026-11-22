@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -94,7 +94,7 @@ Una guida pratica per far lavorare in parallelo più agenti di programmazione AI
 
 </Callout>
 
-_Ultima verifica: 20 novembre 2026. Ogni fatto esterno riportato qui sotto è stato letto quel giorno nella sua fonte, linkata in fondo. Ogni incidente proviene dal repository pubblico di saasyland.com; le pull request, le esecuzioni della CI e i commit sono linkati, così puoi verificarli. Aggiornato il 21 novembre 2026, quando abbiamo sostituito il nostro script di merge e il controllo della preview condivisa con la coda di merge di GitHub: i passaggi che li descrivevano ora dicono cosa è cambiato, e [Aggiornamento, novembre 2026](#update-november-2026) racconta la storia con i tempi misurati._
+_Ultima verifica: 20 novembre 2026. Ogni fatto esterno riportato qui sotto è stato letto quel giorno nella sua fonte, linkata in fondo. Ogni incidente proviene dal repository pubblico di saasyland.com; le pull request, le esecuzioni della CI e i commit sono linkati, così puoi verificarli. Aggiornato il 21 novembre 2026, quando abbiamo sostituito il nostro script di merge e il controllo della preview condivisa con la coda di merge di GitHub: i passaggi che li descrivevano ora dicono cosa è cambiato, e [Aggiornamento, novembre 2026](#update-november-2026) racconta la storia con i tempi misurati. Aggiornato di nuovo il 22 novembre 2026 con i tempi della CI dopo lo sharding dei test con la copertura._
 
 ## La risposta breve
 
@@ -490,7 +490,7 @@ La #277 ha sostituito insieme lo script e il controllo della preview condivisa.
 - **Un solo comando per il merge.** `bun scripts/enqueue-pr.ts <number>` controlla il titolo, gli dà l’emoji che il commit squash conserva e attiva l’auto-merge, che mette la pull request nella coda appena i suoi controlli passano.
 - **Una definizione di «fatto» locale più corta.** Ora la CI esegue l’intera suite nel browser due volte per ogni pull request, sulla pull request e nella coda, su runner che nessun altro usa. Quindi gli agenti eseguono `check`, `test:coverage`, `build:test` e le spec che la loro modifica tocca, sulla propria porta, invece dell’intera suite su un portatile che condividono con altri agenti.
 
-Ora un’esecuzione su pull request ha tre job che partono insieme, i controlli con la copertura, la build di test e l’upload del Worker, seguiti dagli shard, e nelle prime cinque esecuzioni con il nuovo workflow ha richiesto da 7,7 a 9,8 minuti. Il job più lungo ora sono i test unitari con la copertura, che hanno richiesto 7 minuti e 21 secondi nell’esecuzione della coda per la #277, contro 3 minuti e 44 secondi il 20 novembre; è la prossima cosa da guardare.
+Dopo la #277, un’esecuzione su pull request aveva tre job che partivano insieme, i controlli con la copertura, la build di test e l’upload del Worker, seguiti dagli shard, e nelle prime cinque esecuzioni con il nuovo workflow ha richiesto da 7,7 a 9,8 minuti. Il job più lungo erano allora i test unitari con la copertura, che hanno richiesto 7 minuti e 21 secondi nell’esecuzione della coda per la #277, contro 3 minuti e 44 secondi il 20 novembre, quindi sono stati la cosa successiva che abbiamo cambiato.
 
 ### Prima e dopo
 
@@ -504,6 +504,12 @@ Ora un’esecuzione su pull request ha tre job che partono insieme, i controlli 
 | Dalla coda alla produzione, tempo reale | Non misurato: lo script non registrava quando una pull request era pronta | 20,2 minuti per la #277 e 18,9 per la #276                                                                      |
 
 Due limiti onesti. La colonna «dopo» ha un giorno: una manciata di esecuzioni, non un mese, e la sostituiremo con delle mediane quando ce ne saranno abbastanza. E la riga del throughput è un tetto, non una misura. Tra le 10:26 UTC del 20 novembre e le 00:44 della notte successiva, lo script ha unito 23 pull request, una alla volta; al momento in cui scriviamo, la nuova coda ha compilato due pull request affiancate, la #276 e la #274, ma non ha ancora avuto una giornata piena.
+
+### Lo sharding dei test con la copertura (#285, #289, #296)
+
+Il 22 novembre sono arrivate altre tre modifiche. La #285 esegue i test con la copertura su shard paralleli e unisce la loro copertura nel controllo obbligatorio, così la soglia misura ancora l’intera base di codice. La #289 ha diviso la suite nel browser in più shard, e la #296 permette agli shard del browser di installare la toolchain e il browser mentre gira la build invece che dopo. Ora la CI esegue i test su <RepositoryFact name="vitestShards" /> shard e la suite nel browser su <RepositoryFact name="e2eShards" />.
+
+Nell’esecuzione della coda di merge per la #304, il 22 novembre 2026, gli shard della copertura hanno richiesto da 2,1 a 3,3 minuti, la build 3,7, gli shard del browser da 5,0 a 7,7 e l’upload del Worker 5,1, e l’intera esecuzione 7,8 minuti dal primo job all’ultimo. Le 33 esecuzioni su pull request riuscite quel giorno hanno richiesto da 6,3 a 11,4 minuti, con una mediana di 7,9. Il job più lento è di nuovo uno shard del browser.
 
 ### Lezioni per qualsiasi team che fa lavorare molti agenti
 

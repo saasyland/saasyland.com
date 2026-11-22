@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -48,7 +48,7 @@ faq:
       guardrails themselves: CI workflows, lint and coverage configuration and branch rules. An
       approval should quote the person who gave it and name the paths it covers, so it belongs to a
       diff rather than to a sentence in a pull request.
-  - question: Is 100% test coverage enough to trust AI-written code?
+  - question: Is {coverageThreshold, number}% code coverage enough to trust AI-written code?
     answer: >-
       No. Coverage proves that every line ran under a test, not that the system works. On 20 November
       2026 the published SaaSy Land CLI could not create projects against the production licence API
@@ -100,7 +100,7 @@ A practical guide to guardrails for teams that let AI coding agents change a pro
 
 </Callout>
 
-_Last checked 20 November 2026. What Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git and GitHub do comes from their own documentation, read that day; the research comes from the papers and reports linked at the bottom. Everything about saasyland.com comes from its public repository, its pull requests and its CI runs. Our earlier post on [whether your repository is ready for AI coding agents](/blog/ai-coding-agents-repository-readiness) scores a repository; this one is about building the checks that raise the score. Updated 21 November 2026 for the new definition of done, the merge queue and the CI times that came with them._
+_Last checked 20 November 2026. What Claude Code, ESLint, Oxlint, typescript-eslint, Vitest, Changesets, Git and GitHub do comes from their own documentation, read that day; the research comes from the papers and reports linked at the bottom. Everything about saasyland.com comes from its public repository, its pull requests and its CI runs. Our earlier post on [whether your repository is ready for AI coding agents](/blog/ai-coding-agents-repository-readiness) scores a repository; this one is about building the checks that raise the score. Updated 21 November 2026 for the new definition of done, the merge queue and the CI times that came with them, and on 22 November 2026 for the CI times after the tests were sharded._
 
 ## The short answer
 
@@ -136,20 +136,20 @@ Each of these happened in our repositories, and each has a fix that does not dep
 
 A rule can live in eight places. They differ in when they run, who can get past them and how much they cost to write.
 
-| Layer                       | Runs                            | Got past by                                                   | Best for                                                   | At saasyland.com                                                                                                                      |
-| --------------------------- | ------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Instruction file            | When a session starts           | Anyone, silently                                              | Intent, judgement, pointers to checks                      | `AGENTS.md`: the rules, the definition of done and the human-review list                                                              |
-| Agent permissions and hooks | Before each tool call           | The person running the agent, or a command worded another way | Commands that must never run, paths an agent must not edit | Plain force pushes refused; changes to human-review paths stopped by the permission classifier                                        |
-| Compiler and editor         | As the agent writes             | Nobody, if it runs                                            | Wrong shapes, unhandled cases                              | TypeScript with `strict`, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`                                                 |
-| Git hooks                   | At each commit                  | `--no-verify`                                                 | Fast checks on staged files, commit message format         | `pre-commit` runs formatting, lint, types and the translation checks; `prepare-commit-msg` refuses a subject that is not conventional |
-| Required CI checks          | On every push to a pull request | Admins, if the branch rule lets them                          | Everything a program can decide                            | `bun run check`, `bun run test:coverage`, the test build, the browser suite and an upload of the Worker that serves no traffic        |
-| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | The merge queue, squash only, linear history, no force pushes or deletion, and the three CI checks                                    |
-| Deploy checks               | Before and after an upload      | Whoever deploys                                               | Secrets, bindings, live behaviour                          | Placeholder secrets refused before the build; live site checks after the deploy                                                       |
-| A person’s second key       | When asked                      | Nobody else                                                   | Irreversible and money-moving changes, releases            | The owner’s quoted yes for human-review paths; CLI releases staged on npm until he approves them with two-factor authentication       |
+| Layer                       | Runs                            | Got past by                                                   | Best for                                                   | At saasyland.com                                                                                                                                                                                                            |
+| --------------------------- | ------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instruction file            | When a session starts           | Anyone, silently                                              | Intent, judgement, pointers to checks                      | `AGENTS.md`: the rules, the definition of done and the human-review list                                                                                                                                                    |
+| Agent permissions and hooks | Before each tool call           | The person running the agent, or a command worded another way | Commands that must never run, paths an agent must not edit | Plain force pushes refused; changes to human-review paths stopped by the permission classifier                                                                                                                              |
+| Compiler and editor         | As the agent writes             | Nobody, if it runs                                            | Wrong shapes, unhandled cases                              | TypeScript with `strict`, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`                                                                                                                                       |
+| Git hooks                   | At each commit                  | `--no-verify`                                                 | Fast checks on staged files, commit message format         | `pre-commit` runs the comment, translation and content checks and formats, lints and type-checks the staged files; `prepare-commit-msg` refuses a subject that is not conventional, and `commit-msg` refuses AI attribution |
+| Required CI checks          | On every push to a pull request | Admins, if the branch rule lets them                          | Everything a program can decide                            | `bun run check`, `bun run test:coverage`, the test build, the browser suite and an upload of the Worker that serves no traffic                                                                                              |
+| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | The merge queue, squash only, linear history, no force pushes or deletion, and the three CI checks                                                                                                                          |
+| Deploy checks               | Before and after an upload      | Whoever deploys                                               | Secrets, bindings, live behaviour                          | Placeholder secrets refused before the build; live site checks after the deploy                                                                                                                                             |
+| A person’s second key       | When asked                      | Nobody else                                                   | Irreversible and money-moving changes, releases            | The owner’s quoted yes for human-review paths; CLI releases staged on npm until he approves them with two-factor authentication                                                                                             |
 
 Two principles decide where a rule goes.
 
-**Put each rule on the lowest rung that can decide it, and repeat it on the first rung the agent cannot skip.** A rule that only lives in a Git hook is gone the moment someone commits with `--no-verify`; a rule that only lives in CI makes the agent wait several minutes to learn about a missing semicolon. Hooks are for speed and CI is for truth, so our pre-commit hook runs on the staged files the same checks that CI runs on the whole repository, and skipping the hook costs one red CI run instead of a broken `main`.
+**Put each rule on the lowest rung that can decide it, and repeat it on the first rung the agent cannot skip.** A rule that only lives in a Git hook is gone the moment someone commits with `--no-verify`; a rule that only lives in CI makes the agent wait several minutes to learn about a missing semicolon. Hooks are for speed and CI is for truth, so our pre-commit hook runs every check of `bun run check` except the flow inventory, with formatting, lint and types on the staged files only, and skipping the hook costs one red CI run instead of a broken `main`.
 
 **Never let the agent permission layer be the only layer.** It is the fastest place to stop a dangerous command and the easiest to get around. Claude Code’s own documentation warns that "Bash permission patterns that try to constrain command arguments are fragile", and that a rule refusing `git push` does not match "a push written another way, such as `git -C . push`". Anything that must hold needs a server-side rule behind it.
 
@@ -258,7 +258,7 @@ Fixing four bugs would have left the fifth to the next agent. Pull request #201 
 - **The question is exact:** does render code read the clock or the runtime’s locale? The original bug sat inside a `.map` callback, which a simple pattern would have taken for a deferred function.
 - **The messages are instructions:** "Use an instant both share, such as a query’s dataUpdatedAt or a build-time value, or read the clock in an event handler, an effect or a query function."
 - **It was proved on known cases:** on `main`, it flagged exactly the five places the audit had found, the three it fixed and the two from #198.
-- **Its exceptions are code:** the deferred calls are three named lists in the plugin, and the docs say a new entry comes "with a case in `src/__test__/hydration-lint-plugin.test.ts`, never with a disable comment". The rule’s own test suite has 28 valid and invalid cases.
+- **Its exceptions are code:** the deferred calls are three named lists in the plugin, and the docs say a new entry comes "with a case in `src/__test__/hydration-lint-plugin.test.ts`, never with a disable comment". When #201 merged, the rule’s own test suite had 28 valid and invalid cases.
 
 ### Worked example: an audit finding becomes a content check
 
@@ -272,25 +272,36 @@ The next day, #220 did the same for the form of address. Each locale addresses t
 
 The audit above showed our no-comments rule enforced only by accident. This is the rule that closed the gap, written against ESLint’s rule API, which Oxlint also loads ("Oxlint’s plugin API is compatible with ESLint v9+"); ours is `code-style/no-comments` in `scripts/code-style-lint-plugin.ts`:
 
-```js
-const noComments = {
-  meta: {
-    type: "suggestion",
-    messages: { comment: "Say it in a name, a commit message or the docs." },
-  },
+```ts title="scripts/code-style-lint-plugin.ts"
+export const COMMENT_MESSAGES = {
+  comment:
+    "Remove this comment. Say it in a name, a named constant or a smaller function, and put the reasoning in the commit message, the pull request or the docs.",
+  directive: "Remove this directive comment, which switches a check off, and fix the cause the rule or the compiler reports instead.",
+} as const
+
+export const commentMessageId = (text: string): keyof typeof COMMENT_MESSAGES => (DIRECTIVE.test(text) ? "directive" : "comment")
+
+export const noComments = defineRule({
   create: (context) => ({
     Program: () => {
       for (const comment of context.sourceCode.getAllComments()) {
-        if (comment.type !== "Shebang") {
-          context.report({ loc: comment.loc, messageId: "comment" })
+        if (comment.type !== SHEBANG) {
+          context.report({ loc: comment.loc, messageId: commentMessageId(comment.value) })
         }
       }
     },
   }),
-}
+  meta: {
+    docs: {
+      description: "Source files carry no comments: names, the commit message, the pull request and the docs carry the meaning.",
+    },
+    messages: COMMENT_MESSAGES,
+    type: "problem",
+  },
+})
 ```
 
-We ran it with our existing configuration over every file the linter covers. It reported the capitalised line comment, the JSDoc block and the JSX comment in the probe file, left alone a `//` inside a URL string and inside a regular expression, and found exactly one problem in the code the linter covers: the `#!/usr/bin/env bun` line at the top of a script. ESLint documents why: shebangs "are treated as comments" and are returned by `getAllComments()`. Hence the `Shebang` exception, which is the step-5 lesson in miniature: a check you have not run on real code has bugs you have not met yet.
+We ran it with our existing configuration over every file the linter covers. It reported the capitalised line comment, the JSDoc block and the JSX comment in the probe file, left alone a `//` inside a URL string and inside a regular expression, and found exactly one problem in the code the linter covers: the `#!/usr/bin/env bun` line at the top of a script. ESLint documents why: shebangs "are treated as comments" and are returned by `getAllComments()`. Hence the `SHEBANG` exception, which is the step-5 lesson in miniature: a check you have not run on real code has bugs you have not met yet.
 
 The other finding matters as much: apart from that line, the linted code had no comments at all. Review had held the rule. It had also cost the owner the attention to hold it, every time, and that is the trade this article is about.
 
@@ -366,7 +377,9 @@ Until 21 November the local list ended with the whole suite, and a pull request 
 | Upload of the Worker that serves no traffic | Not a check yet                 | 3 min 24 s, beside the build                    |
 | From the first job to green                 | 16 min 35 s                     | 8 min 24 s                                      |
 
-The browser suite went from 12 minutes on one runner to about 3 on each of four, and the toolchain setup lost a second restore of the same cache. The unit tests with coverage took about twice as long as the day before and are now the slowest job, which tells us where to look next.
+The browser suite went from 12 minutes on one runner to about 3 on each of four, and the toolchain setup lost a second restore of the same cache. The unit tests with coverage took about twice as long as the day before and had become the slowest job, so they were the next thing we changed.
+
+#285 split the tests with coverage into parallel shards and merges their coverage in the required check, #289 split the browser suite into more shards, and #296 lets the browser shards set up while the build runs. CI now runs the tests on <RepositoryFact name="vitestShards" /> shards and the browser suite on <RepositoryFact name="e2eShards" />. In the merge queue’s run for #304 on 22 November 2026, the coverage shards took 2.1 to 3.3 minutes, the build 3.7, the browser shards 5.0 to 7.7 and the Worker upload 5.1, and the whole run 7.8 minutes from the first job to the last. The browser suite is the slowest job again.
 
 Every command is in the list because something passed without it. On 12 November a dependency upgrade (#94) passed `check` and 1,255 tests at full coverage while the production build was broken twice: a new Polar SDK could not be bundled, and a TanStack Start release changed its output so that a post-build script failed. Unit tests never run the Cloudflare build, so `build:test` joined the list, and the conventions docs record why.
 

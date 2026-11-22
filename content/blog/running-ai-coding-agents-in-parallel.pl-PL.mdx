@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -91,7 +91,7 @@ Praktyczny przewodnik po równoległym uruchamianiu kilku agentów AI do kodowan
 
 </Callout>
 
-_Ostatnio sprawdzone 20 listopada 2026. Każdy zewnętrzny fakt opisany niżej odczytano tego dnia u źródła, a źródła są podlinkowane na dole. Każdy incydent pochodzi z publicznego repozytorium saasyland.com; pull requesty, przebiegi CI i commity są podlinkowane, więc możesz je sprawdzić. Zaktualizowano 21 listopada 2026, gdy zastąpiliśmy nasz skrypt scalający i kontrolę wspólnego preview kolejką scalania GitHuba: fragmenty, które je opisywały, mówią teraz, co się zmieniło, a [Aktualizacja, listopad 2026](#update-november-2026) opowiada tę historię ze zmierzonymi czasami._
+_Ostatnio sprawdzone 20 listopada 2026. Każdy zewnętrzny fakt opisany niżej odczytano tego dnia u źródła, a źródła są podlinkowane na dole. Każdy incydent pochodzi z publicznego repozytorium saasyland.com; pull requesty, przebiegi CI i commity są podlinkowane, więc możesz je sprawdzić. Zaktualizowano 21 listopada 2026, gdy zastąpiliśmy nasz skrypt scalający i kontrolę wspólnego preview kolejką scalania GitHuba: fragmenty, które je opisywały, mówią teraz, co się zmieniło, a [Aktualizacja, listopad 2026](#update-november-2026) opowiada tę historię ze zmierzonymi czasami. Ponownie zaktualizowano 22 listopada 2026 o czasy CI po podzieleniu testów z pokryciem na shardy._
 
 ## Krótka odpowiedź
 
@@ -487,7 +487,7 @@ W przebiegu #273 zadanie builda zrobiło checkout repozytorium o 16:40 UTC. O 16
 - **Jedno polecenie do scalania.** `bun scripts/enqueue-pr.ts <number>` sprawdza tytuł, dodaje mu emoji, które zachowuje commit squash, i włącza auto-merge, który wstawia pull request do kolejki, gdy przejdą jego kontrole.
 - **Krótsza lokalna definicja ukończenia.** CI uruchamia teraz cały zestaw testów przeglądarkowych dwa razy dla każdego pull requesta, w pull requeście i w kolejce, na runnerach, z których nie korzysta nikt inny. Agenty uruchamiają więc `check`, `test:coverage`, `build:test` i specyfikacje, których dotyka ich zmiana, na własnym porcie, zamiast całego zestawu na laptopie, który dzielą z innymi agentami.
 
-Przebieg pull requesta ma teraz trzy zadania, które startują razem, kontrole z pokryciem, build testowy i przesłanie Workera, a po nich shardy, i w pierwszych pięciu przebiegach na nowym workflowie trwał od 7,7 do 9,8 minuty. Najdłuższym zadaniem są teraz testy jednostkowe z pokryciem, które w przebiegu kolejki dla #277 trwały 7 minut 21 sekund, wobec 3 minut 44 sekund 20 listopada; tym zajmiemy się w następnej kolejności.
+Po #277 przebieg pull requesta miał trzy zadania, które startowały razem, kontrole z pokryciem, build testowy i przesłanie Workera, a po nich shardy, i w pierwszych pięciu przebiegach na nowym workflowie trwał od 7,7 do 9,8 minuty. Najdłuższym zadaniem były wtedy testy jednostkowe z pokryciem, które w przebiegu kolejki dla #277 trwały 7 minut 21 sekund, wobec 3 minut 44 sekund 20 listopada, więc to je zmieniliśmy w następnej kolejności.
 
 ### Przed i po
 
@@ -501,6 +501,12 @@ Przebieg pull requesta ma teraz trzy zadania, które startują razem, kontrole z
 | Od wstawienia do kolejki do produkcji, czas zegarowy | Nie zmierzono: skrypt nie zapisywał, kiedy pull request był gotowy | 20,2 minuty dla #277 i 18,9 dla #276                                                            |
 
 Dwa uczciwe zastrzeżenia. Kolumna „po” ma jeden dzień: garść przebiegów, a nie miesiąc, i zastąpimy ją medianami, gdy będzie ich dość. A wiersz o przepustowości to sufit, a nie pomiar. Między 10:26 UTC 20 listopada a 00:44 następnej nocy skrypt scalił 23 pull requesty, jeden naraz; w chwili pisania nowa kolejka zbudowała obok siebie dwa pull requesty, #276 i #274, ale nie miała jeszcze pracowitego dnia.
+
+### Podział testów z pokryciem na shardy (#285, #289, #296)
+
+22 listopada weszły trzy kolejne zmiany. #285 uruchamia testy z pokryciem na równoległych shardach i scala ich pokrycie w wymaganej kontroli, więc bramka nadal mierzy całą bazę kodu. #289 podzielił zestaw testów przeglądarkowych na więcej shardów, a #296 pozwala shardom przeglądarkowym instalować narzędzia i przeglądarkę w trakcie buildu, a nie po nim. CI uruchamia teraz testy na <RepositoryFact name="vitestShards" /> shardach, a zestaw przeglądarkowy na <RepositoryFact name="e2eShards" />.
+
+W przebiegu kolejki scalania dla #304 z 22 listopada 2026 shardy pokrycia trwały od 2,1 do 3,3 minuty, build 3,7, shardy przeglądarkowe od 5,0 do 7,7, a przesłanie Workera 5,1; cały przebieg trwał 7,8 minuty od pierwszego do ostatniego zadania. 33 udane przebiegi pull requestów tego dnia trwały od 6,3 do 11,4 minuty, z medianą 7,9. Najwolniejszym zadaniem znów jest shard przeglądarkowy.
 
 ### Wnioski dla każdego zespołu, który prowadzi wiele agentów
 

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-20
-updated: 2026-11-21
+updated: 2026-11-22
 image: /images/blog/running-ai-coding-agents-in-parallel.webp
 tags:
   - ai-agents
@@ -94,7 +94,7 @@ Una guía práctica para ejecutar varios agentes de programación con IA en para
 
 </Callout>
 
-_Última comprobación: 20 de noviembre de 2026. Cada dato externo que aparece a continuación se leyó ese día en su fuente y está enlazado al final. Cada incidente procede del repositorio público de saasyland.com; las pull requests, las ejecuciones de CI y los commits están enlazados para que puedas comprobarlos. Actualizado el 21 de noviembre de 2026, cuando sustituimos nuestro script de fusión y la comprobación de la preview compartida por la cola de merge de GitHub: los pasajes que los describían ahora cuentan qué cambió, y [Actualización, noviembre de 2026](#update-november-2026) cuenta la historia con los tiempos medidos._
+_Última comprobación: 20 de noviembre de 2026. Cada dato externo que aparece a continuación se leyó ese día en su fuente y está enlazado al final. Cada incidente procede del repositorio público de saasyland.com; las pull requests, las ejecuciones de CI y los commits están enlazados para que puedas comprobarlos. Actualizado el 21 de noviembre de 2026, cuando sustituimos nuestro script de fusión y la comprobación de la preview compartida por la cola de merge de GitHub: los pasajes que los describían ahora cuentan qué cambió, y [Actualización, noviembre de 2026](#update-november-2026) cuenta la historia con los tiempos medidos. Actualizado de nuevo el 22 de noviembre de 2026 con los tiempos de CI tras repartir en shards las pruebas con cobertura._
 
 ## La respuesta corta
 
@@ -490,7 +490,7 @@ En la ejecución de #273, el job de build hizo checkout del repositorio a las 16
 - **Un solo comando para fusionar.** `bun scripts/enqueue-pr.ts <number>` comprueba el título, le añade el emoji que conserva el commit squash y activa el auto-merge, que pone la pull request en la cola en cuanto pasan sus comprobaciones.
 - **Una definición de terminado local más corta.** La CI ejecuta ahora toda la suite del navegador dos veces para cada pull request, en la pull request y en la cola, en runners que no usa nadie más. Así que los agentes ejecutan `check`, `test:coverage`, `build:test` y las specs que toca su cambio, en su propio puerto, en lugar de toda la suite en un portátil que comparten con otros agentes.
 
-Una ejecución de pull request tiene ahora tres trabajos que empiezan a la vez, las comprobaciones con cobertura, el build de pruebas y la subida del Worker, seguidos de los shards, y en las cinco primeras ejecuciones con el nuevo flujo de trabajo tardó de 7,7 a 9,8 minutos. El trabajo más largo es ahora el de las pruebas unitarias con cobertura, que tardaron 7 minutos y 21 segundos en la ejecución de la cola para #277, frente a 3 minutos y 44 segundos el 20 de noviembre; es lo siguiente que hay que mirar.
+Tras la #277, una ejecución de pull request tenía tres trabajos que empezaban a la vez, las comprobaciones con cobertura, el build de pruebas y la subida del Worker, seguidos de los shards, y en las cinco primeras ejecuciones con el nuevo flujo de trabajo tardó de 7,7 a 9,8 minutos. El trabajo más largo era entonces el de las pruebas unitarias con cobertura, que tardaron 7 minutos y 21 segundos en la ejecución de la cola para #277, frente a 3 minutos y 44 segundos el 20 de noviembre, así que fueron lo siguiente que cambiamos.
 
 ### Antes y después
 
@@ -504,6 +504,12 @@ Una ejecución de pull request tiene ahora tres trabajos que empiezan a la vez, 
 | De la cola a producción, tiempo real       | Sin medir: el script no registraba cuándo estaba lista una pull request | 20,2 minutos para #277 y 18,9 para #276                                                                |
 
 Dos límites, con honestidad. La columna de después tiene un día: un puñado de ejecuciones, no un mes de ellas, y la sustituiremos por medianas cuando haya suficientes. Y la fila del ritmo de fusión es un techo, no una medición. Entre las 10:26 UTC del 20 de noviembre y las 00:44 de la noche siguiente, el script fusionó 23 pull requests, de una en una; en el momento de escribir esto, la nueva cola había compilado dos pull requests a la vez, #276 y #274, pero todavía no ha tenido un día de mucho trabajo.
+
+### Repartir en shards las pruebas con cobertura (#285, #289, #296)
+
+El 22 de noviembre entraron tres cambios más. La #285 ejecuta las pruebas con cobertura en shards paralelos y fusiona su cobertura en la comprobación obligatoria, así que el umbral sigue midiendo todo el código. La #289 repartió la suite del navegador en más shards, y la #296 deja que los shards del navegador instalen la cadena de herramientas y el navegador mientras se ejecuta el build, en lugar de después. La CI ejecuta ahora las pruebas en <RepositoryFact name="vitestShards" /> shards y la suite del navegador en <RepositoryFact name="e2eShards" />.
+
+En la ejecución de la cola de fusión para la #304 del 22 de noviembre de 2026, los shards de cobertura tardaron de 2,1 a 3,3 minutos, el build 3,7, los shards del navegador de 5,0 a 7,7 y la subida del Worker 5,1, y la ejecución completa 7,8 minutos desde el primer trabajo hasta el último. Las 33 ejecuciones de pull request que terminaron en verde ese día tardaron de 6,3 a 11,4 minutos, con una mediana de 7,9. El trabajo más lento vuelve a ser un shard del navegador.
 
 ### Lecciones para cualquier equipo que ejecute muchos agentes
 

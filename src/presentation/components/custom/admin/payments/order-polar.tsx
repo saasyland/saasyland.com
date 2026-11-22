@@ -54,7 +54,7 @@ const PolarFigures = ({ live }: { readonly live: Order["polarOrder"] }): JSX.Ele
       return live.discountName
     }
 
-    return t("pages.admin.orders.detail.polar.discountWithCode", { code: live.discountCode, name: live.discountName })
+    return t("pages.admin.orders.discount.withCode", { code: live.discountCode, name: live.discountName })
   }
 
   const values: Record<PolarDetail, JSX.Element | string> = {

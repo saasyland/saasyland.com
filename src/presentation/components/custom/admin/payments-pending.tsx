@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import { CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
 import { ORDER_MIRROR_DETAILS, ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
@@ -14,11 +15,11 @@ import {
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
 
-const ORDER_FILTERS = ["status", "product", "placedAt"] as const
+const ORDER_FILTERS = ["status", "product", "discount", "country", "placedAt"] as const
 
 const USER_ORDER_ROWS = ["first", "second"] as const
 
-const SearchPending = (): JSX.Element => <Skeleton className="h-10 w-full flex-1 rounded-md" />
+const SearchPending = (): JSX.Element => <Skeleton className="h-10 w-full flex-1 rounded-md sm:min-w-64" />
 
 const NamePending = (): JSX.Element => (
   <div className="flex flex-col">
@@ -48,6 +49,12 @@ const OrderRowPending = (): JSX.Element => (
       <Skeleton className="h-lh w-16 scale-y-70 text-sm" />
     </TableCell>
     <TableCell>
+      <NamePending />
+    </TableCell>
+    <TableCell>
+      <TextPending />
+    </TableCell>
+    <TableCell>
       <BadgePending />
     </TableCell>
   </TableRow>
@@ -60,7 +67,7 @@ export const AdminOrdersPending = (): JSX.Element => (
       <LongDescriptionPending />
     </div>
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchPending />
         {ORDER_FILTERS.map((filter) => (
           <Skeleton className="h-10 w-full rounded-md sm:w-48" key={filter} />
@@ -81,6 +88,12 @@ export const AdminOrdersPending = (): JSX.Element => (
               </TableHead>
               <TableHead>
                 <SortableHeadPending />
+              </TableHead>
+              <TableHead>
+                <HeadPending />
+              </TableHead>
+              <TableHead>
+                <HeadPending />
               </TableHead>
               <TableHead>
                 <SortableHeadPending />
@@ -176,6 +189,11 @@ const CustomerRowPending = (): JSX.Element => (
     <TableCell>
       <TextPending />
     </TableCell>
+    {CUSTOMER_COLUMNS.map(({ key }) => (
+      <TableCell key={key}>
+        <TextPending />
+      </TableCell>
+    ))}
   </TableRow>
 )
 
@@ -205,6 +223,11 @@ export const AdminCustomersPending = (): JSX.Element => (
             <TableHead>
               <SortableHeadPending />
             </TableHead>
+            {CUSTOMER_COLUMNS.map(({ key }) => (
+              <TableHead key={key}>
+                <HeadPending />
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>

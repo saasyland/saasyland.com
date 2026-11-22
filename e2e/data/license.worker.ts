@@ -3,7 +3,7 @@ import * as zod from "zod"
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { LICENSE_CHECKOUT_FIELD, LICENSE_TIERS, LICENSE_WEBHOOK_EVENTS } from "../../src/modules/license/license.constants"
-import { TEST_LICENSES } from "./licenses"
+import { TEST_LICENSES, TEST_MACHINES_LICENSE } from "./licenses"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 const purchaseSchema = zod.object({ customer: zod.string().min(1), tier: zod.enum(LICENSE_TIERS) })
@@ -16,13 +16,21 @@ export const LICENSE_TEST_WORKER = [
       const { POLAR_PRODUCT_IDS } = await import("../../src/modules/license/license.utils")
       for (const { activation, key, polarLicenseKeyId, tier, user } of TEST_LICENSES) {
         polar.seedPolarLicenseKey({
-          activation,
+          activations: [activation],
           externalCustomerId: user.id,
           key,
           licenseKeyId: polarLicenseKeyId,
           productId: POLAR_PRODUCT_IDS[tier],
         })
       }
+      const { activations, key, polarLicenseKeyId, tier, user } = TEST_MACHINES_LICENSE
+      polar.seedPolarLicenseKey({
+        activations: activations.map(({ platform, ...activation }) => ({ ...activation, meta: { platform } })),
+        externalCustomerId: user.id,
+        key,
+        licenseKeyId: polarLicenseKeyId,
+        productId: POLAR_PRODUCT_IDS[tier],
+      })
     },
   },
   {

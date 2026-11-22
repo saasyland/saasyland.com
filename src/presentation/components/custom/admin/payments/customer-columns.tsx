@@ -5,6 +5,8 @@ import { useTranslations } from "use-intl/react"
 
 import type { Order } from "~/src/modules/order/order.types"
 
+import { type CustomerColumn as AreaColumn, CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
+
 import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderCustomer } from "~/src/presentation/components/custom/admin/payments/order-columns"
 import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
@@ -74,6 +76,24 @@ const LastOrderCell = ({ getValue }: CellContext<DataTableFeatures, CustomerRow,
   return <span className="text-sm text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }
 
+const pageAccounts = (rows: readonly { readonly original: CustomerRow }[]): string[] =>
+  rows.flatMap(({ original }) => (original.user === null ? [] : [original.user.id]))
+
+const AreaCell = ({
+  Cell,
+  getValue,
+  table,
+}: CellContext<DataTableFeatures, CustomerRow, CustomerRow["user"]> & Pick<AreaColumn, "Cell">): JSX.Element => {
+  const t = useTranslations("pages.admin.customers.table")
+  const user = getValue()
+
+  if (user === null) {
+    return <span className="text-sm text-muted-foreground">{t("noAccount")}</span>
+  }
+
+  return <Cell accounts={pageAccounts(table.getRowModel().rows)} userId={user.id} />
+}
+
 const columnHelper = createColumnHelper<DataTableFeatures, CustomerRow>()
 
 export const customerColumns = columnHelper.columns([
@@ -92,4 +112,12 @@ export const customerColumns = columnHelper.columns([
   columnHelper.accessor("orders", { cell: OrdersCell, header: () => <ColumnHeader id="orders" /> }),
   columnHelper.accessor("revenue", { cell: RevenueCell, enableSorting: false, header: () => <ColumnHeader id="revenue" /> }),
   columnHelper.accessor("lastOrderAt", { cell: LastOrderCell, header: () => <ColumnHeader id="lastOrderAt" /> }),
+  ...CUSTOMER_COLUMNS.map(({ Cell, Header, key }) =>
+    columnHelper.accessor("user", {
+      cell: (context) => <AreaCell {...context} Cell={Cell} />,
+      enableSorting: false,
+      header: () => <Header />,
+      id: key,
+    }),
+  ),
 ])

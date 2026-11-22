@@ -109,6 +109,18 @@ Es lässt `course.cover` beim Kopieren aus: Die Dateien eines Titelbilds liegen 
 
 Es bricht vor dem Schreiben ab, wenn ein Preview-Kurs den Slug eines Produktionskurses mit einer anderen ID hat, etwa einer, der aus der Lehrplandatei importiert wurde; lösche diesen Kurs im Admin-Bereich von Preview und führe es dann erneut aus. Es gibt aus, was es in jeder Tabelle angelegt, aktualisiert und entfernt hat, zählt danach die Zeilen in Preview und schlägt fehl, wenn sie von denen der Produktion abweichen.
 
+## Rabatte und Rechnungsländer älterer Bestellungen [#discounts-and-billing-countries-of-older-orders]
+
+Die Migration `20261122143452_familiar_tusk.sql` hat der Kopie `order` den Rabatt und das Rechnungsland hinzugefügt ([Zahlungen](/docs/features/payments#orders-and-subscriptions-in-d1)). Neue Webhooks füllen sie, und eine vor der Migration kopierte Bestellung hat ein leeres `discount_amount`, bis Polar sie erneut sendet. So füllst du alle diese Bestellungen auf einmal:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` liest `POLAR_ACCESS_TOKEN` und `POLAR_SERVER` aus `.env.<environment>`, listet die Bestellungen mit leerem `discount_amount` mit `wrangler d1 execute` auf (remote für Preview und Produktion, lokal für `orders:backfill:local`) und liest jede mit `polar.orders.get` aus Polar, eine nach der anderen, wobei es so lange wartet, wie Polar verlangt, wenn es mit 429 antwortet. Es schreibt alle Bestellungen in einem einzigen `--file`-Lauf, jedes `UPDATE` beschränkt auf seine ID und auf ein leeres `discount_amount`, sodass es nie eine Kopie überschreibt, die ein Webhook inzwischen gefüllt hat, und ein zweiter Lauf nichts ändert. Es gibt aus, wie viele Bestellungen es kopiert hat, und beendet sich mit einem Fehler, solange noch eine übrig ist, etwa eine Bestellung, die Polar nicht mehr zurückgibt. Wende zuerst die Migration an.
+
 ## Der erste Admin [#the-first-admin]
 
 Die Anwendung hat keinen Endpunkt, keinen Seed und keine Variable, die die Rolle `admin` vergibt. Auf Preview und Produktion wird der erste Admin mit einem Skript angelegt, und das ist der einzige Weg:

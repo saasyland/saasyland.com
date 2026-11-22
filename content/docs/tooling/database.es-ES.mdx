@@ -109,6 +109,18 @@ Deja `course.cover` fuera de la copia: los archivos de una portada están en el 
 
 Se detiene antes de escribir si un curso de preview tiene el slug de un curso de producción con otro id, como uno importado desde el archivo del temario; borra ese curso en la administración de preview y vuelve a ejecutarlo. Muestra lo que ha creado, actualizado y eliminado en cada tabla, después cuenta las filas de preview y falla si no coinciden con las de producción.
 
+## Descuentos y países de facturación de pedidos antiguos [#discounts-and-billing-countries-of-older-orders]
+
+La migración `20261122143452_familiar_tusk.sql` añadió el descuento y el país de facturación a la copia `order` ([Pagos](/docs/features/payments#orders-and-subscriptions-in-d1)). Los webhooks nuevos los rellenan, y un pedido copiado antes de la migración tiene `discount_amount` vacío hasta que Polar lo vuelve a enviar. Para rellenar todos esos pedidos de una vez:
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` lee `POLAR_ACCESS_TOKEN` y `POLAR_SERVER` de `.env.<environment>`, lista los pedidos cuyo `discount_amount` está vacío con `wrangler d1 execute` (en remoto para preview y producción, en local para `orders:backfill:local`) y lee cada uno de Polar con `polar.orders.get`, de uno en uno, esperando lo que Polar pida cuando responde 429. Escribe todos los pedidos en una sola ejecución con `--file`, cada `UPDATE` limitado a su ID y a un `discount_amount` vacío, así que nunca sobrescribe una copia que un webhook haya rellenado mientras tanto y una segunda ejecución no cambia nada. Muestra cuántos pedidos ha copiado y termina con un error mientras quede alguno, como un pedido que Polar ya no devuelve. Aplica primero la migración.
+
 ## El primer administrador [#the-first-admin]
 
 La aplicación no tiene ningún endpoint, seed ni variable que conceda el rol `admin`. En preview y en producción, el primer administrador se crea con un script, y esta es la única forma:

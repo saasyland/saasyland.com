@@ -9,8 +9,9 @@ description: "D1 に保存した Polar の注文のコピーと Polar 自体を�
 
 - `getOrdersPageQuery` は `getOrders` (`src/modules/order/use-cases/get-orders.ts`, `order: ["read"]`) を呼び出します。ページ送り、日時・合計・ステータスでの並べ替え、検索、絞り込みはすべてサーバーで行います。
 - 検索は注文 ID、Polar の顧客 ID、商品、一致したアカウントの名前とメールアドレスを対象にし、入力が止まった時点で送信されます。
-- 絞り込みは、 `ORDER_STATUSES`によるステータス、 `getOrderProducts`（注文のある商品を最新の注文の名前で一覧にします）による商品、そして期間です: <RepositoryFact name="dashboardRanges" />.
-- 各行には、注文日時と ID、アカウント（一致しない場合はアカウントなしと Polar の顧客 ID）、商品、注文の通貨での合計と返金額、ステータスが表示されます。金額は `fromMinorUnits` で変換した税込み額です。
+- 絞り込みは、 `ORDER_STATUSES`によるステータス、商品、割引（割引あり、割引なし、または特定の割引）、請求先の国、そして期間です: <RepositoryFact name="dashboardRanges" />。 `getOrderFilters` (`get-order-filters.ts`, `order: ["read"]`) は、コピーに含まれる商品、割引、請求先の国を一覧にし、商品と割引はそれぞれ最新の注文の名前で表示します。
+- 各行には、注文日時と ID、アカウント（一致しない場合はアカウントなしと Polar の顧客 ID）、商品、注文の通貨での合計と返金額、割引とそのコードと金額、請求先の国、ステータスが表示されます。金額は `fromMinorUnits` で変換した税込み額です。
+- 絞り込みを設定しておらず、まだ注文が 1 件もコピーされていない場合、テーブルには注文がまだないことが表示されます。何にも一致しない絞り込みでは、テーブルの通常の空の行が表示されます。
 
 ## 注文ページ
 
@@ -18,25 +19,28 @@ description: "D1 に保存した Polar の注文のコピーと Polar 自体を�
 
 | 部分       | 取得元                                                                                                                                                                                                                                                  |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `order`    | D1 のコピー: 注文日時と最終更新、商品、合計、返金、請求書番号、サブスクリプション、Polar の顧客、一致したアカウント                                                                                                                                     |
+| `order`    | D1 のコピー: 注文日時と最終更新、商品、合計、返金、割引とその金額、請求先の国、請求書番号、サブスクリプション、Polar の顧客、一致したアカウント。割引と請求先の国を保存するようになる前にコピーされた注文では、どちらも「未コピー」と表示されます       |
 | `polar`    | `polar.orders.get` （ページの読み込み時）: 小計、割引、割引後の金額、税金、合計、返金額と返金された税金、ステータス、割引の名前とコード、請求先の名前と国、顧客の名前とメールアドレス、そして `polar.orders.invoice` （Polar が請求書を作成済みの場合） |
 | `polarUrl` | Polar のダッシュボードでの注文                                                                                                                                                                                                                          |
 
 Polar が応答しない場合、 `polar` は `{ read: "unavailable" }` (`POLAR_READ`, `order.constants.ts`) になり、ページはコピーを表示したまま Polar に接続できなかったことを伝えます。コピーにない注文は見つからないページになります。アカウントカードはプロフィールにリンクし、そこにアカウントのライセンスとすべての注文があります。
 
-## 顧客
+## 顧客 [#customers]
 
 決済のエリアは、ユーザー管理に顧客タブを (`src/data/payments.user-tabs.ts`, `/admin/users/customers`) 、アカウントのプロフィールにその注文を追加します (`src/data/payments.user-profile.ts`).
 
 - `getCustomersPageQuery` は `getCustomers` (`get-customers.ts`, `order: ["read"]`) を呼び出し、コピーを Polar の顧客ごとにまとめ、注文が一致したアカウントを結び付けます。各行には、登録日時とメール確認の有無を含むアカウント、注文数、通貨ごとの返金後の支払額（ステータスが <RepositoryFact name="revenueOrderStatuses" />の注文を数えます）、最新の注文が表示されます。通貨を合算することはありません。
 - 検索は名前、メールアドレス、Polar の顧客 ID を対象にし、顧客・登録・注文数・最新の注文による並べ替えはサーバーで行います。
-- `UserOrders` (`user-orders.tsx`) は、プロフィールにアカウントの注文をそれぞれのページへのリンク付きで一覧にし、通貨ごとの返金後の支払額を表示します。ライセンスカードにはパッケージの端末の上限を表示し、その値は次から取ります: `LICENSE_ACTIVATION_LIMITS`.
+- ほかのエリアは `src/data/<area>.customer-columns.ts` でテーブルに列を追加し、 `src/data/customer-columns.entries.ts` がそれらを `CUSTOMER_COLUMNS` (`src/data/customer-columns.ts`) にまとめます。決済のエリアは何も追加しません。ライセンスのエリアは **端末** (`license-machines.tsx`) を追加します。アカウントのある顧客ごとに、ライセンスが有効化した端末の数を上限とあわせて「5台中2台を使用中」のように表示し、ラベル、システム、有効化日時を含む端末の一覧を開きます。1 ページのセルは、そのページのアカウントに対する 1 つの `userActivationsQuery` を共有します（[ユーザー（管理）](/docs/features/users-admin#profile)を参照）。
+- `UserOrders` (`user-orders.tsx`) は、プロフィールにアカウントの注文をそれぞれのページへのリンク付きで一覧にし、通貨ごとの返金後の支払額を表示します。
+
+## 以前の注文の割引と請求先の国 [#discounts-and-billing-countries-of-older-orders]
+
+`recordOrder` は注文のイベントのたびに割引と請求先の国をコピーするので、Polar が再び変更した注文には次の Webhook でそれらが入ります。 `20261122143452_familiar_tusk.sql` より前にコピーされた注文は、それまで `discount_amount` が空のままです。 `bun run orders:backfill:<local|preview|production>` は、それらを Polar の API からまとめてコピーします。[データベース](/docs/tooling/database#discounts-and-billing-countries-of-older-orders)を参照してください。
 
 ## まだ作られていないもの
 
-- 注文のコピーには割引も請求先の国も含まれないため、一覧ではそれらで絞り込めません。追加するには D1 のマイグレーションが必要です。
 - 返金は Polar のダッシュボードで行います。注文ページからそこへリンクしています。
-- ライセンスキーが有効化した端末の数はキーごとに Polar から読み取るもので、顧客タブにもライセンスカードにもまだ表示されません。
 
 ## 関連ページ
 

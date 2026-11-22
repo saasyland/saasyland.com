@@ -16,6 +16,7 @@ export interface Lesson {
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
   getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  getLessonTitle: zod.input<typeof lessonZodSchemas.getLessonTitle>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
   replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>

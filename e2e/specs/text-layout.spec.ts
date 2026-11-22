@@ -4,6 +4,7 @@ import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE } from "../data/courses"
+import { TEST_MACHINES_LICENSE } from "../data/licenses"
 import { expect, test } from "../fixtures/auth"
 import { textLayoutProblems } from "../fixtures/text-layout"
 import type { AuthPage } from "../pages"
@@ -23,9 +24,12 @@ const ADMIN_PAGES = [
   ROUTES.ADMIN_COURSES,
   ROUTES.ADMIN_USERS_ALL,
   ROUTES.ADMIN_USERS_CUSTOMERS,
+  `${ROUTES.ADMIN_USERS}/${TEST_MACHINES_LICENSE.user.id}`,
   ROUTES.ADMIN_ORDERS,
   ROUTES.ADMIN_PRODUCTS,
 ] as const
+
+const PAGE_LAYOUT_TIMEOUT_MS = 5_000
 
 const CLEAR = { clipped: [], overflow: [], overlaps: [], truncated: [] }
 
@@ -45,6 +49,7 @@ const fontsLoaded = async (page: Page): Promise<void> => {
 }
 
 test("the admin course form and tables keep every line of text whole, clear of the others and inside the window", async ({ appPage, authPage, page }) => {
+  test.setTimeout(Math.max(test.info().timeout, ADMIN_PAGES.length * VIEWPORTS.length * PAGE_LAYOUT_TIMEOUT_MS))
   await signInAsAdmin(page, authPage)
 
   for (const viewport of VIEWPORTS) {

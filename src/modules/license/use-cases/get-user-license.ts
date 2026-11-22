@@ -19,10 +19,12 @@ export const getUserLicense = createServerFn({ method: "GET" })
       return { license: undefined }
     }
 
-    const { activatedAt, deliveredAt, lessonOpenedAt, purchaseCreatedAt, status, tier, withdrawalConsentAt } = row
+    const { activatedAt, deliveredAt, lessonOpenedAt, openedLessonId, purchaseCreatedAt, status, tier, withdrawalConsentAt } = row
     const refund = status === LICENSE_STATUS.ACTIVE ? refundEligibility({ ...row, now: new Date() }) : undefined
 
-    return { license: { activatedAt, deliveredAt, lessonOpenedAt, purchaseCreatedAt, refund, status, tier, withdrawalConsentAt } }
+    return {
+      license: { activatedAt, deliveredAt, lessonOpenedAt, openedLessonId, purchaseCreatedAt, refund, status, tier, withdrawalConsentAt },
+    }
   })
 
 export const userLicenseQuery = (input: License["getUserLicense"]) =>

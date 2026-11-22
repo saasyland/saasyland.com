@@ -41,12 +41,20 @@ export const TEST_ORDER_PRODUCTS = {
   TEAM: { id: "prod_test-orders-team", name: "Test Orders Team", price: { amount: 29_900, currency: "usd" }, recurringInterval: null },
 } as const
 
-export const TEST_ORDER_DISCOUNT = { basisPoints: 1000, code: "E2E10", name: "Test launch discount" } as const
+export const TEST_ORDER_DISCOUNT = {
+  basisPoints: 1000,
+  code: "E2E10",
+  id: "5d2c8e41-7a3b-4f6c-9e8d-1a2b3c4d5e60",
+  name: "Test launch discount",
+} as const
 
 export const TEST_ORDER_BILLING = { country: "DE", countryName: "Germany", name: "Test Orders GmbH" } as const
 
+export const TEST_ORDER_OTHER_COUNTRY = { country: "JP", countryName: "Japan" } as const
+
 export const TEST_BUYER_ORDERS = [
   {
+    country: TEST_ORDER_BILLING.country,
     currency: "usd",
     daysAgo: 3,
     discountAmount: 1656,
@@ -58,6 +66,7 @@ export const TEST_BUYER_ORDERS = [
     totalAmount: 14_900,
   },
   {
+    country: TEST_ORDER_BILLING.country,
     currency: "usd",
     daysAgo: 6,
     discountAmount: 0,
@@ -69,6 +78,7 @@ export const TEST_BUYER_ORDERS = [
     totalAmount: 29_900,
   },
   {
+    country: TEST_ORDER_OTHER_COUNTRY.country,
     currency: "jpy",
     daysAgo: 40,
     discountAmount: 0,
@@ -83,6 +93,7 @@ export const TEST_BUYER_ORDERS = [
 
 export const TEST_BUYER_SHOWN = {
   discount: "Test launch discount (E2E10)",
+  discountAmount: "$16.56",
   paidOrderTotal: "$149.00",
   revenue: ["¥25,000", "$149.00"],
 } as const

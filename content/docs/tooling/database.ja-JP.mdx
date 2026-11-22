@@ -109,6 +109,18 @@ bun run courses:sync:preview
 
 本番のコースと同じスラッグで ID が異なるコースがプレビューにある場合（カリキュラムファイルからインポートしたものなど）は、書き込む前に停止します。プレビューの管理画面でそのコースを削除してから、もう一度実行してください。テーブルごとに作成、更新、削除した件数を表示し、その後プレビューの行数を数えて、本番と異なれば失敗します。
 
+## 以前の注文の割引と請求先の国 [#discounts-and-billing-countries-of-older-orders]
+
+マイグレーション `20261122143452_familiar_tusk.sql` は、`order` のコピーに割引と請求先の国を追加しました（[決済](/docs/features/payments#orders-and-subscriptions-in-d1)）。新しい Webhook がそれらを埋め、マイグレーションより前にコピーされた注文は、Polar が再び送るまで `discount_amount` が空のままです。そのような注文をすべてまとめて埋めるには、次を実行します。
+
+```sh
+bunx wrangler login
+bun run orders:backfill:preview
+bun run orders:backfill:production
+```
+
+`scripts/backfill-order-terms.ts` は `.env.<environment>` から `POLAR_ACCESS_TOKEN` と `POLAR_SERVER` を読み取り、`wrangler d1 execute`（プレビューと本番ではリモート、`orders:backfill:local` ではローカル）で `discount_amount` が空の注文を一覧にし、`polar.orders.get` で 1 件ずつ Polar から読み取ります。Polar が 429 を返したときは、Polar が求めるだけ待ちます。すべての注文を 1 回の `--file` の実行で書き込み、各 `UPDATE` はその ID と空の `discount_amount` に限定されるので、その間に Webhook が埋めたコピーを上書きすることはなく、2 回目の実行では何も変わりません。コピーした注文の件数を表示し、Polar がもう返さない注文など、残っているものがある間はエラーで終了します。先にマイグレーションを適用してください。
+
 ## 最初の管理者 [#the-first-admin]
 
 アプリケーションには、`admin` ロールを付与するエンドポイント、シード、変数はありません。プレビューと本番では、最初の管理者をスクリプトで作成します。これが唯一の方法です。

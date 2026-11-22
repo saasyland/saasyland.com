@@ -53,7 +53,7 @@ const lastPage: Page = { rows: [{ id: "alan", name: "Alan" }], total: 3 }
 const renderTable = async (
   fetchPage: (state: Request) => Promise<Page>,
   options: DataTableOptions<Person> = {},
-  filters: readonly DataTableFilter[] = [],
+  { empty, filters = [] }: { readonly empty?: string; readonly filters?: readonly DataTableFilter[] } = {},
 ) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   const root = createRootRoute({
@@ -67,6 +67,7 @@ const renderTable = async (
     component: () => (
       <DataTable
         columns={columns}
+        empty={empty}
         filters={filters}
         options={{
           initialState: { pagination: { pageIndex: 0, pageSize: 2 } },
@@ -164,7 +165,7 @@ describe("data table server queries", () => {
 
   it("asks the server for the search once typing pauses and for a selected filter at once, from the first page", async () => {
     const fetchPage = vi.fn<(state: Request) => Promise<Page>>().mockResolvedValue(firstPage)
-    await renderTable(fetchPage, { initialState: { pagination: { pageIndex: 1, pageSize: 2 } } }, FILTERS)
+    await renderTable(fetchPage, { initialState: { pagination: { pageIndex: 1, pageSize: 2 } } }, { filters: FILTERS })
     expect(await screen.findByText("Grace")).toBeVisible()
 
     await userEvent.type(screen.getByRole("textbox", { name: "Search people" }), "gr")
@@ -182,5 +183,19 @@ describe("data table server queries", () => {
     await waitFor(() => {
       expect(fetchPage).toHaveBeenLastCalledWith({ filters: { team: "compilers" }, pageIndex: 0, pageSize: 2, sorting: [] })
     })
+  })
+})
+
+describe("data table empty state", () => {
+  it("says what the table holds when nothing exists yet, and that nothing matches once a filter is set", async () => {
+    const fetchPage = vi.fn<(state: Request) => Promise<Page>>().mockResolvedValue({ rows: [], total: 0 })
+    await renderTable(fetchPage, {}, { empty: "No people have joined yet.", filters: FILTERS })
+    expect(await screen.findByText("No people have joined yet.")).toBeVisible()
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Search people" }), "zz")
+    expect(await screen.findByText("No results.")).toBeVisible()
+
+    await userEvent.clear(screen.getByRole("textbox", { name: "Search people" }))
+    expect(await screen.findByText("No people have joined yet.")).toBeVisible()
   })
 })

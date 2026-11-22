@@ -11,17 +11,18 @@ export const PAYMENTS_TEST_WORKER = [
       const { polarOrderDiscount } = await import("../../src/platform/testing/lib/polar")
       polar.seedPolarCatalogue({ licenseKeyBenefits: [], products: Object.values(TEST_ORDER_PRODUCTS) })
       const now = Date.now()
-      for (const { currency, daysAgo, discountAmount, discounted, id, product, refundedAmount, status, totalAmount } of TEST_BUYER_ORDERS) {
+      for (const { country, currency, daysAgo, discountAmount, discounted, id, product, refundedAmount, status, totalAmount } of TEST_BUYER_ORDERS) {
         const discount = discounted ? polarOrderDiscount({ ...TEST_ORDER_DISCOUNT, organizationId: env.POLAR_ORGANIZATION_ID }) : null
         polar.createPolarOrder(
           { externalCustomerId: TEST_ORDER_BUYER.id, productId: product.id },
           {
-            billing_address: { country: TEST_ORDER_BILLING.country },
+            billing_address: { country },
             billing_name: TEST_ORDER_BILLING.name,
             created_at: new Date(now - daysAgo * MILLISECONDS_PER_DAY).toISOString(),
             currency,
             discount,
             discount_amount: discountAmount,
+            discount_id: discount === null ? null : discount.id,
             id,
             is_invoice_generated: discounted,
             net_amount: totalAmount,

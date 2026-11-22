@@ -6,6 +6,7 @@ import { lte } from "drizzle-orm"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polarCustomerAccount } from "~/src/integrations/polar/polar.customers"
 
+import { polarOrderTerms } from "~/src/modules/order/order.polar"
 import { order } from "~/src/modules/order/order.schema"
 
 export const recordOrder = async (polarOrder: models.Order): Promise<void> => {
@@ -22,6 +23,7 @@ export const recordOrder = async (polarOrder: models.Order): Promise<void> => {
     subscriptionId: polarOrder.subscription_id,
     totalAmount: polarOrder.total_amount,
     userId: polarCustomerAccount(polarOrder.customer),
+    ...polarOrderTerms(polarOrder),
   }
 
   await db

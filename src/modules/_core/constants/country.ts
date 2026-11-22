@@ -258,4 +258,8 @@ export const COUNTRIES = [
   { alpha2: "ZW", alpha3: "ZWE", currency: "ZWG", numeric: "716" },
 ] as const satisfies readonly IsoCountry[]
 
+export const COUNTRY_CODE_LENGTH = 2
+
 export type CountryCode = (typeof COUNTRIES)[number]["alpha2"]
+
+export const COUNTRY_CODES: CountryCode[] = COUNTRIES.map(({ alpha2 }) => alpha2)

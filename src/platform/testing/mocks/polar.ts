@@ -203,30 +203,32 @@ export const grantPolarLicenseKey = (
 }
 
 export const seedPolarLicenseKey = ({
-  activation,
+  activations,
   externalCustomerId,
   key,
   licenseKeyId,
   productId,
 }: {
-  readonly activation: { readonly createdAt: string; readonly id: string; readonly label: string }
+  readonly activations: readonly {
+    readonly createdAt: string
+    readonly id: string
+    readonly label: string
+    readonly meta?: models.LicenseKeyActivationBase["meta"]
+  }[]
   readonly externalCustomerId: string
   readonly key: string
   readonly licenseKeyId: string
   readonly productId: string
 }): void => {
-  const activations = [
-    {
-      created_at: activation.createdAt,
-      id: activation.id,
-      label: activation.label,
-      license_key_id: licenseKeyId,
-      meta: {},
-      modified_at: null,
-    },
-  ]
   const licenseKey = polarLicenseKey({
-    activations,
+    activations: activations.map(({ createdAt, id, label, meta = {} }) => ({
+      created_at: createdAt,
+      id,
+      label,
+      license_key_id: licenseKeyId,
+      meta,
+      modified_at: null,
+    })),
     benefit: licenseKeyBenefitOf(productId),
     customer: customerFor(externalCustomerId),
     id: licenseKeyId,

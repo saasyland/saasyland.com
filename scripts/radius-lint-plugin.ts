@@ -20,7 +20,7 @@ const OPENERS = new Set(["(", "["])
 
 const CLOSERS = new Set([")", "]"])
 
-const utilityOf = (token: string): string => {
+export const utilityOf = (token: string): string => {
   let depth = 0
   let start = 0
   for (let index = 0; index < token.length; index += 1) {

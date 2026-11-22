@@ -170,7 +170,7 @@ const SelectInput = ({ className, ...props }: Readonly<SearchFieldProps>) => (
 )
 
 const SelectLabel = ({ className, ...props }: Readonly<HeaderProps>) => (
-  <HeaderPrimitive className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)} data-slot="select-label" {...props} />
+  <HeaderPrimitive className={cn("px-1.5 py-1 text-spec text-muted-foreground", className)} data-slot="select-label" {...props} />
 )
 
 const SelectItem = <TValue extends object>({ children, className, textValue, ...props }: Readonly<ListBoxItemProps<TValue>>) => {

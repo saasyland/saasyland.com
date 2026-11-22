@@ -71,13 +71,13 @@ export const QualitySection = (): JSX.Element => {
             {SPEC_KEYS.map((key) => (
               <li className="flex items-start gap-3" key={key}>
                 <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-                <span className="font-mono text-spec text-pretty text-muted-foreground">{t(`specs.${key}`, REPOSITORY_FACTS)}</span>
+                <span className="text-spec text-pretty text-muted-foreground">{t(`specs.${key}`, REPOSITORY_FACTS)}</span>
               </li>
             ))}
           </ul>
 
           <Link
-            className="mt-4 flex w-fit rounded-sm font-mono text-spec text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+            className="mt-4 flex w-fit rounded-sm text-spec text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
             href={ROUTES.DOCS_TEST_COVERAGE}
           >
             {t("coverageLink")}
@@ -100,7 +100,7 @@ export const QualitySection = (): JSX.Element => {
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2.5 border-b border-border bg-background/40 px-4 py-2.5">
               <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ring" />
-              <span className="font-mono text-spec text-muted-foreground">{t("terminalTitle")}</span>
+              <span className="text-spec text-muted-foreground">{t("terminalTitle")}</span>
             </div>
 
             <ConceptLoop className="motion-reduce:hidden max-sm:hidden" name="coverage-run" sizes={TERMINAL_IMAGE_SIZES} />

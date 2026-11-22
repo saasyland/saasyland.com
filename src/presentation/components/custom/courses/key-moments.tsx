@@ -16,7 +16,7 @@ type KeyMoment = Lesson["detail"]["keyMoments"][number]
 const MOMENT_CLASSNAME = "flex w-full items-baseline gap-4 rounded-md px-3 py-2.5 text-left text-body-sm"
 
 const MomentTime = ({ seconds }: { readonly seconds: number }): JSX.Element => (
-  <span className="w-12 shrink-0 font-mono text-spec text-ring tabular-nums">{formatClock(seconds * MILLISECONDS_PER_SECOND)}</span>
+  <span className="w-12 shrink-0 text-spec text-ring tabular-nums">{formatClock(seconds * MILLISECONDS_PER_SECOND)}</span>
 )
 
 const SeekableMoments = ({ moments }: { readonly moments: readonly KeyMoment[] }): JSX.Element => {

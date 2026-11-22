@@ -23,7 +23,7 @@ const CardBodyPending = (): JSX.Element => (
       <Skeleton className="h-lh w-full scale-y-70" />
       <Skeleton className="h-lh w-3/5 scale-y-70" />
     </div>
-    <Skeleton className="mt-6 h-lh w-56 scale-y-70 font-mono text-spec" />
+    <Skeleton className="mt-6 h-lh w-56 scale-y-70 text-spec" />
   </>
 )
 
@@ -34,7 +34,7 @@ const ChaptersPending = ({ compact }: { readonly compact: boolean }): JSX.Elemen
         <Skeleton className="h-lh w-5 scale-y-70 text-title" />
         <div className="flex min-w-0 flex-1 flex-col">
           <Skeleton className="h-lh w-3/5 scale-y-70 text-title" />
-          {!compact && <Skeleton className="mt-1 h-lh w-48 scale-y-70 font-mono text-spec" />}
+          {!compact && <Skeleton className="mt-1 h-lh w-48 scale-y-70 text-spec" />}
         </div>
       </div>
     ))}
@@ -85,7 +85,7 @@ export const CoursePending = (): JSX.Element => (
           <Skeleton className="h-lh w-full scale-y-70" />
           <Skeleton className="h-lh w-2/5 scale-y-70" />
         </div>
-        <Skeleton className="mt-6 h-lh w-72 scale-y-70 font-mono text-spec" />
+        <Skeleton className="mt-6 h-lh w-72 scale-y-70 text-spec" />
         <Skeleton className="mt-16 h-lh w-40 scale-y-75 text-headline-support" />
         <div className="mt-8">
           <ChaptersPending compact={false} />
@@ -133,7 +133,7 @@ export const LessonPending = (): JSX.Element => (
         </div>
         <div className="mx-auto max-w-3xl pt-10">
           <Skeleton className="h-lh w-full max-w-[22ch] scale-y-75 text-headline-peak" />
-          <Skeleton className="mt-4 h-lh w-44 scale-y-70 font-mono text-label" />
+          <Skeleton className="mt-4 h-lh w-44 scale-y-70 text-label" />
           <div className="mt-6 flex flex-col text-lead">
             <Skeleton className="h-lh w-full scale-y-70" />
             <Skeleton className="h-lh w-1/2 scale-y-70" />

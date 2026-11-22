@@ -53,7 +53,7 @@ const Step = ({ children, done, number, title }: StepProps): JSX.Element => {
     <li className="flex gap-4 py-4">
       <span
         aria-hidden
-        className={cn("flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-label tabular-nums", {
+        className={cn("flex size-6 shrink-0 items-center justify-center rounded-full text-label tabular-nums", {
           "border border-border text-muted-foreground": !done,
           "text-ring": done,
         })}
@@ -129,7 +129,7 @@ export const GetStarted = (): JSX.Element | undefined => {
       </h2>
       <p className="mt-1.5 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("description")}</p>
       <Progress className="mt-5 max-w-md **:data-[slot=progress-indicator]:bg-ring" maxValue={steps.length} value={done}>
-        <ProgressLabel className="font-mono text-spec text-muted-foreground">{t("progress", { done, total: steps.length })}</ProgressLabel>
+        <ProgressLabel className="text-spec text-muted-foreground">{t("progress", { done, total: steps.length })}</ProgressLabel>
       </Progress>
       <ol className="mt-5 divide-y divide-border border-y border-border">
         <Step done title={t("steps.purchase", { tier: tTier(`tiers.${license.tier}.name`) })} />

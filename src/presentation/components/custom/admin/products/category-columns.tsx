@@ -42,7 +42,7 @@ const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow
 
   return (
     <Badge
-      className={cn("px-2 py-1 text-[10px] font-medium", {
+      className={cn("px-2 py-1 text-label", {
         [ADMIN_STATUS_BADGE_CLASSES.emerald]: visibility === CATEGORY_VISIBILITY.PUBLIC,
         [ADMIN_STATUS_BADGE_CLASSES.neutral]: visibility === CATEGORY_VISIBILITY.HIDDEN,
       })}

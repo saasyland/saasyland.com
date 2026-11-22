@@ -49,8 +49,8 @@ export const AdminCommandPalette = (): JSX.Element => {
         }}
       >
         <Search aria-hidden className="size-3.5" strokeWidth={1.75} />
-        <span className="sr-only sm:not-sr-only">{t("components.header.searchPlaceholder")}</span>
-        <KbdGroup className="ml-6 hidden sm:inline-flex">
+        <span className="sr-only lg:not-sr-only">{t("components.header.searchPlaceholder")}</span>
+        <KbdGroup className="ml-6 hidden lg:inline-flex">
           <Kbd>⌘</Kbd>
           <Kbd>K</Kbd>
         </KbdGroup>

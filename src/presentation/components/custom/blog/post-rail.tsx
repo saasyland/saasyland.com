@@ -49,7 +49,7 @@ export const PostRail = (): JSX.Element => {
   return (
     <aside className="hidden xl:block">
       <nav aria-labelledby="post-rail-title" className="sticky top-24">
-        <p className="font-mono text-label text-muted-foreground uppercase" id="post-rail-title">
+        <p className="text-label text-muted-foreground uppercase" id="post-rail-title">
           {t("rail")}
         </p>
         <PostRailList className="mt-4 max-h-[calc(100dvh-11rem)]" posts={posts} ref={railRef} />

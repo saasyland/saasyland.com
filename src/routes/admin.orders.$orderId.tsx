@@ -42,7 +42,7 @@ const OrderPage = (): JSX.Element => {
           </Link>
           <h1 className="text-statement font-semibold text-foreground">{order.description}</h1>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs break-all text-muted-foreground">{order.id}</span>
+            <span className="font-mono text-spec break-all text-muted-foreground">{order.id}</span>
             <OrderStatusBadge status={order.status} />
           </div>
         </div>

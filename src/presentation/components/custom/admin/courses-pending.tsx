@@ -134,10 +134,19 @@ export const AdminCourseEditorPending = (): JSX.Element => (
             <Skeleton className="h-12 w-full rounded-none" />
             <div className="px-4">
               {CURRICULUM_LESSONS.map((lesson) => (
-                <div className="flex items-center gap-3 border-b border-border py-3 last:border-b-0" key={lesson}>
-                  <Skeleton className="h-lh w-4 scale-y-70 text-xs" />
-                  <Skeleton className="h-lh flex-1 scale-y-70 text-sm" />
-                  <Skeleton className="h-5 w-16 rounded-md" />
+                <div
+                  className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 gap-y-2 border-b border-border py-3 last:border-b-0"
+                  key={lesson}
+                >
+                  <Skeleton className="h-lh w-4 scale-y-70 text-spec" />
+                  <div className="flex flex-col">
+                    <Skeleton className="h-lh w-3/5 scale-y-70 text-sm" />
+                    <Skeleton className="mt-0.5 h-lh w-2/5 scale-y-70 text-spec" />
+                  </div>
+                  <div className="col-start-2 flex items-center gap-1.5">
+                    <Skeleton className="h-5 w-24 rounded-md" />
+                    <Skeleton className="h-5 w-16 rounded-md" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -231,7 +240,7 @@ const VideoRowPending = (): JSX.Element => (
     <TableCell>
       <div className="flex flex-col">
         <Skeleton className="h-lh w-40 scale-y-70 text-sm" />
-        <Skeleton className="h-lh w-64 scale-y-70 text-xs" />
+        <Skeleton className="h-lh w-64 scale-y-70 text-spec" />
       </div>
     </TableCell>
     {VIDEO_DETAIL_COLUMNS.map(({ id, width }) => (

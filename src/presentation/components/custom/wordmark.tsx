@@ -9,6 +9,6 @@ export const Wordmark = ({ className, ...props }: Readonly<ComponentProps<"span"
     <svg aria-hidden className="size-5.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
       <path d={APP_LOGO_PATH} />
     </svg>
-    <span className="text-[0.9375rem] font-semibold tracking-[-0.02em]">{APP_NAME}</span>
+    <span className="text-body font-semibold tracking-[-0.02em]">{APP_NAME}</span>
   </span>
 )

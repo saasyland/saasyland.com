@@ -54,12 +54,12 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
               {sessionDeviceLabel(session) ?? t("settings.security.sessions.unknownDevice")}
             </p>
             {isCurrent && (
-              <Badge className="px-0 text-xs font-medium text-ring" variant="outline">
+              <Badge className="px-0 text-label text-ring" variant="outline">
                 {t("settings.security.sessions.currentBadge")}
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-spec text-muted-foreground">
             {t("labels.unknownLocation")}
             {t("settings.security.sessions.separator")} {activity}
           </p>
@@ -68,7 +68,7 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
       {!isCurrent && (
         <Button
           aria-label={t("settings.security.sessions.revoke")}
-          className="h-8 px-3 text-xs font-medium text-destructive transition-opacity hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+          className="h-8 px-3 text-spec font-medium text-destructive transition-opacity hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
           isDisabled={revokeSession.isPending}
           onPress={() => {
             revokeSession.mutate({ sessionId: session.id })

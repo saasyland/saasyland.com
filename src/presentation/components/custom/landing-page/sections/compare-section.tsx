@@ -40,8 +40,8 @@ export const CompareSection = (): JSX.Element => {
           <div className="mt-14 border-y border-border md:mt-16">
             <div className="-mx-4 hidden border-b border-border px-4 md:grid md:grid-cols-[1.1fr_1fr_1fr]">
               <span />
-              <span className="py-3 font-mono text-label text-muted-foreground uppercase">{t("columns.market")}</span>
-              <span className="bg-card px-5 py-3 font-mono text-label text-foreground uppercase">{t("columns.saasyland")}</span>
+              <span className="py-3 text-label text-muted-foreground uppercase">{t("columns.market")}</span>
+              <span className="bg-card px-5 py-3 text-label text-foreground uppercase">{t("columns.saasyland")}</span>
             </div>
 
             <HighlightGroup className="-mx-4 divide-y divide-border" element="dl" name="compare-rows-highlight">
@@ -53,11 +53,11 @@ export const CompareSection = (): JSX.Element => {
                 >
                   <dt className="text-body-sm font-medium text-foreground md:py-4 md:pr-6">{t(`dimensions.${id}.label`)}</dt>
                   <dd className="text-body-sm text-pretty text-muted-foreground md:py-4 md:pr-6">
-                    <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{t("columns.market")}</span>
+                    <span className="mr-2 text-label text-muted-foreground uppercase md:hidden">{t("columns.market")}</span>
                     {t(`dimensions.${id}.market`)}
                   </dd>
                   <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">
-                    <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{t("columns.saasyland")}</span>
+                    <span className="mr-2 text-label text-muted-foreground uppercase md:hidden">{t("columns.saasyland")}</span>
                     {t.rich(`dimensions.${id}.ours`, { ...PRICE_TAGS, ...REPOSITORY_FACTS })}
                   </dd>
                 </HighlightItem>

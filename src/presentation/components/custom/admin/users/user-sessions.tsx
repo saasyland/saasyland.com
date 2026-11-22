@@ -100,13 +100,13 @@ export const UserSessions = ({ user }: { readonly user: User["select"] }): JSX.E
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{sessionDeviceLabel(session) ?? t("unknownDevice")}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-spec text-muted-foreground">
                       {t("activity", { signedIn: session.createdAt, time: format.relativeTime(session.updatedAt, dataUpdatedAt) })}
                     </p>
                   </div>
                 </div>
                 <Button
-                  className="h-8 shrink-0 px-3 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="h-8 shrink-0 px-3 text-spec text-destructive hover:bg-destructive/10 hover:text-destructive"
                   isDisabled={revokeSession.isPending}
                   onPress={() => {
                     revokeSession.mutate({ sessionId: session.id })

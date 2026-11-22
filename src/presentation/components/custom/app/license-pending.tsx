@@ -61,7 +61,7 @@ const ActivationPending = (): JSX.Element => (
 )
 
 const CheckoutNoticePending = (): JSX.Element => (
-  <div className="flex max-w-[72ch] flex-col gap-1.5 text-xs leading-relaxed">
+  <div className="flex max-w-[72ch] flex-col gap-1.5 text-spec leading-relaxed">
     <Skeleton className="h-lh w-full scale-y-70" />
     <Skeleton className="h-lh w-3/4 scale-y-70" />
     <Skeleton className="h-lh w-1/2 scale-y-70" />
@@ -218,10 +218,10 @@ const LicenseCardPending = ({ isActive }: Readonly<{ isActive: boolean }>): JSX.
     <CardContent className="flex flex-col gap-4">
       {isActive && <ActiveLicensePending />}
       {!isActive && <InactiveLicensePending />}
-      <Skeleton className="h-lh w-3/4 scale-y-70 text-xs leading-relaxed" />
+      <Skeleton className="h-lh w-3/4 scale-y-70 text-spec leading-relaxed" />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Skeleton className="h-7 w-36 rounded-md" />
-        {isActive && <Skeleton className="h-lh w-56 scale-y-70 text-xs" />}
+        {isActive && <Skeleton className="h-lh w-56 scale-y-70 text-spec" />}
       </div>
     </CardContent>
   </Card>
@@ -268,7 +268,7 @@ export const LicenseActivationsPending = (): JSX.Element => (
       <TextLines className="text-sm" />
     </CardHeader>
     <CardContent className="flex flex-col gap-4">
-      <Skeleton className="h-lh w-20 scale-y-70 text-xs" />
+      <Skeleton className="h-lh w-20 scale-y-70 text-spec" />
       <Skeleton className="h-lh w-56 scale-y-70 text-sm" />
     </CardContent>
   </Card>

@@ -229,7 +229,7 @@ const DataTablePagination = <TData extends { id: string }>({
   const { pageIndex } = table.state.pagination
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-spec text-muted-foreground">
       <div className="flex items-center gap-3">
         <span>{t("rowCount", { count: table.getRowCount() })}</span>
         {selectedCount > 0 && <span>{t("selectedCount", { selected: selectedCount })}</span>}

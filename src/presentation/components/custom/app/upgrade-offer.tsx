@@ -37,7 +37,7 @@ const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | u
           <p className="mt-2 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("description", names)}</p>
           <p className="mt-6 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-price text-foreground tabular-nums">{format.number(upgrade.amount, CURRENCY_FORMAT)}</span>
-            <span className="font-mono text-spec text-muted-foreground">{t("period")}</span>
+            <span className="text-spec text-muted-foreground">{t("period")}</span>
           </p>
           <p className="mt-2 text-body-sm text-pretty text-muted-foreground">
             {t("breakdown", {

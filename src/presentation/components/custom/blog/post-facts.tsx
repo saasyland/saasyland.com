@@ -38,7 +38,7 @@ export const PostFacts = ({ className, isUpdated = false, post }: PostFactsProps
   const t = useTranslations("pages.blog.post")
 
   return (
-    <p className={cn("font-mono text-spec text-muted-foreground tabular-nums", className)}>
+    <p className={cn("text-spec text-muted-foreground tabular-nums", className)}>
       <PostDate isUpdated={isUpdated} post={post} />
       <span aria-hidden className="mx-2 text-border">
         &middot;
@@ -61,9 +61,5 @@ export const PostTags = ({
     return undefined
   }
 
-  return (
-    <p className={cn("font-mono text-label text-muted-foreground uppercase", className)}>
-      {tags.map((tag) => t(`tags.${tag}`)).join(" · ")}
-    </p>
-  )
+  return <p className={cn("text-label text-muted-foreground uppercase", className)}>{tags.map((tag) => t(`tags.${tag}`)).join(" · ")}</p>
 }

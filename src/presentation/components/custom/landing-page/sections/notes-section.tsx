@@ -26,7 +26,7 @@ const NoteFacts = ({ post }: { readonly post: BlogPostSummary }): JSX.Element =>
   const format = useFormatter()
 
   return (
-    <p className="font-mono text-spec text-muted-foreground tabular-nums">
+    <p className="text-spec text-muted-foreground tabular-nums">
       <time dateTime={new Date(post.date).toISOString()}>{format.dateTime(new Date(post.date), "calendarDate")}</time>
       <span aria-hidden className="mx-2 text-border">
         &middot;
@@ -80,7 +80,7 @@ export const NotesSection = (): JSX.Element => {
           {notes.lead !== undefined && <LeadNote post={notes.lead} />}
 
           <div className="flex flex-col">
-            <h3 className="font-mono text-label text-muted-foreground uppercase lg:px-5">{t("latest")}</h3>
+            <h3 className="text-label text-muted-foreground uppercase lg:px-5">{t("latest")}</h3>
             <HighlightGroup className="-mx-4 mt-4 divide-y divide-border border-y border-border lg:mx-0" name="notes-highlight">
               {notes.latest.map((post) => (
                 <HighlightItem className="group" contentClassName="px-4 py-6 lg:px-5" id={post.url} key={post.url}>

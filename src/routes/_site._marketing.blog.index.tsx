@@ -53,7 +53,7 @@ const BlogIndexPage = (): JSX.Element => {
     <ContentPage lead={t("index.description")} title={t("index.title")}>
       <script dangerouslySetInnerHTML={structuredDataHtml} type="application/ld+json" />
       <a
-        className="mt-6 inline-flex items-center gap-2 rounded-sm py-1.5 font-mono text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="mt-6 inline-flex items-center gap-2 rounded-sm py-1.5 text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         href={blogFeedPath(locale)}
         type={BLOG_FEED.TYPE}
       >

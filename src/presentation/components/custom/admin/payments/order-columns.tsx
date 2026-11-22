@@ -31,7 +31,7 @@ const PlacedCell = ({ row }: CellContext<DataTableFeatures, OrderRow, Date>): JS
   return (
     <Link className={cn(LINK_CLASSES, "flex min-w-0 flex-col")} params={{ orderId: row.original.id }} to="/admin/orders/$orderId">
       <span>{t("dateTime", { value: row.original.placedAt })}</span>
-      <span className="truncate font-mono text-xs font-normal text-muted-foreground">{row.original.id}</span>
+      <span className="truncate font-mono text-spec font-normal text-muted-foreground">{row.original.id}</span>
     </Link>
   )
 }
@@ -43,7 +43,7 @@ export const OrderCustomer = ({ customerId, user }: Pick<OrderRow, "customerId" 
     return (
       <div className="flex max-w-64 min-w-0 flex-col">
         <span className="text-sm text-muted-foreground">{t("noAccount")}</span>
-        <span className="truncate font-mono text-xs text-muted-foreground">{customerId}</span>
+        <span className="truncate font-mono text-spec text-muted-foreground">{customerId}</span>
       </div>
     )
   }
@@ -53,7 +53,7 @@ export const OrderCustomer = ({ customerId, user }: Pick<OrderRow, "customerId" 
       <Link className={LINK_CLASSES} params={{ userId: user.id }} to="/admin/users/$userId">
         {user.name}
       </Link>
-      <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+      <span className="truncate text-spec text-muted-foreground">{user.email}</span>
     </div>
   )
 }
@@ -75,7 +75,7 @@ const TotalCell = ({ row }: CellContext<DataTableFeatures, OrderRow, OrderRow["t
     <div className="flex flex-col text-sm font-medium">
       <MoneyAmount money={total} />
       {refunded.amount > 0 && (
-        <span className="text-xs font-normal text-muted-foreground">
+        <span className="text-spec font-normal text-muted-foreground">
           {t("refunded", { amount: format.number(refunded.amount, { currency: refunded.currency, style: "currency" }) })}
         </span>
       )}

@@ -168,7 +168,7 @@ const ContextMenuLabel = ({
   inset?: boolean
 }) => (
   <HeaderPrimitive
-    className={cn("px-1.5 py-1 text-xs font-medium text-muted-foreground data-inset:pl-7", className)}
+    className={cn("px-1.5 py-1 text-label text-muted-foreground data-inset:pl-7", className)}
     data-inset={inset}
     data-slot="context-menu-label"
     {...props}
@@ -290,7 +290,10 @@ const ContextMenuSeparator = ({ className, ...props }: Readonly<SeparatorProps>)
 
 const ContextMenuShortcut = ({ className, ...props }: ComponentProps<"span">) => (
   <span
-    className={cn("ml-auto text-xs tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground", className)}
+    className={cn(
+      "ml-auto text-spec tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground",
+      className,
+    )}
     data-slot="context-menu-shortcut"
     {...props}
   />

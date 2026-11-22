@@ -33,7 +33,7 @@ export const SignUpOrderSummary = ({ redirect }: Readonly<{ redirect: string | u
           <span className="tabular-nums">
             <Price amount={amount} />
           </span>{" "}
-          <span className="font-mono text-spec font-normal text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span>
+          <span className="text-spec font-normal text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span>
         </span>
       </h2>
       <p className="mt-2 text-body-sm text-pretty text-muted-foreground">

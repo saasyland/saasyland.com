@@ -24,14 +24,14 @@ const SHARE_CONTROLS = ["copy", "x", "linkedin", "bluesky", "hackerNews", "reddi
 const ARCHIVE_PREFIX = `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 
 const FeedLinkPending = (): JSX.Element => (
-  <div className="mt-6 flex py-1.5 font-mono text-label">
+  <div className="mt-6 flex py-1.5 text-label">
     <Skeleton className="h-lh w-28 scale-y-70" />
   </div>
 )
 
-const FactsPending = (): JSX.Element => <Skeleton className="h-lh w-44 scale-y-70 font-mono text-spec" />
+const FactsPending = (): JSX.Element => <Skeleton className="h-lh w-44 scale-y-70 text-spec" />
 
-const LabelPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
+const LabelPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 text-label" />
 
 const RailPending = ({ rows }: { readonly rows: readonly string[] }): JSX.Element => (
   <div className="mt-4 flex flex-col">
@@ -93,7 +93,7 @@ const PostRowsPending = ({ className }: { readonly className?: string }): JSX.El
     <div className="-mx-4 divide-y divide-border border-y border-border md:-mx-6">
       {ROWS.map((row) => (
         <div className="grid gap-x-10 gap-y-2 px-4 py-7 md:grid-cols-[10rem_1fr] md:px-6 md:py-8" key={row}>
-          <div className="flex flex-col font-mono text-spec">
+          <div className="flex flex-col text-spec">
             <Skeleton className="h-lh w-24 scale-y-70" />
             <Skeleton className="mt-1 h-lh w-20 scale-y-70" />
           </div>
@@ -104,7 +104,7 @@ const PostRowsPending = ({ className }: { readonly className?: string }): JSX.El
               <Skeleton className="h-lh w-full scale-y-70" />
               <Skeleton className="h-lh w-2/5 scale-y-70" />
             </div>
-            <Skeleton className="mt-4 h-lh w-80 max-w-full scale-y-70 font-mono text-label" />
+            <Skeleton className="mt-4 h-lh w-80 max-w-full scale-y-70 text-label" />
           </div>
         </div>
       ))}
@@ -146,7 +146,7 @@ export const BlogIndexPending = (): JSX.Element => (
                 <Skeleton className="h-lh w-full scale-y-70" />
                 <Skeleton className="h-lh w-1/2 scale-y-70" />
               </div>
-              <Skeleton className="mt-6 h-lh w-56 scale-y-70 font-mono text-label" />
+              <Skeleton className="mt-6 h-lh w-56 scale-y-70 text-label" />
             </div>
           </div>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -172,7 +172,7 @@ export const BlogIndexPending = (): JSX.Element => (
         <div className="border-t border-border pt-16 md:pt-20">
           <div className="flex items-baseline justify-between gap-6">
             <Skeleton className="h-lh w-36 scale-y-75 text-headline-support" />
-            <Skeleton className="h-lh w-16 scale-y-70 font-mono text-spec" />
+            <Skeleton className="h-lh w-16 scale-y-70 text-spec" />
           </div>
           <PostRowsPending className="mt-10" />
         </div>
@@ -187,7 +187,7 @@ export const BlogArchivePending = (): JSX.Element => (
       <PostRowsPending />
       <div className="mt-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <Skeleton className="h-11 w-40 rounded-lg" />
-        <Skeleton className="h-lh w-24 scale-y-70 font-mono text-spec" />
+        <Skeleton className="h-lh w-24 scale-y-70 text-spec" />
       </div>
     </PostFinderLayoutPending>
   </ContentPagePending>
@@ -196,7 +196,7 @@ export const BlogArchivePending = (): JSX.Element => (
 export const BlogPostPending = (): JSX.Element => (
   <article aria-busy="true" className="relative">
     <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
-      <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
+      <Skeleton className="h-lh w-24 scale-y-70 text-label" />
 
       <div className="mt-8 flex max-w-[24ch] flex-col text-display-gate">
         <Skeleton className="h-lh w-full scale-y-75" />
@@ -209,7 +209,7 @@ export const BlogPostPending = (): JSX.Element => (
       </div>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-border py-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 font-mono text-body-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-body-sm">
           <span className="size-1.25 shrink-0 rounded-full bg-border" />
           <Skeleton className="h-lh w-52 scale-y-70" />
           <Skeleton className="h-lh w-52 scale-y-70" />
@@ -218,7 +218,7 @@ export const BlogPostPending = (): JSX.Element => (
           <Skeleton className="h-lh w-56 scale-y-70" />
         </div>
         <div className="flex items-center gap-x-3">
-          <Skeleton className="h-lh w-12 scale-y-70 font-mono text-label" />
+          <Skeleton className="h-lh w-12 scale-y-70 text-label" />
           <div className="flex items-center gap-1">
             {SHARE_CONTROLS.map((control) => (
               <Skeleton className="size-8 rounded-md" key={control} />
@@ -231,7 +231,7 @@ export const BlogPostPending = (): JSX.Element => (
 
       <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr] xl:grid-cols-[13rem_minmax(0,1fr)_15rem] xl:gap-x-12">
         <div className="hidden xl:block">
-          <Skeleton className="h-lh w-20 scale-y-70 font-mono text-label" />
+          <Skeleton className="h-lh w-20 scale-y-70 text-label" />
           <RailPending rows={RAIL_POSTS} />
         </div>
         <div className="flex min-w-0 flex-col gap-6 text-lg/[1.72]">
@@ -244,7 +244,7 @@ export const BlogPostPending = (): JSX.Element => (
           ))}
         </div>
         <div className="hidden lg:block">
-          <Skeleton className="h-lh w-20 scale-y-70 font-mono text-label" />
+          <Skeleton className="h-lh w-20 scale-y-70 text-label" />
           <div className="mt-4 flex flex-col">
             {CONTENTS.map((item) => (
               <div className="border-l border-border py-1.5 pl-4 text-body-sm" key={item}>

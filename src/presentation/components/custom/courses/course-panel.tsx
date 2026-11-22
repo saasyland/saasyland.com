@@ -109,7 +109,7 @@ const PanelIncludes = ({ data }: { readonly data: Course["page"] }): JSX.Element
 
   return (
     <div className="border-t border-border p-6">
-      <h2 className="font-mono text-spec text-muted-foreground" id="course-includes">
+      <h2 className="text-spec text-muted-foreground" id="course-includes">
         {t("course.includes.title")}
       </h2>
       <ul aria-labelledby="course-includes" className="mt-3 flex flex-col">

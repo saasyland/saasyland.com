@@ -42,13 +42,13 @@ export const UserWidget = (): JSX.Element | undefined => {
           >
             <span
               aria-hidden
-              className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[0.6875rem] font-semibold text-foreground"
+              className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-full bg-muted text-label font-semibold text-foreground"
             >
               {getUserInitials(name)}
             </span>
             <span className="flex min-w-0 flex-col gap-0.5 text-left leading-none">
-              <span className="truncate text-[0.8125rem] font-medium text-foreground">{name}</span>
-              <span className="truncate text-[0.6875rem] text-muted-foreground">{email}</span>
+              <span className="truncate text-body-sm font-medium text-foreground">{name}</span>
+              <span className="truncate text-spec text-muted-foreground">{email}</span>
             </span>
             <ChevronsUpDown aria-hidden className="ml-auto size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
           </SidebarMenuButton>

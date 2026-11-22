@@ -28,7 +28,7 @@ export const PostPagination = ({ page, pages }: PostPaginationProps): JSX.Elemen
           {t("newer")}
         </Link>
       </div>
-      <p className="font-mono text-spec text-muted-foreground tabular-nums">{t("pageOf", { page, pages })}</p>
+      <p className="text-spec text-muted-foreground tabular-nums">{t("pageOf", { page, pages })}</p>
       <div className="flex justify-end">
         {page < pages && (
           <Link className={CTA_CLASSES.SECONDARY} rel="next" to={blogArchivePath(page + 1)}>

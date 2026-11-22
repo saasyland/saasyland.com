@@ -66,7 +66,7 @@ export const TwoFactorVerifyStep = ({
     >
       <FieldGroup className="gap-4">
         <p className="text-sm text-muted-foreground">{t("scanInstructions")}</p>
-        <code className="block overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs text-foreground">{extractTotpSecret(totpUri)}</code>
+        <code className="block overflow-x-auto rounded-lg bg-muted/60 p-3 text-spec text-foreground">{extractTotpSecret(totpUri)}</code>
 
         <form.Field name="code">
           {(field) => {

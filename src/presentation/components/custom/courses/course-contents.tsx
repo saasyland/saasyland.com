@@ -44,7 +44,7 @@ const ContentsHeader = ({ data }: { readonly data: Course["page"] }): JSX.Elemen
         {data.course.title}
       </Link>
       {data.viewer.signedIn && (
-        <p className="mt-2 font-mono text-spec text-muted-foreground">
+        <p className="mt-2 text-spec text-muted-foreground">
           {t("course.progress", { completed: lessons.filter((lesson) => lesson.completed).length, total: lessons.length })}
         </p>
       )}

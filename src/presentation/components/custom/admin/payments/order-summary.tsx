@@ -26,7 +26,7 @@ export const OrderSummary = ({ order }: { readonly order: Order["detail"]["order
 
   const values: Record<MirrorDetail, ReactNode> = {
     changedAt: t("common.dateTime", { value: order.changedAt }),
-    customerId: <span className="font-mono text-xs">{order.customerId}</span>,
+    customerId: <span className="font-mono text-spec">{order.customerId}</span>,
     invoiceNumber: optional(order.invoiceNumber),
     placedAt: t("common.dateTime", { value: order.placedAt }),
     product: order.description,

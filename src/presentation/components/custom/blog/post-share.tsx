@@ -115,7 +115,7 @@ export const PostShare = (): JSX.Element => {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="font-mono text-label text-muted-foreground uppercase" id={labelId}>
+      <span className="text-label text-muted-foreground uppercase" id={labelId}>
         {t("label")}
       </span>
       <ul aria-labelledby={labelId} className="flex flex-wrap items-center gap-1">

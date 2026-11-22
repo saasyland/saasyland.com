@@ -13,12 +13,12 @@ export const SettingsTwoFactor = (): JSX.Element => {
     <Card className="overflow-hidden">
       <CardHeader className="border-b border-border p-5">
         <CardTitle className="mb-1 text-base font-medium text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">{t("description")}</CardDescription>
+        <CardDescription className="text-spec text-muted-foreground">{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">{t("app")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("appDescription")}</p>
+          <p className="mt-1 text-spec text-muted-foreground">{t("appDescription")}</p>
         </div>
         <TwoFactorDialog />
       </CardContent>

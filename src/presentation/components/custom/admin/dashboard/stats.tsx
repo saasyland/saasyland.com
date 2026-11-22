@@ -11,7 +11,7 @@ const DashboardStat = ({ stat }: { readonly stat: (typeof ADMIN_DASHBOARD_STATS)
 
   return (
     <div className="bg-card px-5 py-5">
-      <dt className="font-mono text-label text-muted-foreground uppercase">{t(`${stat.area}.${stat.key}`)}</dt>
+      <dt className="text-label text-muted-foreground uppercase">{t(`${stat.area}.${stat.key}`)}</dt>
       <dd className="mt-3 text-headline-support text-foreground tabular-nums">{format.number(value)}</dd>
     </div>
   )

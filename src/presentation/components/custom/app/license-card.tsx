@@ -135,7 +135,7 @@ const TierChanges = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => 
   const t = useTranslations("pages.license")
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-spec text-muted-foreground">
       {higherTiers(tier).map((higher) => (
         <Link className={LINK_CLASSNAME} key={higher} search={{ tier: higher }} to={ROUTES.APP_LICENSE}>
           {t("upgrade.link", { tier: tTier(`tiers.${higher}.name`) })}
@@ -168,7 +168,7 @@ export const LicenseCard = (): JSX.Element | undefined => {
         {license.status !== LICENSE_STATUS.ACTIVE && <InactiveLicense status={license.status} />}
         {license.status === LICENSE_STATUS.ACTIVE && <LicenseKey />}
         {license.status === LICENSE_STATUS.ACTIVE && <KeyCommands />}
-        <p className="text-xs leading-relaxed text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
+        <p className="text-spec leading-relaxed text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           {unconfirmedEmail === undefined && (
             <a className={buttonVariants({ size: "sm", variant: "outline" })} href={ROUTES.API_AUTH_CUSTOMER_PORTAL}>

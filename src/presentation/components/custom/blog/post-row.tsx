@@ -22,7 +22,7 @@ export const PostRow = ({ isUpdated = false, post }: PostRowProps): JSX.Element 
       contentClassName="grid gap-x-10 gap-y-2 px-4 py-7 md:grid-cols-[10rem_1fr] md:items-baseline md:px-6 md:py-8"
       id={post.url}
     >
-      <div className="font-mono text-spec text-muted-foreground tabular-nums">
+      <div className="text-spec text-muted-foreground tabular-nums">
         <p>
           <PostDate isUpdated={isUpdated} post={post} />
         </p>

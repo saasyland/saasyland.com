@@ -142,7 +142,7 @@ export const FileAttachmentDialog = ({ lessonId, trigger }: FileAttachmentDialog
                       </Button>
                     </FileTrigger>
                     {field.state.value !== undefined && (
-                      <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate font-mono text-spec text-muted-foreground">
                         {field.state.value.name} · {fileSize(field.state.value.size)}
                       </span>
                     )}

@@ -87,7 +87,7 @@ const TotpForm = (): JSX.Element => {
                 <InputOTPGroup>
                   {createOtpSlotIndices(TWO_FACTOR_CODE_LENGTH).map((index) => (
                     <InputOTPSlot
-                      className="size-12 border-input font-mono text-lead tabular-nums transition-[border-color,box-shadow] duration-200 ease-exp data-[active=true]:border-ring data-[active=true]:ring-3 data-[active=true]:ring-ring/50"
+                      className="size-12 border-input text-lead tabular-nums transition-[border-color,box-shadow] duration-200 ease-exp data-[active=true]:border-ring data-[active=true]:ring-3 data-[active=true]:ring-ring/50"
                       index={index}
                       key={index}
                     />

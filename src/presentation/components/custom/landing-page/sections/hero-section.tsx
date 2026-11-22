@@ -19,7 +19,7 @@ import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 const HERO_TAGS = {
   accent: (chunks: ReactNode) => <Accent id="hero">{chunks}</Accent>,
   billing: BILLING_GENERATION,
-  code: (chunks: ReactNode) => <code className="font-mono text-[0.9em] text-foreground">{chunks}</code>,
+  code: (chunks: ReactNode) => <code className="font-mono text-code text-foreground">{chunks}</code>,
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
 }
 
@@ -81,7 +81,7 @@ export const HeroSection = (): JSX.Element => {
           </a>
         </div>
 
-        <p className="mt-5 font-mono text-spec text-pretty text-muted-foreground sm:[--rise-delay:250ms] sm:motion-safe:animate-rise">
+        <p className="mt-5 text-spec text-pretty text-muted-foreground sm:[--rise-delay:250ms] sm:motion-safe:animate-rise">
           {t.rich("anchor", ANCHOR_TAGS)}
         </p>
 

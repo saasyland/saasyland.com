@@ -196,7 +196,7 @@ export const AuthPending = (): JSX.Element => {
   const Page = AUTH_PAGES.get(pathname)
 
   return (
-    <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground antialiased [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
+    <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
       <div className="relative z-10 col-span-full row-start-1 flex h-header items-center justify-between gap-6 lg:grid lg:grid-cols-subgrid lg:px-(--gutter)">
         <div className="flex h-11 items-center justify-self-start">
           <Wordmark />
@@ -219,7 +219,7 @@ export const AuthPending = (): JSX.Element => {
             {AUTH_ASSURANCES.map((assurance) => (
               <div className="flex items-start gap-3" key={assurance}>
                 <span className="mt-2 size-1.25 shrink-0 rounded-full bg-border" />
-                <Skeleton className="h-lh w-64 scale-y-70 font-mono text-spec" />
+                <Skeleton className="h-lh w-64 scale-y-70 text-spec" />
               </div>
             ))}
           </div>

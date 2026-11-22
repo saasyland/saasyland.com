@@ -22,7 +22,7 @@ import { ROUTES } from "~/src/routes"
 const LINK_CLASSNAME =
   "inline-block rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
-const HEADING_CLASSNAME = "font-mono text-label text-muted-foreground uppercase"
+const HEADING_CLASSNAME = "text-label text-muted-foreground uppercase"
 
 const PROFILE_LINKS = [
   { href: APP_GITHUB_URL, key: "github" },
@@ -52,7 +52,7 @@ export const Footer = (): JSX.Element => {
             <Wordmark />
             <p className="mt-4 max-w-[24rem] text-body text-pretty text-muted-foreground">{t("tagline")}</p>
             <a
-              className="mt-4.5 inline-block rounded-sm py-1.5 font-mono text-spec text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="mt-4.5 inline-block rounded-sm py-1.5 text-spec text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               href={`mailto:${CONTACT_EMAIL}`}
             >
               {CONTACT_EMAIL}
@@ -84,7 +84,7 @@ export const Footer = (): JSX.Element => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-border py-7">
-          <p className="font-mono text-spec text-muted-foreground">
+          <p className="text-spec text-muted-foreground">
             <span>{APP_NAME}</span>
             <span className="ml-2">{t("copyright", { years })}</span>
             <span className="ml-2">{t("rights")}</span>

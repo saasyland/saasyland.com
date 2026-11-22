@@ -17,8 +17,8 @@ const attachmentVariants = cva(
       size: {
         default:
           "gap-2 text-sm has-data-[slot=attachment-content]:px-2.5 has-data-[slot=attachment-content]:py-2 has-data-[slot=attachment-media]:p-2",
-        sm: "gap-2.5 text-xs has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5 has-data-[slot=attachment-media]:p-1.5",
-        xs: "gap-1.5 rounded-md text-xs has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1 has-data-[slot=attachment-media]:p-1",
+        sm: "gap-2.5 text-spec has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5 has-data-[slot=attachment-media]:p-1.5",
+        xs: "gap-1.5 rounded-md text-spec has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1 has-data-[slot=attachment-media]:p-1",
       },
     },
   },
@@ -95,7 +95,7 @@ const AttachmentDescription = ({ className, ...props }: ComponentProps<"span">) 
   <span
     data-slot="attachment-description"
     className={cn(
-      "mt-0.5 block min-w-0 truncate text-xs text-muted-foreground group-data-[state=error]/attachment:text-destructive/80",
+      "mt-0.5 block min-w-0 truncate text-spec text-muted-foreground group-data-[state=error]/attachment:text-destructive/80",
       "max-w-full",
       className,
     )}

@@ -71,7 +71,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
     <Card className="overflow-hidden">
       <CardHeader className="border-b border-border p-5">
         <CardTitle className="mb-1 text-base font-medium text-foreground">{t("title")}</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">{t("description")}</CardDescription>
+        <CardDescription className="text-spec text-muted-foreground">{t("description")}</CardDescription>
       </CardHeader>
 
       <form
@@ -89,7 +89,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
 
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel className="text-xs" htmlFor={field.name}>
+                      <FieldLabel className="text-spec" htmlFor={field.name}>
                         {t(labelKey)}
                       </FieldLabel>
                       <PasswordInput
@@ -119,14 +119,14 @@ export const SettingsPasswordForm = (): JSX.Element => {
             ))}
           </FieldGroup>
           <div className="rounded-lg border border-border bg-muted/40 p-5">
-            <h3 className="mb-4 text-xs font-medium text-foreground">{t("requirements.title")}</h3>
+            <h3 className="mb-4 text-spec font-medium text-foreground">{t("requirements.title")}</h3>
             <form.Subscribe selector={(state) => state.values}>
               {({ newPassword }) => <PasswordRequirements id={PASSWORD_REQUIREMENTS_ID} password={newPassword} />}
             </form.Subscribe>
           </div>
         </CardContent>
         <div className="flex justify-end border-t border-border bg-muted/40 p-4">
-          <Button className="h-8 px-4 text-xs shadow-sm" isPending={changePassword.isPending} size="sm" type="submit">
+          <Button className="h-8 px-4 text-spec shadow-sm" isPending={changePassword.isPending} size="sm" type="submit">
             {t("update")}
           </Button>
         </div>

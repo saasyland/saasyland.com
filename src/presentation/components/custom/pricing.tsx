@@ -39,7 +39,7 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
           {formatter.number(regionalPrice(amount, key), CURRENCY_FORMAT)}
         </span>
       ))}
-      <s className="pv pv-regional ms-[0.3em] text-[max(0.45em,0.875rem)] font-normal text-muted-foreground">
+      <s className="pv pv-regional ms-[0.3em] text-body-sm font-normal text-muted-foreground">
         <span className="sr-only">{t("regularPrice")} </span>
         {formatter.number(amount, CURRENCY_FORMAT)}
       </s>
@@ -93,7 +93,7 @@ const TierFeatures = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element =>
     <div className="mt-7 space-y-6 border-t border-border pt-7">
       {FEATURE_STATUSES.map((status) => (
         <div key={status}>
-          <p className="font-mono text-label text-muted-foreground uppercase" id={`${id}-${status}`}>
+          <p className="text-label text-muted-foreground uppercase" id={`${id}-${status}`}>
             {t(`status.${status}`)}
           </p>
           <ul aria-labelledby={`${id}-${status}`} className="mt-3 space-y-3">
@@ -126,7 +126,7 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
       id={tier}
     >
       <div className={cn("flex h-10 items-center border-b border-border px-7 @2xl:px-8", { "border-t-2 border-t-ring": isFeatured })}>
-        {isFeatured && <span className="font-mono text-spec tracking-[0.1em] text-ring uppercase">{t("recommended")}</span>}
+        {isFeatured && <span className="text-label text-ring uppercase">{t("recommended")}</span>}
       </div>
 
       <div className="flex flex-1 flex-col p-7 @2xl:p-8">
@@ -137,10 +137,8 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
           <span className="text-price text-foreground tabular-nums">
             <Price amount={TIER_PRICES[tier]} />
           </span>
-          <span className="font-mono text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span>
-          <span className="pv pv-regional basis-full font-mono text-label text-ring uppercase">
-            {t.rich("regional.save", REGIONAL_TAGS)}
-          </span>
+          <span className="text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span>
+          <span className="pv pv-regional basis-full text-label text-ring uppercase">{t.rich("regional.save", REGIONAL_TAGS)}</span>
         </p>
         <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">
           {t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}

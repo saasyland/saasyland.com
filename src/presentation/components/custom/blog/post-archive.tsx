@@ -62,7 +62,7 @@ export const PostArchive = (): JSX.Element => {
         <h2 className="text-headline-support text-balance text-foreground" id={TITLE_ID}>
           {t("archive.title")}
         </h2>
-        <p aria-live="polite" className="font-mono text-spec text-muted-foreground tabular-nums">
+        <p aria-live="polite" className="text-spec text-muted-foreground tabular-nums">
           {!isFiltered && t("archive.count", { count: posts.length })}
           {isFiltered && t("archive.matches", { count: matches.length })}
         </p>
@@ -86,7 +86,7 @@ export const PostArchive = (): JSX.Element => {
 
       {shown.length < matches.length && (
         <div className="mt-10 flex flex-col items-center gap-4">
-          <p className="font-mono text-spec text-muted-foreground tabular-nums">
+          <p className="text-spec text-muted-foreground tabular-nums">
             {t("archive.showing", { shown: shown.length, total: matches.length })}
           </p>
           <Link className={CTA_CLASSES.SECONDARY} onClick={loadMore} params={{ page: String(loadedPages + 1) }} to="/blog/page/$page">

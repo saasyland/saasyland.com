@@ -15,10 +15,10 @@ import { ROUTES } from "~/src/routes"
 const SIDEBAR_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items)
 
 const LINK_CLASSNAME =
-  "truncate rounded-sm transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+  "shrink-0 rounded-sm whitespace-nowrap transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const Divider = (): JSX.Element => (
-  <span aria-hidden className="text-muted-foreground/40 select-none">
+  <span aria-hidden className="shrink-0 text-muted-foreground/40 select-none">
     /
   </span>
 )
@@ -26,7 +26,7 @@ const Divider = (): JSX.Element => (
 const CurrentPage = ({ label }: { readonly label: string }): JSX.Element => (
   <>
     <Divider />
-    <span aria-current="page" className="truncate font-medium text-foreground">
+    <span aria-current="page" className="min-w-0 truncate font-medium text-foreground" title={label}>
       {label}
     </span>
   </>

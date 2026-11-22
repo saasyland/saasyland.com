@@ -171,6 +171,7 @@ const tooling = {
       "./scripts/code-style-lint-plugin.ts",
       "./scripts/hydration-lint-plugin.ts",
       "./scripts/radius-lint-plugin.ts",
+      "./scripts/type-lint-plugin.ts",
     ],
     options: {
       respectEslintDisableDirectives: false,
@@ -184,7 +185,11 @@ const tooling = {
       },
       {
         files: ["src/**"],
-        rules: { "radius/no-off-scale": "error" },
+        rules: { "radius/no-off-scale": "error", "type/mono-for-code": "error", "type/no-off-scale": "error" },
+      },
+      {
+        files: ["src/presentation/social-card.tsx"],
+        rules: { "type/no-off-scale": "off" },
       },
       {
         files: ["src/data/admin*.ts", "src/data/*.dashboard.ts", "src/presentation/components/custom/admin/**", "src/routes/admin*.tsx"],
@@ -198,6 +203,8 @@ const tooling = {
           "no-await-in-loop": "off",
           "no-magic-numbers": "off",
           "radius/no-off-scale": "off",
+          "type/mono-for-code": "off",
+          "type/no-off-scale": "off",
           "unicorn/no-null": "off",
         },
       },

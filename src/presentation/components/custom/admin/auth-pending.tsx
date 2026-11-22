@@ -33,7 +33,7 @@ const DashboardUserRowPending = (): JSX.Element => (
         <Skeleton className="size-8 shrink-0 rounded-full" />
         <div>
           <Skeleton className="h-lh w-16 scale-y-70" />
-          <Skeleton className="h-lh w-100 scale-y-70 text-xs" />
+          <Skeleton className="h-lh w-100 scale-y-70 text-spec" />
         </div>
       </div>
     </TableCell>
@@ -41,13 +41,13 @@ const DashboardUserRowPending = (): JSX.Element => (
       <Skeleton className="h-5 w-18 rounded-md" />
     </TableCell>
     <TableCell>
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center gap-2 text-spec">
         <Skeleton className="size-2 rounded-full" />
         <Skeleton className="h-lh w-9 scale-y-70" />
       </div>
     </TableCell>
     <TableCell>
-      <Skeleton className="h-lh w-19 scale-y-70 text-xs" />
+      <Skeleton className="h-lh w-19 scale-y-70 text-spec" />
     </TableCell>
   </TableRow>
 )
@@ -68,7 +68,7 @@ export const AdminDashboardPending = (): JSX.Element => (
     <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
       {ADMIN_DASHBOARD_STATS.map((stat) => (
         <div className="bg-card px-5 py-5" key={stat.key}>
-          <Skeleton className="h-lh w-32 scale-y-70 font-mono text-label" />
+          <Skeleton className="h-lh w-32 scale-y-70 text-label" />
           <Skeleton className="mt-3 h-lh w-10 scale-y-70 text-headline-support" />
         </div>
       ))}
@@ -157,7 +157,7 @@ const UserRowPending = (): JSX.Element => (
         <Skeleton className="size-8 shrink-0 rounded-full" />
         <div>
           <Skeleton className="h-lh w-16 scale-y-70" />
-          <Skeleton className="h-lh w-100 scale-y-70 text-xs" />
+          <Skeleton className="h-lh w-100 scale-y-70 text-spec" />
         </div>
       </div>
     </TableCell>
@@ -290,7 +290,7 @@ export const AdminUserProfilePending = (): JSX.Element => (
             <Skeleton className="size-9 shrink-0 rounded-md" />
             <div className="min-w-0">
               <Skeleton className="h-lh w-48 max-w-full scale-y-70 text-sm" />
-              <Skeleton className="h-lh w-40 max-w-full scale-y-70 text-xs" />
+              <Skeleton className="h-lh w-40 max-w-full scale-y-70 text-spec" />
             </div>
           </div>
         </CardContent>

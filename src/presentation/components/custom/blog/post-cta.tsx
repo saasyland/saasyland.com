@@ -16,7 +16,7 @@ export const PostCta = (): JSX.Element => {
 
   return (
     <aside className="mt-16 rounded-lg border border-border bg-card p-7 md:p-8">
-      <p className="font-mono text-label text-muted-foreground uppercase">{t("label")}</p>
+      <p className="text-label text-muted-foreground uppercase">{t("label")}</p>
       <h2 className="mt-3 max-w-[26ch] text-title text-balance text-foreground">{t("title")}</h2>
       <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">
         {t("body", { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}

@@ -23,7 +23,7 @@ const OrderCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, stri
   return (
     <Link
       aria-label={t("openInPolar", { order: row.original.id })}
-      className="inline-flex items-center gap-1.5 rounded-sm font-mono text-xs text-foreground underline-offset-4 outline-none hover:underline data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+      className="inline-flex items-center gap-1.5 rounded-sm font-mono text-spec text-foreground underline-offset-4 outline-none hover:underline data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
       href={row.original.polarUrl}
       rel="noreferrer"
       target="_blank"
@@ -37,11 +37,11 @@ const OrderCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, stri
 const DateCell = ({ getValue }: CellContext<DataTableFeatures, UnlicensedOrder, Date>): JSX.Element => {
   const t = useTranslations("common")
 
-  return <span className="text-xs text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
+  return <span className="text-spec text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }
 
 const CustomerCell = ({ getValue }: CellContext<DataTableFeatures, UnlicensedOrder, string>): JSX.Element => (
-  <span className="font-mono text-xs text-muted-foreground">{getValue()}</span>
+  <span className="font-mono text-spec text-muted-foreground">{getValue()}</span>
 )
 
 const AmountCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, number>): JSX.Element => {

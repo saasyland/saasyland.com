@@ -16,7 +16,7 @@ export const OrderStatusBadge = ({ status }: { readonly status: OrderStatus }): 
 
   return (
     <Badge
-      className={cn("gap-1.5 rounded-md px-2 py-0.5 text-[0.6875rem] font-medium", ADMIN_STATUS_BADGE_CLASSES[ORDER_STATUS_COLORS[status]])}
+      className={cn("gap-1.5 rounded-md px-2 py-0.5 text-label", ADMIN_STATUS_BADGE_CLASSES[ORDER_STATUS_COLORS[status]])}
       variant="outline"
     >
       {t(status)}

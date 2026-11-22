@@ -97,7 +97,7 @@ const AttachmentRow = ({
       <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-0.5 flex min-w-0 text-xs text-muted-foreground">
+        <p className="mt-0.5 flex min-w-0 text-spec text-muted-foreground">
           <AttachmentDetail attachment={attachment} />
         </p>
       </div>

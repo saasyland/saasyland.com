@@ -39,7 +39,7 @@ const CurrencyRevenue = ({ bucket, revenue }: CurrencyRevenueProps): JSX.Element
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {SUMMARY.map((figure) => (
           <div key={figure}>
-            <dt className="font-mono text-label text-muted-foreground uppercase">{t(figure)}</dt>
+            <dt className="text-label text-muted-foreground uppercase">{t(figure)}</dt>
             <dd className="mt-1 text-headline-support text-foreground tabular-nums">{figures[figure]}</dd>
           </div>
         ))}
@@ -85,7 +85,7 @@ export const RevenueChart = (): JSX.Element => {
           <Tabs key={range}>
             <TabsList aria-label={t("currencies")}>
               {currencies.map(({ currency }) => (
-                <TabsTrigger className="px-2.5 font-mono text-xs" id={currency} key={currency}>
+                <TabsTrigger className="px-2.5 font-mono text-spec" id={currency} key={currency}>
                   {currency}
                 </TabsTrigger>
               ))}
@@ -119,7 +119,7 @@ export const RevenueChartPending = (): JSX.Element => (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {SUMMARY.map((figure) => (
           <div key={figure}>
-            <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
+            <Skeleton className="h-lh w-24 scale-y-70 text-label" />
             <Skeleton className="mt-1 h-lh w-28 scale-y-70 text-headline-support" />
           </div>
         ))}

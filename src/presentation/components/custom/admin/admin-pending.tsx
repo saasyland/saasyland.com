@@ -27,12 +27,12 @@ const AdminSidebarPending = (): JSX.Element => (
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden px-2 pt-4">
       {ADMIN_NAVIGATION.map((group) => (
         <div className="flex flex-col" key={group.key}>
-          <div className="mb-1.5 px-2 font-mono text-label">
+          <div className="mb-1.5 px-2 text-label">
             <Skeleton className="h-lh w-20 scale-y-70" />
           </div>
           <div className="flex flex-col gap-0.5">
             {group.items.map((item) => (
-              <div className="flex h-8 items-center gap-2.5 px-2 text-[0.8125rem]" key={item.to}>
+              <div className="flex h-8 items-center gap-2.5 px-2 text-body-sm" key={item.to}>
                 <IconPending />
                 <Skeleton className="h-lh w-24 scale-y-70" />
               </div>
@@ -45,8 +45,8 @@ const AdminSidebarPending = (): JSX.Element => (
       <div className="flex h-11 items-center gap-2.5 px-2">
         <Skeleton className="size-7 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-          <Skeleton className="h-lh w-20 scale-y-70 text-[0.8125rem]" />
-          <Skeleton className="h-lh w-40 scale-y-70 text-[0.6875rem]" />
+          <Skeleton className="h-lh w-20 scale-y-70 text-body-sm" />
+          <Skeleton className="h-lh w-40 scale-y-70 text-spec" />
         </div>
         <Skeleton className="ml-auto size-4 shrink-0" />
       </div>
@@ -94,7 +94,7 @@ export const AdminPending = (): JSX.Element => {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-md sm:w-60" />
+            <Skeleton className="h-8 w-8 rounded-md lg:w-60" />
           </div>
         </div>
         <div

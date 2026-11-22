@@ -46,7 +46,7 @@ export const LineSection = (): JSX.Element => {
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
                   <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
-                  <span className="font-mono text-spec text-foreground">{t(`stations.${id}.spec`, REPOSITORY_FACTS)}</span>
+                  <span className="text-spec text-foreground">{t(`stations.${id}.spec`, REPOSITORY_FACTS)}</span>
                 </p>
                 <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />
               </HighlightItem>

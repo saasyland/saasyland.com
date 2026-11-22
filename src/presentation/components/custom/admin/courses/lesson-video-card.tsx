@@ -37,7 +37,7 @@ const CurrentVideo = ({ video }: { readonly video: Course["editorLesson"]["video
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
       <p className="text-sm font-medium text-foreground">{video === null ? t("none") : videoLabel(video)}</p>
       <Badge
-        className={cn("self-start text-[10px]", {
+        className={cn("self-start", {
           [ADMIN_STATUS_BADGE_CLASSES.amber]: recording,
           [ADMIN_STATUS_BADGE_CLASSES.emerald]: !recording,
         })}

@@ -33,7 +33,7 @@ const AppSidebarPending = (): JSX.Element => (
         ))}
       </div>
       <div className="flex flex-col">
-        <div className="mb-1.5 px-2 font-mono text-label">
+        <div className="mb-1.5 px-2 text-label">
           <Skeleton className="h-lh w-18 scale-y-70" />
         </div>
         <div className="flex flex-col gap-1">

@@ -16,7 +16,7 @@ export const RichText = ({ className, lang, text }: RichTextProps): JSX.Element 
         {segments.map(({ code, text: segment }, index) => {
           if (code) {
             return (
-              <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground" key={index}>
+              <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-code text-foreground" key={index}>
                 {segment}
               </code>
             )

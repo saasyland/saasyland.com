@@ -30,13 +30,13 @@ export const PublishVideoCard = (): JSX.Element => {
           {PUBLISH_STEPS.map(({ command, id }, index) => (
             <li className="flex flex-col gap-2" key={id}>
               <p className="text-sm text-foreground">
-                <span aria-hidden className="mr-2 font-mono text-muted-foreground tabular-nums">
+                <span aria-hidden className="mr-2 text-muted-foreground tabular-nums">
                   {index + STEP_NUMBER_BASE}.
                 </span>
                 {t(`steps.${id}`)}
               </p>
               <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 py-1.5 pr-1.5 pl-3">
-                <code className="min-w-0 truncate font-mono text-xs text-foreground">{command}</code>
+                <code className="min-w-0 truncate font-mono text-spec text-foreground">{command}</code>
                 <CopyButton copiedLabel={t("copied")} copyLabel={t("copy")} value={command} />
               </div>
             </li>

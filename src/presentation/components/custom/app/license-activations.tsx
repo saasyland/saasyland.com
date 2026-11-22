@@ -30,7 +30,7 @@ const ActivationsCard = (issued: LicenseActivationsProps): JSX.Element => {
         <CardDescription>{t("pages.license.activations.description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-spec text-muted-foreground">
           {limitActivations === null && t("pages.license.activations.unlimited", { used: activations.length })}
           {limitActivations !== null && t("pages.license.activations.count", { limit: limitActivations, used: activations.length })}
         </p>
@@ -40,7 +40,7 @@ const ActivationsCard = (issued: LicenseActivationsProps): JSX.Element => {
             <li className="flex flex-wrap items-center justify-between gap-4 py-3 first:pt-0 last:pb-0" key={activation.id}>
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-sm font-medium wrap-anywhere text-foreground">{activation.label}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-spec text-muted-foreground">
                   {t("pages.license.activations.activated", { date: t("common.dateTime", { value: new Date(activation.created_at) }) })}
                 </span>
               </span>

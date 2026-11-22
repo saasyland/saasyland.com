@@ -117,7 +117,7 @@ export const NewsletterForm = (): JSX.Element => {
                   )}
                 </Button>
               </div>
-              <div className="min-h-5 font-mono text-spec" id={`${inputId}-error`}>
+              <div className="min-h-5 text-spec" id={`${inputId}-error`}>
                 {isInvalid && (
                   <ValidationFieldError
                     message={fieldErrorMessage(field.state.meta.errors)}

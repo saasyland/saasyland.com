@@ -40,6 +40,7 @@ const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
 const SHARD_MATRIX = /^ +shard: \[(?<shards>[\d, ]+)\]$/mu
 const BASE_RADIUS = /--radius:\s*(?<rem>[\d.]+)rem;/u
 const RADIUS_STEP = /--radius-(?<step>sm|md|lg):\s*(?:calc\(var\(--radius\) \* (?<factor>[\d.]+)\)|var\(--radius\));/gu
+const SMALL_TEXT = /--text-(?<token>body-sm|spec|label):\s*(?<rem>[\d.]+)rem;/gu
 
 const packageSchema = zod.object({ version: zod.string() })
 const enginesSchema = zod.object({ engines: zod.object({ node: zod.string() }) })
@@ -50,6 +51,7 @@ const shardsMatchSchema = zod.object({ shards: zod.string() })
 const baseRadiusSchema = zod.object({ rem: zod.coerce.number() })
 const radiusStepSchema = zod.object({ factor: zod.coerce.number().default(1), step: zod.enum(["sm", "md", "lg"]) })
 const radiusScaleSchema = zod.object({ lg: zod.number(), md: zod.number(), sm: zod.number() })
+const smallTextSchema = zod.object({ "body-sm": zod.number(), label: zod.number(), spec: zod.number() })
 
 const maxRuleSchema = zod.tuple([zod.string(), zod.object({ max: zod.number() })])
 
@@ -124,6 +126,16 @@ const readRadiusScale = () => {
   const steps = [...stylesheet.matchAll(RADIUS_STEP)].map((match) => radiusStepSchema.parse(match.groups))
 
   return radiusScaleSchema.parse(Object.fromEntries(steps.map(({ factor, step }) => [step, base * factor])))
+}
+
+const readSmallText = () => {
+  const stylesheet = readFileSync(GLOBAL_STYLESHEET, "utf8")
+
+  return smallTextSchema.parse(
+    Object.fromEntries(
+      [...stylesheet.matchAll(SMALL_TEXT)].map((match) => [match.groups?.["token"], Number(match.groups?.["rem"]) * PIXELS_PER_REM]),
+    ),
+  )
 }
 
 const findTimedProject = (projects: readonly unknown[]) =>
@@ -206,6 +218,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
   const [, maxLinesPerFunction] = lint.rules["max-lines-per-function"]
   const [, maxStatements] = lint.rules["max-statements"]
   const radius = readRadiusScale()
+  const smallText = readSmallText()
 
   return {
     authIntegrationPath: AUTH_INTEGRATION_PATH,
@@ -258,6 +271,9 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
     testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
     testPassword: TEST_PASSWORD,
+    textBodySmallPixels: smallText["body-sm"],
+    textLabelPixels: smallText.label,
+    textSpecPixels: smallText.spec,
     timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
     vitestShards: readShards(CI_WORKFLOW),

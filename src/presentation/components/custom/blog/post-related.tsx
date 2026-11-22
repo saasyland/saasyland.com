@@ -21,7 +21,7 @@ export const PostRelated = (): JSX.Element | undefined => {
 
   return (
     <section className="mt-16">
-      <h2 className="font-mono text-label text-muted-foreground uppercase">{t("related")}</h2>
+      <h2 className="text-label text-muted-foreground uppercase">{t("related")}</h2>
       <ul className="mt-4 divide-y divide-border border-y border-border">
         {post.related.map((related) => (
           <li className="group relative py-5" key={related.url}>

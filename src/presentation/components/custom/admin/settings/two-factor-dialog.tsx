@@ -36,7 +36,7 @@ export const TwoFactorDialog = (): JSX.Element => {
   return (
     <>
       <Button
-        className="h-8 shrink-0 px-4 text-xs"
+        className="h-8 shrink-0 px-4 text-spec"
         isDisabled={isPending}
         onPress={() => {
           setDialog({ step: isEnabled ? "disable" : "password" })

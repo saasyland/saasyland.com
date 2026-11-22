@@ -28,10 +28,8 @@ export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Eleme
             <span className="text-price text-foreground tabular-nums">
               <Price amount={TIER_PRICES[tier]} />
             </span>
-            <span className="font-mono text-spec text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span>
-            <span className="pv pv-regional basis-full font-mono text-label text-ring uppercase">
-              {tTier.rich("regional.save", REGIONAL_TAGS)}
-            </span>
+            <span className="text-spec text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span>
+            <span className="pv pv-regional basis-full text-label text-ring uppercase">{tTier.rich("regional.save", REGIONAL_TAGS)}</span>
           </p>
         </div>
         <CheckoutButton featured tier={tier}>

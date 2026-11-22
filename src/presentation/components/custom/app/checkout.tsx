@@ -115,7 +115,7 @@ export const CheckoutNotice = (): JSX.Element => {
   const t = useTranslations("pages.license.buy.notice")
 
   return (
-    <div className="flex max-w-[72ch] flex-col gap-1.5 text-xs leading-relaxed text-pretty text-muted-foreground">
+    <div className="flex max-w-[72ch] flex-col gap-1.5 text-spec leading-relaxed text-pretty text-muted-foreground">
       <p>
         {t("consent", REFUND_VALUES)}
         {!isPolarCheckoutTranslated(getCurrentLocale()) && ` ${t("english")}`}

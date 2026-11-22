@@ -23,7 +23,7 @@ const SearchPending = (): JSX.Element => <Skeleton className="h-10 w-full flex-1
 const NamePending = (): JSX.Element => (
   <div className="flex flex-col">
     <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
-    <Skeleton className="h-lh w-40 scale-y-70 text-xs" />
+    <Skeleton className="h-lh w-40 scale-y-70 text-spec" />
   </div>
 )
 
@@ -123,7 +123,7 @@ export const AdminOrderPending = (): JSX.Element => (
       <div className="flex min-w-0 flex-col gap-1">
         <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
         <TitlePending />
-        <Skeleton className="h-lh w-56 max-w-full scale-y-70 font-mono text-xs" />
+        <Skeleton className="h-lh w-56 max-w-full scale-y-70 font-mono text-spec" />
       </div>
       <Skeleton className="h-9 w-36 rounded-md" />
     </div>
@@ -233,7 +233,7 @@ export const UserOrdersPending = (): JSX.Element => (
           <div className="flex items-center justify-between gap-4 py-2.5" key={row}>
             <div className="flex flex-col">
               <Skeleton className="h-lh w-32 scale-y-70" />
-              <Skeleton className="h-lh w-28 scale-y-70 text-xs" />
+              <Skeleton className="h-lh w-28 scale-y-70 text-spec" />
             </div>
             <div className="flex flex-col items-end gap-1">
               <Skeleton className="h-lh w-16 scale-y-70" />

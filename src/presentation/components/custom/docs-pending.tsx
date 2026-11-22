@@ -17,7 +17,7 @@ const TOC_WIDTHS = ["w-20", "w-24", "w-28"]
 const DocsArticle = ({ breadcrumb }: { readonly breadcrumb: boolean }): JSX.Element => (
   <div className="mx-auto flex w-full max-w-225 flex-col px-4 pt-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
     {breadcrumb && <Skeleton className="mb-4 h-lh w-16 scale-y-70 text-sm" />}
-    <Skeleton className="h-lh w-2/5 scale-y-70 text-[1.75rem]/[1.5]" />
+    <Skeleton className="h-10.5 w-2/5 scale-y-70" />
     <div className="mt-4 flex flex-col text-lg">
       <Skeleton className="h-lh w-full scale-y-70" />
       <Skeleton className="h-lh w-1/2 scale-y-70" />
@@ -80,7 +80,7 @@ export const DocsPending = (): JSX.Element => {
     <div aria-busy="true" className="mx-auto flex min-h-dvh w-full max-w-site pt-header md:px-10">
       <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-docs-sidebar shrink-0 flex-col border-x border-sidebar-border bg-sidebar md:flex">
         <div className="flex flex-col gap-3 p-4 pb-2">
-          <div className="flex h-lh items-center text-[0.9375rem]">
+          <div className="flex h-lh items-center text-body">
             <Skeleton className="h-lh w-20 scale-y-70" />
           </div>
           <div className="flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-sm">

@@ -1,8 +1,8 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowLeft, ExternalLink } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { ExternalLink } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -16,6 +16,7 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminOrderPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { OrderPolar } from "~/src/presentation/components/custom/admin/payments/order-polar"
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
@@ -31,26 +32,21 @@ const OrderPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col gap-6 pb-6 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <Link
-            className="flex w-fit items-center gap-1.5 rounded-sm text-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            to={ROUTES.ADMIN_ORDERS}
-          >
-            <ArrowLeft aria-hidden className="size-4" />
-            {t("back")}
-          </Link>
-          <h1 className="text-statement font-semibold text-foreground">{order.description}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-spec break-all text-muted-foreground">{order.id}</span>
-            <OrderStatusBadge status={order.status} />
-          </div>
+      <AdminPageHeader
+        actions={
+          <LinkButton className="h-9 gap-2" href={polarUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
+            <ExternalLink aria-hidden className="size-4" />
+            {t("openInPolar")}
+          </LinkButton>
+        }
+        back={{ label: t("back"), to: ROUTES.ADMIN_ORDERS }}
+        title={order.description}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-spec break-all text-muted-foreground">{order.id}</span>
+          <OrderStatusBadge status={order.status} />
         </div>
-        <LinkButton className="h-9 w-fit gap-2" href={polarUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
-          <ExternalLink aria-hidden className="size-4" />
-          {t("openInPolar")}
-        </LinkButton>
-      </div>
+      </AdminPageHeader>
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">

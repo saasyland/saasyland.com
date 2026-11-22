@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { Mail } from "lucide-react"
 
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
 
@@ -9,6 +10,7 @@ const AREA = "newsletter"
 export const NEWSLETTER_DASHBOARD = [
   {
     area: AREA,
+    icon: Mail,
     key: "subscribers",
     order: 60,
     placement: DASHBOARD_PLACEMENT.STAT,

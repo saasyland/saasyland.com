@@ -17,6 +17,7 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminCourseEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseCoverCard } from "~/src/presentation/components/custom/admin/courses/course-cover-card"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
@@ -34,21 +35,21 @@ const CourseEditorPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-statement font-semibold text-foreground">{localize(data.course.title, getCurrentLocale())}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ExportCoursesButton course={data.course} />
-          {data.course.status === COURSE_STATUS.PUBLISHED && (
-            <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
-              <ExternalLink aria-hidden className="size-4" />
-              {t("view")}
-            </LinkButton>
-          )}
-        </div>
-      </div>
+      <AdminPageHeader
+        actions={
+          <>
+            <ExportCoursesButton course={data.course} />
+            {data.course.status === COURSE_STATUS.PUBLISHED && (
+              <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
+                <ExternalLink aria-hidden className="size-4" />
+                {t("view")}
+              </LinkButton>
+            )}
+          </>
+        }
+        description={t("description")}
+        title={localize(data.course.title, getCurrentLocale())}
+      />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
         <div className="flex flex-col gap-6">
           <CourseForm course={data.course} key={data.course.updatedAt.getTime()} />

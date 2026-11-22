@@ -12,6 +12,7 @@ import { getOrdersPageQuery, getOrdersQuery } from "~/src/modules/order/use-case
 
 import { pageHead } from "~/src/lib/seo"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminOrdersPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { ORDER_GRID_ID, useOrderColumns } from "~/src/presentation/components/custom/admin/payments/order-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
@@ -24,10 +25,7 @@ const OrdersPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div>
-        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
-      </div>
+      <AdminPageHeader description={t("description")} title={t("title")} />
 
       <DataGrid
         columns={columns}

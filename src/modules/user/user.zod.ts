@@ -10,6 +10,7 @@ import {
 } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { searchSchema } from "~/src/modules/_core/utils/search"
 import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
@@ -82,6 +83,8 @@ const updateUser = zod.object({
   userId: idField,
 })
 
+const searchUsers = searchSchema
+
 export const userZodSchemas = {
   banUser,
   confirmAccountDeletion,
@@ -92,6 +95,7 @@ export const userZodSchemas = {
   getUsers,
   impersonateUser,
   requestAccountDeletion,
+  searchUsers,
   setUserPassword,
   setUserPasswordForm,
   setUserRole,

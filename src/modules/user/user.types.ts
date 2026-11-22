@@ -15,6 +15,7 @@ export interface User {
   getUsers: zod.input<typeof userZodSchemas.getUsers>
   impersonateUser: zod.input<typeof userZodSchemas.impersonateUser>
   requestAccountDeletion: zod.input<typeof userZodSchemas.requestAccountDeletion>
+  searchUsers: zod.input<typeof userZodSchemas.searchUsers>
   setUserPassword: zod.input<typeof userZodSchemas.setUserPassword>
   setUserPasswordForm: zod.input<typeof userZodSchemas.setUserPasswordForm>
   setUserRole: zod.input<typeof userZodSchemas.setUserRole>

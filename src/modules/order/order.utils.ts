@@ -23,8 +23,6 @@ export const netAmount: SQL<number> = sql<number>`coalesce(sum(${order.totalAmou
 
 export const countsAsRevenue: SQL = inArray(order.status, REVENUE_ORDER_STATUSES)
 
-export const containsText = (column: SQLWrapper, text: string): SQL => sql`instr(lower(${column}), ${text.toLowerCase()}) > 0`
-
 const MINOR_UNITS_PER_MAJOR = JSON.stringify(Object.fromEntries(CURRENCY_CODES.map((code) => [code, toMinorUnits(1, code)])))
 
 export const inMinorUnits = (amount: number, currency: SQLWrapper): SQL<number> =>

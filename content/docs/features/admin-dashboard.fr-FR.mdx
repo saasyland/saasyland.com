@@ -7,16 +7,36 @@ description: "La structure de /admin et le tableau de bord : compteurs, revenus,
 
 `src/routes/admin.tsx` protège toutes les pages d’administration avec `requireAdmin` et précharge les espaces de noms communs. Le layout affiche :
 
-- `AdminSidebar`, `AdminBreadcrumbs` et `AdminCommandPalette` (ouverte avec ⌘K), tous construits à partir de `ADMIN_NAVIGATION` dans `src/data/navigation.ts`, qui regroupe les entrées apportées par les zones, chacune avec son icône : Vue d’ensemble (Tableau de bord), Offres (Produits), Ventes (Commandes), Contenu (Cours, Vidéos) et Administration (Gestion des utilisateurs, Paramètres). Chaque entrée ouvre un écran qui fonctionne ; un écran sans véritable source de données n’a ni route, ni entrée de menu, ni entrée dans la palette (voir [Uniquement des données réelles](#real-data-only)).
+- `AdminSidebar`, construite à partir de `ADMIN_NAVIGATION` dans `src/data/navigation.ts`, qui regroupe les entrées apportées par les domaines, chacune avec son icône : Vue d’ensemble (Tableau de bord), Offres (Produits), Ventes (Commandes), Contenu (Cours, Vidéos) et Administration (Gestion des utilisateurs, Réglages). Chaque entrée ouvre un écran qui fonctionne ; un écran sans vraie source de données n’a ni route, ni entrée de menu, ni entrée dans la palette (voir [Données réelles uniquement](#real-data-only)). L’entrée de la page affichée porte `aria-current="page"` et une barre d’accent. Le bouton à côté du fil d’Ariane replie la barre latérale sur ses icônes, chacune nommée dans une infobulle, et l’ouvre en panneau sur un téléphone.
+- `AdminBreadcrumbs` et le bouton de recherche de `AdminCommandPalette` dans la barre du haut.
+- `AdminPageHeader` (`custom/admin/admin-page-header.tsx`) en haut de chaque page d’administration : le titre, une description, les actions de la page à droite, un lien de retour facultatif au-dessus du titre et des onglets facultatifs en dessous, fermé par un filet. `AdminPageHeaderPending` dessine la même forme dans le `pendingComponent` de chaque page.
 - Le widget utilisateur en bas de la barre latérale, avec un lien vers les paramètres et `SignOutButton`.
 - Le logo en haut de la barre latérale, qui renvoie à la page d’accueil.
+
+### Palette de commandes [#command-palette]
+
+⌘K ou Ctrl+K, ou le bouton de recherche de la barre du haut, qui affiche le raccourci de la plateforme du visiteur, ouvre `AdminCommandPalette`. Sa liste défile dans la boîte de dialogue et regroupe ce qu’elle trouve, chaque ligne avec son icône, son nom et une ligne de détail :
+
+- **Récents** : les dernières pages et fiches ouvertes depuis la palette, au plus `RECENT_LIMIT`, affichées tant que la recherche est vide. Elles sont gardées dans le `localStorage` du navigateur seulement.
+- **Actions rapides** : les entrées de `ADMIN_COMMAND_ACTIONS`, que les domaines placent en `NAVIGATION_PLACEMENT.COMMAND` : **Nouveau cours** du domaine des cours et **Ouvrir le site** du domaine d’authentification.
+- **Pages** : chaque entrée de `ADMIN_NAVIGATION`, avec son groupe de la barre latérale, filtrées dans le navigateur.
+- Fiches : les recherches de `COMMAND_SEARCHES` dans `src/data/command-search.ts`, que chaque domaine ajoute dans `src/data/<area>.command-search.ts`. Dès que la recherche contient `SEARCH_TEXT_MIN_LENGTH` caractères et que la saisie marque une pause, la palette lance en parallèle chaque recherche que le rôle connecté peut lancer, et chacune renvoie au plus `SEARCH_HITS_LIMIT` résultats.
+
+| Groupe       | Domaine    | Fonction serveur | Permission     | Correspond à                                                               |
+| ------------ | ---------- | ---------------- | -------------- | -------------------------------------------------------------------------- |
+| Utilisateurs | `auth`     | `searchUsers`    | `user: list`   | Nom ou adresse e-mail                                                      |
+| Commandes    | `payments` | `searchOrders`   | `order: read`  | Identifiant de commande, identifiant client Polar, nom ou e-mail du client |
+| Cours        | `courses`  | `searchCourses`  | `course: read` | Titre dans n’importe quelle langue, ou slug                                |
+| Leçons       | `courses`  | `searchLessons`  | `course: read` | Titre dans n’importe quelle langue, ou slug ; le détail nomme le cours     |
+
+Chaque recherche est une fonction serveur derrière `authorized(...)`, et la palette laisse de côté les recherches que les permissions du rôle n’accordent pas, si bien qu’elle ne demande jamais de fiches que le compte ne peut pas lire. Les flèches parcourent les résultats, Entrée en ouvre un, Échap vide la recherche puis ferme la palette, et une région live indique à un lecteur d’écran quand la palette cherche et combien de résultats elle a trouvés.
 
 ## Tableau de bord [#dashboard]
 
 `/admin` (`src/routes/admin.index.tsx`) précharge `getUsersQuery` et, par leur `prefetch`, la requête de chaque statistique et de chaque panneau du tableau de bord, et compose les widgets de `src/presentation/components/custom/admin/dashboard` avec les panneaux qu’ajoutent les zones :
 
 - `DashboardActions` : un lien pour chaque entrée de `ADMIN_DASHBOARD_ACTIONS` dans l’ordre de leur `order`, avec le libellé du `navigation.<area>.json` de sa zone. La zone des paiements ajoute **Commandes** et **Clients** (voir [Commandes et clients](/docs/features/orders)).
-- `DashboardStats` : les statistiques de `ADMIN_DASHBOARD_STATS`, les entrées de `src/data/<area>.dashboard.ts` placées en `DASHBOARD_PLACEMENT.STAT`, dans l’ordre de leur `order`, chacune avec le libellé du `dashboard.<area>.json` de sa zone et mise en forme pour la langue de la page.
+- `DashboardStats` : les statistiques de `ADMIN_DASHBOARD_STATS`, les entrées de `src/data/<area>.dashboard.ts` placées en `DASHBOARD_PLACEMENT.STAT`, dans l’ordre de leur `order`, chacune avec le libellé du `dashboard.<area>.json` de sa zone et mise en forme pour la langue de la page. Chaque carte affiche l’`icon` de la statistique, et une statistique dotée d’un `to` relie toute sa carte à la page qui liste ce qu’elle compte.
 - Les panneaux de `ADMIN_DASHBOARD_PANELS`, les entrées placées en `DASHBOARD_PLACEMENT.PANEL`, dans l’ordre de leur `order`, chacun avec le squelette qu’affiche `AdminDashboardPending` pour lui. Chaque entrée nomme son panneau avec `lazyRouteComponent`, si bien que le code d’un panneau, avec ses graphiques et ses tableaux, se charge dans un chunk à part, que le loader du tableau de bord précharge avec les données du panneau ; le squelette vient du fichier `-pending.tsx` du panneau.
 - Une carte des utilisateurs : les comptes les plus récents, <RepositoryFact name="adminPreviewPageSize" /> lignes par page, avec filtres de recherche et de statut. Chaque nom renvoie vers le profil de l’utilisateur, où se trouvent les actions.
 

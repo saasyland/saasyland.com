@@ -14,6 +14,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -23,6 +24,7 @@ import {
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
+import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const isActiveUrl = (pathname: string, url: string): boolean => {
@@ -39,34 +41,37 @@ export const AdminSidebar = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   return (
-    <Sidebar>
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-3 py-0">
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border px-3 py-0 group-data-[collapsible=icon]:px-2">
         <Link
-          className="flex h-9 items-center rounded-md px-2 transition-colors duration-200 ease-exp hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          aria-label={APP_NAME}
+          className="flex h-9 items-center rounded-md px-2 transition-colors duration-200 ease-exp group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           to={ROUTES.HOME}
         >
-          <Wordmark />
+          <Wordmark aria-hidden className="group-data-[collapsible=icon]:[&>span]:hidden" />
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="custom-scrollbar px-2 pt-4">
-        <nav aria-label={t("navigationLabel")} className="flex flex-col gap-5">
+      <SidebarContent className="custom-scrollbar px-2 pt-3">
+        <nav aria-label={t("navigationLabel")} className="flex flex-col gap-3">
           {ADMIN_NAVIGATION.map((group) => (
             <SidebarGroup className="p-0" key={group.key}>
-              <div className="mb-1.5 px-2 text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
+              <SidebarGroupLabel className="h-7 px-2 text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
                 {t(`groups.${group.key}`)}
-              </div>
+              </SidebarGroupLabel>
               <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5" role="group">
                 {group.items.map((item) => {
                   const isActive = isActiveUrl(pathname, item.to)
+                  const label = navigationLabel(item)
 
                   return (
                     <SidebarMenuItem key={item.key}>
                       <SidebarMenuButton
                         {...(isActive && { "aria-current": "page" })}
-                        className="h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp data-active:font-medium"
+                        className="relative h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent group-data-[collapsible=icon]:before:hidden data-active:font-medium data-active:before:bg-ring"
                         href={item.to}
                         isActive={isActive}
+                        tooltip={label}
                       >
                         <item.icon
                           aria-hidden
@@ -76,9 +81,7 @@ export const AdminSidebar = (): JSX.Element => {
                           })}
                           strokeWidth={1.5}
                         />
-                        <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>
-                          {navigationLabel(item)}
-                        </span>
+                        <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>{label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )

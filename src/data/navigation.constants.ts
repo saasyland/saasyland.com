@@ -30,6 +30,7 @@ export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
   APP_RESOURCES: "appResources",
+  COMMAND: "command",
   DASHBOARD: "dashboard",
   FOOTER: "footer",
   HEADER: "header",
@@ -81,6 +82,11 @@ interface AppResourceEntry extends Entry {
   readonly placement: typeof NAVIGATION_PLACEMENT.APP_RESOURCES
 }
 
+interface CommandEntry extends Entry {
+  readonly icon: LucideIcon
+  readonly placement: typeof NAVIGATION_PLACEMENT.COMMAND
+}
+
 interface DashboardEntry extends Entry {
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.DASHBOARD
@@ -98,4 +104,4 @@ interface HeaderEntry extends Entry {
   readonly signedIn?: Pick<Entry, "key">
 }
 
-export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | DashboardEntry | FooterEntry | HeaderEntry
+export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | CommandEntry | DashboardEntry | FooterEntry | HeaderEntry

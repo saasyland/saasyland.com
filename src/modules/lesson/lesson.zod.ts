@@ -2,6 +2,7 @@ import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
 import {
   LESSON_ACCESS_LEVELS,
@@ -68,6 +69,8 @@ const replaceLessonVideo = lessonIdInput.extend({ videoId: idField })
 
 const updateLesson = lessonFields.extend(lessonContent.shape).extend(lessonIdInput.shape)
 
+const searchLessons = localizedSearchSchema
+
 export const lessonZodSchemas = {
   createLesson,
   deleteLesson,
@@ -76,5 +79,6 @@ export const lessonZodSchemas = {
   getLessonTitle,
   moveLesson,
   replaceLessonVideo,
+  searchLessons,
   updateLesson,
 }

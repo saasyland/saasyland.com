@@ -19,6 +19,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 import { categoryColumns } from "~/src/presentation/components/custom/admin/products/category-columns"
 import { productColumns } from "~/src/presentation/components/custom/admin/products/product-columns"
@@ -44,41 +45,38 @@ const ProductsPage = (): JSX.Element => {
   const categoryKind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
 
   return (
-    <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div>
-        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
-      </div>
-
-      <Tabs selectedKey={tab} className="w-full">
-        <div className="border-b border-border">
-          <TabsList variant="line" className="no-scrollbar flex-1 justify-start gap-6 overflow-x-auto">
+    <Tabs className="w-full animate-in gap-0 duration-500 fade-in-50" selectedKey={tab}>
+      <AdminPageHeader
+        description={t("description")}
+        tabs={
+          <TabsList className="no-scrollbar justify-start gap-6 overflow-x-auto" variant="line">
             {ADMIN_PRODUCT_TABS.map((id) => (
               <TabsTrigger className="flex-none px-0 text-sm" href={`${ROUTES.ADMIN_PRODUCTS}?tab=${id}`} id={id} key={id}>
                 {t(`tabs.${id}`)}
               </TabsTrigger>
             ))}
           </TabsList>
-        </div>
+        }
+        title={t("title")}
+      />
 
-        <TabsContent id={tab} className="mt-6 space-y-4 outline-none">
-          {tab !== "categories" && tab !== "collections" && (
-            <DataTable
-              columns={productColumns}
-              key={tab}
-              options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
-            />
-          )}
-          {(tab === "categories" || tab === "collections") && (
-            <DataTable
-              columns={categoryColumns[categoryKind]}
-              key={tab}
-              options={{ query: ({ pageIndex, pageSize }) => getCategoriesPageQuery({ kind: categoryKind, pageIndex, pageSize }) }}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent className="mt-8 space-y-4 outline-none" id={tab}>
+        {tab !== "categories" && tab !== "collections" && (
+          <DataTable
+            columns={productColumns}
+            key={tab}
+            options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+          />
+        )}
+        {(tab === "categories" || tab === "collections") && (
+          <DataTable
+            columns={categoryColumns[categoryKind]}
+            key={tab}
+            options={{ query: ({ pageIndex, pageSize }) => getCategoriesPageQuery({ kind: categoryKind, pageIndex, pageSize }) }}
+          />
+        )}
+      </TabsContent>
+    </Tabs>
   )
 }
 

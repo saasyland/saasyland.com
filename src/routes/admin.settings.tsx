@@ -16,6 +16,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 import { ConnectedAccountsCard } from "~/src/presentation/components/custom/settings/connected-accounts-card"
@@ -32,36 +33,33 @@ const SettingsPage = (): JSX.Element => {
   const { tab } = Route.useSearch()
 
   return (
-    <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div>
-        <h1 className="text-statement font-semibold text-foreground">{t("pages.admin.settings.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("pages.admin.settings.description")}</p>
-      </div>
-
-      <Tabs className="w-full" selectedKey={tab}>
-        <div className="border-b border-border">
-          <TabsList className="no-scrollbar w-full justify-start gap-6 overflow-x-auto" variant="line">
+    <Tabs className="w-full animate-in gap-0 duration-500 fade-in-50" selectedKey={tab}>
+      <AdminPageHeader
+        description={t("pages.admin.settings.description")}
+        tabs={
+          <TabsList className="no-scrollbar justify-start gap-6 overflow-x-auto" variant="line">
             {SETTINGS_TABS.map((id) => (
               <TabsTrigger className="flex-none px-0 text-sm" href={`${ROUTES.ADMIN_SETTINGS}?tab=${id}`} id={id} key={id}>
                 {t(`auth.security.tabs.${id}`)}
               </TabsTrigger>
             ))}
           </TabsList>
-        </div>
+        }
+        title={t("pages.admin.settings.title")}
+      />
 
-        <TabsContent className="mt-8 grid grid-cols-1 items-start gap-6 outline-none lg:grid-cols-2" id={SETTINGS_TAB.GENERAL}>
-          <PreferencesCard />
-          <EmailCard />
-        </TabsContent>
+      <TabsContent className="mt-8 grid grid-cols-1 items-start gap-6 outline-none lg:grid-cols-2" id={SETTINGS_TAB.GENERAL}>
+        <PreferencesCard />
+        <EmailCard />
+      </TabsContent>
 
-        <TabsContent className="mt-8 flex flex-col gap-6 outline-none" id={SETTINGS_TAB.SECURITY}>
-          <PasswordCard />
-          <TwoFactorCard />
-          <ConnectedAccountsCard />
-          <SessionsCard />
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent className="mt-8 flex flex-col gap-6 outline-none" id={SETTINGS_TAB.SECURITY}>
+        <PasswordCard />
+        <TwoFactorCard />
+        <ConnectedAccountsCard />
+        <SessionsCard />
+      </TabsContent>
+    </Tabs>
   )
 }
 

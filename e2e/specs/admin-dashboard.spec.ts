@@ -21,6 +21,7 @@ import licenseDashboardMessages from "../../messages/en-US/dashboard.license.jso
 import paymentsDashboardMessages from "../../messages/en-US/dashboard.payments.json" with { type: "json" }
 import notFoundMessages from "../../messages/en-US/errors.not-found.json" with { type: "json" }
 import pagesAdminDashboardMessages from "../../messages/en-US/pages.admin.dashboard.json" with { type: "json" }
+import pagesAdminMessages from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import pagesAdminSidebarMessages from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
 import navigationPaymentsMessages from "../../messages/en-US/navigation.payments.json" with { type: "json" }
 import navigationProductsMessages from "../../messages/en-US/navigation.products.json" with { type: "json" }
@@ -116,7 +117,9 @@ test("the dashboard counts each tier's licences by status, the seeded revoked on
 test("the dashboard counts the accounts and links the newest to their profiles", async ({ page }) => {
   await signInAsAdmin(page)
 
-  const registered = page.getByText(authDashboardMessages.registeredUsers, { exact: true }).locator("xpath=following-sibling::dd")
+  const registered = page
+    .getByRole("link", { exact: true, name: authDashboardMessages.registeredUsers })
+    .locator("xpath=ancestor::dt/following-sibling::dd")
   await expect(registered).toHaveText(/^[1-9][\d,]*$/u)
   const newest = panel(page, pagesAdminDashboardMessages.users.title)
   const profiles = newest.getByRole("table").getByRole("link")
@@ -135,9 +138,11 @@ test("the admin menu and the command palette list only working screens", async (
   expect(sections.filter((section) => REMOVED_LABELS.test(section))).toStrictEqual([])
 
   await page.keyboard.press("ControlOrMeta+k")
-  const palette = page.getByRole("dialog")
-  await expect(palette.getByRole("menuitem")).toHaveCount(sections.length)
-  expect(await palette.getByRole("menuitem").allTextContents()).toStrictEqual(sections)
+  const pages = page.getByRole("dialog").getByRole("group", { name: pagesAdminMessages.components.commandPalette.groups.pages })
+  await expect(pages.getByRole("menuitem")).toHaveCount(sections.length)
+  for (const [index, section] of sections.entries()) {
+    await expect(pages.getByRole("menuitem").nth(index)).toHaveAccessibleName(new RegExp(`^${section}`, "u"))
+  }
 })
 
 test("the admin menu files orders under Sales and keeps only the products under Offerings, on a desktop and a phone", async ({

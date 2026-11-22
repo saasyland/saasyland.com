@@ -14,6 +14,8 @@ export const ADMIN_NAVIGATION = ADMIN_NAVIGATION_GROUPS.map((group) => ({
   key: group,
 })).filter(({ items }) => items.length > 0)
 
+export const ADMIN_COMMAND_ACTIONS = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.COMMAND)
+
 export const ADMIN_DASHBOARD_ACTIONS = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.DASHBOARD)
 
 export const APP_NAVIGATION = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.APP)

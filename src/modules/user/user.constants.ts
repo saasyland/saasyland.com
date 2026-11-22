@@ -14,6 +14,7 @@ export const USER_QUERY_KEYS = {
   ALL: ["user"],
   DETAIL: ["user", "getUser"],
   LIST: ["user", "getUsers"],
+  SEARCH: ["user", "searchUsers"],
   SIGNUPS: ["user", "getUserSignups"],
 } as const
 

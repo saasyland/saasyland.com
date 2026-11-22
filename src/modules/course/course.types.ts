@@ -40,6 +40,7 @@ export interface Course {
   getCourses: zod.input<typeof courseZodSchemas.getCourses>
   importCourses: zod.input<typeof courseZodSchemas.importCourses>
   moveCourse: zod.input<typeof courseZodSchemas.moveCourse>
+  searchCourses: zod.input<typeof courseZodSchemas.searchCourses>
   removeCourseCover: zod.input<typeof courseZodSchemas.removeCourseCover>
   updateCourse: zod.input<typeof courseZodSchemas.updateCourse>
   uploadCourseCover: zod.input<typeof courseZodSchemas.uploadCourseCover>

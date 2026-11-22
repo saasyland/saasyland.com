@@ -493,6 +493,19 @@ export const AUTH_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-command-palette",
+    outcome:
+      "The admin opens the command palette with ⌘K or Ctrl+K, finds a user by email and an order by its ID on the server, opens each with the pointer or the keyboard, and finds the last one under Recent",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-command-palette.spec.ts",
+        title: "an administrator finds a user by email and an order by its ID from the command palette and opens each",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
     id: "admin-dashboard-refused",
     outcome: "A customer who opens /admin is sent to the workspace and sees none of the dashboard's figures",
     status: FLOW_STATUS.COVERED,

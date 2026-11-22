@@ -7,16 +7,36 @@ description: "The /admin shell and dashboard: counters, revenue, new users, cour
 
 `src/routes/admin.tsx` guards every admin page with `requireAdmin` and preloads the shared admin namespaces. The layout renders:
 
-- `AdminSidebar`, `AdminBreadcrumbs` and `AdminCommandPalette` (opened with ⌘K), all built from `ADMIN_NAVIGATION` in `src/data/navigation.ts`, which groups the entries the areas contribute, each with its icon: Overview (Dashboard), Offerings (Products), Sales (Orders), Content (Courses, Videos) and Administration (User management, Settings). Every entry opens a working screen; a screen with no real source of data has no route, no menu entry and no palette entry (see [Real data only](#real-data-only)).
+- `AdminSidebar`, built from `ADMIN_NAVIGATION` in `src/data/navigation.ts`, which groups the entries the areas contribute, each with its icon: Overview (Dashboard), Offerings (Products), Sales (Orders), Content (Courses, Videos) and Administration (User management, Settings). Every entry opens a working screen; a screen with no real source of data has no route, no menu entry and no palette entry (see [Real data only](#real-data-only)). The entry of the page on screen carries `aria-current="page"` and an accent bar. The button beside the breadcrumbs collapses the sidebar to its icons, each named in a tooltip, and on a phone opens it as a sheet.
+- `AdminBreadcrumbs` and the search button of `AdminCommandPalette` in the top bar.
+- `AdminPageHeader` (`custom/admin/admin-page-header.tsx`) at the top of every admin page: the title, a description, the page's actions on the right, an optional back link above the title and optional tabs under it, closed by a rule. `AdminPageHeaderPending` draws the same shape in each page's `pendingComponent`.
 - The user widget in the sidebar footer, with a link to settings and `SignOutButton`.
 - The wordmark at the top of the sidebar, which links to the home page.
+
+### Command palette
+
+⌘K or Ctrl+K, or the search button in the top bar, which shows the shortcut of the visitor's platform, opens `AdminCommandPalette`. Its list scrolls inside the dialog and groups what it finds, each row with its icon, its name and a line of detail:
+
+- **Recent**: the last pages and records opened from the palette, at most `RECENT_LIMIT`, shown while the search is empty. They are kept in the browser's `localStorage` only.
+- **Quick actions**: the entries of `ADMIN_COMMAND_ACTIONS`, which the areas place as `NAVIGATION_PLACEMENT.COMMAND`: **New course** from the courses area and **Open the website** from the auth area.
+- **Pages**: every entry of `ADMIN_NAVIGATION`, with its sidebar group, filtered in the browser.
+- Records: the searches of `COMMAND_SEARCHES` in `src/data/command-search.ts`, which each area adds in `src/data/<area>.command-search.ts`. Once the search holds `SEARCH_TEXT_MIN_LENGTH` characters and typing pauses, the palette runs every search the signed-in role may run, in parallel, and each returns at most `SEARCH_HITS_LIMIT` matches.
+
+| Group   | Area       | Server function | Permission     | Matches                                                     |
+| ------- | ---------- | --------------- | -------------- | ----------------------------------------------------------- |
+| Users   | `auth`     | `searchUsers`   | `user: list`   | Name or email                                               |
+| Orders  | `payments` | `searchOrders`  | `order: read`  | Order ID, Polar customer ID, customer name or email         |
+| Courses | `courses`  | `searchCourses` | `course: read` | Title in any language, or slug                              |
+| Lessons | `courses`  | `searchLessons` | `course: read` | Title in any language, or slug; the detail names the course |
+
+Every search is a server function behind `authorized(...)`, and the palette leaves out the searches the role's permissions do not grant, so it never asks for records the account may not read. The arrow keys move through the results, Enter opens one, Escape clears the search and then closes the palette, and a live region tells a screen reader when the palette is searching and how many results it found.
 
 ## Dashboard
 
 `/admin` (`src/routes/admin.index.tsx`) preloads `getUsersQuery` and, through their `prefetch`, the query of every dashboard statistic and panel, and composes the widgets of `src/presentation/components/custom/admin/dashboard` with the panels the areas add:
 
 - `DashboardActions`: a link for each entry of `ADMIN_DASHBOARD_ACTIONS` by its `order`, labelled by its area's `navigation.<area>.json`. The payments area adds **Orders** and **Customers** (see [Orders and customers](/docs/features/orders)).
-- `DashboardStats`: the statistics of `ADMIN_DASHBOARD_STATS`, the entries of `src/data/<area>.dashboard.ts` placed as `DASHBOARD_PLACEMENT.STAT`, by their `order`, each labelled by its area's `dashboard.<area>.json` and formatted for the page's locale.
+- `DashboardStats`: the statistics of `ADMIN_DASHBOARD_STATS`, the entries of `src/data/<area>.dashboard.ts` placed as `DASHBOARD_PLACEMENT.STAT`, by their `order`, each labelled by its area's `dashboard.<area>.json`, with its `icon`, and formatted for the page's locale. A statistic with a `to` links its whole card to the page that lists what it counts.
 - The panels of `ADMIN_DASHBOARD_PANELS`, the entries placed as `DASHBOARD_PLACEMENT.PANEL`, by their `order`, each with the skeleton that `AdminDashboardPending` shows for it. Each entry names its panel with `lazyRouteComponent`, so a panel's code, with its charts and tables, loads in a chunk of its own, which the dashboard's loader preloads together with the panel's data; the skeleton comes from the panel's `-pending.tsx` file.
 - A users card: the newest accounts, <RepositoryFact name="adminPreviewPageSize" /> rows per page, with search and status filters. Each name links to the user's profile, where the actions are.
 

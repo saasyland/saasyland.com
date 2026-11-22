@@ -1,8 +1,8 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute, notFound } from "@tanstack/react-router"
-import { ArrowLeft, ExternalLink } from "lucide-react"
+import { createFileRoute, notFound } from "@tanstack/react-router"
+import { ExternalLink } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -19,6 +19,7 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
+import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminLessonEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { LessonForm } from "~/src/presentation/components/custom/admin/courses/lesson-form"
 import { LessonMaterials } from "~/src/presentation/components/custom/admin/courses/lesson-materials"
@@ -45,32 +46,25 @@ const LessonEditorPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            className="inline-flex items-center gap-1.5 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            params={{ courseId }}
-            to="/admin/courses/$courseId"
-          >
-            <ArrowLeft aria-hidden className="size-4" />
-            {localize(data.course.title, locale)}
-          </Link>
-          <h1 className="mt-2 text-statement font-semibold text-foreground">{localize(lesson.title, locale)}</h1>
-          <p className="text-sm text-muted-foreground">{t("pageDescription")}</p>
-        </div>
-        {isPublic && (
-          <LinkButton
-            className="h-9 gap-2"
-            href={`${ROUTES.COURSES}/${data.course.slug}/${lesson.slug}`}
-            size="sm"
-            target="_blank"
-            variant="outline"
-          >
-            <ExternalLink aria-hidden className="size-4" />
-            {t("view")}
-          </LinkButton>
-        )}
-      </div>
+      <AdminPageHeader
+        actions={
+          isPublic && (
+            <LinkButton
+              className="h-9 gap-2"
+              href={`${ROUTES.COURSES}/${data.course.slug}/${lesson.slug}`}
+              size="sm"
+              target="_blank"
+              variant="outline"
+            >
+              <ExternalLink aria-hidden className="size-4" />
+              {t("view")}
+            </LinkButton>
+          )
+        }
+        back={{ label: localize(data.course.title, locale), to: `${ROUTES.ADMIN_COURSES}/${courseId}` }}
+        description={t("pageDescription")}
+        title={localize(lesson.title, locale)}
+      />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <LessonForm key={lesson.id} lesson={lesson} />
         <div className="flex flex-col gap-6">

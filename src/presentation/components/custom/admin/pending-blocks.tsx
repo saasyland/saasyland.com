@@ -6,17 +6,6 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 export const PAGE_ROWS = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => index)
 
-export const TitlePending = (): JSX.Element => <Skeleton className="h-lh w-44 scale-y-70 text-statement" />
-
-export const DescriptionPending = (): JSX.Element => <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-sm" />
-
-export const LongDescriptionPending = (): JSX.Element => (
-  <div className="flex flex-col text-sm">
-    <Skeleton className="h-lh w-96 max-w-full scale-y-70" />
-    <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-  </div>
-)
-
 export const IconPending = (): JSX.Element => <Skeleton className="size-4 shrink-0" />
 
 export const CheckboxPending = (): JSX.Element => <Skeleton className="size-4 rounded-sm" />

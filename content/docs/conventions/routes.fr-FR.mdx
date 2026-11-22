@@ -15,16 +15,20 @@ const CoursesPage = (): JSX.Element => {
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
-          <PlusCircle aria-hidden className="size-4" />
-          {t("actions.create")}
-        </LinkButton>
-      </div>
+      <AdminPageHeader
+        actions={
+          <>
+            <ImportCoursesDialog />
+            <ExportCoursesButton />
+            <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+              <PlusCircle aria-hidden className="size-4" />
+              {t("actions.create")}
+            </LinkButton>
+          </>
+        }
+        description={t("description")}
+        title={t("title")}
+      />
 
       <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
     </div>
@@ -140,15 +144,15 @@ La navigation doit sembler instantanée : chaque route qui affiche une page a do
 
 Aucun fichier ne liste toutes les zones de l'application. Chaque zone, comme les cours, les produits ou les pages légales, déclare ses propres chemins, ses entrées de menu et leurs libellés, ses squelettes de pages et ses permissions, et un barrel les réunit : une zone s'ajoute ou se retire donc avec ses propres fichiers. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates.
 
-| Quoi                                        | Chaque zone déclare                                              | Barrel                           | Lu depuis                                                                                                                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chemins                                     | `src/data/<area>.routes.ts` : un `export const` par chemin       | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                                                        |
-| Entrées de menu                             | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
-| Statistiques et panneaux du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` et `ADMIN_DASHBOARD_PANELS` dans `src/data/dashboard.ts`                                                                                     |
-| Squelettes de pages                         | `src/data/<area>.skeletons.ts` : une liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` dans `src/data/skeletons.ts`                                                                                                                        |
-| Permissions                                 | `src/data/<area>.access.ts` : un objet `<AREA>_ACCESS`           | `src/data/access.entries.ts`     | `APP_STATEMENTS` et `grantsOf` dans `src/data/access.ts`                                                                                                             |
-| Chemins non listés                          | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                                                   |
-| Namespaces des layouts                      | `src/data/<area>.namespaces.ts` : une liste `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` dans `src/data/namespaces.ts`                                                                                                             |
+| Quoi                                        | Chaque zone déclare                                              | Barrel                           | Lu depuis                                                                                                                                                                                     |
+| ------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chemins                                     | `src/data/<area>.routes.ts` : un `export const` par chemin       | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                                                                                 |
+| Entrées de menu                             | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
+| Statistiques et panneaux du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` et `ADMIN_DASHBOARD_PANELS` dans `src/data/dashboard.ts`                                                                                                              |
+| Squelettes de pages                         | `src/data/<area>.skeletons.ts` : une liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` dans `src/data/skeletons.ts`                                                                                                                                                 |
+| Permissions                                 | `src/data/<area>.access.ts` : un objet `<AREA>_ACCESS`           | `src/data/access.entries.ts`     | `APP_STATEMENTS` et `grantsOf` dans `src/data/access.ts`                                                                                                                                      |
+| Chemins non listés                          | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                                                                            |
+| Namespaces des layouts                      | `src/data/<area>.namespaces.ts` : une liste `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` dans `src/data/namespaces.ts`                                                                                                                                      |
 
 Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. Un barrel que seules des zones facultatives remplissent, comme les namespaces des layouts, reçoit aussi une liste vide de la base (`CORE_NAMESPACES` dans `src/data/core.namespaces.ts`), si bien qu'un projet sans ces zones passe toujours la vérification des types et le lint. `src/routes.ts` réexporte les chemins sous un seul namespace : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
 
@@ -156,7 +160,7 @@ Un barrel ne contient que des lignes `export { … } from`, une par fichier de z
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, la barre latérale de l'espace client et ses ressources, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La console d'administration et l'espace client n'existent qu'avec la connexion, la zone d'authentification en est donc propriétaire : leurs chemins, `/admin`, `/admin/settings`, `/app` et `/app/settings`, leurs entrées de tableau de bord, de vue d'ensemble, de paramètres et de gestion des utilisateurs, et **Se connecter** dans l'en-tête et le pied de page :
+Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, les actions rapides de la palette de commandes, la barre latérale de l'espace client et ses ressources, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La console d'administration et l'espace client n'existent qu'avec la connexion, la zone d'authentification en est donc propriétaire : leurs chemins, `/admin`, `/admin/settings`, `/app` et `/app/settings`, leurs entrées de tableau de bord, de vue d'ensemble, de paramètres et de gestion des utilisateurs, et **Se connecter** dans l'en-tête et le pied de page :
 
 ```ts title="src/data/auth.navigation.ts"
 const AREA = "auth"
@@ -191,6 +195,7 @@ export const AUTH_NAVIGATION = [
   },
   { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
   {
     area: AREA,
     column: FOOTER_COLUMN.PRODUCT,

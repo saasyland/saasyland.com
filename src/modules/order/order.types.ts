@@ -30,4 +30,5 @@ export interface Order {
   getOrders: zod.input<typeof orderZodSchemas.getOrders>
   getRevenue: zod.input<typeof orderZodSchemas.getRevenue>
   getUserOrders: zod.input<typeof orderZodSchemas.getUserOrders>
+  searchOrders: zod.input<typeof orderZodSchemas.searchOrders>
 }

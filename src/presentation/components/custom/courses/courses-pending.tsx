@@ -31,7 +31,7 @@ const ChaptersPending = ({ compact }: { readonly compact: boolean }): JSX.Elemen
   <div className="border-y border-border">
     {CHAPTERS.map((chapter) => (
       <div className="flex gap-3 border-b border-border px-3 py-5 last:border-b-0" key={chapter}>
-        <Skeleton className="h-lh w-5 scale-y-70 font-mono text-spec" />
+        <Skeleton className="h-lh w-5 scale-y-70 text-title" />
         <div className="flex min-w-0 flex-1 flex-col">
           <Skeleton className="h-lh w-3/5 scale-y-70 text-title" />
           {!compact && <Skeleton className="mt-1 h-lh w-48 scale-y-70 font-mono text-spec" />}

@@ -231,7 +231,7 @@ export const COURSES_FLOWS = [
       },
       {
         spec: "course-pages.spec.ts",
-        title: "course and lesson pages › the curriculum hangs each lesson's icon, number and lock on its title's first line, in the chapter title's column",
+        title: "course and lesson pages › the curriculum sets each lesson's icon, number and lock and each chapter's number on the centre and baseline of its title's first line",
       },
     ],
   },

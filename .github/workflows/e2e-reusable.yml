@@ -64,21 +64,20 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ inputs.browser }}-${{ hashFiles('node_modules/playwright-core/package.json') }}
       - name: Install Playwright browser
         run: bunx playwright install --with-deps ${{ inputs.browser }}
-      - name: Wait for the test build
+      - name: Wait for the test build and download it
         timeout-minutes: 16
         env:
           BUILD_JOB: Build the test Worker (${{ inputs.browser }})
           BUILD_STEP: Upload the test build
+          BUILD_ARTIFACT: test-worker-${{ inputs.browser }}
           GH_TOKEN: ${{ github.token }}
-        run: bun scripts/wait-for-job.ts "$BUILD_JOB" "$BUILD_STEP"
-      - uses: actions/download-artifact@v8
-        with:
-          name: test-worker-${{ inputs.browser }}
+        run: bun scripts/download-artifact.ts "$BUILD_JOB" "$BUILD_STEP" "$BUILD_ARTIFACT" test-worker.zip
       - name: Unpack the build and keep only the release tags it read
         run: |
+          unzip -q test-worker.zip
           tar --zstd --extract --file test-worker.tar.zst
           git tag --list | LC_ALL=C sort | comm -13 test-worker.tags - | xargs --no-run-if-empty git tag --delete
-          rm test-worker.tar.zst test-worker.tags
+          rm test-worker.zip test-worker.tar.zst test-worker.tags
       - name: E2E suite
         run: bunx playwright test e2e/specs --project=${{ inputs.browser }} --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       - uses: actions/upload-artifact@v7

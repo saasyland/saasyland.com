@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
+import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
+import locales from "../../messages/en-US/locales.json" with { type: "json" }
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_MATERIALS } from "../data/courses"
 import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "../data/videos"
@@ -70,6 +72,47 @@ test("an administrator builds a course whose free lesson visitors can watch", as
   await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Shipping the first release" }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByText("“Shipping the first release” was deleted")).toBeVisible()
+  await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
+})
+
+test("an administrator translates a course from one language control and visitors read it in their language", async ({ appPage, authPage, page }) => {
+  const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+  const languages = labels.components.formLanguages
+  await signInAsAdmin(page, authPage)
+
+  await page.goto("/admin/courses/create", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByLabel("Title", { exact: true }).fill("Shipping the first release")
+  await page.getByLabel("Summary", { exact: true }).fill("From an empty repository to a paying customer.")
+  await page.getByLabel("URL slug").fill(slug)
+  await choose(page.locator("form"), "Status", "Published")
+
+  await page.getByRole("button", { name: new RegExp(languages.label, "u") }).click()
+  await page.getByRole("searchbox", { name: languages.search }).fill("pol")
+  await page.getByRole("option", { name: /pl-PL/u }).click()
+  await expect(page.getByText("Shipping the first release", { exact: true })).toBeVisible()
+  await page.getByLabel("Title", { exact: true }).fill("Pierwsze wydanie")
+  await page.getByLabel("Summary", { exact: true }).fill("Od pustego repozytorium do płacącego klienta.")
+
+  await page.getByRole("button", { name: languages.panel.open }).click()
+  const panel = page.getByRole("dialog", { name: languages.panel.title })
+  await panel.getByRole("searchbox", { name: languages.panel.search }).fill("germ")
+  await panel.getByLabel(locales["de-DE"], { exact: true }).fill("Die erste Version")
+  await panel.getByRole("button", { name: languages.panel.done }).click()
+  await expect(panel).toBeHidden()
+
+  await page.getByRole("button", { name: "Create course" }).click()
+  await expect(page).toHaveURL(/\/admin\/courses\/[\da-f-]{36}$/u)
+
+  await page.goto(`/pl-PL/courses/${slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await expect(page.getByRole("heading", { level: 1, name: "Pierwsze wydanie" })).toBeVisible()
+  await page.goto(`/de-DE/courses/${slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await expect(page.getByRole("heading", { level: 1, name: "Die erste Version" })).toBeVisible()
+
+  await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Shipping the first release" }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
 })
 

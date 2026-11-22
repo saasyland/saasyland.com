@@ -16,12 +16,14 @@ import { updateChapterMutation } from "~/src/modules/chapter/use-cases/update-ch
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useFormLocale } from "~/src/hooks/use-form-locale"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
+import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 
 import { CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
-import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
+import { FormLanguages, TranslationsSheet } from "~/src/presentation/components/custom/admin/form-languages"
 
 const chapterSchema = chapterZodSchemas.updateChapter.pick({ summary: true, title: true })
 
@@ -61,6 +63,8 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
     validators: { onChange: chapterSchema },
   })
 
+  const languages = useFormLocale(form, ({ summary, title }) => ({ texts: { summary, title } }))
+
   return (
     <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
       {trigger}
@@ -69,24 +73,60 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            void submitForm(event, form)
+            void submitForm(event, form, languages.showFirstInvalid)
           }}
         >
           <DialogHeader>
             <DialogTitle>{t(chapter === undefined ? "add" : "edit")}</DialogTitle>
           </DialogHeader>
-          <LocaleTabs label={t("textLanguages")}>
-            {(locale) => (
-              <div className="flex flex-col gap-4">
-                <form.Field name={`title.${locale}`}>
-                  {(field) => <CourseTextField field={field} id={`chapter-title-${locale}`} label={t("title")} lang={locale} />}
-                </form.Field>
-                <form.Field name={`summary.${locale}`}>
-                  {(field) => <CourseTextAreaField field={field} id={`chapter-summary-${locale}`} label={t("summary")} lang={locale} />}
-                </form.Field>
-              </div>
-            )}
-          </LocaleTabs>
+          <FieldGroup>
+            <FormLanguages languages={languages}>
+              <TranslationsSheet
+                fields={[
+                  { id: "title", label: t("title") },
+                  { id: "summary", label: t("summary") },
+                ]}
+                languages={languages}
+              >
+                {(text, language, label) => (
+                  <form.Field name={`${text}.${language}`}>
+                    {(field) => (
+                      <>
+                        {text === "title" && (
+                          <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                        )}
+                        {text === "summary" && (
+                          <CourseTextAreaField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                        )}
+                      </>
+                    )}
+                  </form.Field>
+                )}
+              </TranslationsSheet>
+            </FormLanguages>
+            <form.Field key={`title-${languages.locale}`} name={`title.${languages.locale}`}>
+              {(field) => (
+                <CourseTextField
+                  field={field}
+                  id={`chapter-title-${languages.locale}`}
+                  label={t("title")}
+                  lang={languages.locale}
+                  source={languages.texts.title[I18N.DEFAULT_LOCALE]}
+                />
+              )}
+            </form.Field>
+            <form.Field key={`summary-${languages.locale}`} name={`summary.${languages.locale}`}>
+              {(field) => (
+                <CourseTextAreaField
+                  field={field}
+                  id={`chapter-summary-${languages.locale}`}
+                  label={t("summary")}
+                  lang={languages.locale}
+                  source={languages.texts.summary[I18N.DEFAULT_LOCALE]}
+                />
+              )}
+            </form.Field>
+          </FieldGroup>
           <DialogFooter>
             <Button isPending={create.isPending || update.isPending} type="submit">
               {t("save")}

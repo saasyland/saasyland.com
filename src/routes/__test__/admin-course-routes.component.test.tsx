@@ -62,8 +62,10 @@ import {
 
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"
+import locales from "~/messages/en-US/locales.json"
 import createLabels from "~/messages/en-US/pages.admin.courses.create.json"
 import labels from "~/messages/en-US/pages.admin.courses.json"
+import adminLabels from "~/messages/en-US/pages.admin.json"
 import type { RouterContext } from "~/src/router"
 
 const mutations = vi.hoisted(() => ({
@@ -290,6 +292,25 @@ const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement
   await user.paste(text)
 }
 
+const chooseLanguage = async (user: ReturnType<typeof userEvent.setup>, locale: string): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: new RegExp(adminLabels.components.formLanguages.label, "u") }))
+  await user.click(await screen.findByRole("option", { name: new RegExp(locale, "u") }))
+}
+
+const fillPolishInPanel = async (
+  user: ReturnType<typeof userEvent.setup>,
+  entries: readonly (readonly [string, string])[],
+): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: adminLabels.components.formLanguages.panel.open }))
+  const panel = await screen.findByRole("dialog", { name: adminLabels.components.formLanguages.panel.title })
+  for (const [tab, text] of entries) {
+    await user.click(within(panel).getByRole("tab", { name: new RegExp(`^${tab}`, "u") }))
+    await user.click(within(panel).getByLabelText(locales["pl-PL"]))
+    await user.paste(text)
+  }
+  await user.click(within(panel).getByRole("button", { name: adminLabels.components.formLanguages.panel.done }))
+}
+
 const chooseOption = async (user: ReturnType<typeof userEvent.setup>, label: string, option: string): Promise<void> => {
   await user.click(screen.getByRole("button", { name: new RegExp(label, "u") }))
   await user.click(await screen.findByRole("option", { name: option }))
@@ -400,10 +421,11 @@ describe("admin course creation", () => {
 
     await fill(user, screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
     await fill(user, screen.getByLabelText(labels.form.summary), "From zero.")
-    await user.click(within(screen.getByRole("tablist", { name: labels.form.titleLanguages })).getByRole("tab", { name: "pl-PL" }))
+    await chooseLanguage(user, "pl-PL")
+    expect(screen.getByText("Build a SaaS")).toHaveAttribute("lang", "en-US")
     await fill(user, screen.getByLabelText(labels.form.courseTitle), "Zbuduj SaaS")
-    await user.click(within(screen.getByRole("tablist", { name: labels.form.summaryLanguages })).getByRole("tab", { name: "pl-PL" }))
     expect(screen.getByLabelText(labels.form.summary)).toHaveValue("")
+    await fillPolishInPanel(user, [[labels.form.summary, "Od zera."]])
     await fill(user, screen.getByLabelText(labels.form.slug), "build-a-saas")
     await chooseOption(user, labels.form.kind, labels.form.kinds.project)
     await user.click(screen.getByRole("button", { name: labels.form.create }))
@@ -420,7 +442,7 @@ describe("admin course creation", () => {
         prerequisites: {},
         slug: "build-a-saas",
         status: COURSE_STATUS.DRAFT,
-        summary: { "en-US": "From zero." },
+        summary: { "en-US": "From zero.", "pl-PL": "Od zera." },
         title: { "en-US": "Build a SaaS", "pl-PL": "Zbuduj SaaS" },
       },
       expect.anything(),
@@ -442,9 +464,10 @@ describe("admin course creation", () => {
     await user.click(screen.getByRole("button", { name: labels.form.create }))
     expect(await screen.findByText(validations.itemRequired)).toBeVisible()
     await user.click(screen.getByRole("button", { name: "Remove outcome 2" }))
-    await user.click(within(screen.getByRole("tablist", { name: labels.form.outcomes.languages })).getByRole("tab", { name: "pl-PL" }))
+    await chooseLanguage(user, "pl-PL")
     await user.click(screen.getByRole("button", { name: labels.form.outcomes.add }))
     await fill(user, screen.getByLabelText("Outcome 1"), "Wdróż")
+    await chooseLanguage(user, "en-US")
     await user.click(screen.getByRole("button", { name: labels.form.prerequisites.add }))
     await fill(user, screen.getByLabelText("Prerequisite 1"), "TypeScript")
     await user.click(screen.getByRole("button", { name: labels.form.create }))
@@ -570,13 +593,14 @@ describe("admin course chapters", () => {
     await user.click(screen.getByRole("button", { name: labels.curriculum.addChapter }))
     const dialog = await screen.findByRole("dialog")
     await fill(user, within(dialog).getByLabelText(labels.chapter.title), "Launch")
+    await fillPolishInPanel(user, [[labels.chapter.summary, "Pierwsze kroki."]])
     await user.click(within(dialog).getByRole("button", { name: labels.chapter.save }))
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()
     })
     expect(mutations.createChapter).toHaveBeenCalledWith(
-      { courseId: COURSE_ID, summary: {}, title: { "en-US": "Launch" } },
+      { courseId: COURSE_ID, summary: { "pl-PL": "Pierwsze kroki." }, title: { "en-US": "Launch" } },
       expect.anything(),
     )
     expect(toast.success).toHaveBeenCalledWith(labels.chapter.saved)
@@ -656,6 +680,7 @@ describe("admin course lessons", () => {
     await fill(user, within(dialog).getByLabelText(labels.lesson.slug), "checkout")
     await chooseOption(user, labels.lesson.access, labels.lesson.accessLevels.account)
     await chooseOption(user, labels.lesson.video, "Boundaries take · 2:05")
+    await fillPolishInPanel(user, [[labels.lesson.summary, "Płacenie."]])
     await user.click(within(dialog).getByRole("button", { name: labels.lesson.save }))
 
     await waitFor(() => {
@@ -667,7 +692,7 @@ describe("admin course lessons", () => {
         chapterId: "chapter-two",
         slug: "checkout",
         status: LESSON_STATUS.DRAFT,
-        summary: { "en-US": "Paying." },
+        summary: { "en-US": "Paying.", "pl-PL": "Płacenie." },
         title: { "en-US": "Checkout" },
         videoId: VIDEO.id,
       },

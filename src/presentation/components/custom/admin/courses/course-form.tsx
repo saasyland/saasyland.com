@@ -8,7 +8,7 @@ import { useTranslations } from "use-intl/react"
 
 import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
-import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { LOCALIZED_LIST_MAX_ITEMS } from "~/src/modules/_core/utils/localized-text"
 import {
@@ -28,6 +28,7 @@ import { createCourseMutation } from "~/src/modules/course/use-cases/create-cour
 import { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useFormLocale } from "~/src/hooks/use-form-locale"
 
 import { COURSE_ICON_COMPONENTS } from "~/src/data/course-icons"
 
@@ -43,7 +44,7 @@ import {
   CourseTextField,
   RemoveItemButton,
 } from "~/src/presentation/components/custom/admin/courses/course-fields"
-import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
+import { FormLanguages, TranslationsSheet } from "~/src/presentation/components/custom/admin/form-languages"
 
 const LIST_NUMBER_BASE = 1
 
@@ -81,7 +82,7 @@ const CourseIconPreview = ({ icon }: { readonly icon: Course["select"]["icon"] }
   )
 }
 
-export const CourseForm = ({ course }: { readonly course?: Course["select"] }): JSX.Element => {
+const useCourseForm = (course: Course["select"] | undefined) => {
   const t = useTranslations("pages.admin.courses.form")
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -121,10 +122,30 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
     validators: { onChange: courseZodSchemas.createCourse },
   })
 
-  const listTab = (list: "outcomes" | "prerequisites", locale: SupportedLocale): JSX.Element => (
-    <form.Field mode="array" name={`${list}.${locale}`}>
+  const languages = useFormLocale(form, ({ outcomes, prerequisites, summary, title }) => ({
+    lists: [outcomes, prerequisites],
+    texts: { summary, title },
+  }))
+
+  return { form, isPending: create.isPending || update.isPending, languages }
+}
+
+type CourseFormApi = ReturnType<typeof useCourseForm>["form"]
+
+interface CourseFieldsProps {
+  readonly form: CourseFormApi
+  readonly languages: ReturnType<typeof useCourseForm>["languages"]
+}
+
+const CourseList = ({ form, languages, list }: CourseFieldsProps & { readonly list: "outcomes" | "prerequisites" }): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.form")
+
+  const { locale } = languages
+
+  return (
+    <form.Field key={locale} mode="array" name={`${list}.${locale}`}>
       {(field) => (
-        <CourseListField addLabel={t(`${list}.add`)} field={field} label={t(`${list}.label`)} max={LOCALIZED_LIST_MAX_ITEMS}>
+        <CourseListField addLabel={t(`${list}.add`)} field={field} label={t(`${list}.label`)} lang={locale} max={LOCALIZED_LIST_MAX_ITEMS}>
           {(index) => (
             <div className="flex items-start gap-2">
               <form.Field name={`${list}.${locale}[${index}]`}>
@@ -149,12 +170,75 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
       )}
     </form.Field>
   )
+}
+
+const CourseTexts = ({ form, languages }: CourseFieldsProps): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.form")
+
+  const { locale, texts } = languages
+
+  return (
+    <>
+      <FormLanguages languages={languages}>
+        <TranslationsSheet
+          fields={[
+            { id: "title", label: t("courseTitle") },
+            { id: "summary", label: t("summary") },
+          ]}
+          languages={languages}
+        >
+          {(text, language, label) => (
+            <form.Field name={`${text}.${language}`}>
+              {(field) => (
+                <>
+                  {text === "title" && (
+                    <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                  )}
+                  {text === "summary" && (
+                    <CourseTextAreaField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                  )}
+                </>
+              )}
+            </form.Field>
+          )}
+        </TranslationsSheet>
+      </FormLanguages>
+      <form.Field key={`title-${locale}`} name={`title.${locale}`}>
+        {(field) => (
+          <CourseTextField
+            field={field}
+            id={`course-title-${locale}`}
+            label={t("courseTitle")}
+            lang={locale}
+            source={texts.title[I18N.DEFAULT_LOCALE]}
+          />
+        )}
+      </form.Field>
+      <form.Field key={`summary-${locale}`} name={`summary.${locale}`}>
+        {(field) => (
+          <CourseTextAreaField
+            field={field}
+            id={`course-summary-${locale}`}
+            label={t("summary")}
+            lang={locale}
+            source={texts.summary[I18N.DEFAULT_LOCALE]}
+          />
+        )}
+      </form.Field>
+    </>
+  )
+}
+
+export const CourseForm = ({ course }: { readonly course?: Course["select"] }): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.form")
+
+  const { form, isPending, languages } = useCourseForm(course)
 
   return (
     <form
       noValidate
       onSubmit={(event) => {
-        void submitForm(event, form)
+        void submitForm(event, form, languages.showFirstInvalid)
       }}
     >
       <Card>
@@ -165,21 +249,7 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <LocaleTabs label={t("titleLanguages")}>
-              {(locale) => (
-                <form.Field name={`title.${locale}`}>
-                  {(field) => <CourseTextField field={field} id={`course-title-${locale}`} label={t("courseTitle")} lang={locale} />}
-                </form.Field>
-              )}
-            </LocaleTabs>
-
-            <LocaleTabs label={t("summaryLanguages")}>
-              {(locale) => (
-                <form.Field name={`summary.${locale}`}>
-                  {(field) => <CourseTextAreaField field={field} id={`course-summary-${locale}`} label={t("summary")} lang={locale} />}
-                </form.Field>
-              )}
-            </LocaleTabs>
+            <CourseTexts form={form} languages={languages} />
 
             <form.Field name="slug">{(field) => <CourseTextField field={field} id="course-slug" isCode label={t("slug")} />}</form.Field>
 
@@ -217,13 +287,13 @@ export const CourseForm = ({ course }: { readonly course?: Course["select"] }): 
               </form.Field>
             </div>
 
-            <LocaleTabs label={t("outcomes.languages")}>{(locale) => listTab("outcomes", locale)}</LocaleTabs>
+            <CourseList form={form} languages={languages} list="outcomes" />
 
-            <LocaleTabs label={t("prerequisites.languages")}>{(locale) => listTab("prerequisites", locale)}</LocaleTabs>
+            <CourseList form={form} languages={languages} list="prerequisites" />
           </FieldGroup>
         </CardContent>
         <CardFooter className="justify-end">
-          <Button isPending={create.isPending || update.isPending} type="submit">
+          <Button isPending={isPending} type="submit">
             {t(course === undefined ? "create" : "save")}
           </Button>
         </CardFooter>

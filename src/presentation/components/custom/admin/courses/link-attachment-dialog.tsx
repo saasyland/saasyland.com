@@ -16,13 +16,14 @@ import { createLessonAttachmentMutation } from "~/src/modules/lesson-attachment/
 import { updateLessonAttachmentMutation } from "~/src/modules/lesson-attachment/use-cases/update-lesson-attachment"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useFormLocale } from "~/src/hooks/use-form-locale"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
 import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 
 import { CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
-import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
+import { FormLanguages, TranslationsSheet } from "~/src/presentation/components/custom/admin/form-languages"
 
 const linkSchema = lessonAttachmentZodSchemas.createLessonAttachment.pick({ title: true, url: true })
 
@@ -62,6 +63,8 @@ export const LinkAttachmentDialog = ({ lessonId, link, trigger }: LinkAttachment
     validators: { onChange: linkSchema },
   })
 
+  const languages = useFormLocale(form, ({ title }) => ({ texts: { title } }))
+
   return (
     <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
       {trigger}
@@ -70,20 +73,33 @@ export const LinkAttachmentDialog = ({ lessonId, link, trigger }: LinkAttachment
           className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
-            void submitForm(event, form)
+            void submitForm(event, form, languages.showFirstInvalid)
           }}
         >
           <DialogHeader>
             <DialogTitle>{t(link === undefined ? "addLink" : "editLink")}</DialogTitle>
           </DialogHeader>
           <FieldGroup>
-            <LocaleTabs label={t("titleLanguages")}>
-              {(locale) => (
-                <form.Field name={`title.${locale}`}>
-                  {(field) => <CourseTextField field={field} id={`link-title-${locale}`} label={t("titleLabel")} lang={locale} />}
-                </form.Field>
+            <FormLanguages languages={languages}>
+              <TranslationsSheet fields={[{ id: "title", label: t("titleLabel") }]} languages={languages}>
+                {(text, language, label) => (
+                  <form.Field name={`${text}.${language}`}>
+                    {(field) => <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />}
+                  </form.Field>
+                )}
+              </TranslationsSheet>
+            </FormLanguages>
+            <form.Field key={languages.locale} name={`title.${languages.locale}`}>
+              {(field) => (
+                <CourseTextField
+                  field={field}
+                  id={`link-title-${languages.locale}`}
+                  label={t("titleLabel")}
+                  lang={languages.locale}
+                  source={languages.texts.title[I18N.DEFAULT_LOCALE]}
+                />
               )}
-            </LocaleTabs>
+            </form.Field>
             <form.Field name="url">{(field) => <CourseTextField field={field} id="link-url" isCode label={t("url")} />}</form.Field>
           </FieldGroup>
           <DialogFooter>

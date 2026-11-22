@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-22
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -44,8 +44,9 @@ faq:
       otra formulación inequívoca equivalente, durante todo el plazo de desistimiento. Si falta el
       consentimiento, el reconocimiento o la confirmación, corre el plazo completo y la función tiene
       que estar ahí; si los tres pasos extinguen el derecho al comenzar el suministro, pregunta a tu
-      abogado qué se sigue esperando en tu mercado. saasyland.com todavía no tiene esa función: un
-      comprador cuyo derecho sigue vigente desiste por correo electrónico.
+      abogado qué se sigue esperando en tu mercado. saasyland.com la ofrece para cada compra,
+      enlazada como «Desistir del contrato aquí» al pie de cada página y en la página de licencia de
+      la cuenta, y confirma cada desistimiento por correo electrónico.
   - question: ¿Un correo electrónico es un soporte duradero?
     answer: >-
       La directiva define el soporte duradero como cualquier instrumento que permita al consumidor
@@ -118,7 +119,7 @@ Este artículo explica las normas de la UE y una forma de implementarlas, y enla
 
 </Callout>
 
-_Última actualización: 17 de noviembre de 2026. Cada afirmación jurídica enlaza al texto en EUR-Lex, el portal oficial de la UE, o en el Dziennik Ustaw, el diario oficial de Polonia, y las fuentes figuran al final. Cada número sobre saasyland.com de esta página procede directamente de su código._
+_Última actualización: 22 de noviembre de 2026. Cada afirmación jurídica enlaza al texto en EUR-Lex, el portal oficial de la UE, o en el Dziennik Ustaw, el diario oficial de Polonia, y las fuentes figuran al final. Cada número sobre saasyland.com de esta página procede directamente de su código._
 
 ## ¿Tienen los consumidores de la UE derecho de desistimiento en los productos digitales?
 
@@ -203,15 +204,16 @@ La plantilla del correo es [`purchase-confirmation-email.tsx`](https://github.co
 
 ### 4. Registros de entrega
 
-La licencia guarda tres marcas de tiempo, y cada una queda vacía hasta que ocurre lo que registra:
+La licencia guarda cuatro marcas de tiempo, y cada una queda vacía hasta que ocurre lo que registra:
 
 | Registro                | Cuándo se escribe                                                                       |
 | ----------------------- | --------------------------------------------------------------------------------------- |
 | `withdrawal_consent_at` | Cuando el pedido pagado incluye el consentimiento; la hora es la de creación del pedido |
 | `activated_at`          | La primera vez que la clave se activa en cualquier dispositivo                          |
 | `delivered_at`          | La primera vez que la CLI descarga plantillas con la clave                              |
+| `lesson_opened_at`      | La primera vez que la licencia abre una lección de pago, con el ID de la lección        |
 
-El webhook valida el campo del consentimiento con Zod antes de escribir el primer registro, y la [API de licencias de la CLI](/docs/features/cli-licence-api) escribe los otros dos. Una nueva compra en la misma cuenta vacía los tres, así que siempre describen el pedido actual. Estos registros deciden los reembolsos, y la [Política de Reembolsos](/refunds) indica que pueden compartirse con Polar para responder a una solicitud de reembolso o a una disputa de pago.
+El webhook valida el campo del consentimiento con Zod antes de escribir el primer registro, la [API de licencias de la CLI](/docs/features/cli-licence-api) escribe `activated_at` y `delivered_at`, y las páginas de los cursos escriben `lesson_opened_at` cuando sirven la primera lección de pago. Una nueva compra en la misma cuenta vacía los cuatro, así que siempre describen el pedido actual. Estos registros deciden los reembolsos, y la [Política de Reembolsos](/refunds) indica que pueden compartirse con Polar para responder a una solicitud de reembolso o a una disputa de pago.
 
 ### 5. Una política de reembolsos más generosa que la ley
 
@@ -219,12 +221,12 @@ El consentimiento extingue el derecho legal, pero saasyland.com sigue reembolsan
 
 [`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) convierte los registros en una de cuatro respuestas, que un administrador ve en el perfil del comprador:
 
-| Respuesta             | Cuándo                                                                                    |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `refundable`          | Dentro del plazo, el comprador dio su consentimiento y la CLI no ha descargado plantillas |
-| `statutoryWithdrawal` | Dentro del plazo y sin consentimiento registrado, así que se aplica el derecho legal      |
-| `used`                | Dentro del plazo, el comprador dio su consentimiento y la CLI ha descargado plantillas    |
-| `expired`             | El plazo ha terminado                                                                     |
+| Respuesta             | Cuándo                                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `refundable`          | Dentro del plazo, el comprador dio su consentimiento, la CLI no ha descargado plantillas y no se ha abierto ninguna lección de pago |
+| `statutoryWithdrawal` | Dentro del plazo y sin consentimiento registrado, así que se aplica el derecho legal                                                |
+| `used`                | Dentro del plazo, el comprador dio su consentimiento y la CLI ha descargado plantillas o se ha abierto una lección de pago          |
+| `expired`             | El plazo ha terminado                                                                                                               |
 
 Un plazo de reembolso tan largo como el de desistimiento hace que la casilla sea más fácil de marcar: el comprador renuncia al derecho legal y conserva un reembolso completo hasta el primer uso durante el mismo número de días.
 
@@ -238,9 +240,9 @@ El código sigue al texto. Cuando Polar comunica un pedido reembolsado por compl
 
 Las [condiciones de afiliados](/affiliates) mantienen cada comisión pendiente durante <RepositoryFact name="affiliateHoldDays" unit="day" />, mucho más allá del plazo de reembolso de <RepositoryFact name="refundWithdrawalDays" unit="day" />, para que los reembolsos y la mayoría de las disputas de pago se resuelvan antes de pagar nada. Un reembolso o un contracargo durante la retención cancela o reduce la comisión; si se produce después de que se haya pagado, se descuenta del siguiente pago. A 17 de noviembre de 2026, el programa de afiliados aún no ha abierto, pero sus condiciones ya están publicadas.
 
-## Lo que saasyland.com todavía no hace
+### 8. Una función de desistimiento
 
-saasyland.com no tiene una función de desistimiento como la que describe el artículo 11 bis. Un comprador cuyo derecho de desistimiento sigue vigente, porque no se registró ningún consentimiento, desiste escribiendo a la dirección que figura en el correo de confirmación, como explica el propio correo. Si copias este flujo y vendes a consumidores a través de tu propio checkout, añade la función.
+El pie de cada página enlaza **Desistir del contrato aquí** con [`/withdrawal`](/withdrawal), y la página de licencia de la cuenta del comprador abre la misma declaración en un diálogo. El comprador indica o confirma su nombre, la dirección de correo para el acuse de recibo y el número de pedido, que ya aparecen rellenados si ha iniciado sesión, y envía la declaración con **Confirmar desistimiento**. El formulario acepta la declaración tanto si el derecho sigue vigente como si no; eso se decide después. [`record-withdrawal.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/withdrawal/use-cases/record-withdrawal.ts) la guarda junto con las condiciones de reembolso que se aplicaban en ese momento a la licencia correspondiente, envía al comprador por correo un acuse de recibo con la declaración y la fecha y hora de su envío, y avisa al sitio, y un administrador ve las declaraciones en el perfil del comprador. Nada se reembolsa automáticamente: el reembolso se hace en Polar. Toda la función está en [`src/modules/withdrawal/`](https://github.com/saasyland/saasyland.com/tree/main/src/modules/withdrawal).
 
 ## Una lista de comprobación para tu propio checkout
 
@@ -258,7 +260,7 @@ saasyland.com no tiene una función de desistimiento como la que describe el art
 
 Se está grabando un curso sobre este tema, «Selling software in the EU»; suscríbete al boletín El diario de desarrollo, al pie de esta página, para enterarte de cuándo se publica. Hasta entonces, la documentación de [Licencias](/docs/features/licences) describe cada pieza del flujo anterior, y la página [Configuración de Polar](/docs/getting-started/polar-setup#consent-checkbox) muestra cómo configurar la casilla de consentimiento en Polar.
 
-La licencia de SaaSy Land empieza en <TierPrice tier="core" />, un único pago con actualizaciones de por vida del código base; las [tarjetas de precios](/#pricing) indican qué incluye ya cada plan y qué está en camino. La generación de la facturación con la CLI está en camino, y el [configurador](/#cli) ya plantea la pregunta de la facturación.
+La licencia de SaaSy Land empieza en <TierPrice tier="core" />, un único pago con actualizaciones de por vida del código base; las [tarjetas de precios](/#pricing) indican qué incluye ya cada plan y qué está en camino. A 22 de noviembre de 2026, la generación de la facturación con la CLI sigue en camino, y el [configurador](/#cli) ya plantea la pregunta de la facturación.
 
 ## Lecturas relacionadas
 
@@ -292,6 +294,6 @@ La licencia de SaaSy Land empieza en <TierPrice tier="core" />, un único pago c
 - [Tu Europa: devoluciones y derecho de desistimiento](https://europa.eu/youreurope/citizens/consumers/shopping/returns/index_en.htm), el resumen de la propia UE para los consumidores
 - [Ley polaca de derechos del consumidor, texto consolidado, Dz.U. 2026 poz. 1244](https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20260001244), para el art. 7aa, el art. 21, el art. 36 y el art. 38
 - [Condiciones para compradores de Polar](https://polar.sh/legal/checkout-buyer-terms), [campos personalizados](https://polar.sh/docs/features/custom-fields) y [localización del checkout](https://polar.sh/docs/features/checkout/localization)
-- La [Política de Reembolsos](/refunds), la [Licencia Comercial](/licence), las [Condiciones de Servicio](/terms) y las [condiciones de afiliados](/affiliates) de saasyland.com, y los archivos de código fuente enlazados más arriba
+- La [Política de Reembolsos](/refunds), la [Licencia Comercial](/licence), las [Condiciones de Servicio](/terms), la [función de desistimiento](/withdrawal) y las [condiciones de afiliados](/affiliates) de saasyland.com, y los archivos de código fuente enlazados más arriba
 
 _Escrito por Piotr J. Borowiecki, que desarrolla SaaSy Land. Los textos legales se consultaron el 17 de noviembre de 2026. Este artículo no es asesoramiento jurídico; si algo de lo que aparece aquí está desactualizado o es incorrecto, dímelo y lo corregiré._

@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-22
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -41,8 +41,9 @@ faq:
       labelled “withdraw from contract here” or an unambiguous equivalent, throughout the withdrawal
       period. If any of the consent, the acknowledgement or the confirmation is missing, the full
       period runs and the function must be there; if all three end the right as supply begins, ask
-      your lawyer what your market still expects. saasyland.com has no such function yet: a buyer
-      whose right remains withdraws by email.
+      your lawyer what your market still expects. saasyland.com offers one for every purchase,
+      linked as “Withdraw from contract here” at the foot of every page and on the licence page of
+      the buyer's account, and acknowledges each withdrawal by email.
   - question: Is an email a durable medium?
     answer: >-
       The directive defines a durable medium as anything that lets the consumer store information
@@ -109,7 +110,7 @@ This article explains the EU rules and one implementation of them, and links eve
 
 </Callout>
 
-_Last updated 17 November 2026. Every legal statement links to the text on EUR-Lex, the EU's official portal or the Polish Journal of Laws, and the sources are listed at the bottom. Every number about saasyland.com on this page is printed from its code._
+_Last updated 22 November 2026. Every legal statement links to the text on EUR-Lex, the EU's official portal or the Polish Journal of Laws, and the sources are listed at the bottom. Every number about saasyland.com on this page is printed from its code._
 
 ## Do EU consumers have a right of withdrawal for digital products?
 
@@ -194,15 +195,16 @@ The email's template is [`purchase-confirmation-email.tsx`](https://github.com/s
 
 ### 4. Delivery records
 
-The licence keeps three timestamps, each empty until it happens:
+The licence keeps four timestamps, each empty until it happens:
 
 | Record                  | When it is written                                                             |
 | ----------------------- | ------------------------------------------------------------------------------ |
 | `withdrawal_consent_at` | When the paid order carries the consent; the time is the order's creation time |
 | `activated_at`          | The first time the key is activated on any machine                             |
 | `delivered_at`          | The first time the CLI downloads templates with the key                        |
+| `lesson_opened_at`      | The first time the licence opens a paid lesson, with the lesson's ID           |
 
-The webhook validates the consent field with Zod before it writes the first record, and the [CLI licence API](/docs/features/cli-licence-api) writes the other two. A new purchase on the same account resets all three, so they always describe the current order. These records decide refunds, and the [Refund Policy](/refunds) says that they may be shared with Polar to answer a refund request or a payment dispute.
+The webhook validates the consent field with Zod before it writes the first record, the [CLI licence API](/docs/features/cli-licence-api) writes `activated_at` and `delivered_at`, and the course pages write `lesson_opened_at` when they serve the first paid lesson. A new purchase on the same account resets all four, so they always describe the current order. These records decide refunds, and the [Refund Policy](/refunds) says that they may be shared with Polar to answer a refund request or a payment dispute.
 
 ### 5. A refund policy more generous than the law
 
@@ -210,12 +212,12 @@ The consent ends the statutory right, but saasyland.com still refunds in full wi
 
 [`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) turns the records into one of four answers, which an admin sees on the buyer's profile:
 
-| Answer                | When                                                                            |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `refundable`          | Within the period, the buyer consented and the CLI has not downloaded templates |
-| `statutoryWithdrawal` | Within the period and no consent was recorded, so the statutory right applies   |
-| `used`                | Within the period, the buyer consented and the CLI has downloaded templates     |
-| `expired`             | The period has ended                                                            |
+| Answer                | When                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `refundable`          | Within the period, the buyer consented, the CLI has not downloaded templates and no paid lesson has been opened |
+| `statutoryWithdrawal` | Within the period and no consent was recorded, so the statutory right applies                                   |
+| `used`                | Within the period, the buyer consented and the CLI has downloaded templates or a paid lesson has been opened    |
+| `expired`             | The period has ended                                                                                            |
 
 A refund window as long as the withdrawal period makes the checkbox an easier thing to tick: the buyer gives up the statutory right, and keeps a full refund until first use for the same number of days.
 
@@ -229,9 +231,9 @@ The code follows the text. When Polar reports a fully refunded order, the webhoo
 
 The [affiliate terms](/affiliates) keep each commission pending for <RepositoryFact name="affiliateHoldDays" unit="day" />, well past the <RepositoryFact name="refundWithdrawalDays" unit="day" /> refund window, so that refunds and most payment disputes settle before anything is paid. A refund or chargeback during the hold cancels or reduces the commission; one after payout is deducted from the next. On 17 November 2026 the programme has not opened yet, but its terms are already published.
 
-## What saasyland.com does not do yet
+### 8. A withdrawal function
 
-saasyland.com has no withdrawal function of the kind Article 11a describes. A buyer whose right of withdrawal still exists, because no consent was recorded, withdraws by writing to the address in the confirmation email, as the email explains. If you copy this flow and sell to consumers through your own checkout, add the function.
+The footer of every page links **Withdraw from contract here** to [`/withdrawal`](/withdrawal), and the licence page of the buyer's account opens the same statement in a dialog. The buyer gives or confirms their name, the email address for the acknowledgement and the order number, which are filled in when they are signed in, and sends the statement with **Confirm withdrawal**. The form takes a statement whether or not the right still applies; that is decided afterwards. [`record-withdrawal.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/withdrawal/use-cases/record-withdrawal.ts) stores it with the refund terms of the matched licence at that moment, emails the buyer an acknowledgement of receipt with the statement and the date and time of its submission, and notifies the site, and an admin sees the statements on the buyer's profile. Nothing is refunded automatically: the refund is made in Polar. The whole function is in [`src/modules/withdrawal/`](https://github.com/saasyland/saasyland.com/tree/main/src/modules/withdrawal).
 
 ## A checklist for your own checkout
 
@@ -249,7 +251,7 @@ saasyland.com has no withdrawal function of the kind Article 11a describes. A bu
 
 A course on this topic, "Selling software in the EU", is being recorded; join the build log at the foot of this page to hear when it is published. Until then, the [Licences](/docs/features/licences) documentation describes every piece of the flow above, and the [Polar setup](/docs/getting-started/polar-setup#consent-checkbox) page shows how to configure the consent checkbox in Polar.
 
-SaaSy Land's licence starts at <TierPrice tier="core" />, one payment with lifetime core updates; the [pricing cards](/#pricing) say what each tier includes now and what is arriving. Billing generation through the CLI is arriving, and the [configurator](/#cli) already asks the billing question.
+SaaSy Land's licence starts at <TierPrice tier="core" />, one payment with lifetime core updates; the [pricing cards](/#pricing) say what each tier includes now and what is arriving. On 22 November 2026 billing generation through the CLI is still arriving, and the [configurator](/#cli) already asks the billing question.
 
 ## Related reading
 
@@ -283,6 +285,6 @@ SaaSy Land's licence starts at <TierPrice tier="core" />, one payment with lifet
 - [Your Europe: returns and the right of withdrawal](https://europa.eu/youreurope/citizens/consumers/shopping/returns/index_en.htm), the EU's own summary for consumers
 - [Polish Consumer Rights Act, consolidated text, Dz.U. 2026 poz. 1244](https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20260001244), for art. 7aa, art. 21, art. 36 and art. 38
 - [Polar buyer terms](https://polar.sh/legal/checkout-buyer-terms), [custom fields](https://polar.sh/docs/features/custom-fields) and [checkout localisation](https://polar.sh/docs/features/checkout/localization)
-- The saasyland.com [Refund Policy](/refunds), [Commercial Licence](/licence), [Terms of Service](/terms) and [affiliate terms](/affiliates), and the source files linked above
+- The saasyland.com [Refund Policy](/refunds), [Commercial Licence](/licence), [Terms of Service](/terms), [withdrawal function](/withdrawal) and [affiliate terms](/affiliates), and the source files linked above
 
 _Written by Piotr J. Borowiecki, who builds SaaSy Land. The legal texts were read on 17 November 2026. This article is not legal advice; if anything here is out of date or wrong, tell me and I will correct it._

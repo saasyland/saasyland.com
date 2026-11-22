@@ -6,7 +6,7 @@ authorName: Piotr J. Borowiecki
 authorImage: /images/blog/authors/piotr-j-borowiecki.webp
 authorUrl: https://github.com/pjborowiecki
 date: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-22
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -46,8 +46,9 @@ faq:
       widerrufen“ oder einer gleichwertigen eindeutigen Formulierung beschriftet. Fehlt die
       Zustimmung, die Kenntnisnahme oder die Bestätigung, läuft die volle Frist, und die Funktion muss
       vorhanden sein; lassen alle drei das Recht mit Beginn der Bereitstellung erlöschen, frag deinen
-      Anwalt, was dein Markt dennoch erwartet. saasyland.com hat eine solche Funktion noch nicht: Ein
-      Käufer, dessen Recht fortbesteht, widerruft per E-Mail.
+      Anwalt, was dein Markt dennoch erwartet. saasyland.com bietet sie für jeden Kauf an, verlinkt
+      als „Vertrag widerrufen“ am Fuß jeder Seite und auf der Lizenzseite des Kontos, und bestätigt
+      jeden Widerruf per E-Mail.
   - question: Ist eine E-Mail ein dauerhafter Datenträger?
     answer: >-
       Die Richtlinie definiert einen dauerhaften Datenträger als jedes Medium, das es dem Verbraucher
@@ -122,7 +123,7 @@ Dieser Artikel erklärt die EU-Regeln und eine Umsetzung davon und verlinkt jede
 
 </Callout>
 
-_Zuletzt aktualisiert am 17. November 2026. Jede rechtliche Aussage verlinkt auf den Text auf EUR-Lex, auf dem offiziellen Portal der EU oder im polnischen Gesetzblatt, und die Quellen sind unten aufgeführt. Jede Zahl über saasyland.com auf dieser Seite wird aus seinem Code ausgegeben._
+_Zuletzt aktualisiert am 22. November 2026. Jede rechtliche Aussage verlinkt auf den Text auf EUR-Lex, auf dem offiziellen Portal der EU oder im polnischen Gesetzblatt, und die Quellen sind unten aufgeführt. Jede Zahl über saasyland.com auf dieser Seite wird aus seinem Code ausgegeben._
 
 ## Haben Verbraucher in der EU ein Widerrufsrecht bei digitalen Produkten?
 
@@ -207,15 +208,16 @@ Die Vorlage der E-Mail ist [`purchase-confirmation-email.tsx`](https://github.co
 
 ### 4. Bereitstellungsnachweise
 
-Die Lizenz hält drei Zeitstempel fest, die jeweils leer bleiben, bis das Ereignis eintritt:
+Die Lizenz hält vier Zeitstempel fest, die jeweils leer bleiben, bis das Ereignis eintritt:
 
 | Nachweis                | Wann er geschrieben wird                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `withdrawal_consent_at` | Wenn die bezahlte Bestellung die Zustimmung enthält; der Zeitpunkt ist der Erstellungszeitpunkt der Bestellung |
 | `activated_at`          | Das erste Mal, dass der Schlüssel auf irgendeinem Gerät aktiviert wird                                         |
 | `delivered_at`          | Das erste Mal, dass die CLI mit dem Schlüssel Vorlagen herunterlädt                                            |
+| `lesson_opened_at`      | Das erste Mal, dass die Lizenz eine kostenpflichtige Lektion öffnet, mit der ID der Lektion                    |
 
-Der Webhook validiert das Zustimmungsfeld mit Zod, bevor er den ersten Nachweis schreibt, und die [CLI-Lizenz-API](/docs/features/cli-licence-api) schreibt die beiden anderen. Ein neuer Kauf über dasselbe Konto setzt alle drei zurück, sodass sie immer die aktuelle Bestellung beschreiben. Diese Nachweise entscheiden über Erstattungen, und die [Erstattungsbedingungen](/refunds) sagen, dass sie an Polar weitergegeben werden können, um eine Erstattungsanfrage oder eine Zahlungsstreitigkeit zu beantworten.
+Der Webhook validiert das Zustimmungsfeld mit Zod, bevor er den ersten Nachweis schreibt, die [CLI-Lizenz-API](/docs/features/cli-licence-api) schreibt `activated_at` und `delivered_at`, und die Kursseiten schreiben `lesson_opened_at`, wenn sie die erste kostenpflichtige Lektion ausliefern. Ein neuer Kauf über dasselbe Konto setzt alle vier zurück, sodass sie immer die aktuelle Bestellung beschreiben. Diese Nachweise entscheiden über Erstattungen, und die [Erstattungsbedingungen](/refunds) sagen, dass sie an Polar weitergegeben werden können, um eine Erstattungsanfrage oder eine Zahlungsstreitigkeit zu beantworten.
 
 ### 5. Erstattungsbedingungen, die großzügiger sind als das Gesetz
 
@@ -223,12 +225,12 @@ Die Zustimmung lässt das gesetzliche Recht erlöschen, aber saasyland.com ersta
 
 [`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) macht aus den Nachweisen eine von vier Antworten, die ein Admin im Profil des Käufers sieht:
 
-| Antwort               | Wann                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| `refundable`          | Innerhalb der Frist, der Käufer hat zugestimmt, und die CLI hat noch keine Vorlagen heruntergeladen |
-| `statutoryWithdrawal` | Innerhalb der Frist, und es wurde keine Zustimmung erfasst, daher gilt das gesetzliche Recht        |
-| `used`                | Innerhalb der Frist, der Käufer hat zugestimmt, und die CLI hat Vorlagen heruntergeladen            |
-| `expired`             | Die Frist ist abgelaufen                                                                            |
+| Antwort               | Wann                                                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refundable`          | Innerhalb der Frist, der Käufer hat zugestimmt, die CLI hat noch keine Vorlagen heruntergeladen, und es wurde keine kostenpflichtige Lektion geöffnet |
+| `statutoryWithdrawal` | Innerhalb der Frist, und es wurde keine Zustimmung erfasst, daher gilt das gesetzliche Recht                                                          |
+| `used`                | Innerhalb der Frist, der Käufer hat zugestimmt, und die CLI hat Vorlagen heruntergeladen oder es wurde eine kostenpflichtige Lektion geöffnet         |
+| `expired`             | Die Frist ist abgelaufen                                                                                                                              |
 
 Eine Erstattungsfrist, die so lang ist wie die Widerrufsfrist, macht es leichter, die Checkbox anzukreuzen: Der Käufer gibt das gesetzliche Recht auf und behält für dieselbe Zahl von Tagen eine volle Erstattung bis zur ersten Nutzung.
 
@@ -242,9 +244,9 @@ Der Code folgt dem Text. Meldet Polar eine vollständig erstattete Bestellung, m
 
 Die [Bedingungen des Partnerprogramms](/affiliates) halten jede Provision <RepositoryFact name="affiliateHoldDays" unit="day" /> lang vorgemerkt, damit Erstattungen und die meisten Zahlungsstreitigkeiten abgeschlossen sind, bevor etwas ausgezahlt wird. Das ist deutlich länger als die Erstattungsfrist, die <RepositoryFact name="refundWithdrawalDays" unit="day" /> beträgt. Eine Erstattung oder Rückbuchung während der Wartezeit storniert oder kürzt die Provision; erfolgt sie nach der Auszahlung, wird die Provision von der nächsten Auszahlung abgezogen. Stand 17. November 2026 ist das Programm noch nicht gestartet, aber seine Bedingungen sind bereits veröffentlicht.
 
-## Was saasyland.com noch nicht tut
+### 8. Eine Widerrufsfunktion
 
-saasyland.com hat keine Widerrufsfunktion, wie Artikel 11a sie beschreibt. Ein Käufer, dessen Widerrufsrecht noch besteht, weil keine Zustimmung erfasst wurde, widerruft, indem er an die Adresse in der Bestätigungs-E-Mail schreibt, wie die E-Mail erklärt. Wenn du diesen Ablauf übernimmst und über deinen eigenen Checkout an Verbraucher verkaufst, ergänze die Funktion.
+Der Fuß jeder Seite verlinkt **Vertrag widerrufen** auf [`/withdrawal`](/withdrawal), und die Lizenzseite im Konto des Käufers öffnet dieselbe Erklärung in einem Dialog. Der Käufer gibt seinen Namen, die E-Mail-Adresse für die Eingangsbestätigung und die Bestellnummer an oder bestätigt sie, wenn er angemeldet ist und sie schon ausgefüllt sind, und sendet die Erklärung mit **Widerruf bestätigen** ab. Das Formular nimmt eine Erklärung an, ob das Recht noch besteht oder nicht; das wird danach entschieden. [`record-withdrawal.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/withdrawal/use-cases/record-withdrawal.ts) speichert sie mit den Erstattungsbedingungen, die in diesem Moment für die zugeordnete Lizenz gelten, schickt dem Käufer per E-Mail eine Eingangsbestätigung mit der Erklärung sowie Datum und Uhrzeit ihrer Übermittlung und benachrichtigt die Website, und ein Admin sieht die Erklärungen im Profil des Käufers. Nichts wird automatisch erstattet: Die Erstattung erfolgt in Polar. Die gesamte Funktion liegt in [`src/modules/withdrawal/`](https://github.com/saasyland/saasyland.com/tree/main/src/modules/withdrawal).
 
 ## Eine Checkliste für deinen eigenen Checkout
 
@@ -262,7 +264,7 @@ saasyland.com hat keine Widerrufsfunktion, wie Artikel 11a sie beschreibt. Ein K
 
 Ein Kurs zu diesem Thema, „Selling software in the EU“, wird gerade aufgenommen; trag dich unten auf dieser Seite in das Entwicklungsjournal ein, um zu erfahren, wann er erscheint. Bis dahin beschreibt die Dokumentation zu [Lizenzen](/docs/features/licences) jeden Teil des obigen Ablaufs, und die Seite [Polar-Einrichtung](/docs/getting-started/polar-setup#consent-checkbox) zeigt, wie du die Zustimmungs-Checkbox in Polar einrichtest.
 
-Die Lizenz von SaaSy Land beginnt bei <TierPrice tier="core" />, eine Zahlung mit lebenslangen Core-Updates; die [Preiskarten](/#pricing) zeigen, was jedes Paket jetzt enthält und was noch kommt. Die Erzeugung der Abrechnung über die CLI kommt noch, und der [Konfigurator](/#cli) stellt die Frage nach der Abrechnung bereits.
+Die Lizenz von SaaSy Land beginnt bei <TierPrice tier="core" />, eine Zahlung mit lebenslangen Core-Updates; die [Preiskarten](/#pricing) zeigen, was jedes Paket jetzt enthält und was noch kommt. Stand 22. November 2026 kommt die Erzeugung der Abrechnung über die CLI noch, und der [Konfigurator](/#cli) stellt die Frage nach der Abrechnung bereits.
 
 ## Weiterführende Artikel
 
@@ -296,6 +298,6 @@ Die Lizenz von SaaSy Land beginnt bei <TierPrice tier="core" />, eine Zahlung mi
 - [Your Europe zu Rückgabe und Widerrufsrecht](https://europa.eu/youreurope/citizens/consumers/shopping/returns/index_en.htm), die eigene Zusammenfassung der EU für Verbraucher
 - [Polnisches Gesetz über die Rechte der Verbraucher, konsolidierte Fassung, Dz.U. 2026 poz. 1244](https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20260001244), für art. 7aa, art. 21, art. 36 und art. 38
 - [Käuferbedingungen von Polar](https://polar.sh/legal/checkout-buyer-terms), [benutzerdefinierte Felder](https://polar.sh/docs/features/custom-fields) und [Lokalisierung des Checkouts](https://polar.sh/docs/features/checkout/localization)
-- Die [Erstattungsbedingungen](/refunds), die [kommerzielle Lizenz](/licence), die [Nutzungsbedingungen](/terms) und die [Bedingungen des Partnerprogramms](/affiliates) von saasyland.com sowie die oben verlinkten Quelldateien
+- Die [Erstattungsbedingungen](/refunds), die [kommerzielle Lizenz](/licence), die [Nutzungsbedingungen](/terms), die [Widerrufsfunktion](/withdrawal) und die [Bedingungen des Partnerprogramms](/affiliates) von saasyland.com sowie die oben verlinkten Quelldateien
 
 _Geschrieben von Piotr J. Borowiecki, der SaaSy Land entwickelt. Die Rechtstexte wurden am 17. November 2026 gelesen. Dieser Artikel ist keine Rechtsberatung; wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

@@ -6,7 +6,8 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -30,7 +31,12 @@ const PrivacyPage = (): JSX.Element => {
           <section className="flex flex-col gap-3" key={section}>
             <h2 className="text-xl font-medium text-foreground">{t(`sections.${section}.title`)}</h2>
             <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-              {t(`sections.${section}.body`, { cookieDays: AFFILIATE_TERMS.COOKIE_DAYS, email: CONTACT_EMAIL })}
+              {t(`sections.${section}.body`, {
+                cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+                email: CONTACT_EMAIL,
+                program: AFFILIATE_PROGRAM,
+                sidebarDays: SIDEBAR_COOKIE.DAYS,
+              })}
             </p>
           </section>
         ))}

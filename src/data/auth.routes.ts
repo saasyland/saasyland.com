@@ -13,6 +13,7 @@ export const API_AUTH = {
   REQUEST_PASSWORD_RESET: "/request-password-reset",
   RESET_PASSWORD: "/reset-password",
   SEND_VERIFICATION_EMAIL: "/send-verification-email",
+  SET_PASSWORD: "/set-password",
   SIGN_IN_EMAIL: "/sign-in/email",
   SIGN_IN_SOCIAL: "/sign-in/social",
   SIGN_OUT: "/sign-out",
@@ -23,6 +24,7 @@ export const API_AUTH = {
 export const API_AUTH_BASE = "/api/auth"
 export const API_AUTH_VERIFY_EMAIL = `${API_AUTH_BASE}/verify-email`
 export const APP = "/app"
+export const APP_DELETE_ACCOUNT = "/app/settings/delete-account"
 export const APP_SETTINGS = "/app/settings"
 export const AUTH = "/auth"
 export const AUTH_CALLBACK = "/auth/callback"

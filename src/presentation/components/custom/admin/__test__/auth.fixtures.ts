@@ -1,8 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 
 import { DEFAULT_TIME_RANGE, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
+import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
@@ -30,6 +32,9 @@ export const adminUser = (overrides: Partial<User["select"]> = {}): User["select
 export const seedAuthQueries = (queryClient: QueryClient): void => {
   queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
   queryClient.setQueryData(getActiveSessionsQuery.queryKey, [])
+  queryClient.setQueryData(listAccountsQuery.queryKey, [
+    { createdAt: fixtureDate, id: "ada-credential", providerId: AUTH_PROVIDER.CREDENTIAL },
+  ])
   const series = timeSeries(DEFAULT_TIME_RANGE, fixtureDate)
   queryClient.setQueryData(userSignupsQuery().queryKey, { bucket: series.bucket, points: pointsOf(series, new Map()), total: 0 })
 }

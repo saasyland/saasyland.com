@@ -27,6 +27,7 @@ import { Route as ProfileRoute } from "~/src/routes/admin.users.$userId"
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
+import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 import type { RouterContext } from "~/src/router"
@@ -144,9 +145,9 @@ describe("user profile", () => {
     expect(within(details).getByText(labels.table.headers.timezone).nextElementSibling).toHaveTextContent("Europe/Warsaw")
     expect(within(details).getByText(labels.table.headers.createdAt).nextElementSibling).toHaveTextContent("Jan 1, 2025")
     expect(screen.getByText(sessionLabels.description.replace("{name}", "Ada Lovelace"))).toBeVisible()
-    expect(sessionRow("Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) Firefox/140.0")).toHaveTextContent("Jan 1, 2025")
-    expect(sessionRow("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")).toBeVisible()
-    expect(sessionRow(sessionLabels.unknownDevice)).toBeVisible()
+    expect(sessionRow("Firefox on macOS")).toHaveTextContent("Jan 1, 2025")
+    expect(sessionRow("iOS")).toBeVisible()
+    expect(sessionRow(authSecurityMessages.sessions.unknownDevice)).toBeVisible()
     expect(screen.getByRole("button", { name: labels.actions.row.menu.replace("{name}", "Ada Lovelace") })).toBeVisible()
   })
 
@@ -165,7 +166,9 @@ describe("user profile", () => {
   it("tells how long ago each session was active when the sessions were read", async () => {
     await renderProfile()
 
-    expect(within(sessionRow(sessionLabels.unknownDevice)).getByText("Signed in Jan 1, 2025 · active 5 minutes ago")).toBeVisible()
+    expect(
+      within(sessionRow(authSecurityMessages.sessions.unknownDevice)).getByText("Signed in Jan 1, 2025 · active 5 minutes ago"),
+    ).toBeVisible()
   })
 
   it("says when the user has no session and offers nothing to revoke", async () => {
@@ -179,7 +182,7 @@ describe("user profile", () => {
 describe("revoking sessions", () => {
   it("revokes one session and refreshes the user's sessions", async () => {
     const { invalidateQueries, user } = await renderProfile()
-    await user.click(within(sessionRow(sessionLabels.unknownDevice)).getByRole("button", { name: sessionLabels.revoke }))
+    await user.click(within(sessionRow(authSecurityMessages.sessions.unknownDevice)).getByRole("button", { name: sessionLabels.revoke }))
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(sessionLabels.feedback.revokeSuccess)
@@ -194,7 +197,7 @@ describe("revoking sessions", () => {
   ])("reports %s when revoking one session", async (_kind, error, message) => {
     revokeSession.mockRejectedValueOnce(error)
     const { invalidateQueries, user } = await renderProfile()
-    await user.click(within(sessionRow(sessionLabels.unknownDevice)).getByRole("button", { name: sessionLabels.revoke }))
+    await user.click(within(sessionRow(authSecurityMessages.sessions.unknownDevice)).getByRole("button", { name: sessionLabels.revoke }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(message)

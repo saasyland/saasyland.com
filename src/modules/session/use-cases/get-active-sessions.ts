@@ -14,6 +14,7 @@ export const getActiveSessions = createServerFn({ method: "GET" })
     const now = new Date()
     return db
       .select({
+        country: session.country,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
         id: session.id,

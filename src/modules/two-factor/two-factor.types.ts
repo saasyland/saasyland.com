@@ -8,6 +8,7 @@ export interface TwoFactor {
   insert: typeof twoFactor.$inferInsert
   disableTwoFactor: zod.input<typeof twoFactorZodSchemas.disableTwoFactor>
   enableTwoFactor: zod.input<typeof twoFactorZodSchemas.enableTwoFactor>
+  generateBackupCodes: zod.input<typeof twoFactorZodSchemas.generateBackupCodes>
   verifyBackupCode: zod.input<typeof twoFactorZodSchemas.verifyBackupCode>
   verifyTotp: zod.input<typeof twoFactorZodSchemas.verifyTotp>
 }

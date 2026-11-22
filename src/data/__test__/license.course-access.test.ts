@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation, executeQuery } from "~/src/platform/testing/lib/query"
@@ -86,7 +87,10 @@ const openEveryLesson = async (viewer: (typeof VIEWERS)[number], slugs: readonly
 }
 
 const firstLessons = async () => {
-  const rows = await db.select({ at: license.lessonOpenedAt, lessonId: license.openedLessonId, userId: license.userId }).from(license)
+  const rows = await db
+    .select({ at: license.lessonOpenedAt, lessonId: license.openedLessonId, userId: user.id })
+    .from(license)
+    .innerJoin(user, eq(user.id, license.userId))
 
   return rows.filter(({ at }) => at !== null).toSorted((left, right) => left.userId.localeCompare(right.userId))
 }

@@ -7,7 +7,7 @@ import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 import { AUTH_APP_OVERVIEW } from "~/src/data/auth.app-overview"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
-import { AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
+import { AppDeleteAccountPending, AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 
 afterEach(cleanup)
 
@@ -17,6 +17,13 @@ describe("customer app skeletons", () => {
     const { container } = renderWithRouter(<AppPending />, { router: createTestRouter(path) })
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(busyMarkup(container)).toBe(page)
+  })
+
+  it("renders the account deletion skeleton on the page the deletion link opens", () => {
+    const page = markupOf(<AppDeleteAccountPending />)
+    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter("/app/settings/delete-account?token=abc") })
+
     expect(busyMarkup(container)).toBe(page)
   })
 

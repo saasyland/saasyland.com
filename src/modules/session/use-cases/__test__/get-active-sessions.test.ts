@@ -38,6 +38,7 @@ afterEach(() => vi.restoreAllMocks())
 describe("get-active-sessions", () => {
   it("lists the caller's live sessions newest first, including sign-ins older than a day, without tokens", async () => {
     const signedInLongAgo = createSessionRow("long-ago", {
+      country: "PL",
       createdAt: new Date(NOW - 3 * DAY_MS),
       ipAddress: "192.0.2.1",
       userAgent: "Firefox",
@@ -57,6 +58,7 @@ describe("get-active-sessions", () => {
 
     expect(sessions.map(({ id }) => id)).toEqual(["recent", "long-ago"])
     expect(sessions[1]).toStrictEqual({
+      country: "PL",
       createdAt: signedInLongAgo.createdAt,
       expiresAt: signedInLongAgo.expiresAt,
       id: "long-ago",

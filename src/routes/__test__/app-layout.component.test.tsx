@@ -17,11 +17,16 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
+import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
+import type { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/confirm-account-deletion"
+import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
 
 import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as SettingsRoute } from "~/src/routes/app.settings"
+import { Route as DeleteAccountRoute } from "~/src/routes/app.settings_.delete-account"
 
 import type { AppOverviewArea } from "~/src/data/app-overview"
 
@@ -29,6 +34,7 @@ import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationContentMessages from "~/messages/en-US/navigation.content.json"
+import pagesAppDeleteAccountMessages from "~/messages/en-US/pages.app.delete-account.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
@@ -46,6 +52,9 @@ const summaryRequest = vi.hoisted(() => vi.fn<() => Promise<{ readonly orders: n
 const SUMMARY_QUERY_KEY = vi.hoisted(() => ["summary"] as const)
 const SUMMARY_SECTION = vi.hoisted(() => "Account summary")
 const SETTINGS_BADGE = vi.hoisted(() => "3 unread")
+const deletionNoticeLoad = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+const DELETION_NOTICE = vi.hoisted(() => "Sample deletion notice")
+const confirmDeletionMock = vi.hoisted(() => vi.fn<NonNullable<typeof confirmAccountDeletionMutation.mutationFn>>())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const SUMMARY = { orders: 2 }
@@ -72,6 +81,12 @@ vi.mock("~/src/data/app-overview.entries", () => ({
     ],
   } satisfies AppOverviewArea,
 }))
+vi.mock("~/src/data/account-deletion.entries", () => ({
+  TEST_ACCOUNT_DELETION: [{ Notice: () => <li>{DELETION_NOTICE}</li>, key: "sample", load: deletionNoticeLoad }],
+}))
+vi.mock(import("~/src/modules/user/use-cases/confirm-account-deletion"), () => ({
+  confirmAccountDeletionMutation: { mutationFn: confirmDeletionMock, mutationKey: USER_MUTATION_KEYS.CONFIRM_ACCOUNT_DELETION },
+}))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -88,6 +103,11 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   Object.assign(AppRoute.options, { getParentRoute: () => root, id: "/app", path: "/app" })
   Object.assign(OverviewRoute.options, { getParentRoute: () => AppRoute, id: "/", path: "/" })
   Object.assign(SettingsRoute.options, { getParentRoute: () => AppRoute, id: "/settings", path: "/settings" })
+  Object.assign(DeleteAccountRoute.options, {
+    getParentRoute: () => AppRoute,
+    id: "/settings_/delete-account",
+    path: "/settings/delete-account",
+  })
   const nested = createRoute({ component: () => <p>Session details</p>, getParentRoute: () => AppRoute, path: "/settings/details" })
   const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const docs = createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS })
@@ -96,7 +116,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([home, signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, nested])]),
+    routeTree: root.addChildren([home, signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, DeleteAccountRoute, nested])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -112,7 +132,11 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   summaryRequest.mockReset().mockResolvedValue(SUMMARY)
+  vi.spyOn(getActiveSessionsQuery, "queryFn").mockResolvedValue([])
+  vi.spyOn(listAccountsQuery, "queryFn").mockResolvedValue([])
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
+  deletionNoticeLoad.mockClear()
+  confirmDeletionMock.mockReset().mockResolvedValue({ message: "User deleted", success: true })
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
@@ -168,6 +192,7 @@ describe("customer workspace routes", () => {
     expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
+    expect(deletionNoticeLoad).toHaveBeenCalledOnce()
     expect(summaryRequest).not.toHaveBeenCalled()
     expect(router.state.matches.at(-1)?.meta).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: pagesAppSettingsMessages.metadata.description, name: "description" })]),
@@ -211,6 +236,48 @@ describe("customer workspace routes", () => {
     await user.click(brand)
     expect(await screen.findByRole("heading", { name: "Home page" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.HOME)
+  })
+})
+
+describe("account deletion page", () => {
+  const { confirm, missing } = pagesAppDeleteAccountMessages
+
+  it("repeats what deletion does and deletes the account only when the button is pressed", async () => {
+    const { router, user } = await renderApp(`${ROUTES.APP_DELETE_ACCOUNT}?token=deletion-token`)
+
+    expect(await screen.findByRole("heading", { level: 2, name: confirm.title })).toBeVisible()
+    expect(screen.getByText(DELETION_NOTICE)).toBeVisible()
+    expect(deletionNoticeLoad).toHaveBeenCalledOnce()
+    expect(screen.getByRole("link", { name: confirm.keep })).toHaveAttribute("href", ROUTES.APP_SETTINGS)
+    expect(confirmDeletionMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: confirm.delete }))
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(ROUTES.HOME)
+    })
+    expect(confirmDeletionMock).toHaveBeenCalledWith({ token: "deletion-token" }, expect.anything())
+    expect(toast.success).toHaveBeenCalledWith(pagesAppDeleteAccountMessages.deleted)
+  })
+
+  it("keeps the account and says why when the deletion fails", async () => {
+    confirmDeletionMock.mockRejectedValue(new Error("Connection failed"))
+    const { router, user } = await renderApp(`${ROUTES.APP_DELETE_ACCOUNT}?token=deletion-token`)
+
+    await user.click(await screen.findByRole("button", { name: confirm.delete }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledOnce()
+    })
+    expect(router.state.location.pathname).toBe(ROUTES.APP_DELETE_ACCOUNT)
+  })
+
+  it("leads back to Settings from a link without its token", async () => {
+    await renderApp(ROUTES.APP_DELETE_ACCOUNT)
+
+    expect(await screen.findByRole("heading", { level: 2, name: missing.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: missing.back })).toHaveAttribute("href", ROUTES.APP_SETTINGS)
+    expect(screen.queryByRole("button", { name: confirm.delete })).not.toBeInTheDocument()
   })
 })
 

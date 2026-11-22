@@ -3,6 +3,7 @@ import { beforeEach, expect, it } from "vite-plus/test"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { license } from "~/src/modules/license/license.schema"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
@@ -12,6 +13,7 @@ const USER_ID = "revoke-owner"
 const ORDER_ID = "ord_1"
 
 beforeEach(async () => {
+  await db.delete(license)
   await db.delete(user)
   await db.insert(user).values({ email: "revoke@example.test", id: USER_ID, name: "Buyer" })
   await grantLicense({

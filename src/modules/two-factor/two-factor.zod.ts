@@ -23,6 +23,10 @@ const enableTwoFactor = zod.object({
   password: passwordField,
 })
 
+const generateBackupCodes = zod.object({
+  password: passwordField,
+})
+
 const verifyBackupCode = zod.object({
   code: backupCodeField,
   trustDevice: zod.boolean().optional(),
@@ -36,6 +40,7 @@ const verifyTotp = zod.object({
 export const twoFactorZodSchemas = {
   disableTwoFactor,
   enableTwoFactor,
+  generateBackupCodes,
   verifyBackupCode,
   verifyTotp,
 }

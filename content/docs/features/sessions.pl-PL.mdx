@@ -1,24 +1,26 @@
 ---
 title: "Sesje"
-description: "Sesje Better Auth w D1 z samodzielnym unieważnianiem w ustawieniach panelu administracyjnego i unieważnianiem sesji dowolnego użytkownika z jego profilu administracyjnego."
+description: "Sesje Better Auth w D1 z krajem, z którego nastąpiło logowanie, samodzielnym unieważnianiem w ustawieniach i unieważnianiem sesji dowolnego użytkownika z jego profilu administracyjnego."
 ---
 
 Sesje są przechowywane w tabeli `session` w D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` odczytuje je przez `getRequestSession`, zapamiętywane w obrębie żądania, i udostępnia `getCurrentSessionQuery` trasom oraz komponentom. Kopia po stronie klienta nigdy nie zawiera tokenu sesji.
 
+Każda sesja przechowuje też `country`, dodatkowe pole Better Auth, które hook bazy danych `session.create.before` w `auth.server.ts` wypełnia z nagłówka `cf-ipcountry` dodawanego przez Cloudflare do każdego żądania (`COUNTRY_HEADER`). Zachowywany jest tylko kod z katalogu `COUNTRIES`, więc dla adresów Tor (`T1`) i nieznanych (`XX`) pole pozostaje puste. Przeglądarka i system operacyjny pochodzą z user agenta: `sessionDevice` w `src/modules/session/session.utils.ts` rozpoznaje popularne przeglądarki i systemy po nazwie i odróżnia telefony od tabletów.
+
 ## Przypadki użycia
 
-| Przypadek użycia                          | Middleware                     | Używany przez      |
-| ----------------------------------------- | ------------------------------ | ------------------ |
-| `getActiveSessions`                       | zalogowany                     | `SettingsSessions` |
-| `revokeSession`                           | zalogowany; tylko własne sesje | `SessionRow`       |
-| `revokeOtherSessions`                     | zalogowany                     | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`            | `UserSessions`     |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`          | `UserSessions`     |
+| Przypadek użycia                          | Middleware                     | Używany przez  |
+| ----------------------------------------- | ------------------------------ | -------------- |
+| `getActiveSessions`                       | zalogowany                     | `SessionsCard` |
+| `revokeSession`                           | zalogowany; tylko własne sesje | `SessionRow`   |
+| `revokeOtherSessions`                     | zalogowany                     | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`            | `UserSessions` |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`          | `UserSessions` |
 
 `getActiveSessions` zwraca niewygasłe sesje bieżącego użytkownika, od najnowszej, i pomija sesje podszywania się. `listUserSessions` zwraca niewygasłe sesje innego użytkownika z `listUserSessions` Better Auth, od najnowszej i bez ich tokenów, łącznie z sesjami podszywania się. `revokeUserSession` przyjmuje ID sesji i wyszukuje jej token na serwerze, więc żaden token nie trafia do przeglądarki.
 
 ## Interfejs
 
-**Ustawienia → Bezpieczeństwo** w `/admin/settings` wyświetla `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Każdy `SessionRow` pokazuje urządzenie (user agent lub adres IP), ostatnią aktywność i oznaczenie bieżącej sesji oraz pozwala ją unieważnić. Przycisk w nagłówku unieważnia wszystkie pozostałe sesje. Zmiana hasła również odświeża listę sesji.
+Karta **Bezpieczeństwo** w `/app/settings` i `/admin/settings` wyświetla `SessionsCard` (`src/presentation/components/custom/settings/sessions-card.tsx`), zaczynając od bieżącej przeglądarki. Każdy `SessionRow` podaje przeglądarkę i system, na przykład „Firefox w systemie Windows”, oznacza **To urządzenie** i pokazuje kraj, adres IP, czas ostatniej aktywności sesji i czas zalogowania. Każdy pozostały wiersz ma przycisk **Wyloguj**, którego dostępna nazwa wymienia urządzenie, a karta kończy się przyciskiem **Wyloguj pozostałe urządzenia**, dopóki jakieś istnieje. Zmiana lub ustawienie hasła również wylogowuje wszystkie pozostałe sesje i odświeża listę.
 
-Profil użytkownika w `/admin/users` wyświetla `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): urządzenie każdej sesji oraz czas zalogowania i ostatniej aktywności, przycisk, który ją unieważnia, a po potwierdzeniu przycisk, który wylogowuje użytkownika wszędzie. Zobacz [Użytkownicy (admin)](/docs/features/users-admin).
+Profil użytkownika w `/admin/users` wyświetla `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): urządzenie każdej sesji, ustalane przez ten sam `useSessionDeviceName`, oraz czas zalogowania i ostatniej aktywności, przycisk, który ją unieważnia, a po potwierdzeniu przycisk, który wylogowuje użytkownika wszędzie. Zobacz [Użytkownicy (admin)](/docs/features/users-admin).

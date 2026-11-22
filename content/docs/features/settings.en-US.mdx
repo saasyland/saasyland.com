@@ -1,11 +1,16 @@
 ---
 title: "Settings"
-description: "The /admin/settings and /app/settings screens: the time zone preference and a live security tab."
+description: "The /app/settings and /admin/settings screens: preferences, the email address, the password, two-factor authentication, connected accounts, sessions and account deletion."
 ---
 
-`src/routes/admin.settings.tsx` renders two tabs from `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`), **General** and **Security**, built from widgets in `src/presentation/components/custom/admin/settings` and the shared `PreferencesCard`. A tab comes with the area that fills it; no area fills a team, billing, integrations or API keys tab yet, so the page has none. The loader preloads `getActiveSessionsQuery`. Customers have their own settings page, `/app/settings` (`src/routes/app.settings.tsx`), which shows `PreferencesCard` alone.
+`src/routes/app.settings.tsx` and `src/routes/admin.settings.tsx` render two tabs from `SETTINGS_TABS` (`src/data/auth.ts`), **General** and **Security**. The tab is the `tab` search param, validated by `settingsSearchSchema` and dropped from the address when it is the default, so an OAuth link returns to `?tab=security`. The cards live in `src/presentation/components/custom/settings`, share the `auth.security` namespace, which the `/app` and `/admin` layouts load, and serve customers and admins alike; only the customer's General tab ends with **Delete account**. Both loaders preload the session list (`getActiveSessionsQuery`) and the sign-in methods (`listAccountsQuery`), and `/app/settings` also runs the loads of the account deletion notices.
 
-## Preferences (live)
+| Tab      | `/app/settings`                                                          | `/admin/settings`                                                        |
+| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| General  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
+| Security | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+
+## Preferences
 
 `PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edits the signed-in user's time zone, the one display preference stored with the account. It reads the saved zone from the current session query.
 
@@ -15,12 +20,34 @@ description: "The /admin/settings and /app/settings screens: the time zone prefe
 
 The language is not stored: it is the locale in the URL, switched with `LocaleSelect`, and it also decides the date order, the 12- or 24-hour clock and the number separators.
 
-`PreferencesCardPending`, in `preferences-card-pending.tsx`, is its skeleton in `AdminSettingsPending` and `AppSettingsPending`. It has a file of its own because every page loads the skeletons, and the card's file holds the form (see [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)).
+## Email address
 
-## Security (live)
+`EmailCard` shows the address and whether it is verified, and **Change email** opens `ChangeEmailForm` (`custom/auth/change-email-form.tsx`), the form the verification banner uses. It calls `changeEmail` (signed in, rate limited). A verified address changes in two steps: Better Auth emails the current address a confirmation link (`ChangeEmailConfirmationEmail`), and once it is opened, sends a verification link to the new address, which stores the change. Both links return to the page the change started on. An unverified address changes at once and gets a new verification link. When the new address already has an account, Better Auth sends nothing and answers as for any other address, so the toast says that the link is on its way if the address can be used.
 
-- `SettingsPasswordForm` asks for the current and the new password, each with a show/hide button and no confirmation field, ticks off the length rule of the new one with `PasswordRequirements`, and calls `changePassword` (`src/modules/account/use-cases/change-password.ts`, signed in and rate limited). Success refreshes the session list.
-- `SettingsTwoFactor` enables or disables TOTP ([Two-factor authentication](/docs/features/two-factor)).
-- `SettingsSessions` lists and revokes sessions ([Sessions](/docs/features/sessions)).
+## Password
 
-The **General** tab holds `PreferencesCard` alone. There is no workspace profile and no workspace to delete: the app has no workspace model (see [Organizations](/docs/features/organizations)). `updateUser` and `changeEmail` in `src/modules/account/use-cases` are the server functions to connect when you build a profile form.
+`PasswordCard` reads the sign-in methods. With a password, it asks for the current and the new one and calls `changePassword` (signed in, rate limited), which always signs out every other session. An account that signs in only with GitHub or Google gets **Set a password** instead, which calls `setPassword` (signed in, rate limited): Better Auth's server-only `setPassword`, then `revokeOtherSessions`. Both forms tick off the length rule with `PasswordRequirements`, show a password found in a known data breach under the field, and end with `PasswordChangedEmail` to the account, sent by the `password-change-notice` hook for a change and by `setPassword` for a new password.
+
+## Two-factor authentication
+
+`TwoFactorCard` shows whether TOTP is on and opens `TwoFactorDialog` to turn it on, to turn it off or to create new backup codes, each after the current password. An account without a password is told to set one first, because the second factor guards the password sign-in. See [Two-factor authentication](/docs/features/two-factor).
+
+## Connected accounts
+
+`ConnectedAccountsCard` lists GitHub and Google from `OAUTH_PROVIDERS` with the date each was connected. **Connect** calls Better Auth's `linkSocial` from the browser, which goes through the provider and comes back to `?tab=security`; a failure comes back as `?error=` and shows its `auth.errors` message in the card. Better Auth links an account whose provider address differs from the account's own (`accountLinking.allowDifferentEmails`), because the signed-in owner starts the link. **Disconnect** calls `unlinkAccount` (signed in, rate limited) with the account's row ID. The card offers it only while the account has another way to sign in, and Better Auth refuses to unlink the last one in any case; an account whose only way in is a provider is told to set a password or connect another account first.
+
+## Sessions
+
+`SessionsCard` lists the signed-in browsers, this one first. See [Sessions](/docs/features/sessions).
+
+## Delete account
+
+`DeleteAccountCard` lists what deletion removes: the profile, the sign-in methods, the two-factor settings and the course progress, followed by the notices that other areas add (`ACCOUNT_DELETION_NOTICES` in `src/data/account-deletion.ts`, joined from `src/data/<area>.account-deletion.ts`). Each notice has a component and the data its page loads. The licence area adds `LicenseDeletionNotice`, shown while the account holds an active licence: the licence ends with the account, its key stops working, deleting refunds nothing, and the withdrawal function comes first. The legal area adds `AccountDeletionRecords`: payment and tax records, and the licence with its delivery records, are kept as the Privacy Policy describes, no longer linked to the account.
+
+**Delete account** opens a dialog that asks for the current password, or nothing for an account without one, and calls `requestAccountDeletion` (signed in, rate limited). Better Auth checks the password and calls `sendDeleteAccountVerification`, and `sendDeleteAccountEmail` emails a link to `/app/settings/delete-account?token=…` in the language of the page. The link works for `EMAIL_LINK_LIFETIME_HOURS`. That page (`src/routes/app.settings_.delete-account.tsx`) is behind the `/app` sign-in, repeats the consequences and deletes the account only when **Delete my account** is pressed: `confirmAccountDeletion` (signed in, rate limited as a token) passes the token to Better Auth's `deleteUser`, which deletes the user and its sessions and expires the cookie, and the page removes the account's data from the query cache, goes to the home page and says so. A link opened elsewhere asks for sign-in first, and a page without a token offers the way back to Settings. Opening the link does nothing by itself, so a mail scanner that follows links cannot delete an account.
+
+Deleting the user cascades to its sessions, sign-in methods, two-factor row and course progress; its licence, the copies of Polar's orders and subscriptions and any withdrawal statement keep their rows with no user, as the [Privacy Policy](/privacy) says, and an active licence is revoked first ([Licences](/docs/features/licences#records-and-refunds)).
+
+## Skeletons
+
+`PreferencesCardPending`, in `preferences-card-pending.tsx`, and `SettingsTabsPending`, `EmailCardPending` and `DeleteAccountCardPending`, in `custom/settings/settings-pending.tsx`, draw `AdminSettingsPending`, `AppSettingsPending` and `AppDeleteAccountPending`. They have files of their own because every page loads the skeletons, and the cards' files hold the forms (see [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). A skeleton draws the General tab.

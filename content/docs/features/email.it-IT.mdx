@@ -7,19 +7,20 @@ description: "Template React Email in src/presentation/emails, inviati dai casi 
 
 I template si trovano in `src/presentation/emails`. Ogni file contiene solo markup ed esporta la costante del proprio namespace:
 
-| Template                         | Namespace                                 | Inviato da                                                           |
-| -------------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| `VerifyEmail`                    | `emails.verify-email`                     | `sendVerifyEmail` (hook di Better Auth)                              |
-| `ResetPasswordEmail`             | `emails.reset-password-email`             | `sendResetPasswordEmail` (hook di Better Auth)                       |
-| `ChangeEmailConfirmationEmail`   | `emails.change-email-confirmation-email`  | `sendChangeEmailConfirmationEmail` (hook di Better Auth)             |
-| `ExistingAccountEmail`           | `emails.existing-account-email`           | `sendExistingAccountEmail` (`onExistingUserSignUp` di Better Auth)   |
-| `PasswordChangedEmail`           | `emails.password-changed-email`           | `sendPasswordChangedEmail` (`onPasswordReset` di Better Auth)        |
-| `NewsletterConfirmationEmail`    | `emails.newsletter-confirmation-email`    | `subscribeToNewsletter`                                              |
-| `NewsletterNotificationEmail`    | `emails.newsletter-notification-email`    | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`                   |
-| `PurchaseConfirmationEmail`      | `emails.purchase-confirmation-email`      | `sendPurchaseConfirmationEmail` (`order.paid` di Polar)              |
-| `UnmatchedOrderAlertEmail`       | `emails.unmatched-order-alert-email`      | `sendUnmatchedOrderAlert` (`order.paid` di Polar), a `CONTACT_EMAIL` |
-| `WithdrawalAcknowledgementEmail` | `emails.withdrawal-acknowledgement-email` | `sendWithdrawalAcknowledgement` (`submitWithdrawal`)                 |
-| `WithdrawalNotificationEmail`    | `emails.withdrawal-notification-email`    | `sendWithdrawalNotification` (`submitWithdrawal`), a `CONTACT_EMAIL` |
+| Template                         | Namespace                                 | Inviato da                                                                                                    |
+| -------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `VerifyEmail`                    | `emails.verify-email`                     | `sendVerifyEmail` (hook di Better Auth)                                                                       |
+| `ResetPasswordEmail`             | `emails.reset-password-email`             | `sendResetPasswordEmail` (hook di Better Auth)                                                                |
+| `ChangeEmailConfirmationEmail`   | `emails.change-email-confirmation-email`  | `sendChangeEmailConfirmationEmail` (hook di Better Auth)                                                      |
+| `ExistingAccountEmail`           | `emails.existing-account-email`           | `sendExistingAccountEmail` (`onExistingUserSignUp` di Better Auth)                                            |
+| `PasswordChangedEmail`           | `emails.password-changed-email`           | `sendPasswordChangedEmail` (`onPasswordReset` di Better Auth, l’hook `password-change-notice`, `setPassword`) |
+| `DeleteAccountEmail`             | `emails.delete-account-email`             | `sendDeleteAccountEmail` (`sendDeleteAccountVerification` di Better Auth)                                     |
+| `NewsletterConfirmationEmail`    | `emails.newsletter-confirmation-email`    | `subscribeToNewsletter`                                                                                       |
+| `NewsletterNotificationEmail`    | `emails.newsletter-notification-email`    | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`                                                            |
+| `PurchaseConfirmationEmail`      | `emails.purchase-confirmation-email`      | `sendPurchaseConfirmationEmail` (`order.paid` di Polar)                                                       |
+| `UnmatchedOrderAlertEmail`       | `emails.unmatched-order-alert-email`      | `sendUnmatchedOrderAlert` (`order.paid` di Polar), a `CONTACT_EMAIL`                                          |
+| `WithdrawalAcknowledgementEmail` | `emails.withdrawal-acknowledgement-email` | `sendWithdrawalAcknowledgement` (`submitWithdrawal`)                                                          |
+| `WithdrawalNotificationEmail`    | `emails.withdrawal-notification-email`    | `sendWithdrawalNotification` (`submitWithdrawal`), a `CONTACT_EMAIL`                                          |
 
 Un template riceve `locale` e `messages` e traduce con `createTranslator` di use-intl:
 
@@ -27,7 +28,7 @@ Un template riceve `locale` e `messages` e traduce con `createTranslator` di use
 const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
 ```
 
-Le email dell’account iniziano con `EmailBrandHeader`, il nome dell’applicazione, e mettono `EmailFallbackLink` sotto il pulsante: lo stesso link come testo semplice, per i client che nascondono i pulsanti. Le email di verifica, di reimpostazione della password e di cambio dell’email indicano per quanto tempo vale il loro link, da `EMAIL_LINK_LIFETIME_HOURS`, il valore con cui è configurato Better Auth.
+Le email dell’account iniziano con `EmailBrandHeader`, il nome dell’applicazione, e mettono `EmailFallbackLink` sotto il pulsante: lo stesso link come testo semplice, per i client che nascondono i pulsanti. Le email di verifica, di reimpostazione della password, di cambio dell’email e di eliminazione dell’account indicano per quanto tempo vale il loro link, da `EMAIL_LINK_LIFETIME_HOURS`, il valore con cui è configurato Better Auth.
 
 ## Invio
 
@@ -57,7 +58,7 @@ await sendEmail({
 
 Le email dell’account usano la lingua della pagina in cui è iniziato il flusso, letta dal `callbackURL` nel link dell’email; per una registrazione ripetuta proviene dal `callbackURL` della richiesta di registrazione. Un flusso che non indica alcun callback, un accesso a un account non verificato o una reimpostazione della password, prende la lingua e il `redirect` dalla pagina che ha inviato la richiesta (il suo `Referer`, quando è su questo sito). Le email della newsletter usano la lingua inviata con il modulo; la notifica al proprietario è sempre in `en-US`. La conferma dell’acquisto usa la lingua che `startCheckout` ha salvato nei metadati dell’ordine, e l’inglese quando non ce n’è nessuna; conferma su un supporto durevole il consenso dell’acquirente alla fornitura immediata, vedi [Licenze](/docs/features/licences#purchase-confirmation). L’avviso di ordine senza account, che segnala al sito un ordine di licenza pagato il cui cliente non corrisponde a nessun account, è in `I18N.DEFAULT_LOCALE`, vedi [Licenze](/docs/features/licences#orders-that-match-no-account). L’avviso di ricevimento di un recesso usa la lingua della pagina in cui è stata inviata la dichiarazione, e la notifica di recesso al sito è in `I18N.DEFAULT_LOCALE`, vedi [Licenze](/docs/features/licences#withdrawal-function).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) consente al massimo <RepositoryFact name="recipientEmailsPerHour" /> email di ogni tipo (verifica, reimpostazione della password, account esistente, conferma della newsletter e avviso di ricevimento di un recesso) per indirizzo all’ora, conteggiate nella tabella `rate_limit` sotto un hash SHA-256 dell’indirizzo. Oltre il limite l’email viene saltata e la richiesta riceve comunque la sua risposta normale. La conferma del cambio di email, l’avviso di cambio della password, la notifica al proprietario, la conferma dell’acquisto, l’avviso di ordine senza account e la notifica di recesso non sono limitati; un cambio della password richiede un token di reimpostazione, la conferma dell’acquisto e l’avviso di ordine senza account li attiva il webhook di Polar, non un visitatore, una volta per ordine, e la notifica di recesso va solo al sito, al massimo <RepositoryFact name="sensitiveRateLimit" /> per client al minuto.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) consente al massimo <RepositoryFact name="recipientEmailsPerHour" /> email di ogni tipo (verifica, reimpostazione della password, account esistente, eliminazione dell’account, conferma della newsletter e avviso di ricevimento di un recesso) per indirizzo all’ora, conteggiate nella tabella `rate_limit` sotto un hash SHA-256 dell’indirizzo. Oltre il limite l’email viene saltata e la richiesta riceve comunque la sua risposta normale. La conferma del cambio di email, l’avviso di cambio della password, la notifica al proprietario, la conferma dell’acquisto, l’avviso di ordine senza account e la notifica di recesso non sono limitati; un cambio della password richiede un token di reimpostazione o la password attuale, la conferma dell’acquisto e l’avviso di ordine senza account li attiva il webhook di Polar, non un visitatore, una volta per ordine, e la notifica di recesso va solo al sito, al massimo <RepositoryFact name="sensitiveRateLimit" /> per client al minuto.
 
 ## Guide correlate
 

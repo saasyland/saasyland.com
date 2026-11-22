@@ -1,3 +1,5 @@
+export const SESSION_COUNTRY_LENGTH = 2
+
 export const SESSION_QUERY_KEYS = {
   ACTIVE: ["session", "getActiveSessions"],
   ALL: ["session"],

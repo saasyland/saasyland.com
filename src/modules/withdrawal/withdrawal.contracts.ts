@@ -24,7 +24,7 @@ const activeContracts = (match: SQL | undefined) =>
       purchaseCreatedAt: license.purchaseCreatedAt,
       reference: sql<string>`coalesce(${order.invoiceNumber}, ${license.polarOrderId}, ${license.id})`,
       tier: license.tier,
-      userId: license.userId,
+      userId: user.id,
       withdrawalConsentAt: license.withdrawalConsentAt,
     })
     .from(license)

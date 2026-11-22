@@ -1,24 +1,26 @@
 ---
 title: "Сесії"
-description: "Сесії Better Auth у D1 із самостійним відкликанням у налаштуваннях адмінпанелі та відкликанням сесій будь-якого користувача з його профілю в адмінпанелі."
+description: "Сесії Better Auth у D1 з країною, з якої виконано вхід, самостійним відкликанням у налаштуваннях і відкликанням сесій будь-якого користувача з його профілю в адмінпанелі."
 ---
 
 Сесії зберігаються в таблиці `session` у D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` читає їх через `getRequestSession`, що кешується в межах запиту, і надає `getCurrentSessionQuery` маршрутам і компонентам. Клієнтська копія ніколи не містить токена сесії.
 
+Кожна сесія також зберігає `country` — додаткове поле Better Auth, яке хук бази даних `session.create.before` в `auth.server.ts` заповнює із заголовка `cf-ipcountry`, що його Cloudflare додає до кожного запиту (`COUNTRY_HEADER`). Зберігається лише код із каталогу `COUNTRIES`, тож для адрес Tor (`T1`) і невідомих адрес (`XX`) поле залишається порожнім. Браузер і операційна система визначаються з user agent: `sessionDevice` в `src/modules/session/session.utils.ts` розпізнає поширені браузери й системи за назвою та відрізняє телефони від планшетів.
+
 ## Сценарії використання
 
-| Сценарій                                  | Middleware                  | Використовує       |
-| ----------------------------------------- | --------------------------- | ------------------ |
-| `getActiveSessions`                       | з сесією                    | `SettingsSessions` |
-| `revokeSession`                           | з сесією; лише власні сесії | `SessionRow`       |
-| `revokeOtherSessions`                     | з сесією                    | `SettingsSessions` |
-| `listUserSessions`                        | `session: ["list"]`         | `UserSessions`     |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`       | `UserSessions`     |
+| Сценарій                                  | Middleware                  | Використовує   |
+| ----------------------------------------- | --------------------------- | -------------- |
+| `getActiveSessions`                       | з сесією                    | `SessionsCard` |
+| `revokeSession`                           | з сесією; лише власні сесії | `SessionRow`   |
+| `revokeOtherSessions`                     | з сесією                    | `SessionsCard` |
+| `listUserSessions`                        | `session: ["list"]`         | `UserSessions` |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`       | `UserSessions` |
 
 `getActiveSessions` повертає непрострочені сесії поточного користувача, від найновішої, і пропускає сесії входу від імені іншого користувача. `listUserSessions` повертає непрострочені сесії іншого користувача з `listUserSessions` від Better Auth, від найновішої та без їхніх токенів, разом із сесіями входу від імені. `revokeUserSession` приймає ID сесії й знаходить її токен на сервері, тож жоден токен не потрапляє в браузер.
 
 ## Інтерфейс
 
-**Налаштування → Безпека** в `/admin/settings` показує `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Кожен `SessionRow` показує пристрій (user agent або IP-адресу), останню активність і позначку поточної сесії та дає змогу відкликати цю сесію. Кнопка в заголовку відкликає всі інші сесії. Зміна пароля також оновлює список сесій.
+Вкладка **Безпека** в `/app/settings` і `/admin/settings` показує `SessionsCard` (`src/presentation/components/custom/settings/sessions-card.tsx`), де поточний браузер іде першим. Кожен `SessionRow` називає браузер і систему, наприклад «Firefox на Windows», позначає **Цей пристрій** і показує країну, IP-адресу, час останньої активності сесії та час входу. Кожен інший рядок має кнопку **Завершити сесію**, доступна назва якої називає пристрій, а картка закінчується кнопкою **Завершити сесії на інших пристроях**, поки такий пристрій є. Зміна або встановлення пароля також завершує всі інші сесії й оновлює список.
 
-Профіль користувача в `/admin/users` показує `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): пристрій кожної сесії, час входу й останньої активності, кнопку, що її відкликає, а після підтвердження — кнопку, що виводить користувача з усіх пристроїв. Див. [Користувачі (адмін)](/docs/features/users-admin).
+Профіль користувача в `/admin/users` показує `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): пристрій кожної сесії, визначений тим самим `useSessionDeviceName`, час входу й останньої активності, кнопку, що її відкликає, а після підтвердження — кнопку, що виводить користувача з усіх пристроїв. Див. [Користувачі (адмін)](/docs/features/users-admin).

@@ -3,11 +3,13 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
+import { SESSION_COUNTRY_LENGTH } from "~/src/modules/session/session.constants"
 import { user } from "~/src/modules/user/user.schema"
 
 export const session = sqliteTable(
   "session",
   {
+    country: text("country", { length: SESSION_COUNTRY_LENGTH }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     id: text("id").primaryKey(),
     impersonatedBy: text("impersonated_by"),

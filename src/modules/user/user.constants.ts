@@ -19,9 +19,11 @@ export const USER_QUERY_KEYS = {
 
 export const USER_MUTATION_KEYS = {
   BAN: ["user", "banUser"],
+  CONFIRM_ACCOUNT_DELETION: ["user", "confirmAccountDeletion"],
   CREATE: ["user", "createUser"],
   DELETE: ["user", "deleteUser"],
   IMPERSONATE: ["user", "impersonateUser"],
+  REQUEST_ACCOUNT_DELETION: ["user", "requestAccountDeletion"],
   SET_PASSWORD: ["user", "setUserPassword"],
   SET_ROLE: ["user", "setUserRole"],
   STOP_IMPERSONATING: ["user", "stopImpersonatingUser"],

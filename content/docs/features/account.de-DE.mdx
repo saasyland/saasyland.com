@@ -7,16 +7,23 @@ description: "Das Account-Modul: die Better-Auth-Tabelle account und die Anwendu
 
 ## Anwendungsfälle
 
-| Anwendungsfall                     | Middleware             | Verwendet von                          |
-| ---------------------------------- | ---------------------- | -------------------------------------- |
-| `signUpWithPassword`               | Rate-Limit             | `SignUpForm`                           |
-| `signOutUser`                      | angemeldet             | `useSignOut`                           |
-| `changePassword`                   | angemeldet, Rate-Limit | `SettingsPasswordForm`                 |
-| `changeEmail`                      | angemeldet, Rate-Limit | von keiner Ansicht verwendet           |
-| `updateUser`                       | angemeldet             | von keiner Ansicht verwendet           |
-| `sendChangeEmailConfirmationEmail` | Better-Auth-Hook       | `user.changeEmail` in `auth.server.ts` |
+| Anwendungsfall                     | Middleware             | Verwendet von                                                                 |
+| ---------------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `signUpWithPassword`               | Rate-Limit             | `SignUpForm`                                                                  |
+| `signOutUser`                      | angemeldet             | `useSignOut`                                                                  |
+| `changePassword`                   | angemeldet, Rate-Limit | `PasswordCard`                                                                |
+| `setPassword`                      | angemeldet, Rate-Limit | `PasswordCard`                                                                |
+| `changeEmail`                      | angemeldet, Rate-Limit | `ChangeEmailForm`                                                             |
+| `listAccounts`                     | angemeldet             | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `DeleteAccountCard` |
+| `unlinkAccount`                    | angemeldet, Rate-Limit | `ConnectedAccountsCard`                                                       |
+| `updateUser`                       | angemeldet             | von keiner Ansicht verwendet                                                  |
+| `sendChangeEmailConfirmationEmail` | Better-Auth-Hook       | `user.changeEmail` in `auth.server.ts`                                        |
 
-`sendChangeEmailConfirmationEmail` sendet `ChangeEmailConfirmationEmail` mit dem Bestätigungslink von Better Auth an die aktuelle Adresse.
+`sendChangeEmailConfirmationEmail` sendet `ChangeEmailConfirmationEmail` mit dem Bestätigungslink von Better Auth an die aktuelle Adresse. `changePassword` widerruft immer die anderen Sitzungen. `setPassword` fügt einem Konto, das sich nur mit GitHub oder Google anmeldet, über das nur serverseitig verfügbare `setPassword` von Better Auth ein Passwort hinzu, widerruft die anderen Sitzungen und sendet `PasswordChangedEmail`. `listAccounts` liefert für jede Anmeldemethode die Zeilen-ID, den Anbieter und das Erstellungsdatum, ohne Tokens, und `unlinkAccount` übergibt eine Zeilen-ID an `unlinkAccount` von Better Auth, das die letzte verweigert.
+
+## Konto löschen
+
+Das Löschen entfernt den Benutzer, deshalb liegen seine Anwendungsfälle im User-Modul: `requestAccountDeletion` (angemeldet, mit Rate-Limit) lässt `deleteUser` von Better Auth das Passwort prüfen und einen Bestätigungslink per E-Mail schicken, und `confirmAccountDeletion` (angemeldet, mit Rate-Limit wie ein Token) löscht das Konto mit dem Token des Links. `sendDeleteAccountEmail` (`src/modules/user/use-cases/send-delete-account-email.ts`) ist der Hook `sendDeleteAccountVerification`. Siehe [Einstellungen](/docs/features/settings#delete-account).
 
 ## Präferenzen
 

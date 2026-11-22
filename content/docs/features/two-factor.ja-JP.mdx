@@ -1,29 +1,30 @@
 ---
 title: "二要素認証"
-description: "管理画面の設定で有効化する、バックアップコード付きの TOTP 二要素認証。"
+description: "設定で有効化する TOTP 二要素認証。QR コード、コピーまたはダウンロードできるバックアップコード、必要に応じて作り直せる新しいコードを備えます。"
 ---
 
 Better Auth の `twoFactor` プラグインは `APP_NAME` を発行者として使います。サーバー関数は `src/modules/two-factor/use-cases` にあります。
 
-| ユースケース       | ミドルウェア               | 利用箇所                               |
-| ------------------ | -------------------------- | -------------------------------------- |
-| `enableTwoFactor`  | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
-| `disableTwoFactor` | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
-| `verifyTotp`       | レート制限                 | `TwoFactorVerifyStep`、`TwoFactorForm` |
-| `verifyBackupCode` | レート制限                 | `TwoFactorForm`                        |
+| ユースケース          | ミドルウェア               | 利用箇所                               |
+| --------------------- | -------------------------- | -------------------------------------- |
+| `enableTwoFactor`     | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
+| `disableTwoFactor`    | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
+| `generateBackupCodes` | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
+| `verifyTotp`          | レート制限                 | `TwoFactorVerifyStep`、`TwoFactorForm` |
+| `verifyBackupCode`    | レート制限                 | `TwoFactorForm`                        |
 
 ## 有効化
 
-`/admin/settings` の **設定 → セキュリティ** は `TwoFactorDialog`（`src/presentation/components/custom/admin/settings`）を表示します。
+`/app/settings` と `/admin/settings` の **セキュリティ** タブは `TwoFactorCard` を表示し、このカードが `src/data/auth.ts` の `TWO_FACTOR_INTENT` のいずれかの値を指定して `TwoFactorDialog`（`src/presentation/components/custom/settings`）を開きます。
 
 1. パスワードの手順で `enableTwoFactor` を呼び出し、TOTP URI とバックアップコードを受け取ります。
-2. 確認の手順では、認証アプリに手入力するための URI 内のシークレット（`extractTotpSecret`）を表示し、<RepositoryFact name="twoFactorCodeLength" /> 桁のコードを `verifyTotp` で確認します。
-3. 最後の手順でバックアップコードを表示します。
+2. 確認の手順では、URI を QR コードとして描画し（`TwoFactorQrCode`。`uqr` で URI をエンコードし、モジュールを 1 つの SVG パスとして、どちらのテーマでも白地に黒で描画します）、手入力用に URI 内のセットアップキー（`extractTotpSecret`）をコピーボタン付きで表示して、<RepositoryFact name="twoFactorCodeLength" /> 桁のコードを `verifyTotp` で確認します。Better Auth が 2FA を有効にするのは、このコードを確認した後だけです。
+3. `BackupCodes` はコードを一度だけ表示し、**コードをコピー** と **ダウンロード** を備えます。ダウンロードされるのは、`APP_SLUG` から名前を付け、先頭にアプリケーション名とアカウントのアドレスを記したテキストファイルです。**保存しました** を押すまで、ダイアログは外側のクリックでは閉じません。
 
-2FA が有効な場合、同じボタンは `disableTwoFactor` を使うパスワードの手順を開きます。ボタンは現在のセッションの `twoFactorEnabled` を読み取ります。
+2FA が有効な場合、**新しいバックアップコード** はパスワードを求めて `generateBackupCodes` を呼び出し、すべてのコードを置き換えて、新しいコードを同じ方法で表示します。**無効にする** はパスワードを求めて `disableTwoFactor` を呼び出します。カードは現在のセッションの `twoFactorEnabled` を読み取り、二要素認証のリクエストの実行中はボタンを無効にします。リクエストの完了前に閉じた手順は、完了しても何も表示しません。Better Auth はこれらの呼び出しにパスワードを必須とするため、GitHub または Google だけでサインインするアカウントには、先にパスワードを設定するよう案内します。
 
 ## サインイン時の確認
 
-2FA が有効なアカウントでは、Better Auth がサインインに `twoFactorRedirect` で応答し、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。`TwoFactorForm` は <RepositoryFact name="twoFactorCodeLength" /> 桁のコード（`InputOTP`）、または切り替え後はバックアップコードを受け付け、`trustDevice: true` を送信します。成功すると `useAuthRedirect` の `finishSignIn` が `/auth/callback` へ進みます。
+2FA が有効なアカウントでは、Better Auth がサインインに `twoFactorRedirect` で応答し、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。`TwoFactorForm` は <RepositoryFact name="twoFactorCodeLength" /> 桁のコード（`InputOTP`）、または切り替え後はバックアップコードを受け付け、`trustDevice: true` を送信します。成功すると `useAuthRedirect` の `finishSignIn` が `/auth/callback` へ進みます。各バックアップコードでサインインできるのは 1 回だけです。
 
 コードの長さは `auth.constraints.ts` にあり、`TWO_FACTOR_CODE_LENGTH` は <RepositoryFact name="twoFactorCodeLength" />、バックアップコードは <RepositoryFact name="backupCodeMinLength" />〜<RepositoryFact name="backupCodeMaxLength" /> 文字です。

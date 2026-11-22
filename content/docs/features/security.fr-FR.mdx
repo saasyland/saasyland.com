@@ -6,7 +6,7 @@ description: "Les contrôles de sécurité que l’application met en œuvre, et
 ## Mis en œuvre
 
 - **Sessions** : sessions Better Auth dans D1, préfixe de cookie `saasyland`, cookies sécurisés hors des modes locaux, hôtes autorisés par mode et `cf-connecting-ip` comme adresse du client. La session côté client ne contient jamais le jeton.
-- **Comptes** : vérification obligatoire de l’e-mail, mots de passe vérifiés contre les fuites de données connues avec le plugin `haveIBeenPwned` de Better Auth, sessions révoquées lors d’une réinitialisation du mot de passe, TOTP facultatif avec codes de secours, identifiants de vérification stockés sous forme de hachage et jetons OAuth chiffrés.
+- **Comptes** : vérification obligatoire de l’e-mail, mots de passe vérifiés contre les fuites de données connues avec le plugin `haveIBeenPwned` de Better Auth, autres sessions révoquées et e-mail envoyé lorsqu’un mot de passe est réinitialisé, changé ou défini, TOTP facultatif avec codes de secours, identifiants de vérification stockés sous forme de hachage et jetons OAuth chiffrés. Le dernier moyen de connexion d’un compte ne peut pas être dissocié, et la suppression d’un compte exige son mot de passe et un lien envoyé par e-mail à son adresse, qui ne fait que valider la suppression sur une page protégée par la connexion ([Paramètres](/docs/features/settings)).
 - **Autorisation** : `requireSignedIn` et `requireAdmin` sur les routes ; `authorized(permission)` sur les fonctions serveur avec les rôles que `auth.access.ts` construit à partir des fichiers d’accès des zones.
 - **Limites de débit** : le limiteur de Better Auth et le middleware `withRateLimit` partagent la table `rate_limit` de D1. `RATE_LIMITS.SENSITIVE` autorise <RepositoryFact name="sensitiveRateLimit" /> appels et `RATE_LIMITS.TOKEN` <RepositoryFact name="tokenRateLimit" /> appels par tranche de <RepositoryFact name="rateLimitWindowSeconds" unit="second" />, par client et par action. Les e-mails de vérification, de réinitialisation du mot de passe et de confirmation de newsletter sont aussi limités à <RepositoryFact name="recipientEmailsPerHour" /> de chaque type par adresse et par heure (`withinRecipientRateLimit`, avec pour clé un hachage SHA-256 de l’adresse) ; au-delà de la limite, l’e-mail est ignoré silencieusement. L’[API de licence de la CLI](/docs/features/cli-licence-api) compte ses requêtes par adresse et par clé de licence dans la même table.
 - **Erreurs** : le middleware de requête transforme les échecs en codes `AppError` (`src/modules/_core/constants/errors.ts`), si bien que les clients ne reçoivent jamais de messages bruts du serveur ; les composants les affichent avec `useErrorMessage`.
@@ -21,7 +21,7 @@ description: "Les contrôles de sécurité que l’application met en œuvre, et
 ## Non mis en œuvre
 
 - Des directives de Content Security Policy pour les styles, les images, les médias, les polices et les connexions, Trusted Types et les rapports de violation : la politique restreint les scripts, les cadres, les plugins, les URL de base et l’intégration en cadre.
-- Un journal d’audit, y compris pour les bannissements, les suppressions et les usurpations.
+- Un journal d’audit, y compris pour les bannissements, les suppressions et les usurpations. La liste des sessions indique le pays, l’adresse IP et le navigateur de chaque connexion.
 - Une protection anti-bots ou un CAPTCHA sur les formulaires publics.
 
 ## Guides associés

@@ -37,7 +37,16 @@ const AppLayout = (): JSX.Element => (
   </SidebarProvider>
 )
 
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
+const NAMESPACES = [
+  "auth.errors",
+  "auth.form",
+  "auth.security",
+  "auth.validations",
+  "countries",
+  "pages.app.sidebar",
+  "timezones",
+  ...layoutNamespaces("/app"),
+] as const
 
 export const Route = createFileRoute("/app")({
   beforeLoad: requireSignedIn,

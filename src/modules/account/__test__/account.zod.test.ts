@@ -12,17 +12,33 @@ describe("account zod schemas", () => {
     },
   )
 
-  it("accepts a new password of the minimum length on the change password form, without a confirmation", () => {
+  it("accepts a new password of the minimum length on the change password request, without a confirmation", () => {
     expect(
-      accountZodSchemas.changePasswordForm.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH) })
-        .success,
+      accountZodSchemas.changePassword.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH) }).success,
     ).toBe(true)
   })
 
-  it("rejects a new password shorter than the minimum length on the change password form", () => {
+  it("rejects a new password shorter than the minimum length on the change password request", () => {
     expect(
-      accountZodSchemas.changePasswordForm.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH - 1) })
+      accountZodSchemas.changePassword.safeParse({ currentPassword: "OldSecret1!", newPassword: "a".repeat(PASSWORD_MIN_LENGTH - 1) })
         .success,
     ).toBe(false)
+  })
+})
+
+describe("account security schemas", () => {
+  it.each([
+    [{ newPassword: "a".repeat(PASSWORD_MIN_LENGTH) }, true],
+    [{ newPassword: "a".repeat(PASSWORD_MIN_LENGTH - 1) }, false],
+  ])("checks the length of a password an account adds: %j", (input, isValid) => {
+    expect(accountZodSchemas.setPassword.safeParse(input).success).toBe(isValid)
+  })
+
+  it.each([
+    [{ accountId: "01900000-0000-7000-8000-0000000000a1" }, true],
+    [{ accountId: "" }, false],
+    [{}, false],
+  ])("needs the row ID of the account to disconnect: %j", (input, isValid) => {
+    expect(accountZodSchemas.unlinkAccount.safeParse(input).success).toBe(isValid)
   })
 })

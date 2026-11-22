@@ -1,11 +1,16 @@
 ---
 title: "Ajustes"
-description: "Las pantallas /admin/settings y /app/settings: la preferencia de zona horaria y una pestaña de seguridad real."
+description: "Las pantallas /app/settings y /admin/settings: preferencias, la dirección de correo, la contraseña, la autenticación en dos pasos, las cuentas conectadas, las sesiones y la eliminación de la cuenta."
 ---
 
-`src/routes/admin.settings.tsx` muestra dos pestañas a partir de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`), **General** y **Seguridad**, construidas con widgets de `src/presentation/components/custom/admin/settings` y con el `PreferencesCard` compartido. Una pestaña llega con el área que la llena; ningún área llena todavía una pestaña de equipo, facturación, integraciones o claves de API, así que la página no tiene ninguna. El loader precarga `getActiveSessionsQuery`. Los clientes tienen su propia página de ajustes, `/app/settings` (`src/routes/app.settings.tsx`), que muestra solo `PreferencesCard`.
+`src/routes/app.settings.tsx` y `src/routes/admin.settings.tsx` muestran dos pestañas a partir de `SETTINGS_TABS` (`src/data/auth.ts`), **General** y **Seguridad**. La pestaña es el parámetro de búsqueda `tab`, que valida `settingsSearchSchema` y que desaparece de la dirección cuando es la predeterminada, así que un enlace de OAuth vuelve a `?tab=security`. Las tarjetas están en `src/presentation/components/custom/settings`, comparten el espacio de nombres `auth.security`, que cargan los layouts de `/app` y `/admin`, y sirven igual a clientes y a administradores; solo la pestaña General del cliente termina con **Eliminar la cuenta**. Los dos loaders precargan la lista de sesiones (`getActiveSessionsQuery`) y los métodos de inicio de sesión (`listAccountsQuery`), y `/app/settings` ejecuta además las cargas de los avisos de eliminación de la cuenta.
 
-## Preferencias (real)
+| Pestaña   | `/app/settings`                                                          | `/admin/settings`                                                        |
+| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| General   | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
+| Seguridad | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+
+## Preferencias
 
 `PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edita la zona horaria del usuario con sesión iniciada, la única preferencia de visualización que se guarda con la cuenta. Lee la zona guardada de la consulta de la sesión actual.
 
@@ -15,12 +20,34 @@ description: "Las pantallas /admin/settings y /app/settings: la preferencia de z
 
 El idioma no se guarda: es el locale de la URL, se cambia con `LocaleSelect` y también decide el orden de las fechas, el reloj de 12 o 24 horas y los separadores de los números.
 
-`PreferencesCardPending`, en `preferences-card-pending.tsx`, es su esqueleto en `AdminSettingsPending` y `AppSettingsPending`. Tiene un archivo propio porque todas las páginas cargan los esqueletos y el archivo de la tarjeta contiene el formulario (consulta [Rendimiento](/docs/conventions/performance#skeletons-stay-in-the-entry-script)).
+## Dirección de correo
 
-## Seguridad (real)
+`EmailCard` muestra la dirección y si está verificada, y **Cambiar el correo** abre `ChangeEmailForm` (`custom/auth/change-email-form.tsx`), el formulario que usa el banner de verificación. Llama a `changeEmail` (con sesión, limitada). Una dirección verificada cambia en dos pasos: Better Auth envía a la dirección actual un enlace de confirmación (`ChangeEmailConfirmationEmail`) y, cuando se abre, envía un enlace de verificación a la nueva dirección, que guarda el cambio. Los dos enlaces vuelven a la página en la que empezó el cambio. Una dirección sin verificar cambia al momento y recibe un nuevo enlace de verificación. Cuando la nueva dirección ya tiene una cuenta, Better Auth no envía nada y responde igual que con cualquier otra dirección, así que el aviso dice que el enlace está en camino si la dirección se puede usar.
 
-- `SettingsPasswordForm` pide la contraseña actual y la nueva, cada una con un botón para mostrarla u ocultarla y sin campo de confirmación, marca la regla de longitud de la nueva con `PasswordRequirements` y llama a `changePassword` (`src/modules/account/use-cases/change-password.ts`, con sesión y limitada). Al completarse actualiza la lista de sesiones.
-- `SettingsTwoFactor` activa o desactiva TOTP ([Autenticación en dos pasos](/docs/features/two-factor)).
-- `SettingsSessions` lista y revoca sesiones ([Sesiones](/docs/features/sessions)).
+## Contraseña
 
-La pestaña **General** contiene solo `PreferencesCard`. No hay perfil del espacio de trabajo ni espacio de trabajo que eliminar: la aplicación no tiene un modelo de espacio de trabajo (consulta [Organizaciones](/docs/features/organizations)). `updateUser` y `changeEmail` en `src/modules/account/use-cases` son las funciones de servidor que hay que conectar al crear un formulario de perfil.
+`PasswordCard` lee los métodos de inicio de sesión. Si la cuenta tiene contraseña, pide la actual y la nueva y llama a `changePassword` (con sesión, limitada), que siempre cierra todas las demás sesiones. Una cuenta que solo inicia sesión con GitHub o Google ve en su lugar **Establecer una contraseña**, que llama a `setPassword` (con sesión, limitada): el `setPassword` de Better Auth, que solo existe en el servidor, y después `revokeOtherSessions`. Los dos formularios marcan la regla de longitud con `PasswordRequirements`, muestran bajo el campo una contraseña encontrada en una filtración de datos conocida y terminan con `PasswordChangedEmail` a la cuenta, que envía el hook `password-change-notice` en un cambio y `setPassword` en una contraseña nueva.
+
+## Autenticación en dos pasos
+
+`TwoFactorCard` muestra si TOTP está activado y abre `TwoFactorDialog` para activarlo, desactivarlo o crear nuevos códigos de respaldo, siempre después de la contraseña actual. A una cuenta sin contraseña se le pide que establezca una primero, porque el segundo factor protege el inicio de sesión con contraseña. Consulta [Autenticación en dos pasos](/docs/features/two-factor).
+
+## Cuentas conectadas
+
+`ConnectedAccountsCard` lista GitHub y Google a partir de `OAUTH_PROVIDERS`, con la fecha en que se conectó cada uno. **Conectar** llama desde el navegador a `linkSocial` de Better Auth, que pasa por el proveedor y vuelve a `?tab=security`; un fallo vuelve como `?error=` y muestra su mensaje de `auth.errors` en la tarjeta. Better Auth vincula una cuenta cuya dirección en el proveedor difiere de la de la cuenta (`accountLinking.allowDifferentEmails`), porque es el propietario con sesión iniciada quien inicia la vinculación. **Desconectar** llama a `unlinkAccount` (con sesión, limitada) con el ID de la fila de la cuenta. La tarjeta solo lo ofrece mientras la cuenta tenga otra forma de iniciar sesión, y Better Auth se niega en cualquier caso a desvincular la última; a una cuenta cuya única forma de entrar es un proveedor se le pide que primero establezca una contraseña o conecte otra cuenta.
+
+## Sesiones
+
+`SessionsCard` lista los navegadores con sesión iniciada, empezando por el actual. Consulta [Sesiones](/docs/features/sessions).
+
+## Eliminar la cuenta [#delete-account]
+
+`DeleteAccountCard` enumera lo que elimina el borrado: el perfil, los métodos de inicio de sesión, la configuración de la autenticación en dos pasos y el progreso en los cursos, seguidos de los avisos que añaden otras áreas (`ACCOUNT_DELETION_NOTICES` en `src/data/account-deletion.ts`, reunidos desde `src/data/<area>.account-deletion.ts`). Cada aviso tiene un componente y los datos que carga su página. El área de licencias añade `LicenseDeletionNotice`, que se muestra mientras la cuenta tiene una licencia activa: la licencia termina con la cuenta, su clave deja de funcionar, eliminar la cuenta no reembolsa nada y la función de desistimiento va primero. El área legal añade `AccountDeletionRecords`: los registros de pagos e impuestos, y la licencia con sus registros de entrega, se conservan tal como describe la Política de Privacidad, ya sin vínculo con la cuenta.
+
+**Eliminar la cuenta** abre un diálogo que pide la contraseña actual, o nada en una cuenta sin contraseña, y llama a `requestAccountDeletion` (con sesión, limitada). Better Auth comprueba la contraseña y llama a `sendDeleteAccountVerification`, y `sendDeleteAccountEmail` envía por correo un enlace a `/app/settings/delete-account?token=…` en el idioma de la página. El enlace funciona durante `EMAIL_LINK_LIFETIME_HOURS`. Esa página (`src/routes/app.settings_.delete-account.tsx`) está detrás del inicio de sesión de `/app`, repite las consecuencias y solo elimina la cuenta cuando se pulsa **Eliminar mi cuenta**: `confirmAccountDeletion` (con sesión, limitada como un token) pasa el token a `deleteUser` de Better Auth, que elimina el usuario y sus sesiones y hace caducar la cookie, y la página quita de la caché de consultas los datos de la cuenta, va a la página de inicio y lo indica. Un enlace abierto en otro lugar pide primero iniciar sesión, y una página sin token ofrece el camino de vuelta a Ajustes. Abrir el enlace no hace nada por sí solo, así que un escáner de correo que sigue enlaces no puede eliminar una cuenta.
+
+Eliminar el usuario borra en cascada sus sesiones, sus métodos de inicio de sesión, su fila de dos factores y su progreso en los cursos; su licencia, las copias de los pedidos y suscripciones de Polar y cualquier declaración de desistimiento conservan sus filas sin usuario, como indica la [Política de Privacidad](/privacy), y una licencia activa se revoca antes ([Licencias](/docs/features/licences#records-and-refunds)).
+
+## Esqueletos
+
+`PreferencesCardPending`, en `preferences-card-pending.tsx`, y `SettingsTabsPending`, `EmailCardPending` y `DeleteAccountCardPending`, en `custom/settings/settings-pending.tsx`, dibujan `AdminSettingsPending`, `AppSettingsPending` y `AppDeleteAccountPending`. Tienen archivos propios porque todas las páginas cargan los esqueletos y los archivos de las tarjetas contienen los formularios (consulta [Rendimiento](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Un esqueleto dibuja la pestaña General.

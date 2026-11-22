@@ -7,16 +7,23 @@ description: "アカウントモジュール: Better Auth の account テーブ�
 
 ## ユースケース
 
-| ユースケース                       | ミドルウェア               | 利用箇所                               |
-| ---------------------------------- | -------------------------- | -------------------------------------- |
-| `signUpWithPassword`               | レート制限                 | `SignUpForm`                           |
-| `signOutUser`                      | サインイン必須             | `useSignOut`                           |
-| `changePassword`                   | サインイン必須、レート制限 | `SettingsPasswordForm`                 |
-| `changeEmail`                      | サインイン必須、レート制限 | 画面からは未使用                       |
-| `updateUser`                       | サインイン必須             | 画面からは未使用                       |
-| `sendChangeEmailConfirmationEmail` | Better Auth のフック       | `auth.server.ts` の `user.changeEmail` |
+| ユースケース                       | ミドルウェア               | 利用箇所                                                                      |
+| ---------------------------------- | -------------------------- | ----------------------------------------------------------------------------- |
+| `signUpWithPassword`               | レート制限                 | `SignUpForm`                                                                  |
+| `signOutUser`                      | サインイン必須             | `useSignOut`                                                                  |
+| `changePassword`                   | サインイン必須、レート制限 | `PasswordCard`                                                                |
+| `setPassword`                      | サインイン必須、レート制限 | `PasswordCard`                                                                |
+| `changeEmail`                      | サインイン必須、レート制限 | `ChangeEmailForm`                                                             |
+| `listAccounts`                     | サインイン必須             | `PasswordCard`、`TwoFactorCard`、`ConnectedAccountsCard`、`DeleteAccountCard` |
+| `unlinkAccount`                    | サインイン必須、レート制限 | `ConnectedAccountsCard`                                                       |
+| `updateUser`                       | サインイン必須             | 画面からは未使用                                                              |
+| `sendChangeEmailConfirmationEmail` | Better Auth のフック       | `auth.server.ts` の `user.changeEmail`                                        |
 
-`sendChangeEmailConfirmationEmail` は、Better Auth が発行した確認リンクを含む `ChangeEmailConfirmationEmail` を現在のアドレスへ送信します。
+`sendChangeEmailConfirmationEmail` は、Better Auth が発行した確認リンクを含む `ChangeEmailConfirmationEmail` を現在のアドレスへ送信します。`changePassword` は、ほかのセッションを必ず失効させます。`setPassword` は、GitHub または Google だけでサインインするアカウントに、Better Auth のサーバー専用の `setPassword` を通じてパスワードを追加し、ほかのセッションを失効させて `PasswordChangedEmail` を送信します。`listAccounts` は各サインイン方法の行 ID、プロバイダー、作成日をトークンなしで返し、`unlinkAccount` は行 ID を Better Auth の `unlinkAccount` に渡します。Better Auth は最後の 1 つの連携解除を拒否します。
+
+## アカウントの削除
+
+削除するとユーザーが消えるため、そのユースケースは user モジュールにあります。`requestAccountDeletion`（サインイン必須、レート制限）は Better Auth の `deleteUser` にパスワードの確認と確認リンクのメール送信を依頼し、`confirmAccountDeletion`（サインイン必須、トークンとしてレート制限）はリンクのトークンでアカウントを削除します。`sendDeleteAccountEmail`（`src/modules/user/use-cases/send-delete-account-email.ts`）は `sendDeleteAccountVerification` フックです。[設定](/docs/features/settings#delete-account)を参照してください。
 
 ## 環境設定
 

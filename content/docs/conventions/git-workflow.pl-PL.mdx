@@ -1,9 +1,9 @@
 ---
 title: "Git i pull requesty"
-description: "Konwencjonalne commity z hookiem dodającym emoji, jeden worktree na gałąź z własnymi hookami, liniowa historia utrzymywana rebase’em, małe pull requesty, które aktualizują każdą dokumentację, której dotyczą, i żadnej atrybucji AI."
+description: "Konwencjonalne commity z hookiem dodającym emoji, jeden worktree na gałąź z własnymi hookami, liniowa historia utrzymywana rebase’em, małe pull requesty, które aktualizują całą dokumentację, której dotyczą, i żadnych wzmianek o udziale AI."
 ---
 
-Historia `main` jest częścią produktu: każdy pull request scalony przez squash to jeden wiersz, który mówi, co zmieniło się dla osób korzystających z kodu.
+Historia `main` jest częścią produktu: każdy pull request scalony metodą squash to jeden wiersz, który mówi, co zmieniło się dla osób korzystających z kodu.
 
 ## Commity
 
@@ -18,16 +18,16 @@ git commit -m "fix(auth): keep the locale in verification links"
 - Typem jest `feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎 lub `revert` 🗑️; hook odrzuca każdy inny. Nigdy nie wpisuj emoji samodzielnie: hook nie sprawdza tematu, który już się od niego zaczyna.
 - Dziel pull request na logiczne commity: funkcję, jej dokumentację jako `docs(<scope>)` oraz poprawki znalezione po drodze.
 - Nigdy nie commituj z `--no-verify`. Hook `pre-commit` uruchamia `bun run check:pre-commit`; gdy kończy się błędem, usuń przyczynę.
-- Formatuj i lintuj tylko pliki, które zmieniłeś, przez `bunx vp fmt <files>` i `bunx vp lint --fix <files>`. Nie uruchamiaj `bun run check:fix` ani `vp check --fix` na całym repozytorium: przepisują pliki, których nie dotykałeś, w tym współdzielone ustawienia edytora w `.vscode/settings.json`. Jeśli `.vscode/` pojawi się w `git status`, przywróć go z `HEAD`.
+- Formatuj i lintuj tylko zmienione pliki, przez `bunx vp fmt <files>` i `bunx vp lint --fix <files>`. Nie uruchamiaj `bun run check:fix` ani `vp check --fix` na całym repozytorium: przepisują pliki, których zmiana nie dotyczy, w tym współdzielone ustawienia edytora w `.vscode/settings.json`. Jeśli `.vscode/` pojawi się w `git status`, przywróć go z `HEAD`.
 
-## Bez atrybucji AI
+## Bez wzmianek o AI
 
-Commity i opisy pull requestów nie zawierają trailera `Co-Authored-By` dla narzędzia AI, wiersza „Generated with” ani żadnej innej atrybucji AI, nawet jeśli narzędzie dodaje ją domyślnie. GitHub przypisuje adres z takiego trailera do niezwiązanego konta, które następnie pojawia się jako współtwórca repozytorium. Hook `commit-msg` odrzuca komunikat commita zawierający taką atrybucję i wskazuje wiersz do usunięcia (zobacz [Konwencjonalne commity](/docs/tooling/conventional-commits)). To samo dotyczy poprawek zgłaszanych do projektów źródłowych (zobacz [Zależności](/docs/conventions/dependencies)).
+Commity i opisy pull requestów nie zawierają trailera `Co-Authored-By` dla narzędzia AI, wiersza „Generated with” ani żadnej innej wzmianki o udziale AI, nawet jeśli narzędzie dodaje ją domyślnie. GitHub przypisuje adres z takiego trailera do niezwiązanego konta, które następnie pojawia się jako współtwórca repozytorium. Hook `commit-msg` odrzuca komunikat commita, który zawiera taki wpis, i wskazuje wiersz do usunięcia (zobacz [Konwencjonalne commity](/docs/tooling/conventional-commits)). To samo dotyczy poprawek zgłaszanych do projektów źródłowych (zobacz [Zależności](/docs/conventions/dependencies)).
 
 ## Gałęzie i worktree
 
 - Twórz gałąź od `main`, jedną gałąź na pull request.
-- Każdej gałęzi daj własny worktree Gita zamiast przełączać gałąź w istniejącym checkoucie, aby nigdy nie zmienić checkoutu, który ma otwarty edytor lub inny proces:
+- Każdej gałęzi daj własny worktree Gita, zamiast przełączać gałąź w istniejącej kopii roboczej, aby nigdy nie zmienić kopii roboczej, którą ma otwartą edytor lub inny proces:
 
 ```sh
 git worktree add ../saasyland-fix-locale -b fix/locale-links main
@@ -35,24 +35,24 @@ cd ../saasyland-fix-locale
 bun install --frozen-lockfile
 ```
 
-- Zanim zaufasz wynikom testów, sprawdź `git branch --show-current` w katalogu, w którym testowałeś.
+- Zanim zaufasz wynikom testów, sprawdź `git branch --show-current` w katalogu, w którym uruchomiono testy.
 
 ### Hooki w każdym worktree [#hooks-in-every-worktree]
 
 Git odczytuje `core.hooksPath` z konfiguracji, którą współdzielą wszystkie worktree repozytorium, a Vite+ ustawia w niej ścieżkę względną `.vite-hooks/_`, więc Git uruchamia dyspozytor hooków tego worktree, w którym tworzysz commit. Dyspozytor jest generowany i nigdy nie trafia do commita, dlatego każdy worktree potrzebuje własnego, a tam, gdzie go brakuje, Git bez ostrzeżenia pomija hooki. Instalują go dwa kroki:
 
-- `git worktree add` uruchamia hook `post-checkout` checkoutu, z którego wywołujesz polecenie, a `.vite-hooks/post-checkout` instaluje dyspozytor nowego worktree poleceniem `vp hooks enable`. Commit utworzony przed `bun install` kończy się wtedy błędem w hooku `pre-commit`, zamiast go pominąć.
+- `git worktree add` uruchamia hook `post-checkout` kopii roboczej, w której wywołujesz polecenie, a `.vite-hooks/post-checkout` instaluje dyspozytor nowego worktree poleceniem `vp hooks enable`. Commit utworzony przed `bun install` kończy się wtedy błędem w hooku `pre-commit`, zamiast go pominąć.
 - `bun install` uruchamia `prepare`, który odświeża dyspozytor poleceniem `vp config --no-agent`, a potem uruchamia `scripts/verify-git-hooks.ts`. Instalacja kończy się błędem, gdy `core.hooksPath` ma inną wartość niż `.vite-hooks/_` albo gdy w dyspozytorze brakuje hooka z `.vite-hooks/`, a komunikat błędu podaje polecenie, które to naprawia.
 
-Nigdy nie ustawiaj `core.hooksPath` na inną wartość i nigdy nie przekazuj Gitowi `-c core.hooksPath`. Dopóki to ustawienie zawierało bezwzględną ścieżkę do dyspozytora głównego checkoutu, `vp config` nie instalował dyspozytora w pozostałych worktree, a gdy następne `bun install` w głównym checkoucie przywróciło ścieżkę względną, commity w tych worktree powstawały bez hooków. `vp hooks status` pokazuje, czy hooki są aktywne w danym worktree.
+Nigdy nie ustawiaj `core.hooksPath` na inną wartość i nigdy nie przekazuj Gitowi `-c core.hooksPath`. Dopóki to ustawienie zawierało bezwzględną ścieżkę do dyspozytora głównej kopii roboczej, `vp config` nie instalował dyspozytora w pozostałych worktree, a gdy następne `bun install` w głównej kopii roboczej przywróciło ścieżkę względną, commity w tych worktree powstawały bez hooków. `vp hooks status` pokazuje, czy hooki są aktywne w danym worktree.
 
 ## Liniowa historia [#linear-history]
 
-Ruleset, który chroni `main` na GitHubie, wymaga liniowej historii, przyjmuje pull requesty wyłącznie przez kolejkę scalania, która łączy każdy z nich w jeden commit squash, i odrzuca force-push, więc każdy pull request trafia do `main` jako jeden commit. Gałęzie pull requestów również pozostają liniowe:
+Zestaw reguł, który chroni `main` na GitHubie, wymaga liniowej historii, przyjmuje pull requesty wyłącznie przez kolejkę scalania, która łączy commity każdego z nich w jeden (squash), i odrzuca force-push, więc każdy pull request trafia do `main` jako jeden commit. Gałęzie pull requestów również pozostają liniowe:
 
 - Nigdy nie twórz commita scalającego, ani na `main`, ani na gałęzi pull requesta: nie scalaj `main` do gałęzi i nie rozwiązuj konfliktów w commicie scalającym.
-- Aktualizuj gałąź, robiąc jej rebase na `main`, poleceniem `gh pr update-branch --rebase` albo poleceniami `git fetch origin` i `git rebase origin/main`, gdy jest w konflikcie z `main`. Pull request bez konfliktów nie potrzebuje rebase’u, żeby zostać scalony: kolejka scalania testuje go na szczycie najnowszego `main`.
-- Gdy GitHub nie może zrobić rebase’u pull requesta z kilkoma commitami, wprowadź go ponownie jako jeden commit na szczycie `main`: połącz gałąź w jeden commit na jej bazie scalania, a potem zrób rebase tego commita, dzięki czemu każdy konflikt rozwiązujesz tylko raz:
+- Gdy gałąź jest w konflikcie z `main`, zaktualizuj ją, robiąc rebase na `main`: poleceniem `gh pr update-branch --rebase` albo poleceniami `git fetch origin` i `git rebase origin/main`. Pull request bez konfliktów nie potrzebuje rebase’u, żeby zostać scalony: kolejka scalania testuje go na najnowszym `main`.
+- Gdy GitHub nie może zrobić rebase’u pull requesta z kilkoma commitami, wprowadź go ponownie jako jeden commit oparty na `main`: połącz gałąź w jeden commit na jej bazie scalania, a potem zrób rebase tego commita, dzięki czemu każdy konflikt rozwiązujesz tylko raz:
 
 ```sh
 git fetch origin
@@ -66,34 +66,34 @@ git push --force-with-lease
 
 ## Pull requesty
 
-- **Małe i ukierunkowane.** Jedna poprawka, jedna funkcja lub jeden refaktoring na pull request. Duża funkcja staje się stosem pull requestów, z których każdy da się przejrzeć osobno, tak jak powstawały wideo, kursy i administracja kursami.
-- **Tytuł jest commitem squash.** Używaj formatu commitów bez emoji; tytuł staje się tematem na `main`, który GitHub kończy na `(#<number>)`. `scripts/enqueue-pr.ts` dodaje emoji, które dodałby hook commitów, gdy umieszcza pull request w kolejce scalania.
-- **Opis** zawiera `## Summary` z tym, co się zmieniło i dlaczego, `## Test plan` z uruchomionymi poleceniami i ich wynikami oraz listę `## Docs` ze zaktualizowanymi stronami, sekcjami README i tekstami. Pisz go prosto, bez języka marketingowego.
-- **Brak automatycznego przeglądu.** Ruleset `main` ma regułę `copilot_code_review` z `review_on_push: true`, ale według stanu na 22 listopada 2026 GitHub Copilot nie przejrzał żadnego pull requesta od #70, więc pull requesty nie dostają automatycznego przeglądu. Nawet przegląd byłby tylko doradczy: niczego by nie zatwierdzał ani nie blokował, bo ruleset nie wymaga żadnej zatwierdzającej recenzji.
-- **Każdy pull request aktualizuje to, co czyni nieaktualnym:** README, strony dokumentacji we wszystkich językach oraz wszelkie teksty serwisu i deklaracje na stronie głównej, których dotyczy, a do tego dodaje własny [wpis w historii zmian](#changelog-entries). Nieścisłość znaleziona w kodzie, którego nie zmieniałeś, dostaje własny pull request. README nie może wyświetlać wartości z kodu, więc czyta go `src/__test__/readme.test.ts`: każda podana w nim wersja, port, liczba i próg musi być równa wartości w kodzie lub w `REPOSITORY_FACTS`, każda inna liczba kończy się błędem, chyba że jest datą albo jednym z faktów zewnętrznych, które wymienia test, każde polecenie `bun run` musi wskazywać skrypt z `package.json`, a każdy wymieniony plik, trasa i reguła lintera musi istnieć.
+- **Małe i ukierunkowane.** Jedna poprawka, jedna funkcja lub jeden refaktoring na pull request. Duża funkcja staje się serią pull requestów, z których każdy da się przejrzeć osobno, tak jak powstawały filmy, kursy i panel administracyjny kursów.
+- **Tytuł staje się commitem squash.** Używaj formatu commitów bez emoji; tytuł staje się tematem na `main`, który GitHub kończy na `(#<number>)`. `scripts/enqueue-pr.ts` dodaje emoji, które dodałby hook commitów, gdy umieszcza pull request w kolejce scalania.
+- **Opis** zawiera `## Summary` z tym, co się zmieniło i dlaczego, `## Test plan` z uruchomionymi poleceniami i ich wynikami oraz listę `## Docs` z zaktualizowanymi stronami, sekcjami README i tekstami. Pisz go prosto, bez języka marketingowego.
+- **Bez automatycznego przeglądu.** Ruleset gałęzi `main` ma regułę `copilot_code_review` z `review_on_push: true`, ale według stanu na 22 listopada 2026 GitHub Copilot nie przejrzał żadnego pull requesta od #70, więc pull requesty nie przechodzą automatycznego przeglądu. Nawet taki przegląd byłby tylko doradczy: niczego by nie zatwierdzał ani nie blokował, bo ruleset nie wymaga zatwierdzenia przez recenzenta.
+- **Każdy pull request aktualizuje to, co przez niego przestaje być prawdą:** README, strony dokumentacji we wszystkich językach oraz wszelkie teksty serwisu i deklaracje na stronie głównej, których dotyczy, a do tego dodaje własny [wpis na liście zmian](#changelog-entries). Nieścisłość znaleziona w kodzie, którego zmiana nie dotyczy, dostaje własny pull request. README nie może wyświetlać wartości z kodu, więc czyta go `src/__test__/readme.test.ts`: każda podana w nim wersja, port, liczba i próg musi być równa wartości w kodzie lub w `REPOSITORY_FACTS`, każda inna liczba powoduje błąd, chyba że jest datą albo jednym z faktów zewnętrznych, które wymienia test, każde polecenie `bun run` musi wskazywać skrypt z `package.json`, a każdy wymieniony plik, trasa i reguła lintera musi istnieć.
 
 ## Scalanie [#merging]
 
-Pull request trafia do `main` wyłącznie przez kolejkę scalania GitHuba (merge queue). Gdy jego kontrole są zielone, a wpis w historii zmian jest na miejscu, umieść go w kolejce, podając jego numer:
+Pull request trafia do `main` wyłącznie przez kolejkę scalania GitHuba (merge queue). Gdy jego kontrole są zielone, a wpis na liście zmian jest na miejscu, umieść go w kolejce, podając jego numer:
 
 ```sh
 bun scripts/enqueue-pr.ts 280
 ```
 
-Skrypt kończy się błędem przy tytule niezgodnym z formatem commitów, ustawia jako tytuł temat, który napisałby hook commitów, razem z emoji, i uruchamia `gh pr merge --auto --squash`, które dodaje pull request do kolejki, gdy tylko jego kontrole przejdą. Kolejka testuje każdy pull request na szczycie `main` i pull requestów przed nim, tymi samymi kontrolami, które uruchomił pull request, buduje kilka z nich naraz i wprowadza grupę pull requestów do `main` razem, gdy każdy z nich przejdzie, więc nikt nie musi robić rebase’u gotowego pull requesta, żeby go scalić. Pull request, który nie przejdzie w kolejce, opuszcza ją; popraw go i ponownie umieść w kolejce. Nigdy nie scalaj pull requesta ręcznie ani z pominięciem kolejki: to przebieg kolejki przetestował commit, który trafia do `main`, a `deploy.yml` ponownie uruchamia wszystkie kontrole dla commita, który ją pominął.
+Skrypt kończy się błędem przy tytule niezgodnym z formatem commitów, ustawia jako tytuł temat, który napisałby hook commitów, razem z emoji, i uruchamia `gh pr merge --auto --squash`, które dodaje pull request do kolejki, gdy tylko jego kontrole przejdą. Kolejka testuje każdy pull request na `main` razem z pull requestami, które są przed nim w kolejce, tymi samymi kontrolami, które uruchomił pull request, buduje kilka z nich naraz i wprowadza grupę pull requestów do `main` razem, gdy każdy z nich przejdzie, więc nikt nie musi robić rebase’u gotowego pull requesta, żeby go scalić. Pull request, który nie przejdzie w kolejce, opuszcza ją; popraw go i ponownie umieść w kolejce. Nigdy nie scalaj pull requesta ręcznie ani z pominięciem kolejki: to przebieg kolejki przetestował commit, który trafia do `main`, a `deploy.yml` ponownie uruchamia wszystkie kontrole dla commita, który ją pominął.
 
-## Wpisy w historii zmian [#changelog-entries]
+## Wpisy na liście zmian [#changelog-entries]
 
-Każdy pull request dodaje własny wpis do [historii zmian](/docs/project/changelog), dzięki czemu pull requesty otwarte równolegle nigdy nie edytują tego samego pliku.
+Każdy pull request dodaje własny wpis do [listy zmian](/docs/project/changelog), dzięki czemu pull requesty otwarte równolegle nigdy nie edytują tego samego pliku.
 
 - **Nazwij go numerem pull requesta.** Otwórz pull request, a potem dodaj `content/changelog/<number>.<locale>.mdx` we wszystkich językach: listę punktowaną bez frontmattera opisującą, co zmienia się dla osób korzystających z kodu, z linkami do stron dokumentacji, których dotyczy.
-- **Nigdy nie wpisuj daty ani numeru pull requesta.** Strona historii zmian bierze dzień każdego wpisu, a informacje o wydaniu jego wydanie, z historii Gita: dzień (UTC) commita squash, którego temat GitHub kończy na `(#<number>)`. Dopóki pull request nie zostanie scalony, jego wpis jest wymieniony w sekcji **Niewydane**. Numer biorą z nazwy pliku: strona kończy każdy punkt wpisu linkiem do jego pull requesta, a w przypadku wpisu nazwanego od commita linkiem do tego commita, natomiast informacje o wydaniu kończą każdy punkt na `(#<number>)`, co GitHub zamienia w link. Po wdrożeniu strona linkuje też każdy wpis do [wydania](/docs/tooling/ci-cd#releases-and-tags), które dostarczyło go jako pierwsze.
+- **Nigdy nie wpisuj daty ani numeru pull requesta.** Strona listy zmian bierze dzień każdego wpisu, a informacje o wydaniu – jego wydanie, z historii Gita: dzień (UTC) commita squash, którego temat GitHub kończy na `(#<number>)`. Dopóki pull request nie zostanie scalony, jego wpis jest wymieniony w sekcji **Niewydane**. Numer biorą z nazwy pliku: strona kończy każdy punkt wpisu linkiem do jego pull requesta, a w przypadku wpisu nazwanego od commita linkiem do tego commita, natomiast informacje o wydaniu kończą każdy punkt na `(#<number>)`, co GitHub zamienia w link. Po wdrożeniu strona linkuje też każdy wpis do [wydania](/docs/tooling/ci-cd#releases-and-tags), w którym pojawił się po raz pierwszy.
 - **CI to sprawdza.** W pull requeście `bun run check` kończy się błędem, dopóki brakuje `content/changelog/<number>.en-US.mdx`, a `check:i18n` porównuje z nim każde tłumaczenie tak jak stronę dokumentacji. Błędem kończy się też plik nazwany ani numerem pull requesta, ani pełnym hashem commita: nieliczne zmiany, które trafiły do `main` bez pull requesta, noszą nazwę swojego commita.
-- **Niewydany może być tylko Twój własny wpis.** W CI build strony kończy się błędem, dopóki historia zmian pokazywałaby w sekcji **Niewydane** wpis, którego nie powinno tam być: w pull requeście do `main` każdy wpis poza wpisem samego pull requesta, a w kolejce scalania i na `main` każdy wpis. Gałąź kolejki scalania zawiera już commit squash każdego pull requesta ze swojej grupy, więc każdy z ich wpisów ma swój dzień. Lokalny build, który nie ma `GITHUB_REF`, pokazuje wszystkie niescalone wpisy. To wyłapuje wpis, który przetrwał swój pull request: `content/changelog/219.<locale>.mdx` został w repozytorium, gdy #219 zamknięto bez scalenia, powtarzał wpis #220 i był widoczny na produkcji w sekcji **Niewydane**, dopóki #254 go nie usunął.
+- **Niewydany może być tylko Twój własny wpis.** W CI build strony kończy się błędem, jeśli lista zmian pokazywałaby w sekcji **Niewydane** wpis, którego nie powinno tam być: w pull requeście do `main` każdy wpis poza wpisem samego pull requesta, a w kolejce scalania i na `main` każdy wpis. Gałąź kolejki scalania zawiera już commit squash każdego pull requesta ze swojej grupy, więc każdy z ich wpisów ma swój dzień. Lokalny build, który nie ma `GITHUB_REF`, pokazuje wszystkie niescalone wpisy. To wyłapuje wpis, który przetrwał swój pull request: `content/changelog/219.<locale>.mdx` został w repozytorium, gdy #219 zamknięto bez scalenia, powtarzał wpis #220 i był widoczny na produkcji w sekcji **Niewydane**, dopóki #254 go nie usunął.
 
 ## Kontrole
 
-CI uruchamia `bun run check` i `bun run test:coverage`, buduje testowego Workera, uruchamia zestaw testów przeglądarkowych w Chromium i przesyła Workera preview do Cloudflare jako wersję, która nie obsługuje ruchu. To przesłanie jest kontrolą, że Cloudflare przyjmuje Workera: limity przesyłania Cloudflare zablokowały już wdrożenie, które przeszło wszystkie inne kontrole. Kolejka scalania uruchamia te same kontrole ponownie na pull requeście razem z `main` i pull requestami przed nim. Zobacz [CI/CD](/docs/tooling/ci-cd).
+CI uruchamia `bun run check` i `bun run test:coverage`, buduje testowego Workera, uruchamia zestaw testów przeglądarkowych w Chromium i przesyła Workera podglądu do Cloudflare jako wersję, która nie obsługuje ruchu. To przesłanie sprawdza, czy Cloudflare przyjmie Workera: limity przesyłania Cloudflare zablokowały już wdrożenie, które przeszło wszystkie inne kontrole. Kolejka scalania uruchamia te same kontrole ponownie na pull requeście razem z `main` i pull requestami przed nim. Zobacz [CI/CD](/docs/tooling/ci-cd).
 
 ## Powiązane strony
 

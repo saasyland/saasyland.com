@@ -1,9 +1,9 @@
 ---
 title: "Testy"
-description: "Projekty Vitest, funkcje pomocnicze testów i wymóg pokrycia."
+description: "Projekty Vitest, funkcje pomocnicze testów i próg pokrycia."
 ---
 
-Vite+ uruchamia Vitest z konfiguracją z `vite.config.ts`. Testy znajdują się w folderze `__test__` obok kodu, który testują, i importują swoje API z `vite-plus/test`.
+Vite+ uruchamia Vitest z konfiguracją z `vite.config.ts`. Testy leżą w folderze `__test__` obok kodu, który sprawdzają, i importują API testowe z `vite-plus/test`.
 
 | Projekt       | Pliki                                                            | Środowisko                                                                                |
 | ------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -21,27 +21,27 @@ bun run test:changed
 bun run test:coverage
 ```
 
-Używaj `bun run test`, a nie `bun test`: wbudowany runner testów Buna ignoruje projekty, środowiska i plik konfiguracyjny Vitest.
+Używaj `bun run test`, a nie `bun test`: wbudowany w Buna runner testów pomija projekty, środowiska i plik inicjalizujący Vitest.
 
 ## Platforma testowa
 
-`src/platform/testing/` zawiera wspólną infrastrukturę testową; wszystko inne znajduje się obok swojego właściciela.
+`src/platform/testing/` zawiera wspólną infrastrukturę testów; wszystko inne leży obok kodu, do którego należy.
 
 - `setup.ts` rejestruje matchery jest-dom i wspólne hooki.
-- `mocks/cloudflare.ts` zastępuje `cloudflare:workers`: D1 to baza `node:sqlite` w pamięci, która stosuje każdą migrację z repozytorium, KV to mapa w pamięci, a każdy bucket R2, `MEDIA` i `BUNDLES`, to magazyn w pamięci obsługujący zakresy i stronicowane listowanie.
-- `mocks/cache.ts` eksportuje `createEdgeCache`, który zastępuje cache Workers zaślepką w testach dostarczania mediów.
-- `lib/server-function.ts` wywołuje funkcje serwerowe przez prawdziwy potok middleware i walidacji TanStack. Dotyczy to projektów `node` i `integration`. W projekcie `component` funkcja serwerowa kończy się błędem, ponieważ jsdom jest przeglądarką.
-- `lib/render.tsx` renderuje komponenty z prawdziwym QueryClient i routerem.
-- `mocks/resend.ts` i `mocks/polar.ts` to ścisłe dublery API Resend i Polar, każdy na liście dublerów swojego obszaru, którą `mocks/providers.entries.ts` łączy z pustą listą obszaru podstawowego z `mocks/core.providers.ts`, a `mocks/providers.ts` kieruje do nich `fetch`. `setup.ts` instaluje je dla każdego testu i kończy błędem test, który wysłał żądanie, jakie dostawca by odrzucił; testowy Worker Playwright (`worker.ts`) także je instaluje.
-- `lib/polar.ts` buduje modele Polar i podpisuje webhooki dla zestawów testów integracyjnych i zestawu testów przeglądarkowych.
+- `mocks/cloudflare.ts` zastępuje `cloudflare:workers`: D1 to baza `node:sqlite` w pamięci, która stosuje każdą migrację z repozytorium, KV to mapa w pamięci, a każdy bucket R2, `MEDIA` i `BUNDLES`, to magazyn w pamięci, który obsługuje zakresy i listowanie ze stronicowaniem.
+- `mocks/cache.ts` eksportuje `createEdgeCache`, który w testach serwowania mediów zastępuje cache Workers zaślepką.
+- `lib/server-function.ts` wywołuje funkcje serwerowe przez prawdziwy potok middleware i walidacji TanStack. Tak jest w projektach `node` i `integration`. W projekcie `component` wywołanie funkcji serwerowej jest odrzucane, ponieważ jsdom pełni tam rolę przeglądarki.
+- `lib/render.tsx` renderuje komponenty z prawdziwym QueryClientem i routerem.
+- `mocks/resend.ts` i `mocks/polar.ts` to ścisłe atrapy API Resend i Polara; każda jest na liście atrap swojego obszaru, którą `mocks/providers.entries.ts` łączy z pustą listą rdzenia w `mocks/core.providers.ts`, a `mocks/providers.ts` kieruje do nich `fetch`. `setup.ts` instaluje je w każdym teście i oznacza jako nieudany test, który wysłał żądanie, jakiego dostawca by nie przyjął; instaluje je też testowy Worker dla Playwrighta (`worker.ts`).
+- `lib/polar.ts` buduje modele Polara i podpisuje webhooki dla testów integracyjnych i testów w przeglądarce.
 
-Zewnętrzne wywołania związane z e-mailami, OAuth i płatnościami nigdy nie opuszczają procesu testowego.
+Wywołania zewnętrznych usług e-mail, OAuth i płatności nigdy nie wychodzą poza proces testów.
 
 ## Pokrycie
 
-`bun run test:coverage` wymusza <RepositoryFact name="coverageThreshold" unit="percent" /> pokrycia linii, instrukcji, funkcji i gałęzi dla `src/**/*.{ts,tsx}`. Wykluczone są testy, foldery `__test__`, pliki deklaracji, `src/routeTree.gen.ts`, prymitywy shadcn i `src/platform/testing/`. Raporty trafiają do `coverage/` w formie tekstowej, HTML i `coverage-summary.json`. Testuj rzeczywiste zachowanie i usuwaj gałęzie, które nigdy nie mogą się wykonać, zamiast podmieniać obiekty globalne, żeby do nich dotrzeć. CI sprawdza wymóg pokrycia przy każdym pull requeście.
+`bun run test:coverage` wymusza <RepositoryFact name="coverageThreshold" unit="percent" /> pokrycia linii, instrukcji, funkcji i gałęzi dla `src/**/*.{ts,tsx}`. Wykluczone są testy, foldery `__test__`, pliki deklaracji, `src/routeTree.gen.ts`, prymitywy shadcn i `src/platform/testing/`. Raporty trafiają do `coverage/` w formie tekstowej, HTML i `coverage-summary.json`. Testuj rzeczywiste zachowanie i usuwaj gałęzie, które nigdy nie mogą się wykonać, zamiast podmieniać obiekty globalne, żeby do nich dotrzeć. CI sprawdza próg pokrycia w każdym pull requeście.
 
-Zestaw testów przeglądarkowych nie wlicza się do tej liczby. [Pokrycie testami](/docs/tooling/test-coverage) podaje go osobno, jako przepływy użytkownika i administratora, które test w przeglądarce wykonuje end-to-end.
+Testy w przeglądarce nie wliczają się do tej liczby. [Pokrycie testami](/docs/tooling/test-coverage) podaje ich pokrycie osobno: jako przepływy użytkownika i administratora, które test w przeglądarce przechodzi od początku do końca.
 
 ## Powiązane przewodniki
 

@@ -1,9 +1,9 @@
 ---
 title: "Pobieranie danych i cache"
-description: "Opcje zapytań i mutacji obok ich funkcji serwerowej, klucze zapytań zawierające każde wejście, publiczne zapytania, które przetrwają zmianę użytkownika, zasady świeżości, loadery, które nigdy nie pobierają ponownie tego, co jest na ekranie, oraz unieważnianie."
+description: "Opcje zapytań i mutacji obok ich funkcji serwerowej, klucze zapytań, które zawierają wszystkie dane wejściowe, publiczne zapytania, które przetrwają zmianę użytkownika, zasady świeżości, loadery, które nigdy nie pobierają ponownie tego, co jest na ekranie, oraz unieważnianie."
 ---
 
-Dane trafiają na ekran przez TanStack Query. Przypadek użycia eksportuje swoje opcje obok funkcji serwerowej, a loader trasy, komponent i test używają tych samych opcji, więc z założenia współdzielą jeden wpis w cache.
+Dane trafiają na ekran przez TanStack Query. Przypadek użycia eksportuje swoje opcje obok funkcji serwerowej, a loader trasy, komponent i test używają tych samych opcji, więc już z samej konstrukcji korzystają z jednego wpisu w cache.
 
 ## Opcje zapytań
 
@@ -24,7 +24,7 @@ export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
 
 ## Klucze zapytań
 
-Klucz zaczyna się od prefiksu modułu z `<table>.constants.ts`, potem następuje operacja, a potem każde wejście, które zmienia wynik:
+Klucz zaczyna się od prefiksu modułu z `<table>.constants.ts`, potem następuje operacja, a potem każdy parametr wejściowy, który wpływa na wynik:
 
 ```ts
 queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale]
@@ -32,7 +32,7 @@ queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug]
 queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 ```
 
-Klucz listy przechowuje sparsowane wejście, więc `getCoursesPageQuery()` i `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` trafiają do tego samego wpisu. Język należy do klucza zawsze wtedy, gdy serwer lokalizuje wynik. Nigdy nie wpisuj klucza bezpośrednio w komponencie: odczytaj go z opcji, a do unieważniania z obiektu `<MODULE>_QUERY_KEYS`.
+Klucz listy przechowuje sparsowane dane wejściowe, więc `getCoursesPageQuery()` i `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` trafiają do tego samego wpisu. Język należy do klucza zawsze wtedy, gdy serwer lokalizuje wynik. Nigdy nie wpisuj klucza bezpośrednio w komponencie: odczytaj go z opcji, a do unieważniania z obiektu `<MODULE>_QUERY_KEYS`.
 
 ## Publiczne zapytania [#public-queries]
 
@@ -48,7 +48,7 @@ export const starCountQuery = queryOptions({
 })
 ```
 
-Tłumaczenia (`messagesQueryOptions`) i liczba gwiazdek na GitHubie (`starCountQuery`) są publiczne. Każde inne zapytanie należy do zalogowanego użytkownika. Gdy użytkownik się zmienia, `removeUserData` w `auth.session.ts` usuwa te zapytania i wszystkie mutacje, a publiczne zachowuje, więc następny użytkownik nigdy nie zobaczy danych poprzedniego, a strona wyrenderowana z góry zachowuje dane, z którymi została wyrenderowana: flaga jest częścią każdego zapytania, które serwer dehydratuje do strony. Zapytanie bez tej flagi zostaje pobrane ponownie dla następnego użytkownika, co kosztuje jedno żądanie, ale nigdy nie prowadzi do wycieku danych, więc oznaczaj zapytanie jako publiczne tylko wtedy, gdy jego funkcja serwerowa nigdy nie odczytuje sesji. `auth.session.test.ts` wykonuje każde publiczne zapytanie i kończy się błędem, jeśli któreś z nich odczytuje sesję albo jeśli plik źródłowy deklaruje publiczne zapytanie, którego test nie wykonuje. Każdy obszar wymienia swoje publiczne zapytania dla tego testu w `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+Tłumaczenia (`messagesQueryOptions`) i liczba gwiazdek na GitHubie (`starCountQuery`) są publiczne. Każde inne zapytanie należy do zalogowanego użytkownika. Gdy użytkownik się zmienia, `removeUserData` w `auth.session.ts` usuwa te zapytania i wszystkie mutacje, a publiczne zachowuje, więc następny użytkownik nigdy nie zobaczy danych poprzedniego, a prerenderowana strona zachowuje dane, z którymi ją wyrenderowano: flaga jest częścią każdego zapytania, które serwer dehydratuje do strony. Zapytanie bez tej flagi zostaje pobrane ponownie dla następnego użytkownika, co kosztuje jedno żądanie, ale nigdy nie prowadzi do wycieku danych, więc oznaczaj zapytanie jako publiczne tylko wtedy, gdy jego funkcja serwerowa nigdy nie odczytuje sesji. `auth.session.test.ts` wykonuje każde publiczne zapytanie i kończy się błędem, jeśli któreś z nich odczytuje sesję albo jeśli plik źródłowy deklaruje publiczne zapytanie, którego test nie wykonuje. Każdy obszar wymienia swoje publiczne zapytania dla tego testu w `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Świeżość
 
@@ -81,9 +81,9 @@ context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" })
 const { license } = useSuspenseQuery(currentLicenseQuery).data
 ```
 
-Dzięki temu przejście na stronę, której dane są już w cache, renderuje się od razu, a nieaktualne dane odświeżają się w tle, zamiast wstrzymywać nawigację.
+Dzięki temu strona, której dane są już w cache, renderuje się od razu po przejściu, a nieaktualne dane odświeżają się w tle, zamiast wstrzymywać nawigację.
 
-Odczyt `"static"` ignoruje też unieważnianie: zwraca dane z cache nawet po tym, jak mutacja je unieważniła, a świeże dane docierają dopiero wtedy, gdy komponent pobierze je ponownie. Dlatego loader czeka na zapytanie z jego własnym `staleTime`, gdy strona nigdy nie może pokazać danych starszych niż to, co odwiedzający właśnie zrobił, albo gdy loader sam potrzebuje danych, do tytułu lub do odpowiedzi 404. Tak robią strony kursów i edytor kursów w administracji, bo ukończenie lekcji lub zapisanie edytora musi pokazać zaktualizowany program na następnym ekranie:
+Odczyt `"static"` ignoruje też unieważnianie: zwraca dane z cache nawet po tym, jak mutacja je unieważniła, a świeże dane docierają dopiero wtedy, gdy komponent pobierze je ponownie. Dlatego loader czeka na zapytanie z jego własnym `staleTime`, gdy strona nie może pokazać danych sprzed ostatniej akcji odwiedzającego albo gdy loader sam potrzebuje danych, do tytułu lub do odpowiedzi 404. Tak robią strony kursów i edytor kursów w panelu administracyjnym, bo po ukończeniu lekcji lub zapisaniu edytora następny ekran musi pokazać zaktualizowany program:
 
 ```ts
 context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
@@ -95,7 +95,7 @@ context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(re
 
 ## Mutacje i unieważnianie
 
-Komponent rozwija opcje mutacji w `useMutation` operatorem spread i dodaje tylko własne callbacki. Po udanym zapisie unieważnia prefiks modułu, a następnie daje informację zwrotną:
+Komponent rozwija opcje mutacji w `useMutation` operatorem spread i dodaje tylko własne callbacki. Po udanym zapisie unieważnia prefiks modułu, a następnie pokazuje komunikat:
 
 ```tsx
 const update = useMutation({
@@ -111,7 +111,7 @@ const update = useMutation({
 - Unieważniaj najwęższy prefiks, który obejmuje każdy ekran pokazujący zmienione dane. Mutacje rozdziałów i lekcji unieważniają `COURSE_QUERY_KEYS.ALL`, ponieważ pokazują je edytor kursu i publiczne strony kursów. `useLessonProgress` unieważnia tylko `COURSE_QUERY_KEYS.DETAIL` i tylko wtedy, gdy lekcja zostanie ukończona.
 - Czekaj na zakończenie unieważniania, zanim przejdziesz na inną stronę lub zamkniesz okno dialogowe, aby następny ekran wyrenderował świeże dane.
 - Błędy przechodzą przez `useErrorMessage()`; zobacz [Funkcje serwerowe i błędy](/docs/conventions/server-functions).
-- Nigdy nie aktualizuj cache ręcznie, żeby udawać wynik. Jedynym wyjątkiem jest sesja: gdy zmienia się zalogowany użytkownik, `loadRouteSession` w `auth.routes.ts` usuwa dane poprzedniego użytkownika za pomocą `removeUserData` i zapisuje nową sesję, więc żadne prywatne dane nie przetrwają wylogowania ani zmiany konta. Zobacz [Publiczne zapytania](#public-queries).
+- Nigdy nie aktualizuj cache ręcznie, żeby upozorować wynik. Jedynym wyjątkiem jest sesja: gdy zmienia się zalogowany użytkownik, `loadRouteSession` w `auth.routes.ts` usuwa dane poprzedniego użytkownika za pomocą `removeUserData` i zapisuje nową sesję, więc żadne prywatne dane nie przetrwają wylogowania ani zmiany konta. Zobacz [Publiczne zapytania](#public-queries).
 
 ## Powiązane strony
 

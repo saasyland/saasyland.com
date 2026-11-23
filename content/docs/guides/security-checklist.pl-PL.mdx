@@ -8,7 +8,7 @@ Przejdź przez tę listę przy każdej zmianie, która dodaje stronę, operację
 ## Dostęp
 
 - [ ] Prywatne strony znajdują się pod chronionym layoutem: `requireAdmin` (`/admin`) lub `requireSignedIn` (`/app`) w `beforeLoad`.
-- [ ] Każda chroniona funkcja serwerowa ma `authorized(permission)` lub `authorized()`. Strażnik trasy nie chroni wywołania RPC.
+- [ ] Każda chroniona funkcja serwerowa ma `authorized(permission)` lub `authorized()`. Guard trasy nie chroni wywołania RPC.
 - [ ] Operacje na własnych danych wywołującego pobierają użytkownika z `context.auth.user.id`, nigdy z danych wejściowych.
 - [ ] Nowe uprawnienia są w `src/data/<area>.access.ts` obszaru, do którego należą, i przypisane tylko rolom, które ich potrzebują.
 - [ ] Testy obejmują `UNAUTHORIZED` i `FORBIDDEN`.
@@ -17,14 +17,14 @@ Przejdź przez tę listę przy każdej zmianie, która dodaje stronę, operację
 
 - [ ] Każda funkcja serwerowa ma `.validator`, który parsuje schemat Zod modułu.
 - [ ] Handlery API walidują parametry zapytania i treść, zanim ich użyją.
-- [ ] Cele przekierowań to wewnętrzne ścieżki: `callbackPathSchema` w `auth.zod.ts` przyjmuje tylko ścieżki zaczynające się od pojedynczego `/` (nie `//` ani `/\`). Używają go parametr wyszukiwania `redirect` stron uwierzytelniania, rejestracja i zmiana adresu e-mail.
+- [ ] Cele przekierowań to wewnętrzne ścieżki: `callbackPathSchema` w `auth.zod.ts` przyjmuje tylko ścieżki zaczynające się od pojedynczego `/` (nie `//` ani `/\`). Używają go parametr URL `redirect` stron uwierzytelniania, rejestracja i zmiana adresu e-mail.
 - [ ] Reguły formularzy obowiązują też na endpointach Better Auth: dla każdego endpointu przyjmującego hasło, imię, e-mail lub obraz dodaj schemat do `INPUT_POLICY` w `auth.hooks.ts`.
 
 ## Nadużycia
 
 - [ ] Publiczne operacje, które wysyłają e-mail, sprawdzają kod lub zużywają token, używają `withRateLimit` z `RATE_LIMITS.SENSITIVE` lub `RATE_LIMITS.TOKEN`.
-- [ ] E-maile, które odwiedzający może wywołać bez konta (weryfikacja, reset hasła, potwierdzenie newslettera), przed wysłaniem sprawdzają `withinRecipientRateLimit`: najwyżej <RepositoryFact name="recipientEmailsPerHour" /> danego rodzaju na adres na godzinę, liczone pod hashem adresu. Po przekroczeniu limitu żądanie dostaje zwykłą odpowiedź, a nic nie zostaje wysłane.
-- [ ] Limiter przechowuje liczniki w D1 dla każdej operacji i adresu IP klienta (`cf-connecting-ip`) i odrzuca żądanie, gdy jego magazyn jest niedostępny. Własne endpointy Better Auth korzystają z tego samego magazynu.
+- [ ] E-maile, które odwiedzający może wywołać bez konta (weryfikacja, reset hasła, potwierdzenie newslettera), przed wysłaniem sprawdzają `withinRecipientRateLimit`: najwyżej <RepositoryFact name="recipientEmailsPerHour" /> danego rodzaju na adres na godzinę, liczone według hasha adresu. Po przekroczeniu limitu żądanie dostaje zwykłą odpowiedź, a nic nie zostaje wysłane.
+- [ ] Mechanizm ograniczania liczby żądań przechowuje liczniki w D1 dla każdej operacji i adresu IP klienta (`cf-connecting-ip`) i odrzuca żądanie, gdy jego magazyn jest niedostępny. Własne endpointy Better Auth korzystają z tego samego magazynu.
 - [ ] E-maile są wysyłane z kluczem idempotencji.
 
 ## Błędy
@@ -35,7 +35,7 @@ Przejdź przez tę listę przy każdej zmianie, która dodaje stronę, operację
 
 ## Sekrety i kod wyłącznie serwerowy
 
-- [ ] Sekrety z `env` w `cloudflare:workers` odczytuje wyłącznie kod serwerowy: moduły wyłącznie serwerowe, handlery funkcji serwerowych i helpery importowane tylko przez nie. `scripts/verify-build.ts` przerywa build, gdy zasób klienta importuje `cloudflare:workers`.
+- [ ] Sekrety z `env` w `cloudflare:workers` odczytuje wyłącznie kod serwerowy: moduły wyłącznie serwerowe, handlery funkcji serwerowych i funkcje pomocnicze importowane tylko przez nie. `scripts/verify-build.ts` przerywa build, gdy plik wysyłany do przeglądarki importuje `cloudflare:workers`.
 - [ ] Żadna prywatna wartość nie ma prefiksu `VITE_`, który udostępniłby ją przeglądarce.
 - [ ] Dane sesji wysyłane do klienta pochodzą z `getCurrentSession`, które usuwa token sesji.
 
@@ -46,18 +46,18 @@ Te ustawienia znajdują się w `auth.server.ts`; zachowaj je przy zmianach konfi
 - [ ] `requireEmailVerification: true` i `revokeSessionsOnPasswordReset: true`.
 - [ ] `useSecureCookies` poza trybami lokalnymi i `baseURL.allowedHosts` ograniczone do hostów danego środowiska.
 - [ ] `encryptOAuthTokens: true` i `verification.storeIdentifier: "hashed"`.
-- [ ] Logowanie, wylogowanie i strażnicy przy zmianie użytkownika usuwają każde zapytanie nieoznaczone `meta: { public: true }` i każdą mutację, a żadne publiczne zapytanie nie odczytuje sesji.
+- [ ] Logowanie, wylogowanie i guardy przy zmianie użytkownika usuwają każde zapytanie nieoznaczone `meta: { public: true }` i każdą mutację, a żadne publiczne zapytanie nie odczytuje sesji.
 
-## Webhooki i wynik builda
+## Webhooki i serwowane treści
 
 - [ ] Webhooki weryfikują podpis przed obsługą treści; Polar używa `POLAR_WEBHOOK_SECRET`.
 - [ ] Strony prywatne i zużywające tokeny pozostają poza prerenderingiem: `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` i `/api` są wyłączone.
 - [ ] Linki z tokenami działają tylko po wyraźnej akcji, nigdy w loaderze: strony potwierdzenia i rezygnacji z newslettera pytają, zanim cokolwiek zrobią.
 - [ ] Buckety R2 pozostają prywatne, bez publicznego dostępu i bez adresu URL `r2.dev`; pliki wideo docierają do przeglądarki wyłącznie przez podpisane ścieżki `/media/`, a paczki szablonów CLI docierają do CLI wyłącznie przez podpisane adresy URL `/bundles/`.
 - [ ] Odpowiedzi zachowują nagłówki bezpieczeństwa: `src/server.ts` ustawia `SECURITY_HEADERS`, a przez HTTPS także `HTTPS_SECURITY_HEADERS`, w każdej odpowiedzi Workera, a reguła `/*` w `public/_headers` daje te same nagłówki plikom serwowanym bez Workera. Zmieniaj nagłówek jednocześnie w `src/modules/_core/constants/api.ts` i w tej regule; `server.test.ts` kończy się błędem, gdy się różnią.
-- [ ] Strony uruchamiają tylko własne skrypty: żadna specyfikacja testów przeglądarkowych nie zgłasza naruszenia Content Security Policy. Ładuj skrypt zewnętrzny z kodu aplikacji, tak jak `AffiliateReferral` ładuje piksel Affonso, żeby dyrektywa `'strict-dynamic'` pozwoliła mu się uruchomić; `<script>` wpisany w stronę dostaje nonce odpowiedzi, więc dodawaj go tylko tam, gdzie jego kod możesz uruchomić jak własny.
+- [ ] Strony uruchamiają tylko własne skrypty: żaden plik testów w przeglądarce nie zgłasza naruszenia Content Security Policy. Ładuj skrypt zewnętrzny z kodu aplikacji, tak jak `AffiliateReferral` ładuje piksel Affonso, żeby dyrektywa `'strict-dynamic'` pozwoliła mu się uruchomić; `<script>` wpisany w stronę dostaje nonce odpowiedzi, więc dodawaj go tylko tam, gdzie jego kod możesz uruchomić jak własny.
 
-## Powiązane poradniki
+## Powiązane przewodniki
 
 - [Przepływy uwierzytelniania](/docs/guides/auth-flows)
 - [Role i uprawnienia](/docs/guides/roles-and-permissions)

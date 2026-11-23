@@ -1,9 +1,9 @@
 ---
 title: "Pisanie testów"
-description: "Gdzie znajdują się testy, jak działają projekty Vitest i testowe bindingi, wymagany próg pokrycia oraz Playwright."
+description: "Gdzie leżą testy, jak działają projekty Vitest i testowe bindingi, próg pokrycia oraz Playwright."
 ---
 
-Vite+ uruchamia Vitest (`vp test`) w trzech projektach. Testy znajdują się w folderze `__test__` obok kodu, który sprawdzają, i importują API z `vite-plus/test`.
+Vite+ uruchamia Vitest (`vp test`) w trzech projektach. Testy leżą w folderze `__test__` obok kodu, który sprawdzają, i importują API z `vite-plus/test`.
 
 | Projekt       | Pliki                            | Środowisko |
 | ------------- | -------------------------------- | ---------- |
@@ -11,7 +11,7 @@ Vite+ uruchamia Vitest (`vp test`) w trzech projektach. Testy znajdują się w f
 | `integration` | `__test__/*.integration.test.ts` | Node       |
 | `component`   | `__test__/*.component.test.tsx`  | jsdom      |
 
-Nazywaj test od pliku źródłowego: `category.zod.ts` testuje `__test__/category.zod.test.ts`.
+Nazywaj test od pliku źródłowego: testy do `category.zod.ts` leżą w `__test__/category.zod.test.ts`.
 
 ## Polecenia
 
@@ -25,17 +25,17 @@ bun run test:changed
 bun run test:coverage
 ```
 
-Używaj `bun run test`, a nie `bun test`: tylko Vitest wczytuje projekty, środowiska i plik konfiguracyjny testów.
+Używaj `bun run test`, a nie `bun test`: tylko Vitest wczytuje projekty, środowiska i plik inicjalizujący testy.
 
-## Wymagane pokrycie
+## Próg pokrycia
 
 `bun run test:coverage` kończy się błędem poniżej **<RepositoryFact name="coverageThreshold" unit="percent" />** linii, instrukcji, funkcji i gałęzi kodu aplikacji w `src`. Wyłączone są testy, `src/platform/testing`, prymitywy shadcn i pliki generowane. Testuj rzeczywiste zachowanie i usuwaj gałęzie, które nigdy się nie wykonają, zamiast podmieniać obiekty globalne, żeby do nich dotrzeć. Raporty trafiają do `coverage/`.
 
 ## Środowisko testów
 
-- `src/platform/testing/setup.ts` rejestruje matchery jest-dom, resetuje bindingi przed każdym testem i przepuszcza każde `createServerFn` przez `withTestRpc`, więc wywołania uruchamiają prawdziwe middleware i walidator. Dotyczy to projektów `node` i `integration`. W projekcie `component` funkcja serwerowa kończy się błędem, ponieważ jsdom jest przeglądarką.
-- `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`. D1 to baza SQLite w pamięci z zastosowanymi wszystkimi zatwierdzonymi migracjami, KV oraz buckety R2 `MEDIA` i `BUNDLES` to mapy w pamięci, a `flushWaitUntil()` czeka na zadania w tle. `createEdgeCache()` z `mocks/cache.ts` zastępuje cache Workers zaślepką.
-- `.env.test` dostarcza fikcyjne dane dostępowe. `fetch` trafia do ścisłych dublerów Resend i Polar (`mocks/resend.ts`, `mocks/polar.ts`), a żądanie do każdego innego hosta kończy się błędem, jakby komputer był offline, więc nic go nie opuszcza. Żądanie, które dostawca by odrzucił, kończy test błędem.
+- `src/platform/testing/setup.ts` rejestruje matchery jest-dom, resetuje bindingi przed każdym testem i przepuszcza każde `createServerFn` przez `withTestRpc`, więc wywołania uruchamiają prawdziwe middleware i walidator. Tak jest w projektach `node` i `integration`. W projekcie `component` wywołanie funkcji serwerowej jest odrzucane, ponieważ jsdom pełni tam rolę przeglądarki.
+- W miejsce `cloudflare:workers` ładowany jest `src/platform/testing/mocks/cloudflare.ts`. D1 to baza SQLite w pamięci ze wszystkimi migracjami z repozytorium, KV oraz buckety R2 `MEDIA` i `BUNDLES` to mapy w pamięci, a `flushWaitUntil()` czeka na zadania w tle. `createEdgeCache()` z `mocks/cache.ts` zastępuje cache Workers zaślepką.
+- `.env.test` dostarcza fikcyjne dane dostępowe. `fetch` trafia do ścisłych atrap Resend i Polara (`mocks/resend.ts`, `mocks/polar.ts`), a żądanie do każdego innego hosta kończy się błędem, jakby komputer był offline, więc nic z niego nie wychodzi. Żądanie, którego dostawca by nie przyjął, oblewa test.
 - `renderWithRouter` z `src/platform/testing/lib/render.tsx` renderuje komponenty z prawdziwym routerem i `QueryClient`.
 
 ## Przetestuj przypadek użycia
@@ -76,9 +76,9 @@ describe("create-category", () => {
 
 Testuj każdy wynik przypadku użycia: sukces, każdy kod `AppError`, brak sesji i brak uprawnienia. Wartości domenowe i kody błędów pochodzą z ich stałych (`CATEGORY_KIND`, `ERROR_CODES`), nigdy z powtarzanych napisów.
 
-## Przetestuj wywołania Resend i Polar
+## Przetestuj wywołania Resend i Polara
 
-Nie mockuj SDK Resend ani Polar. Wywołaj kod, który wysyła żądanie, i sprawdź, co otrzymał dubler. `getSentEmails(recipient)` z `mocks/resend.ts` zwraca dostarczone e-maile wraz z wyrenderowanym HTML-em i kluczem idempotencji; `mocks/polar.ts` przechowuje sesje płatności, zamówienia i klucze licencyjne, a jego funkcje posuwają zakup naprzód: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` i `activatePolarLicenseKey`. Skrócona wersja `src/modules/license/__test__/license-purchase.integration.test.ts`:
+Nie mockuj SDK Resend ani Polara. Wywołaj kod, który wysyła żądanie, i sprawdź, co dostała atrapa. `getSentEmails(recipient)` z `mocks/resend.ts` zwraca dostarczone e-maile wraz z wyrenderowanym HTML-em i kluczem idempotencji; `mocks/polar.ts` przechowuje sesje płatności, zamówienia i klucze licencyjne, a jego funkcje przeprowadzają zakup przez kolejne etapy: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` i `activatePolarLicenseKey`. Skrócona wersja `src/modules/license/__test__/license-purchase.integration.test.ts`:
 
 ```ts
 const buyer = await signUpAndVerify()
@@ -88,9 +88,9 @@ expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATU
 expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
 ```
 
-`paidOrder` tworzy sesję płatności przez prawdziwe `startCheckout` i opłaca ją w dublerze. `deliver` podpisuje zdarzenie przez `signedPolarWebhook` z `lib/polar.ts`, wysyła je do endpointu Polar w Better Auth i zwraca status odpowiedzi, więc wykonują się weryfikacja podpisu, wtyczka i handlery z `license.webhooks.ts`. Aby sprawdzić, jak aplikacja radzi sobie z awarią dostawcy, odpowiedz na pojedyncze żądanie błędem dostawcy, tak jak robi to `resend.utils.test.ts`: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+`paidOrder` tworzy sesję płatności przez prawdziwe `startCheckout` i opłaca ją w atrapie. `deliver` podpisuje zdarzenie przez `signedPolarWebhook` z `lib/polar.ts`, wysyła je do endpointu Polara w Better Auth i zwraca status odpowiedzi, więc wykonują się weryfikacja podpisu, wtyczka i handlery z `license.webhooks.ts`. Aby sprawdzić, jak aplikacja radzi sobie z awarią dostawcy, odpowiedz na pojedyncze żądanie błędem dostawcy, tak jak robi to `resend.utils.test.ts`: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
 
-Dubler sprzedaje tylko to, co obszary wgrywają w `__test__/fixtures/<area>.polar-catalogue.ts`; w obszarze licencji są to jego plany i ich benefity kluczy licencyjnych. Test innego produktu najpierw wgrywa go przez `seedPolarCatalogue`, podając ID, nazwę, cenę w najmniejszej jednostce waluty razem z walutą i okres rozliczeniowy albo `null` dla zakupu jednorazowego, a `createPolarOrder({ externalCustomerId, productId })` zapisuje zamówienie na ten produkt. `createGuestPolarOrder({ email, name, productId })` zapisuje zamówienie, którego klient nie ma zewnętrznego ID, a `setPolarCustomerExternalId(customerId, externalId)` nadaje mu je i zachowuje tak, jak robi to Polar, więc zamówienie zwracane przez dublera wskazuje konto, a wcześniej zbudowane zdarzenia nadal zawierają dawną wersję klienta; w ten sposób `src/data/__test__/license.polar-events.integration.test.ts` odzyskuje zamówienie, które nie pasuje do żadnego konta. Przed następnym testem dubler o nim zapomina. W ten sposób `src/platform/testing/__test__/providers.test.ts` tworzy sesję płatności dla planu miesięcznego. Dubler nie obsługuje subskrypcji: test, który dostarcza zdarzenie subskrypcji, buduje ją za pomocą `polarSubscription({ customer, product, status })` z `lib/polar.ts` dla produktu z cyklicznym interwałem, tak jak robi to `src/data/__test__/billing.polar-events.integration.test.ts`.
+Atrapa sprzedaje tylko to, co obszary zapisują w katalogu w `__test__/fixtures/<area>.polar-catalogue.ts`; w obszarze licencji są to jego pakiety i ich benefity z kluczami licencyjnymi. Test innego produktu najpierw dodaje go przez `seedPolarCatalogue`, podając ID, nazwę, cenę w najmniejszej jednostce waluty razem z walutą i okres rozliczeniowy albo `null` dla zakupu jednorazowego, a `createPolarOrder({ externalCustomerId, productId })` zapisuje zamówienie na ten produkt. `createGuestPolarOrder({ email, name, productId })` zapisuje zamówienie, którego klient nie ma zewnętrznego ID, a `setPolarCustomerExternalId(customerId, externalId)` nadaje mu je i przechowuje tak jak Polar, więc zamówienie zwracane przez atrapę wskazuje konto, a wcześniej zbudowane zdarzenia nadal zawierają dawną wersję klienta; w ten sposób `src/data/__test__/license.polar-events.integration.test.ts` odzyskuje zamówienie, które nie pasuje do żadnego konta. Przed następnym testem atrapa zapomina o tym produkcie. W ten sposób `src/platform/testing/__test__/providers.test.ts` tworzy sesję płatności dla planu miesięcznego. Atrapa nie obsługuje subskrypcji: test, który dostarcza zdarzenie subskrypcji, buduje ją przez `polarSubscription({ customer, product, status })` z `lib/polar.ts` dla produktu z okresem rozliczeniowym, tak jak robi to `src/data/__test__/billing.polar-events.integration.test.ts`.
 
 ## Przetestuj przepływ uwierzytelniania
 
@@ -98,11 +98,11 @@ Zestawy testów uwierzytelniania działają na prawdziwym `auth` z `auth.server.
 
 ## Przetestuj komponent
 
-Testy komponentów renderują z prawdziwymi komunikatami z `messages/en-US`, mockują moduł przypadku użycia, który dostarcza opcje mutacji, i sterują interfejsem przez Testing Library oraz `userEvent`. W stanach oczekiwania wstrzymaj mockowane żądanie przez `Promise.withResolvers()`, sprawdź interfejs oczekiwania, a potem rozwiąż żądanie wewnątrz `act` i sprawdź interfejs spoczynkowy. Komponent, który zmienia się po upływie czasu, testuje się fałszywymi timerami (`vi.useFakeTimers()`, a potem `vi.advanceTimersByTimeAsync` wewnątrz `act`), nigdy czekaniem w czasie rzeczywistym, a `QueryClient` w teście trasy utrzymuje dane pobrane przez loader jako świeże (`staleTime: Infinity`), więc szybkość renderowania na danej maszynie nigdy nie wpływa na to, ile razy wykona się zapytanie. `userEvent.setup({ delay: null })` steruje interfejsem bez prawdziwego timera między naciśnięciami klawiszy. Kompletnym przykładem jest `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Test trasy przekazuje trasie dane loadera, a test `node` pokrywa loader przez `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` i `marketing-loaders.test.ts` to dwie połowy.
+Testy komponentów renderują z prawdziwymi komunikatami z `messages/en-US`, mockują moduł przypadku użycia, który dostarcza opcje mutacji, i sterują interfejsem przez Testing Library oraz `userEvent`. W stanach oczekiwania wstrzymaj mockowane żądanie przez `Promise.withResolvers()`, sprawdź interfejs oczekiwania, a potem rozwiąż żądanie wewnątrz `act` i sprawdź interfejs spoczynkowy. Komponent, który zmienia się po upływie czasu, testuje się fałszywymi timerami (`vi.useFakeTimers()`, a potem `vi.advanceTimersByTimeAsync` wewnątrz `act`), nigdy czekaniem w czasie rzeczywistym, a `QueryClient` w teście trasy utrzymuje dane pobrane przez loader jako świeże (`staleTime: Infinity`), więc szybkość renderowania na danym komputerze nigdy nie wpływa na to, ile razy wykona się zapytanie. `userEvent.setup({ delay: null })` steruje interfejsem bez prawdziwego timera między naciśnięciami klawiszy. Kompletnym przykładem jest `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Test trasy przekazuje trasie dane loadera, a test `node` pokrywa loader przez `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` i `marketing-loaders.test.ts` to dwie połowy.
 
-## Testy przeglądarkowe
+## Testy w przeglądarce
 
-Specyfikacje Playwright znajdują się w `e2e/specs`, obiekty stron w `e2e/pages`, a fixtures w `e2e/fixtures`. Działają na zbudowanej aplikacji testowej z lokalnymi D1, KV i R2 w `.wrangler/test` oraz z kontami z `e2e/data/accounts.ts`. Lokalnie Playwright sam wykonuje migracje, zasila bazę danymi, buduje i uruchamia tę aplikację.
+Pliki testów Playwrighta leżą w `e2e/specs`, obiekty stron w `e2e/pages`, a fixtures w `e2e/fixtures`. Testy działają na zbudowanej aplikacji testowej z lokalnymi D1, KV i R2 w `.wrangler/test` oraz z kontami z `e2e/data/accounts.ts`. Lokalnie Playwright sam wykonuje migracje, wypełnia bazę danymi początkowymi, buduje i uruchamia tę aplikację.
 
 ```sh
 bun run test:e2e:install
@@ -111,7 +111,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-Testowy Worker instaluje te same dublery Resend i Polar i zapisuje wysłane e-maile, więc specyfikacja może odczytać link weryfikacyjny z `/__test/emails?to=<address>`. `deliverPaidOrder` z `e2e/fixtures/license.ts` wysyła kompletne zdarzenie `order.paid`, podpisane tak jak zdarzenia zestawów testów integracyjnych.
+Testowy Worker instaluje te same atrapy Resend i Polara i zapisuje wysłane e-maile, więc test może odczytać link weryfikacyjny z `/__test/emails?to=<address>`. `deliverPaidOrder` z `e2e/fixtures/license.ts` wysyła kompletne zdarzenie `order.paid`, podpisane tak jak zdarzenia w testach integracyjnych.
 
 ## Przed wypchnięciem zmian
 
@@ -122,6 +122,6 @@ bun run build:test
 bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 ```
 
-`build:test` wykonuje pełny build Cloudflare, którego testy jednostkowe nie sprawdzają, a ostatnie polecenie uruchamia w Chromium wskazane przez Ciebie specyfikacje: te, które napisałeś lub zmieniłeś, i te, które obejmują kod, którego dotknąłeś. `bun run test:e2e:pr` uruchamia każdą specyfikację, tak jak CI.
+`build:test` wykonuje pełny build Cloudflare, którego testy jednostkowe nie sprawdzają, a ostatnie polecenie uruchamia w Chromium wskazane pliki testów: nowe i zmienione oraz te, które obejmują zmieniony kod. `bun run test:e2e:pr` uruchamia wszystkie testy, tak jak CI.
 
 CI uruchamia kontrole, pokrycie i testy przeglądarkowe w Chromium przy każdym pull requeście i ponownie w kolejce scalania przed jego scaleniem, a WebKit co tydzień oraz przy wypchnięciach do `main`.

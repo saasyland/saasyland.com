@@ -7,7 +7,7 @@ Cloudflare D1 (SQLite) to baza danych aplikacji, dostępna przez binding `DB`. `
 
 | Plik                  | Przeznaczenie                                                                                                                       |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `drizzle.database.ts` | Serwerowy `db`, tworzony przez `drizzle(env.DB, { schema })`                                                                        |
+| `drizzle.database.ts` | `db` tylko dla serwera, tworzony przez `drizzle(env.DB, { schema })`                                                                |
 | `drizzle.schemas.ts`  | Ponownie eksportuje schemat każdej tabeli i jej relacje                                                                             |
 | `drizzle.config.ts`   | drizzle-kit: dialekt SQLite, sterownik `d1-http`, migracje z prefiksem znacznika czasu w `migrations/`                              |
 | `drizzle.errors.ts`   | `rethrowAsConflict`, który zamienia błąd ograniczenia unikalności na `AppError(ERROR_CODES.CONFLICT)` i rzuca dalej każdy inny błąd |
@@ -15,11 +15,11 @@ Cloudflare D1 (SQLite) to baza danych aplikacji, dostępna przez binding `DB`. `
 
 ## Tabele
 
-Każda tabela należy do modułu w `src/modules/<table>/` z plikiem `<table>.schema.ts` (`drizzle-orm/sqlite-core`), a także `.zod.ts`, `.constants.ts`, `.types.ts` i folderem `use-cases/`, gdy tabela ma operacje, oraz `.utils.ts`, gdy potrzebuje helperów. [Katalog modułów](/docs/reference/modules) wymienia każdy moduł z jego tabelami i przypadkami użycia, odczytanymi z kodu. Kod, który nie jest właścicielem żadnej tabeli, nie dostaje modułu.
+Każda tabela należy do modułu w `src/modules/<table>/` z plikiem `<table>.schema.ts` (`drizzle-orm/sqlite-core`), a także `.zod.ts`, `.constants.ts`, `.types.ts` i folderem `use-cases/`, gdy tabela ma operacje, oraz `.utils.ts`, gdy potrzebuje funkcji pomocniczych. [Katalog modułów](/docs/reference/modules) wymienia każdy moduł z jego tabelami i przypadkami użycia, odczytanymi z kodu. Kod, do którego nie należy żadna tabela, nie dostaje modułu.
 
-Schematy stosują wspólne konwencje:
+Schematy trzymają się tych samych konwencji:
 
-- Identyfikatory to ciągi UUID v7, z wyjątkiem `order` i `subscription`, które kopiują rekordy Polar pod identyfikatorami Polar (zobacz [Moduły](/docs/conventions/modules#tables-that-mirror-a-provider)).
+- Identyfikatory to ciągi UUID v7, z wyjątkiem `order` i `subscription`, które kopiują rekordy Polara pod jego identyfikatorami (zobacz [Moduły](/docs/conventions/modules#tables-that-mirror-a-provider)).
 - Daty to kolumny `integer` w trybie `timestamp_ms` z wartością domyślną `unixepoch() * 1000`. `...timestamps()` dodaje w tej postaci `createdAt` i `updatedAt`, a `updatedAt` jest odświeżany przy każdej aktualizacji.
 - Wartości logiczne to kolumny `integer` w trybie `boolean`.
 - Relacje, indeksy, ograniczenia unikalności i klucze obce są deklarowane w schemacie.
@@ -43,7 +43,7 @@ const [rows, totals] = await db.batch([
 return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
 
-Limiter żądań w `src/lib/rate-limit.ts` odczytuje liczniki, które odrzucają żądanie, usuwa ograniczoną liczbę wygasłych liczników i zlicza żądanie atomowym upsertem dla każdego limitu, wszystko w jednym batchu, dzięki czemu instancje Workera współdzielą te same limity, a odrzucone żądanie niczego nie zapisuje. `rateLimitBatch` zwraca te instrukcje, aby wywołujący mógł dołączyć własne zapytanie do tego samego batcha; API licencji CLI dołącza odczyt licencji.
+Mechanizm limitów żądań w `src/lib/rate-limit.ts` odczytuje liczniki, które decydują o odrzuceniu żądania, usuwa ograniczoną liczbę wygasłych liczników i zlicza żądanie atomowym upsertem dla każdego limitu, wszystko w jednym batchu, dzięki czemu instancje Workera współdzielą te same limity, a odrzucone żądanie niczego nie zapisuje. `rateLimitBatch` zwraca te instrukcje, aby wywołujący mógł dołączyć własne zapytanie do tego samego batcha; API licencji CLI dołącza odczyt licencji.
 
 ## Migracje
 

@@ -1,43 +1,43 @@
 ---
 title: "Panel administracyjny"
-description: "Struktura /admin i pulpit: liczniki, przychody, nowi użytkownicy, postępy w kursach, licencje według pakietu, opłacone zamówienia licencji bez licencji i najnowsi użytkownicy, wszystko odczytywane z D1, oraz reguła lintera, która nie dopuszcza danych demonstracyjnych do panelu administracyjnego."
+description: "Struktura /admin i pulpit: liczniki, przychody, nowi użytkownicy, postępy w kursach, licencje według pakietu, opłacone zamówienia bez wydanej licencji i najnowsi użytkownicy, wszystko odczytywane z D1, oraz reguła lintera, która nie dopuszcza danych demonstracyjnych do panelu administracyjnego."
 ---
 
 ## Struktura panelu [#admin-shell]
 
-`src/routes/admin.tsx` chroni każdą stronę administracyjną za pomocą `requireAdmin` i wstępnie ładuje wspólne przestrzenie nazw. Layout wyświetla:
+`src/routes/admin.tsx` chroni każdą stronę panelu przez `requireAdmin` i wczytuje z wyprzedzeniem wspólne przestrzenie nazw panelu. Layout wyświetla:
 
-- `AdminSidebar`, zbudowany z `ADMIN_NAVIGATION` w `src/data/navigation.ts`, który grupuje wpisy dodane przez obszary, każdy z ikoną: Przegląd (Pulpit), Oferta (Produkty), Sprzedaż (Zamówienia), Treść (Kursy, Wideo) i Administracja (Zarządzanie użytkownikami, Ustawienia). Każdy wpis otwiera działający ekran; ekran bez prawdziwego źródła danych nie ma trasy, wpisu w menu ani wpisu w palecie (zobacz [Tylko prawdziwe dane](#real-data-only)). Wpis wyświetlanej strony ma `aria-current="page"` i pasek akcentu. Przycisk obok okruszków zwija pasek boczny do ikon, z nazwą każdej w podpowiedzi, a na telefonie otwiera go jako panel.
+- `AdminSidebar`, zbudowany z `ADMIN_NAVIGATION` w `src/data/navigation.ts`, który grupuje wpisy dodane przez obszary, każdy z ikoną: Przegląd (Pulpit), Oferta (Produkty), Sprzedaż (Zamówienia), Treści (Kursy, Wideo) i Administracja (Zarządzanie użytkownikami, Ustawienia). Każdy wpis otwiera działający ekran; ekran bez prawdziwego źródła danych nie ma trasy, wpisu w menu ani wpisu w palecie (zobacz [Tylko prawdziwe dane](#real-data-only)). Wpis wyświetlanej strony ma `aria-current="page"` i pasek akcentu. Przycisk obok ścieżki nawigacyjnej zwija pasek boczny do ikon, z nazwą każdej w podpowiedzi, a na telefonie otwiera go jako wysuwany panel.
 - `AdminBreadcrumbs` i przycisk wyszukiwania `AdminCommandPalette` na górnym pasku.
-- `AdminPageHeader` (`custom/admin/admin-page-header.tsx`) na górze każdej strony panelu: tytuł, opis, akcje strony po prawej, opcjonalny link powrotu nad tytułem i opcjonalne karty pod nim, zamknięte linią. `AdminPageHeaderPending` rysuje ten sam kształt w `pendingComponent` każdej strony.
+- `AdminPageHeader` (`custom/admin/admin-page-header.tsx`) na górze każdej strony panelu: tytuł, opis, akcje strony po prawej, opcjonalny link powrotu nad tytułem i opcjonalne zakładki pod nim, a całość zamyka linia. `AdminPageHeaderPending` rysuje ten sam kształt w `pendingComponent` każdej strony.
 - Widżet użytkownika u dołu paska bocznego z linkiem do ustawień i `SignOutButton`.
-- Logo na górze paska bocznego, które prowadzi do strony głównej.
+- Logotyp na górze paska bocznego, który prowadzi do strony głównej.
 
 ### Paleta poleceń [#command-palette]
 
-⌘K albo Ctrl+K, albo przycisk wyszukiwania na górnym pasku, który pokazuje skrót platformy odwiedzającego, otwiera `AdminCommandPalette`. Jej lista przewija się wewnątrz okna i grupuje to, co znajdzie, a każdy wiersz ma ikonę, nazwę i wiersz szczegółów:
+⌘K albo Ctrl+K, albo przycisk wyszukiwania na górnym pasku, który pokazuje skrót platformy odwiedzającego, otwiera `AdminCommandPalette`. Jej lista przewija się wewnątrz okna i grupuje to, co znajdzie, a każdy wiersz ma ikonę, nazwę i linijkę szczegółów:
 
 - **Ostatnie**: ostatnio otwarte z palety strony i rekordy, najwyżej `RECENT_LIMIT`, widoczne, dopóki wyszukiwanie jest puste. Są przechowywane tylko w `localStorage` przeglądarki.
 - **Szybkie akcje**: wpisy z `ADMIN_COMMAND_ACTIONS`, które obszary umieszczają jako `NAVIGATION_PLACEMENT.COMMAND`: **Nowy kurs** z obszaru kursów i **Otwórz stronę** z obszaru uwierzytelniania.
 - **Strony**: każdy wpis z `ADMIN_NAVIGATION` z jego grupą z paska bocznego, filtrowane w przeglądarce.
-- Rekordy: wyszukiwania z `COMMAND_SEARCHES` w `src/data/command-search.ts`, które każdy obszar dodaje w `src/data/<area>.command-search.ts`. Gdy wyszukiwanie ma `SEARCH_TEXT_MIN_LENGTH` znaków i pisanie się zatrzyma, paleta uruchamia równolegle każde wyszukiwanie, na które pozwala rola zalogowanego konta, a każde zwraca najwyżej `SEARCH_HITS_LIMIT` wyników.
+- Rekordy: wyszukiwania z `COMMAND_SEARCHES` w `src/data/command-search.ts`, które każdy obszar dodaje w `src/data/<area>.command-search.ts`. Gdy pole wyszukiwania zawiera `SEARCH_TEXT_MIN_LENGTH` znaków, a pisanie ustanie, paleta uruchamia równolegle każde wyszukiwanie, na które pozwala rola zalogowanego konta, a każde zwraca najwyżej `SEARCH_HITS_LIMIT` wyników.
 
-| Grupa       | Obszar     | Funkcja serwerowa | Uprawnienie    | Dopasowuje                                                             |
-| ----------- | ---------- | ----------------- | -------------- | ---------------------------------------------------------------------- |
-| Użytkownicy | `auth`     | `searchUsers`     | `user: list`   | Imię i nazwisko albo e-mail                                            |
-| Zamówienia  | `payments` | `searchOrders`    | `order: read`  | ID zamówienia, ID klienta w Polar, imię i nazwisko albo e-mail klienta |
-| Kursy       | `courses`  | `searchCourses`   | `course: read` | Tytuł w dowolnym języku albo slug                                      |
-| Lekcje      | `courses`  | `searchLessons`   | `course: read` | Tytuł w dowolnym języku albo slug; szczegóły podają kurs               |
+| Grupa       | Obszar     | Funkcja serwerowa | Uprawnienie    | Dopasowuje                                                               |
+| ----------- | ---------- | ----------------- | -------------- | ------------------------------------------------------------------------ |
+| Użytkownicy | `auth`     | `searchUsers`     | `user: list`   | Imię i nazwisko albo e-mail                                              |
+| Zamówienia  | `payments` | `searchOrders`    | `order: read`  | ID zamówienia, ID klienta w Polarze, imię i nazwisko albo e-mail klienta |
+| Kursy       | `courses`  | `searchCourses`   | `course: read` | Tytuł w dowolnym języku albo slug                                        |
+| Lekcje      | `courses`  | `searchLessons`   | `course: read` | Tytuł w dowolnym języku albo slug; szczegóły podają kurs                 |
 
-Każde wyszukiwanie to funkcja serwerowa za `authorized(...)`, a paleta pomija wyszukiwania, na które nie pozwalają uprawnienia roli, więc nigdy nie prosi o rekordy, których konto nie może czytać. Strzałki przesuwają po wynikach, Enter otwiera wynik, Escape czyści wyszukiwanie, a potem zamyka paletę, a region na żywo mówi czytnikowi ekranu, kiedy paleta szuka i ile wyników znalazła.
+Każde wyszukiwanie to funkcja serwerowa chroniona przez `authorized(...)`, a paleta pomija wyszukiwania, na które nie pozwalają uprawnienia roli, więc nigdy nie prosi o rekordy, których konto nie może czytać. Strzałki przenoszą między wynikami, Enter otwiera wynik, Escape czyści wyszukiwanie, a przy kolejnym naciśnięciu zamyka paletę, a region aktywny informuje czytnik ekranu, kiedy paleta szuka i ile wyników znalazła.
 
 ## Pulpit [#dashboard]
 
-`/admin` (`src/routes/admin.index.tsx`) wstępnie ładuje `getUsersQuery` oraz, przez ich `prefetch`, zapytanie każdej statystyki i każdego panelu pulpitu, a następnie składa widżety z `src/presentation/components/custom/admin/dashboard` z panelami, które dodają obszary:
+`/admin` (`src/routes/admin.index.tsx`) wczytuje z wyprzedzeniem `getUsersQuery` oraz, przez ich `prefetch`, zapytanie każdej statystyki i każdego panelu pulpitu, a następnie składa widżety z `src/presentation/components/custom/admin/dashboard` z panelami, które dodają obszary:
 
 - `DashboardActions`: link dla każdej pozycji z `ADMIN_DASHBOARD_ACTIONS` w kolejności ich `order`, z etykietą z pliku `navigation.<area>.json` swojego obszaru. Obszar płatności dodaje **Zamówienia** i **Klienci** (zobacz [Zamówienia i klienci](/docs/features/orders)).
-- `DashboardStats`: statystyki z `ADMIN_DASHBOARD_STATS`, czyli wpisy z `src/data/<area>.dashboard.ts` umieszczone jako `DASHBOARD_PLACEMENT.STAT`, w kolejności ich `order`, każda z etykietą z pliku `dashboard.<area>.json` swojego obszaru i sformatowana zgodnie z językiem strony. Każda karta pokazuje `icon` statystyki, a statystyka z `to` łączy całą swoją kartę ze stroną, która wymienia to, co liczy.
-- Panele z `ADMIN_DASHBOARD_PANELS`, czyli wpisy umieszczone jako `DASHBOARD_PLACEMENT.PANEL`, w kolejności ich `order`, każdy ze szkieletem, który pokazuje dla niego `AdminDashboardPending`. Każdy wpis wskazuje swój panel przez `lazyRouteComponent`, więc kod panelu z jego wykresami i tabelami ładuje się we własnym chunku, który loader pulpitu wstępnie ładuje razem z danymi panelu; szkielet pochodzi z pliku `-pending.tsx` panelu.
+- `DashboardStats`: statystyki z `ADMIN_DASHBOARD_STATS`, czyli wpisy z `src/data/<area>.dashboard.ts` umieszczone jako `DASHBOARD_PLACEMENT.STAT`, w kolejności ich `order`, każda z etykietą z pliku `dashboard.<area>.json` swojego obszaru i sformatowana zgodnie z językiem strony. Każda karta pokazuje `icon` statystyki, a statystyka z `to` zamienia całą swoją kartę w link do strony, która wymienia to, co statystyka liczy.
+- Panele z `ADMIN_DASHBOARD_PANELS`, czyli wpisy umieszczone jako `DASHBOARD_PLACEMENT.PANEL`, w kolejności ich `order`, każdy ze szkieletem, który pokazuje dla niego `AdminDashboardPending`. Każdy wpis wskazuje swój panel przez `lazyRouteComponent`, więc kod panelu z jego wykresami i tabelami wczytuje się we własnym chunku, który loader pulpitu pobiera z wyprzedzeniem razem z danymi panelu; szkielet pochodzi z pliku `-pending.tsx` panelu.
 - Karta użytkowników: najnowsze konta, wyświetlane po <RepositoryFact name="adminPreviewPageSize" /> na stronę, z filtrami wyszukiwania i statusu. Imię i nazwisko każdego użytkownika prowadzi do jego profilu, gdzie znajdują się akcje.
 
 | Statystyka                    | Obszar       | Źródło                                                                                          |
@@ -57,23 +57,23 @@ Każde wyszukiwanie to funkcja serwerowa za `authorized(...)`, a paleta pomija w
 | Nowi użytkownicy                 | `auth`     | `userSignupsQuery` w `src/modules/user/use-cases/get-user-signups.ts`, zobacz [Nowi użytkownicy](#new-users)                         |
 | Postępy w kursach                | `courses`  | `courseProgressQuery` w `src/modules/lesson-progress/use-cases/get-course-progress.ts`, zobacz [Postępy w kursach](#course-progress) |
 
-Każde zapytanie uruchamia funkcję serwerową chronioną przez `authorized(...)` uprawnieniem, które obszary już deklarują, więc zalogowane konto bez tego uprawnienia dostaje błąd, a nigdy liczby.
+Każde zapytanie uruchamia funkcję serwerową chronioną przez `authorized(...)` z uprawnieniem, które obszary już deklarują, więc zalogowane konto bez tego uprawnienia dostaje błąd, nigdy liczby.
 
 ### Okresy [#periods]
 
-Panele przychodów i nowych użytkowników oferują okresy <RepositoryFact name="dashboardRanges" /> z `TIME_RANGES` w `src/modules/_core/utils/time-series.ts` i otwierają się na <RepositoryFact name="defaultDashboardRange" />. `timeSeries(range, now)` dzieli okres na przedziały: ostatnie dni do dzisiaj włącznie albo ostatnie miesiące do bieżącego włącznie, w UTC. Funkcja serwerowa odczytuje zegar i zwraca każdy przedział, więc przeglądarka rysuje dokładnie to, co policzył serwer. `bucketOf` w `src/integrations/drizzle-orm/drizzle.time-series.ts` grupuje wiersze funkcją `strftime` z SQLite w UTC, a `pointsOf` umieszcza każdą sumę w jej przedziale i wypełnia zerem przedziały bez wierszy.
+Panele przychodów i nowych użytkowników oferują okresy <RepositoryFact name="dashboardRanges" /> z `TIME_RANGES` w `src/modules/_core/utils/time-series.ts` i domyślnie pokazują <RepositoryFact name="defaultDashboardRange" />. `timeSeries(range, now)` dzieli okres na przedziały: ostatnie dni do dzisiaj włącznie albo ostatnie miesiące do bieżącego włącznie, w UTC. Funkcja serwerowa odczytuje zegar i zwraca każdy przedział, więc przeglądarka rysuje dokładnie to, co policzył serwer. `bucketOf` w `src/integrations/drizzle-orm/drizzle.time-series.ts` grupuje wiersze funkcją `strftime` z SQLite w UTC, a `pointsOf` umieszcza każdą sumę w jej przedziale i wypełnia zerem przedziały bez wierszy.
 
-Każdy panel przechowuje swój okres w stanie komponentu. `RangePicker` zmienia go w transycji, więc panel pokazuje bieżące liczby, pozbawione koloru i oznaczone `aria-busy`, dopóki nie wczyta się kolejny okres. `TimeSeriesChart` (`src/presentation/components/custom/admin/dashboard/time-series-chart.tsx`) rysuje serię jako wykres słupkowy w Recharts przez `ChartContainer`; wykres jest ukryty przed technologiami asystującymi, a wizualnie ukryta tabela wymienia każdy dzień lub miesiąc z jego wartością.
+Każdy panel przechowuje swój okres w stanie komponentu. `RangePicker` zmienia go w ramach przejścia Reacta, więc panel zostawia na ekranie bieżące liczby, wyszarzone i oznaczone `aria-busy`, dopóki nie wczyta się kolejny okres. `TimeSeriesChart` (`src/presentation/components/custom/admin/dashboard/time-series-chart.tsx`) rysuje serię jako wykres słupkowy w Recharts przez `ChartContainer`; wykres jest ukryty przed technologiami asystującymi, a wizualnie ukryta tabela wymienia każdy dzień lub miesiąc z jego wartością.
 
 ### Przychody [#revenue]
 
-`getRevenue` (`order: ["read"]`) odczytuje kopie zamówień z Polar w D1 (zobacz [Płatności](/docs/features/payments#orders-and-subscriptions-in-d1)):
+`getRevenue` (`order: ["read"]`) odczytuje przechowywane w D1 kopie zamówień z Polara (zobacz [Płatności](/docs/features/payments#orders-and-subscriptions-in-d1)):
 
 - Liczy zamówienia, których status to jeden z <RepositoryFact name="revenueOrderStatuses" /> (`REVENUE_ORDER_STATUSES` w `src/modules/order/order.constants.ts`) i które złożono w danym okresie. Zamówienia robocze, oczekujące i unieważnione nie są przychodem.
 - Dla każdej waluty zwraca zamówienia, `gross` (sumę `total_amount`), `refunded` (sumę `refunded_amount`), `net` (kwotę brutto minus kwotę zwróconą) i `points`, czyli kwotę netto każdego przedziału. Kwoty są w głównych jednostkach waluty, przeliczone przez `fromMinorUnits`, i zawierają podatek tak, jak naliczył go Polar.
 - Zwrot jest odejmowany od zamówienia, którego dotyczy, w przedziale dnia złożenia zamówienia, ponieważ kopia przechowuje zwróconą kwotę, ale nie moment zwrotu.
-- Waluty nigdy nie są sumowane. Panel pokazuje kartę dla każdej waluty, najpierw tę z największą liczbą zamówień, z kwotą po zwrotach, zamówieniami i zwrotami nad jej wykresem.
-- Gdy w okresie nie ma żadnego opłaconego zamówienia, panel to komunikuje i nie rysuje wykresu.
+- Waluty nigdy nie są sumowane. Panel pokazuje zakładkę dla każdej waluty, najpierw tę z największą liczbą zamówień, z kwotą po zwrotach, zamówieniami i zwrotami nad jej wykresem.
+- Gdy w okresie nie ma żadnego opłaconego zamówienia, panel o tym informuje i nie rysuje wykresu.
 
 ### Nowi użytkownicy [#new-users]
 
@@ -81,11 +81,11 @@ Każdy panel przechowuje swój okres w stanie komponentu. `RangePicker` zmienia 
 
 ### Postępy w kursach [#course-progress]
 
-`getCourseProgress` (`course: ["read"]`) wymienia każdy kurs w kolejności z panelu administracyjnego (`position`) wraz z jego opublikowanymi lekcjami, kontami, które zapisały postęp w którejś z nich, kontami, które ukończyły wszystkie, i łączną liczbą ukończonych lekcji. Postęp w lekcjach roboczych nie jest liczony, a liczy się każde konto, także administratorów. `learners`, czyli liczba kont z zapisanym postępem w dowolnym kursie, to statystyka **Kursanci**. Panel wymienia kursy w `DataTable` (`course-progress-columns.tsx`) albo informuje, że nie ma jeszcze żadnego kursu.
+`getCourseProgress` (`course: ["read"]`) wymienia każdy kurs w kolejności ustalonej w panelu administracyjnym (`position`) wraz z jego opublikowanymi lekcjami, kontami, które zapisały postęp w którejś z nich, kontami, które ukończyły wszystkie, i łączną liczbą ukończonych lekcji. Postęp w lekcjach roboczych nie jest liczony, a liczy się każde konto, także administratorów. `learners`, czyli liczba kont z zapisanym postępem w dowolnym kursie, to statystyka **Kursanci**. Panel wymienia kursy w `DataTable` (`course-progress-columns.tsx`) albo informuje, że nie ma jeszcze żadnego kursu.
 
 ### Licencje według pakietu [#licences-by-tier]
 
-`getLicenseCounts` (`admin: ["access"]`) odczytuje `license` jednym zapytaniem, pogrupowanym według `tier` i `status`, i niczego nie zapisuje. Zwraca wiersz dla każdego pakietu z `LICENSE_TIERS`, w tej kolejności, z liczbą jego licencji w każdym statusie z `LICENSE_STATUSES` i zerem tam, gdzie pakiet nie ma żadnej w danym statusie. Panel wyświetla pakiety w `DataTable` (`license-count-columns.tsx`), każdy pod nazwą z `components.custom.pricing.json`. Aktywna licencja działa w CLI, a zwrócona lub unieważniona już nie (zobacz [Licencje](/docs/features/licences)).
+`getLicenseCounts` (`admin: ["access"]`) odczytuje `license` jednym zapytaniem, pogrupowanym według `tier` i `status`, i niczego nie zapisuje. Zwraca wiersz dla każdego pakietu z `LICENSE_TIERS`, w tej kolejności, z liczbą jego licencji w każdym statusie z `LICENSE_STATUSES` i zerem tam, gdzie pakiet nie ma żadnej w danym statusie. Panel wyświetla pakiety w `DataTable` (`license-count-columns.tsx`), każdy pod nazwą z `components.custom.pricing.json`. Aktywna licencja działa w CLI, a licencja po zwrocie pieniędzy lub cofnięta już nie (zobacz [Licencje](/docs/features/licences)).
 
 ### Subskrybenci newslettera [#newsletter-subscribers]
 
@@ -110,7 +110,7 @@ Każdy panel przechowuje swój okres w stanie komponentu. `RangePicker` zmienia 
 />
 ```
 
-Tabela działa w przeglądarce na pierwszej stronie `getUsersQuery` (liczba użytkowników: <RepositoryFact name="defaultPageSize" />, od najnowszych). Jej kolumna **Rejestracja** to `created_at` konta. **Zobacz wszystkich** prowadzi do `/admin/users`.
+Tabela działa w przeglądarce na pierwszej stronie `getUsersQuery` (liczba użytkowników: <RepositoryFact name="defaultPageSize" />, od najnowszych). Jej kolumna **Rejestracja** to `created_at` konta. **Wszyscy użytkownicy** prowadzi do `/admin/users`.
 
 ## Tylko prawdziwe dane [#real-data-only]
 
@@ -119,7 +119,7 @@ Każdą liczbę i każdy wiersz, które pokazuje panel administracyjny, odczytuj
 - listę dwóch lub więcej liczb, czyli serię wpisaną na sztywno;
 - listę dwóch lub więcej rekordów zawierających liczbę inną niż ich pozycja sortowania (`order`);
 - adres e-mail, datę ISO lub ścieżkę SVG zbudowaną z liczb;
-- stałą, której nazwa wskazuje na dane demonstracyjne, zastępcze, fałszywe, lorem, mock lub przykładowe (demo, dummy, fake, lorem, mock, sample), albo stałą pisaną wielkimi literami, która nazywa wartość zastępczą (placeholder);
+- stałą nazwaną jak dane demonstracyjne (demo, dummy, fake, lorem, mock, sample) albo stałą pisaną wielkimi literami, której nazwa wskazuje na wartość zastępczą (placeholder);
 - statystykę pulpitu, której `useValue` nie odczytuje żadnego zapytania przez `useSuspenseQuery` ani `useQuery`.
 
 Testy budują własne wiersze, więc reguła jest dla nich wyłączona. `src/__test__/admin-data-lint-plugin.test.ts` wymienia, co reguła akceptuje, a co odrzuca. Ekranu, którego dane nie mają jeszcze źródła, nie buduje się, dopóki to źródło nie powstanie.

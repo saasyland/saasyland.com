@@ -1,38 +1,38 @@
 ---
 title: "Cache i SSR"
-description: "Gdzie dane trafiają do cache: cache zapytań tworzony dla każdego żądania, prerenderowane strony, KV i D1."
+description: "Gdzie dane trafiają do cache: osobny cache zapytań dla każdego żądania, prerenderowane strony, KV i D1."
 ---
 
 ## Cache zapytań
 
 `getRouter` tworzy nowy `QueryClient` dla każdego żądania, dzięki czemu na serwerze dane nie wyciekają między użytkownikami. Wartości domyślne:
 
-| Ustawienie                        | Wartość                                                                                                                            |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `staleTime` zapytań               | <RepositoryFact name="queryStaleTimeMinutes" unit="minute" />                                                                      |
-| `gcTime` zapytań                  | <RepositoryFact name="queryGcTimeMinutes" unit="minute" />                                                                         |
-| `defaultStaleTime` routera        | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                     |
-| `defaultPreloadStaleTime` routera | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                     |
-| Wstępne ładowanie                 | Przy intencji, a [strony nagłówka](/docs/conventions/performance#the-headers-pages-load-before-a-click), gdy strona jest bezczynna |
+| Ustawienie                        | Wartość                                                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `staleTime` zapytań               | <RepositoryFact name="queryStaleTimeMinutes" unit="minute" />                                                                                       |
+| `gcTime` zapytań                  | <RepositoryFact name="queryGcTimeMinutes" unit="minute" />                                                                                          |
+| `defaultStaleTime` routera        | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                                      |
+| `defaultPreloadStaleTime` routera | <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />                                                                                      |
+| Wstępne ładowanie                 | Po wskazaniu linku, a [strony nagłówka](/docs/conventions/performance#the-headers-pages-load-before-a-click) także wtedy, gdy strona jest bezczynna |
 
-Loadery wypełniają cache przez `queryClient.query({ ...options, staleTime: "static" })`, a komponenty odczytują te same klucze za pomocą `useSuspenseQuery`. Wyjątkiem są strony kursów i edytor kursów w administracji: ich zapytania mają `staleTime: COURSE_STALE_MS` (<RepositoryFact name="courseStaleMinutes" unit="minute" />), bo `invalidateQueries` nigdy nie pobiera ponownie zapytania `static`, a ukończenie lekcji albo zapisanie zmiany w edytorze musi odświeżyć program. `setupRouterSsrQueryIntegration` serializuje serwerowy cache do HTML i hydratuje go w przeglądarce.
+Loadery wypełniają cache przez `queryClient.query({ ...options, staleTime: "static" })`, a komponenty odczytują te same klucze za pomocą `useSuspenseQuery`. Wyjątkiem są strony kursów i edytor kursów w panelu administracyjnym: ich zapytania mają `staleTime: COURSE_STALE_MS` (<RepositoryFact name="courseStaleMinutes" unit="minute" />), bo `invalidateQueries` nigdy nie pobiera ponownie zapytania `static`, a ukończenie lekcji albo zapisanie zmiany w edytorze musi odświeżyć program kursu. `setupRouterSsrQueryIntegration` serializuje serwerowy cache do HTML i hydratuje go w przeglądarce.
 
-- **Komunikaty tłumaczeń** są przechowywane w cache osobno dla każdego locale i przestrzeni nazw, z nieskończonymi wartościami `staleTime` i `gcTime`.
+- **Komunikaty tłumaczeń** są przechowywane w cache osobno dla każdego języka i przestrzeni nazw, z nieskończonymi wartościami `staleTime` i `gcTime`.
 - **Zapytanie o sesję** (`getCurrentSessionQuery`) ma `staleTime` równy <RepositoryFact name="sessionStaleTimeMinutes" unit="minute" />. Guardy tras przepuszczają nawigację z sesją z cache, dopóki jest świeża, i pobierają ją ponownie, gdy się zestarzeje. Gdy funkcja serwerowa odpowie `UNAUTHORIZED` lub `FORBIDDEN`, `recheckRefusedSession` z `auth.routes.ts` sprawdza sesję ponownie, a guardy uruchamiają się jeszcze raz, jeśli się zmieniła. Gdy zmienia się zalogowany użytkownik, guardy usuwają każde zapytanie, które nie jest oznaczone `meta: { public: true }`. Publiczne zapytania, takie jak tłumaczenia i liczba gwiazdek, z którą wyrenderowano prerenderowaną stronę, zostają w cache. Zobacz [Publiczne zapytania](/docs/conventions/data-fetching#public-queries).
 - **Mutacje** po pomyślnym wykonaniu unieważniają klucze zapytań swojego modułu, na przykład `USER_QUERY_KEYS.ALL`.
 
 ## Prerendering
 
-`bun run build` prerenderuje strony publiczne, przechodząc po linkach: landing, strony prawne, blog i dokumentację we wszystkich wersjach językowych. Pomijane są ścieżki pod `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` i `/api` (z prefiksem locale lub bez niego) oraz linki z query stringiem lub hashem. Strony kursów są pomijane, bo pokazują blokady i postępy każdego widza. Blok kursów na stronie głównej przeglądarka uzupełnia danymi z `getCourseShowcase`, gdy zbliża się on do widocznego obszaru, więc prerenderowana strona główna jest taka sama dla wszystkich (zobacz [Kursy](/docs/features/courses)).
+`bun run build` prerenderuje strony publiczne, przechodząc po linkach: stronę główną, strony prawne, blog i dokumentację we wszystkich wersjach językowych. Pomijane są ścieżki pod `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` i `/api` (z prefiksem języka lub bez niego) oraz linki z query stringiem albo kotwicą. Strony kursów są pomijane, bo pokazują każdemu widzowi jego blokady i postęp. Blok kursów na stronie głównej przeglądarka uzupełnia danymi z `getCourseShowcase`, gdy zbliża się on do widocznego obszaru, więc prerenderowana strona główna jest taka sama dla wszystkich (zobacz [Kursy](/docs/features/courses)).
 
 Worker serwuje prerenderowany HTML z bindingu `ASSETS`, zanim załaduje aplikację. Prerenderowana strona nie zawiera danych użytkownika, więc można ją bezpiecznie serwować wszystkim. Gdy odwiedzającemu przysługują ceny regionalne, Worker przepisuje HTML i oznacza odpowiedź jako `Cache-Control: private, no-cache`.
 
-Prerendering działa na buildzie Workera, który zawiera wszystkie strony. Wdrażany Worker jest potem budowany od nowa bez skompilowanych stron dokumentacji i bloga oraz bez tłumaczeń, których używają tylko landing i strony prawne. Nie potrzebuje ani jednych, ani drugich: dokumentacja, blog i strona główna czytają swoją treść z indeksów, które build zapisuje w `/assets/`, w przeglądarce przy nawigacji po stronie klienta, a wyszukiwarka dokumentacji przeszukuje statyczny indeks w przeglądarce, więc nawigacje po stronie klienta i wyszukiwanie nigdy nie docierają do Workera (zobacz [Wydajność](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)). Zobacz [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+Prerendering działa na buildzie Workera, który zawiera wszystkie strony. Wdrażany Worker jest potem budowany od nowa bez skompilowanych stron dokumentacji i bloga oraz bez tłumaczeń, których używają tylko strona główna i strony prawne. Nie potrzebuje ani jednych, ani drugich: dokumentacja, blog i strona główna czytają swoją treść z indeksów, które build zapisuje w `/assets/`, w przeglądarce przy nawigacji po stronie klienta, a wyszukiwarka dokumentacji przeszukuje statyczny indeks w przeglądarce, więc nawigacje po stronie klienta i wyszukiwanie nigdy nie docierają do Workera (zobacz [Wydajność](/docs/conventions/performance#the-worker-holds-no-docs-or-blog-content)). Zobacz [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 
 ## KV i D1
 
 - **KV (`CACHE`)** przechowuje liczbę gwiazdek na GitHubie dla `src/lib/github.ts`. Liczba gwiazdek starsza niż <RepositoryFact name="starCountRefreshHours" unit="hour" /> jest zwracana od razu i odświeżana w tle przez `waitUntil`.
-- **D1 (`DB`)** przechowuje sesje i liczniki limitów żądań. Sprawdzanie sesji w funkcjach serwerowych omija cookie cache Better Auth, a wynik jest memoizowany do końca żądania.
+- **D1 (`DB`)** przechowuje sesje i liczniki limitów żądań. Sprawdzanie sesji w funkcjach serwerowych omija cookie cache Better Auth, a wynik jest zapamiętywany do końca żądania.
 - **Cache Workers** przechowuje pliki wideo, które `serveMedia` odczytuje z R2, pod `/media/_/<videoId>/<file>`, bez podpisu, dzięki czemu widzowie w jednej lokalizacji brzegowej współdzielą jedną kopię w cache. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2). `serveCover` trzyma okładki kursów we własnym cache Workers, `covers`, pod ich publiczną ścieżką i wysyła je z `public, max-age=31536000, immutable`, bo każda nowa okładka dostaje nowy identyfikator.
 - Funkcje serwerowe nigdy nie podejmują decyzji o uprawnieniach na podstawie danych z cache.
 

@@ -5,23 +5,23 @@ description: "Etapy, przez które przechodzi żądanie strony i wywołanie funkc
 
 ## Żądanie strony
 
-1. **Kanonizacja locale.** `src/server.ts` wywołuje `resolveLocale` dla żądań dokumentów `GET` i `HEAD` poza `/api` i `/_serverFn`. Prefiks zawierający sam język lub domyślne locale (`/pl/docs`, `/en-US/docs`) jest przekierowywany kodem `308` do postaci kanonicznej (`/pl-PL/docs`, `/docs`). Gdy locale w URL-u różni się od locale w cookie, cookie jest aktualizowane w odpowiedzi.
-2. **Najpierw zasoby statyczne.** Worker pyta binding `ASSETS` o ścieżkę. Pliki statyczne są zwracane bez zmian, a prerenderowana strona jest strumieniowana przez `withNonce`, który umieszcza w jej skryptach nonce utworzony dla tej odpowiedzi. Dopiero przy `404` Worker ładuje handler TanStack Start dynamicznym `import()`.
-3. **Routing.** `getRouter` tworzy nowy router i `QueryClient`. `rewrite` routera usuwa prefiks locale, więc `/pl-PL/docs` pasuje do tras `/docs`.
-4. **Główne `beforeLoad`** wstępnie ładuje główne przestrzenie nazw tłumaczeń (`common`, `components.*`, `errors*`).
+1. **Kanoniczny prefiks języka.** `src/server.ts` wywołuje `resolveLocale` dla żądań dokumentów `GET` i `HEAD` poza `/api` i `/_serverFn`. Prefiks z samym kodem języka albo z językiem domyślnym (`/pl/docs`, `/en-US/docs`) jest przekierowywany kodem `308` do postaci kanonicznej (`/pl-PL/docs`, `/docs`). Gdy język w adresie różni się od języka zapisanego w cookie, odpowiedź aktualizuje cookie.
+2. **Najpierw zasoby statyczne.** Worker pyta binding `ASSETS` o ścieżkę. Pliki statyczne są zwracane bez zmian, a prerenderowana strona przechodzi strumieniowo przez `withNonce`, który umieszcza w jej skryptach nonce utworzony dla tej odpowiedzi. Dopiero przy `404` Worker ładuje handler TanStack Start dynamicznym `import()`.
+3. **Routing.** `getRouter` tworzy nowy router i `QueryClient`. `rewrite` routera usuwa prefiks języka, więc `/pl-PL/docs` pasuje do tras `/docs`.
+4. **`beforeLoad` trasy głównej** wstępnie ładuje główne przestrzenie nazw tłumaczeń (`common`, `components.*`, `errors*`).
 5. **Guardy.** Funkcje `beforeLoad` layoutów, takie jak `requireAdmin`, ładują zapytanie o sesję i przekierowują, gdy dostęp jest niedozwolony.
 6. **Loadery** działają równolegle. Każdy wstępnie ładuje swoje przestrzenie nazw, metadane strony i zapytania do `QueryClient` danego żądania.
-7. **Renderowanie.** Główny shell renderuje `<html lang dir>` i opakowuje body w `TranslationsProvider`. Cache zapytań jest serializowany do HTML, więc przeglądarka nie pobiera tych samych danych ponownie.
-8. **Nagłówki odpowiedzi.** Dla odpowiedzi HTML Worker dodaje nagłówek `Link` z preloadem fontów dla locale, w razie potrzeby ustawia cookie z locale i stosuje atrybuty cen regionalnych, gdy nagłówek `cf-ipcountry` kwalifikuje się do rabatu. Następnie każda odpowiedź zwracana przez Workera dostaje nagłówki bezpieczeństwa (`SECURITY_HEADERS` oraz przez HTTPS `HTTPS_SECURITY_HEADERS`, z `src/modules/_core/constants/api.ts`), które zastępują każdą już ustawioną wartość. Odpowiedź HTML dostaje natomiast jako Content Security Policy `documentPolicy` z nonce, który `src/server.ts` dla niej utworzył, i jest `private, no-cache` bez `ETag` ani `Last-Modified`, więc przeglądarka nigdy nie użyje jej ponownie z nonce innej odpowiedzi.
+7. **Renderowanie.** Rama dokumentu w trasie głównej renderuje `<html lang dir>` i opakowuje body w `TranslationsProvider`. Cache zapytań jest serializowany do HTML, więc przeglądarka nie pobiera tych samych danych ponownie.
+8. **Nagłówki odpowiedzi.** Dla odpowiedzi HTML Worker dodaje nagłówek `Link`, który wstępnie ładuje fonty danego języka, w razie potrzeby ustawia cookie z językiem i stosuje atrybuty cen regionalnych, gdy kraj z nagłówka `cf-ipcountry` uprawnia do rabatu. Następnie każda odpowiedź zwracana przez Workera dostaje nagłówki bezpieczeństwa (`SECURITY_HEADERS` oraz przez HTTPS `HTTPS_SECURITY_HEADERS`, z `src/modules/_core/constants/api.ts`), które zastępują każdą już ustawioną wartość. Odpowiedź HTML dostaje natomiast jako Content Security Policy `documentPolicy` z nonce, który `src/server.ts` dla niej utworzył, i jest `private, no-cache` bez `ETag` ani `Last-Modified`, więc przeglądarka nigdy nie użyje jej ponownie z nonce innej odpowiedzi.
 9. **Hydratacja.** Przeglądarka hydratuje stronę z zserializowanym cache. Kolejne nawigacje uruchamiają guardy i loadery w przeglądarce i pobierają dane przez funkcje serwerowe.
 
 ## Wywołanie funkcji serwerowej
 
-1. Przeglądarka wywołuje funkcję serwerową, którą build zastąpił żądaniem RPC do `/_serverFn/…`. Worker pomija obsługę locale dla tej ścieżki. URL nie ma prefiksu locale, więc `getCurrentLocale()` zwraca na serwerze `en-US`; funkcja serwerowa, która potrzebuje locale, przyjmuje je jako dane wejściowe.
+1. Przeglądarka wywołuje funkcję serwerową, którą build zastąpił żądaniem RPC do `/_serverFn/…`. Worker pomija dla tej ścieżki obsługę języka. Adres nie ma prefiksu języka, więc `getCurrentLocale()` zwraca na serwerze `en-US`; funkcja serwerowa, która potrzebuje języka, przyjmuje go jako dane wejściowe.
 2. Middleware działa w zadeklarowanej kolejności. `withRequest` przechwytuje nagłówki żądania i normalizuje błędy, `withRateLimit` zlicza próbę w D1, a `authorized` ładuje sesję i sprawdza uprawnienie.
 3. Walidator parsuje dane wejściowe schematem Zod modułu.
 4. Handler wykonuje zapytanie do D1 lub wywołuje dostawcę i zwraca zwykłe dane.
-5. Komponent otrzymuje dane albo kod `AppError`. Po sukcesie unieważnia klucze zapytań modułu; w razie błędu wyświetla `useErrorMessage()(error)`.
+5. Komponent otrzymuje dane albo kod `AppError`. Po powodzeniu unieważnia klucze zapytań modułu; w razie błędu wyświetla `useErrorMessage()(error)`.
 
 ```text
 GET /pl-PL/admin/users/all
@@ -39,7 +39,7 @@ POST /_serverFn/…
 
 ## Żądanie mediów
 
-`src/server.ts` sprawdza ścieżkę przed wszystkim innym: ścieżka, którą przejmuje handler żądań jakiegoś obszaru, trafia do tego handlera i pomija obsługę locale, wyszukiwanie w `ASSETS` oraz TanStack Start. Obszar kursów przejmuje `/media/`, a jego handler ładuje, każdy dynamicznym `import()`, `serveCover` (`src/modules/course/course.delivery.ts`) dla `/media/covers/`, `serveAttachment` dla `/media/downloads/` i `serveMedia` (`src/modules/video/video.delivery.ts`) dla każdej innej ścieżki. Okładki nie mają podpisu, a `serveCover` odpowiada z cache Workers lub z R2; `serveAttachment` sprawdza podpis pobrania i czyta je z R2. `serveMedia` sprawdza podpis i termin ważności zapisane w ścieżce, a następnie odpowiada z cache Workers lub z R2, także na żądania `Range`. Obszar licencji w ten sam sposób przejmuje `/bundles/`, a jego handler ładuje `serveBundle` (`src/modules/license/license.delivery.ts`), który sprawdza podpis i termin ważności oraz strumieniuje z R2 paczkę szablonów CLI. Odpowiedź dostaje te same nagłówki bezpieczeństwa co każda inna. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
+`src/server.ts` sprawdza ścieżkę przed wszystkim innym: ścieżka, którą przejmuje handler żądań jakiegoś obszaru, trafia do tego handlera i pomija obsługę języka, wyszukiwanie w `ASSETS` oraz TanStack Start. Obszar kursów przejmuje `/media/`, a jego handler ładuje, każdy dynamicznym `import()`, `serveCover` (`src/modules/course/course.delivery.ts`) dla `/media/covers/`, `serveAttachment` dla `/media/downloads/` i `serveMedia` (`src/modules/video/video.delivery.ts`) dla każdej innej ścieżki. Okładki nie mają podpisu, a `serveCover` odpowiada z cache Workers lub z R2; `serveAttachment` sprawdza podpis linku do pobrania i odczytuje plik z R2. `serveMedia` sprawdza podpis i termin ważności zapisane w ścieżce, a następnie odpowiada z cache Workers lub z R2, także na żądania `Range`. Obszar licencji w ten sam sposób przejmuje `/bundles/`, a jego handler ładuje `serveBundle` (`src/modules/license/license.delivery.ts`), który sprawdza podpis i termin ważności oraz przesyła strumieniowo z R2 paczkę szablonów CLI. Odpowiedź dostaje te same nagłówki bezpieczeństwa co każda inna. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
 
 ## Powiązane strony
 

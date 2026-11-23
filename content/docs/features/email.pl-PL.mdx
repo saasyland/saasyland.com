@@ -1,11 +1,11 @@
 ---
 title: "E-maile transakcyjne"
-description: "Szablony React Email w src/presentation/emails wysyłane przez przypadki użycia za pośrednictwem Resend."
+description: "Szablony React Email w src/presentation/emails, które przypadki użycia wysyłają przez Resend."
 ---
 
 ## Szablony
 
-Szablony znajdują się w `src/presentation/emails`. Każdy plik zawiera wyłącznie znaczniki i eksportuje stałą ze swoją przestrzenią nazw:
+Szablony leżą w `src/presentation/emails`. Każdy plik zawiera wyłącznie znaczniki i eksportuje stałą ze swoją przestrzenią nazw:
 
 | Szablon                          | Przestrzeń nazw                           | Wysyła go                                                                                                  |
 | -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -18,22 +18,22 @@ Szablony znajdują się w `src/presentation/emails`. Każdy plik zawiera wyłąc
 | `InvitationEmail`                | `emails.invitation-email`                 | `sendInvitationEmail` (`createInvitation`, `resendInvitation`)                                             |
 | `NewsletterConfirmationEmail`    | `emails.newsletter-confirmation-email`    | `subscribeToNewsletter`                                                                                    |
 | `NewsletterNotificationEmail`    | `emails.newsletter-notification-email`    | `confirmNewsletterSubscription`, na `CONTACT_EMAIL`                                                        |
-| `PurchaseConfirmationEmail`      | `emails.purchase-confirmation-email`      | `sendPurchaseConfirmationEmail` (`order.paid` z Polar)                                                     |
-| `UnmatchedOrderAlertEmail`       | `emails.unmatched-order-alert-email`      | `sendUnmatchedOrderAlert` (`order.paid` z Polar), na `CONTACT_EMAIL`                                       |
+| `PurchaseConfirmationEmail`      | `emails.purchase-confirmation-email`      | `sendPurchaseConfirmationEmail` (`order.paid` z Polara)                                                    |
+| `UnmatchedOrderAlertEmail`       | `emails.unmatched-order-alert-email`      | `sendUnmatchedOrderAlert` (`order.paid` z Polara), na `CONTACT_EMAIL`                                      |
 | `WithdrawalAcknowledgementEmail` | `emails.withdrawal-acknowledgement-email` | `sendWithdrawalAcknowledgement` (`submitWithdrawal`)                                                       |
 | `WithdrawalNotificationEmail`    | `emails.withdrawal-notification-email`    | `sendWithdrawalNotification` (`submitWithdrawal`), na `CONTACT_EMAIL`                                      |
 
-Szablon otrzymuje `locale` i `messages` i tłumaczy za pomocą `createTranslator` z use-intl:
+Szablon dostaje `locale` i `messages`, a tłumaczy funkcją `createTranslator` z use-intl:
 
 ```tsx
 const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
 ```
 
-E-maile dotyczące konta zaczynają się od `EmailBrandHeader`, nazwy aplikacji, a pod przyciskiem umieszczają `EmailFallbackLink`: ten sam link jako zwykły tekst dla klientów, które ukrywają przyciski. E-maile weryfikacyjne, resetu hasła, zmiany adresu e-mail i usunięcia konta podają, jak długo działa ich link, na podstawie `EMAIL_LINK_LIFETIME_HOURS`, wartości, z którą skonfigurowano Better Auth.
+E-maile dotyczące konta zaczynają się od `EmailBrandHeader`, nazwy aplikacji, a pod przyciskiem umieszczają `EmailFallbackLink`: ten sam link jako zwykły tekst dla programów pocztowych, które ukrywają przyciski. E-maile weryfikacyjne, resetu hasła, zmiany adresu e-mail i usunięcia konta podają, jak długo działa link, według `EMAIL_LINK_LIFETIME_HOURS`, czyli wartości, z którą skonfigurowano Better Auth.
 
 ## Wysyłka
 
-Przypadek użycia odczytuje język i `redirect` z adresu zwrotnego przekazanego przez Better Auth, sprawdza limit na odbiorcę, ładuje komunikaty, renderuje szablon i go wysyła (`src/modules/verification/use-cases/send-verify-email.ts`):
+Przypadek użycia odczytuje język i `redirect` z adresu zwrotnego przekazanego przez Better Auth, sprawdza limit dla odbiorcy, ładuje komunikaty, renderuje szablon i wysyła wiadomość (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
 if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
@@ -55,11 +55,11 @@ await sendEmail({
 })
 ```
 
-`sendEmail` (`src/integrations/resend/resend.utils.ts`) wysyła przez Resend z adresu `RESEND_EMAIL_FROM`, chyba że podano `from` (powiadomienie dla właściciela, alert o niedopasowanym zamówieniu i powiadomienie o odstąpieniu od umowy używają `NOTIFICATIONS_EMAIL`), przekazuje klucz idempotencji i zgłasza błąd, gdy wysyłka się nie powiedzie.
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) wysyła przez Resend z adresu `RESEND_EMAIL_FROM`, chyba że podano `from` (powiadomienie dla właściciela, alert o nieprzypisanym zamówieniu i powiadomienie o odstąpieniu od umowy używają `NOTIFICATIONS_EMAIL`), przekazuje klucz idempotencji i rzuca wyjątek, gdy wysyłka się nie powiedzie.
 
-E-maile dotyczące konta używają języka strony, na której rozpoczął się przepływ, odczytanego z `callbackURL` w linku e-maila; przy ponownej rejestracji pochodzi on z `callbackURL` żądania rejestracji. Przepływ, który nie podaje adresu zwrotnego, czyli logowanie do niezweryfikowanego konta lub reset hasła, bierze język i `redirect` ze strony, która wysłała żądanie (z jej `Referer`, gdy jest w tej witrynie). E-maile newslettera używają języka przesłanego z formularzem; powiadomienie dla właściciela jest zawsze w `en-US`. Potwierdzenie zakupu używa języka, który `startCheckout` zapisał w metadanych zamówienia, a gdy go tam nie ma, angielskiego; potwierdza ono na trwałym nośniku zgodę kupującego na natychmiastowe dostarczenie, zobacz [Licencje](/docs/features/licences#purchase-confirmation). Alert o niedopasowanym zamówieniu, informujący serwis o opłaconym zamówieniu licencji, którego klient nie pasuje do żadnego konta, jest w `I18N.DEFAULT_LOCALE`, zobacz [Licencje](/docs/features/licences#orders-that-match-no-account). Potwierdzenie otrzymania odstąpienia od umowy używa języka strony, na której złożono oświadczenie, a powiadomienie dla serwisu o odstąpieniu od umowy jest w `I18N.DEFAULT_LOCALE`, zobacz [Licencje](/docs/features/licences#withdrawal-function). E-mail z zaproszeniem używa języka wybranego przez administratora, zapisanego w polu `locale` zaproszenia.
+E-maile dotyczące konta używają języka strony, od której zaczął się proces, odczytanego z `callbackURL` w linku z e-maila; przy ponownej rejestracji pochodzi on z `callbackURL` żądania rejestracji. Proces, który nie podaje adresu zwrotnego, czyli logowanie do niezweryfikowanego konta albo reset hasła, bierze język i `redirect` ze strony, która wysłała żądanie (z jej nagłówka `Referer`, jeśli ta strona należy do tej witryny). E-maile newslettera używają języka wysłanego razem z formularzem; powiadomienie dla właściciela jest zawsze w `en-US`. Potwierdzenie zakupu używa języka, który `startCheckout` zapisał w metadanych zamówienia, a gdy go tam nie ma, angielskiego; potwierdza ono na trwałym nośniku zgodę kupującego na natychmiastowe dostarczenie, zobacz [Licencje](/docs/features/licences#purchase-confirmation). Alert o nieprzypisanym zamówieniu, który informuje serwis o opłaconym zamówieniu licencji, którego klient nie pasuje do żadnego konta, jest w `I18N.DEFAULT_LOCALE`, zobacz [Licencje](/docs/features/licences#orders-that-match-no-account). Potwierdzenie otrzymania oświadczenia o odstąpieniu od umowy używa języka strony, na której je złożono, a powiadomienie dla serwisu o odstąpieniu od umowy jest w `I18N.DEFAULT_LOCALE`, zobacz [Licencje](/docs/features/licences#withdrawal-function). E-mail z zaproszeniem używa języka, który wybrał dla niego administrator, zapisanego w polu `locale` zaproszenia.
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) ogranicza liczbę e-maili każdego rodzaju (weryfikacyjnych, resetu hasła, o istniejącym koncie, o usunięciu konta, potwierdzających subskrypcję newslettera i potwierdzających otrzymanie odstąpienia od umowy) wysyłanych na jeden adres w ciągu godziny do <RepositoryFact name="recipientEmailsPerHour" />. Wysyłki są liczone w tabeli `rate_limit` pod skrótem SHA-256 adresu. Powyżej limitu e-mail jest pomijany, a żądanie i tak dostaje zwykłą odpowiedź. Potwierdzenie zmiany adresu e-mail, powiadomienie o zmianie hasła, powiadomienie dla właściciela, potwierdzenie zakupu, alert o niedopasowanym zamówieniu i powiadomienie o odstąpieniu od umowy nie są ograniczone; zmiana hasła wymaga tokenu resetu lub obecnego hasła, potwierdzenie zakupu i alert o niedopasowanym zamówieniu wywołuje webhook Polar, a nie odwiedzający, raz na zamówienie, a powiadomienie o odstąpieniu od umowy trafia tylko do serwisu, najwyżej <RepositoryFact name="sensitiveRateLimit" /> na klienta na minutę. E-mail z zaproszeniem podlega temu samemu limitowi, ale po jego przekroczeniu `sendInvitationEmail` kończy się błędem `TOO_MANY_REQUESTS`, zamiast pominąć wiadomość.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) ogranicza liczbę e-maili każdego rodzaju (weryfikacyjnych, resetu hasła, o istniejącym koncie, o usunięciu konta, potwierdzających subskrypcję newslettera i potwierdzających otrzymanie oświadczenia o odstąpieniu od umowy) wysyłanych na jeden adres w ciągu godziny do <RepositoryFact name="recipientEmailsPerHour" />. Wysyłki są liczone w tabeli `rate_limit` pod skrótem SHA-256 adresu. Po przekroczeniu limitu e-mail nie wychodzi, a żądanie i tak dostaje zwykłą odpowiedź. Potwierdzenie zmiany adresu e-mail, powiadomienie o zmianie hasła, powiadomienie dla właściciela, potwierdzenie zakupu, alert o nieprzypisanym zamówieniu i powiadomienie o odstąpieniu od umowy nie mają limitu; zmiana hasła wymaga tokenu resetu albo obecnego hasła, potwierdzenie zakupu i alert o nieprzypisanym zamówieniu wywołuje webhook Polara, a nie odwiedzający, i to raz na zamówienie, a powiadomienie o odstąpieniu od umowy trafia tylko do serwisu, najwyżej <RepositoryFact name="sensitiveRateLimit" /> na klienta na minutę. E-mail z zaproszeniem wlicza się do tego samego limitu, ale po jego przekroczeniu `sendInvitationEmail` kończy się błędem `TOO_MANY_REQUESTS`, zamiast pominąć wiadomość.
 
 ## Powiązane przewodniki
 

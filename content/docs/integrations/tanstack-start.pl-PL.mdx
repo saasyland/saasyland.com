@@ -3,15 +3,15 @@ title: "TanStack Start"
 description: "Trasy plikowe, loadery, prerendering i handlery HTTP."
 ---
 
-Aplikacja jest zbudowana na TanStack Start. `src/router.tsx` tworzy router z osobnym QueryClient dla każdego żądania, integracją zapytań z SSR, domyślnymi komponentami błędu i „nie znaleziono”, wstępnym ładowaniem przy intencji, czasem świeżości wstępnie załadowanych danych równym jego czasowi świeżości oraz `rewrite` dla języka. Nie ma domyślnego komponentu oczekiwania: każda trasa ustawia własny szkielet (zobacz [Szkielety ładowania](/docs/architecture/delivery-layer#loading-skeletons)). `src/routes.ts` eksportuje `ROUTES`, czyli stałe ścieżek używane przez linki, strażników i tagi w sekcji head.
+Aplikacja jest zbudowana na TanStack Start. `src/router.tsx` tworzy router z osobnym QueryClient dla każdego żądania, integracją zapytań z SSR, domyślnymi komponentami błędu i „nie znaleziono”, wstępnym ładowaniem po wskazaniu linku, czasem świeżości wstępnie załadowanych danych równym zwykłemu czasowi świeżości oraz `rewrite` dla języka. Nie ma domyślnego komponentu ładowania: każda trasa ustawia własny szkielet (zobacz [Szkielety ładowania](/docs/architecture/delivery-layer#loading-skeletons)). `src/routes.ts` eksportuje `ROUTES`, czyli stałe ścieżek używane przez linki, guardy i znaczniki w sekcji head.
 
-Repozytorium utrzymuje patche Bun dla `@tanstack/router-core` 1.171.39 i `@tanstack/react-router` 1.170.46 i przypina `@tanstack/router-core`, `@tanstack/react-router` oraz `@tanstack/react-start`, żeby zostały zainstalowane wersje objęte patchami. Pierwsze renderowanie routera po hydratacji resetowało pozycję przewinięcia okna, którą przeglądarka i wbudowany skrypt przywracania routera już ustawiły, więc odwiedzający, który przewijał stronę w trakcie hydratacji, wracał na górę; z patchem hydratacja nie zmienia pozycji przewinięcia. `lazyRouteComponent` przeładowuje stronę, gdy nie uda się załadować chunka trasy, żeby pobrać nowe wdrożenie, a Safari i Firefox w ten sam sposób przerywają chunki strony, którą odwiedzający opuszcza, więc przeładowanie zastępowało nawigację odwiedzającego stroną, którą opuszczał; z patchem chunk, którego nie uda się załadować po `beforeunload`, czeka i ładuje się ponownie, jeśli odwiedzający zostanie. Chunk loadera trasy nie ma takiego przeładowania; po wdrożeniu stronę ładuje ponownie domyślny komponent błędu routera (zobacz [Trasy i warstwa dostarczania](/docs/architecture/delivery-layer#after-a-deploy)). Zobacz [Zależności](/docs/conventions/dependencies).
+Repozytorium zawiera łatki Bun dla `@tanstack/router-core` 1.171.39 i `@tanstack/react-router` 1.170.46 i przypina `@tanstack/router-core`, `@tanstack/react-router` oraz `@tanstack/react-start`, żeby zainstalowane pozostały wersje objęte łatkami. Pierwsze renderowanie routera po hydratacji resetowało pozycję przewinięcia okna, którą przeglądarka i wbudowany skrypt przywracania routera już ustawiły, więc odwiedzający, który przewijał stronę w trakcie hydratacji, wracał na górę; z łatką hydratacja nie zmienia pozycji przewinięcia. `lazyRouteComponent` przeładowuje stronę, gdy nie uda się załadować chunka trasy, żeby pobrać nowe wdrożenie, a Safari i Firefox tak samo przerywają ładowanie chunków strony, którą odwiedzający opuszcza, więc przeładowanie zastępowało nawigację odwiedzającego stroną, którą opuszczał; z łatką chunk, którego nie uda się załadować po `beforeunload`, czeka i ładuje się ponownie, jeśli odwiedzający zostanie. Chunk loadera trasy nie ma takiego przeładowania; po wdrożeniu stronę ładuje ponownie domyślny komponent błędu routera (zobacz [Trasy i warstwa dostarczania](/docs/architecture/delivery-layer#after-a-deploy)). Zobacz [Zależności](/docs/conventions/dependencies).
 
 ## Trasy
 
-`src/routes/` zawiera płaskie trasy plikowe: `admin.users.all.tsx` obsługuje `/admin/users/all`, `_site.tsx` to układ bez własnej ścieżki, a `_site.docs.$.tsx` to trasa typu splat. ID w `createFileRoute("…")` to literał tekstowy utrzymywany przez generator routera w `src/routeTree.gen.ts`; foldery `__test__` nie są traktowane jako trasy.
+`src/routes/` zawiera płaskie trasy plikowe: `admin.users.all.tsx` obsługuje `/admin/users/all`, `_site.tsx` to layout bez własnej ścieżki, a `_site.docs.$.tsx` to trasa typu splat. ID w `createFileRoute("…")` to literał tekstowy utrzymywany przez generator routera w `src/routeTree.gen.ts`; foldery `__test__` nie są traktowane jako trasy.
 
-Plik trasy wyłącznie komponuje swoją stronę. Definiuje komponent `<Name>Page` lub `<Name>Layout`, `NAMESPACE` lub `NAMESPACES`, loader, który ładuje metadane, komunikaty i dane w jednym `Promise.all`, `head: pageHead(ROUTES.X)` oraz, w przypadku chronionych obszarów, strażnika w `beforeLoad`. Widżety, okna dialogowe, formularze i kolumny tabel znajdują się w `src/presentation/components/custom/` i same odczytują swoje tłumaczenia oraz dane. Loader opisuje strona [use-intl](/docs/integrations/use-intl), a strażników strona [Better Auth](/docs/integrations/better-auth).
+Plik trasy tylko składa swoją stronę. Definiuje komponent `<Name>Page` lub `<Name>Layout`, `NAMESPACE` lub `NAMESPACES`, loader, który ładuje metadane, komunikaty i dane w jednym `Promise.all`, `head: pageHead(ROUTES.X)` oraz, w przypadku chronionych obszarów, guard w `beforeLoad`. Widżety, okna dialogowe, formularze i kolumny tabel znajdują się w `src/presentation/components/custom/` i same odczytują swoje tłumaczenia oraz dane. Loader opisuje strona [use-intl](/docs/integrations/use-intl), a guardy – strona [Better Auth](/docs/integrations/better-auth).
 
 ## Funkcje serwerowe
 
@@ -21,11 +21,11 @@ Operacje to natywne funkcje `createServerFn` eksportowane z przypadków użycia 
 
 Te trasy w `src/routes/api/` deklarują `server.handlers`:
 
-| Trasa                                        | Handler                                                                                 |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `/api`                                       | Zwraca informacje o środowisku uruchomieniowym w formacie JSON                          |
-| `/api/auth/$`                                | Better Auth, w tym adresy zwrotne OAuth i webhooki Polar pod `/api/auth/polar/webhooks` |
-| <RepositoryFact name="cliApiBasePath" />`/*` | API licencji CLI, `licenseApiHandlers` w `src/modules/license/license.api.ts`           |
+| Trasa                                        | Handler                                                                                  |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `/api`                                       | Zwraca informacje o środowisku uruchomieniowym w formacie JSON                           |
+| `/api/auth/$`                                | Better Auth, w tym adresy zwrotne OAuth i webhooki Polara pod `/api/auth/polar/webhooks` |
+| <RepositoryFact name="cliApiBasePath" />`/*` | API licencji CLI, `licenseApiHandlers` w `src/modules/license/license.api.ts`            |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Prerendering
 
-`src/data/tanstack.vite.ts` włącza prerendering z przeszukiwaniem linków. `build:preview`, `build:production` i `build:test` prerenderują strony publiczne (stronę główną, strony prawne, blog i dokumentację) we wszystkich językach. Filtr pomija `/admin`, `/api`, `/app`, `/auth`, `/courses` i `/newsletter`, z prefiksem języka lub bez niego, a także linki zawierające `?` lub `#`. Pominięte strony są renderowane przez Workera przy każdym żądaniu.
+`src/data/tanstack.vite.ts` włącza prerendering z przechodzeniem po linkach. `build:preview`, `build:production` i `build:test` prerenderują strony publiczne (stronę główną, strony prawne, blog i dokumentację) we wszystkich językach. Filtr pomija `/admin`, `/api`, `/app`, `/auth`, `/courses` i `/newsletter`, z prefiksem języka lub bez niego, a także linki zawierające `?` lub `#`. Pominięte strony są renderowane przez Workera przy każdym żądaniu.
 
 ## Powiązane przewodniki
 

@@ -4,8 +4,9 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { usePagePending } from "~/src/hooks/use-page-pending"
+
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
-import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -62,7 +63,7 @@ const BreadcrumbDivider = (): JSX.Element => (
 
 export const AdminPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = PAGE_SKELETONS.get(pathname)
+  const Page = usePagePending("/admin")
   const [, section, action] = pathname.split("/").filter(Boolean)
   const hasSection = ADMIN_SIDEBAR_URLS.has(section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`)
 

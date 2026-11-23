@@ -138,7 +138,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/courses/**",
       "src/presentation/components/custom/admin/courses/**",
       "src/presentation/components/custom/admin/courses-pending.tsx",
-      "src/presentation/components/custom/admin/__test__/{course-cover,course-progress,course-transfer,curriculum-editor,lesson-dialog,lesson-video}.component.test.tsx",
+      "src/presentation/components/custom/admin/__test__/{course-cover,course-progress,course-transfer,courses-pending,curriculum-editor,lesson-dialog,lesson-video}.component.test.tsx",
       "src/presentation/components/custom/admin/__test__/courses.fixtures.ts",
       "src/presentation/components/custom/app/course-unlocks.tsx",
       "src/presentation/components/custom/app/__test__/course-unlocks.component.test.tsx",

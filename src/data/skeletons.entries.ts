@@ -1,8 +1,0 @@
-export { AUTH_SKELETONS } from "~/src/data/auth.skeletons"
-export { CORE_SKELETONS } from "~/src/data/core.skeletons"
-export { COURSES_SKELETONS } from "~/src/data/courses.skeletons"
-export { LEGAL_SKELETONS } from "~/src/data/legal.skeletons"
-export { LICENSE_SKELETONS } from "~/src/data/license.skeletons"
-export { NEWSLETTER_SKELETONS } from "~/src/data/newsletter.skeletons"
-export { PAYMENTS_SKELETONS } from "~/src/data/payments.skeletons"
-export { PRODUCTS_SKELETONS } from "~/src/data/products.skeletons"

@@ -11,6 +11,8 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
 
+import { routeTree } from "~/src/routeTree.gen"
+
 const StubObserver = vi.fn(function stubObserver(this: Pick<IntersectionObserver, "disconnect" | "observe">) {
   this.disconnect = vi.fn<() => void>()
   this.observe = vi.fn<(element: Element) => void>()
@@ -33,7 +35,7 @@ export const renderMarketingPending = (path: string) =>
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <MarketingPending />
     </IntlProvider>,
-    { router: createTestRouter(path) },
+    { router: createTestRouter(path, routeTree) },
   )
 
 export const expectMarketingSkeleton = (path: string, Page: () => JSX.Element): void => {

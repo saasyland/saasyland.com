@@ -24,6 +24,7 @@ import {
 } from "~/src/presentation/components/custom/auth/auth-pending"
 
 import { ROUTES } from "~/src/routes"
+import { routeTree } from "~/src/routeTree.gen"
 
 const TIER_SIGN_UP = `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect: `${ROUTES.APP}?${new URLSearchParams({ tier: LICENSE_TIER.COMPLETE }).toString()}` }).toString()}`
 
@@ -32,11 +33,11 @@ const renderAuthPending = (path: string) =>
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <AuthPending />
     </IntlProvider>,
-    { router: createTestRouter(path) },
+    { router: createTestRouter(path, routeTree) },
   )
 
 const pageMarkupAt = (path: string, Page: () => JSX.Element): string => {
-  const { container, unmount } = renderWithRouter(<Page />, { router: createTestRouter(path) })
+  const { container, unmount } = renderWithRouter(<Page />, { router: createTestRouter(path, routeTree) })
   const markup = container.innerHTML
   unmount()
   return markup

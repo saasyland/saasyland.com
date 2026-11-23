@@ -1,8 +1,6 @@
 import type { JSX } from "react"
 
-import { useRouterState } from "@tanstack/react-router"
-
-import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
+import { usePagePending } from "~/src/hooks/use-page-pending"
 
 import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
 
@@ -12,8 +10,6 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { FieldPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
-
-import { ROUTES } from "~/src/routes"
 
 const COURSE_FORM_FIELDS = ["title", "summary", "slug"] as const
 const COURSE_LIST_ACTIONS = 3
@@ -153,24 +149,8 @@ export const AdminLessonEditorPending = (): JSX.Element => (
   </div>
 )
 
-const COURSE_PAGES = new Map<string, () => JSX.Element>([
-  [ROUTES.ADMIN_COURSES, AdminCoursesPending],
-  [ROUTES.ADMIN_COURSES_CREATE, AdminCourseCreatePending],
-])
+export const AdminCourseSectionPending = (): JSX.Element | undefined => {
+  const Page = usePagePending("/admin/courses")
 
-const LESSON_EDITOR_PATH = new RegExp(`^${ROUTES.ADMIN_COURSES}/[^/]+/lessons/[^/]+$`, "u")
-
-const sectionPage = (pathname: string): (() => JSX.Element) => {
-  if (LESSON_EDITOR_PATH.test(pathname)) {
-    return AdminLessonEditorPending
-  }
-
-  return COURSE_PAGES.get(pathname) ?? AdminCourseEditorPending
-}
-
-export const AdminCourseSectionPending = (): JSX.Element => {
-  const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = sectionPage(pathname)
-
-  return <Page />
+  return Page && <Page />
 }

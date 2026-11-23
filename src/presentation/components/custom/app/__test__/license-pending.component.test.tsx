@@ -19,6 +19,8 @@ import { AppPending } from "~/src/presentation/components/custom/app/app-pending
 import { AppOverviewPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
 
+import { routeTree } from "~/src/routeTree.gen"
+
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 
 const SELECTORS = {
@@ -46,7 +48,7 @@ interface Cache {
 const renderAt = (ui: ReactElement, path: string, { owned }: Cache = {}) => {
   const queryClient = new QueryClient()
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: owned })
-  return renderWithRouter(ui, { queryClient, router: createTestRouter(path) }).container
+  return renderWithRouter(ui, { queryClient, router: createTestRouter(path, routeTree) }).container
 }
 
 afterEach(cleanup)

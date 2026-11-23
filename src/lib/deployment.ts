@@ -1,6 +1,6 @@
-import { DEPLOYED_HOSTS } from "~/src/modules/_core/constants/api"
+import { DEPLOYED_HOSTS, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import * as AREA_LIVE_CHECKS from "~/src/areas/live.entries"
 import { CONTENT_TYPE, type LiveSiteCheck } from "~/src/data/live.constants"
 
 export const LIVE_SITE_CHECK_RETRY_DELAY_MS = 5000
@@ -8,6 +8,10 @@ export const LIVE_SITE_CHECK_RETRY_DELAY_MS = 5000
 export const LIVE_SITE_CHECK_RETRY_DELAYS_MS = [LIVE_SITE_CHECK_RETRY_DELAY_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS]
 
 export const LIVE_SITE_CHECK_TIMEOUT_MS = 15_000
+
+const AREAS: Readonly<Record<string, readonly LiveSiteCheck[]>> = AREA_LIVE_CHECKS
+
+export const LIVE_SITE_CHECKS = Object.values(AREAS).flat()
 
 const METHOD = { GET: "GET", POST: "POST" } as const
 
@@ -38,10 +42,10 @@ const requestInit = (url: URL, { post }: LiveSiteCheck): RequestInit => {
   }
 }
 
-const describeMismatch = (request: string, response: Response, { contentType, status }: LiveSiteCheck): string => {
+const describeMismatch = (request: string, response: Response, { contentType }: LiveSiteCheck): string => {
   const answer = [String(response.status), response.headers.get("content-type")].filter((part) => part !== null).join(" ")
 
-  return `${request} answered ${answer} instead of ${String(status)} ${contentType}.`
+  return `${request} answered ${answer} instead of ${String(HTTP_STATUS.OK)} ${contentType}.`
 }
 
 const findAnswerProblems = async (url: URL, response: Response, { post }: LiveSiteCheck): Promise<readonly string[]> =>
@@ -53,7 +57,7 @@ const findProblems = async (url: URL, check: LiveSiteCheck): Promise<string[]> =
   try {
     const response = await fetch(url, requestInit(url, check))
     const contentType = response.headers.get("content-type")
-    if (response.status !== check.status || contentType?.startsWith(check.contentType) !== true) {
+    if (response.status !== HTTP_STATUS.OK || contentType?.startsWith(check.contentType) !== true) {
       return [describeMismatch(request, response, check)]
     }
 

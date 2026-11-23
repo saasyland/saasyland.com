@@ -1,7 +1,5 @@
 import * as zod from "zod"
 
-import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import { CONTENT_TYPE, type LiveSiteCheck } from "~/src/data/live.constants"
 
@@ -44,7 +42,7 @@ const findSignInProblems =
   }
 
 export const AUTH_LIVE_CHECKS = [
-  { contentType: CONTENT_TYPE.JSON, path: `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`, status: HTTP_STATUS.OK },
+  { contentType: CONTENT_TYPE.JSON, path: `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}` },
   ...OAUTH_PROVIDERS.map((provider) => ({
     contentType: CONTENT_TYPE.JSON,
     path: SOCIAL_SIGN_IN_PATH,
@@ -53,6 +51,5 @@ export const AUTH_LIVE_CHECKS = [
       findProblems: findSignInProblems(provider),
       name: `${provider.name} sign-in`,
     },
-    status: HTTP_STATUS.OK,
   })),
 ] as const satisfies readonly LiveSiteCheck[]

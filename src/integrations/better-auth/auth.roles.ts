@@ -1,9 +1,16 @@
+import type { Statements } from "better-auth/plugins/access"
+
 export const ROLE_CODES = {
   ADMIN: "admin",
   CUSTOMER: "customer",
 } as const
 
 export type Role = (typeof ROLE_CODES)[keyof typeof ROLE_CODES]
+
+export interface AreaAccess {
+  readonly grants: Readonly<Partial<Record<Role, Statements>>>
+  readonly statements: Statements
+}
 
 export const ROLE_VALUES = [ROLE_CODES.ADMIN, ROLE_CODES.CUSTOMER] as const satisfies readonly Role[]
 

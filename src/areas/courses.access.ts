@@ -1,6 +1,4 @@
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
-
-import type { AreaAccess } from "~/src/data/access"
+import { type AreaAccess, ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 
 const STATEMENTS = {
   course: ["create", "read", "update", "delete"],

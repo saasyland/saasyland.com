@@ -15,5 +15,4 @@ export interface LiveSiteCheck {
   readonly contentType: string
   readonly path: string
   readonly post?: LiveSitePost
-  readonly status: number
 }

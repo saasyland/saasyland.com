@@ -48,10 +48,11 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     files: [
       areaData(AREA.AUTH),
       areaMessages(AREA.AUTH),
-      "src/data/{access,account-deletion,app-badges,app-overview,auth-plugins,command-search,dashboard,sign-up-intros,sign-up-notices,user-profile,user-tabs}.{ts,entries.ts}",
+      "src/areas/access.entries.ts",
+      "src/data/{account-deletion,app-badges,app-overview,auth-plugins,command-search,dashboard,sign-up-intros,sign-up-notices,user-profile,user-tabs}.{ts,entries.ts}",
       "src/data/dashboard.constants.ts",
       "src/data/{admin,email-domains}.ts",
-      "src/data/__test__/{access,access.website,account-deletion,admin,app-badges,app-overview,auth-plugins,dashboard,sign-up-intros,sign-up-notices,user-profile,user-tabs}.test.{ts,tsx}",
+      "src/data/__test__/{account-deletion,admin,app-badges,app-overview,auth-plugins,dashboard,sign-up-intros,sign-up-notices,user-profile,user-tabs}.test.{ts,tsx}",
       "src/integrations/better-auth/**",
       "src/modules/{account,session,two-factor,user,verification}/**",
       "src/routes/{admin,app,auth}.tsx",

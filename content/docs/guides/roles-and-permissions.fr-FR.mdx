@@ -3,11 +3,11 @@ title: "Rôles et permissions"
 description: "Définissez les déclarations de permissions d'une zone et les rôles auxquels elle les accorde dans son fichier d'accès, puis vérifiez-les dans les gardes de route et les fonctions serveur."
 ---
 
-Le contrôle d'accès utilise le plugin admin de Better Auth. Chaque zone définit les déclarations de permissions de ses ressources et les rôles auxquels elle les accorde dans `src/data/<area>.access.ts`. `src/data/access.entries.ts` réunit les zones, et `src/integrations/better-auth/auth.access.ts` construit à partir d'elles le contrôle d'accès de Better Auth, les rôles et la vérification des permissions : l'intégration d'authentification ne nomme donc aucune zone. Les codes de rôle se trouvent dans `src/integrations/better-auth/auth.roles.ts`.
+Le contrôle d'accès utilise le plugin admin de Better Auth. Chaque zone définit les déclarations de permissions de ses ressources et les rôles auxquels elle les accorde dans `src/areas/<area>.access.ts`. `src/areas/access.entries.ts` réunit les zones, et `src/integrations/better-auth/auth.access.ts` construit à partir d'elles le contrôle d'accès de Better Auth, les rôles et la vérification des permissions : l'intégration d'authentification ne nomme donc aucune zone. Les codes de rôle se trouvent dans `src/integrations/better-auth/auth.roles.ts`.
 
 ## Permissions et rôles
 
-```ts title="src/data/auth.access.ts"
+```ts title="src/areas/auth.access.ts"
 const STATEMENTS = {
   admin: ["access"],
   settings: ["manage"],
@@ -28,7 +28,7 @@ export const ROLES = {
 }
 ```
 
-- `APP_STATEMENTS` dans `src/data/access.ts` réunit les déclarations de toutes les zones, triées par ressource, et échoue au démarrage quand deux zones déclarent la même ressource. `grantsOf(role)` réunit ce que chaque zone accorde à ce rôle.
+- `APP_STATEMENTS` dans `src/integrations/better-auth/auth.access.ts` réunit les déclarations de toutes les zones, triées par ressource, et échoue au démarrage quand deux zones déclarent la même ressource. `grantsOf(role)` réunit ce que chaque zone accorde à ce rôle.
 - La zone d'authentification déclare `admin` et `settings`, la zone des produits `category` et `product`, la zone des cours `course` et `video`, et la zone des paiements `order`.
 - Les `defaultStatements` de Better Auth ajoutent les ressources `user` et `session` (par exemple `user: ["list", "set-role", "ban", "impersonate", "delete"]` et `session: ["list", "revoke"]`).
 - Chaque zone accorde toutes ses déclarations à `admin`, qui reçoit aussi les déclarations d'administration de Better Auth ; `customer`, le rôle par défaut des nouveaux utilisateurs, n'en reçoit aucune.
@@ -48,10 +48,10 @@ Le garde de route décide seulement des pages affichées. Les fonctions serveur 
 
 ## Ajouter une permission
 
-1. Ajoutez l'action aux déclarations de la zone qui possède la ressource, par exemple `report: ["read", "export"]` dans `src/data/analytics.access.ts`. Une nouvelle zone ajoute son fichier et une ligne à `src/data/access.entries.ts`.
+1. Ajoutez l'action aux déclarations de la zone qui possède la ressource, par exemple `report: ["read", "export"]` dans `src/areas/analytics.access.ts`. Une nouvelle zone ajoute son fichier et une ligne à `src/areas/access.entries.ts`.
 2. Accordez-la dans les `grants` du même fichier : les zones accordent l'ensemble de leurs `STATEMENTS` à `ROLE_CODES.ADMIN`, et un rôle qui doit en recevoir moins se voit accorder un sous-ensemble.
 3. Exigez-la dans la fonction serveur : `.middleware([authorized({ report: ["export"] })])`.
-4. Testez à la fois le cas autorisé et le cas `FORBIDDEN`, dans le fichier `src/data/__test__/<area>.access.test.ts` de la zone et dans les tests du cas d'usage.
+4. Testez à la fois le cas autorisé et le cas `FORBIDDEN`, dans le fichier `src/areas/__test__/<area>.access.test.ts` de la zone et dans les tests du cas d'usage.
 
 ## Ajouter un rôle
 

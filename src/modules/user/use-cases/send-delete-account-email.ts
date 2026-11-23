@@ -5,11 +5,12 @@ import { createElement } from "react"
 import { getRequest } from "@tanstack/react-start/server"
 import { createTranslator } from "use-intl"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { extractLocaleFromCallbackURL, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
+
+import { USER_EMAIL_PURPOSE } from "~/src/modules/user/user.constants"
 
 import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
@@ -26,7 +27,7 @@ export const sendDeleteAccountEmail = async ({
   url: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.DELETE_ACCOUNT, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: USER_EMAIL_PURPOSE.DELETE_ACCOUNT, recipient: user.email }))) {
     console.warn("[email] account deletion email not sent: the recipient reached the hourly limit")
     return
   }
@@ -37,7 +38,7 @@ export const sendDeleteAccountEmail = async ({
   const messages = await loadNamespace<typeof deleteAccountMessages>({ locale, namespace: DELETE_ACCOUNT_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.DELETE_ACCOUNT, token },
+    idempotency: { purpose: USER_EMAIL_PURPOSE.DELETE_ACCOUNT, token },
     react: createElement(DeleteAccountEmail, { confirmUrl: confirmUrl.toString(), locale, messages, name: user.name }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

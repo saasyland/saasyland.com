@@ -6,10 +6,10 @@ import { asc, eq } from "drizzle-orm"
 import { createTranslator } from "use-intl"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { accountEmailLinks } from "~/src/modules/account/account.links"
 import { account } from "~/src/modules/account/account.schema"
 
@@ -26,7 +26,7 @@ export const sendExistingAccountEmail = async ({
   callbackURL: string
   user: { email: string; id: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.EXISTING_ACCOUNT, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT, recipient: user.email }))) {
     console.warn("[email] existing account email not sent: the recipient reached the hourly limit")
     return
   }
@@ -38,7 +38,7 @@ export const sendExistingAccountEmail = async ({
   ])
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.EXISTING_ACCOUNT, token: crypto.randomUUID() },
+    idempotency: { purpose: ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT, token: crypto.randomUUID() },
     react: createElement(ExistingAccountEmail, {
       locale,
       messages,

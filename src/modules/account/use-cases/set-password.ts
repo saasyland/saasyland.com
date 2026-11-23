@@ -8,8 +8,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { Account } from "~/src/modules/account/account.types"
 import { accountZodSchemas } from "~/src/modules/account/account.zod"
-
-import { AUTH_EMAILS } from "~/src/data/auth-emails"
+import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 
 export const setPassword = createServerFn({ method: "POST" })
   .middleware([withRateLimit("set-password", RATE_LIMITS.SENSITIVE), authorized()])
@@ -17,7 +16,7 @@ export const setPassword = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await auth.api.setPassword({ body: data, headers: context.requestHeaders })
     await auth.api.revokeOtherSessions({ headers: context.requestHeaders })
-    await AUTH_EMAILS.sendPasswordChanged({ callbackURL: pageCallbackURL(), user: context.auth.user })
+    await sendPasswordChangedEmail({ callbackURL: pageCallbackURL(), user: context.auth.user })
 
     return { status: true }
   })

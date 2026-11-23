@@ -4,11 +4,12 @@ import { createElement } from "react"
 
 import { createTranslator } from "use-intl"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { extractLocaleFromCallbackURL } from "~/src/integrations/use-intl/i18n.paths"
+
+import { VERIFICATION_EMAIL_PURPOSE } from "~/src/modules/verification/verification.constants"
 
 import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
@@ -24,7 +25,7 @@ export const sendResetPasswordEmail = async ({
   url: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.RESET_PASSWORD, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: VERIFICATION_EMAIL_PURPOSE.RESET_PASSWORD, recipient: user.email }))) {
     console.warn("[email] password reset email not sent: the recipient reached the hourly limit")
     return
   }
@@ -33,7 +34,7 @@ export const sendResetPasswordEmail = async ({
   const messages = await loadNamespace<typeof resetPasswordMessages>({ locale, namespace: RESET_PASSWORD_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.RESET_PASSWORD, token },
+    idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.RESET_PASSWORD, token },
     react: createElement(ResetPasswordEmail, { locale, messages, name: user.name, resetPasswordUrl: url }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

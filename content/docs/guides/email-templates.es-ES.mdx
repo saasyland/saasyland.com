@@ -87,7 +87,7 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
     console.warn("[email] verification email not sent: the recipient reached the hourly limit")
     return
   }
@@ -101,7 +101,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+    idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -115,7 +115,7 @@ El correo de verificación usa una clave nueva en cada envío, `crypto.randomUUI
 
 ## Quién envía qué
 
-- Los hooks de Better Auth en `src/integrations/better-auth/auth.server.ts` llaman a los casos de uso a través de `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` para `emailVerification.sendVerificationEmail` y para los registros repetidos de cuentas sin verificar, `sendExistingAccountEmail` para los registros repetidos de cuentas verificadas, `sendResetPasswordEmail` para `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` para `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` para `user.changeEmail` y `sendDeleteAccountEmail` para `user.deleteUser.sendDeleteAccountVerification`.
+- Los hooks de Better Auth en `src/integrations/better-auth/auth.server.ts` llaman directamente a los casos de uso: `sendVerifyEmail` para `emailVerification.sendVerificationEmail` y para los registros repetidos de cuentas sin verificar, `sendExistingAccountEmail` para los registros repetidos de cuentas verificadas, `sendResetPasswordEmail` para `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` para `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` para `user.changeEmail` y `sendDeleteAccountEmail` para `user.deleteUser.sendDeleteAccountVerification`.
 - Las peticiones de Better Auth llegan a `/api/auth` sin prefijo de idioma, así que los hooks toman el idioma del correo del `callbackURL` del flujo, una ruta de página localizada, con `extractLocaleFromCallbackURL` o `extractLocaleFromPath` de `src/integrations/use-intl/i18n.paths.ts`. El inglés es el idioma de reserva.
 - Los casos de uso del boletín envían ellos mismos los correos de confirmación y de notificación, por ejemplo `subscribeToNewsletter`.
 - El handler de webhook `onOrderPaid` del área de licencias llama a `sendPurchaseConfirmationEmail` después de conceder la licencia. El correo toma su idioma de `metadata.locale` del pedido, sus enlaces del host que recibió el webhook y su token de idempotencia del ID del pedido de Polar, y un envío fallido hace fallar el handler para que Polar lo reintente.
@@ -128,7 +128,7 @@ El correo de verificación usa una clave nueva en cada envío, `crypto.randomUUI
 
 1. Añade la plantilla en `src/presentation/emails/<name>.tsx` con su `<NAME>_NAMESPACE` exportado.
 2. Añade `messages/<locale>/emails.<name>.json` en todos los idiomas.
-3. Da nombre a su propósito en el `src/data/<area>.email-purposes.ts` del área, que `src/data/email-purposes.entries.ts` reúne en `EMAIL_PURPOSE`, y envíalo desde el caso de uso al que pertenece la acción, pasando `idempotency: { purpose, token }` con el token o el id del registro que lo desencadena.
+3. Da nombre a su propósito en el objeto `<MODULE>_EMAIL_PURPOSE` del `<module>.constants.ts` del módulo remitente, que `email-purposes.test.ts` compara con los propósitos de todos los demás módulos, y envíalo desde el caso de uso al que pertenece la acción, pasando `idempotency: { purpose, token }` con el token o el id del registro que lo desencadena.
 4. Prueba la plantilla en `src/presentation/emails/__test__/` y el caso de uso con `sendEmail` simulado.
 
 Credenciales de Resend: `RESEND_API_KEY` y `RESEND_EMAIL_FROM`. Los tests nunca contactan con Resend.

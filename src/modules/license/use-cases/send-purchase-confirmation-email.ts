@@ -7,21 +7,21 @@ import { getRequest } from "@tanstack/react-start/server"
 import { createTranslator } from "use-intl"
 import * as zod from "zod"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
-import { LICENSE_CHECKOUT_METADATA, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_METADATA, LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
 import { refundDeadline } from "~/src/modules/license/license.refunds"
 import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
+import { holdsCourseAccess } from "~/src/data/course-access"
 import { fromMinorUnits } from "~/src/data/currencies"
-import { PURCHASE_EMAIL_STEPS } from "~/src/data/purchase-email"
 
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
+import type coursesStepMessages from "~/messages/en-US/purchase-email.courses.json"
 import {
   PURCHASE_CONFIRMATION_EMAIL_NAMESPACE,
   PurchaseConfirmationEmail,
@@ -29,6 +29,8 @@ import {
   type PurchaseConfirmationStep,
 } from "~/src/presentation/emails/purchase-confirmation-email"
 import { ROUTES } from "~/src/routes"
+
+const COURSES_STEP_NAMESPACE = "purchase-email.courses"
 
 const orderLocaleSchema = zod.object({ [LICENSE_CHECKOUT_METADATA.LOCALE]: localeField })
 
@@ -60,9 +62,14 @@ const confirmationLinks = (locale: SupportedLocale): PurchaseConfirmationLinks =
 })
 
 const nextSteps = async (locale: SupportedLocale, userId: string): Promise<PurchaseConfirmationStep[]> => {
-  const lines = await Promise.all(PURCHASE_EMAIL_STEPS.map((step) => step.lines({ locale, userId })))
+  if (!(await holdsCourseAccess(userId))) {
+    return []
+  }
 
-  return lines.flat().map(({ link, pathname, text }) => ({ link, text, url: absoluteUrl(locale, pathname) }))
+  const messages = await loadNamespace<typeof coursesStepMessages>({ locale, namespace: COURSES_STEP_NAMESPACE })
+  const t = createTranslator({ locale, messages: { "purchase-email": { courses: messages } }, namespace: COURSES_STEP_NAMESPACE })
+
+  return [{ link: t("link"), text: t("text"), url: absoluteUrl(locale, ROUTES.COURSES) }]
 }
 
 export const sendPurchaseConfirmationEmail = async ({
@@ -81,7 +88,7 @@ export const sendPurchaseConfirmationEmail = async ({
   ])
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.PURCHASE_CONFIRMATION, token: order.id },
+    idempotency: { purpose: LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION, token: order.id },
     react: createElement(PurchaseConfirmationEmail, {
       amount: fromMinorUnits(order.total_amount, currency),
       currency,

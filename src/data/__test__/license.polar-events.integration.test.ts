@@ -20,10 +20,9 @@ import { promoteToAdmin, signUpAndVerify } from "~/src/integrations/better-auth/
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { LICENSE_STATUS, LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
+import { LICENSE_EMAIL_PURPOSE, LICENSE_STATUS, LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlicensed-orders"
@@ -59,7 +58,7 @@ const copiesOf = (userId: string) => db.select().from(order).where(eq(order.user
 const emailsOf = (purpose: string, recipient: string) =>
   getSentEmails(recipient).filter(({ idempotencyKey }) => idempotencyKey?.startsWith(`${purpose}/`) === true)
 
-const confirmationsTo = (recipient: string) => emailsOf(EMAIL_PURPOSE.PURCHASE_CONFIRMATION, recipient)
+const confirmationsTo = (recipient: string) => emailsOf(LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION, recipient)
 
 const unlicensedOrderIds = async (admin: { readonly headers: Headers }): Promise<string[]> => {
   vi.mocked(getRequest).mockReturnValue(new Request(`${TEST_APP_URL}/_serverFn/license`, { headers: admin.headers }))
@@ -128,7 +127,7 @@ describe("a paid licence order whose customer matches no account", () => {
     expect(await post(orderPaid)).toBe(HTTP_STATUS.OK)
     expect(await post(grantCreated)).toBe(HTTP_STATUS.OK)
 
-    expect(emailsOf(EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, CONTACT_EMAIL)).toHaveLength(1)
+    expect(emailsOf(LICENSE_EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, CONTACT_EMAIL)).toHaveLength(1)
     await expect(unlicensedOrderIds(admin)).resolves.toStrictEqual([paid.id])
 
     const buyer = await signUpAndVerify()
@@ -141,7 +140,7 @@ describe("a paid licence order whose customer matches no account", () => {
       { key: polarLicenseKeyOf(grant).key, polarOrderId: paid.id, status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.AGENCY },
     ])
     expect(confirmationsTo(buyer.account.email)).toHaveLength(1)
-    expect(emailsOf(EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, CONTACT_EMAIL)).toHaveLength(1)
+    expect(emailsOf(LICENSE_EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, CONTACT_EMAIL)).toHaveLength(1)
     await expect(unlicensedOrderIds(admin)).resolves.toStrictEqual([])
   })
 })

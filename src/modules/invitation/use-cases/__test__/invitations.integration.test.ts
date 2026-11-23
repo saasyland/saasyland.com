@@ -18,10 +18,9 @@ import {
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { INVITATION_STATUS, INVITATION_TOKEN_LENGTH } from "~/src/modules/invitation/invitation.constants"
+import { INVITATION_EMAIL_PURPOSE, INVITATION_STATUS, INVITATION_TOKEN_LENGTH } from "~/src/modules/invitation/invitation.constants"
 import { invitation } from "~/src/modules/invitation/invitation.schema"
 import { acceptInvitationMutation } from "~/src/modules/invitation/use-cases/accept-invitation"
 import { claimInvitationMutation } from "~/src/modules/invitation/use-cases/claim-invitation"
@@ -85,7 +84,7 @@ describe("inviting a user", () => {
     await expect(invite(email.toUpperCase(), ROLE_CODES.ADMIN)).resolves.toStrictEqual({ email })
 
     const [sent] = getSentEmails(email)
-    expect(sent?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.INVITATION}/`)).toBe(true)
+    expect(sent?.idempotencyKey?.startsWith(`${INVITATION_EMAIL_PURPOSE.INVITATION}/`)).toBe(true)
     expect(sent?.html).toContain('lang="pl-PL"')
     expect(sent?.html).toContain(`/pl-PL${ROUTES.ACCEPT_INVITATION}?token=`)
     await expect(openInvitation(email)).resolves.toMatchObject({

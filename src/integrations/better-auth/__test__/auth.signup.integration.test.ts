@@ -13,12 +13,13 @@ import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { signUpWithPasswordMutation } from "~/src/modules/account/use-cases/sign-up-with-password"
 import { user } from "~/src/modules/user/user.schema"
+import { VERIFICATION_EMAIL_PURPOSE } from "~/src/modules/verification/verification.constants"
 
 import { APP_SLUG } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -93,7 +94,7 @@ describe("production signup verification delivery", () => {
       to: [body.email],
     })
     expect(deliveries[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?token=`)
-    expect(deliveries[0]?.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
+    expect(deliveries[0]?.idempotencyKey).toMatch(new RegExp(`^${VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
     expect(deliveries[0]?.html).toContain('lang="pl-PL"')
 
     await verifyDeliveredEmail(body.email)
@@ -223,7 +224,7 @@ describe("repeated sign-up of an existing account", () => {
     const deliveries = getSentEmails(body.email)
     expect(deliveries).toHaveLength(2)
     expect(deliveries[1]).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: "Masz już konto w SaaSy Land", to: [body.email] })
-    expect(deliveries[1]?.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.EXISTING_ACCOUNT}/[0-9a-f]{64}$`, "u"))
+    expect(deliveries[1]?.idempotencyKey).toMatch(new RegExp(`^${ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT}/[0-9a-f]{64}$`, "u"))
     expect(deliveries[1]?.html).toContain('lang="pl-PL"')
     expect(deliveries[1]?.html).toContain(`href="${ORIGIN}/pl-PL/auth/sign-in?redirect=%2Fpl-PL%2Fapp%2Fsettings"`)
     expect(deliveries[1]?.html).toContain(`href="${ORIGIN}/pl-PL/auth/forgot-password"`)
@@ -267,12 +268,12 @@ describe("repeated sign-up of an existing account", () => {
     expect(created).toMatchObject({ keys: verifiedShape?.keys, status: 200, token: null })
     expect(created?.setCookie).toContain(`${APP_SLUG}.session_token=`)
     expect(getSentEmails(verified.email).map(({ idempotencyKey }) => idempotencyKey?.split("/")[0])).toStrictEqual([
-      EMAIL_PURPOSE.VERIFY_EMAIL,
-      EMAIL_PURPOSE.EXISTING_ACCOUNT,
+      VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL,
+      ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT,
     ])
     expect(getSentEmails(unverified.email).map(({ idempotencyKey }) => idempotencyKey?.split("/")[0])).toStrictEqual([
-      EMAIL_PURPOSE.VERIFY_EMAIL,
-      EMAIL_PURPOSE.VERIFY_EMAIL,
+      VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL,
+      VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL,
     ])
   })
 
@@ -288,7 +289,7 @@ describe("repeated sign-up of an existing account", () => {
     }
 
     const notices = getSentEmails(body.email).filter(
-      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.EXISTING_ACCOUNT}/`) === true,
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT}/`) === true,
     )
     expect(notices).toHaveLength(3)
     expect(consoleWarn).toHaveBeenCalledWith("[email] existing account email not sent: the recipient reached the hourly limit")

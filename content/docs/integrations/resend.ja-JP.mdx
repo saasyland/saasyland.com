@@ -3,7 +3,7 @@ title: "Resend"
 description: "Resend と React Email テンプレートによるトランザクションメールです。"
 ---
 
-`src/integrations/resend/resend.config.ts` は `resendClient` をエクスポートし、メールを送るたびに `RESEND_API_KEY` から Resend クライアントを作成します。Resend SDK はキーがないと例外をスローしますが、こうすることで、ビルドやプリレンダリングされたページ、メールを送らないリクエストはキーなしで動きます。`resend.utils.ts` は、メールを送信する唯一の関数である `sendEmail` をエクスポートします。`from` のデフォルトは `RESEND_EMAIL_FROM` です。必須の `idempotency` オプションでメールの目的ときっかけとなったトークンを渡すと、`sendEmail` がそれをキー `${purpose}/${sha256Hex(token)}` に変換します。このキーにより、再試行されたリクエストを Resend が二重に送信することはなく、Resend の 256 文字の上限にも収まります。Resend のエラーは例外としてスローされます。どちらのファイルもサーバー専用です。メールを送る各エリアは `src/data/<area>.email-purposes.ts` で目的に名前を付け、`resend.constants.ts` が `src/data/email-purposes.entries.ts` からそれらを `EMAIL_PURPOSE` にまとめます。重複がないことは `resend.constants.test.ts` が確認します。ユースケースは同じ名前を受信者ごとの上限の `kind` にも渡します。
+`src/integrations/resend/resend.config.ts` は `resendClient` をエクスポートし、メールを送るたびに `RESEND_API_KEY` から Resend クライアントを作成します。Resend SDK はキーがないと例外をスローしますが、こうすることで、ビルドやプリレンダリングされたページ、メールを送らないリクエストはキーなしで動きます。`resend.utils.ts` は、メールを送信する唯一の関数である `sendEmail` をエクスポートします。`from` のデフォルトは `RESEND_EMAIL_FROM` です。必須の `idempotency` オプションでメールの目的ときっかけとなったトークンを渡すと、`sendEmail` がそれをキー `${purpose}/${sha256Hex(token)}` に変換します。このキーにより、再試行されたリクエストを Resend が二重に送信することはなく、Resend の 256 文字の上限にも収まります。Resend のエラーは例外としてスローされます。どちらのファイルもサーバー専用です。メールを送る各モジュールは、`verification.constants.ts` の `VERIFICATION_EMAIL_PURPOSE` のように、自分の `<module>.constants.ts` で目的に名前を付けます。2 つのモジュールが同じ目的を使うと `email-purposes.test.ts` が失敗します。ユースケースは同じ名前を受信者ごとの上限の `kind` にも渡します。
 
 ## テンプレートとユースケース
 
@@ -12,7 +12,7 @@ description: "Resend と React Email テンプレートによるトランザク�
 ```ts
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
-  idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+  idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
   react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
   subject: createTranslator({ locale, messages })("subject"),
   to: user.email,
@@ -34,7 +34,7 @@ await sendEmail({
 | `withdrawal-acknowledgement-email.tsx` | `emails.withdrawal-acknowledgement-email` | `modules/withdrawal/use-cases/send-withdrawal-acknowledgement.ts`            |
 | `withdrawal-notification-email.tsx`    | `emails.withdrawal-notification-email`    | `modules/withdrawal/use-cases/send-withdrawal-notification.ts`               |
 
-最初の 5 つのユースケースは、Better Auth が `auth.server.ts` のフックから呼び出します。Resend はこれらを `src/data/resend.auth-emails.ts` の `RESEND_AUTH_EMAILS` を通じてフックに組み込みます。ニュースレターの通知は、購読が確認された後にサイトのオーナーへ英語で送信されます。ライセンスのエリアの `order.paid` ハンドラーは、注文に保存された言語で購入確認メールを送信します。顧客がどのアカウントにも対応しないライセンスの注文の場合は、代わりにアカウントに対応しない注文のアラートを英語でサイトのオーナーに送信します。撤回の意思表示には、送信元のページの言語で受領確認が送られ、サイトのオーナーには英語で通知が送られます。メール内のリンクは `localizePathname` で組み立てられるため、メールのロケールで開きます。`createInvitation` と `resendInvitation` は、管理者が選んだ言語で招待を送信します。
+最初の 5 つのユースケースは、Better Auth が `auth.server.ts` のフックから直接呼び出します。ニュースレターの通知は、購読が確認された後にサイトのオーナーへ英語で送信されます。ライセンスのエリアの `order.paid` ハンドラーは、注文に保存された言語で購入確認メールを送信します。顧客がどのアカウントにも対応しないライセンスの注文の場合は、代わりにアカウントに対応しない注文のアラートを英語でサイトのオーナーに送信します。撤回の意思表示には、送信元のページの言語で受領確認が送られ、サイトのオーナーには英語で通知が送られます。メール内のリンクは `localizePathname` で組み立てられるため、メールのロケールで開きます。`createInvitation` と `resendInvitation` は、管理者が選んだ言語で招待を送信します。
 
 確認メール、パスワードリセット、既存アカウント、ニュースレターの確認の各ユースケースは、最初に `src/lib/rate-limit.ts` の `withinRecipientRateLimit` を呼び出します。アドレスの SHA-256 ハッシュをキーとして、各種類のメールはアドレスごとに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までです。上限を超えると、エラーを出さずにメールをスキップします。`sendInvitationEmail` も同じ上限を確認しますが、上限を超えると `TOO_MANY_REQUESTS` で失敗するため、管理者にエラーが表示されます。
 

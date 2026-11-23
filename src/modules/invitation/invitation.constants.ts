@@ -28,3 +28,7 @@ export const INVITATION_MUTATION_KEYS = {
   RESEND: ["invitation", "resendInvitation"],
   REVOKE: ["invitation", "revokeInvitation"],
 } as const
+
+export const INVITATION_EMAIL_PURPOSE = {
+  INVITATION: "invitation",
+} as const

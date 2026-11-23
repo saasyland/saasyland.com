@@ -4,12 +4,11 @@ import { eq } from "drizzle-orm"
 import { v7 } from "uuid"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { sendWithdrawalAcknowledgement } from "~/src/modules/withdrawal/use-cases/send-withdrawal-acknowledgement"
 import { type WithdrawalNotification, sendWithdrawalNotification } from "~/src/modules/withdrawal/use-cases/send-withdrawal-notification"
-import { WITHDRAWAL_ELIGIBILITY, type WithdrawalChannel } from "~/src/modules/withdrawal/withdrawal.constants"
+import { WITHDRAWAL_ELIGIBILITY, WITHDRAWAL_EMAIL_PURPOSE, type WithdrawalChannel } from "~/src/modules/withdrawal/withdrawal.constants"
 import type { MatchedContract } from "~/src/modules/withdrawal/withdrawal.contracts"
 import { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"
 import type { Withdrawal } from "~/src/modules/withdrawal/withdrawal.types"
@@ -36,7 +35,7 @@ interface WithdrawalReceipt {
 }
 
 const acknowledge = async (statement: Withdrawal["select"]): Promise<Withdrawal["select"]> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, recipient: statement.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, recipient: statement.email }))) {
     console.warn("[withdrawal] acknowledgement not sent: the recipient reached the hourly limit")
     return statement
   }

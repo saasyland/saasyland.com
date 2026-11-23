@@ -43,3 +43,8 @@ export const WITHDRAWAL_QUERY_KEYS = {
 export const WITHDRAWAL_MUTATION_KEYS = {
   SUBMIT: ["withdrawal", "submitWithdrawal"],
 } as const
+
+export const WITHDRAWAL_EMAIL_PURPOSE = {
+  WITHDRAWAL_ACKNOWLEDGEMENT: "withdrawal-acknowledgement",
+  WITHDRAWAL_NOTIFICATION: "withdrawal-notification",
+} as const

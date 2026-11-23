@@ -4,10 +4,10 @@ import { createElement } from "react"
 
 import { createTranslator } from "use-intl"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { WITHDRAWAL_EMAIL_PURPOSE } from "~/src/modules/withdrawal/withdrawal.constants"
 import type { Withdrawal } from "~/src/modules/withdrawal/withdrawal.types"
 
 import type acknowledgementMessages from "~/messages/en-US/emails.withdrawal-acknowledgement-email.json"
@@ -21,7 +21,7 @@ export const sendWithdrawalAcknowledgement = async (statement: Withdrawal["selec
   const messages = await loadNamespace<typeof acknowledgementMessages>({ locale, namespace: WITHDRAWAL_ACKNOWLEDGEMENT_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, token: statement.id },
+    idempotency: { purpose: WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, token: statement.id },
     react: createElement(WithdrawalAcknowledgementEmail, { locale, messages, statement }),
     subject: createTranslator({ locale, messages })("subject"),
     to: statement.email,

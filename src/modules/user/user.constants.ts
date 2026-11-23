@@ -45,3 +45,7 @@ export const USER_MUTATION_KEYS = {
   UPDATE: ["user", "updateUser"],
   UPDATE_PREFERENCES: ["user", "updatePreferences"],
 } as const
+
+export const USER_EMAIL_PURPOSE = {
+  DELETE_ACCOUNT: "delete-account",
+} as const

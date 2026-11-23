@@ -1,7 +1,12 @@
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
-import { EMAIL_PURPOSE } from "../../src/integrations/resend/resend.constants"
+import { ACCOUNT_EMAIL_PURPOSE } from "../../src/modules/account/account.constants"
+import { INVITATION_EMAIL_PURPOSE } from "../../src/modules/invitation/invitation.constants"
+import { LICENSE_EMAIL_PURPOSE } from "../../src/modules/license/license.constants"
+import { USER_EMAIL_PURPOSE } from "../../src/modules/user/user.constants"
+import { VERIFICATION_EMAIL_PURPOSE } from "../../src/modules/verification/verification.constants"
+import { WITHDRAWAL_EMAIL_PURPOSE } from "../../src/modules/withdrawal/withdrawal.constants"
 import { APP_NAME } from "../../src/presentation/branding"
 import { expect } from "./test"
 
@@ -30,9 +35,9 @@ export const expectVerificationEmail = async (
   recipient: string,
   expectedCount = 1,
 ): Promise<URL> => {
-  await expect.poll(async () => (await emailsFor(request, recipient, EMAIL_PURPOSE.VERIFY_EMAIL)).length).toBe(expectedCount)
+  await expect.poll(async () => (await emailsFor(request, recipient, VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL)).length).toBe(expectedCount)
 
-  const emails = await emailsFor(request, recipient, EMAIL_PURPOSE.VERIFY_EMAIL)
+  const emails = await emailsFor(request, recipient, VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL)
   const email = emails.at(-1)
   if (!email) throw new Error(`No verification email was sent to ${recipient}`)
 
@@ -44,7 +49,7 @@ export const expectVerificationEmail = async (
 
   const verificationUrl = new URL(verificationLink.replaceAll("&amp;", "&"))
   expect(verificationUrl.searchParams.get("token")).toBeTruthy()
-  expect(email.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
+  expect(email.idempotencyKey).toMatch(new RegExp(`^${VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
   return verificationUrl
 }
 
@@ -70,7 +75,7 @@ export const expectExistingAccountEmail = async (
   recipient: string,
   expectedCount = 1,
 ): Promise<{ resetPasswordUrl: URL; signInUrl: URL }> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.EXISTING_ACCOUNT, expectedCount)
+  const email = await latestEmail(request, recipient, ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT, expectedCount)
 
   expect(email.subject).toBe(`You already have a ${APP_NAME} account`)
   expect(email.html).toContain('lang="en-US"')
@@ -79,14 +84,14 @@ export const expectExistingAccountEmail = async (
 }
 
 export const expectResetPasswordEmail = async (request: APIRequestContext, recipient: string, expectedCount = 1): Promise<URL> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.RESET_PASSWORD, expectedCount)
+  const email = await latestEmail(request, recipient, VERIFICATION_EMAIL_PURPOSE.RESET_PASSWORD, expectedCount)
 
   expect(email.subject).toBe("Reset your password")
   return linkTo(email.html, "/auth/reset-password")
 }
 
 export const expectPasswordChangedEmail = async (request: APIRequestContext, recipient: string): Promise<void> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.PASSWORD_CHANGED, 1)
+  const email = await latestEmail(request, recipient, ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED, 1)
 
   expect(email.subject).toBe(`Your ${APP_NAME} password was changed`)
   expect(email.html).toContain("/auth/forgot-password")
@@ -94,7 +99,7 @@ export const expectPasswordChangedEmail = async (request: APIRequestContext, rec
 
 export const expectPurchaseConfirmation = async (request: APIRequestContext, recipient: string): Promise<string> => {
   const isConfirmation = ({ idempotencyKey }: { idempotencyKey: string }): boolean =>
-    idempotencyKey.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`)
+    idempotencyKey.startsWith(`${LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`)
 
   await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isConfirmation).length).toBe(1)
 
@@ -106,7 +111,7 @@ export const expectPurchaseConfirmation = async (request: APIRequestContext, rec
 }
 
 export const expectWithdrawalAcknowledgement = async (request: APIRequestContext, recipient: string): Promise<string> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, 1)
+  const email = await latestEmail(request, recipient, WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, 1)
 
   expect(email.subject).toBe("We received your withdrawal")
   return email.html
@@ -114,7 +119,7 @@ export const expectWithdrawalAcknowledgement = async (request: APIRequestContext
 
 export const expectWithdrawalNotification = async (request: APIRequestContext, recipient: string, reference: string): Promise<string> => {
   const isNotification = ({ html, idempotencyKey }: { html: string; idempotencyKey: string }): boolean =>
-    idempotencyKey.startsWith(`${EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/`) && html.includes(reference)
+    idempotencyKey.startsWith(`${WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/`) && html.includes(reference)
 
   await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isNotification).length).toBe(1)
 
@@ -126,21 +131,21 @@ export const expectWithdrawalNotification = async (request: APIRequestContext, r
 
 
 export const expectChangeEmailConfirmation = async (request: APIRequestContext, recipient: string): Promise<URL> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, 1)
+  const email = await latestEmail(request, recipient, ACCOUNT_EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, 1)
 
   expect(email.subject).toBe("Confirm your new email address")
   return linkTo(email.html, "/api/auth/verify-email")
 }
 
 export const expectDeleteAccountEmail = async (request: APIRequestContext, recipient: string): Promise<URL> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.DELETE_ACCOUNT, 1)
+  const email = await latestEmail(request, recipient, USER_EMAIL_PURPOSE.DELETE_ACCOUNT, 1)
 
   expect(email.subject).toBe("Confirm that you want to delete your account")
   return linkTo(email.html, "/app/settings/delete-account")
 }
 
 export const expectInvitationEmail = async (request: APIRequestContext, recipient: string, expectedCount = 1): Promise<URL> => {
-  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.INVITATION, expectedCount)
+  const email = await latestEmail(request, recipient, INVITATION_EMAIL_PURPOSE.INVITATION, expectedCount)
 
   expect(email.subject).toBe(`You're invited to ${APP_NAME}`)
   expect(email.html).toContain('lang="en-US"')

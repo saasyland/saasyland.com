@@ -10,9 +10,9 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { changePasswordMutation } from "~/src/modules/account/use-cases/change-password"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { setPasswordMutation } from "~/src/modules/account/use-cases/set-password"
@@ -74,7 +74,7 @@ describe("setPassword", () => {
     expect(setPassword).toHaveBeenCalledWith(expect.objectContaining({ body: { newPassword: NEW_PASSWORD } }))
     expect(revokeOthers).toHaveBeenCalledOnce()
     const [email] = getSentEmails(createAuthSessionFixture().user.email)
-    expect(email?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
+    expect(email?.idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
     expect(email?.html).toContain('lang="pl-PL"')
   })
 

@@ -4,8 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
-
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 
 import enMessages from "~/messages/en-US/emails.password-changed-email.json"
@@ -29,7 +28,7 @@ describe("password changed email delivery", () => {
       subject: messages.subject.replace("{appName}", APP_NAME),
       to: [USER.email],
     })
-    expect(deliveries[0]?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
+    expect(deliveries[0]?.idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
     const html = deliveries[0]?.html
     expect(html).toContain(`lang="${path === "" ? "en-US" : "uk-UA"}"`)
     expect(html).toContain(`href="${ORIGIN}${path}/auth/sign-in"`)

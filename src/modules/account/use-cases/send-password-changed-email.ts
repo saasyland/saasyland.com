@@ -4,10 +4,10 @@ import { createElement } from "react"
 
 import { createTranslator } from "use-intl"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { accountEmailLinks } from "~/src/modules/account/account.links"
 
 import type passwordChangedMessages from "~/messages/en-US/emails.password-changed-email.json"
@@ -25,7 +25,7 @@ export const sendPasswordChangedEmail = async ({
   const messages = await loadNamespace<typeof passwordChangedMessages>({ locale, namespace: PASSWORD_CHANGED_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.PASSWORD_CHANGED, token: crypto.randomUUID() },
+    idempotency: { purpose: ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED, token: crypto.randomUUID() },
     react: createElement(PasswordChangedEmail, { locale, messages, name: user.name, resetPasswordUrl, signInUrl }),
     subject: createTranslator({ locale, messages })("subject", { appName: APP_NAME }),
     to: user.email,

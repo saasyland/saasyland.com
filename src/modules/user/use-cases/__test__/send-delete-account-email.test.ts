@@ -3,10 +3,9 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
-
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { sendDeleteAccountEmail } from "~/src/modules/user/use-cases/send-delete-account-email"
+import { USER_EMAIL_PURPOSE } from "~/src/modules/user/user.constants"
 
 import enMessages from "~/messages/en-US/emails.delete-account-email.json"
 import plMessages from "~/messages/pl-PL/emails.delete-account-email.json"
@@ -32,7 +31,7 @@ describe("account deletion email", () => {
 
     const email = getSentEmails(USER.email).at(-1)
     expect(email?.subject).toBe(messages.subject)
-    expect(email?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.DELETE_ACCOUNT}/`)).toBe(true)
+    expect(email?.idempotencyKey?.startsWith(`${USER_EMAIL_PURPOSE.DELETE_ACCOUNT}/`)).toBe(true)
     expect(email?.html).toContain(`href="${ORIGIN}${path}/app/settings/delete-account?token=emailed-token"`)
     expect(email?.html).not.toContain("/api/auth/delete-user")
     expect(email?.html).not.toMatch(/\{\w+\}/u)

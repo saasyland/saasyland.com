@@ -6,10 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { sendResetPasswordEmail } from "~/src/modules/verification/use-cases/send-reset-password-email"
+import { VERIFICATION_EMAIL_PURPOSE } from "~/src/modules/verification/verification.constants"
 
 import deMessages from "~/messages/de-DE/emails.reset-password-email.json"
 import enMessages from "~/messages/en-US/emails.reset-password-email.json"
@@ -42,7 +42,7 @@ describe("reset password email delivery", () => {
 
       const deliveries = getSentEmails(USER.email)
       expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.idempotencyKey).toBe(`${EMAIL_PURPOSE.RESET_PASSWORD}/${sha256("reset-token")}`)
+      expect(deliveries[0]?.idempotencyKey).toBe(`${VERIFICATION_EMAIL_PURPOSE.RESET_PASSWORD}/${sha256("reset-token")}`)
       expect(deliveries[0]).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: messages.subject, to: [USER.email] })
       const html = deliveries[0]?.html
       expect(html).toContain(`lang="${locale}"`)

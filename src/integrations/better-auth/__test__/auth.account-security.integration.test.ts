@@ -15,9 +15,9 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { session } from "~/src/modules/session/session.schema"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -49,7 +49,7 @@ describe("password change notice", () => {
     await flushWaitUntil()
 
     const notice = getSentEmails(account.email).at(-1)
-    expect(notice?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
+    expect(notice?.idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
     expect(notice?.html).toContain('lang="pl-PL"')
   })
 

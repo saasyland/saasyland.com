@@ -45,3 +45,8 @@ export const NEWSLETTER_SUBSCRIBER_MUTATION_KEYS = {
   SUBSCRIBE: ["newsletter-subscriber", "subscribeToNewsletter"],
   UNSUBSCRIBE: ["newsletter-subscriber", "unsubscribeFromNewsletter"],
 } as const
+
+export const NEWSLETTER_EMAIL_PURPOSE = {
+  NEWSLETTER_CONFIRMATION: "newsletter-confirmation",
+  NEWSLETTER_NOTIFICATION: "newsletter-notification",
+} as const

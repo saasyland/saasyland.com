@@ -7,3 +7,8 @@ export const VERIFICATION_MUTATION_KEYS = {
 export const RESEND_COOLDOWN_SECONDS = 60
 
 export const VERIFICATION_POLL_MS = 5000
+
+export const VERIFICATION_EMAIL_PURPOSE = {
+  RESET_PASSWORD: "reset-password",
+  VERIFY_EMAIL: "verify-email",
+} as const

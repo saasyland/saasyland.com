@@ -7,7 +7,7 @@ import * as zod from "zod"
 import { pageCallbackURL } from "~/src/integrations/better-auth/auth.callbacks"
 import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import { AUTH_EMAILS } from "~/src/data/auth-emails"
+import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 
 import { ROUTES } from "~/src/routes"
 
@@ -75,7 +75,7 @@ export const requireVerifiedEmail = createAuthMiddleware(async (ctx) => {
 
 const sendPasswordChangeNotice = async (recipient: { readonly email: string; readonly name: string }): Promise<void> => {
   try {
-    await AUTH_EMAILS.sendPasswordChanged({ callbackURL: pageCallbackURL(), user: recipient })
+    await sendPasswordChangedEmail({ callbackURL: pageCallbackURL(), user: recipient })
   } catch (error) {
     console.error("[email] the password change notice could not be sent", error)
   }

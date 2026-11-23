@@ -87,7 +87,7 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
     console.warn("[email] verification email not sent: the recipient reached the hourly limit")
     return
   }
@@ -101,7 +101,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+    idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -115,7 +115,7 @@ export const sendVerifyEmail = async ({
 
 ## 誰が何を送るか
 
-- `src/integrations/better-auth/auth.server.ts` の Better Auth のフックが、`RESEND_AUTH_EMAILS`（`src/data/resend.auth-emails.ts`）を通じてユースケースを呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、認証済みアカウントでの再度のサインアップには `sendExistingAccountEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`emailAndPassword.onPasswordReset` には `sendPasswordChangedEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail`、`user.deleteUser.sendDeleteAccountVerification` には `sendDeleteAccountEmail` を使います。
+- `src/integrations/better-auth/auth.server.ts` の Better Auth のフックが、ユースケースを直接呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、認証済みアカウントでの再度のサインアップには `sendExistingAccountEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`emailAndPassword.onPasswordReset` には `sendPasswordChangedEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail`、`user.deleteUser.sendDeleteAccountVerification` には `sendDeleteAccountEmail` を使います。
 - Better Auth へのリクエストはロケールのプレフィックスなしで `/api/auth` に届くため、フックはフローの `callbackURL`（ローカライズされたページのパス）から、`src/integrations/use-intl/i18n.paths.ts` の `extractLocaleFromCallbackURL` または `extractLocaleFromPath` を使ってメールのロケールを決めます。フォールバックは英語です。
 - ニュースレターのユースケースは、ニュースレターの確認メールと通知メールを自ら送信します。例えば `subscribeToNewsletter` です。
 - ライセンスのエリアの Webhook ハンドラー `onOrderPaid` は、ライセンスを付与した後に `sendPurchaseConfirmationEmail` を呼び出します。このメールは、言語を注文の `metadata.locale` から、リンクを Webhook を受け取ったホストから、冪等性トークンを Polar の注文 ID から得ます。送信に失敗するとハンドラーも失敗し、Polar が再送します。
@@ -128,7 +128,7 @@ export const sendVerifyEmail = async ({
 
 1. エクスポートした `<NAME>_NAMESPACE` とともに、テンプレートを `src/presentation/emails/<name>.tsx` に追加します。
 2. すべてのロケールに `messages/<locale>/emails.<name>.json` を追加します。
-3. エリアの `src/data/<area>.email-purposes.ts` に目的の名前を追加し（`src/data/email-purposes.entries.ts` がそれを `EMAIL_PURPOSE` にまとめます）、そのアクションを担うユースケースから、きっかけとなったトークンまたはレコード ID を `idempotency: { purpose, token }` に渡して送信します。
+3. 送信するモジュールの `<module>.constants.ts` にある `<MODULE>_EMAIL_PURPOSE` オブジェクトに目的の名前を追加し（`email-purposes.test.ts` がほかのすべてのモジュールの目的と照合します）、そのアクションを担うユースケースから、きっかけとなったトークンまたはレコード ID を `idempotency: { purpose, token }` に渡して送信します。
 4. テンプレートは `src/presentation/emails/__test__/` でテストし、ユースケースは `sendEmail` をモックしてテストします。
 
 Resend の認証情報は `RESEND_API_KEY` と `RESEND_EMAIL_FROM` です。テストが Resend に接続することはありません。

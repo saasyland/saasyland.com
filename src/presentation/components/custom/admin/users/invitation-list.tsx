@@ -27,6 +27,7 @@ export const InvitationList = (): JSX.Element => {
         columns={columns}
         data={invitations}
         empty={t("empty")}
+        emptyDescription={t("emptyDescription")}
         id={INVITATION_GRID_ID}
         label={t("title")}
         rowActions={InvitationRowActions}

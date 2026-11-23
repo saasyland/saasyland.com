@@ -49,6 +49,7 @@ const CoursesPage = (): JSX.Element => {
       <DataGrid
         columns={columns}
         empty={t("table.empty")}
+        emptyDescription={t("table.emptyDescription")}
         id={COURSE_GRID_ID}
         label={t("title")}
         query={(request) => getCoursesPageQuery(courseZodSchemas.getCourses.parse(request))}

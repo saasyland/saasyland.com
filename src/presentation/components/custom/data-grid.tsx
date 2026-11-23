@@ -80,6 +80,7 @@ export interface DataGridProps<TData extends DataGridRow> {
   readonly columns: readonly DataGridColumn<TData>[]
   readonly data?: readonly TData[]
   readonly empty?: string
+  readonly emptyDescription?: string
   readonly id: string
   readonly label: string
   readonly query?: DataGridQuery<TData>
@@ -402,7 +403,7 @@ const useDataGrid = <TData extends DataGridRow>({
 export type DataGridTableInstance<TData extends DataGridRow> = ReactTable<DataGridFeatures, TData>
 
 export const DataGrid = <TData extends DataGridRow>(props: DataGridProps<TData>): JSX.Element => {
-  const { bulkActions, empty, id, label, search } = props
+  const { bulkActions, empty, emptyDescription, id, label, search } = props
   const [announcement, setAnnouncement] = useState("")
   const { collectRows, grid, layout, page, table } = useDataGrid(props)
   const isFiltered = grid.state.globalFilter.length > 0 || grid.state.columnFilters.length > 0
@@ -427,6 +428,7 @@ export const DataGrid = <TData extends DataGridRow>(props: DataGridProps<TData>)
         announce={setAnnouncement}
         density={layout.density}
         empty={empty}
+        emptyDescription={emptyDescription}
         isFiltered={isFiltered}
         isLoading={page.isLoading}
         isRefreshing={page.isRefreshing}

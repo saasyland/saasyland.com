@@ -1,6 +1,6 @@
 import { RuleTester } from "vite-plus/lint/plugins-dev"
 
-import { noComments, noMultilineTernary, noUndefinedFallback } from "~/scripts/code-style-lint-plugin"
+import { noComments, noMultilineTernary, noUndefinedBranch, noUndefinedFallback } from "~/scripts/code-style-lint-plugin"
 
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "tsx" } } })
 
@@ -8,6 +8,8 @@ const comment = { messageId: "comment" }
 const directive = { messageId: "directive" }
 const multiline = { messageId: "multiline" }
 const fallback = { messageId: "fallback" }
+const ternary = { messageId: "ternary" }
+const returned = { messageId: "return" }
 
 tester.run("no-comments", noComments, {
   invalid: [
@@ -66,5 +68,29 @@ tester.run("no-undefined-fallback", noUndefinedFallback, {
     "const count = row.count ?? 0",
     "const name = row.name ?? defaultName",
     "const label = row.label ?? 'none'",
+  ],
+})
+
+tester.run("no-undefined-branch", noUndefinedBranch, {
+  invalid: [
+    { code: "const load = (id) => (id === MODULE_ID ? source : undefined)", errors: [ternary] },
+    { code: "const label = isEmpty ? undefined : text", errors: [ternary] },
+    { code: "const Panel = ({ isOpen }) => <div>{isOpen ? <Close /> : null}</div>", errors: [ternary] },
+    { code: "const owner = isShared ? null : user", errors: [ternary] },
+    { code: "const size = isLarge ? 2 : isMedium ? 1 : undefined", errors: [ternary] },
+    { code: "const pick = (value) => {\n  if (value === '') {\n    return undefined\n  }\n\n  return value\n}", errors: [returned] },
+    { code: "function nothing() {\n  return undefined\n}", errors: [returned] },
+  ],
+  valid: [
+    "const label = isOpen ? 'close' : 'open'",
+    "const load = { filter: { id: MODULE_ID }, handler: () => source }",
+    "const Panel = ({ isOpen }) => <div>{isOpen && <Close />}</div>",
+    "const name = user?.name ?? 'guest'",
+    "const isMissing = value === undefined ? 'missing' : 'present'",
+    "const pick = (values) => values.find((value) => value.length > 0)",
+    "const stop = (event) => {\n  if (event.defaultPrevented) {\n    return\n  }\n\n  event.preventDefault()\n}",
+    "const read = (value) => {\n  return value\n}",
+    "const pattern = isStrict ? /^null$/u : /null/u",
+    "type Maybe<T> = T extends string ? T : undefined",
   ],
 })

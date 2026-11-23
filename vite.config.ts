@@ -30,6 +30,19 @@ const ignorePatterns = [
   "test-results",
 ]
 
+const undefinedBranchBacklog = [
+  "scripts/**",
+  "src/__test__/**",
+  "src/data/**",
+  "src/hooks/**",
+  "src/integrations/**",
+  "src/lib/**",
+  "src/modules/**",
+  "src/platform/**",
+  "src/presentation/**",
+  "src/routes/**",
+]
+
 const tooling = {
   fmt: {
     arrowParens: "always",
@@ -220,11 +233,16 @@ const tooling = {
         files: ["src/routes/**"],
         rules: { "sort-keys": "off" },
       },
+      {
+        files: undefinedBranchBacklog,
+        rules: { "code-style/no-undefined-branch": "off" },
+      },
     ],
     rules: {
       "capitalized-comments": "off",
       "code-style/no-comments": "error",
       "code-style/no-multiline-ternary": "error",
+      "code-style/no-undefined-branch": "error",
       "code-style/no-undefined-fallback": "error",
       "id-length": ["error", { exceptions: ["_", "m", "t"], properties: "never" }],
       "max-lines": ["error", { max: 800 }],

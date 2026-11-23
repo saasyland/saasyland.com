@@ -53,7 +53,11 @@ export const noMultilineTernary = defineRule({
   },
 })
 
-const isUndefined = (node: ESTree.Node): boolean => node.type === "Identifier" && node.name === "undefined"
+const isUndefined = (node: ESTree.Node | null): boolean => node?.type === "Identifier" && node.name === "undefined"
+
+const isNull = (node: ESTree.Node): boolean => node.type === "Literal" && node.raw === "null"
+
+const isAbsent = (node: ESTree.Node): boolean => isUndefined(node) || isNull(node)
 
 export const noUndefinedFallback = defineRule({
   create: (context) => ({
@@ -75,11 +79,39 @@ export const noUndefinedFallback = defineRule({
   },
 })
 
+export const noUndefinedBranch = defineRule({
+  create: (context) => ({
+    ConditionalExpression: (node) => {
+      if (isAbsent(node.consequent) || isAbsent(node.alternate)) {
+        context.report({ messageId: "ternary", node })
+      }
+    },
+    ReturnStatement: (node) => {
+      if (isUndefined(node.argument)) {
+        context.report({ messageId: "return", node })
+      }
+    },
+  }),
+  meta: {
+    docs: {
+      description: "No ternary chooses undefined or null and no function spells out return undefined; the code says what it does instead.",
+    },
+    messages: {
+      return:
+        "`return undefined` spells out the default. Return the expression that is already undefined when nothing matches, such as find, a lookup or a Zod parse's data, or end a function that returns nothing with a bare return.",
+      ternary:
+        "A ternary with an undefined or null branch. Return early from a guard clause, use optional chaining or ?? with a real default, look the value up in a map or with find, render with && in JSX, or give a Vite plugin hook a filter.",
+    },
+    type: "problem",
+  },
+})
+
 export default definePlugin({
   meta: { name: "code-style" },
   rules: {
     "no-comments": noComments,
     "no-multiline-ternary": noMultilineTernary,
+    "no-undefined-branch": noUndefinedBranch,
     "no-undefined-fallback": noUndefinedFallback,
   },
 })

@@ -3,6 +3,7 @@ import "@tanstack/react-start/server-only"
 import { env } from "cloudflare:workers"
 
 import { type SQL, inArray, sql } from "drizzle-orm"
+import * as zod from "zod"
 
 import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
 import { type CurrencyCode, fromMinorUnits } from "~/src/modules/_core/constants/currency"
@@ -57,16 +58,19 @@ interface MirroredDiscount {
   readonly discountName: string | null
 }
 
-export const orderDiscountOf = ({
-  currency,
-  discountAmount,
-  discountCode,
-  discountId,
-  discountName,
-}: MirroredDiscount): OrderDiscount | undefined => {
-  if (discountId === null || discountAmount === null) {
-    return undefined
-  }
+const discountSchema = zod
+  .object({
+    currency: zod.string(),
+    discountAmount: zod.number(),
+    discountCode: zod.string().nullable(),
+    discountId: zod.string(),
+    discountName: zod.string().nullable(),
+  })
+  .transform(({ currency, discountAmount, discountCode, discountId, discountName }): OrderDiscount => ({
+    amount: moneyOf(discountAmount, currency),
+    code: discountCode,
+    id: discountId,
+    name: discountName,
+  }))
 
-  return { amount: moneyOf(discountAmount, currency), code: discountCode, id: discountId, name: discountName }
-}
+export const orderDiscountOf = (discount: MirroredDiscount): OrderDiscount | undefined => discountSchema.safeParse(discount).data

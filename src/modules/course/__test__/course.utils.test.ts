@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_COVER_STORED_TYPES } from "~/src/modules/course/course.cover"
 import type { Course } from "~/src/modules/course/course.types"
 import {
   courseLessons,
+  courseShareImage,
   findEditorLesson,
   isAvailable,
   isPlayable,
@@ -103,6 +105,10 @@ describe("course utils", () => {
 
 const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 
+const COURSE_ID = "0195a2b4-6c8d-7e9f-8a0b-00000000c0c0"
+const COVER_ID = "0195a2b4-6c8d-7e9f-8a0b-00000000c0e1"
+const COVER = `covers/${COURSE_ID}/${COVER_ID}.webp`
+
 const editorLesson = (id: string): Course["editorLesson"] => ({
   access: LESSON_ACCESS.PAID,
   attachments: [],
@@ -146,5 +152,22 @@ describe("findEditorLesson", () => {
 
     expect(findEditorLesson(editor, "b")?.id).toBe("b")
     expect(findEditorLesson(editor, "missing")).toBeUndefined()
+  })
+})
+
+describe("courseShareImage", () => {
+  it("shares the full-size cover with its type, size and the course title", () => {
+    expect(courseShareImage({ cover: COVER, title: "The walkthrough" })).toStrictEqual({
+      alt: "The walkthrough",
+      height: 900,
+      path: `/media/${COVER}`,
+      type: COURSE_COVER_STORED_TYPES.webp,
+      width: 1600,
+    })
+  })
+
+  it("leaves the site card to a course without a cover it can describe", () => {
+    expect(courseShareImage({ cover: null, title: "The walkthrough" })).toBeUndefined()
+    expect(courseShareImage({ cover: `covers/${COURSE_ID}/${COVER_ID}.gif`, title: "The walkthrough" })).toBeUndefined()
   })
 })

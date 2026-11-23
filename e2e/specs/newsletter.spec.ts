@@ -78,11 +78,11 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   const unsubscribeUrl = new URL("/pl-PL/newsletter/unsubscribe", confirmationUrl.origin)
   unsubscribeUrl.searchParams.set("token", subscribed.unsubscribeToken)
   const unsubscribeResponse = await page.goto(unsubscribeUrl.toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-  expect(await unsubscribeResponse?.text()).toContain("Wypisać się z dziennika budowy?")
+  expect(await unsubscribeResponse?.text()).toContain("Zrezygnować z dziennika prac?")
   await appPage.waitForAppReady()
   expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.SUBSCRIBED)
   await page.getByRole("button", { exact: true, name: "Wypisz się" }).click()
-  await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś wypisany." })).toBeVisible()
+  await expect(page.getByRole("heading", { exact: true, level: 1, name: "Wypisano Cię z listy." })).toBeVisible()
   await expect(page).toHaveURL(
     (url) => url.pathname === "/pl-PL/newsletter/unsubscribe" && url.searchParams.get("status") === UNSUBSCRIBE_STATUS.SUCCESS && !url.searchParams.get("token"),
   )
@@ -92,7 +92,7 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
 
   await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś wypisany." })).toBeVisible()
+  await expect(page.getByRole("heading", { exact: true, level: 1, name: "Wypisano Cię z listy." })).toBeVisible()
   expect(await readSubscriber(request, email)).toEqual(unsubscribed)
   expect(await notifications()).toHaveLength(1)
 })
@@ -101,7 +101,7 @@ for (const { path, heading } of [
   { path: "/newsletter/confirm", heading: "That link is spent." },
   { path: "/pl-PL/newsletter/confirm?token=invalid", heading: "Ten link jest już zużyty." },
   { path: "/newsletter/unsubscribe", heading: "We could not unsubscribe this address." },
-  { path: "/pl-PL/newsletter/unsubscribe?token=invalid", heading: "Nie udało się anulować subskrypcji." },
+  { path: "/pl-PL/newsletter/unsubscribe?token=invalid", heading: "Nie udało się wypisać tego adresu." },
 ]) {
   test(path, async ({ appPage, page }) => {
     const response = await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

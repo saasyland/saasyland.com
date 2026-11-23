@@ -358,7 +358,7 @@ test.describe("course and lesson pages", () => {
     await expect(page.getByRole("heading", { level: 2, name: "Program" })).toBeVisible()
     await page.getByRole("link", { name: new RegExp(`${preview.title["pl-PL"]}.*Darmowy podgląd`, "u") }).click()
     await expect(page).toHaveURL(lessonPath(preview.slug, "/pl-PL"))
-    await expect(page.getByRole("heading", { level: 2, name: "Kluczowe momenty" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "Najważniejsze momenty" })).toBeVisible()
 
     await courseBlockTitle(page, "/pl-PL", TEST_COURSE.title["pl-PL"])
     await expect(page.getByRole("link", { name: `${preview.title["pl-PL"]} Darmowy podgląd` })).toBeVisible()

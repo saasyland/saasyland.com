@@ -91,7 +91,7 @@ describe("the licence's names in the course copy", () => {
 
   it.each([
     ["en-US", "This lesson comes with Complete", "Get Complete"],
-    ["pl-PL", "Ta lekcja jest w pakiecie Komplet", "Wybierz Komplet"],
+    ["pl-PL", "Ta lekcja jest w pakiecie Komplet", "Wybierz pakiet Komplet"],
   ] as const)("offers Complete on a locked paid lesson in %s", (locale, title, cta) => {
     renderIn(locale, <LockedLesson access={LESSON_ACCESS.PAID} mustConfirmEmail={false} signedIn />)
 

@@ -7,11 +7,11 @@ import { useTranslations } from "use-intl/react"
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { LICENSE_OFFER_ID, licenseSearchSchema } from "~/src/data/license"
-import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/src/presentation/components/shadcn/collapsible"
 
 import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
+import { CourseUnlocks } from "~/src/presentation/components/custom/app/course-unlocks"
 import { PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
 
 const TierCheckoutButton: TierAction = ({ featured, tier }) => {
@@ -66,9 +66,7 @@ export const LicenseOffer = (): JSX.Element => {
       {chosenTier === undefined && <Tiers />}
       {chosenTier === undefined && <CheckoutNotice />}
       {chosenTier !== undefined && <ComparedTiers />}
-      {LICENSE_OFFER_SECTIONS.map(({ key, Section }) => (
-        <Section key={key} />
-      ))}
+      <CourseUnlocks />
     </section>
   )
 }

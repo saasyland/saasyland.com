@@ -9,7 +9,6 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 
 import { CLI_KEY_LINES, CLI_SETUP_LINES } from "~/src/data/cli"
 import { licenseSearchSchema } from "~/src/data/license"
-import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"
@@ -17,6 +16,7 @@ import { cn } from "~/src/lib/cn"
 import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+import { CourseUnlocksPending } from "~/src/presentation/components/custom/app/course-unlocks"
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
 import { UpgradeOfferPending } from "~/src/presentation/components/custom/app/upgrade-offer"
 import { FEATURED_TIER, PRICING_TRUST_ITEMS, tierFeaturesWith } from "~/src/presentation/components/custom/pricing"
@@ -157,9 +157,7 @@ const LicenseOfferPending = ({ hasChosenTier }: Readonly<{ hasChosenTier: boolea
     {!hasChosenTier && <TiersPending />}
     {!hasChosenTier && <CheckoutNoticePending />}
     {hasChosenTier && <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />}
-    {LICENSE_OFFER_SECTIONS.map(({ key, Pending }) => (
-      <Pending key={key} />
-    ))}
+    <CourseUnlocksPending />
   </div>
 )
 

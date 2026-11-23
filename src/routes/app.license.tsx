@@ -7,6 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -15,7 +16,6 @@ import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-curr
 import { withdrawalContractQuery } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
 
 import { licenseSearchSchema } from "~/src/data/license"
-import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
@@ -92,7 +92,7 @@ export const Route = createFileRoute("/app/license")({
         }
       }),
       context.queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),
-      ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
+      context.queryClient.query(catalogueQuery({ locale })),
     ])
     return { locale, metadata }
   },

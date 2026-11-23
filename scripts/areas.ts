@@ -177,9 +177,9 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     files: [
       areaData(AREA.LICENSE),
       areaMessages(AREA.LICENSE),
-      "src/data/{license-offer,license-offer.entries,opened-lesson,opened-lesson.entries,purchase-email,purchase-email.entries}.ts",
-      "src/data/courses.{license-offer,opened-lesson,purchase-email}.ts",
-      "src/data/__test__/{courses.purchase-email,license-offer,opened-lesson,purchase-email}.test.{ts,tsx}",
+      "src/data/{purchase-email,purchase-email.entries}.ts",
+      "src/data/courses.purchase-email.ts",
+      "src/data/__test__/{courses.purchase-email,purchase-email}.test.ts",
       "src/modules/{license,withdrawal}/**",
       "src/routes/app.license.tsx",
       "src/routes/_site._marketing.withdrawal.tsx",

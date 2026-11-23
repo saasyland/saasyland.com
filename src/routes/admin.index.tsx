@@ -8,7 +8,7 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
-import { USER_STATUSES } from "~/src/modules/user/user.utils"
+import { USER_STATUSES } from "~/src/modules/user/user.constants"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"

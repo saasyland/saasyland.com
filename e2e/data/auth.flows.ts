@@ -378,16 +378,40 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_USERS,
     id: "admin-user-table",
-    outcome: "The admin sorts the user table by name in both directions and selects every row",
+    outcome: "The admin sorts the user table by name in both directions and selects every row on the page",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "admin-users.spec.ts", title: "admin sorts the user table by name and selects every row" }],
   },
   {
     area: FLOW_AREA.ADMIN_USERS,
     id: "admin-user-search",
-    outcome: "The admin finds users by name or email, filters them by role and status, and pages through the results",
-    reason: "No spec types a search, applies a filter or changes the page.",
-    status: FLOW_STATUS.MISSING,
+    outcome:
+      "The admin finds users by name or email and filters them by role and status on the server, sees the filtered empty state and clears the search and filters from it",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-users.spec.ts", title: "the admin finds users by name or email and filters them by role and status on the server" }],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-invitations-grid",
+    outcome:
+      "/admin/users/invitations searches the open invitations by email, filters them by role, and keeps a hidden column after a reload until the layout is reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-invitations.spec.ts",
+        title: "the admin searches the open invitations, filters them by role, hides a column and keeps the layout after a reload",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-user-layout",
+    outcome:
+      "/admin/users/all hides and shows its columns from the Columns menu and a column's menu, keeps that layout after a reload with the user column pinned, and puts the defaults back on reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "admin-users.spec.ts", title: "the admin hides and shows the users' columns, keeps the layout after a reload and resets it" },
+    ],
   },
   {
     area: FLOW_AREA.ADMIN_USERS,

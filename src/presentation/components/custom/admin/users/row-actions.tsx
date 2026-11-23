@@ -2,7 +2,6 @@ import { type JSX, useState } from "react"
 
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import type { CellContext } from "@tanstack/react-table"
 import { EllipsisVertical } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
@@ -34,7 +33,6 @@ import { BanUserDialog } from "~/src/presentation/components/custom/admin/users/
 import { DeleteUserDialog } from "~/src/presentation/components/custom/admin/users/delete-user-dialog"
 import { EditUserDialog } from "~/src/presentation/components/custom/admin/users/edit-user-dialog"
 import { ResetPasswordDialog } from "~/src/presentation/components/custom/admin/users/reset-password-dialog"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"
 
@@ -179,4 +177,4 @@ export const UserActions = ({ user }: { readonly user: User["select"] }): JSX.El
   )
 }
 
-export const UserRowActions = ({ row }: CellContext<DataTableFeatures, User["select"]>): JSX.Element => <UserActions user={row.original} />
+export const UserRowActions = ({ row }: { readonly row: User["select"] }): JSX.Element => <UserActions user={row} />

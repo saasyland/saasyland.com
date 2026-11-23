@@ -125,6 +125,19 @@ export const PAYMENTS_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-customers-grid",
+    outcome:
+      "/admin/users/customers filters its customers by order count and email verification on the server, sorts them by order count, and keeps the columns the admin showed and hid after a reload",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-orders.spec.ts",
+        title: "the admin filters the customers by order count and verification, sorts them and keeps the layout after a reload",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-refund-order",
     outcome: "The admin refunds an order from its page in /admin/orders, and its licence is marked refunded",
     reason: "Refunds are made in Polar's dashboard; the order page links to it but cannot refund yet.",

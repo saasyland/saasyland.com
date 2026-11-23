@@ -1,10 +1,10 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { type SQL, and, asc, count, desc, eq, inArray, max, or, sql } from "drizzle-orm"
+import { type SQL, and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { containsText } from "~/src/integrations/drizzle-orm/drizzle.search"
+import { anyContains, flagIs, withinDates, withinNumbers } from "~/src/integrations/drizzle-orm/drizzle.search"
 
 import { ORDER_QUERY_KEYS } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
@@ -31,19 +31,26 @@ const sortColumns = {
   signedUpAt: user.createdAt,
 }
 
-const searching = (text: string | undefined): SQL | undefined => {
-  if (text === undefined || text.length === 0) {
-    return undefined
-  }
+const CUSTOMER_TEXT = [customers.customerId, user.name, user.email]
 
-  return or(containsText(customers.customerId, text), containsText(user.name, text), containsText(user.email, text))
-}
+const matching = (
+  search: string,
+  { customer, emailVerified, lastOrderAt, orders, signedUpAt }: Order["customerFilters"],
+): SQL | undefined =>
+  and(
+    ...anyContains(CUSTOMER_TEXT, search),
+    ...anyContains(CUSTOMER_TEXT, customer),
+    ...flagIs(user.emailVerified, emailVerified),
+    ...withinDates(customers.lastOrderAt, lastOrderAt),
+    ...withinNumbers(customers.orders, orders),
+    ...withinDates(user.createdAt, signedUpAt),
+  )
 
 export const getCustomers = createServerFn({ method: "GET" })
   .middleware([authorized({ order: ["read"] })])
   .validator((input: Order["getCustomers"]) => orderZodSchemas.getCustomers.parse(input))
   .handler(async ({ data }) => {
-    const where = searching(data.filters.customer)
+    const where = matching(data.search, data.filters)
     const [rows, totals] = await db.batch([
       db
         .select({

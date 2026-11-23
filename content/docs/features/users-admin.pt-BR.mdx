@@ -1,6 +1,6 @@
 ---
 title: "Usuários (admin)"
-description: "Gestão de usuários em /admin/users: uma tabela de usuários real, uma página de perfil por usuário e ações que chamam a API de administração do Better Auth."
+description: "Gestão de usuários em /admin/users: uma grade de usuários com busca e filtros no servidor, uma página de perfil por usuário e ações que chamam a API de administração do Better Auth."
 ---
 
 ## Rotas
@@ -9,7 +9,7 @@ description: "Gestão de usuários em /admin/users: uma tabela de usuários real
 
 | Rota                       | Conteúdo                                                                            |
 | -------------------------- | ----------------------------------------------------------------------------------- |
-| `/admin/users/all`         | Tabela de usuários real                                                             |
+| `/admin/users/all`         | Todas as contas na grade de dados, com busca e filtros no servidor                  |
 | `/admin/users/customers`   | Cada cliente da Polar com a conta, os pedidos e o que pagou após os reembolsos      |
 | `/admin/users/invitations` | Os convites em aberto, com **Convidar usuário**, **Reenviar** e **Revogar**         |
 | `/admin/users/$userId`     | Perfil de um usuário: dados da conta, sessões e os cards que outras áreas adicionam |
@@ -17,12 +17,23 @@ description: "Gestão de usuários em /admin/users: uma tabela de usuários real
 ## Todos os usuários
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` chama a função de servidor `getUsers` (`src/modules/user/use-cases/get-users.ts`, permissão `user: ["list"]`). Paginação e ordenação acontecem no servidor por nome, papel, status, verificação de e-mail, 2FA, fuso horário e datas de criação e atualização.
-- O status não é uma coluna. `getUserStatus` (`user.utils.ts`) deriva `banned`, `pending` ou `active` de `banned` e `emailVerified`, e o servidor ordena pela mesma expressão SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) o exibe na tabela e no perfil.
-- `userColumns` fica em `src/presentation/components/custom/admin/users/user-columns.tsx`; cada nome leva ao perfil do usuário. As datas de criação e de atualização usam a mensagem `common.dateTime`, no fuso horário de quem as visualiza e com a sigla dele, então as duas colunas são lidas e ordenadas em um único fuso. O fuso de cada usuário tem uma coluna própria.
+- `getUsersPageQuery` chama a função de servidor `getUsers` (`src/modules/user/use-cases/get-users.ts`, permissão `user: ["list"]`). `userZodSchemas.getUsers` valida a requisição da grade, e paginação, ordenação, busca e todos os filtros rodam no servidor.
+- A busca encontra o nome e o e-mail. Os filtros são o usuário como texto, papel e status com várias opções, verificação de e-mail e 2FA como sim ou não, o fuso horário com vários fusos, e as datas de criação e atualização como intervalos de dias.
+- O status não é uma coluna. `getUserStatus` (`user.utils.ts`) deriva `banned`, `pending` ou `active` de `banned` e `emailVerified`, e o servidor ordena e filtra pela mesma expressão SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) o exibe na tabela e no perfil.
+- `useUserColumns` fica em `src/presentation/components/custom/admin/users/user-columns.tsx`; cada nome leva ao perfil do usuário, e a coluna do usuário fica fixada à esquerda. De início aparecem o usuário, o papel, o status, a verificação de e-mail e a data de criação; 2FA, fuso horário e data de atualização podem ser exibidos pelo menu Colunas. As datas de criação e de atualização usam a mensagem `common.dateTime`, no fuso horário de quem as visualiza e com a sigla dele, então as duas colunas são lidas e ordenadas em um único fuso.
+- Cada linha termina com `UserRowActions`, o `rowActions` da grade, fixado à direita. O CSV escreve o usuário como `name <email>` e o papel, o status e o sim ou não como a tabela os mostra.
 
 **Adicionar usuário** abre `CreateUserDialog` (`create-user-dialog.tsx`), um formulário do TanStack Form validado por `userZodSchemas.createUser`: nome, e-mail, uma senha inicial e um papel. Ele chama `createUser` (`user: ["create"]`, e o Better Auth também verifica `user: ["set-role"]` para o papel) e depois abre o perfil do novo usuário. O Better Auth cria a conta com o e-mail não verificado, então o primeiro login leva a `/auth/verify-email`, que envia o link de verificação.
 
@@ -77,7 +88,7 @@ A tabela `invitation` guarda quem convidou quem e o que aconteceu com o convite:
 
 As chaves estrangeiras para usuários são `ON DELETE SET NULL`, então o registro sobrevive às contas que ele cita. Um índice único parcial em `email` para as linhas em que `accepted_at` e `revoked_at` estão vazios permite um convite em aberto por endereço.
 
-A aba lista os convites em aberto com `listInvitations` (`user: ["list"]`), pendentes ou com o link expirado, em `DataTable` com `invitationColumns` (`invitation-columns.tsx`). **Reenviar** (`resendInvitation`, limitado como o convite) envia um novo link, que substitui o token e reinicia a validade, então o link anterior deixa de funcionar. **Revogar** (`revokeInvitation`) pede confirmação e depois registra o admin e o horário; a partir daí, o link informa que o convite foi retirado.
+A aba lista os convites em aberto com `listInvitations` (`user: ["list"]`), pendentes ou com o link expirado, no `DataGrid` com `useInvitationColumns` (`invitation-columns.tsx`), que no navegador busca pelo e-mail e por quem convidou e filtra por e-mail, papel, status, quem convidou e os dias de envio e de expiração; `InvitationRowActions` fecha cada linha com um menu que oferece **Reenviar** e **Revogar**. **Reenviar** (`resendInvitation`, limitado como o convite) envia um novo link, que substitui o token e reinicia a validade, então o link anterior deixa de funcionar. **Revogar** (`revokeInvitation`) pede confirmação e depois registra o admin e o horário; a partir daí, o link informa que o convite foi retirado.
 
 O link abre `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` retorna o endereço convidado, o papel e o status do link (`INVITATION_STATUS`), e a página mostra uma destas telas:
 

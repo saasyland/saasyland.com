@@ -291,6 +291,61 @@ test("an order Polar does not answer for shows the saved copy and says Polar cou
   await expect(page.getByText(detail.account.none)).toBeVisible()
 })
 
+const customerTable = (page: Page): Locator => page.getByRole("table", { name: customersMessages.metadata.title })
+
+const customerRows = (page: Page): Locator => customerTable(page).locator("tbody tr")
+
+test("the admin filters the customers by order count and verification, sorts them and keeps the layout after a reload", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  await page.goto(ROUTES.ADMIN_USERS_CUSTOMERS)
+  await appPage.waitForAppReady()
+  const rows = customerRows(page)
+  const customerHeaders = customersMessages.table.headers
+
+  const orders = await openFilter(page, customerHeaders.orders)
+  await orders.getByRole("textbox", { name: gridFilters.range.min }).fill(String(TEST_BUYER_ORDERS.length))
+  await orders.getByRole("textbox", { name: gridFilters.range.min }).press("Tab")
+  await expect
+    .poll(async () => (await rows.locator("td:nth-child(3)").allTextContents()).every((count) => Number(count) >= TEST_BUYER_ORDERS.length))
+    .toBe(true)
+  await expect(rows.filter({ hasText: TEST_ORDER_BUYER.email })).toHaveCount(1)
+  await closeFilter(page)
+
+  await chooseFilter(page, customerHeaders.emailVerified, customersMessages.table.yes)
+  await expect(customerTable(page)).toHaveAttribute("aria-busy", "false")
+  await expect(rows.filter({ hasText: TEST_ORDER_BUYER.email })).toHaveCount(1)
+  await page.getByRole("button", { name: gridFilters.clearAll }).click()
+
+  await page.getByRole("button", { exact: true, name: customerHeaders.orders }).click()
+  await expect(page.getByRole("columnheader", { name: new RegExp(`^${customerHeaders.orders}`, "u") })).toHaveAttribute("aria-sort", "descending")
+  await expect(customerTable(page)).toHaveAttribute("aria-busy", "false")
+  const counts = (await rows.locator("td:nth-child(3)").allTextContents()).map(Number)
+  expect(counts).toStrictEqual(counts.toSorted((first, second) => second - first))
+
+  await page.getByRole("button", { name: gridMessages.toolbar.columns }).click()
+  await page.getByRole("menuitemcheckbox", { name: customerHeaders.emailVerified }).click()
+  await page.getByRole("menuitemcheckbox", { name: customerHeaders.signedUpAt }).click()
+  await page.keyboard.press("Escape")
+  const headerNames = customerTable(page).getByRole("columnheader")
+  const arranged = [
+    customerHeaders.customer,
+    customerHeaders.emailVerified,
+    customerHeaders.orders,
+    customerHeaders.revenue,
+    customerHeaders.lastOrderAt,
+    licenseMessages.activations.header,
+  ]
+  await expect(headerNames).toHaveText(arranged)
+  await page.reload()
+  await appPage.waitForAppReady()
+  await expect(headerNames).toHaveText(arranged)
+  await page.getByRole("button", { name: gridMessages.toolbar.reset }).click()
+})
+
 test("the customers tab lists the buyer with their orders and what they paid after refunds, and opens their profile", async ({
   appPage,
   authPage,
@@ -300,12 +355,11 @@ test("the customers tab lists the buyer with their orders and what they paid aft
   await page.getByRole("main").getByRole("link", { exact: true, name: navigationMessages.dashboard.customers }).click()
   await expect(page).toHaveURL(ROUTES.ADMIN_USERS_CUSTOMERS)
 
-  await page.getByRole("textbox", { name: customersMessages.search }).fill(TEST_ORDER_BUYER.email)
-  const row = page.getByRole("table").locator("tbody tr")
+  await page.getByRole("searchbox", { name: customersMessages.search }).fill(TEST_ORDER_BUYER.email)
+  const row = customerRows(page)
   await expect(row).toHaveCount(1)
-  await expect(row.getByRole("cell").nth(3)).toHaveText(String(TEST_BUYER_ORDERS.length))
-  await expect(row.getByRole("cell").nth(4)).toHaveText(TEST_BUYER_SHOWN.revenue.join(""))
-  await expect(row.getByRole("cell").nth(2)).toHaveText(customersMessages.table.yes)
+  await expect(row.getByRole("cell").nth(2)).toHaveText(String(TEST_BUYER_ORDERS.length))
+  await expect(row.getByRole("cell").nth(3)).toHaveText(TEST_BUYER_SHOWN.revenue.join(""))
 
   await row.getByRole("link", { exact: true, name: TEST_ORDER_BUYER.name }).click()
   await expect(page).toHaveURL(`${ROUTES.ADMIN_USERS}/${TEST_ORDER_BUYER.id}`)

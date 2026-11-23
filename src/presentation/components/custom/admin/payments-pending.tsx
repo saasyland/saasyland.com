@@ -1,19 +1,21 @@
 import type { JSX } from "react"
 
 import { CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
-import { ORDER_COLUMN_SIZES, ORDER_MIRROR_DETAILS, ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
+import {
+  CUSTOMER_COLUMN_SIZES,
+  ORDER_COLUMN_SIZES,
+  ORDER_MIRROR_DETAILS,
+  ORDER_POLAR_AMOUNTS,
+  ORDER_POLAR_DETAILS,
+} from "~/src/data/payments"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
-import { PAGE_ROWS, PaginationPending, SortableHeadPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 const USER_ORDER_ROWS = ["first", "second"] as const
-
-const SearchPending = (): JSX.Element => <Skeleton className="h-10 w-full flex-1 rounded-md sm:min-w-64" />
 
 const NamePending = (): JSX.Element => (
   <div className="flex flex-col">
@@ -21,8 +23,6 @@ const NamePending = (): JSX.Element => (
     <Skeleton className="h-lh w-40 scale-y-70 text-spec" />
   </div>
 )
-
-const HeadPending = (): JSX.Element => <Skeleton className="h-lh w-16 scale-y-70" />
 
 const TextPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
 
@@ -97,75 +97,19 @@ export const AdminOrderPending = (): JSX.Element => (
   </div>
 )
 
-const CustomerRowPending = (): JSX.Element => (
-  <TableRow>
-    <TableCell>
-      <NamePending />
-    </TableCell>
-    <TableCell>
-      <TextPending />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-8 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-6 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-20 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <TextPending />
-    </TableCell>
-    {CUSTOMER_COLUMNS.map(({ key }) => (
-      <TableCell key={key}>
-        <TextPending />
-      </TableCell>
-    ))}
-  </TableRow>
-)
+const CUSTOMER_PENDING_COLUMNS = [
+  { cell: <NamePending />, id: "customer", width: CUSTOMER_COLUMN_SIZES.customer },
+  { cell: <TextPending />, id: "signedUpAt", width: CUSTOMER_COLUMN_SIZES.signedUpAt },
+  { cell: <Skeleton className="h-lh w-6 scale-y-70 text-sm" />, id: "orders", width: CUSTOMER_COLUMN_SIZES.orders },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "revenue", width: CUSTOMER_COLUMN_SIZES.revenue },
+  { cell: <TextPending />, id: "lastOrderAt", width: CUSTOMER_COLUMN_SIZES.lastOrderAt },
+  ...CUSTOMER_COLUMNS.map(({ key }) => ({ cell: <TextPending />, id: key, width: CUSTOMER_COLUMN_SIZES.area })),
+]
 
 export const AdminCustomersPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
     <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-sm" />
-    <SearchPending />
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <HeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <HeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            {CUSTOMER_COLUMNS.map(({ key }) => (
-              <TableHead key={key}>
-                <HeadPending />
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {PAGE_ROWS.map((row) => (
-            <CustomerRowPending key={row} />
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-    <PaginationPending />
+    <DataGridPending columns={CUSTOMER_PENDING_COLUMNS} />
   </div>
 )
 

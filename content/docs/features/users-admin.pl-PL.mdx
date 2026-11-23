@@ -1,6 +1,6 @@
 ---
 title: "Użytkownicy (panel administracyjny)"
-description: "Zarządzanie użytkownikami w /admin/users: działająca tabela użytkowników, strona profilu każdego użytkownika i akcje wywołujące API administracyjne Better Auth."
+description: "Zarządzanie użytkownikami w /admin/users: siatka użytkowników z wyszukiwaniem i filtrami po stronie serwera, strona profilu każdego użytkownika i akcje wywołujące API administracyjne Better Auth."
 ---
 
 ## Trasy
@@ -9,7 +9,7 @@ description: "Zarządzanie użytkownikami w /admin/users: działająca tabela u�
 
 | Trasa                      | Zawartość                                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/admin/users/all`         | Działająca tabela użytkowników                                                                 |
+| `/admin/users/all`         | Wszystkie konta w siatce danych, z wyszukiwaniem i filtrami po stronie serwera                 |
 | `/admin/users/customers`   | Każdy klient z Polara wraz z kontem, zamówieniami i kwotą zapłaconą po zwrotach                |
 | `/admin/users/invitations` | Otwarte zaproszenia z przyciskami **Zaproś użytkownika**, **Wyślij ponownie** i **Unieważnij** |
 | `/admin/users/$userId`     | Profil użytkownika: dane konta, sesje i karty dodawane przez inne obszary                      |
@@ -17,12 +17,23 @@ description: "Zarządzanie użytkownikami w /admin/users: działająca tabela u�
 ## Wszyscy użytkownicy
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` wywołuje funkcję serwerową `getUsers` (`src/modules/user/use-cases/get-users.ts`, uprawnienie `user: ["list"]`). Paginacja i sortowanie odbywają się na serwerze według imienia i nazwiska, roli, statusu, weryfikacji e-maila, 2FA, strefy czasowej oraz dat utworzenia i aktualizacji.
-- Status nie jest kolumną. `getUserStatus` (`user.utils.ts`) wyznacza `banned`, `pending` lub `active` na podstawie `banned` i `emailVerified`, a serwer sortuje według tego samego wyrażenia SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) wyświetla status w tabeli i w profilu.
-- `userColumns` leży w `src/presentation/components/custom/admin/users/user-columns.tsx`; imię i nazwisko każdego użytkownika prowadzi do jego profilu. Daty utworzenia i aktualizacji używają komunikatu `common.dateTime`, w strefie czasowej oglądającego, ze skrótem strefy, więc obie kolumny czyta się i sortuje w jednej strefie. Strefa każdego użytkownika ma własną kolumnę.
+- `getUsersPageQuery` wywołuje funkcję serwerową `getUsers` (`src/modules/user/use-cases/get-users.ts`, uprawnienie `user: ["list"]`). `userZodSchemas.getUsers` waliduje żądanie siatki, a stronicowanie, sortowanie, wyszukiwanie i wszystkie filtry działają na serwerze.
+- Wyszukiwanie obejmuje imię i nazwisko oraz e-mail. Filtry to: użytkownik (tekst), rola i status (kilka wartości naraz), potwierdzenie adresu e-mail i 2FA (tak lub nie), strefa czasowa (kilka stref naraz) oraz daty utworzenia i aktualizacji (zakres dni).
+- Status nie jest kolumną. `getUserStatus` (`user.utils.ts`) wyznacza `banned`, `pending` lub `active` na podstawie `banned` i `emailVerified`, a serwer sortuje i filtruje według tego samego wyrażenia SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) wyświetla status w tabeli i w profilu.
+- `useUserColumns` znajduje się w `src/presentation/components/custom/admin/users/user-columns.tsx`; imię i nazwisko każdego użytkownika prowadzi do jego profilu, a kolumna użytkownika jest przypięta do lewej. Domyślnie widoczne są kolumny użytkownika, roli, statusu, potwierdzenia adresu e-mail i daty utworzenia, a kolumny 2FA, strefy czasowej i daty aktualizacji można włączyć w menu Kolumny. Daty utworzenia i aktualizacji używają komunikatu `common.dateTime`, w strefie czasowej oglądającego, ze skrótem strefy, więc obie kolumny czyta się i sortuje w jednej strefie.
+- Każdy wiersz kończy się komponentem `UserRowActions`, który siatka dostaje jako `rowActions` i przypina do prawej. W pliku CSV użytkownik ma postać `name <email>`, a rola, status oraz wartości tak i nie są zapisane tak, jak pokazuje je tabela.
 
 **Dodaj użytkownika** otwiera `CreateUserDialog` (`create-user-dialog.tsx`), formularz TanStack Form walidowany przez `userZodSchemas.createUser`: imię i nazwisko, e-mail, hasło początkowe i rola. Formularz wywołuje `createUser` (`user: ["create"]`, a dla roli Better Auth sprawdza też `user: ["set-role"]`), po czym otwiera profil nowego użytkownika. Better Auth tworzy konto z niezweryfikowanym adresem e-mail, więc pierwsze logowanie prowadzi do `/auth/verify-email`, a ta strona wysyła link weryfikacyjny.
 
@@ -77,7 +88,7 @@ Tabela `invitation` przechowuje, kto kogo zaprosił i co dalej działo się z za
 
 Klucze obce do użytkowników mają `ON DELETE SET NULL`, więc rekord przetrwa usunięcie kont, które wskazuje. Częściowy indeks unikalny na `email`, obejmujący wiersze z pustymi `accepted_at` i `revoked_at`, pozwala na jedno otwarte zaproszenie na adres.
 
-Zakładka wyświetla otwarte zaproszenia z `listInvitations` (`user: ["list"]`), oczekujące albo z wygasłym linkiem, w `DataTable` z `invitationColumns` (`invitation-columns.tsx`). **Wyślij ponownie** (`resendInvitation`, z tym samym limitem żądań co zaproszenie) wysyła nowy link, który zastępuje token i liczy okres ważności od nowa, więc poprzedni link przestaje działać. **Unieważnij** (`revokeInvitation`) najpierw prosi o potwierdzenie, a potem zapisuje administratora i czas; od tej chwili link informuje, że zaproszenie wycofano.
+Zakładka wyświetla otwarte zaproszenia z `listInvitations` (`user: ["list"]`), oczekujące albo z wygasłym linkiem, w `DataGrid` z `useInvitationColumns` (`invitation-columns.tsx`). Siatka w przeglądarce wyszukuje po adresie e-mail i osobie zapraszającej i filtruje według adresu e-mail, roli, statusu, osoby zapraszającej oraz dnia wysłania i wygaśnięcia, a `InvitationRowActions` kończy każdy wiersz menu z poleceniami **Wyślij ponownie** i **Unieważnij**. **Wyślij ponownie** (`resendInvitation`, z tym samym limitem żądań co zaproszenie) wysyła nowy link, który zastępuje token i liczy okres ważności od nowa, więc poprzedni link przestaje działać. **Unieważnij** (`revokeInvitation`) najpierw prosi o potwierdzenie, a potem zapisuje administratora i czas; od tej chwili link informuje, że zaproszenie wycofano.
 
 Link otwiera `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` zwraca zaproszony adres, rolę i stan linku (`INVITATION_STATUS`), a strona pokazuje jeden z tych widoków:
 

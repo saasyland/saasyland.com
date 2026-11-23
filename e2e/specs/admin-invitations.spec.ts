@@ -3,10 +3,12 @@ import type { Browser, Page } from "@playwright/test"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
+import { filterByOption, gridMessages, gridOf, hideColumn, removeFilter, resetLayout } from "../fixtures/data-grid"
 import { expectInvitationEmail } from "../fixtures/emails"
 import { approveGitHub } from "../fixtures/github"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
+import usersMessages from "../../messages/en-US/pages.admin.users.json" with { type: "json" }
 
 const [admin] = TEST_ACCOUNTS
 
@@ -111,7 +113,8 @@ test("resending an invitation sends a new link, and the earlier one stops workin
   await invite(page, email, "Customer")
   const first = await expectInvitationEmail(request, email)
 
-  await rowOf(page, email).getByRole("button", { name: `Resend the invitation to ${email}` }).click()
+  await rowOf(page, email).getByRole("button", { name: `Actions for the invitation to ${email}` }).click()
+  await page.getByRole("menuitem", { name: `Resend the invitation to ${email}` }).click()
   await expect(page.getByText(`A new link was sent to ${email}.`)).toBeVisible()
   const second = await expectInvitationEmail(request, email, 2)
   expect(second.toString()).not.toBe(first.toString())
@@ -137,7 +140,8 @@ test("revoking an invitation takes it off the list and its link says it was with
   await invite(page, email, "Customer")
   const link = await expectInvitationEmail(request, email)
 
-  await rowOf(page, email).getByRole("button", { name: `Revoke the invitation to ${email}` }).click()
+  await rowOf(page, email).getByRole("button", { name: `Actions for the invitation to ${email}` }).click()
+  await page.getByRole("menuitem", { name: `Revoke the invitation to ${email}` }).click()
   await page.getByRole("alertdialog").getByRole("button", { exact: true, name: "Revoke invitation" }).click()
   await expect(page.getByText(`The invitation to ${email} was revoked.`)).toBeVisible()
   await expect(rowOf(page, email)).toHaveCount(0)
@@ -217,4 +221,38 @@ test("an invitee signed in with another address is told so, signs out and can th
   await expect(invitee.getByRole("heading", { level: 1, name: "Join SaaSy Land" })).toBeVisible()
   await expect(invitee.getByLabel("Email", { exact: true })).toHaveValue(email)
   await invitee.context().close()
+})
+
+test("the admin searches the open invitations, filters them by role, hides a column and keeps the layout after a reload", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  await openInvitations({ appPage, authPage, page })
+  const asAdmin = inviteeEmail()
+  const asCustomer = inviteeEmail()
+  await invite(page, asAdmin, "Admin")
+  await invite(page, asCustomer, "Customer")
+  const { table } = usersMessages.invitations
+  const grid = gridOf(page, usersMessages.invitations.title)
+  const rows = grid.locator("tbody tr")
+
+  await grid.getByRole("searchbox", { name: usersMessages.invitations.search }).fill(asCustomer)
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText(asCustomer)
+  await grid.getByRole("searchbox", { name: usersMessages.invitations.search }).fill("")
+  await filterByOption(grid, table.role, usersMessages.filters.role.options.admin)
+  await expect(rows.filter({ hasText: asAdmin })).toHaveCount(1)
+  await expect(rows.filter({ hasText: asCustomer })).toHaveCount(0)
+  await removeFilter(grid, table.role)
+
+  const headerNames = grid.getByRole("columnheader")
+  await hideColumn(grid, table.invitedBy)
+  const arranged = [table.email, table.role, table.status, table.sentAt, table.expiresAt, gridMessages.actions.header]
+  await expect(headerNames).toHaveText(arranged)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await expect(headerNames).toHaveText(arranged)
+  await resetLayout(grid)
+  await expect(headerNames).toHaveText([table.email, table.role, table.status, table.invitedBy, table.sentAt, table.expiresAt, gridMessages.actions.header])
 })

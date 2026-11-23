@@ -1,6 +1,6 @@
 ---
 title: "Benutzer (Admin)"
-description: "Benutzerverwaltung unter /admin/users: eine funktionsfähige Benutzertabelle, eine Profilseite pro Benutzer und Aktionen, die die Admin-API von Better Auth aufrufen."
+description: "Benutzerverwaltung unter /admin/users: ein Benutzerraster, das auf dem Server durchsucht und gefiltert wird, eine Profilseite pro Benutzer und Aktionen, die die Admin-API von Better Auth aufrufen."
 ---
 
 ## Routen
@@ -9,7 +9,7 @@ description: "Benutzerverwaltung unter /admin/users: eine funktionsfähige Benut
 
 | Route                      | Inhalt                                                                                       |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| `/admin/users/all`         | Funktionsfähige Benutzertabelle                                                              |
+| `/admin/users/all`         | Jedes Konto im Datenraster, auf dem Server durchsucht und gefiltert                          |
 | `/admin/users/customers`   | Jeder Polar-Kunde mit Konto, Bestellungen und dem, was er nach Erstattungen bezahlt hat      |
 | `/admin/users/invitations` | Die offenen Einladungen, mit **Benutzer einladen**, **Erneut senden** und **Widerrufen**     |
 | `/admin/users/$userId`     | Profil eines Benutzers: Kontodaten, Sitzungen und die Karten, die andere Bereiche hinzufügen |
@@ -17,12 +17,23 @@ description: "Benutzerverwaltung unter /admin/users: eine funktionsfähige Benut
 ## Alle Benutzer
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` ruft die Serverfunktion `getUsers` auf (`src/modules/user/use-cases/get-users.ts`, Berechtigung `user: ["list"]`). Paginierung und Sortierung laufen auf dem Server, nach Name, Rolle, Status, E-Mail-Bestätigung, 2FA, Zeitzone sowie Erstellungs- und Änderungsdatum.
-- Der Status ist keine Spalte. `getUserStatus` (`user.utils.ts`) leitet `banned`, `pending` oder `active` aus `banned` und `emailVerified` ab, und der Server sortiert nach demselben SQL-`case`-Ausdruck. `UserStatusBadge` (`user-status-badge.tsx`) zeigt ihn in der Tabelle und im Profil an.
-- `userColumns` liegt in `src/presentation/components/custom/admin/users/user-columns.tsx`; jeder Name verlinkt auf das Profil des Benutzers. Das Erstellungs- und das Änderungsdatum verwenden die Nachricht `common.dateTime`, in der eigenen Zeitzone des Betrachters mit deren Kürzel, sodass beide Spalten in einer einzigen Zeitzone gelesen und sortiert werden. Die Zeitzone jedes Benutzers hat eine eigene Spalte.
+- `getUsersPageQuery` ruft die Serverfunktion `getUsers` auf (`src/modules/user/use-cases/get-users.ts`, Berechtigung `user: ["list"]`). `userZodSchemas.getUsers` validiert die Anfrage des Rasters, und Paginierung, Sortierung, Suche und jeder Filter laufen auf dem Server.
+- Die Suche findet Name und E-Mail. Gefiltert wird nach dem Benutzer als Text, nach Rolle und Status mit Mehrfachauswahl, nach E-Mail-Bestätigung und 2FA mit Ja oder Nein, nach der Zeitzone mit Mehrfachauswahl und nach Erstellungs- und Änderungsdatum als Zeitraum in Tagen.
+- Der Status ist keine Spalte. `getUserStatus` (`user.utils.ts`) leitet `banned`, `pending` oder `active` aus `banned` und `emailVerified` ab, und der Server sortiert und filtert nach demselben SQL-`case`-Ausdruck. `UserStatusBadge` (`user-status-badge.tsx`) zeigt ihn in der Tabelle und im Profil an.
+- `useUserColumns` liegt in `src/presentation/components/custom/admin/users/user-columns.tsx`; jeder Name verlinkt auf das Profil des Benutzers, und die Spalte Benutzer ist links angeheftet. Zu Beginn sind Benutzer, Rolle, Status, E-Mail-Bestätigung und Erstellungsdatum sichtbar; 2FA, Zeitzone und Änderungsdatum lassen sich im Menü Spalten einblenden. Das Erstellungs- und das Änderungsdatum verwenden die Nachricht `common.dateTime`, in der eigenen Zeitzone des Betrachters mit deren Kürzel, sodass beide Spalten in einer einzigen Zeitzone gelesen und sortiert werden.
+- Jede Zeile endet mit `UserRowActions`, den `rowActions` des Rasters, rechts angeheftet. Die CSV-Datei nennt den Benutzer als `name <email>` und schreibt Rolle, Status sowie Ja oder Nein so, wie die Tabelle sie zeigt.
 
 **Benutzer hinzufügen** öffnet `CreateUserDialog` (`create-user-dialog.tsx`), ein Formular mit TanStack Form, das `userZodSchemas.createUser` validiert: Name, E-Mail-Adresse, ein Startpasswort und eine Rolle. Es ruft `createUser` auf (`user: ["create"]`; für die Rolle prüft Better Auth zusätzlich `user: ["set-role"]`) und öffnet anschließend das Profil des neuen Benutzers. Better Auth legt das Konto mit unbestätigter E-Mail-Adresse an, daher führt die erste Anmeldung zu `/auth/verify-email`, das den Bestätigungslink sendet.
 
@@ -77,7 +88,7 @@ Die Tabelle `invitation` hält fest, wer wen eingeladen hat und was aus der Einl
 
 Die Fremdschlüssel auf Benutzer sind `ON DELETE SET NULL`, sodass der Datensatz die Konten überdauert, die er nennt. Ein partieller eindeutiger Index auf `email` für Zeilen, in denen `accepted_at` und `revoked_at` leer sind, erlaubt eine offene Einladung pro Adresse.
 
-Der Tab listet mit `listInvitations` (`user: ["list"]`) die offenen Einladungen auf, ausstehend oder mit abgelaufenem Link, in `DataTable` mit `invitationColumns` (`invitation-columns.tsx`). **Erneut senden** (`resendInvitation`, mit demselben Rate-Limit wie die Einladung) schickt einen neuen Link, der das Token ersetzt und die Gültigkeitsdauer neu beginnen lässt, sodass der frühere Link nicht mehr funktioniert. **Widerrufen** (`revokeInvitation`) fragt zuerst nach und hält dann den Admin und den Zeitpunkt fest; der Link sagt danach, dass die Einladung zurückgezogen wurde.
+Der Tab listet mit `listInvitations` (`user: ["list"]`) die offenen Einladungen auf, ausstehend oder mit abgelaufenem Link, im `DataGrid` mit `useInvitationColumns` (`invitation-columns.tsx`), das im Browser nach E-Mail und einladender Person sucht und nach E-Mail, Rolle, Status, einladender Person sowie Sende- und Ablauftag filtert; `InvitationRowActions` schließt jede Zeile mit einem Menü ab, das **Erneut senden** und **Widerrufen** enthält. **Erneut senden** (`resendInvitation`, mit demselben Rate-Limit wie die Einladung) schickt einen neuen Link, der das Token ersetzt und die Gültigkeitsdauer neu beginnen lässt, sodass der frühere Link nicht mehr funktioniert. **Widerrufen** (`revokeInvitation`) fragt zuerst nach und hält dann den Admin und den Zeitpunkt fest; der Link sagt danach, dass die Einladung zurückgezogen wurde.
 
 Der Link öffnet `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` liefert die eingeladene Adresse, die Rolle und den Status des Links (`INVITATION_STATUS`), und die Seite zeigt eine dieser Ansichten:
 

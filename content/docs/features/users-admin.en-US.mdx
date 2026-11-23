@@ -1,6 +1,6 @@
 ---
 title: "Users (admin)"
-description: "User management under /admin/users: a live users table, a profile page per user and actions that call the Better Auth admin API."
+description: "User management under /admin/users: a users grid searched and filtered on the server, a profile page per user and actions that call the Better Auth admin API."
 ---
 
 ## Routes
@@ -9,7 +9,7 @@ description: "User management under /admin/users: a live users table, a profile 
 
 | Route                      | Content                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------- |
-| `/admin/users/all`         | Live users table                                                                 |
+| `/admin/users/all`         | Every account in the data grid, searched and filtered on the server              |
 | `/admin/users/customers`   | Every Polar customer with their account, orders and what they paid after refunds |
 | `/admin/users/invitations` | The open invitations, with **Invite user**, **Resend** and **Revoke**            |
 | `/admin/users/$userId`     | A user's profile: account details, sessions and the cards other areas add        |
@@ -17,12 +17,23 @@ description: "User management under /admin/users: a live users table, a profile 
 ## All users
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` calls the `getUsers` server function (`src/modules/user/use-cases/get-users.ts`, permission `user: ["list"]`). Pagination and sorting run on the server over name, role, status, email verification, 2FA, time zone and the created and updated dates.
-- Status is not a column. `getUserStatus` (`user.utils.ts`) derives `banned`, `pending` or `active` from `banned` and `emailVerified`, and the server sorts by the same SQL `case` expression. `UserStatusBadge` (`user-status-badge.tsx`) draws it in the table and on the profile.
-- `userColumns` lives in `src/presentation/components/custom/admin/users/user-columns.tsx`; each name links to the user's profile. The created and updated dates use the `common.dateTime` message, in the viewer's own time zone with its abbreviation, so both columns read and sort in one zone. Each user's zone has its own column.
+- `getUsersPageQuery` calls the `getUsers` server function (`src/modules/user/use-cases/get-users.ts`, permission `user: ["list"]`). `userZodSchemas.getUsers` validates the grid's request, and paging, sorting, the search and every filter run on the server.
+- The search matches the name and the email. The filters are the user as text, role and status as several choices, email verification and 2FA as yes or no, the time zone as several zones, and the created and updated dates as ranges of days.
+- Status is not a column. `getUserStatus` (`user.utils.ts`) derives `banned`, `pending` or `active` from `banned` and `emailVerified`, and the server sorts and filters by the same SQL `case` expression. `UserStatusBadge` (`user-status-badge.tsx`) draws it in the table and on the profile.
+- `useUserColumns` lives in `src/presentation/components/custom/admin/users/user-columns.tsx`; each name links to the user's profile, and the user column is pinned to the left. The user, role, status, email verification and created date show at first; 2FA, the time zone and the updated date wait in the Columns menu. The created and updated dates use the `common.dateTime` message, in the viewer's own time zone with its abbreviation, so both columns read and sort in one zone.
+- Each row ends with `UserRowActions`, the grid's `rowActions`, pinned to the right. The CSV names the user as `name <email>` and writes the role, status and yes or no as the table shows them.
 
 **Add user** opens `CreateUserDialog` (`create-user-dialog.tsx`), a TanStack Form validated by `userZodSchemas.createUser`: name, email, a starting password and a role. It calls `createUser` (`user: ["create"]`, and Better Auth also checks `user: ["set-role"]` for the role), then opens the new user's profile. Better Auth creates the account with its email unverified, so the first sign-in leads to `/auth/verify-email`, which sends the verification link.
 
@@ -77,7 +88,7 @@ The `invitation` table keeps who invited whom and what happened to it:
 
 The user foreign keys are `ON DELETE SET NULL`, so the record outlives the accounts it names. A partial unique index on `email` where `accepted_at` and `revoked_at` are empty allows one open invitation per address.
 
-The tab lists the open invitations with `listInvitations` (`user: ["list"]`), pending or with an expired link, in `DataTable` with `invitationColumns` (`invitation-columns.tsx`). **Resend** (`resendInvitation`, rate limited like the invitation) sends a new link, which replaces the token and restarts the lifetime, so the earlier link stops working. **Revoke** (`revokeInvitation`) asks first, then records the admin and the time; the link then says that the invitation was withdrawn.
+The tab lists the open invitations with `listInvitations` (`user: ["list"]`), pending or with an expired link, in the `DataGrid` with `useInvitationColumns` (`invitation-columns.tsx`), which searches the email and the inviter and filters by email, role, status, inviter and the sent and expiry days in the browser; `InvitationRowActions` ends each row with a menu holding **Resend** and **Revoke**. **Resend** (`resendInvitation`, rate limited like the invitation) sends a new link, which replaces the token and restarts the lifetime, so the earlier link stops working. **Revoke** (`revokeInvitation`) asks first, then records the admin and the time; the link then says that the invitation was withdrawn.
 
 The link opens `/auth/invite?token=…` (`src/routes/auth.invite.tsx`). `getInvitation` returns the invited address, the role and the status of the link (`INVITATION_STATUS`), and the page shows one of these:
 

@@ -112,8 +112,20 @@ export const textLayoutProblems = async (scope: Locator): Promise<TextLayoutProb
       .map((icon) => ({ element: icon, rect: clipOf(icon, icon.getBoundingClientRect()).rect, text: icon.getAttribute("class") ?? "icon" }))
       .filter(({ rect }) => rect.width > MIN_BOX_PX && rect.height > MIN_BOX_PX)
 
+    const isStuck = (element: Element): boolean => {
+      for (let node: Element | null = element; node !== null && node !== root; node = node.parentElement) {
+        if (getComputedStyle(node).position === "sticky") {
+          return true
+        }
+      }
+      return false
+    }
+
     const collides = (first: Box, second: Box): boolean => {
       if (first.element === second.element || first.element.contains(second.element) || second.element.contains(first.element)) {
+        return false
+      }
+      if (isStuck(first.element) !== isStuck(second.element)) {
         return false
       }
       const height = Math.min(first.rect.bottom, second.rect.bottom) - Math.max(first.rect.top, second.rect.top)

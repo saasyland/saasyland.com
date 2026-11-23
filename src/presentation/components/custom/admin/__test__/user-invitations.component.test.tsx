@@ -23,10 +23,13 @@ import type { revokeInvitationMutation } from "~/src/modules/invitation/use-case
 
 import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
 
+import * as download from "~/src/lib/download"
+
 import { adminInvitation } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
 import authValidationMessages from "~/messages/en-US/auth.validations.json"
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
@@ -82,7 +85,8 @@ const fillInvitation = async (user: User): Promise<HTMLElement> => {
 }
 
 const confirmRevoke = async (user: User): Promise<HTMLElement> => {
-  await user.click(screen.getByRole("button", { name: t("revokeLabel", { email: grace.email }) }))
+  await user.click(screen.getByRole("button", { name: t("menu", { email: grace.email }) }))
+  await user.click(screen.getByRole("menuitem", { name: t("revokeLabel", { email: grace.email }) }))
   return screen.getByRole("alertdialog")
 }
 
@@ -138,8 +142,35 @@ describe("open invitations", () => {
   it("says nobody is waiting for an invitation when none is open", () => {
     renderInvitations([])
 
-    expect(screen.getByText(labels.empty)).toBeVisible()
-    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent(labels.empty)
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(1)
+  })
+
+  it("exports the invitations with their role, status and inviter as the grid names them", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const { user } = renderInvitations([
+      grace,
+      adminInvitation({
+        email: "linus@example.com",
+        id: "linus",
+        invitedBy: null,
+        role: ROLE_CODES.ADMIN,
+        status: INVITATION_STATUS.EXPIRED,
+      }),
+    ])
+
+    await user.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    const [, first, second] = vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n") ?? []
+    expect(first).toContain(
+      `grace@example.com,${pagesAdminUsersMessages.filters.role.options.customer},${labels.status.pending},Ada Lovelace,`,
+    )
+    expect(second).toContain(
+      `linus@example.com,${pagesAdminUsersMessages.filters.role.options.admin},${labels.status.expired},${labels.deletedInviter},`,
+    )
   })
 })
 
@@ -215,7 +246,8 @@ describe("inviting a user", () => {
 describe("resending an invitation", () => {
   it("sends a new link and refreshes the list", async () => {
     const { invalidateQueries, user } = renderInvitations()
-    await user.click(screen.getByRole("button", { name: t("resendLabel", { email: grace.email }) }))
+    await user.click(screen.getByRole("button", { name: t("menu", { email: grace.email }) }))
+    await user.click(screen.getByRole("menuitem", { name: t("resendLabel", { email: grace.email }) }))
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(t("feedback.resent", { email: grace.email }))
@@ -227,7 +259,8 @@ describe("resending an invitation", () => {
   it("reports a failed resend without reporting success", async () => {
     resend.mockRejectedValueOnce(new AppError(ERROR_CODES.TOO_MANY_REQUESTS))
     const { invalidateQueries, user } = renderInvitations()
-    await user.click(screen.getByRole("button", { name: t("resendLabel", { email: grace.email }) }))
+    await user.click(screen.getByRole("button", { name: t("menu", { email: grace.email }) }))
+    await user.click(screen.getByRole("menuitem", { name: t("resendLabel", { email: grace.email }) }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.TOO_MANY_REQUESTS)

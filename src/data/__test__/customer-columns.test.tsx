@@ -5,9 +5,9 @@ import * as AREA_CUSTOMER_COLUMNS from "~/src/data/customer-columns.entries"
 import { LICENSE_CUSTOMER_COLUMNS } from "~/src/data/license.customer-columns"
 import { PAYMENTS_CUSTOMER_COLUMNS } from "~/src/data/payments.customer-columns"
 
-import { CustomerMachines, CustomerMachinesHeader } from "~/src/presentation/components/custom/admin/users/license-machines"
+import { CustomerMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
 
-const column = (key: string): CustomerColumn => ({ Cell: () => <span />, Header: () => key, key })
+const column = (key: string): CustomerColumn => ({ Cell: () => <span />, header: key, key })
 
 const composeWith = (areas: Readonly<Record<string, readonly CustomerColumn[]>>) => {
   vi.resetModules()
@@ -44,6 +44,8 @@ describe("customer table columns from other areas", () => {
   })
 
   it("adds the machines each customer's licence has activated, from the licence area", () => {
-    expect(LICENSE_CUSTOMER_COLUMNS).toStrictEqual([{ Cell: CustomerMachines, Header: CustomerMachinesHeader, key: "machines" }])
+    expect(LICENSE_CUSTOMER_COLUMNS).toStrictEqual([
+      { Cell: CustomerMachines, header: "pages.admin.users.license.activations.header", key: "machines" },
+    ])
   })
 })

@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
   createAuthSessionFixture,
@@ -14,6 +14,7 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import type { banUserMutation } from "~/src/modules/user/use-cases/ban-user"
 import type { createUserMutation } from "~/src/modules/user/use-cases/create-user"
 import type { deleteUserMutation } from "~/src/modules/user/use-cases/delete-user"
@@ -28,10 +29,12 @@ import type { User } from "~/src/modules/user/user.types"
 
 import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
+import * as download from "~/src/lib/download"
+
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
-import dataTableMessages from "~/messages/en-US/components.custom.data-table.json"
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
@@ -126,8 +129,12 @@ beforeEach(() => {
   vi.spyOn(toast, "error").mockReturnValue(0)
 })
 
+afterEach(() => {
+  localStorage.clear()
+})
+
 describe("admin user management", () => {
-  it("shows when each account was created and updated in the admin's own time zone, labelled, beside the account's zone", () => {
+  it("shows when each account was created and updated in the admin's own time zone, labelled, beside the account's zone", async () => {
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [ada], total: 1 })
     const Page = UsersRoute.options.component
@@ -140,6 +147,11 @@ describe("admin user management", () => {
       </IntlProvider>,
       { queryClient },
     )
+    const user = userEvent.setup({ delay: null })
+    await user.click(screen.getByRole("button", { name: gridMessages.toolbar.columns }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: labels.table.headers.updatedAt }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: labels.table.headers.timezone }))
+    await user.keyboard("{Escape}")
 
     const [, row] = within(screen.getByRole("table")).getAllByRole("row")
     if (!row) {
@@ -159,22 +171,54 @@ describe("admin user management", () => {
     expect(screen.getAllByText("ada@example.com")[0]).toBeVisible()
     expect(screen.getByRole("link", { name: ada.name })).toHaveAttribute("href", "/admin/users/ada")
     expect(screen.getByRole("img", { name: "Grace" })).toHaveAttribute("src", "https://example.com/grace.jpg")
-    const [first] = screen.getAllByRole("checkbox", { name: dataTableMessages.selectRow })
+    const [first] = screen.getAllByRole("checkbox", { name: gridMessages.selection.selectRow })
     if (!first) {
       throw new Error("Missing row checkbox")
     }
     await userEvent.click(first)
     expect(first).toBeChecked()
-    const all = screen.getByRole("checkbox", { name: dataTableMessages.selectAll })
+    const all = screen.getByRole("checkbox", { name: gridMessages.selection.selectPage })
     expect(all).toBePartiallyChecked()
     await userEvent.click(all)
     expect(
       screen
-        .getAllByRole("checkbox", { name: dataTableMessages.selectRow })
+        .getAllByRole("checkbox", { name: gridMessages.selection.selectRow })
         .every(
           (checkbox) => checkbox.getAttribute("aria-checked") === "true" || (checkbox instanceof HTMLInputElement && checkbox.checked),
         ),
     ).toBe(true)
+  })
+
+  it("exports the users with their role, status and flags as the table names them", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const users = [
+      ada,
+      adminUser({ emailVerified: false, id: "grace", name: "Grace", role: ROLE_CODES.ADMIN, twoFactorEnabled: true }),
+      Object.assign(adminUser({ id: "legacy", name: "Legacy" }), { role: "external-role" }),
+    ]
+    const { queryClient, user } = renderUsers(users)
+    queryClient.setQueryData(getUsersPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, {
+      pendingVerification: 0,
+      rows: users,
+      total: users.length,
+    })
+    await user.click(screen.getByRole("button", { name: gridMessages.toolbar.columns }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: labels.table.headers.twoFactorEnabled }))
+    await user.keyboard("{Escape}")
+
+    await user.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    const { booleans, headers } = labels.table
+    const { role, status } = labels.filters
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.replace("\uFEFF", "").split("\r\n").slice(0, 4)).toStrictEqual([
+      [headers.user, headers.role, headers.status, headers.emailVerified, headers.twoFactorEnabled, headers.createdAt].join(","),
+      `Ada Lovelace <ada@example.com>,${role.options.customer},${status.options.active},${booleans.yes},${booleans.no},2025-01-01T12:00:00.000Z`,
+      `Grace <ada@example.com>,${role.options.admin},${status.options.pending},${booleans.no},${booleans.yes},2025-01-01T12:00:00.000Z`,
+      `Legacy <ada@example.com>,external-role,${status.options.active},${booleans.yes},${booleans.no},2025-01-01T12:00:00.000Z`,
+    ])
   })
 
   it("offers every action on another customer's row", async () => {
@@ -570,7 +614,7 @@ describe("server user pagination", () => {
     renderAdmin(<Page />, { queryClient })
     await userEvent.click(screen.getByRole("button", { name: "Next page" }))
     expect(await screen.findByText("Last member")).toBeVisible()
-    await userEvent.click(screen.getByRole("button", { name: /^User/u }))
+    await userEvent.click(screen.getByRole("button", { name: labels.table.headers.user }))
     expect(await screen.findByText("Sorted member")).toBeVisible()
     expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled()
   })

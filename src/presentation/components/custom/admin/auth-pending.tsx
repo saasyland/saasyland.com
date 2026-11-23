@@ -1,8 +1,9 @@
 import type { JSX } from "react"
 
-import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_USER_DETAILS } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_USER_DETAILS, INVITATION_COLUMN_SIZES, USER_COLUMN_SIZES } from "~/src/data/admin"
 import { SETTINGS_TABS } from "~/src/data/auth"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
 
@@ -13,11 +14,11 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, Ta
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import {
   CheckboxPending,
-  PAGE_ROWS,
   PaginationPending,
   RowActionPending,
   SortableHeadPending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
+import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import { EmailCardPending } from "~/src/presentation/components/custom/settings/settings-pending"
 
@@ -129,103 +130,30 @@ export const AdminSettingsPending = (): JSX.Element => (
   </div>
 )
 
-const UserRowPending = (): JSX.Element => (
-  <TableRow>
-    <TableCell>
-      <CheckboxPending />
-    </TableCell>
-    <TableCell>
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-8 shrink-0 rounded-full" />
-        <div>
-          <Skeleton className="h-lh w-16 scale-y-70" />
-          <Skeleton className="h-lh w-100 scale-y-70 text-spec" />
-        </div>
-      </div>
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-14 scale-y-70" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-5.5 w-13 rounded-md" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-7 scale-y-70" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-5 scale-y-70" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-8 scale-y-70" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-37 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-37 scale-y-70 text-sm" />
-    </TableCell>
-    <TableCell>
-      <RowActionPending />
-    </TableCell>
-  </TableRow>
+const UserPending = (): JSX.Element => (
+  <div className="flex items-center gap-3">
+    <Skeleton className="size-8 shrink-0 rounded-full" />
+    <div className="flex min-w-0 flex-col">
+      <Skeleton className="h-lh w-24 scale-y-70" />
+      <Skeleton className="h-lh w-40 scale-y-70 text-spec" />
+    </div>
+  </div>
 )
+
+const USER_PENDING_COLUMNS = [
+  { cell: <UserPending />, id: "user", width: USER_COLUMN_SIZES.user },
+  { cell: <Skeleton className="h-lh w-16 scale-y-70 text-sm" />, id: "role", width: USER_COLUMN_SIZES.role },
+  { cell: <Skeleton className="h-5.5 w-16 rounded-md" />, id: "status", width: USER_COLUMN_SIZES.status },
+  { cell: <Skeleton className="h-lh w-8 scale-y-70 text-sm" />, id: "emailVerified", width: USER_COLUMN_SIZES.emailVerified },
+  { cell: <Skeleton className="h-lh w-36 scale-y-70 text-sm" />, id: "createdAt", width: USER_COLUMN_SIZES.createdAt },
+] as const
 
 export const AdminUsersAllPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
     <div className="flex justify-end">
       <Skeleton className="h-10 w-25 rounded-md" />
     </div>
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <CheckboxPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <div className="flex items-center gap-1.5">
-                <Skeleton className="h-lh w-24 scale-y-70" />
-                <Skeleton className="size-3.5" />
-              </div>
-            </TableHead>
-            <TableHead>
-              <div className="flex items-center gap-1.5">
-                <Skeleton className="h-lh w-21 scale-y-70" />
-                <Skeleton className="size-3.5" />
-              </div>
-            </TableHead>
-            <TableHead>
-              <div className="flex items-center gap-1.5">
-                <Skeleton className="h-lh w-34 scale-y-70" />
-                <Skeleton className="size-3.5" />
-              </div>
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {PAGE_ROWS.map((row) => (
-            <UserRowPending key={row} />
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-    <PaginationPending />
+    <DataGridPending actionsWidth={DATA_GRID_ACTIONS_SIZE} columns={USER_PENDING_COLUMNS} isSelectable />
   </div>
 )
 
@@ -281,6 +209,15 @@ export const AdminUserProfilePending = (): JSX.Element => (
   </div>
 )
 
+const INVITATION_PENDING_COLUMNS = [
+  { cell: <Skeleton className="h-lh w-44 scale-y-70 text-sm" />, id: "email", width: INVITATION_COLUMN_SIZES.email },
+  { cell: <Skeleton className="h-lh w-16 scale-y-70 text-sm" />, id: "role", width: INVITATION_COLUMN_SIZES.role },
+  { cell: <Skeleton className="h-5.5 w-18 rounded-md" />, id: "status", width: INVITATION_COLUMN_SIZES.status },
+  { cell: <Skeleton className="h-lh w-28 scale-y-70 text-sm" />, id: "invitedBy", width: INVITATION_COLUMN_SIZES.invitedBy },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "sentAt", width: INVITATION_COLUMN_SIZES.date },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "expiresAt", width: INVITATION_COLUMN_SIZES.date },
+] as const
+
 export const AdminUsersInvitationsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
     <div className="flex justify-end">
@@ -291,7 +228,7 @@ export const AdminUsersInvitationsPending = (): JSX.Element => (
         <Skeleton className="h-lh w-44 scale-y-70 text-title" />
         <Skeleton className="mt-0.5 h-lh w-96 max-w-full scale-y-70 text-body-sm" />
       </div>
-      <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-body-sm" />
     </div>
+    <DataGridPending actionsWidth={DATA_GRID_ACTIONS_SIZE} columns={INVITATION_PENDING_COLUMNS} />
   </div>
 )

@@ -99,12 +99,6 @@ export const LicenseMachines = ({ userId }: { readonly userId: string }): JSX.El
   )
 }
 
-export const CustomerMachinesHeader = (): string => {
-  const t = useTranslations("pages.admin.users.license.activations")
-
-  return t("header")
-}
-
 export const CustomerMachines = ({ accounts, userId }: { readonly accounts: readonly string[]; readonly userId: string }): JSX.Element => {
   const t = useTranslations("pages.admin.users.license.activations")
 

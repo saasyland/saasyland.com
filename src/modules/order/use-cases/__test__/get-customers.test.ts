@@ -9,6 +9,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { FLAG_FILTER } from "~/src/modules/_core/utils/pagination"
 import {
   ADMIN_ID,
   BUYER_ID,
@@ -28,6 +29,8 @@ const customerIdsOf = async (input: Order["getCustomers"]): Promise<string[]> =>
   const { rows } = await executeQuery(getCustomersPageQuery(input))
   return rows.map(({ id }) => id)
 }
+
+const day = (iso: string): number => new Date(iso).getTime()
 
 beforeEach(async () => {
   await db.delete(order)
@@ -124,6 +127,22 @@ describe("get-customers", () => {
     const { total } = await executeQuery(getCustomersPageQuery({ filters: { customer: "buyer" } }))
 
     expect(total).toBe(2)
+  })
+
+  it("searches every customer and filters them by account, verification, order count, last order and sign-up", async () => {
+    await expect(customerIdsOf({ search: "grace" })).resolves.toStrictEqual(["cus_grace"])
+    await expect(customerIdsOf({ filters: { emailVerified: FLAG_FILTER.YES } })).resolves.toStrictEqual(["cus_ada"])
+    await expect(customerIdsOf({ filters: { emailVerified: FLAG_FILTER.NO } })).resolves.toStrictEqual(["cus_grace"])
+    await expect(customerIdsOf({ filters: { orders: { min: 2 } } })).resolves.toStrictEqual(["cus_ada"])
+    await expect(customerIdsOf({ filters: { orders: { max: 1 } } })).resolves.toStrictEqual(["cus_grace", "cus_guest"])
+    await expect(customerIdsOf({ filters: { signedUpAt: { from: day("2026-03-01T00:00:00.000Z") } } })).resolves.toStrictEqual([
+      "cus_grace",
+    ])
+    await expect(customerIdsOf({ filters: { signedUpAt: { to: day("2026-02-01T00:00:00.000Z") } } })).resolves.toStrictEqual(["cus_ada"])
+    await expect(customerIdsOf({ filters: { lastOrderAt: { from: PAID_CORE.placedAt.getTime() } } })).resolves.toStrictEqual(["cus_ada"])
+    await expect(customerIdsOf({ filters: { lastOrderAt: { to: REFUNDED_GUEST.placedAt.getTime() } } })).resolves.toStrictEqual([
+      "cus_guest",
+    ])
   })
 
   it("answers an empty page when nobody has ordered", async () => {

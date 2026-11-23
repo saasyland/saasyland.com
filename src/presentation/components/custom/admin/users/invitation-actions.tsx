@@ -1,6 +1,7 @@
-import type { JSX } from "react"
+import { type JSX, useState } from "react"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { EllipsisVertical } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -19,14 +20,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "~/src/presentation/components/shadcn/alert-dialog"
 import { Button } from "~/src/presentation/components/shadcn/button"
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from "~/src/presentation/components/shadcn/dropdown-menu"
 
 export const InvitationActions = ({ invitation }: { readonly invitation: Invitation["open"] }): JSX.Element => {
   const t = useTranslations("pages.admin.users.invitations")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
+  const [isRevoking, setRevoking] = useState(false)
 
   const onError = (error: Error): void => {
     toast.error(errorMessage(error))
@@ -49,40 +51,58 @@ export const InvitationActions = ({ invitation }: { readonly invitation: Invitat
   })
 
   return (
-    <div className="flex justify-end gap-2">
-      <Button
-        aria-label={t("resendLabel", { email: invitation.email })}
-        isPending={resend.isPending}
-        onPress={() => {
-          resend.mutate({ id: invitation.id })
-        }}
-        size="sm"
-        variant="outline"
-      >
-        {t("resend")}
-      </Button>
-      <AlertDialogTrigger>
-        <Button aria-label={t("revokeLabel", { email: invitation.email })} isPending={revoke.isPending} size="sm" variant="outline">
-          {t("revoke")}
+    <div className="flex justify-end">
+      <DropdownMenuTrigger>
+        <Button
+          aria-label={t("menu", { email: invitation.email })}
+          className="size-8"
+          isPending={resend.isPending || revoke.isPending}
+          size="icon"
+          variant="ghost"
+        >
+          <EllipsisVertical aria-hidden className="size-4" />
         </Button>
-        <AlertDialog>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("revokeDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("revokeDialog.description", { email: invitation.email })}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("revokeDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onPress={() => {
-                revoke.mutate({ id: invitation.id })
-              }}
-              variant="destructive"
-            >
-              {t("revokeDialog.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialog>
-      </AlertDialogTrigger>
+        <DropdownMenu>
+          <DropdownMenuItem
+            aria-label={t("resendLabel", { email: invitation.email })}
+            onAction={() => {
+              resend.mutate({ id: invitation.id })
+            }}
+            textValue={t("resend")}
+          >
+            {t("resend")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            aria-label={t("revokeLabel", { email: invitation.email })}
+            onAction={() => {
+              setRevoking(true)
+            }}
+            textValue={t("revoke")}
+            variant="destructive"
+          >
+            {t("revoke")}
+          </DropdownMenuItem>
+        </DropdownMenu>
+      </DropdownMenuTrigger>
+      <AlertDialog isOpen={isRevoking} onOpenChange={setRevoking}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("revokeDialog.title")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("revokeDialog.description", { email: invitation.email })}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("revokeDialog.cancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            onPress={() => {
+              revoke.mutate({ id: invitation.id })
+            }}
+            variant="destructive"
+          >
+            {t("revokeDialog.confirm")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialog>
     </div>
   )
 }
+
+export const InvitationRowActions = ({ row }: { readonly row: Invitation["open"] }): JSX.Element => <InvitationActions invitation={row} />

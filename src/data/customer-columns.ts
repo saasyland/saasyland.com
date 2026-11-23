@@ -4,7 +4,7 @@ import * as AREA_CUSTOMER_COLUMNS from "~/src/data/customer-columns.entries"
 
 export interface CustomerColumn {
   readonly Cell: (props: { readonly accounts: readonly string[]; readonly userId: string }) => JSX.Element
-  readonly Header: () => string
+  readonly header: string
   readonly key: string
 }
 

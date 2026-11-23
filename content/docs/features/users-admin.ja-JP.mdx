@@ -1,6 +1,6 @@
 ---
 title: "ユーザー（管理）"
-description: "/admin/users のユーザー管理: 稼働中のユーザーテーブル、ユーザーごとのプロフィールページ、Better Auth の管理 API を呼び出すアクション。"
+description: "/admin/users のユーザー管理: サーバー側で検索と絞り込みを行うユーザーグリッド、ユーザーごとのプロフィールページ、Better Auth の管理 API を呼び出すアクション。"
 ---
 
 ## ルート
@@ -9,7 +9,7 @@ description: "/admin/users のユーザー管理: 稼働中のユーザーテー
 
 | ルート                     | 内容                                                                               |
 | -------------------------- | ---------------------------------------------------------------------------------- |
-| `/admin/users/all`         | 稼働中のユーザーテーブル                                                           |
+| `/admin/users/all`         | すべてのアカウントを表示するデータグリッド、検索と絞り込みはサーバー側             |
 | `/admin/users/customers`   | Polar のすべての顧客と、そのアカウント、注文、返金後の支払額                       |
 | `/admin/users/invitations` | 未承諾の招待と、**ユーザーを招待する**、**再送信**、**取り消す**                   |
 | `/admin/users/$userId`     | ユーザーのプロフィール: アカウントの詳細、セッション、ほかのエリアが追加するカード |
@@ -17,12 +17,23 @@ description: "/admin/users のユーザー管理: 稼働中のユーザーテー
 ## すべてのユーザー
 
 ```tsx
-<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={USER_GRID_ID}
+  label={t("label")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
+  rowActions={UserRowActions}
+  search={t("search")}
+  selectable
+/>
 ```
 
-- `getUsersPageQuery` はサーバー関数 `getUsers`（`src/modules/user/use-cases/get-users.ts`、権限 `user: ["list"]`）を呼び出します。ページネーションと並べ替えはサーバー側で行い、名前、ロール、ステータス、メール確認、2FA、タイムゾーン、作成日時と更新日時で並べ替えられます。
-- ステータスは列ではありません。`getUserStatus`（`user.utils.ts`）が `banned` と `emailVerified` から `banned`、`pending`、`active` を導き、サーバーは同じ SQL の `case` 式で並べ替えます。`UserStatusBadge`（`user-status-badge.tsx`）がテーブルとプロフィールでステータスを表示します。
-- `userColumns` は `src/presentation/components/custom/admin/users/user-columns.tsx` にあり、各ユーザーの名前はそのユーザーのプロフィールへリンクします。作成日時と更新日時は `common.dateTime` メッセージを使い、閲覧者自身のタイムゾーンで略称付きで表示されるため、どちらの列も 1 つのタイムゾーンで表示され、並べ替えられます。各ユーザーのタイムゾーンは独立した列で表示されます。
+- `getUsersPageQuery` はサーバー関数 `getUsers`（`src/modules/user/use-cases/get-users.ts`、権限 `user: ["list"]`）を呼び出します。`userZodSchemas.getUsers` がグリッドのリクエストを検証し、ページネーション、並べ替え、検索、すべての絞り込みはサーバー側で行います。
+- 検索は名前とメールアドレスを対象にします。絞り込みは、ユーザーをテキストで、ロールとステータスを複数選択で、メール確認と 2FA をはい・いいえで、タイムゾーンを複数選択で、作成日時と更新日時を日の範囲で指定します。
+- ステータスは列ではありません。`getUserStatus`（`user.utils.ts`）が `banned` と `emailVerified` から `banned`、`pending`、`active` を導き、サーバーは同じ SQL の `case` 式で並べ替えと絞り込みを行います。`UserStatusBadge`（`user-status-badge.tsx`）がテーブルとプロフィールでステータスを表示します。
+- `useUserColumns` は `src/presentation/components/custom/admin/users/user-columns.tsx` にあり、各ユーザーの名前はそのユーザーのプロフィールへリンクし、ユーザー列は左端に固定されます。最初に表示されるのはユーザー、ロール、ステータス、メール確認、作成日時で、2FA、タイムゾーン、更新日時は「列」メニューから表示できます。作成日時と更新日時は `common.dateTime` メッセージを使い、閲覧者自身のタイムゾーンで略称付きで表示されるため、どちらの列も 1 つのタイムゾーンで表示され、並べ替えられます。
+- 各行の末尾には、グリッドの `rowActions` として `UserRowActions` が右端に固定されて表示されます。CSV はユーザーを `name <email>` の形式で書き出し、ロール、ステータス、はい・いいえはテーブルの表示どおりに書き出します。
 
 **ユーザーを追加** は `CreateUserDialog`（`create-user-dialog.tsx`）を開きます。これは `userZodSchemas.createUser` で検証する TanStack Form のフォームで、名前、メールアドレス、初期パスワード、ロールを入力します。`createUser`（`user: ["create"]`。ロールについては Better Auth が `user: ["set-role"]` もチェックします）を呼び出し、新しいユーザーのプロフィールを開きます。Better Auth はメールアドレスが未確認の状態でアカウントを作成するため、最初のサインインで `/auth/verify-email` に移動し、そこで確認リンクが送信されます。
 
@@ -77,7 +88,7 @@ description: "/admin/users のユーザー管理: 稼働中のユーザーテー
 
 ユーザーへの外部キーは `ON DELETE SET NULL` なので、記録はそこに記載されたアカウントより長く残ります。`accepted_at` と `revoked_at` が空の行に限った `email` の部分ユニークインデックスにより、アドレスごとに未承諾の招待は 1 件だけになります。
 
-このタブは、`listInvitations`（`user: ["list"]`）で未承諾の招待を、保留中のものもリンクの期限が切れたものも含めて、`invitationColumns`（`invitation-columns.tsx`）を使った `DataTable` に一覧表示します。**再送信**（`resendInvitation`、招待と同じレート制限）は新しいリンクを送信します。新しいリンクはトークンを置き換え、有効期間を最初から数え直すため、以前のリンクは使えなくなります。**取り消す**（`revokeInvitation`）は最初に確認を求め、その後に管理者と日時を記録します。以後、リンクを開くと招待が取り消されたことが表示されます。
+このタブは、`listInvitations`（`user: ["list"]`）で未承諾の招待を、保留中のものもリンクの期限が切れたものも含めて、`useInvitationColumns`（`invitation-columns.tsx`）を使った `DataGrid` に一覧表示します。このグリッドはブラウザー内で、メールアドレスと招待者で検索し、メールアドレス、ロール、ステータス、招待者、送信日、有効期限の日で絞り込みます。`InvitationRowActions` は各行の末尾に、**再送信** と **取り消す** を含むメニューを表示します。**再送信**（`resendInvitation`、招待と同じレート制限）は新しいリンクを送信します。新しいリンクはトークンを置き換え、有効期間を最初から数え直すため、以前のリンクは使えなくなります。**取り消す**（`revokeInvitation`）は最初に確認を求め、その後に管理者と日時を記録します。以後、リンクを開くと招待が取り消されたことが表示されます。
 
 リンクは `/auth/invite?token=…`（`src/routes/auth.invite.tsx`）を開きます。`getInvitation` は招待先のアドレス、ロール、リンクのステータス（`INVITATION_STATUS`）を返し、ページには次のいずれかが表示されます。
 

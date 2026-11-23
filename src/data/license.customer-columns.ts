@@ -1,7 +1,7 @@
 import type { CustomerColumn } from "~/src/data/customer-columns"
 
-import { CustomerMachines, CustomerMachinesHeader } from "~/src/presentation/components/custom/admin/users/license-machines"
+import { CustomerMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
 
 export const LICENSE_CUSTOMER_COLUMNS = [
-  { Cell: CustomerMachines, Header: CustomerMachinesHeader, key: "machines" },
+  { Cell: CustomerMachines, header: "pages.admin.users.license.activations.header", key: "machines" },
 ] as const satisfies readonly CustomerColumn[]

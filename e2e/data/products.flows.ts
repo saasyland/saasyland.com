@@ -16,6 +16,19 @@ export const PRODUCTS_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_PRODUCTS,
+    id: "admin-products-grid",
+    outcome:
+      "/admin/products searches its products, filters them by type on the server, sorts them by type both ways, and keeps the columns the admin hid and showed after a reload until the layout is reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-products.spec.ts",
+        title: "the admin filters the products by type, sorts them by type, hides a column and keeps the layout after a reload",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PRODUCTS,
     id: "admin-create-product",
     outcome: "The admin creates a product, and it appears in the product list",
     reason: "There is no create screen: create-product.ts has no screen.",

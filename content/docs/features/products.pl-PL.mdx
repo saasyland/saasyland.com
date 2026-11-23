@@ -14,19 +14,22 @@ Przypadki użycia w `src/modules/product/use-cases`, każdy chroniony odpowiedni
 
 ## Ekran w panelu administracyjnym
 
-`/admin/products` przechowuje wybraną kartę w parametrze wyszukiwania `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` i `drafts`. Karty produktów pobierają dane z serwera stronami:
+`/admin/products` przechowuje wybraną zakładkę w parametrze adresu URL `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` i `drafts`. Zakładki produktów wyświetlają `ProductGrid` (`product-grid.tsx`), czyli `DataGrid` z `useProductColumns`, i dodają do każdego żądania typ albo status danej zakładki:
 
 ```tsx
-<DataTable
-  columns={productColumns}
-  key={tab}
-  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={PRODUCT_GRID_ID}
+  label={label}
+  query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
+  search={t("search")}
 />
 ```
 
-`categories` i `collections` wyświetlają `categoryColumns` z `getCategoriesPageQuery` (zobacz [Kategorie](/docs/features/categories)). Kursy mają własny ekran, `/admin/courses` (zobacz [Kursy](/docs/features/courses)). Licznik na pulpicie również odczytuje `getProductsQuery`.
+`getProducts` przeszukuje na serwerze nazwę i opis, filtruje według nazwy, typu, statusu, ceny w walucie produktu oraz dnia utworzenia i aktualizacji i sortuje według każdej kolumny. `categories` i `collections` wyświetlają `CategoryGrid` (`category-grid.tsx`) z `useCategoryColumns` i `getCategoriesPageQuery` (zobacz [Kategorie](/docs/features/categories)). Kursy mają własny ekran, `/admin/courses` (zobacz [Kursy](/docs/features/courses)). Licznik na pulpicie również odczytuje `getProductsQuery`.
 
-Lista jest tylko do odczytu. Jej kolumny to produkt, jego typ, cena i status; nie ma formularza tworzenia ani menu wiersza, ponieważ żaden ekran nie jest jeszcze podłączony do `createProduct`, `updateProduct`, `deleteProduct` ani `getProduct`, a kolumna sprzedaży wymagałaby powiązania tych wierszy z produktami w Polarze, a tabela go nie ma.
+Lista jest tylko do odczytu. Jej kolumny to produkt, jego typ, cena, status i dzień ostatniej zmiany, a dzień utworzenia można włączyć w menu Kolumny; nie ma formularza tworzenia ani menu wiersza, ponieważ żaden ekran nie jest jeszcze podłączony do `createProduct`, `updateProduct`, `deleteProduct` ani `getProduct`, a kolumna sprzedaży wymagałaby powiązania tych wierszy z produktami w Polarze, a tabela go nie ma.
 
 `getProducts` sprawdza `currency` każdego wiersza za pomocą `currencyCodeField` względem kodów ISO 4217 z `CURRENCIES`, więc lista zgłosi błąd, zamiast pokazać cenę w nieznanej walucie. Kolumna ceny przelicza `priceCents` na jednostki główne waluty funkcją `fromMinorUnits` i formatuje kwotę według języka strony: na angielskiej stronie 4900 jednostek zdawkowych to $49.00 w USD i ¥4,900 w JPY, którego wykładnik wynosi 0.
 

@@ -14,6 +14,7 @@ import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
+import type { Course } from "~/src/modules/course/course.types"
 import { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
@@ -39,6 +40,11 @@ const NEW_COURSE = {
   status: COURSE_STATUS.DRAFT,
   summary: { "en-US": "From zero." },
   title: { "en-US": "Build a SaaS", "pl-PL": "Zbuduj SaaS" },
+}
+
+const idsOf = async (input: Course["getCourses"]): Promise<string[]> => {
+  const { rows } = await executeQuery(getCoursesPageQuery(input))
+  return rows.map(({ id }) => id)
 }
 
 const courseOrder = async (): Promise<string[]> => {
@@ -78,6 +84,41 @@ describe("getCourses", () => {
     const page = await executeQuery(getCoursesPageQuery({ pageIndex: 1, pageSize: 2 }))
 
     expect(page).toMatchObject({ rows: [{ id: IDS.TUTORIAL }], total: 3 })
+  })
+
+  it("says which courses start and end the catalogue, whatever the list shows", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const page = await executeQuery(getCoursesPageQuery({ sorting: [{ desc: true, id: "lessons" }] }))
+
+    expect(page.rows.map(({ id, isFirst, isLast }) => [id, isFirst, isLast])).toStrictEqual([
+      [IDS.COURSE, false, false],
+      [IDS.DRAFT_COURSE, true, false],
+      [IDS.TUTORIAL, false, true],
+    ])
+  })
+
+  it("searches the titles in every language and the slugs, and filters by kind, status, lessons and the day it changed", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+    await db
+      .update(course)
+      .set({ updatedAt: new Date("2026-11-01T12:00:00Z") })
+      .where(eq(course.id, IDS.TUTORIAL))
+
+    await expect(idsOf({ search: "przewodnik" })).resolves.toStrictEqual([IDS.COURSE])
+    await expect(idsOf({ search: "one-off" })).resolves.toStrictEqual([IDS.TUTORIAL])
+    await expect(idsOf({ filters: { course: "unrel" } })).resolves.toStrictEqual([IDS.DRAFT_COURSE])
+    await expect(idsOf({ filters: { kind: [COURSE_KIND.TUTORIAL] } })).resolves.toStrictEqual([IDS.TUTORIAL])
+    await expect(idsOf({ pageSize: 1, sorting: [{ desc: false, id: "kind" }] })).resolves.toStrictEqual([IDS.DRAFT_COURSE])
+    await expect(idsOf({ filters: { status: [COURSE_STATUS.DRAFT] } })).resolves.toStrictEqual([IDS.DRAFT_COURSE])
+    await expect(idsOf({ filters: { lessons: { min: 1 } } })).resolves.toStrictEqual([IDS.COURSE])
+    await expect(idsOf({ filters: { updatedAt: { to: new Date("2026-11-02T00:00:00Z").getTime() } } })).resolves.toStrictEqual([
+      IDS.TUTORIAL,
+    ])
+
+    const lessonless = await executeQuery(getCoursesPageQuery({ filters: { lessons: { max: 0 } } }))
+
+    expect(lessonless.total).toBe(2)
   })
 
   it("is for staff only", async () => {

@@ -1,4 +1,5 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeQuery } from "~/src/platform/testing/lib/query"
@@ -16,6 +17,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
+import type { Product } from "~/src/modules/product/product.types"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 const HEADERS = new Headers()
@@ -30,6 +32,11 @@ vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
+
+const productIdsOf = async (input: Product["getProducts"]): Promise<string[]> => {
+  const { rows } = await executeQuery(getProductsPageQuery(input))
+  return rows.map(({ id }) => id)
+}
 
 beforeEach(async () => {
   await db.delete(product)
@@ -135,5 +142,30 @@ describe("list-products", () => {
     )
     expect(result.rows.map((row) => row.id)).toEqual(["row-01"])
     expect(result.total).toBe(2)
+  })
+
+  it("searches names and descriptions, filters by type, status, price and dates, and sorts on the server", async () => {
+    await db.update(product).set({ description: "Team seats", priceCents: 4900 }).where(eq(product.id, "row-05"))
+    await db
+      .update(product)
+      .set({ priceCents: 19_900, updatedAt: new Date("2026-11-01T12:00:00Z") })
+      .where(eq(product.id, "row-07"))
+
+    await expect(productIdsOf({ search: "team seats" })).resolves.toStrictEqual(["row-05"])
+    await expect(productIdsOf({ filters: { product: "member 1" } })).resolves.toStrictEqual(["row-11", "row-10"])
+    await expect(productIdsOf({ filters: { status: [PRODUCT_STATUS.DRAFT], type: [PRODUCT_TYPE.SUBSCRIPTION] } })).resolves.toStrictEqual([
+      "row-03",
+      "row-01",
+    ])
+    await expect(productIdsOf({ filters: { pricing: { max: 100, min: 40 } } })).resolves.toStrictEqual(["row-05"])
+    await expect(productIdsOf({ filters: { pricing: { min: 100 } } })).resolves.toStrictEqual(["row-07"])
+    await expect(productIdsOf({ filters: { updatedAt: { to: new Date("2026-11-02T00:00:00Z").getTime() } } })).resolves.toStrictEqual([
+      "row-07",
+    ])
+    await expect(productIdsOf({ filters: { createdAt: { from: new Date("2026-10-01T00:00:00Z").getTime() } } })).resolves.toStrictEqual([])
+    await expect(productIdsOf({ pageSize: 2, sorting: [{ desc: true, id: "pricing" }] })).resolves.toStrictEqual(["row-07", "row-05"])
+    await expect(
+      productIdsOf({ pageSize: 2, sorting: [{ desc: false, id: "product" }], type: PRODUCT_TYPE.ONE_TIME }),
+    ).resolves.toStrictEqual(["row-00", "row-02"])
   })
 })

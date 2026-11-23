@@ -8,9 +8,9 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
-import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
+import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
-import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 import { ADMIN_PRODUCT_TABS } from "~/src/data/admin-products"
 
@@ -21,9 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/com
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
-import { categoryColumns } from "~/src/presentation/components/custom/admin/products/category-columns"
-import { productColumns } from "~/src/presentation/components/custom/admin/products/product-columns"
-import { DataTable } from "~/src/presentation/components/custom/data-table"
+import { CategoryGrid } from "~/src/presentation/components/custom/admin/products/category-grid"
+import { ProductGrid } from "~/src/presentation/components/custom/admin/products/product-grid"
 
 import { ROUTES } from "~/src/routes"
 
@@ -61,20 +60,8 @@ const ProductsPage = (): JSX.Element => {
       />
 
       <TabsContent className="mt-8 space-y-4 outline-none" id={tab}>
-        {tab !== "categories" && tab !== "collections" && (
-          <DataTable
-            columns={productColumns}
-            key={tab}
-            options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
-          />
-        )}
-        {(tab === "categories" || tab === "collections") && (
-          <DataTable
-            columns={categoryColumns[categoryKind]}
-            key={tab}
-            options={{ query: ({ pageIndex, pageSize }) => getCategoriesPageQuery({ kind: categoryKind, pageIndex, pageSize }) }}
-          />
-        )}
+        {tab !== "categories" && tab !== "collections" && <ProductGrid key={tab} label={t(`tabs.${tab}`)} preset={FILTERS[tab]} />}
+        {(tab === "categories" || tab === "collections") && <CategoryGrid key={tab} kind={categoryKind} label={t(`tabs.${tab}`)} />}
       </TabsContent>
     </Tabs>
   )

@@ -7,7 +7,10 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { getCoursesPageQuery, getCoursesQuery } from "~/src/modules/course/use-cases/get-courses"
+
+import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -15,15 +18,16 @@ import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminCoursesPending } from "~/src/presentation/components/custom/admin/courses-pending"
-import { courseColumns } from "~/src/presentation/components/custom/admin/courses/course-columns"
+import { COURSE_GRID_ID, CourseActions, useCourseColumns } from "~/src/presentation/components/custom/admin/courses/course-columns"
 import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
 import { ImportCoursesDialog } from "~/src/presentation/components/custom/admin/courses/import-courses-dialog"
-import { DataTable } from "~/src/presentation/components/custom/data-table"
+import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
 import { ROUTES } from "~/src/routes"
 
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
+  const columns = useCourseColumns()
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
@@ -42,7 +46,16 @@ const CoursesPage = (): JSX.Element => {
         title={t("title")}
       />
 
-      <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+      <DataGrid
+        columns={columns}
+        empty={t("table.empty")}
+        id={COURSE_GRID_ID}
+        label={t("title")}
+        query={(request) => getCoursesPageQuery(courseZodSchemas.getCourses.parse(request))}
+        rowActions={CourseActions}
+        rowActionsSize={COURSE_COLUMN_SIZES.actions}
+        search={t("table.search")}
+      />
     </div>
   )
 }

@@ -38,6 +38,7 @@ export interface Course {
   getCourseEditor: zod.input<typeof courseZodSchemas.getCourseEditor>
   getCourseShowcase: zod.input<typeof courseZodSchemas.getCourseShowcase>
   getCourses: zod.input<typeof courseZodSchemas.getCourses>
+  courseFilters: zod.output<typeof courseZodSchemas.getCourses>["filters"]
   importCourses: zod.input<typeof courseZodSchemas.importCourses>
   moveCourse: zod.input<typeof courseZodSchemas.moveCourse>
   searchCourses: zod.input<typeof courseZodSchemas.searchCourses>

@@ -14,19 +14,22 @@ Casos de uso em `src/modules/product/use-cases`, cada um protegido pela permiss�
 
 ## Tela administrativa
 
-`/admin/products` guarda a aba no parâmetro de busca `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` e `drafts`. As abas de produtos paginam no servidor:
+`/admin/products` guarda a aba no parâmetro de busca `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` e `drafts`. As abas de produtos mostram `ProductGrid` (`product-grid.tsx`), o `DataGrid` com `useProductColumns`, e acrescentam o tipo ou o status da aba a cada requisição:
 
 ```tsx
-<DataTable
-  columns={productColumns}
-  key={tab}
-  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={PRODUCT_GRID_ID}
+  label={label}
+  query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
+  search={t("search")}
 />
 ```
 
-`categories` e `collections` mostram `categoryColumns` com `getCategoriesPageQuery` (veja [Categorias](/docs/features/categories)). Os cursos têm tela própria, `/admin/courses` (veja [Cursos](/docs/features/courses)). O contador do painel também lê `getProductsQuery`.
+`getProducts` busca no nome e na descrição, filtra por nome, tipo, status, preço na moeda do produto e os dias de criação e de alteração, e ordena por cada coluna no servidor. `categories` e `collections` mostram `CategoryGrid` (`category-grid.tsx`) com `useCategoryColumns` e `getCategoriesPageQuery` (veja [Categorias](/docs/features/categories)). Os cursos têm tela própria, `/admin/courses` (veja [Cursos](/docs/features/courses)). O contador do painel também lê `getProductsQuery`.
 
-A lista é somente leitura. Suas colunas são o produto, o tipo, o preço e o status; não há formulário de criação nem menu de linha, porque nenhuma tela está conectada ainda a `createProduct`, `updateProduct`, `deleteProduct` ou `getProduct`, e uma coluna de vendas precisaria de uma ligação entre essas linhas e os produtos da Polar que a tabela não tem.
+A lista é somente leitura. Suas colunas são o produto, o tipo, o preço, o status e o dia da última alteração, com o dia da criação no menu Colunas; não há formulário de criação nem menu de linha, porque nenhuma tela está conectada ainda a `createProduct`, `updateProduct`, `deleteProduct` ou `getProduct`, e uma coluna de vendas precisaria de uma ligação entre essas linhas e os produtos da Polar que a tabela não tem.
 
 `getProducts` confere a `currency` de cada linha com `currencyCodeField` contra os códigos ISO 4217 de `CURRENCIES`, de modo que a lista falha em vez de mostrar um preço em uma moeda desconhecida. A coluna de preço converte `priceCents` para a unidade principal da moeda com `fromMinorUnits` e formata o valor conforme o idioma da página: em uma página em inglês, 4900 unidades menores aparecem como $49.00 em USD e como ¥4,900 em JPY, cujo expoente é 0.
 

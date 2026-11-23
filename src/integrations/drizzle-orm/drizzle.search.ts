@@ -31,6 +31,14 @@ export const anyContains = (columns: readonly SQLWrapper[], text = ""): SQL[] =>
   ]
 }
 
+export const equalTo = (column: SQLWrapper, value: string | undefined): SQL[] => {
+  if (value === undefined) {
+    return []
+  }
+
+  return [eq(column, value)]
+}
+
 export const oneOf = (column: SQLWrapper, values: readonly string[] = []): SQL[] => {
   if (values.length === 0) {
     return []

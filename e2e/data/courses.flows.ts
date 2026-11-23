@@ -295,6 +295,20 @@ export const COURSES_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-courses-grid",
+    outcome:
+      "/admin/courses finds a course by its slug, filters the catalogue by status on the server and shows the filtered empty state, and keeps a hidden column after a reload until the layout is reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-admin.spec.ts",
+        title:
+          "an administrator finds a course by its slug, filters the catalogue by status, hides a column and keeps the layout after a reload",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-create-course",
     outcome: "The admin creates a published course with a chapter and a free lesson on a video, and a visitor plays that lesson",
     status: FLOW_STATUS.COVERED,

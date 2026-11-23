@@ -18,6 +18,8 @@ export const PRODUCT_STATUSES = [PRODUCT_STATUS.DRAFT, PRODUCT_STATUS.PUBLISHED,
 
 export const PRODUCT_TYPES = [PRODUCT_TYPE.ONE_TIME, PRODUCT_TYPE.SUBSCRIPTION, PRODUCT_TYPE.COURSE] as const
 
+export const PRODUCT_SORT_COLUMNS = ["product", "type", "pricing", "status", "createdAt", "updatedAt"] as const
+
 export const PRODUCT_QUERY_KEYS = {
   ALL: ["product"],
   LIST: ["product", "getProducts"],

@@ -9,7 +9,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
@@ -27,6 +27,7 @@ import {
   REACTPROJECTS_URL,
   TIER_FEATURES,
 } from "~/src/data/marketing"
+import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -52,12 +53,17 @@ import english from "~/messages/en-US/pages.landing.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
+const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
+  ADMIN_NAVIGATION.flatMap(({ items }) => items).map((entry) => getNavigationLabel(I18N.DEFAULT_LOCALE)(entry)),
+)
+
 const withFacts = (message: string): string =>
   createTranslator({ locale: "en-US", messages: { message } })("message", {
     ...REPOSITORY_FACTS,
     ...COURSE_PLATFORM_VALUES,
     ...CLI_GENERATION_VALUES,
     days: REFUND_TERMS.WITHDRAWAL_DAYS,
+    sections: ADMIN_SECTION_NAMES,
   })
 
 const EVIDENCE_CODE = [

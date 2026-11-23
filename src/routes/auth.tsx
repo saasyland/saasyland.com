@@ -8,6 +8,7 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { AUTH_ASSURANCES } from "~/src/data/auth"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { AuthPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
@@ -54,7 +55,9 @@ const AuthLayout = (): JSX.Element => {
             {AUTH_ASSURANCES.map((id) => (
               <li className="flex items-start gap-3" key={id}>
                 <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-full bg-ring" />
-                <span className="text-spec text-muted-foreground">{t(`gate.assurances.${id}`)}</span>
+                <span className="text-spec text-muted-foreground">
+                  {t(`gate.assurances.${id}`, { coverageThreshold: REPOSITORY_FACTS.coverageThreshold })}
+                </span>
               </li>
             ))}
           </ul>

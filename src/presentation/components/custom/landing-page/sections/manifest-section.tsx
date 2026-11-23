@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { useAdminSections } from "~/src/hooks/use-admin-sections"
+
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -14,6 +16,7 @@ const LEDGER_DELAY_MS = 100
 
 export const ManifestSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.manifest")
+  const sections = useAdminSections()
 
   return (
     <section className="relative border-t border-border">
@@ -34,7 +37,7 @@ export const ManifestSection = (): JSX.Element => {
               >
                 <dt className="text-title text-foreground">{t(`items.${item}.label`)}</dt>
                 <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground md:mt-0">
-                  {t(`items.${item}.body`, REPOSITORY_FACTS)}
+                  {t(`items.${item}.body`, { ...REPOSITORY_FACTS, sections })}
                 </dd>
               </HighlightItem>
             ))}

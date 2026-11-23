@@ -1,8 +1,8 @@
+import { lessonTitleQuery } from "~/src/modules/lesson/use-cases/get-lesson-title"
 import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 import { userWithdrawalsQuery } from "~/src/modules/withdrawal/use-cases/get-user-withdrawals"
 
-import { OPENED_LESSON_TITLES } from "~/src/data/opened-lesson"
 import type { UserProfileSection } from "~/src/data/user-profile"
 
 import { UserLicensePending, UserWithdrawalsPending } from "~/src/presentation/components/custom/admin/license-pending"
@@ -22,7 +22,7 @@ export const LICENSE_USER_PROFILE = [
       const lessonId = license?.openedLessonId
 
       if (typeof lessonId === "string") {
-        await Promise.all(OPENED_LESSON_TITLES.map(({ load }) => load({ lessonId, queryClient })))
+        await queryClient.query(lessonTitleQuery({ lessonId }))
       }
     },
   },

@@ -15,8 +15,6 @@ import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/cou
 import type { Course } from "~/src/modules/course/course.types"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 
-import { COURSES_LICENSE_OFFER } from "~/src/data/courses.license-offer"
-
 import { CourseUnlocks, CourseUnlocksPending } from "~/src/presentation/components/custom/app/course-unlocks"
 
 import messages from "~/messages/en-US/components.custom.course-unlocks.json"
@@ -85,16 +83,5 @@ describe("course unlocks", () => {
     expect(container.querySelectorAll(".divide-y > div")).toHaveLength(2)
     cleanup()
     expect(render(<CourseUnlocksPending />).container).toBeEmptyDOMElement()
-  })
-
-  it("adds the panel to the licence offer and loads the catalogue with the page", async () => {
-    const queryClient = new QueryClient()
-    const query = vi.spyOn(queryClient, "query").mockResolvedValue([])
-    const [section] = COURSES_LICENSE_OFFER
-
-    await section.load({ locale: I18N.DEFAULT_LOCALE, queryClient })
-
-    expect(section).toMatchObject({ Pending: CourseUnlocksPending, Section: CourseUnlocks })
-    expect(query).toHaveBeenCalledWith(expect.objectContaining({ queryKey: CATALOGUE_KEY }))
   })
 })

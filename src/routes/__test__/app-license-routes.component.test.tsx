@@ -21,6 +21,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { catalogueQuery, type getCatalogue } from "~/src/modules/course/use-cases/get-catalogue"
 import { licenseRow } from "~/src/modules/license/__test__/fixtures/license-row"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -74,13 +75,13 @@ const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const CHECKOUT_URL = "#checkout"
 const STARTED_CHECKOUT = { checkoutId: CHECKOUT_ID, url: CHECKOUT_URL }
 const { activation, buy, chosen, copy, statusCard } = pagesLicenseMessages
-const SECTION_NAME = vi.hoisted(() => "Included with every tier")
+const SECTION_NAME = vi.hoisted(() => "Courses a licence unlocks")
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicenseMock = vi.hoisted(() => vi.fn<() => Promise<{ license: License["select"] | undefined }>>())
 const licenseKeyMock = vi.hoisted(() => vi.fn<() => Promise<{ key: string | null | undefined }>>())
 const activationsMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCurrentLicenseActivations>>())
-const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
+const catalogueMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCatalogue>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const upgradePriceMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getUpgradePrice>>())
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
@@ -117,15 +118,13 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"
   const actual = await importOriginal()
   return { ...actual, licenseActivationsQuery: (input) => ({ ...actual.licenseActivationsQuery(input), queryFn: activationsMock }) }
 })
-vi.mock("~/src/data/license-offer.entries", () => ({
-  TEST_LICENSE_OFFER: [
-    {
-      key: "included",
-      load: sectionLoad,
-      Pending: () => {},
-      Section: () => <section aria-label={SECTION_NAME} />,
-    },
-  ],
+vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, catalogueQuery: (input) => ({ ...actual.catalogueQuery(input), queryFn: catalogueMock }) }
+})
+vi.mock(import("~/src/presentation/components/custom/app/course-unlocks"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  CourseUnlocks: () => <section aria-label={SECTION_NAME} />,
 }))
 vi.mock(import("~/src/modules/license/use-cases/get-upgrade-price"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -209,7 +208,7 @@ beforeEach(() => {
   licenseKeyMock.mockReset().mockResolvedValue({ key: LICENSE_KEY })
   activationsMock.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
   withdrawalContractMock.mockReset().mockResolvedValue({ contract: undefined })
-  sectionLoad.mockReset().mockResolvedValue(undefined)
+  catalogueMock.mockReset().mockResolvedValue({ courses: [], viewer: { mustConfirmEmail: false, signedIn: true, unlocked: false } })
   checkoutMock.mockReset()
   overlayMock.mockReset().mockResolvedValue(undefined)
   upgradePriceMock.mockReset().mockResolvedValue({ upgrade: undefined })
@@ -261,12 +260,16 @@ describe("buying a license", () => {
     expect(screen.queryByRole("region", { name: chosen.title.replace("{tier}", pricingMessages.tiers.complete.name) })).toBeNull()
   })
 
-  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("ends the offer on %s with what other areas include and loads their data", async (path) => {
-    const { queryClient } = await renderApp(path)
+  it.each([ROUTES.APP, ROUTES.APP_LICENSE])(
+    "ends the offer on %s with the courses a licence unlocks and loads the catalogue",
+    async (path) => {
+      const { queryClient } = await renderApp(path)
 
-    expect(within(await offer()).getByRole("region", { name: SECTION_NAME })).toBeInTheDocument()
-    expect(sectionLoad).toHaveBeenCalledWith({ locale: "en-US", queryClient })
-  })
+      expect(within(await offer()).getByRole("region", { name: SECTION_NAME })).toBeInTheDocument()
+      expect(catalogueMock).toHaveBeenCalledTimes(1)
+      expect(queryClient.getQueryData(catalogueQuery({ locale: I18N.DEFAULT_LOCALE }).queryKey)).toBeDefined()
+    },
+  )
 
   it("says next to the buttons that Polar asks for the consent, when the refund ends and which terms apply", async () => {
     await renderApp(ROUTES.APP_LICENSE)

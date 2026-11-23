@@ -9,11 +9,11 @@ import type { License } from "~/src/modules/license/license.types"
 import { userLicenseQuery } from "~/src/modules/license/use-cases/get-user-license"
 
 import { USER_LICENSE_DETAILS } from "~/src/data/license"
-import { OPENED_LESSON_TITLES } from "~/src/data/opened-lesson"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
+import { OpenedLessonName } from "~/src/presentation/components/custom/admin/courses/opened-lesson-name"
 import { LicenseMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
 
 type UserLicenseDetail = (typeof USER_LICENSE_DETAILS)[number]
@@ -61,9 +61,7 @@ const LicenseDetails = ({ license, userId }: { readonly license: LicenseView; re
     return (
       <span className="flex flex-col items-end gap-0.5">
         <span>{dateTime(license.lessonOpenedAt)}</span>
-        {OPENED_LESSON_TITLES.map(({ Title, key }) => (
-          <Title key={key} lessonId={lessonId} />
-        ))}
+        <OpenedLessonName lessonId={lessonId} />
       </span>
     )
   }

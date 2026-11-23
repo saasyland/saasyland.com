@@ -35,10 +35,9 @@ const SELECTORS = {
   UPGRADE: "[class*='lg:grid-cols-[1fr_18rem]']",
 } as const
 
-vi.mock("~/src/data/license-offer.entries", () => ({
-  TEST_LICENSE_OFFER: [
-    { Pending: () => <div data-section="included" />, Section: () => <span />, key: "included", load: () => Promise.resolve() },
-  ],
+vi.mock(import("~/src/presentation/components/custom/app/course-unlocks"), () => ({
+  CourseUnlocks: () => <span />,
+  CourseUnlocksPending: () => <div data-section="included" />,
 }))
 
 interface Cache {
@@ -107,7 +106,7 @@ describe("license skeletons", () => {
   it.each([
     ["/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
-  ])("ends the offer with the skeleton of what other areas include at %s", (path, Page) => {
+  ])("ends the offer with the skeleton of the courses a licence unlocks at %s", (path, Page) => {
     expect(renderAt(<Page />, path).querySelectorAll(SELECTORS.SECTION)).toHaveLength(1)
     cleanup()
     expect(renderAt(<Page />, path, { owned: licenseRow() }).querySelectorAll(SELECTORS.SECTION)).toHaveLength(0)

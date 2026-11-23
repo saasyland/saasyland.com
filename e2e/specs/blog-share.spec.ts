@@ -14,6 +14,8 @@ const { share } = pagesBlog.post
 const NETWORKS = [share.targets.x, share.targets.linkedin, share.targets.bluesky, share.targets.hackerNews, share.targets.reddit]
 const PHONE = { height: 844, width: 390 }
 const SHARE_LISTS = 2
+const UNDER_THE_TITLE = 0
+const END_OF_ARTICLE = SHARE_LISTS - 1
 const TRACKING_PARAMETER = /utm_|fbclid|gclid/u
 
 const stubNativeShare = (): void => {
@@ -30,13 +32,13 @@ const removeNativeShare = (): void => {
   Reflect.deleteProperty(Navigator.prototype, "share")
 }
 
-const shareListPlacement = async (page: Page) => {
-  const [list, title] = await Promise.all([
-    page.getByRole("list", { name: share.label }).first().boundingBox(),
+const shareListPlacement = async (page: Page, list: number) => {
+  const [box, title] = await Promise.all([
+    page.getByRole("list", { name: share.label }).nth(list).boundingBox(),
     page.getByRole("heading", { level: 1 }).boundingBox(),
   ])
 
-  return { height: list?.height, left: list?.x, top: (list?.y ?? 0) - (title?.y ?? 0), width: list?.width }
+  return { height: box?.height, left: box?.x, top: (box?.y ?? 0) - (title?.y ?? 0), width: box?.width }
 }
 
 test("shares the post's canonical URL on every network from under the title and from the end of the article", async ({ appPage, page }) => {
@@ -103,9 +105,23 @@ test("keeps the share controls on a phone in place and on screen when the system
   await appPage.waitForAppReady()
   await expect(page.getByRole("button", { name: share.native }).first()).toBeVisible()
 
-  expect(await shareListPlacement(page)).toStrictEqual(await shareListPlacement(pageWithoutJavaScript))
+  expect(await shareListPlacement(page, UNDER_THE_TITLE)).toStrictEqual(await shareListPlacement(pageWithoutJavaScript, UNDER_THE_TITLE))
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width)
   await expect(page.getByRole("button", { name: share.native }).first()).toBeInViewport()
+})
+
+test("keeps the end of the article where the server rendered it once the post hydrates, so a press there lands on what the reader aimed at", async ({
+  appPage,
+  page,
+  pageWithoutJavaScript,
+}) => {
+  await page.addInitScript(stubNativeShare)
+  await pageWithoutJavaScript.goto(POST)
+  await page.goto(POST)
+  await appPage.waitForAppReady()
+  await expect(page.getByRole("button", { name: share.native }).nth(END_OF_ARTICLE)).toBeVisible()
+
+  expect(await shareListPlacement(page, END_OF_ARTICLE)).toStrictEqual(await shareListPlacement(pageWithoutJavaScript, END_OF_ARTICLE))
 })
 
 test("shares by link without JavaScript", async ({ pageWithoutJavaScript }) => {

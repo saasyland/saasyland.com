@@ -15,7 +15,7 @@ export interface PurchaseEmailContext {
 
 export interface PurchaseEmailStep {
   readonly key: string
-  readonly line: (context: PurchaseEmailContext) => Promise<PurchaseEmailLine | undefined>
+  readonly lines: (context: PurchaseEmailContext) => Promise<readonly PurchaseEmailLine[]>
 }
 
 const AREAS: Readonly<Record<string, readonly PurchaseEmailStep[]>> = AREA_PURCHASE_EMAIL

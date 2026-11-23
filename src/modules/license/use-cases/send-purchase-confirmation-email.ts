@@ -60,11 +60,9 @@ const confirmationLinks = (locale: SupportedLocale): PurchaseConfirmationLinks =
 })
 
 const nextSteps = async (locale: SupportedLocale, userId: string): Promise<PurchaseConfirmationStep[]> => {
-  const lines = await Promise.all(PURCHASE_EMAIL_STEPS.map(({ line }) => line({ locale, userId })))
+  const lines = await Promise.all(PURCHASE_EMAIL_STEPS.map((step) => step.lines({ locale, userId })))
 
-  return lines.flatMap((line) =>
-    line === undefined ? [] : [{ link: line.link, text: line.text, url: absoluteUrl(locale, line.pathname) }],
-  )
+  return lines.flat().map(({ link, pathname, text }) => ({ link, text, url: absoluteUrl(locale, pathname) }))
 }
 
 export const sendPurchaseConfirmationEmail = async ({

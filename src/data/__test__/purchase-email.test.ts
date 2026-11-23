@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PurchaseEmailStep } from "~/src/data/purchase-email"
 import * as AREA_PURCHASE_EMAIL from "~/src/data/purchase-email.entries"
 
-const step = (key: string): PurchaseEmailStep => ({ key, line: () => Promise.resolve(undefined) })
+const step = (key: string): PurchaseEmailStep => ({ key, lines: () => Promise.resolve([]) })
 
 const composeWith = (areas: Readonly<Record<string, readonly PurchaseEmailStep[]>>) => {
   vi.resetModules()

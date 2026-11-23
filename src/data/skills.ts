@@ -23,18 +23,16 @@ export const SKILL_SOURCES = {
 const TANSTACK_START_GROUP = "tanstack/start"
 const TANSTACK_START_SKILL_PATH = /^packages\/(?:react-start|start-[^/]+)\//u
 
-export const isSkillSource = (source: string): source is keyof typeof SKILL_SOURCES => Object.hasOwn(SKILL_SOURCES, source)
+const SKILL_GROUPS = new Map<string, string>(Object.entries(SKILL_SOURCES).map(([source, { group }]) => [source, group]))
+
+export const isSkillSource = (source: string): source is keyof typeof SKILL_SOURCES => SKILL_GROUPS.has(source)
 
 export const skillGroup = ({ skillPath, source }: { readonly skillPath: string; readonly source: string }): string | undefined => {
-  if (!isSkillSource(source)) {
-    return undefined
-  }
-
   if (source === TANSTACK_ROUTER && TANSTACK_START_SKILL_PATH.test(skillPath)) {
     return TANSTACK_START_GROUP
   }
 
-  return SKILL_SOURCES[source].group
+  return SKILL_GROUPS.get(source)
 }
 
 const WILDCARD = "*"

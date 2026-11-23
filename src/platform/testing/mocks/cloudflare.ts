@@ -22,7 +22,7 @@ const prepare = (query: string, values: SQLInputValue[] = []) => ({
   },
   async first(column?: string) {
     const row = database.prepare(query).get(...values)
-    return column === undefined ? (row ?? null) : (row?.[column] ?? null)
+    return (column === undefined ? row : row?.[column]) ?? null
   },
   async raw() {
     const statement = database.prepare(query)
@@ -93,7 +93,10 @@ const createBucket = (objects: Map<string, StoredObject>) => ({
   },
   head: async (key: string) => {
     const stored = objects.get(key)
-    return stored === undefined ? null : objectMetadata(key, stored)
+    if (stored === undefined) {
+      return null
+    }
+    return objectMetadata(key, stored)
   },
   list: async ({ cursor, limit = BUCKET_LIST_LIMIT, prefix = "" }: { cursor?: string; limit?: number; prefix?: string } = {}) => {
     const keys = [...objects.keys()].filter((key) => key.startsWith(prefix) && (cursor === undefined || key > cursor)).toSorted()

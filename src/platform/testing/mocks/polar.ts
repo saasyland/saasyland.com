@@ -276,6 +276,8 @@ const notPermitted = (detail: string): Response =>
 
 const refuse = (status: number, body: unknown, reason: string) => ({ reason, response: respond(status, body) })
 
+type Reply = ReturnType<typeof refuse> | Response
+
 const invalid = (location: string, issues: string) =>
   refuse(
     HTTP_STATUS.UNPROCESSABLE_CONTENT,
@@ -525,48 +527,48 @@ const readInvoice = (orderId: string): Response => {
   return respond(HTTP_STATUS.OK, { url: polarInvoiceUrl(orderId) } satisfies models.OrderInvoice)
 }
 
-const read = (value: models.LicenseKeyWithActivations | models.Order | undefined): Response =>
-  value === undefined ? notFound() : respond(HTTP_STATUS.OK, value)
-
-const currentOrder = (orderId: string): models.Order | undefined => {
-  const order = orders.get(orderId)
-  return order === undefined ? undefined : { ...order, customer: customerOf(order) }
-}
-
-const routeLicenseKey = (request: Request, url: URL) => {
-  const licenseKeyId = LICENSE_KEY_PATH.exec(url.pathname)?.groups?.["id"]
-  if (licenseKeyId !== undefined && request.method === "PATCH") {
-    return updateLicenseKey(licenseKeyId, request)
+const readLicenseKey = (licenseKeyId: string): Response => {
+  const licenseKey = licenseKeys.get(licenseKeyId)
+  if (licenseKey === undefined) {
+    return notFound()
   }
-  return licenseKeyId !== undefined && request.method === "GET" ? read(licenseKeys.get(licenseKeyId)) : undefined
+  return respond(HTTP_STATUS.OK, licenseKey)
 }
+
+const readOrder = (orderId: string): Response => {
+  const order = orders.get(orderId)
+  if (order === undefined) {
+    return notFound()
+  }
+  return respond(HTTP_STATUS.OK, { ...order, customer: customerOf(order) })
+}
+
+const ENDPOINTS = new Map<string, (request: Request, url: URL) => Promise<Reply> | Reply>([
+  ["GET /v1/orders/", (_request, url) => listOrders(url)],
+  ["POST /v1/checkouts/", createCheckout],
+  ["POST /v1/license-keys/activate", activateLicenseKey],
+  ["POST /v1/license-keys/deactivate", deactivateLicenseKey],
+])
+
+const RESOURCE_ENDPOINTS = [
+  { method: "PATCH", path: LICENSE_KEY_PATH, respond: updateLicenseKey },
+  { method: "GET", path: LICENSE_KEY_PATH, respond: readLicenseKey },
+  { method: "GET", path: ORDER_PATH, respond: readOrder },
+  { method: "GET", path: ORDER_INVOICE_PATH, respond: readInvoice },
+] as const
 
 const route = (request: Request) => {
   const url = new URL(request.url)
   const endpoint = `${request.method} ${url.pathname}`
-  if (endpoint === "POST /v1/checkouts/") {
-    return createCheckout(request)
+  const respondTo = ENDPOINTS.get(endpoint)
+  if (respondTo !== undefined) {
+    return respondTo(request, url)
   }
-  if (endpoint === "POST /v1/license-keys/activate") {
-    return activateLicenseKey(request)
-  }
-  if (endpoint === "POST /v1/license-keys/deactivate") {
-    return deactivateLicenseKey(request)
-  }
-  if (endpoint === "GET /v1/orders/") {
-    return listOrders(url)
-  }
-  const licenseKey = routeLicenseKey(request, url)
-  if (licenseKey !== undefined) {
-    return licenseKey
-  }
-  const orderId = request.method === "GET" ? ORDER_PATH.exec(url.pathname)?.groups?.["id"] : undefined
-  if (orderId !== undefined) {
-    return read(currentOrder(orderId))
-  }
-  const invoiceOrderId = request.method === "GET" ? ORDER_INVOICE_PATH.exec(url.pathname)?.groups?.["id"] : undefined
-  if (invoiceOrderId !== undefined) {
-    return readInvoice(invoiceOrderId)
+  for (const { method, path, respond: respondToResource } of RESOURCE_ENDPOINTS) {
+    const id = path.exec(url.pathname)?.groups?.["id"]
+    if (method === request.method && id !== undefined) {
+      return respondToResource(id, request)
+    }
   }
   return refuse(HTTP_STATUS.NOT_FOUND, { detail: "Not Found" }, `the test double does not serve ${endpoint}`)
 }

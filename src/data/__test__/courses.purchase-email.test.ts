@@ -23,17 +23,15 @@ describe("the courses in the purchase confirmation", () => {
   ] as const)("link a %s buyer whose licence includes the courses to them", async (locale, messages) => {
     holdsMock.mockResolvedValue(true)
 
-    await expect(courses.line({ locale, userId: "buyer-1" })).resolves.toStrictEqual({
-      link: messages.link,
-      pathname: ROUTES.COURSES,
-      text: messages.text,
-    })
+    await expect(courses.lines({ locale, userId: "buyer-1" })).resolves.toStrictEqual([
+      { link: messages.link, pathname: ROUTES.COURSES, text: messages.text },
+    ])
     expect(holdsMock).toHaveBeenCalledExactlyOnceWith("buyer-1")
   })
 
   it("add nothing for a buyer whose licence does not include them", async () => {
     holdsMock.mockResolvedValue(false)
 
-    await expect(courses.line({ locale: "en-US", userId: "buyer-2" })).resolves.toBeUndefined()
+    await expect(courses.lines({ locale: "en-US", userId: "buyer-2" })).resolves.toStrictEqual([])
   })
 })

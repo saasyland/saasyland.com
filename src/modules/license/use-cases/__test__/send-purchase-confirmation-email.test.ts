@@ -33,7 +33,7 @@ vi.mock("~/src/data/purchase-email.entries", () => ({
   TEST_PURCHASE_EMAIL: [
     {
       key: "step",
-      line: ({ userId }: PurchaseEmailContext) => Promise.resolve(userId === BUYER.id ? STEP : undefined),
+      lines: ({ userId }: PurchaseEmailContext) => Promise.resolve(userId === BUYER.id ? [STEP] : []),
     },
   ],
 }))

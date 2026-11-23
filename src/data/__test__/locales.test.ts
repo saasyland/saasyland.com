@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { LOCALES, LOCALE_CODES, getLocaleDirection, getLocaleName, isLocaleCode } from "~/src/data/locales"
 
 afterEach(() => {
@@ -13,6 +15,10 @@ describe("locale catalog", () => {
     for (const locale of LOCALES) {
       expect(locale.code).toMatch(/^[a-z]{2}-[A-Z]{2}$/u)
     }
+  })
+
+  it("lists every locale the application serves", () => {
+    expect(I18N.SUPPORTED_LOCALES.filter((locale) => !isLocaleCode(locale))).toStrictEqual([])
   })
 
   it("recognizes known and rejects unknown codes", () => {

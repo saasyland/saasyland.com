@@ -102,7 +102,7 @@ export const TEST_TIER_LICENSES = [
   tierTestLicense(LICENSE_TIER.AGENCY, LICENSE_STATUS.REVOKED),
   tierTestLicense(LICENSE_TIER.COMPLETE, LICENSE_STATUS.REFUNDED),
   tierTestLicense(LICENSE_TIER.CORE, LICENSE_STATUS.REVOKED),
-]
+] as const
 
 export const TEST_UNLICENSED_ORDER = {
   customerId: "cus_test-unlicensed",

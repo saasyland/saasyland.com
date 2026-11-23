@@ -42,7 +42,7 @@ test.describe("sign-up order summary", () => {
     await page.goto(signUpPath(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
 
-    await expect(authPage.signUpHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(page.getByText(signUp.form.description, { exact: true })).toBeVisible()
     await expect(orderSummary(page)).toHaveCount(0)
   })

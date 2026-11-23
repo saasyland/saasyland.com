@@ -1,4 +1,4 @@
-import type { BrowserContext, Page, Route } from "@playwright/test"
+import type { BrowserContext, FrameLocator, Locator, Page, Route } from "@playwright/test"
 import * as zod from "zod"
 
 import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
@@ -68,9 +68,9 @@ export const refusePolarCheckoutEmbedding = async (context: BrowserContext): Pro
   await context.route(isPolarCheckoutPage, async (route) => serveCheckout(route, context, REFUSE_FRAMING))
 }
 
-export const checkoutOverlay = (page: Page) => page.locator(`body > iframe[src^="${CHECKOUT_ORIGIN}/checkout/"]`)
+export const checkoutOverlay = (page: Page): Locator => page.locator(`body > iframe[src^="${CHECKOUT_ORIGIN}/checkout/"]`)
 
-export const checkoutOverlayFrame = (page: Page) => checkoutOverlay(page).contentFrame()
+export const checkoutOverlayFrame = (page: Page): FrameLocator => checkoutOverlay(page).contentFrame()
 
 export const payInCheckoutOverlay = async (page: Page): Promise<void> => {
   await checkoutOverlayFrame(page).getByRole("button", { name: "Pay" }).click()

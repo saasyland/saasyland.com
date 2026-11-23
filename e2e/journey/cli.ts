@@ -31,6 +31,7 @@ const CLI_STATUS = {
 
 const CREDENTIALS_PATH = join(CLI_NAME, CREDENTIALS_STORE.FILE)
 const PERMISSION_BITS = 0o777
+const LAST_LINE_INDEX = -1
 
 const outputSchema = zod.discriminatedUnion("status", [
   zod.object({
@@ -90,15 +91,14 @@ export const createMachine = async ({ apiUrl, home, licenseKey, npmCache, reposi
   }
 }
 
-const lastLine = (text: string): string => text.trim().split("\n").at(-1) ?? ""
+const lastLine = (text: string): string => text.trim().split("\n").at(LAST_LINE_INDEX) ?? ""
 
-const parsedJson = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
+const isCredentialsFile = (entry: string): boolean => `${sep}${entry}`.endsWith(`${sep}${CREDENTIALS_PATH}`)
+
+const readStoredCredentials = async (file: string): Promise<StoredCredentials> => ({
+  credentials: credentialsSchema.parse(JSON.parse(await readFile(file, "utf8"))),
+  mode: (await stat(file)).mode & PERMISSION_BITS,
+})
 
 export const runCli = async ({ env, home }: Machine, inputs: readonly string[]): Promise<CliRun> => {
   const variables = Object.entries(env).map(([name, value]) => `${name}=${value}`)
@@ -110,26 +110,17 @@ export const runCli = async ({ env, home }: Machine, inputs: readonly string[]):
   const [code] = await once(child, "close")
   const exitCode = zod.int().nullable().parse(code)
   const printed = Buffer.concat(exitCode === EXIT_CODE.SUCCESS ? stdout : stderr).toString("utf8")
-  const output = outputSchema.safeParse(parsedJson(lastLine(printed)))
 
-  if (!output.success) {
+  try {
+    return { exitCode, output: outputSchema.parse(JSON.parse(lastLine(printed))) }
+  } catch {
     throw new Error(`saasyland ${inputs.join(" ")} exited with ${String(exitCode)} and printed:\n${printed}`)
   }
-
-  return { exitCode, output: output.data }
 }
 
 export const storedCredentials = async ({ home }: Machine): Promise<StoredCredentials | undefined> => {
-  const [path] = (await readdir(home, { recursive: true })).filter((entry) => `${sep}${entry}`.endsWith(`${sep}${CREDENTIALS_PATH}`))
+  const files = (await readdir(home, { recursive: true })).filter((entry) => isCredentialsFile(entry))
+  const [stored] = await Promise.all(files.map(async (file) => readStoredCredentials(join(home, file))))
 
-  if (path === undefined) {
-    return undefined
-  }
-
-  const file = join(home, path)
-
-  return {
-    credentials: credentialsSchema.parse(JSON.parse(await readFile(file, "utf8"))),
-    mode: (await stat(file)).mode & PERMISSION_BITS,
-  }
+  return stored
 }

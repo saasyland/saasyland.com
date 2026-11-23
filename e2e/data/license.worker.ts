@@ -1,3 +1,4 @@
+import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
@@ -7,6 +8,16 @@ import { TEST_LICENSES, TEST_MACHINES_LICENSE } from "./licenses"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 const purchaseSchema = zod.object({ customer: zod.string().min(1), tier: zod.enum(LICENSE_TIERS) })
+
+const paidOrderWebhooks = async (order: models.Order, secret: string) => {
+  const polar = await import("../../src/platform/testing/mocks/polar")
+  const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
+
+  return {
+    grantCreated: signedPolarWebhook({ data: polar.grantPolarLicenseKey(order), secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
+    orderPaid: signedPolarWebhook({ data: order, secret, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
+  }
+}
 
 export const LICENSE_TEST_WORKER = [
   {
@@ -65,18 +76,16 @@ export const LICENSE_TEST_WORKER = [
       if (!purchase.success) {
         return Response.json({ error: "A customer external ID and a licence tier are required" }, { status: HTTP_STATUS.BAD_REQUEST })
       }
-      const polar = await import("../../src/platform/testing/mocks/polar")
+      const { createPolarOrder } = await import("../../src/platform/testing/mocks/polar")
       const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
       const { POLAR_PRODUCT_IDS } = await import("../../src/modules/license/license.utils")
-      const order = polar.createPolarOrder(
+      const order = createPolarOrder(
         { externalCustomerId: purchase.data.customer, productId: POLAR_PRODUCT_IDS[purchase.data.tier] },
         { custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true } },
       )
-      const grant = polar.grantPolarLicenseKey(order)
       const secret = env.POLAR_WEBHOOK_SECRET
       return Response.json({
-        grantCreated: signedPolarWebhook({ data: grant, secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
-        orderPaid: signedPolarWebhook({ data: order, secret, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
+        ...(await paidOrderWebhooks(order, secret)),
         orderRefunded: signedPolarWebhook({
           data: { ...order, refundable_amount: 0, refunded_amount: order.net_amount, status: POLAR_ORDER_STATUS.REFUNDED },
           secret,
@@ -93,14 +102,9 @@ export const LICENSE_TEST_WORKER = [
       if (checkoutId === null || checkoutId.length === 0) {
         return Response.json({ error: "A checkout ID is required" }, { status: HTTP_STATUS.BAD_REQUEST })
       }
-      const polar = await import("../../src/platform/testing/mocks/polar")
-      const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
-      const order = polar.payPolarCheckout(checkoutId, { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true })
-      const secret = env.POLAR_WEBHOOK_SECRET
-      return Response.json({
-        grantCreated: signedPolarWebhook({ data: polar.grantPolarLicenseKey(order), secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
-        orderPaid: signedPolarWebhook({ data: order, secret, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
-      })
+      const { payPolarCheckout } = await import("../../src/platform/testing/mocks/polar")
+      const order = payPolarCheckout(checkoutId, { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true })
+      return Response.json(await paidOrderWebhooks(order, env.POLAR_WEBHOOK_SECRET))
     },
   },
 ] as const satisfies readonly TestWorkerEntry[]

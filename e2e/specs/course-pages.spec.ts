@@ -49,7 +49,7 @@ const curriculumAlignment = async (list: Locator) =>
       const probe = document.createElement("span")
       probe.style.display = "inline-block"
       probe.style.marginRight = "-100vw"
-      element.prepend(probe)
+      element.insertBefore(probe, element.firstChild)
       const { bottom } = probe.getBoundingClientRect()
       probe.remove()
       return bottom

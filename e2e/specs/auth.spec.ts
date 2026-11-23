@@ -33,7 +33,7 @@ test.describe("auth", () => {
   test("sign-in page renders email and password fields", async ({ authPage }) => {
     await authPage.gotoSignIn()
 
-    await expect(authPage.signInHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(authPage.emailField()).toBeVisible()
     await expect(authPage.passwordField()).toBeVisible()
     await expect(authPage.signInSubmitButton()).toBeVisible()
@@ -70,7 +70,7 @@ test.describe("auth", () => {
   test("sign-up page shows its own headline and ticks off the password length as the visitor types", async ({ authPage, page }, testInfo) => {
     await authPage.gotoSignUp()
 
-    await expect(authPage.signUpHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(authPage.emailField()).toBeVisible()
     await expect(page.getByText("Start building the part only you can build.", { exact: true })).toBeVisible()
     await expect(page.locator("#sign-up-confirmPassword")).toHaveCount(0)
@@ -222,7 +222,7 @@ test.describe("auth", () => {
 
     await fromNewAddress(visitorPage)
     await visitorPage.goto(resetPasswordUrl.toString())
-    await expect(visitor.forgotPasswordHeading()).toBeVisible()
+    await expect(visitor.heading()).toBeVisible()
     await visitor.waitForAppReady()
     await visitor.emailField().fill(existing)
     await visitorPage.getByRole("button", { exact: true, name: "Send reset link" }).click()
@@ -256,7 +256,7 @@ test.describe("auth", () => {
   test("forgot-password page renders email field", async ({ authPage }) => {
     await authPage.gotoForgotPassword()
 
-    await expect(authPage.forgotPasswordHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(authPage.emailField()).toBeVisible()
   })
 
@@ -275,7 +275,7 @@ test.describe("auth", () => {
   test("reset-password page with token renders the reset form", async ({ authPage }) => {
     await authPage.gotoResetPassword("", "?token=test-token")
 
-    await expect(authPage.resetPasswordHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(authPage.resetPasswordSubmitButton()).toBeVisible()
   })
 
@@ -347,7 +347,7 @@ test.describe("auth", () => {
   test("two-factor page renders authentication form", async ({ authPage }) => {
     await authPage.gotoTwoFactor()
 
-    await expect(authPage.signInHeading()).toBeVisible()
+    await expect(authPage.heading()).toBeVisible()
     await expect(authPage.twoFactorSubmitButton()).toBeVisible()
   })
 })

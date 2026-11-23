@@ -1,4 +1,4 @@
-import { type Locator, type Page, type Response, type Route, expect } from "@playwright/test"
+import { type Locator, type Page, type Route, expect } from "@playwright/test"
 import type { AnyRouter } from "@tanstack/react-router"
 
 export const APP_NAVIGATION_WAIT_UNTIL = "domcontentloaded" as const
@@ -34,8 +34,9 @@ export class BasePage {
     this.page = page
   }
 
-  protected async gotoPath(path: string): Promise<Response | null> {
-    return this.page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  protected async open(path: string): Promise<void> {
+    await this.page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await this.waitForAppReady()
   }
 
   async waitForAppReady(): Promise<void> {
@@ -91,18 +92,9 @@ export class BasePage {
 
   private async waitForRender(): Promise<void> {
     await this.page.waitForFunction(
-      (key) => {
-        if (Reflect.get(window, key) !== `${location.pathname}${location.search}${location.hash}`) {
-          return false
-        }
-        for (const node of document.querySelectorAll('div[id^="S:"]')) {
-          if (globalThis.getComputedStyle(node).display === "none") {
-            return false
-          }
-        }
-
-        return true
-      },
+      (key) =>
+        Reflect.get(window, key) === `${location.pathname}${location.search}${location.hash}` &&
+        [...document.querySelectorAll('div[id^="S:"]')].every((node) => globalThis.getComputedStyle(node).display !== "none"),
       RENDERED_LOCATION_KEY,
       { timeout: APP_READY_TIMEOUT_MS },
     )

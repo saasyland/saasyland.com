@@ -12,33 +12,39 @@ export class AuthPage extends BasePage {
     await this.signInSubmitButton().click()
   }
 
+  async signUp(email: string, password: string, path = "/auth/sign-up"): Promise<void> {
+    await this.open(path)
+    await this.nameField().fill("Test User")
+    await this.emailField().fill(email)
+    await this.signUpPasswordField().fill(password)
+    await this.signUpSubmitButton().click()
+  }
+
   async gotoSignIn(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/sign-in` : "/auth/sign-in"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
+    await this.open(`${localePrefix}/auth/sign-in`)
   }
 
   async gotoSignUp(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/sign-up` : "/auth/sign-up"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
+    await this.open(`${localePrefix}/auth/sign-up`)
   }
 
   async gotoForgotPassword(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/forgot-password` : "/auth/forgot-password"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
+    await this.open(`${localePrefix}/auth/forgot-password`)
   }
 
-  signInHeading(): Locator {
-    return this.page.getByRole("heading", { level: 1 })
+  async gotoResetPassword(localePrefix = "", query = ""): Promise<void> {
+    await this.open(`${localePrefix}/auth/reset-password${query}`)
   }
 
-  signUpHeading(): Locator {
-    return this.page.getByRole("heading", { level: 1 })
+  async gotoVerifyEmail(localePrefix = "", query = ""): Promise<void> {
+    await this.open(`${localePrefix}/auth/verify-email${query}`)
   }
 
-  forgotPasswordHeading(): Locator {
+  async gotoTwoFactor(localePrefix = ""): Promise<void> {
+    await this.open(`${localePrefix}/auth/two-factor`)
+  }
+
+  heading(): Locator {
     return this.page.getByRole("heading", { level: 1 })
   }
 
@@ -70,43 +76,12 @@ export class AuthPage extends BasePage {
     return this.page.getByRole("button", { name: /continue with github/iu })
   }
 
-  async gotoVerifyEmail(localePrefix = "", query = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/verify-email${query}` : `/auth/verify-email${query}`
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
-  async gotoTwoFactor(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/two-factor` : "/auth/two-factor"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
   twoFactorSubmitButton(): Locator {
     return this.page.getByTestId("two-factor-form-submit-button")
   }
 
   verifyEmailResendButton(): Locator {
     return this.page.getByTestId("email-link-resend-button")
-  }
-
-  async signUp(email: string, password: string, path = "/auth/sign-up"): Promise<void> {
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-    await this.nameField().fill("Test User")
-    await this.emailField().fill(email)
-    await this.signUpPasswordField().fill(password)
-    await this.signUpSubmitButton().click()
-  }
-
-  async gotoResetPassword(localePrefix = "", query = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/auth/reset-password${query}` : `/auth/reset-password${query}`
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
-  resetPasswordHeading(): Locator {
-    return this.page.getByRole("heading", { level: 1 })
   }
 
   resetPasswordSubmitButton(): Locator {

@@ -9,9 +9,12 @@ import { ROUTES } from "../../src/routes"
 import { TEST_POLAR, TEST_PRODUCT_IDS } from "../data/polar-settings"
 import { expect } from "./test"
 
-interface PaidOrder {
+interface Purchase {
   readonly tier: LicenseTier
   readonly userId: string
+}
+
+interface PaidOrder extends Purchase {
   readonly withdrawalConsent?: boolean
 }
 
@@ -19,18 +22,20 @@ const checkoutsSchema = zod.array(
   zod.object({
     custom_field_data: zod.record(zod.string(), zod.unknown()),
     embed_origin: zod.string().nullable(),
+    id: zod.string(),
     locale: zod.string(),
     metadata: zod.record(zod.string(), zod.unknown()),
     product_id: zod.string(),
     return_url: zod.string(),
-    id: zod.string(),
     total_amount: zod.int(),
   }),
 )
 
 const signedWebhookSchema = zod.object({ body: zod.string(), headers: zod.record(zod.string(), zod.string()) })
 
-const purchaseSchema = zod.object({ grantCreated: signedWebhookSchema, orderPaid: signedWebhookSchema, orderRefunded: signedWebhookSchema })
+const paymentSchema = zod.object({ grantCreated: signedWebhookSchema, orderPaid: signedWebhookSchema })
+
+const purchaseSchema = paymentSchema.extend({ orderRefunded: signedWebhookSchema })
 
 type SignedWebhook = zod.infer<typeof signedWebhookSchema>
 
@@ -53,7 +58,7 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
   await post(request, signedPolarWebhook({ data: order, secret: TEST_POLAR.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }))
 }
 
-export const orderLicense = async (request: APIRequestContext, { tier, userId }: Omit<PaidOrder, "withdrawalConsent">) => {
+export const orderLicense = async (request: APIRequestContext, { tier, userId }: Purchase) => {
   const response = await request.get("/__test/polar/purchase", { params: { customer: userId, tier } })
   expect(response.ok()).toBe(true)
   const { grantCreated, orderPaid, orderRefunded } = purchaseSchema.parse(await response.json())
@@ -70,7 +75,7 @@ export const orderLicense = async (request: APIRequestContext, { tier, userId }:
   }
 }
 
-export const buyLicense = async (request: APIRequestContext, purchase: Omit<PaidOrder, "withdrawalConsent">) => {
+export const buyLicense = async (request: APIRequestContext, purchase: Purchase) => {
   const { issueKey, refund } = await orderLicense(request, purchase)
   await issueKey()
 
@@ -82,8 +87,6 @@ export const startedCheckouts = async (request: APIRequestContext, customer: str
   expect(response.ok()).toBe(true)
   return checkoutsSchema.parse(await response.json())
 }
-
-const paymentSchema = zod.object({ grantCreated: signedWebhookSchema, orderPaid: signedWebhookSchema })
 
 export const payCheckout = async (request: APIRequestContext, checkout: string): Promise<void> => {
   const response = await request.get("/__test/polar/pay", { params: { checkout } })

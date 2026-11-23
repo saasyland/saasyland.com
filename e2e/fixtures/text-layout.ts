@@ -29,8 +29,13 @@ export const textLayoutProblems = async (scope: Locator): Promise<TextLayoutProb
       readonly rect: DOMRect
     }
 
+    const slotOf = (element: Element): string => {
+      const slot = element.getAttribute("data-slot")
+      return slot === null ? "" : `[${slot}]`
+    }
+
     const label = (element: Element, text: string): string =>
-      `${element.tagName.toLowerCase()}${element.getAttribute("data-slot") === null ? "" : `[${element.getAttribute("data-slot") ?? ""}]`} "${text.trim().slice(0, SAMPLE_LENGTH)}"`
+      `${element.tagName.toLowerCase()}${slotOf(element)} "${text.trim().slice(0, SAMPLE_LENGTH)}"`
 
     const isHiddenByClip = (style: CSSStyleDeclaration): boolean => style.clipPath === "inset(50%)" || style.clip === "rect(0px, 0px, 0px, 0px)"
 

@@ -7,11 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_EMAIL_PURPOSE, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
 
 import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
@@ -56,7 +55,7 @@ describe("the unmatched order alert", () => {
     const alert = onlyAlert()
     expect(alert).toMatchObject({
       from: NOTIFICATIONS_EMAIL,
-      idempotencyKey: `${EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT}/${createHash("sha256").update(ORDER_ID).digest("hex")}`,
+      idempotencyKey: `${LICENSE_EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT}/${createHash("sha256").update(ORDER_ID).digest("hex")}`,
       subject: "Paid Agency order without a licence",
       to: [CONTACT_EMAIL],
     })

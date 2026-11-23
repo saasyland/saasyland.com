@@ -17,7 +17,6 @@ import {
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
@@ -31,7 +30,7 @@ import {
   seedWithdrawalBuyers,
 } from "~/src/modules/withdrawal/__test__/fixtures/withdrawal"
 import { submitWithdrawalMutation } from "~/src/modules/withdrawal/use-cases/submit-withdrawal"
-import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY } from "~/src/modules/withdrawal/withdrawal.constants"
+import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY, WITHDRAWAL_EMAIL_PURPOSE } from "~/src/modules/withdrawal/withdrawal.constants"
 import { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"
 
 import { MILLISECONDS_PER_DAY } from "~/src/lib/duration"
@@ -141,7 +140,7 @@ describe("submit-withdrawal", () => {
     const acknowledgement = onlyEmailTo("buyer@example.test")
     expect(acknowledgement).toMatchObject({
       from: env.RESEND_EMAIL_FROM,
-      idempotencyKey: `${EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT}/${sha256(row?.id ?? "")}`,
+      idempotencyKey: `${WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT}/${sha256(row?.id ?? "")}`,
     })
     expect(acknowledgement.html).toContain('lang="pl-PL"')
     for (const value of ["Ada Buyer", WITHDRAWAL_ORDERS.BUYER.id, "buyer@example.test", "UTC"]) {
@@ -158,7 +157,7 @@ describe("submit-withdrawal", () => {
     const notification = onlyEmailTo(CONTACT_EMAIL)
     expect(notification).toMatchObject({
       from: NOTIFICATIONS_EMAIL,
-      idempotencyKey: `${EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/${sha256(row?.id ?? "")}`,
+      idempotencyKey: `${WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/${sha256(row?.id ?? "")}`,
       subject: "Withdrawal from Ada Buyer",
     })
     expect(notification.html).toContain(`lang="${I18N.DEFAULT_LOCALE}"`)

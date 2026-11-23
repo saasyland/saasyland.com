@@ -5,12 +5,11 @@ import { createElement } from "react"
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createTranslator } from "use-intl"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
-import type { LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
 import { localizedTierName, orderCurrencySchema, polarOrderUrl } from "~/src/modules/license/license.utils"
 
 import { fromMinorUnits } from "~/src/data/currencies"
@@ -38,7 +37,7 @@ export const sendUnmatchedOrderAlert = async ({ order, tier }: UnmatchedOrderAle
 
   await sendEmail({
     from: NOTIFICATIONS_EMAIL,
-    idempotency: { purpose: EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, token: order.id },
+    idempotency: { purpose: LICENSE_EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT, token: order.id },
     react: createElement(UnmatchedOrderAlertEmail, {
       amount: fromMinorUnits(order.total_amount, currency),
       currency,

@@ -7,9 +7,9 @@ import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 import { account } from "~/src/modules/account/account.schema"
 import { sendExistingAccountEmail } from "~/src/modules/account/use-cases/send-existing-account-email"
 import { user } from "~/src/modules/user/user.schema"
@@ -63,7 +63,7 @@ describe("existing account email delivery", () => {
         subject: messages.subject.replace("{appName}", APP_NAME),
         to: [USER.email],
       })
-      expect(deliveries[0]?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.EXISTING_ACCOUNT}/`)).toBe(true)
+      expect(deliveries[0]?.idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.EXISTING_ACCOUNT}/`)).toBe(true)
       const html = deliveries[0]?.html
       expect(html).toContain(`href="${ORIGIN}${path}/auth/sign-in${search}"`)
       expect(html).toContain(`href="${ORIGIN}${path}/auth/forgot-password"`)

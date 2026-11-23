@@ -6,36 +6,31 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { LICENSE_CHECKOUT_METADATA, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_METADATA, LICENSE_EMAIL_PURPOSE, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
 
 import { CLI_SETUP_LINES } from "~/src/data/cli"
-import type { PurchaseEmailContext } from "~/src/data/purchase-email"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
+import coursesStep from "~/messages/en-US/purchase-email.courses.json"
 import plMessages from "~/messages/pl-PL/emails.purchase-confirmation-email.json"
+import plCoursesStep from "~/messages/pl-PL/purchase-email.courses.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const RECIPIENT = "buyer@example.test"
 const BUYER = { email: RECIPIENT, id: "buyer-1" }
-const STEP = { link: "Open the step", pathname: "/step", text: "A step another area adds for this buyer." }
 const ORDER_ID = "6f1c2c4e-0f63-4a4b-9a7e-1f6d2f0c9b11"
 const INVOICE_NUMBER = "SAASYLAND-0001"
 const ORIGIN = "http://127.0.0.1:3000"
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
-vi.mock("~/src/data/purchase-email.entries", () => ({
-  TEST_PURCHASE_EMAIL: [
-    {
-      key: "step",
-      lines: ({ userId }: PurchaseEmailContext) => Promise.resolve(userId === BUYER.id ? [STEP] : []),
-    },
-  ],
+vi.mock(import("~/src/data/course-access"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  holdsCourseAccess: (userId: string) => Promise.resolve(userId === BUYER.id),
 }))
 
 const order = (fields: Partial<models.Order> = {}) => ({
@@ -72,7 +67,7 @@ describe("the purchase confirmation", () => {
 
     const email = onlyEmail()
     expect(email).toMatchObject({
-      idempotencyKey: `${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/${createHash("sha256").update(ORDER_ID).digest("hex")}`,
+      idempotencyKey: `${LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/${createHash("sha256").update(ORDER_ID).digest("hex")}`,
       subject: "Your SaaSy Land Complete licence",
       to: [RECIPIENT],
     })
@@ -105,11 +100,11 @@ describe("the purchase confirmation", () => {
       expect(html).toContain(command)
     }
     expect(text).toContain(`the ${String(REFUND_TERMS.WITHDRAWAL_DAYS)}-day refund no longer applies after it`)
-    expect(text).toContain(STEP.text)
-    expect(html).toContain(`href="${ORIGIN}${STEP.pathname}"`)
+    expect(text).toContain(coursesStep.text)
+    expect(html).toContain(`href="${ORIGIN}${ROUTES.COURSES}"`)
   })
 
-  it("leaves out the steps other areas add only for another buyer", async () => {
+  it("leaves out the courses for a buyer whose licence does not include them", async () => {
     await sendPurchaseConfirmationEmail({
       order: order(),
       recipient: { email: RECIPIENT, id: "buyer-2" },
@@ -117,7 +112,7 @@ describe("the purchase confirmation", () => {
       withdrawalConsent: true,
     })
 
-    expect(onlyEmail().text).not.toContain(STEP.text)
+    expect(onlyEmail().text).not.toContain(coursesStep.text)
   })
 
   it("confirms the statutory right of withdrawal when the order carries no consent", async () => {
@@ -150,6 +145,8 @@ describe("the purchase confirmation", () => {
     expect(email.html).toContain(`href="${ORIGIN}/pl-PL/app/license"`)
     expect(email.html).toContain(`href="${ORIGIN}/pl-PL/refunds"`)
     expect(email.html).toContain(`href="${ORIGIN}/pl-PL/withdrawal"`)
+    expect(email.html).toContain(`href="${ORIGIN}/pl-PL${ROUTES.COURSES}"`)
+    expect(email.text).toContain(plCoursesStep.text)
   })
 
   it.each([

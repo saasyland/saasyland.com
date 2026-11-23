@@ -3,7 +3,7 @@ title: "Resend"
 description: "Transactional email with Resend and React Email templates."
 ---
 
-`src/integrations/resend/resend.config.ts` exports `resendClient`, which creates the Resend client from `RESEND_API_KEY` each time an email is sent: the Resend SDK throws without a key, so a build, a prerendered page or a request that sends no email needs none. `resend.utils.ts` exports `sendEmail`, the only function that sends email. `from` defaults to `RESEND_EMAIL_FROM`, the required `idempotency` option names the email's purpose and the token that triggered it, and `sendEmail` turns them into the key `${purpose}/${sha256Hex(token)}`, which stops Resend from sending a retried request twice and stays within Resend's 256-character limit, and a Resend error is thrown. Both files are server-only. Each area that sends email names its purposes in `src/data/<area>.email-purposes.ts`, and `resend.constants.ts` joins them from `src/data/email-purposes.entries.ts` into `EMAIL_PURPOSE`, which `resend.constants.test.ts` checks for duplicates. The use cases pass the same name as the `kind` of the per-recipient limit.
+`src/integrations/resend/resend.config.ts` exports `resendClient`, which creates the Resend client from `RESEND_API_KEY` each time an email is sent: the Resend SDK throws without a key, so a build, a prerendered page or a request that sends no email needs none. `resend.utils.ts` exports `sendEmail`, the only function that sends email. `from` defaults to `RESEND_EMAIL_FROM`, the required `idempotency` option names the email's purpose and the token that triggered it, and `sendEmail` turns them into the key `${purpose}/${sha256Hex(token)}`, which stops Resend from sending a retried request twice and stays within Resend's 256-character limit, and a Resend error is thrown. Both files are server-only. Each module that sends email names its purposes in its `<module>.constants.ts`, such as `VERIFICATION_EMAIL_PURPOSE` in `verification.constants.ts`, and `email-purposes.test.ts` fails when two modules use the same purpose. The use cases pass the same name as the `kind` of the per-recipient limit.
 
 ## Templates and use cases
 
@@ -12,7 +12,7 @@ Templates in `src/presentation/emails/` are React Email components with markup o
 ```ts
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
-  idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+  idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
   react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
   subject: createTranslator({ locale, messages })("subject"),
   to: user.email,
@@ -34,7 +34,7 @@ await sendEmail({
 | `withdrawal-acknowledgement-email.tsx` | `emails.withdrawal-acknowledgement-email` | `modules/withdrawal/use-cases/send-withdrawal-acknowledgement.ts`            |
 | `withdrawal-notification-email.tsx`    | `emails.withdrawal-notification-email`    | `modules/withdrawal/use-cases/send-withdrawal-notification.ts`               |
 
-Better Auth calls the first five use cases from its hooks in `auth.server.ts`, which Resend joins through `RESEND_AUTH_EMAILS` in `src/data/resend.auth-emails.ts`. The newsletter notification goes to the site owner in English after a subscription is confirmed. The licence area's `order.paid` handler sends the purchase confirmation in the language stored on the order, or, for a licence order whose customer matches no account, the unmatched order alert to the site owner in English. A withdrawal statement gets an acknowledgement of receipt in the language of the page it was sent from, and the site owner a notification in English. Links inside emails are built with `localizePathname`, so they open in the email's locale. `createInvitation` and `resendInvitation` send the invitation in the language the admin chose for it.
+Better Auth calls the first five use cases from its hooks in `auth.server.ts` directly. The newsletter notification goes to the site owner in English after a subscription is confirmed. The licence area's `order.paid` handler sends the purchase confirmation in the language stored on the order, or, for a licence order whose customer matches no account, the unmatched order alert to the site owner in English. A withdrawal statement gets an acknowledgement of receipt in the language of the page it was sent from, and the site owner a notification in English. Links inside emails are built with `localizePathname`, so they open in the email's locale. `createInvitation` and `resendInvitation` send the invitation in the language the admin chose for it.
 
 The verification, password reset, existing account and newsletter confirmation use cases first call `withinRecipientRateLimit` from `src/lib/rate-limit.ts`: at most <RepositoryFact name="recipientEmailsPerHour" /> emails of each kind per address per hour, keyed on a SHA-256 hash of the address. Over the limit they skip the email without an error. `sendInvitationEmail` checks the same limit but fails with `TOO_MANY_REQUESTS` over it, so the admin sees the error.
 

@@ -113,3 +113,8 @@ export const LICENSE_MUTATION_KEYS = {
   DEACTIVATE: ["license", "deactivateLicense"],
   START_CHECKOUT: ["license", "startCheckout"],
 } as const
+
+export const LICENSE_EMAIL_PURPOSE = {
+  PURCHASE_CONFIRMATION: "purchase-confirmation",
+  UNMATCHED_ORDER_ALERT: "unmatched-order-alert",
+} as const

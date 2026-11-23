@@ -9,11 +9,14 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { ENVIRONMENT, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { NEWSLETTER_STATUS, SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import {
+  NEWSLETTER_EMAIL_PURPOSE,
+  NEWSLETTER_STATUS,
+  SUBSCRIPTION_RESULT,
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { subscribeToNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/subscribe-to-newsletter"
@@ -60,7 +63,7 @@ describe("subscribe-to-newsletter", () => {
     expect(getSentEmails()).toStrictEqual([
       expect.objectContaining({
         from: env.RESEND_EMAIL_FROM,
-        idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_CONFIRMATION}/${sha256(row!.confirmationToken!)}`,
+        idempotencyKey: `${NEWSLETTER_EMAIL_PURPOSE.NEWSLETTER_CONFIRMATION}/${sha256(row!.confirmationToken!)}`,
         to: [ADDRESS],
       }),
     ])

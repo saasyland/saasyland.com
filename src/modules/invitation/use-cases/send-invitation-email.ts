@@ -6,13 +6,13 @@ import { getRequest } from "@tanstack/react-start/server"
 import { createTranslator } from "use-intl"
 
 import type { Role } from "~/src/integrations/better-auth/auth.roles"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { INVITATION_EMAIL_PURPOSE } from "~/src/modules/invitation/invitation.constants"
 
 import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
@@ -30,7 +30,7 @@ interface InvitationEmailInput {
 }
 
 export const sendInvitationEmail = async ({ email, inviter, locale, role, token }: InvitationEmailInput): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.INVITATION, recipient: email }))) {
+  if (!(await withinRecipientRateLimit({ kind: INVITATION_EMAIL_PURPOSE.INVITATION, recipient: email }))) {
     throw new AppError(ERROR_CODES.TOO_MANY_REQUESTS)
   }
 
@@ -39,7 +39,7 @@ export const sendInvitationEmail = async ({ email, inviter, locale, role, token 
   const messages = await loadNamespace<typeof invitationMessages>({ locale, namespace: INVITATION_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.INVITATION, token },
+    idempotency: { purpose: INVITATION_EMAIL_PURPOSE.INVITATION, token },
     react: createElement(InvitationEmail, { acceptUrl: acceptUrl.toString(), inviter, locale, messages, role }),
     subject: createTranslator({ locale, messages })("subject", { appName: APP_NAME }),
     to: email,

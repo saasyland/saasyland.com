@@ -14,7 +14,8 @@ import {
   signUpAndVerify,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
+
+import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -99,7 +100,7 @@ describe("auth password reset", () => {
       await flushWaitUntil()
 
       const notice = getSentEmails(account.email).at(-1)
-      expect(notice?.idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
+      expect(notice?.idempotencyKey?.startsWith(`${ACCOUNT_EMAIL_PURPOSE.PASSWORD_CHANGED}/`)).toBe(true)
       expect(notice?.html).toContain(`lang="${locale}"`)
       expect(notice?.html).toContain(`href="${signInUrl}"`)
     },

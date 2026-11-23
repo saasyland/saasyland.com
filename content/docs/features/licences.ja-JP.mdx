@@ -124,10 +124,10 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 - **撤回権**: `custom_field_data` に同意が含まれている場合、メールは、購入者が即時提供を求め、撤回権を失うことを了承したことを改めて示し、そのためこの注文には撤回権が適用されないことを伝えます。同意がない場合、メールは、購入者が注文日から <RepositoryFact name="refundWithdrawalDays" unit="day" />以内に撤回できることを伝えます。
 - **返金**: 初回使用前の全額返金の期限 `refundDeadline`（`license.refunds.ts`）です。購入時刻に `REFUND_TERMS.WITHDRAWAL_DAYS` を加えた日付で、`refundEligibility` が使うのと同じ日付です。返金ポリシーのとおり、全額返金には CLI でプロジェクトを生成しておらず、有料レッスンも開いていないことが必要です。
 - **リンク**: メールの言語のライセンスページ、[CLI ガイド](/docs/cli)、利用規約、商用ライセンス、返金ポリシー、[撤回機能](#withdrawal-function)です。撤回機能へは、撤回権と返金についての文からリンクします。リンク先は Webhook を受け取ったホストです。ボタンの下には、メールクライアントがボタンを隠す読者のために、`EmailFallbackLink` がライセンスページのアドレスを書き出します。
-- **はじめに**: 注文の下のブロックです。キーがあるライセンスページへのボタン、`CLI_SETUP_LINES` のコマンド <RepositoryFact name="cliSetupCommands" />、CLI ガイドへのリンク、ほかのエリアが購入者に向けて追加する行である `PURCHASE_EMAIL_STEPS`（`src/data/purchase-email.ts`。`src/data/purchase-email.entries.ts` がまとめます）を含みます。コースのエリアは、コースを利用できる購入者にコースへのリンクを追加します（`src/data/courses.purchase-email.ts`、名前空間 `purchase-email.courses`）。
+- **はじめに**: 注文の下のブロックです。キーがあるライセンスページへのボタン、`CLI_SETUP_LINES` のコマンド <RepositoryFact name="cliSetupCommands" />、CLI ガイドへのリンクを含み、コースを利用できる購入者（`holdsCourseAccess`）にはコースへのリンク（名前空間 `purchase-email.courses`）も含みます。
 - **ブランド**: 認証のメールと同じく、`EmailBrandHeader` がメールの上にサイト名を置きます。
 
-日付は UTC で表示します。冪等性キーは `PURCHASE_CONFIRMATION`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせなので、Polar が `order.paid` を何度配信しても、Resend が送るメールは注文ごとに 1 通です。また、メールは注文だけから組み立てるため、再配信でも同じリクエストが送られます。アカウントやプランに対応しない注文には、確認メールを送りません。アカウントのないライセンスの注文については、代わりにサイト宛てにアラートを送ります（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。[トランザクションメール](/docs/features/email)を参照してください。
+日付は UTC で表示します。冪等性キーは `LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION`（`license.constants.ts`）と Polar の注文 ID の組み合わせなので、Polar が `order.paid` を何度配信しても、Resend が送るメールは注文ごとに 1 通です。また、メールは注文だけから組み立てるため、再配信でも同じリクエストが送られます。アカウントやプランに対応しない注文には、確認メールを送りません。アカウントのないライセンスの注文については、代わりにサイト宛てにアラートを送ります（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。[トランザクションメール](/docs/features/email)を参照してください。
 
 ## アカウントに対応しない注文 [#orders-that-match-no-account]
 
@@ -143,7 +143,7 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 - Polar のダッシュボードで注文を開くリンク。`polarOrderUrl`（`src/modules/license/license.utils.ts`）が、`POLAR_DASHBOARD_HOSTS` のうち `POLAR_SERVER` に対応するホスト、`POLAR_ORGANIZATION_SLUG`（どちらも `src/data/polar.ts`）、注文 ID から組み立てます
 - [注文を復旧する](#recovering-an-order)手順
 
-冪等性キーは `UNMATCHED_ORDER_ALERT`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせです。Resend はキーを 24 時間保持するため、その間に同じ注文が何度配信されても、アラートは 1 通だけ送られます。それ以降の再配信では、注文がまだどのアカウントにも対応していなければ、改めてアラートを送ります。アラートを送信できない場合はハンドラーが失敗するため、Polar がイベントを再送します。
+冪等性キーは `LICENSE_EMAIL_PURPOSE.UNMATCHED_ORDER_ALERT`（`license.constants.ts`）と Polar の注文 ID の組み合わせです。Resend はキーを 24 時間保持するため、その間に同じ注文が何度配信されても、アラートは 1 通だけ送られます。それ以降の再配信では、注文がまだどのアカウントにも対応していなければ、改めてアラートを送ります。アラートを送信できない場合はハンドラーが失敗するため、Polar がイベントを再送します。
 
 ### 管理画面の一覧
 
@@ -183,7 +183,7 @@ Polar がイベントを再配信できるのは、そのイベントのペイ�
 2. `WithdrawalAcknowledgementEmail`（名前空間 `emails.withdrawal-acknowledgement-email`）を、入力されたアドレスにページの言語で送ります。内容は意思表示、氏名、注文番号、アドレス、送信日時で、送信はアドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までです。Resend が受け付けた日時を `acknowledged_at` に記録します。
 3. `WithdrawalNotificationEmail`（名前空間 `emails.withdrawal-notification-email`）を `I18N.DEFAULT_LOCALE` で、`NOTIFICATIONS_EMAIL` から `CONTACT_EMAIL` に送ります。内容は意思表示、購入者の特定方法、ライセンス、返金条件、受領確認を送信したかどうか、返金の期限（受領から <RepositoryFact name="refundReimbursementDays" unit="day" />後、`REFUND_TERMS.REIMBURSEMENT_DAYS`）、管理画面のアカウントと Polar の注文へのリンクです。
 
-送信できなかったメールはログに記録され、意思表示はそのまま残ります。その場合、受付内容の表示は受領確認がこれから届くことを伝え、通知には受領確認が送信されていないことが記載されます。冪等性キーは `WITHDRAWAL_ACKNOWLEDGEMENT` と `WITHDRAWAL_NOTIFICATION`（`src/data/license.email-purposes.ts`）と撤回の ID の組み合わせです。
+送信できなかったメールはログに記録され、意思表示はそのまま残ります。その場合、受付内容の表示は受領確認がこれから届くことを伝え、通知には受領確認が送信されていないことが記載されます。冪等性キーは `WITHDRAWAL_EMAIL_PURPOSE`（`withdrawal.constants.ts`）の `WITHDRAWAL_ACKNOWLEDGEMENT` と `WITHDRAWAL_NOTIFICATION` と撤回の ID の組み合わせです。
 
 自動的に返金や取り消しが行われることはなく、返金するかどうかはオーナーが判断します。撤回を受け入れるには、Polar で注文を返金します。すると `order.refunded` がライセンスを返金済みにし、そのキーを取り消します（[Webhook とライセンス](#webhooks-and-licences)を参照）。そのうえで購入者に返信してください。
 

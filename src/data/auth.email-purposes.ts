@@ -1,7 +1,0 @@
-export const CHANGE_EMAIL_CONFIRMATION = "change-email-confirmation"
-export const DELETE_ACCOUNT = "delete-account"
-export const EXISTING_ACCOUNT = "existing-account"
-export const INVITATION = "invitation"
-export const PASSWORD_CHANGED = "password-changed"
-export const RESET_PASSWORD = "reset-password"
-export const VERIFY_EMAIL = "verify-email"

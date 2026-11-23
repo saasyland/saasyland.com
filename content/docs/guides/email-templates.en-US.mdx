@@ -87,7 +87,7 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
     console.warn("[email] verification email not sent: the recipient reached the hourly limit")
     return
   }
@@ -101,7 +101,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+    idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -115,7 +115,7 @@ The verification email keys each send with `crypto.randomUUID()`, as the existin
 
 ## Who sends what
 
-- Better Auth hooks in `src/integrations/better-auth/auth.server.ts` call the use cases through `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` for `emailVerification.sendVerificationEmail` and repeated sign-ups of unverified accounts, `sendExistingAccountEmail` for repeated sign-ups of verified accounts, `sendResetPasswordEmail` for `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` for `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` for `user.changeEmail` and `sendDeleteAccountEmail` for `user.deleteUser.sendDeleteAccountVerification`.
+- Better Auth hooks in `src/integrations/better-auth/auth.server.ts` call the use cases directly: `sendVerifyEmail` for `emailVerification.sendVerificationEmail` and repeated sign-ups of unverified accounts, `sendExistingAccountEmail` for repeated sign-ups of verified accounts, `sendResetPasswordEmail` for `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` for `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` for `user.changeEmail` and `sendDeleteAccountEmail` for `user.deleteUser.sendDeleteAccountVerification`.
 - Better Auth requests arrive at `/api/auth` without a locale prefix, so the hooks take the email locale from the flow's `callbackURL`, a localized page path, with `extractLocaleFromCallbackURL` or `extractLocaleFromPath` from `src/integrations/use-intl/i18n.paths.ts`. English is the fallback.
 - The newsletter use cases send the newsletter confirmation and notification emails themselves, for example `subscribeToNewsletter`.
 - The licence area's `onOrderPaid` webhook handler calls `sendPurchaseConfirmationEmail` after it grants the licence. The email takes its locale from the order's `metadata.locale`, its links from the host that received the webhook, and its idempotency token from the Polar order ID, and a failed send fails the handler so that Polar retries.
@@ -128,7 +128,7 @@ The verification email keys each send with `crypto.randomUUID()`, as the existin
 
 1. Add the template to `src/presentation/emails/<name>.tsx` with its exported `<NAME>_NAMESPACE`.
 2. Add `messages/<locale>/emails.<name>.json` in every locale.
-3. Name its purpose in the area's `src/data/<area>.email-purposes.ts`, which `src/data/email-purposes.entries.ts` joins into `EMAIL_PURPOSE`, and send it from the use case that owns the action, passing `idempotency: { purpose, token }` with the token or record id that triggered it.
+3. Name its purpose in the `<MODULE>_EMAIL_PURPOSE` object of the sending module's `<module>.constants.ts`, which `email-purposes.test.ts` checks against the purposes of every other module, and send it from the use case that owns the action, passing `idempotency: { purpose, token }` with the token or record id that triggered it.
 4. Test the template in `src/presentation/emails/__test__/` and the use case with `sendEmail` mocked.
 
 Resend credentials: `RESEND_API_KEY` and `RESEND_EMAIL_FROM`. Tests never contact Resend.

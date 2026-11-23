@@ -12,3 +12,9 @@ export const ACCOUNT_MUTATION_KEYS = {
   UNLINK: ["account", "unlinkAccount"],
   UPDATE_USER: ["account", "updateUser"],
 } as const
+
+export const ACCOUNT_EMAIL_PURPOSE = {
+  CHANGE_EMAIL_CONFIRMATION: "change-email-confirmation",
+  EXISTING_ACCOUNT: "existing-account",
+  PASSWORD_CHANGED: "password-changed",
+} as const

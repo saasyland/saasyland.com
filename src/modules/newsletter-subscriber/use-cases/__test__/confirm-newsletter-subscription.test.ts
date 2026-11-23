@@ -5,10 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
-
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import {
+  NEWSLETTER_EMAIL_PURPOSE,
+  NEWSLETTER_STATUS,
+  NEWSLETTER_TOKEN_LENGTH,
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import {
   confirmNewsletterSubscription,
   confirmNewsletterSubscriptionMutation,
@@ -63,7 +65,7 @@ describe("confirm-newsletter-subscription", () => {
     expect(getSentEmails()).toStrictEqual([
       expect.objectContaining({
         from: NOTIFICATIONS_EMAIL,
-        idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION}/${sha256(TOKEN)}`,
+        idempotencyKey: `${NEWSLETTER_EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION}/${sha256(TOKEN)}`,
         to: [CONTACT_EMAIL],
       }),
     ])

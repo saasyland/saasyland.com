@@ -23,10 +23,15 @@ import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
+import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-cases/send-change-email-confirmation-email"
+import { sendExistingAccountEmail } from "~/src/modules/account/use-cases/send-existing-account-email"
+import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 import { invitationPlugin } from "~/src/modules/invitation/invitation.plugin"
+import { sendDeleteAccountEmail } from "~/src/modules/user/use-cases/send-delete-account-email"
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
+import { sendResetPasswordEmail } from "~/src/modules/verification/use-cases/send-reset-password-email"
+import { sendVerifyEmail } from "~/src/modules/verification/use-cases/send-verify-email"
 
-import { AUTH_EMAILS } from "~/src/data/auth-emails"
 import { AUTH_PLUGINS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 import { COUNTRIES } from "~/src/data/countries"
 
@@ -104,29 +109,28 @@ export const auth = betterAuth({
       const callbackURL = await readSignUpCallbackURL(request)
 
       if (user.emailVerified) {
-        await AUTH_EMAILS.sendExistingAccount({ callbackURL, user })
+        await sendExistingAccountEmail({ callbackURL, user })
         return
       }
 
-      await AUTH_EMAILS.sendVerification({
+      await sendVerifyEmail({
         callbackURL,
         token: await createEmailVerificationToken(env.AUTH_SECRET, user.email, undefined, EMAIL_LINK_LIFETIME_SECONDS),
         user,
       })
     },
-    onPasswordReset: ({ user }) => sendInBackground(AUTH_EMAILS.sendPasswordChanged({ callbackURL: pageCallbackURL(), user })),
+    onPasswordReset: ({ user }) => sendInBackground(sendPasswordChangedEmail({ callbackURL: pageCallbackURL(), user })),
     requireEmailVerification: true,
     resetPasswordTokenExpiresIn: EMAIL_LINK_LIFETIME_SECONDS,
     revokeSessionsOnPasswordReset: true,
-    sendResetPassword: AUTH_EMAILS.sendResetPassword,
+    sendResetPassword: sendResetPasswordEmail,
   },
   emailVerification: {
     autoSignInAfterVerification: true,
     expiresIn: EMAIL_LINK_LIFETIME_SECONDS,
     sendOnSignIn: true,
     sendOnSignUp: true,
-    sendVerificationEmail: ({ token, url, user }) =>
-      AUTH_EMAILS.sendVerification({ callbackURL: readVerificationCallbackURL(url), token, user }),
+    sendVerificationEmail: ({ token, url, user }) => sendVerifyEmail({ callbackURL: readVerificationCallbackURL(url), token, user }),
   },
   hooks: { after: signInNewAccount, before: enforceInputPolicy },
   onAPIError: { errorURL: ROUTES.SIGN_IN },
@@ -171,13 +175,13 @@ export const auth = betterAuth({
     },
     changeEmail: {
       enabled: true,
-      sendChangeEmailConfirmation: AUTH_EMAILS.sendChangeEmailConfirmation,
+      sendChangeEmailConfirmation: sendChangeEmailConfirmationEmail,
       updateEmailWithoutVerification: true,
     },
     deleteUser: {
       deleteTokenExpiresIn: EMAIL_LINK_LIFETIME_SECONDS,
       enabled: true,
-      sendDeleteAccountVerification: ({ token, url, user }) => AUTH_EMAILS.sendDeleteAccount({ token, url, user }),
+      sendDeleteAccountVerification: ({ token, url, user }) => sendDeleteAccountEmail({ token, url, user }),
     },
   },
   verification: { storeIdentifier: "hashed" },

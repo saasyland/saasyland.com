@@ -31,7 +31,6 @@ import {
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_LICENSE_KEY_STATUS, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -40,6 +39,7 @@ import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_CHECKOUT_FIELD,
   LICENSE_CHECKOUT_METADATA,
+  LICENSE_EMAIL_PURPOSE,
   LICENSE_STATUS,
   LICENSE_TIER,
   LICENSE_WEBHOOK_EVENTS,
@@ -335,7 +335,7 @@ describe("Polar webhooks", () => {
     expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
 
     const confirmations = getSentEmails(buyer.account.email).filter(
-      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
     )
     expect(confirmations).toStrictEqual([expect.objectContaining({ subject: "Twoja licencja SaaSy Land na pakiet Komplet" })])
     expect(confirmations[0]?.html).toContain('lang="pl-PL"')
@@ -735,7 +735,7 @@ describe("upgrades", () => {
     })
     expect(polarLicenseKeyOf(upgradeGrant).status).toBe(POLAR_LICENSE_KEY_STATUS.DISABLED)
     const confirmations = getSentEmails(buyer.account.email).filter(
-      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
     )
     expect(confirmations.map(({ subject }) => subject)).toStrictEqual(["Your SaaSy Land Core licence", "Your SaaSy Land Complete licence"])
   })

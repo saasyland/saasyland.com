@@ -87,7 +87,7 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
     console.warn("[email] verification email not sent: the recipient reached the hourly limit")
     return
   }
@@ -101,7 +101,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+    idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -115,7 +115,7 @@ export const sendVerifyEmail = async ({
 
 ## Хто що надсилає
 
-- Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання через `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendExistingAccountEmail` для повторних реєстрацій підтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` для `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` для `user.changeEmail` і `sendDeleteAccountEmail` для `user.deleteUser.sendDeleteAccountVerification`.
+- Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання напряму: `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendExistingAccountEmail` для повторних реєстрацій підтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` для `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` для `user.changeEmail` і `sendDeleteAccountEmail` для `user.deleteUser.sendDeleteAccountVerification`.
 - Запити Better Auth надходять на `/api/auth` без мовного префікса, тож hooks визначають мову листа з `callbackURL` сценарію, тобто локалізованого шляху сторінки, через `extractLocaleFromCallbackURL` або `extractLocaleFromPath` з `src/integrations/use-intl/i18n.paths.ts`. Резервною мовою є англійська.
 - Сценарії використання розсилки самі надсилають листи підтвердження й сповіщення, наприклад `subscribeToNewsletter`.
 - Обробник вебхука `onOrderPaid` розділу ліцензій викликає `sendPurchaseConfirmationEmail` після того, як видасть ліцензію. Лист бере мову з `metadata.locale` замовлення, посилання — з хоста, який отримав вебхук, а токен ідемпотентності — з ID замовлення в Polar; невдале надсилання завершує обробник помилкою, щоб Polar повторив спробу.
@@ -128,7 +128,7 @@ export const sendVerifyEmail = async ({
 
 1. Додайте шаблон у `src/presentation/emails/<name>.tsx` з експортованою константою `<NAME>_NAMESPACE`.
 2. Додайте `messages/<locale>/emails.<name>.json` для кожної мови.
-3. Назвіть його призначення в `src/data/<area>.email-purposes.ts` розділу, який `src/data/email-purposes.entries.ts` об'єднує в `EMAIL_PURPOSE`, і надсилайте його зі сценарію використання, якому належить дія, передаючи `idempotency: { purpose, token }` з токеном або id запису, що ініціює лист.
+3. Назвіть його призначення в об'єкті `<MODULE>_EMAIL_PURPOSE` файлу `<module>.constants.ts` модуля-відправника, який `email-purposes.test.ts` звіряє з призначеннями всіх інших модулів, і надсилайте його зі сценарію використання, якому належить дія, передаючи `idempotency: { purpose, token }` з токеном або id запису, що ініціює лист.
 4. Протестуйте шаблон у `src/presentation/emails/__test__/`, а сценарій використання — із замоканим `sendEmail`.
 
 Облікові дані Resend: `RESEND_API_KEY` і `RESEND_EMAIL_FROM`. Тести ніколи не звертаються до Resend.

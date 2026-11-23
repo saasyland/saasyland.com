@@ -13,7 +13,7 @@ description: "src/integrations 配下のベンダーフォルダー、それぞ�
 | `fumadocs`       | `fumadocs.config`、`fumadocs.schema`、`fumadocs.indexes`、`fumadocs.docs`、`fumadocs.blog`、`fumadocs.i18n`、`fumadocs.changelog`、`fumadocs.icons`                                        | ドキュメントとブログの MDX コレクション、ビルド時に作るドキュメント・ブログ・検索のインデックス、ページの読み込み、変更履歴のエントリ、サイドバーのアイコン |
 | `motion`         | `motion.features`、`motion.tokens`                                                                                                                                                         | 遅延読み込みされる Motion の機能バンドルと、共有のトランジション                                                                                            |
 | `polar`          | `polar.config`、`polar.constants`、`polar.customers`                                                                                                                                       | Polar SDK クライアント、SDK と照合した Polar 固有の値、Polar の顧客が属するアカウント                                                                       |
-| `resend`         | `resend.config`、`resend.utils`、`resend.constants`                                                                                                                                        | Resend クライアント、`sendEmail`、`EMAIL_PURPOSE` の名前                                                                                                    |
+| `resend`         | `resend.config`、`resend.utils`                                                                                                                                                            | Resend クライアント、`sendEmail`、`EMAIL_PURPOSE` の名前                                                                                                    |
 | `takumi`         | `takumi.fonts`、`takumi.render`                                                                                                                                                            | ソーシャルカードと組織のロゴを、サイト自身のフォントでビルド時に描画します                                                                                  |
 | `tanstack-form`  | `form.fields`、`form.submit`                                                                                                                                                               | TanStack Form 用のフィールド型と `fieldErrorMessage`。`submitForm` と `showFieldError` は無効なフィールドを示し、そこにフォーカスを移します                 |
 | `tanstack-query` | `query.cache`                                                                                                                                                                              | `src/router.tsx` がリクエストごとに作成する `QueryClient` のデフォルトのキャッシュ時間                                                                      |
@@ -31,13 +31,13 @@ description: "src/integrations 配下のベンダーフォルダー、それぞ�
 インテグレーションは、ベンダーを設定するためのものです。アプリケーションのデータに関する判断は、そのテーブルを所有するモジュールが担います。
 
 - Polar のエリアが `src/data/polar.auth-plugins.ts` で Better Auth に追加する Polar プラグインは、`POLAR_WEBHOOK_SECRET` で Webhook の署名を検証し、各イベントを `src/data/polar-events.ts` の `handlePolarEvent` に渡します。`handlePolarEvent` は、そのイベントを自分の `<area>.polar-events.ts` に列挙しているすべてのエリアに渡します。ライセンスのエリアの `src/data/license.polar-events.ts` は `src/modules/license/license.webhooks.ts` の `licenseWebhookHandlers` を呼び出し、このハンドラーがライセンスのユースケースを呼び出します。ライセンスのプランの商品 ID である `POLAR_PRODUCT_IDS` もライセンスのエリアに属し、`src/modules/license/license.utils.ts` にあります。
-- Better Auth のメールフックは、verification、account、user の各モジュールの `sendVerifyEmail`、`sendExistingAccountEmail`、`sendResetPasswordEmail`、`sendPasswordChangedEmail`、`sendDeleteAccountEmail`、`sendChangeEmailConfirmationEmail` を呼び出します。これらは Resend が `src/data/resend.auth-emails.ts` で追加します。
+- Better Auth のメールフックは、verification、account、user の各モジュールの `sendVerifyEmail`、`sendExistingAccountEmail`、`sendResetPasswordEmail`、`sendPasswordChangedEmail`、`sendDeleteAccountEmail`、`sendChangeEmailConfirmationEmail` を直接呼び出します。
 - ユースケースは、呼び出し元から渡されたロケールでメールを送信します（確認メールはコールバック URL からロケールを読み取ります）。テンプレートの名前空間を読み込み、テンプレートをレンダリングしてから `sendEmail` を呼び出します。
 
 ```ts
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
-  idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
+  idempotency: { purpose: VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
   react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
   subject: createTranslator({ locale, messages })("subject"),
   to: user.email,

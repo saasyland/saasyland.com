@@ -7,12 +7,15 @@ import { createTranslator } from "use-intl"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
-import { NEWSLETTER_STATUS, NEWSLETTER_SUBSCRIBER_MUTATION_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import {
+  NEWSLETTER_EMAIL_PURPOSE,
+  NEWSLETTER_STATUS,
+  NEWSLETTER_SUBSCRIBER_MUTATION_KEYS,
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
@@ -53,7 +56,7 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
 
       await sendEmail({
         from: NOTIFICATIONS_EMAIL,
-        idempotency: { purpose: EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION, token },
+        idempotency: { purpose: NEWSLETTER_EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION, token },
         react: createElement(NewsletterNotificationEmail, { email: confirmed.email, locale: confirmed.locale, messages }),
         subject: createTranslator({ locale: I18N.DEFAULT_LOCALE, messages })("subject"),
         to: CONTACT_EMAIL,

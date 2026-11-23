@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { NEWSLETTER_TOKEN_LENGTH } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import common from "../../messages/en-US/common.json" with { type: "json" }
 import confirm from "../../messages/en-US/pages.newsletter.confirm.json" with { type: "json" }
 import landing from "../../messages/en-US/pages.landing.json" with { type: "json" }

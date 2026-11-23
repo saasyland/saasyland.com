@@ -16,7 +16,7 @@ import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface AuthRouteContext {
   context: RouterContext

@@ -10,7 +10,7 @@ import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { SidebarTrigger } from "~/src/presentation/components/shadcn/sidebar"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const AppHeader = (): JSX.Element => {
   const t = useTranslations()

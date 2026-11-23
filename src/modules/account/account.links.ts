@@ -5,7 +5,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { extractLocaleFromPath, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface AccountEmailLinks {
   readonly locale: SupportedLocale

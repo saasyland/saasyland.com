@@ -20,7 +20,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { CourseUnlocks } from "~/src/presentation/components/custom/app/course-unlocks"
 import { LockedLesson } from "~/src/presentation/components/custom/courses/locked-lesson"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CATALOGUE = {
   courses: [

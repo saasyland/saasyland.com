@@ -22,7 +22,7 @@ import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-fo
 import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const [githubProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)

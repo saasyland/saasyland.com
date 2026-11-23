@@ -14,7 +14,7 @@ import { preloadWhenIdle } from "~/src/lib/idle-preload"
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const observeProgress = (element: HTMLDivElement | null): (() => void) | undefined => {
   if (!element || CSS.supports("animation-timeline: scroll(root)")) {

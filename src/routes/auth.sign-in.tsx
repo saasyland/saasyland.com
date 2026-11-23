@@ -22,7 +22,7 @@ import { SignInPending } from "~/src/presentation/components/custom/auth/auth-pe
 import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGNED_IN_PAGES = [...APP_NAVIGATION, ...ADMIN_NAVIGATION.flatMap(({ items }) => items)]
 

@@ -1,11 +1,11 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { isUnlistedRoute } from "~/src/areas/shared"
 import { BLOG_AUTHORS, BLOG_COVER, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
-import { isUnlistedRoute } from "~/src/data/unlisted"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const ROBOTS = {
   FULL_PREVIEWS: "max-image-preview:large, max-snippet:-1, max-video-preview:-1",

@@ -10,12 +10,12 @@ import { AppHeader } from "~/src/presentation/components/custom/app/header"
 
 import shadcnSidebarMessages from "~/messages/en-US/components.shadcn.sidebar.json"
 import sidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TEST_ENTRY = await vi.hoisted(async () => {
   const { Settings } = await import("lucide-react")
   const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
-  const { ROUTES: PATHS } = await import("~/src/routes")
+  const PATHS = await import("~/src/routes")
 
   return {
     area: "sample",

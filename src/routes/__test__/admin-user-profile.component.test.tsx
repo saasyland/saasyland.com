@@ -31,7 +31,7 @@ import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type UserSession = Awaited<ReturnType<NonNullable<ReturnType<typeof listUserSessionsQuery>["queryFn"]>>>[number]
 

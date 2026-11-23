@@ -7,7 +7,7 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const MODIFIERS = ["altKey", "ctrlKey", "metaKey", "shiftKey"] as const
 

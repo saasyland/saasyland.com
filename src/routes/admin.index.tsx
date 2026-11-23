@@ -23,7 +23,7 @@ import { DashboardStats } from "~/src/presentation/components/custom/admin/dashb
 import { DASHBOARD_USER_GRID_ID, useDashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const DashboardPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard")

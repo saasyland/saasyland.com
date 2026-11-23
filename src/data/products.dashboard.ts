@@ -5,7 +5,7 @@ import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 import { type AdminDashboardStat, DASHBOARD_PLACEMENT } from "~/src/data/dashboard.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "products"
 

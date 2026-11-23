@@ -38,7 +38,7 @@ import { COUNTRIES } from "~/src/data/countries"
 import { consumeRateLimit } from "~/src/lib/rate-limit"
 
 import { APP_NAME, APP_SLUG } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 const RATE_LIMIT_KEY_PREFIX = "auth:"

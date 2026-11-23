@@ -1,7 +1,7 @@
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { SOCIAL_IMAGE } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import type { Page } from "@playwright/test"
 import authErrorMessages from "../../messages/en-US/auth.errors.json" with { type: "json" }
 import verifyEmailMessages from "../../messages/en-US/pages.auth.verify-email.json" with { type: "json" }

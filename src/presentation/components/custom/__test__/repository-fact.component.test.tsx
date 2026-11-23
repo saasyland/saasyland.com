@@ -51,7 +51,7 @@ import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import { FLOWS } from "~/scripts/check-flows"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
   render(

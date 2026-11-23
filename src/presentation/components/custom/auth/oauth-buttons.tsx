@@ -20,7 +20,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { Github, Google } from "~/src/presentation/components/custom/icons"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ICONS = { [AUTH_PROVIDER.GITHUB]: Github, [AUTH_PROVIDER.GOOGLE]: Google } as const
 

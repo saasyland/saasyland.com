@@ -30,7 +30,7 @@ import courseTourPosterAvif from "~/src/presentation/assets/motion/course-tour.a
 import courseTourVideoMp4 from "~/src/presentation/assets/motion/course-tour.mp4?url"
 import courseTourVideoWebm from "~/src/presentation/assets/motion/course-tour.webm?url"
 import courseTourPosterWebp from "~/src/presentation/assets/motion/course-tour.webp?url"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TOUR = LANDING_VIDEO_SIZES["course-tour"]
 const TOUR_POSTER_SMALL_WIDTH = 800

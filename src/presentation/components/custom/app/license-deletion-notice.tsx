@@ -7,7 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const NOTICE_TAGS = {
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,

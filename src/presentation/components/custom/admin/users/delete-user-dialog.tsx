@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "~/src/presentation/components/shadcn/alert-dialog"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface DeleteUserDialogProps {
   readonly isOpen: boolean

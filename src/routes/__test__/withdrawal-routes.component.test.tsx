@@ -13,7 +13,7 @@ import { Route as WithdrawalRoute } from "~/src/routes/_site._marketing.withdraw
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import pageMessages from "~/messages/en-US/pages.withdrawal.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const t = createTranslator({ locale: "en-US", messages: pageMessages })
 

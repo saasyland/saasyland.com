@@ -15,7 +15,7 @@ import { ProofSection } from "~/src/presentation/components/custom/landing-page/
 
 import german from "~/messages/de-DE/pages.landing.json"
 import english from "~/messages/en-US/pages.landing.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
 const sessionRequest = vi.hoisted(() => vi.fn<typeof getCurrentSession>())

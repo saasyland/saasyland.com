@@ -24,7 +24,7 @@ import { AdminProductsPending } from "~/src/presentation/components/custom/admin
 import { CategoryGrid } from "~/src/presentation/components/custom/admin/products/category-grid"
 import { ProductGrid } from "~/src/presentation/components/custom/admin/products/product-grid"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const FILTERS = {
   all: {},

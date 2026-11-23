@@ -12,7 +12,7 @@ import { DashboardActions } from "~/src/presentation/components/custom/admin/das
 const TEST_ACTION = await vi.hoisted(async () => {
   const { FileDown } = await import("lucide-react")
   const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
-  const { ROUTES } = await import("~/src/routes")
+  const ROUTES = await import("~/src/routes")
 
   return {
     area: "reports",

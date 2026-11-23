@@ -51,7 +51,7 @@ import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricin
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
   ADMIN_NAVIGATION.flatMap(({ items }) => items).map((entry) => getNavigationLabel(I18N.DEFAULT_LOCALE)(entry)),

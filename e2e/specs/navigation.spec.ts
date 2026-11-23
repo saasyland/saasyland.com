@@ -9,7 +9,7 @@ import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import courses from "../../messages/en-US/pages.courses.json" with { type: "json" }
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { DOCS_CONTENT_ID, MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"

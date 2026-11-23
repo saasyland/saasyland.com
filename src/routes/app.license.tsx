@@ -29,7 +29,7 @@ import { AppLicensePending } from "~/src/presentation/components/custom/app/lice
 import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-offer"
 import { WithdrawalCard } from "~/src/presentation/components/custom/app/withdrawal-card"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const hasIssuedKey = <Licence extends Pick<License["select"], "polarLicenseKeyId" | "status">>(
   license: Licence | undefined,

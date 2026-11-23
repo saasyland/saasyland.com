@@ -5,7 +5,7 @@ import { USERS } from "~/src/modules/course/__test__/fixtures/catalogue"
 
 import type { CourseAccessGrant, CourseAccessUse } from "~/src/data/course-access"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const TEST_COURSE_ACCESS = [
   {

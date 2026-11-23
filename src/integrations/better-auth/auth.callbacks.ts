@@ -5,7 +5,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { extractLocaleFromPath, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const REFERER_HEADER = "referer"
 const REDIRECT_PARAMETER = "redirect"

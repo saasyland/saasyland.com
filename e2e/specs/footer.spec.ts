@@ -4,7 +4,7 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 

@@ -9,7 +9,7 @@ import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
 import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const { loadDocsIndex, preload } = vi.hoisted(() => {
   const page = {

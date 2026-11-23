@@ -14,7 +14,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "~/src/presentat
 
 import { SignOutButton } from "~/src/presentation/components/custom/admin/sign-out-button"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const UserWidget = (): JSX.Element | undefined => {
   const session = useSuspenseQuery(getCurrentSessionQuery).data

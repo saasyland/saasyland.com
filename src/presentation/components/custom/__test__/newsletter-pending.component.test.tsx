@@ -7,7 +7,7 @@ import {
 } from "~/src/presentation/components/custom/__test__/fixtures/marketing-pending"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 stubMarketingObservers()
 

@@ -3,7 +3,7 @@ import { it } from "vite-plus/test"
 import { expectMarketingSkeleton, stubMarketingObservers } from "~/src/presentation/components/custom/__test__/fixtures/marketing-pending"
 import { LegalPending } from "~/src/presentation/components/custom/legal-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 stubMarketingObservers()
 

@@ -24,7 +24,7 @@ import {
   WITHDRAWAL_NOTIFICATION_EMAIL_NAMESPACE,
   WithdrawalNotificationEmail,
 } from "~/src/presentation/emails/withdrawal-notification-email"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export interface WithdrawalNotification {
   readonly origin: string

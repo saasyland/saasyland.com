@@ -31,7 +31,7 @@ import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.
 import plContentNavigationMessages from "~/messages/pl-PL/navigation.content.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },

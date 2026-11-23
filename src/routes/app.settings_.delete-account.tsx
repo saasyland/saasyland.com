@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/com
 import { AppDeleteAccountPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { AccountDeletionConsequences } from "~/src/presentation/components/custom/settings/delete-account-card"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const deleteAccountSearchSchema = zod.object({ token: searchText() })
 

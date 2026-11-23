@@ -19,7 +19,7 @@ import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/change-email-form"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const PendingConfirmation = ({ email }: { readonly email: string }): JSX.Element => {
   const t = useTranslations("components.custom.email-verification-banner")

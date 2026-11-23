@@ -15,7 +15,7 @@ import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const MIN_ENGLISH_PROSE_WORDS = 7
 

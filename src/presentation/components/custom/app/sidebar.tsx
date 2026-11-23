@@ -30,7 +30,7 @@ import { LocaleSelect } from "~/src/presentation/components/custom/locale-switch
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const route = getRouteApi("/app")
 

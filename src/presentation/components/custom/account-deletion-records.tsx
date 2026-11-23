@@ -3,7 +3,7 @@ import type { JSX, ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const RECORD_TAGS = {
   privacy: (chunks: ReactNode) => (

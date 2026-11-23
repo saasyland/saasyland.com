@@ -37,7 +37,7 @@ import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthInviteMessages from "~/messages/en-US/pages.auth.invite.json"
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Session = ReturnType<typeof createAuthSessionFixture> | null
 type User = ReturnType<typeof userEvent.setup>

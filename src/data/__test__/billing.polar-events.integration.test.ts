@@ -24,7 +24,7 @@ import { subscription } from "~/src/modules/subscription/subscription.schema"
 
 import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
 

@@ -19,7 +19,7 @@ import type { PolarEventHandler } from "~/src/data/polar-events"
 import { POLAR_AUTH_PLUGINS } from "~/src/data/polar.auth-plugins"
 import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const sample = vi.hoisted(() => ({ handle: vi.fn<PolarEventHandler["handle"]>() }))
 

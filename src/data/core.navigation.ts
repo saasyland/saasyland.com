@@ -1,6 +1,6 @@
 import { MARKETING_SECTION_IDS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "core"
 

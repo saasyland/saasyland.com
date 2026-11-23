@@ -20,7 +20,7 @@ import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 

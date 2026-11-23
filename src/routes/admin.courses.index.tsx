@@ -23,7 +23,7 @@ import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/
 import { ImportCoursesDialog } from "~/src/presentation/components/custom/admin/courses/import-courses-dialog"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")

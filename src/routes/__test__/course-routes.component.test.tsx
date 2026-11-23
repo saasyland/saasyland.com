@@ -40,7 +40,7 @@ import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock(import("~/src/modules/verification/use-cases/send-verification-email"), async () => {
   const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")

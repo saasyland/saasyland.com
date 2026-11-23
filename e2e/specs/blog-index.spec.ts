@@ -6,7 +6,7 @@ import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, FEATURED_BLOG_POSTS } from "../../src/data/blog"
 import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import pagesLanding from "../../messages/en-US/pages.landing.json" with { type: "json" }
 import { expect, test } from "../fixtures/test"

@@ -25,7 +25,7 @@ import { cn } from "~/src/lib/cn"
 import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGN_IN_CLASSNAME =
   "font-medium text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"

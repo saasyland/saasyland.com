@@ -17,7 +17,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const RESET_TOKEN = /\/reset-password\/(?<token>[^/]+)$/u
 const NEW_PASSWORD = "NewSecretPass1!"

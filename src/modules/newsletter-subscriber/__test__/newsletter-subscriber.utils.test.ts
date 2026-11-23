@@ -11,7 +11,7 @@ import {
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 
 import { APP_PREVIEW_DOMAIN, APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SAMPLE_SIZE = 50
 const TOKEN = "e".repeat(NEWSLETTER_TOKEN_LENGTH)

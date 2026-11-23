@@ -1,4 +1,4 @@
-import { isUnlistedRoute } from "./unlisted.ts"
+import { isUnlistedRoute } from "../areas/shared.ts"
 import type { VitePluginEntry } from "./vite.ts"
 
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u

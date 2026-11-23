@@ -27,7 +27,7 @@ import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 import { LICENSE_COURSE_ACCESS } from "~/src/data/license.course-access"
 import { TIER_PRICES } from "~/src/data/marketing"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const COURSE_SLUG = "the-walkthrough"
 

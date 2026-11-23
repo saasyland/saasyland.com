@@ -10,7 +10,7 @@ import { readPageHead } from "~/src/lib/page-head"
 import { ROBOTS, SOCIAL_IMAGE, buildPageHead } from "~/src/lib/seo"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const DOCS_PAGE = `${ROUTES.DOCS}/conventions/files-and-naming`
 

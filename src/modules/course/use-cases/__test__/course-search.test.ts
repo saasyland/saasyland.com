@@ -11,7 +11,7 @@ import { IDS, LESSON_IDS, USERS, seedCatalogue } from "~/src/modules/course/__te
 import { searchCoursesQuery } from "~/src/modules/course/use-cases/search-courses"
 import { searchLessonsQuery } from "~/src/modules/lesson/use-cases/search-lessons"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const signInAs = (role: string): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))

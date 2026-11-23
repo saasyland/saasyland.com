@@ -47,7 +47,7 @@ import {
 
 import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const unconfirmed = () => {
   const session = createAuthSessionFixture()

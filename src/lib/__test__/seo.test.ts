@@ -20,7 +20,7 @@ import {
 } from "~/src/lib/seo"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const GRAPH_NODES_WITHOUT_FAQ = 3
 

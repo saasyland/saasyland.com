@@ -40,7 +40,7 @@ import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 
 const [, customer] = TEST_ACCOUNTS
 const [, , paid] = TEST_LESSONS

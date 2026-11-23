@@ -11,7 +11,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { SignOutButton } from "~/src/presentation/components/custom/admin/sign-out-button"
 
 import commonMessages from "~/messages/en-US/common.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const signOut = vi.hoisted(() => vi.fn<() => Promise<{ success: boolean }>>())
 vi.mock("~/src/modules/account/use-cases/sign-out-user", () => ({ signOutUserMutation: { mutationFn: signOut } }))

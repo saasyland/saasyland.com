@@ -24,7 +24,7 @@ import { CourseForm } from "~/src/presentation/components/custom/admin/courses/c
 import { CurriculumEditor } from "~/src/presentation/components/custom/admin/courses/curriculum-editor"
 import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CourseEditorPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.editor")

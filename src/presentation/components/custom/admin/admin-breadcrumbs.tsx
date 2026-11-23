@@ -10,7 +10,7 @@ import { USER_TABS } from "~/src/data/user-tabs"
 
 import { cn } from "~/src/lib/cn"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIDEBAR_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items)
 

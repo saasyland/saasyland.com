@@ -6,7 +6,7 @@ import { COURSES_APP_BADGES } from "~/src/data/courses.app-badges"
 
 import { CourseProgressBadge } from "~/src/presentation/components/custom/courses/course-progress-badge"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const composeWith = (areas: Readonly<Record<string, readonly AppBadge[]>>) => {
   vi.resetModules()

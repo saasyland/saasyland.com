@@ -24,7 +24,7 @@ import { LIVE_SITE_CHECK_RETRY_DELAYS_MS } from "~/src/lib/deployment"
 import { TIME_RANGES } from "~/src/lib/time-series"
 
 import { LOCAL_ADMIN } from "~/scripts/local-admin"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
 

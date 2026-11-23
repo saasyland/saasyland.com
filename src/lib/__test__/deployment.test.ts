@@ -7,7 +7,7 @@ import type { LiveSiteCheck } from "~/src/data/live.constants"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LOOKUP = await vi.hoisted(async () => {
   const [{ CONTENT_TYPE }, { HTTP_STATUS }, zod] = await Promise.all([

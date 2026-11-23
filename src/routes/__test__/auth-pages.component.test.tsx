@@ -51,7 +51,7 @@ import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import pagesAuthTwoFactorMessages from "~/messages/en-US/pages.auth.two-factor.json"
 import pagesAuthVerifyEmailMessages from "~/messages/en-US/pages.auth.verify-email.json"
 import { APP_NAME, APP_SLUG } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 const sendVerificationEmail = vi.hoisted(() =>

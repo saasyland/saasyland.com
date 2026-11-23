@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { TANSTACK_VITE_PLUGINS, shouldPrerender } from "~/src/data/tanstack.vite"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const tanstackStart = vi.hoisted(() => vi.fn(() => [{ name: "tanstack-start" }]))
 
@@ -32,7 +32,7 @@ describe("TanStack Start Vite plugin", () => {
     [`/de-DE${ROUTES.API}/search`, false],
     [`${ROUTES.DOCS}?search=one`, false],
     [`${ROUTES.HOME}#pricing`, false],
-    [`${ROUTES.BLOG}/rss.xml`, false],
+    [ROUTES.BLOG_FEED, false],
     ["/uk-UA/blog/rss.xml", false],
     [`${ROUTES.BLOG}/eu-right-of-withdrawal-digital-products`, true],
   ])("prerenders %s: %s", (path, prerendered) => {

@@ -18,7 +18,7 @@ import { TIER_PRICES } from "~/src/data/marketing"
 import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { BLOG_FEED } from "~/src/lib/feed"
+import { BLOG_FEED_TYPE } from "~/src/lib/feed"
 import { starCountQuery } from "~/src/lib/github"
 import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
@@ -31,7 +31,7 @@ import frPagesBlogMessages from "~/messages/fr-FR/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const { loadBlogIndex } = await vi.hoisted(async () => {
   const blog = await import("~/src/data/blog")
@@ -302,10 +302,10 @@ describe("blog post loader", () => {
     const router = await load("/pl-PL/blog/guide")
     const blog = router.state.matches.find(({ routeId }) => routeId === "/_site/_marketing/blog")
     expect(blog?.links).toContainEqual({
-      href: `${APP_URL}/pl-PL${ROUTES.BLOG}/rss.xml`,
+      href: `${APP_URL}/pl-PL${ROUTES.BLOG_FEED}`,
       rel: "alternate",
       title: buildTitle({ locale: "pl-PL", title: plPagesBlogMessages.metadata.title }),
-      type: BLOG_FEED.TYPE,
+      type: BLOG_FEED_TYPE,
     })
   })
 

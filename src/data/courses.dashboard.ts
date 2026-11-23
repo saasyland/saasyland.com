@@ -9,7 +9,7 @@ import { type AdminDashboardEntry, DASHBOARD_PLACEMENT } from "~/src/data/dashbo
 
 import { CourseProgressPending } from "~/src/presentation/components/custom/admin/courses/course-progress-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "courses"
 

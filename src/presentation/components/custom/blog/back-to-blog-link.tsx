@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const BackToBlogLink = (): JSX.Element => {
   const t = useTranslations("pages.blog.post")

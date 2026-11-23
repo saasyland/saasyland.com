@@ -19,7 +19,7 @@ import {
 } from "~/src/data/navigation.constants"
 import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 import type { FileRouteTypes } from "~/src/routeTree.gen"
 
 const ENTRIES = Object.values(AREA_NAVIGATION).flat()

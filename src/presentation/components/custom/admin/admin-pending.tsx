@@ -14,7 +14,7 @@ import { IconPending } from "~/src/presentation/components/custom/admin/pending-
 import { Background } from "~/src/presentation/components/custom/background"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) => item.to)))
 

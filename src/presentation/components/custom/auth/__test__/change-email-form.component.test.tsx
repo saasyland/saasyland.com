@@ -20,7 +20,7 @@ import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/chang
 
 import changeEmailMessages from "~/messages/en-US/components.custom.change-email-form.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Changed = Awaited<ReturnType<NonNullable<typeof ChangeEmailUseCase.changeEmailMutation.mutationFn>>>
 type Session = ReturnType<typeof createAuthSessionFixture>

@@ -14,7 +14,7 @@ import { ROBOTS } from "~/src/lib/seo"
 import { isStaleBuildError } from "~/src/lib/stale-build"
 
 import sonnerMessages from "~/messages/pl-PL/components.shadcn.sonner.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AreaWidget = vi.hoisted(() => () => <p>Mounted by an area</p>)
 

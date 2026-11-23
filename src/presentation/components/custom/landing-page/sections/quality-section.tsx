@@ -10,7 +10,7 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 

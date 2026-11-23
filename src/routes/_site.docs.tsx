@@ -28,7 +28,7 @@ import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 import docsCss from "~/src/presentation/styles/docs.css?url"
 
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LINKS = [
   {

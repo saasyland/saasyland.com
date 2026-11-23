@@ -8,7 +8,7 @@ import { BLOG_ARCHIVE, BLOG_SORT, type BlogSort, type BlogTag } from "~/src/data
 
 import { filterBlogPosts, sortBlogPosts } from "~/src/lib/blog-archive"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export interface BlogView {
   readonly page?: number | undefined

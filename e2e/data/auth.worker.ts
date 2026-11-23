@@ -1,4 +1,4 @@
-import { API_AUTH_BASE } from "../../src/data/auth.routes"
+import { API_AUTH_BASE } from "../../src/areas/auth.shared"
 import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { githubTestIdentity } from "./github"

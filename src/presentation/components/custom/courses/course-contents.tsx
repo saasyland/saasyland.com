@@ -14,7 +14,7 @@ import { Sheet, SheetTitle, SheetTrigger } from "~/src/presentation/components/s
 
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CRUMB_CLASSNAME =
   "rounded-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

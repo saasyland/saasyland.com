@@ -4,7 +4,7 @@ import { CURRENCY_FORMAT } from "../../src/data/pricing"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TIER_PRICES } from "../../src/data/marketing"
 import { REFUND_TERMS } from "../../src/data/refunds"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

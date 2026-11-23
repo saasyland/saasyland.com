@@ -19,7 +19,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 import type invitationMessages from "~/messages/en-US/emails.invitation-email.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import { INVITATION_EMAIL_NAMESPACE, InvitationEmail } from "~/src/presentation/emails/invitation-email"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface InvitationEmailInput {
   readonly email: string

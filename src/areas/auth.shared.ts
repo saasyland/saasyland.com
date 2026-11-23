@@ -1,3 +1,5 @@
+import type { SharedArea } from "./shared.ts"
+
 export const ACCEPT_INVITATION = "/auth/invite"
 export const ADMIN = "/admin"
 export const ADMIN_SETTINGS = "/admin/settings"
@@ -38,4 +40,4 @@ export const SIGN_UP = "/auth/sign-up"
 export const TWO_FACTOR = "/auth/two-factor"
 export const VERIFY_EMAIL = "/auth/verify-email"
 
-export const AUTH_UNLISTED_ROUTES = [ADMIN, APP, AUTH] as const
+export const AUTH_SHARED = { unlisted: [ADMIN, APP, AUTH] } as const satisfies SharedArea

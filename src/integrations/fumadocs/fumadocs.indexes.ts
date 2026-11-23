@@ -19,7 +19,7 @@ import { docsIcon } from "~/src/integrations/fumadocs/fumadocs.icons"
 import { blogSchema } from "~/src/integrations/fumadocs/fumadocs.schema"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const DOCS_DIRECTORY = docs.docs.dir
 export const BLOG_DIRECTORY = blog.dir

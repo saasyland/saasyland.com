@@ -6,7 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import { PostFacts } from "~/src/presentation/components/custom/blog/post-facts"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const route = getRouteApi("/_site/_marketing/blog/$")
 

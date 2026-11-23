@@ -16,7 +16,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import type deleteAccountMessages from "~/messages/en-US/emails.delete-account-email.json"
 import { DELETE_ACCOUNT_EMAIL_NAMESPACE, DeleteAccountEmail } from "~/src/presentation/emails/delete-account-email"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const sendDeleteAccountEmail = async ({
   token,

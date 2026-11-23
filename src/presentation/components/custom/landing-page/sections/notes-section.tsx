@@ -12,7 +12,7 @@ import { PostCover } from "~/src/presentation/components/custom/blog/post-cover"
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const landingRoute = getRouteApi("/_site/_marketing/")
 

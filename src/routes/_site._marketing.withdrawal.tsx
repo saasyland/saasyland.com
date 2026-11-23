@@ -17,7 +17,7 @@ import { LegalLink } from "~/src/presentation/components/custom/legal-sections"
 import { WithdrawalForm } from "~/src/presentation/components/custom/withdrawal-form"
 import { WithdrawalPending } from "~/src/presentation/components/custom/withdrawal-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const RIGHTS_TAGS = {
   days: REFUND_TERMS.WITHDRAWAL_DAYS,

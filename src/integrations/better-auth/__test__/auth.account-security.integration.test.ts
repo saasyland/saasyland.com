@@ -22,7 +22,7 @@ import { session } from "~/src/modules/session/session.schema"
 import { user } from "~/src/modules/user/user.schema"
 
 import { BREACHED_PASSWORD } from "~/e2e/data/accounts"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const NEW_PASSWORD = "ChangedSecret1!x"
 

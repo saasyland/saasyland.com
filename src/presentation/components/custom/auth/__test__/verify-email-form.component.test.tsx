@@ -31,7 +31,7 @@ import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthVerifyEmailMessages from "~/messages/en-US/pages.auth.verify-email.json"
 import plPagesAuthVerifyEmailMessages from "~/messages/pl-PL/pages.auth.verify-email.json"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TEST_EMAIL = "user@example.com"
 const NEW_EMAIL = "new@example.com"

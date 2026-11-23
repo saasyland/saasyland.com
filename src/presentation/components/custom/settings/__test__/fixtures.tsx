@@ -18,7 +18,7 @@ import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import type { Account } from "~/src/modules/account/account.types"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type SettingsSession = ReturnType<typeof createAuthSessionFixture>
 

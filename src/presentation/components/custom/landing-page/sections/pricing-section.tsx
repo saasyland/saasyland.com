@@ -15,7 +15,7 @@ import { Reveal } from "~/src/presentation/components/custom/landing-page/compon
 import { PRICE_TAGS, PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const GRID_DELAY_MS = 100
 

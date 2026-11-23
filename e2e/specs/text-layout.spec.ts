@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test"
 import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE } from "../data/licenses"

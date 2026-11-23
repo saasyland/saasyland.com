@@ -16,7 +16,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import type verifyEmailMessages from "~/messages/en-US/emails.verify-email.json"
 import { VERIFY_EMAIL_NAMESPACE, VerifyEmail } from "~/src/presentation/emails/verify-email"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const sendVerifyEmail = async ({
   callbackURL,

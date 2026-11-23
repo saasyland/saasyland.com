@@ -21,7 +21,7 @@ import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },

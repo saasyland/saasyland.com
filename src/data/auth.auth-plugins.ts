@@ -4,7 +4,7 @@ import { notifyPasswordChange } from "~/src/integrations/better-auth/auth.hooks"
 
 import type { AuthPluginEntry } from "~/src/data/auth-plugins"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const NEW_PASSWORD_PATHS = [
   ROUTES.API_AUTH.ACCEPT_INVITATION,

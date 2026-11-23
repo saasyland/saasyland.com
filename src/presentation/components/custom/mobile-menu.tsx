@@ -18,7 +18,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const MobileMenu = (): JSX.Element => {
   const [isOpen, setIsOpen] = useState(false)

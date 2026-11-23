@@ -12,7 +12,7 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const changeEmail = async (headers: Headers, newEmail: string) => {
   const result = await auth.api.changeEmail({ body: { newEmail }, headers })

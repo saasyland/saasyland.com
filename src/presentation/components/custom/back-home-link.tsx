@@ -5,7 +5,7 @@ import { useTranslations } from "use-intl/react"
 
 import { CTA_CLASSES } from "~/src/data/cta"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const BackHomeLink = (): JSX.Element => {
   const t = useTranslations("common")

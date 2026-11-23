@@ -17,7 +17,7 @@ import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_HIGHLIGHTS, BLOG_TAG, FEATURED_BLOG_POSTS } from "~/src/data/blog"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const POST: BlogPost = {
   author: BLOG_AUTHOR.PIOTR_BOROWIECKI,

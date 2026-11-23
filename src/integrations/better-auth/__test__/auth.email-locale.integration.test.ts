@@ -18,7 +18,7 @@ import { sendVerificationEmailMutation } from "~/src/modules/verification/use-ca
 import changeEmailMessages from "~/messages/pl-PL/emails.change-email-confirmation-email.json"
 import resetPasswordMessages from "~/messages/pl-PL/emails.reset-password-email.json"
 import verifyEmailMessages from "~/messages/pl-PL/emails.verify-email.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const { host: HOST } = new URL(ORIGIN)

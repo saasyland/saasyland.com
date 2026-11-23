@@ -8,7 +8,7 @@ import { cn } from "~/src/lib/cn"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const NAV_WIDTHS = ["w-28", "w-16", "w-24", "w-22", "w-18", "w-20", "w-26", "w-19", "w-17", "w-21"]
 const LIST_WIDTHS = ["w-full", "w-11/12", "w-4/5", "w-5/6"]

@@ -26,7 +26,7 @@ import { LessonMaterials } from "~/src/presentation/components/custom/admin/cour
 import { LessonVideo } from "~/src/presentation/components/custom/admin/courses/lesson-video"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LessonEditorPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.lessonEditor")

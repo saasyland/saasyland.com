@@ -30,7 +30,7 @@ import { order } from "~/src/modules/order/order.schema"
 import { recordOrder } from "~/src/modules/order/use-cases/record-order"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock(import("~/src/modules/order/use-cases/record-order"), async (importOriginal) => {
   const actual = await importOriginal()

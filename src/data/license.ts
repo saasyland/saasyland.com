@@ -8,7 +8,7 @@ import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { searchParam } from "~/src/lib/search-params"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const licenseSearchSchema = zod.object({
   checkoutId: searchParam(zod.uuid()),

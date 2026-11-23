@@ -11,7 +11,7 @@ import { USER_TABS } from "~/src/data/user-tabs"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { loadLocaleMessages } from "~/scripts/i18n-messages"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)["navigation"]
 const BREADCRUMBS = "breadcrumbs"

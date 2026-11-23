@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import type { Locator, Page } from "@playwright/test"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import {
   TEST_BUYER_ORDERS,

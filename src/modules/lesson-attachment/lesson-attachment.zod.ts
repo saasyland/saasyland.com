@@ -8,7 +8,7 @@ import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { LESSON_ATTACHMENT_MAX_BYTES, LESSON_ATTACHMENT_URL_MAX_LENGTH } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { attachmentContentType, attachmentFileName, uploadEntries } from "~/src/modules/lesson-attachment/lesson-attachment.files"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const HTTPS_PROTOCOL = "https:"
 const DOCS_PATH = new RegExp(`^${ROUTES.DOCS}(?:/[\\da-z-]+)*(?:#[\\w-]+)?$`, "u")

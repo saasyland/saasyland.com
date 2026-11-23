@@ -2,7 +2,7 @@ import { Globe, Home, Settings, Users } from "lucide-react"
 
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "auth"
 

@@ -29,7 +29,7 @@ import errorMessages from "~/messages/pl-PL/errors.json"
 import confirmMessages from "~/messages/pl-PL/pages.newsletter.confirm.json"
 import unsubscribeMessages from "~/messages/pl-PL/pages.newsletter.unsubscribe.json"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const confirmMock = vi.hoisted(() =>
   vi.fn<(input: NewsletterSubscriber["confirmNewsletterSubscription"]) => Promise<{ confirmed: boolean }>>(),

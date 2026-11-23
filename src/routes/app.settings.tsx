@@ -23,7 +23,7 @@ import { DeleteAccountCard } from "~/src/presentation/components/custom/settings
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations()

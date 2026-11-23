@@ -24,7 +24,7 @@ import { Input } from "~/src/presentation/components/shadcn/input"
 
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const newEmailSchema = accountZodSchemas.changeEmail.pick({ newEmail: true })
 

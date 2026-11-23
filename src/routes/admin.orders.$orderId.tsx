@@ -22,7 +22,7 @@ import { OrderPolar } from "~/src/presentation/components/custom/admin/payments/
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
 import { OrderAccount, OrderSummary } from "~/src/presentation/components/custom/admin/payments/order-summary"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const OrderPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.orders.detail")

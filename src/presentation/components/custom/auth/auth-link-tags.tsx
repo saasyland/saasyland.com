@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AUTH_LINK_CLASS = "font-medium text-foreground underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
 

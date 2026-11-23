@@ -21,7 +21,7 @@ import { ImpersonationBanner } from "~/src/presentation/components/custom/app/im
 
 import labels from "~/messages/en-US/components.custom.impersonation-banner.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const stop = vi.hoisted(() => vi.fn<NonNullable<typeof stopImpersonatingUserMutation.mutationFn>>())
 const removeUserData = vi.hoisted(() => vi.fn<typeof AuthSession.removeUserData>())

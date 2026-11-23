@@ -10,7 +10,7 @@ import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { SignUpConsent, SignUpConsentPending } from "~/src/presentation/components/custom/sign-up-consent"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 it("adds the consent line and its skeleton to the sign-up form", () => {
   expect(SIGN_UP_NOTICES).toContainEqual(expect.objectContaining({ Notice: SignUpConsent, Pending: SignUpConsentPending }))

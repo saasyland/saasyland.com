@@ -18,7 +18,7 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 import { searchText } from "~/src/lib/search-params"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGN_IN_ATTEMPTS_PER_WINDOW = 3
 const PROVIDER_CALLBACK = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${AUTH_PROVIDER.GITHUB}`

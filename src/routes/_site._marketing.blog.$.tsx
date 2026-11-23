@@ -32,7 +32,7 @@ import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
 import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: BlogPost; posts: BlogIndex }) => {
   const { author, description, faq, image, path, toc, updated } = post

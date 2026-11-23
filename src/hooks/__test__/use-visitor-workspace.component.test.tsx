@@ -13,7 +13,7 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 
 import { useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGNED_OUT = "Sign in"
 

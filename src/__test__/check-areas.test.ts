@@ -4,14 +4,14 @@ import { describe, expect, it } from "vite-plus/test"
 import { AREA, AREAS, AREA_SCENARIO, AREA_SCENARIOS } from "~/scripts/areas"
 import { areaRemoval, isBarrel, isInFootprint, isMissingModule, prunedBarrel, removedAreas } from "~/scripts/check-areas"
 
-const ROUTES_BARREL = "src/data/routes.entries.ts"
-const CORE_ROUTES = "src/data/core.routes.ts"
-const COURSES_ROUTES = "src/data/courses.routes.ts"
-const CORE_EXPORT = 'export { HOME } from "~/src/data/core.routes"\n'
-const COURSES_EXPORT = 'export {\n  ADMIN_COURSES,\n  COURSES,\n} from "./courses.routes.ts"\n'
+const ROUTES_BARREL = "src/routes.ts"
+const CORE_SHARED = "src/areas/core.shared.ts"
+const COURSES_SHARED = "src/areas/courses.shared.ts"
+const CORE_EXPORT = 'export { HOME } from "~/src/areas/core.shared"\n'
+const COURSES_EXPORT = 'export {\n  ADMIN_COURSES,\n  COURSES,\n} from "./areas/courses.shared.ts"\n'
 const SOURCES: Readonly<Record<string, string>> = {
-  [CORE_ROUTES]: 'export const HOME = "/"\n',
-  [COURSES_ROUTES]: 'export const COURSES = "/courses"\n',
+  [CORE_SHARED]: 'export const HOME = "/"\n',
+  [COURSES_SHARED]: 'export const COURSES = "/courses"\n',
   [ROUTES_BARREL]: `${CORE_EXPORT}${COURSES_EXPORT}`,
 }
 
@@ -30,19 +30,19 @@ describe("removedAreas", () => {
 
 describe("isInFootprint", () => {
   it("matches a file against the globs of the removed areas only", () => {
-    expect(isInFootprint(COURSES_ROUTES, [AREA.COURSES])).toBe(true)
-    expect(isInFootprint(COURSES_ROUTES, [AREA.NEWSLETTER])).toBe(false)
-    expect(isInFootprint(CORE_ROUTES, [AREA.COURSES])).toBe(false)
+    expect(isInFootprint(COURSES_SHARED, [AREA.COURSES])).toBe(true)
+    expect(isInFootprint(COURSES_SHARED, [AREA.NEWSLETTER])).toBe(false)
+    expect(isInFootprint(CORE_SHARED, [AREA.COURSES])).toBe(false)
   })
 })
 
 describe("isMissingModule", () => {
-  const files = new Set([CORE_ROUTES])
+  const files = new Set([CORE_SHARED])
 
   it("resolves the root alias and relative paths, with or without the extension", () => {
-    expect(isMissingModule(ROUTES_BARREL, "~/src/data/core.routes", files)).toBe(false)
-    expect(isMissingModule(ROUTES_BARREL, "./core.routes.ts", files)).toBe(false)
-    expect(isMissingModule(ROUTES_BARREL, "./courses.routes", files)).toBe(true)
+    expect(isMissingModule(ROUTES_BARREL, "~/src/areas/core.shared", files)).toBe(false)
+    expect(isMissingModule(ROUTES_BARREL, "./areas/core.shared.ts", files)).toBe(false)
+    expect(isMissingModule(ROUTES_BARREL, "./areas/courses.shared", files)).toBe(true)
   })
 
   it("never calls a package missing", () => {
@@ -63,21 +63,21 @@ describe("isBarrel", () => {
 
 describe("prunedBarrel", () => {
   it("drops the re-exports of modules that are gone and keeps the others", () => {
-    expect(prunedBarrel(ROUTES_BARREL, read(ROUTES_BARREL), new Set([CORE_ROUTES]))).toBe(CORE_EXPORT)
+    expect(prunedBarrel(ROUTES_BARREL, read(ROUTES_BARREL), new Set([CORE_SHARED]))).toBe(CORE_EXPORT)
   })
 })
 
 describe("areaRemoval", () => {
   it("keeps the files outside the footprints and prunes the barrels that named a removed module", () => {
-    const removal = areaRemoval([AREA.COURSES], [CORE_ROUTES, COURSES_ROUTES, ROUTES_BARREL], read)
+    const removal = areaRemoval([AREA.COURSES], [CORE_SHARED, COURSES_SHARED, ROUTES_BARREL], read)
 
     expect(removal.removed).toStrictEqual(removedAreas([AREA.COURSES]))
-    expect(removal.kept).toStrictEqual([CORE_ROUTES, ROUTES_BARREL])
+    expect(removal.kept).toStrictEqual([CORE_SHARED, ROUTES_BARREL])
     expect(removal.barrels).toStrictEqual(new Map([[ROUTES_BARREL, CORE_EXPORT]]))
   })
 
   it("leaves a barrel alone when every module it names stays", () => {
-    expect(areaRemoval([AREA.NEWSLETTER], [CORE_ROUTES, COURSES_ROUTES, ROUTES_BARREL], read).barrels.size).toBe(0)
+    expect(areaRemoval([AREA.NEWSLETTER], [CORE_SHARED, COURSES_SHARED, ROUTES_BARREL], read).barrels.size).toBe(0)
   })
 })
 

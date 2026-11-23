@@ -9,7 +9,7 @@ import { renderBlog, section, useBlogTestEnvironment } from "~/src/routes/__test
 import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, BLOG_TAG, BLOG_TAGS } from "~/src/data/blog"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },

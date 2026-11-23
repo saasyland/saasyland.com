@@ -12,7 +12,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/confirm-account-deletion"
 import { requestAccountDeletionMutation } from "~/src/modules/user/use-cases/request-account-deletion"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SENT = { message: "Verification email sent", success: true }
 const DELETED = { message: "User deleted", success: true }

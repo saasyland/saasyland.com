@@ -15,7 +15,7 @@ import { RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 import { SECONDS_PER_HOUR } from "~/src/lib/duration"
 
 import { APP_SLUG } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 afterEach(() => {
   vi.restoreAllMocks()

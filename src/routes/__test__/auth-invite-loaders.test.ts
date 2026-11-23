@@ -13,7 +13,7 @@ import { expectLocalizedAdminPage, loadAsAdmin } from "~/src/routes/__test__/fix
 
 import { sha256Hex } from "~/src/lib/hex"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TOKEN = "b".repeat(INVITATION_TOKEN_LENGTH)
 const INVITED = "invitee@example.test"

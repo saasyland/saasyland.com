@@ -22,7 +22,7 @@ import { UserActions } from "~/src/presentation/components/custom/admin/users/ro
 import { UserDetails } from "~/src/presentation/components/custom/admin/users/user-details"
 import { UserSessions } from "~/src/presentation/components/custom/admin/users/user-sessions"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const UserProfilePage = (): JSX.Element => {
   const { userId } = Route.useParams()

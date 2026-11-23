@@ -4,7 +4,7 @@ import { createTranslator } from "use-intl"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_ACTIVATION_LIMITS } from "../../src/modules/license/license.constants"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE, TEST_TIER_LICENSES } from "../data/licenses"

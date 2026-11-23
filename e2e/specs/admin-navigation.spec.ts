@@ -5,7 +5,7 @@ import adminCourses from "../../messages/en-US/pages.admin.courses.json" with { 
 import adminSidebar from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import type { BasePage } from "../pages"

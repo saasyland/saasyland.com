@@ -18,7 +18,7 @@ import { DeleteAccountCard } from "~/src/presentation/components/custom/settings
 import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import authValidationsMessages from "~/messages/en-US/auth.validations.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Requested = Awaited<ReturnType<NonNullable<typeof RequestAccountDeletionUseCase.requestAccountDeletionMutation.mutationFn>>>
 

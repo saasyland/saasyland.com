@@ -6,12 +6,13 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 export const DATABASE_BINDING = "DB"
 
-export const D1_ENVIRONMENTS = [ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION] as const
+export const D1_ENVIRONMENTS = [ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.TEST, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION] as const
 
 export type D1Environment = (typeof D1_ENVIRONMENTS)[number]
 
 export const sqlBuilder = drizzle(() => Promise.resolve({ rows: [] }))
 
+const LOCAL_TEST_STATE_DIRECTORY = ".wrangler/test"
 const PARAMETER = "?"
 const SQL_NULL = "NULL"
 const JSON_START = /^[[{]/mu
@@ -38,6 +39,18 @@ const reasonOf = (output: string): string => {
   return [failure.data.error.text, ...failure.data.error.notes.map(({ text }) => text)].join(" ")
 }
 
+export const storageLocation = (environment: D1Environment): string[] => {
+  if (environment === ENVIRONMENT.DEVELOPMENT) {
+    return ["--local"]
+  }
+
+  if (environment === ENVIRONMENT.TEST) {
+    return ["--local", "--persist-to", LOCAL_TEST_STATE_DIRECTORY]
+  }
+
+  return ["--remote"]
+}
+
 export const sqlLiteral = (value: unknown): string => {
   const parameter = sqlParameterSchema.parse(value)
   if (parameter === null) {
@@ -59,9 +72,21 @@ export const executeD1 = async ({
   readonly environment: D1Environment
   readonly input: readonly ["--command" | "--file", string]
 }): Promise<unknown[][]> => {
-  const location = environment === ENVIRONMENT.DEVELOPMENT ? "--local" : "--remote"
   const child = spawn(
-    ["vp", "exec", "wrangler", "d1", "execute", DATABASE_BINDING, "--env", environment, location, "--json", "--yes", ...input],
+    [
+      "vp",
+      "exec",
+      "wrangler",
+      "d1",
+      "execute",
+      DATABASE_BINDING,
+      "--env",
+      environment,
+      ...storageLocation(environment),
+      "--json",
+      "--yes",
+      ...input,
+    ],
     { stderr: "inherit", stdin: "inherit", stdout: "pipe" },
   )
   const [output, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited])

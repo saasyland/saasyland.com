@@ -62,7 +62,7 @@ test("an administrator finds a user by email and an order by its ID from the com
 
 const REOPEN_DELAYS_MS = [0, 50, 100, 150] as const
 const DESTINATIONS = [
-  { label: coursesNavigation.admin.videos, path: /\/admin\/videos$/u },
+  { label: coursesNavigation.admin.courses, path: /\/admin\/courses$/u },
   { label: paymentsNavigation.admin.orders, path: /\/admin\/orders$/u },
 ] as const
 

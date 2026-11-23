@@ -7,7 +7,7 @@ import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/cou
 import type { Course } from "~/src/modules/course/course.types"
 import { courseLessons, locateLesson } from "~/src/modules/course/course.utils"
 import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import type { sendVerificationEmailMutation } from "~/src/modules/verification/use-cases/send-verification-email"
 import type { Video } from "~/src/modules/video/video.types"
@@ -38,22 +38,21 @@ export const resetCoursePages = (): void => {
 
 export const lessonPageOf = (source: Course["page"], slug: string): Lesson["page"] | undefined => {
   const { lesson: entry, next, previous } = locateLesson(courseLessons(source), slug)
-  if (entry === undefined) {
-    return undefined
-  }
-  return {
-    ...source,
-    lesson: {
-      ...entry,
-      attachments: materials.get(slug) ?? [],
-      captionLocales: [],
-      description: "",
-      keyMoments: [],
-      ...details.get(slug),
-    },
-    next,
-    previous,
-  }
+  return (
+    entry && {
+      ...source,
+      lesson: {
+        ...entry,
+        attachments: materials.get(slug) ?? [],
+        captionLocales: [],
+        description: "",
+        keyMoments: [],
+        ...details.get(slug),
+      },
+      next,
+      previous,
+    }
+  )
 }
 
 export const withOffer = (message: string): string => message.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer)
@@ -78,6 +77,7 @@ export const lesson = (slug: string, title: string, overrides: Partial<Course["p
   chapterId: "chapter",
   completed: false,
   durationMs: 125_000,
+  format: LESSON_FORMAT.VIDEO,
   id: `lesson-${slug}`,
   locked: false,
   positionMs: 0,

@@ -1,4 +1,4 @@
-import { Clapperboard, GraduationCap, SquarePen } from "lucide-react"
+import { GraduationCap, SquarePen } from "lucide-react"
 
 import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
@@ -15,15 +15,6 @@ export const COURSES_NAVIGATION = [
     order: 20,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_COURSES,
-  },
-  {
-    area: AREA,
-    group: ADMIN_NAVIGATION_GROUP.CONTENT,
-    icon: Clapperboard,
-    key: "videos",
-    order: 30,
-    placement: NAVIGATION_PLACEMENT.ADMIN,
-    to: ROUTES.ADMIN_VIDEOS,
   },
   { area: AREA, icon: GraduationCap, key: "courses", order: 25, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.COURSES },
   {

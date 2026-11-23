@@ -20,8 +20,12 @@ import { removeAttachmentObjects } from "~/src/modules/lesson-attachment/lesson-
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import type { LessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.types"
 import { attachmentTarget } from "~/src/modules/lesson-attachment/lesson-attachment.utils"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
+import { removeUploadObjects } from "~/src/modules/video-upload/video-upload.objects"
+import { videoUpload } from "~/src/modules/video-upload/video-upload.schema"
+import type { VideoUpload } from "~/src/modules/video-upload/video-upload.types"
 import { video } from "~/src/modules/video/video.schema"
 
 import { MILLISECONDS_PER_SECOND, formatClock } from "~/src/lib/duration"
@@ -35,12 +39,13 @@ type DocumentLesson = DocumentChapter["lessons"][number]
 type ExportedLesson = Course["courseDocument"]["courses"][number]["chapters"][number]["lessons"][number]
 
 const readState = async () => {
-  const [courses, chapters, lessons, attachments, videos] = await db.batch([
+  const [courses, chapters, lessons, attachments, videos, uploads] = await db.batch([
     db.select().from(course).orderBy(asc(course.position), asc(course.id)),
     db.select().from(chapter).orderBy(asc(chapter.position), asc(chapter.id)),
     db.select().from(lesson).orderBy(asc(lesson.position), asc(lesson.id)),
     db.select().from(lessonAttachment).orderBy(asc(lessonAttachment.position), asc(lessonAttachment.id)),
     db.select({ id: video.id }).from(video),
+    db.select().from(videoUpload),
   ])
 
   return {
@@ -49,6 +54,7 @@ const readState = async () => {
     courses,
     lessonsByChapter: Map.groupBy(lessons, ({ chapterId }) => chapterId),
     lessonsByCourse: Map.groupBy(lessons, ({ courseId }) => courseId),
+    uploadsByLesson: new Map(uploads.map((upload) => [upload.lessonId, upload])),
     videoIds: new Set(videos.map(({ id }) => id)),
   }
 }
@@ -72,6 +78,7 @@ const exportedLesson = (state: State, row: Lesson["select"]): ExportedLesson => 
   status: row.status,
   summary: row.summary,
   title: row.title,
+  ...(row.format === LESSON_FORMAT.TEXT ? { format: row.format } : {}),
   ...(row.videoId === null ? {} : { videoId: row.videoId }),
 })
 
@@ -160,6 +167,7 @@ interface Plan {
   readonly removals: BatchItem<"sqlite">[]
   readonly removeMissing: boolean
   readonly tallies: Record<CourseDocumentEntity, Tally>
+  readonly uploads: VideoUpload["select"][]
   readonly warnings: { course: string; lesson: string; videoId: string }[]
   readonly writes: BatchItem<"sqlite">[]
 }
@@ -217,7 +225,7 @@ const planMissing = (plan: Plan, entity: CourseDocumentEntity, statement: () => 
   return true
 }
 
-const dropAttachments = (plan: Plan, state: State, lessonId: string): void => {
+const dropLessonFiles = (plan: Plan, state: State, lessonId: string): void => {
   for (const row of rowsOf(state.attachmentsByLesson, lessonId)) {
     const target = attachmentTarget(row)
     if (target.kind === LESSON_ATTACHMENT_KIND.LINK) {
@@ -225,6 +233,11 @@ const dropAttachments = (plan: Plan, state: State, lessonId: string): void => {
     } else {
       plan.objectKeys.push(target.objectKey)
     }
+  }
+
+  const upload = state.uploadsByLesson.get(lessonId)
+  if (upload !== undefined) {
+    plan.uploads.push(upload)
   }
 }
 
@@ -273,7 +286,7 @@ const resolveVideo = (plan: Plan, state: State, { courseSlug, entry }: LessonTar
   return undefined
 }
 
-const lessonContent = ({ access, description, keyMoments, slug, status, summary, title }: DocumentLesson) => ({
+const lessonContent = ({ access, description, format, keyMoments, slug, status, summary, title }: DocumentLesson) => ({
   access,
   description,
   keyMoments,
@@ -281,6 +294,7 @@ const lessonContent = ({ access, description, keyMoments, slug, status, summary,
   status,
   summary,
   title,
+  ...(format === undefined ? {} : { format }),
 })
 
 const planLesson = (plan: Plan, state: State, target: LessonTarget): void => {
@@ -357,7 +371,7 @@ const planLessons = (plan: Plan, state: State, { chapters, ...owner }: CourseTar
 
   for (const row of leftovers) {
     if (planMissing(plan, "lessons", () => db.delete(lesson).where(eq(lesson.id, row.id)))) {
-      dropAttachments(plan, state, row.id)
+      dropLessonFiles(plan, state, row.id)
     }
   }
 
@@ -405,7 +419,7 @@ const dropCourse = (plan: Plan, state: State, { cover, id: courseId }: Course["s
   }
 
   for (const row of lessons) {
-    dropAttachments(plan, state, row.id)
+    dropLessonFiles(plan, state, row.id)
   }
 }
 
@@ -444,6 +458,7 @@ export const planCourseImport = async ({ document, removeMissing }: { document: 
     removals: [],
     removeMissing,
     tallies: { chapters: emptyTally(), courses: emptyTally(), lessons: emptyTally(), links: emptyTally() },
+    uploads: [],
     warnings: [],
     writes: [],
   }
@@ -457,13 +472,13 @@ export const applyCourseImport = async (plan: Plan): Promise<void> => {
 
   if (first !== undefined) {
     await db.batch([first, ...rest])
-    await removeAttachmentObjects(plan.objectKeys)
+    await Promise.all([removeAttachmentObjects(plan.objectKeys), removeUploadObjects(plan.uploads)])
   }
 }
 
 export const importSummary = (plan: Plan) => ({
   changes: plan.writes.length + plan.removals.length,
-  files: plan.objectKeys.length,
+  files: plan.objectKeys.length + plan.uploads.length,
   tallies: plan.tallies,
   warnings: plan.warnings,
 })

@@ -36,7 +36,6 @@ const undefinedBranchBacklog = [
   "src/presentation/components/custom/admin/users/license-machines.tsx",
   "src/presentation/components/custom/app/course-unlocks.tsx",
   "src/presentation/components/custom/app/upgrade-offer.tsx",
-  "src/presentation/components/custom/courses/curriculum.tsx",
   "src/presentation/components/custom/data-grid-column-menu.tsx",
   "src/presentation/components/custom/data-grid-filter.tsx",
   "src/presentation/components/custom/data-grid-table.tsx",
@@ -47,9 +46,6 @@ const undefinedBranchBacklog = [
   "src/presentation/components/shadcn/select.tsx",
   "src/presentation/components/shadcn/switch.tsx",
   "src/routes/__test__/admin-orders-routes.component.test.tsx",
-  "src/routes/__test__/course-routes.component.test.tsx",
-  "src/routes/__test__/fixtures/course-pages.ts",
-  "src/routes/__test__/lesson-routes.component.test.tsx",
   "src/routes/_site._marketing.courses.$course.$lesson.tsx",
 ]
 

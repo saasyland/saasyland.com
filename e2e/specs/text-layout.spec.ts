@@ -5,7 +5,7 @@ import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_COURSE } from "../data/courses"
+import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE } from "../data/licenses"
 import { expect, test } from "../fixtures/auth"
 import { textLayoutProblems } from "../fixtures/text-layout"
@@ -21,8 +21,12 @@ const VIEWPORTS = [
   { height: 844, width: 390 },
 ] as const
 
+const [lessonWithVideo, , , lessonWithoutVideo] = TEST_LESSONS
+
 const ADMIN_PAGES = [
   `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}`,
+  `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}/lessons/${lessonWithVideo.id}`,
+  `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}/lessons/${lessonWithoutVideo.id}`,
   ROUTES.ADMIN_COURSES,
   ROUTES.ADMIN_USERS_ALL,
   ROUTES.ADMIN_USERS_CUSTOMERS,

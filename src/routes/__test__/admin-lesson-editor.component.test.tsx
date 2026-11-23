@@ -27,11 +27,9 @@ import type { deleteLessonAttachmentMutation } from "~/src/modules/lesson-attach
 import type { moveLessonAttachmentMutation } from "~/src/modules/lesson-attachment/use-cases/move-lesson-attachment"
 import type { updateLessonAttachmentMutation } from "~/src/modules/lesson-attachment/use-cases/update-lesson-attachment"
 import type { uploadLessonAttachmentMutation } from "~/src/modules/lesson-attachment/use-cases/upload-lesson-attachment"
-import { LESSON_ACCESS, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
-import type { replaceLessonVideoMutation } from "~/src/modules/lesson/use-cases/replace-lesson-video"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import type { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
-import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
-import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
+import { videoPlaybackQuery } from "~/src/modules/video/use-cases/get-video-playback"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as AdminCoursesRoute } from "~/src/routes/admin.courses"
@@ -48,7 +46,6 @@ const mutations = vi.hoisted(() => ({
   createAttachment: vi.fn<NonNullable<typeof createLessonAttachmentMutation.mutationFn>>(),
   deleteAttachment: vi.fn<NonNullable<typeof deleteLessonAttachmentMutation.mutationFn>>(),
   moveAttachment: vi.fn<NonNullable<typeof moveLessonAttachmentMutation.mutationFn>>(),
-  replaceVideo: vi.fn<NonNullable<typeof replaceLessonVideoMutation.mutationFn>>(),
   updateAttachment: vi.fn<NonNullable<typeof updateLessonAttachmentMutation.mutationFn>>(),
   updateLesson: vi.fn<NonNullable<typeof updateLessonMutation.mutationFn>>(),
   uploadAttachment: vi.fn<NonNullable<typeof uploadLessonAttachmentMutation.mutationFn>>(),
@@ -57,8 +54,8 @@ const mutations = vi.hoisted(() => ({
 vi.mock(import("~/src/modules/lesson/use-cases/update-lesson"), () => ({
   updateLessonMutation: { mutationFn: mutations.updateLesson, mutationKey: LESSON_MUTATION_KEYS.UPDATE },
 }))
-vi.mock(import("~/src/modules/lesson/use-cases/replace-lesson-video"), () => ({
-  replaceLessonVideoMutation: { mutationFn: mutations.replaceVideo, mutationKey: LESSON_MUTATION_KEYS.REPLACE_VIDEO },
+vi.mock(import("~/src/presentation/components/custom/video-player"), () => ({
+  VideoPlayer: ({ playback }: { readonly playback: Video["playback"] }) => <div data-src={playback.src} data-testid="video-player" />,
 }))
 vi.mock(import("~/src/modules/lesson-attachment/use-cases/create-lesson-attachment"), () => ({
   createLessonAttachmentMutation: { mutationFn: mutations.createAttachment, mutationKey: LESSON_ATTACHMENT_MUTATION_KEYS.CREATE },
@@ -82,22 +79,24 @@ const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const LESSON_ID = "lesson-boundaries"
 const PATH = `/admin/courses/${COURSE_ID}/lessons/${LESSON_ID}`
 
-const video = (id: string, title: string, overrides: Partial<Video["select"]> = {}): Video["select"] => ({
-  captionLocales: [],
-  createdAt: UPDATED_AT,
+const RECORDING: NonNullable<Course["editorLesson"]["video"]> = {
+  captionLocales: ["en-US"],
   durationMs: 125_000,
   height: 1080,
-  id,
-  placeholder: false,
-  sizeBytes: 1,
-  title,
-  updatedAt: UPDATED_AT,
+  id: "video-recording",
+  lessonCount: 1,
+  sizeBytes: 48_000_000,
+  title: "Boundaries take",
   width: 1920,
-  ...overrides,
-})
+}
 
-const PLACEHOLDER = video("video-placeholder", "Being recorded", { durationMs: 10_000, placeholder: true })
-const RECORDING = video("video-recording", "Boundaries take")
+const PLAYBACK: Video["playback"] = {
+  captions: [],
+  poster: "/media/a.b/video-recording/poster.webp",
+  posterSmall: "/media/a.b/video-recording/poster-960.webp",
+  src: "/media/a.b/video-recording/master.m3u8",
+  storyboard: "/media/a.b/video-recording/storyboard.vtt",
+}
 
 const FILE = {
   fileName: "slides.pdf",
@@ -123,6 +122,7 @@ const LESSON: Course["editorLesson"] = {
   attachments: [FILE, LINK],
   chapterId: "chapter-one",
   description: { "en-US": "Read the code." },
+  format: LESSON_FORMAT.VIDEO,
   id: LESSON_ID,
   keyMoments: [{ label: { "en-US": "Install" }, seconds: 75 }],
   position: 1,
@@ -130,7 +130,8 @@ const LESSON: Course["editorLesson"] = {
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": "Start here." },
   title: { "en-US": "Boundaries" },
-  video: { durationMs: PLACEHOLDER.durationMs, id: PLACEHOLDER.id, placeholder: true, title: PLACEHOLDER.title },
+  upload: undefined,
+  video: RECORDING,
 }
 
 const editor = (lesson: Course["editorLesson"], status: Course["select"]["status"] = COURSE_STATUS.PUBLISHED): Course["editor"] => ({
@@ -159,7 +160,7 @@ const renderLessonEditor = async (data: Course["editor"] = editor(LESSON)) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${PATH}`))
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
   queryClient.setQueryData(courseEditorQuery({ courseId: COURSE_ID }).queryKey, data)
-  queryClient.setQueryData(getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }).queryKey, { rows: [RECORDING, PLACEHOLDER], total: 2 })
+  queryClient.setQueryData(videoPlaybackQuery({ videoId: RECORDING.id }).queryKey, PLAYBACK)
   const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
 
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
@@ -226,7 +227,6 @@ beforeEach(() => {
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
   mutations.updateLesson.mockResolvedValue({ id: LESSON_ID })
-  mutations.replaceVideo.mockResolvedValue({ id: LESSON_ID })
   mutations.createAttachment.mockResolvedValue({ id: "attachment-new" })
   mutations.uploadAttachment.mockResolvedValue({ id: "attachment-upload" })
   mutations.updateAttachment.mockResolvedValue({ id: FILE.id })
@@ -254,8 +254,9 @@ describe("lesson editor", () => {
     expect(screen.getByLabelText(labels.lessonEditor.description)).toHaveValue("Read the code.")
     expect(screen.getByLabelText("Time of moment 1")).toHaveValue("1:15")
     const videoCard = within(card(labels.lessonEditor.video.title))
-    expect(videoCard.getByText(`Being recorded · 0:10 · ${labels.lesson.placeholder}`, { selector: "p" })).toBeVisible()
-    expect(videoCard.getByText(labels.lessonEditor.video.recording)).toBeVisible()
+    expect(videoCard.getByText(RECORDING.title, { selector: "p" })).toBeVisible()
+    expect(videoCard.getByText(labels.lessonEditor.video.ready)).toBeVisible()
+    expect(await videoCard.findByTestId("video-player")).toHaveAttribute("data-src", PLAYBACK.src)
     const materials = within(card(labels.materials.title))
     expect(materials.getByText("Slides")).toBeVisible()
     expect(materials.getByText("slides.pdf · 2.5 MB")).toBeVisible()
@@ -365,44 +366,6 @@ describe("lesson editor", () => {
   })
 })
 
-describe("lesson video", () => {
-  it("replaces the placeholder with a real recording in one action", async () => {
-    const { invalidateQueries, user } = await renderLessonEditor()
-    const videoCard = within(card(labels.lessonEditor.video.title))
-
-    expect(videoCard.getByRole("button", { name: labels.lessonEditor.video.replace })).toBeDisabled()
-    await user.click(videoCard.getByRole("button", { name: new RegExp(labels.lessonEditor.video.replacement, "u") }))
-    await user.click(await screen.findByRole("option", { name: "Boundaries take · 2:05" }))
-    await user.click(videoCard.getByRole("button", { name: labels.lessonEditor.video.replace }))
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(labels.lessonEditor.video.replaced)
-    })
-    expect(mutations.replaceVideo).toHaveBeenCalledWith({ lessonId: LESSON_ID, videoId: RECORDING.id }, expect.anything())
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
-  })
-
-  it("shows a playable lesson and a lesson without a video, and explains a failed replacement", async () => {
-    mutations.replaceVideo.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
-    const { user } = await renderLessonEditor(
-      editor({ ...LESSON, video: { durationMs: RECORDING.durationMs, id: RECORDING.id, placeholder: false, title: RECORDING.title } }),
-    )
-    const videoCard = within(card(labels.lessonEditor.video.title))
-    expect(videoCard.getByText(labels.lessonEditor.video.playable)).toBeVisible()
-
-    await user.click(videoCard.getByRole("button", { name: new RegExp(labels.lessonEditor.video.replacement, "u") }))
-    await user.click(await screen.findByRole("option", { name: `Being recorded · 0:10 · ${labels.lesson.placeholder}` }))
-    await user.click(videoCard.getByRole("button", { name: labels.lessonEditor.video.replace }))
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
-    })
-
-    cleanup()
-    await renderLessonEditor(editor({ ...LESSON, video: null }))
-    expect(within(card(labels.lessonEditor.video.title)).getByText(labels.lessonEditor.video.none)).toBeVisible()
-  })
-})
-
 describe("new lesson materials", () => {
   it("uploads a file with a title after checking that one is chosen", async () => {
     const { user } = await renderLessonEditor()
@@ -413,7 +376,7 @@ describe("new lesson materials", () => {
     await user.click(dialog.getByRole("button", { name: labels.materials.save }))
     expect(await dialog.findByText(validations.fileRequired)).toBeVisible()
 
-    const input = document.querySelector<HTMLInputElement>("input[type=file]")
+    const input = screen.getByRole("dialog").querySelector<HTMLInputElement>("input[type=file]")
     if (input === null) {
       throw new Error("Missing file input")
     }
@@ -439,7 +402,7 @@ describe("new lesson materials", () => {
     await user.click(screen.getByRole("button", { name: labels.materials.uploadFile }))
     const dialog = within(await screen.findByRole("dialog"))
     await fill(user, dialog.getByLabelText(labels.materials.titleLabel), "Workbook")
-    const input = document.querySelector<HTMLInputElement>("input[type=file]")
+    const input = screen.getByRole("dialog").querySelector<HTMLInputElement>("input[type=file]")
     if (input === null) {
       throw new Error("Missing file input")
     }
@@ -460,7 +423,7 @@ describe("new lesson materials", () => {
     await user.click(screen.getByRole("button", { name: labels.materials.uploadFile }))
     const dialog = within(await screen.findByRole("dialog"))
     await fill(user, dialog.getByLabelText(labels.materials.titleLabel), "Huge")
-    const input = document.querySelector<HTMLInputElement>("input[type=file]")
+    const input = screen.getByRole("dialog").querySelector<HTMLInputElement>("input[type=file]")
     if (input === null) {
       throw new Error("Missing file input")
     }

@@ -630,7 +630,7 @@ export const AUTH_FLOWS = [
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "workspaces.spec.ts", title: "customer can sign in and load the permitted workspace" },
-      { spec: "videos.spec.ts", title: "video library › a customer cannot open the library or stream without a signed path" },
+      { spec: "course-videos.spec.ts", title: "lesson videos › a customer cannot open the course admin or stream a video without a signed path" },
     ],
   },
   {

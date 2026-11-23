@@ -13,14 +13,12 @@ import { course } from "~/src/modules/course/course.schema"
 import { LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
-import { video } from "~/src/modules/video/video.schema"
 
 import { type D1Environment, executeD1, inline } from "./d1-execute.ts"
 
 const SOURCE = ENVIRONMENT.PRODUCTION
 const TARGET = ENVIRONMENT.PREVIEW
 const ID = "id"
-const SQLITE_TRUE = 1
 const STATEMENTS_FILE = "courses.sql"
 const TEMPORARY_PREFIX = "saasyland-courses-"
 
@@ -54,11 +52,6 @@ const idsOf = (rows: readonly Readonly<Record<string, unknown>>[]): string[] => 
 
 const idSetOf = (rows: unknown): Set<string> => new Set(idsOf(idsSchema.parse(rows)))
 
-const videoIdOf = (row: Row): string[] => {
-  const id = cellSchema.parse(row[lesson.videoId.name])
-  return typeof id === "string" ? [id] : []
-}
-
 const readProduction = async () => {
   const [courses, retired] = await read(SOURCE, [
     selectRows(course, eq(course.status, COURSE_STATUS.PUBLISHED)),
@@ -72,15 +65,13 @@ const readProduction = async () => {
     selectRows(lesson, inArray(lesson.courseId, courseIds)),
   ])
   const lessonRows = rowsSchema.parse(lessons)
-  const videoIds = [...new Set(lessonRows.flatMap((row) => videoIdOf(row)))]
 
   const ofLessons = inArray(lessonAttachment.lessonId, idsOf(lessonRows))
   const isLink = eq(lessonAttachment.kind, LESSON_ATTACHMENT_KIND.LINK)
   const isFile = eq(lessonAttachment.kind, LESSON_ATTACHMENT_KIND.FILE)
-  const [links, files, videos] = await read(SOURCE, [
+  const [links, files] = await read(SOURCE, [
     selectRows(lessonAttachment, both(ofLessons, isLink)),
     selectIds(lessonAttachment, both(ofLessons, isFile)),
-    selectRows(video, inArray(video.id, videoIds)),
   ])
 
   return {
@@ -90,7 +81,6 @@ const readProduction = async () => {
     lessons: lessonRows,
     links: rowsSchema.parse(links),
     retired: idsOf(idsSchema.parse(retired)),
-    videos: rowsSchema.parse(videos),
   }
 }
 
@@ -106,14 +96,12 @@ const readPreview = async (catalogue: Catalogue) => {
     eq(lessonAttachment.kind, LESSON_ATTACHMENT_KIND.LINK),
   )
   const sameSlug = sql`select ${sql.identifier(ID)}, ${sql.identifier(course.slug.name)} from ${course} where ${inArray(course.slug, slugs)}`
-  const videoIds = idsOf(catalogue.videos)
-  const [slugged, courses, chapters, lessons, links, videos] = await read(TARGET, [
+  const [slugged, courses, chapters, lessons, links] = await read(TARGET, [
     statement(sameSlug),
     selectIds(course, inArray(course.id, known)),
     selectIds(chapter, inArray(chapter.courseId, courseIds)),
     statement(previewLessons),
     selectIds(lessonAttachment, linksOfLessons),
-    selectIds(video, inArray(video.id, videoIds)),
   ])
 
   return {
@@ -122,7 +110,6 @@ const readPreview = async (catalogue: Catalogue) => {
     courses: idSetOf(courses),
     lessons: idSetOf(lessons),
     links: idSetOf(links),
-    videos: idSetOf(videos),
   }
 }
 
@@ -131,21 +118,18 @@ type Preview = Awaited<ReturnType<typeof readPreview>>
 const listOf = (parts: SQLChunk[]): SQL => sql.join(parts, sql`, `)
 
 interface Upsert {
-  readonly keep?: readonly string[]
   readonly omit?: readonly string[]
   readonly row: Row
   readonly table: SQLiteTable
 }
 
-const upsert = ({ keep = [], omit = [], row, table }: Upsert): string => {
+const upsert = ({ omit = [], row, table }: Upsert): string => {
   const columns = Object.values(getTableColumns(table))
     .map(({ name }) => name)
     .filter((name) => !omit.includes(name))
   const names = listOf(columns.map((name) => sql.identifier(name)))
   const values = listOf(columns.map((name) => sql`${cellSchema.parse(row[name])}`))
-  const updates = columns
-    .filter((name) => name !== ID && !keep.includes(name))
-    .map((name) => sql`${sql.identifier(name)} = excluded.${sql.identifier(name)}`)
+  const updates = columns.filter((name) => name !== ID).map((name) => sql`${sql.identifier(name)} = excluded.${sql.identifier(name)}`)
 
   return statement(
     sql`insert into ${table} (${names}) values (${values}) on conflict (${sql.identifier(ID)}) do update set ${listOf(updates)}`,
@@ -168,16 +152,14 @@ const missingFrom = (existing: ReadonlySet<string>, rows: readonly Row[]): strin
   return [...existing].filter((id) => !kept.has(id))
 }
 
-const asPlaceholder = (row: Row): Row => ({ ...row, [video.placeholder.name]: SQLITE_TRUE })
-
 const planSync = (catalogue: Catalogue, preview: Preview) => {
   const published = new Set(idsOf(catalogue.courses))
   const retired = [...preview.courses].filter((id) => !published.has(id))
   const links = missingFrom(preview.links, catalogue.links)
   const lessons = missingFrom(preview.lessons, catalogue.lessons)
   const chapters = missingFrom(preview.chapters, catalogue.chapters)
-  const keepPlaceholder = [video.placeholder.name]
   const fileColumns = [course.cover.name]
+  const videoColumns = [lesson.videoId.name]
 
   const statements = [
     deleteRows(course, inArray(course.id, retired)),
@@ -186,8 +168,7 @@ const planSync = (catalogue: Catalogue, preview: Preview) => {
     deleteRows(chapter, inArray(chapter.id, chapters)),
     ...catalogue.courses.map((row) => upsert({ omit: fileColumns, row, table: course })),
     ...catalogue.chapters.map((row) => upsert({ row, table: chapter })),
-    ...catalogue.videos.map((row) => upsert({ keep: keepPlaceholder, row: asPlaceholder(row), table: video })),
-    ...catalogue.lessons.map((row) => upsert({ row, table: lesson })),
+    ...catalogue.lessons.map((row) => upsert({ omit: videoColumns, row, table: lesson })),
     ...catalogue.links.map((row) => upsert({ row, table: lessonAttachment })),
   ]
 
@@ -196,7 +177,6 @@ const planSync = (catalogue: Catalogue, preview: Preview) => {
     course: changeOf({ existing: preview.courses, removed: retired.length, rows: catalogue.courses }),
     lesson: changeOf({ existing: preview.lessons, removed: lessons.length, rows: catalogue.lessons }),
     lesson_attachment: changeOf({ existing: preview.links, removed: links.length, rows: catalogue.links }),
-    video: changeOf({ existing: preview.videos, removed: 0, rows: catalogue.videos }),
   }
 
   return { changes, statements }
@@ -216,13 +196,11 @@ const write = async (statements: readonly string[]): Promise<void> => {
 const countPreview = async (catalogue: Catalogue): Promise<number[]> => {
   const courseIds = idsOf(catalogue.courses)
   const linkIds = idsOf(catalogue.links)
-  const videoIds = idsOf(catalogue.videos)
   const results = await read(TARGET, [
     countRows(course, inArray(course.id, courseIds)),
     countRows(chapter, inArray(chapter.courseId, courseIds)),
     countRows(lesson, inArray(lesson.courseId, courseIds)),
     countRows(lessonAttachment, inArray(lessonAttachment.id, linkIds)),
-    countRows(video, inArray(video.id, videoIds)),
   ])
 
   return results.map((rows) => countSchema.parse(rows)[0].count)
@@ -253,8 +231,11 @@ const syncCourses = async (): Promise<void> => {
   if (catalogue.files > 0) {
     process.stdout.write(`${String(catalogue.files)} file attachments left out: their files are in the ${SOURCE} bucket\n`)
   }
+  process.stdout.write(
+    `Lessons keep the videos of the ${TARGET} database; new ones start without one: the recordings are in the ${SOURCE} bucket\n`,
+  )
 
-  const tables = [catalogue.courses, catalogue.chapters, catalogue.lessons, catalogue.links, catalogue.videos]
+  const tables = [catalogue.courses, catalogue.chapters, catalogue.lessons, catalogue.links]
   const expected = tables.map((rows) => rows.length)
   const found = await countPreview(catalogue)
   if (found.some((count, index) => count !== expected[index])) {

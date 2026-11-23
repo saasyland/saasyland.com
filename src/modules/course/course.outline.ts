@@ -12,7 +12,7 @@ import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachm
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { type Viewer, hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
-import { playableVideo } from "~/src/modules/lesson/lesson.playable"
+import { isBeingRecorded, playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
@@ -26,6 +26,7 @@ const readLessons = (courseId: string) =>
       captionLocales: video.captionLocales,
       chapterId: lesson.chapterId,
       durationMs: video.durationMs,
+      format: lesson.format,
       id: lesson.id,
       slug: lesson.slug,
       summary: lesson.summary,
@@ -80,10 +81,11 @@ export const readCourseOutline = async ({ course, locale, viewer }: OutlineReque
       chapterId: entry.chapterId,
       completed: progressByLesson.get(entry.id)?.completed ?? false,
       durationMs: entry.durationMs,
+      format: entry.format,
       id: entry.id,
       locked: !hasLessonAccess(entry.access, viewer),
       positionMs: progressByLesson.get(entry.id)?.positionMs ?? 0,
-      recording: entry.durationMs === null,
+      recording: isBeingRecorded(entry),
       slug: entry.slug,
       summary: localize(entry.summary, locale),
       title: localize(entry.title, locale),

@@ -19,7 +19,6 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminCoursesRouteImport } from './routes/admin.courses'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
-import { Route as AdminVideosRouteImport } from './routes/admin.videos'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppLicenseRouteImport } from './routes/app.license'
@@ -118,11 +117,6 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminVideosRoute = AdminVideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
   getParentRoute: () => AdminRoute,
 } as any)
 const ApiIndexRoute = ApiIndexRouteImport.update({
@@ -401,7 +395,6 @@ export interface FileRoutesByFullPath {
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
-  '/admin/videos': typeof AdminVideosRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -458,7 +451,6 @@ export interface FileRoutesByTo {
   '/': typeof SiteMarketingIndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
-  '/admin/videos': typeof AdminVideosRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -520,7 +512,6 @@ export interface FileRoutesById {
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
-  '/admin/videos': typeof AdminVideosRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -585,7 +576,6 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/settings'
     | '/admin/users'
-    | '/admin/videos'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -642,7 +632,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin/settings'
-    | '/admin/videos'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -703,7 +692,6 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/settings'
     | '/admin/users'
-    | '/admin/videos'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -839,13 +827,6 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/videos': {
-      id: '/admin/videos'
-      path: '/videos'
-      fullPath: '/admin/videos'
-      preLoaderRoute: typeof AdminVideosRouteImport
       parentRoute: typeof AdminRoute
     }
     '/api/': {
@@ -1344,7 +1325,6 @@ interface AdminRouteChildren {
   AdminCoursesRoute: typeof AdminCoursesRouteWithChildren
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRouteWithChildren
-  AdminVideosRoute: typeof AdminVideosRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminOrdersOrderIdRoute: typeof AdminOrdersOrderIdRoute
   AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
@@ -1355,7 +1335,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCoursesRoute: AdminCoursesRouteWithChildren,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRouteWithChildren,
-  AdminVideosRoute: AdminVideosRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminOrdersOrderIdRoute: AdminOrdersOrderIdRoute,
   AdminOrdersIndexRoute: AdminOrdersIndexRoute,

@@ -24,6 +24,8 @@ export const BYTES_PER_KILOBYTE = 1000
 
 export const BYTES_PER_MEGABYTE = 1_000_000
 
+export const BYTES_PER_GIGABYTE = 1_000_000_000
+
 export const VIDEO_SIZE_FORMAT = { maximumFractionDigits: 1, style: "unit", unit: "megabyte" } as const
 
 export const VIDEO_QUERY_KEYS = {
@@ -34,5 +36,4 @@ export const VIDEO_QUERY_KEYS = {
 
 export const VIDEO_MUTATION_KEYS = {
   DELETE: ["video", "deleteVideo"],
-  SET_PLACEHOLDER: ["video", "setVideoPlaceholder"],
 } as const

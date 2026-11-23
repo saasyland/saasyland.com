@@ -81,7 +81,10 @@ vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOrigin
       ...actual.lessonQuery(input),
       queryFn: () => {
         const source = fixtures.coursePages.get("current")
-        const lessonPage = source === undefined ? undefined : fixtures.lessonPageOf(source, input.lessonSlug)
+        if (source === undefined) {
+          return Promise.reject(new Error("No course page"))
+        }
+        const lessonPage = fixtures.lessonPageOf(source, input.lessonSlug)
         return lessonPage === undefined ? Promise.reject(new Error("No lesson page")) : Promise.resolve(lessonPage)
       },
     }),
@@ -116,7 +119,7 @@ describe("course catalogue", () => {
     expect(featured).toHaveAttribute("href", "/courses/the-walkthrough")
     expect(within(featured).getByText(messages.kinds.course)).toBeVisible()
     expect(within(featured).getByText(messages.levels.beginner)).toBeVisible()
-    expect(within(featured).getByText("3 of 4 lessons recorded")).toBeVisible()
+    expect(within(featured).getByText("3 of 4 lessons ready")).toBeVisible()
     expect(within(featured).queryByText("4 lessons")).toBeNull()
     expect(within(featured).getByText("7 min")).toBeVisible()
     expect(within(featured).getByText("1 free lesson")).toBeVisible()
@@ -209,7 +212,7 @@ describe("course page", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
     const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
-    expect(panel.getByText("3 of 4 lessons recorded")).toBeVisible()
+    expect(panel.getByText("3 of 4 lessons ready")).toBeVisible()
     expect(panel.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
     expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
       "href",
@@ -317,7 +320,7 @@ describe("course page", () => {
 
     expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
     expect(screen.queryByText(messages.course.recording)).toBeNull()
-    expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent("1 of 2 lessons recorded")
+    expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent("1 of 2 lessons ready")
   })
 
   it("offers only what unlocks a course whose lessons are all locked", async () => {
@@ -362,7 +365,7 @@ describe("course page panel and lists", () => {
 
     expect(screen.getByText("Foundations in short.")).toBeVisible()
     expect(screen.getByRole("img", { name: "The walkthrough" })).toHaveAttribute("fetchpriority", "high")
-    expect(screen.getAllByText("3 of 4 lessons recorded")).toHaveLength(3)
+    expect(screen.getAllByText("3 of 4 lessons ready")).toHaveLength(3)
     const outcomes = screen.getByRole("heading", { level: 2, name: messages.course.outcomes }).nextElementSibling
     expect(outcomes).toHaveTextContent("Ship it")
     const prerequisites = screen.getByRole("heading", { level: 2, name: messages.course.prerequisites }).nextElementSibling

@@ -14,8 +14,6 @@ const getVideoPlayback = videoIdInput
 
 const getVideos = paginationSchema
 
-const setVideoPlaceholder = videoIdInput.extend({ placeholder: zod.boolean() })
-
 const registerVideo = zod.object({
   captionLocales: zod.array(localeField),
   durationMs: zod.int().positive(),
@@ -31,5 +29,4 @@ export const videoZodSchemas = {
   getVideoPlayback,
   getVideos,
   registerVideo,
-  setVideoPlaceholder,
 }

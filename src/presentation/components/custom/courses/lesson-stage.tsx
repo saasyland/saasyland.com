@@ -4,6 +4,7 @@ import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
 import { isPlayable } from "~/src/modules/course/course.utils"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
 import { RecordingNow } from "~/src/presentation/components/custom/courses/course-facts"
@@ -19,11 +20,15 @@ interface LessonStageProps {
   readonly viewer: Course["page"]["viewer"]
 }
 
-export const LessonStage = ({ course, lesson, number, viewer }: LessonStageProps): JSX.Element => {
+export const LessonStage = ({ course, lesson, number, viewer }: LessonStageProps): JSX.Element | undefined => {
   const t = useTranslations("pages.courses.lesson")
 
   if (isPlayable(lesson)) {
     return <LessonPlayer courseSlug={course.slug} lesson={lesson} signedIn={viewer.signedIn} />
+  }
+
+  if (lesson.format === LESSON_FORMAT.TEXT && !lesson.locked) {
+    return
   }
 
   return (

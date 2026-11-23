@@ -8,7 +8,7 @@ interface ValidationFieldErrorProps {
   readonly id?: string | undefined
   readonly message?: string | undefined
   readonly namespace: string
-  readonly params?: Record<string, Record<string, number>>
+  readonly params?: Record<string, Record<string, number | string>>
 }
 
 export const ValidationFieldError = ({ id, message, namespace, params }: ValidationFieldErrorProps): JSX.Element | undefined => {

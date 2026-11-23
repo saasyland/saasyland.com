@@ -10,7 +10,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"
 
@@ -79,9 +79,33 @@ const WALKTHROUGH: ShowcaseCourse = {
   kind: COURSE_KIND.COURSE,
   lessonCount: 8,
   lessons: [
-    { access: LESSON_ACCESS.PREVIEW, durationMs: 125_000, locked: false, recording: false, slug: "boundaries", title: "Lesson boundaries" },
-    { access: LESSON_ACCESS.ACCOUNT, durationMs: 125_000, locked: true, recording: false, slug: "sessions", title: "Sessions" },
-    { access: LESSON_ACCESS.PAID, durationMs: null, locked: true, recording: true, slug: "billing", title: "Billing" },
+    {
+      access: LESSON_ACCESS.PREVIEW,
+      durationMs: 125_000,
+      format: LESSON_FORMAT.VIDEO,
+      locked: false,
+      recording: false,
+      slug: "boundaries",
+      title: "Lesson boundaries",
+    },
+    {
+      access: LESSON_ACCESS.ACCOUNT,
+      durationMs: 125_000,
+      format: LESSON_FORMAT.VIDEO,
+      locked: true,
+      recording: false,
+      slug: "sessions",
+      title: "Sessions",
+    },
+    {
+      access: LESSON_ACCESS.PAID,
+      durationMs: null,
+      format: LESSON_FORMAT.VIDEO,
+      locked: true,
+      recording: true,
+      slug: "billing",
+      title: "Billing",
+    },
   ],
   level: COURSE_LEVEL.BEGINNER,
   previewCount: 1,
@@ -113,8 +137,24 @@ const UNRECORDED: ShowcaseCourse = {
   kind: COURSE_KIND.PROJECT,
   lessonCount: 2,
   lessons: [
-    { access: LESSON_ACCESS.PREVIEW, durationMs: null, locked: false, recording: true, slug: "intro", title: "Intro" },
-    { access: LESSON_ACCESS.PAID, durationMs: 540_000, locked: false, recording: false, slug: "deep-dive", title: "Deep dive" },
+    {
+      access: LESSON_ACCESS.PREVIEW,
+      durationMs: null,
+      format: LESSON_FORMAT.VIDEO,
+      locked: false,
+      recording: true,
+      slug: "intro",
+      title: "Intro",
+    },
+    {
+      access: LESSON_ACCESS.PAID,
+      durationMs: 540_000,
+      format: LESSON_FORMAT.VIDEO,
+      locked: false,
+      recording: false,
+      slug: "deep-dive",
+      title: "Deep dive",
+    },
   ],
   level: COURSE_LEVEL.INTERMEDIATE,
   previewCount: 1,
@@ -238,6 +278,31 @@ describe("course showcase data", () => {
     )
   })
 
+  it("links a text lesson with the icon of a page", async () => {
+    loadShowcase.mockResolvedValue([
+      {
+        ...UNRECORDED,
+        lessons: [
+          {
+            access: LESSON_ACCESS.PREVIEW,
+            durationMs: null,
+            format: LESSON_FORMAT.TEXT,
+            locked: false,
+            recording: false,
+            slug: "glossary",
+            title: "Glossary",
+          },
+        ],
+      },
+    ])
+    renderShowcase()
+    await showcaseLoaded()
+
+    const glossary = screen.getByRole("link", { name: /^Glossary/u })
+    expect(glossary).toHaveAttribute("href", "/courses/unrecorded/glossary")
+    expect(glossary.querySelector(".lucide-file-text")).not.toBeNull()
+  })
+
   it("says how much of each course is recorded and how many lessons it holds beyond the first ones", async () => {
     loadShowcase.mockResolvedValue([WALKTHROUGH, TUTORIAL, UNRECORDED, RECORDED])
     renderShowcase()
@@ -245,7 +310,7 @@ describe("course showcase data", () => {
 
     expect(screen.getByText("Course · Beginner")).toBeVisible()
     expect(screen.getByText("Tutorial · Advanced")).toBeVisible()
-    expect(screen.getByText("6 of 8 lessons recorded")).toBeVisible()
+    expect(screen.getByText("6 of 8 lessons ready")).toBeVisible()
     expect(screen.getByText("25 min")).toBeVisible()
     expect(screen.getByText("+ 5 more lessons")).toBeVisible()
     expect(screen.getAllByText("2 lessons")).toHaveLength(2)

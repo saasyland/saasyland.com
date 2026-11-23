@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers"
 
-import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation, executeQuery } from "~/src/platform/testing/lib/query"
@@ -14,7 +13,6 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { deleteVideoMutation } from "~/src/modules/video/use-cases/delete-video"
 import { videoPlaybackQuery } from "~/src/modules/video/use-cases/get-video-playback"
 import { getVideosPageQuery, getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
-import { setVideoPlaceholderMutation } from "~/src/modules/video/use-cases/set-video-placeholder"
 import { videoObjectKey } from "~/src/modules/video/video.files"
 import { video } from "~/src/modules/video/video.schema"
 import type { Video } from "~/src/modules/video/video.types"
@@ -157,42 +155,5 @@ describe("deleteVideo", () => {
 
     await expect(executeMutation(deleteVideoMutation, { videoId: FIRST_ID })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
     expect(await db.select({ id: video.id }).from(video)).toHaveLength(2)
-  })
-})
-
-const placeholderOf = async (videoId: string) => {
-  const [stored] = await db.select({ placeholder: video.placeholder }).from(video).where(eq(video.id, videoId))
-  return stored?.placeholder
-}
-
-describe("setVideoPlaceholder", () => {
-  it("publishes videos as real recordings and marks or clears the placeholder", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-    await expect(placeholderOf(FIRST_ID)).resolves.toBe(false)
-
-    await expect(executeMutation(setVideoPlaceholderMutation, { placeholder: true, videoId: FIRST_ID })).resolves.toStrictEqual({
-      id: FIRST_ID,
-      placeholder: true,
-    })
-    await expect(placeholderOf(FIRST_ID)).resolves.toBe(true)
-
-    await executeMutation(setVideoPlaceholderMutation, { placeholder: false, videoId: FIRST_ID })
-    await expect(placeholderOf(FIRST_ID)).resolves.toBe(false)
-  })
-
-  it("rejects a missing video", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await expect(executeMutation(setVideoPlaceholderMutation, { placeholder: true, videoId: MISSING_ID })).rejects.toThrow(
-      ERROR_CODES.NOT_FOUND,
-    )
-  })
-
-  it("needs the course update permission", async () => {
-    signInAs(ROLE_CODES.CUSTOMER)
-
-    await expect(executeMutation(setVideoPlaceholderMutation, { placeholder: true, videoId: FIRST_ID })).rejects.toThrow(
-      ERROR_CODES.FORBIDDEN,
-    )
   })
 })

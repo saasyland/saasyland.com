@@ -11,11 +11,11 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { IDS, LESSON_IDS, USERS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { IDS, LESSON_IDS, USERS, makeTextLesson, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_SHOWCASE, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 
 const EXTRA_COURSES = 4
@@ -50,10 +50,42 @@ describe("getCourseShowcase", () => {
         kind: COURSE_KIND.COURSE,
         lessonCount: 4,
         lessons: [
-          { access: LESSON_ACCESS.PREVIEW, durationMs: 125_000, locked: false, recording: false, slug: "boundaries", title: "Boundaries" },
-          { access: LESSON_ACCESS.ACCOUNT, durationMs: 125_000, locked: true, recording: false, slug: "sessions", title: "Sessions" },
-          { access: LESSON_ACCESS.PAID, durationMs: 125_000, locked: true, recording: false, slug: "billing", title: "Billing" },
-          { access: LESSON_ACCESS.PAID, durationMs: null, locked: true, recording: true, slug: "coverage", title: "Coverage" },
+          {
+            access: LESSON_ACCESS.PREVIEW,
+            durationMs: 125_000,
+            format: LESSON_FORMAT.VIDEO,
+            locked: false,
+            recording: false,
+            slug: "boundaries",
+            title: "Boundaries",
+          },
+          {
+            access: LESSON_ACCESS.ACCOUNT,
+            durationMs: 125_000,
+            format: LESSON_FORMAT.VIDEO,
+            locked: true,
+            recording: false,
+            slug: "sessions",
+            title: "Sessions",
+          },
+          {
+            access: LESSON_ACCESS.PAID,
+            durationMs: 125_000,
+            format: LESSON_FORMAT.VIDEO,
+            locked: true,
+            recording: false,
+            slug: "billing",
+            title: "Billing",
+          },
+          {
+            access: LESSON_ACCESS.PAID,
+            durationMs: null,
+            format: LESSON_FORMAT.VIDEO,
+            locked: true,
+            recording: true,
+            slug: "coverage",
+            title: "Coverage",
+          },
         ],
         level: COURSE_LEVEL.BEGINNER,
         previewCount: 1,
@@ -145,24 +177,26 @@ describe("getCourseShowcase", () => {
     expect(walkthrough?.lessons.every(({ locked }) => !locked)).toBe(true)
   })
 
-  it("marks the lessons without a recording and leaves them out of the length", async () => {
-    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
-    await db.update(lesson).set({ videoId: null }).where(eq(lesson.id, LESSON_IDS.ACCOUNT))
-
-    const [walkthrough] = await showcase()
-
-    expect(walkthrough).toMatchObject({ durationMs: 125_000, lessonCount: 4, recordedCount: 1 })
-    expect(walkthrough?.lessons.map(({ durationMs, recording, slug }) => [slug, recording, durationMs])).toStrictEqual([
-      ["boundaries", true, null],
-      ["sessions", true, null],
-      ["billing", false, 125_000],
-      ["coverage", true, null],
-    ])
-  })
-
   it("returns no course when nothing is published", async () => {
     await db.delete(course)
 
     expect(await showcase()).toStrictEqual([])
+  })
+})
+
+describe("getCourseShowcase without recordings", () => {
+  it("marks the lessons without a recording, counts text lessons as ready and leaves both out of the length", async () => {
+    await makeTextLesson(LESSON_IDS.PREVIEW)
+    await db.update(lesson).set({ videoId: null }).where(eq(lesson.id, LESSON_IDS.ACCOUNT))
+
+    const [walkthrough] = await showcase()
+
+    expect(walkthrough).toMatchObject({ durationMs: 125_000, lessonCount: 4, recordedCount: 2 })
+    expect(walkthrough?.lessons.map(({ durationMs, format, recording, slug }) => [slug, format, recording, durationMs])).toStrictEqual([
+      ["boundaries", LESSON_FORMAT.TEXT, false, null],
+      ["sessions", LESSON_FORMAT.VIDEO, true, null],
+      ["billing", LESSON_FORMAT.VIDEO, false, 125_000],
+      ["coverage", LESSON_FORMAT.VIDEO, true, null],
+    ])
   })
 })

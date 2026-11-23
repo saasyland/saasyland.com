@@ -22,8 +22,8 @@ afterEach(() => {
 })
 
 describe("admin course route loaders", () => {
-  it.each(["/admin/courses/create", "/admin/videos"])("loads localized metadata for an authorized administrator at %s", async (path) => {
-    expectLocalizedAdminPage(await loadAsAdmin(path, ADMIN_SESSION))
+  it("loads localized metadata for an authorized administrator", async () => {
+    expectLocalizedAdminPage(await loadAsAdmin("/admin/courses/create", ADMIN_SESSION))
   })
 
   it("loads the course list with its page metadata", async () => {

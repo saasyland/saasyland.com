@@ -1,54 +1,31 @@
-import { spawn } from "bun"
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
+import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, extname, join, relative } from "node:path"
-import process from "node:process"
+import { join } from "node:path"
 import { parseArgs } from "node:util"
-import sharp from "sharp"
 import { v7 } from "uuid"
 import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
-import { MIN_FIELD_LENGTH, localeField } from "~/src/modules/_core/utils/zod-fields"
-import { BYTES_PER_MEGABYTE, MEDIA_BINDING, VIDEO_FILES, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
-import {
-  IMAGE_QUALITY,
-  POSTER_VARIANTS,
-  type SourceVideo,
-  encodeArguments,
-  parseProbe,
-  planRenditions,
-  planStoryboard,
-  posterFrameArguments,
-  probeArguments,
-  storyboardArguments,
-  storyboardTrack,
-} from "~/src/modules/video/video.encoding"
-import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
+import { localeField } from "~/src/modules/_core/utils/zod-fields"
+import { BYTES_PER_MEGABYTE, MEDIA_BINDING, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import { video } from "~/src/modules/video/video.schema"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
 import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 
-import { DATABASE_BINDING, inline, sqlBuilder } from "./d1-execute.ts"
+import { executeD1, inline, sqlBuilder } from "./d1-execute.ts"
 import { scriptArguments } from "./run-command.ts"
+import { encodeRecording, removeVideoFiles, uploadVideoFiles } from "./video-pipeline.ts"
 import { readBucketName } from "./wrangler-config.ts"
 
-const WEBVTT_SIGNATURE = "WEBVTT"
 const LOCALE_SEPARATOR = "="
 const SEPARATOR_LENGTH = LOCALE_SEPARATOR.length
-const WEBP_EFFORT = 6
 
 const USAGE = `Usage: bun run video:publish:<preview|production> <video> --title "Title" [--poster image] [--captions en-US=file.vtt ...]`
 
 const environmentSchema = zod.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
-
-const toolsSchema = zod.object({
-  FFMPEG: zod.string().min(MIN_FIELD_LENGTH).default("ffmpeg"),
-  FFPROBE: zod.string().min(MIN_FIELD_LENGTH).default("ffprobe"),
-})
 
 const captionSchema = zod.string().transform((value, context) => {
   const separator = value.indexOf(LOCALE_SEPARATOR)
@@ -76,125 +53,14 @@ if (input === undefined || values.title === undefined) {
   throw new Error(USAGE)
 }
 
-const tools = toolsSchema.parse(process.env)
 const captions = zod.array(captionSchema).parse(values.captions ?? [])
-
-const run = async ([program = "", ...args]: readonly string[]): Promise<void> => {
-  const child = spawn([program, ...args], { stderr: "inherit", stdout: "inherit" })
-  if ((await child.exited) !== 0) {
-    throw new Error(`${basename(program)} failed: ${args.join(" ")}`)
-  }
-}
-
-const wrangler = (args: readonly string[]): Promise<void> => run(["vp", "exec", "wrangler", ...args])
-
-const probe = async (videoPath: string): Promise<SourceVideo> => {
-  const child = spawn([tools.FFPROBE, ...probeArguments(videoPath)], { stderr: "inherit", stdout: "pipe" })
-  const output = await new Response(child.stdout).text()
-  if ((await child.exited) !== 0) {
-    throw new Error(`Could not read ${videoPath}. Install FFmpeg (brew install ffmpeg) or set FFMPEG and FFPROBE.`)
-  }
-  return parseProbe(output)
-}
-
-const listFiles = async (directory: string): Promise<string[]> => {
-  const entries = await readdir(directory, { recursive: true, withFileTypes: true })
-  return entries.filter((entry) => entry.isFile()).map((entry) => relative(directory, join(entry.parentPath, entry.name)))
-}
-
-const copyCaption = async ({ output, path, locale }: { output: string; path: string; locale: string }): Promise<void> => {
-  const contents = await readFile(path, "utf8")
-  if (extname(path) !== ".vtt" || !contents.startsWith(WEBVTT_SIGNATURE)) {
-    throw new Error(`${path} is not a WebVTT file`)
-  }
-  await copyFile(path, join(output, "captions", `${locale}.vtt`))
-}
-
-const copyCaptions = async (output: string): Promise<void> => {
-  await mkdir(join(output, "captions"), { recursive: true })
-  await Promise.all(captions.map(({ file: path, locale }) => copyCaption({ locale, output, path })))
-}
-
-const contentTypeOf = (file: string): string => {
-  const type = mediaContentType(file)
-  if (type === undefined) {
-    throw new Error(`Unexpected output file ${file}`)
-  }
-  return type
-}
-
-const uploadAll = async ({
-  bucket,
-  files,
-  lists,
-  media,
-  videoId,
-}: {
-  bucket: string
-  files: string[]
-  lists: string
-  media: string
-  videoId: string
-}) => {
-  const uploads = [...Map.groupBy(files, contentTypeOf)].map(([type, group], index) => ({
-    entries: group.map((file) => ({ file: join(media, file), key: videoObjectKey({ file, videoId }) })),
-    list: join(lists, `upload-${String(index)}.json`),
-    type,
-  }))
-  await Promise.all(uploads.map(({ entries, list }) => writeFile(list, JSON.stringify(entries))))
-  await uploads.reduce(
-    (previous, { list, type }) =>
-      previous.then(() => wrangler(["r2", "bulk", "put", bucket, "--remote", "--content-type", type, "--filename", list])),
-    Promise.resolve(),
-  )
-}
-
-const removeAll = ({ bucket, files, videoId }: { bucket: string; files: string[]; videoId: string }): Promise<void> =>
-  files.reduce(
-    (previous, file) =>
-      previous.then(() => wrangler(["r2", "object", "delete", `${bucket}/${videoObjectKey({ file, videoId })}`, "--remote"])),
-    Promise.resolve(),
-  )
-
-const insertStatement = (row: zod.output<typeof videoZodSchemas.registerVideo>): string =>
-  inline(sqlBuilder.insert(video).values(row).toSQL())
-
 const bucket = await readBucketName({ binding: MEDIA_BINDING, environment })
-const source = await probe(input)
-const renditions = planRenditions(source)
-const storyboard = planStoryboard(source)
 const videoId = v7()
 const output = await mkdtemp(join(tmpdir(), "saasyland-video-"))
-const media = join(output, "media")
 
 try {
-  await mkdir(media)
-  console.log(`Encoding ${renditions.map(({ name }) => name).join(", ")}${source.hasAudio ? " + audio" : ""}`)
-  await run([tools.FFMPEG, ...encodeArguments({ input, output: media, renditions, source })])
-  const frame = values.poster ?? join(output, "poster.png")
-  if (values.poster === undefined) {
-    await run([tools.FFMPEG, ...posterFrameArguments({ frame, input, source })])
-  }
-  await Promise.all(
-    POSTER_VARIANTS.map(({ file, width }) =>
-      sharp(frame)
-        .rotate()
-        .resize({ width, withoutEnlargement: true })
-        .webp({ effort: WEBP_EFFORT, quality: IMAGE_QUALITY.POSTER })
-        .toFile(join(media, file)),
-    ),
-  )
-  const sprite = join(output, "storyboard.png")
-  await run([tools.FFMPEG, ...storyboardArguments({ input, sprite, storyboard })])
-  await sharp(sprite).webp({ effort: WEBP_EFFORT, quality: IMAGE_QUALITY.STORYBOARD }).toFile(join(media, VIDEO_FILES.STORYBOARD_IMAGE))
-  await writeFile(join(media, VIDEO_FILES.STORYBOARD_TRACK), storyboardTrack({ source, storyboard }))
-  await copyCaptions(media)
-
-  const files = await listFiles(media)
-  const stats = await Promise.all(files.map((path) => stat(join(media, path))))
-  const sizeBytes = stats.reduce((total, { size }) => total + size, 0)
-
-  await uploadAll({ bucket, files, lists: output, media, videoId })
+  const { files, media, sizeBytes, source } = await encodeRecording({ captions, input, output, poster: values.poster })
+  await uploadVideoFiles({ bucket, environment, files, lists: output, media, videoId })
 
   const row = videoZodSchemas.registerVideo.parse({
     captionLocales: captions.map(({ locale }) => locale),
@@ -207,9 +73,9 @@ try {
   })
 
   try {
-    await wrangler(["d1", "execute", DATABASE_BINDING, "--env", environment, "--remote", "--command", insertStatement(row)])
+    await executeD1({ environment, input: ["--command", inline(sqlBuilder.insert(video).values(row).toSQL())] })
   } catch (error) {
-    await removeAll({ bucket, files, videoId })
+    await removeVideoFiles({ bucket, environment, files, videoId })
     throw error
   }
 

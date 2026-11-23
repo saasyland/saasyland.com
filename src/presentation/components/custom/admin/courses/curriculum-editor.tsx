@@ -12,16 +12,19 @@ import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-ch
 import { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
+import { VIDEO_UPLOAD_STATUS } from "~/src/modules/video-upload/video-upload.constants"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
-import { useVideoLabel } from "~/src/hooks/use-video-library"
+import { LOCAL_UPLOAD_PHASE, useVideoUpload } from "~/src/hooks/use-video-upload"
 
 import { LESSON_ACCESS_BADGES, LESSON_STATUS_BADGES } from "~/src/data/course-badges"
 
 import { cn } from "~/src/lib/cn"
+import { formatClock } from "~/src/lib/duration"
 
 import {
   AlertDialog,
@@ -89,6 +92,41 @@ const ConfirmDelete = ({ body, label, onConfirm, title }: ConfirmDeleteProps): J
   )
 }
 
+const UPLOAD_BADGES = {
+  [VIDEO_UPLOAD_STATUS.ENCODING]: "neutral",
+  [VIDEO_UPLOAD_STATUS.FAILED]: "destructive",
+  [VIDEO_UPLOAD_STATUS.QUEUED]: "warning",
+  [VIDEO_UPLOAD_STATUS.UPLOADING]: "warning",
+} as const
+
+const LessonVideoBadge = ({ lesson }: { readonly lesson: EditorLesson }): JSX.Element | undefined => {
+  const t = useTranslations("pages.admin.courses.curriculum.video")
+
+  const { upload } = useVideoUpload(lesson.id)
+
+  if (lesson.format === LESSON_FORMAT.TEXT) {
+    return <Badge variant="neutral">{t("text")}</Badge>
+  }
+
+  if (upload?.phase === LOCAL_UPLOAD_PHASE.UPLOADING) {
+    return <Badge variant="neutral">{t("uploading", { percent: upload.uploadedBytes / upload.file.size })}</Badge>
+  }
+
+  if (upload !== undefined) {
+    return <Badge variant="warning">{t("status.uploading")}</Badge>
+  }
+
+  if (lesson.upload !== undefined) {
+    return <Badge variant={UPLOAD_BADGES[lesson.upload.status]}>{t(`status.${lesson.upload.status}`)}</Badge>
+  }
+
+  if (lesson.video !== null) {
+    return
+  }
+
+  return <Badge variant="warning">{t("none")}</Badge>
+}
+
 const LessonRow = ({
   chapter,
   courseId,
@@ -102,7 +140,6 @@ const LessonRow = ({
 }) => {
   const t = useTranslations("pages.admin.courses")
   const title = localize(lesson.title, getCurrentLocale())
-  const videoLabel = useVideoLabel()
 
   const { holders } = useCourseAccessNames()
   const move = useCurriculumMutation(moveLessonMutation)
@@ -117,13 +154,19 @@ const LessonRow = ({
         <p className="text-sm font-medium text-pretty text-foreground">{title}</p>
         <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-spec text-muted-foreground">
           <span className="font-mono wrap-anywhere">{lesson.slug}</span>
-          <span aria-hidden>·</span>
-          <span>{lesson.video === null ? t("curriculum.noVideo") : videoLabel(lesson.video)}</span>
+          {lesson.format === LESSON_FORMAT.VIDEO && lesson.video !== null && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="min-w-0 wrap-anywhere tabular-nums">
+                {lesson.video.title} · {formatClock(lesson.video.durationMs)}
+              </span>
+            </>
+          )}
         </p>
       </div>
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          {(lesson.video === null || lesson.video.placeholder) && <Badge variant="warning">{t("curriculum.recording")}</Badge>}
+          <LessonVideoBadge lesson={lesson} />
           <Badge variant={LESSON_ACCESS_BADGES[lesson.access]}>{t(`lesson.accessLevels.${lesson.access}`, { holders })}</Badge>
           <Badge variant={LESSON_STATUS_BADGES[lesson.status]}>{t(`lesson.statuses.${lesson.status}`)}</Badge>
         </div>

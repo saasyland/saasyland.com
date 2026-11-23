@@ -1,3 +1,4 @@
+import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import { asc, eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -25,10 +26,19 @@ import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modu
 import { attachmentObjectKey } from "~/src/modules/lesson-attachment/lesson-attachment.files"
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import {
+  VIDEO_UPLOAD_PART_BYTES,
+  VIDEO_UPLOAD_POLL_MS,
+  VIDEO_UPLOAD_STATUS,
+  type VIDEO_UPLOAD_STATUSES,
+} from "~/src/modules/video-upload/video-upload.constants"
+import { videoUpload } from "~/src/modules/video-upload/video-upload.schema"
 import { video } from "~/src/modules/video/video.schema"
 
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
+const UPLOAD_ID = "01960000-0000-7000-8000-00000000e001"
 
 const NEW_COURSE = {
   icon: COURSE_ICON.ROCKET,
@@ -139,8 +149,45 @@ describe("getCourseEditor", () => {
       [IDS.CHAPTER_ONE, ["boundaries", "sessions"]],
       [IDS.CHAPTER_TWO, ["billing", "coverage", "unfinished"]],
     ])
-    expect(editor.chapters[1]?.lessons[0]?.video).toStrictEqual({ durationMs: 125_000, id: IDS.VIDEO, placeholder: false, title: "Lesson" })
-    expect(editor.chapters[1]?.lessons[1]?.video).toBeNull()
+    expect(editor.chapters[1]?.lessons[0]?.video).toStrictEqual({
+      captionLocales: ["en-US"],
+      durationMs: 125_000,
+      height: 1080,
+      id: IDS.VIDEO,
+      lessonCount: 4,
+      sizeBytes: 1,
+      title: "Lesson",
+      width: 1920,
+    })
+    expect(editor.chapters[1]?.lessons[1]).toMatchObject({ format: LESSON_FORMAT.VIDEO, upload: undefined, video: null })
+  })
+
+  it("returns a lesson's upload with the bytes received so far", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+    await db.insert(videoUpload).values({
+      contentType: "video/mp4",
+      fileName: "take.mp4",
+      id: UPLOAD_ID,
+      lastModified: 1,
+      lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO,
+      multipartId: "multipart",
+      objectKey: `uploads/${UPLOAD_ID}/source.mp4`,
+      partBytes: VIDEO_UPLOAD_PART_BYTES,
+      parts: { "2": "etag" },
+      sizeBytes: VIDEO_UPLOAD_PART_BYTES + 7,
+    })
+
+    const editor = await executeQuery(courseEditorQuery({ courseId: IDS.COURSE }))
+
+    expect(editor.chapters[1]?.lessons[1]?.upload?.createdAt).toBeInstanceOf(Date)
+    expect(editor.chapters[1]?.lessons[1]?.upload).toMatchObject({
+      failure: null,
+      fileName: "take.mp4",
+      id: UPLOAD_ID,
+      sizeBytes: VIDEO_UPLOAD_PART_BYTES + 7,
+      status: VIDEO_UPLOAD_STATUS.UPLOADING,
+      uploadedBytes: 7,
+    })
   })
 
   it("returns each lesson's text, key moments and materials for editing", async () => {
@@ -326,5 +373,40 @@ describe("moveCourse", () => {
     await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, direction: MOVE_DIRECTION.UP })).rejects.toThrow(
       ERROR_CODES.FORBIDDEN,
     )
+  })
+})
+
+const pollingOf = async (status: (typeof VIDEO_UPLOAD_STATUSES)[number] | undefined) => {
+  await db.delete(videoUpload)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const options = courseEditorQuery({ courseId: IDS.COURSE })
+  if (status !== undefined) {
+    await db.insert(videoUpload).values({
+      contentType: "video/mp4",
+      fileName: "take.mp4",
+      id: UPLOAD_ID,
+      lastModified: 1,
+      lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO,
+      multipartId: "multipart",
+      objectKey: `uploads/${UPLOAD_ID}/source.mp4`,
+      partBytes: VIDEO_UPLOAD_PART_BYTES,
+      sizeBytes: 1,
+      status,
+    })
+    await queryClient.query(options)
+  }
+  const query = new QueryObserver(queryClient, options).getCurrentQuery()
+
+  return typeof options.refetchInterval === "function" ? options.refetchInterval(query) : undefined
+}
+
+describe("courseEditorQuery", () => {
+  it("polls the editor while an upload waits for the encoder or is being encoded, and only then", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await expect(pollingOf(VIDEO_UPLOAD_STATUS.QUEUED)).resolves.toBe(VIDEO_UPLOAD_POLL_MS)
+    await expect(pollingOf(VIDEO_UPLOAD_STATUS.ENCODING)).resolves.toBe(VIDEO_UPLOAD_POLL_MS)
+    await expect(pollingOf(VIDEO_UPLOAD_STATUS.FAILED)).resolves.toBe(false)
+    await expect(pollingOf(undefined)).resolves.toBe(false)
   })
 })

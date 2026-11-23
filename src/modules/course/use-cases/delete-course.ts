@@ -13,19 +13,21 @@ import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { attachmentObjectKeys, removeAttachmentObjects } from "~/src/modules/lesson-attachment/lesson-attachment.objects"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { removeUploadObjects, uploadObjects } from "~/src/modules/video-upload/video-upload.objects"
 
 export const deleteCourse = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["delete"] })])
   .validator((input: Course["deleteCourse"]) => courseZodSchemas.deleteCourse.parse(input))
   .handler(async ({ data }) => {
-    const objectKeys = await attachmentObjectKeys(eq(lesson.courseId, data.courseId))
+    const lessons = eq(lesson.courseId, data.courseId)
+    const [objectKeys, uploads] = await Promise.all([attachmentObjectKeys(lessons), uploadObjects(lessons)])
     const [row] = await db.delete(course).where(eq(course.id, data.courseId)).returning({ cover: course.cover, id: course.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await Promise.all([removeAttachmentObjects(objectKeys), removeCoverObjects(row.cover)])
+    await Promise.all([removeAttachmentObjects(objectKeys), removeUploadObjects(uploads), removeCoverObjects(row.cover)])
 
     return { id: row.id }
   })

@@ -7,6 +7,7 @@ import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-f
 import {
   LESSON_ACCESS_LEVELS,
   LESSON_DESCRIPTION_MAX_LENGTH,
+  LESSON_FORMATS,
   LESSON_KEY_MOMENTS_MAX_ITEMS,
   LESSON_KEY_MOMENT_MAX_SECONDS,
   LESSON_STATUSES,
@@ -46,7 +47,9 @@ const lessonContent = zod.object({
     .transform((moments) => moments.toSorted((first, second) => first.seconds - second.seconds)),
 })
 
-const createLesson = lessonFields.extend({ chapterId: idField, videoId: idField.optional() })
+const lessonFormat = zod.enum(LESSON_FORMATS)
+
+const createLesson = lessonFields.extend({ chapterId: idField, format: lessonFormat })
 
 const deleteLesson = lessonIdInput
 
@@ -65,7 +68,11 @@ const getLessonPlayback = zod.object({
 
 const moveLesson = lessonIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
 
+const removeLessonVideo = lessonIdInput
+
 const replaceLessonVideo = lessonIdInput.extend({ videoId: idField })
+
+const setLessonFormat = lessonIdInput.extend({ format: lessonFormat })
 
 const updateLesson = lessonFields.extend(lessonContent.shape).extend(lessonIdInput.shape)
 
@@ -78,7 +85,9 @@ export const lessonZodSchemas = {
   getLessonPlayback,
   getLessonTitle,
   moveLesson,
+  removeLessonVideo,
   replaceLessonVideo,
   searchLessons,
+  setLessonFormat,
   updateLesson,
 }

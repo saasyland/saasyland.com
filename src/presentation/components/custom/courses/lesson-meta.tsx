@@ -1,9 +1,10 @@
 import type { JSX } from "react"
 
-import { Hourglass } from "lucide-react"
+import { FileText, Hourglass } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
@@ -14,7 +15,7 @@ import { formatClock } from "~/src/lib/duration"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
-type MetaLesson = Pick<Course["pageLesson"], "access" | "durationMs" | "locked">
+type MetaLesson = Pick<Course["pageLesson"], "access" | "durationMs" | "format" | "locked">
 
 interface LessonMetaProps {
   readonly className?: string
@@ -22,8 +23,17 @@ interface LessonMetaProps {
   readonly lesson: MetaLesson
 }
 
-const LessonLength = ({ durationMs }: { readonly durationMs: number | null }): JSX.Element => {
+const LessonLength = ({ lesson: { durationMs, format } }: { readonly lesson: MetaLesson }): JSX.Element => {
   const t = useTranslations("components.custom.lesson-meta")
+
+  if (format === LESSON_FORMAT.TEXT) {
+    return (
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <FileText aria-hidden className="size-3 shrink-0" />
+        <span className="truncate">{t("text")}</span>
+      </span>
+    )
+  }
 
   if (durationMs === null) {
     return (
@@ -55,7 +65,7 @@ export const LessonMeta = ({ className, compact = false, lesson }: LessonMetaPro
           {t(`access.${lesson.access}`, { offer })}
         </Badge>
       )}{" "}
-      <LessonLength durationMs={lesson.durationMs} />
+      <LessonLength lesson={lesson} />
     </span>
   )
 }

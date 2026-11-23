@@ -148,7 +148,7 @@ test.describe("landing page", () => {
       `/courses/${TEST_COURSE.slug}`,
     )
     const tile = showcase.getByRole("listitem").filter({ has: page.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] }) })
-    await expect(tile.getByText(`3 of ${String(TEST_LESSONS.length)} lessons recorded`)).toBeVisible()
+    await expect(tile.getByText(`3 of ${String(TEST_LESSONS.length)} lessons ready`)).toBeVisible()
     await expect(tile.getByRole("link", { name: `${freeLesson.title["en-US"]} Free preview` })).toBeVisible()
     await expect(tile.getByRole("link", { name: `${accountLesson.title["en-US"]} Locked: free with an account` })).toContainText(
       "Free with an account",

@@ -6,14 +6,11 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
 
-import { cn } from "~/src/lib/cn"
-
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
-import { FieldPending, PAGE_ROWS, PaginationPending } from "~/src/presentation/components/custom/admin/pending-blocks"
+import { FieldPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 import { ROUTES } from "~/src/routes"
@@ -177,80 +174,3 @@ export const AdminCourseSectionPending = (): JSX.Element => {
 
   return <Page />
 }
-
-const VIDEO_TITLE_COLUMN = { id: "title", width: "w-12" } as const
-const VIDEO_DETAIL_COLUMNS = [
-  { id: "duration", width: "w-16" },
-  { id: "resolution", width: "w-20" },
-  { id: "size", width: "w-10" },
-  { id: "captions", width: "w-16" },
-  { id: "placeholder", width: "w-8" },
-  { id: "published", width: "w-18" },
-] as const
-const VIDEO_PUBLISH_STEPS = ["ffmpeg", "keys", "publish"] as const
-
-const VideoRowPending = (): JSX.Element => (
-  <TableRow>
-    <TableCell>
-      <div className="flex flex-col">
-        <Skeleton className="h-lh w-40 scale-y-70 text-sm" />
-        <Skeleton className="h-lh w-64 scale-y-70 text-spec" />
-      </div>
-    </TableCell>
-    {VIDEO_DETAIL_COLUMNS.map(({ id, width }) => (
-      <TableCell key={id}>
-        <Skeleton className={cn("h-lh scale-y-70 text-sm", width)} />
-      </TableCell>
-    ))}
-    <TableCell>
-      <div className="flex justify-end gap-1">
-        <Skeleton className="size-8 rounded-md" />
-        <Skeleton className="size-8 rounded-md" />
-      </div>
-    </TableCell>
-  </TableRow>
-)
-
-export const AdminVideosPending = (): JSX.Element => (
-  <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <AdminPageHeaderPending />
-    <div className="space-y-4">
-      <TableContainer>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {[VIDEO_TITLE_COLUMN, ...VIDEO_DETAIL_COLUMNS].map(({ id, width }) => (
-                <TableHead key={id}>
-                  <Skeleton className={cn("h-lh scale-y-70", width)} />
-                </TableHead>
-              ))}
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {PAGE_ROWS.map((row) => (
-              <VideoRowPending key={row} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <PaginationPending />
-    </div>
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-lh w-36 scale-y-70 text-base" />
-        <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-sm" />
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-4">
-          {VIDEO_PUBLISH_STEPS.map((step) => (
-            <div className="flex flex-col gap-2" key={step}>
-              <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-sm" />
-              <Skeleton className="h-11 w-full rounded-md" />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-)

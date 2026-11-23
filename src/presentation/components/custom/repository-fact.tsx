@@ -56,7 +56,7 @@ import {
   LESSON_ATTACHMENT_MAX_MEGABYTES,
   LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
 } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
-import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_FORMATS, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
@@ -74,6 +74,15 @@ import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
 import { RESEND_COOLDOWN_SECONDS, VERIFICATION_POLL_MS } from "~/src/modules/verification/verification.constants"
+import {
+  VIDEO_UPLOADS_PER_MINUTE,
+  VIDEO_UPLOAD_CONCURRENCY,
+  VIDEO_UPLOAD_EXTENSIONS,
+  VIDEO_UPLOAD_MAX_GIGABYTES,
+  VIDEO_UPLOAD_PART_ATTEMPTS,
+  VIDEO_UPLOAD_PART_MEGABYTES,
+  VIDEO_UPLOAD_POLL_MS,
+} from "~/src/modules/video-upload/video-upload.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
   AUDIO_BITRATE,
@@ -229,6 +238,7 @@ const FACTS = {
   idleFallbackDelayMs: IDLE_FALLBACK_DELAY_MS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonDescriptionMaxLength: LESSON_DESCRIPTION_MAX_LENGTH,
+  lessonFormats: LESSON_FORMATS,
   lessonKeyMomentsMaxItems: LESSON_KEY_MOMENTS_MAX_ITEMS,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   licenseActivationsStaleMinutes: LICENSE_ACTIVATIONS_STALE_MS / MILLISECONDS_PER_MINUTE,
@@ -300,6 +310,13 @@ const FACTS = {
   videoQualityCrf: VIDEO_QUALITY_CRF,
   videoSegmentSeconds: SEGMENT_SECONDS,
   videoTopRendition: renditionName(MAX_RENDITION_HEIGHT),
+  videoUploadConcurrency: VIDEO_UPLOAD_CONCURRENCY,
+  videoUploadFileTypes: VIDEO_UPLOAD_EXTENSIONS,
+  videoUploadMaxGigabytes: VIDEO_UPLOAD_MAX_GIGABYTES,
+  videoUploadPartAttempts: VIDEO_UPLOAD_PART_ATTEMPTS,
+  videoUploadPartMegabytes: VIDEO_UPLOAD_PART_MEGABYTES,
+  videoUploadPollSeconds: VIDEO_UPLOAD_POLL_MS / MILLISECONDS_PER_SECOND,
+  videoUploadsPerMinute: VIDEO_UPLOADS_PER_MINUTE,
   vitestProjects: coverageScope.projects,
 } satisfies Record<string, Value>
 

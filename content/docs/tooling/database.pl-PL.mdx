@@ -88,7 +88,7 @@ Zaloguj się pod http://localhost:3000/auth/sign-in jako administrator i otwórz
 ## Dane kursów w każdym środowisku [#course-data-in-each-environment]
 
 - Lokalnie: `bun run db:seed:local` importuje program kursów.
-- Produkcja: administrator importuje `content/courses/saasy-land-courses.json` w panelu administracyjnym. Zaloguj się jako administrator, otwórz **Treść → Kursy**, wybierz **Importuj**, wskaż plik, uruchom **Sprawdź plik**, przeczytaj plan, a następnie wybierz **Importuj**. Ponowny import tego samego pliku niczego nie zmienia. Zobacz [Import i eksport](/docs/features/courses#import-and-export).
+- Produkcja: administrator importuje `content/courses/saasy-land-courses.json` w panelu administracyjnym. Zaloguj się jako administrator, otwórz **Treści → Kursy**, wybierz **Importuj**, wskaż plik, uruchom **Sprawdź plik**, przeczytaj plan, a następnie wybierz **Importuj**. Ponowny import tego samego pliku niczego nie zmienia. Zobacz [Import i eksport](/docs/features/courses#import-and-export).
 - Preview: `bun run courses:sync:preview` kopiuje opublikowane kursy produkcji, więc preview pokazuje ten sam katalog co produkcja.
 
 ### Kopiowanie kursów na preview [#copying-the-courses-to-preview]
@@ -100,10 +100,11 @@ bun run courses:sync:preview
 
 `scripts/sync-courses.ts` łączy się z D1 tak jak `admin:grant:*`, przez `wrangler d1 execute --remote` i wspólny `scripts/d1-execute.ts`. Do produkcji wysyła wyłącznie instrukcje `SELECT`, a na preview zapisuje w jednym uruchomieniu z `--file`. Kopiuje wiersz po wierszu, razem z ich identyfikatorami i znacznikami czasu:
 
-- każdy opublikowany kurs z jego rozdziałami, lekcjami i ich załącznikami w postaci linków; wiersz, który preview już ma, jest aktualizowany po identyfikatorze, więc drugie uruchomienie nie zmienia niczego, czego nie zmieniono na produkcji;
-- wiersze `video`, których używają te lekcje, jako wiersze zastępcze. Pliki filmu leżą w buckecie `MEDIA` produkcji i nie są kopiowane, więc na preview jego lekcje są oznaczone jako [w trakcie nagrywania](/docs/features/courses#being-recorded), zamiast zgłaszać błąd odtwarzania. Wiersz `video`, który preview już ma, zachowuje swoją flagę filmu zastępczego.
+- każdy opublikowany kurs z jego rozdziałami, lekcjami i ich załącznikami w postaci linków; wiersz, który preview już ma, jest aktualizowany po identyfikatorze, więc drugie uruchomienie nie zmienia niczego, czego nie zmieniono na produkcji.
 
-W kopiowanych kursach usuwa rozdziały, lekcje i załączniki w postaci linków, których produkcja już nie ma, razem z postępami na preview w tych lekcjach, oraz usuwa kurs na preview, którego produkcja już nie publikuje. Nie kopiuje załączników w postaci plików, bo ich pliki leżą w buckecie produkcji, ani niczego spoza tych tabel: żadnych użytkowników, sesji, licencji, zamówień, subskrypcji ani postępów. Lekcja, której w edytorze lekcji na preview ustawisz inny film, po następnym uruchomieniu znów wskazuje film z produkcji.
+Nie kopiuje żadnych wierszy `video` i pomija przy kopiowaniu `video_id` każdej lekcji: pliki filmów leżą w buckecie `MEDIA` produkcji, więc lekcja nowa na preview zaczyna bez filmu i jest oznaczona jako [w trakcie nagrywania](/docs/features/courses#being-recorded), zamiast zgłaszać błąd odtwarzania, a lekcja, którą preview już ma, zachowuje film przesłany w edytorze lekcji na preview.
+
+W kopiowanych kursach usuwa rozdziały, lekcje i załączniki w postaci linków, których produkcja już nie ma, razem z postępami na preview w tych lekcjach, oraz usuwa kurs na preview, którego produkcja już nie publikuje. Nie kopiuje załączników w postaci plików, bo ich pliki leżą w buckecie produkcji, ani niczego spoza tych tabel: żadnych użytkowników, sesji, licencji, zamówień, subskrypcji, przesłanych nagrań ani postępów.
 
 Pomija przy kopiowaniu `course.cover`: pliki okładki są w buckecie `MEDIA` produkcji, więc kurs nowy na preview nie ma okładki, a kurs, który preview już ma, zachowuje przesłaną tam okładkę.
 

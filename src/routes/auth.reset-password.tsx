@@ -23,7 +23,7 @@ const ResetPasswordPage = (): JSX.Element => {
 
   const { error, redirect, token } = Route.useSearch()
 
-  const resetToken = error === undefined ? token : undefined
+  const hasValidToken = error === undefined && token !== undefined
 
   return (
     <>
@@ -31,8 +31,8 @@ const ResetPasswordPage = (): JSX.Element => {
       <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description")}</p>
 
       <div className="mt-10 flex flex-col gap-6">
-        {resetToken !== undefined && <ResetPasswordForm token={resetToken} />}
-        {resetToken === undefined && (
+        {hasValidToken && <ResetPasswordForm token={token} />}
+        {!hasValidToken && (
           <>
             <p className="text-body text-pretty text-destructive">{t("form.invalidToken")}</p>
             <Link

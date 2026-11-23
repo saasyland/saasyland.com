@@ -46,8 +46,8 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
       <nav aria-label="Documentation navigation">
-        {typeof nav?.title === "function" ? undefined : <a href={nav?.url}>{nav?.title}</a>}
-        {links?.map((link, index) => (link.type === "custom" ? <div key={index}>{link.children}</div> : undefined))}
+        {typeof nav?.title !== "function" && <a href={nav?.url}>{nav?.title}</a>}
+        {links?.map((link, index) => link.type === "custom" && <div key={index}>{link.children}</div>)}
       </nav>
       {typeof sidebar === "object" && sidebar.footer}
       <main>{children}</main>

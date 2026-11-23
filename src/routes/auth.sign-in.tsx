@@ -19,7 +19,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
 import { SignInPending } from "~/src/presentation/components/custom/auth/auth-pending"
-import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
 
 import { ROUTES } from "~/src/routes"
@@ -60,11 +60,7 @@ const SignInPage = (): JSX.Element => {
           </p>
         )}
         <OAuthButtons />
-        <div className="flex items-center gap-4">
-          <span aria-hidden className="h-px flex-1 bg-border" />
-          <span className="text-body-sm text-muted-foreground">{t("pages.auth.sign-in.form.or")}</span>
-          <span aria-hidden className="h-px flex-1 bg-border" />
-        </div>
+        <OAuthDivider />
         <SignInForm />
       </div>
 

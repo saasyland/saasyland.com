@@ -18,7 +18,7 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 
 import { AcceptInvitationForm } from "~/src/presentation/components/custom/auth/accept-invitation-form"
-import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -37,7 +37,7 @@ const PageHeading = ({ children, description }: { readonly children: ReactNode; 
 export const InvitationUnavailable = ({
   status,
 }: {
-  readonly status: Exclude<InvitationStatus, typeof INVITATION_STATUS.PENDING> | undefined
+  readonly status?: Exclude<InvitationStatus, typeof INVITATION_STATUS.PENDING>
 }): JSX.Element => {
   const t = useTranslations("pages.auth.invite")
 
@@ -133,7 +133,7 @@ export const AcceptInvitation = ({ token }: { readonly token: string }): JSX.Ele
   const session = useSuspenseQuery(getCurrentSessionQuery).data
 
   if (invitation === undefined) {
-    return <InvitationUnavailable status={undefined} />
+    return <InvitationUnavailable />
   }
   if (invitation.status !== INVITATION_STATUS.PENDING) {
     return <InvitationUnavailable status={invitation.status} />
@@ -157,11 +157,7 @@ export const AcceptInvitation = ({ token }: { readonly token: string }): JSX.Ele
       </PageHeading>
       <div className="mt-10 flex flex-col gap-6">
         <OAuthButtons redirect={invitePage} />
-        <div className="flex items-center gap-4">
-          <span aria-hidden className="h-px flex-1 bg-border" />
-          <span className="text-body-sm text-muted-foreground">{t("form.or")}</span>
-          <span aria-hidden className="h-px flex-1 bg-border" />
-        </div>
+        <OAuthDivider />
         <AcceptInvitationForm email={invitation.email} token={token} />
       </div>
       <p className="mt-10 text-body-sm text-muted-foreground">

@@ -87,7 +87,7 @@ export const Route = createFileRoute("/_site/_marketing/")({
       metadata,
       notes: {
         latest: latest.map((post) => toBlogPostSummary(post, locale)),
-        lead: lead === undefined ? undefined : toBlogPostSummary(lead, locale),
+        lead: lead && toBlogPostSummary(lead, locale),
       },
     }
   },

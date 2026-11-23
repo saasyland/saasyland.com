@@ -97,7 +97,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/")({
   validateSearch: zod.object({
     page: searchParam(LOADED_PAGES),
     q: searchText(),
-    sort: searchChoice(BLOG_SORTS, BLOG_SORT.NEWEST),
+    sort: searchChoice(BLOG_SORTS, SEARCH_DEFAULTS.sort),
     tag: searchParam(TOPIC),
   }),
   component: BlogIndexPage,

@@ -9,21 +9,18 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
-import { SETTINGS_TAB, SETTINGS_TABS, settingsSearchSchema } from "~/src/data/auth"
+import { SETTINGS_TAB, settingsSearchSchema } from "~/src/data/auth"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
+import { Tabs, TabsContent } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
-import { ConnectedAccountsCard } from "~/src/presentation/components/custom/settings/connected-accounts-card"
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
-import { PasswordCard } from "~/src/presentation/components/custom/settings/password-card"
-import { SessionsCard } from "~/src/presentation/components/custom/settings/sessions-card"
-import { TwoFactorCard } from "~/src/presentation/components/custom/settings/two-factor-card"
+import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 
 import { ROUTES } from "~/src/routes"
 
@@ -36,15 +33,7 @@ const SettingsPage = (): JSX.Element => {
     <Tabs className="w-full animate-in gap-0 duration-500 fade-in-50" selectedKey={tab}>
       <AdminPageHeader
         description={t("pages.admin.settings.description")}
-        tabs={
-          <TabsList className="no-scrollbar justify-start gap-6 overflow-x-auto" variant="line">
-            {SETTINGS_TABS.map((id) => (
-              <TabsTrigger className="flex-none px-0 text-sm" href={`${ROUTES.ADMIN_SETTINGS}?tab=${id}`} id={id} key={id}>
-                {t(`auth.security.tabs.${id}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        }
+        tabs={<SettingsTabs to={ROUTES.ADMIN_SETTINGS} />}
         title={t("pages.admin.settings.title")}
       />
 
@@ -54,10 +43,7 @@ const SettingsPage = (): JSX.Element => {
       </TabsContent>
 
       <TabsContent className="mt-8 flex flex-col gap-6 outline-none" id={SETTINGS_TAB.SECURITY}>
-        <PasswordCard />
-        <TwoFactorCard />
-        <ConnectedAccountsCard />
-        <SessionsCard />
+        <SecurityCards />
       </TabsContent>
     </Tabs>
   )

@@ -31,7 +31,6 @@ import { ROUTES } from "~/src/routes"
 
 type ConfirmationStatus = (typeof CONFIRMATION_STATUS)[keyof typeof CONFIRMATION_STATUS]
 
-const NAMESPACE = "pages.newsletter.confirm"
 const LOAD_ERROR = "error"
 
 const NewsletterConfirmResult = ({ status }: { readonly status: ConfirmationStatus | typeof LOAD_ERROR }): JSX.Element => {
@@ -92,9 +91,13 @@ const NewsletterConfirmPage = (): JSX.Element => {
   return <NewsletterConfirmResult status={status} />
 }
 
+const NAMESPACE = "pages.newsletter.confirm"
+
+const SEARCH_DEFAULTS = { status: CONFIRMATION_STATUS.EXPIRED } as const
+
 export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
   validateSearch: zod.object({
-    status: searchChoice([CONFIRMATION_STATUS.CONFIRMED, CONFIRMATION_STATUS.EXPIRED], CONFIRMATION_STATUS.EXPIRED),
+    status: searchChoice([CONFIRMATION_STATUS.CONFIRMED, CONFIRMATION_STATUS.EXPIRED], SEARCH_DEFAULTS.status),
     token: searchParam(newsletterSubscriberZodSchemas.confirmNewsletterSubscription.shape.token),
   }),
   component: NewsletterConfirmPage,
@@ -109,6 +112,6 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
     return { locale, metadata }
   },
   pendingComponent: NewsletterPending,
-  search: { middlewares: [stripSearchParams({ status: CONFIRMATION_STATUS.EXPIRED })] },
+  search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },
 })

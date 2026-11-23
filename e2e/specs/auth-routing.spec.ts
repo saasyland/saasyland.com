@@ -10,6 +10,8 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const LANDING_CPU_SLOWDOWN = 4
 
+const SERVER_FUNCTION_PATH = "/_serverFn/"
+
 test.describe("auth routing", () => {
   test("unauthenticated /admin redirects to sign-in", async ({ page }) => {
     const response = await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -113,6 +115,50 @@ test("a client navigation once the cached session is stale rechecks an ended ses
   await expect(page).toHaveURL(/\/auth\/sign-up$/u)
   await appPage.waitForAppReady()
   await expect(page.locator("#sign-up-form")).toBeVisible()
+})
+
+test("a workspace link pressed after hovering it, which already found the ended session, still says the session ended", async ({
+  appPage,
+  baseURL,
+  page,
+}) => {
+  const customer = TEST_ACCOUNTS[1]
+  const serverFunctions = { finished: 0, started: 0 }
+  page.on("request", (request) => {
+    if (request.url().includes(SERVER_FUNCTION_PATH)) serverFunctions.started += 1
+  })
+  page.on("requestfinished", (request) => {
+    if (request.url().includes(SERVER_FUNCTION_PATH)) serverFunctions.finished += 1
+  })
+  await page.clock.install()
+  const signedIn = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: customer.email, password: TEST_PASSWORD },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
+  })
+  expect(signedIn.ok()).toBe(true)
+  await page.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
+  await appPage.waitForHydration(navigation)
+  const signedOut = await page.request.post("/api/auth/sign-out", { data: {}, headers: { Origin: new URL(page.url()).origin } })
+  expect(signedOut.ok()).toBe(true)
+  await page.clock.fastForward(SESSION_STALE_TIME_MS)
+  const settings = navigation.getByRole("link", { name: "Settings", exact: true })
+  const startedBeforeHover = serverFunctions.started
+  await settings.hover()
+  await expect.poll(() => serverFunctions.started).toBeGreaterThan(startedBeforeHover)
+  await expect.poll(() => serverFunctions.started - serverFunctions.finished).toBe(0)
+
+  await settings.click()
+
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === ROUTES.SIGN_IN &&
+      url.searchParams.get("redirect") === ROUTES.APP_SETTINGS &&
+      url.searchParams.get("error") === SESSION_EXPIRED_CODE,
+  )
+  await appPage.waitForAppReady()
+  await expect(page.getByRole("status")).toHaveText("Your session ended. Sign in to continue to Settings.")
 })
 
 test("a signed-in visitor who presses a header link while the landing page hydrates opens the workspace without a hydration error", async ({

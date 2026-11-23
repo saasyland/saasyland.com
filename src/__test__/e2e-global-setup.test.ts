@@ -4,7 +4,7 @@ import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it, onTestFinished } from "vite-plus/test"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { LOCAL_SERVER } from "~/src/data/local-server"
 
@@ -22,7 +22,7 @@ const listenHere = async (): Promise<string> => {
     server.listen(0, LOCAL_SERVER.HOST, resolve)
   })
 
-  return String(z.object({ port: z.number() }).parse(server.address()).port)
+  return String(zod.object({ port: zod.number() }).parse(server.address()).port)
 }
 
 const listenIn = (directory: string): Promise<string> => {

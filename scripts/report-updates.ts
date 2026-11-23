@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import {
   type LatestVersion,
@@ -24,11 +24,17 @@ const UNKNOWN_COMMIT = "unknown"
 
 export const REPORT_MODE = { FIND: "find", ISSUE: "issue" } as const
 
-const issuesSchema = z.array(z.object({ number: z.int(), title: z.string() }))
-const argumentsSchema = z.tuple([z.enum(REPORT_MODE), z.string().min(1)])
-const outdatedSchema = z.object({ latest: z.string(), name: z.string(), package: z.string(), spec: z.string(), version: z.string() })
-const skillChangeSchema = z.object({ from: z.string(), name: z.string(), source: z.string(), to: z.string() })
-const updatesSchema = z.object({ packages: z.array(outdatedSchema), skills: z.array(skillChangeSchema) })
+const issuesSchema = zod.array(zod.object({ number: zod.int(), title: zod.string() }))
+const argumentsSchema = zod.tuple([zod.enum(REPORT_MODE), zod.string().min(1)])
+const outdatedSchema = zod.object({
+  latest: zod.string(),
+  name: zod.string(),
+  package: zod.string(),
+  spec: zod.string(),
+  version: zod.string(),
+})
+const skillChangeSchema = zod.object({ from: zod.string(), name: zod.string(), source: zod.string(), to: zod.string() })
+const updatesSchema = zod.object({ packages: zod.array(outdatedSchema), skills: zod.array(skillChangeSchema) })
 
 export interface SkillChange {
   readonly from: string

@@ -3,7 +3,7 @@ import { useMemo } from "react"
 import type { Translations } from "@fumadocs/base-ui/i18n"
 import type { RootProviderProps } from "@fumadocs/base-ui/provider/tanstack"
 import { useTranslations } from "use-intl/react"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 

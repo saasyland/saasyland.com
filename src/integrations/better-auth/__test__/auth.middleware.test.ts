@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { APIError } from "better-auth/api"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { z as zod } from "zod"
+import * as zod from "zod"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { RATE_LIMITS, authorized, clientAddress, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"

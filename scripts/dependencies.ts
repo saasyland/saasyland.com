@@ -1,7 +1,7 @@
 import { type ParseError, parse } from "jsonc-parser"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 export const PACKAGE_JSON = "package.json"
 export const BUN_LOCK = "bun.lock"
@@ -13,16 +13,16 @@ const RANGE_SPEC = /^[\^~]/u
 const VERSION_SEPARATOR = "@"
 const SEMVER = /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<prerelease>-.+)?$/u
 
-const specsSchema = z.record(z.string(), z.string()).default({})
-const manifestSchema = z.object({ dependencies: specsSchema, devDependencies: specsSchema })
-const lockedPackageSchema = z.tuple([z.string()], z.unknown())
-const bunLockSchema = z.object({ packages: z.record(z.string(), lockedPackageSchema) })
-const latestSchema = z.object({ version: z.string() })
-const semverSchema = z.object({
-  major: z.coerce.number(),
-  minor: z.coerce.number(),
-  patch: z.coerce.number(),
-  prerelease: z.string().optional(),
+const specsSchema = zod.record(zod.string(), zod.string()).default({})
+const manifestSchema = zod.object({ dependencies: specsSchema, devDependencies: specsSchema })
+const lockedPackageSchema = zod.tuple([zod.string()], zod.unknown())
+const bunLockSchema = zod.object({ packages: zod.record(zod.string(), lockedPackageSchema) })
+const latestSchema = zod.object({ version: zod.string() })
+const semverSchema = zod.object({
+  major: zod.coerce.number(),
+  minor: zod.coerce.number(),
+  patch: zod.coerce.number(),
+  prerelease: zod.string().optional(),
 })
 
 export interface Dependency {
@@ -38,13 +38,13 @@ export interface OutdatedDependency extends Dependency {
 
 export type LatestVersion = (name: string) => Promise<string>
 
-export const readManifest = (root: string): z.infer<typeof manifestSchema> => {
+export const readManifest = (root: string): zod.infer<typeof manifestSchema> => {
   const manifest: unknown = JSON.parse(readFileSync(join(root, PACKAGE_JSON), "utf8"))
 
   return manifestSchema.parse(manifest)
 }
 
-const readBunLock = (root: string): z.infer<typeof bunLockSchema> => {
+const readBunLock = (root: string): zod.infer<typeof bunLockSchema> => {
   const errors: ParseError[] = []
   const value: unknown = parse(readFileSync(join(root, BUN_LOCK), "utf8"), errors, { allowTrailingComma: true })
 

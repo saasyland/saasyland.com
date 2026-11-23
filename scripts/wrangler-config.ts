@@ -1,31 +1,31 @@
 import { type ParseError, parse } from "jsonc-parser"
 import { readFile } from "node:fs/promises"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 const WRANGLER_CONFIG = "wrangler.jsonc"
 
-const databaseSchema = z.object({ binding: z.string(), database_id: z.string(), preview_database_id: z.string().optional() })
-const namespaceSchema = z.object({ binding: z.string(), id: z.string() })
-const bucketSchema = z.object({ binding: z.string(), bucket_name: z.string() })
-const secretsSchema = z.object({ required: z.array(z.string()) })
+const databaseSchema = zod.object({ binding: zod.string(), database_id: zod.string(), preview_database_id: zod.string().optional() })
+const namespaceSchema = zod.object({ binding: zod.string(), id: zod.string() })
+const bucketSchema = zod.object({ binding: zod.string(), bucket_name: zod.string() })
+const secretsSchema = zod.object({ required: zod.array(zod.string()) })
 
-const environmentSchema = z.object({
-  d1_databases: z.array(databaseSchema).default([]),
-  kv_namespaces: z.array(namespaceSchema).default([]),
-  name: z.string(),
-  r2_buckets: z.array(bucketSchema).default([]),
+const environmentSchema = zod.object({
+  d1_databases: zod.array(databaseSchema).default([]),
+  kv_namespaces: zod.array(namespaceSchema).default([]),
+  name: zod.string(),
+  r2_buckets: zod.array(bucketSchema).default([]),
   secrets: secretsSchema,
-  vars: z.record(z.string(), z.string()).optional(),
+  vars: zod.record(zod.string(), zod.string()).optional(),
 })
 
-const wranglerSchema = z.object({ env: z.record(z.string(), environmentSchema) })
+const wranglerSchema = zod.object({ env: zod.record(zod.string(), environmentSchema) })
 
 interface WranglerBinding {
   readonly binding: string
   readonly resource: string
 }
 
-const readWranglerEnvironments = async (): Promise<z.infer<typeof wranglerSchema>["env"]> => {
+const readWranglerEnvironments = async (): Promise<zod.infer<typeof wranglerSchema>["env"]> => {
   const errors: ParseError[] = []
   const value: unknown = parse(await readFile(WRANGLER_CONFIG, "utf8"), errors, { allowTrailingComma: true })
   if (errors.length > 0) {
@@ -35,7 +35,7 @@ const readWranglerEnvironments = async (): Promise<z.infer<typeof wranglerSchema
   return wranglerSchema.parse(value).env
 }
 
-export const readWranglerEnvironment = async (environment: string): Promise<z.infer<typeof environmentSchema>> => {
+export const readWranglerEnvironment = async (environment: string): Promise<zod.infer<typeof environmentSchema>> => {
   const environments = await readWranglerEnvironments()
   const config = environments[environment]
   if (config === undefined) {

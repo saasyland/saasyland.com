@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { writeFile } from "node:fs/promises"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
@@ -31,37 +31,37 @@ export const JOB_STATE = { FAILED: "failed", PENDING: "pending", READY: "ready" 
 
 type JobState = (typeof JOB_STATE)[keyof typeof JOB_STATE]
 
-const stepSchema = z.object({ conclusion: z.string().nullable(), name: z.string() })
-const jobSchema = z.object({
-  conclusion: z.string().nullable(),
-  html_url: z.string(),
-  id: z.int(),
-  name: z.string(),
-  started_at: z.string(),
-  status: z.string(),
-  steps: z.array(stepSchema).default([]),
+const stepSchema = zod.object({ conclusion: zod.string().nullable(), name: zod.string() })
+const jobSchema = zod.object({
+  conclusion: zod.string().nullable(),
+  html_url: zod.string(),
+  id: zod.int(),
+  name: zod.string(),
+  started_at: zod.string(),
+  status: zod.string(),
+  steps: zod.array(stepSchema).default([]),
 })
-const jobsSchema = z.object({ jobs: z.array(jobSchema) })
-const artifactSchema = z.object({
-  created_at: z.string().nullable(),
-  digest: z.string().nullable(),
-  expired: z.boolean(),
-  id: z.int(),
-  name: z.string(),
+const jobsSchema = zod.object({ jobs: zod.array(jobSchema) })
+const artifactSchema = zod.object({
+  created_at: zod.string().nullable(),
+  digest: zod.string().nullable(),
+  expired: zod.boolean(),
+  id: zod.int(),
+  name: zod.string(),
 })
-const artifactsSchema = z.object({ artifacts: z.array(artifactSchema) })
+const artifactsSchema = zod.object({ artifacts: zod.array(artifactSchema) })
 
-const argumentsSchema = z.tuple([z.string().min(1), z.string().min(1), z.string().min(1), z.string().min(1)])
-const environmentSchema = z.object({
-  GH_TOKEN: z.string().min(1),
-  GITHUB_API_URL: z.url(),
-  GITHUB_REPOSITORY: z.string().min(1),
-  GITHUB_RUN_ID: z.string().regex(/^\d+$/u),
+const argumentsSchema = zod.tuple([zod.string().min(1), zod.string().min(1), zod.string().min(1), zod.string().min(1)])
+const environmentSchema = zod.object({
+  GH_TOKEN: zod.string().min(1),
+  GITHUB_API_URL: zod.url(),
+  GITHUB_REPOSITORY: zod.string().min(1),
+  GITHUB_RUN_ID: zod.string().regex(/^\d+$/u),
 })
 
-export type Job = z.infer<typeof jobSchema>
+export type Job = zod.infer<typeof jobSchema>
 
-export type Artifact = z.infer<typeof artifactSchema>
+export type Artifact = zod.infer<typeof artifactSchema>
 
 interface Target {
   readonly artifact: string

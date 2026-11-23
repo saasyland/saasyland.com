@@ -7,7 +7,7 @@ import { join } from "node:path"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 import { parseEnv } from "node:util"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { polarOrderTerms } from "~/src/modules/order/order.polar"
 import { order } from "~/src/modules/order/order.schema"
@@ -23,9 +23,9 @@ const DEFAULT_RETRY_AFTER_SECONDS = 60
 const STATEMENTS_DIRECTORY = ".wrangler/tmp"
 const USAGE = "Usage: bun run orders:backfill:<local|preview|production>"
 
-const environmentSchema = z.enum(D1_ENVIRONMENTS)
-const settingsSchema = z.object({ POLAR_ACCESS_TOKEN: z.string().trim().nonempty(), POLAR_SERVER: z.enum(POLAR_SERVER) })
-const pendingSchema = z.object({ id: z.string() })
+const environmentSchema = zod.enum(D1_ENVIRONMENTS)
+const settingsSchema = zod.object({ POLAR_ACCESS_TOKEN: zod.string().trim().nonempty(), POLAR_SERVER: zod.enum(POLAR_SERVER) })
+const pendingSchema = zod.object({ id: zod.string() })
 
 const [environmentArgument] = scriptArguments()
 const environment = environmentSchema.safeParse(environmentArgument)

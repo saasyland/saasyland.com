@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 export const TIME_RANGE = {
   LAST_12_MONTHS: "12m",

@@ -1,3 +1,3 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 zod.config({ jitless: true })

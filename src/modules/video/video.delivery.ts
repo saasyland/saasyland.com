@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import { env, waitUntil } from "cloudflare:workers"
 
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"

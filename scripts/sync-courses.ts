@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
@@ -24,14 +24,14 @@ const SQLITE_TRUE = 1
 const STATEMENTS_FILE = "courses.sql"
 const TEMPORARY_PREFIX = "saasyland-courses-"
 
-const cellSchema = z.union([z.string(), z.number(), z.null()])
-const rowSchema = z.record(z.string(), cellSchema)
-const rowsSchema = z.array(rowSchema)
-const idsSchema = z.array(z.object({ id: z.string() }))
-const slugsSchema = z.array(z.object({ id: z.string(), slug: z.string() }))
-const countSchema = z.tuple([z.object({ count: z.number() })])
+const cellSchema = zod.union([zod.string(), zod.number(), zod.null()])
+const rowSchema = zod.record(zod.string(), cellSchema)
+const rowsSchema = zod.array(rowSchema)
+const idsSchema = zod.array(zod.object({ id: zod.string() }))
+const slugsSchema = zod.array(zod.object({ id: zod.string(), slug: zod.string() }))
+const countSchema = zod.tuple([zod.object({ count: zod.number() })])
 
-type Row = z.infer<typeof rowSchema>
+type Row = zod.infer<typeof rowSchema>
 
 const dialect = new SQLiteSyncDialect()
 
@@ -50,7 +50,7 @@ const both = (first: SQL, second: SQL): SQL => sql`${first} and ${second}`
 const read = (environment: D1Environment, statements: readonly string[]): Promise<unknown[][]> =>
   executeD1({ environment, input: ["--command", statements.join("\n")] })
 
-const idsOf = (rows: readonly Readonly<Record<string, unknown>>[]): string[] => rows.map((row) => z.string().parse(row[ID]))
+const idsOf = (rows: readonly Readonly<Record<string, unknown>>[]): string[] => rows.map((row) => zod.string().parse(row[ID]))
 
 const idSetOf = (rows: unknown): Set<string> => new Set(idsOf(idsSchema.parse(rows)))
 
@@ -98,7 +98,7 @@ type Catalogue = Awaited<ReturnType<typeof readProduction>>
 
 const readPreview = async (catalogue: Catalogue) => {
   const courseIds = idsOf(catalogue.courses)
-  const slugs = catalogue.courses.map((row) => z.string().parse(row[course.slug.name]))
+  const slugs = catalogue.courses.map((row) => zod.string().parse(row[course.slug.name]))
   const known = [...courseIds, ...catalogue.retired]
   const previewLessons = sql`select ${sql.identifier(ID)} from ${lesson} where ${inArray(lesson.courseId, courseIds)}`
   const linksOfLessons = both(

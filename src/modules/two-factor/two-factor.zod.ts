@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { BACKUP_CODE_MAX_LENGTH, BACKUP_CODE_MIN_LENGTH, TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { signInPasswordSchema } from "~/src/integrations/better-auth/auth.zod"

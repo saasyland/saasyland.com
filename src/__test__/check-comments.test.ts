@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { SOURCE_PATTERNS, commentProblems, commentsOf, sourceFiles } from "~/scripts/check-comments"
 import { COMMENT_MESSAGES } from "~/scripts/code-style-lint-plugin"
@@ -10,7 +10,7 @@ const SPEC = "e2e/specs/probe.spec.ts"
 const STYLES = "src/presentation/styles/probe.css"
 const COMPONENT = "src/presentation/components/custom/probe.tsx"
 
-const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
+const { scripts } = zod.object({ scripts: zod.record(zod.string(), zod.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
 
 describe("commentsOf", () => {
   it("reads every comment of a TypeScript file with its line and column", () => {

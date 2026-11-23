@@ -1,6 +1,6 @@
 import { globSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { DOCS_ICONS, docsIcon } from "~/src/integrations/fumadocs/fumadocs.icons"
 

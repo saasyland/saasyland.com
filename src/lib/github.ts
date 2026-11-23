@@ -2,7 +2,7 @@ import { env, waitUntil } from "cloudflare:workers"
 
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { MILLISECONDS_PER_HOUR } from "~/src/lib/duration"
 

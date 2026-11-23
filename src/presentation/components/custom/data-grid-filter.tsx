@@ -5,7 +5,7 @@ import type { Column } from "@tanstack/react-table"
 import { ChevronLeft, ChevronRight, ListFilter, X } from "lucide-react"
 import { Autocomplete, Dialog, Heading, NumberField, type RangeValue, type Selection, TextField, useFilter } from "react-aria-components"
 import { useFormatter, useTimeZone, useTranslations } from "use-intl/react"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { columnLabel } from "~/src/integrations/tanstack-table/table.columns"
 import {

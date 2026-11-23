@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { decoratedSubject, subjectProblems } from "./commit-msg.ts"
 import { FAILURE_EXIT_CODE, scriptArguments } from "./run-command.ts"
 
-const argumentsSchema = z.tuple([z.string().regex(/^[1-9]\d*$/u)])
-const pullRequestSchema = z.object({ title: z.string() })
+const argumentsSchema = zod.tuple([zod.string().regex(/^[1-9]\d*$/u)])
+const pullRequestSchema = zod.object({ title: zod.string() })
 
 const gh = (args: readonly string[]): string => execFileSync("gh", args, { encoding: "utf8" }).trim()
 

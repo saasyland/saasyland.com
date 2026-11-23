@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField, localeField } from "~/src/modules/_core/utils/zod-fields"

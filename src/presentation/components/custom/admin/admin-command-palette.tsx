@@ -5,7 +5,7 @@ import { useHydrated, useRouter } from "@tanstack/react-router"
 import { CornerDownLeft, History, LoaderCircle, type LucideIcon, Search } from "lucide-react"
 import { Autocomplete, Button, Input, SearchField, useFilter } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"

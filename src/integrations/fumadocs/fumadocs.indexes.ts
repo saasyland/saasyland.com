@@ -10,7 +10,7 @@ import { globSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import remarkMdx from "remark-mdx"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { listChangelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import { i18n } from "~/src/integrations/fumadocs/fumadocs.i18n"

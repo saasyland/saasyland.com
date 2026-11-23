@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
@@ -8,7 +8,7 @@ import { DEPLOY_CHECKS } from "~/src/data/deploy"
 
 const DEPLOYED_ENVIRONMENTS = [ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION]
 
-const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
+const { scripts } = zod.object({ scripts: zod.record(zod.string(), zod.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
 
 describe("deploy checks", () => {
   it.each(DEPLOYED_ENVIRONMENTS)("names a package script for %s for every check an area declares", (environment) => {

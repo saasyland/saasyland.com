@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_FILES } from "~/src/modules/video/video.constants"
 

@@ -1,6 +1,6 @@
 import { $ } from "bun"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -9,7 +9,7 @@ import { releaseNotes } from "~/src/lib/release"
 
 import { scriptArguments } from "./run-command.ts"
 
-const argumentsSchema = z.tuple([z.string().min(1), z.string().regex(RELEASE_TAG)])
+const argumentsSchema = zod.tuple([zod.string().min(1), zod.string().regex(RELEASE_TAG)])
 
 const [commit, tag] = argumentsSchema.parse(scriptArguments())
 const existing = await $`gh release view ${tag}`.nothrow().quiet()

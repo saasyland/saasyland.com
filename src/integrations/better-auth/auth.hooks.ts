@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { pageCallbackURL } from "~/src/integrations/better-auth/auth.callbacks"
 import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"

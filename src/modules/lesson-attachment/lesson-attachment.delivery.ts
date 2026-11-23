@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import { env } from "cloudflare:workers"
 
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { SIGNED_DOWNLOAD_PATH, verifyDownload } from "~/src/modules/lesson-attachment/lesson-attachment.download"

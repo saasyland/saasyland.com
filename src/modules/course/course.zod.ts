@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"

@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it, onTestFinished } from "vite-plus/test"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { DISPATCHER_DIRECTORY, HOOKS_DIRECTORY, gitHookProblems } from "~/scripts/verify-git-hooks"
 
@@ -12,7 +12,7 @@ const EXECUTABLE_MODE = 0o755
 const READ_ONLY_MODE = 0o644
 const MAIN_CHECKOUT_DISPATCHER = "/home/developer/saasyland/.vite-hooks/_"
 
-const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
+const { scripts } = zod.object({ scripts: zod.record(zod.string(), zod.string()) }).parse(JSON.parse(readFileSync("package.json", "utf8")))
 
 const createCheckout = ({ dispatcherHooks }: { dispatcherHooks: readonly string[] }): string => {
   const root = mkdtempSync(join(tmpdir(), "git-hooks-"))

@@ -6,7 +6,7 @@ import process from "node:process"
 import { parseArgs } from "node:util"
 import sharp from "sharp"
 import { v7 } from "uuid"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -43,19 +43,19 @@ const WEBP_EFFORT = 6
 
 const USAGE = `Usage: bun run video:publish:<preview|production> <video> --title "Title" [--poster image] [--captions en-US=file.vtt ...]`
 
-const environmentSchema = z.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
+const environmentSchema = zod.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
 
-const toolsSchema = z.object({
-  FFMPEG: z.string().min(MIN_FIELD_LENGTH).default("ffmpeg"),
-  FFPROBE: z.string().min(MIN_FIELD_LENGTH).default("ffprobe"),
+const toolsSchema = zod.object({
+  FFMPEG: zod.string().min(MIN_FIELD_LENGTH).default("ffmpeg"),
+  FFPROBE: zod.string().min(MIN_FIELD_LENGTH).default("ffprobe"),
 })
 
-const captionSchema = z.string().transform((value, context) => {
+const captionSchema = zod.string().transform((value, context) => {
   const separator = value.indexOf(LOCALE_SEPARATOR)
   const locale = localeField.safeParse(value.slice(0, Math.max(separator, 0)))
   if (!locale.success) {
     context.addIssue({ code: "custom", message: `Expected <locale>=<file.vtt>, got ${value}` })
-    return z.NEVER
+    return zod.NEVER
   }
   return { file: value.slice(separator + SEPARATOR_LENGTH), locale: locale.data }
 })
@@ -77,7 +77,7 @@ if (input === undefined || values.title === undefined) {
 }
 
 const tools = toolsSchema.parse(process.env)
-const captions = z.array(captionSchema).parse(values.captions ?? [])
+const captions = zod.array(captionSchema).parse(values.captions ?? [])
 
 const run = async ([program = "", ...args]: readonly string[]): Promise<void> => {
   const child = spawn([program, ...args], { stderr: "inherit", stdout: "inherit" })
@@ -156,7 +156,7 @@ const removeAll = ({ bucket, files, videoId }: { bucket: string; files: string[]
     Promise.resolve(),
   )
 
-const insertStatement = (row: z.output<typeof videoZodSchemas.registerVideo>): string =>
+const insertStatement = (row: zod.output<typeof videoZodSchemas.registerVideo>): string =>
   inline(sqlBuilder.insert(video).values(row).toSQL())
 
 const bucket = await readBucketName({ binding: MEDIA_BINDING, environment })

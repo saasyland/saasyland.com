@@ -3,7 +3,7 @@ import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { createOrganizationsService } from "@polar-sh/sdk/2026-10/services/organizations"
 import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"

@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 const PAGE_SIZE = { LARGE: 50, LARGEST: 100, MEDIUM: 25, SMALL: 10 } as const
 

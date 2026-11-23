@@ -244,9 +244,9 @@ test.describe("checkout funnel", () => {
       expect(await accessibilityViolations(page)).toEqual([])
     }
 
-    await page.getByRole("button", { name: "Wybierz Podstawę", exact: true }).click()
+    await page.getByRole("button", { name: "Wybierz pakiet Podstawa", exact: true }).click()
 
-    await expect(checkoutOverlay(page)).toHaveAttribute("title", "Płatność w Polar")
+    await expect(checkoutOverlay(page)).toHaveAttribute("title", "Płatność przez Polar")
     await expect(page).toHaveURL(`/pl-PL${ROUTES.APP_LICENSE}`)
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({

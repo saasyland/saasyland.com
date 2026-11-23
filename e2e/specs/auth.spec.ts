@@ -338,7 +338,7 @@ test.describe("auth", () => {
   test("a verification success marker cannot authenticate a signed-out visitor", async ({ page }) => {
     await page.goto("/pl-PL/auth/verify-email?verified=true&callbackURL=https%3A%2F%2Fexample.org")
 
-    await expect(page.getByRole("heading", { level: 1, name: "Adres e-mail jest potwierdzony" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Adres e-mail potwierdzony" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Zaloguj się i kontynuuj" })).toHaveAttribute("href", "/pl-PL/auth/sign-in")
     const session = await page.request.get("/api/auth/get-session")
     expect(await session.json()).toBeNull()

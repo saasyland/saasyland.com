@@ -33,7 +33,6 @@ const ignorePatterns = [
 const undefinedBranchBacklog = [
   "src/presentation/components/custom/app/course-unlocks.tsx",
   "src/presentation/components/custom/app/upgrade-offer.tsx",
-  "src/presentation/components/custom/data-grid-toolbar.tsx",
 ]
 
 const tooling = {

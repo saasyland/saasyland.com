@@ -242,7 +242,7 @@ export const DataGridSelection = <TData extends DataGridRow>({
   const rows = table.getSelectedRowModel().rows.map((row) => row.original)
 
   if (rows.length === 0) {
-    return undefined
+    return
   }
 
   return (

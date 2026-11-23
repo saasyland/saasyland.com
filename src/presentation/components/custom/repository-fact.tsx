@@ -111,6 +111,7 @@ import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
+import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SKILL_SOURCES } from "~/src/data/skills"
@@ -323,6 +324,9 @@ const TABLES = {
   missingFlowTable: flowTables.missing,
   moduleUseCases: moduleTables.modules,
   permissionChecks: moduleTables.permissions,
+  polishNames: POLISH_NAMES,
+  polishPhrases: POLISH_PHRASES,
+  polishTerms: POLISH_TERMS,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
   skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),

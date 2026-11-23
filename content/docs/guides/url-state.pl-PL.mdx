@@ -1,13 +1,13 @@
 ---
 title: "Stan w adresie URL"
-description: "Przechowuj zakładki, widoki i jednorazowe tokeny w walidowanych parametrach wyszukiwania."
+description: "Przechowuj zakładki, widoki i jednorazowe tokeny w zwalidowanych parametrach adresu URL."
 ---
 
-Parametry wyszukiwania przechowują stan, który ma przetrwać przeładowanie lub udostępnienie linku: wybraną zakładkę lub widok, adres e-mail przekazywany między stronami uwierzytelniania, token weryfikacyjny. Wszystko inne zostaje w stanie Reacta. `DataGrid` trzyma paginację, sortowanie, zaznaczenie, wyszukiwanie i filtry w stanie komponentu, a swój układ w pamięci przeglądarki.
+Parametry adresu URL przechowują stan, który ma przetrwać przeładowanie strony albo udostępnienie linku: wybraną zakładkę lub widok, adres e-mail przekazywany między stronami uwierzytelniania, token weryfikacyjny. Wszystko inne zostaje w stanie Reacta. `DataGrid` trzyma paginację, sortowanie, zaznaczenie, wyszukiwanie i filtry w stanie komponentu, a swój układ w pamięci przeglądarki.
 
 ## Zadeklaruj parametry
 
-`validateSearch` przyjmuje obiekt zod, więc parametry wyszukiwania trasy są typowane i walidowane w jednym miejscu. Pola pochodzą z `src/lib/search-params.ts`: `searchText()` i `searchFlag()` mają wartość `undefined`, gdy wartości brak, jest pusta lub błędna, więc brakujące wartości nigdy nie trafiają do URL-a; `searchChoice(choices, fallback)` wraca do jednej z opcji. `searchParam(schema)` stosuje tę samą zasadę do dowolnego schematu zod; trasy newslettera odczytują `token` schematem tokenu z modułu. Błędna wartość nigdy nie prowadzi do strony błędu. Z `src/routes/admin.products.index.tsx`:
+`validateSearch` przyjmuje obiekt zod, więc parametry URL trasy mają typy i walidację w jednym miejscu. Pola pochodzą z `src/lib/search-params.ts`: `searchText()` i `searchFlag()` mają wartość `undefined`, gdy wartości brak, jest pusta lub błędna, więc brakujące wartości nigdy nie trafiają do URL-a; `searchChoice(choices, fallback)` podstawia wtedy wartość zapasową z listy opcji. `searchParam(schema)` stosuje tę samą zasadę do dowolnego schematu zod; trasy newslettera odczytują `token` schematem tokenu z modułu. Błędna wartość nigdy nie prowadzi do strony błędu. Z `src/routes/admin.products.index.tsx`:
 
 ```tsx
 validateSearch: zod.object({
@@ -29,11 +29,11 @@ search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] },
 - Linki: `<Link search={{ tab: id }} to={ROUTES.ADMIN_PRODUCTS}>`.
 - Komponenty React Aria z atrybutem `href`, np. `TabsTrigger` w `src/routes/admin.products.index.tsx`, nawigują przez router, ponieważ `AriaProvider` łączy React Aria z TanStack Router.
 - Kod: `router.navigate({ search: { email }, to: ROUTES.VERIFY_EMAIL })`.
-- Strażnicy i loadery: `throw redirect({ replace: true, to: ROUTES.AUTH_CALLBACK })`.
+- Guardy tras i loadery: `throw redirect({ replace: true, to: ROUTES.AUTH_CALLBACK })`.
 
-## Wczytuj na ich podstawie dane
+## Ładuj dane na ich podstawie
 
-Komponent odczytuje parametry wyszukiwania przez `Route.useSearch()`; loader zależny od parametru deklaruje go w `loaderDeps` i odczytuje z `deps`. Nigdy nie zużywaj tokenu z URL-a w loaderze, bo loadery uruchamiają wstępne wczytywanie, crawlery i skanery poczty. Strony potwierdzenia i rezygnacji z newslettera odczytują swój token i działają dopiero po naciśnięciu przycisku:
+Komponent odczytuje parametry URL przez `Route.useSearch()`; loader, który zależy od parametru, deklaruje go w `loaderDeps` i odczytuje z `deps`. Nigdy nie zużywaj w loaderze tokenu z adresu URL, bo loader uruchamia się także przy wstępnym ładowaniu, a uruchamiają go też roboty indeksujące i skanery poczty. Strony potwierdzenia i rezygnacji z newslettera odczytują swój token i działają dopiero po naciśnięciu przycisku:
 
 ```tsx
 const { status, token } = Route.useSearch()
@@ -42,5 +42,5 @@ const { status, token } = Route.useSearch()
 ## Języki i adresy URL
 
 - Linki routera (`<Link to={ROUTES.X}>`) dostają prefiks języka z `rewrite` routera. Angielski nie ma prefiksu (`/docs`), pozostałe języki go mają (`/pl-PL/docs`).
-- Surowy adres w bieżącym języku buduj przez `router.buildLocation({ search, to }).publicHref`, które go lokalizuje i serializuje jego parametry wyszukiwania, tak jak robi to `useAuthRedirect` dla `callbackURL` i `errorCallbackURL` w Better Auth. `localizePathname({ locale, pathname })` buduje adres dla wskazanego języka, na przykład linki w e-mailach; ścieżki `/api` i zewnętrzne adresy pozostają bez zmian.
+- Surowy adres w bieżącym języku buduj przez `router.buildLocation({ search, to }).publicHref`, które go lokalizuje i serializuje jego parametry URL, tak jak robi to `useAuthRedirect` dla `callbackURL` i `errorCallbackURL` w Better Auth. `localizePathname({ locale, pathname })` buduje adres dla wskazanego języka, na przykład linki w e-mailach; ścieżki `/api` i zewnętrzne adresy pozostają bez zmian.
 - Przełącznik języka prowadzi do tej samej ścieżki w innym języku z pełnym przeładowaniem strony; parametry zapytania i fragment nie są przenoszone.

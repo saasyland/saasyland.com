@@ -1,11 +1,11 @@
 ---
 title: "Funkcje serwerowe i przypadki użycia"
-description: "Jak moduł staje się właścicielem jednej tabeli bazy danych i udostępnia operacje na niej jako przypadki użycia."
+description: "Jak moduł odpowiada za jedną tabelę bazy danych i udostępnia operacje na niej jako przypadki użycia."
 ---
 
 ## Moduły
 
-Moduł w `src/modules/<table>` istnieje tylko dla rzeczywistej tabeli bazy danych. Zawiera:
+Moduł w `src/modules/<table>` istnieje tylko dla prawdziwej tabeli bazy danych. Zawiera:
 
 - `<table>.schema.ts`: tabelę Drizzle, reeksportowaną przez `src/integrations/drizzle-orm/drizzle.schemas.ts`
 - `<table>.zod.ts`: schematy danych wejściowych, używane zarówno przez formularze, jak i przez funkcje serwerowe
@@ -14,7 +14,7 @@ Moduł w `src/modules/<table>` istnieje tylko dla rzeczywistej tabeli bazy danyc
 - `<table>.utils.ts`: jeśli tabela ich potrzebuje
 - `use-cases/<operation>.ts`: jedną operację na plik
 
-Obecne moduły: account, category, chapter, course, lesson, lesson-attachment, lesson-progress, license, newsletter-subscriber, order, product, rate-limit, session, subscription, two-factor, user, verification, video i withdrawal. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. Współdzielone stałe i helpery znajdują się w [`_core`](/docs/architecture/core). Funkcja serwerowa, która nie operuje na tabeli, należy do `src/lib` lub do jedynej trasy, która jej używa.
+Obecne moduły: account, category, chapter, course, lesson, lesson-attachment, lesson-progress, license, newsletter-subscriber, order, product, rate-limit, session, subscription, two-factor, user, verification, video i withdrawal. Do modułu `license` należą dwie tabele: `license` i `revoked_license_order`. Współdzielone stałe i funkcje pomocnicze znajdują się w [`_core`](/docs/architecture/core). Funkcja serwerowa, która nie operuje na tabeli, należy do `src/lib` lub do jedynej trasy, która jej używa.
 
 ## Przypadki użycia
 
@@ -59,15 +59,15 @@ export const createCategoryMutation = mutationOptions({
 
 - **Middleware** pochodzi z `src/integrations/better-auth/auth.middleware.ts`. `authorized()` wymaga sesji, `authorized({ category: ["create"] })` dodatkowo sprawdza uprawnienie, a `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` ogranicza liczbę wywołań operacji publicznych.
 - **Walidacja** parsuje dane wejściowe schematem Zod modułu, zanim uruchomi się handler.
-- **Własność danych** wynika z sesji. Operacje na danych wywołującego filtrują po `context.auth.user.id` i nigdy nie ufają identyfikatorowi użytkownika z danych wejściowych.
+- **Własność danych** wynika z sesji. Operacje na własnych danych wywołującego filtrują po `context.auth.user.id` i nigdy nie ufają identyfikatorowi użytkownika z danych wejściowych.
 - **Błędy** są rzucane jako `new AppError(ERROR_CODES.X)`. `withRequest` zamienia błąd API Better Auth na `AUTH_API_ERROR` z kluczem komunikatu tego błędu, a błąd Zod na `VALIDATION`; każdy inny błąd jest logowany i trafia do klienta jako `INTERNAL_ERROR`.
 - **Odczyty** eksportują zamiast tego `queryOptions`, na przykład `getCategoriesPageQuery(input)`, które zwraca `{ rows, total }` dla tabeli danych.
 
-Niektóre przypadki użycia to zwykłe funkcje asynchroniczne, które działają tylko na serwerze i nie mają endpointu RPC, np. `send-verify-email.ts` lub `grant-license.ts`. Wywołują je hooki Better Auth i handlery webhooków Polar.
+Niektóre przypadki użycia to zwykłe funkcje asynchroniczne, które działają tylko na serwerze i nie mają endpointu RPC, np. `send-verify-email.ts` lub `grant-license.ts`. Wywołują je hooki Better Auth i handlery webhooków Polara.
 
 ## Wywoływanie przypadku użycia z komponentu
 
-Komponenty przekazują wyeksportowane opcje do `useMutation` operatorem spread, tłumaczą błędy za pomocą `useErrorMessage()` i po sukcesie unieważniają klucze zapytań modułu:
+Komponenty przekazują wyeksportowane opcje do `useMutation` operatorem spread, tłumaczą błędy za pomocą `useErrorMessage()` i po udanej operacji unieważniają klucze zapytań modułu:
 
 ```tsx
 const t = useTranslations("pages.admin.users.actions")

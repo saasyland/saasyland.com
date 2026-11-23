@@ -1,33 +1,33 @@
 ---
 title: "Baza danych"
-description: "Oddzielne bazy D1 lokalna, preview i produkcyjna: migracje, Drizzle Studio, lokalne dane początkowe i pierwszy administrator."
+description: "Osobne bazy D1 dla środowiska lokalnego, podglądowego i produkcyjnego: migracje, Drizzle Studio, lokalne dane początkowe i pierwszy administrator."
 ---
 
-Schematy znajdują się w modułach tabel i są zbierane przez `src/integrations/drizzle-orm/drizzle.schemas.ts`. Migracje to pliki SQL z prefiksem znacznika czasu w `src/integrations/drizzle-orm/migrations/`, commitowane razem ze zmianą schematu.
+Schematy leżą w modułach tabel, a zbiera je `src/integrations/drizzle-orm/drizzle.schemas.ts`. Migracje to pliki SQL w `src/integrations/drizzle-orm/migrations/`, których nazwy zaczynają się od znacznika czasu; trafiają do commita razem ze zmianą schematu.
 
 ## Trzy bazy danych [#three-databases]
 
 Każde środowisko Wranglera ma własną bazę D1, a żaden skrypt ani serwer nie sięga do danych innego środowiska:
 
-| Środowisko    | Baza danych                                   | Używana przez                                   | Jej dane                           |
-| ------------- | --------------------------------------------- | ----------------------------------------------- | ---------------------------------- |
-| `development` | Lokalna `saasyland_local` w `.wrangler/state` | `bun run dev` i skrypty `:local`                | Twoje; wypełnia ją `db:seed:local` |
-| `preview`     | Zdalna `saasyland_com_preview`                | `preview.saasyland.com` i skrypty `:preview`    | Testowe zakupy w sandboksie Polar  |
-| `production`  | Zdalna `saasyland_com_production`             | `saasyland.com` i skrypty `:production`         | Klienci                            |
-| `test`        | Lokalna `saasyland_test` w `.wrangler/test`   | Playwright, izolowany podgląd i `db:reset:test` | Wypełnia ją `db:seed:test`         |
+| Środowisko    | Baza danych                                   | Używana przez                                     | Jej dane                           |
+| ------------- | --------------------------------------------- | ------------------------------------------------- | ---------------------------------- |
+| `development` | Lokalna `saasyland_local` w `.wrangler/state` | `bun run dev` i skrypty `:local`                  | Twoje; wypełnia ją `db:seed:local` |
+| `preview`     | Zdalna `saasyland_com_preview`                | `preview.saasyland.com` i skrypty `:preview`      | Testowe zakupy w sandboksie Polara |
+| `production`  | Zdalna `saasyland_com_production`             | `saasyland.com` i skrypty `:production`           | Klienci                            |
+| `test`        | Lokalna `saasyland_test` w `.wrangler/test`   | Playwright, odizolowany podgląd i `db:reset:test` | Wypełnia ją `db:seed:test`         |
 
-`bun run dev` nigdy nie odczytuje ani nie zapisuje zdalnej bazy danych. Każdy binding środowiska `development` w `wrangler.jsonc` ma `remote: false`, plugin Cloudflare dla Vite działa z `remoteBindings: false` (`src/data/cloudflare.vite.ts`), a `src/__test__/wrangler.test.ts` kończy się błędem, gdy binding deweloperski staje się zdalny albo współdzieli bazę danych, przestrzeń nazw lub bucket z `preview` lub `production`. Pozostałe bindingi są lokalne z tego samego powodu:
+`bun run dev` nigdy nie odczytuje ani nie zapisuje zdalnej bazy danych. Każdy binding środowiska `development` w `wrangler.jsonc` ma `remote: false`, wtyczka Cloudflare dla Vite działa z `remoteBindings: false` (`src/data/cloudflare.vite.ts`), a `src/__test__/wrangler.test.ts` nie przechodzi, gdy binding deweloperski staje się zdalny albo dzieli bazę danych, przestrzeń nazw lub bucket z `preview` albo `production`. Pozostałe bindingi są lokalne z tego samego powodu:
 
-- `CACHE` (KV) przechowuje wyłącznie pamięci podręczne, które Worker wypełnia ponownie, czyli liczbę gwiazdek na GitHubie i rabaty regionalne w checkoucie, więc lokalna przestrzeń nazw startuje pusta i od razu działa.
-- `MEDIA` i `BUNDLES` (R2) to lokalne buckety `saasyland-local` i `saasyland-bundles-local`. Wiersze wskazujące ich pliki, czyli filmy, materiały lekcji i paczki szablonów, są w D1, więc lokalna baza danych ze zdalnymi bucketami pokazywałaby pliki z preview wierszom, które nie istnieją, i zostawiałaby osierocone pliki w bucketach preview.
-- Better Auth przechowuje użytkowników, sesje, tokeny weryfikacyjne i limity żądań w D1, więc rejestracja, logowanie i panel administracyjny działają lokalnie. E-maile nadal wychodzą przez Resend z kluczem z `.env.development`, a wywołania Polar trafiają do sandboksa wskazanego przez `POLAR_SERVER`.
+- `CACHE` (KV) przechowuje wyłącznie dane podręczne, które Worker sam odtwarza: liczbę gwiazdek na GitHubie i rabaty regionalne na stronie płatności, więc lokalna przestrzeń nazw startuje pusta i od razu działa.
+- `MEDIA` i `BUNDLES` (R2) to lokalne buckety `saasyland-local` i `saasyland-bundles-local`. Wiersze, które wskazują ich pliki, czyli filmy, materiały lekcji i paczki szablonów, są w D1, więc lokalna baza danych ze zdalnymi bucketami pokazywałaby pliki z preview, którym nie odpowiada żaden wiersz, i zostawiałaby osierocone pliki w bucketach preview.
+- Better Auth przechowuje użytkowników, sesje, tokeny weryfikacyjne i limity żądań w D1, więc rejestracja, logowanie i panel administracyjny działają lokalnie. E-maile nadal wychodzą przez Resend z kluczem z `.env.development`, a wywołania Polara trafiają do sandboksa wskazanego przez `POLAR_SERVER`.
 
 ## Migracje [#migrations]
 
 1. Zmień `src/modules/<table>/<table>.schema.ts`.
 2. Uruchom `bun run db:generate` i przejrzyj wygenerowany SQL.
 3. Zastosuj migrację lokalnie poleceniem `bun run db:migrate:local` i uruchom testy; Vitest stosuje każdą migrację do swojej bazy w pamięci.
-4. Wdróż: skrypty wdrożeniowe i CI stosują ją na bazie danych preview lub produkcyjnej, zanim nowy Worker zacznie działać.
+4. Wdróż: skrypty wdrożeniowe i CI stosują ją w bazie preview albo produkcyjnej, zanim nowy Worker zacznie działać.
 
 ```sh
 bun run db:generate
@@ -37,7 +37,7 @@ bun run db:migrate:test
 
 Instalacja zależności i budowanie nigdy nie migrują bazy danych.
 
-SQLite nie egzekwuje długości w typie kolumny takim jak `text(<length>)`, a drizzle-kit zmienia ją, przebudowując tabelę: tworzy nową tabelę, kopiuje do niej każdy wiersz i usuwa starą. Dlatego limity to te, które sprawdzają formularze i funkcje serwerowe, a kolumna zachowuje długość, z którą ją utworzono. `user.email` i `newsletter_subscriber.email` pozostają `text(<RepositoryFact name="declaredEmailColumnLength" />)`, a `user.name` `text(<RepositoryFact name="declaredNameColumnLength" />)` dzięki `DECLARED_COLUMN_LENGTH` w `auth.constraints.ts`, choć adres może mieć <RepositoryFact name="emailMaxLength" /> znaków (`EMAIL_MAX_LENGTH`, limit ścieżki z RFC 5321), a imię i nazwisko <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Tabela utworzona później, taka jak `withdrawal`, deklaruje `EMAIL_MAX_LENGTH` i `NAME_MAX_LENGTH` od początku, więc niczego nie trzeba przebudowywać. Wygenerowana migracja zawierająca ``CREATE TABLE `__new_`` przebudowuje tabelę; przejrzyj ją przed commitem.
+SQLite nie pilnuje długości podanej w typie kolumny, takim jak `text(<length>)`, a drizzle-kit zmienia ją, przebudowując tabelę: tworzy nową tabelę, kopiuje do niej każdy wiersz i usuwa starą. Dlatego obowiązują limity sprawdzane przez formularze i funkcje serwerowe, a kolumna zachowuje długość, z którą ją utworzono. `user.email` i `newsletter_subscriber.email` zostają przy `text(<RepositoryFact name="declaredEmailColumnLength" />)`, a `user.name` przy `text(<RepositoryFact name="declaredNameColumnLength" />)` za sprawą `DECLARED_COLUMN_LENGTH` w `auth.constraints.ts`, choć adres może mieć <RepositoryFact name="emailMaxLength" /> znaków (`EMAIL_MAX_LENGTH`, limit ścieżki z RFC 5321), a imię i nazwisko <RepositoryFact name="nameMaxLength" /> (`NAME_MAX_LENGTH`). Tabela utworzona później, taka jak `withdrawal`, od początku deklaruje `EMAIL_MAX_LENGTH` i `NAME_MAX_LENGTH`, więc niczego nie trzeba przebudowywać. Wygenerowana migracja, która zawiera ``CREATE TABLE `__new_``, przebudowuje tabelę; przejrzyj ją przed commitem.
 
 ## Polecenia
 
@@ -51,7 +51,7 @@ SQLite nie egzekwuje długości w typie kolumny takim jak `text(<length>)`, a dr
 | `bun run db:studio:local`                                           | Lokalna `development`             | Drizzle Studio na lokalnym pliku SQLite                                                                         |
 | `bun run admin:grant:local`                                         | Lokalna `development`             | Nadaje zweryfikowanemu kontu rolę administratora; zobacz [Pierwszy administrator](#the-first-admin)             |
 | `bun run db:migrate:test`                                           | Lokalna `test` w `.wrangler/test` | Stosuje migracje                                                                                                |
-| `bun run db:seed:test`                                              | Lokalna `test`                    | Konta testowe, licencja, film, kurs z rozdziałami i lekcjami i paczka szablonów CLI                             |
+| `bun run db:seed:test`                                              | Lokalna `test`                    | Konta testowe, licencja, film, kurs z rozdziałami i lekcjami oraz paczka szablonów CLI                          |
 | `bun run db:reset:test`                                             | Lokalna `test`                    | Usuwa `.wrangler/test`, a następnie uruchamia `db:migrate:test` i `db:seed:test`                                |
 | `bun run db:migrate:preview`, `bun run db:migrate:production`       | Zdalna                            | Stosuje migracje                                                                                                |
 | `bun run db:migrations:preview`, `bun run db:migrations:production` | Zdalna                            | Wyświetla jeszcze niezastosowane migracje; niczego nie zmienia                                                  |
@@ -64,9 +64,9 @@ SQLite nie egzekwuje długości w typie kolumny takim jak `text(<length>)`, a dr
 
 ## Drizzle Studio
 
-`bun run db:studio:local` uruchamia `scripts/studio-local.ts`. Miniflare przechowuje lokalną bazę danych jako jeden plik SQLite w `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/`, nazwany według skrótu identyfikatora bazy danych z `wrangler.jsonc`; skrypt wylicza tę nazwę tak samo jak Miniflare, kończy się błędem ze wskazówką, gdy plik jeszcze nie istnieje, i otwiera na nim Drizzle Studio z `src/integrations/drizzle-orm/drizzle.local.config.ts`, który odczytuje plik przez `@libsql/client`. Studio i serwer deweloperski mogą działać jednocześnie.
+`bun run db:studio:local` uruchamia `scripts/studio-local.ts`. Miniflare przechowuje lokalną bazę danych jako jeden plik SQLite w `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/`, nazwany od hasha identyfikatora bazy z `wrangler.jsonc`; skrypt wylicza tę nazwę tak samo jak Miniflare, kończy się błędem ze wskazówką, gdy plik jeszcze nie istnieje, i otwiera na nim Drizzle Studio z `src/integrations/drizzle-orm/drizzle.local.config.ts`, który odczytuje plik przez `@libsql/client`. Studio i serwer deweloperski mogą działać jednocześnie.
 
-`bun run db:studio:preview` i `bun run db:studio:production` korzystają z API HTTP D1 z `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` i `CLOUDFLARE_ACCESS_TOKEN` z `.env.preview` lub `.env.production`, przez `src/integrations/drizzle-orm/drizzle.config.ts`. Każda edycja w nich to edycja aktualnych danych danego środowiska.
+`bun run db:studio:preview` i `bun run db:studio:production` korzystają z API HTTP D1 z `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` i `CLOUDFLARE_ACCESS_TOKEN` z `.env.preview` lub `.env.production`, przez `src/integrations/drizzle-orm/drizzle.config.ts`. Każda zmiana w Studio zmienia rzeczywiste dane tego środowiska.
 
 ## Lokalne dane początkowe [#the-local-seed]
 
@@ -80,7 +80,7 @@ Zatrzymaj serwer deweloperski przed `db:reset:local`. `db:seed:local` (`scripts/
 
 - Administratora, <RepositoryFact name="localAdminEmail" />, ze zweryfikowanym adresem e-mail. Jego hasło to `LOCAL_ADMIN_PASSWORD` z `.env.development` albo <RepositoryFact name="localAdminPassword" />, gdy nie jest ustawione, i musi spełniać reguły rejestracji. Każde uruchomienie ustawia hasło ponownie. Użyj hasła, które istnieje tylko na Twoim komputerze, nigdy produkcyjnego: dane początkowe trafiają wyłącznie do lokalnej bazy danych.
 - Program kursów z `content/courses/saasy-land-courses.json`, zaimportowany przez `planCourseImport` i `applyCourseImport` z `src/modules/course/course.transfer.ts`, ten sam kod co **Importuj** w panelu administracyjnym. Jego lekcje nie mają jeszcze filmów, więc są oznaczone jako [w trakcie nagrywania](/docs/features/courses#being-recorded).
-- Okładki z `content/courses/covers/`, nazwane slugiem, dla kursów, które ich nie mają: każdy rozmiar trafia do lokalnego bucketu `MEDIA`, a kurs dostaje jej klucz, więc lokalny katalog wygląda jak produkcyjny.
+- Okładki z `content/courses/covers/`, nazwane slugiem, dla kursów, które ich nie mają: każdy rozmiar trafia do lokalnego bucketu `MEDIA`, a kurs dostaje klucz okładki, więc lokalny katalog wygląda jak produkcyjny.
 - Licencje, zamówienie bez licencji i paczkę szablonów CLI z testowych danych początkowych (`e2e/data/license.seed.ts`), dzięki czemu pulpit administracyjny i strony licencji mają dane o realistycznym kształcie. Konta ich klientów używają hasła <RepositoryFact name="testPassword" />.
 
 Zaloguj się pod http://localhost:3000/auth/sign-in jako administrator i otwórz `/admin/courses`, aby zobaczyć kursy.
@@ -88,7 +88,7 @@ Zaloguj się pod http://localhost:3000/auth/sign-in jako administrator i otwórz
 ## Dane kursów w każdym środowisku [#course-data-in-each-environment]
 
 - Lokalnie: `bun run db:seed:local` importuje program kursów.
-- Produkcja: administrator importuje `content/courses/saasy-land-courses.json` w panelu administracyjnym. Zaloguj się jako administrator, otwórz **Admin → Kursy**, wybierz **Importuj**, wskaż plik, uruchom **Sprawdź plik**, przeczytaj plan, a następnie wybierz **Importuj**. Ponowny import tego samego pliku niczego nie zmienia. Zobacz [Import i eksport](/docs/features/courses#import-and-export).
+- Produkcja: administrator importuje `content/courses/saasy-land-courses.json` w panelu administracyjnym. Zaloguj się jako administrator, otwórz **Treść → Kursy**, wybierz **Importuj**, wskaż plik, uruchom **Sprawdź plik**, przeczytaj plan, a następnie wybierz **Importuj**. Ponowny import tego samego pliku niczego nie zmienia. Zobacz [Import i eksport](/docs/features/courses#import-and-export).
 - Preview: `bun run courses:sync:preview` kopiuje opublikowane kursy produkcji, więc preview pokazuje ten sam katalog co produkcja.
 
 ### Kopiowanie kursów na preview [#copying-the-courses-to-preview]
@@ -101,7 +101,7 @@ bun run courses:sync:preview
 `scripts/sync-courses.ts` łączy się z D1 tak jak `admin:grant:*`, przez `wrangler d1 execute --remote` i wspólny `scripts/d1-execute.ts`. Do produkcji wysyła wyłącznie instrukcje `SELECT`, a na preview zapisuje w jednym uruchomieniu z `--file`. Kopiuje wiersz po wierszu, razem z ich identyfikatorami i znacznikami czasu:
 
 - każdy opublikowany kurs z jego rozdziałami, lekcjami i ich załącznikami w postaci linków; wiersz, który preview już ma, jest aktualizowany po identyfikatorze, więc drugie uruchomienie nie zmienia niczego, czego nie zmieniono na produkcji;
-- wiersze `video`, których używają te lekcje, jako zastępcze. Pliki filmu leżą w buckecie `MEDIA` produkcji i nie są kopiowane, więc na preview jego lekcje są widoczne jako [w trakcie nagrywania](/docs/features/courses#being-recorded), zamiast nie dać się odtworzyć. Wiersz `video`, który preview już ma, zachowuje swoją flagę filmu zastępczego.
+- wiersze `video`, których używają te lekcje, jako wiersze zastępcze. Pliki filmu leżą w buckecie `MEDIA` produkcji i nie są kopiowane, więc na preview jego lekcje są oznaczone jako [w trakcie nagrywania](/docs/features/courses#being-recorded), zamiast zgłaszać błąd odtwarzania. Wiersz `video`, który preview już ma, zachowuje swoją flagę filmu zastępczego.
 
 W kopiowanych kursach usuwa rozdziały, lekcje i załączniki w postaci linków, których produkcja już nie ma, razem z postępami na preview w tych lekcjach, oraz usuwa kurs na preview, którego produkcja już nie publikuje. Nie kopiuje załączników w postaci plików, bo ich pliki leżą w buckecie produkcji, ani niczego spoza tych tabel: żadnych użytkowników, sesji, licencji, zamówień, subskrypcji ani postępów. Lekcja, której w edytorze lekcji na preview ustawisz inny film, po następnym uruchomieniu znów wskazuje film z produkcji.
 
@@ -119,30 +119,30 @@ bun run orders:backfill:preview
 bun run orders:backfill:production
 ```
 
-`scripts/backfill-order-terms.ts` odczytuje `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` z `.env.<environment>`, wyszukuje przez `wrangler d1 execute` zamówienia z pustym `discount_amount` (zdalnie dla preview i produkcji, lokalnie dla `orders:backfill:local`) i odczytuje każde z Polar przez `polar.orders.get`, jedno po drugim, czekając tak długo, jak prosi Polar, gdy odpowiada 429. Zapisuje wszystkie zamówienia w jednym uruchomieniu `--file`, każde `UPDATE` ograniczone do jego ID i do pustego `discount_amount`, więc nigdy nie nadpisuje kopii, którą w międzyczasie wypełnił webhook, a drugie uruchomienie niczego nie zmienia. Wypisuje, ile zamówień skopiował, i kończy się błędem, dopóki zostaje jakieś zamówienie, na przykład takie, którego Polar już nie zwraca. Najpierw zastosuj migrację.
+`scripts/backfill-order-terms.ts` odczytuje `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` z `.env.<environment>`, wyszukuje przez `wrangler d1 execute` zamówienia z pustym `discount_amount` (zdalnie dla preview i produkcji, lokalnie dla `orders:backfill:local`) i odczytuje każde z Polara przez `polar.orders.get`, jedno po drugim, czekając tak długo, jak prosi Polar, gdy odpowiada 429. Zapisuje wszystkie zamówienia w jednym uruchomieniu `--file`, każde `UPDATE` ograniczone do jego ID i do pustego `discount_amount`, więc nigdy nie nadpisuje kopii, którą w międzyczasie wypełnił webhook, a drugie uruchomienie niczego nie zmienia. Wypisuje, ile zamówień skopiował, i kończy się błędem, dopóki zostaje choć jedno takie zamówienie, na przykład takie, którego Polar już nie zwraca. Najpierw zastosuj migrację.
 
 ## Pierwszy administrator [#the-first-admin]
 
-Aplikacja nie ma żadnego endpointu, danych początkowych ani zmiennej, które nadają rolę `admin`. Na preview i produkcji pierwszego administratora tworzy skrypt i jest to jedyny sposób:
+Aplikacja nie ma żadnego endpointu, danych początkowych ani zmiennej, które nadają rolę `admin`. Na preview i produkcji pierwszego administratora można utworzyć wyłącznie skryptem:
 
 ```sh
 bunx wrangler login
 bun run admin:grant:production you@example.com
 ```
 
-1. Zarejestruj się w witrynie tym adresem i otwórz link z e-maila weryfikacyjnego.
+1. Zarejestruj się na stronie tym adresem i otwórz link z e-maila weryfikacyjnego.
 2. Zaloguj się do Wranglera kontem Cloudflare, które może zapisywać do bazy D1 danego środowiska.
 3. Uruchom `bun run admin:grant:preview <email>` lub `bun run admin:grant:production <email>`.
 
 `scripts/grant-admin.ts` odczytuje konto przez `wrangler d1 execute --remote`, wypisuje je i odrzuca adres bez konta, konto z niezweryfikowanym adresem e-mail oraz zablokowane konto. Następnie ustawia `role` na `admin` w tym jednym wierszu, ponownie odczytuje konto i je wypisuje. Konto, które już jest administratorem, pozostaje bez zmian.
 
-Jest to bezpieczne z trzech powodów:
+To bezpieczne z trzech powodów:
 
 - Uruchomić go może tylko osoba, która może zapisywać do bazy D1 tego konta Cloudflare, przez własne `wrangler login`. Taka osoba i tak mogłaby zmienić dowolny wiersz w panelu Cloudflare; skrypt nie otwiera żadnej nowej drogi dostępu.
 - Zmienia jedną kolumnę jednego konta, które udowodniło, że jest właścicielem swojego adresu e-mail.
 - Aplikacja egzekwuje role na serwerze: `requireAdmin` chroni `/admin`, a każda administracyjna funkcja serwerowa sprawdza swoje uprawnienie przez `authorized(...)` w `auth.middleware.ts`. Zobacz [Role i uprawnienia](/docs/guides/roles-and-permissions).
 
-Kolejnych administratorów ustanawia istniejący administrator w **Admin → Użytkownicy**: otwórz użytkownika, a następnie wybierz **Zmień rolę**. `bun run admin:grant:local <email>` robi to samo dla konta zarejestrowanego lokalnie. Istniejący administrator może też zaprosić nowy adres z rolą `admin`; zobacz [Zaproszenia](/docs/features/users-admin#invitations).
+Kolejnych administratorów wyznacza istniejący administrator w **Administracja → Użytkownicy**: otwórz użytkownika, a następnie wybierz **Zmień rolę**. `bun run admin:grant:local <email>` robi to samo dla konta zarejestrowanego lokalnie. Istniejący administrator może też zaprosić nowy adres z rolą `admin`; zobacz [Zaproszenia](/docs/features/users-admin#invitations).
 
 ## Powiązane przewodniki
 

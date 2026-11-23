@@ -5,37 +5,37 @@ description: "Jak działają logowanie, rejestracja z weryfikacją adresu e-mail
 
 Better Auth (`src/integrations/better-auth/auth.server.ts`) przechowuje użytkowników, sesje i tokeny weryfikacyjne w D1 i obsługuje swoje endpointy pod `/api/auth`. Strony uwierzytelniania znajdują się pod layoutem `/auth`, a ich formularze w `src/presentation/components/custom/auth/`.
 
-## Strażnicy tras
+## Guardy tras
 
-`src/integrations/better-auth/auth.routes.ts` eksportuje strażników używanych w `beforeLoad`:
+`src/integrations/better-auth/auth.routes.ts` eksportuje guardy używane w `beforeLoad`:
 
-| Strażnik             | Używany w                        | Działanie                                                                                              |
-| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `requireSignedIn`    | layout `/app`                    | Bez sesji przekierowuje na `/auth/sign-in`, ze stroną jako `redirect`                                  |
-| `requireAdmin`       | layout `/admin`                  | Dodatkowo przekierowuje na `/app` bez uprawnienia `admin: ["access"]`                                  |
-| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Kieruje zalogowanego użytkownika na `redirect` albo na `/admin` lub `/app`                             |
-| `redirectIfVerified` | `/auth/verify-email`             | Kieruje sesję z potwierdzonym adresem do `redirect` albo, w zależności od roli, do `/admin` lub `/app` |
-| `redirectAfterAuth`  | `/auth/callback`                 | Kieruje nową sesję na `redirect` albo, zależnie od roli, na `/admin` lub `/app`                        |
+| Guard                | Używany w                        | Działanie                                                                                          |
+| -------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `requireSignedIn`    | layout `/app`                    | Bez sesji przekierowuje na `/auth/sign-in`, ze stroną jako `redirect`                              |
+| `requireAdmin`       | layout `/admin`                  | Dodatkowo przekierowuje na `/app` bez uprawnienia `admin: ["access"]`                              |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Kieruje zalogowanego użytkownika na `redirect` albo na `/admin` lub `/app`                         |
+| `redirectIfVerified` | `/auth/verify-email`             | Kieruje sesję z potwierdzonym adresem na `redirect` albo, zależnie od roli, na `/admin` lub `/app` |
+| `redirectAfterAuth`  | `/auth/callback`                 | Kieruje nową sesję na `redirect` albo, zależnie od roli, na `/admin` lub `/app`                    |
 
-`requireSignedIn` i `requireAdmin` używają sesji, dopóki jest świeża, i sprawdzają ją ponownie, gdy się zestarzeje albo funkcja serwerowa ją odrzuci, `redirectAfterAuth` zawsze sprawdza ją ponownie, `redirectIfSignedIn` korzysta z sesji z cache, a każdy strażnik, gdy zmienia się zalogowany użytkownik, usuwa dane poprzedniego użytkownika z cache zapytań i zachowuje [publiczne zapytania](/docs/conventions/data-fetching#public-queries).
+`requireSignedIn` i `requireAdmin` używają sesji, dopóki jest świeża, i sprawdzają ją ponownie, gdy się zestarzeje albo funkcja serwerowa ją odrzuci, `redirectAfterAuth` zawsze sprawdza ją ponownie, `redirectIfSignedIn` korzysta z sesji z cache, a każdy guard, gdy zmienia się zalogowany użytkownik, usuwa dane poprzedniego użytkownika z cache zapytań i zachowuje [publiczne zapytania](/docs/conventions/data-fetching#public-queries).
 
 ## Logowanie
 
 1. `SignInForm` wywołuje `signIn.email` z klienta Better Auth.
 2. Odmowa zostaje nad przyciskiem do następnej próby. Przy błędnym adresie e-mail lub haśle prowadzi do `/auth/forgot-password` z wpisanym adresem i `redirect` oraz proponuje GitHuba i Google. Konto z niepotwierdzonym adresem dostaje `EMAIL_NOT_VERIFIED`, Better Auth wysyła nowy link weryfikacyjny (`sendOnSignIn`) w języku strony logowania i z jej `redirect`, a formularz otwiera `/auth/verify-email` z adresem e-mail, `redirect` i `unverified`.
 3. Konto z uwierzytelnianiem dwuskładnikowym dostaje `twoFactorRedirect`; `SignInForm` otwiera `/auth/two-factor`, zachowując `redirect`.
-4. Po sukcesie `finishSignIn` z `useAuthRedirect` usuwa dane poprzedniego użytkownika z cache zapytań, czyści cache routera, a następnie przechodzi na `/auth/callback`, które kieruje dalej na `redirect` albo do obszaru roboczego odpowiedniego dla roli.
+4. Po sukcesie `finishSignIn` z `useAuthRedirect` usuwa dane poprzedniego użytkownika z cache zapytań, czyści cache routera, a następnie przechodzi na `/auth/callback`, które kieruje dalej na `redirect` albo do panelu właściwego dla roli.
 
 Błędy, które Better Auth zgłasza przez przekierowanie, trafiają jako `?error=` na `/auth/sign-in` i są wyświetlane z `auth.errors`.
 
 ## Rejestracja i weryfikacja adresu e-mail
 
 1. `SignUpForm` waliduje `signUpWithPasswordSchema` i wywołuje `signUpWithPasswordMutation`, funkcję serwerową z limitem żądań, która wywołuje `auth.api.signUpEmail`.
-2. Better Auth tworzy użytkownika i wywołuje `sendVerifyEmail` z `callbackURL` formularza, czyli zlokalizowaną ścieżką `/auth/callback` z `redirect`. E-mail zawiera link do `/auth/verify-email` w tej witrynie, w języku callbacku i z jego `redirect`, a także z `token`. Ponowna rejestracja z niezweryfikowanym adresem wysyła nowy link, a ze zweryfikowanym e-mail o istniejącym koncie. Limit e-maili weryfikacyjnych na jeden adres na godzinę wynosi <RepositoryFact name="recipientEmailsPerHour" />; kolejne żądania niczego nie wysyłają.
+2. Better Auth tworzy użytkownika i wywołuje `sendVerifyEmail` z `callbackURL` formularza, czyli zlokalizowaną ścieżką `/auth/callback` z `redirect`. E-mail zawiera link do `/auth/verify-email` w tym serwisie, w języku adresu zwrotnego i z jego `redirect`, a także z `token`. Ponowna rejestracja z niezweryfikowanym adresem wysyła nowy link, a ze zweryfikowanym – e-mail o istniejącym koncie. Limit e-maili weryfikacyjnych na jeden adres na godzinę wynosi <RepositoryFact name="recipientEmailsPerHour" />; kolejne żądania niczego nie wysyłają.
 3. `signInNewAccount` loguje nowe konto, a formularz przechodzi przez `/auth/callback` do `redirect`. Rejestracja na adres, który ma już konto, nie loguje i trafia na `/auth/verify-email?email=…`, ten sam ekran bez względu na to, czy adres jest potwierdzony.
 4. Otwarcie linku: `beforeLoad` trasy przekazuje token do `/api/auth/verify-email`. Better Auth go weryfikuje, loguje użytkownika i wraca na `/auth/verify-email?verified=true`, które prowadzi dalej do `redirect`. Niepoprawny lub wygasły link wraca z `error`, a strona proponuje wysłanie nowego na adres zapisany w linku.
 
-Klucz licencyjny, portal klienta Polar i płatne lekcje czekają na potwierdzony adres, a ponowne logowanie hasłem go wymaga (`requireEmailVerification: true`). Zobacz [Weryfikacja e-maila](/docs/features/email-verification).
+Klucz licencyjny, portal klienta Polara i płatne lekcje czekają na potwierdzony adres, a ponowne logowanie hasłem go wymaga (`requireEmailVerification: true`). Zobacz [Weryfikacja e-maila](/docs/features/email-verification).
 
 ## Reset hasła
 
@@ -54,12 +54,12 @@ Klucz licencyjny, portal klienta Polar i płatne lekcje czekają na potwierdzony
 
 ## Ścieżka powrotu [#return-path]
 
-Odwiedzający, który otwiera chronioną stronę bez zalogowania, powinien po zalogowaniu trafić właśnie na tę stronę. Dlatego każda strona uwierzytelniania przyjmuje parametr wyszukiwania `redirect`, zadeklarowany raz jako `authSearchSchema` w `auth.zod.ts`. Musi to być ścieżka wewnętrzna (`callbackPathSchema`); wszystko inne jest odrzucane.
+Odwiedzający, który otwiera chronioną stronę bez zalogowania, powinien po zalogowaniu trafić właśnie na tę stronę. Dlatego każda strona uwierzytelniania przyjmuje parametr URL `redirect`, zadeklarowany raz jako `authSearchSchema` w `auth.zod.ts`. Musi to być ścieżka wewnętrzna (`callbackPathSchema`); wszystko inne jest odrzucane.
 
 - `requireSignedIn` kieruje odwiedzającego na `/auth/sign-in?redirect=` z otwartą przez niego stroną.
-- Strony uwierzytelniania zachowują `redirect` w linkach między logowaniem a rejestracją, w drodze na `/auth/two-factor`, `/auth/verify-email` i `/auth/forgot-password`, w e-mailach resetu hasła i weryfikacji, przy powrocie do logowania po resecie i w callbackach OAuth.
+- Strony uwierzytelniania zachowują `redirect` w linkach między logowaniem a rejestracją, w drodze na `/auth/two-factor`, `/auth/verify-email` i `/auth/forgot-password`, w e-mailach resetu hasła i weryfikacji, przy powrocie do logowania po resecie i w adresach zwrotnych OAuth.
 - Gdy sesja zalogowanego odwiedzającego się kończy, `requireSignedIn` dodaje `error=SESSION_EXPIRED`, a strona logowania pokazuje **Sesja wygasła** i podaje stronę z `redirect` pod nazwą z menu klienta lub administratora.
-- `/auth/callback` kieruje dalej na `redirect`, a gdy go brak, do obszaru roboczego odpowiedniego dla roli. Zalogowany odwiedzający, który otworzy logowanie lub rejestrację, trafia tam tą samą drogą.
+- `/auth/callback` kieruje dalej na `redirect`, a gdy go brak, do panelu właściwego dla roli. Zalogowany odwiedzający, który otworzy logowanie lub rejestrację, trafia tam tą samą drogą.
 
 Komponenty uwierzytelniania pobierają go z `useAuthRedirect` w `src/hooks/use-auth-redirect.ts`:
 
@@ -73,7 +73,7 @@ Komponenty uwierzytelniania pobierają go z `useAuthRedirect` w `src/hooks/use-a
 
 `useSignOut` wywołuje `signOutUserMutation`, usuwa dane konta z cache zapytań, przechodzi na `/auth/sign-in` i czyści cache routera.
 
-## Powiązane poradniki
+## Powiązane przewodniki
 
 - [Lista kontrolna bezpieczeństwa](/docs/guides/security-checklist)
 - [Role i uprawnienia](/docs/guides/roles-and-permissions)

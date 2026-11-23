@@ -1,57 +1,57 @@
 ---
 title: "Wideo"
-description: "Nagrania kodowane do adaptacyjnego HLS na Twoim komputerze, przechowywane w Twoim własnym buckecie R2 i streamowane przez podpisane linki, które wygasają."
+description: "Nagrania kodowane do adaptacyjnego HLS na Twoim komputerze, przechowywane w Twoim własnym buckecie R2 i przesyłane strumieniowo przez podpisane linki, które wygasają."
 ---
 
-Filmy są przechowywane w Twoim własnym buckecie R2 i streamowane przez Twojego własnego Workera. Nie pośredniczy w tym żadna platforma wideo: Cloudflare nie pobiera opłat za transfer wychodzący z R2, więc płacisz za przechowywanie i żądania, a nie za obejrzane minuty.
+Filmy leżą w Twoim własnym buckecie R2, a strumieniuje je Twój własny Worker. Nie pośredniczy w tym żadna platforma wideo: Cloudflare nie pobiera opłat za transfer wychodzący z R2, więc płacisz za przechowywanie i żądania, a nie za obejrzane minuty.
 
-## Co istnieje
+## Co już działa
 
-- **Biblioteka**: `/admin/videos` (`src/routes/admin.videos.tsx`) wyświetla wszystkie opublikowane filmy, od najnowszych, z ich długością, rozdzielczością źródła, rozmiarem zapisanych plików, językami napisów, informacją, czy jest filmem zastępczym, i datą publikacji. **Podgląd** odtwarza film w oknie dialogowym; **Usuń** prosi o potwierdzenie, a następnie usuwa wiersz i wszystkie pliki pod prefiksem filmu w R2.
-- **Publikowanie**: `bun run video:publish:production <file> --title "…"` koduje nagranie za pomocą FFmpeg, przesyła je do R2 i rejestruje w tabeli `video`, dzięki czemu pojawia się ono w bibliotece.
+- **Biblioteka**: `/admin/videos` (`src/routes/admin.videos.tsx`) pokazuje wszystkie opublikowane filmy, od najnowszego, z długością, rozdzielczością źródła, rozmiarem zapisanych plików, językami napisów, informacją, czy to film zastępczy, i datą publikacji. **Podgląd** odtwarza film w oknie dialogowym; **Usuń** prosi o potwierdzenie, a potem usuwa wiersz i wszystkie pliki pod prefiksem filmu w R2.
+- **Publikowanie**: `bun run video:publish:production <file> --title "…"` koduje nagranie programem FFmpeg, przesyła je do R2 i rejestruje w tabeli `video`, dzięki czemu film pojawia się w bibliotece.
 - **Dostarczanie**: `/media/<expiry>.<signature>/<videoId>/<file>` serwuje pliki odtwarzaczowi (zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2)).
-- **Odtwarzacz**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) korzysta z Video.js 10 z własnym silnikiem HLS. Wyświetla przyciski jakości, prędkości, napisów, obrazu w obrazie i pełnego ekranu, podgląd przy przewijaniu oparty na storyboardzie oraz etykiety w języku strony.
+- **Odtwarzacz**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) korzysta z Video.js 10 i jego własnego silnika HLS. Ma przyciski jakości, prędkości, napisów, obrazu w obrazie i pełnego ekranu, podgląd przy przewijaniu ze storyboardu oraz etykiety w języku strony.
 
-Lekcje kursów odtwarzają te filmy: kolumna `video_id` lekcji wskazuje wiersz tabeli `video`, a `getLessonPlayback` podpisuje ścieżki tylko dla widzów, którzy mogą obejrzeć tę lekcję. Zobacz [Kursy](/docs/features/courses).
+Lekcje kursów odtwarzają te filmy: kolumna `video_id` lekcji wskazuje wiersz tabeli `video`, a `getLessonPlayback` podpisuje ścieżki tylko dla osób, które mogą obejrzeć tę lekcję. Zobacz [Kursy](/docs/features/courses).
 
 ## Filmy zastępcze [#placeholder-videos]
 
-Film można oznaczyć jako zastępczy przełącznikiem **Zastępcze** w bibliotece (`setVideoPlaceholder`, zapisywane w `video.placeholder`, wyłączone dla każdego opublikowanego filmu). Lekcja z filmem zastępczym jest oznaczona jako **w trakcie nagrywania**: odwiedzający widzą lekcję i jej materiały, ale lekcja nigdy się nie odtwarza, a jej długość nie jest wliczana do długości kursu. Opublikuj jedno krótkie nagranie, oznacz je jako zastępcze i zacznij na nim każdą lekcję; gdy opublikujesz właściwe nagranie lekcji, wybierz je w edytorze lekcji, a lekcja zacznie się odtwarzać wszędzie naraz. Wyłączenie przełącznika sprawia, że każda lekcja z tym filmem znów da się odtworzyć. Zobacz [W trakcie nagrywania](/docs/features/courses#being-recorded).
+Film można oznaczyć jako zastępczy przełącznikiem **Zastępcze** w bibliotece (`setVideoPlaceholder`, wartość w `video.placeholder`, wyłączona dla każdego opublikowanego filmu). Lekcja z filmem zastępczym ma oznaczenie **W trakcie nagrywania**: odwiedzający widzą lekcję i jej materiały, ale film się nie odtwarza, a długość lekcji nie wlicza się do długości kursu. Opublikuj jedno krótkie nagranie, oznacz je jako zastępcze i na początek przypisz je do każdej lekcji; gdy opublikujesz właściwe nagranie lekcji, wybierz je w edytorze lekcji, a lekcja od razu zacznie się odtwarzać wszędzie. Po wyłączeniu przełącznika każdą lekcję z tym filmem znów można odtworzyć. Zobacz [W trakcie nagrywania](/docs/features/courses#being-recorded).
 
-Dane testowe publikują `Being recorded`, film zastępczy, z którego korzystają trzy lekcje drugiego testowego rozdziału, oraz `Spare take`, film, z którego nie korzysta żadna lekcja, a który testy przeglądarkowe oznaczają i odznaczają. Baza danych nie ma filmu zastępczego, dopóki nie oznaczysz go w bibliotece: migracja, która dodała tę flagę, pozostawia każdy istniejący film odtwarzalnym.
+Testowe dane początkowe publikują `Being recorded`, film zastępczy, z którego korzystają trzy lekcje drugiego rozdziału w tych danych, oraz `Spare take`, film bez żadnej lekcji, który testy w przeglądarce oznaczają i odznaczają. Baza danych nie ma filmu zastępczego, dopóki nie oznaczysz go w bibliotece: po migracji, która dodała tę flagę, każdy istniejący film nadal się odtwarza.
 
 ## Co zawiera opublikowany film
 
 Koder planuje pliki wynikowe na podstawie źródła:
 
-| Plik                                | Zawartość                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `master.m3u8`                       | Playlista wielowariantowa HLS z listą wszystkich wariantów wraz z ich rozdzielczością, kodekami i szczytową przepływnością.                                                                                                                                                                                     |
-| `<height>p/`                        | Jeden wariant H.264 na każdy stopień: wysokość źródła (do <RepositoryFact name="videoTopRendition" />), a pod nią <RepositoryFact name="videoLowerRenditions" />. Każdy zawiera `index.m3u8`, `init_<n>.mp4` i segmenty `.m4s` (długość segmentu: <RepositoryFact name="videoSegmentSeconds" unit="second" />). |
-| `audio/`                            | Jedna ścieżka AAC stereo (przepływność <RepositoryFact name="audioBitrate" />, częstotliwość próbkowania <RepositoryFact name="audioSampleRate" /> Hz) współdzielona przez wszystkie warianty, więc dźwięk jest przechowywany tylko raz. Nagrania bez dźwięku jej nie mają.                                     |
-| `poster.webp`, `poster-960.webp`    | Klatka z jednej dziesiątej długości nagrania albo obraz przekazany przez `--poster`, o szerokości <RepositoryFact name="posterWidth" /> i <RepositoryFact name="posterSmallWidth" /> px. Odtwarzacz wybiera jeden z nich przez `srcset`.                                                                        |
-| `storyboard.webp`, `storyboard.vtt` | Miniatury do podglądu przy przewijaniu (odstęp między kafelkami: co najmniej <RepositoryFact name="storyboardIntervalSeconds" unit="second" />, maksymalna liczba kafelków: <RepositoryFact name="storyboardMaxTiles" />) oraz ścieżka WebVTT wskazująca każdy kafelek.                                         |
-| `captions/<locale>.vtt`             | Pliki napisów przekazane przez `--captions`, po jednym na każdy język.                                                                                                                                                                                                                                          |
+| Plik                                | Zawartość                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `master.m3u8`                       | Wielowariantowa playlista HLS, która wymienia każdy wariant z rozdzielczością, kodekami i szczytową przepływnością.                                                                                                                                                                                     |
+| `<height>p/`                        | Jeden wariant H.264 na każdy stopień: wysokość źródła (najwyżej <RepositoryFact name="videoTopRendition" />), a pod nią <RepositoryFact name="videoLowerRenditions" />. Każdy ma `index.m3u8`, `init_<n>.mp4` i segmenty `.m4s` o długości <RepositoryFact name="videoSegmentSeconds" unit="second" />. |
+| `audio/`                            | Jedna ścieżka AAC stereo (przepływność <RepositoryFact name="audioBitrate" />, częstotliwość próbkowania <RepositoryFact name="audioSampleRate" /> Hz), wspólna dla wszystkich wariantów, więc dźwięk jest zapisany tylko raz. Nagrania bez dźwięku jej nie mają.                                       |
+| `poster.webp`, `poster-960.webp`    | Klatka z jednej dziesiątej długości nagrania albo obraz przekazany w `--poster`, o szerokości <RepositoryFact name="posterWidth" /> i <RepositoryFact name="posterSmallWidth" /> pikseli. Odtwarzacz wybiera jeden z nich przez `srcset`.                                                               |
+| `storyboard.webp`, `storyboard.vtt` | Miniatury do podglądu przy przewijaniu: jeden kafelek nie częściej niż co <RepositoryFact name="storyboardIntervalSeconds" unit="second" />, najwyżej <RepositoryFact name="storyboardMaxTiles" /> kafelków, oraz ścieżka WebVTT, która wskazuje każdy kafelek.                                         |
+| `captions/<locale>.vtt`             | Pliki napisów przekazane w `--captions`, po jednym na język.                                                                                                                                                                                                                                            |
 
-Segmenty mają format CMAF (fragmentowany MP4), a odstęp między klatkami kluczowymi to <RepositoryFact name="videoKeyframeSeconds" unit="second" />, więc wszystkie warianty przełączają się w tych samych punktach. Przepływność wynika ze stałej jakości (CRF <RepositoryFact name="videoQualityCrf" />) z limitem proporcjonalnym do rozmiaru obrazu, więc w większości statyczne nagranie ekranu zajmuje znacznie mniej miejsca, niż pozwala limit.
+Segmenty mają format CMAF (fragmentowany MP4) z klatką kluczową co <RepositoryFact name="videoKeyframeSeconds" unit="second" />, więc wszystkie warianty przełączają się w tych samych punktach. Przepływność wynika ze stałej jakości (CRF <RepositoryFact name="videoQualityCrf" />), z górnym limitem proporcjonalnym do rozmiaru obrazu, więc nagranie ekranu, na którym niewiele się zmienia, zajmuje znacznie mniej miejsca, niż pozwala limit.
 
-## Opublikuj nagranie
+## Publikowanie nagrania
 
-1. Zainstaluj FFmpeg, który zawiera `ffprobe`: w macOS poleceniem `brew install ffmpeg`. Ustaw `FFMPEG` i `FFPROBE`, aby użyć innych plików wykonywalnych.
-2. Zaloguj się do Cloudflare poleceniem `bunx wrangler login`. Skrypt uruchamia Wranglera z tym logowaniem, tak jak skrypty `db:migrate:*`, i nie odczytuje żadnego pliku `.env`.
+1. Zainstaluj FFmpeg, który zawiera `ffprobe`: w macOS poleceniem `brew install ffmpeg`. Aby użyć innych plików wykonywalnych, ustaw `FFMPEG` i `FFPROBE`.
+2. Zaloguj się do Cloudflare poleceniem `bunx wrangler login`. Skrypt uruchamia Wranglera na tym koncie, tak jak skrypty `db:migrate:*`, i nie czyta żadnego pliku `.env`.
 3. Uruchom skrypt dla wybranego środowiska:
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` i `--captions` są opcjonalne. Dla środowiska preview użyj `video:publish:preview`.
+`--poster` i `--captions` są opcjonalne. Dla środowiska podglądowego użyj `video:publish:preview`.
 
-`scripts/publish-video.ts` odczytuje nazwę bucketu z bindingu `MEDIA` danego środowiska w `wrangler.jsonc`, koduje nagranie do katalogu tymczasowego, przesyła pliki poleceniem `wrangler r2 bulk put --remote`, po 20 naraz i pogrupowane według typu zawartości, a następnie wstawia wiersz `video` poleceniem `wrangler d1 execute DB --env <environment> --remote`. Jeśli to się nie powiedzie, usuwa przesłane obiekty poleceniem `wrangler r2 object delete`. Planowanie (warianty, argumenty FFmpeg, storyboard, nazwy plików) znajduje się w `src/modules/video/video.encoding.ts` i `video.files.ts`, z których korzysta też Worker.
+`scripts/publish-video.ts` odczytuje nazwę bucketu z bindingu `MEDIA` danego środowiska w `wrangler.jsonc`, koduje nagranie do katalogu tymczasowego, przesyła pliki poleceniem `wrangler r2 bulk put --remote`, po 20 naraz, pogrupowane według typu zawartości, i wstawia wiersz `video` poleceniem `wrangler d1 execute DB --env <environment> --remote`. Jeśli to się nie uda, usuwa przesłane obiekty poleceniem `wrangler r2 object delete`. Planowanie (warianty, argumenty FFmpeg, storyboard, nazwy plików) jest w `src/modules/video/video.encoding.ts` i `video.files.ts`, z których korzysta też Worker.
 
 ## Koszt
 
-Przy cenie przechowywania w R2 Standard wynoszącej 0,015 USD za GB miesięcznie i braku opłat za transfer wychodzący biblioteka 50 godzin nagrań ekranu, zajmujących we wszystkich wariantach łącznie około 1,2 GB na godzinę, kosztuje mniej niż 1 USD miesięcznie za przechowywanie, niezależnie od tego, jak często jest oglądana. Każde żądanie segmentu uruchamia Workera jeden raz i odczytuje R2 najwyżej raz na lokalizację brzegową, ponieważ serwowane pliki trafiają do cache Workers. Aktualne ceny sprawdź w cennikach [R2](https://developers.cloudflare.com/r2/pricing/) i [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+Przechowywanie w R2 Standard kosztuje 0,015 USD za GB miesięcznie, a transfer wychodzący jest bezpłatny, więc biblioteka 50 godzin nagrań ekranu, które we wszystkich wariantach zajmują około 1,2 GB na godzinę, kosztuje mniej niż 1 USD miesięcznie, niezależnie od tego, jak często się ją ogląda. Każde żądanie segmentu uruchamia Workera raz i czyta z R2 najwyżej raz w każdej lokalizacji brzegowej, ponieważ serwowane pliki trafiają do pamięci podręcznej Workers. Aktualne ceny sprawdź w cennikach [R2](https://developers.cloudflare.com/r2/pricing/) i [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Powiązane strony
 

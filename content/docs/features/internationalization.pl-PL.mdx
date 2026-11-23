@@ -1,28 +1,28 @@
 ---
 title: "Internacjonalizacja i języki"
-description: "Obsługiwane języki, prefiksy w adresach URL, ciasteczko języka i komunikaty use-intl podzielone na przestrzenie nazw."
+description: "Obsługiwane języki, prefiksy w adresach URL, plik cookie z językiem i komunikaty use-intl podzielone na przestrzenie nazw."
 ---
 
 ## Języki
 
-`I18N` w `src/integrations/use-intl/i18n.config.ts` definiuje obsługiwane języki (łącznie <RepositoryFact name="languages" />): <RepositoryFact name="supportedLocales" />, z `en-US` jako domyślnym, a także ciasteczko `saasyland.com_locale`, domyślną strefę czasową `UTC` oraz nazwane formaty dat `FORMATS`.
+`I18N` w `src/integrations/use-intl/i18n.config.ts` definiuje obsługiwane języki (łącznie <RepositoryFact name="languages" />): <RepositoryFact name="supportedLocales" />, z `en-US` jako językiem domyślnym, a także plik cookie `saasyland.com_locale`, domyślną strefę czasową `UTC` oraz nazwane formaty dat `FORMATS`.
 
 ## Adresy URL
 
-Język domyślny nie ma prefiksu; każdy inny język jest prefiksem ścieżki, na przykład `/docs` i `/pl-PL/docs`. W przypadku żądań dokumentów Worker (`resolveLocale` w `i18n.middleware.ts`) przekierowuje niekanoniczne ścieżki kodem 308: `/en-US/docs` staje się `/docs`, a `/pl/docs` staje się `/pl-PL/docs`. Ścieżki `/api` i `/_serverFn` nigdy nie mają prefiksu.
+Język domyślny nie ma prefiksu; każdy inny język jest prefiksem ścieżki, na przykład `/docs` i `/pl-PL/docs`. Przy żądaniach dokumentów Worker (`resolveLocale` w `i18n.middleware.ts`) przekierowuje niekanoniczne ścieżki kodem 308: `/en-US/docs` zmienia się w `/docs`, a `/pl/docs` w `/pl-PL/docs`. Ścieżki `/api` i `/_serverFn` nigdy nie mają prefiksu.
 
 `rewrite` routera w `src/router.tsx` usuwa prefiks z przychodzących adresów URL i dodaje go do wychodzących, więc trasy i linki używają zwykłych ścieżek: `<Link to={ROUTES.SIGN_IN}>`. Surowe adresy URL w bieżącym języku, takie jak `callbackURL` i `errorCallbackURL` w Better Auth, pochodzą z `router.buildLocation(...).publicHref`; `localizePathname({ locale, pathname })` buduje adres URL dla wskazanego języka, na przykład linki przełącznika języka i linki w e-mailach. `AriaProvider` lokalizuje `href` komponentów React Aria.
 
-## Ciasteczko języka
+## Plik cookie z językiem
 
-Gdy język w adresie URL dokumentu różni się od ciasteczka, Worker ustawia ciasteczko w odpowiedzi; żaden kod nie wybiera na jego podstawie języka. `getCurrentLocale()` działa po obu stronach i odczytuje ścieżkę adresu URL, a w razie braku prefiksu zwraca `en-US`. Adresy URL `/api` i funkcji serwerowych nie mają prefiksu, więc na serwerze zwraca dla nich `en-US`. E-maile biorą język z przepływu: e-maile uwierzytelniania z jego `callbackURL`, a potwierdzenie newslettera z `locale` wysyłanego przez formularz.
+Gdy język w adresie URL dokumentu różni się od zapisanego w pliku cookie, Worker ustawia ten plik cookie w odpowiedzi; żaden kod nie wybiera na jego podstawie języka. `getCurrentLocale()` działa po obu stronach i odczytuje ścieżkę adresu URL, a w razie braku prefiksu zwraca `en-US`. Adresy URL `/api` i funkcji serwerowych nie mają prefiksu, więc na serwerze zwraca dla nich `en-US`. E-maile biorą język z samego procesu: e-maile uwierzytelniania z jego `callbackURL`, a potwierdzenie zapisu do newslettera z `locale`, które wysyła formularz.
 
 ## Komunikaty
 
 Komunikaty to pliki `messages/<locale>/<namespace>.json`; nazwa pliku jest przestrzenią nazw, na przykład `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` lub `common`. Każda przestrzeń nazw strony zawiera `metadata.title` i `metadata.description`.
 
-- Główne przestrzenie nazw (`common`, `components.*`, `errors*`) są wstępnie ładowane w głównym `beforeLoad`.
-- Layout deklaruje `NAMESPACES`, strona deklaruje `NAMESPACE`. Obie trafiają do `staticData.namespaces` i są wstępnie ładowane przez loader:
+- Główne przestrzenie nazw (`common`, `components.*`, `errors*`) są wczytywane z wyprzedzeniem w `beforeLoad` głównej trasy.
+- Layout deklaruje `NAMESPACES`, a strona `NAMESPACE`. Obie stałe trafiają do `staticData.namespaces`, a loader wczytuje je z wyprzedzeniem:
 
 ```ts
 loader: async ({ context }) => {
@@ -44,33 +44,33 @@ Każdy komponent wywołuje `useTranslations` tylko raz i nazywa tłumacza `t`. K
 
 ## Daty, liczby i strefy czasowe
 
-Daty i liczby są formatowane przez `useFormatter` z use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). Język decyduje o konwencjach: kolejności dnia i miesiąca, zegarze 12- lub 24-godzinnym i separatorach. Strefa czasowa to jedyna preferencja wyświetlania, którą zapisuje użytkownik.
+Daty i liczby formatuje `useFormatter` z use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). Język decyduje o konwencjach: kolejności dnia i miesiąca, zegarze 12- lub 24-godzinnym i separatorach. Strefa czasowa to jedyna preferencja wyświetlania, którą zapisuje użytkownik.
 
 `TranslationsProvider` przekazuje do `IntlProvider` jeszcze dwie wartości:
 
-- `timeZone`: `timezone` zalogowanego użytkownika z bieżącego zapytania o sesję, a bez sesji `I18N.DEFAULT_TIMEZONE` (`UTC`). Dostarcza ją obszar uwierzytelniania przez `src/data/auth.time-zone.ts` (zobacz [Platforma i testy](/docs/architecture/platform-layer#what-the-areas-add)) i odczytuje sesję, którą wczytują guardy tras `/app`, `/admin` i uwierzytelniania, nigdy nie pobierając jej sam, dzięki czemu prerenderowane strony publiczne są takie same dla każdego odwiedzającego i hydratują się bez zmian. Gdy zapytanie o sesję się zmienia, na przykład po zapisaniu przez użytkownika nowej strefy na ekranie [Ustawienia](/docs/features/settings), każda data renderuje się ponownie.
+- `timeZone`: `timezone` zalogowanego użytkownika z bieżącego zapytania o sesję, a bez sesji `I18N.DEFAULT_TIMEZONE` (`UTC`). Dostarcza ją obszar uwierzytelniania przez `src/data/auth.time-zone.ts` (zobacz [Platforma i testy](/docs/architecture/platform-layer#what-the-areas-add)), a odczytuje przy tym sesję, którą wczytują guardy tras `/app`, `/admin` i uwierzytelniania, i nigdy nie pobiera jej sam, dzięki czemu prerenderowane strony publiczne są takie same dla każdego odwiedzającego i przechodzą hydratację bez zmian. Gdy zapytanie o sesję się zmienia, na przykład gdy użytkownik zapisze nową strefę w [Ustawieniach](/docs/features/settings), każda data renderuje się od nowa.
 - `formats`: `I18N.FORMATS`, czyli nazwane formaty dat. `src/types/use-intl.d.ts` rejestruje ich nazwy w use-intl, więc nieznana nazwa nie przechodzi sprawdzania typów.
 
-| Nazwa           | Przykład (angielski) | Zastosowanie                                                                                                   |
-| --------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `date`          | Nov 14, 2026         | Dzień, na który przypada dany moment w strefie czytelnika, w tabelach                                          |
-| `time`          | 3:04 PM UTC          | Godzina momentu ze skrótem strefy, którą `common.dateTime` łączy z jego `date`                                 |
-| `calendarDate`  | Nov 14, 2026         | Data bez godziny, np. data wpisu na blogu. Jest formatowana w UTC, więc nigdy nie przesuwa się na inny dzień   |
-| `calendarMonth` | Nov                  | Etykiety dni i miesięcy na wykresach pulpitu w panelu administracyjnym, które dodają do niego `day` lub `year` |
+| Nazwa           | Przykład (angielski) | Zastosowanie                                                                                                      |
+| --------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026         | Dzień, na który przypada dany moment w strefie czytelnika, w tabelach                                             |
+| `time`          | 3:04 PM UTC          | Godzina danego momentu ze skrótem strefy, łączona z jego `date` przez `common.dateTime`                           |
+| `calendarDate`  | Nov 14, 2026         | Data bez godziny, np. data wpisu na blogu. Jest formatowana w UTC, więc nigdy nie przesuwa się na inny dzień      |
+| `calendarMonth` | Nov                  | Etykiety dni i miesięcy na wykresach pulpitu panelu administracyjnego; wykresy dodają do formatu `day` lub `year` |
 
-Nazwany format zawiera datę albo godzinę, nigdy obie. Silniki łączą je inaczej: Safari wypisuje „Nov 14, 2026 at 3:04 PM UTC”, a serwer „Nov 14, 2026, 3:04 PM UTC”, więc format z obiema częściami renderował w Safari inny tekst, niż wysłał serwer, a React zgłaszał niezgodność hydratacji. Data z godziną to komunikat `common.dateTime`, `{value, date, date}, {value, time, time}` (po japońsku bez przecinka), jak w `t("common.dateTime", { value: createdAt })`, a każdy silnik wypisuje każdą część tak samo. Używają go aktywacje licencji i daty kont w panelu administracyjnym. `i18n.config.test.ts` kończy się błędem, gdy nazwany format łączy pola daty i godziny, i sprawdza, że komunikat wypisuje to samo co silnik serwera w każdym języku i każdej strefie czasowej.
+Nazwany format zawiera datę albo godzinę, nigdy jedno i drugie. Silniki łączą je różnie: Safari wypisuje „Nov 14, 2026 at 3:04 PM UTC”, a serwer „Nov 14, 2026, 3:04 PM UTC”, więc format z obiema częściami renderował w Safari inny tekst, niż wysłał serwer, a React zgłaszał niezgodność hydratacji. Data z godziną to komunikat `common.dateTime`, `{value, date, date}, {value, time, time}` (po japońsku bez przecinka), jak w `t("common.dateTime", { value: createdAt })`, a każdy silnik wypisuje każdą część tak samo. Używają go aktywacje licencji i daty kont w panelu administracyjnym. `i18n.config.test.ts` kończy się błędem, gdy nazwany format łączy pola daty i godziny, i sprawdza, czy komunikat wypisuje to samo, co silnik serwera, w każdym języku i każdej strefie czasowej.
 
-Czas względny, taki jak „active 9 seconds ago” przy sesji, liczy się od chwili, w której odczytano jego dane: `format.relativeTime(session.updatedAt, dataUpdatedAt)`, z `dataUpdatedAt` zapytania, które zwróciło sesję. Serwer wysyła tę chwilę do przeglądarki razem z zapytaniem, więc oba wypisują ten sam tekst niezależnie od godziny, strefy czasowej i zegara odwiedzającego. Liczony od `new Date()` brał moment, w którym serwer renderował stronę, i późniejszy według zegara przeglądarki, więc profil użytkownika w panelu administracyjnym wypisywał na serwerze „active 9 seconds ago”, a w przeglądarce „active 10 seconds ago”, i React zgłaszał niezgodność hydratacji.
+Czas względny, taki jak „aktywność 9 sekund temu” przy sesji, liczy się od chwili odczytu danych: `format.relativeTime(session.updatedAt, dataUpdatedAt)`, z `dataUpdatedAt` zapytania, które zwróciło sesję. Serwer wysyła tę chwilę do przeglądarki razem z zapytaniem, więc serwer i przeglądarka wypisują ten sam tekst niezależnie od godziny, strefy czasowej i zegara odwiedzającego. Gdy czas liczono od `new Date()`, serwer mierzył go od chwili renderowania strony, a przeglądarka od późniejszej chwili na własnym zegarze, więc profil użytkownika w panelu administracyjnym pokazywał na serwerze „aktywność 9 sekund temu”, a w przeglądarce „aktywność 10 sekund temu”, i React zgłaszał niezgodność hydratacji.
 
-Wywołanie może nadpisać jedną opcję nazwanego formatu: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Tabele w panelu administracyjnym pokazują daty innych użytkowników we własnej strefie oglądającego, wraz z jej skrótem, więc kolumnę czyta się i sortuje w jednej strefie; strefa użytkownika ma osobną kolumnę.
+Wywołanie może nadpisać jedną opcję nazwanego formatu: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Tabele w panelu administracyjnym pokazują daty innych użytkowników w strefie oglądającego, ze skrótem strefy, więc kolumnę czyta się i sortuje w jednej strefie; strefa użytkownika ma osobną kolumnę.
 
 ## Zmiana języka
 
-`locale-switcher.tsx` zawiera dwa przełączniki języka. `LocaleSwitcher` w stopce stron marketingowych to menu `<details>` ze zwykłym linkiem dla każdego języka do bieżącej ścieżki w tym języku, więc działa jeszcze przed hydratacją. `LocaleSelect` w paskach bocznych dokumentacji i aplikacji klienta to pole wyboru w stylu `ThemeSwitch`, które otwiera ten sam URL. W obu przypadkach wybór języka ładuje nowy dokument, a parametry zapytania i fragment nie są zachowywane. Strony po polsku i ukraińsku wstępnie ładują też podzbiory czcionek łacińskich rozszerzonych i cyrylicy ([Czcionki i branding](/docs/ui/fonts-and-branding)).
+`locale-switcher.tsx` zawiera dwa przełączniki języka. `LocaleSwitcher` w stopce stron marketingowych to menu `<details>` ze zwykłym linkiem do bieżącej ścieżki w każdym języku, więc działa jeszcze przed hydratacją. `LocaleSelect` w paskach bocznych dokumentacji i panelu klienta to pole wyboru w stylu `ThemeSwitch`, które otwiera ten sam adres URL. W obu przypadkach wybór języka ładuje nowy dokument, a ciąg zapytania i fragment adresu nie są przenoszone. Strony po polsku i ukraińsku wczytują też z wyprzedzeniem podzbiory fontu z rozszerzoną łaciną i cyrylicą ([Czcionki i branding](/docs/ui/fonts-and-branding)).
 
 ## Kontrole
 
-`bun run check:i18n` sprawdza zgodność kluczy między językami, rozwiązuje statyczne klucze w zakresie ich `useTranslations`, kończy się błędem dla kluczy, których nie renderuje żaden plik źródłowy, waliduje składnię komunikatów ICU, sprawdza zgodność treści dokumentacji i bloga i kończy się błędem przy formie zwracania się, której język nie używa.
+`bun run check:i18n` sprawdza kompletność kluczy we wszystkich językach, rozwiązuje statyczne klucze w zakresie ich `useTranslations`, zgłasza błąd przy kluczach, których nie renderuje żaden plik źródłowy, sprawdza składnię komunikatów ICU, sprawdza kompletność treści dokumentacji i bloga i zgłasza błąd przy formie zwracania się, której dany język nie używa.
 
 ## Powiązane przewodniki
 

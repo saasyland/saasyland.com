@@ -7,8 +7,8 @@ description: "Motywy jasny, ciemny i systemowy zapisywane w ciasteczku oraz toke
 
 `THEME` w `src/presentation/theme/index.ts` definiuje motywy `light`, `dark` i `system` (domyślny) oraz ciasteczko `saasyland.com_theme`. Aplikacja korzysta z `@wrksz/themes`:
 
-- `ThemeScript` w `head` głównego dokumentu (`src/routes/__root.tsx`) odczytuje ciasteczko i ustawia klasę motywu przed pierwszym malowaniem, więc nie ma mignięcia.
-- `ThemeProvider` (`src/providers/theme-provider.tsx`) startuje od wartości z ciasteczka (`getStoredTheme`), zapisuje w nim zmiany i utrzymuje w synchronizacji każdy `ThemeProvider` w tym samym dokumencie (`enableSameDocumentSync`). Nie synchronizuje innych kart.
+- `ThemeScript` w `head` głównego dokumentu (`src/routes/__root.tsx`) odczytuje ciasteczko i ustawia klasę motywu przed pierwszym wyrenderowaniem, więc strona nie miga.
+- `ThemeProvider` (`src/providers/theme-provider.tsx`) zaczyna od wartości z ciasteczka (`getStoredTheme`), zapisuje w nim zmiany i synchronizuje każdy `ThemeProvider` w tym samym dokumencie (`enableSameDocumentSync`). Nie synchronizuje innych kart.
 - `ThemeProvider` otacza tylko widżety, które odczytują lub zmieniają motyw: główny `Toaster` i `ThemeSwitch` w pasku bocznym dokumentacji. Nigdy nie otacza `Outlet` trasy, ponieważ provider aktualizowany po hydratacji wymusiłby ponowne renderowanie całej strony.
 
 ```tsx
@@ -26,11 +26,11 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`, `/app` i `/docs` stosują zapisany motyw; jedyny przełącznik motywu znajduje się w pasku bocznym dokumentacji. Layout `_site` dodaje klasę `dark` do swojego kontenera, dopóki dopasowana trasa ustawia `dark: true` w swoich `staticData`, jak robi to layout `_marketing` strony głównej, stron prawnych, bloga i kursów, a layout uwierzytelniania dodaje ją do własnego kontenera; te strony są zawsze ciemne. `globals.css` nadaje ciemne tokeny także elementowi `html`, dopóki jeden z tych kontenerów jest bezpośrednim dzieckiem `body` (`:root:has(> body > .dark)`), więc okno wokół strony, również pod paskiem przewijania, jest ciemne także w jasnym motywie.
+`/admin`, `/app` i `/docs` stosują zapisany motyw; jedyny przełącznik motywu znajduje się w pasku bocznym dokumentacji. Layout `_site` dodaje klasę `dark` do swojego kontenera, gdy dopasowana trasa ustawia `dark: true` w swoich `staticData`, jak robi to layout `_marketing` strony głównej, stron prawnych, bloga i kursów, a layout uwierzytelniania dodaje ją do własnego kontenera; te strony są zawsze ciemne. `globals.css` nadaje ciemne tokeny także elementowi `html`, dopóki jeden z tych kontenerów jest bezpośrednim dzieckiem `body` (`:root:has(> body > .dark)`), więc okno wokół strony, również pod paskiem przewijania, jest ciemne także w jasnym motywie.
 
 ## Tokeny
 
-`src/presentation/styles/globals.css` definiuje tokeny shadcn jako zmienne OKLCH w `:root` (jasny) i `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, od `chart-1` do `chart-5`, zestaw `sidebar-*` oraz `radius`. Akcentem marki jest `ring`: koloruje obramowania fokusu, stany aktywne i wyróżnienia oraz odpowiada `chart-1`. Narzędzia `dark:` podążają za klasą:
+`src/presentation/styles/globals.css` definiuje tokeny shadcn jako zmienne OKLCH w `:root` (jasny) i `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, od `chart-1` do `chart-5`, zestaw `sidebar-*` oraz `radius`. Akcentem marki jest `ring`: koloruje obwódki fokusu, stany aktywne i wyróżnienia oraz odpowiada `chart-1`. Klasy narzędziowe `dark:` zależą od klasy:
 
 ```css
 @custom-variant dark (&:is(.dark *));
@@ -60,13 +60,13 @@ html:has([data-page-scroller]) {
 }
 ```
 
-`/app` i `/admin` wypełniają okno i zamiast tego przewijają swój obszar treści, dlatego ten element ma `data-page-scroller`, zarówno w layoutach, jak i w ich szkieletach ładowania: zarezerwowane miejsce przechodzi tam, a obszar roboczy zajmuje całą szerokość okna. `usePreventScroll` z React Aria i Base UI, na którym działa wyszukiwarka dokumentacji, również unieruchamiają stronę przez `scrollbar-gutter: stable`, a nie przez padding, więc nic nie wyrównuje miejsca podwójnie. Stałe warstwy, takie jak nagłówek, ramka strony i przycisk powrotu na górę, leżą w oknie bez tego miejsca i są wyrównane z treścią, a tor paska jest przezroczysty, więc w tym miejscu widać tło samej strony.
+`/app` i `/admin` wypełniają okno i zamiast tego przewijają swój obszar treści, dlatego ten element ma `data-page-scroller`, zarówno w layoutach, jak i w ich szkieletach ładowania: zarezerwowane miejsce przechodzi tam, a panel zajmuje całą szerokość okna. `usePreventScroll` z React Aria i Base UI, na którym działa wyszukiwarka dokumentacji, również unieruchamiają stronę przez `scrollbar-gutter: stable`, a nie przez padding, więc miejsce nie jest kompensowane dwa razy. Warstwy o stałej pozycji, takie jak nagłówek, ramka strony i przycisk powrotu na górę, leżą w oknie bez tego miejsca i są wyrównane z treścią, a tor paska jest przezroczysty, więc w tym miejscu widać tło samej strony.
 
 ## Skala typograficzna [#type-scale]
 
-Zamiast surowych rozmiarów używaj nazwanych klas tekstu: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title-lg`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec`, `text-label` i `text-code`. Każda ustawia rozmiar, interlinię, odstępy między literami, a w nagłówkach także grubość. `src/lib/cn.config.ts` rejestruje je, aby `cn` zachowywał je przy łączeniu klas; `bun run generate:cn` odbudowuje tablice wyszukiwania.
+Zamiast surowych rozmiarów używaj nazwanych klas tekstu: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title-lg`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec`, `text-label` i `text-code`. Każda ustawia rozmiar, interlinię, odstępy między literami, a w nagłówkach także grubość. `src/lib/cn.config.ts` rejestruje je, aby `cn` zachowywał je przy łączeniu klas; `bun run generate:cn` odbudowuje tablice przeglądowe.
 
-Mały koniec skali ma dolną granicę: nic, co trzeba przeczytać, nie jest mniejsze niż `text-label`.
+Skala ma dolną granicę: nic, co czytelnik musi przeczytać, nie jest mniejsze niż `text-label`.
 
 | Klasa          | Rozmiar                                                       | Zastosowanie                                                                                                      |
 | -------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -76,23 +76,23 @@ Mały koniec skali ma dolną granicę: nic, co trzeba przeczytać, nie jest mnie
 | `text-code`    | O stopień mniejszy niż tekst wokół                            | Kod w linii wewnątrz zdania                                                                                       |
 
 - Tekst jest złożony krojem Geist. Geist Mono służy tylko do kodu, poleceń, klawiszy i identyfikatorów, takich jak polecenie, slug, ID, nazwa pliku czy kod języka. Etykiety, daty, liczby i ceny są złożone krojem Geist, z `tabular-nums` tam, gdzie cyfry stoją w kolumnie albo zmieniają się w miejscu.
-- Przygaszony tekst używa `text-muted-foreground` w pełnej sile, co spełnia WCAG AA (4,5:1) na każdej powierzchni w obu motywach. Jaśniejsze są tylko znaki dekoracyjne ukryte przez `aria-hidden`, takie jak `$` znaku zachęty czy separator.
+- Przygaszony tekst używa `text-muted-foreground` w pełnym kryciu, co spełnia WCAG AA (4,5:1) na każdej powierzchni w obu motywach. Jaśniejsze są tylko znaki dekoracyjne ukryte przez `aria-hidden`, takie jak `$` znaku zachęty czy separator.
 - Tekst zachowuje wygładzanie czcionek platformy, które na macOS nadaje pełny kształt małemu jasnemu tekstowi na ciemnym tle. Tytuły stron, rozmiary display, headline i cen oraz nagłówki artykułów zachowują wygładzanie w skali szarości (`-webkit-font-smoothing: antialiased`) dla ostrzejszych krawędzi; reguła jest w warstwie bazowej `globals.css`.
-- `text-xs` zostaje zdefiniowany tylko dlatego, że używają go własne komponenty Fumadocs, i ma rozmiar `text-spec`.
+- `text-xs` pozostaje zdefiniowany tylko dlatego, że używają go własne komponenty Fumadocs, i ma rozmiar `text-spec`.
 
-Reguły lint w `scripts/type-lint-plugin.ts` przerywają `bun run check`, gdy kod w `src/` składa tekst poza skalą. `type/no-off-scale` odrzuca `text-xs`, dowolny rozmiar taki jak `text-[11px]`, właściwość `[font-size:…]` i `fontSize` w obiekcie stylu; wyjątkiem jest karta społecznościowa, którą Takumi rysuje ze stylów inline. `type/mono-for-code` odrzuca `font-mono` w tym samym ciągu klas co `uppercase`, `tabular-nums` albo `text-label`, które oznaczają etykietę lub liczbę, a nie kod. `src/presentation/styles/__test__/type-scale.test.ts` utrwala małe rozmiary, pilnuje, by każdy token był na granicy lub powyżej, i sprawdza regułę wygładzania.
+Reguły lintera w `scripts/type-lint-plugin.ts` przerywają `bun run check`, gdy kod w `src/` składa tekst poza skalą. `type/no-off-scale` odrzuca `text-xs`, dowolny rozmiar taki jak `text-[11px]`, właściwość `[font-size:…]` i `fontSize` w obiekcie stylu; wyjątkiem jest karta podglądu, którą Takumi rysuje ze stylów inline. `type/mono-for-code` odrzuca `font-mono` w tym samym ciągu klas co `uppercase`, `tabular-nums` albo `text-label`, które oznaczają etykietę lub liczbę, a nie kod. `src/presentation/styles/__test__/type-scale.test.ts` utrwala małe rozmiary, pilnuje, by każdy token był na granicy lub powyżej, i sprawdza regułę wygładzania.
 
 ## Zaokrąglenie narożników [#corner-radius]
 
 Każdy narożnik bierze promień z jednej skali. `--radius` w `:root` jest jej podstawą, a `@theme static` w `globals.css` wyprowadza z niej trzy stopnie, więc zmiana tej jednej wartości przeskalowuje całą witrynę. Każdy rodzaj elementu ma jeden stopień:
 
-| Klasa          | Promień                                     | Zastosowanie                                                                                                                                                                               |
-| -------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `rounded-lg`   | <RepositoryFact name="radiusLgPixels" /> px | Powierzchnie: karty, panele, okna dialogowe, arkusze, popovery, menu, toasty, wyróżnione bloki, tabele, bloki kodu, ramki wideo i obrazów oraz karty kursów i cen                          |
-| `rounded-md`   | <RepositoryFact name="radiusMdPixels" /> px | Kontrolki: przyciski, wezwania do działania, pola, selecty, listy kart, przełączniki, znaczniki, chipy, podpowiedzi, kafelki ikon, wiersze menu pasków bocznych i polecenia w jednej linii |
-| `rounded-sm`   | <RepositoryFact name="radiusSmPixels" /> px | Elementy wewnątrz powierzchni lub kontrolki z wypełnieniem: pozycje menu, selecta i poleceń, przełączniki kart, `kbd`, kod w tekście, pola wyboru i pierścień fokusu linku tekstowego      |
-| `rounded-full` | Koło lub pigułka                            | Awatary, kropki stanu i znaczniki, przełączniki, suwaki, przyciski opcji, paski postępu, numery kroków, przyciski odtwarzania i okrągłe plakietki z ikoną                                  |
-| `rounded-none` | 0                                           | Element, który w zaokrąglonym rodzicu musi pozostać kanciasty, na przykład pole grupy wejściowej                                                                                           |
+| Klasa          | Promień                                     | Zastosowanie                                                                                                                                                                                              |
+| -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rounded-lg`   | <RepositoryFact name="radiusLgPixels" /> px | Powierzchnie: karty, panele, okna dialogowe, arkusze, popovery, menu, toasty, wyróżnione bloki, tabele, bloki kodu, ramki wideo i obrazów oraz karty kursów i cen                                         |
+| `rounded-md`   | <RepositoryFact name="radiusMdPixels" /> px | Kontrolki: przyciski, wezwania do działania, pola, selecty, listy zakładek, przyciski przełączające, plakietki, chipy, podpowiedzi, kafelki ikon, wiersze menu pasków bocznych i polecenia w jednej linii |
+| `rounded-sm`   | <RepositoryFact name="radiusSmPixels" /> px | Elementy wewnątrz powierzchni lub kontrolki z wypełnieniem: pozycje menu, selecta i poleceń, przyciski zakładek, `kbd`, kod w tekście, pola wyboru i obwódka fokusu linku tekstowego                      |
+| `rounded-full` | Koło lub pigułka                            | Awatary, kropki stanu i znaczniki, przełączniki, suwaki, przyciski opcji, paski postępu, numery kroków, przyciski odtwarzania i okrągłe plakietki z ikoną                                                 |
+| `rounded-none` | 0                                           | Element, który w zaokrąglonym rodzicu musi pozostać kanciasty, na przykład pole grupy wejściowej                                                                                                          |
 
 Element wewnątrz zaokrąglonego kontenera z wypełnieniem nigdy nie ma większego promienia niż kontener: pozycje menu są `rounded-sm` w jego panelu `rounded-lg`, a przycisk w karcie jest `rounded-md`. `rounded-[inherit]`, który dokładnie powtarza promień rodzica, jest jedyną dozwoloną dowolną wartością.
 
@@ -111,17 +111,17 @@ Status, poziom dostępu albo rodzaj kursu to `Badge` z shadcn (`src/presentation
 | `warning`     | To, co na kogoś czeka: oczekujące zamówienie albo licencja, użytkownik, który nie potwierdził adresu, lekcja w trakcie nagrywania                                        |
 | `destructive` | To, co wycofano: zwrócone zamówienie, zablokowany użytkownik, zarchiwizowany produkt, unieważniona licencja                                                              |
 
-Ekrany przekazują `variant` i żadnych klas, które zmieniają rozmiar, odstęp, promień albo kolor plakietki. Ton każdej wartości leży obok wartości: `LESSON_ACCESS_BADGES`, `COURSE_STATUS_BADGES` i `LESSON_STATUS_BADGES` w `src/data/course-badges.ts`, `USER_STATUS_BADGES` w `src/data/admin.ts` i `ORDER_STATUS_BADGES` w `src/data/payments.ts`. Pod tytułem lekcji `LessonMeta` (`lesson-meta.tsx`) stawia plakietkę, a po niej czas trwania albo klepsydrę i **Wkrótce** na jednej linii środkowej, `mt-2` pod tytułem w programie kursu i w bloku kursów strony głównej. Na okładce karty kursu rodzaj i poziom leżą na matowej tacce (`bg-background/85` z `backdrop-blur-sm`), żeby ich tony wyglądały tak jak na stronie.
+Ekrany przekazują tylko `variant`, bez klas, które zmieniają rozmiar, odstęp, promień albo kolor plakietki. Ton każdej wartości jest zapisany obok samych wartości: `LESSON_ACCESS_BADGES`, `COURSE_STATUS_BADGES` i `LESSON_STATUS_BADGES` w `src/data/course-badges.ts`, `USER_STATUS_BADGES` w `src/data/admin.ts` i `ORDER_STATUS_BADGES` w `src/data/payments.ts`. Pod tytułem lekcji `LessonMeta` (`lesson-meta.tsx`) stawia plakietkę, a po niej czas trwania albo klepsydrę i **Wkrótce** na jednej linii środkowej, `mt-2` pod tytułem w programie kursu i w bloku kursów strony głównej. Na okładce karty kursu rodzaj i poziom leżą na matowej podkładce (`bg-background/85` z `backdrop-blur-sm`), żeby ich tony wyglądały tak jak na stronie.
 
 Trzy małe kształty nie są plakietkami: aktywne filtry bloga to przyciski, które usuwają filtr, więc są to chipy `rounded-full` z ikoną zamknięcia; liczba na przycisku **Filtry** bloga to okrągły licznik; a **Polecany** nazywa wyróżniony pakiet w pasku nagłówka jego karty, tak jak inne etykiety sekcji. `e2e/fixtures/badge-layout.ts` mierzy plakietki: `e2e/specs/course-pages.spec.ts` i `e2e/specs/landing.spec.ts` sprawdzają przy szerokości telefonu, tabletu i komputera, a także na powiększonej stronie kursu, że wersaliki każdej etykiety są wyśrodkowane w polu, że plakietka, czas trwania i klepsydra dzielą jedną linię środkową i że wiersz danych każdej lekcji stoi w tym samym odstępie pod jej tytułem.
 
 ## Tytuły stron i wezwania do działania [#page-titles-and-calls-to-action]
 
-Strony z treścią (indeks bloga, katalog kursów, strony newslettera, strony prawne i strona nieznalezionego adresu) zaczynają się od `ContentPage` (`src/presentation/components/custom/content-page.tsx`): `h1` w `text-headline-peak` i lead w `text-lead`, na każdej stronie w tej samej odległości pod nagłówkiem witryny, a `ContentPagePending` rysuje ten sam blok w ich szkieletach. Wpisy na blogu zachowują dla tytułu artykułu większy `text-display-gate`. Wezwania do działania na stronach publicznych używają `CTA_CLASSES.PRIMARY` lub `CTA_CLASSES.SECONDARY` z `src/data/cta.ts`, więc wszystkie mają tę samą wysokość (`h-11`), te same odstępy i ten sam krój; `BackHomeLink` to główne wezwanie z powrotem do `/`, z etykietą z `common.backHome`, na stronie nieznalezionego adresu i na stronach newslettera.
+Strony z treścią (lista wpisów bloga, katalog kursów, strony newslettera, strony prawne i strona nieznalezionego adresu) zaczynają się od `ContentPage` (`src/presentation/components/custom/content-page.tsx`): `h1` w `text-headline-peak` i wstęp w `text-lead`, na każdej stronie w tej samej odległości pod nagłówkiem witryny, a `ContentPagePending` rysuje ten sam blok w ich szkieletach. Wpisy na blogu zachowują dla tytułu artykułu większy `text-display-gate`. Wezwania do działania na stronach publicznych używają `CTA_CLASSES.PRIMARY` lub `CTA_CLASSES.SECONDARY` z `src/data/cta.ts`, więc wszystkie mają tę samą wysokość (`h-11`), te same odstępy i ten sam krój; `BackHomeLink` to główne wezwanie z powrotem do `/`, z etykietą z `common.backHome`, na stronie nieznalezionego adresu i na stronach newslettera.
 
 ## Arkusze stylów tras
 
-`docs.css` zawiera style prozy `typeset` dla dokumentacji i artykułów na blogu. To zwykły CSS ładowany przez layouty `/docs` i `/blog` jako link do arkusza stylów `?url`. Arkusze stylów tras nie mogą uruchamiać drugiej kompilacji Tailwinda.
+`docs.css` zawiera style prozy `typeset` dla dokumentacji i artykułów na blogu. To zwykły CSS ładowany przez layouty `/docs` i `/blog` jako link do arkusza stylów `?url`. Arkusze stylów tras nie mogą uruchamiać drugiego builda Tailwinda.
 
 ## Powiązane przewodniki
 

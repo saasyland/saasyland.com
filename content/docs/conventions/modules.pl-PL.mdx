@@ -3,24 +3,24 @@ title: "Moduły"
 description: "Moduł to jedna tabela bazy danych: jej schemat, stałe, schematy Zod, interfejs typów, przypadki użycia i kilka plików zagadnień, których tabela może potrzebować."
 ---
 
-`src/modules/<table>/` istnieje tylko dla rzeczywistej tabeli bazy danych. Folder odzwierciedla schemat Drizzle, więc jego utworzenie oznacza, że tabela istnieje. Kod, który obsługuje funkcję bez własnej tabeli, trafia gdzie indziej: funkcja serwerowa czytająca GitHub lub kolekcję dokumentacji znajduje się w `src/lib/<topic>.ts` lub w jedynej trasie, która jej używa, a konfiguracja dostawcy w `src/integrations/<vendor>`.
+`src/modules/<table>/` istnieje tylko dla rzeczywistej tabeli bazy danych. Folder odzwierciedla schemat Drizzle, więc jego utworzenie to deklaracja, że tabela istnieje. Kod, który obsługuje funkcję bez własnej tabeli, trafia gdzie indziej: funkcja serwerowa, która czyta dane z GitHuba lub kolekcję dokumentacji, znajduje się w `src/lib/<topic>.ts` lub w jedynej trasie, która jej używa, a konfiguracja dostawcy w `src/integrations/<vendor>`.
 
-Moduły to <RepositoryFact name="modules" />. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
+Moduły to <RepositoryFact name="modules" />. Do `license` należą dwie tabele: `license` i `revoked_license_order`. `_core` nie jest modułem: zawiera kody błędów, katalogi i pola Zod współdzielone przez wszystkie moduły.
 
 ## Budowa
 
 Wzorcem jest `src/modules/course`. Moduł zawiera następujące pliki, wszystkie nazwane od tabeli:
 
-| Plik                         | Zawartość                                                                                      |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | Tabelę Drizzle, jej indeksy i relacje                                                          |
-| `<table>.constants.ts`       | Obiekty wartości domenowych, ich krotki enumów, klucze zapytań, klucze mutacji i limity modułu |
-| `<table>.zod.ts`             | Po jednym schemacie wejścia na operację, eksportowanych jako jeden obiekt `<table>ZodSchemas`  |
-| `<table>.types.ts`           | Jeden interfejs nazwany jak moduł                                                              |
-| `<table>.utils.ts`           | Helpery tabeli, czyste i bezpieczne w przeglądarce, chyba że odczytują środowisko Workera      |
-| `<table>.<concern>.ts`       | Jedno dodatkowe zagadnienie tabeli, np. `lesson.access.ts` lub `video.delivery.ts`             |
-| `use-cases/<verb>-<noun>.ts` | Jedną operację, nazwaną od jej funkcji serwerowej                                              |
-| `__test__/`                  | Testy i fixtury dla powyższych plików                                                          |
+| Plik                         | Zawartość                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | Tabelę Drizzle, jej indeksy i relacje                                                                |
+| `<table>.constants.ts`       | Obiekty wartości domenowych, ich krotki enumów, klucze zapytań, klucze mutacji i limity modułu       |
+| `<table>.zod.ts`             | Po jednym schemacie wejścia na operację, wszystkie w jednym obiekcie `<table>ZodSchemas`             |
+| `<table>.types.ts`           | Jeden interfejs nazwany jak moduł                                                                    |
+| `<table>.utils.ts`           | Funkcje pomocnicze tabeli, czyste i bezpieczne w przeglądarce, chyba że odczytują środowisko Workera |
+| `<table>.<concern>.ts`       | Jedno dodatkowe zagadnienie tabeli, np. `lesson.access.ts` lub `video.delivery.ts`                   |
+| `use-cases/<verb>-<noun>.ts` | Jedną operację, nazwaną od jej funkcji serwerowej                                                    |
+| `__test__/`                  | Testy i fixtury dla powyższych plików                                                                |
 
 ## Schemat
 
@@ -53,7 +53,7 @@ export const course = sqliteTable(
 ```
 
 - Kolumny są w camelCase w TypeScript i w snake_case w SQL. Klucze są posortowane, jak wymaga linter, a `...timestamps()` jest ostatnim wpisem.
-- `createdAt` i `updatedAt` pochodzą z `timestamps()` w `src/integrations/drizzle-orm/drizzle.columns.ts`: są w milisekundach, wypełnia je SQLite przy wstawianiu wiersza, a `updatedAt` odświeża się przy każdej aktualizacji. Nigdy nie pisz ich ręcznie. `lesson_progress` potrzebuje tylko drugiej z nich, więc przyjmuje `updatedAt: timestamps().updatedAt`. Dwie tabele nie mają znaczników czasu: `rate_limit` przechowuje krótkotrwałe liczniki, które mają własne `expiresAt` i zmieniają się przy każdym żądaniu, a `revoked_license_order` zapisuje raz każde zwrócone zamówienie Polar, według jego ID.
+- `createdAt` i `updatedAt` pochodzą z `timestamps()` w `src/integrations/drizzle-orm/drizzle.columns.ts`: są w milisekundach, wypełnia je SQLite przy wstawianiu wiersza, a `updatedAt` odświeża się przy każdej aktualizacji. Nigdy nie pisz ich ręcznie. `lesson_progress` potrzebuje tylko drugiej z nich, więc przyjmuje `updatedAt: timestamps().updatedAt`. Dwie tabele nie mają znaczników czasu: `rate_limit` przechowuje krótkotrwałe liczniki, które mają własne `expiresAt` i zmieniają się przy każdym żądaniu, a `revoked_license_order` zapisuje raz każde zwrócone zamówienie z Polara, po jego ID.
 - Klucze główne są tekstowe. Przypadek użycia, który wstawia wiersz, wypełnia klucz identyfikatorem UUID v7 (`v7()` z `uuid`); [tabela odzwierciedlająca dostawcę](#tables-that-mirror-a-provider) przyjmuje zamiast tego identyfikator dostawcy.
 - Kolumny enum przyjmują krotkę zbudowaną z obiektu stałych modułu, nigdy listę literałów. Krotka znajduje się obok obiektu w `<table>.constants.ts`, bo czytają ją też schematy Zod i przeglądarka, a ten plik nie importuje niczego z Drizzle.
 - Tekst, który odwiedzający czyta w kilku językach, jest kolumną JSON `LocalizedText`, walidowaną przez `localizedTextSchema` i odczytywaną za pomocą `localize(text, locale)` z `src/modules/_core/utils/localized-text.ts`.
@@ -61,11 +61,11 @@ export const course = sqliteTable(
 
 ## Tabele odzwierciedlające dostawcę [#tables-that-mirror-a-provider]
 
-`order` i `subscription` przechowują kopie zamówień i subskrypcji z Polar, zapisywane wyłącznie z danych Polar i nigdy nieedytowane ręcznie. Tabela-lustro trzyma się dostawcy tam, gdzie powyższe zasady mówią co innego:
+`order` i `subscription` przechowują kopie zamówień i subskrypcji z Polara, zapisywane wyłącznie na podstawie danych z Polara i nigdy nieedytowane ręcznie. Tabela-lustro trzyma się dostawcy tam, gdzie powyższe zasady mówią co innego:
 
-- Jej kluczem głównym jest identyfikator dostawcy, kolumna tekstowa o długości `POLAR_ID_MAX_LENGTH`, a kolumny noszą nazwy pól dostawcy, takie jak `customer_id`, `product_id` i `subscription_id`. Nasza własna tabela, która wskazuje na dane dostawcy, poprzedza natomiast nazwę prefiksem, tak jak `license.polar_order_id`.
-- Własne znaczniki czasu dostawcy leżą obok `...timestamps()`. `placedAt` to moment, w którym Polar utworzył zamówienie, a `changedAt` to wersja rekordu Polar przechowywana w wierszu: jego `modified_at` albo, dopóki rekord nigdy się nie zmienił, jego `created_at`. `createdAt` i `updatedAt` nadal zapisują, kiedy wiersz trafił do D1.
-- Kolumny enum przyjmują krotki wartości dostawcy: `ORDER_STATUSES` w `order.constants.ts` wymienia `POLAR_ORDER_STATUS` z `src/integrations/polar/polar.constants.ts`, a test typów kończy się błędem, gdy SDK poda wartość, której brakuje w krotce.
+- Jej kluczem głównym jest identyfikator dostawcy, kolumna tekstowa o długości `POLAR_ID_MAX_LENGTH`, a kolumny noszą nazwy pól dostawcy, takie jak `customer_id`, `product_id` i `subscription_id`. Nasza własna tabela, która wskazuje na dane dostawcy, dodaje natomiast prefiks do nazwy kolumny, tak jak `license.polar_order_id`.
+- Własne znaczniki czasu dostawcy leżą obok `...timestamps()`. `placedAt` to moment, w którym Polar utworzył zamówienie, a `changedAt` to wersja rekordu z Polara przechowywana w wierszu: jego `modified_at` albo, dopóki rekord nigdy się nie zmienił, jego `created_at`. `createdAt` i `updatedAt` nadal zapisują, kiedy wiersz trafił do D1.
+- Kolumny enum przyjmują krotki wartości dostawcy: `ORDER_STATUSES` w `order.constants.ts` wymienia `POLAR_ORDER_STATUS` z `src/integrations/polar/polar.constants.ts`, a test typów kończy się błędem, gdy SDK wymienia wartość, której brakuje w krotce.
 - Żadna kolumna poza `createdAt` i `updatedAt` nie ma wartości domyślnej, bo każda wartość pochodzi od dostawcy.
 - `user_id` ma `ON DELETE SET NULL`: usunięcie konta zachowuje jego zamówienia i subskrypcje, a usuwa jedynie powiązanie.
 
@@ -175,53 +175,53 @@ export interface Lesson {
 }
 ```
 
-Funkcje serwerowe, opcje mutacji i formularze typują swoje wejście jako `Lesson["createLesson"]`. Gdy dodajesz schemat do `<table>.zod.ts`, dodaj w tej samej zmianie jego klucz tutaj. Nigdy nie wyprowadzaj typu wejścia przez `Parameters<typeof fn>[0]` i nigdy nie deklaruj lokalnego aliasu ani drugiego interfejsu `LessonInput`. Gdy komponenty potrzebują kształtu zwracanego przez odczyt, interfejs także go nazywa, wyprowadzając go z funkcji serwerowej: `Course["listRow"]` to `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
+Funkcje serwerowe, opcje mutacji i formularze typują swoje wejście jako `Lesson["createLesson"]`. Gdy dodajesz schemat do `<table>.zod.ts`, dodaj w tej samej zmianie jego klucz tutaj. Nigdy nie wyprowadzaj typu wejścia przez `Parameters<typeof fn>[0]` i nigdy nie deklaruj lokalnego aliasu ani drugiego interfejsu `LessonInput`. Gdy komponenty potrzebują kształtu danych zwracanych przez odczyt, interfejs także go nazywa, wyprowadzając go z funkcji serwerowej: `Course["listRow"]` to `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
 
 ## Przypadki użycia
 
-Każdy plik w `use-cases/` zawiera jedną operację, nazwaną od jej funkcji serwerowej w kebab-case: `get-course-editor.ts` eksportuje `getCourseEditor` i `courseEditorQuery`, a `update-course.ts` eksportuje `updateCourse` i `updateCourseMutation`. Wzorzec, jego middleware i błędy opisuje strona [Funkcje serwerowe i błędy](/docs/conventions/server-functions). [Katalog modułów](/docs/reference/modules) i [macierz uprawnień](/docs/reference/permissions) wyświetlają tabele każdego modułu, jego przypadki użycia i wywołanie `authorized` każdego z nich, które `collectModuleTables` w `scripts/repository-facts.ts` odczytuje z kodu podczas budowania, więc nowy przypadek użycia pojawia się tam bez edycji, a `src/__test__/module-tables.test.ts` kończy się błędem, gdy katalog pomija plik modułu spoza standardowego zestawu.
+Każdy plik w `use-cases/` zawiera jedną operację, nazwaną od jej funkcji serwerowej w kebab-case: `get-course-editor.ts` eksportuje `getCourseEditor` i `courseEditorQuery`, a `update-course.ts` eksportuje `updateCourse` i `updateCourseMutation`. Wzorzec, jego middleware i błędy opisuje strona [Funkcje serwerowe i błędy](/docs/conventions/server-functions). [Katalog modułów](/docs/reference/modules) i [macierz uprawnień](/docs/reference/permissions) wyświetlają tabele każdego modułu, jego przypadki użycia i wywołanie `authorized` każdego z nich, które `collectModuleTables` w `scripts/repository-facts.ts` odczytuje z kodu podczas budowania, więc nowy przypadek użycia pojawia się tam bez ręcznej edycji, a `src/__test__/module-tables.test.ts` kończy się błędem, gdy katalog pomija plik modułu spoza standardowego zestawu.
 
-Przypadek użycia, który działa tylko na serwerze i jest wywoływany przez hook Better Auth lub webhook Polar, a nie przez przeglądarkę, to zwykła funkcja `async` w pliku zaczynającym się od `import "@tanstack/react-start/server-only"`, np. `license/use-cases/grant-license.ts` oraz moduły wysyłające e-maile `send-verify-email.ts`, `send-reset-password-email.ts` i `send-change-email-confirmation-email.ts`.
+Przypadek użycia, który działa tylko na serwerze i jest wywoływany przez hook Better Auth lub webhook Polara, a nie przez przeglądarkę, to zwykła funkcja `async` w pliku zaczynającym się od `import "@tanstack/react-start/server-only"`, np. `license/use-cases/grant-license.ts` oraz pliki wysyłające e-maile `send-verify-email.ts`, `send-reset-password-email.ts` i `send-change-email-confirmation-email.ts`.
 
 ## Pliki zagadnień
 
-Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czystym helperem, dostaje jeden plik na zagadnienie, nazwany `<table>.<concern>.ts`:
+Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czystą funkcją pomocniczą, dostaje jeden plik na zagadnienie, nazwany `<table>.<concern>.ts`:
 
-| Plik                                              | Zagadnienie                                                                                                     |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `course/course.outline.ts`                        | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`                                          |
-| `course/course.cover.ts`                          | Rozmiary, szerokości, akceptowane typy i klucze obiektów okładki kursu; czysta logika                           |
-| `course/course.delivery.ts`                       | Handler Workera `serveCover`, który serwuje okładki kursów                                                      |
-| `course/course.objects.ts`                        | Usuwanie obiektów okładki kursu z R2                                                                            |
-| `course/course.transfer.ts`                       | Eksport i import kursów jako jednego dokumentu JSON                                                             |
-| `lesson/lesson.access.ts`                         | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach                                         |
-| `lesson/lesson.playable.ts`                       | Złączenie z wideo lekcji, które pomija filmy zastępcze                                                          |
-| `lesson-attachment/lesson-attachment.download.ts` | Podpisywanie adresów URL do pobierania materiałów lekcji                                                        |
-| `lesson-attachment/lesson-attachment.delivery.ts` | Handler Workera dla podpisanych żądań `/media/downloads/`                                                       |
-| `lesson-attachment/lesson-attachment.files.ts`    | Typy zawartości, nazwy plików, klucze obiektów i pola przesyłania materiałów lekcji                             |
-| `lesson-attachment/lesson-attachment.objects.ts`  | Listowanie i usuwanie obiektów R2 materiałów lekcji                                                             |
-| `lesson/lesson.viewer.ts`                         | Ustala na serwerze zalogowanego widza i jego dostęp do kursów oraz zapisuje otwartą przez niego płatną lekcję   |
-| `order/order.polar.ts`                            | Rabat i kraj rozliczenia zamówienia Polar, dla `recordOrder` i `scripts/backfill-order-terms.ts`; czysta logika |
-| `license/license.webhooks.ts`                     | Handlery webhooków Polar, wywoływane przez `license.polar-events.ts`                                            |
-| `license/license.api.ts`                          | Handlery API licencji CLI, obsługiwane przez `src/routes/api/cli.v1.*.ts`                                       |
-| `license/license.bundles.ts`                      | Podpisywanie adresów URL paczek szablonów CLI; ich klucze obiektów                                              |
-| `license/license.delivery.ts`                     | Handler Workera dla podpisanych żądań `/bundles/`                                                               |
-| `license/license.ppp.ts`                          | Cena planu dla kupującego przy płatności, z uwzględnieniem ceny regionalnej                                     |
-| `license/license.pricing.ts`                      | Przedziały cen regionalnych i cookie rezygnacji; czysta logika                                                  |
-| `license/license.upgrade-price.ts`                | Cena przejścia na wyższy plan na podstawie zamówień licencji klienta w Polar                                    |
-| `license/license.upgrades.ts`                     | Które plany są ulepszeniem i ulepszenie zapisane w metadanych zamówienia; czysta logika                         |
-| `license/license.refunds.ts`                      | Czy zakup można zwrócić, na podstawie jego zapisów; czysta logika                                               |
-| `withdrawal/withdrawal.contracts.ts`              | Aktywna licencja wskazana w oświadczeniu o odstąpieniu od umowy i jej warunki zwrotu                            |
-| `video/video.delivery.ts`                         | Handler Workera dla podpisanych żądań `/media/`                                                                 |
-| `video/video.playback.ts`, `video/video.files.ts` | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości                                         |
-| `video/video.encoding.ts`                         | Warianty jakości, długość segmentów i ustawienia jakości kodowania wideo                                        |
-| `account/account.links.ts`                        | Linki w e-mailach konta, budowane z adresu URL wywołania zwrotnego                                              |
+| Plik                                              | Zagadnienie                                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `course/course.outline.ts`                        | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`                                             |
+| `course/course.cover.ts`                          | Rozmiary, szerokości, dozwolone typy plików i klucze obiektów okładki kursu; czysta logika                         |
+| `course/course.delivery.ts`                       | Handler Workera `serveCover`, który serwuje okładki kursów                                                         |
+| `course/course.objects.ts`                        | Usuwanie obiektów okładki kursu z R2                                                                               |
+| `course/course.transfer.ts`                       | Eksport i import kursów jako jednego dokumentu JSON                                                                |
+| `lesson/lesson.access.ts`                         | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach                                            |
+| `lesson/lesson.playable.ts`                       | Złączenie z wideo lekcji, które pomija filmy zastępcze                                                             |
+| `lesson-attachment/lesson-attachment.download.ts` | Podpisywanie adresów URL do pobierania materiałów lekcji                                                           |
+| `lesson-attachment/lesson-attachment.delivery.ts` | Handler Workera dla podpisanych żądań `/media/downloads/`                                                          |
+| `lesson-attachment/lesson-attachment.files.ts`    | Typy zawartości, nazwy plików, klucze obiektów i pola formularza przesyłania materiałów lekcji                     |
+| `lesson-attachment/lesson-attachment.objects.ts`  | Pobieranie listy i usuwanie obiektów R2 z materiałami lekcji                                                       |
+| `lesson/lesson.viewer.ts`                         | Ustala na serwerze zalogowanego widza i jego dostęp do kursów oraz zapisuje otwartą przez niego płatną lekcję      |
+| `order/order.polar.ts`                            | Rabat i kraj rozliczenia zamówienia z Polara, dla `recordOrder` i `scripts/backfill-order-terms.ts`; czysta logika |
+| `license/license.webhooks.ts`                     | Handlery webhooków Polara, wywoływane przez `license.polar-events.ts`                                              |
+| `license/license.api.ts`                          | Handlery API licencji CLI, udostępniane przez `src/routes/api/cli.v1.*.ts`                                         |
+| `license/license.bundles.ts`                      | Podpisywanie adresów URL paczek szablonów CLI; ich klucze obiektów                                                 |
+| `license/license.delivery.ts`                     | Handler Workera dla podpisanych żądań `/bundles/`                                                                  |
+| `license/license.ppp.ts`                          | Cena pakietu dla kupującego na stronie płatności, z uwzględnieniem ceny regionalnej                                |
+| `license/license.pricing.ts`                      | Przedziały cen regionalnych i cookie rezygnacji; czysta logika                                                     |
+| `license/license.upgrade-price.ts`                | Cena przejścia na wyższy pakiet na podstawie zamówień licencji klienta w Polarze                                   |
+| `license/license.upgrades.ts`                     | Które pakiety są przejściem na wyższy pakiet i jakie przejście zapisują metadane zamówienia; czysta logika         |
+| `license/license.refunds.ts`                      | Czy za zakup przysługuje zwrot pieniędzy, na podstawie jego zapisów; czysta logika                                 |
+| `withdrawal/withdrawal.contracts.ts`              | Aktywna licencja wskazana w oświadczeniu o odstąpieniu od umowy i jej warunki zwrotu                               |
+| `video/video.delivery.ts`                         | Handler Workera dla podpisanych żądań `/media/`                                                                    |
+| `video/video.playback.ts`, `video/video.files.ts` | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości                                            |
+| `video/video.encoding.ts`                         | Warianty strumienia, długość segmentu i ustawienia jakości kodowania wideo                                         |
+| `account/account.links.ts`                        | Linki w e-mailach dotyczących konta, budowane z adresu zwrotnego                                                   |
 
-Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
+Plik, który nigdy nie może trafić do bundla przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów z Polara, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
 
 ## Dodawanie modułu
 
-Postępuj krok po kroku według przewodnika [Dodawanie modułu](/docs/guides/add-a-module), zaczynając od kopii kształtu modułu kursów.
+Postępuj krok po kroku według przewodnika [Dodawanie modułu](/docs/guides/add-a-module), wzorując się na budowie modułu kursów.
 
 ## Powiązane strony
 

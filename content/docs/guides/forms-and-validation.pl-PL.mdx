@@ -1,9 +1,9 @@
 ---
 title: "Formularze i walidacja"
-description: "Buduj formularze z TanStack Form, polami shadcn i schematem Zod modułu, który egzekwuje także serwer."
+description: "Buduj formularze z TanStack Form, polami shadcn i schematem Zod modułu, który sprawdza też serwer."
 ---
 
-Formularze stosują wzorzec shadcn dla TanStack Form: `useForm` ze schematem Zod modułu, render propsy `form.Field`, komponenty `Field` z shadcn i mutację do wysyłki. Funkcja serwerowa ponownie waliduje ten sam schemat, więc kontrola po stronie klienta służy wyłącznie informacji zwrotnej.
+Formularze stosują wzorzec shadcn dla TanStack Form: `useForm` ze schematem Zod modułu, render propsy `form.Field`, komponenty `Field` z shadcn i mutację, która wysyła dane. Funkcja serwerowa jeszcze raz waliduje ten sam schemat, więc sprawdzenie po stronie klienta daje tylko szybką informację zwrotną.
 
 ## Przykład
 
@@ -98,7 +98,7 @@ export const NewsletterForm = (): JSX.Element => {
 
 - Używaj schematu z `<table>.zod.ts` modułu, a w formularzach uwierzytelniania z `src/integrations/better-auth/auth.zod.ts`. `.pick(...)` wybiera pola widoczne w formularzu; wartości, których użytkownik nie wpisuje, np. język, są dodawane w `onSubmit`.
 - `validators: { onChange: emailSchema }` to jedyny walidator. TanStack Form uruchamia go przy każdej zmianie i ponownie przy wysyłce; osobna kopia w `onSubmit` zostawiłaby błąd z chwili wysyłki czerwony, dopóki nie zmieniłoby się jego własne pole.
-- `listeners: { onBlur: validateOnBlur }` uruchamia ten sam walidator, gdy pole traci fokus, więc pole, przez które odwiedzający przeszedł klawiszem Tab, pokazuje swój błąd, gdy tylko je opuści.
+- `listeners: { onBlur: validateOnBlur }` uruchamia ten sam walidator, gdy pole traci fokus, więc pole pominięte klawiszem Tab pokazuje swój błąd, gdy tylko fokus z niego zejdzie.
 - `noValidate` wyłącza walidację przeglądarki, więc jedynymi błędami są komunikaty Zod.
 
 ## Błędy
@@ -108,14 +108,14 @@ export const NewsletterForm = (): JSX.Element => {
 - Informacja zwrotna na żywo, która nagradza postęp, np. `PasswordRequirements`, odczytuje wartości bezpośrednio i aktualizuje się od pierwszego naciśnięcia klawisza.
 - Pole zawsze ustawia `aria-describedby` na id swojego błędu, `<input id>-error`, a `ValidationFieldError` renderuje element z tym id tylko wtedy, gdy pole jest nieprawidłowe. Przeglądarki ignorują odwołanie do nieistniejącego elementu, więc prawidłowe pole nie ma opisu.
 - Komunikaty Zod są kluczami tłumaczeń, np. `emailInvalid`. `fieldErrorMessage` bierze pierwszy z nich, a `ValidationFieldError` renderuje `<namespace>.<key>` z pasującym wpisem z `params`, np. `max` (<RepositoryFact name="emailMaxLength" />) dla `emailMaxLength`. Nieistniejący klucz zastępuje `errors.codes.VALIDATION`.
-- Formularze przekazują `auth.validations`, które layouty `auth` i `admin` wczytują z wyprzedzeniem, a obszar newslettera dodaje do layoutu `_marketing` na potrzeby swojego formularza, z wyjątkiem formularzy kursów w administracji, które przekazują `course.validations` z layoutu `admin.courses.tsx`. Trasa musi wczytać przestrzeń nazw, której używa formularz. `messages/` ma też przestrzeń nazw `<table>.validations` dla pozostałych modułów, np. `user.validations`, ale żaden formularz ani trasa ich nie wczytuje.
+- Formularze przekazują `auth.validations`, które layouty `auth` i `admin` wczytują z wyprzedzeniem, a obszar newslettera dodaje do layoutu `_marketing` na potrzeby swojego formularza, z wyjątkiem formularzy kursów w panelu administracyjnym, które przekazują `course.validations` z layoutu `admin.courses.tsx`. Trasa musi wczytać przestrzeń nazw, której używa formularz. `messages/` ma też przestrzeń nazw `<table>.validations` dla pozostałych modułów, np. `user.validations`, ale żaden formularz ani trasa ich nie wczytuje.
 - Błędy serwera przechodzą przez `useErrorMessage()` w `onError` mutacji.
 
 ## Wysyłka
 
 - `onSubmit` formularza wywołuje `submitForm(event, form)` z `src/integrations/tanstack-form/form.submit.ts`. Funkcja blokuje wysyłkę przez przeglądarkę i wywołuje `form.handleSubmit()`; gdy formularz jest nieprawidłowy, oznacza wszystkie pola jako opuszczone, więc pokazują się wszystkie błędy, i przenosi fokus na pierwszą kontrolkę z `aria-invalid="true"`.
-- Wysyłaj formularz przez opcje mutacji przypadku użycia rozwinięte w `useMutation`. Wyjątkiem jest `SignInForm`: wywołuje `signIn.email` klienta Better Auth we własnym `useMutation`, a `twoFactorRedirect` obsługuje plugin dwuskładnikowy klienta.
-- `<Button isPending={mutation.isPending} type="submit">` blokuje przycisk i ogłasza stan oczekiwania, dopóki trwa żądanie.
+- Wysyłaj formularz przez opcje mutacji przypadku użycia rozwinięte w `useMutation`. Wyjątkiem jest `SignInForm`: wywołuje `signIn.email` klienta Better Auth we własnym `useMutation`, a `twoFactorRedirect` obsługuje wtyczka uwierzytelniania dwuskładnikowego w kliencie.
+- `<Button isPending={mutation.isPending} type="submit">` wyłącza przycisk i ogłasza stan oczekiwania, dopóki trwa żądanie.
 - Przycisk wysyłki pozostaje aktywny, gdy formularz jest niekompletny; wyłącza go tylko `isPending`. Naciśnięcie go mimo błędów pokazuje wszystkie błędy i przenosi fokus na pierwsze nieprawidłowe pole.
 - Błąd serwera, który dotyczy jednego pola, np. `passwordCompromised` dla hasła znalezionego w znanym wycieku danych, trafia pod to pole przez `showFieldError(formApi, { controlId, field, message })` z `form.submit.ts` zamiast do toastu; znika, gdy pole się zmieni.
 - Resetuj formularz lub nawiguj w `onSuccess` mutacji i unieważniaj zapytania modułu, które mutacja zmienia.

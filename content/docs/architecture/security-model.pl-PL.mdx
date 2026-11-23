@@ -1,62 +1,62 @@
 ---
 title: "Uwierzytelnianie i bezpieczeństwo"
-description: "Jak egzekwowany jest dostęp do tras i funkcji serwerowych oraz jak chronione są sesje, limity żądań i błędy."
+description: "Jak trasy i funkcje serwerowe pilnują dostępu oraz jak chronione są sesje, limity żądań i błędy."
 ---
 
 ## Dwie warstwy kontroli dostępu
 
 **Guardy tras** z `src/integrations/better-auth/auth.routes.ts` działają w `beforeLoad` i przekierowują:
 
-| Guard                | Używany przez                  | Działanie                                                                                              |
-| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `requireSignedIn`    | Layout `/app`                  | Przekierowuje do logowania, gdy brak sesji, zachowując stronę jako `redirect`                          |
-| `requireAdmin`       | Layout `/admin`                | Dodatkowo wymaga uprawnienia `admin: ["access"]`, w przeciwnym razie przekierowuje do `/app`           |
-| `redirectIfSignedIn` | Strony logowania i rejestracji | Kieruje zalogowanego użytkownika do `redirect` lub do jego obszaru roboczego                           |
-| `redirectIfVerified` | `/auth/verify-email`           | Kieruje sesję z potwierdzonym adresem do `redirect` albo, w zależności od roli, do `/admin` lub `/app` |
-| `redirectAfterAuth`  | `/auth/callback`               | Po uwierzytelnieniu kieruje użytkownika do `redirect` albo, zależnie od roli, do `/admin` lub `/app`   |
+| Guard                | Używany przez                  | Działanie                                                                                            |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `requireSignedIn`    | Layout `/app`                  | Przekierowuje do logowania, gdy brak sesji, zachowując stronę jako `redirect`                        |
+| `requireAdmin`       | Layout `/admin`                | Dodatkowo wymaga uprawnienia `admin: ["access"]`, w przeciwnym razie przekierowuje do `/app`         |
+| `redirectIfSignedIn` | Strony logowania i rejestracji | Kieruje zalogowanego użytkownika do `redirect` lub do jego panelu                                    |
+| `redirectIfVerified` | `/auth/verify-email`           | Kieruje sesję z potwierdzonym adresem do `redirect` albo, zależnie od roli, do `/admin` lub `/app`   |
+| `redirectAfterAuth`  | `/auth/callback`               | Po uwierzytelnieniu kieruje użytkownika do `redirect` albo, zależnie od roli, do `/admin` lub `/app` |
 
 Guardy decydują wyłącznie o tym, co widzi użytkownik. Dane chroni **middleware funkcji serwerowych** z `auth.middleware.ts`, ponieważ każdą funkcję serwerową można wywołać bez jej strony:
 
 - `authorized()` ładuje sesję dla żądania i rzuca `UNAUTHORIZED`, jeśli jej nie ma.
 - `authorized({ user: ["ban"] })` dodatkowo sprawdza uprawnienia roli, które `auth.access.ts` buduje z plików dostępu obszarów, i rzuca `FORBIDDEN`.
-- Handler otrzymuje sesję jako `context.auth`. Operacje na danych wywołującego używają `context.auth.user.id`, nigdy identyfikatora użytkownika z danych wejściowych.
+- Handler otrzymuje sesję jako `context.auth`. Operacje na własnych danych wywołującego używają `context.auth.user.id`, nigdy identyfikatora użytkownika z danych wejściowych.
 
 ## Sesje
 
-- Better Auth przechowuje sesje w D1 i używa prefiksu cookie `saasyland`, z bezpiecznymi cookies we wszystkich buildach poza deweloperskim i testowym.
-- `getRequestSession` omija cookie cache i memoizuje sesję do końca żądania.
+- Better Auth przechowuje sesje w D1 i używa prefiksu cookie `saasyland`, z bezpiecznymi plikami cookie we wszystkich buildach poza deweloperskim i testowym.
+- `getRequestSession` omija cookie cache i zapamiętuje sesję do końca żądania.
 - Z sesji wysyłanej do przeglądarki usuwany jest token.
-- `tanstackStartCookies` to ostatni plugin Better Auth, więc cookies ustawione podczas wykonywania funkcji serwerowej trafiają do odpowiedzi.
+- `tanstackStartCookies` to ostatnia wtyczka Better Auth, więc pliki cookie ustawione podczas wykonywania funkcji serwerowej trafiają do odpowiedzi.
 - Dozwolone hosty są ustalone dla każdego trybu builda: `saasyland.com` na produkcji, `preview.saasyland.com` w preview, `localhost:3000` i `127.0.0.1:3000` w trybie deweloperskim, a w testowym dodatkowo `localhost` i `127.0.0.1` na portach od <RepositoryFact name="testServerFirstPort" /> do <RepositoryFact name="testServerLastPort" />, żeby kilka worktree mogło jednocześnie uruchamiać testy przeglądarkowe.
 
-Better Auth obsługuje też weryfikację adresu e-mail (nowe konto jest od razu zalogowane; klucz licencyjny, portal klienta, płatne lekcje i późniejsze logowanie hasłem czekają na potwierdzony adres), reset hasła (który unieważnia istniejące sesje), OAuth z GitHubem i Google (tokeny szyfrowane w spoczynku), uwierzytelnianie dwuskładnikowe oraz impersonację użytkowników przez administratora. Identyfikatory weryfikacyjne są przechowywane jako hashe.
+Better Auth obsługuje też weryfikację adresu e-mail (zaraz po rejestracji użytkownik jest zalogowany, a klucz licencyjny, portal klienta, płatne lekcje i późniejsze logowanie hasłem czekają na potwierdzenie adresu), reset hasła (który unieważnia istniejące sesje), OAuth z GitHubem i Google (tokeny przechowywane w postaci zaszyfrowanej), uwierzytelnianie dwuskładnikowe oraz logowanie się administratora jako użytkownik. Identyfikatory weryfikacyjne są przechowywane jako hashe.
 
 ## Limity żądań
 
-`withRateLimit(kind, limit)` zlicza próby dla każdej operacji i adresu IP klienta (`cf-connecting-ip`) w tabeli `rate_limit` jednym atomowym batchem D1. Limit prób wynosi <RepositoryFact name="sensitiveRateLimit" /> dla `RATE_LIMITS.SENSITIVE` i <RepositoryFact name="tokenRateLimit" /> dla `RATE_LIMITS.TOKEN`, a okno czasowe to <RepositoryFact name="rateLimitWindowSeconds" unit="second" />. Jeśli zapis licznika się nie powiedzie, żądanie jest odrzucane. Własny limiter Better Auth korzysta z tej samej tabeli z prefiksem klucza `auth:`; odczyty sesji, wylogowanie i webhooki Polar są z niego wyłączone.
+`withRateLimit(kind, limit)` zlicza próby dla każdej operacji i adresu IP klienta (`cf-connecting-ip`) w tabeli `rate_limit` jednym atomowym batchem D1. Limit prób wynosi <RepositoryFact name="sensitiveRateLimit" /> dla `RATE_LIMITS.SENSITIVE` i <RepositoryFact name="tokenRateLimit" /> dla `RATE_LIMITS.TOKEN`, a okno czasowe to <RepositoryFact name="rateLimitWindowSeconds" unit="second" />. Jeśli zapis licznika się nie powiedzie, żądanie jest odrzucane. Wbudowany limit żądań Better Auth korzysta z tej samej tabeli z prefiksem klucza `auth:`; odczyty sesji, wylogowanie i webhooki Polara są z niego wyłączone.
 
 E-maile, których wysłanie może wywołać odwiedzający, mają drugi limit. `withinRecipientRateLimit` ogranicza liczbę e-maili każdego rodzaju (weryfikacyjnych, resetu hasła i potwierdzających subskrypcję newslettera) wysyłanych na jeden adres w ciągu godziny do <RepositoryFact name="recipientEmailsPerHour" />, z kluczem w postaci hasha SHA-256 adresu, a powyżej tego limitu po cichu pomija e-mail.
 
-API licencji CLI zlicza każde żądanie dwukrotnie w tej samej tabeli: według adresu IP klienta i według hasha SHA-256 klucza licencyjnego. Limit wynosi <RepositoryFact name="cliApiRequestsPerAddress" /> żądań na adres i <RepositoryFact name="cliApiRequestsPerLicenseKey" /> na klucz w ciągu <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. Najpierw odpowiada limit adresu, żądanie przez niego odrzucone nie jest zliczane dla klucza, a oba liczniki i odczyt licencji są wykonywane w jednym batchu D1 (`rateLimitBatch`). Po przekroczeniu któregokolwiek limitu API odpowiada kodem `rateLimited` z nagłówkiem `retry-after`. Gdy zawiedzie magazyn liczników, odrzuca żądanie kodem `serviceUnavailable`, bo nie może ustalić, czy limit został osiągnięty. Zobacz [API licencji CLI](/docs/features/cli-licence-api).
+API licencji CLI zlicza każde żądanie dwukrotnie w tej samej tabeli: według adresu IP klienta i według hasha SHA-256 klucza licencyjnego. Limit wynosi <RepositoryFact name="cliApiRequestsPerAddress" /> żądań na adres i <RepositoryFact name="cliApiRequestsPerLicenseKey" /> na klucz w ciągu <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. Limit adresu jest sprawdzany jako pierwszy, żądanie przez niego odrzucone nie jest zliczane dla klucza, a oba liczniki i odczyt licencji są wykonywane w jednym batchu D1 (`rateLimitBatch`). Po przekroczeniu któregokolwiek limitu API odpowiada kodem `rateLimited` z nagłówkiem `retry-after`. Gdy zawiedzie magazyn liczników, odrzuca żądanie kodem `serviceUnavailable`, bo nie może ustalić, czy limit został osiągnięty. Zobacz [API licencji CLI](/docs/features/cli-licence-api).
 
 ## Nagłówki odpowiedzi
 
-`src/server.ts` ustawia `SECURITY_HEADERS` (Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` i `X-Frame-Options`) w każdej odpowiedzi zwracanej przez Workera, a przez HTTPS także `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`), i zastępuje każdą wartość, którą odpowiedź lub reguła z `public/_headers` już ustawiła. Obie stałe znajdują się w `src/modules/_core/constants/api.ts`. Pliki serwowane bez Workera dostają te same nagłówki z reguły `/*` w `public/_headers`, a `src/__test__/server.test.ts` kończy się błędem, gdy ta reguła i stałe się różnią. Każda odpowiedź HTML dostaje też w nagłówku politykę skryptów z własnym nonce: TanStack Start umieszcza nonce w skryptach strony, którą renderuje, a `withNonce` strumieniuje prerenderowaną stronę przez `HTMLRewriter`, żeby umieścić go w skryptach tej strony. Zobacz [Bezpieczeństwo i utwardzanie](/docs/features/security).
+`src/server.ts` ustawia `SECURITY_HEADERS` (Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` i `X-Frame-Options`) w każdej odpowiedzi zwracanej przez Workera, a przez HTTPS także `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`), i zastępuje każdą wartość, którą odpowiedź lub reguła z `public/_headers` już ustawiła. Obie stałe znajdują się w `src/modules/_core/constants/api.ts`. Pliki serwowane bez Workera dostają te same nagłówki z reguły `/*` w `public/_headers`, a `src/__test__/server.test.ts` kończy się błędem, gdy ta reguła i stałe się różnią. Każda odpowiedź HTML dostaje też w nagłówku politykę skryptów z własnym nonce: TanStack Start umieszcza nonce w skryptach strony, którą renderuje, a `withNonce` przepuszcza prerenderowaną stronę strumieniowo przez `HTMLRewriter`, żeby umieścić go w skryptach tej strony. Zobacz [Bezpieczeństwo i utwardzanie](/docs/features/security).
 
 ## Linki do mediów
 
-Pliki wideo pozostają w prywatnym buckecie R2. `getVideoPlayback` wymaga `video: ["read"]`, a `getLessonPlayback` poziomu dostępu lekcji, zanim podpiszą ścieżkę, a podpis to HMAC-SHA-256 z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF. `serveMedia` odpowiada `403` na błędny lub wygasły podpis. Podpisana ścieżka działa jak link na okaziciela aż do wygaśnięcia, a jej okres ważności od wydania to co najmniej <RepositoryFact name="signedMediaHours" unit="hour" />, więc każdy, kto ją ma, może odtworzyć ten film. Materiały lekcji podlegają tej samej zasadzie: `getLesson` podpisuje ścieżkę `/media/downloads/` przesłanego pliku tylko wtedy, gdy widz może otworzyć lekcję, a `serveAttachment` odpowiada `403` na błędny lub wygasły podpis. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Pliki wideo pozostają w prywatnym buckecie R2. Zanim podpiszą ścieżkę, `getVideoPlayback` wymaga `video: ["read"]`, a `getLessonPlayback` – poziomu dostępu lekcji. Podpis to HMAC-SHA-256 z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF. `serveMedia` odpowiada `403` na błędny lub wygasły podpis. Podpisana ścieżka działa jak link na okaziciela aż do wygaśnięcia, a jej okres ważności od wydania to co najmniej <RepositoryFact name="signedMediaHours" unit="hour" />, więc każdy, kto ją ma, może odtworzyć ten film. Materiały lekcji podlegają tej samej zasadzie: `getLesson` podpisuje ścieżkę `/media/downloads/` przesłanego pliku tylko wtedy, gdy widz może otworzyć lekcję, a `serveAttachment` odpowiada `403` na błędny lub wygasły podpis. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
 
-Paczki szablonów CLI również pozostają w prywatnym buckecie R2. API licencji CLI podpisuje adres URL paczki tylko dla aktywnej licencji i aktywacji wywołującej maszyny, kluczem, który HKDF wyprowadza z `AUTH_SECRET` wyłącznie dla paczek, więc ścieżka wideo nigdy nie otwiera paczki. `serveBundle` odpowiada `403` na błędny lub wygasły podpis, a podpisany adres URL wygasa <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> po wydaniu. Zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles).
+Paczki szablonów CLI również pozostają w prywatnym buckecie R2. API licencji CLI podpisuje adres URL paczki tylko dla aktywnej licencji i aktywacji na urządzeniu, z którego przyszło żądanie, kluczem, który HKDF wyprowadza z `AUTH_SECRET` wyłącznie dla paczek, więc ścieżka wideo nigdy nie otwiera paczki. `serveBundle` odpowiada `403` na błędny lub wygasły podpis, a podpisany adres URL wygasa <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> po wydaniu. Zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles).
 
 ## Błędy i dane wejściowe
 
 - Funkcje serwerowe przyjmujące dane wejściowe parsują je schematem Zod, zanim uruchomi się handler.
 - Własne endpointy Better Auth podlegają tym samym regułom co formularze: `enforceInputPolicy` w `auth.hooks.ts` działa przed każdym endpointem, który przyjmuje hasło, imię, adres e-mail lub obraz, i odpowiada `400` z `VALIDATION_ERROR`, gdy treść żądania nie przechodzi walidacji schematem.
 - `withRequest` zamienia nieoczekiwane błędy na `INTERNAL_ERROR` i loguje oryginał na serwerze, dzięki czemu szczegóły wewnętrzne nigdy nie trafiają do klienta.
-- Webhooki Polar są weryfikowane za pomocą `POLAR_WEBHOOK_SECRET` przed jakąkolwiek zmianą licencji.
-- Sekrety z `cloudflare:workers` odczytuje wyłącznie kod serwerowy: moduły wyłącznie serwerowe, handlery funkcji serwerowych i helpery importowane tylko przez nie. `scripts/verify-build.ts` przerywa build, gdy zasób klienta importuje `cloudflare:workers`.
-- Obszary prywatne (`/admin`, `/app`, `/auth`, `/newsletter`) nigdy nie są prerenderowane, podobnie jak strony kursów, które pokazują blokady i postępy każdego widza.
+- Webhooki Polara są weryfikowane za pomocą `POLAR_WEBHOOK_SECRET` przed jakąkolwiek zmianą licencji.
+- Sekrety z `cloudflare:workers` odczytuje wyłącznie kod serwerowy: moduły wyłącznie serwerowe, handlery funkcji serwerowych i funkcje pomocnicze importowane tylko przez nie. `scripts/verify-build.ts` przerywa build, gdy zasób klienta importuje `cloudflare:workers`.
+- Obszary prywatne (`/admin`, `/app`, `/auth`, `/newsletter`) nigdy nie są prerenderowane, podobnie jak strony kursów, które pokazują każdemu widzowi jego blokady i postęp.
 
 ## Powiązane strony
 

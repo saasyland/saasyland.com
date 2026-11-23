@@ -1,19 +1,19 @@
 ---
 title: "Cloudflare R2"
-description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo, materiałów lekcji i okładek kursów oraz paczki szablonów CLI, które serwuje Worker."
+description: "Buckety MEDIA i BUNDLES: prywatny magazyn na wideo, materiały lekcji i okładki kursów oraz na paczki szablonów CLI; wszystko to serwuje Worker."
 ---
 
 Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview, lokalny bucket `saasyland-local` dla `bun run dev` i lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera. Obszar licencji wiąże drugi bucket, `BUNDLES`, na paczki szablonów CLI (zobacz [Paczki szablonów](#template-bundles)).
 
 ## Układ obiektów
 
-Pliki każdego filmu znajdują się pod `videos/<videoId>/`, gdzie `videoId` to id wiersza `video`. Klucze budują `videoObjectKey` i `videoDirectory` w `src/modules/video/video.files.ts`, a `mediaContentType` wymienia jedyne nazwy plików, które wolno przesłać lub serwować, wraz z ich typami mediów. Wszystko inne jest odrzucane.
+Pliki każdego filmu znajdują się pod `videos/<videoId>/`, gdzie `videoId` to id wiersza `video`. Klucze budują `videoObjectKey` i `videoDirectory` w `src/modules/video/video.files.ts`, a `mediaContentType` wymienia jedyne nazwy plików, które wolno przesłać lub serwować, wraz z ich typami MIME. Wszystko inne jest odrzucane.
 
-Każdy przesłany materiał lekcji znajduje się pod `attachments/<attachmentId>/<fileName>`, gdzie `attachmentId` to id wiersza `lesson_attachment`, a `fileName` to przesłana nazwa ograniczona do liter, cyfr, kropek, myślników i podkreśleń. `attachmentObjectKey` i `attachmentContentType` w `src/modules/lesson-attachment/lesson-attachment.files.ts` budują klucz i podają typ mediów dla rozszerzeń <RepositoryFact name="attachmentFileTypes" />, które wolno przesłać lub serwować.
+Każdy przesłany materiał lekcji znajduje się pod `attachments/<attachmentId>/<fileName>`, gdzie `attachmentId` to id wiersza `lesson_attachment`, a `fileName` to przesłana nazwa ograniczona do liter, cyfr, kropek, łączników i podkreśleń. `attachmentObjectKey` i `attachmentContentType` w `src/modules/lesson-attachment/lesson-attachment.files.ts` budują klucz i podają typ MIME dla rozszerzeń <RepositoryFact name="attachmentFileTypes" />, które wolno przesłać lub serwować.
 
-Każda okładka kursu leży w pełnym rozmiarze pod `covers/<courseId>/<coverId>.<extension>`, a każdy mniejszy rozmiar obok jako `<coverId>-<width>.<extension>`. Klucze budują `coverObjectKey` i `coverVariantKey` w `src/modules/course/course.cover.ts`, a `coverContentType` podaje typ multimediów zapisanej okładki, WebP lub JPEG.
+Każda okładka kursu leży w pełnym rozmiarze pod `covers/<courseId>/<coverId>.<extension>`, a każdy mniejszy rozmiar obok jako `<coverId>-<width>.<extension>`. Klucze budują `coverObjectKey` i `coverVariantKey` w `src/modules/course/course.cover.ts`, a `coverContentType` podaje typ MIME zapisanej okładki, WebP lub JPEG.
 
-## Podpisane dostarczanie
+## Dostarczanie przez podpisane ścieżki
 
 Odtwarzacz nigdy nie widzi klucza obiektu w buckecie. Funkcja serwerowa wywołuje `createPlayback` (`src/modules/video/video.playback.ts`), który zwraca ścieżki w postaci:
 
@@ -21,28 +21,28 @@ Odtwarzacz nigdy nie widzi klucza obiektu w buckecie. Funkcja serwerowa wywołuj
 /media/<expiry>.<signature>/<videoId>/master.m3u8
 ```
 
-- `expiry` to czas uniksowy zapisany w systemie o podstawie 36 (minimalny czas do wygaśnięcia: <RepositoryFact name="signedMediaHours" unit="hour" />), zaokrąglony w górę do pełnej godziny, więc linki wydane w tej samej godzinie są identyczne i przeglądarka może je dalej trzymać w cache.
-- `signature` to HMAC-SHA-256 z `<videoId>.<expiry>` z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF, więc nie jest potrzebny dodatkowy sekret, a klucz nie służy do niczego innego.
+- `expiry` to czas uniksowy w systemie o podstawie 36, co najmniej <RepositoryFact name="signedMediaHours" unit="hour" /> naprzód, zaokrąglony w górę do pełnej godziny, więc linki wydane w tej samej godzinie są identyczne, a przeglądarka może trzymać je w cache.
+- `signature` to HMAC-SHA-256 wartości `<videoId>.<expiry>` z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF, więc nie jest potrzebny dodatkowy sekret, a klucz nie służy do niczego innego.
 - Playlisty odwołują się do wariantów, segmentów i napisów przez ścieżki względne, więc jeden podpisany prefiks obejmuje cały strumień.
 
 `src/server.ts` przekazuje każde żądanie `/media/` do handlera obszaru kursów w `src/data/courses.worker.ts` przed middleware języka i TanStack Start oraz dodaje standardowe nagłówki bezpieczeństwa. Handler ładuje `serveCover` dla `/media/covers/`, `serveAttachment` dla `/media/downloads/` i `serveMedia` (`src/modules/video/video.delivery.ts`) dla każdej innej ścieżki, każdy dynamicznym `import()`. `serveMedia`:
 
 - przyjmuje tylko `GET` i `HEAD` (w przeciwnym razie `405`);
-- zwraca `404` dla ścieżki, która nie jest wymienionym plikiem multimedialnym, i `403` dla wygasłego lub błędnego podpisu;
+- zwraca `404` dla ścieżki, która nie wskazuje dozwolonego pliku multimedialnego, i `403` dla wygasłego lub błędnego podpisu;
 - odpowiada na żądania `Range` kodem `206` z `Content-Range`, a kodem `416` na zakres wykraczający poza plik;
 - gdy to możliwe, serwuje całe pliki z cache Workers. Pliki są tam zapisywane pod `/media/_/<videoId>/<file>`, bez podpisu, więc wszyscy widzowie współdzielą jedną kopię w cache na każdą lokalizację brzegową. Odpowiedzi dla przeglądarki mają `private, max-age=86400, immutable`.
 
 Podpisane ścieżki działają jak linki na okaziciela, dopóki nie wygasną: każdy, kto ma taki link, może odtworzyć ten film. Sprawdzenie, kto może oglądać, odbywa się w chwili wydania ścieżki.
 
-Materiały lekcji korzystają z tego samego schematu pod `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, z własnym kluczem i okresem ważności wynoszącym co najmniej <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` podpisuje je tylko dla widza, który może otworzyć lekcję. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) otrzymuje od obsługi `/media/` żądania pod `/media/downloads/` zamiast `serveMedia`, przyjmuje tylko `GET` i `HEAD`, odpowiada `403` na wygasły lub błędny podpis i `404` na plik, którego nie ma, a plik serwuje z nagłówkami `Content-Disposition: attachment` i `Cache-Control: private, no-store`.
+Materiały lekcji korzystają z tego samego schematu pod `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, z własnym kluczem i okresem ważności wynoszącym co najmniej <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` podpisuje je tylko dla widza, który może otworzyć lekcję. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) otrzymuje od handlera `/media/` żądania pod `/media/downloads/` zamiast `serveMedia`, przyjmuje tylko `GET` i `HEAD`, odpowiada `403` na wygasły lub błędny podpis i `404` na plik, którego nie ma, a plik serwuje z nagłówkami `Content-Disposition: attachment` i `Cache-Control: private, no-store`.
 
-Okładki kursów są publiczne i niepodpisane, pod `/media/covers/<courseId>/<file>`, bo katalog, strony kursów i strona główna pokazują je każdemu odwiedzającemu. `serveCover` (`src/modules/course/course.delivery.ts`) przyjmuje tylko `GET` i `HEAD` (w innym razie `405`), odpowiada `404` na ścieżkę, która nie wskazuje okładki, i na plik, którego nie ma, serwuje okładkę z `Cache-Control: public, max-age=31536000, immutable` i trzyma kopię w pamięci podręcznej Workers `covers`. Każda nowa okładka dostaje nowy identyfikator, więc żadna kopia w pamięci podręcznej się nie przedawnia; zobacz [Okładki kursów](/docs/features/courses#course-covers).
+Okładki kursów są publiczne i niepodpisane, pod `/media/covers/<courseId>/<file>`, bo katalog, strony kursów i strona główna pokazują je każdemu odwiedzającemu. `serveCover` (`src/modules/course/course.delivery.ts`) przyjmuje tylko `GET` i `HEAD` (w innym razie `405`), odpowiada `404` na ścieżkę, która nie wskazuje okładki, i na plik, którego nie ma, serwuje okładkę z `Cache-Control: public, max-age=31536000, immutable` i trzyma kopię w cache Workers `covers`. Każda nowa okładka dostaje nowy identyfikator, więc żadna kopia w cache się nie dezaktualizuje; zobacz [Okładki kursów](/docs/features/courses#course-covers).
 
 ## Przesyłanie plików
 
-Worker nie przyjmuje przesyłanych filmów. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
+Worker nie przyjmuje przesyłania filmów. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym pobiera listę obiektów pod prefiksem i usuwa je przez binding, strona po stronie.
 
-Materiały lekcji i okładki kursów to dwa rodzaje plików, które Worker przyjmuje. `uploadLessonAttachment` przyjmuje od administratora plik o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB i zapisuje go przez binding. Usunięcie materiału albo lekcji, rozdziału lub kursu, do którego należy, usuwa jego obiekt; zobacz [Kursy](/docs/features/courses#materials). `uploadCourseCover` przyjmuje od administratora rozmiary okładki, każdy do <RepositoryFact name="courseCoverMaxMegabytes" /> MB, a zastąpienie lub usunięcie okładki albo usunięcie kursu usuwa jej pliki.
+Materiały lekcji i okładki kursów to dwa rodzaje plików, które Worker przyjmuje. `uploadLessonAttachment` przyjmuje od administratora plik o rozmiarze do <RepositoryFact name="attachmentMaxMegabytes" /> MB i zapisuje go przez binding. Usunięcie materiału albo lekcji, rozdziału lub kursu, do którego należy, usuwa jego obiekt; zobacz [Kursy](/docs/features/courses#materials). `uploadCourseCover` przyjmuje od administratora wersje okładki w różnych rozmiarach, każdą do <RepositoryFact name="courseCoverMaxMegabytes" /> MB, a zastąpienie lub usunięcie okładki albo usunięcie kursu usuwa jej pliki.
 
 ## Paczki szablonów [#template-bundles]
 
@@ -50,7 +50,7 @@ Każde środowisko wiąże też bucket `BUNDLES` obszaru licencji:
 
 <RepositoryTable columns={["Środowisko", "Bucket"]} name="cliBundleBuckets" />
 
-Przechowuje on jeden obiekt na każde wydanie CLI, czyli paczkę szablonów wydania pod <RepositoryFact name="cliBundleKey" />, którą przesyła wydanie w repozytorium CLI ze skrótem SHA-256 jej zawartości jako własnymi metadanymi <RepositoryFact name="cliBundleDigestMetadata" />; Worker nigdy do niego nie zapisuje, a ten skrót odczytuje przez `head()` zamiast archiwum. [API licencji CLI](/docs/features/cli-licence-api#template-bundles) podpisuje adresy URL <RepositoryFact name="cliBundleUrlPath" /> tak samo, jak podpisywane są ścieżki `/media/`, z własnym kluczem i czasem ważności <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, a `serveBundle` (`src/modules/license/license.delivery.ts`) strumieniuje obiekt bez zapisywania go w cache. [Publikowanie paczek](/docs/features/cli-licence-api#publishing-bundles) podaje klucz, typ zawartości i buckety, do których wydanie przesyła paczki.
+Przechowuje on jeden obiekt na każde wydanie CLI, czyli paczkę szablonów wydania pod <RepositoryFact name="cliBundleKey" />, którą proces wydania w repozytorium CLI przesyła ze skrótem SHA-256 jej zawartości jako własnymi metadanymi <RepositoryFact name="cliBundleDigestMetadata" />; Worker nigdy do niego nie zapisuje, a skrót odczytuje przez `head()`, bez pobierania archiwum. [API licencji CLI](/docs/features/cli-licence-api#template-bundles) podpisuje adresy URL <RepositoryFact name="cliBundleUrlPath" /> tak samo, jak podpisywane są ścieżki `/media/`, z własnym kluczem i czasem ważności <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, a `serveBundle` (`src/modules/license/license.delivery.ts`) przesyła obiekt strumieniowo, nie zapisując go w cache. [Publikowanie paczek](/docs/features/cli-licence-api#publishing-bundles) podaje klucz, typ zawartości i buckety, do których wydanie przesyła paczki.
 
 ## Testy
 

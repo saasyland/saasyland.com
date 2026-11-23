@@ -1,15 +1,15 @@
 ---
-title: "Handlery HTTP TanStack Start"
+title: "Handlery HTTP w TanStack Start"
 description: "Trasy serwerowe pod /api i ich związek z funkcjami serwerowymi."
 ---
 
-Aplikacja udostępnia następujące trasy HTTP, zadeklarowane przez `server.handlers` w `createFileRoute` w `src/routes/api`:
+Aplikacja udostępnia te trasy HTTP, zadeklarowane przez `server.handlers` w `createFileRoute` w `src/routes/api`:
 
-| Trasa                                        | Metody            | Handler                                                                                                                                                                                                                        |
-| -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api`                                       | GET               | Zwraca `{ "runtime": "cloudflare-workers" }`.                                                                                                                                                                                  |
-| `/api/auth/$`                                | GET, POST         | Better Auth: logowanie, powroty OAuth, `/api/auth/verify-email` oraz endpointy wtyczki Polar `/api/auth/polar/webhooks` i `/api/auth/customer/portal`.                                                                         |
-| <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | [API licencji CLI](/docs/features/cli-licence-api): `licenseApiHandlers` (`license.api.ts`) odczytują licencję, aktywują, sprawdzają i zwalniają maszyny oraz podpisują pobranie paczki szablonów wydania dla CLI `saasyland`. |
+| Trasa                                        | Metody            | Handler                                                                                                                                                                                                                                          |
+| -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api`                                       | GET               | Zwraca `{ "runtime": "cloudflare-workers" }`.                                                                                                                                                                                                    |
+| `/api/auth/$`                                | GET, POST         | Better Auth: logowanie, adresy zwrotne OAuth, `/api/auth/verify-email` oraz endpointy wtyczki Polara `/api/auth/polar/webhooks` i `/api/auth/customer/portal`.                                                                                   |
+| <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | [API licencji CLI](/docs/features/cli-licence-api): `licenseApiHandlers` (`license.api.ts`) odczytują licencję, aktywują, sprawdzają i zwalniają urządzenia oraz podpisują adres pobierania paczki szablonów danego wydania dla CLI `saasyland`. |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -23,14 +23,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Funkcje serwerowe zamiast REST
 
-Operacje aplikacji to funkcje `createServerFn` w `src/modules/<table>/use-cases`. Pozostałe znajdują się w `src/lib` (`getStarCount` w `github.ts`), w integracji (`getCurrentSession` w `auth.session.ts`) albo bezpośrednio w jedynej trasie, która ich używa. TanStack Start wywołuje je przez RPC pod `/_serverFn`, z middleware dla sesji, uprawnień i limitów żądań. Nie dodawaj endpointu REST dla operacji, którą wywołuje tylko ta aplikacja; trasę HTTP dodawaj wyłącznie dla zewnętrznych wywołujących, takich jak webhooki i CLI, a podpisy webhooków weryfikuj w integracji dostawcy.
+Operacje aplikacji to funkcje `createServerFn` w `src/modules/<table>/use-cases`. Pozostałe leżą w `src/lib` (`getStarCount` w `github.ts`), w integracji (`getCurrentSession` w `auth.session.ts`) albo bezpośrednio w jedynej trasie, która ich używa. TanStack Start wywołuje je przez RPC pod `/_serverFn`, z middleware do sesji, uprawnień i limitów żądań. Nie dodawaj endpointu REST dla operacji, którą wywołuje tylko ta aplikacja; trasę HTTP dodawaj wyłącznie dla wywołań z zewnątrz, takich jak webhooki i CLI, a podpisy webhooków weryfikuj w integracji dostawcy.
 
 ## Zachowanie
 
-- Worker nie stosuje przekierowań językowych dla `/api` i `/_serverFn`. Ich adresy URL nie zawierają języka, więc `getCurrentLocale()` zwraca dla nich na serwerze `en-US`; kod, który potrzebuje języka, otrzymuje go jako dane wejściowe albo odczytuje z `callbackURL`.
+- Worker pomija przekierowania językowe dla `/api` i `/_serverFn`. Ich adresy URL nie zawierają języka, więc `getCurrentLocale()` zwraca dla nich na serwerze `en-US`; kod, który potrzebuje języka, dostaje go w danych wejściowych albo odczytuje z `callbackURL`.
 - Build nie prerenderuje `/api`.
-- `/media/*` nie jest trasą TanStack Start: Worker przekazuje tę ścieżkę do `serveMedia` przed obsługą języka. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2). Nie jest nią też `/bundles/*`, którą Worker przekazuje do `serveBundle`; zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles).
-- Testy handlerów znajdują się w `src/routes/api/__test__/`, po jednym pliku na handler: `auth.test.ts` i `index.test.ts`. `cli.v1.test.ts` obejmuje pliki tras API licencji CLI, którego działanie testuje `src/modules/license/__test__/license.api.integration.test.ts`, a w przypadku paczek `license.bundles.integration.test.ts`.
+- `/media/*` nie jest trasą TanStack Start: Worker kieruje tę ścieżkę do `serveMedia`, zanim zajmie się językiem. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2). Nie jest nią też `/bundles/*`, którą Worker kieruje do `serveBundle`; zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles).
+- Testy handlerów leżą w `src/routes/api/__test__/`, po jednym pliku na handler: `auth.test.ts` i `index.test.ts`. `cli.v1.test.ts` obejmuje pliki tras API licencji CLI, którego działanie testuje `src/modules/license/__test__/license.api.integration.test.ts`, a paczki – `license.bundles.integration.test.ts`.
 
 ## Powiązane przewodniki
 

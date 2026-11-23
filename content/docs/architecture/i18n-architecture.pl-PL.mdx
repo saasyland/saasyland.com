@@ -1,24 +1,24 @@
 ---
 title: "Internacjonalizacja i wersje językowe"
-description: "Jak locale pojawiają się w URL-ach, jak ładowane są przestrzenie nazw tłumaczeń i jak korzystają z nich komponenty."
+description: "Jak wersje językowe pojawiają się w adresach URL, jak ładowane są przestrzenie nazw tłumaczeń i jak korzystają z nich komponenty."
 ---
 
-## Locale i URL-e
+## Języki i adresy URL
 
-SaaSy Land obsługuje następujące locale (łącznie <RepositoryFact name="languages" />): <RepositoryFact name="supportedLocales" />, z `en-US` jako domyślnym. Domyślne locale nie ma prefiksu (`/docs`); każde inne używa pełnego tagu (`/pl-PL/docs`). Worker przekierowuje prefiksy zawierające sam język lub domyślne locale, takie jak `/pl/docs` czy `/en-US/docs`, na kanoniczny URL.
+SaaSy Land obsługuje te języki (łącznie <RepositoryFact name="languages" />): <RepositoryFact name="supportedLocales" />; domyślny to `en-US`. Domyślny język nie ma prefiksu (`/docs`); każdy inny ma pełny tag (`/pl-PL/docs`). Prefiksy z samym kodem języka albo z językiem domyślnym, takie jak `/pl/docs` czy `/en-US/docs`, Worker przekierowuje na kanoniczny adres URL.
 
-`getCurrentLocale()` jest izomorficzna i po obu stronach odczytuje locale ze ścieżki URL-a, a gdy ścieżka nie ma prefiksu locale, zwraca `en-US`. URL-e `/api` i funkcji serwerowych nigdy go nie mają, więc dla tych żądań na serwerze zwraca `en-US`. Worker synchronizuje z URL-em strony cookie z locale, ale żaden kod nie wybiera locale na podstawie cookie. Funkcje serwerowe zwracające zlokalizowaną treść przyjmują locale jako dane wejściowe, a e-maile uwierzytelniania odczytują je z `callbackURL` przepływu.
+`getCurrentLocale()` jest izomorficzna: po obu stronach odczytuje język ze ścieżki adresu, a gdy ścieżka nie ma prefiksu języka, zwraca `en-US`. Adresy `/api` i funkcji serwerowych nigdy go nie mają, więc dla tych żądań zwraca na serwerze `en-US`. Worker utrzymuje cookie z językiem zgodne z adresem strony, ale żaden kod nie wybiera języka na podstawie tego cookie. Funkcje serwerowe zwracające zlokalizowaną treść przyjmują język jako dane wejściowe, a e-maile uwierzytelniania odczytują go z `callbackURL` danego procesu.
 
 ## Komunikaty
 
-Tłumaczenia znajdują się w `messages/<locale>/<namespace>.json`. Nazwa pliku jest przestrzenią nazw, na przykład `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` lub `common`. Przestrzenie nazw z kropkami są scalane w jedno drzewo komunikatów, więc `useTranslations("pages.admin.users")` odczytuje `pages.admin.users.json`. Każda przestrzeń nazw strony zawiera `metadata.title` i `metadata.description` na potrzeby tagów w sekcji head. Komunikaty to zwykły JSON bez generowanych typów.
+Tłumaczenia znajdują się w `messages/<locale>/<namespace>.json`. Nazwa pliku jest przestrzenią nazw, na przykład `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` lub `common`. Przestrzenie nazw z kropkami są scalane w jedno drzewo komunikatów, więc `useTranslations("pages.admin.users")` odczytuje `pages.admin.users.json`. Każda przestrzeń nazw strony zawiera `metadata.title` i `metadata.description` na potrzeby znaczników w sekcji head. Komunikaty to zwykły JSON bez generowanych typów.
 
 ## Ładowanie
 
 - **Główne przestrzenie nazw** (`common`, `components.*`, `errors*` oraz etykiety obszarów `navigation.*` i `dashboard.*`) są wstępnie ładowane w głównym `beforeLoad`.
 - **Trasy stron** deklarują `const NAMESPACE = "pages.x"`, wstępnie ładują tę przestrzeń nazw w loaderze i wymieniają ją w `staticData.namespaces`.
 - **Trasy layoutów** deklarują `const NAMESPACES = [...] as const` i postępują tak samo.
-- **`TranslationsProvider`** opakowuje body dokumentu w głównym shellu. Łączy główne przestrzenie nazw z `staticData.namespaces` dopasowanych tras i przekazuje wynik do `IntlProvider`, dzięki czemu przetłumaczony jest każdy ekran, łącznie z ekranami błędów.
+- **`TranslationsProvider`** opakowuje body dokumentu w ramie trasy głównej. Łączy główne przestrzenie nazw z `staticData.namespaces` dopasowanych tras i przekazuje wynik do `IntlProvider`, dzięki czemu przetłumaczony jest każdy ekran, łącznie z ekranami błędów.
 - **W przeglądarce** pierwsza strona odczytuje komunikaty z cache zapytań, który serwer wysyła razem z HTML-em. `loadNamespace` importuje `i18n.loaders.ts`, loadery wszystkich plików komunikatów, dopiero gdy nawigacja potrzebuje przestrzeni nazw, której cache jeszcze nie ma (zobacz [Wydajność](/docs/conventions/performance#load-messages-when-a-page-needs-them)).
 - **E-maile** ładują swoją przestrzeń nazw na serwerze przez `loadNamespace` w przypadku użycia, który je wysyła.
 
@@ -35,21 +35,21 @@ Tłumaczenia znajdują się w `messages/<locale>/<namespace>.json`. Nazwa pliku 
 
 ## Linki
 
-Linki routera nie wymagają obsługi locale: `<Link to={ROUTES.SIGN_IN}>` dostaje prefiks z `rewrite` routera. Surowy URL w bieżącym locale, taki jak `callbackURL` w Better Auth, również pochodzi z routera, który stosuje ten sam rewrite i serializuje parametry wyszukiwania (`useAuthRedirect` w `src/hooks/use-auth-redirect.ts`):
+Linki routera nie wymagają obsługi języka: `<Link to={ROUTES.SIGN_IN}>` dostaje prefiks z `rewrite` routera. Surowy adres URL w bieżącym języku, taki jak `callbackURL` w Better Auth, również pochodzi z routera, który tak samo przepisuje adres i serializuje parametry adresu URL (`useAuthRedirect` w `src/hooks/use-auth-redirect.ts`):
 
 ```ts
 const { publicHref: callbackURL } = router.buildLocation({ search: { redirect }, to: ROUTES.AUTH_CALLBACK })
 ```
 
-`localizePathname({ locale, pathname })` buduje URL dla wskazanego locale: linki przełącznika języka i linki w e-mailach, które serwer buduje bez routera. `localizeHref({ href, locale })` robi to samo dla linku, który może mieć query lub fragment, i zachowuje je za zlokalizowaną ścieżką; używają go linki w MDX i linki React Aria.
+`localizePathname({ locale, pathname })` buduje adres URL w wybranym języku: linki przełącznika języka i linki w e-mailach, które serwer buduje bez routera. `localizeHref({ href, locale })` robi to samo dla linku, który może mieć parametry zapytania lub fragment, i zostawia je za zlokalizowaną ścieżką; używają go linki w MDX i linki React Aria.
 
-Przełącznik języka renderuje zwykły link do tej samej ścieżki w każdym locale, więc zmiana języka ładuje nowy dokument.
+Przełącznik języka renderuje zwykły link do tej samej ścieżki w każdym języku, więc zmiana języka ładuje nowy dokument.
 
 ## Tłumaczenia w komponentach
 
 Komponent wywołuje `useTranslations` dokładnie raz i nazywa funkcję tłumaczącą `t`. i18n-ally zmienia zakres każdego wywołania `t()` po kolejnym wywołaniu `useTranslations`, a `bun run check:i18n` zgłasza błąd dla kluczy, których nie da się rozwiązać w ich zakresie. Komponent potrzebujący dwóch niepowiązanych przestrzeni nazw używa ich wspólnego rodzica albo `useTranslations()` z pełnymi kluczami.
 
-`bun run check:i18n` uruchamia trzy skrypty: `check-i18n.ts` (zgodność kluczy między locale, rozwiązywanie kluczy w zakresie i klucze, których nie renderuje żaden plik źródłowy), `check-message-formats.ts` (składnia komunikatów ICU) oraz `check-content.ts` (zgodność dokumentacji i bloga między locale); dwa ostatnie kończą się błędem przy formie zwracania się, której locale nie używa (zobacz [Tłumaczenia i treści](/docs/conventions/translations#one-form-of-address)).
+`bun run check:i18n` uruchamia trzy skrypty: `check-i18n.ts` (kompletność kluczy we wszystkich językach, rozwiązywanie kluczy w zakresie i klucze, których nie renderuje żaden plik źródłowy), `check-message-formats.ts` (składnia komunikatów ICU) oraz `check-content.ts` (kompletność dokumentacji i bloga we wszystkich językach); dwa ostatnie kończą się błędem przy formie zwracania się, której dany język nie używa (zobacz [Tłumaczenia i treści](/docs/conventions/translations#one-form-of-address)).
 
 ## Powiązane strony
 

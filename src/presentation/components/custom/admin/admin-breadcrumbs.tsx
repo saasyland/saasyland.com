@@ -40,7 +40,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const [area, section, action] = pathname.split("/").filter(Boolean)
 
   if (area !== "admin") {
-    return undefined
+    return
   }
 
   const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`

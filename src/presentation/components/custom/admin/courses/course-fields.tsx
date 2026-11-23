@@ -45,7 +45,7 @@ const SourceText = ({ id, lang, source }: Omit<TextFieldProps, "field" | "label"
   const t = useTranslations()
 
   if (lang === I18N.DEFAULT_LOCALE || source === undefined || source.trim().length === 0) {
-    return undefined
+    return
   }
   return (
     <FieldDescription className="line-clamp-3" id={`${id}-source`}>
@@ -59,7 +59,7 @@ const SourceText = ({ id, lang, source }: Omit<TextFieldProps, "field" | "label"
 
 const FieldMessage = ({ field, id }: { readonly field: StringField; readonly id: string }): JSX.Element | undefined => {
   if (!isFieldInvalid(field)) {
-    return undefined
+    return
   }
   return (
     <ValidationFieldError

@@ -56,6 +56,8 @@ const confirmedSession = createAuthSessionFixture()
 
 const unconfirmedSession = { ...confirmedSession, user: { ...confirmedSession.user, emailVerified: false } }
 
+const UNCONFIRMED_KEY = { key: undefined }
+
 const license = (fields: Partial<License["select"]> = {}): License["select"] => ({
   activatedAt: JSON_NULL,
   createdAt: new Date("2026-11-13T10:00:00Z"),
@@ -79,7 +81,7 @@ const license = (fields: Partial<License["select"]> = {}): License["select"] => 
 const renderChecklist = (owned: License["select"] | undefined, session = confirmedSession) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: owned })
-  queryClient.setQueryData(currentLicenseKeyQuery.queryKey, { key: session.user.emailVerified ? owned?.key : undefined })
+  queryClient.setQueryData(currentLicenseKeyQuery.queryKey, session.user.emailVerified ? { key: owned?.key } : UNCONFIRMED_KEY)
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
   return renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">

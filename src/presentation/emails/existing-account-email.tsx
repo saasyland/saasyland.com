@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from "react"
 
-import { Body, Button, Container, Head, Heading, Html, Link, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
+import { Button, Heading, Link, Section, Text } from "react-email"
 import { createFormatter, createTranslator } from "use-intl"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
@@ -12,10 +12,9 @@ import type emailMessages from "~/messages/en-US/emails.existing-account-email.j
 import { APP_NAME } from "~/src/presentation/branding"
 import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
 import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
+import { EmailLayout } from "~/src/presentation/emails/email-layout"
 
 export const EXISTING_ACCOUNT_EMAIL_NAMESPACE = "emails.existing-account-email"
-
-const TAILWIND_CONFIG = { presets: [pixelBasedPreset] }
 
 const PARAGRAPH_CLASSNAME = "m-0 mb-6 text-base text-neutral-600"
 
@@ -55,32 +54,21 @@ export const ExistingAccountEmail = ({
   )
 
   return (
-    <Html lang={locale}>
-      <Tailwind config={TAILWIND_CONFIG}>
-        <Head />
-        <Body className="font-sans">
-          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
-          <Container className="mx-auto px-5 py-10">
-            <EmailBrandHeader />
-            <Section>
-              <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading", { appName: APP_NAME })}</Heading>
-              <Text className={PARAGRAPH_CLASSNAME}>{t("body", { appName: APP_NAME, name })}</Text>
-              {methods.length > 0 && (
-                <Text className={PARAGRAPH_CLASSNAME}>{t("methods", { methods: format.list(methods, { type: "disjunction" }) })}</Text>
-              )}
-              <Button
-                href={signInUrl}
-                className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
-              >
-                {t("button")}
-              </Button>
-              <EmailFallbackLink label={t("fallback")} url={signInUrl} />
-              <Text className="mt-6 mb-0 text-base text-neutral-600">{t.rich("resetPassword", { link: resetLink })}</Text>
-              <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+    <EmailLayout lang={locale} preview={t("preview", { appName: APP_NAME })}>
+      <EmailBrandHeader />
+      <Section>
+        <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading", { appName: APP_NAME })}</Heading>
+        <Text className={PARAGRAPH_CLASSNAME}>{t("body", { appName: APP_NAME, name })}</Text>
+        {methods.length > 0 && (
+          <Text className={PARAGRAPH_CLASSNAME}>{t("methods", { methods: format.list(methods, { type: "disjunction" }) })}</Text>
+        )}
+        <Button href={signInUrl} className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline">
+          {t("button")}
+        </Button>
+        <EmailFallbackLink label={t("fallback")} url={signInUrl} />
+        <Text className="mt-6 mb-0 text-base text-neutral-600">{t.rich("resetPassword", { link: resetLink })}</Text>
+        <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
+      </Section>
+    </EmailLayout>
   )
 }

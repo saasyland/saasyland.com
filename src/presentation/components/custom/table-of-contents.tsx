@@ -10,6 +10,7 @@ const NO_SECTION = -1
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)"
 const THUMB_TOP = "--thumb-top"
 const THUMB_HEIGHT = "--thumb-height"
+const CURRENT_ENTRY = { "aria-current": "location" } as const
 
 interface TableOfContentsItem {
   readonly depth: number
@@ -127,7 +128,7 @@ export const TableOfContents = ({ className, items }: TableOfContentsProps): JSX
         {items.map((item, link) => (
           <li key={item.url}>
             <a
-              aria-current={link === current ? "location" : undefined}
+              {...(link === current && CURRENT_ENTRY)}
               className={cn(
                 "block border-l border-border py-1.5 text-body-sm text-pretty text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[current=location]:text-ring",
                 { "pl-4": item.depth <= TOP_DEPTH, "pl-7": item.depth > TOP_DEPTH },

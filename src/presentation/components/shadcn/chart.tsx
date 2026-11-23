@@ -43,9 +43,20 @@ const useChart = () => {
 
 const isNonNullObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && Boolean(value)
 
-const getStringProp = (record: Record<string, unknown>, key: string): string | undefined => {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
+const textOf = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
+    return
+  }
+
+  return value
+}
+
+const textPropertyOf = (value: unknown, key: string): string | undefined => {
+  if (!isNonNullObject(value)) {
+    return
+  }
+
+  return textOf(value[key])
 }
 
 const toDisplayKey = (value: unknown): string => {
@@ -194,9 +205,7 @@ const ChartTooltipItem = ({
   const format = useFormatter()
   const key = toDisplayKey(nameKey ?? item.name ?? item.dataKey)
   const itemConfig = getPayloadConfigFromPayload(config, item, key)
-  const itemPayload = isNonNullObject(item.payload) ? item.payload : undefined
-  const fillColor = itemPayload !== undefined && typeof itemPayload["fill"] === "string" ? itemPayload["fill"] : undefined
-  const resolvedIndicatorColor = payloadColor ?? fillColor ?? (typeof item.color === "string" ? item.color : undefined)
+  const resolvedIndicatorColor = payloadColor ?? textPropertyOf(item.payload, "fill") ?? textOf(item.color)
   const Icon = itemConfig?.icon
 
   const indicatorNode = (() => {
@@ -240,7 +249,7 @@ const ChartTooltipItem = ({
       {indicatorNode}
       <div className={cn("flex flex-1 justify-between leading-none", nestLabel ? "items-end" : "items-center")}>
         <div className="grid gap-1.5">
-          {nestLabel ? tooltipLabel : undefined}
+          {nestLabel && tooltipLabel}
           <span className="text-muted-foreground">{itemConfig?.label ?? item.name}</span>
         </div>
         {valueNode}
@@ -301,7 +310,7 @@ const ChartTooltipContent = ({
   }
 
   const nestLabel = payload.length === 1 && indicator !== "dot"
-  const headerLabel = nestLabel ? undefined : tooltipLabel
+  const headerLabel = !nestLabel && tooltipLabel
 
   return (
     <div
@@ -403,10 +412,7 @@ const getPayloadConfigFromPayload = (config: ChartConfig, payload: unknown, key:
     return
   }
 
-  const nestedCandidate = payload["payload"]
-  const nestedPayload = isNonNullObject(nestedCandidate) ? nestedCandidate : undefined
-  const nestedLabel = nestedPayload === undefined ? undefined : getStringProp(nestedPayload, key)
-  const configLabelKey = getStringProp(payload, key) ?? nestedLabel ?? key
+  const configLabelKey = textPropertyOf(payload, key) ?? textPropertyOf(payload["payload"], key) ?? key
 
   if (configLabelKey in config) {
     return config[configLabelKey]

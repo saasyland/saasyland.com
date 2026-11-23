@@ -37,7 +37,7 @@ const TranscriptCues = ({ caption }: { readonly caption: Caption }): JSX.Element
   }, [active?.id])
 
   if (cues.length === 0) {
-    return undefined
+    return
   }
 
   return (
@@ -87,7 +87,7 @@ export const LessonTranscript = ({ courseSlug, lessonSlug }: LessonTranscriptPro
     captions.find((entry) => entry.locale === locale) ?? captions.find((entry) => entry.locale === I18N.DEFAULT_LOCALE) ?? captions[0]
 
   if (caption === undefined) {
-    return undefined
+    return
   }
 
   return <TranscriptCues caption={caption} key={caption.src} />

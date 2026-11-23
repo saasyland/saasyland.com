@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useEffect, useRef, useState } from "react"
+import { type JSX, useEffect, useRef, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { Link, getRouteApi } from "@tanstack/react-router"
@@ -23,6 +23,7 @@ import { Button, buttonVariants } from "~/src/presentation/components/shadcn/but
 import { Field, FieldLabel } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/change-email-form"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
@@ -37,9 +38,7 @@ const PRIMARY_CLASS = "h-11 w-full gap-2 px-5 text-body-sm font-semibold transit
 const SECONDARY_LINK_CLASS =
   "inline-flex h-11 items-center justify-center self-center text-body-sm text-muted-foreground underline-offset-4 transition-colors duration-200 ease-exp hover:text-foreground hover:underline"
 
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
-
-export const VERIFY_EMAIL_STATUS = {
+const VERIFY_EMAIL_STATUS = {
   CONFIRMED: "confirmed",
   INVALID: "invalid",
   PENDING: "pending",
@@ -61,7 +60,7 @@ const statusOf = ({
   return VERIFY_EMAIL_STATUS.PENDING
 }
 
-export const useVerifyEmailState = () => {
+const useVerifyEmailState = () => {
   const search = routeApi.useSearch()
 
   const { confirmed, unconfirmedEmail } = useEmailVerification()

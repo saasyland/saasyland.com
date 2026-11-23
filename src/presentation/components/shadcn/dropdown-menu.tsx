@@ -21,6 +21,7 @@ import {
 } from "react-aria-components"
 
 import { cn } from "~/src/lib/cn"
+import { textValueProps } from "~/src/lib/text-value"
 
 const DROPDOWN_MENU_OFFSET = 4
 const DROPDOWN_MENU_SUB_CROSS_OFFSET = -3
@@ -103,36 +104,32 @@ const DropdownMenuItem = ({
 }: MenuItemPrimitiveProps & {
   inset?: boolean
   variant?: "default" | "destructive"
-}) => {
-  const resolvedTextValue = textValue ?? (typeof children === "string" ? children : undefined)
-
-  return (
-    <MenuItemPrimitive
-      className={composeRenderProps(className, (itemClassName, { selectionMode }) =>
-        cn(dropdownMenuItemVariants({ selectionMode }), itemClassName),
-      )}
-      data-inset={inset}
-      data-slot="dropdown-menu-item"
-      data-variant={variant}
-      {...(resolvedTextValue === undefined ? {} : { textValue: resolvedTextValue })}
-      {...props}
-    >
-      {composeRenderProps(children, (renderedChildren, { isSelected, selectionMode }) => (
-        <>
-          {selectionMode !== "none" && (
-            <span
-              className="pointer-events-none absolute right-2 flex items-center justify-center"
-              data-slot={selectionMode === "single" ? "dropdown-menu-radio-item-indicator" : "dropdown-menu-checkbox-item-indicator"}
-            >
-              {isSelected ? <CheckIcon /> : undefined}
-            </span>
-          )}
-          {renderedChildren}
-        </>
-      ))}
-    </MenuItemPrimitive>
-  )
-}
+}) => (
+  <MenuItemPrimitive
+    className={composeRenderProps(className, (itemClassName, { selectionMode }) =>
+      cn(dropdownMenuItemVariants({ selectionMode }), itemClassName),
+    )}
+    data-inset={inset}
+    data-slot="dropdown-menu-item"
+    data-variant={variant}
+    {...textValueProps(textValue, children)}
+    {...props}
+  >
+    {composeRenderProps(children, (renderedChildren, { isSelected, selectionMode }) => (
+      <>
+        {selectionMode !== "none" && (
+          <span
+            className="pointer-events-none absolute right-2 flex items-center justify-center"
+            data-slot={selectionMode === "single" ? "dropdown-menu-radio-item-indicator" : "dropdown-menu-checkbox-item-indicator"}
+          >
+            {isSelected && <CheckIcon />}
+          </span>
+        )}
+        {renderedChildren}
+      </>
+    ))}
+  </MenuItemPrimitive>
+)
 
 const DropdownMenuSub = ({ ...props }: ComponentProps<typeof SubmenuTriggerPrimitive>) => (
   <SubmenuTriggerPrimitive data-slot="dropdown-menu-sub" {...props} />
@@ -146,29 +143,25 @@ const DropdownMenuSubTrigger = ({
   ...props
 }: MenuItemPrimitiveProps & {
   inset?: boolean
-}) => {
-  const resolvedTextValue = textValue ?? (typeof children === "string" ? children : undefined)
-
-  return (
-    <MenuItemPrimitive
-      className={cn(
-        "flex cursor-default items-center gap-1.5 rounded-sm px-1.5 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
-      data-inset={inset}
-      data-slot="dropdown-menu-sub-trigger"
-      {...(resolvedTextValue === undefined ? {} : { textValue: resolvedTextValue })}
-      {...props}
-    >
-      {composeRenderProps(children, (renderedChildren) => (
-        <>
-          {renderedChildren}
-          <ChevronRightIcon className="cn-rtl-flip ml-auto" />
-        </>
-      ))}
-    </MenuItemPrimitive>
-  )
-}
+}) => (
+  <MenuItemPrimitive
+    className={cn(
+      "flex cursor-default items-center gap-1.5 rounded-sm px-1.5 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+      className,
+    )}
+    data-inset={inset}
+    data-slot="dropdown-menu-sub-trigger"
+    {...textValueProps(textValue, children)}
+    {...props}
+  >
+    {composeRenderProps(children, (renderedChildren) => (
+      <>
+        {renderedChildren}
+        <ChevronRightIcon className="cn-rtl-flip ml-auto" />
+      </>
+    ))}
+  </MenuItemPrimitive>
+)
 
 const DropdownMenuSubContent = ({
   className,

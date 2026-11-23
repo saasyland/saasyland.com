@@ -58,7 +58,7 @@ export const PostTags = ({
   const t = useTranslations("pages.blog")
 
   if (tags.length === 0) {
-    return undefined
+    return
   }
 
   return <p className={cn("text-label text-muted-foreground uppercase", className)}>{tags.map((tag) => t(`tags.${tag}`)).join(" · ")}</p>

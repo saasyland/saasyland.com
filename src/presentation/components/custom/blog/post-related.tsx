@@ -16,7 +16,7 @@ export const PostRelated = (): JSX.Element | undefined => {
   const { post, posts } = route.useLoaderData()
 
   if (post.related.length === 0) {
-    return undefined
+    return
   }
 
   return (

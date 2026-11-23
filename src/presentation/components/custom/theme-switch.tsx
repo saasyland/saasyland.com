@@ -35,7 +35,7 @@ export const ThemeSwitch = (): JSX.Element => {
     system: t("system"),
   } satisfies Record<ThemeSelection, string>
 
-  const selectedLabel = theme === undefined ? undefined : themeLabels[theme]
+  const selectedLabel = theme && themeLabels[theme]
 
   return (
     <Select

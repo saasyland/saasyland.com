@@ -81,7 +81,7 @@ export const FeaturedPosts = (): JSX.Element | undefined => {
   const [lead, ...others] = featured
 
   if (lead === undefined) {
-    return undefined
+    return
   }
 
   return (

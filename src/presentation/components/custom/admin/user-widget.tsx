@@ -22,7 +22,7 @@ export const UserWidget = (): JSX.Element | undefined => {
   const t = useTranslations("pages.admin.components.userWidget")
 
   if (session === null) {
-    return undefined
+    return
   }
 
   const { email } = session.user

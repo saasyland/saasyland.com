@@ -66,7 +66,7 @@ export const KeyMoments = ({ moments, playable }: KeyMomentsProps): JSX.Element 
   const t = useTranslations("pages.courses.lesson")
 
   if (moments.length === 0) {
-    return undefined
+    return
   }
 
   return (

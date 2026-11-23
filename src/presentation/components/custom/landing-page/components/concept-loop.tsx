@@ -77,6 +77,8 @@ const LOOPS = {
 
 const VISIBLE_FRACTION = 0.25
 
+const DECORATIVE = { "aria-hidden": true } as const
+
 const play = (video: HTMLVideoElement, offsetSeconds: number): void => {
   if (offsetSeconds > 0 && video.currentTime === 0) {
     video.currentTime = offsetSeconds
@@ -134,7 +136,7 @@ export const ConceptLoop = ({ className, label, name, offsetSeconds = 0, preload
     <div className={cn("relative block w-full", className)}>
       <video
         ref={observeVideo}
-        aria-hidden={label === undefined ? true : undefined}
+        {...(label === undefined && DECORATIVE)}
         aria-label={label}
         className="block h-auto w-full"
         disablePictureInPicture

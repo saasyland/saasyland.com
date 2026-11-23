@@ -24,7 +24,7 @@ export const LicenseDeletionNotice = (): JSX.Element | undefined => {
   const { license } = useSuspenseQuery(currentLicenseQuery).data
 
   if (license?.status !== LICENSE_STATUS.ACTIVE) {
-    return undefined
+    return
   }
 
   return <li>{t.rich("pages.license.deletion", { ...NOTICE_TAGS, tier: t(`components.custom.pricing.tiers.${license.tier}.name`) })}</li>

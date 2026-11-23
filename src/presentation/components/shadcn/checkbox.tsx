@@ -15,7 +15,7 @@ const Checkbox = ({ className, children, ...props }: Readonly<CheckboxFieldProps
       {composeRenderProps(children, (renderedChildren, { isIndeterminate, isSelected }) => (
         <>
           <span data-slot="checkbox-indicator" className="grid place-content-center text-current transition-none [&>svg]:size-3.5">
-            {isSelected || isIndeterminate ? <CheckIcon /> : undefined}
+            {(isSelected || isIndeterminate) && <CheckIcon />}
           </span>
           {renderedChildren}
         </>

@@ -30,7 +30,7 @@ const MaterialSize = ({ attachment }: { readonly attachment: Lesson["attachment"
   const fileSize = useFileSize()
 
   if (attachment.kind === LESSON_ATTACHMENT_KIND.LINK) {
-    return undefined
+    return
   }
 
   return <span className="text-spec text-muted-foreground tabular-nums">{fileSize(attachment.sizeBytes)}</span>

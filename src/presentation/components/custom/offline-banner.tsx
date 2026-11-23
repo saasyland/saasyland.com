@@ -26,7 +26,7 @@ export const OfflineBanner = (): JSX.Element | undefined => {
   }, [])
 
   if (!isOffline) {
-    return undefined
+    return
   }
 
   return (

@@ -109,6 +109,8 @@ const FieldDescription = ({ className, ...props }: ComponentProps<"p">) => (
   />
 )
 
+const WITH_CONTENT = { "data-content": "true" } as const
+
 const FieldSeparator = ({
   children,
   className,
@@ -121,7 +123,7 @@ const FieldSeparator = ({
   return (
     <div
       className={cn("relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2", className)}
-      data-content={hasContent ? "true" : undefined}
+      {...(hasContent && WITH_CONTENT)}
       data-slot="field-separator"
       {...props}
     >
@@ -160,9 +162,11 @@ const FieldError = ({
 
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
-        {uniqueErrors.map((error) =>
-          error?.message !== undefined && error.message !== "" ? <li key={error.message}>{error.message}</li> : undefined,
-        )}
+        {uniqueErrors
+          .filter((error) => error?.message !== undefined && error.message !== "")
+          .map((error) => (
+            <li key={error?.message}>{error?.message}</li>
+          ))}
       </ul>
     )
   }, [children, errors])

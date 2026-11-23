@@ -74,13 +74,15 @@ const DrawerSwipeHandle = ({ className, ...props }: ComponentProps<"div">) => (
   />
 )
 
+const SNAP_POINTS = { "data-snap-points": "" } as const
+
 const DrawerContent = ({ className, children, ...props }: DrawerPrimitive.Popup.Props) => {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis = swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
 
   return (
     <DrawerPortal data-slot="drawer-portal">
-      {modal === true && <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} />}
+      {modal === true && <DrawerOverlay {...(hasSnapPoints && SNAP_POINTS)} />}
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"
         data-modal={modal}
@@ -89,7 +91,7 @@ const DrawerContent = ({ className, children, ...props }: DrawerPrimitive.Popup.
         <DrawerPrimitive.Popup
           data-slot="drawer-popup"
           data-swipe-axis={swipeAxis}
-          data-snap-points={hasSnapPoints ? "" : undefined}
+          {...(hasSnapPoints && SNAP_POINTS)}
           className={cn(
             "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-lg data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-lg data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-lg data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-lg data-[swipe-direction=up]:border-b",
             "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",

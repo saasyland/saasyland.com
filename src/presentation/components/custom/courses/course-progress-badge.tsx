@@ -11,7 +11,7 @@ export const CourseProgressBadge = (): JSX.Element | undefined => {
   const { data } = useQuery(completedLessonsQuery)
 
   if (data === undefined || data.total === 0) {
-    return undefined
+    return
   }
 
   return (

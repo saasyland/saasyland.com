@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useState } from "react"
+import { type JSX, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { Loader2, MailCheck } from "lucide-react"
@@ -20,12 +20,11 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
 import { ROUTES } from "~/src/routes"
-
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
 export const ForgotPasswordForm = (): JSX.Element => {
   const t = useTranslations("pages.auth.forgot-password")

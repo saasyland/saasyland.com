@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
+import { Button, Heading, Section, Text } from "react-email"
 import { createTranslator } from "use-intl"
 
 import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
@@ -10,10 +10,9 @@ import type emailMessages from "~/messages/en-US/emails.reset-password-email.jso
 import { APP_NAME } from "~/src/presentation/branding"
 import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
 import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
+import { EmailLayout } from "~/src/presentation/emails/email-layout"
 
 export const RESET_PASSWORD_NAMESPACE = "emails.reset-password-email"
-
-const TAILWIND_CONFIG = { presets: [pixelBasedPreset] }
 
 interface ResetPasswordEmailProps {
   readonly locale: SupportedLocale
@@ -30,29 +29,21 @@ export const ResetPasswordEmail = ({ messages, locale, name, resetPasswordUrl }:
   })
 
   return (
-    <Html lang={locale}>
-      <Tailwind config={TAILWIND_CONFIG}>
-        <Head />
-        <Body className="font-sans">
-          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
-          <Container className="mx-auto px-5 py-10">
-            <EmailBrandHeader />
-            <Section>
-              <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
-              <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
-              <Button
-                href={resetPasswordUrl}
-                className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
-              >
-                {t("button")}
-              </Button>
-              <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
-              <EmailFallbackLink label={t("fallback")} url={resetPasswordUrl} />
-              <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+    <EmailLayout lang={locale} preview={t("preview", { appName: APP_NAME })}>
+      <EmailBrandHeader />
+      <Section>
+        <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
+        <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
+        <Button
+          href={resetPasswordUrl}
+          className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
+        >
+          {t("button")}
+        </Button>
+        <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
+        <EmailFallbackLink label={t("fallback")} url={resetPasswordUrl} />
+        <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
+      </Section>
+    </EmailLayout>
   )
 }

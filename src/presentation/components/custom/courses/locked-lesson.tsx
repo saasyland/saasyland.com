@@ -22,6 +22,7 @@ import { CTA_CLASSES } from "~/src/data/cta"
 
 import { cn } from "~/src/lib/cn"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 
 import { ROUTES } from "~/src/routes"
@@ -31,8 +32,6 @@ const SIGN_IN_CLASSNAME =
 const SIGN_IN_LINE_CLASSNAME = "text-body-sm text-muted-foreground"
 const PANEL_CLASSNAME = "flex flex-col items-center px-6 text-center"
 const BADGE_CLASSNAME = "flex size-11 items-center justify-center rounded-full border border-ring/40 bg-background/70 backdrop-blur-sm"
-
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
 type Access = Course["pageLesson"]["access"]
 
@@ -64,37 +63,37 @@ export const SignInInstead = ({
   readonly access: Access
   readonly className?: string
 }): JSX.Element | JSX.Element[] => {
-  const tName = useTranslations()
-  const t = useTranslations("pages.courses.lesson.locked")
+  const t = useTranslations()
 
   if (access === LESSON_ACCESS.ACCOUNT) {
-    return <p className={cn(SIGN_IN_LINE_CLASSNAME, className)}>{t.rich("account.signIn", { link: signInLink })}</p>
+    return (
+      <p className={cn(SIGN_IN_LINE_CLASSNAME, className)}>{t.rich("pages.courses.lesson.locked.account.signIn", { link: signInLink })}</p>
+    )
   }
 
   return COURSE_ACCESS_GRANTS.map(({ key, offer }) => (
     <p className={cn(SIGN_IN_LINE_CLASSNAME, className)} key={key}>
-      {t.rich("paid.signIn", { link: signInLink, offer: tName(offer) })}
+      {t.rich("pages.courses.lesson.locked.paid.signIn", { link: signInLink, offer: t(offer) })}
     </p>
   ))
 }
 
 export const UnlockLink = ({ access, signedIn }: UnlockLinkProps): JSX.Element | JSX.Element[] => {
-  const tName = useTranslations()
-  const t = useTranslations("pages.courses.lesson.locked")
+  const t = useTranslations()
   const router = useRouter()
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
   if (access === LESSON_ACCESS.ACCOUNT) {
     return (
       <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.SIGN_UP}>
-        {t("account.cta")}
+        {t("pages.courses.lesson.locked.account.cta")}
       </Link>
     )
   }
 
   return COURSE_ACCESS_GRANTS.map(({ key, offer, unlock }) => {
     const purchase = unlock(redirect)
-    const label = t("paid.cta", { offer: tName(offer) })
+    const label = t("pages.courses.lesson.locked.paid.cta", { offer: t(offer) })
 
     if (signedIn) {
       return (
@@ -125,13 +124,12 @@ export const ConfirmEmailLink = (): JSX.Element => {
 }
 
 const OfferPrices = (): JSX.Element[] => {
-  const tName = useTranslations()
-  const t = useTranslations("pages.courses.lesson.locked")
+  const t = useTranslations()
   const format = useFormatter()
 
   return COURSE_ACCESS_GRANTS.map(({ key, offer, price }) => (
     <p className="mt-4 text-label text-ring uppercase" key={key}>
-      {t("paid.price", { offer: tName(offer), price: format.number(price, CURRENCY_FORMAT) })}
+      {t("pages.courses.lesson.locked.paid.price", { offer: t(offer), price: format.number(price, CURRENCY_FORMAT) })}
     </p>
   ))
 }

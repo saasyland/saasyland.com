@@ -2,9 +2,9 @@ import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
-import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
-import { MIN_FIELD_LENGTH, idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import { MIN_FIELD_LENGTH, dateRangeField, idField, localeField, numberRangeField, slugField } from "~/src/modules/_core/utils/zod-fields"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import {
   COURSE_DOCUMENT,
@@ -12,6 +12,7 @@ import {
   COURSE_ICONS,
   COURSE_KINDS,
   COURSE_LEVELS,
+  COURSE_SORT_COLUMNS,
   COURSE_STATUSES,
 } from "~/src/modules/course/course.constants"
 import {
@@ -157,7 +158,19 @@ const getCourseShowcase = zod.object({
   locale: localeField,
 })
 
-const getCourses = paginationSchema
+const courseFilters = zod.object({
+  course: searchTextField.optional(),
+  kind: zod.array(choiceOf(COURSE_KINDS)).max(COURSE_KINDS.length).optional(),
+  lessons: numberRangeField.optional(),
+  status: zod.array(choiceOf(COURSE_STATUSES)).max(COURSE_STATUSES.length).optional(),
+  updatedAt: dateRangeField.optional(),
+})
+
+const getCourses = paginationSchema.extend({
+  filters: courseFilters.default({}),
+  search: searchTextField.default(""),
+  sorting: sortingOf(COURSE_SORT_COLUMNS),
+})
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
 

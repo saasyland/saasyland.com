@@ -9,6 +9,7 @@ export interface Category {
   createCategory: zod.input<typeof categoryZodSchemas.createCategory>
   deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
   getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  categoryList: zod.output<typeof categoryZodSchemas.getCategories>
   getCategory: zod.input<typeof categoryZodSchemas.getCategory>
   updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }

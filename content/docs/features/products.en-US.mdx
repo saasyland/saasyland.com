@@ -14,19 +14,22 @@ Use cases in `src/modules/product/use-cases`, each behind the matching `product`
 
 ## Admin screen
 
-`/admin/products` keeps its tab in the `?tab=` search param: `all`, `onetime`, `subscriptions`, `categories`, `collections` and `drafts`. Product tabs page through the server:
+`/admin/products` keeps its tab in the `?tab=` search param: `all`, `onetime`, `subscriptions`, `categories`, `collections` and `drafts`. Product tabs render `ProductGrid` (`product-grid.tsx`), the `DataGrid` with `useProductColumns`, and add the tab's type or status to every request:
 
 ```tsx
-<DataTable
-  columns={productColumns}
-  key={tab}
-  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={PRODUCT_GRID_ID}
+  label={label}
+  query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
+  search={t("search")}
 />
 ```
 
-`categories` and `collections` render `categoryColumns` with `getCategoriesPageQuery` (see [Categories](/docs/features/categories)). Courses have their own screen, `/admin/courses` (see [Courses](/docs/features/courses)). The dashboard counter reads `getProductsQuery` too.
+`getProducts` searches the name and the description, filters by name, type, status, price in the product's currency and the created and updated days, and sorts by every column on the server. `categories` and `collections` render `CategoryGrid` (`category-grid.tsx`) with `useCategoryColumns` and `getCategoriesPageQuery` (see [Categories](/docs/features/categories)). Courses have their own screen, `/admin/courses` (see [Courses](/docs/features/courses)). The dashboard counter reads `getProductsQuery` too.
 
-The list is read-only. Its columns are the product, its type, its price and its status; there is no create form and no row menu, because no screen is wired to `createProduct`, `updateProduct`, `deleteProduct` or `getProduct` yet, and a sales column would need a link between these rows and Polar's products that the table does not have.
+The list is read-only. Its columns are the product, its type, its price, its status and the day it changed, with the day it was created in the Columns menu; there is no create form and no row menu, because no screen is wired to `createProduct`, `updateProduct`, `deleteProduct` or `getProduct` yet, and a sales column would need a link between these rows and Polar's products that the table does not have.
 
 `getProducts` checks each row's `currency` with `currencyCodeField` against the ISO 4217 codes of `CURRENCIES`, so the list fails rather than show a price in an unknown currency. The price column converts `priceCents` to the currency's major units with `fromMinorUnits` and formats the amount for the page's locale: on an English page, 4900 minor units show as $49.00 in USD, and as ¥4,900 in JPY, whose exponent is 0.
 

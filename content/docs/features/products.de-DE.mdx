@@ -14,19 +14,22 @@ Die Anwendungsfälle in `src/modules/product/use-cases` sind jeweils durch die p
 
 ## Admin-Ansicht
 
-`/admin/products` hält den aktiven Tab im Suchparameter `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` und `drafts`. Die Produkt-Tabs blättern serverseitig:
+`/admin/products` hält den aktiven Tab im Suchparameter `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections` und `drafts`. Die Produkt-Tabs rendern `ProductGrid` (`product-grid.tsx`), das `DataGrid` mit `useProductColumns`, und fügen jeder Anfrage den Typ oder Status des Tabs hinzu:
 
 ```tsx
-<DataTable
-  columns={productColumns}
-  key={tab}
-  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+<DataGrid
+  columns={columns}
+  empty={t("empty")}
+  id={PRODUCT_GRID_ID}
+  label={label}
+  query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
+  search={t("search")}
 />
 ```
 
-`categories` und `collections` rendern `categoryColumns` mit `getCategoriesPageQuery` (siehe [Kategorien](/docs/features/categories)). Kurse haben eine eigene Ansicht, `/admin/courses` (siehe [Kurse](/docs/features/courses)). Auch der Zähler im Dashboard liest `getProductsQuery`.
+`getProducts` durchsucht serverseitig den Namen und die Beschreibung, filtert nach Name, Typ, Status, Preis in der Währung des Produkts sowie den Tagen der Erstellung und der Änderung und sortiert nach jeder Spalte. `categories` und `collections` rendern `CategoryGrid` (`category-grid.tsx`) mit `useCategoryColumns` und `getCategoriesPageQuery` (siehe [Kategorien](/docs/features/categories)). Kurse haben eine eigene Ansicht, `/admin/courses` (siehe [Kurse](/docs/features/courses)). Auch der Zähler im Dashboard liest `getProductsQuery`.
 
-Die Liste ist schreibgeschützt. Ihre Spalten sind das Produkt, sein Typ, sein Preis und sein Status; es gibt kein Erstellungsformular und kein Zeilenmenü, weil noch keine Ansicht an `createProduct`, `updateProduct`, `deleteProduct` oder `getProduct` angebunden ist, und eine Verkaufsspalte bräuchte eine Verknüpfung zwischen diesen Zeilen und den Produkten von Polar, die die Tabelle nicht hat.
+Die Liste ist schreibgeschützt. Ihre Spalten sind das Produkt, sein Typ, sein Preis, sein Status und der Tag der letzten Änderung, der Tag der Erstellung wartet im Menü Spalten; es gibt kein Erstellungsformular und kein Zeilenmenü, weil noch keine Ansicht an `createProduct`, `updateProduct`, `deleteProduct` oder `getProduct` angebunden ist, und eine Verkaufsspalte bräuchte eine Verknüpfung zwischen diesen Zeilen und den Produkten von Polar, die die Tabelle nicht hat.
 
 `getProducts` prüft die `currency` jeder Zeile mit `currencyCodeField` gegen die ISO-4217-Codes aus `CURRENCIES`, sodass die Liste lieber fehlschlägt, als einen Preis in einer unbekannten Währung zu zeigen. Die Preisspalte rechnet `priceCents` mit `fromMinorUnits` in die Haupteinheit der Währung um und formatiert den Betrag für die Sprache der Seite: Auf einer englischen Seite erscheinen 4900 kleinste Einheiten in USD als $49.00 und in JPY, dessen Exponent 0 ist, als ¥4,900.
 

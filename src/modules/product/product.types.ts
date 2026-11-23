@@ -12,5 +12,6 @@ export interface Product {
   deleteProduct: zod.input<typeof productZodSchemas.deleteProduct>
   getProduct: zod.input<typeof productZodSchemas.getProduct>
   getProducts: zod.input<typeof productZodSchemas.getProducts>
+  productList: zod.output<typeof productZodSchemas.getProducts>
   updateProduct: zod.input<typeof productZodSchemas.updateProduct>
 }

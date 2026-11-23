@@ -87,6 +87,8 @@ export const COURSE_MUTATION_KEYS = {
   UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 
+export const COURSE_SORT_COLUMNS = ["kind", "status", "lessons", "updatedAt"] as const
+
 export const COURSE_DOCUMENT = {
   FORMAT: "courses",
   VERSION: 1,

@@ -4,6 +4,8 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
+
 import { cn } from "~/src/lib/cn"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
@@ -12,57 +14,35 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, Ta
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { FieldPending, PAGE_ROWS, PaginationPending } from "~/src/presentation/components/custom/admin/pending-blocks"
+import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 import { ROUTES } from "~/src/routes"
 
-const COURSE_COLUMNS = [
-  { id: "course", width: "w-14" },
-  { id: "kind", width: "w-10" },
-  { id: "status", width: "w-12" },
-  { id: "lessons", width: "w-12" },
-  { id: "updated", width: "w-16" },
-] as const
 const COURSE_FORM_FIELDS = ["title", "summary", "slug"] as const
 const COURSE_LIST_ACTIONS = 3
 const CURRICULUM_LESSONS = ["first", "second", "third"] as const
 
+const COURSE_PENDING_COLUMNS = [
+  {
+    cell: (
+      <div className="flex flex-col">
+        <Skeleton className="h-lh w-40 scale-y-70 text-sm" />
+        <Skeleton className="h-lh w-28 scale-y-70 text-spec" />
+      </div>
+    ),
+    id: "course",
+    width: COURSE_COLUMN_SIZES.course,
+  },
+  { cell: <Skeleton className="h-lh w-16 scale-y-70 text-sm" />, id: "kind", width: COURSE_COLUMN_SIZES.kind },
+  { cell: <Skeleton className="h-5.5 w-18 rounded-md" />, id: "status", width: COURSE_COLUMN_SIZES.status },
+  { cell: <Skeleton className="h-lh w-6 scale-y-70 text-sm" />, id: "lessons", width: COURSE_COLUMN_SIZES.lessons },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "updatedAt", width: COURSE_COLUMN_SIZES.updatedAt },
+] as const
+
 export const AdminCoursesPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
     <AdminPageHeaderPending actions={COURSE_LIST_ACTIONS} />
-    <div className="space-y-4">
-      <TableContainer>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {COURSE_COLUMNS.map(({ id, width }) => (
-                <TableHead key={id}>
-                  <Skeleton className={cn("h-lh scale-y-70", width)} />
-                </TableHead>
-              ))}
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {PAGE_ROWS.map((row) => (
-              <TableRow key={row}>
-                {COURSE_COLUMNS.map(({ id, width }) => (
-                  <TableCell key={id}>
-                    <Skeleton className={cn("h-lh scale-y-70 text-sm", width)} />
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Skeleton className="size-8 rounded-md" />
-                    <Skeleton className="size-8 rounded-md" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <PaginationPending />
-    </div>
+    <DataGridPending actionsWidth={COURSE_COLUMN_SIZES.actions} columns={COURSE_PENDING_COLUMNS} />
   </div>
 )
 

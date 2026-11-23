@@ -1,67 +1,89 @@
-import type { JSX } from "react"
+import { type JSX, useMemo } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CATEGORY_KIND, type CATEGORY_KINDS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
+import { DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+
+import { CATEGORY_KIND, type CATEGORY_KINDS, CATEGORY_VISIBILITIES, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
+
+import { PRODUCT_COLUMN_SIZES } from "~/src/data/admin-products"
 
 import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/badge"
 
 import { ItemName } from "~/src/presentation/components/custom/admin/products/product-columns"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type CategoryRow = Category["select"]
+
+type CategoryKind = (typeof CATEGORY_KINDS)[number]
 
 const VISIBILITY_BADGES: Record<CategoryRow["visibility"], BadgeVariant> = {
   [CATEGORY_VISIBILITY.HIDDEN]: "neutral",
   [CATEGORY_VISIBILITY.PUBLIC]: "accent",
 }
 
-type CategoryKind = (typeof CATEGORY_KINDS)[number]
+const NAME_HEADERS = {
+  [CATEGORY_KIND.CATEGORY]: "categories.table.headers.category",
+  [CATEGORY_KIND.COLLECTION]: "collections.table.headers.collection",
+} as const satisfies Record<CategoryKind, string>
 
-const NameHeader = ({ kind }: { readonly kind: CategoryKind }): string => {
-  const t = useTranslations("pages.admin.products")
+const NameCell = ({ row }: CellContext<DataGridFeatures, CategoryRow, string>): JSX.Element => (
+  <ItemName description={row.original.description} name={row.original.name} />
+)
 
-  if (kind === CATEGORY_KIND.COLLECTION) {
-    return t("collections.table.headers.collection")
-  }
-
-  return t("categories.table.headers.category")
-}
-
-const CategoryHeader = ({ id }: { readonly id: "lastUpdated" | "visibility" }): string => {
-  const t = useTranslations("pages.admin.products")
-
-  return t(`categories.table.headers.${id}`)
-}
-
-const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, CategoryRow["visibility"]>): JSX.Element => {
+const VisibilityCell = ({ getValue }: CellContext<DataGridFeatures, CategoryRow, CategoryRow["visibility"]>): JSX.Element => {
   const t = useTranslations("pages.admin.products.table.visibilityLabels")
 
   return <Badge variant={VISIBILITY_BADGES[getValue()]}>{t(getValue())}</Badge>
 }
 
-const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, Date>): JSX.Element => {
+const DateCell = ({ getValue }: CellContext<DataGridFeatures, CategoryRow, Date>): JSX.Element => {
   const format = useFormatter()
 
   return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
-const columnHelper = createColumnHelper<DataTableFeatures, CategoryRow>()
+const columnHelper = createColumnHelper<DataGridFeatures, CategoryRow>()
 
-const columnsFor = (kind: CategoryKind) =>
-  columnHelper.columns([
-    columnHelper.accessor("name", {
-      cell: ({ row }) => <ItemName description={row.original.description} name={row.original.name} />,
-      enableSorting: false,
-      header: () => <NameHeader kind={kind} />,
-    }),
-    columnHelper.accessor("visibility", { cell: VisibilityCell, enableSorting: false, header: () => <CategoryHeader id="visibility" /> }),
-    columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CategoryHeader id="lastUpdated" /> }),
-  ])
+export const useCategoryColumns = (kind: CategoryKind): DataGridColumn<CategoryRow>[] => {
+  const t = useTranslations("pages.admin.products")
 
-export const categoryColumns = {
-  [CATEGORY_KIND.CATEGORY]: columnsFor(CATEGORY_KIND.CATEGORY),
-  [CATEGORY_KIND.COLLECTION]: columnsFor(CATEGORY_KIND.COLLECTION),
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("name", {
+          cell: NameCell,
+          header: t(NAME_HEADERS[kind]),
+          meta: { filter: { kind: DATA_GRID_FILTER.TEXT }, pinned: DATA_GRID_PIN.START },
+          size: PRODUCT_COLUMN_SIZES.product,
+        }),
+        columnHelper.accessor("visibility", {
+          cell: VisibilityCell,
+          header: t("categories.table.headers.visibility"),
+          meta: {
+            export: ({ visibility }) => t(`table.visibilityLabels.${visibility}`),
+            filter: {
+              kind: DATA_GRID_FILTER.MULTI_SELECT,
+              options: CATEGORY_VISIBILITIES.map((value) => ({ label: t(`table.visibilityLabels.${value}`), value })),
+            },
+          },
+          size: PRODUCT_COLUMN_SIZES.status,
+        }),
+        columnHelper.accessor("createdAt", {
+          cell: DateCell,
+          header: t("categories.table.headers.createdAt"),
+          meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE }, hidden: true },
+          size: PRODUCT_COLUMN_SIZES.createdAt,
+        }),
+        columnHelper.accessor("updatedAt", {
+          cell: DateCell,
+          header: t("categories.table.headers.lastUpdated"),
+          meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE } },
+          size: PRODUCT_COLUMN_SIZES.updatedAt,
+        }),
+      ]),
+    [kind, t],
+  )
 }

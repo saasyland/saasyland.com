@@ -1,10 +1,11 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
+import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
@@ -12,12 +13,14 @@ import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-produc
 
 import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 
+import * as download from "~/src/lib/download"
+
 import { adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { adminCategory, adminProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 
-import componentsDataTableMessages from "~/messages/en-US/components.custom.data-table.json"
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
 
 const products = [
@@ -60,9 +63,10 @@ const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "c
 describe("admin catalog", () => {
   it.each([0, 5])("shows the row count for %i products without enabling navigation", (count) => {
     renderProducts(Array.from({ length: count }, (_, index) => adminProduct({ id: `item-${index}`, name: `Item ${index}` })))
-    expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.previousPage })).toBeDisabled()
-    expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.nextPage })).toBeDisabled()
-    expect(screen.getByText(count === 0 ? "No rows" : `${count} rows`)).toBeVisible()
+    expect(screen.getByRole("button", { name: gridMessages.pagination.previous })).toBeDisabled()
+    expect(screen.getByRole("button", { name: gridMessages.pagination.next })).toBeDisabled()
+    const first = Math.min(1, count)
+    expect(screen.getByText(`${String(first)}–${String(count)} of ${String(count)}`)).toBeVisible()
   })
 
   it("navigates between server pages and disables navigation at the boundaries", async () => {
@@ -77,11 +81,11 @@ describe("admin catalog", () => {
       queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: CATEGORY_KIND.CATEGORY }).queryKey, { rows: [], total: 0 })
     }
     renderAdminPage(ProductsRoute.options.component, { queryClient })
-    expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.previousPage })).toBeDisabled()
-    await userEvent.click(screen.getByRole("button", { name: componentsDataTableMessages.pagination.nextPage }))
+    expect(screen.getByRole("button", { name: gridMessages.pagination.previous })).toBeDisabled()
+    await userEvent.click(screen.getByRole("button", { name: gridMessages.pagination.next }))
     expect(await screen.findByText("Last product")).toBeVisible()
-    expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.nextPage })).toBeDisabled()
-    await userEvent.click(screen.getByRole("button", { name: componentsDataTableMessages.pagination.previousPage }))
+    expect(screen.getByRole("button", { name: gridMessages.pagination.next })).toBeDisabled()
+    await userEvent.click(screen.getByRole("button", { name: gridMessages.pagination.previous }))
     expect(await screen.findByText("Item 0")).toBeVisible()
   })
 
@@ -127,14 +131,14 @@ describe("admin catalog", () => {
   ] as const)("names the %s panel's first column after its kind", async (tab, heading, otherHeading) => {
     renderProducts([], tab)
     expect(await screen.findByText("Starters")).toBeVisible()
-    expect(screen.getByRole("columnheader", { name: heading })).toBeVisible()
-    expect(screen.queryByRole("columnheader", { name: otherHeading })).not.toBeInTheDocument()
-    expect(screen.getByRole("columnheader", { name: pagesAdminProductsMessages.categories.table.headers.visibility })).toBeVisible()
+    expect(screen.getByRole("columnheader", { name: new RegExp(`^${heading}`, "u") })).toBeVisible()
+    expect(screen.queryByRole("columnheader", { name: new RegExp(`^${otherHeading}`, "u") })).not.toBeInTheDocument()
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toStrictEqual([
       heading,
       pagesAdminProductsMessages.categories.table.headers.visibility,
       pagesAdminProductsMessages.categories.table.headers.lastUpdated,
     ])
+    expect(screen.getByRole("table", { name: pagesAdminProductsMessages.tabs[tab] })).toBeVisible()
   })
 
   it.each([
@@ -152,6 +156,7 @@ describe("admin catalog", () => {
       pagesAdminProductsMessages.table.headers.type,
       pagesAdminProductsMessages.table.headers.pricing,
       pagesAdminProductsMessages.table.headers.status,
+      pagesAdminProductsMessages.table.headers.updatedAt,
     ])
     expect(within(row ?? document.body).queryByRole("button")).toBeNull()
   })
@@ -167,6 +172,63 @@ describe("admin catalog", () => {
 
     expect(within(row ?? document.body).getByText(expected)).toBeVisible()
     expect(row).not.toHaveTextContent(String(priceCents))
+  })
+})
+
+describe("admin catalog export", () => {
+  it("exports the products with their type, price and billing cycle, and status as the table names them", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const rows = [
+      adminProduct({ billingCycle: "month", id: "monthly", name: "Monthly", type: PRODUCT_TYPE.SUBSCRIPTION }),
+      adminProduct({ billingCycle: "", id: "kit", name: "Kit", status: PRODUCT_STATUS.DRAFT }),
+      adminProduct({ billingCycle: null, currency: "JPY", id: "yen", name: "Yen", priceCents: 4900 }),
+    ]
+    const { queryClient } = renderProducts(rows)
+    queryClient.setQueryData(getProductsPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows, total: rows.length })
+
+    await userEvent.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    const { statusLabels, typeLabels } = pagesAdminProductsMessages.table
+    expect(
+      vi
+        .mocked(download.downloadFile)
+        .mock.calls[0]?.[0].content.split("\r\n")
+        .slice(1, 4)
+        .map((line) => line.split(",").slice(0, 4)),
+    ).toStrictEqual([
+      ["Monthly", typeLabels.subscription, "49.00 USD / month", statusLabels.published],
+      ["Kit", typeLabels.one_time, "49.00 USD", statusLabels.draft],
+      ["Yen", typeLabels.one_time, "4900 JPY", statusLabels.published],
+    ])
+  })
+
+  it("exports the categories with their visibility", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const { queryClient } = renderProducts([], "categories")
+    queryClient.setQueryData(getCategoriesPageQuery({ kind: CATEGORY_KIND.CATEGORY, pageSize: MAX_PAGE_SIZE }).queryKey, {
+      rows: categories,
+      total: categories.length,
+    })
+
+    await userEvent.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    const { visibilityLabels } = pagesAdminProductsMessages.table
+    expect(
+      vi
+        .mocked(download.downloadFile)
+        .mock.calls[0]?.[0].content.split("\r\n")
+        .slice(1, 3)
+        .map((line) => line.split(",").slice(0, 2)),
+    ).toStrictEqual([
+      ["Starters", visibilityLabels.public],
+      ["Private category", visibilityLabels.hidden],
+    ])
   })
 })
 

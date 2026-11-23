@@ -1,4 +1,5 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeQuery } from "~/src/platform/testing/lib/query"
@@ -13,8 +14,9 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
+import { CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
+import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 
 const HEADERS = new Headers()
@@ -29,6 +31,11 @@ vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
+
+const idsOf = async (input: Category["getCategories"]): Promise<string[]> => {
+  const { rows } = await executeQuery(getCategoriesPageQuery(input))
+  return rows.map(({ id }) => id)
+}
 
 beforeEach(async () => {
   await db.delete(category)
@@ -103,5 +110,25 @@ describe("list-categories", () => {
     const result = await executeQuery(getCategoriesPageQuery({ kind: CATEGORY_KIND.COLLECTION, pageIndex: 1, pageSize: 2 }))
     expect(result.rows.map((row) => row.id)).toEqual(["row-07", "row-05"])
     expect(result.total).toBe(6)
+  })
+
+  it("searches names and descriptions, filters by visibility and dates, and sorts on the server", async () => {
+    await db.update(category).set({ description: "Hand-picked", visibility: CATEGORY_VISIBILITY.HIDDEN }).where(eq(category.id, "row-03"))
+    await db
+      .update(category)
+      .set({ updatedAt: new Date("2026-11-01T12:00:00Z") })
+      .where(eq(category.id, "row-05"))
+    await expect(idsOf({ search: "hand-picked" })).resolves.toStrictEqual(["row-03"])
+    await expect(idsOf({ filters: { name: "member 1" } })).resolves.toStrictEqual(["row-11", "row-10"])
+    await expect(idsOf({ filters: { visibility: [CATEGORY_VISIBILITY.HIDDEN] } })).resolves.toStrictEqual(["row-03"])
+    await expect(idsOf({ filters: { updatedAt: { to: new Date("2026-11-02T00:00:00Z").getTime() } } })).resolves.toStrictEqual(["row-05"])
+    await expect(idsOf({ filters: { createdAt: { to: new Date("2026-09-01T00:00:00Z").getTime() } } })).resolves.toStrictEqual([])
+    await expect(idsOf({ kind: CATEGORY_KIND.COLLECTION, pageSize: 3, sorting: [{ desc: false, id: "name" }] })).resolves.toStrictEqual([
+      "row-01",
+      "row-03",
+      "row-05",
+    ])
+    await expect(idsOf({ pageSize: 1, sorting: [{ desc: false, id: "visibility" }] })).resolves.toStrictEqual(["row-03"])
+    await expect(idsOf({ pageSize: 1, sorting: [{ desc: true, id: "name" }] })).resolves.toStrictEqual(["row-11"])
   })
 })

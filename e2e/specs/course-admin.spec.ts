@@ -3,9 +3,12 @@ import type { Locator, Page } from "@playwright/test"
 import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import locales from "../../messages/en-US/locales.json" with { type: "json" }
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_MATERIALS } from "../data/courses"
+import { ROUTES } from "../../src/routes"
+import coursesMessages from "../../messages/en-US/pages.admin.courses.json" with { type: "json" }
+import { TEST_COURSE, TEST_MATERIALS } from "../data/courses"
 import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
+import { filterByOption, filteredEmpty, gridMessages, gridOf, hideColumn, removeFilter, resetLayout } from "../fixtures/data-grid"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -207,4 +210,35 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
   expect((await page.request.get(download ?? "")).status()).toBe(404)
+})
+
+test("an administrator finds a course by its slug, filters the catalogue by status, hides a column and keeps the layout after a reload", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  await signInAsAdmin(page, authPage)
+  await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  const { headers } = coursesMessages.table
+  const grid = gridOf(page, coursesMessages.title)
+  const rows = grid.locator("tbody tr")
+
+  await page.getByRole("searchbox", { name: coursesMessages.table.search }).fill(TEST_COURSE.slug)
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText(TEST_COURSE.title["en-US"])
+  await filterByOption(grid, headers.status, coursesMessages.form.statuses.draft)
+  await expect(filteredEmpty(grid)).toBeVisible()
+  await removeFilter(grid, headers.status)
+  await expect(rows).toHaveCount(1)
+
+  const headerNames = grid.getByRole("columnheader")
+  await hideColumn(grid, headers.kind)
+  const arranged = [headers.course, headers.status, headers.lessons, headers.updated, gridMessages.actions.header]
+  await expect(headerNames).toHaveText(arranged)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await expect(headerNames).toHaveText(arranged)
+  await resetLayout(grid)
+  await expect(headerNames).toHaveText([headers.course, headers.kind, headers.status, headers.lessons, headers.updated, gridMessages.actions.header])
 })

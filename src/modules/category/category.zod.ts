@@ -1,8 +1,14 @@
 import zod from "zod/v4"
 
-import { paginationSchema } from "~/src/modules/_core/utils/pagination"
-import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH, CATEGORY_VISIBILITIES } from "~/src/modules/category/category.constants"
+import { choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
+import { MIN_FIELD_LENGTH, dateRangeField, idField } from "~/src/modules/_core/utils/zod-fields"
+import {
+  CATEGORY_ICONS,
+  CATEGORY_KINDS,
+  CATEGORY_NAME_MAX_LENGTH,
+  CATEGORY_SORT_COLUMNS,
+  CATEGORY_VISIBILITIES,
+} from "~/src/modules/category/category.constants"
 
 const categoryIconSchema = zod.enum(CATEGORY_ICONS)
 const categoryKindSchema = zod.enum(CATEGORY_KINDS)
@@ -22,8 +28,18 @@ const createCategory = zod.object({
 
 const deleteCategory = categoryIdInput
 
+const categoryFilters = zod.object({
+  createdAt: dateRangeField.optional(),
+  name: searchTextField.optional(),
+  updatedAt: dateRangeField.optional(),
+  visibility: zod.array(choiceOf(CATEGORY_VISIBILITIES)).max(CATEGORY_VISIBILITIES.length).optional(),
+})
+
 const getCategories = paginationSchema.extend({
+  filters: categoryFilters.default({}),
   kind: categoryKindSchema.optional(),
+  search: searchTextField.default(""),
+  sorting: sortingOf(CATEGORY_SORT_COLUMNS),
 })
 
 const getCategory = categoryIdInput

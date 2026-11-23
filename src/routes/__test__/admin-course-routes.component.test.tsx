@@ -191,25 +191,25 @@ const EDITOR: Course["editor"] = {
   course: COURSE,
 }
 
+const LISTED = {
+  isFirst: false,
+  isLast: false,
+  kind: COURSE_KIND.TUTORIAL,
+  lessons: 0,
+  status: COURSE_STATUS.PUBLISHED,
+  updatedAt: UPDATED_AT,
+} as const
+
 const LIST: Awaited<ReturnType<NonNullable<typeof getCoursesQuery.queryFn>>> = {
   rows: [
+    { ...LISTED, id: COURSE_ID, isFirst: true, kind: COURSE_KIND.COURSE, lessons: 2, slug: COURSE.slug, title: COURSE.title },
     {
-      id: COURSE_ID,
-      kind: COURSE_KIND.COURSE,
-      lessons: 2,
-      slug: COURSE.slug,
-      status: COURSE_STATUS.PUBLISHED,
-      title: COURSE.title,
-      updatedAt: UPDATED_AT,
-    },
-    {
+      ...LISTED,
       id: "01960000-0000-7000-8000-00000000c002",
-      kind: COURSE_KIND.TUTORIAL,
-      lessons: 0,
+      isLast: true,
       slug: "one-off",
       status: COURSE_STATUS.DRAFT,
       title: { "en-US": "One-off tutorial" },
-      updatedAt: UPDATED_AT,
     },
   ],
   total: 2,

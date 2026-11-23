@@ -22,6 +22,8 @@ export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION]
 
 export const CATEGORY_VISIBILITIES = [CATEGORY_VISIBILITY.PUBLIC, CATEGORY_VISIBILITY.HIDDEN] as const
 
+export const CATEGORY_SORT_COLUMNS = ["name", "visibility", "createdAt", "updatedAt"] as const
+
 export const CATEGORY_QUERY_KEYS = {
   ALL: ["category"],
   LIST: ["category", "getCategories"],

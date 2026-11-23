@@ -8,15 +8,6 @@ export const PAGE_ROWS = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) =>
 
 export const IconPending = (): JSX.Element => <Skeleton className="size-4 shrink-0" />
 
-export const CheckboxPending = (): JSX.Element => <Skeleton className="size-4 rounded-sm" />
-
-export const SortableHeadPending = (): JSX.Element => (
-  <div className="flex items-center gap-1.5">
-    <Skeleton className="h-lh w-12 scale-y-70" />
-    <Skeleton className="size-3.5" />
-  </div>
-)
-
 export const RowActionPending = (): JSX.Element => (
   <div className="flex justify-end p-2">
     <IconPending />

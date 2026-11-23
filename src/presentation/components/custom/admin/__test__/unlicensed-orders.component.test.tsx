@@ -1,16 +1,20 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { createTranslator } from "use-intl"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import type { License } from "~/src/modules/license/license.types"
 import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlicensed-orders"
 
+import * as download from "~/src/lib/download"
+
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { UnlicensedOrders } from "~/src/presentation/components/custom/admin/license/unlicensed-orders"
 
 import commonMessages from "~/messages/en-US/common.json"
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import dashboardMessages from "~/messages/en-US/dashboard.license.json"
 
 const labels = dashboardMessages.unlicensedOrders
@@ -36,9 +40,9 @@ const renderPanel = (rows: readonly License["unlicensedOrder"][]) => {
 
 const panel = async (): Promise<HTMLElement> => {
   const heading = await screen.findByRole("heading", { level: 2, name: labels.title })
-  const container = heading.closest<HTMLElement>("[data-slot=card]")
+  const container = heading.closest<HTMLElement>("section")
   if (container === null) {
-    throw new Error("The unlicensed orders heading is outside a card")
+    throw new Error("The unlicensed orders heading is outside its panel")
   }
   return container
 }
@@ -72,7 +76,21 @@ describe("paid orders without a licence", () => {
     renderPanel([])
 
     const card = await panel()
-    expect(within(card).getByText(labels.empty)).toBeVisible()
-    expect(within(card).queryByRole("table")).not.toBeInTheDocument()
+    expect(within(card).getByRole("status")).toHaveTextContent(labels.empty)
+    expect(within(within(card).getByRole("table")).getAllByRole("row")).toHaveLength(1)
+  })
+
+  it("exports each order with its amount in the order's currency", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    renderPanel([unlicensedOrder()])
+
+    await userEvent.click(await screen.findByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n")[1]).toBe(
+      `ord_unmatched,${PLACED_AT.toISOString()},cus_unmatched,719.20 EUR`,
+    )
   })
 })

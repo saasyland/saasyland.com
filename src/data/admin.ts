@@ -31,3 +31,14 @@ export const INVITATION_COLUMN_SIZES = {
   role: 128,
   status: 144,
 } as const
+
+export const DASHBOARD_COLUMN_SIZES = {
+  amount: 136,
+  count: 128,
+  customer: 240,
+  date: 176,
+  name: 256,
+  role: 120,
+  status: 128,
+  user: 280,
+} as const

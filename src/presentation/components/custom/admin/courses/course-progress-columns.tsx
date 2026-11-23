@@ -1,41 +1,58 @@
-import type { JSX } from "react"
+import { type JSX, useMemo } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localize } from "~/src/modules/_core/utils/localized-text"
 import type { LessonProgress } from "~/src/modules/lesson-progress/lesson-progress.types"
 
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
+
+import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type CourseProgressRow = LessonProgress["courseProgress"]
 
-type CourseProgressColumnId = "completedLessons" | "course" | "finished" | "learners" | "lessons"
+export const COURSE_PROGRESS_GRID_ID = "course-progress"
 
-const ColumnHeader = ({ id }: { readonly id: CourseProgressColumnId }): string => {
-  const t = useTranslations("dashboard.courses.progress.columns")
+const COUNTED = ["lessons", "learners", "finished", "completedLessons"] as const
 
-  return t(id)
-}
+const CourseCell = ({ getValue }: CellContext<DataGridFeatures, CourseProgressRow, string>): JSX.Element => (
+  <span className="text-sm font-medium text-foreground">{getValue()}</span>
+)
 
-const CountCell = ({ getValue }: CellContext<DataTableFeatures, CourseProgressRow, number>): JSX.Element => {
+const CountCell = ({ getValue }: CellContext<DataGridFeatures, CourseProgressRow, number>): JSX.Element => {
   const format = useFormatter()
 
-  return <span className="text-sm text-foreground tabular-nums">{format.number(getValue())}</span>
+  return <span className="text-sm text-foreground">{format.number(getValue())}</span>
 }
 
-const columnHelper = createColumnHelper<DataTableFeatures, CourseProgressRow>()
+const columnHelper = createColumnHelper<DataGridFeatures, CourseProgressRow>()
 
-export const courseProgressColumns = columnHelper.columns([
-  columnHelper.accessor((row) => localize(row.title, getCurrentLocale()), {
-    cell: ({ getValue }) => <span className="text-sm font-medium text-foreground">{getValue()}</span>,
-    header: () => <ColumnHeader id="course" />,
-    id: "course",
-  }),
-  columnHelper.accessor("lessons", { cell: CountCell, header: () => <ColumnHeader id="lessons" /> }),
-  columnHelper.accessor("learners", { cell: CountCell, header: () => <ColumnHeader id="learners" /> }),
-  columnHelper.accessor("finished", { cell: CountCell, header: () => <ColumnHeader id="finished" /> }),
-  columnHelper.accessor("completedLessons", { cell: CountCell, header: () => <ColumnHeader id="completedLessons" /> }),
-])
+export const useCourseProgressColumns = (): DataGridColumn<CourseProgressRow>[] => {
+  const t = useTranslations("dashboard.courses.progress.columns")
+
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor((row) => localize(row.title, getCurrentLocale()), {
+          cell: CourseCell,
+          header: t("course"),
+          id: "course",
+          meta: { filter: { kind: DATA_GRID_FILTER.TEXT }, pinned: DATA_GRID_PIN.START },
+          size: DASHBOARD_COLUMN_SIZES.name,
+        }),
+        ...COUNTED.map((count) =>
+          columnHelper.accessor(count, {
+            cell: CountCell,
+            header: t(count),
+            meta: { align: DATA_GRID_ALIGN.END, filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE } },
+            size: DASHBOARD_COLUMN_SIZES.count,
+          }),
+        ),
+      ]),
+    [t],
+  )
+}

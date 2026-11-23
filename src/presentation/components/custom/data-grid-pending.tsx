@@ -5,8 +5,6 @@ import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-const PAGE_ROWS = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => index)
-
 const CONTROL_BUTTONS = ["columns", "export", "reset"] as const
 
 const PAGE_BUTTONS = ["first", "previous", "next", "last"] as const
@@ -20,15 +18,19 @@ export interface DataGridPendingColumn {
 export const DataGridPending = ({
   actionsWidth,
   columns,
+  hasSearch = true,
   isSelectable = false,
+  rows = DEFAULT_PAGE_SIZE,
 }: {
   readonly actionsWidth?: number
   readonly columns: readonly DataGridPendingColumn[]
+  readonly hasSearch?: boolean
   readonly isSelectable?: boolean
+  readonly rows?: number
 }): JSX.Element => (
   <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
     <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5">
-      <Skeleton className="h-8 min-w-56 flex-1 basis-72" />
+      {hasSearch && <Skeleton className="h-8 min-w-56 flex-1 basis-72" />}
       <Skeleton className="h-8 w-20" />
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <Skeleton className="h-8 w-16" />
@@ -62,7 +64,7 @@ export const DataGridPending = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {PAGE_ROWS.map((row) => (
+          {Array.from({ length: rows }, (_, row) => (
             <TableRow className="hover:bg-transparent" key={row}>
               {isSelectable && (
                 <TableCell className="border-b border-b-border/70">

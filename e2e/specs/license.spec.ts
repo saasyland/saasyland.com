@@ -101,7 +101,7 @@ test("admin finds a paid licence order without a licence on the dashboard, linke
   await appPage.waitForAppReady()
 
   const heading = page.getByRole("heading", { level: 2, name: "Paid orders without a licence", exact: true })
-  const panel = page.locator("[data-slot=card]").filter({ has: heading })
+  const panel = page.locator("section").filter({ has: heading })
   const orderLink = page.getByRole("link", { name: `Open order ${TEST_UNLICENSED_ORDER.id} in Polar`, exact: true })
   const link = panel.locator(orderLink)
   await expect(link).toHaveAttribute(

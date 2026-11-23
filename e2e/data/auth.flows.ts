@@ -484,6 +484,19 @@ export const AUTH_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_USERS,
+    id: "admin-dashboard-users-grid",
+    outcome:
+      "The dashboard's newest users filter by status and sort by join day in the browser, and a column the admin hides stays hidden after a reload until the layout is reset",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-dashboard.spec.ts",
+        title: "the admin filters the newest users by status, sorts them by join day, hides a column and keeps it after a reload",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_USERS,
     id: "admin-dashboard-users",
     outcome: "The dashboard counts the users and lists the newest accounts, each linked to its profile",
     status: FLOW_STATUS.COVERED,

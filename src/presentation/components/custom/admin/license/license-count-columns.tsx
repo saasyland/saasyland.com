@@ -1,40 +1,56 @@
-import type { JSX } from "react"
+import { type JSX, useMemo } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { LICENSE_STATUSES, type LicenseStatus, type LicenseTier } from "~/src/modules/license/license.constants"
+import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+
+import { LICENSE_STATUSES, type LicenseTier } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
+
+import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type LicenseCount = License["licenseCount"]
 
-type LicenseCountColumnId = "tier" | LicenseStatus
+export const LICENSE_COUNT_GRID_ID = "license-counts"
 
-const ColumnHeader = ({ id }: { readonly id: LicenseCountColumnId }): string => {
-  const t = useTranslations("dashboard.license.licenses.columns")
-
-  return t(id)
-}
-
-const TierCell = ({ getValue }: CellContext<DataTableFeatures, LicenseCount, LicenseTier>): JSX.Element => {
+const TierCell = ({ getValue }: CellContext<DataGridFeatures, LicenseCount, LicenseTier>): JSX.Element => {
   const t = useTranslations("components.custom.pricing.tiers")
 
   return <span className="text-sm font-medium text-foreground">{t(`${getValue()}.name`)}</span>
 }
 
-const CountCell = ({ getValue }: CellContext<DataTableFeatures, LicenseCount, number>): JSX.Element => {
+const CountCell = ({ getValue }: CellContext<DataGridFeatures, LicenseCount, number>): JSX.Element => {
   const format = useFormatter()
 
-  return <span className="text-sm text-foreground tabular-nums">{format.number(getValue())}</span>
+  return <span className="text-sm text-foreground">{format.number(getValue())}</span>
 }
 
-const columnHelper = createColumnHelper<DataTableFeatures, LicenseCount>()
+const columnHelper = createColumnHelper<DataGridFeatures, LicenseCount>()
 
-export const licenseCountColumns = columnHelper.columns([
-  columnHelper.accessor("tier", { cell: TierCell, enableSorting: false, header: () => <ColumnHeader id="tier" /> }),
-  ...LICENSE_STATUSES.map((status) =>
-    columnHelper.accessor(status, { cell: CountCell, enableSorting: false, header: () => <ColumnHeader id={status} /> }),
-  ),
-])
+export const useLicenseCountColumns = (): DataGridColumn<LicenseCount>[] => {
+  const t = useTranslations()
+
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("tier", {
+          cell: TierCell,
+          header: t("dashboard.license.licenses.columns.tier"),
+          meta: { export: ({ tier }) => t(`components.custom.pricing.tiers.${tier}.name`), pinned: DATA_GRID_PIN.START },
+          size: DASHBOARD_COLUMN_SIZES.name,
+        }),
+        ...LICENSE_STATUSES.map((status) =>
+          columnHelper.accessor(status, {
+            cell: CountCell,
+            header: t(`dashboard.license.licenses.columns.${status}`),
+            meta: { align: DATA_GRID_ALIGN.END, filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE } },
+            size: DASHBOARD_COLUMN_SIZES.count,
+          }),
+        ),
+      ]),
+    [t],
+  )
+}

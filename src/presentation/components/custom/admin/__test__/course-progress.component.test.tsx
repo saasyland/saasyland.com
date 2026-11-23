@@ -54,7 +54,7 @@ describe("course progress panel", () => {
     renderPanel([])
 
     expect(screen.getByRole("heading", { level: 2, name: labels.title })).toBeVisible()
-    expect(screen.getByText(labels.empty)).toBeVisible()
-    expect(screen.queryByRole("table")).toBeNull()
+    expect(screen.getByRole("status")).toHaveTextContent(labels.empty)
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(1)
   })
 })

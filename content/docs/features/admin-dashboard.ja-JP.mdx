@@ -81,11 +81,11 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 
 ### コースの進捗 [#course-progress]
 
-`getCourseProgress`（`course: ["read"]`）は、すべてのコースを管理画面での順序（`position`）で一覧にし、それぞれの公開済みのレッスン、そのいずれかに進捗を保存したアカウント、そのすべてを修了したアカウント、修了したレッスンの合計を示します。下書きのレッスンの進捗は数えず、管理者を含むすべてのアカウントを数えます。いずれかのコースに進捗を保存したアカウントの数である `learners` が、**受講者** の統計です。パネルはコースを `DataTable`（`course-progress-columns.tsx`）で一覧にするか、まだコースがないことを表示します。
+`getCourseProgress`（`course: ["read"]`）は、すべてのコースを管理画面での順序（`position`）で一覧にし、それぞれの公開済みのレッスン、そのいずれかに進捗を保存したアカウント、そのすべてを修了したアカウント、修了したレッスンの合計を示します。下書きのレッスンの進捗は数えず、管理者を含むすべてのアカウントを数えます。いずれかのコースに進捗を保存したアカウントの数である `learners` が、**受講者** の統計です。パネルはコースを `DataGrid`（`course-progress-columns.tsx` の `useCourseProgressColumns`）で一覧にし、コースと各件数で絞り込めます。まだコースがない場合は、そのことを表示します。
 
 ### パッケージ別のライセンス [#licences-by-tier]
 
-`getLicenseCounts`（`admin: ["access"]`）は、`license` を `tier` と `status` でグループ化した1回のクエリで読み取り、何も書き込みません。`LICENSE_TIERS` の各パッケージについてその順序で1行を返し、`LICENSE_STATUSES` の各ステータスにあるライセンスの数を示します。あるステータスにライセンスがないパッケージは0です。パネルはパッケージを `DataTable`（`license-count-columns.tsx`）で一覧にし、それぞれを `components.custom.pricing.json` の名前で表示します。有効なライセンスはCLIで使えますが、返金済みまたは取り消し済みのライセンスは使えなくなります（[ライセンス](/docs/features/licences)を参照）。
+`getLicenseCounts`（`admin: ["access"]`）は、`license` を `tier` と `status` でグループ化した1回のクエリで読み取り、何も書き込みません。`LICENSE_TIERS` の各パッケージについてその順序で1行を返し、`LICENSE_STATUSES` の各ステータスにあるライセンスの数を示します。あるステータスにライセンスがないパッケージは0です。パネルはパッケージを `DataGrid`（`license-count-columns.tsx` の `useLicenseCountColumns`）で一覧にし、それぞれを `components.custom.pricing.json` の名前で表示して、件数を右揃えにします。有効なライセンスはCLIで使えますが、返金済みまたは取り消し済みのライセンスは使えなくなります（[ライセンス](/docs/features/licences)を参照）。
 
 ### ニュースレター購読者 [#newsletter-subscribers]
 
@@ -94,23 +94,17 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 ### ユーザーカード [#users-card]
 
 ```tsx
-<DataTable
-  columns={dashboardUserColumns}
-  data={users.rows}
-  filters={[
-    { columnId: "user", placeholder: t("users.search"), type: "search" },
-    {
-      columnId: "status",
-      label: t("users.filters.status"),
-      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
-      type: "select",
-    },
-  ]}
-  options={{ initialState: { pagination: ADMIN_DASHBOARD_PREVIEW_PAGINATION }, selectable: true }}
+<DataGrid
+  columns={columns}
+  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  id={DASHBOARD_USER_GRID_ID}
+  label={t("users.title")}
+  search={t("users.search")}
+  selectable
 />
 ```
 
-このテーブルはブラウザー上で `getUsersQuery` の最初のページ（<RepositoryFact name="defaultPageSize" /> 人、新しい順）を扱います。**登録日** の列はアカウントの `created_at` です。**すべて表示** は `/admin/users` へリンクします。
+このグリッドはブラウザー上で、`getUsersQuery` の最初のページ（<RepositoryFact name="defaultPageSize" /> 人、新しい順）のうち最新のユーザーを扱い、サーバーに再度問い合わせることなく、検索、ユーザー・ステータス・登録日での絞り込み、並べ替えを行います。**登録日** の列はアカウントの `created_at` です。**すべて表示** は `/admin/users` へリンクします。
 
 ## 実データのみ [#real-data-only]
 

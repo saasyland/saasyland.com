@@ -1,23 +1,24 @@
-import type { JSX } from "react"
+import { type JSX, useMemo } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { ExternalLink } from "lucide-react"
 import { Link } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+
+import { CURRENCIES } from "~/src/modules/_core/constants/currency"
 import type { License } from "~/src/modules/license/license.types"
 
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
+
+import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type UnlicensedOrder = License["unlicensedOrder"]
 
-const ColumnHeader = ({ id }: { readonly id: "amount" | "customer" | "date" | "order" }): string => {
-  const t = useTranslations("dashboard.license.unlicensedOrders.columns")
+export const UNLICENSED_ORDER_GRID_ID = "unlicensed-orders"
 
-  return t(id)
-}
-
-const OrderCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, string>): JSX.Element => {
+const OrderCell = ({ row }: CellContext<DataGridFeatures, UnlicensedOrder, string>): JSX.Element => {
   const t = useTranslations("dashboard.license.unlicensedOrders")
 
   return (
@@ -34,36 +35,69 @@ const OrderCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, stri
   )
 }
 
-const DateCell = ({ getValue }: CellContext<DataTableFeatures, UnlicensedOrder, Date>): JSX.Element => {
+const DateCell = ({ getValue }: CellContext<DataGridFeatures, UnlicensedOrder, Date>): JSX.Element => {
   const t = useTranslations("common")
 
   return <span className="text-spec text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }
 
-const CustomerCell = ({ getValue }: CellContext<DataTableFeatures, UnlicensedOrder, string>): JSX.Element => (
+const CustomerCell = ({ getValue }: CellContext<DataGridFeatures, UnlicensedOrder, string>): JSX.Element => (
   <span className="font-mono text-spec text-muted-foreground">{getValue()}</span>
 )
 
-const AmountCell = ({ row }: CellContext<DataTableFeatures, UnlicensedOrder, number>): JSX.Element => {
+const AmountCell = ({ row }: CellContext<DataGridFeatures, UnlicensedOrder, number>): JSX.Element => {
   const format = useFormatter()
 
   return (
-    <span className="text-sm font-medium tabular-nums">
+    <span className="text-sm font-medium">
       {format.number(row.original.amount, { currency: row.original.currency, style: "currency" })}
     </span>
   )
 }
 
-const columnHelper = createColumnHelper<DataTableFeatures, UnlicensedOrder>()
+const columnHelper = createColumnHelper<DataGridFeatures, UnlicensedOrder>()
 
-export const unlicensedOrderColumns = columnHelper.columns([
-  columnHelper.accessor("id", { cell: OrderCell, enableSorting: false, header: () => <ColumnHeader id="order" />, id: "order" }),
-  columnHelper.accessor("placedAt", { cell: DateCell, header: () => <ColumnHeader id="date" />, id: "date", sortFn: "datetime" }),
-  columnHelper.accessor("customerId", {
-    cell: CustomerCell,
-    enableSorting: false,
-    header: () => <ColumnHeader id="customer" />,
-    id: "customer",
-  }),
-  columnHelper.accessor("amount", { cell: AmountCell, enableSorting: false, header: () => <ColumnHeader id="amount" /> }),
-])
+export const useUnlicensedOrderColumns = (): DataGridColumn<UnlicensedOrder>[] => {
+  const t = useTranslations("dashboard.license.unlicensedOrders.columns")
+
+  return useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("id", {
+          cell: OrderCell,
+          enableSorting: false,
+          header: t("order"),
+          id: "order",
+          meta: { filter: { kind: DATA_GRID_FILTER.TEXT }, pinned: DATA_GRID_PIN.START },
+          size: DASHBOARD_COLUMN_SIZES.customer,
+        }),
+        columnHelper.accessor("placedAt", {
+          cell: DateCell,
+          header: t("date"),
+          id: "date",
+          meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE } },
+          size: DASHBOARD_COLUMN_SIZES.date,
+          sortFn: "datetime",
+        }),
+        columnHelper.accessor("customerId", {
+          cell: CustomerCell,
+          enableSorting: false,
+          header: t("customer"),
+          id: "customer",
+          meta: { filter: { kind: DATA_GRID_FILTER.TEXT } },
+          size: DASHBOARD_COLUMN_SIZES.customer,
+        }),
+        columnHelper.accessor("amount", {
+          cell: AmountCell,
+          header: t("amount"),
+          meta: {
+            align: DATA_GRID_ALIGN.END,
+            export: ({ amount, currency }) => `${amount.toFixed(CURRENCIES[currency].exponent)} ${currency}`,
+            filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE },
+          },
+          size: DASHBOARD_COLUMN_SIZES.amount,
+        }),
+      ]),
+    [t],
+  )
+}

@@ -1,6 +1,7 @@
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 
@@ -16,10 +17,13 @@ import { Route as DashboardRoute } from "~/src/routes/admin.index"
 
 import { ADMIN_DASHBOARD_PANELS } from "~/src/data/dashboard"
 
+import * as download from "~/src/lib/download"
+
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import authDashboardMessages from "~/messages/en-US/dashboard.auth.json"
 import coursesDashboardMessages from "~/messages/en-US/dashboard.courses.json"
 import licenseDashboardMessages from "~/messages/en-US/dashboard.license.json"
@@ -40,7 +44,7 @@ afterEach(() => vi.restoreAllMocks())
 
 const usersTable = (): HTMLElement =>
   within(
-    screen.getByRole("heading", { level: 2, name: pagesAdminDashboardMessages.users.title }).closest<HTMLElement>("[data-slot=card]") ??
+    screen.getByRole("heading", { level: 2, name: pagesAdminDashboardMessages.users.title }).closest<HTMLElement>("section") ??
       document.body,
   ).getByRole("table")
 
@@ -62,7 +66,7 @@ describe("admin dashboard", () => {
     })
     renderAdminPage(DashboardRoute.options.component, { queryClient })
     expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
-    expect(within(usersTable()).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
+    expect(within(usersTable()).getAllByRole("row")).toHaveLength(Math.min(count, 5) + 1)
     expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
       "href",
       "/admin/users",
@@ -90,6 +94,24 @@ describe("admin dashboard", () => {
     expect(adaRow).toHaveTextContent("Jan 1, 2025")
     expect(adaRow).not.toHaveTextContent("Nov 20, 2026")
     expect(adaRow).toHaveTextContent("AL")
+  })
+
+  it("exports the newest users with their status as the table names it", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+
+    await userEvent.click(
+      within(usersTable().closest("section") ?? document.body).getByRole("button", { name: gridMessages.toolbar.export }),
+    )
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n")[1]).toBe(
+      `Ada Lovelace <ada@example.com>,customer,${pagesAdminDashboardMessages.users.table.status.active},2025-01-01T12:00:00.000Z`,
+    )
   })
 
   it("reads every statistic from its query and shows only real panels", () => {

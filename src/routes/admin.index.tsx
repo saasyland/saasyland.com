@@ -8,7 +8,6 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
-import { USER_STATUSES } from "~/src/modules/user/user.constants"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
@@ -16,19 +15,19 @@ import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashbo
 import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
-import { Card } from "~/src/presentation/components/shadcn/card"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
-import { dashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
-import { DataTable } from "~/src/presentation/components/custom/data-table"
+import { DASHBOARD_USER_GRID_ID, useDashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
+import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
 import { ROUTES } from "~/src/routes"
 
 const DashboardPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard")
+  const columns = useDashboardUserColumns()
   const users = useSuspenseQuery(getUsersQuery).data
 
   return (
@@ -41,33 +40,27 @@ const DashboardPage = (): JSX.Element => {
         <Panel key={key} />
       ))}
 
-      <Card className="flex flex-col gap-4 p-5">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="text-title text-foreground">{t("users.title")}</h2>
           <p className="mt-0.5 text-body-sm text-muted-foreground">{t("users.description")}</p>
         </div>
 
-        <DataTable
-          columns={dashboardUserColumns}
-          data={users.rows}
-          filters={[
-            { columnId: "user", placeholder: t("users.search"), type: "search" },
-            {
-              columnId: "status",
-              label: t("users.filters.status"),
-              options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
-              type: "select",
-            },
-          ]}
-          options={{ initialState: { pagination: ADMIN_DASHBOARD_PREVIEW_PAGINATION }, selectable: true }}
+        <DataGrid
+          columns={columns}
+          data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+          id={DASHBOARD_USER_GRID_ID}
+          label={t("users.title")}
+          search={t("users.search")}
+          selectable
         />
 
         <div className="flex justify-end">
-          <LinkButton className="h-7 px-2.5" to={ROUTES.ADMIN_USERS} size="sm" variant="outline">
+          <LinkButton className="h-7 px-2.5" size="sm" to={ROUTES.ADMIN_USERS} variant="outline">
             {t("users.table.pagination.viewAll")}
           </LinkButton>
         </div>
-      </Card>
+      </section>
     </div>
   )
 }

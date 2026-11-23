@@ -12,6 +12,7 @@ import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_LICENSES, TEST_MACHINES_LICENSE, TEST_TIER_LICENSES } from "../data/licenses"
 import { TEST_REVENUE } from "../data/payments"
 import { expect, test } from "../fixtures/auth"
+import { filterByOption, gridOf, hideColumn, removeFilter, resetLayout, sortBy } from "../fixtures/data-grid"
 import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 import pricingMessages from "../../messages/en-US/components.custom.pricing.json" with { type: "json" }
@@ -51,7 +52,7 @@ const SEEDED_LICENSES = [...TEST_LICENSES, ...TEST_TIER_LICENSES, TEST_MACHINES_
 const STATUSES_PURCHASES_ADD_TO = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REFUNDED] as const
 
 const panel = (page: Page, title: string): Locator =>
-  page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: title }) })
+  page.locator("[data-slot=card], section").filter({ has: page.getByRole("heading", { level: 2, name: title }) })
 
 const figure = (scope: Locator, name: string): Locator => scope.getByText(name, { exact: true }).locator("xpath=following-sibling::dd")
 
@@ -194,4 +195,28 @@ test("a customer is sent to the workspace and never sees the dashboard's figures
   await expect(page).toHaveURL(/\/app\/?$/u)
   await expect(page.getByRole("heading", { name: revenue.title })).toHaveCount(0)
   await expect(page.getByText(TEST_REVENUE.last30Days.net)).toHaveCount(0)
+})
+
+test("the admin filters the newest users by status, sorts them by join day, hides a column and keeps it after a reload", async ({ page }) => {
+  await signInAsAdmin(page)
+  const { columns, status } = pagesAdminDashboardMessages.users.table
+  const grid = gridOf(page, pagesAdminDashboardMessages.users.title)
+  const headerNames = grid.getByRole("columnheader")
+
+  await filterByOption(grid, columns.status, status.active)
+  for (const cell of await grid.locator("tbody tr td:nth-child(4)").all()) {
+    await expect(cell).toHaveText(status.active)
+  }
+  await removeFilter(grid, columns.status)
+  await sortBy(grid, columns.joined)
+  await expect(grid.getByRole("columnheader", { name: new RegExp(`^${columns.joined}`, "u") })).toHaveAttribute("aria-sort", /ascending|descending/u)
+
+  await hideColumn(grid, columns.role)
+  const arranged = ["", columns.user, columns.status, columns.joined]
+  await expect(headerNames).toHaveText(arranged)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await new BasePage(page).waitForAppReady()
+  await expect(headerNames).toHaveText(arranged)
+  await resetLayout(grid)
+  await expect(headerNames).toHaveText(["", columns.user, columns.role, columns.status, columns.joined])
 })

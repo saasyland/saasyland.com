@@ -1,6 +1,12 @@
 import type { JSX } from "react"
 
-import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_USER_DETAILS, INVITATION_COLUMN_SIZES, USER_COLUMN_SIZES } from "~/src/data/admin"
+import {
+  ADMIN_DASHBOARD_PREVIEW_PAGINATION,
+  ADMIN_USER_DETAILS,
+  DASHBOARD_COLUMN_SIZES,
+  INVITATION_COLUMN_SIZES,
+  USER_COLUMN_SIZES,
+} from "~/src/data/admin"
 import { SETTINGS_TABS } from "~/src/data/auth"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
@@ -9,49 +15,13 @@ import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
-import {
-  CheckboxPending,
-  PaginationPending,
-  RowActionPending,
-  SortableHeadPending,
-} from "~/src/presentation/components/custom/admin/pending-blocks"
+import { GridPanelPending } from "~/src/presentation/components/custom/admin/dashboard/grid-panel-pending"
+import { RowActionPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import { EmailCardPending } from "~/src/presentation/components/custom/settings/settings-pending"
-
-const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
-
-const DashboardUserRowPending = (): JSX.Element => (
-  <TableRow>
-    <TableCell>
-      <CheckboxPending />
-    </TableCell>
-    <TableCell>
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-8 shrink-0 rounded-full" />
-        <div>
-          <Skeleton className="h-lh w-16 scale-y-70" />
-          <Skeleton className="h-lh w-100 scale-y-70 text-spec" />
-        </div>
-      </div>
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-5.5 w-18 rounded-md" />
-    </TableCell>
-    <TableCell>
-      <div className="flex items-center gap-2 text-spec">
-        <Skeleton className="size-2 rounded-full" />
-        <Skeleton className="h-lh w-9 scale-y-70" />
-      </div>
-    </TableCell>
-    <TableCell>
-      <Skeleton className="h-lh w-19 scale-y-70 text-spec" />
-    </TableCell>
-  </TableRow>
-)
 
 export const AdminDashboardPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">
@@ -70,53 +40,10 @@ export const AdminDashboardPending = (): JSX.Element => (
     {ADMIN_DASHBOARD_PANELS.map(({ Pending, key }) => (
       <Pending key={key} />
     ))}
-    <Card className="flex flex-col gap-4 p-5">
-      <div>
-        <Skeleton className="h-lh w-36 scale-y-70 text-title" />
-        <div className="mt-0.5 flex flex-col text-body-sm">
-          <Skeleton className="h-lh w-100 max-w-full scale-y-70" />
-          <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Skeleton className="h-10 w-full rounded-md" />
-        </div>
-        <Skeleton className="h-8 w-full rounded-md sm:w-48" />
-      </div>
-      <TableContainer>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <CheckboxPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <SortableHeadPending />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {PREVIEW_ROWS.map((row) => (
-              <DashboardUserRowPending key={row} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <PaginationPending />
-      <div className="flex justify-end">
-        <Skeleton className="h-7 w-26 rounded-md" />
-      </div>
-    </Card>
+    <GridPanelPending columns={DASHBOARD_USER_PENDING_COLUMNS} isSelectable rows={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize} />
+    <div className="flex justify-end">
+      <Skeleton className="h-7 w-26 rounded-md" />
+    </div>
   </div>
 )
 
@@ -139,6 +66,13 @@ const UserPending = (): JSX.Element => (
     </div>
   </div>
 )
+
+const DASHBOARD_USER_PENDING_COLUMNS = [
+  { cell: <UserPending />, id: "user", width: DASHBOARD_COLUMN_SIZES.user },
+  { cell: <Skeleton className="h-5.5 w-18 rounded-md" />, id: "role", width: DASHBOARD_COLUMN_SIZES.role },
+  { cell: <Skeleton className="h-5.5 w-16 rounded-md" />, id: "status", width: DASHBOARD_COLUMN_SIZES.status },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "joined", width: DASHBOARD_COLUMN_SIZES.date },
+]
 
 const USER_PENDING_COLUMNS = [
   { cell: <UserPending />, id: "user", width: USER_COLUMN_SIZES.user },

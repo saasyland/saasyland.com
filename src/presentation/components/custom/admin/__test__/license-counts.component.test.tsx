@@ -1,5 +1,6 @@
-import { screen, within } from "@testing-library/react"
-import { describe, expect, it } from "vite-plus/test"
+import { screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
@@ -8,11 +9,14 @@ import { LICENSE_STATUS, LICENSE_TIER, type LicenseStatus, type LicenseTier } fr
 import type { License } from "~/src/modules/license/license.types"
 import { licenseCountsQuery } from "~/src/modules/license/use-cases/get-license-counts"
 
+import * as download from "~/src/lib/download"
+
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { LicenseCounts } from "~/src/presentation/components/custom/admin/license/license-counts"
 import { LicenseCountsPending } from "~/src/presentation/components/custom/admin/license/license-counts-pending"
 
+import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import dashboardMessages from "~/messages/en-US/dashboard.license.json"
 
@@ -75,5 +79,17 @@ describe("licences by tier", () => {
     const { container } = renderWithRouter(<AdminDashboardPending />, { router: createTestRouter("/admin") })
 
     expect(busyMarkup(container)).toContain(markupOf(<LicenseCountsPending />))
+  })
+
+  it("exports the tiers by name with their counts", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    renderPanel([licenseCount(LICENSE_TIER.CORE, { active: 2 })])
+
+    await userEvent.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n")[1]).toBe(`${pricingMessages.tiers.core.name},2,0,0`)
   })
 })

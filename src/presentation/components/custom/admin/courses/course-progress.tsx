@@ -5,34 +5,26 @@ import { useTranslations } from "use-intl/react"
 
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 
-import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-
-import { Card } from "~/src/presentation/components/shadcn/card"
-
-import { courseProgressColumns } from "~/src/presentation/components/custom/admin/courses/course-progress-columns"
-import { EmptyPanel } from "~/src/presentation/components/custom/admin/dashboard/empty-panel"
-import { DataTable } from "~/src/presentation/components/custom/data-table"
+import {
+  COURSE_PROGRESS_GRID_ID,
+  useCourseProgressColumns,
+} from "~/src/presentation/components/custom/admin/courses/course-progress-columns"
+import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
 export const CourseProgress = (): JSX.Element => {
   const t = useTranslations("dashboard.courses.progress")
+  const columns = useCourseProgressColumns()
 
   const { rows } = useSuspenseQuery(courseProgressQuery).data
 
   return (
-    <Card className="flex flex-col gap-4 p-5">
+    <section className="flex flex-col gap-4">
       <div className="max-w-2xl">
         <h2 className="text-title text-foreground">{t("title")}</h2>
         <p className="mt-0.5 text-body-sm text-muted-foreground">{t("description")}</p>
       </div>
 
-      {rows.length === 0 && <EmptyPanel>{t("empty")}</EmptyPanel>}
-      {rows.length > 0 && (
-        <DataTable
-          columns={courseProgressColumns}
-          data={rows}
-          options={{ initialState: { pagination: ADMIN_DASHBOARD_PREVIEW_PAGINATION } }}
-        />
-      )}
-    </Card>
+      <DataGrid columns={columns} data={rows} empty={t("empty")} id={COURSE_PROGRESS_GRID_ID} label={t("title")} />
+    </section>
   )
 }

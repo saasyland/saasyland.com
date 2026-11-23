@@ -2,6 +2,7 @@ import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_HEADER, API_LIMIT, R
 import { existsSync, globSync, readFileSync, readdirSync } from "node:fs"
 import { posix } from "node:path"
 import type { Plugin } from "vite-plus"
+import { exactRegex } from "vite/rolldown/pluginutils"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
@@ -46,7 +47,7 @@ const SHARD_MATRIX = /^ +shard: \[(?<shards>[\d, ]+)\]$/mu
 const BASE_RADIUS = /--radius:\s*(?<rem>[\d.]+)rem;/u
 const RADIUS_STEP = /--radius-(?<step>sm|md|lg):\s*(?:calc\(var\(--radius\) \* (?<factor>[\d.]+)\)|var\(--radius\));/gu
 const TABLE_DECLARATION = /sqliteTable\(\s*"(?<table>\w+)"/gu
-const AUTHORIZED_CALL = /\bauthorized\((?<permission>\{[^)]*\})?\)/u
+const AUTHORIZED_CALL = /\bauthorized\((?:\{[^)]*\})?\)/u
 const PERMISSION_ENTRY = /(?<resource>\w+): \[(?<actions>[^\]]*)\]/gu
 const QUOTED_ACTION = /"(?<action>[\w-]+)"/gu
 const SMALL_TEXT = /--text-(?<token>body-sm|spec|label):\s*(?<rem>[\d.]+)rem;/gu
@@ -229,10 +230,9 @@ interface UseCase {
 
 const readUseCase = (module: string, path: string): UseCase => {
   const source = readFileSync(path, "utf8")
-  const call = AUTHORIZED_CALL.exec(source)
 
   return {
-    check: call === null ? undefined : `authorized(${call.groups?.["permission"] ?? ""})`,
+    check: AUTHORIZED_CALL.exec(source)?.[0],
     module,
     name: posix.basename(path, ".ts"),
     serverFunction: source.includes(SERVER_FUNCTION),
@@ -257,7 +257,7 @@ export const collectModuleTables = (root = MODULES_PATH) => {
       .toSorted(compareText)
       .map((path) => readUseCase(module, path)),
   )
-  const checks = [...new Set(useCases.flatMap(({ check }) => (check === undefined ? [] : [check])))].toSorted(compareText)
+  const checks = [...new Set(useCases.flatMap(({ check }) => check ?? []))].toSorted(compareText)
 
   return {
     checkedPermissions: [...new Set(checks.flatMap((check) => permissionsOf(check)))].toSorted(compareText),
@@ -384,8 +384,8 @@ export const repositoryFacts = (): Plugin => {
       order: "pre",
     },
     enforce: "pre",
-    load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),
+    load: { filter: { id: exactRegex(RESOLVED_MODULE_ID) }, handler: () => moduleSource },
     name: "saasyland:repository-facts",
-    resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),
+    resolveId: { filter: { id: exactRegex(MODULE_ID) }, handler: () => RESOLVED_MODULE_ID },
   }
 }

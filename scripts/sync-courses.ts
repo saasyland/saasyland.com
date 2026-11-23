@@ -15,7 +15,7 @@ import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachm
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
-import { executeD1, inline } from "./d1-execute.ts"
+import { type D1Environment, executeD1, inline } from "./d1-execute.ts"
 
 const SOURCE = ENVIRONMENT.PRODUCTION
 const TARGET = ENVIRONMENT.PREVIEW
@@ -47,7 +47,7 @@ const deleteRows = (table: SQLiteTable, where: SQL): string => statement(sql`del
 
 const both = (first: SQL, second: SQL): SQL => sql`${first} and ${second}`
 
-const read = (environment: string, statements: readonly string[]): Promise<unknown[][]> =>
+const read = (environment: D1Environment, statements: readonly string[]): Promise<unknown[][]> =>
   executeD1({ environment, input: ["--command", statements.join("\n")] })
 
 const idsOf = (rows: readonly Readonly<Record<string, unknown>>[]): string[] => rows.map((row) => z.string().parse(row[ID]))

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
 import { POLAR_SERVER } from "~/src/data/polar"
 
@@ -219,7 +219,7 @@ it("gives static files served without the Worker exactly the Worker's HTTPS secu
 
 it("canonicalizes locale aliases before rendering", async () => {
   const response = await worker.fetch(new Request("http://localhost/pl/docs?search=one"), env)
-  expect(response.status).toBe(308)
+  expect(response.status).toBe(HTTP_STATUS.PERMANENT_REDIRECT)
   expect(response.headers.get("location")).toBe("http://localhost/pl-PL/docs?search=one")
   expect(response.headers.get("link")).toBeNull()
   expect(fetchHandler).not.toHaveBeenCalled()
@@ -336,21 +336,24 @@ it.each(["/api/example", "/_serverFn/example"])("does not attach document preloa
 
   const response = await worker.fetch(new Request(`https://localhost${pathname}`), env)
 
-  expect(response.status).toBe(200)
+  expect(response.status).toBe(HTTP_STATUS.OK)
   expect(await response.text()).toBe("<html>API response</html>")
   expect(response.headers.get("link")).toBeNull()
 })
 
-it.each([404, 500])("does not attach document preloads to rendered HTML errors with status %s", async (status) => {
-  const html = new Response("<html>Error</html>", { headers: { "Content-Type": "text/html" }, status })
-  fetchHandler.mockResolvedValueOnce(html)
+it.each([HTTP_STATUS.NOT_FOUND, HTTP_STATUS.INTERNAL_SERVER_ERROR])(
+  "does not attach document preloads to rendered HTML errors with status %s",
+  async (status) => {
+    const html = new Response("<html>Error</html>", { headers: { "Content-Type": "text/html" }, status })
+    fetchHandler.mockResolvedValueOnce(html)
 
-  const response = await worker.fetch(new Request("https://localhost/missing"), env)
+    const response = await worker.fetch(new Request("https://localhost/missing"), env)
 
-  expect(response.status).toBe(status)
-  expect(await response.text()).toBe("<html>Error</html>")
-  expect(response.headers.get("link")).toBeNull()
-})
+    expect(response.status).toBe(status)
+    expect(await response.text()).toBe("<html>Error</html>")
+    expect(response.headers.get("link")).toBeNull()
+  },
+)
 
 it.each(["HEAD", "POST"])("preserves %s requests when no prerendered document applies", async (method) => {
   const response = await worker.fetch(new Request("http://localhost/docs", { method }), env)
@@ -359,14 +362,14 @@ it.each(["HEAD", "POST"])("preserves %s requests when no prerendered document ap
 })
 
 it.each([
-  { contentType: "text/html", status: 304 },
-  { contentType: "text/html", status: 503 },
-  { contentType: "image/png", status: 200 },
-  { contentType: undefined, status: 200 },
-])("hands a $contentType response with status $status to no document handler", async ({ contentType, status }) => {
-  const asset = new Response(status === 304 ? null : "asset", { status })
+  { body: null, contentType: "text/html", status: HTTP_STATUS.NOT_MODIFIED },
+  { body: "asset", contentType: "text/html", status: HTTP_STATUS.SERVICE_UNAVAILABLE },
+  { body: "asset", contentType: "image/png", status: HTTP_STATUS.OK },
+  { body: "asset", contentType: null, status: HTTP_STATUS.OK },
+])("hands a $contentType response with status $status to no document handler", async ({ body, contentType, status }) => {
+  const asset = new Response(body, { status })
   asset.headers.delete("Content-Type")
-  if (contentType !== undefined) {
+  if (contentType !== null) {
     asset.headers.set("Content-Type", contentType)
   }
   vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(asset)
@@ -374,8 +377,8 @@ it.each([
   const response = await worker.fetch(new Request("http://localhost/images/hero.png"), env)
 
   expect(response.status).toBe(status)
-  expect(response.headers.get("content-type")).toBe(contentType ?? null)
-  expect(await response.text()).toBe(status === 304 ? "" : "asset")
+  expect(response.headers.get("content-type")).toBe(contentType)
+  expect(await response.text()).toBe(body ?? "")
   expect(areaRewrite).not.toHaveBeenCalled()
 })
 

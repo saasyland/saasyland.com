@@ -2,7 +2,6 @@ import { PolarRateLimitError } from "@polar-sh/sdk"
 import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { createOrdersService } from "@polar-sh/sdk/2026-10/services/orders"
 import { and, asc, eq, isNull } from "drizzle-orm"
-import { drizzle } from "drizzle-orm/sqlite-proxy"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import process from "node:process"
@@ -10,25 +9,26 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { parseEnv } from "node:util"
 import { z } from "zod/v4"
 
-import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { polarOrderTerms } from "~/src/modules/order/order.polar"
 import { order } from "~/src/modules/order/order.schema"
 
 import { POLAR_SERVER } from "~/src/data/polar"
 
-import { executeD1, inline } from "./d1-execute.ts"
+import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
-const SCRIPT_ARGUMENTS_START = 2
-const MILLISECONDS_PER_SECOND = 1000
+import { D1_ENVIRONMENTS, executeD1, inline, sqlBuilder } from "./d1-execute.ts"
+import { scriptArguments } from "./run-command.ts"
+
 const DEFAULT_RETRY_AFTER_SECONDS = 60
 const STATEMENTS_DIRECTORY = ".wrangler/tmp"
 const USAGE = "Usage: bun run orders:backfill:<local|preview|production>"
 
-const environmentSchema = z.enum([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
+const environmentSchema = z.enum(D1_ENVIRONMENTS)
 const settingsSchema = z.object({ POLAR_ACCESS_TOKEN: z.string().trim().nonempty(), POLAR_SERVER: z.enum(POLAR_SERVER) })
 const pendingSchema = z.object({ id: z.string() })
 
-const environment = environmentSchema.safeParse(process.argv[SCRIPT_ARGUMENTS_START])
+const [environmentArgument] = scriptArguments()
+const environment = environmentSchema.safeParse(environmentArgument)
 if (!environment.success) {
   throw new Error(USAGE)
 }
@@ -36,7 +36,6 @@ if (!environment.success) {
 const file = `.env.${environment.data}`
 const settings = settingsSchema.parse(parseEnv(await readFile(file, "utf8")))
 const orders = createOrdersService(createPolarCore({ accessToken: settings.POLAR_ACCESS_TOKEN, environment: settings.POLAR_SERVER }))
-const proxy = drizzle(() => Promise.resolve({ rows: [] }))
 
 const execute = async (input: readonly ["--command" | "--file", string]): Promise<unknown[]> => {
   const results = await executeD1({ environment: environment.data, input })
@@ -44,7 +43,7 @@ const execute = async (input: readonly ["--command" | "--file", string]): Promis
 }
 
 const pendingOrders = async (): Promise<string[]> => {
-  const query = proxy.select({ id: order.id }).from(order).where(isNull(order.discountAmount)).orderBy(asc(order.placedAt)).toSQL()
+  const query = sqlBuilder.select({ id: order.id }).from(order).where(isNull(order.discountAmount)).orderBy(asc(order.placedAt)).toSQL()
   const rows = await execute(["--command", inline(query)])
 
   return rows.map((row) => pendingSchema.parse(row).id)
@@ -65,18 +64,18 @@ const readOrder = async (orderId: string): Promise<models.Order> => {
   }
 }
 
-const termsStatement = async (orderId: string): Promise<string | undefined> => {
+const termsStatements = async (orderId: string): Promise<string[]> => {
   try {
     const live = await readOrder(orderId)
-    const update = proxy
+    const update = sqlBuilder
       .update(order)
       .set(polarOrderTerms(live))
       .where(and(eq(order.id, orderId), isNull(order.discountAmount)))
 
-    return `${inline(update.toSQL())};`
+    return [`${inline(update.toSQL())};`]
   } catch (error) {
     process.stdout.write(`Polar did not return order ${orderId}: ${String(error)}\n`)
-    return undefined
+    return []
   }
 }
 
@@ -99,8 +98,8 @@ const backfill = async (): Promise<void> => {
     return
   }
 
-  const read = await Array.fromAsync(pending, termsStatement)
-  const statements = read.filter((statement) => statement !== undefined)
+  const statementsPerOrder = await Array.fromAsync(pending, termsStatements)
+  const statements = statementsPerOrder.flat()
   if (statements.length > 0) {
     await applyStatements(statements)
   }

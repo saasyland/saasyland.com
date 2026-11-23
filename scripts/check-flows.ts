@@ -5,8 +5,8 @@ import * as zod from "zod"
 
 import * as AREA_FLOWS from "../e2e/data/flows.entries.ts"
 import { FLOW_STATUS, type Flow, type FlowTest } from "../e2e/data/flows.ts"
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
-const FAILURE_EXIT_CODE = 1
 const PULL_REQUEST_PROJECT = "chromium"
 const JOURNEY_SPEC = "e2e/journey/journey.spec.ts"
 

@@ -9,24 +9,25 @@ description: "What the formatter, linter, compiler and comment check enforce: no
 
 oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories as errors, with type-aware rules and type checking switched on. The limits that shape code most:
 
-| Rule                                    | Setting                                                       | Effect                                                    |
-| --------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
-| `max-lines`                             | <RepositoryFact name="maxLines" />                            | Split a file by responsibility before it grows            |
-| `max-lines-per-function`                | <RepositoryFact name="maxLinesPerFunction" />                 | Components and handlers stay small                        |
-| `max-statements`                        | <RepositoryFact name="maxStatements" />                       | Extract named helpers instead of long bodies              |
-| `no-magic-numbers`                      | `0` and `1` allowed, plus array indexes and default values    | Every other number is a named constant                    |
-| `id-length`                             | at least two characters, except `_`, `m` and `t`              | Identifiers are words; `t` is the translator              |
-| `one-var`                               | `never`                                                       | One declaration per statement                             |
-| `unicorn/no-null`                       | on outside tests and `src/platform/testing`                   | Absent values are `undefined`                             |
-| `typescript/no-explicit-any`            | `error`                                                       | No value is typed `any`                                   |
-| `typescript/ban-ts-comment`             | `true` for `@ts-expect-error`, `@ts-ignore` and `@ts-nocheck` | No compiler error is suppressed, with or without a reason |
-| `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                     | No `as` cast; `as const` and `satisfies` remain           |
-| `code-style/no-comments`                | `error`                                                       | No comment, directive comments included                   |
-| `code-style/no-multiline-ternary`       | `error`                                                       | A ternary fits on one line                                |
-| `code-style/no-undefined-fallback`      | `error`                                                       | No `?? undefined`                                         |
-| `radius/no-off-scale`                   | `error`                                                       | Every corner takes a radius from the scale                |
-| `type/no-off-scale`                     | `error`                                                       | Every text size is a step of the type scale               |
-| `type/mono-for-code`                    | `error`                                                       | The monospaced face is only for code                      |
+| Rule                                    | Setting                                                       | Effect                                                                 |
+| --------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `max-lines`                             | <RepositoryFact name="maxLines" />                            | Split a file by responsibility before it grows                         |
+| `max-lines-per-function`                | <RepositoryFact name="maxLinesPerFunction" />                 | Components and handlers stay small                                     |
+| `max-statements`                        | <RepositoryFact name="maxStatements" />                       | Extract named helpers instead of long bodies                           |
+| `no-magic-numbers`                      | `0` and `1` allowed, plus array indexes and default values    | Every other number is a named constant                                 |
+| `id-length`                             | at least two characters, except `_`, `m` and `t`              | Identifiers are words; `t` is the translator                           |
+| `one-var`                               | `never`                                                       | One declaration per statement                                          |
+| `unicorn/no-null`                       | on outside tests and `src/platform/testing`                   | Absent values are `undefined`                                          |
+| `typescript/no-explicit-any`            | `error`                                                       | No value is typed `any`                                                |
+| `typescript/ban-ts-comment`             | `true` for `@ts-expect-error`, `@ts-ignore` and `@ts-nocheck` | No compiler error is suppressed, with or without a reason              |
+| `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                     | No `as` cast; `as const` and `satisfies` remain                        |
+| `code-style/no-comments`                | `error`                                                       | No comment, directive comments included                                |
+| `code-style/no-multiline-ternary`       | `error`                                                       | A ternary fits on one line                                             |
+| `code-style/no-undefined-branch`        | `error`                                                       | No ternary with an `undefined` or `null` branch, no `return undefined` |
+| `code-style/no-undefined-fallback`      | `error`                                                       | No `?? undefined`                                                      |
+| `radius/no-off-scale`                   | `error`                                                       | Every corner takes a radius from the scale                             |
+| `type/no-off-scale`                     | `error`                                                       | Every text size is a step of the type scale                            |
+| `type/mono-for-code`                    | `error`                                                       | The monospaced face is only for code                                   |
 
 The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null`, `hydration/no-clock-or-locale-in-render` and `admin-data/no-literal-data`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)); and the admin's routes, components and data files turn on `admin-data/no-literal-data` (see [Admin dashboard](/docs/features/admin-dashboard#real-data-only)). All of `src` turns on `radius/no-off-scale`, `type/no-off-scale` and `type/mono-for-code`, which tests and `src/platform/testing` turn off again, and `src/presentation/social-card.tsx` turns off `type/no-off-scale`, because Takumi renders the social card as an image of a fixed size whose text sizes are set in inline styles rather than on the page's type scale (see [Theme](/docs/ui/theme#type-scale)).
 
@@ -109,6 +110,14 @@ export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: View
 
   return viewer.entitled
 }
+```
+
+No branch spells out the absent value either: `code-style/no-undefined-branch` fails a ternary with an `undefined` or `null` branch and every `return undefined`. Write what the code does instead: return early from a guard clause, read a value that may be missing with `?.` or with `??` and a real default, return what a lookup or `find` matches, render JSX with `&&`, and give a Vite plugin hook a filter that names the ids it handles, so Rolldown never calls it for any other id. `scripts/repository-facts.ts` serves its virtual module that way:
+
+```ts title="scripts/repository-facts.ts"
+    load: { filter: { id: exactRegex(RESOLVED_MODULE_ID) }, handler: () => moduleSource },
+    name: "saasyland:repository-facts",
+    resolveId: { filter: { id: exactRegex(MODULE_ID) }, handler: () => RESOLVED_MODULE_ID },
 ```
 
 ## Named constants

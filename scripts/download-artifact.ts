@@ -8,8 +8,8 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 import { MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
-const SCRIPT_ARGUMENTS_START = 2
-const FAILURE_EXIT_CODE = 1
+import { FAILURE_EXIT_CODE, scriptArguments } from "./run-command.ts"
+
 const POLL_INTERVAL_MS = 5000
 const REQUEST_TIMEOUT_MS = 30_000
 const DOWNLOAD_TIMEOUT_MS = 60_000
@@ -138,7 +138,7 @@ const attempt = async (url: string, init: RequestInit): Promise<Response> => {
 }
 
 if (import.meta.main) {
-  const [job, step, artifact, file] = argumentsSchema.parse(process.argv.slice(SCRIPT_ARGUMENTS_START))
+  const [job, step, artifact, file] = argumentsSchema.parse(scriptArguments())
   const { GH_TOKEN, GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = environmentSchema.parse(process.env)
   const target = { artifact, job, step }
   const started = Date.now()
@@ -175,7 +175,8 @@ if (import.meta.main) {
 
   const findJob = async (): Promise<number> => {
     const response = await request(`actions/runs/${GITHUB_RUN_ID}/jobs?filter=latest&per_page=${String(PAGE_SIZE)}`, {})
-    const found = response.ok ? jobsSchema.parse(await response.json()).jobs.find(isNamed(job)) : undefined
+    const jobs = response.ok ? jobsSchema.parse(await response.json()).jobs : []
+    const found = jobs.find(isNamed(job))
 
     if (found !== undefined) {
       return found.id
@@ -238,14 +239,20 @@ if (import.meta.main) {
     return waitForListing(since, conditions)
   }
 
-  const fetchArchive = async (listed: Artifact): Promise<Uint8Array | undefined> => {
+  const download = async (listed: Artifact): Promise<void> => {
+    const retry = async (): Promise<void> => {
+      await pause(downloadTimeoutReport(target))
+
+      return download(listed)
+    }
+
     const pointer = await request(`actions/artifacts/${String(listed.id)}/zip`, {})
     const location = pointer.headers.get(LOCATION_HEADER)
 
     if (pointer.status !== HTTP_STATUS.FOUND || location === null) {
       warnUnlessUnchanged(pointer, artifact)
 
-      return undefined
+      return retry()
     }
 
     const archive = await attempt(location, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
@@ -253,35 +260,27 @@ if (import.meta.main) {
     if (!archive.ok) {
       warnUnlessUnchanged(archive, artifact)
 
-      return undefined
+      return retry()
     }
 
-    try {
-      const bytes = await archive.bytes()
+    const save = async (bytes: Uint8Array): Promise<void> => {
+      if (!matchesDigest(listed, bytes)) {
+        process.stdout.write(`::warning::${digestReport(listed, bytes)}\n`)
 
-      if (matchesDigest(listed, bytes)) {
-        return bytes
+        return retry()
       }
 
-      process.stdout.write(`::warning::${digestReport(listed, bytes)}\n`)
-    } catch (error) {
+      await writeFile(file, bytes)
+      process.stdout.write(`Downloaded the artifact "${artifact}" (${String(bytes.byteLength)} bytes) after ${waited()} of waiting.\n`)
+    }
+
+    const retryAfterBreak = (error: unknown): Promise<void> => {
       process.stdout.write(`::warning::The download of "${artifact}" broke off: ${String(error)}\n`)
+
+      return retry()
     }
 
-    return undefined
-  }
-
-  const download = async (listed: Artifact): Promise<void> => {
-    const bytes = await fetchArchive(listed)
-
-    if (bytes === undefined) {
-      await pause(downloadTimeoutReport(target))
-
-      return download(listed)
-    }
-
-    await writeFile(file, bytes)
-    process.stdout.write(`Downloaded the artifact "${artifact}" (${String(bytes.byteLength)} bytes) after ${waited()} of waiting.\n`)
+    return archive.bytes().then(save, retryAfterBreak)
   }
 
   const built = await waitForStep(await findJob(), {})

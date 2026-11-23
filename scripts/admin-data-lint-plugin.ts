@@ -1,5 +1,7 @@
 import { type ESTree, definePlugin, defineRule } from "vite-plus/lint/plugins"
 
+import { nameOf } from "./hydration-lint-plugin.ts"
+
 const MIN_LIST_LENGTH = 2
 
 const SORT_POSITION_KEY = "order"
@@ -22,31 +24,17 @@ const isNumber = (node: ESTree.Node | null): boolean =>
   (node?.type === "Literal" && typeof node.value === "number") ||
   (node?.type === "UnaryExpression" && node.operator === "-" && isNumber(node.argument))
 
-const keyName = (property: ESTree.Node): string | undefined => {
-  if (property.type !== "Property") {
-    return undefined
-  }
-  if (property.key.type === "Identifier") {
-    return property.key.name
-  }
-  return property.key.type === "Literal" ? String(property.key.value) : undefined
-}
-
 const carriesNumber = (node: ESTree.Node | null): boolean =>
   node?.type === "ObjectExpression" &&
-  node.properties.some((property) => property.type === "Property" && keyName(property) !== SORT_POSITION_KEY && isNumber(property.value))
+  node.properties.some((property) => property.type === "Property" && nameOf(property.key) !== SORT_POSITION_KEY && isNumber(property.value))
 
-const isStatistic = (node: ESTree.Node): boolean => node.type === "Property" && keyName(node) === STATISTIC_KEY
+const isStatistic = (node: ESTree.Node): boolean => node.type === "Property" && nameOf(node.key) === STATISTIC_KEY
 
-const stringProblem = (value: string): string | undefined => {
-  if (EMAIL_ADDRESS.test(value)) {
-    return "contact"
-  }
-  if (ISO_DATE.test(value)) {
-    return "date"
-  }
-  return SVG_PATH.test(value) ? "path" : undefined
-}
+const STRING_PROBLEMS = [
+  { messageId: "contact", pattern: EMAIL_ADDRESS },
+  { messageId: "date", pattern: ISO_DATE },
+  { messageId: "path", pattern: SVG_PATH },
+] as const
 
 export const noLiteralData = defineRule({
   create: (context) => {
@@ -70,9 +58,13 @@ export const noLiteralData = defineRule({
         }
       },
       Literal: (node) => {
-        const messageId = typeof node.value === "string" ? stringProblem(node.value) : undefined
-        if (messageId !== undefined) {
-          context.report({ messageId, node })
+        const { value } = node
+        if (typeof value !== "string") {
+          return
+        }
+        const problem = STRING_PROBLEMS.find(({ pattern }) => pattern.test(value))
+        if (problem !== undefined) {
+          context.report({ messageId: problem.messageId, node })
         }
       },
       "Property:exit": (node) => {

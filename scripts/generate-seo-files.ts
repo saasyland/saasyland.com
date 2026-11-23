@@ -1,4 +1,3 @@
-import { Glob } from "bun"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
@@ -10,18 +9,14 @@ import { readPageHead } from "~/src/lib/page-head"
 import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
 import { buildSitemap, listedPages } from "~/src/lib/sitemap"
 
+import { CLIENT_DIR, listPrerenderedPages } from "./prerendered-pages.ts"
 import { APP_URL } from "~/src/presentation/branding"
 
-const CLIENT_DIR = "dist/client"
 const ROBOTS_TXT = "robots.txt"
 
 const started = performance.now()
 
-const files = [...new Glob("**/index.html").scanSync(CLIENT_DIR)].toSorted()
-
-if (files.length === 0) {
-  throw new Error(`No prerendered pages found under ${CLIENT_DIR}.`)
-}
+const files = listPrerenderedPages()
 
 const pages = await Promise.all(files.map(async (file) => readPageHead(await readFile(join(CLIENT_DIR, file), "utf8"))))
 const listed = listedPages(pages, await readFile(join(CLIENT_DIR, ROBOTS_TXT), "utf8"))

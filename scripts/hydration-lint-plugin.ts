@@ -22,7 +22,7 @@ type FunctionNode = ESTree.ArrowFunctionExpression | ESTree.Function
 
 const isFunction = (node: ESTree.Node): node is FunctionNode => FUNCTION_TYPES.has(node.type)
 
-const nameOf = (node: ESTree.Node | null): string | undefined => {
+export const nameOf = (node: ESTree.Node | null): string => {
   if (node?.type === "Identifier" || node?.type === "JSXIdentifier") {
     return node.name
   }
@@ -32,22 +32,22 @@ const nameOf = (node: ESTree.Node | null): string | undefined => {
   if (node?.type === "MemberExpression" && !node.computed) {
     return nameOf(node.property)
   }
-  return undefined
+  return ""
 }
 
-const isHandler = (name: string | undefined): boolean => name !== undefined && HANDLER_NAME.test(name)
+const isHandler = (name: string): boolean => HANDLER_NAME.test(name)
 
 const isDeferred = (fn: FunctionNode): boolean => {
   const { parent } = fn
   if (parent.type === "CallExpression") {
-    return parent.arguments.some((argument) => argument === fn) && DEFERRED_CALLS.has(nameOf(parent.callee) ?? "")
+    return parent.arguments.some((argument) => argument === fn) && DEFERRED_CALLS.has(nameOf(parent.callee))
   }
   if (parent.type === "JSXExpressionContainer") {
     return parent.parent.type === "JSXAttribute" && isHandler(nameOf(parent.parent.name))
   }
   if (parent.type === "Property") {
     const name = nameOf(parent.key)
-    return isHandler(name) || DEFERRED_PROPERTIES.has(name ?? "")
+    return isHandler(name) || DEFERRED_PROPERTIES.has(name)
   }
   if (parent.type === "VariableDeclarator") {
     return isHandler(nameOf(parent.id))
@@ -67,7 +67,7 @@ const runsDuringRender = (node: ESTree.Node): boolean => {
 export const noClockOrLocaleInRender = defineRule({
   create: (context) => ({
     CallExpression: (node) => {
-      if (node.callee.type === "MemberExpression" && LOCALE_FORMATTERS.has(nameOf(node.callee) ?? "") && runsDuringRender(node)) {
+      if (node.callee.type === "MemberExpression" && LOCALE_FORMATTERS.has(nameOf(node.callee)) && runsDuringRender(node)) {
         context.report({ messageId: "locale", node })
       }
     },

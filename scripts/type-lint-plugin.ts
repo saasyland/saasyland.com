@@ -1,6 +1,6 @@
-import { type ESTree, definePlugin, defineRule } from "vite-plus/lint/plugins"
+import { definePlugin, defineRule } from "vite-plus/lint/plugins"
 
-import { utilityOf } from "./radius-lint-plugin.ts"
+import { classTextVisitor, styleKeyVisitor } from "./radius-lint-plugin.ts"
 
 const BELOW_FLOOR = new Set(["text-xs", "text-2xs"])
 
@@ -14,52 +14,24 @@ const MONO = "font-mono"
 
 const NOT_CODE = new Set(["tabular-nums", "text-label", "uppercase"])
 
-const keyName = (node: ESTree.Node): string | undefined => {
-  if (node.type === "Identifier") {
-    return node.name
-  }
-  return node.type === "Literal" ? String(node.value) : undefined
-}
-
-const sizeProblem = (utility: string): string | undefined => {
-  if (BELOW_FLOOR.has(utility)) {
-    return "floor"
-  }
-  if (utility.startsWith(SIZE_PROPERTY)) {
-    return "property"
-  }
-  return ARBITRARY_SIZE.test(utility) ? "arbitrary" : undefined
-}
-
-const utilitiesOf = (text: string): string[] => text.split(/\s+/u).map((token) => utilityOf(token))
+const SIZE_PROBLEMS = [
+  { isProblem: (utility: string) => BELOW_FLOOR.has(utility), messageId: "floor" },
+  { isProblem: (utility: string) => utility.startsWith(SIZE_PROPERTY), messageId: "property" },
+  { isProblem: (utility: string) => ARBITRARY_SIZE.test(utility), messageId: "arbitrary" },
+] as const
 
 export const noOffScale = defineRule({
-  create: (context) => {
-    const check = (node: ESTree.Node, text: string): void => {
-      for (const utility of utilitiesOf(text)) {
-        const messageId = sizeProblem(utility)
-        if (messageId !== undefined) {
-          context.report({ data: { utility }, messageId, node })
+  create: (context) => ({
+    ...classTextVisitor((node, utilities) => {
+      for (const utility of utilities) {
+        const problem = SIZE_PROBLEMS.find(({ isProblem }) => isProblem(utility))
+        if (problem !== undefined) {
+          context.report({ data: { utility }, messageId: problem.messageId, node })
         }
       }
-    }
-
-    return {
-      Literal: (node) => {
-        if (typeof node.value === "string") {
-          check(node, node.value)
-        }
-      },
-      Property: (node) => {
-        if (node.parent.type === "ObjectExpression" && keyName(node.key) === STYLE_KEY) {
-          context.report({ messageId: "style", node: node.key })
-        }
-      },
-      TemplateElement: (node) => {
-        check(node, node.value.cooked ?? node.value.raw)
-      },
-    }
-  },
+    }),
+    ...styleKeyVisitor(context, STYLE_KEY),
+  }),
   meta: {
     docs: {
       description: "Text takes its size from the type scale in globals.css, and nothing a reader must read is set below 12px.",
@@ -77,28 +49,15 @@ export const noOffScale = defineRule({
 })
 
 export const monoForCode = defineRule({
-  create: (context) => {
-    const check = (node: ESTree.Node, text: string): void => {
-      const utilities = utilitiesOf(text)
+  create: (context) =>
+    classTextVisitor((node, utilities) => {
       if (!utilities.includes(MONO)) {
         return
       }
       for (const utility of utilities.filter((candidate) => NOT_CODE.has(candidate))) {
         context.report({ data: { utility }, messageId: "label", node })
       }
-    }
-
-    return {
-      Literal: (node) => {
-        if (typeof node.value === "string") {
-          check(node, node.value)
-        }
-      },
-      TemplateElement: (node) => {
-        check(node, node.value.cooked ?? node.value.raw)
-      },
-    }
-  },
+    }),
   meta: {
     docs: {
       description: "Geist Mono is for code, commands, keys and identifiers; labels and figures are set in the sans.",

@@ -6,12 +6,12 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { readDeploySecrets } from "~/src/lib/deploy-secrets"
 
+import { scriptArguments } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 
-const SCRIPT_ARGUMENTS_START = 2
 const OWNER_ONLY = 0o600
 
-const [environment] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const [environment] = scriptArguments()
 
 if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
   throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)

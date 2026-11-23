@@ -7,11 +7,11 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { RELEASE_TAG, readChangelog } from "~/src/lib/changelog"
 import { releaseNotes } from "~/src/lib/release"
 
-const SCRIPT_ARGUMENTS_START = 2
+import { scriptArguments } from "./run-command.ts"
 
 const argumentsSchema = z.tuple([z.string().min(1), z.string().regex(RELEASE_TAG)])
 
-const [commit, tag] = argumentsSchema.parse(process.argv.slice(SCRIPT_ARGUMENTS_START))
+const [commit, tag] = argumentsSchema.parse(scriptArguments())
 const existing = await $`gh release view ${tag}`.nothrow().quiet()
 
 if (existing.exitCode === 0) {

@@ -1,10 +1,9 @@
 import process from "node:process"
 import { describe, expect, it } from "vite-plus/test"
 
-import { runCommand } from "~/scripts/run-command"
+import { FAILURE_EXIT_CODE, runCommand } from "~/scripts/run-command"
 
 const EXIT_CODE = 3
-const FAILURE_EXIT_CODE = 1
 
 describe("runCommand", () => {
   it("returns the exit status and, when asked to capture it, the output", () => {

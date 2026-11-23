@@ -1,9 +1,17 @@
 import { spawn } from "bun"
+import { drizzle } from "drizzle-orm/sqlite-proxy"
 import { z } from "zod/v4"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-const DATABASE_BINDING = "DB"
+export const DATABASE_BINDING = "DB"
+
+export const D1_ENVIRONMENTS = [ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION] as const
+
+export type D1Environment = (typeof D1_ENVIRONMENTS)[number]
+
+export const sqlBuilder = drizzle(() => Promise.resolve({ rows: [] }))
+
 const PARAMETER = "?"
 const SQL_NULL = "NULL"
 const JSON_START = /^[[{]/mu
@@ -48,7 +56,7 @@ export const executeD1 = async ({
   environment,
   input,
 }: {
-  readonly environment: string
+  readonly environment: D1Environment
   readonly input: readonly ["--command" | "--file", string]
 }): Promise<unknown[][]> => {
   const location = environment === ENVIRONMENT.DEVELOPMENT ? "--local" : "--remote"

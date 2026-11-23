@@ -15,7 +15,8 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 
-const FAILURE_EXIT_CODE = 1
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
+
 const MIN_UNTRANSLATED_WORDS = 5
 
 const MESSAGES_DIR = join(import.meta.dirname, "../messages")

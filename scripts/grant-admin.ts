@@ -1,21 +1,19 @@
 import { and, eq } from "drizzle-orm"
-import { drizzle } from "drizzle-orm/sqlite-proxy"
 import process from "node:process"
 import { z } from "zod/v4"
 
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
-import { executeD1, inline } from "./d1-execute.ts"
+import { D1_ENVIRONMENTS, executeD1, inline, sqlBuilder } from "./d1-execute.ts"
+import { scriptArguments } from "./run-command.ts"
 
-const SCRIPT_ARGUMENTS_START = 2
 const SQLITE_TRUE = 1
 const USAGE = "Usage: bun run admin:grant:<local|preview|production> <email>"
 
-const environmentSchema = z.enum([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
+const environmentSchema = z.enum(D1_ENVIRONMENTS)
 const accountSchema = z.object({
   banned: z.number(),
   email: z.string(),
@@ -26,14 +24,12 @@ const accountSchema = z.object({
 
 type Account = z.infer<typeof accountSchema>
 
-const [environmentArgument, emailArgument = ""] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const [environmentArgument, emailArgument = ""] = scriptArguments()
 const environment = environmentSchema.safeParse(environmentArgument)
 const email = emailSchema.safeParse(emailArgument.trim().toLowerCase())
 if (!environment.success || !email.success) {
   throw new Error(USAGE)
 }
-
-const proxy = drizzle(() => Promise.resolve({ rows: [] }))
 
 const execute = async (statement: string): Promise<unknown[]> => {
   const results = await executeD1({ environment: environment.data, input: ["--command", statement] })
@@ -41,14 +37,14 @@ const execute = async (statement: string): Promise<unknown[]> => {
 }
 
 const findAccount = async (): Promise<Account | undefined> => {
-  const query = proxy
+  const query = sqlBuilder
     .select({ banned: user.banned, email: user.email, emailVerified: user.emailVerified, id: user.id, role: user.role })
     .from(user)
     .where(eq(user.email, email.data))
     .toSQL()
   const [row] = await execute(inline(query))
 
-  return row === undefined ? undefined : accountSchema.parse(row)
+  return accountSchema.optional().parse(row)
 }
 
 const describeAccount = ({ email_verified: verified, email: address, id, role }: Account): string =>
@@ -82,7 +78,7 @@ const grantAdmin = async (): Promise<void> => {
   }
 
   const grantable = and(eq(user.id, before.id), eq(user.emailVerified, true), eq(user.banned, false))
-  await execute(inline(proxy.update(user).set({ role: ROLE_CODES.ADMIN }).where(grantable).toSQL()))
+  await execute(inline(sqlBuilder.update(user).set({ role: ROLE_CODES.ADMIN }).where(grantable).toSQL()))
 
   const after = await findAccount()
   if (after?.role !== ROLE_CODES.ADMIN) {

@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { TIME_BUCKET, TIME_RANGES, type TimeBucket, type TimePoint, type TimeRange } from "~/src/modules/_core/utils/time-series"
+import { TIME_BUCKET, TIME_RANGES, type TimeBucket, type TimePoint, type TimeRange } from "~/src/lib/time-series"
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "~/src/presentation/components/shadcn/chart"
 import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"

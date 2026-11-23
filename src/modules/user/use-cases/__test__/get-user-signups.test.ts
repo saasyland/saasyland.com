@@ -8,9 +8,10 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { TIME_BUCKET, TIME_RANGE } from "~/src/modules/_core/utils/time-series"
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { user } from "~/src/modules/user/user.schema"
+
+import { TIME_BUCKET, TIME_RANGE } from "~/src/lib/time-series"
 
 const NOW = new Date("2026-11-20T15:00:00.000Z")
 

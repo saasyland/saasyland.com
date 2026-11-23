@@ -10,7 +10,6 @@ import { type StringField, isFieldInvalid, validateOnBlur } from "~/src/integrat
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { LOCALES } from "~/src/modules/_core/constants/locale"
 import {
   LOCALIZED_TEXT_MAX_LENGTH,
   type LocalizedText,
@@ -19,6 +18,8 @@ import {
 } from "~/src/modules/_core/utils/localized-text"
 
 import { useFormLocale } from "~/src/hooks/use-form-locale"
+
+import { LOCALES } from "~/src/data/locales"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Field, FieldLabel } from "~/src/presentation/components/shadcn/field"
@@ -32,7 +33,7 @@ import labels from "~/messages/en-US/pages.admin.json"
 
 vi.mock("~/src/integrations/use-intl/i18n.config", async (importOriginal) => {
   const original = await importOriginal<{ I18N: typeof I18N }>()
-  const catalogue = await import("~/src/modules/_core/constants/locale")
+  const catalogue = await import("~/src/data/locales")
   return { I18N: { ...original.I18N, SUPPORTED_LOCALES: catalogue.LOCALES.map((locale) => locale.code) } }
 })
 

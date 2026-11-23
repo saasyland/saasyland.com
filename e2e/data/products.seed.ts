@@ -1,4 +1,4 @@
-import { toMinorUnits } from "../../src/modules/_core/constants/currency"
+import { toMinorUnits } from "../../src/data/currencies"
 import { TEST_CATEGORY, TEST_PRODUCTS } from "./products"
 import { type TestSeed, literal } from "./seed"
 

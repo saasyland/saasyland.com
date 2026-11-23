@@ -10,10 +10,11 @@ import { type PolarProduct, polarCustomer, polarSubscription } from "~/src/platf
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_RECURRING_INTERVAL, POLAR_SUBSCRIPTION_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { subscription } from "~/src/modules/subscription/subscription.schema"
 import { recordSubscription } from "~/src/modules/subscription/use-cases/record-subscription"
 import { user } from "~/src/modules/user/user.schema"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const PRODUCT = {
   id: "product-monthly",

@@ -1,4 +1,4 @@
-import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
+import type { CurrencyCode } from "~/src/data/currencies"
 
 interface IsoCountry {
   readonly alpha2: string

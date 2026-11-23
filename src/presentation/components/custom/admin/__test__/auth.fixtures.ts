@@ -3,7 +3,6 @@ import type { QueryClient } from "@tanstack/react-query"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 
-import { DEFAULT_TIME_RANGE, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { INVITATION_STATUS } from "~/src/modules/invitation/invitation.constants"
 import type { Invitation } from "~/src/modules/invitation/invitation.types"
@@ -13,6 +12,8 @@ import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-acti
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import type { User } from "~/src/modules/user/user.types"
+
+import { DEFAULT_TIME_RANGE, pointsOf, timeSeries } from "~/src/lib/time-series"
 
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 

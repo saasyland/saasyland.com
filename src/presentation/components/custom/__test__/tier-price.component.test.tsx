@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 
 import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 

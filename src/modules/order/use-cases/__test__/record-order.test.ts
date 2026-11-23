@@ -10,10 +10,11 @@ import { type PolarProduct, polarCustomer, polarOrder, polarOrderDiscount } from
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { order } from "~/src/modules/order/order.schema"
 import { recordOrder } from "~/src/modules/order/use-cases/record-order"
 import { user } from "~/src/modules/user/user.schema"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const PRODUCT = {
   id: "product-recorded",

@@ -3,9 +3,10 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { POLAR_ID_MAX_LENGTH } from "~/src/integrations/polar/polar.constants"
 
-import { CURRENCY_CODE_LENGTH } from "~/src/modules/_core/constants/currency"
 import { SUBSCRIPTION_RECURRING_INTERVALS, SUBSCRIPTION_STATUSES } from "~/src/modules/subscription/subscription.constants"
 import { user } from "~/src/modules/user/user.schema"
+
+import { CURRENCY_CODE_LENGTH } from "~/src/data/currencies"
 
 export const subscription = sqliteTable(
   "subscription",

@@ -6,7 +6,6 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_TIER,
@@ -19,6 +18,7 @@ import { LOCAL_HOSTS } from "~/src/data/local-server"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_SERVER } from "~/src/data/polar"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import {

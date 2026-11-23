@@ -25,8 +25,8 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
-import { toMinorUnits } from "../../src/modules/_core/constants/currency"
-import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
+import { toMinorUnits } from "../../src/data/currencies"
+import { DEFAULT_CURRENCY_CODE } from "../../src/data/pricing"
 import { pppMultiplierKey, regionalPrice } from "../../src/modules/license/license.pricing"
 import { TIER_PRICES } from "../../src/data/marketing"
 import {

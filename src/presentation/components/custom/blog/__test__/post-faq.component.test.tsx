@@ -6,10 +6,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { PostFaq } from "~/src/presentation/components/custom/blog/post-faq"

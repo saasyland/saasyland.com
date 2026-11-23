@@ -3,13 +3,13 @@ import { type JSX, useState, useTransition } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { DEFAULT_TIME_RANGE, type TimeBucket, type TimeRange } from "~/src/modules/_core/utils/time-series"
 import type { Order } from "~/src/modules/order/order.types"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
 
 import { REVENUE_SUMMARY } from "~/src/data/payments"
 
 import { cn } from "~/src/lib/cn"
+import { DEFAULT_TIME_RANGE, type TimeBucket, type TimeRange } from "~/src/lib/time-series"
 
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"

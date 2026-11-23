@@ -12,7 +12,6 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
@@ -29,6 +28,7 @@ import {
 } from "~/src/data/marketing"
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 

@@ -1,4 +1,4 @@
-import type { CountryCode } from "~/src/modules/_core/constants/country"
+import type { CountryCode } from "~/src/data/countries"
 
 export type TextDirection = "ltr" | "rtl"
 

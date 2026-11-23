@@ -12,8 +12,8 @@ import { ROOT_NAMESPACES, preloadNamespaces } from "~/src/integrations/use-intl/
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
-import { getLocaleDirection } from "~/src/modules/_core/constants/locale"
 
+import { getLocaleDirection } from "~/src/data/locales"
 import { ROOT_COMPONENTS } from "~/src/data/root"
 import { THEME } from "~/src/presentation/theme"
 

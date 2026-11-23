@@ -13,12 +13,12 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_CHECKOUT_METADATA, type LicenseTier } from "~/src/modules/license/license.constants"
 import { refundDeadline } from "~/src/modules/license/license.refunds"
 import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
+import { fromMinorUnits } from "~/src/data/currencies"
 import { PURCHASE_EMAIL_STEPS } from "~/src/data/purchase-email"
 
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"

@@ -8,7 +8,6 @@ import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { TIME_RANGES } from "~/src/modules/_core/utils/time-series"
 import { COURSE_COVER_PATH_PREFIX, COURSE_COVER_SIZE, COURSE_COVER_WIDTHS } from "~/src/modules/course/course.cover"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
@@ -22,6 +21,7 @@ import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS } from "~/src/lib/deployment"
+import { TIME_RANGES } from "~/src/lib/time-series"
 
 import { LOCAL_ADMIN } from "~/scripts/local-admin"
 import { ROUTES } from "~/src/routes"

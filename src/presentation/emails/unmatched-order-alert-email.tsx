@@ -6,7 +6,7 @@ import { createFormatter, createTranslator } from "use-intl"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
+import type { CurrencyCode } from "~/src/data/currencies"
 
 import type emailMessages from "~/messages/en-US/emails.unmatched-order-alert-email.json"
 import { EMAIL_DATE_TIME_FORMAT, EmailLayout } from "~/src/presentation/emails/email-layout"

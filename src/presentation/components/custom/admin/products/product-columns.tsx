@@ -5,11 +5,11 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
-import { CURRENCIES, fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { PRODUCT_STATUS, PRODUCT_STATUSES, PRODUCT_TYPES } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 
 import { PRODUCT_COLUMN_SIZES } from "~/src/data/admin-products"
+import { CURRENCIES, fromMinorUnits } from "~/src/data/currencies"
 
 import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/badge"
 

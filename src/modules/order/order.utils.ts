@@ -5,13 +5,13 @@ import { env } from "cloudflare:workers"
 import { type SQL, inArray, sql } from "drizzle-orm"
 import * as zod from "zod"
 
-import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
-import { type CurrencyCode, fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { currencyCodeField } from "~/src/modules/_core/utils/zod-fields"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import { user } from "~/src/modules/user/user.schema"
 
+import { COUNTRIES, type CountryCode } from "~/src/data/countries"
+import { type CurrencyCode, fromMinorUnits } from "~/src/data/currencies"
 import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
 
 export const polarOrderUrl = (orderId: string): string =>

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { TIME_BUCKET, TIME_RANGE, bucketKey, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
+import { TIME_BUCKET, TIME_RANGE, bucketKey, pointsOf, timeSeries } from "~/src/lib/time-series"
 
 import { TimeSeriesChart } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 

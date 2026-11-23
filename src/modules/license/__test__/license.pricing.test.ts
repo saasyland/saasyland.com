@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import {
   PPP_KEYS,
   PPP_PERCENTS_OFF,
@@ -9,6 +8,8 @@ import {
   pppMultiplierKey,
   regionalPrice,
 } from "~/src/modules/license/license.pricing"
+
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 
 const formatPrice = (amount: number): string => new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(amount)
 

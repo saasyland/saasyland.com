@@ -34,9 +34,7 @@ import { POLAR_LICENSE_KEY_STATUS, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_ORDER_STATU
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
-import { fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { type BrowserState, type Buyer, RETURN_PATH, actAs, startCheckout } from "~/src/modules/license/__test__/fixtures/checkout"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -59,8 +57,10 @@ import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-che
 import { user } from "~/src/modules/user/user.schema"
 
 import { CLI_INIT_COMMAND } from "~/src/data/cli"
+import { fromMinorUnits, toMinorUnits } from "~/src/data/currencies"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_CHECKOUT_DEFAULT_LANGUAGE, polarCheckoutOrigin } from "~/src/data/polar"
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"

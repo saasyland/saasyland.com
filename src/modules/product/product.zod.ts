@@ -1,6 +1,5 @@
 import * as zod from "zod"
 
-import { CURRENCY_CODES } from "~/src/modules/_core/constants/currency"
 import { choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, dateRangeField, idField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 import {
@@ -10,6 +9,8 @@ import {
   PRODUCT_STATUSES,
   PRODUCT_TYPES,
 } from "~/src/modules/product/product.constants"
+
+import { CURRENCY_CODES } from "~/src/data/currencies"
 
 const productStatusSchema = zod.enum(PRODUCT_STATUSES)
 const productTypeSchema = zod.enum(PRODUCT_TYPES)

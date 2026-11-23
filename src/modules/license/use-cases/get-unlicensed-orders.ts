@@ -6,11 +6,12 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import { license, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS, orderCurrencySchema, polarOrderUrl } from "~/src/modules/license/license.utils"
 import { order } from "~/src/modules/order/order.schema"
+
+import { fromMinorUnits } from "~/src/data/currencies"
 
 const licensed = db.select({ id: license.id }).from(license).where(eq(license.polarOrderId, order.id))
 

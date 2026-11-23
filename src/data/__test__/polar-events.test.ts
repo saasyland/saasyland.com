@@ -7,10 +7,9 @@ import { POLAR_API_VERSION, type PolarProduct, polarCustomer, polarOrder } from 
 
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
-
 import { POLAR_EVENTS, type PolarEventHandler } from "~/src/data/polar-events"
 import * as AREA_POLAR_EVENTS from "~/src/data/polar-events.entries"
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 type Areas = Readonly<Record<string, readonly PolarEventHandler[]>>
 

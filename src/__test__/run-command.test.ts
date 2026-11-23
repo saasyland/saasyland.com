@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs"
+import { tmpdir } from "node:os"
 import process from "node:process"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -23,6 +25,15 @@ describe("runCommand", () => {
       stdout: "",
     })
     expect(runCommand(process.execPath, ["-e", ""])).toStrictEqual({ status: 0, stdout: "" })
+  })
+
+  it("runs the command in the directory it is given", () => {
+    const directory = realpathSync(tmpdir())
+
+    expect(runCommand(process.execPath, ["-e", "process.stdout.write(process.cwd())"], { capture: true, cwd: directory })).toStrictEqual({
+      status: 0,
+      stdout: directory,
+    })
   })
 
   it("reports a command killed by a signal as a failure", () => {

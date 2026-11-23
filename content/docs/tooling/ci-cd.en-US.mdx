@@ -5,17 +5,17 @@ description: "GitHub Actions workflows for checks, browser tests, deployments an
 
 Workflows live in `.github/workflows/`. The application workflows (`ci.yml`, `deploy.yml`, `preview.yml`, `journey.yml`, `updates.yml`, `e2e-reusable.yml` and `deploy-reusable.yml`) set up the toolchain with the composite action `.github/actions/setup`: Bun <RepositoryFact name="bunVersion" />, Vite+ with the Node version from `.nvmrc` and Bun's install cache, which `setup-vp` restores once, `bun install --frozen-lockfile --ignore-scripts` and `bun run typegen`. `remotion.yml` sets up Node from `.nvmrc` and npm instead.
 
-| Workflow              | Trigger                                                                                 | Jobs                                                                                              |
-| --------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requests, merge groups, and calls from `deploy.yml`                                | Checks, tests with coverage on parallel shards, Chromium E2E and the upload of the preview Worker |
-| `deploy.yml`          | Pushes to `main`                                                                        | The checks of `ci.yml` unless the merge queue ran them, then preview, production and the release  |
-| `preview.yml`         | Manual                                                                                  | Deploys a branch whose checks passed to the shared preview                                        |
-| `e2e-full.yml`        | Pushes to `main`, the schedule <RepositoryFact name="e2eFullSchedule" /> in UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs                                   |
-| `journey.yml`         | The schedule <RepositoryFact name="journeySchedule" /> in UTC, manual                   | The [journey suite](#journey-suite) against the shared preview, in the Polar sandbox              |
-| `updates.yml`         | The schedule <RepositoryFact name="updatesSchedule" /> in UTC, manual                   | Opens, updates or closes the [updates issue](#updates)                                            |
-| `e2e-reusable.yml`    | Called by the workflows above                                                           | One test build, one Playwright project on parallel shards and one check for both                  |
-| `deploy-reusable.yml` | Called by `ci.yml`, `deploy.yml` and `preview.yml`                                      | Build, then D1 migrations and `wrangler deploy`, or `wrangler versions upload`                    |
-| `remotion.yml`        | Changes to `remotion/` or the website files it imports                                  | Checks and bundles the landing page video project with npm                                        |
+| Workflow              | Trigger                                                                                 | Jobs                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull requests, merge groups, and calls from `deploy.yml`                                | Checks, tests with coverage on parallel shards, type checks without each optional area, Chromium E2E and the upload of the preview Worker |
+| `deploy.yml`          | Pushes to `main`                                                                        | The checks of `ci.yml` unless the merge queue ran them, then preview, production and the release                                          |
+| `preview.yml`         | Manual                                                                                  | Deploys a branch whose checks passed to the shared preview                                                                                |
+| `e2e-full.yml`        | Pushes to `main`, the schedule <RepositoryFact name="e2eFullSchedule" /> in UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs                                                                           |
+| `journey.yml`         | The schedule <RepositoryFact name="journeySchedule" /> in UTC, manual                   | The [journey suite](#journey-suite) against the shared preview, in the Polar sandbox                                                      |
+| `updates.yml`         | The schedule <RepositoryFact name="updatesSchedule" /> in UTC, manual                   | Opens, updates or closes the [updates issue](#updates)                                                                                    |
+| `e2e-reusable.yml`    | Called by the workflows above                                                           | One test build, one Playwright project on parallel shards and one check for both                                                          |
+| `deploy-reusable.yml` | Called by `ci.yml`, `deploy.yml` and `preview.yml`                                      | Build, then D1 migrations and `wrangler deploy`, or `wrangler versions upload`                                                            |
+| `remotion.yml`        | Changes to `remotion/` or the website files it imports                                  | Checks and bundles the landing page video project with npm                                                                                |
 
 `remotion.yml` runs on the same paths for pull requests and pushes: `remotion/`, the workflow itself and the website files that `remotion/src` imports, directly or through other website files. `src/__test__/workflows.test.ts` follows those imports and fails when a file they reach matches none of the paths, or a path matches none of the files.
 
@@ -32,6 +32,8 @@ Three jobs in `ci.yml` stand behind the required check `Format, lint, types, i18
 | `verify`, named `Format, lint, types, i18n, tests` | Once every shard passed, downloads the blob reports and runs `bun run test:coverage --merge-reports`, which merges the coverage and enforces the thresholds, then uploads the coverage report; fails unless `check`, every shard and the merge passed |
 
 A shard checks no threshold, because it measures only the code its own tests reach; the thresholds of `vite.config.ts` apply once, to the merged coverage of every shard, as they do to a local `bun run test:coverage`. The `verify` job is the one check that the branch rules require, so adding or removing a shard changes no required check name.
+
+The `areas` job runs `bun run check:areas <scenario>` once for each scenario of `scripts/areas.ts`, in parallel, and type-checks the site without that scenario's areas ([Testing](/docs/conventions/testing#tests-follow-the-areas)). It only reports for now: its step continues on error, so a scenario that does not type-check marks the step as failed without failing the job, and the branch rules do not require it. It becomes blocking once every scenario passes.
 
 The `e2e` job calls `e2e-reusable.yml`, which builds once and runs the suite on <RepositoryFact name="e2eShards" /> runners in parallel:
 

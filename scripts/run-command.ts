@@ -14,15 +14,16 @@ export interface CommandResult {
 
 export interface CommandOptions {
   readonly capture?: boolean
+  readonly cwd?: string
   readonly env?: NodeJS.ProcessEnv
 }
 
 export const runCommand = (
   command: string,
   args: readonly string[],
-  { capture = false, env = process.env }: CommandOptions = {},
+  { capture = false, cwd = process.cwd(), env = process.env }: CommandOptions = {},
 ): CommandResult => {
-  const { status, stdout } = spawnSync(command, args, { encoding: "utf8", env, stdio: capture ? "pipe" : "inherit" })
+  const { status, stdout } = spawnSync(command, args, { cwd, encoding: "utf8", env, stdio: capture ? "pipe" : "inherit" })
 
   return { status: status ?? FAILURE_EXIT_CODE, stdout: capture ? stdout : "" }
 }

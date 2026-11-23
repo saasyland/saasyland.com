@@ -5,17 +5,17 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`deploy.yml`、`preview.yml`、`journey.yml`、`updates.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun <RepositoryFact name="bunVersion" />、`.nvmrc` の Node バージョンと、`setup-vp` が 1 回だけ復元する Bun のインストールキャッシュを使う Vite+、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
-| ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`              | プルリクエスト、マージキューのグループ、および `deploy.yml` からの呼び出し                  | チェック、並列シャードでのカバレッジ付きテスト、Chromium の E2E、プレビュー用 Worker のアップロード              |
-| `deploy.yml`          | `main` へのプッシュ                                                                         | マージキューが実行していなければ `ci.yml` のチェック、その後プレビュー、本番、リリース                           |
-| `preview.yml`         | 手動実行                                                                                    | チェックが成功したブランチを共有プレビューにデプロイ                                                             |
-| `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                           |
-| `journey.yml`         | UTC のスケジュール <RepositoryFact name="journeySchedule" />、手動実行                      | 共有プレビューに対する Polar サンドボックスでの[ジャーニースイート](#journey-suite)                              |
-| `updates.yml`         | UTC のスケジュール <RepositoryFact name="updatesSchedule" />、手動実行                      | [更新の Issue](#updates) を作成、更新、またはクローズ                                                            |
-| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック |
-| `deploy-reusable.yml` | `ci.yml`、`deploy.yml`、`preview.yml` から呼び出し                                          | ビルド、その後 D1 マイグレーションと `wrangler deploy`、または `wrangler versions upload`                        |
-| `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                |
+| ワークフロー          | トリガー                                                                                    | ジョブ                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | プルリクエスト、マージキューのグループ、および `deploy.yml` からの呼び出し                  | チェック、並列シャードでのカバレッジ付きテスト、オプションのエリアを 1 つずつ外した型チェック、Chromium の E2E、プレビュー用 Worker のアップロード |
+| `deploy.yml`          | `main` へのプッシュ                                                                         | マージキューが実行していなければ `ci.yml` のチェック、その後プレビュー、本番、リリース                                                             |
+| `preview.yml`         | 手動実行                                                                                    | チェックが成功したブランチを共有プレビューにデプロイ                                                                                               |
+| `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                                                             |
+| `journey.yml`         | UTC のスケジュール <RepositoryFact name="journeySchedule" />、手動実行                      | 共有プレビューに対する Polar サンドボックスでの[ジャーニースイート](#journey-suite)                                                                |
+| `updates.yml`         | UTC のスケジュール <RepositoryFact name="updatesSchedule" />、手動実行                      | [更新の Issue](#updates) を作成、更新、またはクローズ                                                                                              |
+| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | 1 回のテスト用ビルド、並列のシャードで実行する 1 つの Playwright プロジェクト、その両方をまとめる 1 つのチェック                                   |
+| `deploy-reusable.yml` | `ci.yml`、`deploy.yml`、`preview.yml` から呼び出し                                          | ビルド、その後 D1 マイグレーションと `wrangler deploy`、または `wrangler versions upload`                                                          |
+| `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                                                                  |
 
 `remotion.yml` は、プルリクエストでもプッシュでも同じパスで実行されます。対象は `remotion/`、ワークフロー自体、そして `remotion/src` が直接または他のサイトのファイルを通じてインポートするサイトのファイルです。`src/__test__/workflows.test.ts` はそのインポートをたどり、たどり着いたファイルがどのパスにも一致しない場合や、どのファイルにも一致しないパスがある場合に失敗します。
 
@@ -32,6 +32,8 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 | `verify`（名前は `Format, lint, types, i18n, tests`） | すべてのシャードが成功すると blob レポートをダウンロードし、カバレッジを統合してしきい値を適用する `bun run test:coverage --merge-reports` を実行してから、カバレッジレポートをアップロード。`check`、すべてのシャード、統合のいずれかが成功しなければ失敗 |
 
 各シャードは自分のテストが到達するコードしか計測しないため、しきい値をチェックしません。`vite.config.ts` のしきい値は、ローカルの `bun run test:coverage` と同じく、全シャードを統合したカバレッジに 1 回だけ適用されます。ブランチのルールが要求するチェックは `verify` ジョブだけなので、シャードを増減しても必須チェックの名前は変わりません。
+
+`areas` ジョブは `scripts/areas.ts` の各シナリオについて `bun run check:areas <scenario>` を並列に 1 回ずつ実行し、そのシナリオのエリアを外したサイトの型をチェックします（[テスト](/docs/conventions/testing#tests-follow-the-areas)）。今は報告するだけです。ステップはエラーでも続行するため、型チェックに通らないシナリオはステップを失敗として示しますがジョブは失敗させず、ブランチのルールもこのジョブを必須にしていません。すべてのシナリオが通ったらブロックするようにします。
 
 `e2e` ジョブは `e2e-reusable.yml` を呼び出します。これは 1 回だけビルドし、<RepositoryFact name="e2eShards" /> 台のランナーでスイートを並列に実行します。
 

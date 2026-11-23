@@ -10,6 +10,7 @@ import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { POLAR_SERVER } from "~/src/data/polar"
 
+import { AREA_SCENARIO } from "~/scripts/areas"
 import { REPORT_MODE } from "~/scripts/report-updates"
 
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
@@ -98,6 +99,7 @@ const PUBLISH_RELEASE_TAG =
 const JOB_HEADER = /^ {2}(?<id>[\w-]+):\n/gmu
 const WORKFLOW_CONCURRENCY = /^concurrency:\n(?<settings>(?: {2}.+\n)+)/mu
 const SHARD_MATRIX = /matrix:\n +shard: \[(?<shards>[\d, ]+)\]\n/u
+const SCENARIO_MATRIX = /matrix:\n +scenario: \[(?<scenarios>[\w, -]+)\]\n/u
 const ENVIRONMENT_URL = /url: \$\{\{ inputs\.target == '(?<target>[^']+)' && '(?<targetUrl>[^']+)' \|\| '(?<fallbackUrl>[^']+)' \}\}/u
 
 const entriesSchema = zod.object({ entries: zod.string() })
@@ -108,6 +110,7 @@ const environmentUrlSchema = zod.object({ fallbackUrl: zod.string(), target: zod
 const jobHeaderSchema = zod.object({ id: zod.string() })
 const concurrencySchema = zod.object({ settings: zod.string() })
 const shardMatrixSchema = zod.object({ shards: zod.string() })
+const scenarioMatrixSchema = zod.object({ scenarios: zod.string() })
 const triggersSchema = zod.object({ triggers: zod.string() })
 const settingKeysSchema = zod.object({ keys: zod.string() })
 const settingNameSchema = zod.object({ name: zod.string() })
@@ -170,6 +173,12 @@ const triggersOf = (workflow: string): string[] =>
     .map((line) => line.trim())
 
 const shardsOf = (workflow: string): number[] => shardMatrixSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").map(Number)
+
+const scenariosOf = (job: string): string[] =>
+  scenarioMatrixSchema
+    .parse(SCENARIO_MATRIX.exec(job)?.groups)
+    .scenarios.split(",")
+    .map((scenario) => scenario.trim())
 
 const isWatched = (file: string): boolean => WEBSITE_PATHS.some((glob) => posix.matchesGlob(file, glob))
 const isImported = (glob: string): boolean => IMPORTED_WEBSITE_FILES.some((file) => posix.matchesGlob(file, glob))
@@ -334,6 +343,14 @@ describe(CI_WORKFLOW, () => {
     expect(verify).toContain(MERGE_COMMAND)
     expect(verify).not.toContain("--coverage.thresholds")
     expect(verify).toContain('if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then')
+  })
+
+  it("type-checks the site without the areas of each scenario in scripts/areas.ts, one job per scenario", () => {
+    const areas = jobOf(CI, "areas")
+
+    expect(scenariosOf(areas)).toStrictEqual(Object.values(AREA_SCENARIO))
+    expect(areas).toContain("fail-fast: false")
+    expect(areas).toContain(`run: bun run check:areas ${expression("matrix.scenario")}`)
   })
 
   it("uploads the preview Worker as a version, deploying nothing, for every merge group and every pull request that can read the secrets", () => {

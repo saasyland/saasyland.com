@@ -32,22 +32,10 @@ const ignorePatterns = [
 
 const undefinedBranchBacklog = [
   "src/modules/course/course.cover.ts",
-  "src/modules/course/course.transfer.ts",
   "src/modules/order/order.utils.ts",
-  "src/presentation/components/custom/admin/users/license-machines.tsx",
   "src/presentation/components/custom/app/course-unlocks.tsx",
   "src/presentation/components/custom/app/upgrade-offer.tsx",
-  "src/presentation/components/custom/data-grid-column-menu.tsx",
-  "src/presentation/components/custom/data-grid-filter.tsx",
-  "src/presentation/components/custom/data-grid-table.tsx",
   "src/presentation/components/custom/data-grid-toolbar.tsx",
-  "src/presentation/components/custom/repository-fact.tsx",
-  "src/presentation/components/custom/validation-field-error.tsx",
-  "src/presentation/components/shadcn/dialog.tsx",
-  "src/presentation/components/shadcn/select.tsx",
-  "src/presentation/components/shadcn/switch.tsx",
-  "src/routes/__test__/admin-orders-routes.component.test.tsx",
-  "src/routes/_site._marketing.courses.$course.$lesson.tsx",
 ]
 
 const tooling = {

@@ -44,6 +44,8 @@ const SKELETON_ROWS = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => in
 
 const ARIA_SORT = { asc: "ascending", desc: "descending" } as const
 
+const SELECTED_ROW = { "data-state": "selected" } as const
+
 const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown } as const
 
 const RESIZE_KEYS: Readonly<Record<string, number>> = { ArrowLeft: -RESIZE_STEP_PX, ArrowRight: RESIZE_STEP_PX }
@@ -160,13 +162,13 @@ const DataGridHead = <TData extends DataGridRow>({
   const sorted = column.getIsSorted()
   const isMovable = isDataColumn(column.id)
   const isEnd = column.columnDef.meta?.align === DATA_GRID_ALIGN.END
-  const draggedColumn = dragging.dragged === undefined ? undefined : table.getColumn(dragging.dragged)
+  const draggedColumn = table.getAllLeafColumns().find(({ id }) => id === dragging.dragged)
   const accepts =
     isMovable && draggedColumn !== undefined && draggedColumn.id !== column.id && draggedColumn.getIsPinned() === column.getIsPinned()
 
   return (
     <TableHead
-      aria-sort={column.getCanSort() && sorted !== false ? ARIA_SORT[sorted] : undefined}
+      {...(column.getCanSort() && sorted !== false && { "aria-sort": ARIA_SORT[sorted] })}
       className={cn(
         "group/head sticky top-0 z-20 h-10 border-b border-b-border/70 bg-(--grid-head) py-1.5 text-spec leading-snug font-medium tracking-normal whitespace-normal normal-case transition-colors duration-150",
         pinnedClasses(column),
@@ -242,7 +244,7 @@ const DataGridBodyRow = <TData extends DataGridRow>({
   readonly row: Row<DataGridFeatures, TData>
   readonly table: DataGridTableInstance<TData>
 }): JSX.Element => (
-  <TableRow aria-rowindex={index} className="group/row" data-state={row.getIsSelected() ? "selected" : undefined}>
+  <TableRow aria-rowindex={index} className="group/row" {...(row.getIsSelected() && SELECTED_ROW)}>
     {row.getVisibleCells().map((cell) => (
       <TableCell
         className={cn(
@@ -375,7 +377,7 @@ export const DataGridTable = <TData extends DataGridRow>({
       >
         <colgroup>
           {columns.map((column) => (
-            <col key={column.id} style={column === stretched ? undefined : { width: column.getSize() }} />
+            <col key={column.id} {...(column !== stretched && { style: { width: column.getSize() } })} />
           ))}
         </colgroup>
         <TableHeader>

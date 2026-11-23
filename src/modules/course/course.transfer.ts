@@ -129,20 +129,7 @@ const problemsOf = (issue: zod.core.$ZodIssue): DocumentProblem[] => {
   return [{ message: issue.message, path: pathOf(issue.path) }]
 }
 
-const parseJson = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
-
-export const readCourseDocument = (text: string) => {
-  const json = parseJson(text)
-  if (json === undefined) {
-    return { problemCount: 1, problems: [DOCUMENT_INVALID] }
-  }
-
+const courseDocumentOf = (json: unknown) => {
   const result = courseZodSchemas.courseDocument.safeParse(json)
   if (result.success) {
     return { document: result.data }
@@ -150,6 +137,14 @@ export const readCourseDocument = (text: string) => {
 
   const problems = result.error.issues.flatMap((issue) => problemsOf(issue))
   return { problemCount: problems.length, problems: problems.slice(0, COURSE_IMPORT_PROBLEMS_MAX) }
+}
+
+export const readCourseDocument = (text: string) => {
+  try {
+    return courseDocumentOf(JSON.parse(text))
+  } catch {
+    return { problemCount: 1, problems: [DOCUMENT_INVALID] }
+  }
 }
 
 interface Tally {
@@ -278,12 +273,12 @@ interface LessonTarget {
 }
 
 const resolveVideo = (plan: Plan, state: State, { courseSlug, entry }: LessonTarget): string | undefined => {
-  if (entry.videoId === undefined || state.videoIds.has(entry.videoId)) {
-    return entry.videoId
+  const knownVideoId = [...state.videoIds].find((id) => id === entry.videoId)
+  if (entry.videoId !== undefined && knownVideoId === undefined) {
+    plan.warnings.push({ course: courseSlug, lesson: entry.slug, videoId: entry.videoId })
   }
 
-  plan.warnings.push({ course: courseSlug, lesson: entry.slug, videoId: entry.videoId })
-  return undefined
+  return knownVideoId
 }
 
 const lessonContent = ({ access, description, format, keyMoments, slug, status, summary, title }: DocumentLesson) => ({

@@ -3,8 +3,8 @@ export const textValueProps = (textValue: string | undefined, children: unknown)
     return { textValue }
   }
 
-  if (typeof children === "string") {
-    return { textValue: children }
+  if (typeof children === "string" || typeof children === "number") {
+    return { textValue: String(children) }
   }
 
   return {}

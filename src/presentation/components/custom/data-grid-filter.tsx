@@ -96,12 +96,13 @@ const dayRange = (start: DateValue, end: DateValue, timeZone: string): DataGridD
   to: toCalendarDate(end).add({ days: 1 }).toDate(timeZone).getTime() - LAST_MOMENT_OF_DAY_MS,
 })
 
-const withBound = (range: DataGridNumberRange, bound: keyof DataGridNumberRange, value: number): DataGridNumberRange | undefined => {
-  const next = { ...range, [bound]: Number.isNaN(value) ? undefined : value }
-  const { max, min } = next
-  const bounded = { ...(max !== undefined && { max }), ...(min !== undefined && { min }) }
+const isBound = (value: number | undefined): value is number => value !== undefined && !Number.isNaN(value)
 
-  return Object.keys(bounded).length === 0 ? undefined : bounded
+const withBound = (range: DataGridNumberRange, bound: keyof DataGridNumberRange, value: number): DataGridNumberRange => {
+  const next = { ...range, [bound]: value }
+  const { max, min } = next
+
+  return { ...(isBound(max) && { max }), ...(isBound(min) && { min }) }
 }
 
 const useTimeZoneName = (): string => useTimeZone() ?? I18N.DEFAULT_TIMEZONE
@@ -159,8 +160,7 @@ const TextFilter = <TData extends DataGridRow>({
   const t = useTranslations("components.custom.data-grid.filters.text")
   const [text, setText] = useState(() => textOf(column))
   const applying = useDebouncedCallback((value: string) => {
-    const trimmed = value.trim()
-    column.setFilterValue(trimmed.length === 0 ? undefined : trimmed)
+    column.setFilterValue(value.trim())
   }, DATA_GRID_TYPING_DELAY_MS)
 
   return (
@@ -199,7 +199,7 @@ const OptionsList = <TData extends DataGridRow>({
       onSelectionChange={(keys: Selection) => {
         const values = keys === "all" ? filter.options.map(({ value }) => value) : [...keys].map(String)
         if (isMultiple) {
-          column.setFilterValue(values.length === 0 ? undefined : values)
+          column.setFilterValue(values)
           return
         }
         column.setFilterValue(values[0])
@@ -523,7 +523,7 @@ export const DataGridFilterChips = <TData extends DataGridRow>({
   const active = filterableColumns(table).filter(({ column }) => column.getIsFiltered())
 
   if (active.length === 0) {
-    return undefined
+    return
   }
 
   return (

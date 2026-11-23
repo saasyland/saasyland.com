@@ -1,24 +1,34 @@
-import { spawnSync } from "bun"
+import { readFileSync } from "node:fs"
 import process from "node:process"
+import * as zod from "zod"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import { DEPLOY_CHECKS } from "~/src/data/deploy"
+import { runCommand, scriptArguments } from "./run-command.ts"
 
-import { scriptArguments } from "./run-command.ts"
+const VERIFY_SCRIPT_INFIX = ":verify:"
 
-const [environment] = scriptArguments()
+const packageSchema = zod.object({ scripts: zod.record(zod.string(), zod.string()) })
 
-if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
-  throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)
-}
+export const deployChecks = (scripts: Readonly<Record<string, string>>, environment: string): string[] =>
+  Object.keys(scripts).filter((script) => script.endsWith(`${VERIFY_SCRIPT_INFIX}${environment}`))
 
-for (const check of DEPLOY_CHECKS) {
-  const { exitCode } = spawnSync(["bun", "run", `${check}:${environment}`], { stdio: ["inherit", "inherit", "inherit"] })
+if (import.meta.main) {
+  const [environment] = scriptArguments()
 
-  if (exitCode !== 0) {
-    process.exit(exitCode)
+  if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
+    throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)
   }
-}
 
-process.stdout.write(`Ran every deploy check the areas declare for ${environment}.\n`)
+  const { scripts } = packageSchema.parse(JSON.parse(readFileSync("package.json", "utf8")))
+
+  for (const check of deployChecks(scripts, environment)) {
+    const { status } = runCommand("bun", ["run", check])
+
+    if (status !== 0) {
+      process.exit(status)
+    }
+  }
+
+  process.stdout.write(`Ran every <name>${VERIFY_SCRIPT_INFIX}${environment} script in package.json.\n`)
+}

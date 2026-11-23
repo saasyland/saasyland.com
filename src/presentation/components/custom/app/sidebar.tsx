@@ -6,7 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
-import { appBadge } from "~/src/data/app-badges"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -33,6 +33,8 @@ import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
 
 const route = getRouteApi("/app")
+
+const APP_BADGES = BROWSER_AREAS.flatMap(({ appBadges = [] }) => appBadges)
 
 export const AppSidebar = (): JSX.Element => {
   const t = useTranslations("pages.app.sidebar")
@@ -63,7 +65,7 @@ export const AppSidebar = (): JSX.Element => {
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
                 const isActive = pathname === item.to || (item.to !== ROUTES.APP && pathname.startsWith(`${item.to}/`))
-                const badge = appBadge(item.to)
+                const badge = APP_BADGES.find(({ to }) => to === item.to)
 
                 return (
                   <SidebarMenuItem key={item.to}>

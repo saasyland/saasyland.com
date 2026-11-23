@@ -8,8 +8,6 @@ import { PURCHASE_STEP, PURCHASE_STEP_COUNT, redirectTierSchema } from "~/src/da
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
-import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-
 import { Price } from "~/src/presentation/components/custom/pricing"
 
 import * as ROUTES from "~/src/routes"
@@ -60,23 +58,3 @@ export const SignUpOrderSummary = ({ redirect }: Readonly<{ redirect: string | u
     </section>
   )
 }
-
-export const SignUpOrderSummaryPending = (): JSX.Element => (
-  <div className="mt-6 rounded-lg border border-ring/40 bg-card p-5">
-    <div className="flex items-baseline justify-between gap-4 text-title">
-      <Skeleton className="h-lh w-24 scale-y-70" />
-      <Skeleton className="h-lh w-28 scale-y-70" />
-    </div>
-    <div className="mt-2 flex flex-col text-body-sm">
-      <Skeleton className="h-lh w-full scale-y-70" />
-      <Skeleton className="h-lh w-1/3 scale-y-70" />
-    </div>
-    <div className="mt-3 flex items-start gap-2.5 text-body-sm">
-      <Skeleton className="mt-0.75 size-3.5 shrink-0 rounded-sm" />
-      <div className="flex flex-1 flex-col">
-        <Skeleton className="h-lh w-full scale-y-70" />
-        <Skeleton className="h-lh w-1/2 scale-y-70" />
-      </div>
-    </div>
-  </div>
-)

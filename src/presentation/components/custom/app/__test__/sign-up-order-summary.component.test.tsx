@@ -14,7 +14,8 @@ import { TIER_PRICES } from "~/src/data/marketing"
 import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
-import { SignUpOrderSummary, SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/sign-up-order-summary"
+import { SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/license-pending"
+import { SignUpOrderSummary } from "~/src/presentation/components/custom/app/sign-up-order-summary"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import plPricing from "~/messages/pl-PL/components.custom.pricing.json"

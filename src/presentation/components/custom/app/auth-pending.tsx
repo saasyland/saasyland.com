@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { APP_OVERVIEW_SECTIONS } from "~/src/data/app-overview"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -11,6 +11,8 @@ import {
   EmailCardPending,
   SettingsTabsPending,
 } from "~/src/presentation/components/custom/settings/settings-pending"
+
+const APP_OVERVIEW_SECTIONS = BROWSER_AREAS.flatMap(({ appOverview = [] }) => appOverview)
 
 const DocsStepPending = (): JSX.Element => (
   <div className="flex flex-col items-start gap-3">

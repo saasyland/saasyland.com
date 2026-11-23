@@ -9,7 +9,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import { SETTINGS_TAB, settingsSearchSchema } from "~/src/data/auth"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
@@ -24,6 +24,8 @@ import { EmailCard } from "~/src/presentation/components/custom/settings/email-c
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 
 import * as ROUTES from "~/src/routes"
+
+const ACCOUNT_DELETION_NOTICES = BROWSER_AREAS.flatMap(({ accountDeletion = [] }) => accountDeletion)
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations()
@@ -67,6 +69,7 @@ export const Route = createFileRoute("/app/settings")({
       context.queryClient.query({ ...getActiveSessionsQuery, staleTime: "static" }),
       context.queryClient.query({ ...listAccountsQuery, staleTime: "static" }),
       ...ACCOUNT_DELETION_NOTICES.map(({ load }) => load({ queryClient: context.queryClient })),
+      ...ACCOUNT_DELETION_NOTICES.map(({ Notice }) => Notice.preload?.()),
     ])
     return { locale, metadata }
   },

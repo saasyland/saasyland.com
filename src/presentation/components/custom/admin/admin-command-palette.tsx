@@ -15,7 +15,7 @@ import { SEARCH_TEXT_MIN_LENGTH } from "~/src/modules/_core/utils/search"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
-import { COMMAND_SEARCHES } from "~/src/data/command-search"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import { ADMIN_COMMAND_ACTIONS, ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import {
@@ -50,6 +50,10 @@ interface PaletteGroup {
 const recentSchema = zod
   .array(zod.object({ detail: zod.string(), group: zod.string(), title: zod.string(), to: zod.string() }))
   .max(RECENT_LIMIT)
+
+const COMMAND_SEARCHES = BROWSER_AREAS.flatMap(({ commandSearches = [], name }) =>
+  commandSearches.map((search) => ({ ...search, area: name })),
+).toSorted((first, second) => first.order - second.order)
 
 const PAGE_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) => ({ group: group.key, item })))
 

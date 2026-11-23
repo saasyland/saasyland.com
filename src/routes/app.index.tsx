@@ -2,11 +2,13 @@ import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { APP_OVERVIEW_SECTIONS, appOverviewSearchSchema } from "~/src/data/app-overview"
+import { BROWSER_AREAS } from "~/src/areas/browser"
+import type * as AREAS from "~/src/areas/browser.entries"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
@@ -18,6 +20,31 @@ import { AppOverviewPending } from "~/src/presentation/components/custom/app/aut
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
+
+type Intersection<Union> = (Union extends unknown ? (value: Union) => void : never) extends (value: infer All) => void ? All : never
+
+type OverviewSearch = Intersection<
+  Extract<(typeof AREAS)[keyof typeof AREAS], { readonly appOverviewSearch: zod.ZodRawShape }>["appOverviewSearch"]
+>
+
+const APP_OVERVIEW_SECTIONS = BROWSER_AREAS.flatMap(({ appOverview = [] }) => appOverview)
+
+const SEARCH_SHAPES = BROWSER_AREAS.map(({ appOverviewSearch }) => appOverviewSearch).filter((shape) => shape !== undefined)
+
+const readsEveryShape = (shape: zod.ZodRawShape): shape is OverviewSearch =>
+  SEARCH_SHAPES.every((search) => Object.entries(search).every(([param, schema]) => shape[param] === schema))
+
+const overviewSearch = (): OverviewSearch => {
+  const shape = Object.fromEntries(SEARCH_SHAPES.flatMap((search) => Object.entries(search)))
+
+  if (!readsEveryShape(shape)) {
+    throw new Error("Two areas read the same search param on the overview.")
+  }
+
+  return shape
+}
+
+const overviewSearchSchema = zod.object(overviewSearch())
 
 const OverviewPage = (): JSX.Element => {
   const t = useTranslations("pages.app")
@@ -58,7 +85,7 @@ const OverviewPage = (): JSX.Element => {
 const NAMESPACE = "pages.app"
 
 export const Route = createFileRoute("/app/")({
-  validateSearch: appOverviewSearchSchema,
+  validateSearch: overviewSearchSchema,
   component: OverviewPage,
   head: pageHead(ROUTES.APP),
   loader: async ({ context }) => {
@@ -67,10 +94,11 @@ export const Route = createFileRoute("/app/")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       ...APP_OVERVIEW_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
+      ...APP_OVERVIEW_SECTIONS.map(({ Section }) => Section.preload?.()),
     ])
     return { locale, metadata }
   },
   pendingComponent: AppOverviewPending,
-  search: { middlewares: [onlyDeclaredSearch(appOverviewSearchSchema)] },
+  search: { middlewares: [onlyDeclaredSearch(overviewSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },
 })

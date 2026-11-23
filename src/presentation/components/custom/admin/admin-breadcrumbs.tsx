@@ -5,14 +5,16 @@ import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
-import { USER_TABS } from "~/src/data/user-tabs"
 
 import { cn } from "~/src/lib/cn"
 
 import * as ROUTES from "~/src/routes"
 
 const SIDEBAR_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items)
+
+const USER_TABS = BROWSER_AREAS.flatMap(({ name, userTabs = [] }) => userTabs.map((tab) => ({ ...tab, area: name })))
 
 const LINK_CLASSNAME =
   "shrink-0 rounded-sm whitespace-nowrap transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

@@ -14,7 +14,7 @@ import { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/con
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { onlyDeclaredSearch, searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
@@ -26,6 +26,8 @@ import { AppDeleteAccountPending } from "~/src/presentation/components/custom/ap
 import { AccountDeletionConsequences } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import * as ROUTES from "~/src/routes"
+
+const ACCOUNT_DELETION_NOTICES = BROWSER_AREAS.flatMap(({ accountDeletion = [] }) => accountDeletion)
 
 const deleteAccountSearchSchema = zod.object({ token: searchText() })
 
@@ -100,6 +102,7 @@ export const Route = createFileRoute("/app/settings_/delete-account")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       ...ACCOUNT_DELETION_NOTICES.map(({ load }) => load({ queryClient: context.queryClient })),
+      ...ACCOUNT_DELETION_NOTICES.map(({ Notice }) => Notice.preload?.()),
     ])
     return { locale, metadata }
   },

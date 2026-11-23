@@ -10,7 +10,7 @@ import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user
 import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
 import { getUserInitials } from "~/src/modules/user/user.utils"
 
-import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
@@ -23,6 +23,8 @@ import { UserDetails } from "~/src/presentation/components/custom/admin/users/us
 import { UserSessions } from "~/src/presentation/components/custom/admin/users/user-sessions"
 
 import * as ROUTES from "~/src/routes"
+
+const USER_PROFILE_SECTIONS = BROWSER_AREAS.flatMap(({ userProfile = [] }) => userProfile)
 
 const UserProfilePage = (): JSX.Element => {
   const { userId } = Route.useParams()
@@ -67,6 +69,7 @@ export const Route = createFileRoute("/admin/users/$userId")({
       context.queryClient.query(getUserQuery({ userId: params.userId })).catch(rethrowAsNotFound),
       context.queryClient.query(listUserSessionsQuery({ userId: params.userId })),
       ...USER_PROFILE_SECTIONS.map(({ load }) => load({ queryClient: context.queryClient, userId: params.userId })),
+      ...USER_PROFILE_SECTIONS.map(({ Section }) => Section.preload?.()),
     ])
     return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
   },

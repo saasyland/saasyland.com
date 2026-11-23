@@ -2,12 +2,11 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import * as NAVIGATION_AREAS from "~/src/areas/navigation.entries"
-import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
-import { USER_TABS } from "~/src/data/user-tabs"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { loadLocaleMessages } from "~/scripts/i18n-messages"
@@ -63,8 +62,10 @@ describe("the website's navigation", () => {
         [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${name}.${placement}.${label}`),
       ),
     )
-    const tabLabels = USER_TABS.map(({ area, key }) => `${area}.${USER_TABS_GROUP}.${key}`)
-    const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${area}.${COMMAND_SEARCH_GROUP}.${key}`)
+    const tabLabels = BROWSER_AREAS.flatMap(({ name, userTabs = [] }) => userTabs.map(({ key }) => `${name}.${USER_TABS_GROUP}.${key}`))
+    const searchLabels = BROWSER_AREAS.flatMap(({ commandSearches = [], name }) =>
+      commandSearches.map(({ key }) => `${name}.${COMMAND_SEARCH_GROUP}.${key}`),
+    )
 
     expect(LABELS.filter((label) => !label.includes(`.${BREADCRUMBS}.`)).toSorted()).toStrictEqual(
       [...new Set([...entryLabels, ...tabLabels, ...searchLabels])].toSorted(),

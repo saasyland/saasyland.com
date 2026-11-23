@@ -199,7 +199,7 @@ const tooling = {
         rules: { "type/no-off-scale": "off" },
       },
       {
-        files: ["src/data/admin*.ts", "src/data/*.dashboard.ts", "src/presentation/components/custom/admin/**", "src/routes/admin*.tsx"],
+        files: ["src/areas/*.ts", "src/data/admin*.ts", "src/presentation/components/custom/admin/**", "src/routes/admin*.tsx"],
         rules: { "admin-data/no-literal-data": "error" },
       },
       {

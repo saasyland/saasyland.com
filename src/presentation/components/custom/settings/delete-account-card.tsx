@@ -18,7 +18,7 @@ import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
@@ -36,6 +36,8 @@ import { PasswordInput } from "~/src/presentation/components/custom/auth/passwor
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
 import * as ROUTES from "~/src/routes"
+
+const ACCOUNT_DELETION_NOTICES = BROWSER_AREAS.flatMap(({ accountDeletion = [] }) => accountDeletion)
 
 const passwordSchema = userZodSchemas.requestAccountDeletion.pick({ password: true }).required()
 

@@ -4,8 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
-import { AUTH_APP_OVERVIEW } from "~/src/data/auth.app-overview"
-
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
 import { AppDeleteAccountPending, AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 
@@ -33,13 +31,13 @@ describe("customer app skeletons", () => {
 
   it("draws only the page header and the next steps on the overview when no area adds a section to it", async () => {
     vi.resetModules()
-    vi.doMock(import("~/src/data/app-overview.entries"), () => ({ AUTH_APP_OVERVIEW }))
+    vi.doMock("~/src/areas/browser.entries", () => ({ CORE_BROWSER: { name: "core" } }))
     const { AppOverviewPending } = await import("~/src/presentation/components/custom/app/auth-pending")
 
     const { container } = render(<AppOverviewPending />)
 
     expect(container.querySelector('[aria-busy="true"]')?.children).toHaveLength(2)
-    vi.doUnmock("~/src/data/app-overview.entries")
+    vi.doUnmock("~/src/areas/browser.entries")
   })
 
   it("renders only the app chrome for a path without a page skeleton", () => {

@@ -28,7 +28,7 @@ import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as SettingsRoute } from "~/src/routes/app.settings"
 import { Route as DeleteAccountRoute } from "~/src/routes/app.settings_.delete-account"
 
-import type { AppOverviewArea } from "~/src/data/app-overview"
+import type { BrowserArea } from "~/src/areas/browser"
 
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
@@ -64,26 +64,26 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
   const actual = await importOriginal()
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
 })
-vi.mock("~/src/data/app-badges.entries", async () => {
-  const PATHS = await import("~/src/routes")
-  return { TEST_APP_BADGES: [{ Badge: () => <span>{SETTINGS_BADGE}</span>, to: PATHS.APP_SETTINGS }] }
+vi.mock("~/src/areas/browser.entries", async () => {
+  const [{ AUTH_BROWSER }, PATHS] = await Promise.all([import("~/src/areas/auth"), import("~/src/routes")])
+
+  return {
+    AUTH_BROWSER,
+    TEST_BROWSER: {
+      accountDeletion: [{ Notice: () => <li>{DELETION_NOTICE}</li>, key: "sample", load: deletionNoticeLoad }],
+      appBadges: [{ Badge: () => <span>{SETTINGS_BADGE}</span>, to: PATHS.APP_SETTINGS }],
+      appOverview: [
+        {
+          key: "summary",
+          load: ({ queryClient }) => queryClient.query({ queryFn: summaryRequest, queryKey: SUMMARY_QUERY_KEY, staleTime: "static" }),
+          Pending: () => {},
+          Section: () => <section aria-label={SUMMARY_SECTION} />,
+        },
+      ],
+      name: "test",
+    } satisfies BrowserArea,
+  }
 })
-vi.mock("~/src/data/app-overview.entries", () => ({
-  TEST_APP_OVERVIEW: {
-    search: {},
-    sections: [
-      {
-        key: "summary",
-        load: ({ queryClient }) => queryClient.query({ queryFn: summaryRequest, queryKey: SUMMARY_QUERY_KEY, staleTime: "static" }),
-        Pending: () => {},
-        Section: () => <section aria-label={SUMMARY_SECTION} />,
-      },
-    ],
-  } satisfies AppOverviewArea,
-}))
-vi.mock("~/src/data/account-deletion.entries", () => ({
-  TEST_ACCOUNT_DELETION: [{ Notice: () => <li>{DELETION_NOTICE}</li>, key: "sample", load: deletionNoticeLoad }],
-}))
 vi.mock(import("~/src/modules/user/use-cases/confirm-account-deletion"), () => ({
   confirmAccountDeletionMutation: { mutationFn: confirmDeletionMock, mutationKey: USER_MUTATION_KEYS.CONFIRM_ACCOUNT_DELETION },
 }))

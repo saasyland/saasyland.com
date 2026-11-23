@@ -6,7 +6,7 @@ import { requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/areas/browser"
+import { BROWSER_AREAS, layoutNamespaces } from "~/src/areas/browser"
 
 import { SidebarInset, SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
@@ -37,6 +37,8 @@ const AppLayout = (): JSX.Element => (
   </SidebarProvider>
 )
 
+const APP_BADGES = BROWSER_AREAS.flatMap(({ appBadges = [] }) => appBadges)
+
 const NAMESPACES = [
   "auth.errors",
   "auth.form",
@@ -51,7 +53,11 @@ const NAMESPACES = [
 export const Route = createFileRoute("/app")({
   beforeLoad: requireSignedIn,
   component: AppLayout,
-  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  loader: ({ context }) =>
+    Promise.all([
+      preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+      ...APP_BADGES.map(({ Badge }) => Badge.preload?.()),
+    ]),
   pendingComponent: AppPending,
   staticData: { namespaces: NAMESPACES },
 })

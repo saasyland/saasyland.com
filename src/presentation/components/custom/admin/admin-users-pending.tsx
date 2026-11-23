@@ -2,9 +2,11 @@ import type { JSX } from "react"
 
 import { usePagePending } from "~/src/hooks/use-page-pending"
 
-import { USER_TABS } from "~/src/data/user-tabs"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+
+const USER_TABS = BROWSER_AREAS.flatMap(({ userTabs = [] }) => userTabs)
 
 export const AdminUsersPending = (): JSX.Element => {
   const Page = usePagePending("/admin/users")

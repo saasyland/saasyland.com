@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import { BROWSER_AREAS } from "~/src/areas/browser"
 import {
   ADMIN_DASHBOARD_PREVIEW_PAGINATION,
   ADMIN_USER_DETAILS,
@@ -11,7 +12,6 @@ import { SETTINGS_TABS } from "~/src/data/auth"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
-import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -22,6 +22,8 @@ import { RowActionPending } from "~/src/presentation/components/custom/admin/pen
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import { EmailCardPending } from "~/src/presentation/components/custom/settings/settings-pending"
+
+const USER_PROFILE_SECTIONS = BROWSER_AREAS.flatMap(({ userProfile = [] }) => userProfile)
 
 export const AdminDashboardPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">

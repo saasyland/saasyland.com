@@ -8,8 +8,7 @@ import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { findSignUpIntro } from "~/src/data/sign-up-intros"
-import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -20,12 +19,16 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 
 import * as ROUTES from "~/src/routes"
 
+const SIGN_UP_INTROS = BROWSER_AREAS.flatMap(({ signUpIntros = [] }) => signUpIntros)
+
+const SIGN_UP_NOTICES = BROWSER_AREAS.flatMap(({ signUpNotices = [] }) => signUpNotices)
+
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")
 
   const { redirect } = Route.useSearch()
 
-  const intro = findSignUpIntro(redirect)
+  const intro = SIGN_UP_INTROS.find(({ appliesTo }) => appliesTo(redirect))
 
   return (
     <>
@@ -59,6 +62,8 @@ export const Route = createFileRoute("/auth/sign-up")({
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      ...SIGN_UP_INTROS.map(({ Intro }) => Intro.preload?.()),
+      ...SIGN_UP_NOTICES.map(({ Notice }) => Notice.preload?.()),
     ])
     return { locale, metadata }
   },

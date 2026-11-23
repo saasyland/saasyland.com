@@ -10,7 +10,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import type * as RequestAccountDeletionUseCase from "~/src/modules/user/use-cases/request-account-deletion"
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
 
-import type { AccountDeletionNotice } from "~/src/data/account-deletion"
+import type { BrowserArea } from "~/src/areas/browser"
 
 import { GITHUB_ACCOUNT, renderSettings, settingsSession } from "~/src/presentation/components/custom/settings/__test__/fixtures"
 import { DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
@@ -27,10 +27,11 @@ const requestDeletionMock = vi.hoisted(() =>
   vi.fn<NonNullable<typeof RequestAccountDeletionUseCase.requestAccountDeletionMutation.mutationFn>>(),
 )
 
-vi.mock("~/src/data/account-deletion.entries", () => ({
-  TEST_ACCOUNT_DELETION: [
-    { Notice: () => <li>{TEST_NOTICE}</li>, key: "test", load: () => Promise.resolve() },
-  ] satisfies readonly AccountDeletionNotice[],
+vi.mock("~/src/areas/browser.entries", () => ({
+  TEST_BROWSER: {
+    accountDeletion: [{ Notice: () => <li>{TEST_NOTICE}</li>, key: "test", load: () => Promise.resolve() }],
+    name: "test",
+  } satisfies BrowserArea,
 }))
 vi.mock(import("~/src/modules/user/use-cases/request-account-deletion"), () => ({
   requestAccountDeletionMutation: { mutationFn: requestDeletionMock, mutationKey: USER_MUTATION_KEYS.REQUEST_ACCOUNT_DELETION },

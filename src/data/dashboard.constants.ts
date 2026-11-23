@@ -10,7 +10,6 @@ export const DASHBOARD_PLACEMENT = {
 } as const
 
 interface Entry {
-  readonly area: string
   readonly key: string
   readonly order: number
 }

@@ -11,7 +11,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/sign-up-order-summary"
+import { SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/license-pending"
 import {
   AcceptInvitationPending,
   AuthPending,

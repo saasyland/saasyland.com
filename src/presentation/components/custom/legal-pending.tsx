@@ -24,3 +24,10 @@ export const LegalPending = (): JSX.Element => (
     </div>
   </ContentPagePending>
 )
+
+export const SignUpConsentPending = (): JSX.Element => (
+  <div className="flex flex-col text-body-sm">
+    <Skeleton className="h-lh w-full scale-y-70" />
+    <Skeleton className="h-lh w-1/4 scale-y-70" />
+  </div>
+)

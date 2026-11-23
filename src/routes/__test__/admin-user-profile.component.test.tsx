@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
@@ -23,6 +23,8 @@ import { USER_MUTATION_KEYS, USER_QUERY_KEYS } from "~/src/modules/user/user.con
 import type { User } from "~/src/modules/user/user.types"
 
 import { Route as ProfileRoute } from "~/src/routes/admin.users.$userId"
+
+import { BROWSER_AREAS } from "~/src/areas/browser"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient } from "~/src/presentation/components/custom/admin/__test__/fixtures"
@@ -111,6 +113,14 @@ const sessionRow = (device: string): HTMLElement => {
   }
   return row
 }
+
+beforeAll(async () => {
+  await Promise.all(
+    BROWSER_AREAS.flatMap(({ userProfile = [] }) => userProfile).map(async ({ Section }) => {
+      await Section.preload?.()
+    }),
+  )
+})
 
 beforeEach(() => {
   vi.clearAllMocks()

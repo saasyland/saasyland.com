@@ -1,5 +1,4 @@
 import type { Locator, Page, Route } from "@playwright/test"
-import assert from "node:assert/strict"
 
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
@@ -61,7 +60,7 @@ const measureCourses = (article: Element) => {
   const section = article.children.item(2)
   const content = section?.firstElementChild
   if (!section || !content) {
-    return undefined
+    throw new Error("The course showcase has no section of courses to measure")
   }
 
   const style = getComputedStyle(section)
@@ -245,7 +244,6 @@ test.describe("the course block", () => {
         await afterTwoFrames(page)
         const filled = await showcase.evaluate(measureCourses)
 
-        assert(filled)
         expect(filled.children).toBe(1)
         expect(filled.inner).toBeCloseTo(filled.content, 1)
       })
@@ -261,7 +259,6 @@ test.describe("the course block", () => {
       await expect(showcase.getByText(NO_COURSES)).toBeVisible()
       const empty = await showcase.evaluate(measureCourses)
 
-      assert(empty)
       const lines = Math.round(empty.inner / empty.line)
       expect(empty.inner).toBeCloseTo(empty.line * lines, 1)
       expect(lines).toBeGreaterThan(0)

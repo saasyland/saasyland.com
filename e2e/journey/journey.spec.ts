@@ -28,7 +28,7 @@ import { TIER_PRICES } from "../../src/data/marketing"
 
 import { checkoutOverlay } from "../fixtures/polar-checkout"
 import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
-import { inboxAddress, purchaseConfirmation, verificationLink } from "./inbox"
+import { deliveredEmailHtml, inboxAddress, verificationLink } from "./inbox"
 import { POLAR_SANDBOX_CHECKOUT, PolarCheckoutPage } from "./polar-checkout-page"
 import { accountOrders, orderLicenseKey, refundOrder, refundPaidOrders } from "./sandbox"
 import { PRODUCT_IDS } from "./settings"
@@ -270,7 +270,7 @@ for (const tier of LICENSE_TIERS) {
     await test.step("pay the regional price with the Stripe test card", async () => buy(pages, buyer, price))
     const order = await test.step("Polar records the order of the tier", async () => paidOrder(buyer, price))
     await test.step("the buyer receives the confirmation of the consent to immediate supply by email", async () => {
-      expect(await purchaseConfirmation(buyer.email, `Your SaaSy Land ${TIER_NAMES[tier]} licence`)).toContain(
+      expect(await deliveredEmailHtml(buyer.email, `Your SaaSy Land ${TIER_NAMES[tier]} licence`)).toContain(
         "so the right of withdrawal does not apply to this order",
       )
     })

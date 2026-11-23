@@ -6,6 +6,7 @@ import { createBenefitGrantsService } from "@polar-sh/sdk/2026-10/services/benef
 import { createLicenseKeysService } from "@polar-sh/sdk/2026-10/services/license_keys"
 import { createOrdersService } from "@polar-sh/sdk/2026-10/services/orders"
 import { createRefundsService } from "@polar-sh/sdk/2026-10/services/refunds"
+import * as zod from "zod"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { POLAR_SERVER } from "../../src/data/polar"
@@ -21,6 +22,8 @@ const benefitGrants = createBenefitGrantsService(polar)
 const licenseKeys = createLicenseKeysService(polar)
 const orders = createOrdersService(polar)
 const refunds = createRefundsService(polar)
+
+const licenseKeyGrantSchema = zod.object({ license_key_id: zod.string() })
 
 export type OrderLicenseKey = Pick<models.LicenseKeyRead, "id" | "limit_activations" | "status">
 
@@ -43,15 +46,10 @@ const withinRateLimit = async <Result>(request: () => Promise<Result>): Promise<
 export const accountOrders = async (userId: string): Promise<models.Order[]> =>
   withinRateLimit(async () => Array.fromAsync(orders.iterList({ external_customer_id: userId })))
 
-export const orderLicenseKey = async (userId: string, orderId: string): Promise<OrderLicenseKey | undefined> => {
+export const orderLicenseKey = async (userId: string, orderId: string): Promise<OrderLicenseKey> => {
   const grants = await withinRateLimit(async () => Array.fromAsync(benefitGrants.iterList({ external_customer_id: userId })))
-  const properties = grants.find(({ order_id: grantOrderId }) => grantOrderId === orderId)?.properties
-  const licenseKeyId = properties !== undefined && "license_key_id" in properties ? properties.license_key_id : undefined
-
-  if (licenseKeyId === undefined) {
-    return undefined
-  }
-
+  const grant = grants.find(({ order_id: grantOrderId }) => grantOrderId === orderId)
+  const { license_key_id: licenseKeyId } = licenseKeyGrantSchema.parse(grant?.properties)
   const { id, limit_activations: limitActivations, status } = await withinRateLimit(async () => licenseKeys.get(licenseKeyId))
 
   return { id, limit_activations: limitActivations, status }

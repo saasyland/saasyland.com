@@ -42,7 +42,7 @@ const sentEmailId = async (recipient: string, subject: string): Promise<string |
   return data.data.find((email) => email.subject === subject && email.to.includes(recipient))?.id
 }
 
-const deliveredHtml = async (recipient: string, subject: string): Promise<string> => {
+export const deliveredEmailHtml = async (recipient: string, subject: string): Promise<string> => {
   await expect
     .poll(async () => sentEmailId(recipient, subject), { intervals: POLL_INTERVALS_MS, timeout: DELIVERY_TIMEOUT_MS })
     .toEqual(expect.any(String))
@@ -58,7 +58,7 @@ const deliveredHtml = async (recipient: string, subject: string): Promise<string
 }
 
 export const verificationLink = async (recipient: string): Promise<URL> => {
-  const link = VERIFICATION_LINK.exec(await deliveredHtml(recipient, VERIFICATION_SUBJECT))?.groups?.["link"]
+  const link = VERIFICATION_LINK.exec(await deliveredEmailHtml(recipient, VERIFICATION_SUBJECT))?.groups?.["link"]
 
   if (link === undefined) {
     throw new Error(`The verification email sent to ${recipient} has no verification link`)
@@ -66,5 +66,3 @@ export const verificationLink = async (recipient: string): Promise<URL> => {
 
   return new URL(link.replaceAll("&amp;", "&"))
 }
-
-export const purchaseConfirmation = async (recipient: string, subject: string): Promise<string> => deliveredHtml(recipient, subject)

@@ -37,7 +37,7 @@ export const badgeLayout = async (scope: Locator): Promise<BadgeLayout> =>
         if (parent !== null && isShown(parent) && (node.textContent ?? "").trim().length > 0) {
           const probe = document.createElement("span")
           probe.style.display = "inline-block"
-          parent.prepend(probe)
+          parent.insertBefore(probe, parent.firstChild)
           const baseline = probe.getBoundingClientRect().bottom
           probe.remove()
           const style = getComputedStyle(parent)
@@ -71,7 +71,7 @@ export const badgeLayout = async (scope: Locator): Promise<BadgeLayout> =>
 
     const titleGap = (row: Element): number[] => {
       const title = row.parentElement?.querySelector("[data-slot=lesson-title]")
-      if (title === null || title === undefined) {
+      if (!title) {
         return []
       }
       return [row.getBoundingClientRect().top - title.getBoundingClientRect().bottom]

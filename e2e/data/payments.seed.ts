@@ -27,9 +27,9 @@ interface SeededOrder {
   readonly productId: string
   readonly refundedAmount: number
   readonly status: string
-  readonly terms: SeededTerms | undefined
+  readonly terms?: SeededTerms
   readonly totalAmount: number
-  readonly userId: string | undefined
+  readonly userId?: string
 }
 
 const NO_TERMS = "NULL, NULL, NULL, NULL, NULL"
@@ -72,8 +72,6 @@ export const paymentsSeed = (): Promise<TestSeed> => {
           customerId: TEST_REVENUE_CUSTOMER_ID,
           description: TEST_REVENUE_PRODUCT_NAME,
           productId: TEST_REVENUE_PRODUCT_ID,
-          terms: undefined,
-          userId: undefined,
         }),
       ),
       ...TEST_BUYER_ORDERS.map(({ country, discountAmount, discounted, product, ...order }) =>

@@ -314,3 +314,33 @@ test("the customers tab lists the buyer with their orders and what they paid aft
     `${ROUTES.ADMIN_ORDERS}/${paidOrder.id}`,
   )
 })
+
+test("the admin ticks two statuses and sees each one as a chip and in the results while the filter stays open", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  await page.goto(ROUTES.ADMIN_ORDERS)
+  await appPage.waitForAppReady()
+  await searchForBuyer(page)
+  const rows = rowsOf(page)
+  const chips = page.getByRole("group", { includeHidden: true, name: gridFilters.active })
+
+  const statuses = await openFilter(page, headers.status)
+  const paid = statuses.getByRole("option", { exact: true, name: ordersMessages.status[POLAR_ORDER_STATUS.PAID] })
+  await paid.hover()
+  await expect(paid).toHaveAttribute("data-hovered", "true")
+  await paid.click()
+  await expect(chips).toBeVisible()
+  await expect(chips).toContainText(ordersMessages.status[POLAR_ORDER_STATUS.PAID])
+  await expect(rows.filter({ hasText: refundedOrder.id })).toHaveCount(0)
+
+  await statuses.getByRole("option", { exact: true, name: ordersMessages.status[POLAR_ORDER_STATUS.REFUNDED] }).click()
+  await expect(chips).toContainText(
+    `${ordersMessages.status[POLAR_ORDER_STATUS.PAID]} or ${ordersMessages.status[POLAR_ORDER_STATUS.REFUNDED]}`,
+  )
+  await expect(rows.filter({ hasText: refundedOrder.id })).toHaveCount(1)
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await closeFilter(page)
+})

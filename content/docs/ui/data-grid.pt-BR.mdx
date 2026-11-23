@@ -19,17 +19,19 @@ description: "O componente de tabela: busca, filtros por tipo de coluna, ordena�
 
 ## Props
 
-| Prop          | Finalidade                                                                                                                      |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`     | O conjunto de colunas do `<entity>-columns.tsx` da página. Toda linha precisa de um `id` do tipo string, usado como ID da linha |
-| `id`          | Dá nome à grade: a chave do seu layout salvo no navegador e o começo do nome do seu arquivo CSV                                 |
-| `label`       | O nome acessível da tabela, geralmente o título da página                                                                       |
-| `data`        | Linhas em memória, para uma grade que busca, filtra, ordena e pagina no cliente                                                 |
-| `query`       | Modo servidor: uma função da requisição da grade que retorna query options resolvidas em `{ rows, total }`                      |
-| `search`      | O rótulo e o placeholder da caixa de busca; sem ele, a grade não tem busca                                                      |
-| `empty`       | O que a grade diz enquanto não tem linhas e nenhuma busca ou filtro está definido                                               |
-| `selectable`  | Adiciona uma coluna de caixas de seleção e a barra de seleção                                                                   |
-| `bulkActions` | Uma função das linhas selecionadas que renderiza mais botões na barra de seleção                                                |
+| Prop             | Finalidade                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`        | O conjunto de colunas do `<entity>-columns.tsx` da página. Toda linha precisa de um `id` do tipo string, usado como ID da linha |
+| `id`             | Dá nome à grade: a chave do seu layout salvo no navegador e o começo do nome do seu arquivo CSV                                 |
+| `label`          | O nome acessível da tabela, geralmente o título da página                                                                       |
+| `data`           | Linhas em memória, para uma grade que busca, filtra, ordena e pagina no cliente                                                 |
+| `query`          | Modo servidor: uma função da requisição da grade que retorna query options resolvidas em `{ rows, total }`                      |
+| `search`         | O rótulo e o placeholder da caixa de busca; sem ele, a grade não tem busca                                                      |
+| `empty`          | O que a grade diz enquanto não tem linhas e nenhuma busca ou filtro está definido                                               |
+| `selectable`     | Adiciona uma coluna de caixas de seleção e a barra de seleção                                                                   |
+| `bulkActions`    | Uma função das linhas selecionadas que renderiza mais botões na barra de seleção                                                |
+| `rowActions`     | Um componente que recebe cada `row` e a encerra, em uma coluna fixada à direita                                                 |
+| `rowActionsSize` | A largura dessa coluna em pixels, <RepositoryFact name="dataGridActionsSize" />, a menos que as ações precisem de mais          |
 
 ## Colunas
 
@@ -58,6 +60,7 @@ columnHelper.accessor("status", {
 | `hidden` | Oculta até o administrador mostrá-la pelo menu Colunas                                                                                              |
 | `pinned` | Fixada no `start` ou no `end` até o administrador desafixá-la                                                                                       |
 | `export` | O texto que o CSV recebe para uma linha. Sem ele, o CSV pega strings e números como estão, datas como instantes ISO, e deixa todo o resto em branco |
+| `align`  | `end` alinha o cabeçalho e as células à direita com algarismos tabulares, para valores e contagens                                                  |
 
 `size` é a largura inicial da coluna em pixels. Uma coluna é ordenável a menos que defina `enableSorting: false`; no modo servidor, só as colunas pelas quais o schema Zod do módulo consegue ordenar devem ser ordenáveis.
 
@@ -73,7 +76,7 @@ Os tipos de filtro são <RepositoryFact name="dataGridFilterKinds" />. Cada um t
 | `numberRange` | Dois campos numéricos, no mínimo e no máximo, qualquer um deles vazio                                       | `{ min?, max? }`               |
 | `dateRange`   | Últimos 7 dias, últimos 30 dias, últimos 12 meses ou quaisquer dias em um calendário                        | `{ from?, to? }` em ms         |
 
-Os dias são convertidos em instantes no fuso horário do administrador, do início do primeiro dia ao último milissegundo do último, de modo que o servidor compara instantes simples. Cada filtro ativo aparece como um chip com um resumo curto, como no mínimo 40, Pago ou Reembolsado, ou 3 selecionadas; o seu × o remove e Remover filtros remove todos. Mudar a busca, um filtro ou a ordenação volta para a primeira página e limpa a seleção.
+Os dias são convertidos em instantes no fuso horário do administrador, do início do primeiro dia ao último milissegundo do último, de modo que o servidor compara instantes simples. Cada filtro ativo aparece como um chip na barra de ferramentas, ao lado do botão Filtrar, assim que é definido, de modo que os chips e os resultados mudam enquanto o filtro continua aberto. Um chip traz um resumo curto, como no mínimo 40, Pago ou Reembolsado, ou 3 selecionadas; o seu × o remove e Remover filtros remove todos. Mudar a busca, um filtro ou a ordenação volta para a primeira página e limpa a seleção.
 
 ## Modo servidor
 
@@ -103,7 +106,11 @@ O administrador reorganiza a grade, e o navegador guarda isso sob o `id` da grad
 - **Densidade.** Linhas espaçosas ou compactas.
 - **Tamanho da página.** <RepositoryFact name="dataGridPageSizes" /> linhas por página.
 
-A linha de cabeçalho continua visível enquanto as linhas rolam dentro da grade, e as colunas fixadas continuam visíveis enquanto a grade rola para os lados, que é como um celular mostra uma tabela larga.
+A grade é um único cartão: a barra de ferramentas em cima, a tabela e a paginação embaixo, divididas por linhas finas. Todos os controles da barra de ferramentas e chips de filtro têm a mesma altura; os cabeçalhos ficam só com a inicial maiúscula, no tamanho spec sobre uma faixa atenuada, as células no tamanho body, e a última coluna de dados ocupa toda a largura que sobra enquanto a coluna de ações mantém a sua. Em cada lista da grade, a opção sob o ponteiro é destacada como aquela em que o teclado está. O campo de pesquisa ocupa a largura livre da barra de ferramentas, então o texto de exemplo nunca é cortado, e um cabeçalho longo demais para a coluna passa para uma segunda linha em vez de ser encurtado. Em uma grade mais estreita que 64rem, Colunas, Exportar CSV e Restaurar layout mostram só o ícone, e a pesquisa mantém seu espaço.
+
+A linha de cabeçalho continua visível enquanto as linhas rolam dentro da grade, e as colunas fixadas continuam visíveis enquanto a grade rola para os lados, que é como um celular mostra uma tabela larga. Uma sombra no lado que tem mais colunas fora de vista, e na borda das colunas fixadas assim que outras passam por baixo delas, mostra que a grade rola (`.grid-scroller` em `globals.css`).
+
+A coluna de ações da linha não tem menu da coluna: ela não ordena, não se oculta, não se move, não se redimensiona nem aparece no CSV, e fica por último à direita.
 
 ## Seleção e exportação
 

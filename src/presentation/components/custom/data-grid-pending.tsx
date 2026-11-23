@@ -18,64 +18,73 @@ export interface DataGridPendingColumn {
 }
 
 export const DataGridPending = ({
+  actionsWidth,
   columns,
   isSelectable = false,
 }: {
+  readonly actionsWidth?: number
   readonly columns: readonly DataGridPendingColumn[]
   readonly isSelectable?: boolean
 }): JSX.Element => (
-  <div className="flex min-w-0 flex-col gap-3">
-    <div className="flex flex-wrap items-center gap-2">
-      <Skeleton className="h-8 w-full sm:w-72" />
-      <Skeleton className="h-7 w-20" />
+  <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5">
+      <Skeleton className="h-8 min-w-56 flex-1 basis-72" />
+      <Skeleton className="h-8 w-20" />
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <Skeleton className="h-7 w-14" />
+        <Skeleton className="h-8 w-16" />
         {CONTROL_BUTTONS.map((button) => (
-          <Skeleton className="h-7 w-9 sm:w-24" key={button} />
+          <Skeleton className="h-8 w-9 sm:w-24" key={button} />
         ))}
       </div>
     </div>
-    <TableContainer className="max-h-[max(24rem,calc(100dvh-14rem))] overflow-auto rounded-lg border border-border bg-background">
+    <TableContainer className="grid-scroller max-h-[max(24rem,calc(100dvh-16rem))] overflow-auto">
       <Table className="table-fixed border-separate border-spacing-0">
         <colgroup>
           {isSelectable && <col className="w-11" />}
           {columns.map((column) => (
             <col key={column.id} style={{ width: column.width }} />
           ))}
+          {actionsWidth !== undefined && <col style={{ width: actionsWidth }} />}
         </colgroup>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {isSelectable && (
-              <TableHead className="border-b border-b-border">
+              <TableHead className="h-10 border-b border-b-border/70 bg-(--grid-head)">
                 <Skeleton className="size-4 rounded-sm" />
               </TableHead>
             )}
             {columns.map((column) => (
-              <TableHead className="border-b border-b-border" key={column.id}>
+              <TableHead className="h-10 border-b border-b-border/70 bg-(--grid-head)" key={column.id}>
                 <Skeleton className="h-lh w-16 scale-y-70" />
               </TableHead>
             ))}
+            {actionsWidth !== undefined && <TableHead className="h-10 border-b border-b-border/70 bg-(--grid-head)" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {PAGE_ROWS.map((row) => (
             <TableRow className="hover:bg-transparent" key={row}>
               {isSelectable && (
-                <TableCell className="border-b border-b-border">
+                <TableCell className="border-b border-b-border/70">
                   <Skeleton className="size-4 rounded-sm" />
                 </TableCell>
               )}
               {columns.map((column) => (
-                <TableCell className="border-b border-b-border" key={column.id}>
+                <TableCell className="border-b border-b-border/70" key={column.id}>
                   {column.cell}
                 </TableCell>
               ))}
+              {actionsWidth !== undefined && (
+                <TableCell className="border-b border-b-border/70">
+                  <Skeleton className="ml-auto size-7 rounded-md" />
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </TableContainer>
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-spec">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/70 px-3 py-2 text-spec">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">
           <Skeleton className="h-lh w-20 scale-y-70" />

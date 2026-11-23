@@ -111,6 +111,8 @@ export type DataGridFilter =
 
 export const DATA_GRID_TYPING_DELAY_MS = 300
 
+export const DATA_GRID_ACTIONS_SIZE = 56
+
 export const DATA_GRID_DENSITY = {
   COMFORTABLE: "comfortable",
   COMPACT: "compact",
@@ -127,8 +129,15 @@ export const DATA_GRID_PIN = {
 
 export type DataGridPin = (typeof DATA_GRID_PIN)[keyof typeof DATA_GRID_PIN]
 
+export const DATA_GRID_ALIGN = {
+  END: "end",
+} as const
+
+export type DataGridAlign = (typeof DATA_GRID_ALIGN)[keyof typeof DATA_GRID_ALIGN]
+
 declare module "@tanstack/react-table" {
   interface ColumnMeta<in out TFeatures extends TableFeatures, in out TData extends RowData, TValue extends CellData = CellData> {
+    readonly align?: DataGridAlign
     readonly export?: (row: TData) => string
     readonly filter?: DataGridFilter
     readonly hidden?: boolean

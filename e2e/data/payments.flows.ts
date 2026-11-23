@@ -63,6 +63,19 @@ export const PAYMENTS_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,
+    id: "admin-orders-live-filter",
+    outcome:
+      "/admin/orders highlights the status under the pointer, and each status the admin ticks shows at once as a chip in the toolbar and in the results while the filter stays open",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "admin-orders.spec.ts",
+        title: "the admin ticks two statuses and sees each one as a chip and in the results while the filter stays open",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_PAYMENTS,
     id: "admin-orders-layout",
     outcome:
       "/admin/orders hides, shows, pins and moves its columns, keeps that layout in the browser after a reload and puts the defaults back on reset",

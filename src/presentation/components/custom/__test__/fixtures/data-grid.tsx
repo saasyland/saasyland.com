@@ -55,7 +55,7 @@ export const PEOPLE_COLUMNS = helper.columns([
   }),
   helper.accessor("age", { header: "Age", meta: { filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE } } }),
   helper.accessor("joined", { cell: JoinedCell, header: "Joined", meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE }, hidden: true } }),
-  helper.display({ cell: () => "Open", header: "Actions", id: "actions", meta: { pinned: DATA_GRID_PIN.END } }),
+  helper.display({ cell: () => "Open", header: "Profile", id: "profile", meta: { pinned: DATA_GRID_PIN.END } }),
 ])
 
 export const SEARCH = { search: "Search people" } as const

@@ -390,7 +390,7 @@ const ColumnChooser = <TData extends DataGridRow>({
 
   return (
     <div className="flex flex-col gap-2">
-      <Heading className="px-1.5 text-label text-muted-foreground uppercase" slot="title">
+      <Heading className="px-2 pt-0.5 text-label text-muted-foreground" slot="title">
         {t("choose")}
       </Heading>
       <SelectList
@@ -449,7 +449,7 @@ export const DataGridFilterMenu = <TData extends DataGridRow>({ table }: { reado
         }
       }}
     >
-      <Button size="sm" variant="outline">
+      <Button variant="outline">
         <ListFilter aria-hidden />
         {t("filter")}
         {active > 0 && (
@@ -458,7 +458,7 @@ export const DataGridFilterMenu = <TData extends DataGridRow>({ table }: { reado
           </Badge>
         )}
       </Button>
-      <Popover className={cn("w-80 p-3", { "sm:w-auto": editing?.filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
+      <Popover className={cn("w-72 p-2", { "sm:w-auto": editing?.filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
         <Dialog aria-label={t("filter")} className="outline-hidden">
           {editing === undefined && <ColumnChooser filterable={filterable} onChoose={setColumnId} />}
           {editing !== undefined && (
@@ -490,11 +490,11 @@ const FilterChip = <TData extends DataGridRow>({
   return (
     <ButtonGroup aria-label={label}>
       <PopoverTrigger>
-        <Button aria-label={t("chip", { column: label, value })} className="max-w-72 min-w-0" size="sm" variant="outline">
+        <Button aria-label={t("chip", { column: label, value })} className="max-w-72 min-w-0 text-spec" variant="outline">
           <span className="shrink-0 text-muted-foreground">{label}</span>
           <span className="truncate">{value}</span>
         </Button>
-        <Popover className={cn("w-80 p-3", { "sm:w-auto": filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
+        <Popover className={cn("w-72 p-2", { "sm:w-auto": filter.kind === DATA_GRID_FILTER.DATE_RANGE })} placement="bottom start">
           <Dialog aria-label={label} className="outline-hidden">
             <FilterEditor column={column} filter={filter} />
           </Dialog>
@@ -505,7 +505,7 @@ const FilterChip = <TData extends DataGridRow>({
         onPress={() => {
           column.setFilterValue(undefined)
         }}
-        size="icon-sm"
+        size="icon"
         variant="outline"
       >
         <X aria-hidden />
@@ -535,7 +535,6 @@ export const DataGridFilterChips = <TData extends DataGridRow>({
         onPress={() => {
           table.resetColumnFilters(true)
         }}
-        size="sm"
         variant="ghost"
       >
         {t("clearAll")}

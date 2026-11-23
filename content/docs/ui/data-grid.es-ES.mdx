@@ -19,17 +19,19 @@ description: "El componente de tabla: búsqueda, filtros por tipo de columna, or
 
 ## Props
 
-| Prop          | Propósito                                                                                                                           |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`     | El conjunto de columnas del `<entity>-columns.tsx` de la página. Cada fila necesita un `id` de tipo cadena, que sirve de ID de fila |
-| `id`          | Da nombre a la cuadrícula: la clave de su diseño guardado en el navegador y el comienzo del nombre de su archivo CSV                |
-| `label`       | El nombre accesible de la tabla, normalmente el título de la página                                                                 |
-| `data`        | Filas en memoria, para una cuadrícula que busca, filtra, ordena y pagina en el cliente                                              |
-| `query`       | Modo servidor: una función de la petición de la cuadrícula que devuelve opciones de query que se resuelven en `{ rows, total }`     |
-| `search`      | La etiqueta y el placeholder del cuadro de búsqueda; sin ella la cuadrícula no tiene búsqueda                                       |
-| `empty`       | Lo que dice la cuadrícula mientras no tiene filas y no hay ninguna búsqueda ni filtro                                               |
-| `selectable`  | Añade una columna de casillas y la barra de selección                                                                               |
-| `bulkActions` | Una función de las filas seleccionadas que renderiza más botones en la barra de selección                                           |
+| Prop             | Propósito                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`        | El conjunto de columnas del `<entity>-columns.tsx` de la página. Cada fila necesita un `id` de tipo cadena, que sirve de ID de fila |
+| `id`             | Da nombre a la cuadrícula: la clave de su diseño guardado en el navegador y el comienzo del nombre de su archivo CSV                |
+| `label`          | El nombre accesible de la tabla, normalmente el título de la página                                                                 |
+| `data`           | Filas en memoria, para una cuadrícula que busca, filtra, ordena y pagina en el cliente                                              |
+| `query`          | Modo servidor: una función de la petición de la cuadrícula que devuelve opciones de query que se resuelven en `{ rows, total }`     |
+| `search`         | La etiqueta y el placeholder del cuadro de búsqueda; sin ella la cuadrícula no tiene búsqueda                                       |
+| `empty`          | Lo que dice la cuadrícula mientras no tiene filas y no hay ninguna búsqueda ni filtro                                               |
+| `selectable`     | Añade una columna de casillas y la barra de selección                                                                               |
+| `bulkActions`    | Una función de las filas seleccionadas que renderiza más botones en la barra de selección                                           |
+| `rowActions`     | Un componente que recibe cada `row` y la cierra, en una columna fijada a la derecha                                                 |
+| `rowActionsSize` | El ancho de esa columna en píxeles, <RepositoryFact name="dataGridActionsSize" /> salvo que las acciones necesiten más              |
 
 ## Columnas
 
@@ -58,6 +60,7 @@ columnHelper.accessor("status", {
 | `hidden` | Oculta hasta que el administrador la muestra desde el menú Columnas                                                                                         |
 | `pinned` | Fijada al `start` o al `end` hasta que el administrador la desfija                                                                                          |
 | `export` | El texto que recibe el CSV para una fila. Sin él, el CSV toma las cadenas y los números tal cual, las fechas como instantes ISO, y deja vacío todo lo demás |
+| `align`  | `end` alinea la cabecera y las celdas a la derecha con cifras tabulares, para importes y recuentos                                                          |
 
 `size` es el ancho inicial de la columna en píxeles. Una columna se puede ordenar salvo que fije `enableSorting: false`; en modo servidor solo deberían ordenarse las columnas por las que el esquema Zod del módulo puede ordenar.
 
@@ -73,7 +76,7 @@ Los tipos de filtro son <RepositoryFact name="dataGridFilterKinds" />. Cada uno 
 | `numberRange` | Dos campos numéricos, como mínimo y como máximo, cualquiera de ellos vacío                                           | `{ min?, max? }`                      |
 | `dateRange`   | Últimos 7 días, últimos 30 días, últimos 12 meses o cualquier día de un calendario                                   | `{ from?, to? }` en ms                |
 
-Los días se convierten en instantes en la zona horaria del administrador, desde el inicio del primer día hasta el último milisegundo del último, de modo que el servidor compara instantes simples. Cada filtro activo aparece como un chip con un breve resumen, como al menos 40, Pagado o Reembolsado, o 3 seleccionadas; su × lo quita y Quitar filtros los quita todos. Cambiar la búsqueda, un filtro o la ordenación vuelve a la primera página y vacía la selección.
+Los días se convierten en instantes en la zona horaria del administrador, desde el inicio del primer día hasta el último milisegundo del último, de modo que el servidor compara instantes simples. Cada filtro activo aparece como un chip en la barra de herramientas, junto al botón Filtrar, en cuanto se establece, de modo que los chips y los resultados cambian mientras el filtro sigue abierto. Un chip lleva un breve resumen, como al menos 40, Pagado o Reembolsado, o 3 seleccionadas; su × lo quita y Quitar filtros los quita todos. Cambiar la búsqueda, un filtro o la ordenación vuelve a la primera página y vacía la selección.
 
 ## Modo servidor
 
@@ -103,7 +106,11 @@ El administrador reorganiza la cuadrícula, y el navegador lo guarda bajo el `id
 - **Densidad.** Filas holgadas o compactas.
 - **Tamaño de página.** <RepositoryFact name="dataGridPageSizes" /> filas por página.
 
-La fila de cabecera sigue a la vista mientras las filas se desplazan dentro de la cuadrícula, y las columnas fijadas siguen a la vista mientras la cuadrícula se desplaza en horizontal, que es como un móvil muestra una tabla ancha.
+La cuadrícula es una sola tarjeta: la barra de herramientas arriba, la tabla y la paginación abajo, separadas por líneas finas. Todos los controles de la barra de herramientas y los chips de filtro tienen la misma altura; las cabeceras van con mayúscula solo inicial, en el tamaño spec sobre una franja atenuada, las celdas en el tamaño body, y la última columna de datos ocupa el ancho que queda mientras la columna de acciones conserva el suyo. En cada lista de la cuadrícula, la opción bajo el puntero se resalta igual que aquella en la que está el teclado. El campo de búsqueda ocupa el ancho libre de la barra de herramientas, así que su texto de ejemplo nunca se corta, y un encabezado demasiado largo para su columna pasa a una segunda línea en lugar de acortarse. En una cuadrícula de menos de 64rem, Columnas, Exportar CSV y Restablecer diseño muestran solo su icono, y la búsqueda conserva su espacio.
+
+La fila de cabecera sigue a la vista mientras las filas se desplazan dentro de la cuadrícula, y las columnas fijadas siguen a la vista mientras la cuadrícula se desplaza en horizontal, que es como un móvil muestra una tabla ancha. Una sombra en el lado que tiene más columnas fuera de la vista, y en el borde de las columnas fijadas cuando otras pasan por debajo, indica que la cuadrícula se desplaza (`.grid-scroller` en `globals.css`).
+
+La columna de acciones de fila no tiene menú de columna: no se ordena, no se oculta, no se mueve, no se redimensiona ni aparece en el CSV, y se queda la última a la derecha.
 
 ## Selección y exportación
 

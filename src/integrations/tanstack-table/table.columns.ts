@@ -6,6 +6,10 @@ import { DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstac
 
 export const SELECT_COLUMN_ID = "select"
 
+export const ACTIONS_COLUMN_ID = "actions"
+
+export const isDataColumn = (id: string): boolean => id !== SELECT_COLUMN_ID && id !== ACTIONS_COLUMN_ID
+
 const NESTED_KEY_SEPARATOR = "."
 
 const NESTED_ID_SEPARATOR = "_"
@@ -32,10 +36,18 @@ export const defaultPinning = <TData extends RowData>(columns: readonly ColumnDe
   [DATA_GRID_PIN.START]: columns.filter((column) => column.meta?.pinned === DATA_GRID_PIN.START).map((column) => columnIdOf(column)),
 })
 
-export const withSelectPinned = (pinning: ColumnPinningState, selectable: boolean): ColumnPinningState => {
-  const start = pinning.start.filter((id) => id !== SELECT_COLUMN_ID)
+export interface FixedColumns {
+  readonly actions: boolean
+  readonly selectable: boolean
+}
 
-  return { end: pinning.end.filter((id) => id !== SELECT_COLUMN_ID), start: selectable ? [SELECT_COLUMN_ID, ...start] : start }
+export const NO_FIXED_COLUMNS: FixedColumns = { actions: false, selectable: false }
+
+export const withFixedColumnsPinned = (pinning: ColumnPinningState, { actions, selectable }: FixedColumns): ColumnPinningState => {
+  const start = pinning.start.filter((id) => isDataColumn(id))
+  const end = pinning.end.filter((id) => isDataColumn(id))
+
+  return { end: actions ? [...end, ACTIONS_COLUMN_ID] : end, start: selectable ? [SELECT_COLUMN_ID, ...start] : start }
 }
 
 export const pinnedStyle = <TData extends RowData>(column: Column<DataGridFeatures, TData>): CSSProperties => {

@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
 import { CURRENCIES } from "~/src/modules/_core/constants/currency"
 import { ORDER_DISCOUNT_FILTERS, ORDER_STATUSES } from "~/src/modules/order/order.constants"
@@ -74,7 +74,7 @@ const TotalCell = ({ row }: CellContext<DataGridFeatures, OrderRow, OrderRow["to
   const { refunded, total } = row.original
 
   return (
-    <div className="flex flex-col text-sm font-medium">
+    <div className="flex flex-col items-end text-sm font-medium tabular-nums">
       <MoneyAmount money={total} />
       {refunded.amount > 0 && (
         <span className="truncate text-spec font-normal text-muted-foreground">
@@ -195,14 +195,18 @@ export const useOrderColumns = (): DataGridColumn<OrderRow>[] => {
           cell: TotalCell,
           header: t("pages.admin.orders.table.headers.totalAmount"),
           id: "totalAmount",
-          meta: { export: ({ total }) => exportedMoney(total), filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE } },
+          meta: {
+            align: DATA_GRID_ALIGN.END,
+            export: ({ total }) => exportedMoney(total),
+            filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE },
+          },
           size: ORDER_COLUMN_SIZES.totalAmount,
         }),
         columnHelper.accessor("refunded", {
           cell: RefundedCell,
           header: t("pages.admin.orders.table.headers.refundedAmount"),
           id: "refundedAmount",
-          meta: { export: ({ refunded }) => exportedMoney(refunded), hidden: true },
+          meta: { align: DATA_GRID_ALIGN.END, export: ({ refunded }) => exportedMoney(refunded), hidden: true },
           size: ORDER_COLUMN_SIZES.refundedAmount,
         }),
         columnHelper.accessor("discount", {

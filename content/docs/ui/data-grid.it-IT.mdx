@@ -19,17 +19,19 @@ description: "Il componente tabella: ricerca, filtri per tipo di colonna, ordina
 
 ## Props
 
-| Prop          | Scopo                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`     | L’insieme di colonne del `<entity>-columns.tsx` della pagina. Ogni riga ha bisogno di un `id` stringa, usato come ID della riga |
-| `id`          | Dà un nome alla griglia: la chiave del suo layout salvato nel browser e l’inizio del nome del suo file CSV                      |
-| `label`       | Il nome accessibile della tabella, di solito il titolo della pagina                                                             |
-| `data`        | Righe in memoria, per una griglia che cerca, filtra, ordina e pagina sul client                                                 |
-| `query`       | Modalità server: una funzione della richiesta della griglia che restituisce opzioni di query risolte in `{ rows, total }`       |
-| `search`      | L’etichetta e il segnaposto della casella di ricerca; senza, la griglia non ha ricerca                                          |
-| `empty`       | Cosa dice la griglia finché non ha righe e non è impostata nessuna ricerca né filtro                                            |
-| `selectable`  | Aggiunge una colonna di caselle di controllo e la barra di selezione                                                            |
-| `bulkActions` | Una funzione delle righe selezionate che mostra altri pulsanti nella barra di selezione                                         |
+| Prop             | Scopo                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`        | L’insieme di colonne del `<entity>-columns.tsx` della pagina. Ogni riga ha bisogno di un `id` stringa, usato come ID della riga   |
+| `id`             | Dà un nome alla griglia: la chiave del suo layout salvato nel browser e l’inizio del nome del suo file CSV                        |
+| `label`          | Il nome accessibile della tabella, di solito il titolo della pagina                                                               |
+| `data`           | Righe in memoria, per una griglia che cerca, filtra, ordina e pagina sul client                                                   |
+| `query`          | Modalità server: una funzione della richiesta della griglia che restituisce opzioni di query risolte in `{ rows, total }`         |
+| `search`         | L’etichetta e il segnaposto della casella di ricerca; senza, la griglia non ha ricerca                                            |
+| `empty`          | Cosa dice la griglia finché non ha righe e non è impostata nessuna ricerca né filtro                                              |
+| `selectable`     | Aggiunge una colonna di caselle di controllo e la barra di selezione                                                              |
+| `bulkActions`    | Una funzione delle righe selezionate che mostra altri pulsanti nella barra di selezione                                           |
+| `rowActions`     | Un componente che riceve ogni `row` e la chiude, in una colonna fissata a destra                                                  |
+| `rowActionsSize` | La larghezza di quella colonna in pixel, <RepositoryFact name="dataGridActionsSize" /> a meno che le azioni non richiedano di più |
 
 ## Colonne
 
@@ -58,6 +60,7 @@ columnHelper.accessor("status", {
 | `hidden` | Nascosta finché l’amministratore non la mostra dal menu Colonne                                                                                         |
 | `pinned` | Fissata a `start` o a `end` finché l’amministratore non la sblocca                                                                                      |
 | `export` | Il testo che il CSV riceve per una riga. Senza, il CSV prende stringhe e numeri così come sono, le date come istanti ISO, e lascia vuoto tutto il resto |
+| `align`  | `end` allinea a destra l’intestazione e le celle con cifre tabulari, per importi e conteggi                                                             |
 
 `size` è la larghezza iniziale della colonna in pixel. Una colonna è ordinabile a meno che non imposti `enableSorting: false`; in modalità server dovrebbero essere ordinabili solo le colonne per cui lo schema Zod del modulo può ordinare.
 
@@ -73,7 +76,7 @@ I tipi di filtro sono <RepositoryFact name="dataGridFilterKinds" />. Ognuno ha i
 | `numberRange` | Due campi numerici, almeno e al massimo, ciascuno può restare vuoto                                                | `{ min?, max? }`                       |
 | `dateRange`   | Ultimi 7 giorni, ultimi 30 giorni, ultimi 12 mesi o qualsiasi giorno su un calendario                              | `{ from?, to? }` in ms                 |
 
-I giorni vengono trasformati in istanti nel fuso orario dell’amministratore, dall’inizio del primo giorno all’ultimo millisecondo dell’ultimo, così il server confronta semplici istanti. Ogni filtro attivo compare come un chip con un breve riepilogo, come almeno 40, Pagato o Rimborsato, oppure 3 selezionate; la sua × lo rimuove e Rimuovi filtri li rimuove tutti. Cambiare la ricerca, un filtro o l’ordinamento torna alla prima pagina e svuota la selezione.
+I giorni vengono trasformati in istanti nel fuso orario dell’amministratore, dall’inizio del primo giorno all’ultimo millisecondo dell’ultimo, così il server confronta semplici istanti. Ogni filtro attivo compare come un chip nella barra degli strumenti, accanto al pulsante Filtra, non appena viene impostato, così i chip e i risultati cambiano mentre il filtro resta aperto. Un chip riporta un breve riepilogo, come almeno 40, Pagato o Rimborsato, oppure 3 selezionate; la sua × lo rimuove e Rimuovi filtri li rimuove tutti. Cambiare la ricerca, un filtro o l’ordinamento torna alla prima pagina e svuota la selezione.
 
 ## Modalità server
 
@@ -103,7 +106,11 @@ L’amministratore riorganizza la griglia e il browser la conserva sotto l’`id
 - **Densità.** Righe ariose o compatte.
 - **Dimensione della pagina.** <RepositoryFact name="dataGridPageSizes" /> righe per pagina.
 
-La riga di intestazione resta in vista mentre le righe scorrono dentro la griglia, e le colonne fissate restano in vista mentre la griglia scorre in orizzontale: è così che uno smartphone mostra una tabella larga.
+La griglia è un’unica scheda: la barra degli strumenti in alto, la tabella e la paginazione in basso, divise da linee sottili. Ogni controllo della barra degli strumenti e ogni chip di filtro hanno la stessa altezza; le intestazioni hanno solo l’iniziale maiuscola, nella dimensione spec su una fascia attenuata, le celle nella dimensione body, e l’ultima colonna di dati occupa tutta la larghezza rimasta mentre la colonna delle azioni mantiene la propria. In ogni elenco della griglia, l’opzione sotto il puntatore è evidenziata come quella su cui si trova la tastiera. Il campo di ricerca occupa la larghezza libera della barra degli strumenti, così il testo segnaposto non viene mai tagliato, e un'intestazione troppo lunga per la sua colonna va a capo su una seconda riga invece di essere accorciata. In una griglia più stretta di 64rem, Colonne, Esporta CSV e Ripristina layout mostrano solo l'icona, così la ricerca conserva il suo spazio.
+
+La riga di intestazione resta in vista mentre le righe scorrono dentro la griglia, e le colonne fissate restano in vista mentre la griglia scorre in orizzontale: è così che uno smartphone mostra una tabella larga. Un’ombra sul lato che ha altre colonne fuori vista, e sul bordo delle colonne fissate quando altre passano sotto di esse, mostra che la griglia scorre (`.grid-scroller` in `globals.css`).
+
+La colonna delle azioni di riga non ha menu della colonna: non si ordina, non si nasconde, non si sposta, non si ridimensiona e non compare nel CSV, e resta l’ultima a destra.
 
 ## Selezione ed esportazione
 

@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useMemo, useState } from "react"
+import { type ComponentType, type JSX, type ReactNode, useMemo, useState } from "react"
 
 import { type QueryClient, type UseQueryOptions, keepPreviousData, skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -21,8 +21,17 @@ import {
 } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
-import { SELECT_COLUMN_ID, defaultPinning, defaultVisibility, withSelectPinned } from "~/src/integrations/tanstack-table/table.columns"
 import {
+  ACTIONS_COLUMN_ID,
+  type FixedColumns,
+  NO_FIXED_COLUMNS,
+  SELECT_COLUMN_ID,
+  defaultPinning,
+  defaultVisibility,
+  withFixedColumnsPinned,
+} from "~/src/integrations/tanstack-table/table.columns"
+import {
+  DATA_GRID_ACTIONS_SIZE,
   DATA_GRID_DENSITY,
   DATA_GRID_FILTER_FNS,
   DATA_GRID_TYPING_DELAY_MS,
@@ -73,6 +82,8 @@ export interface DataGridProps<TData extends DataGridRow> {
   readonly id: string
   readonly label: string
   readonly query?: DataGridQuery<TData>
+  readonly rowActions?: ComponentType<{ readonly row: TData }>
+  readonly rowActionsSize?: number
   readonly search?: string
   readonly selectable?: boolean
 }
@@ -145,9 +156,40 @@ const selectColumn = <TData extends DataGridRow>(): DataGridColumn<TData> =>
     size: SELECT_COLUMN_SIZE,
   })
 
+const ActionsHeader = (): JSX.Element => {
+  const t = useTranslations("components.custom.data-grid.actions")
+
+  return <span className="sr-only">{t("header")}</span>
+}
+
+const actionsColumn = <TData extends DataGridRow>(
+  RowActions: ComponentType<{ readonly row: TData }>,
+  size: number,
+): DataGridColumn<TData> =>
+  createColumnHelper<DataGridFeatures, TData>().display({
+    cell: ({ row }) => <RowActions row={row.original} />,
+    enableHiding: false,
+    enablePinning: false,
+    enableResizing: false,
+    enableSorting: false,
+    header: ActionsHeader,
+    id: ACTIONS_COLUMN_ID,
+    maxSize: size,
+    minSize: size,
+    size,
+  })
+
 const useGridColumns = <TData extends DataGridRow>(
   columns: readonly DataGridColumn<TData>[],
-  selectable: boolean,
+  {
+    rowActions,
+    rowActionsSize,
+    selectable,
+  }: {
+    readonly rowActions: ComponentType<{ readonly row: TData }> | undefined
+    readonly rowActionsSize: number
+    readonly selectable: boolean
+  },
 ): DataGridColumn<TData>[] =>
   useMemo(() => {
     const filterable = columns.map((column): DataGridColumn<TData> => {
@@ -156,15 +198,19 @@ const useGridColumns = <TData extends DataGridRow>(
       return kind === undefined ? column : { ...column, filterFn: DATA_GRID_FILTER_FNS[kind] }
     })
 
-    return selectable ? [selectColumn<TData>(), ...filterable] : filterable
-  }, [columns, selectable])
+    return [
+      ...(selectable ? [selectColumn<TData>()] : []),
+      ...filterable,
+      ...(rowActions === undefined ? [] : [actionsColumn(rowActions, rowActionsSize)]),
+    ]
+  }, [columns, rowActions, rowActionsSize, selectable])
 
-const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly DataGridColumn<TData>[], selectable: boolean) => {
+const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly DataGridColumn<TData>[], fixed: FixedColumns) => {
   const { preferences, reset, update } = useDataGridPreferences(id)
   const defaults = useMemo(() => ({ columnPinning: defaultPinning(columns), columnVisibility: defaultVisibility(columns) }), [columns])
   const columnPinning = useMemo(
-    () => withSelectPinned(preferences.columnPinning ?? defaults.columnPinning, selectable),
-    [defaults, preferences.columnPinning, selectable],
+    () => withFixedColumnsPinned(preferences.columnPinning ?? defaults.columnPinning, fixed),
+    [defaults, fixed, preferences.columnPinning],
   )
   const columnVisibility = useMemo(
     () => ({ ...defaults.columnVisibility, ...preferences.columnVisibility }),
@@ -180,7 +226,7 @@ const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly 
       update({ columnOrder: functionalUpdate(updater, columnOrder) })
     },
     onColumnPinningChange: (updater: Updater<ColumnPinningState>) => {
-      update({ columnPinning: withSelectPinned(functionalUpdate(updater, columnPinning), false) })
+      update({ columnPinning: withFixedColumnsPinned(functionalUpdate(updater, columnPinning), NO_FIXED_COLUMNS) })
     },
     onColumnSizingChange: (updater: Updater<ColumnSizingState>) => {
       update({ columnSizing: functionalUpdate(updater, columnSizing) })
@@ -293,14 +339,24 @@ const useGridState = (pageSize: number, setPageSize: (pageSize: PageSize) => voi
   }
 }
 
-const useDataGrid = <TData extends DataGridRow>({ columns, data = NO_ROWS, id, query, selectable = false }: DataGridProps<TData>) => {
+const useDataGrid = <TData extends DataGridRow>({
+  columns,
+  data = NO_ROWS,
+  id,
+  query,
+  rowActions,
+  rowActionsSize = DATA_GRID_ACTIONS_SIZE,
+  selectable = false,
+}: DataGridProps<TData>) => {
   const queryClient = useQueryClient()
-  const layout = useGridLayout(id, columns, selectable)
+  const hasActions = rowActions !== undefined
+  const fixed = useMemo(() => ({ actions: hasActions, selectable }), [hasActions, selectable])
+  const layout = useGridLayout(id, columns, fixed)
   const grid = useGridState(layout.pageSize, layout.setPageSize)
   const request = requestOf(grid.state, layout.pageSize)
   const page = useGridPage(query, request, data)
   const isServer = query !== undefined
-  const tableColumns = useGridColumns(columns, selectable)
+  const tableColumns = useGridColumns(columns, { rowActions, rowActionsSize, selectable })
   const table = useTable({
     autoResetPageIndex: false,
     columnResizeMode: "onChange",
@@ -351,7 +407,7 @@ export const DataGrid = <TData extends DataGridRow>(props: DataGridProps<TData>)
   const isFiltered = grid.state.globalFilter.length > 0 || grid.state.columnFilters.length > 0
 
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-slot="data-grid">
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card" data-slot="data-grid">
       <DataGridToolbar
         announce={setAnnouncement}
         collectRows={collectRows}

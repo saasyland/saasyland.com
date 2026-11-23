@@ -1,5 +1,10 @@
+import * as zod from "zod"
+
+import { COURSE_COVER_SIZE, courseCoverImage, coverContentType } from "~/src/modules/course/course.cover"
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
+
+import type { ShareImage } from "~/src/lib/seo"
 
 type Lesson = Course["pageLesson"]
 
@@ -24,3 +29,16 @@ export const locateLesson = (lessons: readonly Lesson[], slug: string) => {
 
 export const findEditorLesson = (editor: Course["editor"], lessonId: string): Course["editorLesson"] | undefined =>
   editor.chapters.flatMap(({ lessons }) => lessons).find((lesson) => lesson.id === lessonId)
+
+const shareImageSchema = zod.object({ cover: zod.string(), title: zod.string() }).transform(({ cover, title }, context): ShareImage => {
+  const type = coverContentType(cover)
+  if (type === undefined) {
+    context.addIssue({ code: "custom", input: cover, message: "coverTypeUnknown" })
+    return zod.NEVER
+  }
+
+  return { alt: title, height: COURSE_COVER_SIZE.height, path: courseCoverImage(cover).src, type, width: COURSE_COVER_SIZE.width }
+})
+
+export const courseShareImage = (course: { readonly cover: string | null; readonly title: string }): ShareImage | undefined =>
+  shareImageSchema.safeParse(course).data

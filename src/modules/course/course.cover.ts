@@ -1,8 +1,4 @@
-import * as zod from "zod"
-
 import { BYTES_PER_MEGABYTE, MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
-
-import type { ShareImage } from "~/src/lib/seo"
 
 const COURSE_COVER_KEY_PREFIX = "covers"
 
@@ -94,19 +90,6 @@ export const courseCoverImage = (cover: string): CoverImage => ({
   src: coverPath(cover),
   srcSet: COURSE_COVER_WIDTHS.map((width) => `${coverPath(coverVariantKey(cover, width))} ${String(width)}w`).join(", "),
 })
-
-const shareImageSchema = zod.object({ cover: zod.string(), title: zod.string() }).transform(({ cover, title }, context): ShareImage => {
-  const type = coverContentType(cover)
-  if (type === undefined) {
-    context.addIssue({ code: "custom", input: cover, message: "coverTypeUnknown" })
-    return zod.NEVER
-  }
-
-  return { alt: title, height: COURSE_COVER_SIZE.height, path: coverPath(cover), type, width: COURSE_COVER_SIZE.width }
-})
-
-export const courseShareImage = (course: { readonly cover: string | null; readonly title: string }): ShareImage | undefined =>
-  shareImageSchema.safeParse(course).data
 
 export const COVER_SIZES = COURSE_COVER_WIDTHS.map((width) => ({
   height: Math.round((width * COURSE_COVER_SIZE.height) / COURSE_COVER_SIZE.width),

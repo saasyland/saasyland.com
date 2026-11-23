@@ -9,9 +9,8 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { courseShareImage } from "~/src/modules/course/course.cover"
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons } from "~/src/modules/course/course.utils"
+import { courseLessons, courseShareImage } from "~/src/modules/course/course.utils"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 

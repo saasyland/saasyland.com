@@ -4,7 +4,6 @@ import {
   COURSE_COVER_STORED_TYPES,
   COVER_SIZES,
   courseCoverImage,
-  courseShareImage,
   coverContentType,
   coverEntries,
   coverExtension,
@@ -55,23 +54,6 @@ describe("courseCoverImage", () => {
         `/media/${COVER} 1600w`,
       ].join(", "),
     })
-  })
-})
-
-describe("courseShareImage", () => {
-  it("shares the full-size cover with its type, size and the course title", () => {
-    expect(courseShareImage({ cover: COVER, title: "The walkthrough" })).toStrictEqual({
-      alt: "The walkthrough",
-      height: 900,
-      path: `/media/${COVER}`,
-      type: COURSE_COVER_STORED_TYPES.webp,
-      width: 1600,
-    })
-  })
-
-  it("leaves the site card to a course without a cover it can describe", () => {
-    expect(courseShareImage({ cover: null, title: "The walkthrough" })).toBeUndefined()
-    expect(courseShareImage({ cover: `covers/${COURSE_ID}/${COVER_ID}.gif`, title: "The walkthrough" })).toBeUndefined()
   })
 })
 

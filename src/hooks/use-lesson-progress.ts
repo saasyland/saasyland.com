@@ -7,8 +7,9 @@ import { LESSON_PROGRESS_QUERY_KEYS } from "~/src/modules/lesson-progress/lesson
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 
+import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
+
 export const SAVE_INTERVAL_MS = 15_000
-const MILLISECONDS_PER_SECOND = 1000
 
 interface LessonProgressOptions {
   readonly enabled: boolean

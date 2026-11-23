@@ -309,7 +309,7 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
     article["keywords"] = input.keywords
   }
 
-  const graph: Record<string, unknown>[] = [
+  const graph: StructuredDataNode[] = [
     article,
     person,
     {

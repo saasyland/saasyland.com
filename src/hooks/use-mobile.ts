@@ -2,21 +2,21 @@ import { useEffect, useState } from "react"
 
 const MOBILE_BREAKPOINT = 768
 
-export const useIsMobile = () => {
+export const useIsMobile = (): boolean => {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const mql = globalThis.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const mobileQuery = globalThis.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
 
-    const syncIsMobileFromViewport = () => {
+    const syncWithViewport = (): void => {
       setIsMobile(globalThis.innerWidth < MOBILE_BREAKPOINT)
     }
 
-    mql.addEventListener("change", syncIsMobileFromViewport)
-    syncIsMobileFromViewport()
+    mobileQuery.addEventListener("change", syncWithViewport)
+    syncWithViewport()
 
-    return function unsubscribeFromMobileBreakpointChanges() {
-      mql.removeEventListener("change", syncIsMobileFromViewport)
+    return () => {
+      mobileQuery.removeEventListener("change", syncWithViewport)
     }
   }, [])
 

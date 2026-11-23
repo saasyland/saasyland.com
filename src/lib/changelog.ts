@@ -100,14 +100,13 @@ const withUpcomingRelease = (commits: readonly LoggedCommit[], upcomingRelease: 
   })
 
 const firstReleasesOf = (commits: readonly LoggedCommit[]): (string | undefined)[] => {
-  const oldestReleased = commits.findLastIndex(({ releases }) => releases.length > 0)
-  const nearest = commits.reduce<(string | undefined)[]>((found, { releases }, index) => {
+  const released = commits.slice(0, commits.findLastIndex(({ releases }) => releases.length > 0) + 1)
+
+  return released.reduce<(string | undefined)[]>((found, { releases }, index) => {
     found.push(releases[0] ?? found[index - 1])
 
     return found
   }, [])
-
-  return nearest.map((release, index) => (index > oldestReleased ? undefined : release))
 }
 
 const mergesOf = (commits: readonly LoggedCommit[]): ReadonlyMap<string, Merge> => {
@@ -184,9 +183,6 @@ export const joinEntries = <Entry extends ChangelogEntry>(entries: readonly Entr
 export const pullRequestOf = (ref: string): string | undefined =>
   (PULL_REQUEST_REF.exec(ref) ?? MERGE_GROUP_REF.exec(ref))?.groups?.["number"]
 
-const awaitedEntryOf = ({ baseRef, ref }: ChangelogRun): string | undefined =>
-  baseRef === MAIN_BRANCH ? PULL_REQUEST_REF.exec(ref)?.groups?.["number"] : undefined
-
 const unreleasedProblems = (entries: readonly ChangelogEntry[], rule: string): string[] =>
   entries.map(
     ({ key }) =>
@@ -194,9 +190,9 @@ const unreleasedProblems = (entries: readonly ChangelogEntry[], rule: string): s
   )
 
 export const unreleasedEntryProblems = ({ changelog, run }: { changelog: Changelog; run: ChangelogRun }): string[] => {
-  const awaited = awaitedEntryOf(run)
+  const awaited = PULL_REQUEST_REF.exec(run.ref)?.groups?.["number"]
 
-  if (awaited !== undefined) {
+  if (awaited !== undefined && run.baseRef === MAIN_BRANCH) {
     return unreleasedProblems(
       changelog.unreleased.filter(({ key }) => key !== awaited),
       `in pull request #${awaited}, only its own entry may wait for the merge`,

@@ -1,5 +1,5 @@
 import type { SearchMiddleware } from "@tanstack/react-router"
-import * as zod from "zod"
+import zod from "zod/v4"
 
 export const searchParam = <Schema extends zod.ZodType>(schema: Schema): zod.ZodCatch<zod.ZodOptional<Schema>> =>
   schema.optional().catch(undefined)

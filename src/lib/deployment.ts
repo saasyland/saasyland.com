@@ -47,21 +47,21 @@ const describeMismatch = (request: string, response: Response, { contentType, st
 const findAnswerProblems = async (url: URL, response: Response, { post }: LiveSiteCheck): Promise<readonly string[]> =>
   post === undefined ? [] : post.findProblems(await response.json(), url.origin)
 
-const findProblem = async (url: URL, check: LiveSiteCheck): Promise<string | undefined> => {
+const findProblems = async (url: URL, check: LiveSiteCheck): Promise<string[]> => {
   const request = describeRequest(url, check)
 
   try {
     const response = await fetch(url, requestInit(url, check))
     const contentType = response.headers.get("content-type")
     if (response.status !== check.status || contentType?.startsWith(check.contentType) !== true) {
-      return describeMismatch(request, response, check)
+      return [describeMismatch(request, response, check)]
     }
 
     const problems = await findAnswerProblems(url, response, check)
 
-    return problems.length === 0 ? undefined : `${request}: ${problems.join(", ")}.`
+    return problems.length === 0 ? [] : [`${request}: ${problems.join(", ")}.`]
   } catch (error) {
-    return `${request} did not answer: ${String(error)}`
+    return [`${request} did not answer: ${String(error)}`]
   }
 }
 
@@ -69,10 +69,10 @@ const checkUntilAnswered = async (
   url: URL,
   check: LiveSiteCheck,
   [delay, ...laterDelays] = LIVE_SITE_CHECK_RETRY_DELAYS_MS,
-): Promise<string | undefined> => {
-  const problem = await findProblem(url, check)
-  if (problem === undefined || delay === undefined) {
-    return problem
+): Promise<string[]> => {
+  const problems = await findProblems(url, check)
+  if (problems.length === 0 || delay === undefined) {
+    return problems
   }
 
   await wait(delay)
@@ -83,7 +83,7 @@ const checkUntilAnswered = async (
 export const verifyDeployment = async (environment: DeployedEnvironment): Promise<string> => {
   const origin = `https://${DEPLOYED_HOSTS[environment]}`
   const problems = await Promise.all(LIVE_SITE_CHECKS.map((check) => checkUntilAnswered(new URL(check.path, origin), check)))
-  const failures = problems.filter((problem) => problem !== undefined)
+  const failures = problems.flat()
 
   if (failures.length > 0) {
     throw new Error([`The ${environment} Worker at ${origin} is deployed but does not answer as expected:`, ...failures].join("\n"))

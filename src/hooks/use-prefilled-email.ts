@@ -1,5 +1,5 @@
 import { useRouterState } from "@tanstack/react-router"
-import * as zod from "zod"
+import zod from "zod/v4"
 
 import { searchText } from "~/src/lib/search-params"
 

@@ -12,7 +12,7 @@ import { ROUTES } from "~/src/routes"
 
 type Workspace = typeof ROUTES.ADMIN | typeof ROUTES.APP
 
-export const workspaceOf = (role: string | null | undefined): Workspace =>
+const workspaceOf = (role: string | null | undefined): Workspace =>
   hasPermission({ permission: { admin: ["access"] }, role }) ? ROUTES.ADMIN : ROUTES.APP
 
 export const useVisitorWorkspace = (): Workspace | undefined => {
@@ -21,7 +21,7 @@ export const useVisitorWorkspace = (): Workspace | undefined => {
   const { data } = useQuery({ ...getCurrentSessionQuery, enabled: hasSignedInBefore })
 
   if (!hydrated || data?.user === undefined) {
-    return undefined
+    return
   }
 
   return workspaceOf(data.user.role)

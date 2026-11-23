@@ -46,7 +46,7 @@ const CourseProgress = ({ course }: { readonly course: CatalogueCourse }): JSX.E
   const t = useTranslations("pages.courses.catalogue")
 
   if (course.completed === 0) {
-    return undefined
+    return
   }
 
   return (

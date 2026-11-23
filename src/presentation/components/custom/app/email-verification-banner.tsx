@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useEffect, useId, useState } from "react"
+import { type JSX, useEffect, useId, useState } from "react"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { CircleCheck, MailWarning } from "lucide-react"
@@ -15,12 +15,11 @@ import { useEmailVerification } from "~/src/hooks/use-email-verification"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/change-email-form"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 
 import { ROUTES } from "~/src/routes"
-
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
 const PendingConfirmation = ({ email }: { readonly email: string }): JSX.Element => {
   const t = useTranslations("components.custom.email-verification-banner")
@@ -107,17 +106,17 @@ export const EmailVerificationBanner = (): JSX.Element | undefined => {
     return <PendingConfirmation email={unconfirmedEmail} />
   }
 
-  if (confirmedHere) {
-    return (
-      <p
-        className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-card px-5 py-4 text-body-sm text-foreground md:mb-8"
-        role="status"
-      >
-        <CircleCheck aria-hidden className="size-4 shrink-0 text-ring" strokeWidth={2.25} />
-        {t("confirmed")}
-      </p>
-    )
+  if (!confirmedHere) {
+    return
   }
 
-  return undefined
+  return (
+    <p
+      className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-card px-5 py-4 text-body-sm text-foreground md:mb-8"
+      role="status"
+    >
+      <CircleCheck aria-hidden className="size-4 shrink-0 text-ring" strokeWidth={2.25} />
+      {t("confirmed")}
+    </p>
+  )
 }

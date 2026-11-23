@@ -11,7 +11,7 @@ export const OpenedLessonName = ({ lessonId }: { readonly lessonId: string }): J
   const { title } = useSuspenseQuery(lessonTitleQuery({ lessonId })).data
 
   if (title === undefined) {
-    return undefined
+    return
   }
 
   const locale = getCurrentLocale()

@@ -33,30 +33,29 @@ const STATUS_BADGES: Record<ReturnType<typeof licenseStatus>, BadgeVariant> = {
 }
 
 export const LicenseStatusCard = (): JSX.Element | undefined => {
-  const tTier = useTranslations("components.custom.pricing")
-  const t = useTranslations("pages.license.statusCard")
+  const t = useTranslations()
 
   const { license } = useSuspenseQuery(currentLicenseQuery).data
 
   if (license === undefined) {
-    return undefined
+    return
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t("title")}</h2>
+          <h2>{t("pages.license.statusCard.title")}</h2>
         </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardDescription>{t("pages.license.statusCard.description")}</CardDescription>
         <CardAction>
-          <Badge variant={STATUS_BADGES[licenseStatus(license)]}>{t(licenseStatus(license))}</Badge>
+          <Badge variant={STATUS_BADGES[licenseStatus(license)]}>{t(`pages.license.statusCard.${licenseStatus(license)}`)}</Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-lg font-semibold text-foreground">{tTier(`tiers.${license.tier}.name`)}</p>
+        <p className="text-lg font-semibold text-foreground">{t(`components.custom.pricing.tiers.${license.tier}.name`)}</p>
         <LinkButton to={ROUTES.APP_LICENSE} size="sm" variant="outline">
-          {t("action")}
+          {t("pages.license.statusCard.action")}
         </LinkButton>
       </CardContent>
     </Card>

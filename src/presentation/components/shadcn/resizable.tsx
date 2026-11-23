@@ -27,7 +27,7 @@ const ResizableHandle = ({
     )}
     {...props}
   >
-    {withHandle === true ? <div className="z-10 flex h-6 w-1 shrink-0 rounded-full bg-border" /> : undefined}
+    {withHandle === true && <div className="z-10 flex h-6 w-1 shrink-0 rounded-full bg-border" />}
   </ResizablePrimitive.Separator>
 )
 

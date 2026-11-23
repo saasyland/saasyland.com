@@ -81,24 +81,12 @@ const cellVariants = cva(
 
 const resolveVisibleMonthCount = (numberOfMonths: number | undefined): number => numberOfMonths ?? DEFAULT_VISIBLE_MONTH_COUNT
 
-const toYearFormat = (format: HeaderFormat | undefined): YearFormat | undefined => {
-  if (format === undefined) {
-    return undefined
+const toYearFormat = ({ era, year }: HeaderFormat = {}): YearFormat | undefined => {
+  if (era === undefined && year === undefined) {
+    return
   }
 
-  if (format.year === undefined) {
-    if (format.era === undefined) {
-      return undefined
-    }
-
-    return { era: format.era }
-  }
-
-  if (format.era === undefined) {
-    return { year: format.year }
-  }
-
-  return { era: format.era, year: format.year }
+  return { ...(era !== undefined && { era }), ...(year !== undefined && { year }) }
 }
 
 const toNumberKey = (key: string | number): number => {

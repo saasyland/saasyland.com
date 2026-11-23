@@ -91,7 +91,7 @@ const ActiveFilters = ({ finder }: FinderPartProps): JSX.Element | undefined => 
   const { clear, label, update, view } = finder
 
   if (view.tag === undefined && view.sort === BLOG_SORT.NEWEST) {
-    return undefined
+    return
   }
 
   return (
@@ -358,7 +358,12 @@ const PostFinder = ({ locale, posts }: PostFinderProps): JSX.Element => {
   const query = draft ?? finder.view.q ?? ""
 
   const searchFor = (value: string): void => {
-    finder.update({ q: value.trim().length > 0 ? value : undefined })
+    if (value.trim().length === 0) {
+      finder.update({ q: undefined })
+      return
+    }
+
+    finder.update({ q: value })
   }
 
   return (

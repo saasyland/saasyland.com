@@ -51,8 +51,7 @@ interface CheckoutActivationProps {
 }
 
 export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps): JSX.Element => {
-  const tTier = useTranslations("components.custom.pricing")
-  const t = useTranslations("pages.license.activation")
+  const t = useTranslations()
 
   const [hasTimedOut, setHasTimedOut] = useState(false)
 
@@ -84,13 +83,13 @@ export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps
     return (
       <div className="flex flex-col gap-6">
         <ActivationPanel icon={<CircleCheck className="size-4.5" strokeWidth={2.25} />}>
-          <h2 className="text-title text-balance text-foreground">{t("active.title")}</h2>
+          <h2 className="text-title text-balance text-foreground">{t("pages.license.activation.active.title")}</h2>
           <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
-            {t("active.body", { tier: tTier(`tiers.${data.license.tier}.name`) })}
+            {t("pages.license.activation.active.body", { tier: t(`components.custom.pricing.tiers.${data.license.tier}.name`) })}
           </p>
           {redirect !== undefined && (
             <a className={cn(buttonVariants({ size: "lg" }), "mt-3 gap-2")} href={redirect}>
-              {t("active.continue")}
+              {t("pages.license.activation.active.continue")}
               <ArrowRight aria-hidden className="size-4" />
             </a>
           )}
@@ -103,10 +102,13 @@ export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps
   if (hasTimedOut) {
     return (
       <ActivationPanel icon={<Clock className="size-4.5" strokeWidth={2.25} />}>
-        <h2 className="text-title text-balance text-foreground">{t("delayed.title")}</h2>
-        <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t.rich("delayed.body", EMAIL_TAGS)}</p>
+        <h2 className="text-title text-balance text-foreground">{t("pages.license.activation.delayed.title")}</h2>
+        <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
+          {t.rich("pages.license.activation.delayed.body", EMAIL_TAGS)}
+        </p>
         <p className="text-body-sm text-muted-foreground">
-          {t("delayed.reference")} <code className="font-mono text-spec break-all text-foreground select-all">{checkoutId}</code>
+          {t("pages.license.activation.delayed.reference")}{" "}
+          <code className="font-mono text-spec break-all text-foreground select-all">{checkoutId}</code>
         </p>
         <Button
           className="mt-3"
@@ -118,7 +120,7 @@ export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps
           variant="outline"
         >
           {isRefetching && <Spinner />}
-          {t("delayed.retry")}
+          {t("pages.license.activation.delayed.retry")}
         </Button>
       </ActivationPanel>
     )
@@ -126,8 +128,8 @@ export const CheckoutActivation = ({ checkoutId, tier }: CheckoutActivationProps
 
   return (
     <ActivationPanel icon={<Spinner className="size-4.5" />}>
-      <h2 className="text-title text-balance text-foreground">{t("activating.title")}</h2>
-      <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("activating.body")}</p>
+      <h2 className="text-title text-balance text-foreground">{t("pages.license.activation.activating.title")}</h2>
+      <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("pages.license.activation.activating.body")}</p>
     </ActivationPanel>
   )
 }

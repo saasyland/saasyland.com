@@ -60,7 +60,7 @@ export const ImpersonationBanner = (): JSX.Element | undefined => {
   const current = useSuspenseQuery(getCurrentSessionQuery).data
 
   if (current === null || typeof current.session.impersonatedBy !== "string") {
-    return undefined
+    return
   }
 
   return <ImpersonatedUser user={current.user} />

@@ -25,20 +25,29 @@ const suggestionTag =
     </Button>
   )
 
-export const EmailSuggestion = ({ email, id, isShown, onAccept }: EmailSuggestionProps): JSX.Element => {
+const Suggestion = ({ email, onAccept }: Pick<EmailSuggestionProps, "email" | "onAccept">): JSX.Element | undefined => {
   const t = useTranslations("auth.form")
 
-  const suggestion = isShown ? suggestEmail(email) : undefined
+  const suggestion = suggestEmail(email)
+
+  if (suggestion === undefined) {
+    return
+  }
 
   return (
-    <p className="text-body-sm text-pretty text-muted-foreground empty:sr-only" id={id} role="status">
-      {suggestion !== undefined &&
-        t.rich("emailSuggestion", {
-          email: suggestion,
-          suggestion: suggestionTag(() => {
-            onAccept(suggestion)
-          }),
-        })}
-    </p>
+    <>
+      {t.rich("emailSuggestion", {
+        email: suggestion,
+        suggestion: suggestionTag(() => {
+          onAccept(suggestion)
+        }),
+      })}
+    </>
   )
 }
+
+export const EmailSuggestion = ({ email, id, isShown, onAccept }: EmailSuggestionProps): JSX.Element => (
+  <p className="text-body-sm text-pretty text-muted-foreground empty:sr-only" id={id} role="status">
+    {isShown && <Suggestion email={email} onAccept={onAccept} />}
+  </p>
+)

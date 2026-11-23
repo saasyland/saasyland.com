@@ -37,7 +37,11 @@ const renderFailure = (failure: "root" | "loader" | "render") => {
   const index = createRoute({
     component: Page,
     getParentRoute: () => root,
-    loader: () => (failure === "loader" ? queryClient.query(query) : undefined),
+    loader: async () => {
+      if (failure === "loader") {
+        await queryClient.query(query)
+      }
+    },
     path: "/",
   })
   const other = createRoute({ component: () => <p>Other content</p>, getParentRoute: () => root, path: "/privacy" })

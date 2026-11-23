@@ -19,6 +19,7 @@ import { cn } from "~/src/lib/cn"
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { CommandLine } from "~/src/presentation/components/custom/app/command-line"
 
 import { ROUTES } from "~/src/routes"
@@ -36,8 +37,6 @@ const REFUND_TAGS = {
     </Link>
   ),
 }
-
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
 interface StepProps {
   readonly children?: ReactNode
@@ -77,9 +76,7 @@ const Step = ({ children, done, number, title }: StepProps): JSX.Element => {
 }
 
 const KeyToCopy = ({ onCopy }: Readonly<{ onCopy: () => void }>): JSX.Element => {
-  const tCopy = useTranslations("pages.license.copy")
-  const tLicense = useTranslations("pages.license")
-  const t = useTranslations("pages.license.setup")
+  const t = useTranslations()
 
   const { key } = useSuspenseQuery(licenseKeySetupQuery).data
   const { unconfirmedEmail } = useEmailVerification()
@@ -87,7 +84,7 @@ const KeyToCopy = ({ onCopy }: Readonly<{ onCopy: () => void }>): JSX.Element =>
   if (unconfirmedEmail !== undefined) {
     return (
       <p className="text-body-sm text-pretty text-muted-foreground">
-        {tLicense.rich("keyAwaitsConfirmation", { ...ADDRESS_TAGS, email: unconfirmedEmail })}
+        {t.rich("pages.license.keyAwaitsConfirmation", { ...ADDRESS_TAGS, email: unconfirmedEmail })}
       </p>
     )
   }
@@ -96,25 +93,23 @@ const KeyToCopy = ({ onCopy }: Readonly<{ onCopy: () => void }>): JSX.Element =>
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted-foreground">
         <Spinner />
-        {t("steps.key.pending")}
+        {t("pages.license.setup.steps.key.pending")}
       </p>
     )
   }
 
-  return <CommandLine copyLabel={tCopy("key")} isCommand={false} onCopy={onCopy} value={key} />
+  return <CommandLine copyLabel={t("pages.license.copy.key")} isCommand={false} onCopy={onCopy} value={key} />
 }
 
 export const GetStarted = (): JSX.Element | undefined => {
-  const tTier = useTranslations("components.custom.pricing")
-  const tCopy = useTranslations("pages.license.copy")
-  const t = useTranslations("pages.license.setup")
+  const t = useTranslations()
   const headingId = useId()
   const [hasCopiedKey, setHasCopiedKey] = useState(false)
 
   const { license } = useSuspenseQuery(licenseSetupQuery).data
 
   if (license?.status !== LICENSE_STATUS.ACTIVE) {
-    return undefined
+    return
   }
 
   const ran = { [CLI_COMMAND.ACTIVATE]: license.activatedAt !== null, [CLI_COMMAND.INIT]: license.deliveredAt !== null }
@@ -125,15 +120,17 @@ export const GetStarted = (): JSX.Element | undefined => {
   return (
     <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card p-6 md:p-8">
       <h2 className="text-title text-balance text-foreground" id={headingId}>
-        {t("title")}
+        {t("pages.license.setup.title")}
       </h2>
-      <p className="mt-1.5 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("description")}</p>
+      <p className="mt-1.5 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">{t("pages.license.setup.description")}</p>
       <Progress className="mt-5 max-w-md **:data-[slot=progress-indicator]:bg-ring" maxValue={steps.length} value={done}>
-        <ProgressLabel className="text-spec text-muted-foreground">{t("progress", { done, total: steps.length })}</ProgressLabel>
+        <ProgressLabel className="text-spec text-muted-foreground">
+          {t("pages.license.setup.progress", { done, total: steps.length })}
+        </ProgressLabel>
       </Progress>
       <ol className="mt-5 divide-y divide-border border-y border-border">
-        <Step done title={t("steps.purchase", { tier: tTier(`tiers.${license.tier}.name`) })} />
-        <Step done={keyDone} number={STEP_NUMBER_BASE} title={t("steps.key.title")}>
+        <Step done title={t("pages.license.setup.steps.purchase", { tier: t(`components.custom.pricing.tiers.${license.tier}.name`) })} />
+        <Step done={keyDone} number={STEP_NUMBER_BASE} title={t("pages.license.setup.steps.key.title")}>
           <KeyToCopy
             onCopy={() => {
               setHasCopiedKey(true)
@@ -141,9 +138,9 @@ export const GetStarted = (): JSX.Element | undefined => {
           />
         </Step>
         {CLI_SETUP_LINES.map(({ command, id }, index) => (
-          <Step done={ran[id]} key={id} number={STEP_NUMBER_BASE + index + 1} title={t(`steps.${id}.title`)}>
-            <CommandLine copyLabel={tCopy("command", { command })} isCommand value={command} />
-            <p className="text-body-sm text-pretty text-muted-foreground">{t.rich(`steps.${id}.body`, REFUND_TAGS)}</p>
+          <Step done={ran[id]} key={id} number={STEP_NUMBER_BASE + index + 1} title={t(`pages.license.setup.steps.${id}.title`)}>
+            <CommandLine copyLabel={t("pages.license.copy.command", { command })} isCommand value={command} />
+            <p className="text-body-sm text-pretty text-muted-foreground">{t.rich(`pages.license.setup.steps.${id}.body`, REFUND_TAGS)}</p>
           </Step>
         ))}
       </ol>

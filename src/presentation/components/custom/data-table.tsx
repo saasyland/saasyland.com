@@ -4,6 +4,7 @@ import { type UseQueryOptions, keepPreviousData, skipToken, useQuery } from "@ta
 import {
   type ColumnDef,
   type ColumnFiltersState,
+  type Header,
   type PaginationState,
   type ReactTable,
   type RowSelectionState,
@@ -32,6 +33,8 @@ import * as zod from "zod"
 
 import { DEFAULT_PAGINATION } from "~/src/modules/_core/utils/pagination"
 
+import { selectedOption } from "~/src/lib/select-option"
+
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Checkbox } from "~/src/presentation/components/shadcn/checkbox"
 import { Input } from "~/src/presentation/components/shadcn/input"
@@ -55,7 +58,7 @@ export type DataTableFeatures = typeof features
 
 export type DataTableColumnDef<TData extends { id: string }> = ColumnDef<DataTableFeatures, TData>
 
-export type DataTableFilterValues = Readonly<Record<string, string>>
+type DataTableFilterValues = Readonly<Record<string, string>>
 
 export interface DataTableOptions<TData extends { id: string }> {
   readonly initialState?: { readonly pagination?: PaginationState; readonly sorting?: SortingState }
@@ -74,7 +77,7 @@ export type DataTableFilter =
       readonly type: "select"
     }
 
-export interface DataTableProps<TData extends { id: string }> {
+interface DataTableProps<TData extends { id: string }> {
   readonly columns: DataTableColumnDef<TData>[]
   readonly data?: readonly TData[]
   readonly empty?: string | undefined
@@ -91,6 +94,7 @@ const SERVER_STATE = { autoResetPageIndex: false, manualFiltering: true, manualP
 
 const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown, none: ChevronsUpDown } as const
 const ARIA_SORT = { asc: "ascending", desc: "descending", none: "none" } as const
+const SELECTED_ROW = { "data-state": "selected" } as const
 
 const keepFirstPage = (pagination: PaginationState): PaginationState => {
   if (pagination.pageIndex === 0) {
@@ -150,13 +154,15 @@ const DataTableFilterControl = ({
     )
   }
 
+  const optionValues = filter.options.map(({ value }) => value)
+
   return (
     <Select
       aria-label={filter.label}
       className="w-full sm:w-48"
       defaultValue={ALL_VALUES}
       onChange={(key) => {
-        onChange(key === ALL_VALUES || key === null ? undefined : String(key))
+        onChange(selectedOption(optionValues, key))
       }}
     >
       <SelectTrigger className="h-10 w-full">
@@ -215,6 +221,44 @@ const useSelectableColumns = <TData extends { id: string }>(
       ...columns,
     ]
   }, [columns, selectable, t])
+}
+
+const DataTableHead = <TData extends { id: string }>({
+  header,
+  table,
+}: {
+  readonly header: Header<DataTableFeatures, TData>
+  readonly table: ReactTable<DataTableFeatures, TData>
+}): JSX.Element => {
+  if (!header.column.getCanSort()) {
+    return (
+      <TableHead>
+        <table.FlexRender header={header} />
+      </TableHead>
+    )
+  }
+
+  const direction = header.column.getIsSorted()
+  const sorted = direction === false ? "none" : direction
+  const SortIcon = SORT_ICONS[sorted]
+
+  return (
+    <TableHead aria-sort={ARIA_SORT[sorted]}>
+      <ButtonPrimitive
+        className="flex cursor-pointer items-center gap-1.5 text-left uppercase transition-colors duration-200 ease-exp hover:text-foreground"
+        onPress={(event) => {
+          header.column.toggleSorting(undefined, event.shiftKey)
+        }}
+      >
+        <table.FlexRender header={header} />
+        <SortIcon
+          aria-hidden
+          className="size-3.5 shrink-0 text-muted-foreground/60 data-[sorted=true]:text-ring"
+          data-sorted={sorted !== "none"}
+        />
+      </ButtonPrimitive>
+    </TableHead>
+  )
 }
 
 const DataTablePagination = <TData extends { id: string }>({
@@ -344,32 +388,9 @@ export const DataTable = <TData extends { id: string }>({
         <Table>
           <TableHeader>
             <TableRow>
-              {headers.map((header) => {
-                const direction = header.column.getIsSorted()
-                const sorted = direction === false ? "none" : direction
-                const SortIcon = SORT_ICONS[sorted]
-
-                return (
-                  <TableHead aria-sort={header.column.getCanSort() ? ARIA_SORT[sorted] : undefined} key={header.id}>
-                    {!header.column.getCanSort() && <table.FlexRender header={header} />}
-                    {header.column.getCanSort() && (
-                      <ButtonPrimitive
-                        className="flex cursor-pointer items-center gap-1.5 text-left uppercase transition-colors duration-200 ease-exp hover:text-foreground"
-                        onPress={(event) => {
-                          header.column.toggleSorting(undefined, event.shiftKey)
-                        }}
-                      >
-                        <table.FlexRender header={header} />
-                        <SortIcon
-                          aria-hidden
-                          className="size-3.5 shrink-0 text-muted-foreground/60 data-[sorted=true]:text-ring"
-                          data-sorted={sorted !== "none"}
-                        />
-                      </ButtonPrimitive>
-                    )}
-                  </TableHead>
-                )
-              })}
+              {headers.map((header) => (
+                <DataTableHead header={header} key={header.id} table={table} />
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -392,7 +413,7 @@ export const DataTable = <TData extends { id: string }>({
             )}
             {!isLoading &&
               rows.map((row) => (
-                <TableRow data-state={row.getIsSelected() ? "selected" : undefined} key={row.id}>
+                <TableRow {...(row.getIsSelected() && SELECTED_ROW)} key={row.id}>
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <table.FlexRender cell={cell} />

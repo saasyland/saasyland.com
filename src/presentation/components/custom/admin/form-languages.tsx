@@ -44,7 +44,7 @@ const STATE_ICONS = {
   [LOCALE_STATE.PARTIAL]: CircleDot,
 } as const
 
-export const LocaleStateIcon = ({ state }: { readonly state: LocaleState }): JSX.Element => {
+const LocaleStateIcon = ({ state }: { readonly state: LocaleState }): JSX.Element => {
   const t = useTranslations("pages.admin.components.formLanguages")
   const Icon = STATE_ICONS[state]
 
@@ -128,7 +128,7 @@ const InvalidLanguages = ({ languages }: { readonly languages: FormLocale }): JS
   const [first] = invalid
 
   if (first === undefined) {
-    return undefined
+    return
   }
 
   return (
@@ -181,7 +181,7 @@ export const FormLanguages = ({ children, languages }: FormLanguagesProps): JSX.
   )
 }
 
-export interface TranslationField<TText extends string> {
+interface TranslationField<TText extends string> {
   readonly id: TText
   readonly label: string
 }
@@ -281,7 +281,12 @@ export const TranslationsSheet = <TText extends string>({ children, fields, lang
               <Toggle
                 isSelected={shown !== undefined}
                 onChange={(isSelected) => {
-                  setShown(isSelected ? new Map(fields.map((field) => [field.id, new Set(missingIn(field.id))])) : undefined)
+                  if (!isSelected) {
+                    setShown(undefined)
+                    return
+                  }
+
+                  setShown(new Map(fields.map((field) => [field.id, new Set(missingIn(field.id))])))
                 }}
                 variant="outline"
               >

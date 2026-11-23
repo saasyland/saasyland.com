@@ -118,7 +118,7 @@ const ImportSummary = ({ plan }: { readonly plan: ImportPlan }): JSX.Element => 
 
 const ImportResultPanel = ({ result }: { readonly result: ImportResult | undefined }): JSX.Element | undefined => {
   if (result === undefined) {
-    return undefined
+    return
   }
 
   if ("problems" in result) {

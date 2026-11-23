@@ -20,6 +20,8 @@ import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useLastLoginMethod } from "~/src/hooks/use-last-login-method"
 import { usePrefilledEmail } from "~/src/hooks/use-prefilled-email"
 
+import { searchText } from "~/src/lib/search-params"
+
 import { Alert, AlertDescription, AlertTitle } from "~/src/presentation/components/shadcn/alert"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
@@ -40,7 +42,7 @@ interface SignInFailureProps {
   readonly reason: AuthErrorMessageKey
 }
 
-const emailSearch = (email: string): string | undefined => (email === "" ? undefined : email)
+const forgotPasswordEmail = searchText()
 
 const ForgotPasswordLink = ({ email }: { readonly email: string }): JSX.Element => {
   const t = useTranslations("pages.auth.sign-in.form")
@@ -50,7 +52,7 @@ const ForgotPasswordLink = ({ email }: { readonly email: string }): JSX.Element 
   return (
     <Link
       className="-my-3 inline-flex h-11 items-center text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
-      search={{ email: emailSearch(email), redirect }}
+      search={{ email: forgotPasswordEmail.parse(email), redirect }}
       to={ROUTES.FORGOT_PASSWORD}
     >
       {t("forgotPassword")}
@@ -71,7 +73,11 @@ const SignInFailure = ({ email, reason }: SignInFailureProps): JSX.Element => {
         <AlertDescription>
           <ul className="mt-1 flex flex-col items-start text-body-sm">
             <li>
-              <Link className={RECOVERY_LINK_CLASS} search={{ email: emailSearch(email), redirect }} to={ROUTES.FORGOT_PASSWORD}>
+              <Link
+                className={RECOVERY_LINK_CLASS}
+                search={{ email: forgotPasswordEmail.parse(email), redirect }}
+                to={ROUTES.FORGOT_PASSWORD}
+              >
                 {t("pages.auth.sign-in.form.resetPassword")}
               </Link>
             </li>

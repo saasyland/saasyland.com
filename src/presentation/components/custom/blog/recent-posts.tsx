@@ -18,7 +18,7 @@ interface PostListProps {
 
 const PostList = ({ id, isUpdated = false, posts, title }: PostListProps): JSX.Element | undefined => {
   if (posts.length === 0) {
-    return undefined
+    return
   }
 
   return (
@@ -51,7 +51,7 @@ export const RecentPosts = (): JSX.Element | undefined => {
   const { latest, updated } = route.useLoaderData()
 
   if (latest.length === 0) {
-    return undefined
+    return
   }
 
   return (

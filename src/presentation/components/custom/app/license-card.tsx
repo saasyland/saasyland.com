@@ -21,6 +21,7 @@ import { AnchorButton, buttonVariants } from "~/src/presentation/components/shad
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
+import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { CommandLine } from "~/src/presentation/components/custom/app/command-line"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -49,8 +50,6 @@ const AGREEMENT_TAGS = {
     </Link>
   ),
 }
-
-const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
 const COMMAND_TAGS = {
   days: REFUND_TERMS.WITHDRAWAL_DAYS,
@@ -83,96 +82,94 @@ const InactiveLicense = ({
 }
 
 const LicenseKey = (): JSX.Element => {
-  const tCopy = useTranslations("pages.license.copy")
-  const t = useTranslations("pages.license")
+  const t = useTranslations()
 
   const { key } = useSuspenseQuery(licenseKeySetupQuery).data
   const { unconfirmedEmail } = useEmailVerification()
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{t("issued")}</p>
+      <p className="text-sm font-medium">{t("pages.license.issued")}</p>
       {unconfirmedEmail !== undefined && (
         <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-pretty text-muted-foreground">
-          {t.rich("keyAwaitsConfirmation", { ...ADDRESS_TAGS, email: unconfirmedEmail })}
+          {t.rich("pages.license.keyAwaitsConfirmation", { ...ADDRESS_TAGS, email: unconfirmedEmail })}
         </p>
       )}
       {unconfirmedEmail === undefined && typeof key !== "string" && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
-          {t("pending")}
+          {t("pages.license.pending")}
         </p>
       )}
-      {unconfirmedEmail === undefined && typeof key === "string" && <CommandLine copyLabel={tCopy("key")} isCommand={false} value={key} />}
+      {unconfirmedEmail === undefined && typeof key === "string" && (
+        <CommandLine copyLabel={t("pages.license.copy.key")} isCommand={false} value={key} />
+      )}
     </div>
   )
 }
 
 const KeyCommands = (): JSX.Element => {
-  const tCopy = useTranslations("pages.license.copy")
-  const t = useTranslations("pages.license")
+  const t = useTranslations()
 
   return (
     <>
-      <p className="text-sm text-muted-foreground">{t("usage")}</p>
+      <p className="text-sm text-muted-foreground">{t("pages.license.usage")}</p>
       <dl className="flex flex-col gap-4">
         {CLI_KEY_LINES.map(({ command, id }) => (
           <div className="space-y-1.5" key={id}>
             <dt>
-              <CommandLine copyLabel={tCopy("command", { command })} isCommand value={command} />
+              <CommandLine copyLabel={t("pages.license.copy.command", { command })} isCommand value={command} />
             </dt>
-            <dd className="text-sm text-pretty text-muted-foreground">{t.rich(`commands.${id}`, COMMAND_TAGS)}</dd>
+            <dd className="text-sm text-pretty text-muted-foreground">{t.rich(`pages.license.commands.${id}`, COMMAND_TAGS)}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-sm text-muted-foreground">{t.rich("ci", CI_TAGS)}</p>
+      <p className="text-sm text-muted-foreground">{t.rich("pages.license.ci", CI_TAGS)}</p>
     </>
   )
 }
 
 const TierChanges = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
-  const tTier = useTranslations("components.custom.pricing")
-  const t = useTranslations("pages.license")
+  const t = useTranslations()
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-spec text-muted-foreground">
       {higherTiers(tier).map((higher) => (
         <Link className={LINK_CLASSNAME} key={higher} search={{ tier: higher }} to={ROUTES.APP_LICENSE}>
-          {t("upgrade.link", { tier: tTier(`tiers.${higher}.name`) })}
+          {t("pages.license.upgrade.link", { tier: t(`components.custom.pricing.tiers.${higher}.name`) })}
         </Link>
       ))}
-      <p>{t.rich("changeTier", CHANGE_TIER_TAGS)}</p>
+      <p>{t.rich("pages.license.changeTier", CHANGE_TIER_TAGS)}</p>
     </div>
   )
 }
 
 export const LicenseCard = (): JSX.Element | undefined => {
-  const tTier = useTranslations("components.custom.pricing")
-  const t = useTranslations("pages.license")
+  const t = useTranslations()
 
   const { license } = useSuspenseQuery(licenseSetupQuery).data
   const { unconfirmedEmail } = useEmailVerification()
 
   if (license === undefined) {
-    return undefined
+    return
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{tTier(`tiers.${license.tier}.name`)}</h2>
+          <h2>{t(`components.custom.pricing.tiers.${license.tier}.name`)}</h2>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {license.status !== LICENSE_STATUS.ACTIVE && <InactiveLicense status={license.status} />}
         {license.status === LICENSE_STATUS.ACTIVE && <LicenseKey />}
         {license.status === LICENSE_STATUS.ACTIVE && <KeyCommands />}
-        <p className="text-spec leading-relaxed text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
+        <p className="text-spec leading-relaxed text-muted-foreground">{t.rich("pages.license.agreement", AGREEMENT_TAGS)}</p>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           {unconfirmedEmail === undefined && (
             <a className={buttonVariants({ size: "sm", variant: "outline" })} href={ROUTES.API_AUTH_CUSTOMER_PORTAL}>
-              {t("manage")}
+              {t("pages.license.manage")}
             </a>
           )}
           {license.status === LICENSE_STATUS.ACTIVE && <TierChanges tier={license.tier} />}

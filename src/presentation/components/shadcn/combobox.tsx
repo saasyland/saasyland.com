@@ -121,7 +121,7 @@ const ComboboxInput = ({
           <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
         </InputGroupButton>
       )}
-      {showClear ? <ComboboxClear isDisabled={disabled} /> : undefined}
+      {showClear && <ComboboxClear isDisabled={disabled} />}
     </InputGroupAddon>
     {children}
   </InputGroup>
@@ -180,7 +180,7 @@ const ComboboxItem = <TValue extends object>({ children, className, ...props }: 
         <>
           {renderedChildren}
           <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-            {isSelected ? <CheckIcon className="pointer-events-none" /> : undefined}
+            {isSelected && <CheckIcon className="pointer-events-none" />}
           </span>
         </>
       ))}

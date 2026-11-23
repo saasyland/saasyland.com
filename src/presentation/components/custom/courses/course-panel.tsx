@@ -69,7 +69,7 @@ const PanelActions = ({ data }: { readonly data: Course["page"] }): JSX.Element 
   const hasLockedLessons = lessons.some((lesson) => lesson.locked)
 
   if (next === undefined && !hasLockedLessons) {
-    return undefined
+    return
   }
 
   return (

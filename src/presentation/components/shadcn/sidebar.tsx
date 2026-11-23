@@ -520,7 +520,7 @@ const SidebarMenuSkeleton = ({
     data-slot="sidebar-menu-skeleton"
     {...props}
   >
-    {showIcon ? <Skeleton className="size-4 rounded-md" data-sidebar="menu-skeleton-icon" /> : undefined}
+    {showIcon && <Skeleton className="size-4 rounded-md" data-sidebar="menu-skeleton-icon" />}
     <Skeleton className="h-4 max-w-[70%] flex-1" data-sidebar="menu-skeleton-text" />
   </div>
 )

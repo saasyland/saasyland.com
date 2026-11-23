@@ -23,6 +23,7 @@ import {
 import { useTranslations } from "use-intl/react"
 
 import { cn } from "~/src/lib/cn"
+import { textValueProps } from "~/src/lib/text-value"
 
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "~/src/presentation/components/shadcn/dialog"
 import { InputGroup, InputGroupAddon } from "~/src/presentation/components/shadcn/input-group"
@@ -140,28 +141,24 @@ const CommandSeparator = ({ className, ...props }: Readonly<SeparatorProps>) => 
   <Separator className={cn("-mx-1 h-px bg-border", className)} data-slot="command-separator" {...props} />
 )
 
-const CommandItem = <TValue extends object>({ children, className, textValue, ...props }: Readonly<MenuItemProps<TValue>>) => {
-  const resolvedTextValue = textValue ?? (typeof children === "string" ? children : undefined)
-
-  return (
-    <MenuItem
-      className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-focused:bg-muted data-focused:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-focused:*:[svg]:text-foreground data-selected:*:[svg]:text-foreground",
-        className,
-      )}
-      data-slot="command-item"
-      {...(resolvedTextValue === undefined ? {} : { textValue: resolvedTextValue })}
-      {...props}
-    >
-      {composeRenderProps(children, (renderedChildren) => (
-        <>
-          {renderedChildren}
-          <CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
-        </>
-      ))}
-    </MenuItem>
-  )
-}
+const CommandItem = <TValue extends object>({ children, className, textValue, ...props }: Readonly<MenuItemProps<TValue>>) => (
+  <MenuItem
+    className={cn(
+      "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-focused:bg-muted data-focused:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-focused:*:[svg]:text-foreground data-selected:*:[svg]:text-foreground",
+      className,
+    )}
+    data-slot="command-item"
+    {...textValueProps(textValue, children)}
+    {...props}
+  >
+    {composeRenderProps(children, (renderedChildren) => (
+      <>
+        {renderedChildren}
+        <CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+      </>
+    ))}
+  </MenuItem>
+)
 
 const CommandShortcut = ({ className, ...props }: ComponentProps<"span">) => (
   <span

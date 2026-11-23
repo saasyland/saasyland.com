@@ -23,7 +23,7 @@ const ContractWithdrawal = (): JSX.Element | undefined => {
   const { contract } = useSuspenseQuery(withdrawalContractQuery).data
 
   if (contract === undefined) {
-    return undefined
+    return
   }
 
   const dateTime = (value: Date): string => t("common.dateTime", { value })

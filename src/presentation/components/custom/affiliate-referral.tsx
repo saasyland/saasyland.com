@@ -17,7 +17,7 @@ export const AffiliateReferral = (): JSX.Element | undefined => {
   }, [])
 
   if (programId === undefined) {
-    return undefined
+    return
   }
 
   return <script async data-affonso={programId} data-cookie_duration={AFFILIATE_TERMS.COOKIE_DAYS} src={AFFONSO.PIXEL_URL} />

@@ -75,7 +75,7 @@ const DeletionRequestForm = ({ onSent }: { readonly onSent: () => void }): JSX.E
       const callbackURL = router.buildLocation({ to: ROUTES.APP_DELETE_ACCOUNT }).publicHref
       requestDeletion.mutate(hasPassword ? { callbackURL, password: value.password } : { callbackURL })
     },
-    validators: { onChange: hasPassword ? passwordSchema : undefined },
+    validators: hasPassword ? { onChange: passwordSchema } : {},
   })
 
   return (

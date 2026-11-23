@@ -31,8 +31,6 @@ const ignorePatterns = [
 ]
 
 const undefinedBranchBacklog = [
-  "scripts/**",
-  "src/__test__/**",
   "src/data/**",
   "src/integrations/**",
   "src/modules/**",

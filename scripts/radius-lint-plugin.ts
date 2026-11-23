@@ -1,4 +1,6 @@
-import { type ESTree, definePlugin, defineRule } from "vite-plus/lint/plugins"
+import { type Context, type ESTree, type Visitor, definePlugin, defineRule } from "vite-plus/lint/plugins"
+
+import { nameOf } from "./hydration-lint-plugin.ts"
 
 const SCALE = new Set(["full", "lg", "md", "none", "sm", "[inherit]"])
 
@@ -20,7 +22,7 @@ const OPENERS = new Set(["(", "["])
 
 const CLOSERS = new Set([")", "]"])
 
-export const utilityOf = (token: string): string => {
+const utilityOf = (token: string): string => {
   let depth = 0
   let start = 0
   for (let index = 0; index < token.length; index += 1) {
@@ -36,57 +38,62 @@ export const utilityOf = (token: string): string => {
   return token.slice(start).replaceAll(IMPORTANT, "")
 }
 
-const propertyProblem = (utility: string): string | undefined => {
-  const { property = "", value = "" } = ARBITRARY_PROPERTY.exec(utility)?.groups ?? {}
-  if (RADIUS_PROPERTY.test(property)) {
-    return "property"
-  }
-  return CUSTOM_RADIUS_PROPERTY.test(property) && !SCALE_VARIABLE.test(value) ? "custom" : undefined
-}
+export const utilitiesOf = (text: string): string[] => text.split(/\s+/u).map((token) => utilityOf(token))
 
-const radiusProblem = (utility: string): string | undefined => {
-  const match = RADIUS_UTILITY.exec(utility)
-  if (match === null) {
-    return propertyProblem(utility)
-  }
-  return SCALE.has(match.groups?.["step"] ?? "") ? undefined : "step"
-}
-
-const keyName = (node: ESTree.Node): string | undefined => {
-  if (node.type === "Identifier") {
-    return node.name
-  }
-  return node.type === "Literal" ? String(node.value) : undefined
-}
-
-export const noOffScale = defineRule({
-  create: (context) => {
-    const check = (node: ESTree.Node, text: string): void => {
-      for (const token of text.split(/\s+/u)) {
-        const utility = utilityOf(token)
-        const messageId = radiusProblem(utility)
-        if (messageId !== undefined) {
-          context.report({ data: { utility }, messageId, node })
-        }
-      }
-    }
-
-    return {
-      Literal: (node) => {
-        if (typeof node.value === "string") {
-          check(node, node.value)
-        }
-      },
-      Property: (node) => {
-        if (node.parent.type === "ObjectExpression" && keyName(node.key) === STYLE_KEY) {
-          context.report({ messageId: "style", node: node.key })
-        }
-      },
-      TemplateElement: (node) => {
-        check(node, node.value.cooked ?? node.value.raw)
-      },
+export const classTextVisitor = (check: (node: ESTree.Node, utilities: readonly string[]) => void): Visitor => ({
+  Literal: (node) => {
+    if (typeof node.value === "string") {
+      check(node, utilitiesOf(node.value))
     }
   },
+  TemplateElement: (node) => {
+    check(node, utilitiesOf(node.value.cooked ?? node.value.raw))
+  },
+})
+
+export const styleKeyVisitor = (context: Context, key: string): Visitor => ({
+  Property: (node) => {
+    if (node.parent.type === "ObjectExpression" && nameOf(node.key) === key) {
+      context.report({ messageId: "style", node: node.key })
+    }
+  },
+})
+
+const arbitraryProperty = (utility: string): { property: string; value: string } => {
+  const { property = "", value = "" } = ARBITRARY_PROPERTY.exec(utility)?.groups ?? {}
+  return { property, value }
+}
+
+const isOffScaleStep = (utility: string): boolean => {
+  const match = RADIUS_UTILITY.exec(utility)
+  return match !== null && !SCALE.has(match.groups?.["step"] ?? "")
+}
+
+const isRadiusProperty = (utility: string): boolean => RADIUS_PROPERTY.test(arbitraryProperty(utility).property)
+
+const isOffScaleCustomRadius = (utility: string): boolean => {
+  const { property, value } = arbitraryProperty(utility)
+  return CUSTOM_RADIUS_PROPERTY.test(property) && !SCALE_VARIABLE.test(value)
+}
+
+const RADIUS_PROBLEMS = [
+  { isProblem: isOffScaleStep, messageId: "step" },
+  { isProblem: isRadiusProperty, messageId: "property" },
+  { isProblem: isOffScaleCustomRadius, messageId: "custom" },
+] as const
+
+export const noOffScale = defineRule({
+  create: (context) => ({
+    ...classTextVisitor((node, utilities) => {
+      for (const utility of utilities) {
+        const problem = RADIUS_PROBLEMS.find(({ isProblem }) => isProblem(utility))
+        if (problem !== undefined) {
+          context.report({ data: { utility }, messageId: problem.messageId, node })
+        }
+      }
+    }),
+    ...styleKeyVisitor(context, STYLE_KEY),
+  }),
   meta: {
     docs: {
       description:

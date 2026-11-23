@@ -5,8 +5,8 @@ import postcss from "postcss"
 import { parseSync } from "vite/rolldown/utils"
 
 import { COMMENT_MESSAGES, commentMessageId } from "./code-style-lint-plugin.ts"
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
-const FAILURE_EXIT_CODE = 1
 const STYLE_EXTENSION = ".css"
 const NOT_GENERATED = ":(attr:!linguist-generated)"
 

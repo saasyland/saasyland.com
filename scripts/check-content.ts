@@ -12,11 +12,11 @@ import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { CHANGELOG_DIRECTORY, ENTRY_KEY, entryItems, pullRequestOf } from "~/src/lib/changelog"
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const FAILURE_EXIT_CODE = 1
 const MIN_ENGLISH_PROSE_WORDS = 7
 
 const REPOSITORY_DIR = join(import.meta.dirname, "..")

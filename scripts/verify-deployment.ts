@@ -4,9 +4,9 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { verifyDeployment } from "~/src/lib/deployment"
 
-const SCRIPT_ARGUMENTS_START = 2
+import { scriptArguments } from "./run-command.ts"
 
-const [environment] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const [environment] = scriptArguments()
 
 if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
   throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)

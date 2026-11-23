@@ -4,7 +4,7 @@ import process from "node:process"
 
 import { skillGroup } from "../src/data/skills.ts"
 import { readDependencies } from "./dependencies.ts"
-import { runCommand } from "./run-command.ts"
+import { FAILURE_EXIT_CODE, runCommand } from "./run-command.ts"
 import { type LockedSkill, type SkillsLock, readSkillsLock, skillPackageVersions, writeRecordedVersions } from "./skills-lock.ts"
 
 export const AGENTS_SKILLS = ".agents/skills"
@@ -14,7 +14,6 @@ export const SKILLS_INSTALL: readonly string[] = ["experimental_install"]
 export const SKILLS_UPDATE: readonly string[] = ["update", "--project", "--yes"]
 export const SKILLS_UPDATE_SCRIPT: readonly string[] = ["scripts/sync-skills.ts", UPDATE_ARGUMENT]
 
-const FAILURE_EXIT_CODE = 1
 const SUCCESS_EXIT_CODE = 0
 const LEGACY_AGENT_DIRECTORY = "agent"
 const STAGING_DIRECTORY = ".staging"

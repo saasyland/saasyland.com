@@ -1,10 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import process from "node:process"
 
-const FAILURE_EXIT_CODE = 1
-const HOOK_ARGUMENTS_START = 2
+import { FAILURE_EXIT_CODE, scriptArguments } from "./run-command.ts"
 
-export const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
+export const COMMIT_EMOJIS = {
   build: "🛠️",
   chore: "♻️",
   ci: "⚙️",
@@ -16,7 +15,9 @@ export const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
   revert: "🗑️",
   style: "💎",
   test: "🚨",
-}
+} as const
+
+type CommitType = keyof typeof COMMIT_EMOJIS
 
 const ALLOWED_TYPES = Object.keys(COMMIT_EMOJIS).join(", ")
 
@@ -39,20 +40,12 @@ const isDecorated = (subject: string): boolean => LEADING_EMOJI.test(subject) ||
 
 const typeOf = (subject: string): string | undefined => CONVENTIONAL_PATTERN.exec(subject)?.groups?.["type"]
 
-const emojiFor = (subject: string): string | undefined => {
-  const type = typeOf(subject)
-
-  if (isDecorated(subject) || type === undefined) {
-    return undefined
-  }
-
-  return COMMIT_EMOJIS[type]
-}
+const isCommitType = (type: string | undefined): type is CommitType => type !== undefined && Object.hasOwn(COMMIT_EMOJIS, type)
 
 export const subjectProblems = (subject: string): string[] => {
   const type = typeOf(subject)
 
-  if (isDecorated(subject) || emojiFor(subject) !== undefined) {
+  if (isDecorated(subject) || isCommitType(type)) {
     return []
   }
 
@@ -68,13 +61,13 @@ export const subjectProblems = (subject: string): string[] => {
 }
 
 export const decoratedSubject = (subject: string): string => {
-  const emoji = emojiFor(subject)
+  const type = typeOf(subject)
 
-  return emoji === undefined ? subject : `${emoji} ${subject}`
+  return isCommitType(type) ? `${COMMIT_EMOJIS[type]} ${subject}` : subject
 }
 
 const run = (): void => {
-  const [messageFile, source] = process.argv.slice(HOOK_ARGUMENTS_START)
+  const [messageFile, source] = scriptArguments()
 
   if (messageFile === undefined || (source !== undefined && SKIP_SOURCES.has(source))) {
     return
@@ -95,13 +88,16 @@ const run = (): void => {
     fail(problems)
   }
 
-  const emoji = emojiFor(subject)
+  const type = typeOf(subject)
 
-  if (emoji === undefined) {
+  if (!isCommitType(type)) {
     return
   }
 
-  writeFileSync(messageFile, lines.with(subjectIndex, `${emoji} ${subjectLine.trimEnd()}`).join("\n").replace(TRAILING_NEWLINE, "\n"))
+  writeFileSync(
+    messageFile,
+    lines.with(subjectIndex, `${COMMIT_EMOJIS[type]} ${subjectLine.trimEnd()}`).join("\n").replace(TRAILING_NEWLINE, "\n"),
+  )
 }
 
 if (import.meta.main) {

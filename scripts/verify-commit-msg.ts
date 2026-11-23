@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs"
 import process from "node:process"
 
-const FAILURE_EXIT_CODE = 1
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
+
 const HOOK_ARGUMENTS_START = 2
 const ATTRIBUTION_DOCS = "https://saasyland.com/docs/conventions/git-workflow#no-ai-attribution"
 

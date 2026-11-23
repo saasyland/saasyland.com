@@ -2,12 +2,12 @@ import process from "node:process"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { scriptArguments } from "./run-command.ts"
 import { readWranglerBindings } from "./wrangler-config.ts"
 
-const SCRIPT_ARGUMENTS_START = 2
 const PLACEHOLDER_ID = /^[0-]+$/u
 
-const [environment] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const [environment] = scriptArguments()
 
 if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
   throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)

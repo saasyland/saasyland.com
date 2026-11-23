@@ -4,7 +4,7 @@ import { z } from "zod/v4"
 
 import { MAIN_BRANCH } from "~/src/lib/changelog"
 
-const SCRIPT_ARGUMENTS_START = 2
+import { scriptArguments } from "./run-command.ts"
 
 export const RULE_TYPE = { REQUIRED_STATUS_CHECKS: "required_status_checks" } as const
 
@@ -66,7 +66,7 @@ export const testedReport = ({ checkRuns, required }: CommitChecks): string => {
 }
 
 if (import.meta.main) {
-  const [commit] = argumentsSchema.parse(process.argv.slice(SCRIPT_ARGUMENTS_START))
+  const [commit] = argumentsSchema.parse(scriptArguments())
   const { GITHUB_REPOSITORY } = environmentSchema.parse(process.env)
   const required = requiredChecksOf(gh(`repos/${GITHUB_REPOSITORY}/rules/branches/${MAIN_BRANCH}`))
   const { check_runs: checkRuns } = checkRunsSchema.parse(gh(`repos/${GITHUB_REPOSITORY}/commits/${commit}/check-runs?per_page=100`))

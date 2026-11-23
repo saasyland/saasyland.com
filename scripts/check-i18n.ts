@@ -11,8 +11,8 @@ import type { AbstractIntlMessages } from "use-intl"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { loadLocaleMessages } from "./i18n-messages"
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
-const FAILURE_EXIT_CODE = 1
 const LAST_SCOPE_INDEX = -1
 const SOURCE_LOCALE = I18N.DEFAULT_LOCALE
 const SOURCE_ROOT = join(import.meta.dirname, "../src")

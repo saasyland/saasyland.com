@@ -1,16 +1,12 @@
-import { Glob } from "bun"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
-const CLIENT_DIR = "dist/client"
+import { CLIENT_DIR, listPrerenderedPages } from "./prerendered-pages.ts"
+
 const PRELOAD_PATTERN = /<link rel="modulepreload" href="(?<hint>\/assets\/[^"]+)"[^>]*\/>/giu
 const MODULE_SCRIPT_PATTERN = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="(?<entry>\/assets\/[^"]+)")[^>]*>/gu
 
-const pages = [...new Glob("**/index.html").scanSync(CLIENT_DIR)].toSorted()
-
-if (pages.length === 0) {
-  throw new Error(`No prerendered pages found under ${CLIENT_DIR}.`)
-}
+const pages = listPrerenderedPages()
 
 let strippedHints = 0
 let retainedHints = 0

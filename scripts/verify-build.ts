@@ -6,6 +6,7 @@ import process from "node:process"
 import { pathToFileURL } from "node:url"
 import { z } from "zod/v4"
 
+import { BLOG_DIRECTORY, DOCS_DIRECTORY } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
@@ -13,11 +14,11 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
+import { CLIENT_DIR } from "./prerendered-pages.ts"
+import { scriptArguments } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 import { ROUTES } from "~/src/routes"
 
-const SCRIPT_ARGUMENTS_START = 2
-const CLIENT_DIR = "dist/client"
 const ASSETS_DIR = join(CLIENT_DIR, "assets")
 const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
 const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
@@ -39,10 +40,9 @@ const SEO_LINKS = localeLinks({ origin: "", pathname: ROUTES.HOME })
 const CANONICAL_LINKS = SEO_LINKS.filter(({ rel }) => rel === "canonical").length
 const ALTERNATE_LINKS = SEO_LINKS.filter(({ rel }) => rel === "alternate").length
 
-const DOCS_DIRECTORY = "content/docs"
 const CONTENT_ROUTES = [
   { directory: DOCS_DIRECTORY, route: ROUTES.DOCS },
-  { directory: "content/blog", route: ROUTES.BLOG },
+  { directory: BLOG_DIRECTORY, route: ROUTES.BLOG },
 ]
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
@@ -66,7 +66,8 @@ const frontmatterOf = (file: string): unknown => {
 
 const isPublished = (file: string): boolean => publicationSchema.parse(frontmatterOf(file)).published
 
-const environment = environmentSchema.parse(process.argv[SCRIPT_ARGUMENTS_START])
+const [environmentArgument] = scriptArguments()
+const environment = environmentSchema.parse(environmentArgument)
 const deployment = deploymentSchema.parse(JSON.parse(readFileSync(DEPLOY_CONFIG_PATH, "utf8")))
 
 if (resolve(dirname(DEPLOY_CONFIG_PATH), deployment.configPath) !== resolve(WORKER_CONFIG_PATH)) {
@@ -256,12 +257,13 @@ const docsPage = (file: string): string => {
 
 const verifySearchIndex = async (locale: SupportedLocale): Promise<void> => {
   const indexes = searchIndexes.filter((index) => index.locale === locale)
+  const [index] = indexes
 
-  if (indexes.length !== 1) {
+  if (index === undefined || indexes.length > 1) {
     throw new Error(`Expected one docs search index for ${locale} in ${ASSETS_DIR}, found ${String(indexes.length)}`)
   }
 
-  const from = pathToFileURL(resolve(ASSETS_DIR, indexes[0]?.name ?? "")).href
+  const from = pathToFileURL(resolve(ASSETS_DIR, index.name)).href
   const results = await staticClient({ from, search: ALL_RESULTS }).search("")
   const indexed = results.filter(({ type }) => type === PAGE_RESULT).map(({ content, url }) => `${url} ${content}`)
   const pages = globSync(`**/*.${locale}.mdx`, { cwd: DOCS_DIRECTORY }).map((file) => docsPage(file))

@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process"
 import process from "node:process"
 
-const FAILURE_EXIT_CODE = 1
+const SCRIPT_ARGUMENTS_START = 2
+
+export const FAILURE_EXIT_CODE = 1
+
+export const scriptArguments = (): string[] => process.argv.slice(SCRIPT_ARGUMENTS_START)
 
 export interface CommandResult {
   readonly status: number

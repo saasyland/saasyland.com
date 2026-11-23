@@ -1,5 +1,4 @@
 import { spawn } from "bun"
-import { drizzle } from "drizzle-orm/sqlite-proxy"
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, extname, join, relative } from "node:path"
@@ -33,14 +32,13 @@ import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
 import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 
+import { DATABASE_BINDING, inline, sqlBuilder } from "./d1-execute.ts"
+import { scriptArguments } from "./run-command.ts"
 import { readBucketName } from "./wrangler-config.ts"
 
-const SCRIPT_ARGUMENTS_START = 2
-const DATABASE_BINDING = "DB"
 const WEBVTT_SIGNATURE = "WEBVTT"
 const LOCALE_SEPARATOR = "="
 const SEPARATOR_LENGTH = LOCALE_SEPARATOR.length
-const PARAMETER = "?"
 const WEBP_EFFORT = 6
 
 const USAGE = `Usage: bun run video:publish:<preview|production> <video> --title "Title" [--poster image] [--captions en-US=file.vtt ...]`
@@ -62,11 +60,9 @@ const captionSchema = z.string().transform((value, context) => {
   return { file: value.slice(separator + SEPARATOR_LENGTH), locale: locale.data }
 })
 
-const sqlParameterSchema = z.union([z.string(), z.number()])
-
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  args: process.argv.slice(SCRIPT_ARGUMENTS_START),
+  args: scriptArguments(),
   options: {
     captions: { multiple: true, type: "string" },
     poster: { type: "string" },
@@ -160,19 +156,8 @@ const removeAll = ({ bucket, files, videoId }: { bucket: string; files: string[]
     Promise.resolve(),
   )
 
-const sqlLiteral = (value: unknown): string => {
-  const parameter = sqlParameterSchema.parse(value)
-  return typeof parameter === "number" ? String(parameter) : `'${parameter.replaceAll("'", "''")}'`
-}
-
-const insertStatement = (row: z.output<typeof videoZodSchemas.registerVideo>): string => {
-  const { params, sql } = drizzle(() => Promise.resolve({ rows: [] }))
-    .insert(video)
-    .values(row)
-    .toSQL()
-  const pending = [...params]
-  return sql.replaceAll(PARAMETER, () => sqlLiteral(pending.shift()))
-}
+const insertStatement = (row: z.output<typeof videoZodSchemas.registerVideo>): string =>
+  inline(sqlBuilder.insert(video).values(row).toSQL())
 
 const bucket = await readBucketName({ binding: MEDIA_BINDING, environment })
 const source = await probe(input)

@@ -10,7 +10,7 @@ import {
   outdatedDependencies,
   readDependencies,
 } from "./dependencies.ts"
-import { runCommand } from "./run-command.ts"
+import { runCommand, scriptArguments } from "./run-command.ts"
 import { type SkillsLock, readSkillsLock } from "./skills-lock.ts"
 import { SKILLS_UPDATE_SCRIPT } from "./sync-skills.ts"
 
@@ -21,8 +21,6 @@ export const UP_TO_DATE_COMMENT = "Every dependency and agent skill is on its la
 const SUCCESS_EXIT_CODE = 0
 const SHORT_COMMIT_LENGTH = 7
 const UNKNOWN_COMMIT = "unknown"
-
-const SCRIPT_ARGUMENTS_START = 2
 
 export const REPORT_MODE = { FIND: "find", ISSUE: "issue" } as const
 
@@ -171,7 +169,7 @@ export const writeUpdates = (path: string, updates: Updates): void => {
 export const readUpdates = (path: string): Updates => updatesSchema.parse(JSON.parse(readFileSync(path, "utf8")))
 
 if (import.meta.main) {
-  const [mode, path] = argumentsSchema.parse(process.argv.slice(SCRIPT_ARGUMENTS_START))
+  const [mode, path] = argumentsSchema.parse(scriptArguments())
 
   if (mode === REPORT_MODE.FIND) {
     const root = process.cwd()

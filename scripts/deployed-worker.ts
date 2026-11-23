@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Plugin } from "vite-plus"
+import { exactRegex } from "vite/rolldown/pluginutils"
 
 const DEPLOYED_WORKER_BUILD = "DEPLOYED_WORKER_BUILD"
 
@@ -51,13 +52,19 @@ export const deployedWorker = (): Plugin => {
       }
     },
     load: {
-      filter: { id: /^\0saasyland:prerendered-page$/u },
+      filter: { id: exactRegex(PRERENDERED_PAGE) },
       handler: () => PRERENDERED_PAGE_MODULE,
     },
     name: "saasyland:deployed-worker",
     resolveId: {
       filter: { id: COMPILED_PAGE },
-      handler: () => (isDeployedWorkerBuild() ? PRERENDERED_PAGE : undefined),
+      handler(source, importer, options) {
+        if (isDeployedWorkerBuild()) {
+          return PRERENDERED_PAGE
+        }
+
+        return this.resolve(source, importer, { ...options, skipSelf: true })
+      },
       order: "pre",
     },
     transform: {

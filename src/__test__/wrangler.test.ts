@@ -19,7 +19,10 @@ const environmentBindingsSchema = zod.object({
 
 const nodeAt = (path: string[]): Node => {
   const tree = parseTree(WRANGLER)
-  const node = tree === undefined ? undefined : findNodeAtLocation(tree, path)
+  if (tree === undefined) {
+    throw new Error("wrangler.jsonc does not parse")
+  }
+  const node = findNodeAtLocation(tree, path)
   if (node === undefined) {
     throw new Error(`wrangler.jsonc has no ${path.join(".")}`)
   }

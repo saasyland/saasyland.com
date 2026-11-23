@@ -3,11 +3,12 @@ import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
 
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
+
 export const HOOKS_DIRECTORY = ".vite-hooks"
 export const DISPATCHER_DIRECTORY = `${HOOKS_DIRECTORY}/_`
 
 const EXECUTABLE_BITS = 0o111
-const FAILURE_EXIT_CODE = 1
 const GIT_SUCCESS = 0
 const REPAIR_COMMAND = `git config --local core.hooksPath ${DISPATCHER_DIRECTORY} && bunx vp hooks enable`
 

@@ -5,7 +5,8 @@ import { z } from "zod/v4"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
-const SCRIPT_ARGUMENTS_START = 2
+import { scriptArguments } from "./run-command.ts"
+
 const ERROR_LINES = 20
 
 export const TEST_OUTCOME = { EXPECTED: "expected", FLAKY: "flaky", SKIPPED: "skipped", UNEXPECTED: "unexpected" } as const
@@ -87,7 +88,7 @@ export const journeySummary = (report: unknown): string => {
 export const missingReport = (path: string): string => `${SUMMARY_TITLE}\n\nThe journey wrote no report to ${path}; its log says why.`
 
 if (import.meta.main) {
-  const [path] = argumentsSchema.parse(process.argv.slice(SCRIPT_ARGUMENTS_START))
+  const [path] = argumentsSchema.parse(scriptArguments())
   const summary = existsSync(path) ? journeySummary(JSON.parse(readFileSync(path, "utf8"))) : missingReport(path)
 
   process.stdout.write(`${summary}\n`)

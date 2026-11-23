@@ -2,9 +2,9 @@ import process from "node:process"
 
 import { readTags, releaseTag } from "~/src/lib/release"
 
-const SCRIPT_ARGUMENTS_START = 2
+import { scriptArguments } from "./run-command.ts"
 
-const [commit] = process.argv.slice(SCRIPT_ARGUMENTS_START)
+const [commit] = scriptArguments()
 
 if (commit === undefined) {
   throw new Error("Usage: bun scripts/choose-release-tag.ts <commit to deploy>")

@@ -5,6 +5,7 @@ import process from "node:process"
 
 import { SKILL_SOURCES, isSkillSource } from "../src/data/skills.ts"
 import { BUN_LOCK, type Dependency, PACKAGE_JSON, readDependencies } from "./dependencies.ts"
+import { FAILURE_EXIT_CODE } from "./run-command.ts"
 import {
   type PackageVersions,
   SKILLS_LOCK,
@@ -19,7 +20,6 @@ import {
 } from "./skills-lock.ts"
 import { AGENTS_SKILLS, CLAUDE_SKILLS, groupRoot, linkTarget, skillLocation } from "./sync-skills.ts"
 
-const FAILURE_EXIT_CODE = 1
 const SKILL_FILE = "SKILL.md"
 const PATH_SEPARATOR = "/"
 const HASH_SEPARATOR = "\0"

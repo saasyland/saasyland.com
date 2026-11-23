@@ -271,7 +271,9 @@ test.describe("account security settings", () => {
     const accounts = card(page, "Connected accounts")
     const github = accounts.getByRole("listitem").filter({ hasText: "GitHub" })
     await expect(github).toContainText("Not connected")
+    const leftForGitHub = page.waitForURL((url) => url.pathname !== "/app/settings", { waitUntil: "commit" })
     await github.getByRole("button", { name: "Connect GitHub" }).click()
+    await leftForGitHub
     await expect(page).toHaveURL(/\/app\/settings\?tab=security$/u)
     await authPage.waitForAppReady()
     await authPage.waitForHydration(accounts)

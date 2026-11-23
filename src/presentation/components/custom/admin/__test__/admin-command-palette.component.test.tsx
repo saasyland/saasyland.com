@@ -44,7 +44,8 @@ const seedSearch = (
 const renderPalette = (queryClient = adminQueryClient()) => {
   const { router } = renderAdmin(<AdminCommandPalette />, { queryClient })
   const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
-  return { navigate, user: userEvent.setup({ delay: null }) }
+  const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+  return { navigate, preloadRoute, user: userEvent.setup({ delay: null }) }
 }
 
 const openPalette = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
@@ -125,6 +126,17 @@ describe("admin command palette", () => {
     await user.keyboard("{ArrowDown}{Enter}")
 
     expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ORDER.to })
+  })
+
+  it("loads a result's page when the pointer rests on it", async () => {
+    const { preloadRoute, user } = renderPalette(seedSearch("ord_ada", { orders: [ORDER] }))
+
+    const dialog = await openPalette(user)
+    await user.keyboard("ord_ada")
+    const order = await within(dialog).findByRole("menuitem", { name: /ord_ada/u })
+    await user.hover(order)
+
+    expect(preloadRoute).toHaveBeenCalledExactlyOnceWith({ to: ORDER.to })
   })
 
   it("keeps the pages and actions that match beside the records, and drops the records below two letters", async () => {

@@ -66,7 +66,7 @@ const DeleteAccountPage = (): JSX.Element => {
           {token === undefined && <p className="text-sm text-pretty text-muted-foreground">{t("missing.description")}</p>}
           {token !== undefined && <AccountDeletionConsequences />}
           <div className="flex flex-wrap justify-end gap-2">
-            <LinkButton href={ROUTES.APP_SETTINGS} size="sm" variant="outline">
+            <LinkButton to={ROUTES.APP_SETTINGS} size="sm" variant="outline">
               {token === undefined ? t("missing.back") : t("confirm.keep")}
             </LinkButton>
             {token !== undefined && (

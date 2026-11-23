@@ -7,7 +7,7 @@ import { useTranslations } from "use-intl/react"
 
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 
-import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton, Button } from "~/src/presentation/components/shadcn/button"
 
 import { APP_NAME, APP_SLUG } from "~/src/presentation/branding"
 
@@ -48,10 +48,10 @@ export const BackupCodes = ({ backupCodes, onDone }: BackupCodesProps): JSX.Elem
           <Copy aria-hidden />
           {t("copyCodes")}
         </Button>
-        <LinkButton download={FILE_NAME} href={`data:text/plain;charset=utf-8,${encodeURIComponent(file)}`} size="sm" variant="outline">
+        <AnchorButton download={FILE_NAME} href={`data:text/plain;charset=utf-8,${encodeURIComponent(file)}`} size="sm" variant="outline">
           <Download aria-hidden />
           {t("downloadCodes")}
-        </LinkButton>
+        </AnchorButton>
       </div>
       <Button onPress={onDone}>{t("saved")}</Button>
     </div>

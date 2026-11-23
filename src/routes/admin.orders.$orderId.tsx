@@ -14,7 +14,7 @@ import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminOrderPending } from "~/src/presentation/components/custom/admin/payments-pending"
@@ -34,10 +34,10 @@ const OrderPage = (): JSX.Element => {
     <div className="flex w-full animate-in flex-col gap-6 pb-6 duration-500 fade-in-50">
       <AdminPageHeader
         actions={
-          <LinkButton className="h-9 gap-2" href={polarUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
+          <AnchorButton className="h-9 gap-2" href={polarUrl} rel="noreferrer" size="sm" target="_blank" variant="outline">
             <ExternalLink aria-hidden className="size-4" />
             {t("openInPolar")}
-          </LinkButton>
+          </AnchorButton>
         }
         back={{ label: t("back"), to: ROUTES.ADMIN_ORDERS }}
         title={order.description}

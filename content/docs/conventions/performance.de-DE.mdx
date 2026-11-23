@@ -153,6 +153,17 @@ Gemessen auf einem Build von `bun run build:test`, ausgeliefert von `bun run sta
 
 `e2e/specs/admin-navigation.spec.ts` prüft, dass sich jede Seite der Konsole ein zweites Mal ohne Anfrage öffnet und dass eine anderswo beendete Session bei der ersten ablehnenden Server Function zur Anmeldung führt.
 
+## React-Aria-Links laden vor wie Router-Links [#react-aria-links-preload-like-router-links]
+
+`defaultPreload: "intent"` gehört zu `<Link>` von TanStack Router. Die Seitenleisten, `LinkButton` und die anderen Link-Schaltflächen waren `Link`s von React Aria, die über den `RouterProvider` von React Aria navigieren, also lud das Verweilen des Zeigers darauf nichts, und ein Klick wartete auf den Code und die Server Functions der Seite. `LinkButton` ist jetzt `createLink(AnchorButton)` und `SidebarMenuLink` ist `createLink(SidebarMenuButton)`, wie TanStack Router es für React Aria Components dokumentiert: Sie nehmen `to` mit `params` und `search` entgegen und laden wie `<Link>` bei Absicht, bei Fokus und bei Berührung vor. `AnchorButton` bleibt für Adressen außerhalb des Routenbaums. `TabsLink`, die Tabs von `/admin/users`, ruft `router.preloadRoute` auf, wenn der Zeiger auf einem Tab ruht oder er den Fokus erhält, und ein Ergebnis von `AdminCommandPalette` tut dasselbe, wenn der Zeiger darauf ruht.
+
+Derselbe Messaufbau wie oben, eine Runde mit fünf Läufen pro Build, wobei der Zeiger vor dem Drücken 250 ms auf jedem Eintrag der Seitenleiste ruhte:
+
+| Messgröße                                  | Vorher          | Nachher       |
+| ------------------------------------------ | --------------- | ------------- |
+| Vom Drücken bis zur Seite, erster Besuch   | 128 ms (38–270) | 34 ms (16–91) |
+| Vom Drücken bis zur Seite, erneuter Besuch | 16 ms (14–34)   | 16 ms (9–33)  |
+
 ## Das ORM aus dem Browser heraushalten [#keep-the-orm-out-of-the-browser]
 
 Drizzle läuft nur im Worker. Der Browser braucht die Zod-Schemas eines Moduls für seine Formulare und dessen Enum-Tupel für seine Auswahlfelder, deshalb liegen beide in Dateien, die nichts aus Drizzle importieren: `<table>.zod.ts` und `<table>.constants.ts` (siehe [Module](/docs/conventions/modules)). Ein Browser-Import, der eine `<table>.schema.ts` erreicht, führt `sqliteTable(...)` aus, einen Aufruf, den der Bundler behalten muss, und bringt `drizzle-orm` mit.

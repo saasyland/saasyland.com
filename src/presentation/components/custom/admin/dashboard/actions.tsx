@@ -12,7 +12,7 @@ export const DashboardActions = (): JSX.Element => {
   return (
     <>
       {ADMIN_DASHBOARD_ACTIONS.map((action) => (
-        <LinkButton className="h-9 gap-2" href={action.to} key={action.key} size="sm" variant="outline">
+        <LinkButton className="h-9 gap-2" to={action.to} key={action.key} size="sm" variant="outline">
           <action.icon aria-hidden className="size-4" />
           {navigationLabel(action)}
         </LinkButton>

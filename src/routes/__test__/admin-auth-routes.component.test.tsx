@@ -1,5 +1,6 @@
 import type * as RouterModule from "@tanstack/react-router"
 import { screen } from "@testing-library/react"
+import { userEvent } from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -39,6 +40,19 @@ describe("admin users", () => {
     expect(screen.getByRole("heading", { name: pagesAdminUsersMessages.title })).toBeVisible()
     expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.allUsers })).toHaveAttribute("aria-selected", "true")
     expect(screen.getAllByRole("tab").map((link) => link.getAttribute("href"))).toContain("/admin/users/all")
+  })
+
+  it("loads a users tab's page when the pointer rests on it or it takes focus", async () => {
+    const { router } = renderAdminPage(UsersLayoutRoute.options.component, { path: "/admin/users/all" })
+    const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+    const user = userEvent.setup({ delay: null })
+    const allUsers = screen.getByRole("tab", { name: navigationAuthMessages.userTabs.allUsers })
+
+    await user.hover(allUsers)
+    allUsers.focus()
+
+    expect(preloadRoute).toHaveBeenNthCalledWith(1, { to: "/admin/users/all" })
+    expect(preloadRoute).toHaveBeenNthCalledWith(2, { to: "/admin/users/all" })
   })
 })
 

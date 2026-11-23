@@ -244,6 +244,10 @@ const PaletteContent = ({ onClose }: { readonly onClose: () => void }): JSX.Elem
 
   const { groups, isSearching } = usePaletteGroups(query, recent)
 
+  const preload = (item: PaletteItem): void => {
+    void router.preloadRoute({ to: item.to })
+  }
+
   const open = (item: PaletteItem): void => {
     rememberRecent(item)
     onClose()
@@ -285,6 +289,9 @@ const PaletteContent = ({ onClose }: { readonly onClose: () => void }): JSX.Elem
                   key={`${group.id}:${item.to}`}
                   onAction={() => {
                     open(item)
+                  }}
+                  onHoverStart={() => {
+                    preload(item)
                   }}
                   textValue={item.title}
                 >

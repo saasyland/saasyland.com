@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import coursesNavigation from "../../messages/en-US/navigation.courses.json" with { type: "json" }
+import adminCourses from "../../messages/en-US/pages.admin.courses.json" with { type: "json" }
 import adminSidebar from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
@@ -11,6 +12,8 @@ import type { BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [admin] = TEST_ACCOUNTS
+
+const SERVER_FUNCTION = "**/_serverFn/**"
 
 const signInThroughTheApi = async (page: Page, baseURL: string | undefined): Promise<void> => {
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
@@ -38,6 +41,15 @@ const serverFunctionRequests = (page: Page): string[] => {
     if (request.url().includes("/_serverFn/")) requests.push(request.url())
   })
   return requests
+}
+
+const holdServerFunctions = async (page: Page): Promise<() => void> => {
+  const held = Promise.withResolvers<void>()
+  await page.route(SERVER_FUNCTION, async (route) => {
+    await held.promise
+    await route.continue()
+  })
+  return held.resolve
 }
 
 const openEach = async (page: Page, appPage: BasePage, entries: readonly Locator[]): Promise<void> => {
@@ -70,6 +82,21 @@ test("an admin opens every console page again without a request, so returning to
   await openEach(page, appPage, entries)
 
   expect(requests).toEqual([])
+})
+
+test("hovering a console entry loads its page, so the click opens it while every server function is held", async ({ appPage, baseURL, page }) => {
+  const sidebar = await openConsole(page, appPage, baseURL)
+  const courses = sidebar.getByRole("link", { exact: true, name: coursesNavigation.admin.courses })
+  const requests = serverFunctionRequests(page)
+  await courses.hover()
+  await expect.poll(() => requests.length).toBeGreaterThan(0)
+  await page.waitForLoadState("networkidle")
+  const release = await holdServerFunctions(page)
+
+  await courses.click()
+
+  await expect(page.getByRole("heading", { level: 1, name: adminCourses.title })).toBeVisible()
+  release()
 })
 
 test("an admin whose session ended elsewhere is sent to sign-in by the first server function that refuses it", async ({ appPage, baseURL, page }) => {

@@ -11,6 +11,7 @@ import {
   useState,
 } from "react"
 
+import { createLink } from "@tanstack/react-router"
 import { type VariantProps, cva } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
 import { Button as ButtonPrimitive, type ButtonProps, Link as LinkPrimitive, type LinkProps } from "react-aria-components"
@@ -470,6 +471,8 @@ const SidebarMenuButton = ({
   )
 }
 
+const SidebarMenuLink = createLink(SidebarMenuButton)
+
 const SidebarMenuAction = ({
   className,
   showOnHover = false,
@@ -575,6 +578,7 @@ export {
   SidebarMenuAction,
   SidebarMenuBadge,
   SidebarMenuButton,
+  SidebarMenuLink,
   SidebarMenuItem,
   SidebarMenuSkeleton,
   SidebarMenuSub,

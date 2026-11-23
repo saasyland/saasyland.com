@@ -153,6 +153,17 @@ TanStack Router は、レイアウトの `beforeLoad` をその配下へのナ�
 
 `e2e/specs/admin-navigation.spec.ts` は、コンソールの各ページが 2 回目はリクエストなしで開くこと、そして別の場所で終了したセッションが、それを拒否した最初のサーバー関数でサインインにつながることを確認します。
 
+## React Aria のリンクもルーターのリンクと同じようにプリロードする [#react-aria-links-preload-like-router-links]
+
+`defaultPreload: "intent"` は TanStack Router の `<Link>` の機能です。サイドバー、`LinkButton`、その他のリンクボタンは React Aria の `RouterProvider` 経由で遷移する React Aria の `Link` だったため、ポインターを置いても何も読み込まれず、クリックはページのコードとサーバー関数を待っていました。現在の `LinkButton` は `createLink(AnchorButton)`、`SidebarMenuLink` は `createLink(SidebarMenuButton)` で、TanStack Router が React Aria Components 向けに説明している方法です。`params` と `search` を伴う `to` を受け取り、`<Link>` と同じように意図、フォーカス、タッチでプリロードします。ルートツリーの外のアドレスには `AnchorButton` を使います。`/admin/users` のタブである `TabsLink` は、ポインターがタブの上に止まったときやタブにフォーカスが移ったときに `router.preloadRoute` を呼び、`AdminCommandPalette` の結果もポインターが上に止まったときに同じことをします。
+
+上と同じ計測で、ビルドごとに 5 回の実行を 1 ラウンド行い、押す前にサイドバーの各項目にポインターを 250 ms 置きました。
+
+| 指標                         | 変更前          | 変更後        |
+| ---------------------------- | --------------- | ------------- |
+| 押してからページまで（初回） | 128 ms (38–270) | 34 ms (16–91) |
+| 押してからページまで（再訪） | 16 ms (14–34)   | 16 ms (9–33)  |
+
 ## ORM をブラウザーに入れない [#keep-the-orm-out-of-the-browser]
 
 Drizzle は Worker の中だけで動きます。ブラウザーには、フォームのためにモジュールの Zod スキーマが、セレクトフィールドのために enum のタプルが必要です。そのため、どちらも Drizzle から何もインポートしないファイル、`<table>.zod.ts` と `<table>.constants.ts` に置きます（[モジュール](/docs/conventions/modules)を参照）。ブラウザー側のインポートが `<table>.schema.ts` に到達すると `sqliteTable(...)` が実行されます。バンドラーはこの呼び出しを取り除けないため、`drizzle-orm` も一緒に読み込まれます。

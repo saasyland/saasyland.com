@@ -153,6 +153,17 @@ Zmierzone na buildzie `bun run build:test` serwowanym przez `bun run start:test`
 
 `e2e/specs/admin-navigation.spec.ts` sprawdza, że każda strona konsoli otwiera się drugi raz bez zapytania i że sesja zakończona gdzie indziej prowadzi do logowania przy pierwszej funkcji serwerowej, która ją odrzuci.
 
+## Linki React Aria ładują się wstępnie jak linki routera [#react-aria-links-preload-like-router-links]
+
+`defaultPreload: "intent"` należy do `<Link>` z TanStack Router. Paski boczne, `LinkButton` i inne przyciski-linki były `Link`ami z React Aria, które nawigują przez `RouterProvider` z React Aria, więc trzymanie na nich kursora niczego nie ładowało, a kliknięcie czekało na kod i funkcje serwerowe strony. Teraz `LinkButton` to `createLink(AnchorButton)`, a `SidebarMenuLink` to `createLink(SidebarMenuButton)`, jak TanStack Router opisuje to dla React Aria Components: przyjmują `to` z `params` i `search` i ładują stronę wstępnie przy zamiarze kliknięcia, przy fokusie i przy dotyku, jak `<Link>`. `AnchorButton` zostaje dla adresów spoza drzewa tras. `TabsLink`, karty `/admin/users`, wywołuje `router.preloadRoute`, gdy wskaźnik zatrzyma się na karcie albo karta otrzyma fokus, a wynik `AdminCommandPalette` robi to samo, gdy wskaźnik się na nim zatrzyma.
+
+Ten sam pomiar co wyżej, jedna runda po pięć przebiegów na build, z kursorem na każdej pozycji paska bocznego przez 250 ms przed naciśnięciem:
+
+| Pomiar                                    | Przed           | Po            |
+| ----------------------------------------- | --------------- | ------------- |
+| Od naciśnięcia do strony, pierwsza wizyta | 128 ms (38–270) | 34 ms (16–91) |
+| Od naciśnięcia do strony, powrót          | 16 ms (14–34)   | 16 ms (9–33)  |
+
 ## ORM poza przeglądarką [#keep-the-orm-out-of-the-browser]
 
 Drizzle działa tylko w Workerze. Przeglądarka potrzebuje schematów Zod modułu do formularzy i jego krotek enumów do list rozwijanych, więc jedne i drugie znajdują się w plikach, które nie importują niczego z Drizzle: `<table>.zod.ts` i `<table>.constants.ts` (zobacz [Moduły](/docs/conventions/modules)). Import w przeglądarce, który dociera do pliku `<table>.schema.ts`, wykonuje `sqliteTable(...)`, czyli wywołanie, które bundler musi zachować, i ciągnie za sobą `drizzle-orm`.

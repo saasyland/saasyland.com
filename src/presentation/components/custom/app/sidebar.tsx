@@ -21,6 +21,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuLink,
   useSidebar,
 } from "~/src/presentation/components/shadcn/sidebar"
 
@@ -66,10 +67,10 @@ export const AppSidebar = (): JSX.Element => {
 
                 return (
                   <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton
-                      {...(isActive && { "aria-current": "page" })}
+                    <SidebarMenuLink
+                      activeOptions={{ exact: item.to === ROUTES.APP }}
                       className="h-9 gap-2.5 rounded-md px-2 text-body-sm data-active:font-medium"
-                      href={item.to}
+                      to={item.to}
                       isActive={isActive}
                       onPress={closeMobile}
                     >
@@ -79,7 +80,7 @@ export const AppSidebar = (): JSX.Element => {
                         strokeWidth={1.5}
                       />
                       <span>{navigationLabel(item)}</span>
-                    </SidebarMenuButton>
+                    </SidebarMenuLink>
                     {badge !== undefined && (
                       <SidebarMenuBadge>
                         <badge.Badge />
@@ -97,10 +98,10 @@ export const AppSidebar = (): JSX.Element => {
             <SidebarMenu className="gap-1">
               {APP_RESOURCE_NAVIGATION.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton className="h-9 gap-2.5 text-body-sm text-muted-foreground" href={item.to} onPress={closeMobile}>
+                  <SidebarMenuLink className="h-9 gap-2.5 text-body-sm text-muted-foreground" to={item.to} onPress={closeMobile}>
                     <item.icon aria-hidden strokeWidth={1.5} />
                     <span>{navigationLabel(item)}</span>
-                  </SidebarMenuButton>
+                  </SidebarMenuLink>
                 </SidebarMenuItem>
               ))}
               <SidebarMenuItem>

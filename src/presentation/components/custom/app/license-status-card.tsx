@@ -55,7 +55,7 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
         <p className="text-lg font-semibold text-foreground">{tTier(`tiers.${license.tier}.name`)}</p>
-        <LinkButton href={ROUTES.APP_LICENSE} size="sm" variant="outline">
+        <LinkButton to={ROUTES.APP_LICENSE} size="sm" variant="outline">
           {t("action")}
         </LinkButton>
       </CardContent>

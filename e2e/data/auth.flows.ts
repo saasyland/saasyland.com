@@ -485,10 +485,11 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ADMIN_USERS,
     id: "admin-instant-navigation",
     outcome:
-      "An admin opens a console page they opened before without waiting for the server: while the cached session is fresh the click needs no session check and no server function",
+      "An admin opens a console page they hovered, or one they opened before, without waiting for the server: while the cached session is fresh the click needs no session check and no server function",
     status: FLOW_STATUS.COVERED,
     tests: [
       { spec: "admin-navigation.spec.ts", title: "an admin opens every console page again without a request, so returning to a page waits for nothing" },
+      { spec: "admin-navigation.spec.ts", title: "hovering a console entry loads its page, so the click opens it while every server function is held" },
     ],
   },
   {

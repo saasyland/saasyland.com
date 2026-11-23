@@ -51,9 +51,10 @@ const LessonEditorPage = (): JSX.Element => {
           isPublic && (
             <LinkButton
               className="h-9 gap-2"
-              href={`${ROUTES.COURSES}/${data.course.slug}/${lesson.slug}`}
+              params={{ course: data.course.slug, lesson: lesson.slug }}
               size="sm"
               target="_blank"
+              to="/courses/$course/$lesson"
               variant="outline"
             >
               <ExternalLink aria-hidden className="size-4" />

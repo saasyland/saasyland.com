@@ -8,21 +8,21 @@ import type { Lesson } from "~/src/modules/lesson/lesson.types"
 
 import { useFileSize } from "~/src/hooks/use-file-size"
 
-import { LinkButton } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 
 const MaterialLink = ({ attachment, href }: { readonly attachment: Lesson["attachment"]; readonly href: string }): JSX.Element => {
   if (attachment.kind === LESSON_ATTACHMENT_KIND.LINK) {
     return (
-      <LinkButton className="h-auto p-0 text-body-sm" href={href} variant="link">
+      <AnchorButton className="h-auto p-0 text-body-sm" href={href} variant="link">
         {attachment.title}
-      </LinkButton>
+      </AnchorButton>
     )
   }
 
   return (
-    <LinkButton className="h-auto p-0 text-body-sm" download={attachment.fileName} href={href} variant="link">
+    <AnchorButton className="h-auto p-0 text-body-sm" download={attachment.fileName} href={href} variant="link">
       {attachment.title}
-    </LinkButton>
+    </AnchorButton>
   )
 }
 

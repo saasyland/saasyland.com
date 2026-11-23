@@ -153,6 +153,17 @@ Misurato su una build di `bun run build:test` servita da `bun run start:test`, i
 
 `e2e/specs/admin-navigation.spec.ts` verifica che ogni pagina della console si apra una seconda volta senza richieste e che una sessione terminata altrove porti all'accesso alla prima funzione server che la rifiuta.
 
+## I link di React Aria precaricano come i link del router [#react-aria-links-preload-like-router-links]
+
+`defaultPreload: "intent"` appartiene al `<Link>` di TanStack Router. Le barre laterali, `LinkButton` e gli altri pulsanti-link erano `Link` di React Aria che navigano tramite il `RouterProvider` di React Aria, quindi tenere il puntatore sopra non caricava nulla e un clic aspettava il codice e le funzioni server della pagina. Ora `LinkButton` è `createLink(AnchorButton)` e `SidebarMenuLink` è `createLink(SidebarMenuButton)`, come TanStack Router documenta per React Aria Components: accettano `to`, con `params` e `search`, e precaricano all’intenzione, al focus e al tocco come `<Link>`. `AnchorButton` resta per gli indirizzi fuori dall’albero delle route. `TabsLink`, le schede di `/admin/users`, chiama `router.preloadRoute` quando il puntatore si ferma su una scheda o questa riceve il focus, e un risultato di `AdminCommandPalette` fa lo stesso quando il puntatore si ferma su di esso.
+
+La stessa misura di sopra, un round da cinque esecuzioni per build, con il puntatore fermo 250 ms su ogni voce della barra laterale prima della pressione:
+
+| Misura                                         | Prima           | Dopo          |
+| ---------------------------------------------- | --------------- | ------------- |
+| Dalla pressione alla pagina, prima visita      | 128 ms (38–270) | 34 ms (16–91) |
+| Dalla pressione alla pagina, visita di ritorno | 16 ms (14–34)   | 16 ms (9–33)  |
+
 ## Tieni l'ORM fuori dal browser [#keep-the-orm-out-of-the-browser]
 
 Drizzle viene eseguito solo nel Worker. Il browser ha bisogno degli schemi Zod di un modulo per i suoi form e delle sue tuple enum per i suoi menu a tendina, quindi entrambi si trovano in file che non importano nulla da Drizzle: `<table>.zod.ts` e `<table>.constants.ts` (vedi [Moduli](/docs/conventions/modules)). Un import del browser che arriva a un `<table>.schema.ts` esegue `sqliteTable(...)`, una chiamata che il bundler deve mantenere, e si porta dietro `drizzle-orm`.

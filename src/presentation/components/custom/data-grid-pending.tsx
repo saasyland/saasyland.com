@@ -29,14 +29,18 @@ export const DataGridPending = ({
   readonly rows?: number
 }): JSX.Element => (
   <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
-    <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5">
-      {hasSearch && <Skeleton className="h-8 min-w-56 flex-1 basis-72" />}
-      <Skeleton className="h-8 w-20" />
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <Skeleton className="h-8 w-16" />
-        {CONTROL_BUTTONS.map((button) => (
-          <Skeleton className="h-8 w-9 sm:w-24" key={button} />
-        ))}
+    <div className="flex flex-col border-b border-border/70">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+        {hasSearch && <Skeleton className="h-8 min-w-56 flex-1 basis-72" />}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Skeleton className="h-8 w-16" />
+          {CONTROL_BUTTONS.map((button) => (
+            <Skeleton className="h-8 w-9 sm:w-24" key={button} />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
+        <Skeleton className="h-8 w-20" />
       </div>
     </div>
     <TableContainer className="grid-scroller max-h-[max(24rem,calc(100dvh-16rem))] overflow-auto">

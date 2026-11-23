@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test"
 
+import { DEFAULT_PAGE_SIZE } from "../../src/modules/_core/utils/pagination"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -41,6 +42,11 @@ const addUser = async ({ appPage, page }: { appPage: BasePage; page: Page }, nam
 }
 
 const userActions = (page: Page, name: string) => page.getByRole("button", { name: `Actions for ${name}`, exact: true })
+
+const PAGE_RANGE = new RegExp(
+  `^${gridMessages.pagination.range.replace("{from}", "1").replace("{to}", "\\d+").replace("{total}", "(?<total>\\d+)")}$`,
+  "u",
+)
 
 const usersTable = (page: Page) => page.getByRole("table", { name: usersMessages.table.label })
 
@@ -109,7 +115,13 @@ test("the admin finds users by name or email and filters them by role and status
   await expect(page.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })).toBeVisible()
   await page.getByRole("button", { name: gridMessages.empty.clear }).click()
   await expect(search).toHaveValue("")
-  await expect(rows.filter({ hasText: customer.email })).toHaveCount(1)
+  await expect(page.getByRole("group", { name: gridMessages.filters.active })).toHaveCount(0)
+  await expect(page.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })).toHaveCount(0)
+  const range = page.getByText(PAGE_RANGE)
+  await expect(range).toBeVisible()
+  const total = Number(PAGE_RANGE.exec(await range.innerText())?.groups?.["total"])
+  expect(total).toBeGreaterThan(1)
+  await expect(rows).toHaveCount(Math.min(total, DEFAULT_PAGE_SIZE))
 })
 
 test("the admin hides and shows the users' columns, keeps the layout after a reload and resets it", async ({ appPage, authPage, page }) => {

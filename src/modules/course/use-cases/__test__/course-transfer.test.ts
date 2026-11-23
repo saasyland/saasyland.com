@@ -68,7 +68,11 @@ const COURSE = {
 
 const problemsOf = async (document: string) => {
   const result = await check(document)
-  return "problems" in result ? result : undefined
+  if (!("problems" in result)) {
+    throw new Error("The document passed the check")
+  }
+
+  return result
 }
 
 beforeEach(async () => {
@@ -182,7 +186,7 @@ describe("importCourses checks the file", () => {
 
     const result = await problemsOf(documentOf([], { format: "lessons", version: 2 }))
 
-    expect(result?.problems).toStrictEqual([
+    expect(result.problems).toStrictEqual([
       { message: "documentFormat", path: "format" },
       { message: "documentVersion", path: "version" },
     ])
@@ -197,7 +201,7 @@ describe("importCourses checks the file", () => {
 
     const result = await problemsOf(documentOf([{ ...COURSE, chapters: [{ lessons, summary: {}, title: {} }] }]))
 
-    expect(result?.problems).toStrictEqual([
+    expect(result.problems).toStrictEqual([
       { message: "defaultLocaleRequired", path: "courses.0.chapters.0.title.en-US" },
       { message: "timeInvalid", path: "courses.0.chapters.0.lessons.0.keyMoments.0.at" },
       { message: "keyUnknown", path: "courses.0.chapters.0.lessons.0.titel" },
@@ -211,7 +215,7 @@ describe("importCourses checks the file", () => {
 
     const result = await problemsOf(documentOf([twoChapters, COURSE]))
 
-    expect(result?.problems).toStrictEqual([
+    expect(result.problems).toStrictEqual([
       { message: "slugDuplicate", path: "courses.1.slug" },
       { message: "slugDuplicate", path: "courses.0.chapters.1.lessons.0.slug" },
     ])
@@ -226,8 +230,8 @@ describe("importCourses checks the file", () => {
 
     const result = await problemsOf(documentOf(broken))
 
-    expect(result?.problems).toHaveLength(COURSE_IMPORT_PROBLEMS_MAX)
-    expect(result?.problemCount).toBe(COURSE_IMPORT_PROBLEMS_MAX + 1)
+    expect(result.problems).toHaveLength(COURSE_IMPORT_PROBLEMS_MAX)
+    expect(result.problemCount).toBe(COURSE_IMPORT_PROBLEMS_MAX + 1)
   })
 
   it("refuses an empty or oversized file before reading it", async () => {

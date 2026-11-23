@@ -6,15 +6,14 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { COURSE_COVER_PATH_PREFIX, coverContentType } from "~/src/modules/course/course.cover"
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
+import { emptyResponse, isReadRequest, methodNotAllowed } from "~/src/lib/media-response"
+
 const CACHE_CONTROL = "public, max-age=31536000, immutable"
-const ALLOWED_METHODS = "GET, HEAD"
 const EDGE_CACHE_NAME = "covers"
 
 const COVER_PATH = new URLPattern({
   pathname: `${COURSE_COVER_PATH_PREFIX}/:courseId([0-9a-f\\-]{36})/:file([0-9a-f\\-]{36}(?:-\\d{1,4})?\\.[a-z]{3,4})`,
 })
-
-const emptyResponse = (status: number, headers: HeadersInit = {}): Response => new Response(undefined, { headers, status })
 
 const coverHeaders = ({ contentType, object }: { readonly contentType: string; readonly object: R2Object }): Headers =>
   new Headers({
@@ -30,7 +29,7 @@ const serveHead = async ({ contentType, key }: { readonly contentType: string; r
     return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
-  return new Response(undefined, { headers: coverHeaders({ contentType, object: head }) })
+  return emptyResponse(HTTP_STATUS.OK, coverHeaders({ contentType, object: head }))
 }
 
 const serveBody = async ({ contentType, key, url }: { readonly contentType: string; readonly key: string; readonly url: URL }) => {
@@ -53,8 +52,8 @@ const serveBody = async ({ contentType, key, url }: { readonly contentType: stri
 }
 
 export const serveCover = (request: Request): Promise<Response> => {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return Promise.resolve(emptyResponse(HTTP_STATUS.METHOD_NOT_ALLOWED, { Allow: ALLOWED_METHODS }))
+  if (!isReadRequest(request)) {
+    return Promise.resolve(methodNotAllowed())
   }
 
   const url = new URL(request.url)

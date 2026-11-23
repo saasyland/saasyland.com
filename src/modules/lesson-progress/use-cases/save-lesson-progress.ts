@@ -19,23 +19,24 @@ export const saveLessonProgress = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: LessonProgress["saveLessonProgress"]) => lessonProgressZodSchemas.saveLessonProgress.parse(input))
   .handler(async ({ context, data: { completed, lessonId, positionMs } }) => {
-    const [row] = await db
+    const published = db
       .select({ access: lesson.access })
       .from(lesson)
       .where(and(eq(lesson.id, lessonId), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
       .limit(1)
+    const [[row], viewer] = await Promise.all([published, resolveViewer()])
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    if (!hasLessonAccess(row.access, await resolveViewer())) {
+    if (!hasLessonAccess(row.access, viewer)) {
       throw new AppError(ERROR_CODES.FORBIDDEN)
     }
 
     await db
       .insert(lessonProgress)
-      .values({ lessonId, positionMs, userId: context.auth.user.id, ...(completed ? { completedAt: new Date() } : {}) })
+      .values({ lessonId, positionMs, userId: context.auth.user.id, ...(completed && { completedAt: new Date() }) })
       .onConflictDoUpdate({
         set: { completedAt: sql`coalesce(${lessonProgress.completedAt}, excluded.completed_at)`, positionMs, updatedAt: new Date() },
         target: [lessonProgress.userId, lessonProgress.lessonId],

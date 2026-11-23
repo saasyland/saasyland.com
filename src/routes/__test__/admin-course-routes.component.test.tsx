@@ -149,7 +149,6 @@ const editorLesson = (slug: string, title: string, overrides: Partial<Course["ed
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": `${title} summary.` },
   title: { "en-US": title },
-  upload: undefined,
   video: null,
   ...overrides,
 })

@@ -159,7 +159,8 @@ describe("getCourseEditor", () => {
       title: "Lesson",
       width: 1920,
     })
-    expect(editor.chapters[1]?.lessons[1]).toMatchObject({ format: LESSON_FORMAT.VIDEO, upload: undefined, video: null })
+    expect(editor.chapters[1]?.lessons[1]).toMatchObject({ format: LESSON_FORMAT.VIDEO, video: null })
+    expect(editor.chapters[1]?.lessons[1]).not.toHaveProperty("upload")
   })
 
   it("returns a lesson's upload with the bytes received so far", async () => {
@@ -397,7 +398,12 @@ const pollingOf = async (status: (typeof VIDEO_UPLOAD_STATUSES)[number] | undefi
   }
   const query = new QueryObserver(queryClient, options).getCurrentQuery()
 
-  return typeof options.refetchInterval === "function" ? options.refetchInterval(query) : undefined
+  const { refetchInterval } = options
+  if (typeof refetchInterval !== "function") {
+    throw new TypeError("courseEditorQuery polls with a function of the query")
+  }
+
+  return refetchInterval(query)
 }
 
 describe("courseEditorQuery", () => {

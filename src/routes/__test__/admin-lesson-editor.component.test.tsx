@@ -130,7 +130,6 @@ const LESSON: Course["editorLesson"] = {
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": "Start here." },
   title: { "en-US": "Boundaries" },
-  upload: undefined,
   video: RECORDING,
 }
 

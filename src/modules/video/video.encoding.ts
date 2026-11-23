@@ -2,7 +2,8 @@ import * as zod from "zod"
 
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_FILES } from "~/src/modules/video/video.constants"
 
-const MILLISECONDS_PER_SECOND = 1000
+import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
+
 const KILOBITS = 1000
 const EVEN = 2
 
@@ -32,8 +33,6 @@ export const STORYBOARD_MIN_INTERVAL_SECONDS = 2
 
 const VTT_TIME_PAD = 2
 const VTT_MILLISECONDS_PAD = 3
-const SECONDS_PER_MINUTE = 60
-const MINUTES_PER_HOUR = 60
 
 export interface SourceVideo {
   readonly durationMs: number
@@ -264,7 +263,7 @@ const vttTimestamp = (seconds: number): string => {
   const totalMilliseconds = Math.round(seconds * MILLISECONDS_PER_SECOND)
   const milliseconds = totalMilliseconds % MILLISECONDS_PER_SECOND
   const totalSeconds = Math.floor(totalMilliseconds / MILLISECONDS_PER_SECOND)
-  const hours = Math.floor(totalSeconds / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR))
+  const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR)
   const minutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE) % MINUTES_PER_HOUR
   const remainder = totalSeconds % SECONDS_PER_MINUTE
 

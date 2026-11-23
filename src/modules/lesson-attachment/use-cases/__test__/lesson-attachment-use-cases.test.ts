@@ -48,9 +48,9 @@ const attachmentRow = async (attachmentId: string) => {
   return row
 }
 
-const storedText = async (key: string): Promise<string | undefined> => {
+const storedText = async (key: string): Promise<string | null> => {
   const object = await env.MEDIA.get(key)
-  return object === null ? undefined : new Response(object.body).text()
+  return object && new Response(object.body).text()
 }
 
 const attachmentOrder = async (lessonId: string): Promise<string[]> => {
@@ -216,7 +216,7 @@ describe("deleting materials", () => {
 
     await expect(attachmentRow(file.id)).resolves.toBeUndefined()
     await expect(attachmentRow(link.id)).resolves.toBeUndefined()
-    await expect(storedText(objectKey)).resolves.toBeUndefined()
+    await expect(storedText(objectKey)).resolves.toBeNull()
     await expect(executeMutation(deleteLessonAttachmentMutation, { attachmentId: file.id })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
@@ -235,9 +235,9 @@ describe("deleting materials", () => {
 
     await remove()
 
-    await expect(storedText(attachmentObjectKey({ attachmentId: doomed.id, fileName: "Lesson-slides.pdf" }))).resolves.toBeUndefined()
+    await expect(storedText(attachmentObjectKey({ attachmentId: doomed.id, fileName: "Lesson-slides.pdf" }))).resolves.toBeNull()
     await expect(attachmentRow(doomed.id)).resolves.toBeUndefined()
     const survivor = await storedText(attachmentObjectKey({ attachmentId: other.id, fileName: "other.pdf" }))
-    expect(survivor === undefined).toBe((await attachmentRow(other.id)) === undefined)
+    expect(survivor === null).toBe((await attachmentRow(other.id)) === undefined)
   })
 })

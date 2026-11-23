@@ -12,8 +12,6 @@ import { upgradeOrigin } from "~/src/modules/license/license.upgrades"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
-const SINGLE_ROW = 1
-
 interface AttachLicenseKeyInput {
   readonly polarLicenseKeyId: string
   readonly polarOrderId: string
@@ -25,12 +23,12 @@ const isRevokedOrder = async (polarOrderId: string): Promise<boolean> => {
     .select({ polarOrderId: revokedLicenseOrder.polarOrderId })
     .from(revokedLicenseOrder)
     .where(eq(revokedLicenseOrder.polarOrderId, polarOrderId))
-    .limit(SINGLE_ROW)
+    .limit(1)
 
   return revoked !== undefined
 }
 
-export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId }: Readonly<AttachLicenseKeyInput>): Promise<void> => {
+export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId }: AttachLicenseKeyInput): Promise<void> => {
   const current = await getLicense(userId)
 
   if (current?.polarOrderId === polarOrderId) {
@@ -51,7 +49,7 @@ export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId
 
   const order = await polar.orders.get(polarOrderId)
 
-  if (order.product_id === null || licenseTierForProduct(order.product_id) === undefined) {
+  if (licenseTierForProduct(order.product_id) === undefined) {
     console.error(`[license] license key ${polarLicenseKeyId} was granted for order ${polarOrderId}, which is not a license purchase`)
     return
   }

@@ -121,7 +121,6 @@ const lessonWith = (overrides: Partial<Course["editorLesson"]> = {}): Course["ed
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": "Start here." },
   title: { "en-US": "Boundaries" },
-  upload: undefined,
   video: null,
   ...overrides,
 })

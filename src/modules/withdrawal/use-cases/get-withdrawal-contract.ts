@@ -11,8 +11,6 @@ import { WITHDRAWAL_QUERY_KEYS } from "~/src/modules/withdrawal/withdrawal.const
 import { accountContract } from "~/src/modules/withdrawal/withdrawal.contracts"
 import { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"
 
-const SINGLE_ROW = 1
-
 const latestWithdrawal = async (userId: string) => {
   const [latest] = await db
     .select({ createdAt: withdrawal.createdAt })
@@ -20,7 +18,7 @@ const latestWithdrawal = async (userId: string) => {
     .innerJoin(license, and(eq(license.id, withdrawal.licenseId), eq(license.polarOrderId, withdrawal.polarOrderId)))
     .where(eq(license.userId, userId))
     .orderBy(desc(withdrawal.createdAt))
-    .limit(SINGLE_ROW)
+    .limit(1)
 
   return latest
 }

@@ -9,12 +9,11 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { SIGNED_BUNDLE_PATH, bundleObjectKey, verifyBundle } from "~/src/modules/license/license.bundles"
 import { BUNDLE_CONTENT_TYPE } from "~/src/modules/license/license.constants"
 
+import { emptyResponse, isReadRequest, methodNotAllowed } from "~/src/lib/media-response"
+
 const CACHE_CONTROL = "private, no-store"
-const ALLOWED_METHODS = "GET, HEAD"
 
 const signedPathSchema = zod.object({ expiry: zod.string(), signature: zod.string(), version: apiZodSchemas.version })
-
-const emptyResponse = (status: number, headers: HeadersInit = {}): Response => new Response(undefined, { headers, status })
 
 const bundleHeaders = ({ httpEtag, size }: R2Object): Headers =>
   new Headers({
@@ -25,8 +24,8 @@ const bundleHeaders = ({ httpEtag, size }: R2Object): Headers =>
   })
 
 export const serveBundle = async (request: Request): Promise<Response> => {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return emptyResponse(HTTP_STATUS.METHOD_NOT_ALLOWED, { Allow: ALLOWED_METHODS })
+  if (!isReadRequest(request)) {
+    return methodNotAllowed()
   }
 
   const signed = signedPathSchema.safeParse(SIGNED_BUNDLE_PATH.exec(request.url)?.pathname.groups)
@@ -43,7 +42,7 @@ export const serveBundle = async (request: Request): Promise<Response> => {
 
   if (request.method === "HEAD") {
     const head = await env.BUNDLES.head(key)
-    return head === null ? emptyResponse(HTTP_STATUS.NOT_FOUND) : new Response(undefined, { headers: bundleHeaders(head) })
+    return head === null ? emptyResponse(HTTP_STATUS.NOT_FOUND) : emptyResponse(HTTP_STATUS.OK, bundleHeaders(head))
   }
 
   const object = await env.BUNDLES.get(key)

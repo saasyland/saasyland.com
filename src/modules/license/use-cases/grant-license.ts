@@ -46,7 +46,7 @@ export const grantLicense = async ({
   tier,
   userId,
   withdrawalConsentAt,
-}: Readonly<GrantLicenseInput>): Promise<void> => {
+}: GrantLicenseInput): Promise<void> => {
   await backfillPurchaseDate(userId)
   await db.run(sql`
     insert into ${license} (id, polar_customer_id, polar_order_id, purchase_created_at, tier, user_id, withdrawal_consent_at)

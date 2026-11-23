@@ -55,12 +55,15 @@ const publicAttachment = async ({ attachment, locale, unlocked }: AttachmentView
   const title = localize(attachment.title, locale)
 
   if (target.kind === LESSON_ATTACHMENT_KIND.LINK) {
-    return { href: unlocked ? target.url : undefined, id: attachment.id, kind: target.kind, title }
+    const link = { href: undefined, id: attachment.id, kind: target.kind, title }
+
+    return unlocked ? { ...link, href: target.url } : link
   }
 
   const file = {
     contentType: target.contentType,
     fileName: attachmentFileNameOf(target.objectKey),
+    href: undefined,
     id: attachment.id,
     kind: target.kind,
     sizeBytes: target.sizeBytes,
@@ -68,7 +71,7 @@ const publicAttachment = async ({ attachment, locale, unlocked }: AttachmentView
   }
 
   if (!unlocked) {
-    return { ...file, href: undefined }
+    return file
   }
 
   return {

@@ -536,12 +536,17 @@ describe("rate limits", () => {
     }
 
     const limited = await getLicense({ key, machine: STUDIO })
+    const keyless = await licenseApiHandlers.license({
+      params: {},
+      request: rawRequest(API_ROUTE.LICENSE, { headers: { [IP_ADDRESS_HEADER]: ADDRESS } }),
+    })
 
     expect(limited.result).toStrictEqual({
       failure: { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: RATE_LIMIT.PERIOD_SECONDS },
       success: false,
     })
     expect(limited.headers.get(API_HEADER.RETRY_AFTER)).toBe(String(RATE_LIMIT.PERIOD_SECONDS))
+    expect(keyless.status).toBe(HTTP_STATUS.TOO_MANY_REQUESTS)
     const elsewhere = await getLicense({ address: OTHER_ADDRESS, key, machine: STUDIO })
     expect(elsewhere.result.success).toBe(true)
 

@@ -23,11 +23,11 @@ const DETAILS = ["submittedAt", "name", "email", "reference", "channel", "licenc
 type Detail = (typeof DETAILS)[number]
 
 interface WithdrawalNotificationEmailProps {
-  readonly accountUrl: string | undefined
+  readonly accountUrl?: string
   readonly deadline: Date
   readonly locale: SupportedLocale
   readonly messages: typeof emailMessages
-  readonly polarUrl: string | undefined
+  readonly polarUrl?: string
   readonly statement: Pick<
     Withdrawal["select"],
     "acknowledgedAt" | "channel" | "createdAt" | "eligibility" | "email" | "name" | "reference"

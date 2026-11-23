@@ -15,13 +15,11 @@ import { license } from "~/src/modules/license/license.schema"
 import type { License } from "~/src/modules/license/license.types"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 
-const SINGLE_ROW = 1
-
 export const deactivateLicense = createServerFn({ method: "POST" })
   .middleware([authorized(), withRateLimit("deactivate-license", RATE_LIMITS.SENSITIVE)])
   .validator((input: License["deactivateLicense"]) => licenseZodSchemas.deactivateLicense.parse(input))
   .handler(async ({ context, data: { activationId } }) => {
-    const [row] = await db.select({ key: license.key }).from(license).where(eq(license.userId, context.auth.user.id)).limit(SINGLE_ROW)
+    const [row] = await db.select({ key: license.key }).from(license).where(eq(license.userId, context.auth.user.id)).limit(1)
 
     if (row === undefined || row.key === null || row.key.length === 0) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

@@ -17,7 +17,7 @@ import { LICENSE_CHECKOUT_METADATA, LICENSE_MUTATION_KEYS, LICENSE_STATUS } from
 import { buyerTierPrice } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
 import { upgradePrice } from "~/src/modules/license/license.upgrade-price"
-import { upgradeMetadata } from "~/src/modules/license/license.upgrades"
+import { canUpgrade, upgradeMetadata } from "~/src/modules/license/license.upgrades"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
@@ -42,16 +42,12 @@ const checkoutTerms = async (
   current: License["select"] | undefined,
   tier: License["startCheckout"]["tier"],
   headers: Headers,
-): Promise<CheckoutTerms | undefined> => {
-  if (current?.status !== LICENSE_STATUS.ACTIVE) {
+): Promise<CheckoutTerms> => {
+  if (!canUpgrade(current, tier)) {
     return { amount: toMinorUnits(buyerTierPrice(headers, tier), DEFAULT_CURRENCY_CODE), metadata: {} }
   }
 
   const upgrade = await upgradePrice(current, tier, headers)
-
-  if (upgrade === undefined) {
-    return undefined
-  }
 
   return { amount: upgrade.amount, metadata: upgradeMetadata({ order: upgrade.fromOrder, tier: upgrade.fromTier }) }
 }
@@ -62,14 +58,15 @@ export const startCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data: { locale, redirect, returnPath, tier } }) => {
     const origin = trustedRequestOrigin(getRequest())
     const { user } = context.auth
-    const terms = await checkoutTerms(await getLicense(user.id), tier, context.requestHeaders)
+    const current = await getLicense(user.id)
 
-    if (terms === undefined) {
+    if (current?.status === LICENSE_STATUS.ACTIVE && !canUpgrade(current, tier)) {
       return { alreadyActive: true } as const
     }
 
+    const terms = await checkoutTerms(current, tier, context.requestHeaders)
     const productId = POLAR_PRODUCT_IDS[tier]
-    const purchase = new URLSearchParams({ ...(redirect === undefined ? {} : { redirect }), tier })
+    const purchase = new URLSearchParams({ ...(redirect !== undefined && { redirect }), tier })
     const successUrl = new URL(
       `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}&${purchase.toString()}`,
       origin,
@@ -90,7 +87,7 @@ export const startCheckout = createServerFn({ method: "POST" })
       products: [productId],
       return_url: new URL(returnPath, origin).toString(),
       success_url: successUrl.toString(),
-      ...(terms.amount === toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE) ? {} : adHocPrices(productId, terms.amount)),
+      ...(terms.amount !== toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE) && adHocPrices(productId, terms.amount)),
     })
 
     return { checkoutId: id, url }

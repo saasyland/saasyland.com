@@ -50,16 +50,16 @@ const storedCover = async (courseId: string = IDS.COURSE): Promise<string | null
   return row?.cover
 }
 
-const storedTexts = (cover: string): Promise<(string | undefined)[]> =>
+const storedTexts = (cover: string): Promise<(string | null)[]> =>
   Promise.all(
     coverObjectKeys(cover).map(async (key) => {
       const object = await env.MEDIA.get(key)
-      return object === null ? undefined : new Response(object.body).text()
+      return object && new Response(object.body).text()
     }),
   )
 
 const STORED = COURSE_COVER_WIDTHS.map((width) => `cover-${String(width)}`)
-const GONE = Array.from({ length: COURSE_COVER_WIDTHS.length })
+const GONE = COURSE_COVER_WIDTHS.map(() => null)
 
 beforeEach(async () => {
   await seedCatalogue()

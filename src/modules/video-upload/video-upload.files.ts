@@ -1,4 +1,5 @@
 import {
+  VIDEO_UPLOAD_EXTENSIONS,
   VIDEO_UPLOAD_FILE_TYPES,
   VIDEO_UPLOAD_KEY_PREFIX,
   VIDEO_UPLOAD_SOURCE_NAME,
@@ -15,10 +16,12 @@ export const PART_FIELDS = {
 
 const isVideoExtension = (extension: string): extension is VideoUploadExtension => Object.hasOwn(VIDEO_UPLOAD_FILE_TYPES, extension)
 
+const VIDEO_EXTENSIONS = VIDEO_UPLOAD_EXTENSIONS.filter((extension) => isVideoExtension(extension))
+
 export const videoUploadExtension = (fileName: string): VideoUploadExtension | undefined => {
   const extension = fileName.slice(fileName.lastIndexOf(EXTENSION_SEPARATOR) + 1).toLowerCase()
 
-  return isVideoExtension(extension) ? extension : undefined
+  return VIDEO_EXTENSIONS.find((known) => known === extension)
 }
 
 export const videoTitle = (fileName: string): string => {

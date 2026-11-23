@@ -9,17 +9,16 @@ import { POLAR_MINIMUM_PRICE_AMOUNT, POLAR_ORDER_STATUS } from "~/src/integratio
 
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { buyerTierPrice } from "~/src/modules/license/license.ppp"
-import type { License } from "~/src/modules/license/license.types"
-import { isUpgrade } from "~/src/modules/license/license.upgrades"
+import type { UpgradableLicense } from "~/src/modules/license/license.upgrades"
 import { POLAR_PRODUCT_IDS, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
 const ORDER_PAGE_SIZE = 100
 
 const PAID_STATUSES: ReadonlySet<string> = new Set([POLAR_ORDER_STATUS.PAID, POLAR_ORDER_STATUS.PARTIALLY_REFUNDED])
 
-export interface UpgradePrice {
+interface UpgradePrice {
   readonly amount: number
   readonly credit: number
   readonly fromOrder: string
@@ -49,19 +48,7 @@ const licenseCredit = async (polarCustomerId: string): Promise<number> => {
     .reduce((credit, order) => credit + paidAtPrice(order), 0)
 }
 
-export const upgradePrice = async (
-  license: License["select"] | undefined,
-  tier: LicenseTier,
-  headers: Headers,
-): Promise<UpgradePrice | undefined> => {
-  if (license?.status !== LICENSE_STATUS.ACTIVE || license.polarOrderId === null || license.polarLicenseKeyId === null) {
-    return undefined
-  }
-
-  if (!isUpgrade(license.tier, tier)) {
-    return undefined
-  }
-
+export const upgradePrice = async (license: UpgradableLicense, tier: LicenseTier, headers: Headers): Promise<UpgradePrice> => {
   const price = toMinorUnits(buyerTierPrice(headers, tier), DEFAULT_CURRENCY_CODE)
   const credit = await licenseCredit(license.polarCustomerId)
   const remaining = price - credit

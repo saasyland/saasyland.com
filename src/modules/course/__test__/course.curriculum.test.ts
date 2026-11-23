@@ -25,7 +25,6 @@ const lesson = (id: string, chapterId: string, position: number): Course["editor
   status: LESSON_STATUS.DRAFT,
   summary: { "en-US": id },
   title: { "en-US": id },
-  upload: undefined,
   video: null,
 })
 

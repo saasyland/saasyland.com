@@ -15,13 +15,11 @@ export const updateLessonAttachment = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: LessonAttachment["updateLessonAttachment"]) => lessonAttachmentZodSchemas.updateLessonAttachment.parse(input))
   .handler(async ({ data: { attachmentId, title, url } }) => {
-    const link = url === undefined ? {} : { url }
+    const linkOnly = url === undefined ? [] : [eq(lessonAttachment.kind, LESSON_ATTACHMENT_KIND.LINK)]
     const [row] = await db
       .update(lessonAttachment)
-      .set({ title, ...link })
-      .where(
-        and(eq(lessonAttachment.id, attachmentId), url === undefined ? undefined : eq(lessonAttachment.kind, LESSON_ATTACHMENT_KIND.LINK)),
-      )
+      .set({ title, ...(url !== undefined && { url }) })
+      .where(and(eq(lessonAttachment.id, attachmentId), ...linkOnly))
       .returning({ id: lessonAttachment.id })
 
     if (row === undefined) {

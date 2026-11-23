@@ -20,10 +20,19 @@ export const getUserLicense = createServerFn({ method: "GET" })
     }
 
     const { activatedAt, deliveredAt, lessonOpenedAt, openedLessonId, purchaseCreatedAt, status, tier, withdrawalConsentAt } = row
-    const refund = status === LICENSE_STATUS.ACTIVE ? refundEligibility({ ...row, now: new Date() }) : undefined
 
     return {
-      license: { activatedAt, deliveredAt, lessonOpenedAt, openedLessonId, purchaseCreatedAt, refund, status, tier, withdrawalConsentAt },
+      license: {
+        activatedAt,
+        deliveredAt,
+        lessonOpenedAt,
+        openedLessonId,
+        purchaseCreatedAt,
+        status,
+        tier,
+        withdrawalConsentAt,
+        ...(status === LICENSE_STATUS.ACTIVE && { refund: refundEligibility({ ...row, now: new Date() }) }),
+      },
     }
   })
 

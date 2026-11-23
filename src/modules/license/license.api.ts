@@ -39,7 +39,6 @@ import type { License } from "~/src/modules/license/license.types"
 import { sha256Hex } from "~/src/lib/hex"
 import { type RateLimitDecision, type RateLimitInput, countRequest, rateLimitBatch } from "~/src/lib/rate-limit"
 
-const SINGLE_ROW = 1
 const ONE_SLOT = 1
 const ADDRESS_RATE_LIMIT_PREFIX = "cli:address:"
 const LICENSE_KEY_RATE_LIMIT_PREFIX = "cli:key:"
@@ -97,8 +96,7 @@ const summary = (tier: LicenseTier, machinesUsed: number): Api["license"] => ({
 
 const machinesOf = ({ activations }: models.LicenseKeyWithActivations, machine: Api["machineId"]): Api["machine"][] =>
   activations.map(({ created_at: createdAt, id, label, meta }) => {
-    const parsed = activationMetaSchema.safeParse(meta)
-    const { machine: activationMachine, ...details } = parsed.success ? parsed.data : {}
+    const { machine: activationMachine, ...details } = activationMetaSchema.safeParse(meta).data ?? {}
 
     return { ...details, createdAt: new Date(createdAt).toISOString(), current: activationMachine === machine, id, label }
   })
@@ -125,29 +123,17 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
 
 const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
 
-const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
-  allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
+const rateLimited = ({ retryAfter }: RateLimitDecision): Api["error"] => ({ code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter })
 
-const recordFirstActivation = async ({ credentials, records }: FirstUse): Promise<void> => {
-  if (records.activatedAt !== null) {
+const recordFirstUse = async (use: keyof FirstUse["records"], { credentials, records }: FirstUse): Promise<void> => {
+  if (records[use] !== null) {
     return
   }
 
   await db
     .update(license)
-    .set({ activatedAt: new Date() })
-    .where(and(eq(license.key, credentials.key), isNull(license.activatedAt)))
-}
-
-const recordFirstDelivery = async ({ credentials, records }: FirstUse): Promise<void> => {
-  if (records.deliveredAt !== null) {
-    return
-  }
-
-  await db
-    .update(license)
-    .set({ deliveredAt: new Date() })
-    .where(and(eq(license.key, credentials.key), isNull(license.deliveredAt)))
+    .set({ [use]: new Date() })
+    .where(and(eq(license.key, credentials.key), isNull(license[use])))
 }
 
 const presentedKey = ({ headers }: Request) => apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
@@ -168,11 +154,11 @@ const countAndFindLicense = async (address: RateLimitInput, key: string) => {
       })
       .from(license)
       .where(eq(license.key, key))
-      .limit(SINGLE_ROW),
+      .limit(1),
     ...rateLimits.statements,
   ])
 
-  return { limited: rateLimitError(rateLimits.decision(counters)), row }
+  return { decision: rateLimits.decision(counters), row }
 }
 
 const admit = async <Schema extends zod.ZodType>(
@@ -183,13 +169,15 @@ const admit = async <Schema extends zod.ZodType>(
   const key = presentedKey(request)
 
   if (!key.success) {
-    return refuse(rateLimitError(await countRequest(address)) ?? { code: API_ERROR.INVALID_LICENSE_KEY })
+    const decision = await countRequest(address)
+
+    return refuse(decision.allowed ? { code: API_ERROR.INVALID_LICENSE_KEY } : rateLimited(decision))
   }
 
-  const { limited, row } = await countAndFindLicense(address, key.data)
+  const { decision, row } = await countAndFindLicense(address, key.data)
 
-  if (limited !== undefined) {
-    return refuse(limited)
+  if (!decision.allowed) {
+    return refuse(rateLimited(decision))
   }
 
   const read = await readApiRequest(endpoint, request, params)
@@ -256,7 +244,7 @@ export const licenseApiHandlers = {
       const current = machines.find((machine) => machine.current)
 
       if (current !== undefined) {
-        await recordFirstActivation({ credentials, records })
+        await recordFirstUse("activatedAt", { credentials, records })
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.OK, { activationId: current.id, license: summary(tier, machines.length) })
       }
 
@@ -270,7 +258,7 @@ export const licenseApiHandlers = {
           meta: { ...details, machine: credentials.machine },
           organization_id: env.POLAR_ORGANIZATION_ID,
         })
-        await recordFirstActivation({ credentials, records })
+        await recordFirstUse("activatedAt", { credentials, records })
 
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.CREATED, {
           activationId: id,
@@ -307,7 +295,7 @@ export const licenseApiHandlers = {
         secret: env.AUTH_SECRET,
         version: body.version,
       })
-      await recordFirstDelivery({ credentials, records })
+      await recordFirstUse("deliveredAt", { credentials, records })
 
       return apiResponse(API_ENDPOINT.BUNDLE, HTTP_STATUS.OK, { ...stored.bundle, ...signed })
     }),

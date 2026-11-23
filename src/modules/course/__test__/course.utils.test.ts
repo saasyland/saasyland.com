@@ -116,7 +116,6 @@ const editorLesson = (id: string): Course["editorLesson"] => ({
   status: LESSON_STATUS.DRAFT,
   summary: { "en-US": id },
   title: { "en-US": id },
-  upload: undefined,
   video: null,
 })
 

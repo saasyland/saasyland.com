@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { BLOG_COVER } from "~/src/data/blog"
+import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_COVER } from "~/src/data/blog"
 
 import {
   ORGANIZATION_LOGO,
   ORGANIZATION_STRUCTURED_DATA_HTML,
   SOCIAL_IMAGE,
+  buildAuthorStructuredData,
+  buildAuthorStructuredDataHtml,
   buildBlogArchiveStructuredData,
   buildBlogArchiveStructuredDataHtml,
   buildBlogPostStructuredData,
@@ -20,7 +22,21 @@ import {
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const GRAPH_NODES_WITHOUT_FAQ = 2
+const GRAPH_NODES_WITHOUT_FAQ = 3
+
+const AUTHOR = BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+
+const AUTHOR_ROLE = "Founder · Engineer"
+
+const PERSON = {
+  "@id": "https://example.com/authors/piotr-borowiecki#person",
+  "@type": "Person",
+  image: `https://example.com${AUTHOR.image}`,
+  jobTitle: AUTHOR_ROLE,
+  name: AUTHOR.name,
+  sameAs: AUTHOR.profiles.map(({ url }) => url),
+  url: "https://example.com/authors/piotr-borowiecki",
+}
 
 const ORGANIZATION = {
   "@type": "Organization",
@@ -32,7 +48,8 @@ const ORGANIZATION = {
 }
 
 const BASE_INPUT = {
-  authorName: "Piotr J. Borowiecki",
+  author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+  authorRole: AUTHOR_ROLE,
   baseUrl: "https://example.com",
   blogTitle: "Blog",
   date: "2026-08-15",
@@ -43,10 +60,10 @@ const BASE_INPUT = {
 } as const
 
 describe("blog post structured data", () => {
-  it("emits a BlogPosting and a BreadcrumbList with absolute urls", () => {
+  it("emits a BlogPosting, its author and a BreadcrumbList with absolute urls", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
-    expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "BreadcrumbList"])
+    expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "Person", "BreadcrumbList"])
     expect(graph[0]?.["url"]).toBe("https://example.com/blog/a-post")
     expect(graph[0]?.["datePublished"]).toBe("2026-08-15T00:00:00.000Z")
   })
@@ -89,25 +106,20 @@ describe("blog post structured data", () => {
     expect(graph[0]).not.toHaveProperty("keywords")
   })
 
-  it("names the author as a person with the profile and image the post gives", () => {
-    expect.hasAssertions()
-    const graph = buildBlogPostStructuredData({
-      ...BASE_INPUT,
-      authorImage: "/images/blog/authors/author.webp",
-      authorUrl: "https://github.com/author",
-    })["@graph"]
-    expect(graph[0]?.["author"]).toStrictEqual({
-      "@type": "Person",
-      image: "https://example.com/images/blog/authors/author.webp",
-      name: BASE_INPUT.authorName,
-      url: "https://github.com/author",
-    })
-  })
-
-  it("names an author without a profile or image by name alone", () => {
+  it("names the author as a person with the author page, image, role and profiles, and refers to that person from the post", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
-    expect(graph[0]?.["author"]).toStrictEqual({ "@type": "Person", name: BASE_INPUT.authorName })
+    expect(graph[1]).toStrictEqual(PERSON)
+    expect(graph[0]?.["author"]).toStrictEqual({ "@id": PERSON["@id"] })
+  })
+
+  it("links the author page in the post's language", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData({ ...BASE_INPUT, locale: "ja-JP", url: "/ja-JP/blog/a-post" })["@graph"]
+    expect(graph[1]).toMatchObject({
+      "@id": "https://example.com/ja-JP/authors/piotr-borowiecki#person",
+      url: "https://example.com/ja-JP/authors/piotr-borowiecki",
+    })
   })
 
   it("gives the language and the tags of the post", () => {
@@ -120,7 +132,7 @@ describe("blog post structured data", () => {
   it("leads the breadcrumb through the home page and the blog in the post's language", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData({ ...BASE_INPUT, blogTitle: "ブログ", locale: "ja-JP", url: "/ja-JP/blog/a-post" })["@graph"]
-    expect(graph[1]?.["itemListElement"]).toStrictEqual([
+    expect(graph[2]?.["itemListElement"]).toStrictEqual([
       { "@type": "ListItem", item: "https://example.com/ja-JP", name: APP_NAME, position: 1 },
       { "@type": "ListItem", item: "https://example.com/ja-JP/blog", name: "ブログ", position: 2 },
       { "@type": "ListItem", item: "https://example.com/ja-JP/blog/a-post", name: BASE_INPUT.title, position: 3 },
@@ -130,8 +142,8 @@ describe("blog post structured data", () => {
   it("appends an FAQPage when the post declares faq entries", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData({ ...BASE_INPUT, faq: [{ answer: "Because.", question: "Why?" }] })["@graph"]
-    expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "BreadcrumbList", "FAQPage"])
-    expect(graph[2]?.["mainEntity"]).toStrictEqual([
+    expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "Person", "BreadcrumbList", "FAQPage"])
+    expect(graph[3]?.["mainEntity"]).toStrictEqual([
       { "@type": "Question", acceptedAnswer: { "@type": "Answer", text: "Because." }, name: "Why?" },
     ])
   })
@@ -397,9 +409,10 @@ describe("social preview", () => {
 })
 
 describe("article author", () => {
-  it("names the author and links the author's profile", () => {
+  it("names the author and links the author page in the page's language", () => {
     const { meta } = buildPageHead({
-      author: { name: "Ada", url: "https://github.com/ada" },
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+      locale: "pl-PL",
       pathname: "/blog/post",
       title: "Post",
       type: "article",
@@ -407,23 +420,52 @@ describe("article author", () => {
 
     expect(meta).toStrictEqual(
       expect.arrayContaining([
-        { content: "Ada", name: "author" },
-        { content: "https://github.com/ada", property: "article:author" },
+        { content: AUTHOR.name, name: "author" },
+        { content: `${APP_URL}/pl-PL/authors/piotr-borowiecki`, property: "article:author" },
       ]),
     )
-  })
-
-  it("names an author without a profile by name alone", () => {
-    const { meta } = buildPageHead({ author: { name: "Ada" }, pathname: "/blog/post", title: "Post", type: "article" })
-
-    expect(meta).toContainEqual({ content: "Ada", name: "author" })
-    expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:author" }))
   })
 
   it("names no author on a page that is not an article", () => {
     const { meta } = buildPageHead({ pathname: ROUTES.HOME, title: "Home" })
 
     expect(meta).not.toContainEqual(expect.objectContaining({ name: "author" }))
+  })
+})
+
+describe("author structured data", () => {
+  const input = { ...BASE_INPUT, baseUrl: APP_URL, description: "A biography", locale: "de-DE" } as const
+
+  it("describes the author page as a ProfilePage whose main entity is the author", () => {
+    const graph = buildAuthorStructuredData(input)["@graph"]
+
+    expect(graph).toStrictEqual([
+      {
+        "@id": `${APP_URL}/de-DE/authors/piotr-borowiecki`,
+        "@type": "ProfilePage",
+        description: "A biography",
+        inLanguage: "de-DE",
+        mainEntity: { "@id": `${APP_URL}/de-DE/authors/piotr-borowiecki#person` },
+        name: `${AUTHOR.name} – ${APP_NAME}`,
+        url: `${APP_URL}/de-DE/authors/piotr-borowiecki`,
+      },
+      {
+        "@id": `${APP_URL}/de-DE/authors/piotr-borowiecki#person`,
+        "@type": "Person",
+        image: `${APP_URL}${AUTHOR.image}`,
+        jobTitle: AUTHOR_ROLE,
+        name: AUTHOR.name,
+        sameAs: ["https://github.com/pjborowiecki", "https://www.linkedin.com/in/pjborowiecki/"],
+        url: `${APP_URL}/de-DE/authors/piotr-borowiecki`,
+      },
+    ])
+  })
+
+  it("serialises the profile for a script element without a closing tag", () => {
+    const { __html: html } = buildAuthorStructuredDataHtml({ ...input, description: "</script>" })
+
+    expect(html).not.toContain("</script>")
+    expect(JSON.parse(html)).toMatchObject({ "@context": "https://schema.org" })
   })
 })
 

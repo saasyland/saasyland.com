@@ -12,7 +12,7 @@ import {
   tableOfContents,
 } from "~/src/integrations/fumadocs/fumadocs.indexes"
 
-import { BLOG_TAG } from "~/src/data/blog"
+import { BLOG_AUTHOR, BLOG_TAG } from "~/src/data/blog"
 
 const SEARCH_INDEX_URL = "/assets/search-index.json"
 const WORDS_PER_MINUTE = 220
@@ -38,9 +38,7 @@ const DOCS = {
 const BLOG = {
   [`${BLOG_DIRECTORY}/newer.en-US.mdx`]: mdx(
     {
-      authorImage: "/images/blog/authors/ada.webp",
-      authorName: "Ada",
-      authorUrl: "https://github.com/ada",
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
       date: "2026-09-02",
       description: "Newer description",
       excerpt: "Newer excerpt",
@@ -51,7 +49,7 @@ const BLOG = {
   ),
   [`${BLOG_DIRECTORY}/older.en-US.mdx`]: mdx(
     {
-      authorName: "Grace",
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
       date: "2025-01-01",
       description: "Older description",
       faq: [{ answer: "Because.", question: "Why?" }],
@@ -61,9 +59,12 @@ const BLOG = {
     },
     "Three short words\n",
   ),
-  [`${BLOG_DIRECTORY}/draft.en-US.mdx`]: mdx({ authorName: "Ada", date: "2026-12-01", published: false, title: "Draft" }, "Draft text.\n"),
+  [`${BLOG_DIRECTORY}/draft.en-US.mdx`]: mdx(
+    { author: BLOG_AUTHOR.PIOTR_BOROWIECKI, date: "2026-12-01", published: false, title: "Draft" },
+    "Draft text.\n",
+  ),
   [`${BLOG_DIRECTORY}/newer.ja-JP.mdx`]: mdx(
-    { authorName: "Ada", date: "2026-09-02", title: "日本語" },
+    { author: BLOG_AUTHOR.PIOTR_BOROWIECKI, date: "2026-09-02", title: "日本語" },
     `${"認証と請求の仕組みを学びます。".repeat(100)}\n`,
   ),
 }
@@ -135,9 +136,7 @@ describe("blog index", () => {
 
     expect(posts.map(({ title }) => title)).toStrictEqual(["Newer", "Older"])
     expect(posts[0]).toMatchObject({
-      authorImage: "/images/blog/authors/ada.webp",
-      authorName: "Ada",
-      authorUrl: "https://github.com/ada",
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
       date: "2026-09-02",
       description: "Newer description",
       faq: undefined,
@@ -149,8 +148,6 @@ describe("blog index", () => {
       url: "/blog/newer",
     })
     expect(posts[1]).toMatchObject({
-      authorImage: undefined,
-      authorUrl: undefined,
       faq: [{ answer: "Because.", question: "Why?" }],
       image: "/older.webp",
       summary: "Older description",
@@ -182,8 +179,7 @@ describe("blog index", () => {
   it("dates a post whose frontmatter holds a date", async () => {
     const { blog } = await createContentIndexes(
       createContentDirectory({
-        [`${BLOG_DIRECTORY}/dated.en-US.mdx`]:
-          "---\ntitle: Dated\nauthorName: Ada\ndate: !!timestamp 2026-09-01\nupdated: !!timestamp 2026-10-01\n---\n",
+        [`${BLOG_DIRECTORY}/dated.en-US.mdx`]: `---\ntitle: Dated\nauthor: ${BLOG_AUTHOR.PIOTR_BOROWIECKI}\ndate: !!timestamp 2026-09-01\nupdated: !!timestamp 2026-10-01\n---\n`,
       }),
     )
 

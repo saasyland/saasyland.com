@@ -21,7 +21,7 @@ import {
   useBlogTestEnvironment,
 } from "~/src/routes/__test__/fixtures/blog-router"
 
-import { BLOG_TAG } from "~/src/data/blog"
+import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -31,6 +31,7 @@ import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.
 import plContentNavigationMessages from "~/messages/pl-PL/navigation.content.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
@@ -142,20 +143,33 @@ describe("blog routes", () => {
 })
 
 describe("the end of a blog post and its metadata", () => {
-  it("closes the article with its author, linked to the author's profile", async () => {
+  it("closes the article with a box that introduces the author and links the author page and profiles", async () => {
     await renderBlog({ locale: "en-US", path: "/blog/guide" })
-    const author = screen.getByRole("link", { name: "Ada" })
-    expect(author).toHaveAttribute("href", "https://github.com/ada")
-    expect(author).toHaveAttribute("rel", "author noopener noreferrer")
-    expect(screen.getByText(pagesBlogMessages.post.author.label)).toBeVisible()
-    expect(document.querySelector('img[src="/images/blog/authors/ada.webp"]')).toHaveAttribute("loading", "lazy")
+    const { image, name, profiles } = BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+    const messages = pagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+    const author = screen.getByRole("link", { name })
+
+    expect(author).toHaveAttribute("href", `${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`)
+    expect(author).toHaveAttribute("rel", "author")
+    expect(screen.getByText(pagesBlogMessages.author.writtenBy)).toBeVisible()
+    expect(screen.getByText(messages.role)).toBeVisible()
+    expect(screen.getByText(messages.bio)).toBeVisible()
+    expect(document.querySelector(`img[src="${image}"]`)).toHaveAttribute("loading", "lazy")
+    for (const { network, url } of profiles) {
+      const profile = screen.getByRole("link", { name: pagesBlogMessages.author.profiles[network].replace("{name}", name) })
+
+      expect(profile).toHaveAttribute("href", url)
+      expect(profile).toHaveAttribute("rel", "me noopener noreferrer")
+    }
   })
 
-  it("names an author without a profile or image as text", async () => {
+  it("introduces the author in the page's language and links the author page in it", async () => {
     await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
-    expect(screen.queryByRole("link", { name: "Ada" })).not.toBeInTheDocument()
-    expect(screen.getByText(plPagesBlogMessages.post.author.label)).toBeVisible()
-    expect(document.querySelector('img[src^="/images/blog/authors"]')).not.toBeInTheDocument()
+    const { name } = BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+
+    expect(screen.getByRole("link", { name })).toHaveAttribute("href", `/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`)
+    expect(screen.getByText(plPagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI].role)).toBeVisible()
+    expect(screen.getByRole("link", { name: `${name} na GitHubie` })).toBeVisible()
     expect(screen.queryByRole("heading", { name: plPagesBlogMessages.post.related })).not.toBeInTheDocument()
   })
 
@@ -171,9 +185,11 @@ describe("the end of a blog post and its metadata", () => {
     const tags = [plPagesBlogMessages.tags[BLOG_TAG.TESTING], plPagesBlogMessages.tags[BLOG_TAG.TOOLING]]
     const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
     expect([...document.querySelectorAll('meta[property="article:tag"]')].map((meta) => meta.getAttribute("content"))).toStrictEqual(tags)
+    const person = `${APP_URL}/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}#person`
     expect(structuredData).toMatchObject({
       "@graph": [
-        { description: "Article description", inLanguage: "pl-PL", keywords: tags },
+        { author: { "@id": person }, description: "Article description", inLanguage: "pl-PL", keywords: tags },
+        { "@id": person, "@type": "Person", jobTitle: plPagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI].role },
         {
           itemListElement: [
             expect.anything(),
@@ -191,6 +207,40 @@ describe("the end of a blog post and its metadata", () => {
     const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
     expect(structuredData).toMatchObject({
       "@graph": [{ "@type": "Blog", blogPost: [{ headline: SHARED_TITLE }], inLanguage: "pl-PL" }, { "@type": "ItemList" }],
+    })
+  })
+})
+
+describe("the author page", () => {
+  it("introduces the author with the photo, role, biography and profiles, then lists every post by the author", async () => {
+    await renderBlog({ locale: "en-US", path: `${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`, posts: [RELATED] })
+    const { image, name } = BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+    const messages = pagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+    const posts = within(section(screen.getByRole("heading", { level: 2, name: `Posts by ${name}` }), "section"))
+
+    expect(screen.getByRole("heading", { level: 1, name })).toBeVisible()
+    expect(screen.getByText(messages.role)).toBeVisible()
+    expect(screen.getByText(messages.bio)).toBeVisible()
+    expect(document.querySelector(`img[src="${image}"]`)).toHaveAttribute("fetchpriority", "high")
+    expect(screen.getByRole("link", { name: `${name} on LinkedIn` })).toHaveAttribute("rel", "me noopener noreferrer")
+    expect(posts.getByRole("link", { name: RELATED.title })).toHaveAttribute("href", RELATED.url)
+    expect(posts.getByText("1 post")).toBeVisible()
+    expect(screen.getByText(pagesBlogMessages.author.disclaimer)).toBeVisible()
+    expect(screen.getByRole("link", { name: pagesBlogMessages.post.backToBlog })).toHaveAttribute("href", ROUTES.BLOG)
+  })
+
+  it("describes the author page as a profile of the author in the page's language", async () => {
+    await renderBlog({ locale: "pl-PL", path: `/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}` })
+    const messages = plPagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI]
+    const page = `${APP_URL}/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`
+    const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
+
+    expect(screen.getByText(messages.bio)).toBeVisible()
+    expect(structuredData).toMatchObject({
+      "@graph": [
+        { "@type": "ProfilePage", description: messages.bio, inLanguage: "pl-PL", mainEntity: { "@id": `${page}#person` }, url: page },
+        { "@id": `${page}#person`, "@type": "Person", jobTitle: messages.role, url: page },
+      ],
     })
   })
 })

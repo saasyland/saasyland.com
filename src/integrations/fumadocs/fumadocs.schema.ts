@@ -1,22 +1,15 @@
 import { pageSchema } from "fumadocs-core/source/schema"
 import zod from "zod/v4"
 
-import { BLOG_TAGS } from "../../data/blog"
+import { BLOG_AUTHOR, BLOG_TAGS } from "../../data/blog"
 
 const blogDateSchema = zod.union([zod.iso.date(), zod.date()])
 
 const blogFaqSchema = zod.array(zod.object({ answer: zod.string(), question: zod.string() }))
 
-const SITE_PATH = /^\/(?!\/)/u
-
 export const blogSchema = pageSchema
   .extend({
-    authorImage: zod
-      .string()
-      .regex(SITE_PATH, "authorImage must be a path on this site, so a reader's browser never requests it from another host")
-      .optional(),
-    authorName: zod.string(),
-    authorUrl: zod.url().optional(),
+    author: zod.enum(BLOG_AUTHOR),
     date: blogDateSchema,
     excerpt: zod.string().optional(),
     faq: blogFaqSchema.optional(),

@@ -291,6 +291,7 @@ describe("the server-rendered blog index", () => {
     vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/blog"))
     const router = createBlogRouter({
       archive: {},
+      author: {},
       index: {},
       locale: "en-US",
       path: `/blog?q=release&sort=${BLOG_SORT.READING_TIME}&tag=${BLOG_TAG.RELEASE}`,

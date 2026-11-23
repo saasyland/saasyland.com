@@ -20,7 +20,7 @@ export {
   TWO_FACTOR,
   VERIFY_EMAIL,
 } from "~/src/data/auth.routes"
-export { BLOG, DOCS, DOCS_CLI, DOCS_TEST_COVERAGE } from "~/src/data/content.routes"
+export { AUTHORS, BLOG, DOCS, DOCS_CLI, DOCS_TEST_COVERAGE } from "~/src/data/content.routes"
 export { API, HOME } from "~/src/data/core.routes"
 export { ADMIN_COURSES, ADMIN_COURSES_CREATE, ADMIN_VIDEOS, COURSES } from "~/src/data/courses.routes"
 export { AFFILIATES, LICENCE, PRIVACY, REFUNDS, TERMS } from "~/src/data/legal.routes"

@@ -1,7 +1,7 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { BLOG_COVER } from "~/src/data/blog"
+import { BLOG_AUTHORS, BLOG_COVER, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
 import { isUnlistedRoute } from "~/src/data/unlisted"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -106,14 +106,17 @@ const articleTimes = (dates: PostDates): { readonly content: string; readonly pr
   ]
 }
 
-interface ArticleAuthor {
-  readonly name: string
-  readonly url?: string | undefined
-}
+const absoluteUrl = (baseUrl: string, path: string): string => new URL(path, baseUrl).toString()
 
-const authorMeta = (author: ArticleAuthor) => [
-  { content: author.name, name: "author" },
-  ...(author.url === undefined ? [] : [{ content: author.url, property: "article:author" }]),
+const localizedUrl = ({ baseUrl, locale, pathname }: { baseUrl: string; locale: SupportedLocale; pathname: string }): string =>
+  absoluteUrl(baseUrl, localizePathname({ locale, pathname }))
+
+const authorUrl = ({ author, baseUrl, locale }: Omit<AuthorStructuredDataInput, "authorRole">): string =>
+  localizedUrl({ baseUrl, locale, pathname: blogAuthorPath(author) })
+
+const authorMeta = ({ author, locale }: { author: BlogAuthor; locale: SupportedLocale }) => [
+  { content: BLOG_AUTHORS[author].name, name: "author" },
+  { content: authorUrl({ author, baseUrl: APP_URL, locale }), property: "article:author" },
 ]
 
 export interface PageSequence {
@@ -149,7 +152,7 @@ export const buildPageHead = ({
   title,
   type = "website",
 }: {
-  readonly author?: ArticleAuthor | undefined
+  readonly author?: BlogAuthor | undefined
   readonly dates?: PostDates | undefined
   readonly description?: string | undefined
   readonly image?: ShareImage | undefined
@@ -158,7 +161,7 @@ export const buildPageHead = ({
   readonly section?: string | undefined
   readonly sequence?: PageSequence | undefined
   readonly title?: string | undefined
-  readonly type?: "article" | "website"
+  readonly type?: "article" | "profile" | "website"
 }) => {
   const canonicalPath = localizePathname({ locale, pathname })
   const pageTitle = title === undefined ? APP_NAME : buildTitle({ locale, title })
@@ -183,7 +186,7 @@ export const buildPageHead = ({
       { content: toOpenGraphLocale(locale), property: "og:locale" },
       ...(section === undefined ? [] : [{ content: section, property: "article:section" }]),
       ...(dates === undefined ? [] : articleTimes(dates)),
-      ...(author === undefined ? [] : authorMeta(author)),
+      ...(author === undefined ? [] : authorMeta({ author, locale })),
       { content: imageUrl, property: "og:image" },
       { content: image.type, property: "og:image:type" },
       { content: String(image.width), property: "og:image:width" },
@@ -208,12 +211,16 @@ export const pageHead =
   ({ loaderData }: { loaderData?: PageLoaderData | undefined }) =>
     buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname })
 
+type AuthorStructuredDataInput = Readonly<{
+  author: BlogAuthor
+  authorRole: string
+  baseUrl: string
+  locale: SupportedLocale
+}>
+
 type PostStructuredDataInput = PostDates &
+  AuthorStructuredDataInput &
   Readonly<{
-    authorImage?: string | undefined
-    authorName: string
-    authorUrl?: string | undefined
-    baseUrl: string
     blogTitle: string
     description?: string | undefined
     faq?: readonly { answer: string; question: string }[] | undefined
@@ -253,32 +260,29 @@ const toStructuredDataHtml = (data: StructuredDataNode): { __html: string } => (
 
 export const ORGANIZATION_STRUCTURED_DATA_HTML = toStructuredDataHtml({ "@context": SCHEMA_CONTEXT, ...ORGANIZATION })
 
-const absoluteUrl = (baseUrl: string, path: string): string => new URL(path, baseUrl).toString()
+const authorPerson = ({ author, authorRole, baseUrl, locale }: AuthorStructuredDataInput): StructuredDataNode => {
+  const { image, name, profiles } = BLOG_AUTHORS[author]
+  const url = authorUrl({ author, baseUrl, locale })
 
-const localizedUrl = ({ baseUrl, locale, pathname }: { baseUrl: string; locale: SupportedLocale; pathname: string }): string =>
-  absoluteUrl(baseUrl, localizePathname({ locale, pathname }))
-
-const author = (input: PostStructuredDataInput): StructuredDataNode => {
-  const person: StructuredDataNode = { "@type": "Person", name: input.authorName }
-
-  if (input.authorUrl !== undefined) {
-    person["url"] = input.authorUrl
+  return {
+    "@id": `${url}#person`,
+    "@type": "Person",
+    image: absoluteUrl(baseUrl, image),
+    jobTitle: authorRole,
+    name,
+    sameAs: profiles.map((profile) => profile.url),
+    url,
   }
-
-  if (input.authorImage !== undefined) {
-    person["image"] = absoluteUrl(input.baseUrl, input.authorImage)
-  }
-
-  return person
 }
 
 export const buildBlogPostStructuredData = (input: PostStructuredDataInput): PostStructuredData => {
   const canonical = absoluteUrl(input.baseUrl, input.url)
   const { modified, published } = postDates(input)
+  const person = authorPerson(input)
 
   const article: StructuredDataNode = {
     "@type": "BlogPosting",
-    author: author(input),
+    author: { "@id": person["@id"] },
     dateModified: modified,
     datePublished: published,
     headline: input.title,
@@ -307,6 +311,7 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
 
   const graph: Record<string, unknown>[] = [
     article,
+    person,
     {
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -461,3 +466,32 @@ export const buildBlogArchiveStructuredData = ({
 
 export const buildBlogArchiveStructuredDataHtml = (input: BlogArchiveStructuredDataInput): { __html: string } =>
   toStructuredDataHtml(buildBlogArchiveStructuredData(input))
+
+type ProfileStructuredDataInput = AuthorStructuredDataInput &
+  Readonly<{
+    description: string
+  }>
+
+export const buildAuthorStructuredData = ({ description, ...input }: ProfileStructuredDataInput): PostStructuredData => {
+  const person = authorPerson(input)
+  const pageUrl = authorUrl(input)
+
+  return {
+    "@context": SCHEMA_CONTEXT,
+    "@graph": [
+      {
+        "@id": pageUrl,
+        "@type": "ProfilePage",
+        description,
+        inLanguage: input.locale,
+        mainEntity: { "@id": person["@id"] },
+        name: buildTitle({ locale: input.locale, title: BLOG_AUTHORS[input.author].name }),
+        url: pageUrl,
+      },
+      person,
+    ],
+  }
+}
+
+export const buildAuthorStructuredDataHtml = (input: ProfileStructuredDataInput): { __html: string } =>
+  toStructuredDataHtml(buildAuthorStructuredData(input))

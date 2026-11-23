@@ -3,6 +3,8 @@ import type { JSX, ReactNode } from "react"
 import { getRouteApi } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { BLOG_AUTHORS } from "~/src/data/blog"
+
 const route = getRouteApi("/_site/_marketing/blog/$")
 
 const timeTag =
@@ -22,7 +24,7 @@ export const PostMeta = (): JSX.Element => {
   const updated = new Date(post.updated ?? post.date)
   const dateOf = (value: Date): string => format.dateTime(value, "calendarDate", { month: "long" })
   const tags = post.tags.map((tag) => t(`tags.${tag}`)).join(", ")
-  const details = [post.authorName, t("post.readingTime", { minutes: post.readingTimeMinutes }), tags].filter(
+  const details = [BLOG_AUTHORS[post.author].name, t("post.readingTime", { minutes: post.readingTimeMinutes }), tags].filter(
     (item) => item.trim().length > 0,
   )
 

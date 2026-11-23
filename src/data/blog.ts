@@ -1,3 +1,5 @@
+import { AUTHORS } from "./content.routes.ts"
+
 export const BLOG_TAG = {
   AI_AGENTS: "ai-agents",
   ARCHITECTURE: "architecture",
@@ -35,6 +37,37 @@ export const BLOG_TAGS = [
 ] as const
 
 export type BlogTag = (typeof BLOG_TAGS)[number]
+
+export const BLOG_AUTHOR = {
+  PIOTR_BOROWIECKI: "piotr-borowiecki",
+} as const
+
+export type BlogAuthor = (typeof BLOG_AUTHOR)[keyof typeof BLOG_AUTHOR]
+
+export const AUTHOR_PROFILE = {
+  GITHUB: "github",
+  LINKEDIN: "linkedin",
+} as const
+
+export type AuthorProfile = (typeof AUTHOR_PROFILE)[keyof typeof AUTHOR_PROFILE]
+
+export const BLOG_AUTHORS = {
+  [BLOG_AUTHOR.PIOTR_BOROWIECKI]: {
+    image: "/images/blog/authors/piotr-j-borowiecki.webp",
+    name: "Piotr J. Borowiecki",
+    profiles: [
+      { network: AUTHOR_PROFILE.GITHUB, url: "https://github.com/pjborowiecki" },
+      { network: AUTHOR_PROFILE.LINKEDIN, url: "https://www.linkedin.com/in/pjborowiecki/" },
+    ],
+  },
+} as const satisfies Record<
+  BlogAuthor,
+  { readonly image: string; readonly name: string; readonly profiles: readonly { readonly network: AuthorProfile; readonly url: string }[] }
+>
+
+export const AUTHOR_IMAGE_SIZE = 288
+
+export const blogAuthorPath = (author: BlogAuthor): string => `${AUTHORS}/${author}`
 
 export const BLOG_COVER = {
   HEIGHT: 660,

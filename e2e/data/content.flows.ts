@@ -183,6 +183,22 @@ export const CONTENT_FLOWS = [
   },
   {
     area: FLOW_AREA.CONTENT,
+    id: "blog-author",
+    outcome:
+      "A post ends with a box that introduces its author and links the author's page in the post's language, which lists every post by the author, and both describe the author to search engines as one Person",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "blog-author.spec.ts", title: "follows the byline at the end of a post to the author page, which lists the post" },
+      { spec: "blog-author.spec.ts", title: "keeps the language from a Polish post to the Polish author page" },
+      { spec: "blog-author.spec.ts", title: "prerenders the author page in every language with its canonical address and alternates" },
+      {
+        spec: "blog-author.spec.ts",
+        title: "describes the author of a post as a Person that the author page describes as its ProfilePage",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
     id: "blog-feeds",
     outcome: "Each language's blog names its own feed, and the feed lists exactly the published posts of that language with their dates",
     status: FLOW_STATUS.COVERED,

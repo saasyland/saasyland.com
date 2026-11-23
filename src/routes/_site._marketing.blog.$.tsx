@@ -34,13 +34,11 @@ import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: BlogPost; posts: BlogIndex }) => {
-  const { authorImage, authorName, authorUrl, description, faq, image, path, toc, updated } = post
+  const { author, description, faq, image, path, toc, updated } = post
 
   return {
     ...toBlogPostSummary(post, locale),
-    authorImage,
-    authorName,
-    authorUrl,
+    author,
     description,
     faq,
     image,
@@ -52,8 +50,6 @@ const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: Bl
 }
 
 type BlogPostData = ReturnType<typeof toPostData>
-
-const articleAuthor = (post: BlogPostData) => ({ name: post.authorName, url: post.authorUrl })
 
 const SEARCH = { enabled: false } as const
 const THEME = { enabled: false } as const
@@ -67,9 +63,8 @@ const BlogPostPage = (): JSX.Element => {
 
   const tags = post.tags.map((tag) => t(`tags.${tag}`))
   const structuredDataHtml = buildBlogPostStructuredDataHtml({
-    authorImage: post.authorImage,
-    authorName: post.authorName,
-    authorUrl: post.authorUrl,
+    author: post.author,
+    authorRole: t(`authors.${post.author}.role`),
     baseUrl: APP_URL,
     blogTitle: section,
     date: post.date,
@@ -130,10 +125,10 @@ const BlogPostPage = (): JSX.Element => {
             <RootProvider i18n={i18n} search={SEARCH} theme={THEME}>
               <div className="typeset typeset-article">{content}</div>
             </RootProvider>
-            <div className="mt-16 flex flex-wrap items-center justify-between gap-x-8 gap-y-6 border-y border-border py-6">
-              <PostAuthor />
+            <div className="mt-16 border-y border-border py-4">
               <PostShare />
             </div>
+            <PostAuthor />
             <PostCta />
             <PostRelated />
           </div>
@@ -160,7 +155,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     }
 
     return buildPageHead({
-      author: loaderData === undefined ? undefined : articleAuthor(loaderData.post),
+      author: loaderData?.post.author,
       dates: loaderData?.post,
       description: loaderData?.post.description ?? loaderData?.post.summary,
       locale: loaderData?.locale,

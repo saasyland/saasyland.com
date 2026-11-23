@@ -1,8 +1,0 @@
-export { AUTH_NAVIGATION } from "~/src/data/auth.navigation"
-export { CONTENT_NAVIGATION } from "~/src/data/content.navigation"
-export { CORE_NAVIGATION } from "~/src/data/core.navigation"
-export { COURSES_NAVIGATION } from "~/src/data/courses.navigation"
-export { LEGAL_NAVIGATION } from "~/src/data/legal.navigation"
-export { LICENSE_NAVIGATION } from "~/src/data/license.navigation"
-export { PAYMENTS_NAVIGATION } from "~/src/data/payments.navigation"
-export { PRODUCTS_NAVIGATION } from "~/src/data/products.navigation"

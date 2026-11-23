@@ -6,8 +6,8 @@ import { useTranslations } from "use-intl/react"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { layoutNamespaces } from "~/src/areas/browser"
 import { AUTH_USER_TABS } from "~/src/data/auth.user-tabs"
-import { layoutNamespaces } from "~/src/data/namespaces"
 import { USER_TABS } from "~/src/data/user-tabs"
 
 import { Tabs, TabsContent, TabsLink, TabsList } from "~/src/presentation/components/shadcn/tabs"

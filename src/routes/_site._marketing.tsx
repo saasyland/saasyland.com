@@ -5,7 +5,7 @@ import { Outlet, createFileRoute, useMatches } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/data/namespaces"
+import { layoutNamespaces } from "~/src/areas/browser"
 import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"

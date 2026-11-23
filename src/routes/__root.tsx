@@ -13,8 +13,8 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { ROOT_COMPONENTS } from "~/src/areas/browser"
 import { getLocaleDirection } from "~/src/data/locales"
-import { ROOT_COMPONENTS } from "~/src/data/root"
 import { THEME } from "~/src/presentation/theme"
 
 import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"

@@ -5,12 +5,12 @@ import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.consta
 const registerWith = async (program: FeatureStatus) => {
   vi.resetModules()
   vi.doMock(import("~/src/data/affiliates"), async (importOriginal) => ({ ...(await importOriginal()), AFFILIATE_PROGRAM: program }))
-  const [{ AFFILIATES_ROOT_COMPONENTS }, { AffiliateReferral }] = await Promise.all([
-    import("~/src/data/affiliates.root"),
+  const [{ AFFILIATES_BROWSER }, { AffiliateReferral }] = await Promise.all([
+    import("~/src/areas/affiliates"),
     import("~/src/presentation/components/custom/affiliate-referral"),
   ])
 
-  return { AffiliateReferral, components: AFFILIATES_ROOT_COMPONENTS }
+  return { AffiliateReferral, components: AFFILIATES_BROWSER.rootComponents }
 }
 
 afterEach(() => {

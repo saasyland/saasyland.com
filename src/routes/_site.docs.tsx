@@ -14,7 +14,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
-import { layoutNamespaces } from "~/src/data/namespaces"
+import { layoutNamespaces } from "~/src/areas/browser"
 import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"

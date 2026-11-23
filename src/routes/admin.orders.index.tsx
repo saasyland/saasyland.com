@@ -30,6 +30,7 @@ const OrdersPage = (): JSX.Element => {
       <DataGrid
         columns={columns}
         empty={t("empty")}
+        emptyDescription={t("emptyDescription")}
         id={ORDER_GRID_ID}
         label={t("title")}
         query={(request) => getOrdersPageQuery(orderZodSchemas.getOrders.parse(request))}

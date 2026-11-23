@@ -293,10 +293,12 @@ const SkeletonRows = <TData extends DataGridRow>({
   ))
 
 const DataGridEmpty = ({
+  description,
   empty,
   isFiltered,
   onClear,
 }: {
+  readonly description: string | undefined
   readonly empty: string | undefined
   readonly isFiltered: boolean
   readonly onClear: () => void
@@ -305,19 +307,20 @@ const DataGridEmpty = ({
 
   if (!isFiltered) {
     return (
-      <Empty className="sticky left-0 py-14" role="status">
+      <Empty className="sticky left-0 py-16" role="status">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <Inbox aria-hidden />
           </EmptyMedia>
           <EmptyTitle>{empty ?? t("title")}</EmptyTitle>
+          {description !== undefined && <EmptyDescription>{description}</EmptyDescription>}
         </EmptyHeader>
       </Empty>
     )
   }
 
   return (
-    <Empty className="sticky left-0 py-14" role="status">
+    <Empty className="sticky left-0 py-16" role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <SearchX aria-hidden />
@@ -338,6 +341,7 @@ export interface DataGridTableProps<TData extends DataGridRow> {
   readonly announce: (message: string) => void
   readonly density: DataGridDensity
   readonly empty: string | undefined
+  readonly emptyDescription: string | undefined
   readonly isFiltered: boolean
   readonly isLoading: boolean
   readonly isRefreshing: boolean
@@ -350,6 +354,7 @@ export const DataGridTable = <TData extends DataGridRow>({
   announce,
   density,
   empty,
+  emptyDescription,
   isFiltered,
   isLoading,
   isRefreshing,
@@ -397,7 +402,9 @@ export const DataGridTable = <TData extends DataGridRow>({
             ))}
         </TableBody>
       </Table>
-      {!isLoading && rows.length === 0 && <DataGridEmpty empty={empty} isFiltered={isFiltered} onClear={onClear} />}
+      {!isLoading && rows.length === 0 && (
+        <DataGridEmpty description={emptyDescription} empty={empty} isFiltered={isFiltered} onClear={onClear} />
+      )}
     </TableContainer>
   )
 }

@@ -39,7 +39,6 @@ export const LESSON_QUERY_KEYS = {
 export const LESSON_MUTATION_KEYS = {
   CREATE: ["lesson", "createLesson"],
   DELETE: ["lesson", "deleteLesson"],
-  MOVE: ["lesson", "moveLesson"],
   REMOVE_VIDEO: ["lesson", "removeLessonVideo"],
   REPLACE_VIDEO: ["lesson", "replaceLessonVideo"],
   SET_FORMAT: ["lesson", "setLessonFormat"],

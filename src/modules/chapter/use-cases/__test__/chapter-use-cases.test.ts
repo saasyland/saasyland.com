@@ -9,11 +9,9 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { createChapterMutation } from "~/src/modules/chapter/use-cases/create-chapter"
 import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
-import { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
 import { updateChapterMutation } from "~/src/modules/chapter/use-cases/update-chapter"
 import { IDS, USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
@@ -119,34 +117,5 @@ describe("deleteChapter", () => {
     signInAs(ROLE_CODES.ADMIN)
 
     await expect(executeMutation(deleteChapterMutation, { chapterId: MISSING_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
-  })
-})
-
-describe("moveChapter", () => {
-  it.each([
-    { chapterId: IDS.CHAPTER_TWO, direction: MOVE_DIRECTION.UP },
-    { chapterId: IDS.CHAPTER_ONE, direction: MOVE_DIRECTION.DOWN },
-  ])("swaps the chapter with its neighbour when moved $direction", async ({ chapterId, direction }) => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await executeMutation(moveChapterMutation, { chapterId, direction })
-
-    await expect(chapterOrder(IDS.COURSE)).resolves.toStrictEqual([IDS.CHAPTER_TWO, IDS.CHAPTER_ONE])
-  })
-
-  it("leaves the order alone at either end", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await executeMutation(moveChapterMutation, { chapterId: IDS.CHAPTER_ONE, direction: MOVE_DIRECTION.UP })
-
-    await expect(chapterOrder(IDS.COURSE)).resolves.toStrictEqual([IDS.CHAPTER_ONE, IDS.CHAPTER_TWO])
-  })
-
-  it("rejects a missing chapter", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await expect(executeMutation(moveChapterMutation, { chapterId: MISSING_ID, direction: MOVE_DIRECTION.UP })).rejects.toThrow(
-      ERROR_CODES.NOT_FOUND,
-    )
   })
 })

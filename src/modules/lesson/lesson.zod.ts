@@ -1,6 +1,5 @@
 import * as zod from "zod"
 
-import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
@@ -66,8 +65,6 @@ const getLessonPlayback = zod.object({
   lessonSlug: slugField,
 })
 
-const moveLesson = lessonIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
-
 const removeLessonVideo = lessonIdInput
 
 const replaceLessonVideo = lessonIdInput.extend({ videoId: idField })
@@ -84,7 +81,6 @@ export const lessonZodSchemas = {
   getLesson,
   getLessonPlayback,
   getLessonTitle,
-  moveLesson,
   removeLessonVideo,
   replaceLessonVideo,
   searchLessons,

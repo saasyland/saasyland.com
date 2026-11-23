@@ -179,6 +179,13 @@ const updateCourse = courseFields.extend(courseIdInput.shape)
 
 const searchCourses = localizedSearchSchema
 
+const curriculumChapter = zod.object({ chapterId: idField, lessonIds: zod.array(idField) })
+
+const reorderCurriculum = zod.object({
+  chapters: zod.array(curriculumChapter),
+  courseId: idField,
+})
+
 export const courseZodSchemas = {
   courseCoverSource,
   courseDocument,
@@ -193,6 +200,7 @@ export const courseZodSchemas = {
   importCourses,
   moveCourse,
   removeCourseCover,
+  reorderCurriculum,
   searchCourses,
   updateCourse,
   uploadCourseCover,

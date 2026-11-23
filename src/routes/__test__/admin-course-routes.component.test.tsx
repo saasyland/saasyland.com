@@ -19,7 +19,6 @@ import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { CHAPTER_MUTATION_KEYS } from "~/src/modules/chapter/chapter.constants"
 import type { createChapterMutation } from "~/src/modules/chapter/use-cases/create-chapter"
 import type { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
-import type { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
 import type { updateChapterMutation } from "~/src/modules/chapter/use-cases/update-chapter"
 import {
   COURSE_ICON,
@@ -39,7 +38,6 @@ import type { updateCourseMutation } from "~/src/modules/course/use-cases/update
 import { LESSON_ACCESS, LESSON_FORMAT, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import type { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import type { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
-import type { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 import { VIDEO_UPLOAD_FAILURE, VIDEO_UPLOAD_STATUS } from "~/src/modules/video-upload/video-upload.constants"
 
 import { Route as AdminCoursesRoute } from "~/src/routes/admin.courses"
@@ -72,9 +70,7 @@ const mutations = vi.hoisted(() => ({
   deleteChapter: vi.fn<NonNullable<typeof deleteChapterMutation.mutationFn>>(),
   deleteCourse: vi.fn<NonNullable<typeof deleteCourseMutation.mutationFn>>(),
   deleteLesson: vi.fn<NonNullable<typeof deleteLessonMutation.mutationFn>>(),
-  moveChapter: vi.fn<NonNullable<typeof moveChapterMutation.mutationFn>>(),
   moveCourse: vi.fn<NonNullable<typeof moveCourseMutation.mutationFn>>(),
-  moveLesson: vi.fn<NonNullable<typeof moveLessonMutation.mutationFn>>(),
   updateChapter: vi.fn<NonNullable<typeof updateChapterMutation.mutationFn>>(),
   updateCourse: vi.fn<NonNullable<typeof updateCourseMutation.mutationFn>>(),
 }))
@@ -100,17 +96,11 @@ vi.mock(import("~/src/modules/chapter/use-cases/update-chapter"), () => ({
 vi.mock(import("~/src/modules/chapter/use-cases/delete-chapter"), () => ({
   deleteChapterMutation: { mutationFn: mutations.deleteChapter, mutationKey: CHAPTER_MUTATION_KEYS.DELETE },
 }))
-vi.mock(import("~/src/modules/chapter/use-cases/move-chapter"), () => ({
-  moveChapterMutation: { mutationFn: mutations.moveChapter, mutationKey: CHAPTER_MUTATION_KEYS.MOVE },
-}))
 vi.mock(import("~/src/modules/lesson/use-cases/create-lesson"), () => ({
   createLessonMutation: { mutationFn: mutations.createLesson, mutationKey: LESSON_MUTATION_KEYS.CREATE },
 }))
 vi.mock(import("~/src/modules/lesson/use-cases/delete-lesson"), () => ({
   deleteLessonMutation: { mutationFn: mutations.deleteLesson, mutationKey: LESSON_MUTATION_KEYS.DELETE },
-}))
-vi.mock(import("~/src/modules/lesson/use-cases/move-lesson"), () => ({
-  moveLessonMutation: { mutationFn: mutations.moveLesson, mutationKey: LESSON_MUTATION_KEYS.MOVE },
 }))
 
 const MESSAGES = getTestMessages("en-US")
@@ -277,7 +267,7 @@ const renderAdminCourses = async (path: string, editor: Course["editor"] = EDITO
 }
 
 const chapterSection = (title: string): HTMLElement => {
-  const section = screen.getByRole("heading", { level: 3, name: title }).closest("li")
+  const section = screen.getByRole("heading", { level: 3, name: title }).closest<HTMLElement>("[role=row]")
   if (!section) {
     throw new Error(`Missing chapter ${title}`)
   }
@@ -285,7 +275,7 @@ const chapterSection = (title: string): HTMLElement => {
 }
 
 const lessonRow = (title: string): HTMLElement => {
-  const row = screen.getByText(title, { selector: "p" }).closest("li")
+  const row = screen.getByText(title, { selector: "p" }).closest<HTMLElement>("[role=row]")
   if (!row) {
     throw new Error(`Missing lesson ${title}`)
   }
@@ -331,11 +321,9 @@ beforeEach(() => {
   mutations.createChapter.mockResolvedValue({ id: "chapter-three" })
   mutations.updateChapter.mockResolvedValue({ id: "chapter-one" })
   mutations.deleteChapter.mockResolvedValue({ id: "chapter-one" })
-  mutations.moveChapter.mockResolvedValue({ chapterId: "chapter-one" })
   mutations.moveCourse.mockResolvedValue({ courseId: COURSE_ID })
   mutations.createLesson.mockResolvedValue({ id: "lesson-new" })
   mutations.deleteLesson.mockResolvedValue({ id: "lesson-sessions" })
-  mutations.moveLesson.mockResolvedValue({ lessonId: "lesson-boundaries" })
 })
 
 afterEach(() => {
@@ -626,15 +614,8 @@ describe("admin course chapters", () => {
     })
   })
 
-  it("moves and deletes chapters", async () => {
+  it("deletes chapters", async () => {
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
-
-    expect(screen.getByRole("button", { name: "Move Foundations up" })).toBeDisabled()
-    expect(screen.getByRole("button", { name: "Move Product down" })).toBeDisabled()
-    await user.click(screen.getByRole("button", { name: "Move Product up" }))
-    await waitFor(() => {
-      expect(mutations.moveChapter).toHaveBeenCalledWith({ chapterId: "chapter-two", direction: MOVE_DIRECTION.UP }, expect.anything())
-    })
 
     await user.click(screen.getByRole("button", { name: "Delete Foundations" }))
     const confirm = await screen.findByRole("alertdialog")
@@ -664,7 +645,7 @@ describe("admin course lessons", () => {
     mutations.createLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(within(chapterSection("Product")).getByRole("button", { name: labels.curriculum.addLesson }))
+    await user.click(within(chapterSection("Product")).getByRole("button", { name: "Add lesson to Product" }))
     const dialog = await screen.findByRole("dialog")
     await fill(user, within(dialog).getByLabelText(labels.lesson.title), "Checkout")
     await fill(user, within(dialog).getByLabelText(labels.lesson.summary), "Paying.")
@@ -704,17 +685,8 @@ describe("admin course lessons", () => {
     expect(screen.getByText("Where everything starts.")).toBeVisible()
   })
 
-  it("moves and deletes lessons", async () => {
+  it("deletes lessons", async () => {
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
-
-    expect(screen.getByRole("button", { name: "Move Boundaries up" })).toBeDisabled()
-    await user.click(screen.getByRole("button", { name: "Move Boundaries down" }))
-    await waitFor(() => {
-      expect(mutations.moveLesson).toHaveBeenCalledWith(
-        { direction: MOVE_DIRECTION.DOWN, lessonId: "lesson-boundaries" },
-        expect.anything(),
-      )
-    })
 
     await user.click(screen.getByRole("button", { name: "Delete Sessions" }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.curriculum.delete }))
@@ -724,10 +696,11 @@ describe("admin course lessons", () => {
   })
 
   it("explains a failed curriculum change", async () => {
-    mutations.moveLesson.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
+    mutations.deleteLesson.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(screen.getByRole("button", { name: "Move Sessions up" }))
+    await user.click(screen.getByRole("button", { name: "Delete Sessions" }))
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.curriculum.delete }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)

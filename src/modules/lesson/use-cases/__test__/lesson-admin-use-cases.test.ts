@@ -11,14 +11,12 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { LESSON_ACCESS, LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
-import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 import { removeLessonVideoMutation } from "~/src/modules/lesson/use-cases/remove-lesson-video"
 import { replaceLessonVideoMutation } from "~/src/modules/lesson/use-cases/replace-lesson-video"
 import { setLessonFormatMutation } from "~/src/modules/lesson/use-cases/set-lesson-format"
@@ -291,31 +289,5 @@ describe("deleteLesson", () => {
     signInAs(ROLE_CODES.ADMIN)
 
     await expect(executeMutation(deleteLessonMutation, { lessonId: MISSING_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
-  })
-})
-
-describe("moveLesson", () => {
-  it("swaps the lesson with its neighbour inside the chapter", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await executeMutation(moveLessonMutation, { direction: MOVE_DIRECTION.DOWN, lessonId: LESSON_IDS.PAID })
-
-    await expect(lessonOrder(IDS.CHAPTER_TWO)).resolves.toStrictEqual([LESSON_IDS.PAID_WITHOUT_VIDEO, LESSON_IDS.PAID, LESSON_IDS.DRAFT])
-  })
-
-  it("leaves the order alone at the end of the chapter", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await executeMutation(moveLessonMutation, { direction: MOVE_DIRECTION.DOWN, lessonId: LESSON_IDS.DRAFT })
-
-    await expect(lessonOrder(IDS.CHAPTER_TWO)).resolves.toStrictEqual([LESSON_IDS.PAID, LESSON_IDS.PAID_WITHOUT_VIDEO, LESSON_IDS.DRAFT])
-  })
-
-  it("rejects a missing lesson", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await expect(executeMutation(moveLessonMutation, { direction: MOVE_DIRECTION.UP, lessonId: MISSING_ID })).rejects.toThrow(
-      ERROR_CODES.NOT_FOUND,
-    )
   })
 })

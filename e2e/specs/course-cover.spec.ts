@@ -7,12 +7,12 @@ import { VIDEO_FILES } from "../../src/modules/video/video.constants"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
+import { chooseRowAction, moveToTop } from "../fixtures/data-grid"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [admin] = TEST_ACCOUNTS
 const COVER_FILE = join(TEST_VIDEO.fixture, VIDEO_FILES.POSTER)
 const COVER_SOURCE = new RegExp(`^${COURSE_COVER_PATH_PREFIX}/[\\da-f-]{36}/[\\da-f-]{36}(?:-\\d+)?\\.webp$`, "u")
-const FIRST_COURSE_ROW = 1
 
 const loadedSource = async (image: Locator): Promise<string> => {
   await image.scrollIntoViewIfNeeded()
@@ -73,13 +73,7 @@ test("an administrator uploads a course cover that the catalogue, the landing pa
 
     await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    const moveUp = courseRow.getByRole("button", { name: `Move ${title} up` })
-    await expect(async () => {
-      if (await moveUp.isEnabled()) {
-        await moveUp.click()
-      }
-      expect(await courseRow.evaluate((row: HTMLTableRowElement) => row.rowIndex)).toBe(FIRST_COURSE_ROW)
-    }).toPass()
+    await moveToTop(courseRow)
 
     await visitor.goto("/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     const catalogueCard = visitor.getByRole("link", { name: new RegExp(title, "u") })
@@ -104,7 +98,7 @@ test("an administrator uploads a course cover that the catalogue, the landing pa
   } finally {
     await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await courseRow.getByRole("button", { name: /^Delete / }).click()
+    await chooseRowAction(courseRow, /^Actions for /u, "Delete")
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
     await expect(courseRow).toHaveCount(0)
     await visitor.close()

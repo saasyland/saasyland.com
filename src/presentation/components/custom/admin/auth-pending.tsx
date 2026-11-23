@@ -163,6 +163,6 @@ export const AdminUsersInvitationsPending = (): JSX.Element => (
         <Skeleton className="mt-0.5 h-lh w-96 max-w-full scale-y-70 text-body-sm" />
       </div>
     </div>
-    <DataGridPending actionsWidth={DATA_GRID_ACTIONS_SIZE} columns={INVITATION_PENDING_COLUMNS} />
+    <DataGridPending actionsWidth={DATA_GRID_ACTIONS_SIZE} columns={INVITATION_PENDING_COLUMNS} isSelectable />
   </div>
 )

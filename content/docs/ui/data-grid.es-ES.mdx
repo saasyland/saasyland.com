@@ -1,6 +1,6 @@
 ---
 title: "Cuadrícula de datos"
-description: "El componente de tabla: búsqueda, filtros por tipo de columna, ordenación, un diseño que cada administrador puede reorganizar y conservar, selección, exportación a CSV y datos en el cliente o en el servidor."
+description: "El componente de tabla: búsqueda, filtros por tipo de columna, ordenación, un diseño que cada administrador puede reorganizar y conservar, selección, filas que se reordenan arrastrándolas, un menú de acciones por fila, exportación a CSV y datos en el cliente o en el servidor."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) es el componente de tabla. Construye una instancia de TanStack Table v9 a partir de las funcionalidades de `src/integrations/tanstack-table/table.features.ts` y la renderiza con las primitivas de tabla de shadcn y controles de React Aria. Una página le da sus columnas y, o bien sus filas, o bien una query; todo lo demás, desde la barra de herramientas hasta la barra de paginación, vive dentro de él.
@@ -31,8 +31,8 @@ description: "El componente de tabla: búsqueda, filtros por tipo de columna, or
 | `emptyDescription` | Una frase bajo ese título que dice cómo llega la primera fila                                                                       |
 | `selectable`       | Añade una columna de casillas y la barra de selección                                                                               |
 | `bulkActions`      | Una función de las filas seleccionadas que renderiza más botones en la barra de selección                                           |
-| `rowActions`       | Un componente que recibe cada `row` y la cierra, en una columna fijada a la derecha                                                 |
-| `rowActionsSize`   | El ancho de esa columna en píxeles, <RepositoryFact name="dataGridActionsSize" /> salvo que las acciones necesiten más              |
+| `rowActions`       | Un componente que recibe cada `row` y la cierra con su menú ⋯, en una columna fijada a la derecha                                   |
+| `onReorder`        | Añade un asa a cada fila; se llama con la fila movida y su nuevo lugar, como en [Orden de las filas](#row-order)                    |
 
 ## Columnas
 
@@ -107,15 +107,26 @@ El administrador reorganiza la cuadrícula, y el navegador lo guarda bajo el `id
 - **Densidad.** Filas holgadas o compactas.
 - **Tamaño de página.** <RepositoryFact name="dataGridPageSizes" /> filas por página.
 
-La cuadrícula es una sola tarjeta: la barra de herramientas arriba, la tabla y la paginación abajo, separadas por líneas finas. La barra de herramientas tiene dos filas: en la primera, la búsqueda y los controles de la vista; en la segunda, debajo, el botón Filtrar y los chips de los filtros activos. Todos los controles de la barra de herramientas y los chips de filtro tienen la misma altura; las cabeceras van con mayúscula solo inicial, en el tamaño spec sobre una franja atenuada, las celdas en el tamaño body, y la última columna de datos ocupa el ancho que queda mientras la columna de acciones conserva el suyo. En cada lista de la cuadrícula, la opción bajo el puntero se resalta igual que aquella en la que está el teclado. El campo de búsqueda ocupa el ancho libre de la barra de herramientas, así que su texto de ejemplo nunca se corta, y un encabezado demasiado largo para su columna pasa a una segunda línea en lugar de acortarse. En una cuadrícula de menos de 64rem, Columnas, Exportar CSV y Restablecer diseño muestran solo su icono, y la búsqueda conserva su espacio.
+La cuadrícula es una sola tarjeta: la barra de herramientas arriba, la tabla y la paginación abajo, separadas por líneas finas. La barra de herramientas tiene dos filas: en la primera, la búsqueda y los controles de la vista; en la segunda, debajo, el botón Filtrar y los chips de los filtros activos. Todos los controles de la barra de herramientas y los chips de filtro tienen la misma altura; las cabeceras van con mayúscula solo inicial, en el tamaño spec sobre una franja atenuada, las celdas en el tamaño body, y la última columna de datos ocupa el ancho que queda mientras la columna de acciones conserva el suyo. En cada lista de la cuadrícula, la opción bajo el puntero se resalta igual que aquella en la que está el teclado. El campo de búsqueda ocupa el ancho libre de la barra de herramientas, así que su texto de ejemplo nunca se corta. Un encabezado se queda en una sola línea y nunca se parte dentro de una palabra: el ancho inicial de cada columna da cabida a su encabezado, con las flechas de ordenación y el menú de columna, en cada locale, y `e2e/specs/text-layout.spec.ts` falla cuando la etiqueta de un encabezado desborda su celda en cualquier cuadrícula de la administración. En una cuadrícula de menos de 64rem, Columnas, Exportar CSV y Restablecer diseño muestran solo su icono, y la búsqueda conserva su espacio.
 
 La fila de cabecera sigue a la vista mientras las filas se desplazan dentro de la cuadrícula, y las columnas fijadas siguen a la vista mientras la cuadrícula se desplaza en horizontal, que es como un móvil muestra una tabla ancha. Una sombra en el lado que tiene más columnas fuera de la vista, y en el borde de las columnas fijadas cuando otras pasan por debajo, indica que la cuadrícula se desplaza (`.grid-scroller` en `globals.css`).
 
-La columna de acciones de fila no tiene menú de columna: no se ordena, no se oculta, no se mueve, no se redimensiona ni aparece en el CSV, y se queda la última a la derecha.
+La columna de acciones de fila mide <RepositoryFact name="dataGridActionsSize" /> píxeles de ancho y contiene un único botón ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), que abre las acciones de la fila como un menú: primero las habituales y, tras un separador, las destructivas, que piden confirmación en un cuadro de diálogo de alerta. Todas las cuadrículas de la administración y todas las listas reordenables, como el temario, terminan sus filas con él, nunca con una hilera de iconos. La columna no tiene menú de columna: no se ordena, no se oculta, no se mueve, no se redimensiona ni aparece en el CSV, y se queda la última a la derecha.
+
+## Orden de las filas [#row-order]
+
+Con `onReorder`, la cuadrícula empieza con una columna estrecha de asas, después de las casillas cuando las tiene. Un asa es un icono de agarre atenuado:
+
+- **Arrastrar.** Una fila arrastrada por su asa se abre paso entre las demás a medida que el puntero pasa sobre ellas, y al soltarla se guarda su nuevo lugar. Escape, o soltarla fuera de las filas, la devuelve a su sitio.
+- **Teclado.** Con el foco en un asa, las flechas arriba y abajo mueven la fila un lugar. Un movimiento más allá de la primera o la última fila de la página abre la página a la que pasa la fila y pone allí el foco en su asa.
+- **Guardado.** `onReorder` recibe la fila y su nuevo lugar en todo el orden guardado, contado desde 1 a lo largo de las páginas, así que el servidor puede ponerla en cualquier sitio. El nuevo orden se muestra al instante y se mantiene mientras los movimientos se guardan, uno tras otro, hasta que llegan las filas actualizadas; si la promesa que devuelve `onReorder` se rechaza, las filas vuelven atrás. `/admin/courses` pasa `moveCourse` con un `scope` de mutación, así que los movimientos se guardan en el orden en que se hicieron.
+- **Cuándo se desactiva.** Mientras las filas están ordenadas, filtradas o buscadas, el lugar de una fila en pantalla no es su lugar en el orden guardado, así que las asas se desactivan.
+
+Cada movimiento se anuncia en la región en vivo, por ejemplo: «Fila movida a la posición 3 de 12».
 
 ## Selección y exportación
 
-Con `selectable`, una casilla selecciona una fila y la casilla de la cabecera selecciona la página. Entonces flota una barra en la parte inferior de la ventana con el recuento, Exportar selección, las `bulkActions` de la página y Quitar selección.
+Con `selectable`, una casilla selecciona una fila y la casilla de la cabecera selecciona la página. Entonces flota una barra en la parte inferior de la ventana con el recuento, Exportar selección, las `bulkActions` de la página y Quitar selección. Todas las cuadrículas de la administración que listan registros son seleccionables: cursos, productos, categorías y colecciones, pedidos, clientes, usuarios, invitaciones y los pedidos sin licencia; solo las tablas de recuentos del panel no lo son. `/admin/courses` añade **Eliminar** para los cursos seleccionados; las demás cuadrículas exportan la selección, porque sus registros no tienen ninguna acción que se aplique a varios a la vez.
 
 Exportar CSV descarga todas las filas que encuentran la búsqueda y los filtros, no solo la página que está en pantalla: en el servidor pide páginas de <RepositoryFact name="dataGridExportPageSize" /> filas hasta tenerlas todas. El archivo tiene las columnas visibles en su orden, empieza con una marca de orden de bytes para que las hojas de cálculo lo lean como UTF-8 y pone un `'` delante de cualquier celda que empezaría una fórmula. `src/lib/csv.ts` lo escribe.
 
@@ -123,8 +134,8 @@ Exportar CSV descarga todas las filas que encuentran la búsqueda y los filtros,
 
 - La tabla lleva `label` como nombre y `aria-rowcount`; cada fila, su `aria-rowindex`, contado a lo largo de las páginas.
 - Las cabeceras ordenables son botones y llevan `aria-sort`.
-- Todos los controles funcionan con el teclado: los menús y las listas siguen las flechas y la búsqueda al escribir de React Aria, Escape los cierra, y el redimensionado usa las flechas sobre el separador de la cabecera.
-- Mover, fijar, ocultar, ordenar desde un menú y restablecer el diseño se anuncian en una región en vivo educada; el recuento de resultados y el de selección también están en vivo.
+- Todos los controles funcionan con el teclado: los menús y las listas siguen las flechas y la búsqueda al escribir de React Aria, Escape los cierra, el redimensionado usa las flechas sobre el separador de la cabecera, y una fila se mueve con las flechas arriba y abajo sobre su asa, que se llama «Arrastra o usa las flechas para reordenar».
+- Mover una columna o una fila, fijar, ocultar, ordenar desde un menú y restablecer el diseño se anuncian en una región en vivo educada; el recuento de resultados y el de selección también están en vivo.
 
 ## Traducciones
 
@@ -132,7 +143,7 @@ Los textos propios de la cuadrícula están en `messages/<locale>/components.cus
 
 ## Pruebas
 
-`src/presentation/components/custom/__test__/` cubre la cuadrícula en memoria (`data-grid.component.test.tsx`), sus filtros (`data-grid-filter.component.test.tsx`), su diseño (`data-grid-layout.component.test.tsx`) y el modo servidor (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` la usa en `/admin/orders` en un navegador.
+`src/presentation/components/custom/__test__/` cubre la cuadrícula en memoria (`data-grid.component.test.tsx`), sus filtros (`data-grid-filter.component.test.tsx`), su diseño (`data-grid-layout.component.test.tsx`) y el modo servidor (`data-grid-query.component.test.tsx`), incluido el orden de las filas. `e2e/specs/admin-orders.spec.ts` la usa en `/admin/orders` en un navegador, y `e2e/specs/course-admin.spec.ts` reordena, selecciona y elimina cursos en `/admin/courses`.
 
 ## Páginas relacionadas
 

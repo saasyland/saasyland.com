@@ -28,7 +28,7 @@ export const AdminProductsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col">
     <AdminPageHeaderPending tabs={ADMIN_PRODUCT_TABS.length} />
     <div className="mt-8">
-      <DataGridPending columns={PRODUCT_PENDING_COLUMNS} />
+      <DataGridPending columns={PRODUCT_PENDING_COLUMNS} isSelectable />
     </div>
   </div>
 )

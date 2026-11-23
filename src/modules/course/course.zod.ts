@@ -1,10 +1,17 @@
 import * as zod from "zod"
 
-import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
-import { choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
+import { MAX_PAGE_SIZE, choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
-import { MIN_FIELD_LENGTH, dateRangeField, idField, localeField, numberRangeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import {
+  MIN_FIELD_LENGTH,
+  dateRangeField,
+  idField,
+  localeField,
+  numberRangeField,
+  positionField,
+  slugField,
+} from "~/src/modules/_core/utils/zod-fields"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import {
   COURSE_DOCUMENT,
@@ -129,7 +136,9 @@ const uploadCourseCover = zod
 
 const removeCourseCover = courseIdInput
 
-const deleteCourse = courseIdInput
+const deleteCourses = zod.object({
+  courseIds: zod.array(idField).min(MIN_FIELD_LENGTH).max(MAX_PAGE_SIZE),
+})
 
 const exportCourses = zod.object({
   courseId: idField.optional(),
@@ -173,7 +182,7 @@ const getCourses = paginationSchema.extend({
   sorting: sortingOf(COURSE_SORT_COLUMNS),
 })
 
-const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+const moveCourse = courseIdInput.extend({ position: positionField })
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
@@ -190,7 +199,7 @@ export const courseZodSchemas = {
   courseCoverSource,
   courseDocument,
   createCourse,
-  deleteCourse,
+  deleteCourses,
   exportCourses,
   getCatalogue,
   getCourse,

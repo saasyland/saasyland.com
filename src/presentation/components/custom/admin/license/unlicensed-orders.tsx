@@ -24,7 +24,7 @@ export const UnlicensedOrders = (): JSX.Element => {
         <p className="mt-0.5 text-body-sm text-muted-foreground">{t("description")}</p>
       </div>
 
-      <DataGrid columns={columns} data={rows} empty={t("empty")} id={UNLICENSED_ORDER_GRID_ID} label={t("title")} />
+      <DataGrid columns={columns} data={rows} empty={t("empty")} id={UNLICENSED_ORDER_GRID_ID} label={t("title")} selectable />
     </section>
   )
 }

@@ -1,12 +1,13 @@
-import { type DragEvent, type JSX, type KeyboardEvent, useState } from "react"
+import { type DragEvent, type JSX, type KeyboardEvent, useEffect, useRef, useState } from "react"
 
 import type { Column, Header, Row } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox, SearchX } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronsUpDown, GripVertical, Inbox, SearchX } from "lucide-react"
 import { Button as ButtonPrimitive } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
 import {
   ACTIONS_COLUMN_ID,
+  REORDER_COLUMN_ID,
   SELECT_COLUMN_ID,
   columnLabel,
   isDataColumn,
@@ -29,10 +30,14 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-import type { DataGridRow, DataGridTableInstance } from "~/src/presentation/components/custom/data-grid"
+import type { DataGridRow, DataGridRowDrag, DataGridTableInstance } from "~/src/presentation/components/custom/data-grid"
 import { DataGridColumnMenu } from "~/src/presentation/components/custom/data-grid-column-menu"
 
 const COLUMN_DRAG_TYPE = "application/x-data-grid-column"
+
+const ROW_DRAG_TYPE = "application/x-data-grid-row"
+
+const DROP_EFFECT = { MOVE: "move", NONE: "none" } as const
 
 const HEADER_ROW_INDEX = 1
 
@@ -49,6 +54,8 @@ const SELECTED_ROW = { "data-state": "selected" } as const
 const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown } as const
 
 const RESIZE_KEYS: Readonly<Record<string, number>> = { ArrowLeft: -RESIZE_STEP_PX, ArrowRight: RESIZE_STEP_PX }
+
+const ROW_STEPS: Readonly<Record<string, number>> = { ArrowDown: 1, ArrowUp: -1 }
 
 const pinnedClasses = <TData extends DataGridRow>(column: Column<DataGridFeatures, TData>): string => {
   const pinned = column.getIsPinned()
@@ -170,7 +177,7 @@ const DataGridHead = <TData extends DataGridRow>({
     <TableHead
       {...(column.getCanSort() && sorted !== false && { "aria-sort": ARIA_SORT[sorted] })}
       className={cn(
-        "group/head sticky top-0 z-20 h-10 border-b border-b-border/70 bg-(--grid-head) py-1.5 text-spec leading-snug font-medium tracking-normal whitespace-normal normal-case transition-colors duration-150",
+        "group/head sticky top-0 z-20 h-10 border-b border-b-border/70 bg-(--grid-head) py-1.5 text-spec leading-snug font-medium tracking-normal whitespace-nowrap normal-case transition-colors duration-150",
         pinnedClasses(column),
         {
           "bg-muted": isDropTarget,
@@ -220,13 +227,17 @@ const DataGridHead = <TData extends DataGridRow>({
               column.toggleSorting(undefined, event.shiftKey)
             }}
           >
-            <span className="line-clamp-2 break-words">
+            <span className="min-w-0 truncate" data-slot="data-grid-header-label">
               <table.FlexRender header={header} />
             </span>
             <SortIndicator column={column} sorts={table.state.sorting.length} />
           </ButtonPrimitive>
         )}
-        {!column.getCanSort() && typeof column.columnDef.header === "string" && <span className="line-clamp-2 break-words">{label}</span>}
+        {!column.getCanSort() && typeof column.columnDef.header === "string" && (
+          <span className="min-w-0 truncate" data-slot="data-grid-header-label">
+            {label}
+          </span>
+        )}
         {!column.getCanSort() && typeof column.columnDef.header !== "string" && <table.FlexRender header={header} />}
         {isMovable && <DataGridColumnMenu announce={announce} column={column} table={table} />}
       </div>
@@ -235,22 +246,100 @@ const DataGridHead = <TData extends DataGridRow>({
   )
 }
 
-const DataGridBodyRow = <TData extends DataGridRow>({
+const DataGridRowHandle = <TData extends DataGridRow>({
+  drag,
   index,
   row,
+}: {
+  readonly drag: DataGridRowDrag<TData>
+  readonly index: number
+  readonly row: TData
+}): JSX.Element => {
+  const t = useTranslations("components.custom.data-grid.rows")
+  const button = useRef<HTMLButtonElement>(null)
+  const from = useRef(index)
+  const isFocused = drag.focused === row.id
+
+  useEffect(() => {
+    if (isFocused) {
+      button.current?.focus()
+      drag.onFocused()
+    }
+  }, [drag, isFocused])
+
+  return (
+    <div
+      className="flex justify-center"
+      draggable={drag.isEnabled}
+      onDragEnd={(event: DragEvent<HTMLDivElement>) => {
+        drag.onDragEnd(row, from.current, event.dataTransfer.dropEffect !== DROP_EFFECT.NONE)
+      }}
+      onDragStart={(event: DragEvent<HTMLDivElement>) => {
+        event.dataTransfer.effectAllowed = DROP_EFFECT.MOVE
+        event.dataTransfer.setData(ROW_DRAG_TYPE, row.id)
+        from.current = index
+        drag.onDragStart(row)
+      }}
+    >
+      <Button
+        aria-label={t("handle")}
+        className="size-7 cursor-grab text-muted-foreground/60 hover:bg-transparent hover:text-foreground active:cursor-grabbing data-disabled:cursor-not-allowed"
+        isDisabled={!drag.isEnabled}
+        onKeyDown={(event) => {
+          const step = ROW_STEPS[event.key]
+          if (step === undefined) {
+            return
+          }
+          event.preventDefault()
+          drag.onStep(row, step)
+        }}
+        ref={button}
+        size="icon"
+        variant="ghost"
+      >
+        <GripVertical aria-hidden className="size-4" />
+      </Button>
+    </div>
+  )
+}
+
+const DataGridBodyRow = <TData extends DataGridRow>({
+  drag,
+  index,
+  row,
+  rowIndex,
   table,
 }: {
+  readonly drag: DataGridRowDrag<TData>
   readonly index: number
   readonly row: Row<DataGridFeatures, TData>
+  readonly rowIndex: number
   readonly table: DataGridTableInstance<TData>
 }): JSX.Element => (
-  <TableRow aria-rowindex={index} className="group/row" {...(row.getIsSelected() && SELECTED_ROW)}>
+  <TableRow
+    aria-rowindex={rowIndex}
+    className={cn("group/row", { "opacity-40": drag.dragged === row.original })}
+    {...(row.getIsSelected() && SELECTED_ROW)}
+    onDragEnter={() => {
+      drag.onDragOver(row.original)
+    }}
+    onDragOver={(event: DragEvent<HTMLTableRowElement>) => {
+      if (drag.dragged !== undefined) {
+        event.preventDefault()
+        event.dataTransfer.dropEffect = DROP_EFFECT.MOVE
+      }
+    }}
+    onDrop={(event: DragEvent<HTMLTableRowElement>) => {
+      event.preventDefault()
+    }}
+  >
     {row.getVisibleCells().map((cell) => (
       <TableCell
         className={cn(
           "truncate border-b border-b-border/70 text-sm group-last/row:border-b-0 group-data-[density=compact]/grid:py-1.5",
           pinnedClasses(cell.column),
           {
+            "px-1 py-1.5": cell.column.id === REORDER_COLUMN_ID,
             "text-right tabular-nums": cell.column.columnDef.meta?.align === DATA_GRID_ALIGN.END,
             "z-10 bg-card group-hover/row:bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))] group-data-[state=selected]/row:bg-muted":
               cell.column.getIsPinned() !== false,
@@ -259,7 +348,8 @@ const DataGridBodyRow = <TData extends DataGridRow>({
         key={cell.id}
         style={pinnedStyle(cell.column)}
       >
-        <table.FlexRender cell={cell} />
+        {cell.column.id === REORDER_COLUMN_ID && <DataGridRowHandle drag={drag} index={index} row={row.original} />}
+        {cell.column.id !== REORDER_COLUMN_ID && <table.FlexRender cell={cell} />}
       </TableCell>
     ))}
   </TableRow>
@@ -283,6 +373,7 @@ const SkeletonRows = <TData extends DataGridRow>({
           <Skeleton
             className={cn("h-lh scale-y-70", {
               "ml-auto size-7 scale-y-100 rounded-md": column.id === ACTIONS_COLUMN_ID,
+              "mx-auto size-4 scale-y-100 rounded-sm": column.id === REORDER_COLUMN_ID,
               "size-4 scale-y-100 rounded-sm": column.id === SELECT_COLUMN_ID,
               "w-3/4": isDataColumn(column.id),
             })}
@@ -340,6 +431,7 @@ const DataGridEmpty = ({
 export interface DataGridTableProps<TData extends DataGridRow> {
   readonly announce: (message: string) => void
   readonly density: DataGridDensity
+  readonly drag: DataGridRowDrag<TData>
   readonly empty: string | undefined
   readonly emptyDescription: string | undefined
   readonly isFiltered: boolean
@@ -353,6 +445,7 @@ export interface DataGridTableProps<TData extends DataGridRow> {
 export const DataGridTable = <TData extends DataGridRow>({
   announce,
   density,
+  drag,
   empty,
   emptyDescription,
   isFiltered,
@@ -398,7 +491,14 @@ export const DataGridTable = <TData extends DataGridRow>({
           {isLoading && <SkeletonRows columns={columns} />}
           {!isLoading &&
             rows.map((row, index) => (
-              <DataGridBodyRow index={pageIndex * pageSize + index + FIRST_BODY_ROW_INDEX} key={row.id} row={row} table={table} />
+              <DataGridBodyRow
+                drag={drag}
+                index={index}
+                key={row.id}
+                row={row}
+                rowIndex={pageIndex * pageSize + index + FIRST_BODY_ROW_INDEX}
+                table={table}
+              />
             ))}
         </TableBody>
       </Table>

@@ -4,7 +4,7 @@ export const PRODUCT_COLUMN_SIZES = {
   createdAt: 152,
   pricing: 176,
   product: 320,
-  status: 136,
+  status: 152,
   type: 152,
   updatedAt: 152,
 } as const

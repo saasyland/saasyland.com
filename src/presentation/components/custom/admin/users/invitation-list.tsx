@@ -32,6 +32,7 @@ export const InvitationList = (): JSX.Element => {
         label={t("title")}
         rowActions={InvitationRowActions}
         search={t("search")}
+        selectable
       />
     </section>
   )

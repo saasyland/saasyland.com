@@ -19,12 +19,14 @@ export const DataGridPending = ({
   actionsWidth,
   columns,
   hasSearch = true,
+  isReorderable = false,
   isSelectable = false,
   rows = DEFAULT_PAGE_SIZE,
 }: {
   readonly actionsWidth?: number
   readonly columns: readonly DataGridPendingColumn[]
   readonly hasSearch?: boolean
+  readonly isReorderable?: boolean
   readonly isSelectable?: boolean
   readonly rows?: number
 }): JSX.Element => (
@@ -47,6 +49,7 @@ export const DataGridPending = ({
       <Table className="table-fixed border-separate border-spacing-0">
         <colgroup>
           {isSelectable && <col className="w-11" />}
+          {isReorderable && <col className="w-10" />}
           {columns.map((column) => (
             <col key={column.id} style={{ width: column.width }} />
           ))}
@@ -59,6 +62,7 @@ export const DataGridPending = ({
                 <Skeleton className="size-4 rounded-sm" />
               </TableHead>
             )}
+            {isReorderable && <TableHead className="h-10 border-b border-b-border/70 bg-(--grid-head)" />}
             {columns.map((column) => (
               <TableHead className="h-10 border-b border-b-border/70 bg-(--grid-head)" key={column.id}>
                 <Skeleton className="h-lh w-16 scale-y-70" />
@@ -73,6 +77,11 @@ export const DataGridPending = ({
               {isSelectable && (
                 <TableCell className="border-b border-b-border/70">
                   <Skeleton className="size-4 rounded-sm" />
+                </TableCell>
+              )}
+              {isReorderable && (
+                <TableCell className="border-b border-b-border/70 px-1">
+                  <Skeleton className="mx-auto size-4 rounded-sm" />
                 </TableCell>
               )}
               {columns.map((column) => (

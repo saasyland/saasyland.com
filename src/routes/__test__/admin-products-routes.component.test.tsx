@@ -135,6 +135,7 @@ describe("admin catalog", () => {
     expect(screen.getByRole("columnheader", { name: new RegExp(`^${heading}`, "u") })).toBeVisible()
     expect(screen.queryByRole("columnheader", { name: new RegExp(`^${otherHeading}`, "u") })).not.toBeInTheDocument()
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toStrictEqual([
+      "",
       heading,
       pagesAdminProductsMessages.categories.table.headers.visibility,
       pagesAdminProductsMessages.categories.table.headers.lastUpdated,
@@ -153,6 +154,7 @@ describe("admin catalog", () => {
     expect(row).toHaveTextContent(expected)
     expect(row).toHaveTextContent(pagesAdminProductsMessages.table.statusLabels.published)
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toStrictEqual([
+      "",
       pagesAdminProductsMessages.table.headers.product,
       pagesAdminProductsMessages.table.headers.type,
       pagesAdminProductsMessages.table.headers.pricing,

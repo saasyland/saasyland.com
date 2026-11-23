@@ -109,7 +109,7 @@ const CUSTOMER_PENDING_COLUMNS = [
 export const AdminCustomersPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
     <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-sm" />
-    <DataGridPending columns={CUSTOMER_PENDING_COLUMNS} />
+    <DataGridPending columns={CUSTOMER_PENDING_COLUMNS} isSelectable />
   </div>
 )
 

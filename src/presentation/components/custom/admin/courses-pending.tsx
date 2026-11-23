@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { usePagePending } from "~/src/hooks/use-page-pending"
 
 import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
+import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -16,6 +17,7 @@ const COURSE_LIST_ACTIONS = 3
 const CURRICULUM_LESSONS = ["first", "second", "third"] as const
 
 const COURSE_PENDING_COLUMNS = [
+  { cell: <Skeleton className="ml-auto h-lh w-4 scale-y-70 text-sm" />, id: "position", width: COURSE_COLUMN_SIZES.position },
   {
     cell: (
       <div className="flex flex-col">
@@ -35,7 +37,7 @@ const COURSE_PENDING_COLUMNS = [
 export const AdminCoursesPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
     <AdminPageHeaderPending actions={COURSE_LIST_ACTIONS} />
-    <DataGridPending actionsWidth={COURSE_COLUMN_SIZES.actions} columns={COURSE_PENDING_COLUMNS} />
+    <DataGridPending actionsWidth={DATA_GRID_ACTIONS_SIZE} columns={COURSE_PENDING_COLUMNS} isReorderable isSelectable />
   </div>
 )
 

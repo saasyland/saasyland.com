@@ -1,25 +1,25 @@
-import { MOVE_DIRECTION, type MoveDirection } from "~/src/modules/_core/constants/ordering"
+import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
 
 interface Positioned {
   readonly id: string
   readonly position: number
 }
 
-export const reorder = (items: readonly Positioned[], id: string, direction: MoveDirection): Positioned[] => {
-  const index = items.findIndex((entry) => entry.id === id)
-  const target = direction === MOVE_DIRECTION.UP ? index - 1 : index + 1
-  const item = items[index]
-  const neighbour = items[target]
+export const reorder = (items: readonly Positioned[], id: string, position: number): Positioned[] => {
+  const item = items.find((entry) => entry.id === id)
 
-  if (item === undefined || neighbour === undefined) {
+  if (item === undefined) {
     return []
   }
 
-  return items
-    .with(index, neighbour)
-    .with(target, item)
-    .map((entry, position) => ({ id: entry.id, position: position + 1 }))
+  const rest = items.filter((entry) => entry !== item)
+  const index = Math.min(Math.max(position, FIRST_POSITION), items.length) - FIRST_POSITION
+
+  return [...rest.slice(0, index), item, ...rest.slice(index)]
+    .map((entry, place) => ({ entry, position: place + FIRST_POSITION }))
+    .filter(({ entry, position: next }) => entry.position !== next)
+    .map(({ entry, position: next }) => ({ id: entry.id, position: next }))
 }
 
 export const nextPosition = (items: readonly Pick<Positioned, "position">[]): number =>
-  items.reduce((highest, entry) => Math.max(highest, entry.position), 0) + 1
+  items.reduce((highest, entry) => Math.max(highest, entry.position), 0) + FIRST_POSITION

@@ -15,6 +15,11 @@ const WRITE_LESSON = {
   title: "an administrator writes a lesson, swaps its video and adds materials that visitors download",
 } as const
 
+const ORDER_CATALOGUE = {
+  spec: "course-admin.spec.ts",
+  title: "an administrator orders the catalogue by dragging a course and with the keyboard, then deletes the selected courses together",
+} as const
+
 const PAID_MATERIALS = {
   spec: "course-materials.spec.ts",
   title: "lesson materials › a Complete licence holder downloads a paid lesson's materials and sees a lesson being recorded",
@@ -338,6 +343,13 @@ export const COURSES_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-course-menu",
+    outcome: "A course's ⋯ menu opens its public page in a new tab once it is published, copies its link, opens its editor and deletes it after a confirmation",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUILD_COURSE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-create-course",
     outcome: "The admin creates a published course with a chapter and a free lesson, puts a video from the library on it, and a visitor plays that lesson",
     status: FLOW_STATUS.COVERED,
@@ -438,9 +450,17 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-reorder-courses",
-    outcome: "Moving a course up or down changes its place on /courses",
-    reason: "No spec moves a course.",
-    status: FLOW_STATUS.MISSING,
+    outcome:
+      "Dragging a course by its handle, or pressing the down or up arrow on its focused handle, moves it in /admin/courses, keeps the new place after a reload and changes its place on /courses",
+    status: FLOW_STATUS.COVERED,
+    tests: [ORDER_CATALOGUE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-delete-selected-courses",
+    outcome: "Selecting courses and pressing Delete in the selection bar removes all of them after one confirmation",
+    status: FLOW_STATUS.COVERED,
+    tests: [ORDER_CATALOGUE],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
@@ -479,9 +499,16 @@ export const COURSES_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-move-material",
+    outcome: "Dragging a material by its handle above another one changes its place on the lesson page",
+    status: FLOW_STATUS.COVERED,
+    tests: [WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-edit-material",
-    outcome: "Renaming and moving a material changes its title and its place on the lesson page",
-    reason: "No spec edits or moves a material after adding it.",
+    outcome: "Renaming a material from its ⋯ menu changes its title on the lesson page",
+    reason: "No spec renames a material after adding it.",
     status: FLOW_STATUS.MISSING,
   },
   {

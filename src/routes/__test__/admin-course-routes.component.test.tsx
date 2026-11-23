@@ -12,7 +12,6 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { CHAPTER_MUTATION_KEYS } from "~/src/modules/chapter/chapter.constants"
 import type { createChapterMutation } from "~/src/modules/chapter/use-cases/create-chapter"
 import type { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
@@ -27,7 +26,7 @@ import {
 } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import type { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
-import type { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import type { deleteCoursesMutation } from "~/src/modules/course/use-cases/delete-courses"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 import { getCoursesQuery } from "~/src/modules/course/use-cases/get-courses"
 import type { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
@@ -44,6 +43,7 @@ import { Route as CourseListRoute } from "~/src/routes/admin.courses.index"
 
 import { renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
+import gridLabels from "~/messages/en-US/components.custom.data-grid.json"
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"
 import locales from "~/messages/en-US/locales.json"
@@ -57,7 +57,7 @@ const mutations = vi.hoisted(() => ({
   createCourse: vi.fn<NonNullable<typeof createCourseMutation.mutationFn>>(),
   createLesson: vi.fn<NonNullable<typeof createLessonMutation.mutationFn>>(),
   deleteChapter: vi.fn<NonNullable<typeof deleteChapterMutation.mutationFn>>(),
-  deleteCourse: vi.fn<NonNullable<typeof deleteCourseMutation.mutationFn>>(),
+  deleteCourses: vi.fn<NonNullable<typeof deleteCoursesMutation.mutationFn>>(),
   deleteLesson: vi.fn<NonNullable<typeof deleteLessonMutation.mutationFn>>(),
   moveCourse: vi.fn<NonNullable<typeof moveCourseMutation.mutationFn>>(),
   updateChapter: vi.fn<NonNullable<typeof updateChapterMutation.mutationFn>>(),
@@ -70,8 +70,8 @@ vi.mock(import("~/src/modules/course/use-cases/create-course"), () => ({
 vi.mock(import("~/src/modules/course/use-cases/update-course"), () => ({
   updateCourseMutation: { mutationFn: mutations.updateCourse, mutationKey: COURSE_MUTATION_KEYS.UPDATE },
 }))
-vi.mock(import("~/src/modules/course/use-cases/delete-course"), () => ({
-  deleteCourseMutation: { mutationFn: mutations.deleteCourse, mutationKey: COURSE_MUTATION_KEYS.DELETE },
+vi.mock(import("~/src/modules/course/use-cases/delete-courses"), () => ({
+  deleteCoursesMutation: { mutationFn: mutations.deleteCourses, mutationKey: COURSE_MUTATION_KEYS.DELETE },
 }))
 vi.mock(import("~/src/modules/course/use-cases/move-course"), () => ({
   moveCourseMutation: { mutationFn: mutations.moveCourse, mutationKey: COURSE_MUTATION_KEYS.MOVE },
@@ -96,6 +96,7 @@ const MESSAGES = getTestMessages("en-US")
 const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const CREATED_ID = "01960000-0000-7000-8000-00000000c009"
+const OTHER_COURSE_ID = "01960000-0000-7000-8000-00000000c002"
 
 const VIDEO: NonNullable<Course["editorLesson"]["video"]> = {
   captionLocales: [],
@@ -176,8 +177,6 @@ const EDITOR: Course["editor"] = {
 }
 
 const LISTED = {
-  isFirst: false,
-  isLast: false,
   kind: COURSE_KIND.TUTORIAL,
   lessons: 0,
   status: COURSE_STATUS.PUBLISHED,
@@ -186,11 +185,11 @@ const LISTED = {
 
 const LIST: Awaited<ReturnType<NonNullable<typeof getCoursesQuery.queryFn>>> = {
   rows: [
-    { ...LISTED, id: COURSE_ID, isFirst: true, kind: COURSE_KIND.COURSE, lessons: 2, slug: COURSE.slug, title: COURSE.title },
+    { ...LISTED, id: COURSE_ID, kind: COURSE_KIND.COURSE, lessons: 2, position: 1, slug: COURSE.slug, title: COURSE.title },
     {
       ...LISTED,
-      id: "01960000-0000-7000-8000-00000000c002",
-      isLast: true,
+      id: OTHER_COURSE_ID,
+      position: 2,
       slug: "one-off",
       status: COURSE_STATUS.DRAFT,
       title: { "en-US": "One-off tutorial" },
@@ -305,7 +304,7 @@ beforeEach(() => {
   vi.spyOn(toast, "error").mockReturnValue(0)
   mutations.createCourse.mockResolvedValue({ id: CREATED_ID })
   mutations.updateCourse.mockResolvedValue({ id: COURSE_ID })
-  mutations.deleteCourse.mockResolvedValue({ id: COURSE_ID })
+  mutations.deleteCourses.mockResolvedValue({ ids: [COURSE_ID] })
   mutations.createChapter.mockResolvedValue({ id: "chapter-three" })
   mutations.updateChapter.mockResolvedValue({ id: "chapter-one" })
   mutations.deleteChapter.mockResolvedValue({ id: "chapter-one" })
@@ -323,56 +322,142 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+const courseRow = (title: string): HTMLElement => {
+  const row = screen.getByText(title).closest<HTMLElement>("tr")
+  if (!row) {
+    throw new Error(`Missing course ${title}`)
+  }
+  return row
+}
+
+const openCourseMenu = async (user: ReturnType<typeof userEvent.setup>, title: string): Promise<HTMLElement> => {
+  await user.click(screen.getByRole("button", { name: `Actions for ${title}` }))
+  return screen.findByRole("menu")
+}
+
 describe("admin course list", () => {
-  it("lists every course with its type, status and lesson count", async () => {
+  it("lists every course with its place, type, status and lesson count", async () => {
     await renderAdminCourses("/admin/courses")
 
     expect(screen.getByRole("heading", { level: 1, name: labels.title })).toBeVisible()
-    const row = screen.getByText("The walkthrough").closest("tr")
-    if (!row) {
-      throw new Error("Missing course row")
-    }
+    const row = courseRow("The walkthrough")
     expect(within(row).getByText("/courses/the-walkthrough")).toBeVisible()
     expect(within(row).getByText(labels.form.kinds.course)).toBeVisible()
     expect(within(row).getByText(labels.form.statuses.published)).toBeVisible()
+    expect(within(row).getByText("1")).toBeVisible()
     expect(within(row).getByText("2")).toBeVisible()
-    expect(within(row).getByRole("link", { name: "Edit The walkthrough" })).toHaveAttribute("href", `/admin/courses/${COURSE_ID}`)
+    expect(within(row).getAllByRole("button")).toHaveLength(2)
     expect(screen.getByRole("link", { name: labels.actions.create })).toHaveAttribute("href", "/admin/courses/create")
   })
 
-  it("deletes a course after confirmation and refreshes the list", async () => {
+  it("opens one menu per course with its editor, its public page once published, and its link", async () => {
+    const { user } = await renderAdminCourses("/admin/courses")
+
+    const menu = await openCourseMenu(user, "The walkthrough")
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toStrictEqual([labels.actions.edit, labels.actions.view, labels.actions.copyLink, labels.actions.delete])
+    expect(within(menu).getByRole("menuitem", { name: labels.actions.edit })).toHaveAttribute("href", `/admin/courses/${COURSE_ID}`)
+    expect(within(menu).getByRole("menuitem", { name: labels.actions.view })).toHaveAttribute("href", "/courses/the-walkthrough")
+    expect(within(menu).getByRole("menuitem", { name: labels.actions.view })).toHaveAttribute("target", "_blank")
+    await user.keyboard("{Escape}")
+
+    const draft = await openCourseMenu(user, "One-off tutorial")
+    expect(within(draft).queryByRole("menuitem", { name: labels.actions.view })).toBeNull()
+  })
+
+  it("copies a course's link and says when the browser refuses", async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValueOnce().mockRejectedValueOnce(new Error("denied"))
+    const { user } = await renderAdminCourses("/admin/courses")
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } })
+
+    await user.click(within(await openCourseMenu(user, "The walkthrough")).getByRole("menuitem", { name: labels.actions.copyLink }))
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(labels.actions.copied)
+    })
+    expect(writeText).toHaveBeenCalledWith(new URL("/courses/the-walkthrough", globalThis.location.origin).href)
+
+    await user.click(within(await openCourseMenu(user, "The walkthrough")).getByRole("menuitem", { name: labels.actions.copyLink }))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(labels.actions.copyFailed)
+    })
+  })
+
+  it("deletes a course from its menu after confirmation and refreshes the list", async () => {
     const { invalidateQueries, user } = await renderAdminCourses("/admin/courses")
 
-    await user.click(screen.getByRole("button", { name: "Delete The walkthrough" }))
+    await user.click(within(await openCourseMenu(user, "The walkthrough")).getByRole("menuitem", { name: labels.actions.delete }))
     const confirm = await screen.findByRole("alertdialog")
-    await user.click(within(confirm).getByRole("button", { name: labels.delete.confirm }))
+    expect(within(confirm).getByRole("heading", { name: "Delete this course?" })).toBeVisible()
+    await user.click(within(confirm).getByRole("button", { name: "Delete course" }))
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith("“The walkthrough” was deleted")
     })
-    expect(mutations.deleteCourse).toHaveBeenCalledWith({ courseId: COURSE_ID }, expect.anything())
+    expect(mutations.deleteCourses).toHaveBeenCalledWith({ courseIds: [COURSE_ID] }, expect.anything())
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
   })
 
-  it("reorders the catalogue", async () => {
-    const { invalidateQueries, user } = await renderAdminCourses("/admin/courses")
+  it("deletes the selected courses together after confirmation", async () => {
+    mutations.deleteCourses.mockResolvedValueOnce({ ids: [COURSE_ID, OTHER_COURSE_ID] })
+    const { user } = await renderAdminCourses("/admin/courses")
 
-    expect(screen.getByRole("button", { name: "Move The walkthrough up" })).toBeDisabled()
-    expect(screen.getByRole("button", { name: "Move One-off tutorial down" })).toBeDisabled()
-    await user.click(screen.getByRole("button", { name: "Move The walkthrough down" }))
+    await user.click(screen.getByRole("checkbox", { name: gridLabels.selection.selectPage }))
+    const bar = screen.getByRole("region", { name: gridLabels.selection.region })
+    await user.click(within(bar).getByRole("button", { name: "Delete 2 courses" }))
+    const confirm = await screen.findByRole("alertdialog")
+    expect(within(confirm).getByRole("heading", { name: "Delete 2 courses?" })).toBeVisible()
+    await user.click(within(confirm).getByRole("button", { name: "Keep them" }))
+    expect(mutations.deleteCourses).not.toHaveBeenCalled()
+
+    await user.click(within(bar).getByRole("button", { name: "Delete 2 courses" }))
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete 2 courses" }))
 
     await waitFor(() => {
-      expect(mutations.moveCourse).toHaveBeenCalledWith({ courseId: COURSE_ID, direction: MOVE_DIRECTION.DOWN }, expect.anything())
+      expect(toast.success).toHaveBeenCalledWith("2 courses were deleted")
+    })
+    expect(mutations.deleteCourses).toHaveBeenCalledWith({ courseIds: [COURSE_ID, OTHER_COURSE_ID] }, expect.anything())
+  })
+
+  it("moves a course with the arrow keys on its handle and saves its new place", async () => {
+    const { invalidateQueries, user } = await renderAdminCourses("/admin/courses")
+
+    const [first] = screen.getAllByRole("button", { name: gridLabels.rows.handle })
+    first?.focus()
+    await user.keyboard("{ArrowDown}")
+
+    await waitFor(() => {
+      expect(mutations.moveCourse).toHaveBeenCalledWith({ courseId: COURSE_ID, position: 2 }, expect.anything())
     })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
+    expect(screen.getAllByRole("row").map((row) => row.getAttribute("aria-rowindex"))).toStrictEqual(["1", "2", "3"])
+    expect(within(screen.getAllByRole("row")[2] ?? document.body).getByText("The walkthrough")).toBeVisible()
+  })
+
+  it("explains a failed move and puts the course back", async () => {
+    mutations.moveCourse.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
+    const { user } = await renderAdminCourses("/admin/courses")
+
+    const [first] = screen.getAllByRole("button", { name: gridLabels.rows.handle })
+    first?.focus()
+    await user.keyboard("{ArrowDown}")
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
+    })
+    await waitFor(() => {
+      expect(within(screen.getAllByRole("row")[1] ?? document.body).getByText("The walkthrough")).toBeVisible()
+    })
   })
 
   it("explains a failed deletion", async () => {
-    mutations.deleteCourse.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
+    mutations.deleteCourses.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses("/admin/courses")
 
-    await user.click(screen.getByRole("button", { name: "Delete The walkthrough" }))
-    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.delete.confirm }))
+    await user.click(within(await openCourseMenu(user, "The walkthrough")).getByRole("menuitem", { name: labels.actions.delete }))
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete course" }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
@@ -586,7 +671,8 @@ describe("admin course chapters", () => {
     )
     expect(toast.success).toHaveBeenCalledWith(labels.chapter.saved)
 
-    await user.click(within(chapterSection("Product")).getByRole("button", { name: "Edit Product" }))
+    await user.click(screen.getByRole("button", { name: "Actions for Product" }))
+    await user.click(await screen.findByRole("menuitem", { name: labels.curriculum.edit }))
     const rename = await screen.findByRole("dialog")
     expect(within(rename).getByRole("heading", { name: labels.chapter.edit })).toBeVisible()
     await user.clear(within(rename).getByLabelText(labels.chapter.title))
@@ -605,7 +691,8 @@ describe("admin course chapters", () => {
   it("deletes chapters", async () => {
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(screen.getByRole("button", { name: "Delete Foundations" }))
+    await user.click(screen.getByRole("button", { name: "Actions for Foundations" }))
+    await user.click(await screen.findByRole("menuitem", { name: labels.curriculum.delete }))
     const confirm = await screen.findByRole("alertdialog")
     expect(within(confirm).getByText(labels.curriculum.deleteChapterTitle)).toBeVisible()
     await user.click(within(confirm).getByRole("button", { name: labels.curriculum.delete }))
@@ -618,7 +705,8 @@ describe("admin course chapters", () => {
     mutations.updateChapter.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(within(chapterSection("Product")).getByRole("button", { name: "Edit Product" }))
+    await user.click(screen.getByRole("button", { name: "Actions for Product" }))
+    await user.click(await screen.findByRole("menuitem", { name: labels.curriculum.edit }))
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: labels.chapter.save }))
 
     await waitFor(() => {
@@ -659,12 +747,14 @@ describe("admin course lessons", () => {
   })
 
   it("opens each lesson in its editor and shows the state of its video", async () => {
-    await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
+    const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    expect(within(lessonRow("Sessions")).getByRole("link", { name: "Edit Sessions" })).toHaveAttribute(
+    await user.click(within(lessonRow("Sessions")).getByRole("button", { name: "Actions for Sessions" }))
+    expect(await screen.findByRole("menuitem", { name: labels.curriculum.edit })).toHaveAttribute(
       "href",
       `/admin/courses/${COURSE_ID}/lessons/lesson-sessions`,
     )
+    await user.keyboard("{Escape}")
     expect(within(lessonRow("Boundaries")).getByText("Boundaries take · 2:05")).toBeVisible()
     expect(within(lessonRow("Boundaries")).queryByText(labels.curriculum.video.none)).toBeNull()
     expect(within(lessonRow("Sessions")).getByText(labels.curriculum.video.none)).toBeVisible()
@@ -676,7 +766,8 @@ describe("admin course lessons", () => {
   it("deletes lessons", async () => {
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(screen.getByRole("button", { name: "Delete Sessions" }))
+    await user.click(screen.getByRole("button", { name: "Actions for Sessions" }))
+    await user.click(await screen.findByRole("menuitem", { name: labels.curriculum.delete }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.curriculum.delete }))
     await waitFor(() => {
       expect(mutations.deleteLesson).toHaveBeenCalledWith({ lessonId: "lesson-sessions" }, expect.anything())
@@ -687,7 +778,8 @@ describe("admin course lessons", () => {
     mutations.deleteLesson.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
-    await user.click(screen.getByRole("button", { name: "Delete Sessions" }))
+    await user.click(screen.getByRole("button", { name: "Actions for Sessions" }))
+    await user.click(await screen.findByRole("menuitem", { name: labels.curriculum.delete }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.curriculum.delete }))
 
     await waitFor(() => {

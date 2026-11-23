@@ -25,6 +25,7 @@ import {
   ACTIONS_COLUMN_ID,
   type FixedColumns,
   NO_FIXED_COLUMNS,
+  REORDER_COLUMN_ID,
   SELECT_COLUMN_ID,
   defaultPinning,
   defaultVisibility,
@@ -39,6 +40,7 @@ import {
   dataGridFeatures,
 } from "~/src/integrations/tanstack-table/table.features"
 
+import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_SORTED_COLUMNS, PAGE_SIZES, type PageSize } from "~/src/modules/_core/utils/pagination"
 
 import { useDataGridPreferences } from "~/src/hooks/use-data-grid-preferences"
@@ -75,6 +77,11 @@ export type DataGridQuery<TData extends DataGridRow> = (
   request: DataGridRequest,
 ) => Pick<UseQueryOptions<DataGridPage<TData>>, "queryFn" | "queryKey">
 
+export interface DataGridMove<TData> {
+  readonly position: number
+  readonly row: TData
+}
+
 export interface DataGridProps<TData extends DataGridRow> {
   readonly bulkActions?: (rows: readonly TData[]) => ReactNode
   readonly columns: readonly DataGridColumn<TData>[]
@@ -83,11 +90,22 @@ export interface DataGridProps<TData extends DataGridRow> {
   readonly emptyDescription?: string
   readonly id: string
   readonly label: string
+  readonly onReorder?: (move: DataGridMove<TData>) => Promise<unknown>
   readonly query?: DataGridQuery<TData>
   readonly rowActions?: ComponentType<{ readonly row: TData }>
-  readonly rowActionsSize?: number
   readonly search?: string
   readonly selectable?: boolean
+}
+
+export interface DataGridRowDrag<TData> {
+  readonly dragged: TData | undefined
+  readonly focused: string | undefined
+  readonly isEnabled: boolean
+  readonly onDragEnd: (row: TData, from: number, isDropped: boolean) => void
+  readonly onDragOver: (row: TData) => void
+  readonly onDragStart: (row: TData) => void
+  readonly onFocused: () => void
+  readonly onStep: (row: TData, step: number) => void
 }
 
 interface QueryState {
@@ -111,6 +129,8 @@ const NO_SIZING: ColumnSizingState = {}
 const CLIENT_QUERY_KEY = ["data-grid"]
 
 const SELECT_COLUMN_SIZE = 44
+
+const REORDER_COLUMN_SIZE = 40
 
 const DEFAULT_COLUMN = { maxSize: 640, minSize: 96, size: 176 }
 
@@ -158,16 +178,32 @@ const selectColumn = <TData extends DataGridRow>(): DataGridColumn<TData> =>
     size: SELECT_COLUMN_SIZE,
   })
 
+const ReorderHeader = (): JSX.Element => {
+  const t = useTranslations("components.custom.data-grid.rows")
+
+  return <span className="sr-only">{t("header")}</span>
+}
+
+const reorderColumn = <TData extends DataGridRow>(): DataGridColumn<TData> =>
+  createColumnHelper<DataGridFeatures, TData>().display({
+    enableHiding: false,
+    enablePinning: false,
+    enableResizing: false,
+    enableSorting: false,
+    header: ReorderHeader,
+    id: REORDER_COLUMN_ID,
+    maxSize: REORDER_COLUMN_SIZE,
+    minSize: REORDER_COLUMN_SIZE,
+    size: REORDER_COLUMN_SIZE,
+  })
+
 const ActionsHeader = (): JSX.Element => {
   const t = useTranslations("components.custom.data-grid.actions")
 
   return <span className="sr-only">{t("header")}</span>
 }
 
-const actionsColumn = <TData extends DataGridRow>(
-  RowActions: ComponentType<{ readonly row: TData }>,
-  size: number,
-): DataGridColumn<TData> =>
+const actionsColumn = <TData extends DataGridRow>(RowActions: ComponentType<{ readonly row: TData }>): DataGridColumn<TData> =>
   createColumnHelper<DataGridFeatures, TData>().display({
     cell: ({ row }) => <RowActions row={row.original} />,
     enableHiding: false,
@@ -176,21 +212,19 @@ const actionsColumn = <TData extends DataGridRow>(
     enableSorting: false,
     header: ActionsHeader,
     id: ACTIONS_COLUMN_ID,
-    maxSize: size,
-    minSize: size,
-    size,
+    maxSize: DATA_GRID_ACTIONS_SIZE,
+    minSize: DATA_GRID_ACTIONS_SIZE,
+    size: DATA_GRID_ACTIONS_SIZE,
   })
 
 const useGridColumns = <TData extends DataGridRow>(
   columns: readonly DataGridColumn<TData>[],
   {
+    fixed,
     rowActions,
-    rowActionsSize,
-    selectable,
   }: {
+    readonly fixed: FixedColumns
     readonly rowActions: ComponentType<{ readonly row: TData }> | undefined
-    readonly rowActionsSize: number
-    readonly selectable: boolean
   },
 ): DataGridColumn<TData>[] =>
   useMemo(() => {
@@ -201,11 +235,12 @@ const useGridColumns = <TData extends DataGridRow>(
     })
 
     return [
-      ...(selectable ? [selectColumn<TData>()] : []),
+      ...(fixed.selectable ? [selectColumn<TData>()] : []),
+      ...(fixed.reorderable ? [reorderColumn<TData>()] : []),
       ...filterable,
-      ...(rowActions === undefined ? [] : [actionsColumn(rowActions, rowActionsSize)]),
+      ...(rowActions === undefined ? [] : [actionsColumn(rowActions)]),
     ]
-  }, [columns, rowActions, rowActionsSize, selectable])
+  }, [columns, fixed, rowActions])
 
 const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly DataGridColumn<TData>[], fixed: FixedColumns) => {
   const { preferences, reset, update } = useDataGridPreferences(id)
@@ -341,29 +376,138 @@ const useGridState = (pageSize: number, setPageSize: (pageSize: PageSize) => voi
   }
 }
 
-const useDataGrid = <TData extends DataGridRow>({
-  columns,
-  data = NO_ROWS,
-  id,
-  query,
-  rowActions,
-  rowActionsSize = DATA_GRID_ACTIONS_SIZE,
-  selectable = false,
-}: DataGridProps<TData>) => {
+interface RowOrder<TData> {
+  readonly pageIndex: number
+  readonly rows: readonly TData[]
+  readonly source: readonly TData[]
+}
+
+const moveRow = <TData extends DataGridRow>(rows: readonly TData[], row: TData, index: number): TData[] => {
+  const rest = rows.filter((entry) => entry !== row)
+
+  return [...rest.slice(0, index), row, ...rest.slice(index)]
+}
+
+const useRowOrder = <TData extends DataGridRow>(rows: readonly TData[], pageIndex: number) => {
+  const [order, setOrder] = useState<RowOrder<TData>>()
+  const [moving, setMoving] = useState(0)
+  const [dragged, setDragged] = useState<TData>()
+  const [focused, setFocused] = useState<string>()
+  const isMoved = order !== undefined && (order.source === rows || (moving > 0 && order.pageIndex === pageIndex))
+
+  return {
+    dragged,
+    focused,
+    place: (moved: readonly TData[]) => {
+      setOrder({ pageIndex, rows: moved, source: rows })
+    },
+    rows: isMoved ? order.rows : rows,
+    setDragged,
+    setFocused,
+    setMoving,
+    setOrder,
+  }
+}
+
+const useRowDrag = <TData extends DataGridRow>({
+  announce,
+  isEnabled,
+  isServer,
+  onReorder,
+  order,
+  table,
+}: {
+  readonly announce: (message: string) => void
+  readonly isEnabled: boolean
+  readonly isServer: boolean
+  readonly onReorder: ((move: DataGridMove<TData>) => Promise<unknown>) | undefined
+  readonly order: ReturnType<typeof useRowOrder<TData>>
+  readonly table: ReactTable<DataGridFeatures, TData>
+}): DataGridRowDrag<TData> => {
+  const t = useTranslations("components.custom.data-grid.rows")
+  const { pageIndex, pageSize } = table.state.pagination
+  const total = table.getRowCount()
+  const start = pageIndex * pageSize
+  const offset = isServer ? 0 : start
+
+  const persist = (row: TData, position: number): void => {
+    announce(t("moved", { position, total }))
+    order.setMoving((count) => count + 1)
+    void onReorder?.({ position, row })
+      .catch(() => {
+        order.setOrder(undefined)
+      })
+      .finally(() => {
+        order.setMoving((count) => count - 1)
+      })
+  }
+
+  return {
+    dragged: order.dragged,
+    focused: order.focused,
+    isEnabled,
+    onDragEnd: (row, from, isDropped) => {
+      order.setDragged(undefined)
+      if (!isDropped) {
+        order.place(moveRow(order.rows, row, from + offset))
+        return
+      }
+      const index = order.rows.indexOf(row) - offset
+      if (index !== from) {
+        persist(row, start + index + FIRST_POSITION)
+      }
+    },
+    onDragOver: (row) => {
+      const { dragged } = order
+      if (dragged === undefined || dragged === row) {
+        return
+      }
+      order.place(moveRow(order.rows, dragged, order.rows.indexOf(row)))
+    },
+    onDragStart: (row) => {
+      order.setDragged(row)
+    },
+    onFocused: () => {
+      order.setFocused(undefined)
+    },
+    onStep: (row, step) => {
+      const index = order.rows.indexOf(row) + step
+      const position = start + index - offset + FIRST_POSITION
+      if (position < FIRST_POSITION || position > total) {
+        return
+      }
+      const target = Math.floor((position - FIRST_POSITION) / pageSize)
+      order.setFocused(row.id)
+      order.place(moveRow(order.rows, row, Math.max(index, 0)))
+      if (target !== pageIndex) {
+        table.setPageIndex(target)
+      }
+      persist(row, position)
+    },
+  }
+}
+
+const useDataGrid = <TData extends DataGridRow>(
+  { columns, data = NO_ROWS, id, onReorder, query, rowActions, selectable = false }: DataGridProps<TData>,
+  announce: (message: string) => void,
+) => {
   const queryClient = useQueryClient()
   const hasActions = rowActions !== undefined
-  const fixed = useMemo(() => ({ actions: hasActions, selectable }), [hasActions, selectable])
+  const reorderable = onReorder !== undefined
+  const fixed = useMemo(() => ({ actions: hasActions, reorderable, selectable }), [hasActions, reorderable, selectable])
   const layout = useGridLayout(id, columns, fixed)
   const grid = useGridState(layout.pageSize, layout.setPageSize)
   const request = requestOf(grid.state, layout.pageSize)
   const page = useGridPage(query, request, data)
+  const order = useRowOrder(page.rows, grid.state.pageIndex)
   const isServer = query !== undefined
-  const tableColumns = useGridColumns(columns, { rowActions, rowActionsSize, selectable })
+  const isStoredOrder = grid.state.sorting.length === 0 && grid.state.columnFilters.length === 0 && grid.state.globalFilter.length === 0
+  const tableColumns = useGridColumns(columns, { fixed, rowActions })
   const table = useTable({
     autoResetPageIndex: false,
     columnResizeMode: "onChange",
     columns: tableColumns,
-    data: page.rows,
+    data: order.rows,
     defaultColumn: DEFAULT_COLUMN,
     enableMultiSort: true,
     enableRowSelection: selectable,
@@ -385,6 +529,7 @@ const useDataGrid = <TData extends DataGridRow>({
     ...(isServer && { rowCount: page.total ?? 0 }),
     state: { ...layout.state, ...grid.state, pagination: grid.pagination },
   })
+  const drag = useRowDrag({ announce, isEnabled: isStoredOrder, isServer, onReorder, order, table })
 
   return {
     collectRows: (): Promise<readonly TData[]> => {
@@ -393,6 +538,7 @@ const useDataGrid = <TData extends DataGridRow>({
       }
       return fetchEveryPage(queryClient, { collected: [], query, request: { ...request, pageIndex: 0 } })
     },
+    drag,
     grid,
     layout,
     page,
@@ -405,7 +551,7 @@ export type DataGridTableInstance<TData extends DataGridRow> = ReactTable<DataGr
 export const DataGrid = <TData extends DataGridRow>(props: DataGridProps<TData>): JSX.Element => {
   const { bulkActions, empty, emptyDescription, id, label, search } = props
   const [announcement, setAnnouncement] = useState("")
-  const { collectRows, grid, layout, page, table } = useDataGrid(props)
+  const { collectRows, drag, grid, layout, page, table } = useDataGrid(props, setAnnouncement)
   const isFiltered = grid.state.globalFilter.length > 0 || grid.state.columnFilters.length > 0
 
   return (
@@ -427,6 +573,7 @@ export const DataGrid = <TData extends DataGridRow>(props: DataGridProps<TData>)
       <DataGridTable
         announce={setAnnouncement}
         density={layout.density}
+        drag={drag}
         empty={empty}
         emptyDescription={emptyDescription}
         isFiltered={isFiltered}

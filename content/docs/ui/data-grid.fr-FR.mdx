@@ -1,6 +1,6 @@
 ---
 title: "Grille de données"
-description: "Le composant de tableau : recherche, filtres par type de colonne, tri, une disposition que chaque administrateur peut réorganiser et conserver, sélection, export CSV, et données côté client ou serveur."
+description: "Le composant de tableau : recherche, filtres par type de colonne, tri, une disposition que chaque administrateur peut réorganiser et conserver, sélection, lignes réordonnées par glisser-déposer, un menu d’actions par ligne, export CSV, et données côté client ou serveur."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) est le composant de tableau. Il construit une instance TanStack Table v9 à partir des fonctionnalités de `src/integrations/tanstack-table/table.features.ts` et l’affiche avec les primitives de tableau shadcn et des contrôles React Aria. Une page lui donne ses colonnes et soit ses lignes, soit une query ; tout le reste, de la barre d’outils à la barre de pagination, se trouve à l’intérieur.
@@ -31,8 +31,8 @@ description: "Le composant de tableau : recherche, filtres par type de colonne, 
 | `emptyDescription` | Une phrase sous ce titre qui dit comment arrive la première ligne                                                                           |
 | `selectable`       | Ajoute une colonne de cases à cocher et la barre de sélection                                                                               |
 | `bulkActions`      | Une fonction des lignes sélectionnées qui affiche d’autres boutons dans la barre de sélection                                               |
-| `rowActions`       | Un composant qui reçoit chaque `row` et la termine, dans une colonne épinglée à droite                                                      |
-| `rowActionsSize`   | La largeur de cette colonne en pixels, <RepositoryFact name="dataGridActionsSize" /> sauf si les actions ont besoin de plus                 |
+| `rowActions`       | Un composant qui reçoit chaque `row` et la termine par son menu ⋯, dans une colonne épinglée à droite                                       |
+| `onReorder`        | Ajoute une poignée à chaque ligne ; reçoit la ligne déplacée et sa nouvelle place, comme décrit dans [Ordre des lignes](#row-order)         |
 
 ## Colonnes
 
@@ -107,15 +107,26 @@ L’administrateur réorganise la grille, et le navigateur la conserve sous l’
 - **Densité.** Lignes aérées ou compactes.
 - **Taille de page.** <RepositoryFact name="dataGridPageSizes" /> lignes par page.
 
-La grille est une seule carte : la barre d’outils en haut, le tableau, et la pagination en bas, séparés par des filets. La barre d’outils a deux lignes : la recherche et les commandes d’affichage sur la première, puis, en dessous, le bouton Filtrer et les puces des filtres actifs sur la seconde. Chaque contrôle de la barre d’outils et chaque puce de filtre ont la même hauteur ; les en-têtes sont en casse de phrase, à la taille spec sur une bande atténuée, les cellules à la taille body, et la dernière colonne de données prend toute la largeur restante tandis que la colonne des actions garde la sienne. Dans chaque liste de la grille, l’option sous le pointeur est mise en évidence comme celle où se trouve le clavier. Le champ de recherche occupe la largeur libre de la barre d’outils, si bien que son texte indicatif n’est jamais coupé, et un en-tête trop long pour sa colonne passe sur une deuxième ligne au lieu d’être raccourci. Dans une grille de moins de 64rem, Colonnes, Exporter en CSV et Réinitialiser la disposition n’affichent que leur icône, ce qui laisse sa place à la recherche.
+La grille est une seule carte : la barre d’outils en haut, le tableau, et la pagination en bas, séparés par des filets. La barre d’outils a deux lignes : la recherche et les commandes d’affichage sur la première, puis, en dessous, le bouton Filtrer et les puces des filtres actifs sur la seconde. Chaque contrôle de la barre d’outils et chaque puce de filtre ont la même hauteur ; les en-têtes sont en casse de phrase, à la taille spec sur une bande atténuée, les cellules à la taille body, et la dernière colonne de données prend toute la largeur restante tandis que la colonne des actions garde la sienne. Dans chaque liste de la grille, l’option sous le pointeur est mise en évidence comme celle où se trouve le clavier. Le champ de recherche occupe la largeur libre de la barre d’outils, si bien que son texte indicatif n’est jamais coupé. Un en-tête tient sur une seule ligne et ne se coupe jamais au milieu d’un mot : la largeur initiale de chaque colonne contient son en-tête, avec les flèches de tri et le menu de colonne, dans chaque locale, et `e2e/specs/text-layout.spec.ts` échoue quand le libellé d’un en-tête déborde de sa cellule dans une grille de l’administration, quelle qu’elle soit. Dans une grille de moins de 64rem, Colonnes, Exporter en CSV et Réinitialiser la disposition n’affichent que leur icône, ce qui laisse sa place à la recherche.
 
 La ligne d’en-tête reste visible pendant que les lignes défilent dans la grille, et les colonnes épinglées restent visibles pendant que la grille défile horizontalement ; c’est ainsi qu’un téléphone affiche un tableau large. Une ombre du côté où d’autres colonnes sont hors de vue, et sur le bord des colonnes épinglées dès que d’autres passent dessous, indique que la grille défile (`.grid-scroller` dans `globals.css`).
 
-La colonne des actions de ligne n’a pas de menu de colonne : elle ne se trie pas, ne se masque pas, ne se déplace pas, ne se redimensionne pas et n’apparaît pas dans le CSV, et elle reste la dernière à droite.
+La colonne des actions de ligne fait <RepositoryFact name="dataGridActionsSize" /> pixels de large et contient un seul bouton ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), qui ouvre les actions de la ligne sous forme de menu : d’abord les actions courantes, puis, après un séparateur, les actions destructrices, qui demandent une confirmation dans une boîte de dialogue d’alerte. Toutes les grilles de l’administration et toutes les listes réordonnables, comme le programme, terminent leurs lignes par ce bouton, jamais par une rangée d’icônes. La colonne n’a pas de menu de colonne : elle ne se trie pas, ne se masque pas, ne se déplace pas, ne se redimensionne pas et n’apparaît pas dans le CSV, et elle reste la dernière à droite.
+
+## Ordre des lignes [#row-order]
+
+Avec `onReorder`, la grille commence par une colonne étroite de poignées, après les cases à cocher quand elle en a. Une poignée est une icône de préhension atténuée :
+
+- **Glisser.** Une ligne qu’on fait glisser par sa poignée se déplace parmi les autres à mesure que le pointeur passe dessus, et la déposer enregistre sa nouvelle place. Échap, ou un dépôt en dehors des lignes, la remet à sa place.
+- **Clavier.** Quand une poignée a le focus, les flèches haut et bas déplacent la ligne d’une place. Un déplacement au-delà de la première ou de la dernière ligne de la page ouvre la page sur laquelle passe la ligne et y place le focus sur sa poignée.
+- **Enregistrement.** `onReorder` reçoit la ligne et sa nouvelle place dans tout l’ordre enregistré, comptée à partir de 1 sur l’ensemble des pages, pour que le serveur puisse la placer n’importe où. Le nouvel ordre s’affiche aussitôt et reste en place pendant que les déplacements s’enregistrent, l’un après l’autre, jusqu’à l’arrivée des lignes actualisées ; quand la promesse que renvoie `onReorder` est rejetée, les lignes reviennent en arrière. `/admin/courses` passe `moveCourse` avec un `scope` de mutation, pour que les déplacements s’enregistrent dans l’ordre où ils ont été faits.
+- **Désactivation.** Tant que les lignes sont triées, filtrées ou issues d’une recherche, la place d’une ligne à l’écran n’est pas sa place dans l’ordre enregistré, si bien que les poignées sont désactivées.
+
+Chaque déplacement est annoncé dans la région live, par exemple « Ligne déplacée en position 3 sur 12. »
 
 ## Sélection et export
 
-Avec `selectable`, une case à cocher sélectionne une ligne et celle de l’en-tête sélectionne la page. Une barre flotte alors en bas de la fenêtre avec le nombre, Exporter la sélection, les `bulkActions` de la page et Annuler la sélection.
+Avec `selectable`, une case à cocher sélectionne une ligne et celle de l’en-tête sélectionne la page. Une barre flotte alors en bas de la fenêtre avec le nombre, Exporter la sélection, les `bulkActions` de la page et Annuler la sélection. Toutes les grilles de l’administration qui listent des enregistrements sont sélectionnables : cours, produits, catégories et collections, commandes, clients, utilisateurs, invitations et commandes sans licence ; seules les tables de comptage du tableau de bord ne le sont pas. `/admin/courses` ajoute **Supprimer** pour les cours sélectionnés ; les autres grilles exportent la sélection, car leurs enregistrements n’ont aucune action qui s’applique à plusieurs à la fois.
 
 Exporter en CSV télécharge chaque ligne que trouvent la recherche et les filtres, pas seulement la page affichée : côté serveur, l’export demande des pages de <RepositoryFact name="dataGridExportPageSize" /> lignes jusqu’à les avoir toutes. Le fichier contient les colonnes visibles dans leur ordre, commence par une marque d’ordre des octets pour que les tableurs le lisent en UTF-8, et place un `'` devant toute cellule qui commencerait une formule. `src/lib/csv.ts` l’écrit.
 
@@ -123,8 +134,8 @@ Exporter en CSV télécharge chaque ligne que trouvent la recherche et les filtr
 
 - Le tableau porte `label` comme nom et `aria-rowcount` ; chaque ligne porte son `aria-rowindex`, compté sur l’ensemble des pages.
 - Les en-têtes triables sont des boutons et portent `aria-sort`.
-- Chaque contrôle fonctionne au clavier : les menus et les listes suivent les touches fléchées et la recherche par saisie de React Aria, Échap les ferme, et le redimensionnement utilise les touches fléchées sur le séparateur de l’en-tête.
-- Déplacer, épingler, masquer, trier depuis un menu et réinitialiser la disposition sont annoncés dans une région live polie ; le nombre de résultats et le nombre de lignes sélectionnées sont live aussi.
+- Chaque contrôle fonctionne au clavier : les menus et les listes suivent les touches fléchées et la recherche par saisie de React Aria, Échap les ferme, le redimensionnement utilise les touches fléchées sur le séparateur de l’en-tête, et une ligne se déplace avec les flèches haut et bas sur sa poignée, nommée « Faites glisser ou utilisez les flèches pour changer l’ordre ».
+- Déplacer une colonne ou une ligne, épingler, masquer, trier depuis un menu et réinitialiser la disposition sont annoncés dans une région live polie ; le nombre de résultats et le nombre de lignes sélectionnées sont live aussi.
 
 ## Traductions
 
@@ -132,7 +143,7 @@ Les textes propres à la grille se trouvent dans `messages/<locale>/components.c
 
 ## Tests
 
-`src/presentation/components/custom/__test__/` couvre la grille en mémoire (`data-grid.component.test.tsx`), ses filtres (`data-grid-filter.component.test.tsx`), sa disposition (`data-grid-layout.component.test.tsx`) et le mode serveur (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` l’utilise sur `/admin/orders` dans un navigateur.
+`src/presentation/components/custom/__test__/` couvre la grille en mémoire (`data-grid.component.test.tsx`), ses filtres (`data-grid-filter.component.test.tsx`), sa disposition (`data-grid-layout.component.test.tsx`) et le mode serveur (`data-grid-query.component.test.tsx`), ordre des lignes compris. `e2e/specs/admin-orders.spec.ts` l’utilise sur `/admin/orders` dans un navigateur, et `e2e/specs/course-admin.spec.ts` réordonne, sélectionne et supprime des cours sur `/admin/courses`.
 
 ## Pages associées
 

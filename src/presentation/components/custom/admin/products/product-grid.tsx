@@ -27,6 +27,7 @@ export const ProductGrid = ({
       label={label}
       query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
       search={t("search")}
+      selectable
     />
   )
 }

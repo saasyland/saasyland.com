@@ -8,11 +8,22 @@ import coursesMessages from "../../messages/en-US/pages.admin.courses.json" with
 import { TEST_COURSE, TEST_MATERIALS } from "../data/courses"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
-import { filterByOption, filteredEmpty, gridMessages, gridOf, hideColumn, removeFilter, resetLayout } from "../fixtures/data-grid"
+import {
+  chooseRowAction,
+  filterByOption,
+  filteredEmpty,
+  gridMessages,
+  gridOf,
+  hideColumn,
+  removeFilter,
+  resetLayout,
+} from "../fixtures/data-grid"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [admin] = TEST_ACCOUNTS
+
+const DRAG_STEPS = 10
 
 const signInAsAdmin = async (page: Page, authPage: AuthPage): Promise<void> => {
   await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
@@ -29,7 +40,7 @@ const choose = async (scope: Locator, label: string, option: string): Promise<vo
 }
 
 const useLibraryVideo = async (page: Page): Promise<void> => {
-  await page.getByRole("link", { name: "Edit A first look" }).click()
+  await chooseRowAction(page.getByRole("row", { name: "A first look" }), "Actions for A first look", "Edit")
   await page.getByRole("button", { name: "Use an existing video" }).click()
   await page.getByRole("dialog", { name: "Use an existing video" }).getByRole("button", { name: `Use ${TEST_VIDEO.title}` }).click()
   await expect(page.getByText("Video added to the lesson")).toBeVisible()
@@ -37,6 +48,15 @@ const useLibraryVideo = async (page: Page): Promise<void> => {
 
 test("an administrator builds a course whose free lesson visitors can watch", async ({ appPage, authPage, browser, page }) => {
   const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (value: string) => {
+          document.documentElement.dataset["copiedLink"] = value
+        },
+      },
+    })
+  })
   await signInAsAdmin(page, authPage)
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -80,7 +100,23 @@ test("an administrator builds a course whose free lesson visitors can watch", as
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Shipping the first release" }).click()
+  const row = page.getByRole("row").filter({ hasText: slug })
+  const menu = "Actions for Shipping the first release"
+  const opened = page.waitForEvent("popup")
+  await chooseRowAction(row, menu, coursesMessages.actions.view)
+  const publicPage = await opened
+  await expect(publicPage).toHaveURL(new RegExp(`/courses/${slug}$`, "u"))
+  await expect(publicPage.getByRole("heading", { level: 1, name: "Shipping the first release" })).toBeVisible()
+  await publicPage.close()
+  await chooseRowAction(row, menu, coursesMessages.actions.copyLink)
+  await expect(page.getByText(coursesMessages.actions.copied)).toBeVisible()
+  await expect(page.locator("html")).toHaveAttribute("data-copied-link", new URL(`/courses/${slug}`, page.url()).href)
+  await chooseRowAction(row, menu, coursesMessages.actions.edit)
+  await expect(page.getByRole("heading", { level: 1, name: "Shipping the first release" })).toBeVisible()
+
+  await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await chooseRowAction(row, menu, coursesMessages.actions.delete)
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByText("“Shipping the first release” was deleted")).toBeVisible()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
@@ -122,7 +158,7 @@ test("an administrator translates a course from one language control and visitor
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Shipping the first release" }).click()
+  await chooseRowAction(page.getByRole("row").filter({ hasText: slug }), "Actions for Shipping the first release", "Delete")
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
 })
@@ -166,7 +202,7 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await lessonDialog.getByRole("button", { name: "Save lesson" }).click()
   await expect(lessonDialog).toBeHidden()
 
-  await page.getByRole("link", { name: "Edit A first look" }).click()
+  await chooseRowAction(page.getByRole("row", { name: "A first look" }), "Actions for A first look", "Edit")
   await expect(page.getByRole("heading", { level: 1, name: "A first look" })).toBeVisible()
   await page.getByLabel("Description", { exact: true }).fill("Open `src/modules` first.\n\nThen follow one table.")
   await expect(page.getByRole("region", { name: "Description preview" }).locator("code")).toHaveText("src/modules")
@@ -191,12 +227,23 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await linkDialog.getByRole("button", { name: "Save material" }).click()
   await expect(linkDialog).toBeHidden()
 
+  const materialList = page.getByRole("grid", { name: "Materials" })
+  await materialList.getByRole("row", { name: "Course docs" }).dragTo(materialList.getByRole("row", { name: "Workbook" }), {
+    sourcePosition: { x: 16, y: 20 },
+    targetPosition: { x: 40, y: 4 },
+  })
+  await expect.poll(() => materialList.getByRole("row").allTextContents()).toStrictEqual([
+    expect.stringContaining("Course docs"),
+    expect.stringContaining("Workbook"),
+  ])
+
   const visitor = await browser.newPage()
   await visitor.goto(lessonPath, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await expect(visitor.getByText("The recording for this lesson is on its way.")).toBeVisible()
   const download = await visitor.getByRole("region", { name: "Materials" }).getByRole("link", { name: "Workbook" }).getAttribute("href")
   expect((await visitor.request.get(download ?? "")).status()).toBe(200)
   await expect(visitor.getByRole("link", { name: "Course docs" })).toHaveAttribute("href", "/docs/features/courses")
+  await expect(visitor.getByRole("region", { name: "Materials" }).getByRole("link").first()).toHaveAccessibleName("Course docs")
 
   await page.getByRole("button", { name: "Use an existing video" }).click()
   await page.getByRole("dialog", { name: "Use an existing video" }).getByRole("button", { name: `Use ${TEST_VIDEO.title}` }).click()
@@ -209,7 +256,7 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Materials and recordings" }).click()
+  await chooseRowAction(page.getByRole("row").filter({ hasText: slug }), "Actions for Materials and recordings", "Delete")
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
   expect((await page.request.get(download ?? "")).status()).toBe(404)
@@ -237,11 +284,92 @@ test("an administrator finds a course by its slug, filters the catalogue by stat
 
   const headerNames = grid.getByRole("columnheader")
   await hideColumn(grid, headers.kind)
-  const arranged = [headers.course, headers.status, headers.lessons, headers.updated, gridMessages.actions.header]
+  const fixedHeaders = ["", gridMessages.rows.header, headers.position]
+  const arranged = [...fixedHeaders, headers.course, headers.status, headers.lessons, headers.updated, gridMessages.actions.header]
   await expect(headerNames).toHaveText(arranged)
   await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await expect(headerNames).toHaveText(arranged)
   await resetLayout(grid)
-  await expect(headerNames).toHaveText([headers.course, headers.kind, headers.status, headers.lessons, headers.updated, gridMessages.actions.header])
+  await expect(headerNames).toHaveText([
+    ...fixedHeaders,
+    headers.course,
+    headers.kind,
+    headers.status,
+    headers.lessons,
+    headers.updated,
+    gridMessages.actions.header,
+  ])
+})
+
+test("an administrator orders the catalogue by dragging a course and with the keyboard, then deletes the selected courses together", async ({
+  appPage,
+  authPage,
+  browser,
+  page,
+}) => {
+  const suffix = crypto.randomUUID().slice(0, 8)
+  const first = { slug: `e2e-${suffix}-a`, title: `Catalogue order ${suffix} a` }
+  const second = { slug: `e2e-${suffix}-b`, title: `Catalogue order ${suffix} b` }
+  await signInAsAdmin(page, authPage)
+  for (const course of [first, second]) {
+    await page.goto("/admin/courses/create", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await page.getByLabel("Title", { exact: true }).fill(course.title)
+    await page.getByLabel("Summary", { exact: true }).fill("A course whose place in the catalogue is set by hand.")
+    await page.getByLabel("URL slug").fill(course.slug)
+    await choose(page.locator("form"), "Status", "Published")
+    await page.getByRole("button", { name: "Create course" }).click()
+    await expect(page).toHaveURL(/\/admin\/courses\/[\da-f-]{36}$/u)
+  }
+
+  await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  const grid = gridOf(page, coursesMessages.title)
+  const rowOf = (course: { readonly slug: string }): Locator => grid.getByRole("row").filter({ hasText: course.slug })
+  const rowIndex = (course: { readonly slug: string }): Promise<number> =>
+    rowOf(course).evaluate((row: HTMLTableRowElement) => row.rowIndex)
+  const isAbove = async (upper: { readonly slug: string }, lower: { readonly slug: string }): Promise<boolean> =>
+    (await rowIndex(upper)) < (await rowIndex(lower))
+  const staysAboveAfterReload = async (upper: { readonly slug: string }, lower: { readonly slug: string }): Promise<void> => {
+    await expect(async () => {
+      await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+      expect(await isAbove(upper, lower)).toBe(true)
+    }).toPass()
+  }
+  expect(await isAbove(first, second)).toBe(true)
+
+  await rowOf(second).getByRole("button", { name: gridMessages.rows.handle }).dragTo(rowOf(first), { steps: DRAG_STEPS })
+  await expect.poll(() => isAbove(second, first)).toBe(true)
+  await staysAboveAfterReload(second, first)
+
+  const visitor = await browser.newPage()
+  await visitor.goto(ROUTES.COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await expect(visitor.getByRole("link").filter({ hasText: suffix }).first()).toContainText(second.title)
+  await visitor.close()
+
+  const handle = rowOf(second).getByRole("button", { name: gridMessages.rows.handle })
+  await expect(async () => {
+    if (await isAbove(second, first)) {
+      await handle.focus()
+      await handle.press("ArrowDown")
+      await expect(handle).toBeFocused()
+    }
+    expect(await isAbove(first, second)).toBe(true)
+  }).toPass()
+  await staysAboveAfterReload(first, second)
+
+  for (const course of [first, second]) {
+    await rowOf(course).getByRole("checkbox", { name: gridMessages.selection.selectRow }).focus()
+    await page.keyboard.press("Space")
+  }
+  const bar = page.getByRole("region", { name: gridMessages.selection.region })
+  await bar.getByRole("button", { name: "Delete 2 courses" }).click()
+  const confirm = page.getByRole("alertdialog")
+  await expect(confirm.getByRole("heading", { name: "Delete 2 courses?" })).toBeVisible()
+  await confirm.getByRole("button", { name: "Delete 2 courses" }).click()
+  await expect(page.getByText("2 courses were deleted")).toBeVisible()
+  await expect(rowOf(first)).toHaveCount(0)
+  await expect(rowOf(second)).toHaveCount(0)
 })

@@ -8,6 +8,7 @@ import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
+import { chooseRowAction } from "../fixtures/data-grid"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -68,7 +69,7 @@ const createCourse = async (
 const deleteCourse = async (page: Page, appPage: BasePage, slug: string): Promise<void> => {
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Recorded in the browser" }).click()
+  await chooseRowAction(page.getByRole("row").filter({ hasText: slug }), "Actions for Recorded in the browser", "Delete")
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
 }
@@ -111,7 +112,7 @@ test.describe("lesson videos", () => {
     await createCourse(page, appPage, { lessonType: "Video lesson", slug })
     await expect(page.getByText("No video yet")).toBeVisible()
 
-    await page.getByRole("link", { name: "Edit A first look" }).click()
+    await chooseRowAction(page.getByRole("row", { name: "A first look" }), "Actions for A first look", "Edit")
     await appPage.waitForAppReady()
     const card = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Video" }) })
     await dropRecording(card.locator("[data-slot=video-drop-zone]"), browserName)
@@ -157,7 +158,7 @@ test.describe("lesson videos", () => {
     const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
     await signIn(page, authPage, admin)
     await createCourse(page, appPage, { lessonType: "Video lesson", slug })
-    await page.getByRole("link", { name: "Edit A first look" }).click()
+    await chooseRowAction(page.getByRole("row", { name: "A first look" }), "Actions for A first look", "Edit")
     await appPage.waitForAppReady()
 
     await page.getByRole("button", { name: "Use an existing video" }).click()

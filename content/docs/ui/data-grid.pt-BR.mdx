@@ -1,6 +1,6 @@
 ---
 title: "Grade de dados"
-description: "O componente de tabela: busca, filtros por tipo de coluna, ordenação, um layout que cada administrador pode reorganizar e manter, seleção, exportação em CSV e dados no cliente ou no servidor."
+description: "O componente de tabela: busca, filtros por tipo de coluna, ordenação, um layout que cada administrador pode reorganizar e manter, seleção, linhas reordenadas ao arrastar, um menu de ações por linha, exportação em CSV e dados no cliente ou no servidor."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) é o componente de tabela. Ele monta uma instância do TanStack Table v9 a partir dos recursos de `src/integrations/tanstack-table/table.features.ts` e a renderiza com as primitivas de tabela do shadcn e controles do React Aria. Uma página entrega a ele as suas colunas e, ou as suas linhas, ou uma query; todo o resto, da barra de ferramentas à barra de paginação, fica dentro dele.
@@ -31,8 +31,8 @@ description: "O componente de tabela: busca, filtros por tipo de coluna, ordena�
 | `emptyDescription` | Uma frase abaixo desse título que diz como a primeira linha chega                                                               |
 | `selectable`       | Adiciona uma coluna de caixas de seleção e a barra de seleção                                                                   |
 | `bulkActions`      | Uma função das linhas selecionadas que renderiza mais botões na barra de seleção                                                |
-| `rowActions`       | Um componente que recebe cada `row` e a encerra, em uma coluna fixada à direita                                                 |
-| `rowActionsSize`   | A largura dessa coluna em pixels, <RepositoryFact name="dataGridActionsSize" />, a menos que as ações precisem de mais          |
+| `rowActions`       | Um componente que recebe cada `row` e a encerra com o seu menu ⋯, em uma coluna fixada à direita                                |
+| `onReorder`        | Adiciona uma alça a cada linha; é chamada com a linha movida e o novo lugar dela, como em [Ordem das linhas](#row-order)        |
 
 ## Colunas
 
@@ -107,15 +107,26 @@ O administrador reorganiza a grade, e o navegador guarda isso sob o `id` da grad
 - **Densidade.** Linhas espaçosas ou compactas.
 - **Tamanho da página.** <RepositoryFact name="dataGridPageSizes" /> linhas por página.
 
-A grade é um único cartão: a barra de ferramentas em cima, a tabela e a paginação embaixo, divididas por linhas finas. A barra de ferramentas tem duas linhas: na primeira, a busca e os controles de exibição; na segunda, abaixo, o botão Filtrar e os chips dos filtros ativos. Todos os controles da barra de ferramentas e chips de filtro têm a mesma altura; os cabeçalhos ficam só com a inicial maiúscula, no tamanho spec sobre uma faixa atenuada, as células no tamanho body, e a última coluna de dados ocupa toda a largura que sobra enquanto a coluna de ações mantém a sua. Em cada lista da grade, a opção sob o ponteiro é destacada como aquela em que o teclado está. O campo de pesquisa ocupa a largura livre da barra de ferramentas, então o texto de exemplo nunca é cortado, e um cabeçalho longo demais para a coluna passa para uma segunda linha em vez de ser encurtado. Em uma grade mais estreita que 64rem, Colunas, Exportar CSV e Restaurar layout mostram só o ícone, e a pesquisa mantém seu espaço.
+A grade é um único cartão: a barra de ferramentas em cima, a tabela e a paginação embaixo, divididas por linhas finas. A barra de ferramentas tem duas linhas: na primeira, a busca e os controles de exibição; na segunda, abaixo, o botão Filtrar e os chips dos filtros ativos. Todos os controles da barra de ferramentas e chips de filtro têm a mesma altura; os cabeçalhos ficam só com a inicial maiúscula, no tamanho spec sobre uma faixa atenuada, as células no tamanho body, e a última coluna de dados ocupa toda a largura que sobra enquanto a coluna de ações mantém a sua. Em cada lista da grade, a opção sob o ponteiro é destacada como aquela em que o teclado está. O campo de pesquisa ocupa a largura livre da barra de ferramentas, então o texto de exemplo nunca é cortado. Um cabeçalho fica em uma única linha e nunca quebra no meio de uma palavra: a largura inicial de cada coluna comporta o cabeçalho, com as setas de ordenação e o menu da coluna, em todos os locales, e `e2e/specs/text-layout.spec.ts` falha quando o rótulo de um cabeçalho transborda da célula em qualquer grade do admin. Em uma grade mais estreita que 64rem, Colunas, Exportar CSV e Restaurar layout mostram só o ícone, e a pesquisa mantém seu espaço.
 
 A linha de cabeçalho continua visível enquanto as linhas rolam dentro da grade, e as colunas fixadas continuam visíveis enquanto a grade rola para os lados, que é como um celular mostra uma tabela larga. Uma sombra no lado que tem mais colunas fora de vista, e na borda das colunas fixadas assim que outras passam por baixo delas, mostra que a grade rola (`.grid-scroller` em `globals.css`).
 
-A coluna de ações da linha não tem menu da coluna: ela não ordena, não se oculta, não se move, não se redimensiona nem aparece no CSV, e fica por último à direita.
+A coluna de ações da linha tem <RepositoryFact name="dataGridActionsSize" /> pixels de largura e contém um único botão ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), que abre as ações da linha como um menu: primeiro as do dia a dia e, depois de um separador, as destrutivas, que pedem confirmação em um diálogo de alerta. Toda grade do admin e toda lista reordenável, como o conteúdo programático, termina as linhas com ele, nunca com uma fileira de ícones. A coluna não tem menu da coluna: ela não ordena, não se oculta, não se move, não se redimensiona nem aparece no CSV, e fica por último à direita.
+
+## Ordem das linhas [#row-order]
+
+Com `onReorder`, a grade começa com uma coluna estreita de alças, depois das caixas de seleção quando a grade as tem. A alça é um ícone discreto de arrastar:
+
+- **Arrastar.** Uma linha arrastada pela alça se desloca entre as outras conforme o ponteiro passa sobre elas, e soltá-la salva o novo lugar. Escape, ou soltá-la fora das linhas, a devolve ao lugar de antes.
+- **Teclado.** Com a alça em foco, as setas para cima e para baixo movem a linha uma posição. Passar da primeira ou da última linha da página abre a página para onde a linha vai e coloca o foco na alça dela ali.
+- **Salvamento.** `onReorder` recebe a linha e o novo lugar dela em toda a ordem salva, contado a partir de 1 ao longo das páginas, para que o servidor possa colocá-la em qualquer posição. A nova ordem aparece na hora e se mantém enquanto as movimentações são salvas, uma após a outra, até as linhas atualizadas chegarem; quando a Promise que `onReorder` retorna é rejeitada, as linhas voltam ao lugar. `/admin/courses` passa `moveCourse` em uma mutação com `scope`, então as movimentações são salvas na ordem em que foram feitas.
+- **Quando fica desativada.** Enquanto as linhas estão ordenadas, filtradas ou com uma busca, o lugar de uma linha na tela não é o lugar dela na ordem salva, então as alças ficam desativadas.
+
+Cada movimentação é anunciada na live region, por exemplo “Linha movida para a posição 3 de 12.”
 
 ## Seleção e exportação
 
-Com `selectable`, uma caixa de seleção seleciona uma linha e a caixa do cabeçalho seleciona a página. Então uma barra flutua na parte de baixo da janela com a contagem, Exportar seleção, as `bulkActions` da página e Limpar seleção.
+Com `selectable`, uma caixa de seleção seleciona uma linha e a caixa do cabeçalho seleciona a página. Então uma barra flutua na parte de baixo da janela com a contagem, Exportar seleção, as `bulkActions` da página e Limpar seleção. Toda grade do admin que lista registros é selecionável: cursos, produtos, categorias e coleções, pedidos, clientes, usuários, convites e os pedidos sem licença; só as tabelas de contagens do painel não são. `/admin/courses` adiciona **Excluir** para os cursos selecionados; as outras grades exportam a seleção, porque os registros delas não têm nenhuma ação que se aplique a vários de uma vez.
 
 Exportar CSV baixa todas as linhas que a busca e os filtros encontram, não só a página na tela: no servidor, ele pede páginas de <RepositoryFact name="dataGridExportPageSize" /> linhas até ter todas. O arquivo tem as colunas visíveis na ordem delas, começa com uma marca de ordem de bytes para que as planilhas o leiam como UTF-8 e coloca um `'` antes de qualquer célula que começaria uma fórmula. Quem o escreve é `src/lib/csv.ts`.
 
@@ -123,8 +134,8 @@ Exportar CSV baixa todas as linhas que a busca e os filtros encontram, não só 
 
 - A tabela leva `label` como nome e `aria-rowcount`; cada linha, o seu `aria-rowindex`, contado ao longo das páginas.
 - Cabeçalhos ordenáveis são botões e levam `aria-sort`.
-- Todo controle funciona pelo teclado: os menus e as listas seguem as setas e a busca por digitação do React Aria, Escape os fecha, e o redimensionamento usa as setas no separador do cabeçalho.
-- Mover, fixar, ocultar, ordenar por um menu e restaurar o layout são anunciados em uma live region educada; a contagem de resultados e a contagem da seleção também são live.
+- Todo controle funciona pelo teclado: os menus e as listas seguem as setas e a busca por digitação do React Aria, Escape os fecha, o redimensionamento usa as setas no separador do cabeçalho e uma linha se move com as setas para cima e para baixo na alça dela, que se chama “Arraste ou use as setas para reordenar”.
+- Mover uma coluna ou uma linha, fixar, ocultar, ordenar por um menu e restaurar o layout são anunciados em uma live region educada; a contagem de resultados e a contagem da seleção também são live.
 
 ## Traduções
 
@@ -132,7 +143,7 @@ Os textos próprios da grade ficam em `messages/<locale>/components.custom.data-
 
 ## Testes
 
-`src/presentation/components/custom/__test__/` cobre a grade em memória (`data-grid.component.test.tsx`), os seus filtros (`data-grid-filter.component.test.tsx`), o seu layout (`data-grid-layout.component.test.tsx`) e o modo servidor (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` a usa em `/admin/orders` em um navegador.
+`src/presentation/components/custom/__test__/` cobre a grade em memória (`data-grid.component.test.tsx`), os seus filtros (`data-grid-filter.component.test.tsx`), o seu layout (`data-grid-layout.component.test.tsx`) e o modo servidor (`data-grid-query.component.test.tsx`), incluindo a ordem das linhas. `e2e/specs/admin-orders.spec.ts` a usa em `/admin/orders` em um navegador, e `e2e/specs/course-admin.spec.ts` reordena, seleciona e exclui cursos em `/admin/courses`.
 
 ## Páginas relacionadas
 

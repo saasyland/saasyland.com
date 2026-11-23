@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
+import { chooseRowAction } from "../fixtures/data-grid"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -79,9 +80,13 @@ test("an administrator orders chapters and lessons by dragging them, a lesson in
   await curriculum(page).getByRole("row", { name: "Shipping" }).focus()
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("button", { name: "Drag Shipping" })).toBeFocused()
+  const dropTarget = page.locator(":focus")
   await page.keyboard.press("Enter")
+  await expect(dropTarget).toHaveAttribute("aria-label", "Insert after Monitor")
   await page.keyboard.press("ArrowUp")
+  await expect(dropTarget).toHaveAttribute("aria-label", "Insert between Install and Shipping")
   await page.keyboard.press("ArrowUp")
+  await expect(dropTarget).toHaveAttribute("aria-label", "Insert before Basics")
   await page.keyboard.press("Enter")
   await expect.poll(() => order(page)).toStrictEqual(["Shipping", "Deploy", "Monitor", "Basics", "Install"])
 
@@ -97,7 +102,7 @@ test("an administrator orders chapters and lessons by dragging them, a lesson in
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: `Delete ${COURSE_TITLE}` }).click()
+  await chooseRowAction(page.getByRole("row").filter({ hasText: slug }), `Actions for ${COURSE_TITLE}`, "Delete")
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
 })

@@ -15,9 +15,10 @@ import {
   closePopover,
   columnTexts,
   gridMessages,
+  gridQueryClient,
   renderGrid,
 } from "~/src/presentation/components/custom/__test__/fixtures/data-grid"
-import type { DataGridPage, DataGridRequest } from "~/src/presentation/components/custom/data-grid"
+import type { DataGridPage, DataGridProps, DataGridRequest } from "~/src/presentation/components/custom/data-grid"
 
 const { filters, pagination, toolbar } = gridMessages
 
@@ -167,5 +168,92 @@ describe("data grid on the server", () => {
     })
     expect(within(document.body).queryByRole("alert")).not.toBeInTheDocument()
     expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.trim().split("\r\n")).toHaveLength(PEOPLE.length + 1)
+  })
+})
+
+type Reorder = NonNullable<DataGridProps<Person>["onReorder"]>
+
+const [ada, grace, alan] = PEOPLE
+
+const copies = (people: readonly (Person | undefined)[]): Person[] =>
+  people.flatMap((person) => (person === undefined ? [] : [{ ...person }]))
+
+const renderOrderedGrid = (fetchPage: FetchPage, onReorder: Reorder) => {
+  const queryClient = gridQueryClient()
+  renderGrid(
+    {
+      data: [],
+      onReorder,
+      query: (request) => queryOptions<DataGridPage<Person>>({ queryFn: () => fetchPage(request), queryKey: ["people", request] }),
+    },
+    { queryClient },
+  )
+  return queryClient
+}
+
+const refetch = async (queryClient: ReturnType<typeof gridQueryClient>): Promise<void> => {
+  await act(() => queryClient.invalidateQueries({ queryKey: ["people"] }))
+}
+
+describe("data grid order on the server", () => {
+  it("saves a row's place in the whole order and keeps showing it until the saved order arrives", async () => {
+    const user = userEvent.setup()
+    const saved = Promise.withResolvers<undefined>()
+    const fetchPage = vi.fn<FetchPage>().mockImplementation(() => Promise.resolve({ rows: copies(PEOPLE), total: 13 }))
+    const onReorder = vi.fn<Reorder>().mockReturnValue(saved.promise)
+    const queryClient = renderOrderedGrid(fetchPage, onReorder)
+    await screen.findByText("Ada")
+    await user.click(screen.getByRole("button", { name: pagination.next }))
+    await waitFor(() => {
+      expect(fetchPage).toHaveBeenLastCalledWith({ ...FIRST_REQUEST, pageIndex: 1 })
+    })
+
+    screen.getAllByRole("button", { name: gridMessages.rows.handle })[0]?.focus()
+    await user.keyboard("{ArrowDown}")
+    expect(onReorder).toHaveBeenCalledWith({ position: 12, row: ada })
+    await refetch(queryClient)
+    expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
+
+    fetchPage.mockImplementation(() => Promise.resolve({ rows: copies([grace, alan, ada]), total: 13 }))
+    await refetch(queryClient)
+    await act(async () => {
+      saved.resolve(undefined)
+      await saved.promise
+    })
+
+    await waitFor(() => {
+      expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])
+    })
+  })
+
+  it("opens the page a row moves onto with the arrow keys and focuses its handle there", async () => {
+    const user = userEvent.setup()
+    const saved = Promise.withResolvers<undefined>()
+    const fetchPage = vi
+      .fn<FetchPage>()
+      .mockImplementation((request) => Promise.resolve({ rows: copies(request.pageIndex === 0 ? [grace, alan, ada] : PEOPLE), total: 13 }))
+    const onReorder = vi.fn<Reorder>().mockReturnValue(saved.promise)
+    renderOrderedGrid(fetchPage, onReorder)
+    await screen.findByText("Ada")
+    await user.click(screen.getByRole("button", { name: pagination.next }))
+    await waitFor(() => {
+      expect(fetchPage).toHaveBeenLastCalledWith({ ...FIRST_REQUEST, pageIndex: 1 })
+    })
+
+    screen.getAllByRole("button", { name: gridMessages.rows.handle })[0]?.focus()
+    await user.keyboard("{ArrowUp}")
+
+    expect(onReorder).toHaveBeenCalledWith({ position: 10, row: ada })
+    expect(screen.getByText(pagination.page.replace("{current}", "1").replace("{total}", "2"))).toBeVisible()
+    await waitFor(() => {
+      expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])
+    })
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: gridMessages.rows.handle }).at(-1)).toHaveFocus()
+    })
+    await act(async () => {
+      saved.resolve(undefined)
+      await saved.promise
+    })
   })
 })

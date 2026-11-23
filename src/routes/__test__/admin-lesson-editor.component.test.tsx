@@ -12,7 +12,6 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
@@ -219,6 +218,36 @@ const card = (title: string): HTMLElement => {
     throw new TypeError(`Missing card ${title}`)
   }
   return element
+}
+
+const openMaterialMenu = async (user: ReturnType<typeof userEvent.setup>, title: string, item: string): Promise<void> => {
+  await user.click(screen.getByRole("button", { name: `Actions for ${title}` }))
+  await user.click(await screen.findByRole("menuitem", { name: item }))
+}
+
+const materialTitles = (): string[] =>
+  within(screen.getByRole("grid", { name: labels.materials.title }))
+    .getAllByRole("row")
+    .map((row) => row.querySelector("p")?.textContent ?? "")
+
+const dragMaterial = async (
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+  steps: readonly (readonly [string, string])[],
+): Promise<void> => {
+  const row = screen.getByRole("row", { name })
+  act(() => {
+    row.focus()
+  })
+  await user.keyboard("{ArrowRight}")
+  await user.keyboard("{Enter}")
+  for (const [key, target] of steps) {
+    await user.keyboard(key)
+    await waitFor(() => {
+      expect(document.activeElement).toHaveAttribute("aria-label", target)
+    })
+  }
+  await user.keyboard("{Enter}")
 }
 
 beforeEach(() => {
@@ -476,7 +505,7 @@ describe("lesson material changes", () => {
   it("renames a file", async () => {
     const { invalidateQueries, user } = await renderLessonEditor()
 
-    await user.click(screen.getByRole("button", { name: "Edit Slides" }))
+    await openMaterialMenu(user, "Slides", labels.materials.edit)
     const dialog = within(await screen.findByRole("dialog"))
     await user.clear(dialog.getByLabelText(labels.materials.titleLabel))
     await fill(user, dialog.getByLabelText(labels.materials.titleLabel), "Deck")
@@ -499,7 +528,7 @@ describe("lesson material changes", () => {
   it("edits a link, renames a file and explains a failure", async () => {
     const { user } = await renderLessonEditor()
 
-    await user.click(screen.getByRole("button", { name: "Edit Course docs" }))
+    await openMaterialMenu(user, "Course docs", labels.materials.edit)
     const linkDialog = within(await screen.findByRole("dialog"))
     expect(linkDialog.getByLabelText(labels.materials.url)).toHaveValue(LINK.url)
     await user.clear(linkDialog.getByLabelText(labels.materials.url))
@@ -510,7 +539,7 @@ describe("lesson material changes", () => {
     })
 
     mutations.updateAttachment.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
-    await user.click(screen.getByRole("button", { name: "Edit Slides" }))
+    await openMaterialMenu(user, "Slides", labels.materials.edit)
     const fileDialog = within(await screen.findByRole("dialog"))
     expect(fileDialog.queryByLabelText(labels.materials.url)).toBeNull()
     await user.clear(fileDialog.getByLabelText(labels.materials.titleLabel))
@@ -522,17 +551,53 @@ describe("lesson material changes", () => {
     expect(mutations.updateAttachment).toHaveBeenLastCalledWith({ attachmentId: FILE.id, title: { "en-US": "Deck" } }, expect.anything())
   })
 
-  it("reorders and deletes materials", async () => {
+  it("moves a material by its handle with the keyboard and saves its new place", async () => {
+    const { user } = await renderLessonEditor()
+
+    expect(screen.getByText(labels.materials.reorderHint)).toBeVisible()
+    await dragMaterial(user, "Course docs", [
+      ["{ArrowUp}", "Insert between Slides and Course docs"],
+      ["{ArrowUp}", "Insert before Slides"],
+    ])
+
+    await waitFor(() => {
+      expect(mutations.moveAttachment).toHaveBeenCalledWith({ attachmentId: LINK.id, position: 1 }, expect.anything())
+    })
+    expect(materialTitles()).toStrictEqual(["Course docs", "Slides"])
+  })
+
+  it("puts a material back when its move fails", async () => {
+    mutations.moveAttachment.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
+    const { user } = await renderLessonEditor()
+
+    await dragMaterial(user, "Slides", [["{ArrowDown}", "Insert after Course docs"]])
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
+    })
+    expect(mutations.moveAttachment).toHaveBeenCalledWith({ attachmentId: FILE.id, position: 2 }, expect.anything())
+    await waitFor(() => {
+      expect(materialTitles()).toStrictEqual(["Slides", "Course docs"])
+    })
+  })
+
+  it("deletes a material from its menu after confirmation and refreshes the lesson", async () => {
+    const { invalidateQueries, user } = await renderLessonEditor()
+
+    await openMaterialMenu(user, "Course docs", labels.materials.delete)
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.materials.delete }))
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
+    })
+    expect(mutations.deleteAttachment).toHaveBeenCalledWith({ attachmentId: LINK.id }, expect.anything())
+  })
+
+  it("deletes a material from its menu after confirmation and explains a failure", async () => {
     mutations.deleteAttachment.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderLessonEditor()
 
-    expect(screen.getByRole("button", { name: "Move Slides up" })).toBeDisabled()
-    await user.click(screen.getByRole("button", { name: "Move Course docs up" }))
-    await waitFor(() => {
-      expect(mutations.moveAttachment).toHaveBeenCalledWith({ attachmentId: LINK.id, direction: MOVE_DIRECTION.UP }, expect.anything())
-    })
-
-    await user.click(screen.getByRole("button", { name: "Delete Slides" }))
+    await openMaterialMenu(user, "Slides", labels.materials.delete)
     const confirm = within(await screen.findByRole("alertdialog"))
     expect(confirm.getByText(labels.materials.deleteBody.replace("{title}", "Slides"))).toBeVisible()
     await user.click(confirm.getByRole("button", { name: labels.materials.delete }))

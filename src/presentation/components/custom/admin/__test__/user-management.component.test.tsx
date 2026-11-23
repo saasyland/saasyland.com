@@ -409,7 +409,7 @@ describe("impersonating a user", () => {
     impersonate.mockReturnValueOnce(pending.promise)
     const { queryClient, router, user } = renderUsers()
     await chooseAction(user, labels.actions.row.impersonate)
-    expect(screen.getByRole("button", { name: menuLabel(ada.name) })).toBeDisabled()
+    expect(screen.getByRole("button", { name: menuLabel(ada.name) })).toHaveAttribute("data-pending", "true")
 
     await act(async () => {
       pending.resolve({ session: createAuthSessionFixture().session, user: createAuthUserMutationResult().user })

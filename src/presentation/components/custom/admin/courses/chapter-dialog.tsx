@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useState } from "react"
+import type { JSX } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -19,7 +19,7 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { useFormLocale } from "~/src/hooks/use-form-locale"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
-import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
+import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "~/src/presentation/components/shadcn/dialog"
 import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 
 import { CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
@@ -30,19 +30,19 @@ const chapterSchema = chapterZodSchemas.updateChapter.pick({ summary: true, titl
 interface ChapterDialogProps {
   readonly chapter?: { readonly id: string; readonly summary: LocalizedText; readonly title: LocalizedText }
   readonly courseId: string
-  readonly trigger: ReactNode
+  readonly isOpen: boolean
+  readonly onOpenChange: (isOpen: boolean) => void
 }
 
-export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps): JSX.Element => {
+export const ChapterDialog = ({ chapter, courseId, isOpen, onOpenChange }: ChapterDialogProps): JSX.Element => {
   const t = useTranslations("pages.admin.courses.chapter")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
-  const [isOpen, setOpen] = useState(false)
 
   const onSuccess = async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
     toast.success(t("saved"))
-    setOpen(false)
+    onOpenChange(false)
   }
   const onError = (error: Error): void => {
     toast.error(errorMessage(error))
@@ -66,74 +66,71 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const languages = useFormLocale(form, ({ summary, title }) => ({ texts: { summary, title } }))
 
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
-      {trigger}
-      <Dialog className="sm:max-w-lg">
-        <form
-          className="flex flex-col gap-4"
-          noValidate
-          onSubmit={(event) => {
-            void submitForm(event, form, languages.showFirstInvalid)
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>{t(chapter === undefined ? "add" : "edit")}</DialogTitle>
-          </DialogHeader>
-          <FieldGroup>
-            <FormLanguages languages={languages}>
-              <TranslationsSheet
-                fields={[
-                  { id: "title", label: t("title") },
-                  { id: "summary", label: t("summary") },
-                ]}
-                languages={languages}
-              >
-                {(text, language, label) => (
-                  <form.Field name={`${text}.${language}`}>
-                    {(field) => (
-                      <>
-                        {text === "title" && (
-                          <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
-                        )}
-                        {text === "summary" && (
-                          <CourseTextAreaField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
-                        )}
-                      </>
-                    )}
-                  </form.Field>
-                )}
-              </TranslationsSheet>
-            </FormLanguages>
-            <form.Field key={`title-${languages.locale}`} name={`title.${languages.locale}`}>
-              {(field) => (
-                <CourseTextField
-                  field={field}
-                  id={`chapter-title-${languages.locale}`}
-                  label={t("title")}
-                  lang={languages.locale}
-                  source={languages.texts.title[I18N.DEFAULT_LOCALE]}
-                />
+    <Dialog isOpen={isOpen} onOpenChange={onOpenChange} className="sm:max-w-lg">
+      <form
+        className="flex flex-col gap-4"
+        noValidate
+        onSubmit={(event) => {
+          void submitForm(event, form, languages.showFirstInvalid)
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{t(chapter === undefined ? "add" : "edit")}</DialogTitle>
+        </DialogHeader>
+        <FieldGroup>
+          <FormLanguages languages={languages}>
+            <TranslationsSheet
+              fields={[
+                { id: "title", label: t("title") },
+                { id: "summary", label: t("summary") },
+              ]}
+              languages={languages}
+            >
+              {(text, language, label) => (
+                <form.Field name={`${text}.${language}`}>
+                  {(field) => (
+                    <>
+                      {text === "title" && (
+                        <CourseTextField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                      )}
+                      {text === "summary" && (
+                        <CourseTextAreaField field={field} id={`translation-${text}-${language}`} label={label} lang={language} />
+                      )}
+                    </>
+                  )}
+                </form.Field>
               )}
-            </form.Field>
-            <form.Field key={`summary-${languages.locale}`} name={`summary.${languages.locale}`}>
-              {(field) => (
-                <CourseTextAreaField
-                  field={field}
-                  id={`chapter-summary-${languages.locale}`}
-                  label={t("summary")}
-                  lang={languages.locale}
-                  source={languages.texts.summary[I18N.DEFAULT_LOCALE]}
-                />
-              )}
-            </form.Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button isPending={create.isPending || update.isPending} type="submit">
-              {t("save")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </Dialog>
-    </DialogTrigger>
+            </TranslationsSheet>
+          </FormLanguages>
+          <form.Field key={`title-${languages.locale}`} name={`title.${languages.locale}`}>
+            {(field) => (
+              <CourseTextField
+                field={field}
+                id={`chapter-title-${languages.locale}`}
+                label={t("title")}
+                lang={languages.locale}
+                source={languages.texts.title[I18N.DEFAULT_LOCALE]}
+              />
+            )}
+          </form.Field>
+          <form.Field key={`summary-${languages.locale}`} name={`summary.${languages.locale}`}>
+            {(field) => (
+              <CourseTextAreaField
+                field={field}
+                id={`chapter-summary-${languages.locale}`}
+                label={t("summary")}
+                lang={languages.locale}
+                source={languages.texts.summary[I18N.DEFAULT_LOCALE]}
+              />
+            )}
+          </form.Field>
+        </FieldGroup>
+        <DialogFooter>
+          <Button isPending={create.isPending || update.isPending} type="submit">
+            {t("save")}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
   )
 }

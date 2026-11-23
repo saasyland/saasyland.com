@@ -60,7 +60,7 @@ describe("paid orders without a licence", () => {
       within(header)
         .getAllByRole("columnheader")
         .map((cell) => cell.textContent),
-    ).toStrictEqual([labels.columns.order, labels.columns.date, labels.columns.customer, labels.columns.amount])
+    ).toStrictEqual(["", labels.columns.order, labels.columns.date, labels.columns.customer, labels.columns.amount])
     const link = within(row).getByRole("link", { name: "Open order ord_unmatched in Polar" })
     expect(link).toHaveAttribute("href", "https://sandbox.polar.sh/dashboard/saasyland/sales/ord_unmatched")
     expect(link).toHaveAttribute("target", "_blank")

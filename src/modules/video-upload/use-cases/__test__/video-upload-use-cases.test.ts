@@ -13,7 +13,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
 import { IDS, LESSON_IDS, USERS, makeTextLesson, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
-import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import { deleteCoursesMutation } from "~/src/modules/course/use-cases/delete-courses"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import { cancelVideoUploadMutation } from "~/src/modules/video-upload/use-cases/cancel-video-upload"
 import { completeVideoUploadMutation } from "~/src/modules/video-upload/use-cases/complete-video-upload"
@@ -298,7 +298,7 @@ describe("deleting what an upload belongs to", () => {
   it.each([
     { name: "its lesson", remove: () => executeMutation(deleteLessonMutation, { lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO }) },
     { name: "its chapter", remove: () => executeMutation(deleteChapterMutation, { chapterId: IDS.CHAPTER_TWO }) },
-    { name: "its course", remove: () => executeMutation(deleteCourseMutation, { courseId: IDS.COURSE }) },
+    { name: "its course", remove: () => executeMutation(deleteCoursesMutation, { courseIds: [IDS.COURSE] }) },
   ])("removes the upload and its source with $name", async ({ remove }) => {
     signInAs(ROLE_CODES.ADMIN)
     const uploadId = await uploadWhole()

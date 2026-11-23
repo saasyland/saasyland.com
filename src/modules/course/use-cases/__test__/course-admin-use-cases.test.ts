@@ -10,14 +10,13 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
-import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import { deleteCoursesMutation } from "~/src/modules/course/use-cases/delete-courses"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 import { getCoursesPageQuery } from "~/src/modules/course/use-cases/get-courses"
 import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
@@ -96,15 +95,15 @@ describe("getCourses", () => {
     expect(page).toMatchObject({ rows: [{ id: IDS.TUTORIAL }], total: 3 })
   })
 
-  it("says which courses start and end the catalogue, whatever the list shows", async () => {
+  it("numbers each course by its place in the catalogue, whatever the list shows", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
     const page = await executeQuery(getCoursesPageQuery({ sorting: [{ desc: true, id: "lessons" }] }))
 
-    expect(page.rows.map(({ id, isFirst, isLast }) => [id, isFirst, isLast])).toStrictEqual([
-      [IDS.COURSE, false, false],
-      [IDS.DRAFT_COURSE, true, false],
-      [IDS.TUTORIAL, false, true],
+    expect(page.rows.map(({ id, position }) => [id, position])).toStrictEqual([
+      [IDS.COURSE, 2],
+      [IDS.DRAFT_COURSE, 1],
+      [IDS.TUTORIAL, 3],
     ])
   })
 
@@ -317,63 +316,68 @@ describe("updateCourse", () => {
   })
 })
 
-describe("deleteCourse", () => {
-  it("removes the course, its curriculum and its progress but keeps the videos", async () => {
+describe("deleteCourses", () => {
+  it("removes each course, its curriculum and its progress but keeps the videos", async () => {
     signInAs(ROLE_CODES.ADMIN)
     await recordProgress({ lessonId: LESSON_IDS.PAID, positionMs: 1000, userId: USERS.ENTITLED })
 
-    await executeMutation(deleteCourseMutation, { courseId: IDS.COURSE })
+    await expect(executeMutation(deleteCoursesMutation, { courseIds: [IDS.COURSE, IDS.TUTORIAL, MISSING_ID] })).resolves.toStrictEqual({
+      ids: [IDS.COURSE, IDS.TUTORIAL],
+    })
 
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE])
     await expect(db.select().from(chapter)).resolves.toHaveLength(0)
     await expect(db.select().from(lesson)).resolves.toHaveLength(0)
     await expect(db.select().from(lessonProgress)).resolves.toHaveLength(0)
     await expect(db.select().from(video)).resolves.toHaveLength(2)
   })
 
-  it("rejects a missing course", async () => {
+  it("rejects a list without a course it can find, and an empty list", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(deleteCourseMutation, { courseId: MISSING_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(deleteCoursesMutation, { courseIds: [MISSING_ID] })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(deleteCoursesMutation, { courseIds: [] })).rejects.toThrow()
   })
 
   it("is for staff only", async () => {
     signInAs(ROLE_CODES.CUSTOMER)
 
-    await expect(executeMutation(deleteCourseMutation, { courseId: IDS.COURSE })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
+    await expect(executeMutation(deleteCoursesMutation, { courseIds: [IDS.COURSE] })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })
 
 describe("moveCourse", () => {
-  it("swaps the course with its neighbour in the catalogue order", async () => {
+  it("moves the course to any place in the catalogue order", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, direction: MOVE_DIRECTION.UP })
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, position: 1 })
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.TUTORIAL, IDS.DRAFT_COURSE, IDS.COURSE])
 
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, position: 2 })
     await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE, IDS.TUTORIAL, IDS.COURSE])
   })
 
-  it("leaves the order alone at either end", async () => {
+  it("keeps a place past the end at the end, and leaves a course already in its place alone", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, direction: MOVE_DIRECTION.UP })
+    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, position: 40 })
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.COURSE, IDS.TUTORIAL, IDS.DRAFT_COURSE])
 
-    await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE, IDS.COURSE, IDS.TUTORIAL])
+    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, position: 3 })
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.COURSE, IDS.TUTORIAL, IDS.DRAFT_COURSE])
   })
 
-  it("rejects a missing course", async () => {
+  it("rejects a missing course and a place before the first", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(moveCourseMutation, { courseId: MISSING_ID, direction: MOVE_DIRECTION.DOWN })).rejects.toThrow(
-      ERROR_CODES.NOT_FOUND,
-    )
+    await expect(executeMutation(moveCourseMutation, { courseId: MISSING_ID, position: 1 })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, position: 0 })).rejects.toThrow()
   })
 
   it("is for staff only", async () => {
     signInAs(ROLE_CODES.CUSTOMER)
 
-    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, direction: MOVE_DIRECTION.UP })).rejects.toThrow(
-      ERROR_CODES.FORBIDDEN,
-    )
+    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, position: 1 })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })
 

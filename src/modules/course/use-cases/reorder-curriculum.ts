@@ -6,13 +6,12 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { COURSE_MUTATION_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
-
-const POSITION_BASE = 1
 
 const placeOf = (...parts: readonly (number | string)[]): string => parts.join(" ")
 
@@ -44,11 +43,11 @@ export const reorderCurriculum = createServerFn({ method: "POST" })
     const storedChapterPlaces = new Set(storedChapters.map(({ id, position }) => placeOf(id, position)))
     const storedLessonPlaces = new Set(storedLessons.map(({ chapterId, id, position }) => placeOf(id, position, chapterId)))
     const chapterWrites = chapters
-      .map(({ chapterId }, index) => ({ chapterId, position: index + POSITION_BASE }))
+      .map(({ chapterId }, index) => ({ chapterId, position: index + FIRST_POSITION }))
       .filter(({ chapterId, position }) => !storedChapterPlaces.has(placeOf(chapterId, position)))
       .map(({ chapterId, position }) => db.update(chapter).set({ position }).where(eq(chapter.id, chapterId)))
     const lessonWrites = chapters
-      .flatMap(({ chapterId, lessonIds: ids }) => ids.map((lessonId, index) => ({ chapterId, lessonId, position: index + POSITION_BASE })))
+      .flatMap(({ chapterId, lessonIds: ids }) => ids.map((lessonId, index) => ({ chapterId, lessonId, position: index + FIRST_POSITION })))
       .filter(({ chapterId, lessonId, position }) => !storedLessonPlaces.has(placeOf(lessonId, position, chapterId)))
       .map(({ chapterId, lessonId, position }) => db.update(lesson).set({ chapterId, position }).where(eq(lesson.id, lessonId)))
     const [first, ...rest] = [...chapterWrites, ...lessonWrites]

@@ -310,7 +310,7 @@ test("the admin filters the customers by order count and verification, sorts the
   await orders.getByRole("textbox", { name: gridFilters.range.min }).fill(String(TEST_BUYER_ORDERS.length))
   await orders.getByRole("textbox", { name: gridFilters.range.min }).press("Tab")
   await expect
-    .poll(async () => (await rows.locator("td:nth-child(3)").allTextContents()).every((count) => Number(count) >= TEST_BUYER_ORDERS.length))
+    .poll(async () => (await rows.locator("td:nth-child(4)").allTextContents()).every((count) => Number(count) >= TEST_BUYER_ORDERS.length))
     .toBe(true)
   await expect(rows.filter({ hasText: TEST_ORDER_BUYER.email })).toHaveCount(1)
   await closeFilter(page)
@@ -323,7 +323,7 @@ test("the admin filters the customers by order count and verification, sorts the
   await page.getByRole("button", { exact: true, name: customerHeaders.orders }).click()
   await expect(page.getByRole("columnheader", { name: new RegExp(`^${customerHeaders.orders}`, "u") })).toHaveAttribute("aria-sort", "descending")
   await expect(customerTable(page)).toHaveAttribute("aria-busy", "false")
-  const counts = (await rows.locator("td:nth-child(3)").allTextContents()).map(Number)
+  const counts = (await rows.locator("td:nth-child(4)").allTextContents()).map(Number)
   expect(counts).toStrictEqual(counts.toSorted((first, second) => second - first))
 
   await page.getByRole("button", { name: gridMessages.toolbar.columns }).click()
@@ -332,6 +332,7 @@ test("the admin filters the customers by order count and verification, sorts the
   await page.keyboard.press("Escape")
   const headerNames = customerTable(page).getByRole("columnheader")
   const arranged = [
+    "",
     customerHeaders.customer,
     customerHeaders.emailVerified,
     customerHeaders.orders,
@@ -358,8 +359,8 @@ test("the customers tab lists the buyer with their orders and what they paid aft
   await page.getByRole("searchbox", { name: customersMessages.search }).fill(TEST_ORDER_BUYER.email)
   const row = customerRows(page)
   await expect(row).toHaveCount(1)
-  await expect(row.getByRole("cell").nth(2)).toHaveText(String(TEST_BUYER_ORDERS.length))
-  await expect(row.getByRole("cell").nth(3)).toHaveText(TEST_BUYER_SHOWN.revenue.join(""))
+  await expect(row.getByRole("cell").nth(3)).toHaveText(String(TEST_BUYER_ORDERS.length))
+  await expect(row.getByRole("cell").nth(4)).toHaveText(TEST_BUYER_SHOWN.revenue.join(""))
 
   await row.getByRole("link", { exact: true, name: TEST_ORDER_BUYER.name }).click()
   await expect(page).toHaveURL(`${ROUTES.ADMIN_USERS}/${TEST_ORDER_BUYER.id}`)

@@ -1,6 +1,6 @@
 ---
 title: "Datenraster"
-description: "Die Tabellenkomponente: Suche, Filter nach Spaltentyp, Sortierung, ein Layout, das jeder Admin umstellen und behalten kann, Auswahl, CSV-Export sowie Client- oder Serverdaten."
+description: "Die Tabellenkomponente: Suche, Filter nach Spaltentyp, Sortierung, ein Layout, das jeder Admin umstellen und behalten kann, Auswahl, per Ziehen umsortierbare Zeilen, ein Aktionsmenü pro Zeile, CSV-Export sowie Client- oder Serverdaten."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) ist die Tabellenkomponente. Es baut eine TanStack-Table-v9-Instanz aus den Features in `src/integrations/tanstack-table/table.features.ts` und rendert sie mit den shadcn-Tabellenprimitiven und React-Aria-Steuerelementen. Eine Seite übergibt ihm ihre Spalten und entweder ihre Zeilen oder eine Query; alles andere, von der Werkzeugleiste bis zur Paginierungsleiste, steckt darin.
@@ -19,20 +19,20 @@ description: "Die Tabellenkomponente: Suche, Filter nach Spaltentyp, Sortierung,
 
 ## Props
 
-| Prop               | Zweck                                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `columns`          | Der Spaltensatz aus der `<entity>-columns.tsx` der Seite. Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient     |
-| `id`               | Benennt das Raster: der Schlüssel seines gespeicherten Layouts im Browser und der Anfang seines CSV-Dateinamens            |
-| `label`            | Der zugängliche Name der Tabelle, meist der Seitentitel                                                                    |
-| `data`             | Zeilen im Arbeitsspeicher, für ein Raster, das auf dem Client sucht, filtert, sortiert und paginiert                       |
-| `query`            | Servermodus: eine Funktion der Anfrage des Rasters, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen       |
-| `search`           | Beschriftung und Platzhalter des Suchfelds; ohne sie hat das Raster keine Suche                                            |
-| `empty`            | Was das Raster sagt, solange es keine Zeilen hat und weder Suche noch Filter gesetzt sind                                  |
-| `emptyDescription` | Ein Satz unter diesem Titel, der sagt, wie die erste Zeile entsteht                                                        |
-| `selectable`       | Fügt eine Checkbox-Spalte und die Auswahlleiste hinzu                                                                      |
-| `bulkActions`      | Eine Funktion der ausgewählten Zeilen, die weitere Schaltflächen in der Auswahlleiste rendert                              |
-| `rowActions`       | Eine Komponente, die jede `row` erhält und sie in einer rechts angehefteten Spalte abschließt                              |
-| `rowActionsSize`   | Die Breite dieser Spalte in Pixeln, <RepositoryFact name="dataGridActionsSize" />, sofern die Aktionen nicht mehr brauchen |
+| Prop               | Zweck                                                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `columns`          | Der Spaltensatz aus der `<entity>-columns.tsx` der Seite. Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient |
+| `id`               | Benennt das Raster: der Schlüssel seines gespeicherten Layouts im Browser und der Anfang seines CSV-Dateinamens        |
+| `label`            | Der zugängliche Name der Tabelle, meist der Seitentitel                                                                |
+| `data`             | Zeilen im Arbeitsspeicher, für ein Raster, das auf dem Client sucht, filtert, sortiert und paginiert                   |
+| `query`            | Servermodus: eine Funktion der Anfrage des Rasters, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen   |
+| `search`           | Beschriftung und Platzhalter des Suchfelds; ohne sie hat das Raster keine Suche                                        |
+| `empty`            | Was das Raster sagt, solange es keine Zeilen hat und weder Suche noch Filter gesetzt sind                              |
+| `emptyDescription` | Ein Satz unter diesem Titel, der sagt, wie die erste Zeile entsteht                                                    |
+| `selectable`       | Fügt eine Checkbox-Spalte und die Auswahlleiste hinzu                                                                  |
+| `bulkActions`      | Eine Funktion der ausgewählten Zeilen, die weitere Schaltflächen in der Auswahlleiste rendert                          |
+| `rowActions`       | Eine Komponente, die jede `row` erhält und sie mit ihrem ⋯-Menü abschließt, in einer rechts angehefteten Spalte        |
+| `onReorder`        | Gibt jeder Zeile einen Griff; erhält die verschobene Zeile und ihre neue Stelle, siehe [Zeilenreihenfolge](#row-order) |
 
 ## Spalten
 
@@ -107,15 +107,26 @@ Der Admin stellt das Raster um, und der Browser speichert es unter der `id` des 
 - **Dichte.** Geräumige oder kompakte Zeilen.
 - **Seitengröße.** <RepositoryFact name="dataGridPageSizes" /> Zeilen pro Seite.
 
-Das Raster ist eine einzige Karte: oben die Werkzeugleiste, dann die Tabelle und unten die Paginierung, getrennt durch Haarlinien. Die Werkzeugleiste hat zwei Zeilen: in der ersten die Suche und die Steuerelemente für die Ansicht, in der zweiten darunter die Schaltfläche Filtern und die Chips der aktiven Filter. Jedes Steuerelement der Werkzeugleiste und jeder Filter-Chip hat dieselbe Höhe; die Kopfzeilen stehen in Satzschreibung in der Spec-Größe auf einem gedämpften Band, die Zellen in der Body-Größe, und die letzte Datenspalte nimmt die verbleibende Breite ein, während die Aktionsspalte ihre eigene behält. In jeder Liste des Rasters wird die Option unter dem Zeiger so hervorgehoben wie die, auf der die Tastatur steht. Das Suchfeld nimmt die freie Breite der Werkzeugleiste ein, sodass sein Platzhalter nie abgeschnitten wird, und ein Spaltenkopf, der zu lang für seine Spalte ist, bricht in eine zweite Zeile um, statt gekürzt zu werden. In einem Raster schmaler als 64rem zeigen „Spalten“, „CSV exportieren“ und „Layout zurücksetzen“ nur ihre Symbole, damit die Suche Platz behält.
+Das Raster ist eine einzige Karte: oben die Werkzeugleiste, dann die Tabelle und unten die Paginierung, getrennt durch Haarlinien. Die Werkzeugleiste hat zwei Zeilen: in der ersten die Suche und die Steuerelemente für die Ansicht, in der zweiten darunter die Schaltfläche Filtern und die Chips der aktiven Filter. Jedes Steuerelement der Werkzeugleiste und jeder Filter-Chip hat dieselbe Höhe; die Kopfzeilen stehen in Satzschreibung in der Spec-Größe auf einem gedämpften Band, die Zellen in der Body-Größe, und die letzte Datenspalte nimmt die verbleibende Breite ein, während die Aktionsspalte ihre eigene behält. In jeder Liste des Rasters wird die Option unter dem Zeiger so hervorgehoben wie die, auf der die Tastatur steht. Das Suchfeld nimmt die freie Breite der Werkzeugleiste ein, sodass sein Platzhalter nie abgeschnitten wird. Ein Spaltenkopf bleibt auf einer Zeile und bricht nie innerhalb eines Wortes um: Die Anfangsbreite jeder Spalte fasst ihren Kopf samt Sortierpfeilen und Spaltenmenü in jeder Locale, und `e2e/specs/text-layout.spec.ts` schlägt fehl, wenn die Beschriftung eines Spaltenkopfs in irgendeinem Admin-Raster über ihre Zelle hinausläuft. In einem Raster schmaler als 64rem zeigen „Spalten“, „CSV exportieren“ und „Layout zurücksetzen“ nur ihre Symbole, damit die Suche Platz behält.
 
 Die Kopfzeile bleibt sichtbar, während die Zeilen innerhalb des Rasters scrollen, und angeheftete Spalten bleiben sichtbar, während das Raster seitwärts scrollt; so zeigt ein Smartphone eine breite Tabelle. Ein Schatten an der Seite, auf der weitere Spalten außer Sicht liegen, und am Rand der angehefteten Spalten, sobald andere unter ihnen hindurchlaufen, zeigt, dass das Raster scrollt (`.grid-scroller` in `globals.css`).
 
-Die Spalte der Zeilenaktionen hat kein Spaltenmenü: Sie sortiert nicht, lässt sich nicht ausblenden, verschieben oder in der Größe ändern, erscheint nicht in der CSV und bleibt rechts an letzter Stelle.
+Die Spalte der Zeilenaktionen ist <RepositoryFact name="dataGridActionsSize" /> Pixel breit und enthält eine einzige Schaltfläche ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), die die Aktionen der Zeile als Menü öffnet: zuerst die alltäglichen, dann nach einer Trennlinie die destruktiven, die in einem Warndialog um Bestätigung bitten. Alle Admin-Raster und alle umsortierbaren Listen, etwa der Lehrplan, schließen ihre Zeilen damit ab, nie mit einer Reihe von Symbolen. Die Spalte hat kein Spaltenmenü: Sie sortiert nicht, lässt sich nicht ausblenden, verschieben oder in der Größe ändern, erscheint nicht in der CSV und bleibt rechts an letzter Stelle.
+
+## Zeilenreihenfolge [#row-order]
+
+Mit `onReorder` beginnt das Raster mit einer schmalen Spalte von Griffen, hinter den Checkboxen, wenn das Raster welche hat. Ein Griff ist ein gedämpftes Griffsymbol:
+
+- **Ziehen.** Eine an ihrem Griff gezogene Zeile wandert durch die anderen, während der Zeiger über sie hinweggleitet, und das Loslassen speichert ihre neue Stelle. Escape oder ein Loslassen außerhalb der Zeilen setzt sie an ihren Platz zurück.
+- **Tastatur.** Auf einem fokussierten Griff verschieben die Pfeiltasten nach oben und unten die Zeile um eine Stelle. Ein Verschieben über die erste oder letzte Zeile der Seite hinaus öffnet die Seite, auf die die Zeile wandert, und setzt dort den Fokus auf ihren Griff.
+- **Speichern.** `onReorder` erhält die Zeile und ihre neue Stelle in der gesamten gespeicherten Reihenfolge, über alle Seiten hinweg ab 1 gezählt, sodass der Server sie an jede beliebige Stelle setzen kann. Die neue Reihenfolge erscheint sofort und bleibt bestehen, während die Verschiebungen nacheinander gespeichert werden, bis die aktualisierten Zeilen ankommen; wird das Promise, das `onReorder` zurückgibt, abgelehnt, springen die Zeilen zurück. `/admin/courses` übergibt `moveCourse` über eine Mutation mit `scope`, sodass Verschiebungen in der Reihenfolge gespeichert werden, in der sie gemacht wurden.
+- **Deaktiviert.** Solange die Zeilen sortiert, gefiltert oder durchsucht sind, entspricht die Stelle einer Zeile auf dem Bildschirm nicht ihrer Stelle in der gespeicherten Reihenfolge, deshalb sind die Griffe dann deaktiviert.
+
+Jede Verschiebung wird in der Live-Region angesagt, etwa „Auf Position 3 von 12 verschoben.“
 
 ## Auswahl und Export
 
-Mit `selectable` wählt eine Checkbox eine Zeile aus, und die Checkbox der Kopfzeile wählt die Seite aus. Dann schwebt eine Leiste am unteren Fensterrand mit der Anzahl, Auswahl exportieren, den `bulkActions` der Seite und Auswahl aufheben.
+Mit `selectable` wählt eine Checkbox eine Zeile aus, und die Checkbox der Kopfzeile wählt die Seite aus. Dann schwebt eine Leiste am unteren Fensterrand mit der Anzahl, Auswahl exportieren, den `bulkActions` der Seite und Auswahl aufheben. Jedes Admin-Raster, das Datensätze auflistet, ist auswählbar: Kurse, Produkte, Kategorien und Sammlungen, Bestellungen, Kunden, Benutzer, Einladungen und die Bestellungen ohne Lizenz; nur die Tabellen mit Zählwerten im Dashboard sind es nicht. `/admin/courses` fügt **Löschen** für die ausgewählten Kurse hinzu; die anderen Raster exportieren die Auswahl, weil ihre Datensätze keine Aktion haben, die für mehrere zugleich gilt.
 
 CSV exportieren lädt jede Zeile herunter, die Suche und Filter finden, nicht nur die Seite auf dem Bildschirm: Auf dem Server fragt es Seiten zu <RepositoryFact name="dataGridExportPageSize" /> Zeilen ab, bis es alle hat. Die Datei enthält die sichtbaren Spalten in ihrer Reihenfolge, beginnt mit einer Byte Order Mark, damit Tabellenkalkulationen sie als UTF-8 lesen, und setzt ein `'` vor jede Zelle, die mit einer Formel beginnen würde. `src/lib/csv.ts` schreibt sie.
 
@@ -123,8 +134,8 @@ CSV exportieren lädt jede Zeile herunter, die Suche und Filter finden, nicht nu
 
 - Die Tabelle trägt `label` als Namen und `aria-rowcount`, jede Zeile ihren `aria-rowindex`, über die Seiten hinweg gezählt.
 - Sortierbare Kopfzeilen sind Schaltflächen und tragen `aria-sort`.
-- Jedes Steuerelement funktioniert mit der Tastatur: Die Menüs und Listen folgen den Pfeiltasten und der Tippsuche von React Aria, Escape schließt sie, und die Größe ändert sich mit den Pfeiltasten am Trenner der Kopfzeile.
-- Verschieben, Anheften, Ausblenden, Sortieren über ein Menü und das Zurücksetzen des Layouts werden in einer höflichen Live-Region angesagt; die Ergebnisanzahl und die Auswahlanzahl sind ebenfalls live.
+- Jedes Steuerelement funktioniert mit der Tastatur: Die Menüs und Listen folgen den Pfeiltasten und der Tippsuche von React Aria, Escape schließt sie, die Größe ändert sich mit den Pfeiltasten am Trenner der Kopfzeile, und eine Zeile bewegt sich mit den Pfeiltasten nach oben und unten auf ihrem Griff, der „Zum Umsortieren ziehen oder die Pfeiltasten verwenden“ heißt.
+- Das Verschieben einer Spalte oder einer Zeile, Anheften, Ausblenden, Sortieren über ein Menü und das Zurücksetzen des Layouts werden in einer höflichen Live-Region angesagt; die Ergebnisanzahl und die Auswahlanzahl sind ebenfalls live.
 
 ## Übersetzungen
 
@@ -132,7 +143,7 @@ Die eigenen Texte des Rasters stehen in `messages/<locale>/components.custom.dat
 
 ## Tests
 
-`src/presentation/components/custom/__test__/` deckt das Raster im Arbeitsspeicher (`data-grid.component.test.tsx`), seine Filter (`data-grid-filter.component.test.tsx`), sein Layout (`data-grid-layout.component.test.tsx`) und den Servermodus (`data-grid-query.component.test.tsx`) ab. `e2e/specs/admin-orders.spec.ts` verwendet es auf `/admin/orders` in einem Browser.
+`src/presentation/components/custom/__test__/` deckt das Raster im Arbeitsspeicher (`data-grid.component.test.tsx`), seine Filter (`data-grid-filter.component.test.tsx`), sein Layout (`data-grid-layout.component.test.tsx`) und den Servermodus (`data-grid-query.component.test.tsx`) ab, die Zeilenreihenfolge eingeschlossen. `e2e/specs/admin-orders.spec.ts` verwendet es auf `/admin/orders` in einem Browser, und `e2e/specs/course-admin.spec.ts` sortiert auf `/admin/courses` Kurse um, wählt sie aus und löscht sie.
 
 ## Verwandte Seiten
 

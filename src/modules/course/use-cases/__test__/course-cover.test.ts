@@ -22,7 +22,7 @@ import {
 } from "~/src/modules/course/course.cover"
 import { course } from "~/src/modules/course/course.schema"
 import { applyCourseImport, planCourseImport, readCourseDocument } from "~/src/modules/course/course.transfer"
-import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import { deleteCoursesMutation } from "~/src/modules/course/use-cases/delete-courses"
 import { exportCoursesMutation } from "~/src/modules/course/use-cases/export-courses"
 import { removeCourseCoverMutation } from "~/src/modules/course/use-cases/remove-course-cover"
 import { uploadCourseCoverMutation } from "~/src/modules/course/use-cases/upload-course-cover"
@@ -214,7 +214,7 @@ describe("cover files of removed courses", () => {
     signInAs(ROLE_CODES.ADMIN)
     const { cover } = await upload()
 
-    await executeMutation(deleteCourseMutation, { courseId: IDS.COURSE })
+    await executeMutation(deleteCoursesMutation, { courseIds: [IDS.COURSE] })
 
     await expect(storedTexts(cover ?? "")).resolves.toStrictEqual(GONE)
   })

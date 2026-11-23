@@ -20,10 +20,9 @@ const UPDATED_AT = new Date("2026-11-20T09:30:00.000Z")
 const ROWS = [
   {
     id: "01960000-0000-7000-8000-00000000c001",
-    isFirst: true,
-    isLast: false,
     kind: COURSE_KIND.COURSE,
     lessons: 2,
+    position: 1,
     slug: "the-walkthrough",
     status: COURSE_STATUS.PUBLISHED,
     title: { "en-US": "The walkthrough" },
@@ -31,10 +30,9 @@ const ROWS = [
   },
   {
     id: "01960000-0000-7000-8000-00000000c002",
-    isFirst: false,
-    isLast: true,
     kind: COURSE_KIND.TUTORIAL,
     lessons: 0,
+    position: 2,
     slug: "one-off",
     status: COURSE_STATUS.DRAFT,
     title: { "en-US": "One-off tutorial" },
@@ -48,7 +46,7 @@ afterEach(() => {
 })
 
 describe("admin course grid", () => {
-  it("exports the courses with their path, type, status, lessons and the moment they changed", async () => {
+  it("exports the courses with their place, path, type, status, lessons and the moment they changed", async () => {
     vi.spyOn(download, "downloadFile").mockImplementation(() => {})
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getCoursesQuery.queryKey, { rows: ROWS, total: ROWS.length })
@@ -63,9 +61,9 @@ describe("admin course grid", () => {
     const { headers } = coursesMessages.table
     const { kinds, statuses } = coursesMessages.form
     expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.replace("﻿", "").split("\r\n").slice(0, 3)).toStrictEqual([
-      [headers.course, headers.kind, headers.status, headers.lessons, headers.updated].join(","),
-      `The walkthrough (/courses/the-walkthrough),${kinds.course},${statuses.published},2,${UPDATED_AT.toISOString()}`,
-      `One-off tutorial (/courses/one-off),${kinds.tutorial},${statuses.draft},0,${UPDATED_AT.toISOString()}`,
+      [headers.position, headers.course, headers.kind, headers.status, headers.lessons, headers.updated].join(","),
+      `1,The walkthrough (/courses/the-walkthrough),${kinds.course},${statuses.published},2,${UPDATED_AT.toISOString()}`,
+      `2,One-off tutorial (/courses/one-off),${kinds.tutorial},${statuses.draft},0,${UPDATED_AT.toISOString()}`,
     ])
   })
 })

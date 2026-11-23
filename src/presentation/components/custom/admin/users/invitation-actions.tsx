@@ -1,7 +1,7 @@
 import { type JSX, useState } from "react"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { EllipsisVertical } from "lucide-react"
+import { Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -21,8 +21,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/src/presentation/components/shadcn/alert-dialog"
-import { Button } from "~/src/presentation/components/shadcn/button"
-import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from "~/src/presentation/components/shadcn/dropdown-menu"
+import { DropdownMenuItem, DropdownMenuSeparator } from "~/src/presentation/components/shadcn/dropdown-menu"
+
+import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
 export const InvitationActions = ({ invitation }: { readonly invitation: Invitation["open"] }): JSX.Element => {
   const t = useTranslations("pages.admin.users.invitations")
@@ -52,38 +53,30 @@ export const InvitationActions = ({ invitation }: { readonly invitation: Invitat
 
   return (
     <div className="flex justify-end">
-      <DropdownMenuTrigger>
-        <Button
-          aria-label={t("menu", { email: invitation.email })}
-          className="size-8"
-          isPending={resend.isPending || revoke.isPending}
-          size="icon"
-          variant="ghost"
+      <RowMenu isPending={resend.isPending || revoke.isPending} label={t("menu", { email: invitation.email })}>
+        <DropdownMenuItem
+          aria-label={t("resendLabel", { email: invitation.email })}
+          onAction={() => {
+            resend.mutate({ id: invitation.id })
+          }}
+          textValue={t("resend")}
         >
-          <EllipsisVertical aria-hidden className="size-4" />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuItem
-            aria-label={t("resendLabel", { email: invitation.email })}
-            onAction={() => {
-              resend.mutate({ id: invitation.id })
-            }}
-            textValue={t("resend")}
-          >
-            {t("resend")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            aria-label={t("revokeLabel", { email: invitation.email })}
-            onAction={() => {
-              setRevoking(true)
-            }}
-            textValue={t("revoke")}
-            variant="destructive"
-          >
-            {t("revoke")}
-          </DropdownMenuItem>
-        </DropdownMenu>
-      </DropdownMenuTrigger>
+          <Send aria-hidden />
+          {t("resend")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          aria-label={t("revokeLabel", { email: invitation.email })}
+          onAction={() => {
+            setRevoking(true)
+          }}
+          textValue={t("revoke")}
+          variant="destructive"
+        >
+          <Trash2 aria-hidden />
+          {t("revoke")}
+        </DropdownMenuItem>
+      </RowMenu>
       <AlertDialog isOpen={isRevoking} onOpenChange={setRevoking}>
         <AlertDialogHeader>
           <AlertDialogTitle>{t("revokeDialog.title")}</AlertDialogTitle>

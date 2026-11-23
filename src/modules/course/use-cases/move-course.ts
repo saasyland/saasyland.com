@@ -15,15 +15,15 @@ import { courseZodSchemas } from "~/src/modules/course/course.zod"
 export const moveCourse = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Course["moveCourse"]) => courseZodSchemas.moveCourse.parse(input))
-  .handler(async ({ data: { courseId, direction } }) => {
+  .handler(async ({ data: { courseId, position } }) => {
     const courses = await db.select({ id: course.id, position: course.position }).from(course).orderBy(asc(course.position), asc(course.id))
 
     if (!courses.some(({ id }) => id === courseId)) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    const [first, ...rest] = reorder(courses, courseId, direction).map(({ id, position }) =>
-      db.update(course).set({ position }).where(eq(course.id, id)),
+    const [first, ...rest] = reorder(courses, courseId, position).map((entry) =>
+      db.update(course).set({ position: entry.position }).where(eq(course.id, entry.id)),
     )
     if (first !== undefined) {
       await db.batch([first, ...rest])

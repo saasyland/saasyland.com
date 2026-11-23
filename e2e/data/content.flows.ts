@@ -169,7 +169,8 @@ export const CONTENT_FLOWS = [
   {
     area: FLOW_AREA.CONTENT,
     id: "blog-share",
-    outcome: "A post shares its canonical address on every network and by copying it, with and without JavaScript, and links each section to itself",
+    outcome:
+      "A post shares its canonical address on every network and by copying it, with and without JavaScript, keeps its share links where the server rendered them once it hydrates, and links each section to itself",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
@@ -177,6 +178,10 @@ export const CONTENT_FLOWS = [
         title: "shares the post's canonical URL on every network from under the title and from the end of the article",
       },
       { spec: "blog-share.spec.ts", title: "copies the canonical URL and confirms it on screen" },
+      {
+        spec: "blog-share.spec.ts",
+        title: "keeps the end of the article where the server rendered it once the post hydrates, so a press there lands on what the reader aimed at",
+      },
       { spec: "blog-share.spec.ts", title: "shares by link without JavaScript" },
       { spec: "blog-share.spec.ts", title: "links every section of the post to itself" },
     ],

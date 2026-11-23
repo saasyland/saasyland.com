@@ -8,6 +8,7 @@ import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { upgradePrice } from "~/src/modules/license/license.upgrade-price"
+import { canUpgrade } from "~/src/modules/license/license.upgrades"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
@@ -15,11 +16,13 @@ export const getUpgradePrice = createServerFn({ method: "GET" })
   .middleware([authorized()])
   .validator((input: License["getUpgradePrice"]) => licenseZodSchemas.getUpgradePrice.parse(input))
   .handler(async ({ context, data: { tier } }) => {
-    const upgrade = await upgradePrice(await getLicense(context.auth.user.id), tier, context.requestHeaders)
+    const license = await getLicense(context.auth.user.id)
 
-    if (upgrade === undefined) {
+    if (!canUpgrade(license, tier)) {
       return { upgrade: undefined }
     }
+
+    const upgrade = await upgradePrice(license, tier, context.requestHeaders)
 
     return {
       upgrade: {

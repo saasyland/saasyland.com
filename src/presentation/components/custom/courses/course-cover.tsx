@@ -16,9 +16,7 @@ interface CourseCoverProps {
 }
 
 export const CourseCover = ({ className, course, isDecorative = false, isPriority = false, sizes }: CourseCoverProps): JSX.Element => {
-  const cover = courseCoverImage(course.cover)
-
-  if (cover === undefined) {
+  if (course.cover === null) {
     const Icon = COURSE_ICON_COMPONENTS[course.icon]
 
     return (
@@ -34,6 +32,8 @@ export const CourseCover = ({ className, course, isDecorative = false, isPriorit
       </div>
     )
   }
+
+  const cover = courseCoverImage(course.cover)
 
   return (
     <img

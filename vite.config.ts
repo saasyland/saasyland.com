@@ -31,7 +31,12 @@ const ignorePatterns = [
 ]
 
 const undefinedBranchBacklog = [
-  "src/modules/**",
+  "src/modules/course/course.cover.ts",
+  "src/modules/course/course.transfer.ts",
+  "src/modules/license/use-cases/__test__/send-purchase-confirmation-email.test.ts",
+  "src/modules/order/order.utils.ts",
+  "src/modules/order/use-cases/get-customers.ts",
+  "src/modules/order/use-cases/get-orders.ts",
   "src/presentation/components/custom/admin/users/license-machines.tsx",
   "src/presentation/components/custom/app/course-unlocks.tsx",
   "src/presentation/components/custom/app/upgrade-offer.tsx",

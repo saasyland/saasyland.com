@@ -56,10 +56,6 @@ describe("courseCoverImage", () => {
       ].join(", "),
     })
   })
-
-  it("gives a course without a cover no image", () => {
-    expect(courseCoverImage(null)).toBeUndefined()
-  })
 })
 
 describe("courseShareImage", () => {

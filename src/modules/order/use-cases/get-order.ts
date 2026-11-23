@@ -17,7 +17,7 @@ import { user } from "~/src/modules/user/user.schema"
 const readPolarOrder = async (orderId: string) => {
   try {
     const live = await polar.orders.get(orderId)
-    const invoice = live.is_invoice_generated ? await polar.orders.invoice(orderId) : undefined
+    const [invoice] = live.is_invoice_generated ? [await polar.orders.invoice(orderId)] : []
     const money = (minorUnits: number) => moneyOf(minorUnits, live.currency)
 
     return {
@@ -49,7 +49,7 @@ export const getOrder = createServerFn({ method: "GET" })
   .middleware([authorized({ order: ["read"] })])
   .validator((input: Order["getOrder"]) => orderZodSchemas.getOrder.parse(input))
   .handler(async ({ data: { orderId } }) => {
-    const [row] = await db
+    const copy = db
       .select({
         billingCountry: order.billingCountry,
         changedAt: order.changedAt,
@@ -74,6 +74,7 @@ export const getOrder = createServerFn({ method: "GET" })
       .leftJoin(user, eq(order.userId, user.id))
       .where(eq(order.id, orderId))
       .limit(1)
+    const [[row], polarOrder] = await Promise.all([copy, readPolarOrder(orderId)])
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
@@ -90,7 +91,7 @@ export const getOrder = createServerFn({ method: "GET" })
         termsCopied: discountAmount !== null,
         total: moneyOf(totalAmount, currency),
       },
-      polar: await readPolarOrder(orderId),
+      polar: polarOrder,
       polarUrl: polarOrderUrl(orderId),
     }
   })

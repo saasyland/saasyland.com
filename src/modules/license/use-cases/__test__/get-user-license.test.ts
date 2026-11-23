@@ -92,7 +92,7 @@ describe("get-user-license", () => {
     await db.update(license).set({ status })
 
     await expect(executeQuery(userLicenseQuery({ userId: BUYER_ID }))).resolves.toStrictEqual({
-      license: { ...RECORDED_PURCHASE, refund: undefined, status },
+      license: { ...RECORDED_PURCHASE, status },
     })
   })
 

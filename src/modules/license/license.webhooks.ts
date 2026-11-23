@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import type { models } from "@polar-sh/sdk/2026-10"
 import { eq } from "drizzle-orm"
-import * as zod from "zod"
+import zod from "zod/v4"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
@@ -49,21 +49,27 @@ interface BenefitGrantEvent {
   }
 }
 
-const SINGLE_ROW = 1
+const externalIdSchema = zod.string().min(1)
 
-const withdrawalConsentSchema = zod.object({ [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: zod.literal(true) })
+const withdrawalConsentSchema = zod
+  .object({
+    created_at: zod.string(),
+    custom_field_data: zod.object({ [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: zod.literal(true) }),
+  })
+  .transform(({ created_at: createdAt }) => new Date(createdAt))
+
+const licenseKeyGrantSchema = zod.object({ license_key_id: zod.string() })
 
 interface Account {
   readonly email: string
   readonly id: string
 }
 
-const findAccount = async ({ external_id: externalId }: PolarCustomer): Promise<Account | undefined> => {
-  if (typeof externalId !== "string" || externalId.length === 0) {
-    return undefined
-  }
+const accountRows = (userId: string) => db.select({ email: user.email, id: user.id }).from(user).where(eq(user.id, userId)).limit(1)
 
-  const [account] = await db.select({ email: user.email, id: user.id }).from(user).where(eq(user.id, externalId)).limit(SINGLE_ROW)
+const findAccount = async ({ external_id: externalId }: PolarCustomer): Promise<Account | undefined> => {
+  const userId = externalIdSchema.safeParse(externalId)
+  const [account] = userId.success ? await accountRows(userId.data) : []
 
   return account
 }
@@ -80,11 +86,10 @@ const findOrderAccount = async (customer: PolarCustomer, orderId: string): Promi
   return findAccount(current.customer)
 }
 
-const withdrawalConsentAt = ({ created_at: createdAt, custom_field_data: fields }: OrderEvent["data"]): Date | undefined =>
-  withdrawalConsentSchema.safeParse(fields).success ? new Date(createdAt) : undefined
+const withdrawalConsentAt = (order: OrderEvent["data"]): Date | undefined => withdrawalConsentSchema.safeParse(order).data
 
 const grantedLicenseKeyId = ({ properties }: BenefitGrantEvent["data"]): string | undefined =>
-  "license_key_id" in properties ? properties.license_key_id : undefined
+  licenseKeyGrantSchema.safeParse(properties).data?.license_key_id
 
 export const licenseWebhookHandlers = {
   onBenefitGrantCreated: async ({ data }: BenefitGrantEvent): Promise<void> => {
@@ -117,7 +122,7 @@ export const licenseWebhookHandlers = {
   },
 
   onOrderPaid: async ({ data }: OrderEvent): Promise<void> => {
-    const tier = data.product_id === null ? undefined : licenseTierForProduct(data.product_id)
+    const tier = licenseTierForProduct(data.product_id)
 
     if (tier === undefined) {
       console.error(`[license] order ${data.id} is not for a licence product`)
@@ -149,7 +154,7 @@ export const licenseWebhookHandlers = {
   },
 
   onOrderRefunded: async ({ data }: OrderEvent): Promise<void> => {
-    const tier = data.product_id === null ? undefined : licenseTierForProduct(data.product_id)
+    const tier = licenseTierForProduct(data.product_id)
 
     if (data.status !== POLAR_ORDER_STATUS.REFUNDED || tier === undefined) {
       return

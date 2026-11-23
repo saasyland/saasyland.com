@@ -13,7 +13,7 @@ export const getCurrentLicense = createServerFn({ method: "GET" })
     const row = await getLicense(context.auth.user.id)
 
     if (row === undefined) {
-      return { license: row }
+      return { license: undefined }
     }
 
     const { key: _key, ...license } = row

@@ -62,12 +62,7 @@ const notifyOwner = async (notification: WithdrawalNotification): Promise<void> 
   }
 }
 
-export const recordWithdrawal = async ({
-  contract,
-  origin,
-  userId,
-  ...statement
-}: Readonly<WithdrawalStatement>): Promise<WithdrawalReceipt> => {
+export const recordWithdrawal = async ({ contract, origin, userId, ...statement }: WithdrawalStatement): Promise<WithdrawalReceipt> => {
   const row = await db
     .insert(withdrawal)
     .values({

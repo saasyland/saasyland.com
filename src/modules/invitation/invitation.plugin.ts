@@ -4,6 +4,7 @@ import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthEndpoint } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { invitation } from "~/src/modules/invitation/invitation.schema"
@@ -43,7 +44,12 @@ export const invitationPlugin = () =>
             { email: pending.email, emailVerified: true, name: ctx.body.name, role: pending.role },
             { method: PLUGIN_ID },
           )
-          await ctx.context.internalAdapter.linkAccount({ accountId: created.id, password, providerId: "credential", userId: created.id })
+          await ctx.context.internalAdapter.linkAccount({
+            accountId: created.id,
+            password,
+            providerId: AUTH_PROVIDER.CREDENTIAL,
+            userId: created.id,
+          })
           const acceptedAt = new Date()
           const claimed = await db
             .update(invitation)

@@ -11,8 +11,6 @@ import { order } from "~/src/modules/order/order.schema"
 import { user } from "~/src/modules/user/user.schema"
 import type { WithdrawalEligibility } from "~/src/modules/withdrawal/withdrawal.constants"
 
-const SINGLE_ROW = 1
-
 const activeContracts = (match: SQL | undefined) =>
   db
     .select({
@@ -31,7 +29,7 @@ const activeContracts = (match: SQL | undefined) =>
     .innerJoin(user, eq(user.id, license.userId))
     .leftJoin(order, eq(order.id, license.polarOrderId))
     .where(and(eq(license.status, LICENSE_STATUS.ACTIVE), match))
-    .limit(SINGLE_ROW)
+    .limit(1)
 
 type ActiveContract = Awaited<ReturnType<typeof activeContracts>>[number]
 
@@ -57,18 +55,22 @@ export interface MatchedContract {
 
 const sameText = (column: SQLWrapper, value: string): SQL => sql`lower(${column}) = ${value.toLowerCase()}`
 
-export const matchContract = async ({ email, reference, userId }: ContractClaim, now: Date): Promise<MatchedContract | undefined> => {
-  const [contract] = await activeContracts(or(sameText(license.polarOrderId, reference), sameText(order.invoiceNumber, reference)))
+const isClaimedBy = ({ email, userId }: ContractClaim, contract: ActiveContract): boolean =>
+  contract.userId === userId || contract.email.toLowerCase() === email.toLowerCase()
 
-  if (contract === undefined || (contract.userId !== userId && contract.email.toLowerCase() !== email.toLowerCase())) {
-    return undefined
-  }
+export const matchContract = async (claim: ContractClaim, now: Date): Promise<MatchedContract | undefined> => {
+  const contracts = await activeContracts(
+    or(sameText(license.polarOrderId, claim.reference), sameText(order.invoiceNumber, claim.reference)),
+  )
+  const contract = contracts.find((candidate) => isClaimedBy(claim, candidate))
 
-  return {
-    eligibility: refundEligibility({ ...contract, now }).kind,
-    licenseId: contract.licenseId,
-    polarOrderId: contract.polarOrderId,
-    tier: contract.tier,
-    userId: contract.userId,
-  }
+  return (
+    contract && {
+      eligibility: refundEligibility({ ...contract, now }).kind,
+      licenseId: contract.licenseId,
+      polarOrderId: contract.polarOrderId,
+      tier: contract.tier,
+      userId: contract.userId,
+    }
+  )
 }

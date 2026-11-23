@@ -20,7 +20,7 @@ export const POLAR_PRODUCT_IDS = {
   [LICENSE_TIER.CORE]: env.POLAR_PRODUCT_ID_CORE,
 } as const satisfies Record<LicenseTier, string>
 
-export const licenseTierForProduct = (productId: string): LicenseTier | undefined =>
+export const licenseTierForProduct = (productId: string | null): LicenseTier | undefined =>
   LICENSE_TIERS.find((tier) => POLAR_PRODUCT_IDS[tier] === productId)
 
 export const localizedTierName = async (locale: SupportedLocale, tier: LicenseTier): Promise<string> => {

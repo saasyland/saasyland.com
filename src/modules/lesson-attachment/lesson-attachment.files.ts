@@ -5,7 +5,6 @@ import {
   LESSON_ATTACHMENT_FILE_NAME_MAX_LENGTH,
   LESSON_ATTACHMENT_FILE_TYPES,
   LESSON_ATTACHMENT_KEY_PREFIX,
-  type LessonAttachmentExtension,
 } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 
 const EXTENSION_SEPARATOR = "."
@@ -20,16 +19,11 @@ export const UPLOAD_FIELDS = {
   TITLE: "title",
 } as const
 
-const isAttachmentExtension = (extension: string): extension is LessonAttachmentExtension =>
-  Object.hasOwn(LESSON_ATTACHMENT_FILE_TYPES, extension)
+const ATTACHMENT_TYPES: ReadonlyMap<string, string> = new Map(Object.entries(LESSON_ATTACHMENT_FILE_TYPES))
 
 const extensionOf = (fileName: string): string => fileName.slice(fileName.lastIndexOf(EXTENSION_SEPARATOR) + 1).toLowerCase()
 
-export const attachmentContentType = (fileName: string): string | undefined => {
-  const extension = extensionOf(fileName)
-
-  return isAttachmentExtension(extension) ? LESSON_ATTACHMENT_FILE_TYPES[extension] : undefined
-}
+export const attachmentContentType = (fileName: string): string | undefined => ATTACHMENT_TYPES.get(extensionOf(fileName))
 
 export const attachmentFileName = (name: string): string => {
   const safe = name

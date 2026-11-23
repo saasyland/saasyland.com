@@ -170,7 +170,9 @@ describe("admin licence card", () => {
   })
 
   it("leaves out the refund terms of a licence that is no longer active", async () => {
-    renderCard(licence({ refund: undefined, status: LICENSE_STATUS.REFUNDED }))
+    const { refund: _refund, ...refunded } = licence({ status: LICENSE_STATUS.REFUNDED })
+
+    renderCard(refunded)
     await card()
 
     expect(detail(labels.details.status)).toBe(labels.status.refunded)

@@ -8,6 +8,8 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
 import { verifyPlayback } from "~/src/modules/video/video.playback"
 
+import { emptyResponse, isReadRequest, methodNotAllowed } from "~/src/lib/media-response"
+
 const MEDIA_REQUEST = /^\/media\/(?<expires>[\da-z]{1,10})\.(?<signature>[\da-f]{64})\/(?<videoId>[\da-f-]{36})\/(?<file>[\w./-]+)$/u
 const BYTE_RANGE = /^bytes=(?<start>\d*)-(?<end>\d*)$/u
 
@@ -24,14 +26,12 @@ const mediaRequestSchema = zod.object({
   videoId: zod.string(),
 })
 
-const rangeSchema = zod.object({ end: zod.string(), start: zod.string() })
+const rangeSchema = zod.object({ end: zod.string(), start: zod.string() }).refine(({ end, start }) => start !== "" || end !== "")
 
 interface ByteRange {
   readonly length: number
   readonly offset: number
 }
-
-const emptyResponse = (status: number, headers: HeadersInit = {}): Response => new Response(undefined, { headers, status })
 
 const mediaHeaders = ({ contentType, object }: { readonly contentType: string; readonly object: R2Object }): Headers =>
   new Headers({
@@ -42,26 +42,35 @@ const mediaHeaders = ({ contentType, object }: { readonly contentType: string; r
     ETag: object.httpEtag,
   })
 
-const resolveRange = ({ header, size }: { readonly header: string; readonly size: number }): ByteRange | undefined => {
+const satisfiableRanges = ({ header, size }: { readonly header: string; readonly size: number }): ByteRange[] => {
   const parsed = rangeSchema.safeParse(BYTE_RANGE.exec(header)?.groups)
-  if (!parsed.success || (parsed.data.start === "" && parsed.data.end === "")) {
-    return undefined
+  if (!parsed.success) {
+    return []
   }
 
   const { end, start } = parsed.data
   if (start === "") {
     const suffix = Math.min(Number(end), size)
-    return { length: suffix, offset: size - suffix }
+    return [{ length: suffix, offset: size - suffix }]
   }
 
   const offset = Number(start)
   const lastByte = size - INCLUSIVE_END
   const last = end === "" ? lastByte : Math.min(Number(end), lastByte)
   if (offset > last) {
-    return undefined
+    return []
   }
 
-  return { length: last - offset + INCLUSIVE_END, offset }
+  return [{ length: last - offset + INCLUSIVE_END, offset }]
+}
+
+const serveHead = async ({ contentType, key }: { readonly contentType: string; readonly key: string }): Promise<Response> => {
+  const head = await env.MEDIA.head(key)
+  if (head === null) {
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
+  }
+
+  return emptyResponse(HTTP_STATUS.OK, mediaHeaders({ contentType, object: head }))
 }
 
 const servePartial = async ({
@@ -78,7 +87,7 @@ const servePartial = async ({
     return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
-  const range = resolveRange({ header, size: head.size })
+  const [range] = satisfiableRanges({ header, size: head.size })
   if (range === undefined) {
     return emptyResponse(HTTP_STATUS.RANGE_NOT_SATISFIABLE, { "Content-Range": `bytes */${String(head.size)}` })
   }
@@ -129,18 +138,22 @@ const serveWhole = async ({
 }
 
 export const serveMedia = async (request: Request): Promise<Response> => {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return emptyResponse(HTTP_STATUS.METHOD_NOT_ALLOWED, { Allow: "GET, HEAD" })
+  if (!isReadRequest(request)) {
+    return methodNotAllowed()
   }
 
   const url = new URL(request.url)
   const parsed = mediaRequestSchema.safeParse(MEDIA_REQUEST.exec(url.pathname)?.groups)
-  const contentType = parsed.success ? mediaContentType(parsed.data.file) : undefined
-  if (!parsed.success || contentType === undefined) {
+  if (!parsed.success) {
     return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
   const { expires, file, signature, videoId } = parsed.data
+  const contentType = mediaContentType(file)
+  if (contentType === undefined) {
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
+  }
+
   if (!(await verifyPlayback({ expires, now: Date.now(), secret: env.AUTH_SECRET, signature, videoId }))) {
     return emptyResponse(HTTP_STATUS.FORBIDDEN)
   }
@@ -148,11 +161,7 @@ export const serveMedia = async (request: Request): Promise<Response> => {
   const key = videoObjectKey({ file, videoId })
 
   if (request.method === "HEAD") {
-    const head = await env.MEDIA.head(key)
-    if (head === null) {
-      return emptyResponse(HTTP_STATUS.NOT_FOUND)
-    }
-    return new Response(undefined, { headers: mediaHeaders({ contentType, object: head }) })
+    return serveHead({ contentType, key })
   }
 
   const range = request.headers.get("Range")

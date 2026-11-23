@@ -2,7 +2,7 @@ import { BYTES_PER_MEGABYTE, MEDIA_PATH_PREFIX } from "~/src/modules/video/video
 
 import type { ShareImage } from "~/src/lib/seo"
 
-export const COURSE_COVER_KEY_PREFIX = "covers"
+const COURSE_COVER_KEY_PREFIX = "covers"
 
 export const COURSE_COVER_PATH_PREFIX = `${MEDIA_PATH_PREFIX}/${COURSE_COVER_KEY_PREFIX}`
 
@@ -40,25 +40,25 @@ const COURSE_ID_FIELD = "courseId"
 
 type CoverExtension = keyof typeof COURSE_COVER_STORED_TYPES
 
+type CoverType = (typeof COURSE_COVER_STORED_TYPES)[CoverExtension]
+
 type CoverWidth = (typeof COURSE_COVER_WIDTHS)[number]
 
-export interface CoverVariant {
+interface CoverVariant {
   readonly image: Blob
   readonly width: CoverWidth
 }
 
-const isCoverExtension = (extension: string): extension is CoverExtension => Object.hasOwn(COURSE_COVER_STORED_TYPES, extension)
+const COVER_TYPES: ReadonlyMap<string, CoverType> = new Map(Object.entries(COURSE_COVER_STORED_TYPES))
+
+const isCoverExtension = (extension: string): extension is CoverExtension => COVER_TYPES.has(extension)
 
 export const coverExtension = (contentType: string): CoverExtension | undefined =>
   Object.keys(COURSE_COVER_STORED_TYPES)
     .filter((extension) => isCoverExtension(extension))
     .find((extension) => COURSE_COVER_STORED_TYPES[extension] === contentType)
 
-export const coverContentType = (key: string): string | undefined => {
-  const extension = key.slice(key.lastIndexOf(EXTENSION_SEPARATOR) + 1)
-
-  return isCoverExtension(extension) ? COURSE_COVER_STORED_TYPES[extension] : undefined
-}
+export const coverContentType = (key: string): CoverType | undefined => COVER_TYPES.get(key.slice(key.lastIndexOf(EXTENSION_SEPARATOR) + 1))
 
 interface CoverKeyParts {
   readonly courseId: string
@@ -88,12 +88,10 @@ interface CoverImage {
   readonly srcSet: string
 }
 
-const coverImage = (cover: string): CoverImage => ({
+export const courseCoverImage = (cover: string): CoverImage => ({
   src: coverPath(cover),
   srcSet: COURSE_COVER_WIDTHS.map((width) => `${coverPath(coverVariantKey(cover, width))} ${String(width)}w`).join(", "),
 })
-
-export const courseCoverImage = (cover: string | null): CoverImage | undefined => (cover === null ? undefined : coverImage(cover))
 
 export const courseShareImage = ({ cover, title }: { readonly cover: string | null; readonly title: string }): ShareImage | undefined => {
   const type = cover === null ? undefined : coverContentType(cover)

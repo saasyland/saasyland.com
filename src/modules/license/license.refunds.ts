@@ -16,7 +16,7 @@ interface Use {
   readonly via: FirstUse
 }
 
-export type RefundEligibility =
+type RefundEligibility =
   | { readonly endedAt: Date; readonly kind: typeof REFUND_ELIGIBILITY.EXPIRED }
   | { readonly kind: typeof REFUND_ELIGIBILITY.REFUNDABLE; readonly until: Date }
   | { readonly kind: typeof REFUND_ELIGIBILITY.STATUTORY_WITHDRAWAL; readonly until: Date }
@@ -25,17 +25,14 @@ export type RefundEligibility =
 export const refundDeadline = (purchaseCreatedAt: Date): Date =>
   new Date(purchaseCreatedAt.getTime() + REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
 
-const firstUse = ({ deliveredAt, lessonOpenedAt }: UseRecords): Use | undefined => {
-  if (lessonOpenedAt !== null && (deliveredAt === null || lessonOpenedAt < deliveredAt)) {
-    return { usedAt: lessonOpenedAt, via: FIRST_USE.LESSON }
-  }
-
-  if (deliveredAt === null) {
-    return undefined
-  }
-
-  return { usedAt: deliveredAt, via: FIRST_USE.TEMPLATES }
-}
+const firstUse = ({ deliveredAt, lessonOpenedAt }: UseRecords): Use | undefined =>
+  [
+    { usedAt: deliveredAt, via: FIRST_USE.TEMPLATES },
+    { usedAt: lessonOpenedAt, via: FIRST_USE.LESSON },
+  ]
+    .filter((use): use is Use => use.usedAt !== null)
+    .toSorted((first, second) => first.usedAt.getTime() - second.usedAt.getTime())
+    .at(0)
 
 export const refundEligibility = ({
   now,

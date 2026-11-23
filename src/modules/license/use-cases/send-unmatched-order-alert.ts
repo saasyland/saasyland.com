@@ -27,7 +27,7 @@ interface UnmatchedOrderAlert {
   readonly tier: LicenseTier
 }
 
-export const sendUnmatchedOrderAlert = async ({ order, tier }: Readonly<UnmatchedOrderAlert>): Promise<void> => {
+export const sendUnmatchedOrderAlert = async ({ order, tier }: UnmatchedOrderAlert): Promise<void> => {
   const locale = I18N.DEFAULT_LOCALE
   const currency = orderCurrencySchema.parse(order.currency)
   const [messages, tierName] = await Promise.all([

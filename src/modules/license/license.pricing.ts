@@ -1,6 +1,6 @@
 import type { CountryCode } from "~/src/modules/_core/constants/country"
 
-export const FULL_PRICE_MULTIPLIER = 1
+const FULL_PRICE_MULTIPLIER = 1
 
 export const PPP_PERCENT = 100
 

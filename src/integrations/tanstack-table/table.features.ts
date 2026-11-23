@@ -87,7 +87,7 @@ export const DATA_GRID_FILTER = {
   TEXT: "text",
 } as const
 
-export type DataGridFilterKind = (typeof DATA_GRID_FILTER)[keyof typeof DATA_GRID_FILTER]
+type DataGridFilterKind = (typeof DATA_GRID_FILTER)[keyof typeof DATA_GRID_FILTER]
 
 export const DATA_GRID_FILTER_FNS = {
   [DATA_GRID_FILTER.DATE_RANGE]: "dateInRange",
@@ -97,7 +97,7 @@ export const DATA_GRID_FILTER_FNS = {
   [DATA_GRID_FILTER.TEXT]: "includesString",
 } as const satisfies Record<DataGridFilterKind, keyof typeof dataGridFeatures.filterFns>
 
-export interface DataGridOption {
+interface DataGridOption {
   readonly label: string
   readonly value: string
 }
@@ -125,7 +125,7 @@ export const DATA_GRID_PIN = {
   START: "start",
 } as const
 
-export type DataGridPin = (typeof DATA_GRID_PIN)[keyof typeof DATA_GRID_PIN]
+type DataGridPin = (typeof DATA_GRID_PIN)[keyof typeof DATA_GRID_PIN]
 
 export const DATA_GRID_ALIGN = {
   END: "end",

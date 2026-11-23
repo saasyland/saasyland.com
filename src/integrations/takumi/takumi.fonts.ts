@@ -18,7 +18,7 @@ const HIGHEST_DIGIT = "F"
 
 const JAPANESE_FONT_PACKAGE = "node_modules/@fontsource-variable/noto-sans-jp"
 
-export const FONT_SOURCES = [
+const FONT_SOURCES = [
   { directory: "public", stylesheet: "src/presentation/styles/fonts.css" },
   { directory: JAPANESE_FONT_PACKAGE, stylesheet: `${JAPANESE_FONT_PACKAGE}/index.css` },
 ] as const
@@ -67,7 +67,7 @@ const readFontFace = (body: string, directory: string): FontLoader[] => {
     {
       data: () => readFile(join(directory, url)),
       name: registeredFamily(family),
-      ...(ranges === undefined ? {} : { unicodeRange: parseUnicodeRange(ranges) }),
+      ...(ranges !== undefined && { unicodeRange: parseUnicodeRange(ranges) }),
     },
   ]
 }

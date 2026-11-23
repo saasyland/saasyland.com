@@ -164,9 +164,9 @@ describe("blog archive pages", () => {
   })
 
   it("names the previous and next pages where they exist", () => {
-    expect(blogArchiveSequence({ page: 1, pages: 1 })).toStrictEqual({ next: undefined, previous: undefined })
-    expect(blogArchiveSequence({ page: 1, pages: 3 })).toStrictEqual({ next: blogArchivePath(2), previous: undefined })
+    expect(blogArchiveSequence({ page: 1, pages: 1 })).toStrictEqual({})
+    expect(blogArchiveSequence({ page: 1, pages: 3 })).toStrictEqual({ next: blogArchivePath(2) })
     expect(blogArchiveSequence({ page: 2, pages: 3 })).toStrictEqual({ next: blogArchivePath(3), previous: ROUTES.BLOG })
-    expect(blogArchiveSequence({ page: 3, pages: 3 })).toStrictEqual({ next: undefined, previous: blogArchivePath(2) })
+    expect(blogArchiveSequence({ page: 3, pages: 3 })).toStrictEqual({ previous: blogArchivePath(2) })
   })
 })

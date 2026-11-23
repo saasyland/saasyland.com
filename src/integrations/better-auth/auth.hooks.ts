@@ -37,8 +37,7 @@ const signUpResponseSchema = zod.object({ user: zod.object({ id: zod.string() })
 const passwordChangeResponseSchema = zod.object({ user: zod.object({ email: zod.string(), name: zod.string() }) })
 
 export const enforceInputPolicy = createAuthMiddleware(async ({ body, path }) => {
-  const policy = INPUT_POLICY[path]
-  const result = policy === undefined ? undefined : await policy.safeParseAsync(body)
+  const result = await INPUT_POLICY[path]?.safeParseAsync(body)
 
   if (result?.success === false) {
     throw APIError.from("BAD_REQUEST", { code: "VALIDATION_ERROR", message: "The request does not meet the input policy" })

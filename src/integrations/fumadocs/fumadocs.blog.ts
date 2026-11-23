@@ -85,6 +85,6 @@ export const blogArchivePage = <TPost>(posts: readonly TPost[], page: number): T
   posts.slice((page - BLOG_ARCHIVE.FIRST_PAGE) * BLOG_ARCHIVE.PAGE_SIZE, page * BLOG_ARCHIVE.PAGE_SIZE)
 
 export const blogArchiveSequence = ({ page, pages }: { page: number; pages: number }): PageSequence => ({
-  next: page < pages ? blogArchivePath(page + 1) : undefined,
-  previous: page > BLOG_ARCHIVE.FIRST_PAGE ? blogArchivePath(page - 1) : undefined,
+  ...(page < pages && { next: blogArchivePath(page + 1) }),
+  ...(page > BLOG_ARCHIVE.FIRST_PAGE && { previous: blogArchivePath(page - 1) }),
 })

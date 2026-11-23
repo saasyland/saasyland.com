@@ -73,12 +73,12 @@ export const moveColumn = (order: readonly string[], columnId: string, targetId:
   return [...rest.slice(0, target + offset), columnId, ...rest.slice(target + offset)]
 }
 
-export const COLUMN_MOVE = {
+const COLUMN_MOVE = {
   AFTER: "movedAfter",
   BEFORE: "movedBefore",
 } as const
 
-export type ColumnMove = (typeof COLUMN_MOVE)[keyof typeof COLUMN_MOVE]
+type ColumnMove = (typeof COLUMN_MOVE)[keyof typeof COLUMN_MOVE]
 
 const directionOf = (ids: readonly string[], columnId: string, targetId: string): ColumnMove =>
   ids.indexOf(columnId) < ids.indexOf(targetId) ? COLUMN_MOVE.AFTER : COLUMN_MOVE.BEFORE

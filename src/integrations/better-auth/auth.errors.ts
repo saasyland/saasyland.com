@@ -1,3 +1,5 @@
+import zod from "zod/v4"
+
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 export const AUTH_ERRORS = {
@@ -92,28 +94,33 @@ export const SESSION_EXPIRED_CODE = "SESSION_EXPIRED" satisfies keyof typeof AUT
 
 const AUTH_ERROR_BY_CODE = new Map<string, AuthErrorMessageKey>(Object.entries(AUTH_ERRORS))
 
-const property = (value: unknown, name: string): unknown => {
-  if (typeof value !== "object" || value === null) {
-    return undefined
-  }
-  return Reflect.get(value, name)
-}
+const errorKeyOf = (code: unknown): AuthErrorMessageKey | undefined => AUTH_ERROR_BY_CODE.get(String(code).toUpperCase())
+
+const errorFieldsSchema = zod
+  .object({ body: zod.unknown(), code: zod.unknown(), status: zod.unknown(), statusCode: zod.unknown() })
+  .partial()
+
+const searchErrorKeySchema = zod
+  .string()
+  .nonempty()
+  .transform((code) => errorKeyOf(code) ?? AUTH_ERRORS.UNKNOWN_ERROR)
+
+const errorFieldsOf = (value: unknown): zod.infer<typeof errorFieldsSchema> => errorFieldsSchema.safeParse(value).data ?? {}
 
 export const authErrorKey = (error: unknown): AuthErrorMessageKey => {
-  const code = property(error, "code") ?? property(property(error, "body"), "code")
-  const key = AUTH_ERROR_BY_CODE.get(String(code).toUpperCase())
+  const { body, code, status, statusCode } = errorFieldsOf(error)
+  const key = errorKeyOf(code ?? errorFieldsOf(body).code)
+
   if (key !== undefined) {
     return key
   }
-  if ([property(error, "status"), property(error, "statusCode")].includes(HTTP_STATUS.TOO_MANY_REQUESTS)) {
+
+  if ([status, statusCode].includes(HTTP_STATUS.TOO_MANY_REQUESTS)) {
     return AUTH_ERRORS.TOO_MANY_REQUESTS
   }
+
   return AUTH_ERRORS.UNKNOWN_ERROR
 }
 
-export const authErrorKeyFromSearch = (error: string | undefined): AuthErrorMessageKey | undefined => {
-  if (error === undefined || error === "") {
-    return undefined
-  }
-  return AUTH_ERROR_BY_CODE.get(error.toUpperCase()) ?? AUTH_ERRORS.UNKNOWN_ERROR
-}
+export const authErrorKeyFromSearch = (error: string | undefined): AuthErrorMessageKey | undefined =>
+  searchErrorKeySchema.safeParse(error).data

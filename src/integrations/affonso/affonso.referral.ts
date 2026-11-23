@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only"
 
-import * as zod from "zod"
+import zod from "zod/v4"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 

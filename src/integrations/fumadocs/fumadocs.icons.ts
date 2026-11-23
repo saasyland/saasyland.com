@@ -17,7 +17,7 @@ export const DOCS_ICONS: Readonly<Record<string, LucideIcon>> = {
 }
 
 export const docsIcon = (name: string | undefined): ReactNode => {
-  const Icon = name === undefined ? undefined : DOCS_ICONS[name]
+  const Icon = Object.entries(DOCS_ICONS).find(([iconName]) => iconName === name)?.[1]
 
   return Icon && createElement(Icon)
 }

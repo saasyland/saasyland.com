@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers"
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-import * as zod from "zod"
+import zod from "zod/v4"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { failNextResendDelivery } from "~/src/platform/testing/lib/resend"

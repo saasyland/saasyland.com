@@ -23,13 +23,7 @@ interface SendEmailOptions {
 
 const idempotencyKey = async ({ purpose, token }: EmailIdempotency): Promise<string> => `${purpose}/${await sha256Hex(token)}`
 
-export const sendEmail = async ({
-  from = env.RESEND_EMAIL_FROM,
-  idempotency,
-  react,
-  subject,
-  to,
-}: Readonly<SendEmailOptions>): Promise<string> => {
+export const sendEmail = async ({ from = env.RESEND_EMAIL_FROM, idempotency, react, subject, to }: SendEmailOptions): Promise<string> => {
   const { data, error } = await resendClient().emails.send(
     { from, react, subject, to },
     { idempotencyKey: await idempotencyKey(idempotency) },

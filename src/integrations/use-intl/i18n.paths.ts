@@ -1,61 +1,52 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
+import { ROUTES } from "~/src/routes"
+
 const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn|media)(?:\/|$)/u
 const LOCALE_SEGMENT_REGEX = /^\/(?<locale>[a-zA-Z-]+)(?:\/|$)/u
 const HREF_PATHNAME_REGEX = /^[^?#]*/u
 
-const LANGUAGE_SEPARATOR = "-"
+const CALLBACK_URL_PARAM = "callbackURL"
 
 const SUPPORTED_LOCALE_SET = new Set<string>(I18N.SUPPORTED_LOCALES)
 
-const LANGUAGE_ALIASES = new Map<string, SupportedLocale>(
-  I18N.SUPPORTED_LOCALES.map((locale): [string, SupportedLocale] => {
-    const language = locale.slice(0, locale.indexOf(LANGUAGE_SEPARATOR))
+const PREFIXED_LOCALES = I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE)
 
-    return [language, locale]
-  }),
-)
+const LOCALE_LANGUAGES = I18N.SUPPORTED_LOCALES.map((locale) => ({ language: new Intl.Locale(locale).language, locale }))
 
 export const isSupportedLocale = (locale: string): locale is SupportedLocale => SUPPORTED_LOCALE_SET.has(locale)
 
 export const shouldIgnorePath = (pathname: string): boolean => IGNORED_PATHS_REGEX.test(pathname)
 
+const localeSegment = (pathname: string): string | undefined => LOCALE_SEGMENT_REGEX.exec(pathname)?.groups?.["locale"]
+
+const withoutLocaleSegment = (pathname: string): string => pathname.replace(LOCALE_SEGMENT_REGEX, "/")
+
 const extractLocalePrefix = (pathname: string): SupportedLocale | undefined => {
-  const segment = LOCALE_SEGMENT_REGEX.exec(pathname)?.groups?.["locale"]
+  const segment = localeSegment(pathname)
 
-  if (segment !== undefined && isSupportedLocale(segment)) {
-    return segment
-  }
-
-  return undefined
+  return I18N.SUPPORTED_LOCALES.find((locale) => locale === segment)
 }
 
 export const extractLocaleFromPath = (pathname: string): SupportedLocale | undefined => {
-  const prefix = extractLocalePrefix(pathname)
+  const segment = localeSegment(pathname)
 
-  if (prefix !== undefined && prefix !== I18N.DEFAULT_LOCALE) {
-    return prefix
-  }
-
-  return undefined
+  return PREFIXED_LOCALES.find((locale) => locale === segment)
 }
 
 export const extractLocaleFromCallbackURL = (url: string): SupportedLocale | undefined => {
   const link = new URL(url)
-  const callbackURL = link.searchParams.get("callbackURL")
-  const pathname = callbackURL === null ? undefined : URL.parse(callbackURL, link)?.pathname
+  const callback = URL.parse(link.searchParams.get(CALLBACK_URL_PARAM) ?? ROUTES.HOME, link)
 
-  return pathname === undefined ? undefined : extractLocaleFromPath(pathname)
+  return extractLocaleFromPath(callback?.pathname ?? ROUTES.HOME)
 }
 
 export const deLocalizePathname = (pathname: string): string => {
-  const prefix = extractLocalePrefix(pathname)
-
-  if (prefix === undefined) {
+  if (extractLocalePrefix(pathname) === undefined) {
     return pathname
   }
 
-  return pathname.slice(`/${prefix}`.length) || "/"
+  return withoutLocaleSegment(pathname)
 }
 
 export const localizePathname = ({ locale, pathname }: { locale: SupportedLocale; pathname: string }): string => {
@@ -80,19 +71,19 @@ export const localizeHref = ({ href, locale }: { href: string; locale: Supported
   href.replace(HREF_PATHNAME_REGEX, (pathname) => localizePathname({ locale, pathname }))
 
 export const canonicalizePathname = (pathname: string): string => {
-  const segment = LOCALE_SEGMENT_REGEX.exec(pathname)?.groups?.["locale"]
-  const locale = segment === undefined ? undefined : (extractLocalePrefix(pathname) ?? LANGUAGE_ALIASES.get(segment))
+  const segment = localeSegment(pathname)
+  const match = LOCALE_LANGUAGES.find(({ language, locale }) => segment === locale || segment === language)
 
-  if (segment === undefined || locale === undefined) {
+  if (match === undefined) {
     return pathname
   }
 
-  const rest = pathname.slice(`/${segment}`.length) || "/"
+  const rest = withoutLocaleSegment(pathname)
 
-  return shouldIgnorePath(rest) ? rest : localizePathname({ locale, pathname: rest })
+  return shouldIgnorePath(rest) ? rest : localizePathname({ locale: match.locale, pathname: rest })
 }
 
-export interface LocaleLink {
+interface LocaleLink {
   readonly href: string
   readonly hrefLang?: string
   readonly rel: "alternate" | "canonical"

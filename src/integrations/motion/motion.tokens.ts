@@ -10,5 +10,5 @@ const EASE_EXP: readonly [number, number, number, number] = [EASE_EXP_X1, EASE_E
 export const EXP: Transition = { duration: 0.4, ease: EASE_EXP }
 export const EXP_FAST: Transition = { duration: 0.2, ease: EASE_EXP }
 export const PRESS: Transition = { damping: 30, mass: 0.6, stiffness: 420, type: "spring" }
-export const SWAP = { damping: 18, stiffness: 260, type: "spring" as const }
-export const DRAW = { damping: 25, delay: 0.1, stiffness: 300, type: "spring" as const }
+export const SWAP: Transition = { damping: 18, stiffness: 260, type: "spring" }
+export const DRAW: Transition = { damping: 25, delay: 0.1, stiffness: 300, type: "spring" }

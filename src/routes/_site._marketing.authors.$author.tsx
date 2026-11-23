@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
+import { createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 import { loadBlogIndex } from "virtual:content-indexes"
 import * as zod from "zod"
@@ -18,12 +18,12 @@ import { notFoundHead } from "~/src/lib/not-found"
 import { buildAuthorStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
 import { AuthorLinks } from "~/src/presentation/components/custom/blog/author-links"
+import { BackToBlogLink } from "~/src/presentation/components/custom/blog/back-to-blog-link"
 import { AuthorPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { PostRow } from "~/src/presentation/components/custom/blog/post-row"
 import { HighlightGroup } from "~/src/presentation/components/custom/highlight"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
 
 const POSTS_TITLE_ID = "author-posts"
 
@@ -40,13 +40,7 @@ const AuthorPage = (): JSX.Element => {
     <section className="relative">
       <script dangerouslySetInnerHTML={structuredDataHtml} type="application/ld+json" />
       <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
-        <Link
-          className="inline-flex items-center gap-2 text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-          to={ROUTES.BLOG}
-        >
-          <span aria-hidden>&larr;</span>
-          {t("post.backToBlog")}
-        </Link>
+        <BackToBlogLink />
 
         <div className="mt-10 flex flex-col gap-8 md:flex-row md:items-start md:gap-12">
           <img

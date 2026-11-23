@@ -15,7 +15,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
 import { SignUpPending } from "~/src/presentation/components/custom/auth/auth-pending"
-import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
 import { ROUTES } from "~/src/routes"
@@ -35,11 +35,7 @@ const SignUpPage = (): JSX.Element => {
 
       <div className="mt-10 flex flex-col gap-6">
         <OAuthButtons />
-        <div className="flex items-center gap-4">
-          <span aria-hidden className="h-px flex-1 bg-border" />
-          <span className="text-body-sm text-muted-foreground">{t("form.or")}</span>
-          <span aria-hidden className="h-px flex-1 bg-border" />
-        </div>
+        <OAuthDivider />
         <SignUpForm />
         {SIGN_UP_NOTICES.map(({ Notice, key }) => (
           <Notice key={key} />

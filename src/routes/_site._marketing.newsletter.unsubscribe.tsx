@@ -30,8 +30,6 @@ import { ROUTES } from "~/src/routes"
 
 type UnsubscribeStatus = (typeof UNSUBSCRIBE_STATUS)[keyof typeof UNSUBSCRIBE_STATUS]
 
-const NAMESPACE = "pages.newsletter.unsubscribe"
-
 const NewsletterUnsubscribeResult = ({ status }: { readonly status: UnsubscribeStatus }): JSX.Element => {
   const t = useTranslations("pages.newsletter.unsubscribe")
 
@@ -88,9 +86,13 @@ const NewsletterUnsubscribePage = (): JSX.Element => {
   return <NewsletterUnsubscribeResult status={status} />
 }
 
+const NAMESPACE = "pages.newsletter.unsubscribe"
+
+const SEARCH_DEFAULTS = { status: UNSUBSCRIBE_STATUS.ERROR } as const
+
 export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")({
   validateSearch: zod.object({
-    status: searchChoice([UNSUBSCRIBE_STATUS.ERROR, UNSUBSCRIBE_STATUS.SUCCESS], UNSUBSCRIBE_STATUS.ERROR),
+    status: searchChoice([UNSUBSCRIBE_STATUS.ERROR, UNSUBSCRIBE_STATUS.SUCCESS], SEARCH_DEFAULTS.status),
     token: searchParam(newsletterSubscriberZodSchemas.unsubscribeFromNewsletter.shape.token),
   }),
   component: NewsletterUnsubscribePage,
@@ -105,6 +107,6 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")
     return { locale, metadata }
   },
   pendingComponent: NewsletterPending,
-  search: { middlewares: [stripSearchParams({ status: UNSUBSCRIBE_STATUS.ERROR })] },
+  search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },
 })

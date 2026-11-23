@@ -57,6 +57,18 @@ export const LastUsedBadge = (): JSX.Element => {
   return <Badge className="ml-auto">{t("lastUsed")}</Badge>
 }
 
+export const OAuthDivider = (): JSX.Element => {
+  const t = useTranslations("auth.oauth")
+
+  return (
+    <div className="flex items-center gap-4">
+      <span aria-hidden className="h-px flex-1 bg-border" />
+      <span className="text-body-sm text-muted-foreground">{t("or")}</span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+    </div>
+  )
+}
+
 export const OAuthButtons = ({ redirect }: { readonly redirect?: string }): JSX.Element => {
   const t = useTranslations("auth")
   const { isLastUsed } = useLastLoginMethod()

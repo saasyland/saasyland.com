@@ -40,7 +40,11 @@ const undefinedBranchBacklog = [
   "src/modules/**",
   "src/platform/**",
   "src/presentation/**",
-  "src/routes/**",
+  "src/routes/__test__/admin-orders-routes.component.test.tsx",
+  "src/routes/__test__/course-routes.component.test.tsx",
+  "src/routes/__test__/fixtures/course-pages.ts",
+  "src/routes/__test__/lesson-routes.component.test.tsx",
+  "src/routes/_site._marketing.courses.$course.$lesson.tsx",
 ]
 
 const tooling = {

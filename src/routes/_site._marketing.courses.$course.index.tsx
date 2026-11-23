@@ -40,12 +40,8 @@ const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLe
   )
 }
 
-const CourseList = ({ items, title }: { readonly items: readonly string[]; readonly title: string }): JSX.Element | undefined => {
-  if (items.length === 0) {
-    return undefined
-  }
-
-  return (
+const CourseList = ({ items, title }: { readonly items: readonly string[]; readonly title: string }): JSX.Element | false =>
+  items.length > 0 && (
     <section className="min-w-0">
       <h2 className="text-title text-foreground">{title}</h2>
       <ul className="mt-4 flex flex-col gap-3">
@@ -60,7 +56,6 @@ const CourseList = ({ items, title }: { readonly items: readonly string[]; reado
       </ul>
     </section>
   )
-}
 
 const CoursePage = (): JSX.Element => {
   const t = useTranslations("pages.courses")
@@ -130,22 +125,24 @@ const CoursePage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
+interface CourseLoaderData {
+  readonly cover: string | null
+  readonly locale: SupportedLocale
+  readonly pathname: string
+  readonly summary: string
+  readonly title: string
+}
+
 export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
   component: CoursePage,
-  head: ({
-    loaderData,
-    match,
-  }: {
-    loaderData?: { cover: string | null; locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
-    match: { error: unknown }
-  }) => {
+  head: ({ loaderData, match }: { loaderData?: CourseLoaderData | undefined; match: { error: unknown } }) => {
     if (isNotFound(match.error)) {
       return notFoundHead(getCurrentLocale())
     }
 
     return buildPageHead({
       description: loaderData?.summary,
-      image: loaderData === undefined ? undefined : courseShareImage(loaderData),
+      image: loaderData && courseShareImage(loaderData),
       locale: loaderData?.locale,
       pathname: loaderData?.pathname ?? ROUTES.COURSES,
       title: loaderData?.title,

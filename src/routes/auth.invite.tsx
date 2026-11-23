@@ -24,7 +24,7 @@ const InvitePage = (): JSX.Element => {
   const request = invitationZodSchemas.getInvitation.safeParse(Route.useSearch())
 
   if (!request.success) {
-    return <InvitationUnavailable status={undefined} />
+    return <InvitationUnavailable />
   }
 
   return <AcceptInvitation token={request.data.token} />

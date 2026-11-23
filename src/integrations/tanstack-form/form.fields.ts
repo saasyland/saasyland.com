@@ -1,4 +1,5 @@
 import type { ValidationCause } from "@tanstack/react-form"
+import * as zod from "zod"
 
 interface FieldErrorTiming {
   readonly state: { readonly meta: { readonly isBlurred: boolean; readonly isValid: boolean } }
@@ -24,13 +25,6 @@ export const validateOnBlur = ({ fieldApi }: BlurredField): void => {
   void fieldApi.validate("change")
 }
 
-export const fieldErrorMessage = (errors: readonly unknown[]): string | undefined => {
-  const [error] = errors
-  if (typeof error === "string") {
-    return error
-  }
-  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
-    return error.message
-  }
-  return undefined
-}
+const fieldErrorSchema = zod.union([zod.string(), zod.object({ message: zod.string() }).transform(({ message }) => message)])
+
+export const fieldErrorMessage = ([error]: readonly unknown[]): string | undefined => fieldErrorSchema.safeParse(error).data

@@ -13,6 +13,7 @@ import remarkMdx from "remark-mdx"
 import * as zod from "zod"
 
 import { listChangelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
+import { blog, docs } from "~/src/integrations/fumadocs/fumadocs.config"
 import { i18n } from "~/src/integrations/fumadocs/fumadocs.i18n"
 import { docsIcon } from "~/src/integrations/fumadocs/fumadocs.icons"
 import { blogSchema } from "~/src/integrations/fumadocs/fumadocs.schema"
@@ -20,8 +21,8 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { ROUTES } from "~/src/routes"
 
-export const DOCS_DIRECTORY = "content/docs"
-export const BLOG_DIRECTORY = "content/blog"
+export const DOCS_DIRECTORY = docs.docs.dir
+export const BLOG_DIRECTORY = blog.dir
 
 const DOCS_FILES = "**/*.{json,mdx}"
 const BLOG_FILES = "*.mdx"
@@ -32,6 +33,7 @@ const PARENT_BREADCRUMB_INDEX = -1
 const MDX_PLUGINS = [remarkMdx]
 
 const sectionSchema = zod.string().optional()
+const isoDateSchema = zod.union([zod.string(), zod.date().transform((date) => date.toISOString())])
 const tocSchema = zod.array(zod.object({ depth: zod.number(), title: zod.string(), url: zod.string() }))
 
 interface ContentFile {
@@ -88,8 +90,6 @@ type DocsSource = Awaited<ReturnType<typeof createDocsSource>>
 
 type BlogSource = Awaited<ReturnType<typeof createBlogSource>>
 
-const toDate = (date: Date | string): string => (typeof date === "string" ? date : date.toISOString())
-
 export const readingTimeMinutes = ({ content, locale }: { content: string; locale: SupportedLocale }): number => {
   const segmenter = new Intl.Segmenter(locale, { granularity: "word" })
   const words = structure(content, MDX_PLUGINS)
@@ -134,7 +134,7 @@ const buildBlogIndex = (source: BlogSource, locale: SupportedLocale) =>
       .toSorted((first, second) => new Date(second.data.date).getTime() - new Date(first.data.date).getTime())
       .map(async ({ data, path, url }) => ({
         author: data.author,
-        date: toDate(data.date),
+        date: isoDateSchema.parse(data.date),
         description: data.description,
         faq: data.faq,
         image: data.image,
@@ -144,7 +144,7 @@ const buildBlogIndex = (source: BlogSource, locale: SupportedLocale) =>
         tags: data.tags ?? [],
         title: data.title,
         toc: await tableOfContents(data.content),
-        updated: data.updated === undefined ? undefined : toDate(data.updated),
+        updated: isoDateSchema.optional().parse(data.updated),
         url,
       })),
   )
@@ -196,13 +196,13 @@ const buildSearchIndex = async ({ locale, root, source }: { locale: SupportedLoc
 }
 
 export const createContentIndexes = async (root: string) => {
-  const [docs, blog] = await Promise.all([createDocsSource(root), createBlogSource(root)])
+  const [docsSource, blogSource] = await Promise.all([createDocsSource(root), createBlogSource(root)])
 
   return {
-    blog: (locale: SupportedLocale) => buildBlogIndex(blog, locale),
-    docs: (locale: SupportedLocale) => buildDocsIndex(docs, locale),
+    blog: (locale: SupportedLocale) => buildBlogIndex(blogSource, locale),
+    docs: (locale: SupportedLocale) => buildDocsIndex(docsSource, locale),
     locales: I18N.SUPPORTED_LOCALES,
-    search: (locale: SupportedLocale) => buildSearchIndex({ locale, root, source: docs }),
+    search: (locale: SupportedLocale) => buildSearchIndex({ locale, root, source: docsSource }),
   }
 }
 

@@ -28,12 +28,11 @@ const pageSchema = zod.object({ locale: zod.string() })
 const runSchema = zod.object({
   GITHUB_BASE_REF: zod.string().default(""),
   GITHUB_REF: zod.string().default(""),
-  RELEASE_TAG: zod
-    .string()
-    .optional()
-    .transform((tag) => (tag === "" ? undefined : tag))
-    .pipe(zod.string().regex(RELEASE_TAG).optional()),
+  RELEASE_TAG: zod.string().regex(RELEASE_TAG).optional(),
 })
+
+const nonEmptyVariables = (variables: NodeJS.ProcessEnv): Record<string, string | undefined> =>
+  Object.fromEntries(Object.entries(variables).filter(([, value]) => value !== ""))
 
 const releaseProp = (release: string | undefined): string => (release === undefined ? "" : ` release="${release}"`)
 
@@ -52,7 +51,7 @@ export const listChangelogEntries = async ({ cwd, path, source }: { cwd: string;
 
   const { unreleased } = elementSchema.parse(element.groups)
   const { locale } = pageSchema.parse(PAGE_LOCALE.exec(path)?.groups)
-  const { GITHUB_BASE_REF, GITHUB_REF, RELEASE_TAG: upcomingRelease } = runSchema.parse(process.env)
+  const { GITHUB_BASE_REF, GITHUB_REF, RELEASE_TAG: upcomingRelease } = runSchema.parse(nonEmptyVariables(process.env))
   const changelog = await readChangelog({ cwd, locale, upcomingRelease })
   const problems = unreleasedEntryProblems({ changelog, run: { baseRef: GITHUB_BASE_REF, ref: GITHUB_REF } })
 

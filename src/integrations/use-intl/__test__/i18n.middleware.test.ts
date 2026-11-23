@@ -107,7 +107,7 @@ describe("locale cookie", () => {
     expect(parseLocaleCookie(createCookieHeader(I18N.COOKIE_NAME, "pl-PL"))).toBe("pl-PL")
   })
 
-  it.each([undefined, createCookieHeader(I18N.COOKIE_NAME, "invalid"), createCookieHeader("other", "pl-PL")])(
+  it.each([null, createCookieHeader(I18N.COOKIE_NAME, "invalid"), createCookieHeader("other", "pl-PL")])(
     "ignores a missing or unsupported locale cookie: %j",
     (cookie) => {
       expect(parseLocaleCookie(cookie)).toBeUndefined()

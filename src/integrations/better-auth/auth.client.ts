@@ -17,17 +17,4 @@ export const authClient = createAuthClient({
   ],
 })
 
-export const {
-  getLastUsedLoginMethod,
-  getSession,
-  requestPasswordReset,
-  resetPassword,
-  sendVerificationEmail,
-  signIn,
-  signOut,
-  signUp,
-  useSession,
-  verifyEmail,
-} = authClient
-
-export const { twoFactor } = authClient
+export const { getLastUsedLoginMethod, signIn } = authClient

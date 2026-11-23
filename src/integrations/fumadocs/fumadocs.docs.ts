@@ -14,11 +14,14 @@ export const loadDocsPage = async (splat = ""): Promise<DocsPage> => {
     import("~/src/presentation/components/custom/docs-content"),
     loadDocsIndex(getCurrentLocale()),
   ])
-  const page = Object.hasOwn(pages, splat) ? pages[splat] : undefined
+  const page = new Map(Object.entries(pages)).get(splat)
+
   if (page === undefined) {
     throw notFound()
   }
+
   await docsContent.preload(page.path)
+
   return page
 }
 

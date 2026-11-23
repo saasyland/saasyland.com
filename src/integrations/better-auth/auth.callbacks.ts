@@ -10,16 +10,11 @@ import { ROUTES } from "~/src/routes"
 const REFERER_HEADER = "referer"
 const REDIRECT_PARAMETER = "redirect"
 
-const refererPage = (): URL | undefined => {
+export const pageCallbackURL = (): string => {
   const request = getRequest()
   const page = URL.parse(request.headers.get(REFERER_HEADER) ?? "")
 
-  return page?.origin === new URL(request.url).origin ? page : undefined
-}
-
-export const pageCallbackURL = (): string => {
-  const page = refererPage()
-  if (page === undefined) {
+  if (page?.origin !== new URL(request.url).origin) {
     return ROUTES.AUTH_CALLBACK
   }
 

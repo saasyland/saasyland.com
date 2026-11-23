@@ -159,7 +159,8 @@ describe("getCourseEditor", () => {
       title: "Lesson",
       width: 1920,
     })
-    expect(editor.chapters[1]?.lessons[1]).toMatchObject({ format: LESSON_FORMAT.VIDEO, upload: undefined, video: null })
+    expect(editor.chapters[1]?.lessons[1]).toMatchObject({ format: LESSON_FORMAT.VIDEO, video: null })
+    expect(editor.chapters[1]?.lessons[1]).not.toHaveProperty("upload")
   })
 
   it("returns a lesson's upload with the bytes received so far", async () => {

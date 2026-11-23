@@ -49,7 +49,6 @@ const lesson = (id: string, chapterId: string, position: number): Course["editor
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": id },
   title: { "en-US": id[0]?.toUpperCase() + id.slice(1) },
-  upload: undefined,
   video: null,
 })
 

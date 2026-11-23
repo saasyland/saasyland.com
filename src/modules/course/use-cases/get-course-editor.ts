@@ -116,7 +116,7 @@ export const getCourseEditor = createServerFn({ method: "GET" })
       lessons.map(({ upload, ...entry }) =>
         Object.assign(entry, {
           attachments: attachmentsByLesson.get(entry.id) ?? [],
-          upload: upload === null ? undefined : editorUpload(upload),
+          ...(upload !== null && { upload: editorUpload(upload) }),
         }),
       ),
       (entry) => entry.chapterId,

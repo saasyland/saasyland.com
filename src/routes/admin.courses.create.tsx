@@ -12,7 +12,7 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CourseCreatePage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.create")

@@ -13,7 +13,7 @@ import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import fumadocsMessages from "~/messages/pl-PL/fumadocs.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const POLISH = "pl-PL"
 

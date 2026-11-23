@@ -15,7 +15,7 @@ import { pageHead } from "~/src/lib/seo"
 import { VerifyEmailPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { VerifyEmailForm, VerifyEmailHeading } from "~/src/presentation/components/custom/auth/verify-email-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const VerifyEmailPage = (): JSX.Element => (
   <>

@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { PASSWORD_MIN_LENGTH } from "../../src/integrations/better-auth/auth.constraints"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { BREACHED_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 

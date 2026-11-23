@@ -5,7 +5,7 @@ import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/mod
 
 import { randomHex } from "~/src/lib/hex"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const MILLISECONDS_PER_HOUR = 3_600_000
 

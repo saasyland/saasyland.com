@@ -23,7 +23,7 @@ import {
   VerifyEmailPending,
 } from "~/src/presentation/components/custom/auth/auth-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
 const TIER_SIGN_UP = `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect: `${ROUTES.APP}?${new URLSearchParams({ tier: LICENSE_TIER.COMPLETE }).toString()}` }).toString()}`

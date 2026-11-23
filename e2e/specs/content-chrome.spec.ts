@@ -8,7 +8,7 @@ import { DOCS_CONTENT_ID, SITE_CONTENT_ID } from "../../src/data/navigation.cons
 import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { APP_NAME } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 

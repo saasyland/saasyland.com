@@ -24,7 +24,7 @@ import { Navigation } from "~/src/presentation/components/custom/navigation"
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">

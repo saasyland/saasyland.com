@@ -5,7 +5,7 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import { CONTENT_TYPE, type LiveSiteCheck } from "~/src/data/live.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 

@@ -1,4 +1,4 @@
-import { AUTHORS } from "./content.routes.ts"
+import { AUTHORS } from "../areas/content.shared.ts"
 
 export const BLOG_TAG = {
   AI_AGENTS: "ai-agents",

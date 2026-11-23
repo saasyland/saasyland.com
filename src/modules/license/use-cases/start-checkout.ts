@@ -27,7 +27,7 @@ import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { trustedRequestOrigin } from "~/src/lib/request-origin"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface CheckoutTerms {
   readonly amount: number

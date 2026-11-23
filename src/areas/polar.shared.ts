@@ -1,4 +1,4 @@
-import { API_AUTH_BASE } from "~/src/data/auth.routes"
+import { API_AUTH_BASE } from "./auth.shared.ts"
 
 export const API_AUTH_POLAR = {
   CUSTOMER: "/customer/",

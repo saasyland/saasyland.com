@@ -97,6 +97,7 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
+import { UNLISTED_ROUTES } from "~/src/areas/shared"
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
@@ -124,7 +125,6 @@ import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SKILL_SOURCES } from "~/src/data/skills"
-import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"

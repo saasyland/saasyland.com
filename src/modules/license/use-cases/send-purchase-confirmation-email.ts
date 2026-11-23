@@ -28,7 +28,7 @@ import {
   type PurchaseConfirmationLinks,
   type PurchaseConfirmationStep,
 } from "~/src/presentation/emails/purchase-confirmation-email"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const COURSES_STEP_NAMESPACE = "purchase-email.courses"
 

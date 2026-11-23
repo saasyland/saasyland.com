@@ -18,7 +18,7 @@ import { SignUpOrderSummary, SignUpOrderSummaryPending } from "~/src/presentatio
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import plPricing from "~/messages/pl-PL/components.custom.pricing.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LIST_PRICE_CLASS = "pv-100"
 

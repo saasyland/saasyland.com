@@ -1,6 +1,6 @@
 import type { Locator, Page, Route } from "@playwright/test"
 
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { BADGE_INK_TOLERANCE_PX, META_ROW_TOLERANCE_PX, TITLE_GAP_TOLERANCE_PX, badgeLayout } from "../fixtures/badge-layout"
 import { expect, test } from "../fixtures/test"

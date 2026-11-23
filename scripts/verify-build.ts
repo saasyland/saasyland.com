@@ -12,12 +12,12 @@ import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import { UNLISTED_ROUTES } from "~/src/data/unlisted"
+import { UNLISTED_ROUTES } from "~/src/areas/shared"
 
 import { CLIENT_DIR } from "./prerendered-pages.ts"
 import { scriptArguments } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ASSETS_DIR = join(CLIENT_DIR, "assets")
 const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"

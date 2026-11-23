@@ -11,7 +11,7 @@ import { CONTENT_TYPE } from "~/src/data/live.constants"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, verifyDeployment } from "~/src/lib/deployment"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Provider = (typeof OAUTH_PROVIDERS)[number]["id"]
 

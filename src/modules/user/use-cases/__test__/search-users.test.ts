@@ -12,7 +12,7 @@ import { SEARCH_HITS_LIMIT } from "~/src/modules/_core/utils/search"
 import { searchUsersQuery } from "~/src/modules/user/use-cases/search-users"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ADMIN_ID = "01900000-0000-7000-8000-000000000061"
 const ADA = { email: "ada.lovelace@example.test", id: "01900000-0000-7000-8000-000000000062", name: "Ada Lovelace" }

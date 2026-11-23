@@ -5,7 +5,7 @@ import { Route as AuthRoute } from "~/src/routes/api/auth.$"
 import { createNonce } from "~/src/lib/content-security-policy"
 
 import { getRouter } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const { authHandler } = vi.hoisted(() => ({
   authHandler: vi.fn<(request: Request) => Promise<Response>>(),

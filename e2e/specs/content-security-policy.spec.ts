@@ -6,7 +6,7 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 import { documentPolicy } from "../../src/lib/content-security-policy"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 
 const [admin, customer] = TEST_ACCOUNTS
 const POLICY_HEADER = "content-security-policy"

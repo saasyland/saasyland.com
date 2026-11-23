@@ -14,7 +14,7 @@ import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-l
 import { ForgotPasswordPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ForgotPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.forgot-password")

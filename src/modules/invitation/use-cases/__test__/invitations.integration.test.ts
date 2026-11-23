@@ -32,7 +32,7 @@ import { revokeInvitationMutation } from "~/src/modules/invitation/use-cases/rev
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const INVITEE_NAME = "Invited Person"
 

@@ -12,7 +12,7 @@ import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { LegalPending } from "~/src/presentation/components/custom/legal-pending"
 import { LegalSection, LegalSections, WITHDRAWAL_TAGS } from "~/src/presentation/components/custom/legal-sections"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SECTIONS = [
   "beforeUse",

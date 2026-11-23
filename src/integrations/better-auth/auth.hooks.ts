@@ -9,7 +9,7 @@ import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~
 
 import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const passwordChange = zod.object({ newPassword: strictPasswordSchema })
 

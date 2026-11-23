@@ -26,7 +26,7 @@ import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type UnsubscribeStatus = (typeof UNSUBSCRIBE_STATUS)[keyof typeof UNSUBSCRIBE_STATUS]
 

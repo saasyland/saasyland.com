@@ -20,7 +20,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const A_MINUTE_MS = 60_000
 

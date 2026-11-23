@@ -16,7 +16,7 @@ import { buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { ResetPasswordPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { ResetPasswordForm } from "~/src/presentation/components/custom/auth/reset-password-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ResetPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password")

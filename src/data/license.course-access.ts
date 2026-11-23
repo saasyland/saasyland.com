@@ -8,7 +8,7 @@ import { recordLessonOpened } from "~/src/modules/license/use-cases/record-lesso
 import type { CourseAccessGrant, CourseAccessUse } from "~/src/data/course-access"
 import { TIER_PRICES } from "~/src/data/marketing"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const COURSE_TIERS: readonly LicenseTier[] = [LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY]
 const OFFERED_TIER = LICENSE_TIER.COMPLETE

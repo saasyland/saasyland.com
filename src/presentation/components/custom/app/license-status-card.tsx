@@ -11,7 +11,7 @@ import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/b
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const licenseStatus = (license: Pick<License["select"], "polarLicenseKeyId" | "status">): License["select"]["status"] | "pending" => {
   if (license.status !== LICENSE_STATUS.ACTIVE) {

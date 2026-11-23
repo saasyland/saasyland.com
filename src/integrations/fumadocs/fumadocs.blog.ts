@@ -7,7 +7,7 @@ import { BLOG_ARCHIVE, BLOG_HIGHLIGHTS, FEATURED_BLOG_POSTS } from "~/src/data/b
 import { formatPostText } from "~/src/lib/post-text"
 import type { PageSequence } from "~/src/lib/seo"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const toBlogPostSummary = (post: BlogPost, locale: SupportedLocale) => ({
   date: post.date,

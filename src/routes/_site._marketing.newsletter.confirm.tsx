@@ -27,7 +27,7 @@ import { BackHomeLink } from "~/src/presentation/components/custom/back-home-lin
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type ConfirmationStatus = (typeof CONFIRMATION_STATUS)[keyof typeof CONFIRMATION_STATUS]
 

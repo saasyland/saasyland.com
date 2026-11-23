@@ -16,7 +16,7 @@ import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import plAuthErrorsMessages from "~/messages/pl-PL/auth.errors.json"
 import plPagesAuthSignInMessages from "~/messages/pl-PL/pages.auth.sign-in.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGN_IN_SEGMENT = ROUTES.SIGN_IN.slice(ROUTES.AUTH.length)
 

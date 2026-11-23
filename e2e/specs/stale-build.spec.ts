@@ -3,7 +3,7 @@ import type { Locator, Page, Request, Route } from "@playwright/test"
 import errors from "../../messages/en-US/errors.global.json" with { type: "json" }
 import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"

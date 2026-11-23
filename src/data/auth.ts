@@ -4,7 +4,7 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 import { searchChoice, searchText } from "~/src/lib/search-params"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface OAuthClient {
   readonly authorizeOrigin: string

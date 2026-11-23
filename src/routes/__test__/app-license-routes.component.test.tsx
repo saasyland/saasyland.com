@@ -68,7 +68,7 @@ import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
 import ukPagesLicenseMessages from "~/messages/uk-UA/pages.license.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LICENSE_KEY = "private-purchased-license-key"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"

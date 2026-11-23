@@ -7,7 +7,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { AccountDeletionRecords } from "~/src/presentation/components/custom/account-deletion-records"
 
 import recordsMessages from "~/messages/en-US/components.custom.account-deletion-records.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const PRIVACY_TAG = /<privacy>(?<link>.*)<\/privacy>/u
 

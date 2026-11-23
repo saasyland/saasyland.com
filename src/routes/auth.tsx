@@ -13,7 +13,7 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { AuthPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AuthLayout = (): JSX.Element => {
   const t = useTranslations("auth")

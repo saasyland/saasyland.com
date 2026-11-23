@@ -4,11 +4,11 @@ import { blogArchivePath } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { BLOG_FEED, blogFeedLinks, blogFeedPath, buildBlogFeeds } from "~/src/lib/feed"
+import { BLOG_FEED_TYPE, blogFeedLinks, blogFeedPath, buildBlogFeeds } from "~/src/lib/feed"
 import type { PageHead } from "~/src/lib/page-head"
 
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const page = (locale: SupportedLocale, pathname: string, head: Partial<PageHead> = {}): PageHead => {
   const canonical = `${APP_URL}${localizePathname({ locale, pathname })}`
@@ -39,9 +39,9 @@ const NEWER = page("en-US", `${ROUTES.BLOG}/newer`, {
 describe("blog feeds", () => {
   it("writes one feed per locale at the localized feed path", () => {
     expect(buildBlogFeeds(blogIndexes).map(({ path }) => path)).toStrictEqual(
-      I18N.SUPPORTED_LOCALES.map((locale) => localizePathname({ locale, pathname: BLOG_FEED.PATH })),
+      I18N.SUPPORTED_LOCALES.map((locale) => localizePathname({ locale, pathname: ROUTES.BLOG_FEED })),
     )
-    expect(blogFeedPath("de-DE")).toBe(`/de-DE${ROUTES.BLOG}/rss.xml`)
+    expect(blogFeedPath("de-DE")).toBe(`/de-DE${ROUTES.BLOG_FEED}`)
   })
 
   it("describes the channel with the blog index of its locale and links to itself", () => {
@@ -51,7 +51,7 @@ describe("blog feeds", () => {
     expect(xml).toContain(`<link>${APP_URL}/pl-PL${ROUTES.BLOG}</link>`)
     expect(xml).toContain("<description>Notes</description>")
     expect(xml).toContain("<language>pl-PL</language>")
-    expect(xml).toContain(`<atom:link href="${APP_URL}/pl-PL${ROUTES.BLOG}/rss.xml" rel="self" type="${BLOG_FEED.TYPE}"/>`)
+    expect(xml).toContain(`<atom:link href="${APP_URL}/pl-PL${ROUTES.BLOG_FEED}" rel="self" type="${BLOG_FEED_TYPE}"/>`)
     expect(xml).not.toContain("<item>")
     expect(xml).not.toContain("<lastBuildDate>")
   })
@@ -105,7 +105,7 @@ describe("blog feeds", () => {
 describe("blog feed links", () => {
   it("names the feed of the page's locale under the blog's title", () => {
     expect(blogFeedLinks({ locale: "ja-JP", title: "ブログ" })).toStrictEqual([
-      { href: `${APP_URL}/ja-JP${ROUTES.BLOG}/rss.xml`, rel: "alternate", title: `ブログ｜${APP_NAME}`, type: BLOG_FEED.TYPE },
+      { href: `${APP_URL}/ja-JP${ROUTES.BLOG_FEED}`, rel: "alternate", title: `ブログ｜${APP_NAME}`, type: BLOG_FEED_TYPE },
     ])
   })
 

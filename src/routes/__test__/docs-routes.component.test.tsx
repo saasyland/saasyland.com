@@ -28,7 +28,7 @@ import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import contentNavigationMessages from "~/messages/en-US/navigation.content.json"
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
   tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } },

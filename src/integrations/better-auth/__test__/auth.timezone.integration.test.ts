@@ -12,7 +12,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const { host: HOST } = new URL(TEST_APP_URL)
 const PASSWORD = "TimezonePassword1!"

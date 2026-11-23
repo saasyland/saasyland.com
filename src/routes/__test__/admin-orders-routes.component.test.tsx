@@ -49,7 +49,7 @@ import customersMessages from "~/messages/en-US/pages.admin.customers.json"
 import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
 import licenseMessages from "~/messages/en-US/pages.admin.users.license.json"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
 const { detail } = ordersMessages

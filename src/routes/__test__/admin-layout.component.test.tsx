@@ -28,7 +28,7 @@ import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))

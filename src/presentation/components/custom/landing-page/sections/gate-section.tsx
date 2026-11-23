@@ -15,7 +15,7 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 import { Price } from "~/src/presentation/components/custom/pricing"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const DETAIL_DELAY_MS = 100
 const TERMS_DELAY_MS = 200

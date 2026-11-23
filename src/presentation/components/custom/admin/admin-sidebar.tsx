@@ -25,7 +25,7 @@ import { UserWidget } from "~/src/presentation/components/custom/admin/user-widg
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const isActiveUrl = (pathname: string, url: string): boolean => {
   if (url === ROUTES.ADMIN) {

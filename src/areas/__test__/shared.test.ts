@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { UNLISTED_ROUTES, isUnlistedRoute } from "~/src/data/unlisted"
-import * as AREA_UNLISTED_ROUTES from "~/src/data/unlisted.entries"
+import { UNLISTED_ROUTES, isUnlistedRoute } from "~/src/areas/shared"
+import * as AREAS from "~/src/areas/shared.entries"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 describe("UNLISTED_ROUTES", () => {
   it("joins the paths every area keeps out of prerendering, once each", () => {
-    const declared = Object.values(AREA_UNLISTED_ROUTES).flat()
+    const declared = Object.values(AREAS).flatMap(({ unlisted }) => unlisted)
 
     expect(UNLISTED_ROUTES.toSorted()).toStrictEqual(declared.toSorted())
     expect(new Set(UNLISTED_ROUTES).size).toBe(UNLISTED_ROUTES.length)

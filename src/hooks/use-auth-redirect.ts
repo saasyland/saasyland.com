@@ -6,7 +6,7 @@ import { useRouter, useRouterState } from "@tanstack/react-router"
 import { removeUserData } from "~/src/integrations/better-auth/auth.session"
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type AuthPage = typeof ROUTES.AUTH_CALLBACK | typeof ROUTES.RESET_PASSWORD | typeof ROUTES.SIGN_IN
 

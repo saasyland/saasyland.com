@@ -22,7 +22,7 @@ import { user } from "~/src/modules/user/user.schema"
 import { VERIFICATION_EMAIL_PURPOSE } from "~/src/modules/verification/verification.constants"
 
 import { APP_SLUG } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const RESEND_LIMIT = 256

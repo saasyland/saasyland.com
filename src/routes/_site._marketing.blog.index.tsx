@@ -20,7 +20,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { BLOG_ARCHIVE, BLOG_SORT, BLOG_SORTS, BLOG_TAGS } from "~/src/data/blog"
 
-import { BLOG_FEED, blogFeedPath } from "~/src/lib/feed"
+import { BLOG_FEED_TYPE, blogFeedPath } from "~/src/lib/feed"
 import { searchChoice, searchParam, searchText } from "~/src/lib/search-params"
 import { type PageLoaderData, buildBlogStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
@@ -31,7 +31,7 @@ import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post
 import { RecentPosts } from "~/src/presentation/components/custom/blog/recent-posts"
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const BlogIndexPage = (): JSX.Element => {
   const t = useTranslations("pages.blog")
@@ -55,7 +55,7 @@ const BlogIndexPage = (): JSX.Element => {
       <a
         className="mt-6 inline-flex items-center gap-2 rounded-sm py-1.5 text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         href={blogFeedPath(locale)}
-        type={BLOG_FEED.TYPE}
+        type={BLOG_FEED_TYPE}
       >
         <Rss aria-hidden className="size-3.5" strokeWidth={1.75} />
         {t("index.feed")}

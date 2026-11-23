@@ -12,7 +12,7 @@ import { user } from "~/src/modules/user/user.schema"
 import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const searchUsers = createServerFn({ method: "GET" })
   .middleware([authorized({ user: ["list"] })])

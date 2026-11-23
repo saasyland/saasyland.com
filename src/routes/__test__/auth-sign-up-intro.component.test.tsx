@@ -18,7 +18,7 @@ import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plPagesAuthSignUpMessages from "~/messages/pl-PL/pages.auth.sign-up.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SIGN_UP_SEGMENT = ROUTES.SIGN_UP.slice(ROUTES.AUTH.length)
 

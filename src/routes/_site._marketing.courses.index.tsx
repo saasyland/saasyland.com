@@ -18,7 +18,7 @@ import { CourseCard, FeaturedCourseCard } from "~/src/presentation/components/cu
 import { CataloguePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { SignInInstead, UnlockLink } from "~/src/presentation/components/custom/courses/locked-lesson"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const CompleteBand = ({ signedIn }: { readonly signedIn: boolean }): JSX.Element => {
   const t = useTranslations("pages.courses.course.unlock")

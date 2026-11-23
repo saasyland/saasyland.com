@@ -63,7 +63,7 @@ import { POLAR_CHECKOUT_DEFAULT_LANGUAGE, polarCheckoutOrigin } from "~/src/data
 import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
 const INCLUDED_VAT_RATE = 0.23

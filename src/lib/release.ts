@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process"
 import { type Changelog, type ChangelogEntry, ENTRY_ORIGIN, RELEASE_TAG, joinEntries, originOf } from "~/src/lib/changelog"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 interface GitTag {
   readonly commit: string

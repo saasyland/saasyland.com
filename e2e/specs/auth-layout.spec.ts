@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import type { BasePage } from "../pages/base-page"
 

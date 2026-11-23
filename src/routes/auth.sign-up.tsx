@@ -18,7 +18,7 @@ import { SignUpPending } from "~/src/presentation/components/custom/auth/auth-pe
 import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")

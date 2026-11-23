@@ -19,7 +19,7 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 
 const [admin] = TEST_ACCOUNTS
 const BUYER_NAME = "Withdrawing Buyer"

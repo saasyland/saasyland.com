@@ -18,7 +18,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { ContentPagePending } from "~/src/presentation/components/custom/content-page"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ROWS = Array.from({ length: BLOG_ARCHIVE.PAGE_SIZE }, (_, index) => index)
 const SIDE_POSTS = FEATURED_BLOG_POSTS.slice(1)

@@ -25,7 +25,7 @@ import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { CommandLine } from "~/src/presentation/components/custom/app/command-line"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 

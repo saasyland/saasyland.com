@@ -17,7 +17,7 @@ import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 import { AppOverviewPending } from "~/src/presentation/components/custom/app/auth-pending"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const OverviewPage = (): JSX.Element => {
   const t = useTranslations("pages.app")

@@ -19,7 +19,7 @@ import coursesStep from "~/messages/en-US/purchase-email.courses.json"
 import plMessages from "~/messages/pl-PL/emails.purchase-confirmation-email.json"
 import plCoursesStep from "~/messages/pl-PL/purchase-email.courses.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const RECIPIENT = "buyer@example.test"
 const BUYER = { email: RECIPIENT, id: "buyer-1" }

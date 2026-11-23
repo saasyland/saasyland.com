@@ -8,7 +8,7 @@ import { findSignUpIntro } from "~/src/data/sign-up-intros"
 
 import { SignUpOrderSummary, SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/sign-up-order-summary"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const tierHref = (path: string, tier: string): string => `${path}?${new URLSearchParams({ tier }).toString()}`
 

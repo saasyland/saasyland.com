@@ -1,5 +1,5 @@
 import { toMinorUnits } from "../../src/data/currencies"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_CATEGORY, TEST_PRODUCTS } from "../data/products"
 import { expect, test } from "../fixtures/auth"

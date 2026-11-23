@@ -13,7 +13,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 
 import { BREACHED_PASSWORD } from "~/e2e/data/accounts"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const STRONG_PASSWORD = "PolicyPassword123!"

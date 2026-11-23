@@ -10,7 +10,7 @@ import { polarCore } from "~/src/integrations/polar/polar.config"
 import type { AuthPluginEntry } from "~/src/data/auth-plugins"
 import { handlePolarEvent } from "~/src/data/polar-events"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const POLAR_AUTH_PLUGINS = [
   {

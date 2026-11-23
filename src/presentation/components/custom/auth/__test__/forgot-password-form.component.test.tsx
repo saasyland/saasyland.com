@@ -20,7 +20,7 @@ import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/fo
 import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import resendMessages from "~/messages/en-US/components.custom.email-link-resend.json"
 import pagesAuthForgotPasswordMessages from "~/messages/en-US/pages.auth.forgot-password.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TEST_EMAIL = "user@example.com"
 

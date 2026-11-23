@@ -4,7 +4,7 @@ import { CONTENT_TYPE, type LiveSiteCheck } from "~/src/data/live.constants"
 
 import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const ROBOTS_TXT = "/robots.txt"
 

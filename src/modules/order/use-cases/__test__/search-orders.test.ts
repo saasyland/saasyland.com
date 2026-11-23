@@ -20,7 +20,7 @@ import { order } from "~/src/modules/order/order.schema"
 import { searchOrdersQuery } from "~/src/modules/order/use-cases/search-orders"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const signInAs = (role: string): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: ADMIN_ID }))

@@ -14,7 +14,7 @@ import type { Video } from "~/src/modules/video/video.types"
 
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export type PlayerProps = ComponentProps<typeof VideoPlayer>
 

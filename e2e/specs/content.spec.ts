@@ -7,7 +7,7 @@ import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { CHANGELOG_DIRECTORY, ENTRY_ORIGIN, entryItems, originOf, readChangelog } from "../../src/lib/changelog"
 import { APP_GITHUB_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, turnOnDataSaver } from "../pages/base-page"
 

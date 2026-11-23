@@ -34,7 +34,7 @@ import { DeleteUserDialog } from "~/src/presentation/components/custom/admin/use
 import { EditUserDialog } from "~/src/presentation/components/custom/admin/users/edit-user-dialog"
 import { ResetPasswordDialog } from "~/src/presentation/components/custom/admin/users/reset-password-dialog"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type UserDialog = "ban" | "delete" | "edit" | "resetPassword"
 

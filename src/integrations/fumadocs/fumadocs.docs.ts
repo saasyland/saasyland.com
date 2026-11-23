@@ -7,7 +7,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { notFoundHead } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const loadDocsPage = async (splat = ""): Promise<DocsPage> => {
   const [{ docsContent }, { pages }] = await Promise.all([

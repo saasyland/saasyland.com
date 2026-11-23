@@ -38,7 +38,7 @@ import { RecordSection } from "~/src/presentation/components/custom/landing-page
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LandingPage = (): JSX.Element => (
   <MotionProvider>

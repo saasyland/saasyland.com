@@ -12,7 +12,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const AUTH_TEST_PASSWORD = "SecretPass1!"
 

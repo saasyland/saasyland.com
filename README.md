@@ -191,8 +191,9 @@ e2e/                             Playwright specs, the journey suite, and the se
 scripts/                         Content checks, build, deployment and release steps, seeding, video publishing, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
+  areas/                         Each area's files by the runtime that loads them: {area}.shared.ts holds its paths for every runtime
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
-  routes.ts                      Shared route constants
+  routes.ts                      ROUTES, which joins the paths of every area
   router.tsx                     Per-request QueryClient and SSR integration
   server.ts                      Cloudflare Worker entry: the areas' Worker handlers, locale middleware, and security headers
   integrations/{vendor}/         Vendor configuration and adapters ({prefix}.{concern}.ts, e.g. auth.server.ts)

@@ -16,7 +16,7 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 describe("auth email and password credentials", () => {
   it("signs up a new user with the default customer role and emails a verification link", async () => {

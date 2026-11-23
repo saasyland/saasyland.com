@@ -9,7 +9,7 @@ import { type AdminDashboardEntry, DASHBOARD_PLACEMENT } from "~/src/data/dashbo
 
 import { SignupsChartPending } from "~/src/presentation/components/custom/admin/dashboard/signups-chart-pending"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "auth"
 

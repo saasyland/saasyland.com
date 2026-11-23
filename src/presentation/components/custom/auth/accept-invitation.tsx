@@ -21,7 +21,7 @@ import { AcceptInvitationForm } from "~/src/presentation/components/custom/auth/
 import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const UNKNOWN_LINK = "invalid"
 

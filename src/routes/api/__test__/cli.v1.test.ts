@@ -10,7 +10,7 @@ import { Route as BundlesRoute } from "~/src/routes/api/cli.v1.activations.$acti
 import { Route as LicenseRoute } from "~/src/routes/api/cli.v1.license"
 
 import { getRouter } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 

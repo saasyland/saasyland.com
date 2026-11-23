@@ -28,7 +28,7 @@ import { PasswordInput } from "~/src/presentation/components/custom/auth/passwor
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const EMAIL_SUGGESTION_ID = "sign-up-email-suggestion"
 

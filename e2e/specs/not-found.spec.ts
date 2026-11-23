@@ -4,7 +4,7 @@ import type { SupportedLocale } from "../../src/integrations/use-intl/i18n.confi
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ROBOTS, buildTitle } from "../../src/lib/seo"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import enCommon from "../../messages/en-US/common.json" with { type: "json" }
 import enNotFound from "../../messages/en-US/errors.not-found.json" with { type: "json" }
 import plCommon from "../../messages/pl-PL/common.json" with { type: "json" }

@@ -14,7 +14,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
 import { user } from "~/src/modules/user/user.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const PASSWORD = "PreferencesPassword1!"
 const CHOSEN_TIMEZONE = "Asia/Tokyo"

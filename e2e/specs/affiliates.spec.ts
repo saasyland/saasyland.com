@@ -8,7 +8,7 @@ import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "../../
 import { CLI_GENERATION_VALUES } from "../../src/data/cli"
 import { FEATURE_STATUS } from "../../src/data/navigation.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import affiliates from "../../messages/en-US/pages.legal.affiliates.json" with { type: "json" }
 import navigation from "../../messages/en-US/navigation.legal.json" with { type: "json" }
 import { readWranglerEnvironment } from "../../scripts/wrangler-config"

@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages/auth-page"

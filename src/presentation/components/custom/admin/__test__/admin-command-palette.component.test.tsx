@@ -20,7 +20,7 @@ import authNavigation from "~/messages/en-US/navigation.auth.json"
 import coursesNavigation from "~/messages/en-US/navigation.courses.json"
 import paymentsNavigation from "~/messages/en-US/navigation.payments.json"
 import labels from "~/messages/en-US/pages.admin.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const copy = labels.components.commandPalette
 const RECENT_STORAGE_KEY = "admin-command-palette-recent"

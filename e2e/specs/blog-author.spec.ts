@@ -10,7 +10,7 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"

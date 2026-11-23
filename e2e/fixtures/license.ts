@@ -5,7 +5,7 @@ import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants
 import { licensePolarProduct } from "../../src/modules/license/__test__/fixtures/polar-product"
 import { LICENSE_CHECKOUT_FIELD, LICENSE_WEBHOOK_EVENTS, type LicenseTier } from "../../src/modules/license/license.constants"
 import { polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { TEST_POLAR, TEST_PRODUCT_IDS } from "../data/polar-settings"
 import { expect } from "./test"
 

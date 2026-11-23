@@ -8,7 +8,7 @@ import { useLastLoginMethod } from "~/src/hooks/use-last-login-method"
 
 import type { NavigationEntry } from "~/src/data/navigation.constants"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Workspace = typeof ROUTES.ADMIN | typeof ROUTES.APP
 

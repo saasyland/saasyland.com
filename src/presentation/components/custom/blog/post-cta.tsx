@@ -9,7 +9,7 @@ import { CTA_CLASSES } from "~/src/data/cta"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const PostCta = (): JSX.Element => {
   const t = useTranslations("pages.blog.post.cta")

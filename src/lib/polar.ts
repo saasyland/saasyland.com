@@ -22,7 +22,7 @@ import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const POLAR_PRICE_TYPE = {
   CUSTOM: "custom",

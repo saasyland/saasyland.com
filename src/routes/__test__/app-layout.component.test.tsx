@@ -43,7 +43,7 @@ import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
 import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.mutationFn>>>
 
@@ -65,7 +65,7 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
 })
 vi.mock("~/src/data/app-badges.entries", async () => {
-  const { ROUTES: PATHS } = await import("~/src/routes")
+  const PATHS = await import("~/src/routes")
   return { TEST_APP_BADGES: [{ Badge: () => <span>{SETTINGS_BADGE}</span>, to: PATHS.APP_SETTINGS }] }
 })
 vi.mock("~/src/data/app-overview.entries", () => ({

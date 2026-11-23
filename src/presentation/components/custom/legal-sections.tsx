@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const LINK_CLASS =
   "text-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

@@ -14,7 +14,7 @@ import { TwoFactorForm } from "~/src/presentation/components/custom/auth/two-fac
 
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthTwoFactorMessages from "~/messages/en-US/pages.auth.two-factor.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const verifyTotp = vi.hoisted(() => vi.fn())
 const verifyBackupCode = vi.hoisted(() => vi.fn())

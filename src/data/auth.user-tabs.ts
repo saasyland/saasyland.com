@@ -1,6 +1,6 @@
 import type { UserTab } from "~/src/data/user-tabs"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const AREA = "auth"
 

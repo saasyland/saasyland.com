@@ -14,7 +14,7 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const searchLessons = createServerFn({ method: "GET" })
   .middleware([authorized({ course: ["read"] })])

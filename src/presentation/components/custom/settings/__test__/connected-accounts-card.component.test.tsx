@@ -29,7 +29,7 @@ import { ConnectedAccountsCard } from "~/src/presentation/components/custom/sett
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type Linked = Awaited<ReturnType<typeof AuthClient.authClient.linkSocial>>
 type Unlinked = Awaited<ReturnType<NonNullable<typeof UnlinkAccountUseCase.unlinkAccountMutation.mutationFn>>>

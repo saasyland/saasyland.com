@@ -17,7 +17,7 @@ import { UserRowActions } from "~/src/presentation/components/custom/admin/users
 import { USER_GRID_ID, useUserColumns } from "~/src/presentation/components/custom/admin/users/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const UsersAllPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.users.table")

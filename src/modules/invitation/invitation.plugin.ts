@@ -13,7 +13,7 @@ import { invitationZodSchemas } from "~/src/modules/invitation/invitation.zod"
 
 import { sha256Hex } from "~/src/lib/hex"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const PLUGIN_ID = "invitation"
 

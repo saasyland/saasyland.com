@@ -20,7 +20,7 @@ import { OAuthButtons, OAuthLinks } from "~/src/presentation/components/custom/a
 
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const [githubProvider, googleProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)

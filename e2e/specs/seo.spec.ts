@@ -8,12 +8,12 @@ import { BLOG_ARCHIVE } from "../../src/data/blog"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import { BLOG_FEED, blogFeedPath } from "../../src/lib/feed"
+import { BLOG_FEED_TYPE, blogFeedPath } from "../../src/lib/feed"
 import { readPageHead } from "../../src/lib/page-head"
 import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"
@@ -108,7 +108,7 @@ for (const path of [ROUTES.BLOG, BLOG_POST, `/ja-JP${ROUTES.BLOG}`, `/ja-JP${BLO
     await page.goto(path)
     const locale = path.startsWith("/ja-JP") ? "ja-JP" : I18N.DEFAULT_LOCALE
 
-    await expect(page.locator(`head > link[rel="alternate"][type="${BLOG_FEED.TYPE}"]`)).toHaveAttribute("href", `${APP_URL}${blogFeedPath(locale)}`)
+    await expect(page.locator(`head > link[rel="alternate"][type="${BLOG_FEED_TYPE}"]`)).toHaveAttribute("href", `${APP_URL}${blogFeedPath(locale)}`)
   })
 }
 

@@ -15,7 +15,7 @@ import { user } from "~/src/modules/user/user.schema"
 import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY } from "~/src/modules/withdrawal/withdrawal.constants"
 import { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const DELIVERED_AT = new Date("2026-11-02T10:00:00Z")
 const LESSON_OPENED_AT = new Date("2026-11-03T10:00:00Z")

@@ -5,7 +5,7 @@ import type { Page } from "@playwright/test"
 
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { APP_URL } from "../../src/presentation/branding"
-import { ROUTES } from "../../src/routes"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`

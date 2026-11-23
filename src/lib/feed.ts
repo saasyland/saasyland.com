@@ -8,12 +8,9 @@ import { buildTitle } from "~/src/lib/seo"
 import { escapeXml } from "~/src/lib/sitemap"
 
 import { APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
-export const BLOG_FEED = {
-  PATH: `${ROUTES.BLOG}/rss.xml`,
-  TYPE: "application/rss+xml",
-} as const
+export const BLOG_FEED_TYPE = "application/rss+xml"
 
 const ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
 const DUBLIN_CORE_NAMESPACE = "http://purl.org/dc/elements/1.1/"
@@ -27,7 +24,7 @@ export interface BlogFeed {
 
 type FeedPost = PageHead & { readonly published: string }
 
-export const blogFeedPath = (locale: SupportedLocale): string => localizePathname({ locale, pathname: BLOG_FEED.PATH })
+export const blogFeedPath = (locale: SupportedLocale): string => localizePathname({ locale, pathname: ROUTES.BLOG_FEED })
 
 export const blogFeedLinks = (blog: { readonly locale: SupportedLocale; readonly title: string } | undefined) => {
   if (blog === undefined) {
@@ -36,7 +33,7 @@ export const blogFeedLinks = (blog: { readonly locale: SupportedLocale; readonly
 
   const { locale, title } = blog
 
-  return [{ href: `${APP_URL}${blogFeedPath(locale)}`, rel: "alternate", title: buildTitle({ locale, title }), type: BLOG_FEED.TYPE }]
+  return [{ href: `${APP_URL}${blogFeedPath(locale)}`, rel: "alternate", title: buildTitle({ locale, title }), type: BLOG_FEED_TYPE }]
 }
 
 const pathOf = ({ canonical }: Pick<PageHead, "canonical">): string => deLocalizePathname(new URL(canonical).pathname)
@@ -80,7 +77,7 @@ const buildFeed = ({ index, locale, posts }: { index: PageHead; locale: Supporte
     `    <link>${escapeXml(index.canonical)}</link>`,
     `    <description>${escapeXml(index.description ?? "")}</description>`,
     `    <language>${locale}</language>`,
-    `    <atom:link href="${escapeXml(`${APP_URL}${blogFeedPath(locale)}`)}" rel="self" type="${BLOG_FEED.TYPE}"/>`,
+    `    <atom:link href="${escapeXml(`${APP_URL}${blogFeedPath(locale)}`)}" rel="self" type="${BLOG_FEED_TYPE}"/>`,
     ...(newest === undefined ? [] : [`    <lastBuildDate>${toRfc822(newest)}</lastBuildDate>`]),
     ...posts.toSorted((first, second) => second.published.localeCompare(first.published)).map((post) => itemXml(post)),
     "  </channel>",

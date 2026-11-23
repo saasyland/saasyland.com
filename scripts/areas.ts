@@ -25,7 +25,7 @@ export interface AreaFootprint {
   readonly requires: readonly Area[]
 }
 
-const areaData = (area: Area): string => `{src,e2e}/data/**/${area}.*`
+const areaData = (area: Area): string => `{src/areas,src/data,e2e/data}/**/${area}.*`
 
 const areaMessages = (area: Area): string => `messages/*/*.${area}.json`
 

@@ -12,7 +12,7 @@ import { pageHead } from "~/src/lib/seo"
 import { TwoFactorPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { TwoFactorForm } from "~/src/presentation/components/custom/auth/two-factor-form"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 const TwoFactorPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.two-factor")

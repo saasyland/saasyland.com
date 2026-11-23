@@ -41,7 +41,7 @@ import pagesAuthResetPasswordMessages from "~/messages/en-US/pages.auth.reset-pa
 import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 type SonnerTitle = (() => ReactNode) | ReactNode
 type ToastMethod = (message: SonnerTitle, data?: ExternalToast) => string | number

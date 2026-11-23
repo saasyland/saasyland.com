@@ -13,7 +13,7 @@ import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 
-import { ROUTES } from "~/src/routes"
+import * as ROUTES from "~/src/routes"
 
 export const searchCourses = createServerFn({ method: "GET" })
   .middleware([authorized({ course: ["read"] })])

@@ -55,6 +55,7 @@ import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
 import { Route as AdminUsersCustomersRouteImport } from './routes/admin.users.customers'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppSettingsDeleteAccountRouteImport } from './routes/app.settings_.delete-account'
+import { Route as SiteMarketingAuthorsAuthorRouteImport } from './routes/_site._marketing.authors.$author'
 import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
 import { Route as SiteMarketingBlogSplatRouteImport } from './routes/_site._marketing.blog.$'
 import { Route as SiteMarketingCoursesIndexRouteImport } from './routes/_site._marketing.courses.index'
@@ -298,6 +299,12 @@ const AppSettingsDeleteAccountRoute =
     path: '/settings/delete-account',
     getParentRoute: () => AppRoute,
   } as any)
+const SiteMarketingAuthorsAuthorRoute =
+  SiteMarketingAuthorsAuthorRouteImport.update({
+    id: '/authors/$author',
+    path: '/authors/$author',
+    getParentRoute: () => SiteMarketingRoute,
+  } as any)
 const SiteMarketingBlogIndexRoute = SiteMarketingBlogIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -418,6 +425,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/authors/$author': typeof SiteMarketingAuthorsAuthorRoute
   '/blog/$': typeof SiteMarketingBlogSplatRoute
   '/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
   '/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
@@ -470,6 +478,7 @@ export interface FileRoutesByTo {
   '/admin/orders': typeof AdminOrdersIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
+  '/authors/$author': typeof SiteMarketingAuthorsAuthorRoute
   '/blog/$': typeof SiteMarketingBlogSplatRoute
   '/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
   '/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
@@ -532,6 +541,7 @@ export interface FileRoutesById {
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/_site/_marketing/authors/$author': typeof SiteMarketingAuthorsAuthorRoute
   '/_site/_marketing/blog/$': typeof SiteMarketingBlogSplatRoute
   '/_site/_marketing/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
   '/_site/_marketing/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
@@ -593,6 +603,7 @@ export interface FileRouteTypes {
     | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
+    | '/authors/$author'
     | '/blog/$'
     | '/newsletter/confirm'
     | '/newsletter/unsubscribe'
@@ -645,6 +656,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/products'
     | '/admin/users'
+    | '/authors/$author'
     | '/blog/$'
     | '/newsletter/confirm'
     | '/newsletter/unsubscribe'
@@ -706,6 +718,7 @@ export interface FileRouteTypes {
     | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
+    | '/_site/_marketing/authors/$author'
     | '/_site/_marketing/blog/$'
     | '/_site/_marketing/newsletter/confirm'
     | '/_site/_marketing/newsletter/unsubscribe'
@@ -1056,6 +1069,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsDeleteAccountRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_site/_marketing/authors/$author': {
+      id: '/_site/_marketing/authors/$author'
+      path: '/authors/$author'
+      fullPath: '/authors/$author'
+      preLoaderRoute: typeof SiteMarketingAuthorsAuthorRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
     '/_site/_marketing/blog/': {
       id: '/_site/_marketing/blog/'
       path: '/'
@@ -1191,6 +1211,7 @@ interface SiteMarketingRouteChildren {
   SiteMarketingTermsRoute: typeof SiteMarketingTermsRoute
   SiteMarketingWithdrawalRoute: typeof SiteMarketingWithdrawalRoute
   SiteMarketingIndexRoute: typeof SiteMarketingIndexRoute
+  SiteMarketingAuthorsAuthorRoute: typeof SiteMarketingAuthorsAuthorRoute
   SiteMarketingNewsletterConfirmRoute: typeof SiteMarketingNewsletterConfirmRoute
   SiteMarketingNewsletterUnsubscribeRoute: typeof SiteMarketingNewsletterUnsubscribeRoute
 }
@@ -1206,6 +1227,7 @@ const SiteMarketingRouteChildren: SiteMarketingRouteChildren = {
   SiteMarketingTermsRoute: SiteMarketingTermsRoute,
   SiteMarketingWithdrawalRoute: SiteMarketingWithdrawalRoute,
   SiteMarketingIndexRoute: SiteMarketingIndexRoute,
+  SiteMarketingAuthorsAuthorRoute: SiteMarketingAuthorsAuthorRoute,
   SiteMarketingNewsletterConfirmRoute: SiteMarketingNewsletterConfirmRoute,
   SiteMarketingNewsletterUnsubscribeRoute:
     SiteMarketingNewsletterUnsubscribeRoute,

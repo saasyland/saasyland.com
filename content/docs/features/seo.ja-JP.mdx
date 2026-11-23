@@ -12,7 +12,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 - タイトル（言語ごとの区切り文字と `APP_NAME` 付き）、説明、正規 URL、そしてすべての言語と `x-default` に対する `hreflang` 付きの `alternate` リンク
 - 連続するページの 1 つでは、前後のページへの `rel="prev"` と `rel="next"` のリンク（`sequence`）。ブログのアーカイブの各ページは、最初のページのアドレスではなく自身のアドレスを正規 URL として示し、前後のページにリンクします
 - Open Graph: `og:site_name`、`og:title`（Open Graph の想定どおり、サイト名を含まないページタイトル）、`og:description`、`og:type`、`og:url`、`og:locale`、そしてセクションに属するページでは `article:section`
-- ブログ記事では、フロントマターの `date` と `updated` から作る `article:published_time` と `article:modified_time`、そして `author` から作る `author` メタタグと、記事が執筆者のプロフィールを指定している場合はそのプロフィールを示す `article:author`
+- ブログ記事では、フロントマターの `date` と `updated` から作る `article:published_time` と `article:modified_time`、そして `author` から作る、執筆者の名前を入れた `author` メタタグと、ページの言語での執筆者のページの URL を入れた `article:author`
 - ソーシャル画像: `og:image`、`og:image:type`、`og:image:width` と `og:image:height`（<RepositoryFact name="socialImageWidth" /> × <RepositoryFact name="socialImageHeight" /> ピクセル）、`og:image:alt`、そして `summary_large_image` に設定した `twitter:card`、`twitter:title`、`twitter:description`、`twitter:image`、`twitter:image:alt`
 
 ルートの head は名前またはプロパティごとにタグを 1 つしか保持しません。そのため、ブログ記事のタグを並べる `article:tag` のようなリストは記事ページ自身が描画し、React がそれらのタグをドキュメントの head に配置します。同じ理由で、ルートルートはほかの言語の `og:locale:alternate` をドキュメント自体に追加します。ルートルートは `robots` ディレクティブも設定します。`production` ビルドでは `ROBOTS.FULL_PREVIEWS` を設定し、検索エンジンが大きな画像プレビューと完全なスニペットを表示できるようにします。それ以外のすべてのビルドモードでは `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）を設定し、プレビューとテストのデプロイが検索結果に表示されないようにします。
@@ -26,7 +26,8 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 `src/lib/seo.ts` は、検索エンジンにサイトを説明する JSON-LD も書き出します。JSON-LD のスクリプトはすべて `<` をエスケープしてシリアライズするため、どの値も `script` 要素を閉じられません。
 
 - ホームページは `ORGANIZATION_STRUCTURED_DATA_HTML` で組織を説明します。これは `APP_NAME`、`APP_URL`、`CONTACT_EMAIL`、`ORGANIZATION_LOGO.PATH` にあるロゴを持つ `Organization` で、`sameAs` には他のサイトにある組織のプロフィール、`APP_GITHUB_OWNER_URL` と `APP_INSTAGRAM_URL` が入ります。`sameAs` に挙げるのは組織自身のプロフィールなので、リポジトリではなく GitHub の組織を指します。Google はこの情報をホームページから読み取るため、ほかのページでは繰り返しません。
-- ブログ記事は、`BlogPosting`、`BreadcrumbList`、そしてフロントマターに `faq` の項目がある場合は `FAQPage` を追加します（`buildBlogPostStructuredDataHtml`）。[ブログ](/docs/features/blog)を参照してください。`BlogPosting` には、見出し、説明、`BLOG_COVER` のサイズの `ImageObject` としてのカバー画像、日付、`inLanguage` としての言語、`keywords` としてのその言語でのタグ、フロントマターが指定する `url` と `image` を持つ `Person` としての執筆者、そしてロゴを含めた組織が `publisher` として入ります。パンくずリストは、ページの言語の URL とブログのタイトルで、`APP_NAME` からブログを経て記事へとたどります。
+- ブログ記事は、`BlogPosting`、`BreadcrumbList`、そしてフロントマターに `faq` の項目がある場合は `FAQPage` を追加します（`buildBlogPostStructuredDataHtml`）。[ブログ](/docs/features/blog)を参照してください。`BlogPosting` には、見出し、説明、`BLOG_COVER` のサイズの `ImageObject` としてのカバー画像、日付、`inLanguage` としての言語、`keywords` としてのその言語でのタグ、同じグラフの `Person` ノードへの参照としての執筆者、そしてロゴを含めた組織が `publisher` として入ります。`Person` は `BLOG_AUTHORS` と記事のメッセージから作られ、名前、`jobTitle` としての役職、`image` としての写真、`url` としてのページの言語での執筆者のページ、そこに `#person` を付けた `@id`、`sameAs` としての執筆者のプロフィールを持ちます。パンくずリストは、ページの言語の URL とブログのタイトルで、`APP_NAME` からブログを経て記事へとたどります。
+- 執筆者のページ `/authors/<id>` は、名前、説明、言語を持ち、`mainEntity` が同じ `Person` である `ProfilePage` を追加します（`buildAuthorStructuredDataHtml`）。そのため、すべての記事の `author` とプロフィールは 1 つのノードを指します。[ブログ](/docs/features/blog#authors)を参照してください。
 - ブログの一覧は、名前、説明、言語、発行者を持つ `Blog` を追加し、その言語で公開済みのすべての記事を、見出し、URL、公開日を持つ `BlogPosting` として列挙し、最初のページの記事を `ItemList` として列挙します（`buildBlogStructuredDataHtml`）。
 - ブログのアーカイブの 2 ページ目以降の各ページ `/blog/page/<n>` は、`Blog` の一部である `CollectionPage`、アーカイブ全体を通して番号を振った `ItemList` としてのそのページの記事、そして `APP_NAME` からブログを経てそのページへとたどる `BreadcrumbList` を追加します（`buildBlogArchiveStructuredDataHtml`）。[ブログ](/docs/features/blog#routes)を参照してください。
 

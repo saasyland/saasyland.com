@@ -29,4 +29,5 @@ export const CONTENT_PAGES = [
   { path: "/blog" },
   { path: "/blog/page/2" },
   { path: "/blog/ai-coding-agents-repository-readiness" },
+  { path: "/authors/piotr-borowiecki" },
 ] as const satisfies readonly PageEntry[]

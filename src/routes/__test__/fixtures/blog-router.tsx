@@ -12,12 +12,13 @@ import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.uti
 
 import { Route as SiteRoute } from "~/src/routes/_site"
 import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as AuthorRoute } from "~/src/routes/_site._marketing.authors.$author"
 import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
 import { Route as BlogArchiveRoute } from "~/src/routes/_site._marketing.blog.page.$page"
 
-import { BLOG_ARCHIVE, BLOG_TAG } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_TAG } from "~/src/data/blog"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import type { RouterContext } from "~/src/router"
@@ -38,9 +39,7 @@ export const RELATED: BlogPostSummary = {
 }
 
 export const GUIDE: BlogPost = {
-  authorImage: "/images/blog/authors/ada.webp",
-  authorName: "Ada",
-  authorUrl: "https://github.com/ada",
+  author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
   date: "2026-09-01",
   description: "Article description",
   faq: undefined,
@@ -61,8 +60,6 @@ export const GUIDE: BlogPost = {
 
 export const POLISH_GUIDE: BlogPost = {
   ...GUIDE,
-  authorImage: undefined,
-  authorUrl: undefined,
   path: "guide.pl-PL.mdx",
   related: [],
   summary: undefined,
@@ -89,8 +86,11 @@ export type BlogIndexData = typeof BlogIndexRoute.types.loaderData
 
 export type BlogArchiveData = typeof BlogArchiveRoute.types.loaderData
 
+export type AuthorData = typeof AuthorRoute.types.loaderData
+
 export const createBlogRouter = ({
   archive,
+  author,
   index,
   locale,
   path,
@@ -99,6 +99,7 @@ export const createBlogRouter = ({
   rail,
 }: {
   archive: Partial<BlogArchiveData>
+  author: Partial<AuthorData>
   index: Partial<BlogIndexData>
   locale: SupportedLocale
   path: string
@@ -149,8 +150,20 @@ export const createBlogRouter = ({
     loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post, posts: rail, section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
+  Object.assign(AuthorRoute.options, {
+    getParentRoute: () => MarketingRoute,
+    id: "/authors/$author",
+    loader: (): AuthorData => ({
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+      description: pagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI].bio,
+      locale,
+      posts,
+      ...author,
+    }),
+    path: "/authors/$author",
+  })
   const blog = BlogRoute.addChildren([BlogIndexRoute, BlogArchiveRoute, BlogPostRoute])
-  const site = SiteRoute.addChildren([MarketingRoute.addChildren([blog])])
+  const site = SiteRoute.addChildren([MarketingRoute.addChildren([blog, AuthorRoute])])
   return createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
@@ -162,6 +175,7 @@ export const createBlogRouter = ({
 
 export const renderBlog = async ({
   archive = {},
+  author = {},
   index = {},
   locale,
   path,
@@ -173,6 +187,7 @@ export const renderBlog = async ({
   ],
 }: {
   archive?: Partial<BlogArchiveData>
+  author?: Partial<AuthorData>
   index?: Partial<BlogIndexData>
   locale: SupportedLocale
   path: string
@@ -181,7 +196,7 @@ export const renderBlog = async ({
   rail?: { title: string; url: string }[]
 }) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
-  const router = createBlogRouter({ archive, index, locale, path, post, posts, rail })
+  const router = createBlogRouter({ archive, author, index, locale, path, post, posts, rail })
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>

@@ -14,15 +14,13 @@ import {
 } from "~/src/integrations/fumadocs/fumadocs.blog"
 import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 
-import { BLOG_ARCHIVE, BLOG_HIGHLIGHTS, BLOG_TAG, FEATURED_BLOG_POSTS } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_HIGHLIGHTS, BLOG_TAG, FEATURED_BLOG_POSTS } from "~/src/data/blog"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { ROUTES } from "~/src/routes"
 
 const POST: BlogPost = {
-  authorImage: undefined,
-  authorName: "Ada",
-  authorUrl: undefined,
+  author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
   date: "2026-09-01",
   description: undefined,
   faq: undefined,

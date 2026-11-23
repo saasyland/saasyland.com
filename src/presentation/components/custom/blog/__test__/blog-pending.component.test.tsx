@@ -1,4 +1,4 @@
-import { cleanup } from "@testing-library/react"
+import { cleanup, render } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
@@ -7,7 +7,15 @@ import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { BlogArchivePending, BlogIndexPending, BlogPending, BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
+import { AUTHOR_PROFILE } from "~/src/data/blog"
+
+import {
+  AuthorPending,
+  BlogArchivePending,
+  BlogIndexPending,
+  BlogPending,
+  BlogPostPending,
+} from "~/src/presentation/components/custom/blog/blog-pending"
 
 afterEach(cleanup)
 
@@ -29,5 +37,15 @@ describe("path-aware skeletons", () => {
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
     expect(busyMarkup(container)).toBe(page)
+  })
+})
+
+describe("the author page skeleton", () => {
+  it("mirrors the author's introduction and the list of posts", () => {
+    const { container } = render(<AuthorPending />)
+
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(container.querySelectorAll(".rounded-full")).toHaveLength(1)
+    expect(container.querySelectorAll(".size-9")).toHaveLength(Object.values(AUTHOR_PROFILE).length)
   })
 })

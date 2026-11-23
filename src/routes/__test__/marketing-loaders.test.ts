@@ -10,10 +10,11 @@ import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { Route as SiteRoute } from "~/src/routes/_site"
 import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
 import { Route as NotFoundRoute } from "~/src/routes/_site._marketing.$"
+import { Route as AuthorRoute } from "~/src/routes/_site._marketing.authors.$author"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 import { Route as BlogArchiveRoute } from "~/src/routes/_site._marketing.blog.page.$page"
 
-import { BLOG_ARCHIVE, BLOG_TAG } from "~/src/data/blog"
+import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_AUTHORS, BLOG_TAG } from "~/src/data/blog"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -35,7 +36,7 @@ import { ROUTES } from "~/src/routes"
 const { loadBlogIndex } = await vi.hoisted(async () => {
   const blog = await import("~/src/data/blog")
   const base = {
-    authorName: "Ada",
+    author: blog.BLOG_AUTHOR.PIOTR_BOROWIECKI,
     date: "2026-09-01",
     faq: undefined,
     image: undefined,
@@ -56,8 +57,6 @@ const { loadBlogIndex } = await vi.hoisted(async () => {
       post("recent", { date: "2026-09-02", title: "Recent" }),
       post("older", { title: "Older" }),
       post("complete", {
-        authorImage: "/images/blog/authors/ada.webp",
-        authorUrl: "https://github.com/ada",
         date: "2025-06-01",
         description: "Article description",
         faq: [{ answer: "Because.", question: "Why?" }],
@@ -70,7 +69,7 @@ const { loadBlogIndex } = await vi.hoisted(async () => {
         updated: "2025-07-01",
       }),
       post(blog.FEATURED_BLOG_POSTS[0], { date: "2025-01-01", title: "Featured" }),
-      post("minimal", { authorName: " ", date: "2024-01-01", summary: undefined, tags: [], title: "Minimal" }),
+      post("minimal", { date: "2024-01-01", summary: undefined, tags: [], title: "Minimal" }),
     ],
     "fr-FR": Array.from({ length: blog.BLOG_ARCHIVE.PAGE_SIZE + 1 }, (_, index) =>
       post(`article-${String(index + 1)}`, { title: `Article ${String(index + 1)}` }, "fr-FR"),
@@ -259,9 +258,7 @@ describe("blog post loader", () => {
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "en-US",
       post: {
-        authorImage: "/images/blog/authors/ada.webp",
-        authorName: "Ada",
-        authorUrl: "https://github.com/ada",
+        author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
         description: "Article description",
         faq: [{ answer: "Because.", question: "Why?" }],
         image: "/article.webp",
@@ -281,10 +278,10 @@ describe("blog post loader", () => {
       expect.arrayContaining([
         { content: pagesBlogMessages.metadata.title, property: "article:section" },
         { content: "Article description", name: "description" },
-        { content: "Ada", name: "author" },
+        { content: BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI].name, name: "author" },
         { content: "2025-06-01T00:00:00.000Z", property: "article:published_time" },
         { content: "2025-07-01T00:00:00.000Z", property: "article:modified_time" },
-        { content: "https://github.com/ada", property: "article:author" },
+        { content: `${APP_URL}${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`, property: "article:author" },
       ]),
     )
   })
@@ -363,5 +360,42 @@ describe("blog post loader", () => {
       post: { title: "Przewodnik", url: "/pl-PL/blog/guide" },
       posts: [{ title: "Przewodnik", url: "/pl-PL/blog/guide" }],
     })
+  })
+})
+
+describe("author loader", () => {
+  it("loads the author with every post of the page's language by that author", async () => {
+    const router = await load(`/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`)
+    const author = router.state.matches.find((match) => match.routeId === AuthorRoute.id)
+
+    expect(author?.loaderData).toMatchObject({
+      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+      description: plPagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI].bio,
+      locale: "pl-PL",
+      posts: [{ title: "Przewodnik", url: "/pl-PL/blog/guide" }],
+    })
+    expect(author?.meta).toStrictEqual(
+      expect.arrayContaining([
+        { title: buildTitle({ locale: "pl-PL", title: BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI].name }) },
+        { content: plPagesBlogMessages.authors[BLOG_AUTHOR.PIOTR_BOROWIECKI].bio, name: "description" },
+        { content: "profile", property: "og:type" },
+        { content: `${APP_URL}/pl-PL${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`, property: "og:url" },
+      ]),
+    )
+  })
+
+  it("lists no posts in a language the author has not published in", async () => {
+    const router = await load(`/de-DE${ROUTES.AUTHORS}/${BLOG_AUTHOR.PIOTR_BOROWIECKI}`)
+    const author = router.state.matches.find((match) => match.routeId === AuthorRoute.id)
+
+    expect(author?.loaderData).toMatchObject({ author: BLOG_AUTHOR.PIOTR_BOROWIECKI, locale: "de-DE", posts: [] })
+  })
+
+  it("answers an author the blog does not know as not found", async () => {
+    const router = await load(`${ROUTES.AUTHORS}/someone-else`)
+    const author = router.state.matches.find((match) => match.routeId === AuthorRoute.id)
+
+    expect(author?.status).toBe("notFound")
+    expect(author?.meta).toStrictEqual(NOT_FOUND_META)
   })
 })

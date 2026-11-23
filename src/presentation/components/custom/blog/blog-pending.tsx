@@ -4,7 +4,15 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { BLOG_ARCHIVE, BLOG_FINDER_CLASSES, BLOG_FINDER_TOPICS, BLOG_HIGHLIGHTS, BLOG_SORTS, FEATURED_BLOG_POSTS } from "~/src/data/blog"
+import {
+  AUTHOR_PROFILE,
+  BLOG_ARCHIVE,
+  BLOG_FINDER_CLASSES,
+  BLOG_FINDER_TOPICS,
+  BLOG_HIGHLIGHTS,
+  BLOG_SORTS,
+  FEATURED_BLOG_POSTS,
+} from "~/src/data/blog"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -21,6 +29,7 @@ const PARAGRAPHS = ["first", "second", "third", "fourth"] as const
 const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as const
 const RAIL_POSTS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"] as const
 const SHARE_CONTROLS = ["copy", "x", "linkedin", "bluesky", "hackerNews", "reddit", "email", "native"] as const
+const AUTHOR_PROFILES = Object.values(AUTHOR_PROFILE)
 const ARCHIVE_PREFIX = `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 
 const FeedLinkPending = (): JSX.Element => (
@@ -196,6 +205,41 @@ export const BlogArchivePending = (): JSX.Element => (
       </div>
     </PostFinderLayoutPending>
   </ContentPagePending>
+)
+
+export const AuthorPending = (): JSX.Element => (
+  <section aria-busy="true" className="relative">
+    <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
+      <Skeleton className="h-lh w-24 scale-y-70 text-label" />
+
+      <div className="mt-10 flex flex-col gap-8 md:flex-row md:items-start md:gap-12">
+        <Skeleton className="size-28 shrink-0 rounded-full md:size-36" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <LabelPending />
+          <Skeleton className="mt-3 h-lh w-full max-w-[14ch] scale-y-75 text-display-gate" />
+          <Skeleton className="mt-4 h-lh w-full max-w-[36ch] scale-y-70 text-statement" />
+          <div className="mt-5 flex max-w-[62ch] flex-col text-lead">
+            <Skeleton className="h-lh w-full scale-y-70" />
+            <Skeleton className="h-lh w-full scale-y-70" />
+            <Skeleton className="h-lh w-2/5 scale-y-70" />
+          </div>
+          <div className="mt-6 flex items-center gap-1">
+            {AUTHOR_PROFILES.map((profile) => (
+              <Skeleton className="size-9 rounded-md" key={profile} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-20 border-t border-border pt-16 md:mt-28 md:pt-20">
+        <div className="flex items-baseline justify-between gap-6">
+          <Skeleton className="h-lh w-64 max-w-full scale-y-75 text-headline-support" />
+          <Skeleton className="h-lh w-16 scale-y-70 text-spec" />
+        </div>
+        <PostRowsPending className="mt-10" />
+      </div>
+    </div>
+  </section>
 )
 
 export const BlogPostPending = (): JSX.Element => (

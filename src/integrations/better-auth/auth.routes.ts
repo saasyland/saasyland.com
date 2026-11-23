@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { type ParsedLocation, redirect } from "@tanstack/react-router"
+import { type AnyRouteMatch, type ParsedLocation, redirect } from "@tanstack/react-router"
 import * as zod from "zod"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
@@ -22,7 +22,7 @@ interface AuthRouteContext {
   context: RouterContext
 }
 
-interface ProtectedRouteContext extends AuthRouteContext {
+interface ProtectedRouteContext extends AuthRouteContext, Pick<AnyRouteMatch, "cause"> {
   location: Pick<ParsedLocation, "publicHref">
 }
 
@@ -63,8 +63,13 @@ const goToRedirectOrWorkspace = (search: AuthSearch, role: string | null | undef
   throw redirect({ replace: true, to: isAdmin(role) ? ROUTES.ADMIN : ROUTES.APP })
 }
 
-const requireSession = async (context: AuthRouteContext, search: AuthSearch, { fresh }: { fresh: boolean }) => {
-  const hadSession = context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)?.user !== undefined || hasSessionCookie()
+const requireSession = async (
+  context: AuthRouteContext,
+  search: AuthSearch,
+  { admitted, fresh }: { admitted: boolean; fresh: boolean },
+) => {
+  const hadSession =
+    admitted || context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)?.user !== undefined || hasSessionCookie()
   const session = await loadRouteSession(context, { fresh })
   if (!session) {
     return signInFirst(hadSession ? { ...search, error: SESSION_EXPIRED_CODE } : search)
@@ -87,7 +92,7 @@ export const redirectIfVerified = async (context: AuthPageContext): Promise<void
 }
 
 export const requireSignedIn = async (context: ProtectedRouteContext) => ({
-  session: await requireSession(context, { redirect: context.location.publicHref }, { fresh: false }),
+  session: await requireSession(context, { redirect: context.location.publicHref }, { admitted: context.cause === "stay", fresh: false }),
 })
 
 export const requireAdmin = async (context: ProtectedRouteContext) => {
@@ -99,7 +104,7 @@ export const requireAdmin = async (context: ProtectedRouteContext) => {
 }
 
 export const redirectAfterAuth = async (context: AuthPageContext): Promise<never> => {
-  const session = await requireSession(context, context.search, { fresh: true })
+  const session = await requireSession(context, context.search, { admitted: false, fresh: true })
   return goToRedirectOrWorkspace(context.search, session.user.role)
 }
 

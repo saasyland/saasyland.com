@@ -166,6 +166,10 @@ export const AUTH_FLOWS = [
     tests: [
       { spec: "auth-journeys.spec.ts", title: "signing in again › says a session ended and names the page it returns to" },
       { spec: "auth-routing.spec.ts", title: "a client navigation once the cached session is stale rechecks an ended session despite cached workspace data" },
+      {
+        spec: "auth-routing.spec.ts",
+        title: "a workspace link pressed after hovering it, which already found the ended session, still says the session ended",
+      },
     ],
   },
   {

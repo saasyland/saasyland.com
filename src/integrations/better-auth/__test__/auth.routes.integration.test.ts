@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query"
+import type { AnyRouteMatch } from "@tanstack/react-router"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
@@ -31,7 +32,11 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
   }
 })
 const routeContext = () => ({ context: { queryClient: new QueryClient() } })
-const protectedPageContext = (publicHref = "/app") => ({ ...routeContext(), location: { publicHref } })
+const protectedPageContext = (publicHref = "/app", cause: AnyRouteMatch["cause"] = "enter") => ({
+  ...routeContext(),
+  cause,
+  location: { publicHref },
+})
 const authPageContext = (search: AuthSearch = {}) => ({ ...routeContext(), search })
 beforeEach(() => {
   getSession.mockReset()
@@ -102,6 +107,15 @@ describe("route authorization and locale handling", () => {
     await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
     expect(getSession).toHaveBeenCalledTimes(2)
+  })
+  it("tells a visitor moving within the workspace that the session ended after another check already emptied the cached session", async () => {
+    const context = protectedPageContext("/app/settings", "stay")
+    context.context.queryClient.setQueryData(getCurrentSessionQuery.queryKey, null)
+    await expect(requireSignedIn(context)).rejects.toHaveProperty(
+      "options",
+      expect.objectContaining({ search: { error: SESSION_EXPIRED_CODE, redirect: "/app/settings" }, to: "/auth/sign-in" }),
+    )
+    expect(getSession).not.toHaveBeenCalled()
   })
   it("rechecks a stale admin role instead of trusting it", async () => {
     const context = protectedPageContext()

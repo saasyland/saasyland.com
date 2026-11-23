@@ -2,7 +2,7 @@ import { type JSX, useState } from "react"
 
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { EllipsisVertical } from "lucide-react"
+import { Ban, KeyRound, Pencil, ShieldCheck, Trash2, UserCog, VenetianMask } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -18,21 +18,19 @@ import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
 import {
-  DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from "~/src/presentation/components/shadcn/dropdown-menu"
 
 import { BanUserDialog } from "~/src/presentation/components/custom/admin/users/ban-user-dialog"
 import { DeleteUserDialog } from "~/src/presentation/components/custom/admin/users/delete-user-dialog"
 import { EditUserDialog } from "~/src/presentation/components/custom/admin/users/edit-user-dialog"
 import { ResetPasswordDialog } from "~/src/presentation/components/custom/admin/users/reset-password-dialog"
+import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
 import * as ROUTES from "~/src/routes"
 
@@ -83,91 +81,98 @@ export const UserActions = ({ user }: { readonly user: User["select"] }): JSX.El
 
   return (
     <div className="flex justify-end">
-      <DropdownMenuTrigger>
-        <Button
-          aria-label={t("actions.row.menu", { name: user.name })}
-          className="size-8"
-          isDisabled={setRole.isPending || unbanUser.isPending || impersonate.isPending}
-          size="icon"
-          variant="ghost"
+      <RowMenu
+        isPending={setRole.isPending || unbanUser.isPending || impersonate.isPending}
+        label={t("actions.row.menu", { name: user.name })}
+      >
+        <DropdownMenuItem
+          onAction={() => {
+            setDialog("edit")
+          }}
+          textValue={t("actions.row.edit")}
         >
-          <EllipsisVertical aria-hidden className="size-4" />
-        </Button>
-        <DropdownMenu>
+          <Pencil aria-hidden />
+          {t("actions.row.edit")}
+        </DropdownMenuItem>
+        {!isSelf && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger textValue={t("actions.row.changeRole")}>
+              <UserCog aria-hidden />
+              {t("actions.row.changeRole")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent
+              disabledKeys={[user.role]}
+              onAction={(role) => {
+                setRole.mutate({ role: userZodSchemas.setUserRole.shape.role.parse(role), userId: user.id })
+              }}
+              selectedKeys={[user.role]}
+              selectionMode="single"
+            >
+              {ROLE_VALUES.map((role) => (
+                <DropdownMenuItem id={role} key={role}>
+                  {t(`filters.role.options.${role}`)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        <DropdownMenuItem
+          onAction={() => {
+            setDialog("resetPassword")
+          }}
+          textValue={t("actions.row.resetPassword")}
+        >
+          <KeyRound aria-hidden />
+          {t("actions.row.resetPassword")}
+        </DropdownMenuItem>
+        {canImpersonate && (
           <DropdownMenuItem
             onAction={() => {
-              setDialog("edit")
+              impersonate.mutate({ userId: user.id })
             }}
+            textValue={t("actions.row.impersonate")}
           >
-            {t("actions.row.edit")}
+            <VenetianMask aria-hidden />
+            {t("actions.row.impersonate")}
           </DropdownMenuItem>
-          {!isSelf && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t("actions.row.changeRole")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent
-                disabledKeys={[user.role]}
-                onAction={(role) => {
-                  setRole.mutate({ role: userZodSchemas.setUserRole.shape.role.parse(role), userId: user.id })
-                }}
-                selectedKeys={[user.role]}
-                selectionMode="single"
-              >
-                {ROLE_VALUES.map((role) => (
-                  <DropdownMenuItem id={role} key={role}>
-                    {t(`filters.role.options.${role}`)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
+        )}
+        {!isSelf && <DropdownMenuSeparator />}
+        {!isSelf && user.banned && (
           <DropdownMenuItem
             onAction={() => {
-              setDialog("resetPassword")
+              unbanUser.mutate({ userId: user.id })
             }}
+            textValue={t("actions.row.unban")}
           >
-            {t("actions.row.resetPassword")}
+            <ShieldCheck aria-hidden />
+            {t("actions.row.unban")}
           </DropdownMenuItem>
-          {canImpersonate && (
-            <DropdownMenuItem
-              onAction={() => {
-                impersonate.mutate({ userId: user.id })
-              }}
-            >
-              {t("actions.row.impersonate")}
-            </DropdownMenuItem>
-          )}
-          {!isSelf && <DropdownMenuSeparator />}
-          {!isSelf && user.banned && (
-            <DropdownMenuItem
-              onAction={() => {
-                unbanUser.mutate({ userId: user.id })
-              }}
-            >
-              {t("actions.row.unban")}
-            </DropdownMenuItem>
-          )}
-          {!isSelf && !user.banned && (
-            <DropdownMenuItem
-              onAction={() => {
-                setDialog("ban")
-              }}
-              variant="destructive"
-            >
-              {t("actions.row.ban")}
-            </DropdownMenuItem>
-          )}
-          {!isSelf && (
-            <DropdownMenuItem
-              onAction={() => {
-                setDialog("delete")
-              }}
-              variant="destructive"
-            >
-              {t("actions.row.delete")}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenu>
-      </DropdownMenuTrigger>
+        )}
+        {!isSelf && !user.banned && (
+          <DropdownMenuItem
+            onAction={() => {
+              setDialog("ban")
+            }}
+            variant="destructive"
+            textValue={t("actions.row.ban")}
+          >
+            <Ban aria-hidden />
+            {t("actions.row.ban")}
+          </DropdownMenuItem>
+        )}
+        {!isSelf && (
+          <DropdownMenuItem
+            onAction={() => {
+              setDialog("delete")
+            }}
+            variant="destructive"
+            textValue={t("actions.row.delete")}
+          >
+            <Trash2 aria-hidden />
+            {t("actions.row.delete")}
+          </DropdownMenuItem>
+        )}
+      </RowMenu>
 
       <EditUserDialog isOpen={dialog === "edit"} onOpenChange={closeDialog} user={user} />
       <ResetPasswordDialog isOpen={dialog === "resetPassword"} onOpenChange={closeDialog} user={user} />

@@ -6,6 +6,7 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { anyTranslationContains, containsText, oneOf, withinDates, withinNumbers } from "~/src/integrations/drizzle-orm/drizzle.search"
 
+import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
@@ -18,12 +19,10 @@ const OTHER = sql.identifier("other_course")
 
 const otherColumn = (column: { readonly name: string }) => sql`${OTHER}.${sql.identifier(column.name)}`
 
-const noCourse = (comparison: SQL): SQL<boolean> =>
-  sql<boolean>`not exists (select 1 from ${course} as ${OTHER} where ${comparison})`.mapWith(Boolean)
-
-const isFirst = noCourse(sql`(${otherColumn(course.position)}, ${otherColumn(course.id)}) < (${course.position}, ${course.id})`)
-
-const isLast = noCourse(sql`(${otherColumn(course.position)}, ${otherColumn(course.id)}) > (${course.position}, ${course.id})`)
+const place =
+  sql<number>`(select count(*) from ${course} as ${OTHER} where (${otherColumn(course.position)}, ${otherColumn(course.id)}) < (${course.position}, ${course.id})) + ${FIRST_POSITION}`.mapWith(
+    Number,
+  )
 
 const sortColumns = {
   kind: course.kind,
@@ -67,10 +66,9 @@ export const getCourses = createServerFn({ method: "GET" })
       db
         .select({
           id: course.id,
-          isFirst,
-          isLast,
           kind: course.kind,
           lessons,
+          position: place,
           slug: course.slug,
           status: course.status,
           title: course.title,

@@ -37,9 +37,9 @@ export const CUSTOMER_COLUMN_SIZES = {
   area: 168,
   customer: 248,
   emailVerified: 176,
-  lastOrderAt: 200,
-  orders: 136,
-  revenue: 176,
+  lastOrderAt: 216,
+  orders: 160,
+  revenue: 240,
   signedUpAt: 200,
 } as const
 

@@ -48,3 +48,21 @@ export const resetLayout = async (grid: Locator): Promise<void> => {
 }
 
 export const filteredEmpty = (grid: Locator): Locator => grid.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })
+
+export const chooseRowAction = async (row: Locator, menu: RegExp | string, item: string): Promise<void> => {
+  await row.getByRole("button", { exact: true, name: menu }).click()
+  await row.page().getByRole("menuitem", { exact: true, name: item }).click()
+}
+
+const FIRST_BODY_ROW = 1
+
+export const moveToTop = async (row: Locator): Promise<void> => {
+  const handle = row.getByRole("button", { name: gridMessages.rows.handle })
+  await expect(async () => {
+    if ((await row.evaluate((element: HTMLTableRowElement) => element.rowIndex)) > FIRST_BODY_ROW) {
+      await handle.focus()
+      await handle.press("ArrowUp")
+    }
+    expect(await row.evaluate((element: HTMLTableRowElement) => element.rowIndex)).toBe(FIRST_BODY_ROW)
+  }).toPass()
+}

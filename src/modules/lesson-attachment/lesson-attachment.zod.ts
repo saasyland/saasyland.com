@@ -2,9 +2,8 @@ import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
-import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { MIN_FIELD_LENGTH, idField, positionField } from "~/src/modules/_core/utils/zod-fields"
 import { LESSON_ATTACHMENT_MAX_BYTES, LESSON_ATTACHMENT_URL_MAX_LENGTH } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { attachmentContentType, attachmentFileName, uploadEntries } from "~/src/modules/lesson-attachment/lesson-attachment.files"
 
@@ -47,7 +46,7 @@ const createLessonAttachment = zod.object({
 
 const deleteLessonAttachment = attachmentIdInput
 
-const moveLessonAttachment = attachmentIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+const moveLessonAttachment = attachmentIdInput.extend({ position: positionField })
 
 const updateLessonAttachment = attachmentIdInput.extend({ title: localizedTextSchema, url: linkField.optional() })
 

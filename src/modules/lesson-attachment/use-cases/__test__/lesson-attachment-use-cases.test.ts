@@ -11,10 +11,9 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
 import { IDS, LESSON_IDS, USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
-import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import { deleteCoursesMutation } from "~/src/modules/course/use-cases/delete-courses"
 import {
   LESSON_ATTACHMENT_FILE_TYPES,
   LESSON_ATTACHMENT_KIND,
@@ -183,22 +182,23 @@ describe("updateLessonAttachment", () => {
 })
 
 describe("moveLessonAttachment", () => {
-  it("swaps a material with its neighbour and ignores a move past the end", async () => {
+  it("moves a material to any place among its lesson's materials and keeps one already in its place", async () => {
     signInAs(ROLE_CODES.ADMIN)
     const first = await addLink(LESSON_IDS.PAID)
     const second = await upload(LESSON_IDS.PAID)
+    const third = await addLink(LESSON_IDS.PAID)
 
-    await executeMutation(moveLessonAttachmentMutation, { attachmentId: second.id, direction: MOVE_DIRECTION.UP })
-    expect(await attachmentOrder(LESSON_IDS.PAID)).toStrictEqual([second.id, first.id])
+    await executeMutation(moveLessonAttachmentMutation, { attachmentId: third.id, position: 1 })
+    expect(await attachmentOrder(LESSON_IDS.PAID)).toStrictEqual([third.id, first.id, second.id])
 
-    await executeMutation(moveLessonAttachmentMutation, { attachmentId: second.id, direction: MOVE_DIRECTION.UP })
-    expect(await attachmentOrder(LESSON_IDS.PAID)).toStrictEqual([second.id, first.id])
+    await executeMutation(moveLessonAttachmentMutation, { attachmentId: third.id, position: 1 })
+    expect(await attachmentOrder(LESSON_IDS.PAID)).toStrictEqual([third.id, first.id, second.id])
   })
 
   it("reports a missing attachment", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(moveLessonAttachmentMutation, { attachmentId: MISSING_ID, direction: MOVE_DIRECTION.UP })).rejects.toThrow(
+    await expect(executeMutation(moveLessonAttachmentMutation, { attachmentId: MISSING_ID, position: 1 })).rejects.toThrow(
       ERROR_CODES.NOT_FOUND,
     )
   })
@@ -223,7 +223,7 @@ describe("deleting materials", () => {
   it.each([
     { name: "lesson", remove: () => executeMutation(deleteLessonMutation, { lessonId: LESSON_IDS.PAID }) },
     { name: "chapter", remove: () => executeMutation(deleteChapterMutation, { chapterId: IDS.CHAPTER_TWO }) },
-    { name: "course", remove: () => executeMutation(deleteCourseMutation, { courseId: IDS.COURSE }) },
+    { name: "course", remove: () => executeMutation(deleteCoursesMutation, { courseIds: [IDS.COURSE] }) },
   ])("deletes the uploaded files of a deleted $name and keeps the others", async ({ remove }) => {
     signInAs(ROLE_CODES.ADMIN)
     const doomed = await upload(LESSON_IDS.PAID)

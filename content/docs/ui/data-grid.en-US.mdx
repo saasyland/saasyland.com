@@ -1,6 +1,6 @@
 ---
 title: "Data grid"
-description: "The table component: search, filters by column type, sorting, a layout each admin can rearrange and keep, selection, CSV export, and client or server data."
+description: "The table component: search, filters by column type, sorting, a layout each admin can rearrange and keep, selection, rows reordered by dragging, one actions menu per row, CSV export, and client or server data."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) is the table component. It builds a TanStack Table v9 instance from the features in `src/integrations/tanstack-table/table.features.ts` and renders it with the shadcn table primitives and React Aria controls. A page gives it its columns and either its rows or a query; everything else, from the toolbar to the pagination bar, lives inside it.
@@ -19,20 +19,20 @@ description: "The table component: search, filters by column type, sorting, a la
 
 ## Props
 
-| Prop               | Purpose                                                                                                        |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `columns`          | The column set from the page's `<entity>-columns.tsx`. Every row needs a string `id`, used as the row id       |
-| `id`               | Names the grid: the key of its saved layout in the browser and the start of its CSV file name                  |
-| `label`            | The table's accessible name, usually the page title                                                            |
-| `data`             | Rows held in memory, for a grid that searches, filters, sorts and pages on the client                          |
-| `query`            | Server mode: a function of the grid's request that returns query options resolving `{ rows, total }`           |
-| `search`           | The label and placeholder of the search box; without it the grid has no search                                 |
-| `empty`            | What the grid says while it has no rows and no search or filter is set                                         |
-| `emptyDescription` | A sentence under that title that says how the first row arrives                                                |
-| `selectable`       | Adds a checkbox column and the selection bar                                                                   |
-| `bulkActions`      | A function of the selected rows that renders more buttons in the selection bar                                 |
-| `rowActions`       | A component given each `row` that ends it, in a column pinned to the right                                     |
-| `rowActionsSize`   | The width of that column in pixels, <RepositoryFact name="dataGridActionsSize" /> unless the actions need more |
+| Prop               | Purpose                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| `columns`          | The column set from the page's `<entity>-columns.tsx`. Every row needs a string `id`, used as the row id |
+| `id`               | Names the grid: the key of its saved layout in the browser and the start of its CSV file name            |
+| `label`            | The table's accessible name, usually the page title                                                      |
+| `data`             | Rows held in memory, for a grid that searches, filters, sorts and pages on the client                    |
+| `query`            | Server mode: a function of the grid's request that returns query options resolving `{ rows, total }`     |
+| `search`           | The label and placeholder of the search box; without it the grid has no search                           |
+| `empty`            | What the grid says while it has no rows and no search or filter is set                                   |
+| `emptyDescription` | A sentence under that title that says how the first row arrives                                          |
+| `selectable`       | Adds a checkbox column and the selection bar                                                             |
+| `bulkActions`      | A function of the selected rows that renders more buttons in the selection bar                           |
+| `rowActions`       | A component given each `row` that ends it with its ⋯ menu, in a column pinned to the right               |
+| `onReorder`        | Adds a handle to each row; called with the moved row and its new place, as in [Row order](#row-order)    |
 
 ## Columns
 
@@ -107,15 +107,26 @@ The admin rearranges the grid, and the browser keeps it under the grid's `id` in
 - **Density.** Comfortable or compact rows.
 - **Page size.** <RepositoryFact name="dataGridPageSizes" /> rows per page.
 
-The grid is one card: the toolbar on top, the table, and the pagination at the bottom, divided by hairlines. The toolbar has two rows: the search and the view controls on the first, and the Filter button with the active filters' chips on the second, below them. Every toolbar control and filter chip has the same height; headers are sentence case in the spec size on a muted band, cells are the body size, and the last data column takes whatever width is left while the actions column keeps its own. The option under the pointer in every list of the grid is highlighted like the one the keyboard is on. The search field takes the free width of the toolbar, so its placeholder is never cut, and a header too long for its column wraps to a second line instead of being shortened. In a grid narrower than 64rem, Columns, Export CSV and Reset layout show only their icons, which leaves the search its room.
+The grid is one card: the toolbar on top, the table, and the pagination at the bottom, divided by hairlines. The toolbar has two rows: the search and the view controls on the first, and the Filter button with the active filters' chips on the second, below them. Every toolbar control and filter chip has the same height; headers are sentence case in the spec size on a muted band, cells are the body size, and the last data column takes whatever width is left while the actions column keeps its own. The option under the pointer in every list of the grid is highlighted like the one the keyboard is on. The search field takes the free width of the toolbar, so its placeholder is never cut. A header stays on one line and never breaks inside a word: each column's starting width fits its header, with the sort arrows and the column menu, in every locale, and `e2e/specs/text-layout.spec.ts` fails when a header label overflows its cell on any admin grid. In a grid narrower than 64rem, Columns, Export CSV and Reset layout show only their icons, which leaves the search its room.
 
 The header row stays in view while the rows scroll inside the grid, and pinned columns stay in view while the grid scrolls sideways, which is how a phone shows a wide table. A shade on the side that has more columns out of view, and on the edge of the pinned columns once others pass under them, shows that the grid scrolls (`.grid-scroller` in `globals.css`).
 
-The row actions column has no header menu: it does not sort, hide, move, resize or appear in the CSV, and it stays last on the right.
+The row actions column is <RepositoryFact name="dataGridActionsSize" /> pixels wide and holds one ⋯ button, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), which opens the row's actions as a menu: the everyday ones first, then, after a separator, the destructive ones, which ask for confirmation in an alert dialog. Every admin grid and every reorderable list, such as the curriculum, ends its rows with it, never with a row of icons. The column has no header menu: it does not sort, hide, move, resize or appear in the CSV, and it stays last on the right.
+
+## Row order
+
+With `onReorder`, the grid starts with a narrow column of handles, after the checkboxes when the grid has them. A handle is a muted grip:
+
+- **Dragging.** A row dragged by its handle moves through the others as the pointer passes over them, and dropping it saves its new place. Escape, or a drop outside the rows, puts it back.
+- **Keyboard.** On a focused handle the up and down arrows move the row one place. A move past the first or last row of the page opens the page the row moves onto and focuses its handle there.
+- **Saving.** `onReorder` gets the row and its new place in the whole stored order, counted from 1 across pages, so the server can put it anywhere. The new order shows at once and stays while moves are saved, one after the other, until the refreshed rows arrive; when the promise `onReorder` returns rejects, the rows go back. `/admin/courses` passes `moveCourse` with a mutation `scope`, so moves are saved in the order they were made.
+- **When it is off.** While the rows are sorted, filtered or searched a row's place on screen is not its place in the stored order, so the handles are disabled.
+
+Each move is announced in the live region, for example "Moved to position 3 of 12."
 
 ## Selection and export
 
-With `selectable`, a checkbox selects a row and the header's checkbox selects the page. A bar then floats at the bottom of the window with the count, Export selected, the page's `bulkActions` and Clear selection.
+With `selectable`, a checkbox selects a row and the header's checkbox selects the page. A bar then floats at the bottom of the window with the count, Export selected, the page's `bulkActions` and Clear selection. Every admin grid that lists records is selectable: courses, products, categories and collections, orders, customers, users, invitations and the orders without a licence; only the dashboard's tables of counts are not. `/admin/courses` adds **Delete** for the selected courses; the other grids export the selection, because their records have no action that applies to several at once.
 
 Export CSV downloads every row the search and filters find, not only the page on screen: on the server it asks for pages of <RepositoryFact name="dataGridExportPageSize" /> rows until it has them all. The file has the visible columns in their order, starts with a byte order mark so spreadsheets read it as UTF-8, and puts a `'` before any cell that would start a formula. `src/lib/csv.ts` writes it.
 
@@ -123,8 +134,8 @@ Export CSV downloads every row the search and filters find, not only the page on
 
 - The table carries `label` as its name and `aria-rowcount`; each row its `aria-rowindex`, counted across pages.
 - Sortable headers are buttons and carry `aria-sort`.
-- Every control works from the keyboard: the menus and lists follow React Aria's arrow keys and type-ahead, Escape closes them, and resizing uses the arrow keys on the header's separator.
-- Moving, pinning, hiding, sorting from a menu and resetting the layout are announced in a polite live region; the result count and the selection count are live too.
+- Every control works from the keyboard: the menus and lists follow React Aria's arrow keys and type-ahead, Escape closes them, resizing uses the arrow keys on the header's separator, and a row moves with the up and down arrows on its handle, which is named "Drag to reorder, or use the arrow keys".
+- Moving a column or a row, pinning, hiding, sorting from a menu and resetting the layout are announced in a polite live region; the result count and the selection count are live too.
 
 ## Translations
 
@@ -132,7 +143,7 @@ The grid's own words are in `messages/<locale>/components.custom.data-grid.json`
 
 ## Tests
 
-`src/presentation/components/custom/__test__/` covers the grid in memory (`data-grid.component.test.tsx`), its filters (`data-grid-filter.component.test.tsx`), its layout (`data-grid-layout.component.test.tsx`) and server mode (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` uses it on `/admin/orders` in a browser.
+`src/presentation/components/custom/__test__/` covers the grid in memory (`data-grid.component.test.tsx`), its filters (`data-grid-filter.component.test.tsx`), its layout (`data-grid-layout.component.test.tsx`) and server mode (`data-grid-query.component.test.tsx`), row order included. `e2e/specs/admin-orders.spec.ts` uses it on `/admin/orders` in a browser, and `e2e/specs/course-admin.spec.ts` reorders, selects and deletes courses on `/admin/courses`.
 
 ## Related pages
 

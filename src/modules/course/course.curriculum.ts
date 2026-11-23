@@ -1,5 +1,6 @@
 import type { DropTarget } from "react-aria-components"
 
+import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
 import type { Course } from "~/src/modules/course/course.types"
 
 export const CURRICULUM_ROW = {
@@ -35,8 +36,6 @@ export interface CurriculumDrop {
   readonly id: string
 }
 
-const POSITION_BASE = 1
-
 const NOT_FOUND = -1
 
 export const curriculumRows = (chapters: readonly Chapter[]): CurriculumRow[] =>
@@ -46,7 +45,7 @@ export const curriculumRows = (chapters: readonly Chapter[]): CurriculumRow[] =>
       id: lesson.id,
       kind: CURRICULUM_ROW.LESSON,
       lesson,
-      number: index + POSITION_BASE,
+      number: index + FIRST_POSITION,
     })),
   ])
 
@@ -85,9 +84,9 @@ const regroup = (rows: readonly CurriculumRow[]): Chapter[] => {
     const lessons = rows
       .slice(index + 1, end)
       .filter((row) => isLessonRow(row))
-      .map(({ lesson }, position) => Object.assign(structuredClone(lesson), { chapterId: chapter.id, position: position + POSITION_BASE }))
+      .map(({ lesson }, position) => Object.assign(structuredClone(lesson), { chapterId: chapter.id, position: position + FIRST_POSITION }))
 
-    return Object.assign(structuredClone(chapter), { lessons, position: order + POSITION_BASE })
+    return Object.assign(structuredClone(chapter), { lessons, position: order + FIRST_POSITION })
   })
 }
 

@@ -1,7 +1,9 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 
 import * as download from "~/src/lib/download"
 
@@ -15,8 +17,9 @@ import {
   headerNames,
   renderGrid,
 } from "~/src/presentation/components/custom/__test__/fixtures/data-grid"
+import type { DataGridProps } from "~/src/presentation/components/custom/data-grid"
 
-const { empty, pagination, selection, toolbar } = gridMessages
+const { empty, pagination, rows: rowMessages, selection, toolbar } = gridMessages
 
 const MANY_PEOPLE: Person[] = Array.from({ length: 23 }, (_, index) => ({
   age: 20 + index,
@@ -49,8 +52,9 @@ describe("data grid", () => {
     expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Profile"])
     expect(screen.getByRole("columnheader", { name: /^Name/u })).toHaveClass("sticky")
     expect(screen.getByRole("columnheader", { name: /^Profile/u })).toHaveClass("sticky")
-    expect(within(screen.getByRole("columnheader", { name: /^Name/u })).getByText("Name")).toHaveClass("line-clamp-2")
-    expect(within(screen.getByRole("columnheader", { name: /^Profile/u })).getByText("Profile")).toHaveClass("line-clamp-2")
+    expect(within(screen.getByRole("columnheader", { name: /^Name/u })).getByText("Name")).toHaveClass("truncate")
+    expect(within(screen.getByRole("columnheader", { name: /^Profile/u })).getByText("Profile")).toHaveClass("truncate")
+    expect(screen.getByRole("columnheader", { name: /^Name/u })).toHaveClass("whitespace-nowrap")
     expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
     expect(bodyRows().map((row) => row.getAttribute("aria-rowindex"))).toStrictEqual(["2", "3", "4"])
   })
@@ -288,11 +292,136 @@ describe("data grid row actions", () => {
     })
   })
 
-  it("keeps the actions column at its width and lets the last data column take the rest", () => {
-    const { container } = renderGrid({ rowActions: PersonActions, rowActionsSize: 120 })
+  it("keeps the actions column at the width of one menu button and lets the last data column take the rest", () => {
+    const { container } = renderGrid({ rowActions: PersonActions })
 
     const widths = [...container.querySelectorAll("col")].map((col) => col.style.width)
-    expect(widths.at(-1)).toBe("120px")
+    expect(widths.at(-1)).toBe(`${String(DATA_GRID_ACTIONS_SIZE)}px`)
     expect(widths.at(-2)).toBe("")
+  })
+})
+
+type Reorder = NonNullable<DataGridProps<Person>["onReorder"]>
+
+const handles = (): HTMLElement[] => screen.getAllByRole("button", { name: rowMessages.handle })
+
+const handleOf = (index: number): HTMLElement => handles()[index] ?? document.body
+
+const dragSourceOf = (index: number): HTMLElement => handleOf(index).parentElement ?? document.body
+
+const transfer = (dropEffect: string) => ({ dataTransfer: { dropEffect, effectAllowed: "none", setData: vi.fn() } })
+
+const announced = (): string =>
+  screen.getByText((_, element) => element?.getAttribute("aria-live") === "polite" && element.classList.contains("sr-only")).textContent
+
+describe("data grid row order", () => {
+  it("drags a row by its handle onto another place, shows the new order at once and saves it", () => {
+    const onReorder = vi.fn<Reorder>().mockResolvedValue(undefined)
+    renderGrid({ onReorder, selectable: true })
+
+    expect(headerNames()).toStrictEqual(["", rowMessages.header, "Name", "Team", "Role", "Age", "Profile"])
+    expect(screen.getByRole("columnheader", { name: rowMessages.header })).toHaveClass("sticky")
+    expect(dragSourceOf(0)).toHaveAttribute("draggable", "true")
+
+    fireEvent.dragStart(dragSourceOf(0), transfer("move"))
+    fireEvent.dragEnter(bodyRows()[2] ?? document.body)
+    expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])
+    expect(bodyRows()[2]).toHaveClass("opacity-40")
+    expect(fireEvent.dragOver(bodyRows()[2] ?? document.body, transfer("none"))).toBe(false)
+    expect(fireEvent.drop(bodyRows()[2] ?? document.body)).toBe(false)
+    fireEvent.dragEnd(dragSourceOf(2), transfer("move"))
+
+    expect(onReorder).toHaveBeenCalledWith({ position: 3, row: PEOPLE[0] })
+    expect(bodyRows()[2]).not.toHaveClass("opacity-40")
+    expect(announced()).toBe("Moved to position 3 of 3.")
+  })
+
+  it("puts a row back when the drag is cancelled and saves nothing for a row dropped where it was", () => {
+    const onReorder = vi.fn<Reorder>().mockResolvedValue(undefined)
+    renderGrid({ onReorder })
+
+    fireEvent.dragStart(dragSourceOf(0), transfer("move"))
+    fireEvent.dragEnter(bodyRows()[1] ?? document.body)
+    expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
+    fireEvent.dragEnd(dragSourceOf(1), transfer("none"))
+    expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
+
+    fireEvent.dragStart(dragSourceOf(1), transfer("move"))
+    fireEvent.dragEnter(bodyRows()[1] ?? document.body)
+    fireEvent.dragEnd(dragSourceOf(1), transfer("move"))
+
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it("leaves the rows alone under a drag that did not start on a handle", () => {
+    renderGrid({ onReorder: vi.fn<Reorder>() })
+
+    fireEvent.dragEnter(bodyRows()[2] ?? document.body)
+
+    expect(fireEvent.dragOver(bodyRows()[2] ?? document.body, transfer("none"))).toBe(true)
+    expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
+  })
+
+  it("moves a row one place with the arrow keys on its handle and keeps the focus there", async () => {
+    const onReorder = vi.fn<Reorder>().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderGrid({ onReorder })
+
+    handleOf(0).focus()
+    await user.keyboard("{ArrowUp}")
+    await user.keyboard("a")
+    expect(onReorder).not.toHaveBeenCalled()
+
+    await user.keyboard("{ArrowDown}")
+    expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
+    expect(onReorder).toHaveBeenLastCalledWith({ position: 2, row: PEOPLE[0] })
+    await waitFor(() => {
+      expect(handleOf(1)).toHaveFocus()
+    })
+
+    await user.keyboard("{ArrowDown}")
+    await user.keyboard("{ArrowDown}")
+    expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])
+    expect(onReorder).toHaveBeenCalledTimes(2)
+  })
+
+  it("puts the rows back when the move cannot be saved", async () => {
+    const user = userEvent.setup()
+    renderGrid({ onReorder: vi.fn<Reorder>().mockRejectedValue(new Error("offline")) })
+
+    handleOf(0).focus()
+    await user.keyboard("{ArrowDown}")
+
+    await waitFor(() => {
+      expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
+    })
+  })
+
+  it("follows a row moved past the top of its page to the page before", async () => {
+    const onReorder = vi.fn<Reorder>().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderGrid({ data: MANY_PEOPLE, onReorder })
+
+    await user.click(screen.getByRole("button", { name: pagination.next }))
+    expect(columnTexts("Name")[0]).toBe("Person 10")
+    handleOf(0).focus()
+    await user.keyboard("{ArrowUp}")
+
+    expect(onReorder).toHaveBeenCalledWith({ position: 10, row: MANY_PEOPLE[10] })
+    expect(screen.getByText(pagination.page.replace("{current}", "1").replace("{total}", "3"))).toBeVisible()
+    expect(columnTexts("Name").at(-1)).toBe("Person 10")
+    await waitFor(() => {
+      expect(handles().at(-1)).toHaveFocus()
+    })
+  })
+
+  it("turns the handles off while the rows are sorted, filtered or searched", async () => {
+    const user = userEvent.setup()
+    renderGrid({ ...SEARCH, onReorder: vi.fn<Reorder>() })
+
+    await user.click(screen.getByRole("button", { name: "Name" }))
+
+    expect(handleOf(0)).toBeDisabled()
+    expect(dragSourceOf(0)).toHaveAttribute("draggable", "false")
   })
 })

@@ -12,7 +12,18 @@ description: "Єдина форма маршруту сторінки й мар�
 ```tsx title="src/routes/admin.courses.index.tsx"
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
+  const queryClient = useQueryClient()
+  const errorMessage = useErrorMessage()
   const columns = useCourseColumns()
+
+  const move = useMutation({
+    ...moveCourseMutation,
+    onError: (error) => {
+      toast.error(errorMessage(error))
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL }),
+    scope: COURSE_ORDER_SCOPE,
+  })
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
@@ -32,15 +43,17 @@ const CoursesPage = (): JSX.Element => {
       />
 
       <DataGrid
+        bulkActions={(rows) => <DeleteCoursesButton courses={rows} />}
         columns={columns}
         empty={t("table.empty")}
         emptyDescription={t("table.emptyDescription")}
         id={COURSE_GRID_ID}
         label={t("title")}
+        onReorder={({ position, row }) => move.mutateAsync({ courseId: row.id, position })}
         query={(request) => getCoursesPageQuery(courseZodSchemas.getCourses.parse(request))}
         rowActions={CourseActions}
-        rowActionsSize={COURSE_COLUMN_SIZES.actions}
         search={t("table.search")}
+        selectable
       />
     </div>
   )

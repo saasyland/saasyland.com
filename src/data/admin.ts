@@ -15,9 +15,9 @@ export const ADMIN_USER_DETAILS = ["role", "status", "emailVerified", "twoFactor
 
 export const USER_COLUMN_SIZES = {
   createdAt: 200,
-  emailVerified: 176,
+  emailVerified: 224,
   role: 136,
-  status: 136,
+  status: 144,
   timezone: 208,
   twoFactorEnabled: 136,
   updatedAt: 200,
@@ -25,7 +25,7 @@ export const USER_COLUMN_SIZES = {
 } as const
 
 export const INVITATION_COLUMN_SIZES = {
-  date: 152,
+  date: 192,
   email: 264,
   invitedBy: 192,
   role: 128,
@@ -34,11 +34,11 @@ export const INVITATION_COLUMN_SIZES = {
 
 export const DASHBOARD_COLUMN_SIZES = {
   amount: 136,
-  count: 128,
+  count: 184,
   customer: 240,
   date: 176,
   name: 256,
   role: 120,
-  status: 128,
+  status: 144,
   user: 280,
 } as const

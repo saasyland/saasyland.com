@@ -14,5 +14,5 @@ const COLUMNS = [
 ]
 
 export const UnlicensedOrdersPending = (): JSX.Element => (
-  <GridPanelPending columns={COLUMNS} hasSearch={false} rows={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize} />
+  <GridPanelPending columns={COLUMNS} hasSearch={false} isSelectable rows={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize} />
 )

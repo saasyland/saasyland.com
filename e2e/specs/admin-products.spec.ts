@@ -61,11 +61,11 @@ test("the admin filters the products by type, sorts them by type, hides a column
   const headerNames = grid.getByRole("columnheader")
   await hideColumn(grid, headers.status)
   await showColumn(grid, headers.createdAt)
-  const arranged = [headers.product, headers.type, headers.pricing, headers.createdAt, headers.updatedAt]
+  const arranged = ["", headers.product, headers.type, headers.pricing, headers.createdAt, headers.updatedAt]
   await expect(headerNames).toHaveText(arranged)
   await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await expect(headerNames).toHaveText(arranged)
   await resetLayout(grid)
-  await expect(headerNames).toHaveText([headers.product, headers.type, headers.pricing, headers.status, headers.updatedAt])
+  await expect(headerNames).toHaveText(["", headers.product, headers.type, headers.pricing, headers.status, headers.updatedAt])
 })

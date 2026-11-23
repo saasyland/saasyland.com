@@ -29,6 +29,7 @@ export const CategoryGrid = ({ kind, label }: { readonly kind: CategoryKind; rea
       label={label}
       query={(request) => getCategoriesPageQuery(categoryZodSchemas.getCategories.parse({ ...request, kind }))}
       search={t(`${messages}.search`)}
+      selectable
     />
   )
 }

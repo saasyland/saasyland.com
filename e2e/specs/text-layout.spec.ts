@@ -38,6 +38,22 @@ const ADMIN_PAGES = [
 
 const PAGE_LAYOUT_TIMEOUT_MS = 5_000
 
+const GRID_PAGES = [
+  ROUTES.ADMIN,
+  ROUTES.ADMIN_COURSES,
+  ROUTES.ADMIN_USERS_ALL,
+  ROUTES.ADMIN_USERS_CUSTOMERS,
+  ROUTES.ADMIN_USERS_INVITATIONS,
+  ROUTES.ADMIN_ORDERS,
+  ROUTES.ADMIN_PRODUCTS,
+  `${ROUTES.ADMIN_PRODUCTS}?tab=categories`,
+  `${ROUTES.ADMIN_PRODUCTS}?tab=collections`,
+] as const
+
+const LONGEST_HEADERS_LOCALE = "uk-UA"
+
+const GRID_LOCALES = [I18N.DEFAULT_LOCALE, LONGEST_HEADERS_LOCALE] as const
+
 const CLEAR = { clipped: [], overflow: [], overlaps: [], truncated: [] }
 
 const signInAsAdmin = async (page: Page, authPage: AuthPage): Promise<void> => {
@@ -68,6 +84,33 @@ test("the admin course form and tables keep every line of text whole, clear of t
       await fontsLoaded(page)
 
       expect(await textLayoutProblems(page.locator("body")), `${path} at ${String(viewport.width)}px`).toStrictEqual(CLEAR)
+    }
+  }
+})
+
+const overflowingHeaders = (page: Page): Promise<string[]> =>
+  page
+    .locator("[data-slot=data-grid-header-label]")
+    .evaluateAll((labels) => labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent))
+
+test("every admin grid fits each header label in its column on one line, in English and in the locale with the longest labels", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  test.setTimeout(Math.max(test.info().timeout, GRID_PAGES.length * GRID_LOCALES.length * PAGE_LAYOUT_TIMEOUT_MS))
+  await signInAsAdmin(page, authPage)
+  await page.setViewportSize(VIEWPORTS[0])
+
+  for (const locale of GRID_LOCALES) {
+    const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
+    for (const path of GRID_PAGES) {
+      await page.goto(`${prefix}${path}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+      await expect(page.locator("[data-slot=data-grid-header-label]").first()).toBeVisible()
+      await fontsLoaded(page)
+
+      expect(await overflowingHeaders(page), `${path} in ${locale}`).toStrictEqual([])
     }
   }
 })

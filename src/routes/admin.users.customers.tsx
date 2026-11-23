@@ -32,6 +32,7 @@ const CustomersPage = (): JSX.Element => {
         label={t("metadata.title")}
         query={(request) => getCustomersPageQuery(orderZodSchemas.getCustomers.parse(request))}
         search={t("search")}
+        selectable
       />
     </div>
   )

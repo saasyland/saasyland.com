@@ -248,11 +248,20 @@ test("the admin searches the open invitations, filters them by role, hides a col
 
   const headerNames = grid.getByRole("columnheader")
   await hideColumn(grid, table.invitedBy)
-  const arranged = [table.email, table.role, table.status, table.sentAt, table.expiresAt, gridMessages.actions.header]
+  const arranged = ["", table.email, table.role, table.status, table.sentAt, table.expiresAt, gridMessages.actions.header]
   await expect(headerNames).toHaveText(arranged)
   await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await expect(headerNames).toHaveText(arranged)
   await resetLayout(grid)
-  await expect(headerNames).toHaveText([table.email, table.role, table.status, table.invitedBy, table.sentAt, table.expiresAt, gridMessages.actions.header])
+  await expect(headerNames).toHaveText([
+    "",
+    table.email,
+    table.role,
+    table.status,
+    table.invitedBy,
+    table.sentAt,
+    table.expiresAt,
+    gridMessages.actions.header,
+  ])
 })

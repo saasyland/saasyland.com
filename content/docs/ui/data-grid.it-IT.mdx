@@ -1,6 +1,6 @@
 ---
 title: "Griglia dati"
-description: "Il componente tabella: ricerca, filtri per tipo di colonna, ordinamento, un layout che ogni amministratore può riorganizzare e conservare, selezione, esportazione CSV e dati lato client o server."
+description: "Il componente tabella: ricerca, filtri per tipo di colonna, ordinamento, un layout che ogni amministratore può riorganizzare e conservare, selezione, righe riordinate trascinandole, un menu di azioni per riga, esportazione CSV e dati lato client o server."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) è il componente tabella. Costruisce un’istanza di TanStack Table v9 dalle funzionalità di `src/integrations/tanstack-table/table.features.ts` e la mostra con le primitive tabella di shadcn e i controlli di React Aria. Una pagina gli passa le sue colonne e, in alternativa, le sue righe o una query; tutto il resto, dalla barra degli strumenti alla barra di paginazione, sta al suo interno.
@@ -19,20 +19,20 @@ description: "Il componente tabella: ricerca, filtri per tipo di colonna, ordina
 
 ## Props
 
-| Prop               | Scopo                                                                                                                             |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`          | L’insieme di colonne del `<entity>-columns.tsx` della pagina. Ogni riga ha bisogno di un `id` stringa, usato come ID della riga   |
-| `id`               | Dà un nome alla griglia: la chiave del suo layout salvato nel browser e l’inizio del nome del suo file CSV                        |
-| `label`            | Il nome accessibile della tabella, di solito il titolo della pagina                                                               |
-| `data`             | Righe in memoria, per una griglia che cerca, filtra, ordina e pagina sul client                                                   |
-| `query`            | Modalità server: una funzione della richiesta della griglia che restituisce opzioni di query risolte in `{ rows, total }`         |
-| `search`           | L’etichetta e il segnaposto della casella di ricerca; senza, la griglia non ha ricerca                                            |
-| `empty`            | Cosa dice la griglia finché non ha righe e non è impostata nessuna ricerca né filtro                                              |
-| `emptyDescription` | Una frase sotto quel titolo che dice come arriva la prima riga                                                                    |
-| `selectable`       | Aggiunge una colonna di caselle di controllo e la barra di selezione                                                              |
-| `bulkActions`      | Una funzione delle righe selezionate che mostra altri pulsanti nella barra di selezione                                           |
-| `rowActions`       | Un componente che riceve ogni `row` e la chiude, in una colonna fissata a destra                                                  |
-| `rowActionsSize`   | La larghezza di quella colonna in pixel, <RepositoryFact name="dataGridActionsSize" /> a meno che le azioni non richiedano di più |
+| Prop               | Scopo                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`          | L’insieme di colonne del `<entity>-columns.tsx` della pagina. Ogni riga ha bisogno di un `id` stringa, usato come ID della riga |
+| `id`               | Dà un nome alla griglia: la chiave del suo layout salvato nel browser e l’inizio del nome del suo file CSV                      |
+| `label`            | Il nome accessibile della tabella, di solito il titolo della pagina                                                             |
+| `data`             | Righe in memoria, per una griglia che cerca, filtra, ordina e pagina sul client                                                 |
+| `query`            | Modalità server: una funzione della richiesta della griglia che restituisce opzioni di query risolte in `{ rows, total }`       |
+| `search`           | L’etichetta e il segnaposto della casella di ricerca; senza, la griglia non ha ricerca                                          |
+| `empty`            | Cosa dice la griglia finché non ha righe e non è impostata nessuna ricerca né filtro                                            |
+| `emptyDescription` | Una frase sotto quel titolo che dice come arriva la prima riga                                                                  |
+| `selectable`       | Aggiunge una colonna di caselle di controllo e la barra di selezione                                                            |
+| `bulkActions`      | Una funzione delle righe selezionate che mostra altri pulsanti nella barra di selezione                                         |
+| `rowActions`       | Un componente che riceve ogni `row` e la chiude con il suo menu ⋯, in una colonna fissata a destra                              |
+| `onReorder`        | Aggiunge una maniglia a ogni riga; riceve la riga spostata e la sua nuova posizione, come in [Ordine delle righe](#row-order)   |
 
 ## Colonne
 
@@ -107,15 +107,26 @@ L’amministratore riorganizza la griglia e il browser la conserva sotto l’`id
 - **Densità.** Righe ariose o compatte.
 - **Dimensione della pagina.** <RepositoryFact name="dataGridPageSizes" /> righe per pagina.
 
-La griglia è un’unica scheda: la barra degli strumenti in alto, la tabella e la paginazione in basso, divise da linee sottili. La barra degli strumenti ha due righe: nella prima la ricerca e i controlli della vista, nella seconda, sotto, il pulsante Filtra e i chip dei filtri attivi. Ogni controllo della barra degli strumenti e ogni chip di filtro hanno la stessa altezza; le intestazioni hanno solo l’iniziale maiuscola, nella dimensione spec su una fascia attenuata, le celle nella dimensione body, e l’ultima colonna di dati occupa tutta la larghezza rimasta mentre la colonna delle azioni mantiene la propria. In ogni elenco della griglia, l’opzione sotto il puntatore è evidenziata come quella su cui si trova la tastiera. Il campo di ricerca occupa la larghezza libera della barra degli strumenti, così il testo segnaposto non viene mai tagliato, e un'intestazione troppo lunga per la sua colonna va a capo su una seconda riga invece di essere accorciata. In una griglia più stretta di 64rem, Colonne, Esporta CSV e Ripristina layout mostrano solo l'icona, così la ricerca conserva il suo spazio.
+La griglia è un’unica scheda: la barra degli strumenti in alto, la tabella e la paginazione in basso, divise da linee sottili. La barra degli strumenti ha due righe: nella prima la ricerca e i controlli della vista, nella seconda, sotto, il pulsante Filtra e i chip dei filtri attivi. Ogni controllo della barra degli strumenti e ogni chip di filtro hanno la stessa altezza; le intestazioni hanno solo l’iniziale maiuscola, nella dimensione spec su una fascia attenuata, le celle nella dimensione body, e l’ultima colonna di dati occupa tutta la larghezza rimasta mentre la colonna delle azioni mantiene la propria. In ogni elenco della griglia, l’opzione sotto il puntatore è evidenziata come quella su cui si trova la tastiera. Il campo di ricerca occupa la larghezza libera della barra degli strumenti, così il testo segnaposto non viene mai tagliato. Un’intestazione resta su una sola riga e non va mai a capo a metà di una parola: la larghezza iniziale di ogni colonna contiene la sua intestazione, con le frecce di ordinamento e il menu della colonna, in ogni locale, e `e2e/specs/text-layout.spec.ts` fallisce quando l’etichetta di un’intestazione esce dalla sua cella in una qualsiasi griglia dell’amministrazione. In una griglia più stretta di 64rem, Colonne, Esporta CSV e Ripristina layout mostrano solo l'icona, così la ricerca conserva il suo spazio.
 
 La riga di intestazione resta in vista mentre le righe scorrono dentro la griglia, e le colonne fissate restano in vista mentre la griglia scorre in orizzontale: è così che uno smartphone mostra una tabella larga. Un’ombra sul lato che ha altre colonne fuori vista, e sul bordo delle colonne fissate quando altre passano sotto di esse, mostra che la griglia scorre (`.grid-scroller` in `globals.css`).
 
-La colonna delle azioni di riga non ha menu della colonna: non si ordina, non si nasconde, non si sposta, non si ridimensiona e non compare nel CSV, e resta l’ultima a destra.
+La colonna delle azioni di riga è larga <RepositoryFact name="dataGridActionsSize" /> pixel e contiene un solo pulsante ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), che apre le azioni della riga come menu: prima quelle di uso quotidiano, poi, dopo un separatore, quelle distruttive, che chiedono conferma in una finestra di dialogo di avviso. Ogni griglia dell’amministrazione e ogni elenco riordinabile, come il programma, chiude le sue righe con questo pulsante, mai con una fila di icone. La colonna non ha menu della colonna: non si ordina, non si nasconde, non si sposta, non si ridimensiona e non compare nel CSV, e resta l’ultima a destra.
+
+## Ordine delle righe [#row-order]
+
+Con `onReorder`, la griglia inizia con una stretta colonna di maniglie, dopo le caselle di controllo quando la griglia le ha. Una maniglia è un’icona di presa attenuata:
+
+- **Trascinamento.** Una riga trascinata dalla sua maniglia si fa strada tra le altre man mano che il puntatore ci passa sopra, e rilasciarla salva la sua nuova posizione. Esc, o un rilascio fuori dalle righe, la rimette al suo posto.
+- **Tastiera.** Con il focus su una maniglia, le frecce su e giù spostano la riga di una posizione. Uno spostamento oltre la prima o l’ultima riga della pagina apre la pagina su cui passa la riga e porta lì il focus sulla sua maniglia.
+- **Salvataggio.** `onReorder` riceve la riga e la sua nuova posizione nell’intero ordine salvato, contata da 1 attraverso le pagine, così il server può metterla ovunque. Il nuovo ordine compare subito e resta mentre gli spostamenti vengono salvati, uno dopo l’altro, finché non arrivano le righe aggiornate; quando la promise restituita da `onReorder` viene rifiutata, le righe tornano indietro. `/admin/courses` passa `moveCourse` con uno `scope` di mutazione, così gli spostamenti vengono salvati nell’ordine in cui sono stati fatti.
+- **Disattivazione.** Mentre le righe sono ordinate, filtrate o ristrette da una ricerca, la posizione di una riga sullo schermo non è la sua posizione nell’ordine salvato, quindi le maniglie sono disattivate.
+
+Ogni spostamento viene annunciato nella live region, per esempio: «Riga spostata in posizione 3 di 12».
 
 ## Selezione ed esportazione
 
-Con `selectable`, una casella di controllo seleziona una riga e quella dell’intestazione seleziona la pagina. Allora una barra fluttua in fondo alla finestra con il conteggio, Esporta selezione, le `bulkActions` della pagina e Annulla selezione.
+Con `selectable`, una casella di controllo seleziona una riga e quella dell’intestazione seleziona la pagina. Allora una barra fluttua in fondo alla finestra con il conteggio, Esporta selezione, le `bulkActions` della pagina e Annulla selezione. Ogni griglia dell’amministrazione che elenca dei record è selezionabile: corsi, prodotti, categorie e collezioni, ordini, clienti, utenti, inviti e gli ordini senza licenza; solo le tabelle di conteggi della dashboard non lo sono. `/admin/courses` aggiunge **Elimina** per i corsi selezionati; le altre griglie esportano la selezione, perché i loro record non hanno un’azione che si applichi a più di uno alla volta.
 
 Esporta CSV scarica ogni riga che trovano la ricerca e i filtri, non solo la pagina sullo schermo: sul server chiede pagine da <RepositoryFact name="dataGridExportPageSize" /> righe finché non le ha tutte. Il file ha le colonne visibili nel loro ordine, comincia con un byte order mark perché i fogli di calcolo lo leggano come UTF-8 e mette un `'` davanti a ogni cella che inizierebbe una formula. `src/lib/csv.ts` lo scrive.
 
@@ -123,8 +134,8 @@ Esporta CSV scarica ogni riga che trovano la ricerca e i filtri, non solo la pag
 
 - La tabella porta `label` come nome e `aria-rowcount`; ogni riga il suo `aria-rowindex`, contato attraverso le pagine.
 - Le intestazioni ordinabili sono pulsanti e portano `aria-sort`.
-- Ogni controllo funziona da tastiera: i menu e gli elenchi seguono i tasti freccia e la ricerca durante la digitazione di React Aria, Esc li chiude, e il ridimensionamento usa i tasti freccia sul separatore dell’intestazione.
-- Spostare, fissare, nascondere, ordinare da un menu e ripristinare il layout vengono annunciati in una live region cortese; anche il conteggio dei risultati e quello della selezione sono live.
+- Ogni controllo funziona da tastiera: i menu e gli elenchi seguono i tasti freccia e la ricerca durante la digitazione di React Aria, Esc li chiude, il ridimensionamento usa i tasti freccia sul separatore dell’intestazione, e una riga si sposta con le frecce su e giù sulla sua maniglia, il cui nome è «Trascina o usa le frecce per riordinare».
+- Spostare una colonna o una riga, fissare, nascondere, ordinare da un menu e ripristinare il layout vengono annunciati in una live region cortese; anche il conteggio dei risultati e quello della selezione sono live.
 
 ## Traduzioni
 
@@ -132,7 +143,7 @@ I testi propri della griglia sono in `messages/<locale>/components.custom.data-g
 
 ## Test
 
-`src/presentation/components/custom/__test__/` copre la griglia in memoria (`data-grid.component.test.tsx`), i suoi filtri (`data-grid-filter.component.test.tsx`), il suo layout (`data-grid-layout.component.test.tsx`) e la modalità server (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` la usa su `/admin/orders` in un browser.
+`src/presentation/components/custom/__test__/` copre la griglia in memoria (`data-grid.component.test.tsx`), i suoi filtri (`data-grid-filter.component.test.tsx`), il suo layout (`data-grid-layout.component.test.tsx`) e la modalità server (`data-grid-query.component.test.tsx`), ordine delle righe compreso. `e2e/specs/admin-orders.spec.ts` la usa su `/admin/orders` in un browser, e `e2e/specs/course-admin.spec.ts` riordina, seleziona ed elimina corsi su `/admin/courses`.
 
 ## Pagine correlate
 

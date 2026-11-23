@@ -426,6 +426,7 @@ describe("customers tab", () => {
 
     const { headers } = customersMessages.table
     expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toStrictEqual([
+      "",
       headers.customer,
       headers.signedUpAt,
       headers.orders,
@@ -435,6 +436,7 @@ describe("customers tab", () => {
     ])
     const [ada, guest] = bodyRows()
     expect(cellsOf(ada ?? document.body)).toStrictEqual([
+      "",
       "Ada Lovelaceada@example.com",
       "Jan 1, 2025, 12:00 PM UTC",
       "2",
@@ -443,6 +445,7 @@ describe("customers tab", () => {
       "0 of 3 machines in use",
     ])
     expect(cellsOf(guest ?? document.body)).toStrictEqual([
+      "",
       `${customersMessages.table.noAccount}cus_guest`,
       customersMessages.table.noAccount,
       "1",
@@ -458,7 +461,7 @@ describe("customers tab", () => {
 
     await showVerification(user)
 
-    expect(bodyRows().map((cells) => cellsOf(cells)[2])).toStrictEqual([
+    expect(bodyRows().map((cells) => cellsOf(cells)[3])).toStrictEqual([
       customersMessages.table.yes,
       customersMessages.table.no,
       customersMessages.table.noAccount,

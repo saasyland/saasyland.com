@@ -1,6 +1,6 @@
 ---
 title: "Siatka danych"
-description: "Komponent tabeli: wyszukiwanie, filtry według typu kolumny, sortowanie, układ, który każdy administrator może zmienić i zachować, zaznaczanie, eksport CSV oraz dane po stronie klienta lub serwera."
+description: "Komponent tabeli: wyszukiwanie, filtry według typu kolumny, sortowanie, układ, który każdy administrator może zmienić i zachować, zaznaczanie, zmiana kolejności wierszy przez przeciąganie, jedno menu akcji w każdym wierszu, eksport CSV oraz dane po stronie klienta lub serwera."
 ---
 
 `DataGrid` (`src/presentation/components/custom/data-grid.tsx`) to komponent tabeli. Buduje instancję TanStack Table v9 z funkcji w `src/integrations/tanstack-table/table.features.ts` i renderuje ją komponentami tabeli shadcn oraz kontrolkami React Aria. Strona przekazuje mu swoje kolumny oraz albo swoje wiersze, albo zapytanie; cała reszta, od paska narzędzi po pasek paginacji, znajduje się w nim.
@@ -19,20 +19,20 @@ description: "Komponent tabeli: wyszukiwanie, filtry według typu kolumny, sorto
 
 ## Propsy
 
-| Prop               | Przeznaczenie                                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `columns`          | Zestaw kolumn z `<entity>-columns.tsx` strony. Każdy wiersz potrzebuje tekstowego `id`, używanego jako ID wiersza  |
-| `id`               | Nazwa siatki: klucz jej zapisanego układu w przeglądarce i początek nazwy jej pliku CSV                            |
-| `label`            | Nazwa dostępna tabeli, zwykle tytuł strony                                                                         |
-| `data`             | Wiersze w pamięci, dla siatki, która wyszukuje, filtruje, sortuje i stronicuje po stronie klienta                  |
-| `query`            | Tryb serwerowy: funkcja, która z żądania siatki tworzy opcje zapytania zwracającego `{ rows, total }`              |
-| `search`           | Etykieta i tekst zastępczy pola wyszukiwania; bez nich siatka nie ma wyszukiwania                                  |
-| `empty`            | Komunikat siatki, gdy nie ma wierszy, a wyszukiwanie i filtry nie są ustawione                                     |
-| `emptyDescription` | Zdanie pod tym tytułem, które mówi, skąd weźmie się pierwszy wiersz                                                |
-| `selectable`       | Dodaje kolumnę pól wyboru i pasek zaznaczenia                                                                      |
-| `bulkActions`      | Funkcja, która dla zaznaczonych wierszy renderuje dodatkowe przyciski na pasku zaznaczenia                         |
-| `rowActions`       | Komponent na końcu każdego wiersza, w kolumnie przypiętej do prawej; dostaje `row`                                 |
-| `rowActionsSize`   | Szerokość tej kolumny w pikselach: <RepositoryFact name="dataGridActionsSize" />, chyba że akcje potrzebują więcej |
+| Prop               | Przeznaczenie                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`          | Zestaw kolumn z `<entity>-columns.tsx` strony. Każdy wiersz potrzebuje tekstowego `id`, używanego jako ID wiersza                                               |
+| `id`               | Nazwa siatki: klucz jej zapisanego układu w przeglądarce i początek nazwy jej pliku CSV                                                                         |
+| `label`            | Nazwa dostępna tabeli, zwykle tytuł strony                                                                                                                      |
+| `data`             | Wiersze w pamięci, dla siatki, która wyszukuje, filtruje, sortuje i stronicuje po stronie klienta                                                               |
+| `query`            | Tryb serwerowy: funkcja, która z żądania siatki tworzy opcje zapytania zwracającego `{ rows, total }`                                                           |
+| `search`           | Etykieta i tekst zastępczy pola wyszukiwania; bez nich siatka nie ma wyszukiwania                                                                               |
+| `empty`            | Komunikat siatki, gdy nie ma wierszy, a wyszukiwanie i filtry nie są ustawione                                                                                  |
+| `emptyDescription` | Zdanie pod tym tytułem, które mówi, skąd weźmie się pierwszy wiersz                                                                                             |
+| `selectable`       | Dodaje kolumnę pól wyboru i pasek zaznaczenia                                                                                                                   |
+| `bulkActions`      | Funkcja, która dla zaznaczonych wierszy renderuje dodatkowe przyciski na pasku zaznaczenia                                                                      |
+| `rowActions`       | Komponent z menu ⋯ na końcu każdego wiersza, w kolumnie przypiętej do prawej; dostaje `row`                                                                     |
+| `onReorder`        | Dodaje uchwyt do każdego wiersza; siatka wywołuje tę funkcję z przeniesionym wierszem i jego nowym miejscem, jak opisuje sekcja [Kolejność wierszy](#row-order) |
 
 ## Kolumny
 
@@ -107,15 +107,26 @@ Administrator zmienia układ siatki, a przeglądarka zapisuje go pod `id` siatki
 - **Gęstość.** Przestronne lub zwarte wiersze.
 - **Rozmiar strony.** <RepositoryFact name="dataGridPageSizes" /> wierszy na stronę.
 
-Siatka to jedna karta: na górze pasek narzędzi, pod nim tabela, a na dole pasek paginacji, oddzielone cienkimi liniami. Pasek narzędzi ma dwa wiersze: w pierwszym wyszukiwanie i ustawienia widoku, w drugim, pod nimi, przycisk Filtruj i chipy aktywnych filtrów. Wszystkie kontrolki paska narzędzi i chipy filtrów mają tę samą wysokość. Nagłówki zaczynają się wielką literą tylko w pierwszym słowie, mają rozmiar metadanych i przygaszone tło, komórki mają rozmiar zwykłego tekstu, a ostatnia kolumna z danymi zajmuje całą pozostałą szerokość, podczas gdy kolumna akcji zachowuje własną. Na każdej liście w siatce opcja pod kursorem jest podświetlona tak samo jak ta, na której jest fokus klawiatury. Pole wyszukiwania zajmuje wolne miejsce na pasku narzędzi, więc jego tekst zastępczy nigdy nie jest ucięty, a nagłówek za długi na swoją kolumnę zawija się do drugiej linii, zamiast się skracać. W siatce węższej niż 64rem przyciski Kolumny, Eksportuj CSV i Przywróć układ pokazują tylko ikony, dzięki czemu wyszukiwanie ma więcej miejsca.
+Siatka to jedna karta: na górze pasek narzędzi, pod nim tabela, a na dole pasek paginacji, oddzielone cienkimi liniami. Pasek narzędzi ma dwa wiersze: w pierwszym wyszukiwanie i ustawienia widoku, w drugim, pod nimi, przycisk Filtruj i chipy aktywnych filtrów. Wszystkie kontrolki paska narzędzi i chipy filtrów mają tę samą wysokość. Nagłówki zaczynają się wielką literą tylko w pierwszym słowie, mają rozmiar metadanych i przygaszone tło, komórki mają rozmiar zwykłego tekstu, a ostatnia kolumna z danymi zajmuje całą pozostałą szerokość, podczas gdy kolumna akcji zachowuje własną. Na każdej liście w siatce opcja pod kursorem jest podświetlona tak samo jak ta, na której jest fokus klawiatury. Pole wyszukiwania zajmuje wolne miejsce na pasku narzędzi, więc jego tekst zastępczy nigdy nie jest ucięty. Nagłówek mieści się w jednej linii i nigdy nie dzieli słowa: początkowa szerokość każdej kolumny mieści jej nagłówek razem ze strzałkami sortowania i menu kolumny w każdym języku, a `e2e/specs/text-layout.spec.ts` nie przechodzi, gdy etykieta nagłówka wychodzi poza komórkę w którejkolwiek siatce panelu administracyjnego. W siatce węższej niż 64rem przyciski Kolumny, Eksportuj CSV i Przywróć układ pokazują tylko ikony, dzięki czemu wyszukiwanie ma więcej miejsca.
 
 Wiersz nagłówka pozostaje widoczny, gdy wiersze przewijają się wewnątrz siatki, a przypięte kolumny pozostają widoczne, gdy siatka przewija się w poziomie; tak telefon pokazuje szeroką tabelę. Cień po stronie, po której część kolumn jest jeszcze poza widokiem, oraz na krawędzi przypiętych kolumn, gdy inne przesuwają się pod nimi, pokazuje, że siatkę można przewijać (`.grid-scroller` w `globals.css`).
 
-Kolumna akcji wiersza nie ma menu w nagłówku: nie można jej sortować, ukryć, przesunąć ani zmienić jej szerokości, nie trafia do pliku CSV i zawsze zostaje ostatnia po prawej.
+Kolumna akcji wiersza ma <RepositoryFact name="dataGridActionsSize" /> pikseli szerokości i mieści jeden przycisk ⋯, `RowMenu` (`src/presentation/components/custom/row-menu.tsx`), który otwiera akcje wiersza w menu: najpierw te używane na co dzień, a po separatorze destrukcyjne, które proszą o potwierdzenie w oknie dialogowym. Tym przyciskiem kończą się wiersze każdej siatki w panelu administracyjnym i każdej listy, w której można zmieniać kolejność, na przykład programu kursu – nigdy rzędem ikon. Kolumna nie ma menu w nagłówku: nie można jej sortować, ukryć, przesunąć ani zmienić jej szerokości, nie trafia do pliku CSV i zawsze zostaje ostatnia po prawej.
+
+## Kolejność wierszy [#row-order]
+
+Z `onReorder` siatka zaczyna się od wąskiej kolumny uchwytów, a jeśli ma pola wyboru, stoi ona zaraz za nimi. Uchwyt jest przygaszony i działa tak:
+
+- **Przeciąganie.** Wiersz przeciągany za uchwyt przesuwa się między pozostałymi, gdy kursor nad nimi przechodzi, a upuszczenie zapisuje jego nowe miejsce. Escape albo upuszczenie poza wierszami przywraca go na poprzednie miejsce.
+- **Klawiatura.** Gdy uchwyt ma fokus, strzałki w górę i w dół przesuwają wiersz o jedno miejsce. Przesunięcie poza pierwszy albo ostatni wiersz strony otwiera stronę, na którą trafia wiersz, i ustawia fokus na jego uchwycie.
+- **Zapisywanie.** `onReorder` dostaje wiersz i jego nowe miejsce w całej zapisanej kolejności, liczone od 1 przez wszystkie strony, więc serwer może go umieścić w dowolnym miejscu. Nowa kolejność pojawia się od razu i zostaje na ekranie, gdy przesunięcia są zapisywane jedno po drugim, aż dotrą odświeżone wiersze; gdy obietnica zwrócona przez `onReorder` zostanie odrzucona, wiersze wracają na poprzednie miejsca. `/admin/courses` przekazuje `moveCourse` przez mutację z `scope`, więc przesunięcia są zapisywane w kolejności, w jakiej je wykonano.
+- **Kiedy nie działa.** Gdy wiersze są posortowane, przefiltrowane albo zawężone wyszukiwaniem, miejsce wiersza na ekranie nie jest jego miejscem w zapisanej kolejności, więc uchwyty są wyłączone.
+
+Każde przesunięcie jest ogłaszane w regionie live, na przykład „Przeniesiono na pozycję 3 z 12.”
 
 ## Zaznaczanie i eksport
 
-Z `selectable` pole wyboru zaznacza wiersz, a pole wyboru w nagłówku zaznacza stronę. Wtedy u dołu okna pojawia się pływający pasek z liczbą, Eksportuj zaznaczone, `bulkActions` strony i Wyczyść zaznaczenie.
+Z `selectable` pole wyboru zaznacza wiersz, a pole wyboru w nagłówku zaznacza stronę. Wtedy u dołu okna pojawia się pływający pasek z liczbą, Eksportuj zaznaczone, `bulkActions` strony i Wyczyść zaznaczenie. Pola wyboru ma każda siatka panelu administracyjnego, która wyświetla rekordy: kursy, produkty, kategorie i kolekcje, zamówienia, klientów, użytkowników, zaproszenia i zamówienia bez licencji; nie mają ich tylko tabele z liczbami na pulpicie. `/admin/courses` dodaje **Usuń** dla zaznaczonych kursów; pozostałe siatki eksportują zaznaczenie, bo ich rekordy nie mają akcji, którą można wykonać na kilku naraz.
 
 Eksportuj CSV pobiera każdy wiersz, który znajdują wyszukiwanie i filtry, nie tylko stronę na ekranie: na serwerze prosi o strony po <RepositoryFact name="dataGridExportPageSize" /> wierszy, aż ma je wszystkie. Plik zawiera widoczne kolumny w ich kolejności, zaczyna się od znacznika kolejności bajtów, żeby arkusze kalkulacyjne czytały go jako UTF-8, i wstawia `'` przed każdą komórką, która zaczynałaby formułę. Zapisuje go `src/lib/csv.ts`.
 
@@ -123,8 +134,8 @@ Eksportuj CSV pobiera każdy wiersz, który znajdują wyszukiwanie i filtry, nie
 
 - Tabela ma `label` jako nazwę oraz `aria-rowcount`; każdy wiersz ma swój `aria-rowindex`, liczony przez wszystkie strony.
 - Sortowalne nagłówki są przyciskami i mają `aria-sort`.
-- Każda kontrolka działa z klawiatury: menu i listy obsługują strzałki i wyszukiwanie przez pisanie z React Aria, Escape je zamyka, a zmiana szerokości używa strzałek na separatorze nagłówka.
-- Przesuwanie, przypinanie, ukrywanie, sortowanie z menu i przywracanie układu są ogłaszane w regionie live z priorytetem „polite”; liczba wyników i liczba zaznaczonych wierszy też są ogłaszane na bieżąco.
+- Każda kontrolka działa z klawiatury: menu i listy obsługują strzałki i wyszukiwanie przez pisanie z React Aria, Escape je zamyka, zmiana szerokości używa strzałek na separatorze nagłówka, a wiersz przesuwa się strzałkami w górę i w dół na jego uchwycie o nazwie „Przeciągnij albo użyj strzałek, aby zmienić kolejność”.
+- Przesuwanie kolumny lub wiersza, przypinanie, ukrywanie, sortowanie z menu i przywracanie układu są ogłaszane w regionie live z priorytetem „polite”; liczba wyników i liczba zaznaczonych wierszy też są ogłaszane na bieżąco.
 
 ## Tłumaczenia
 
@@ -132,7 +143,7 @@ Własne teksty siatki są w `messages/<locale>/components.custom.data-grid.json`
 
 ## Testy
 
-`src/presentation/components/custom/__test__/` testuje siatkę z danymi w pamięci (`data-grid.component.test.tsx`), jej filtry (`data-grid-filter.component.test.tsx`), jej układ (`data-grid-layout.component.test.tsx`) i tryb serwerowy (`data-grid-query.component.test.tsx`). `e2e/specs/admin-orders.spec.ts` używa jej na `/admin/orders` w przeglądarce.
+`src/presentation/components/custom/__test__/` testuje siatkę z danymi w pamięci (`data-grid.component.test.tsx`), jej filtry (`data-grid-filter.component.test.tsx`), jej układ (`data-grid-layout.component.test.tsx`) i tryb serwerowy (`data-grid-query.component.test.tsx`), łącznie z kolejnością wierszy. `e2e/specs/admin-orders.spec.ts` używa jej na `/admin/orders` w przeglądarce, a `e2e/specs/course-admin.spec.ts` zmienia kolejność kursów, zaznacza je i usuwa na `/admin/courses`.
 
 ## Powiązane strony
 

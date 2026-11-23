@@ -1,7 +1,7 @@
-import type { JSX } from "react"
+import { type JSX, useState } from "react"
 
 import { type UseMutationOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { type DragTypes, DropIndicator, type DropTarget, GridList, GridListItem, useDragAndDrop } from "react-aria-components"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
@@ -45,22 +45,31 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "~/src/presentation/components/shadcn/alert-dialog"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
-import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
+import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
+import { DropdownMenuItem, DropdownMenuSeparator } from "~/src/presentation/components/shadcn/dropdown-menu"
 
 import { ChapterDialog } from "~/src/presentation/components/custom/admin/courses/chapter-dialog"
+import { DragHandle } from "~/src/presentation/components/custom/admin/courses/drag-handle"
 import { LessonDialog } from "~/src/presentation/components/custom/admin/courses/lesson-dialog"
+import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
-const ICON_BUTTON_CLASSNAME = "size-8 text-muted-foreground"
+import * as ROUTES from "~/src/routes"
 
 const ROW_CLASSNAME =
   "outline-none data-allows-dragging:cursor-grab data-dragging:opacity-50 data-focus-visible:outline-2 data-focus-visible:-outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
 
 type EditorChapter = Course["editorChapter"]
 type EditorLesson = Course["editorLesson"]
+
+const CHAPTER_DIALOG = {
+  DELETE: "delete",
+  EDIT: "edit",
+} as const
+
+type ChapterDialogKind = (typeof CHAPTER_DIALOG)[keyof typeof CHAPTER_DIALOG]
 
 const DROP_MOVE = "move"
 const DROP_CANCEL = "cancel"
@@ -114,40 +123,30 @@ const rowTitle = (row: CurriculumRow): string =>
 const draggedKind = (types: DragTypes) =>
   types.has(CURRICULUM_DRAG_TYPES[CURRICULUM_ROW.CHAPTER]) ? CURRICULUM_ROW.CHAPTER : CURRICULUM_ROW.LESSON
 
-const DragHandle = (): JSX.Element => (
-  <Button className={ICON_BUTTON_CLASSNAME} size="icon" slot="drag" variant="ghost">
-    <GripVertical aria-hidden className="size-4" />
-  </Button>
-)
-
 interface ConfirmDeleteProps {
   readonly body: string
-  readonly label: string
+  readonly isOpen: boolean
   readonly onConfirm: () => void
+  readonly onOpenChange: (isOpen: boolean) => void
   readonly title: string
 }
 
-const ConfirmDelete = ({ body, label, onConfirm, title }: ConfirmDeleteProps): JSX.Element => {
+const ConfirmDelete = ({ body, isOpen, onConfirm, onOpenChange, title }: ConfirmDeleteProps): JSX.Element => {
   const t = useTranslations("pages.admin.courses.curriculum")
 
   return (
-    <AlertDialogTrigger>
-      <Button aria-label={label} className={cn(ICON_BUTTON_CLASSNAME, "hover:text-destructive")} size="icon" variant="ghost">
-        <Trash2 aria-hidden className="size-4" />
-      </Button>
-      <AlertDialog>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{body}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-          <AlertDialogAction onPress={onConfirm} variant="destructive">
-            {t("delete")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialog>
-    </AlertDialogTrigger>
+    <AlertDialog isOpen={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogHeader>
+        <AlertDialogTitle>{title}</AlertDialogTitle>
+        <AlertDialogDescription>{body}</AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+        <AlertDialogAction onPress={onConfirm} variant="destructive">
+          {t("delete")}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialog>
   )
 }
 
@@ -196,6 +195,8 @@ const LessonRow = ({ courseId, lesson, number }: LessonRowProps): JSX.Element =>
   const t = useTranslations("pages.admin.courses")
   const title = localize(lesson.title, getCurrentLocale())
 
+  const [isDeleting, setDeleting] = useState(false)
+
   const { holders } = useCourseAccessNames()
   const remove = useCurriculumMutation(deleteLessonMutation)
 
@@ -226,22 +227,30 @@ const LessonRow = ({ courseId, lesson, number }: LessonRowProps): JSX.Element =>
           <Badge variant={LESSON_STATUS_BADGES[lesson.status]}>{t(`lesson.statuses.${lesson.status}`)}</Badge>
         </div>
         <div className="ml-auto flex items-center">
-          <LinkButton
-            aria-label={t("curriculum.edit", { name: title })}
-            className={ICON_BUTTON_CLASSNAME}
-            params={{ courseId, lessonId: lesson.id }}
-            size="icon"
-            to="/admin/courses/$courseId/lessons/$lessonId"
-            variant="ghost"
-          >
-            <Pencil aria-hidden className="size-4" />
-          </LinkButton>
+          <RowMenu label={t("curriculum.menu", { name: title })}>
+            <DropdownMenuItem href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`} textValue={t("curriculum.edit")}>
+              <Pencil aria-hidden />
+              {t("curriculum.edit")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onAction={() => {
+                setDeleting(true)
+              }}
+              variant="destructive"
+              textValue={t("curriculum.delete")}
+            >
+              <Trash2 aria-hidden />
+              {t("curriculum.delete")}
+            </DropdownMenuItem>
+          </RowMenu>
           <ConfirmDelete
             body={t("curriculum.deleteLessonBody", { name: title })}
-            label={t("curriculum.remove", { name: title })}
+            isOpen={isDeleting}
             onConfirm={() => {
               remove.mutate({ lessonId: lesson.id })
             }}
+            onOpenChange={setDeleting}
             title={t("curriculum.deleteLessonTitle")}
           />
         </div>
@@ -260,8 +269,13 @@ const ChapterRow = ({ chapter, courseId, isFirst }: ChapterRowProps): JSX.Elemen
   const t = useTranslations("pages.admin.courses.curriculum")
   const title = localize(chapter.title, getCurrentLocale())
   const summary = localize(chapter.summary, getCurrentLocale())
+  const [dialog, setDialog] = useState<ChapterDialogKind>()
 
   const remove = useCurriculumMutation(deleteChapterMutation)
+
+  const closeDialog = (): void => {
+    setDialog(undefined)
+  }
 
   return (
     <div
@@ -289,21 +303,36 @@ const ChapterRow = ({ chapter, courseId, isFirst }: ChapterRowProps): JSX.Elemen
               </Button>
             }
           />
-          <ChapterDialog
-            chapter={chapter}
-            courseId={courseId}
-            trigger={
-              <Button aria-label={t("edit", { name: title })} className={ICON_BUTTON_CLASSNAME} size="icon" variant="ghost">
-                <Pencil aria-hidden className="size-4" />
-              </Button>
-            }
-          />
+          <RowMenu label={t("menu", { name: title })}>
+            <DropdownMenuItem
+              onAction={() => {
+                setDialog(CHAPTER_DIALOG.EDIT)
+              }}
+              textValue={t("edit")}
+            >
+              <Pencil aria-hidden />
+              {t("edit")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onAction={() => {
+                setDialog(CHAPTER_DIALOG.DELETE)
+              }}
+              variant="destructive"
+              textValue={t("delete")}
+            >
+              <Trash2 aria-hidden />
+              {t("delete")}
+            </DropdownMenuItem>
+          </RowMenu>
+          <ChapterDialog chapter={chapter} courseId={courseId} isOpen={dialog === CHAPTER_DIALOG.EDIT} onOpenChange={closeDialog} />
           <ConfirmDelete
             body={t("deleteChapterBody", { name: title })}
-            label={t("remove", { name: title })}
+            isOpen={dialog === CHAPTER_DIALOG.DELETE}
             onConfirm={() => {
               remove.mutate({ chapterId: chapter.id })
             }}
+            onOpenChange={closeDialog}
             title={t("deleteChapterTitle")}
           />
         </div>
@@ -365,6 +394,7 @@ const CurriculumList = ({ editor }: { readonly editor: Course["editor"] }): JSX.
 
 export const CurriculumEditor = ({ editor }: { readonly editor: Course["editor"] }): JSX.Element => {
   const t = useTranslations("pages.admin.courses.curriculum")
+  const [isAdding, setAdding] = useState(false)
 
   return (
     <Card>
@@ -375,15 +405,16 @@ export const CurriculumEditor = ({ editor }: { readonly editor: Course["editor"]
           </CardTitle>
           {editor.chapters.length > 0 && <CardDescription>{t("reorderHint")}</CardDescription>}
         </div>
-        <ChapterDialog
-          courseId={editor.course.id}
-          trigger={
-            <Button size="sm">
-              <Plus aria-hidden className="size-4" />
-              {t("addChapter")}
-            </Button>
-          }
-        />
+        <Button
+          onPress={() => {
+            setAdding(true)
+          }}
+          size="sm"
+        >
+          <Plus aria-hidden className="size-4" />
+          {t("addChapter")}
+        </Button>
+        <ChapterDialog courseId={editor.course.id} isOpen={isAdding} onOpenChange={setAdding} />
       </CardHeader>
       <CardContent>
         {editor.chapters.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}

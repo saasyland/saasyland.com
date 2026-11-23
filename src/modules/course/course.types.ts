@@ -31,7 +31,7 @@ export interface Course {
   courseCoverSource: zod.input<typeof courseZodSchemas.courseCoverSource>
   courseDocument: zod.input<typeof courseZodSchemas.courseDocument>
   createCourse: zod.input<typeof courseZodSchemas.createCourse>
-  deleteCourse: zod.input<typeof courseZodSchemas.deleteCourse>
+  deleteCourses: zod.input<typeof courseZodSchemas.deleteCourses>
   exportCourses: zod.input<typeof courseZodSchemas.exportCourses>
   getCatalogue: zod.input<typeof courseZodSchemas.getCatalogue>
   getCourse: zod.input<typeof courseZodSchemas.getCourse>

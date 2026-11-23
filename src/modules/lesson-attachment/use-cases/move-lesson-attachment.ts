@@ -15,7 +15,7 @@ import { lessonAttachmentZodSchemas } from "~/src/modules/lesson-attachment/less
 export const moveLessonAttachment = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: LessonAttachment["moveLessonAttachment"]) => lessonAttachmentZodSchemas.moveLessonAttachment.parse(input))
-  .handler(async ({ data: { attachmentId, direction } }) => {
+  .handler(async ({ data: { attachmentId, position } }) => {
     const [row] = await db
       .select({ lessonId: lessonAttachment.lessonId })
       .from(lessonAttachment)
@@ -31,8 +31,8 @@ export const moveLessonAttachment = createServerFn({ method: "POST" })
       .from(lessonAttachment)
       .where(eq(lessonAttachment.lessonId, row.lessonId))
       .orderBy(asc(lessonAttachment.position), asc(lessonAttachment.id))
-    const [first, ...rest] = reorder(siblings, attachmentId, direction).map(({ id, position }) =>
-      db.update(lessonAttachment).set({ position }).where(eq(lessonAttachment.id, id)),
+    const [first, ...rest] = reorder(siblings, attachmentId, position).map((entry) =>
+      db.update(lessonAttachment).set({ position: entry.position }).where(eq(lessonAttachment.id, entry.id)),
     )
 
     if (first !== undefined) {

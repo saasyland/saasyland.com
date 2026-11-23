@@ -1,6 +1,6 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { eq } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -15,24 +15,28 @@ import { attachmentObjectKeys, removeAttachmentObjects } from "~/src/modules/les
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { removeUploadObjects, uploadObjects } from "~/src/modules/video-upload/video-upload.objects"
 
-export const deleteCourse = createServerFn({ method: "POST" })
+export const deleteCourses = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["delete"] })])
-  .validator((input: Course["deleteCourse"]) => courseZodSchemas.deleteCourse.parse(input))
-  .handler(async ({ data }) => {
-    const lessons = eq(lesson.courseId, data.courseId)
+  .validator((input: Course["deleteCourses"]) => courseZodSchemas.deleteCourses.parse(input))
+  .handler(async ({ data: { courseIds } }) => {
+    const lessons = inArray(lesson.courseId, courseIds)
     const [objectKeys, uploads] = await Promise.all([attachmentObjectKeys(lessons), uploadObjects(lessons)])
-    const [row] = await db.delete(course).where(eq(course.id, data.courseId)).returning({ cover: course.cover, id: course.id })
+    const rows = await db.delete(course).where(inArray(course.id, courseIds)).returning({ cover: course.cover, id: course.id })
 
-    if (row === undefined) {
+    if (rows.length === 0) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await Promise.all([removeAttachmentObjects(objectKeys), removeUploadObjects(uploads), removeCoverObjects(row.cover)])
+    await Promise.all([
+      removeAttachmentObjects(objectKeys),
+      removeUploadObjects(uploads),
+      ...rows.map(({ cover }) => removeCoverObjects(cover)),
+    ])
 
-    return { id: row.id }
+    return { ids: rows.map(({ id }) => id) }
   })
 
-export const deleteCourseMutation = mutationOptions({
-  mutationFn: (data: Course["deleteCourse"]) => deleteCourse({ data }),
+export const deleteCoursesMutation = mutationOptions({
+  mutationFn: (data: Course["deleteCourses"]) => deleteCourses({ data }),
   mutationKey: COURSE_MUTATION_KEYS.DELETE,
 })

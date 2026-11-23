@@ -1,40 +1,29 @@
-import { type JSX, useMemo } from "react"
+import { type JSX, useMemo, useState } from "react"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { Pencil, Trash2 } from "lucide-react"
+import { ExternalLink, Link2, Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+import { localizeHref } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localize } from "~/src/modules/_core/utils/localized-text"
-import { COURSE_KINDS, COURSE_QUERY_KEYS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_KINDS, COURSE_STATUS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
-import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
-
-import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { COURSE_COLUMN_SIZES } from "~/src/data/admin-courses"
 import { COURSE_STATUS_BADGES } from "~/src/data/course-badges"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/src/presentation/components/shadcn/alert-dialog"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
-import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
+import { DropdownMenuItem, DropdownMenuSeparator } from "~/src/presentation/components/shadcn/dropdown-menu"
 
-import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
+import { DeleteCoursesDialog } from "~/src/presentation/components/custom/admin/courses/delete-courses-dialog"
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
+import { RowMenu } from "~/src/presentation/components/custom/row-menu"
+
+import * as ROUTES from "~/src/routes"
 
 type CourseRow = Course["listRow"]
 
@@ -69,77 +58,58 @@ const UpdatedCell = ({ getValue }: CellContext<DataGridFeatures, CourseRow, Date
   return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
-export const CourseActions = ({ row }: { readonly row: CourseRow }): JSX.Element => {
-  const t = useTranslations("pages.admin.courses")
-  const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
-  const title = localize(row.title, getCurrentLocale())
+const PositionCell = ({ getValue }: CellContext<DataGridFeatures, CourseRow, number>): JSX.Element => (
+  <span className="text-sm text-muted-foreground tabular-nums">{getValue()}</span>
+)
 
-  const onError = (error: Error): void => {
-    toast.error(errorMessage(error))
+export const CourseActions = ({ row }: { readonly row: CourseRow }): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.actions")
+  const [isDeleting, setDeleting] = useState(false)
+  const title = localize(row.title, getCurrentLocale())
+  const path = `${ROUTES.COURSES}/${row.slug}`
+
+  const copyLink = (): void => {
+    const link = new URL(localizeHref({ href: path, locale: getCurrentLocale() }), globalThis.location.origin)
+    navigator.clipboard.writeText(link.href).then(
+      () => {
+        toast.success(t("copied"))
+      },
+      () => {
+        toast.error(t("copyFailed"))
+      },
+    )
   }
-  const move = useMutation({
-    ...moveCourseMutation,
-    onError,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL }),
-  })
-  const { isPending, mutate } = useMutation({
-    ...deleteCourseMutation,
-    onError,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
-      toast.success(t("delete.success", { title }))
-    },
-  })
 
   return (
-    <div className="flex justify-end gap-1">
-      <MoveButtons
-        isFirst={row.isFirst}
-        isLast={row.isLast}
-        name={title}
-        onMove={(direction) => {
-          move.mutate({ courseId: row.id, direction })
-        }}
-      />
-      <LinkButton
-        aria-label={t("actions.edit", { title })}
-        className="size-8 text-muted-foreground"
-        params={{ courseId: row.id }}
-        size="icon"
-        to="/admin/courses/$courseId"
-        variant="ghost"
-      >
-        <Pencil aria-hidden className="size-4" />
-      </LinkButton>
-      <AlertDialogTrigger>
-        <Button
-          aria-label={t("actions.delete", { title })}
-          className="size-8 text-muted-foreground hover:text-destructive"
-          isDisabled={isPending}
-          size="icon"
-          variant="ghost"
+    <div className="flex justify-end">
+      <RowMenu label={t("menu", { title })}>
+        <DropdownMenuItem href={`${ROUTES.ADMIN_COURSES}/${row.id}`} textValue={t("edit")}>
+          <Pencil aria-hidden />
+          {t("edit")}
+        </DropdownMenuItem>
+        {row.status === COURSE_STATUS.PUBLISHED && (
+          <DropdownMenuItem href={path} target="_blank" textValue={t("view")}>
+            <ExternalLink aria-hidden />
+            {t("view")}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onAction={copyLink} textValue={t("copyLink")}>
+          <Link2 aria-hidden />
+          {t("copyLink")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onAction={() => {
+            setDeleting(true)
+          }}
+          variant="destructive"
+          textValue={t("delete")}
         >
-          <Trash2 aria-hidden className="size-4" />
-        </Button>
-        <AlertDialog>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete.title")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("delete.body", { title })}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("delete.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onPress={() => {
-                mutate({ courseId: row.id })
-              }}
-              variant="destructive"
-            >
-              {t("delete.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialog>
-      </AlertDialogTrigger>
+          <Trash2 aria-hidden />
+          {t("delete")}
+        </DropdownMenuItem>
+      </RowMenu>
+      <DeleteCoursesDialog courses={[row]} isOpen={isDeleting} onOpenChange={setDeleting} />
     </div>
   )
 }
@@ -152,6 +122,15 @@ export const useCourseColumns = (): DataGridColumn<CourseRow>[] => {
   return useMemo(
     () =>
       columnHelper.columns([
+        columnHelper.accessor("position", {
+          cell: PositionCell,
+          enableResizing: false,
+          enableSorting: false,
+          header: t("table.headers.position"),
+          meta: { align: DATA_GRID_ALIGN.END, pinned: DATA_GRID_PIN.START },
+          minSize: COURSE_COLUMN_SIZES.position,
+          size: COURSE_COLUMN_SIZES.position,
+        }),
         columnHelper.accessor("title", {
           cell: TitleCell,
           enableSorting: false,

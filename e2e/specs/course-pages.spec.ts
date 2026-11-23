@@ -5,6 +5,7 @@ import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_COURSE_LEARNER } from "../data/licenses"
 import { expect, test } from "../fixtures/auth"
+import { chooseRowAction, moveToTop } from "../fixtures/data-grid"
 import { BADGE_INK_TOLERANCE_PX, META_ROW_TOLERANCE_PX, TITLE_GAP_TOLERANCE_PX, badgeLayout } from "../fixtures/badge-layout"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -365,7 +366,6 @@ test.describe("course and lesson pages", () => {
   })
 })
 
-const FIRST_COURSE_ROW = 1
 
 test("a course created and renamed in the admin reaches the landing page and the catalogue without a deploy", async ({
   appPage,
@@ -403,13 +403,7 @@ test("a course created and renamed in the admin reaches the landing page and the
   try {
     await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    const moveUp = courseRow(slug).getByRole("button", { name: `Move ${title} up` })
-    await expect(async () => {
-      if (await moveUp.isEnabled()) {
-        await moveUp.click()
-      }
-      expect(await courseRow(slug).evaluate((row: HTMLTableRowElement) => row.rowIndex)).toBe(FIRST_COURSE_ROW)
-    }).toPass()
+    await moveToTop(courseRow(slug))
 
     await landingShows(title)
 
@@ -425,7 +419,7 @@ test("a course created and renamed in the admin reaches the landing page and the
   } finally {
     await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await courseRow(slug).getByRole("button", { name: /^Delete / }).click()
+    await chooseRowAction(courseRow(slug), /^Actions for /u, "Delete")
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
     await expect(courseRow(slug)).toHaveCount(0)
     await visitor.close()

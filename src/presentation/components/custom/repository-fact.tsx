@@ -8,6 +8,7 @@ import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, coverageScope, flowTables, moduleTables, seededAccounts } from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
+import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
 import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
@@ -98,7 +99,6 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { UNLISTED_ROUTES } from "~/src/areas/shared"
-import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
@@ -116,7 +116,6 @@ import {
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
-import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
@@ -128,7 +127,7 @@ import { SKILL_SOURCES } from "~/src/data/skills"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
-import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
+import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"

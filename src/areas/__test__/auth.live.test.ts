@@ -6,10 +6,9 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH } from "~/src/data/auth"
-import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { CONTENT_TYPE } from "~/src/data/live.constants"
 
-import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, verifyDeployment } from "~/src/lib/deployment"
+import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, verifyDeployment } from "~/src/lib/deployment"
 
 import * as ROUTES from "~/src/routes"
 
@@ -70,9 +69,9 @@ const WORKING_SIGN_INS: Readonly<Record<Provider, SignIn>> = {
 }
 
 const PAGES: Readonly<Record<string, () => Response>> = Object.fromEntries(
-  LIVE_SITE_CHECKS.map(({ contentType, path, status }) => [
+  LIVE_SITE_CHECKS.map(({ contentType, path }) => [
     path,
-    () => new Response("body", { headers: { "content-type": contentType }, status }),
+    () => new Response("body", { headers: { "content-type": contentType }, status: HTTP_STATUS.OK }),
   ]),
 )
 

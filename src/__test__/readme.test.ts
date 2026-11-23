@@ -14,13 +14,12 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { LEGAL_NAVIGATION } from "~/src/data/legal.navigation"
-import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { LOCAL_SERVER, TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { LIVE_SITE_CHECK_RETRY_DELAYS_MS } from "~/src/lib/deployment"
+import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS } from "~/src/lib/deployment"
 import { TIME_RANGES } from "~/src/lib/time-series"
 
 import { LOCAL_ADMIN } from "~/scripts/local-admin"

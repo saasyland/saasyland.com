@@ -3,11 +3,11 @@ title: "ロールと権限"
 description: "エリアの権限ステートメントとロールへの付与をそのアクセスファイルで宣言し、ルートガードとサーバー関数でチェックします。"
 ---
 
-アクセス制御には Better Auth の admin プラグインを使います。各エリアは、自分のリソースの権限ステートメントと、それを付与するロールを `src/data/<area>.access.ts` で宣言します。`src/data/access.entries.ts` がエリアをまとめ、`src/integrations/better-auth/auth.access.ts` がそこから Better Auth のアクセス制御、ロール、権限チェックを組み立てるため、認証のインテグレーションはどのエリアも名指ししません。ロールコードは `src/integrations/better-auth/auth.roles.ts` にあります。
+アクセス制御には Better Auth の admin プラグインを使います。各エリアは、自分のリソースの権限ステートメントと、それを付与するロールを `src/areas/<area>.access.ts` で宣言します。`src/areas/access.entries.ts` がエリアをまとめ、`src/integrations/better-auth/auth.access.ts` がそこから Better Auth のアクセス制御、ロール、権限チェックを組み立てるため、認証のインテグレーションはどのエリアも名指ししません。ロールコードは `src/integrations/better-auth/auth.roles.ts` にあります。
 
 ## ステートメントとロール
 
-```ts title="src/data/auth.access.ts"
+```ts title="src/areas/auth.access.ts"
 const STATEMENTS = {
   admin: ["access"],
   settings: ["manage"],
@@ -28,7 +28,7 @@ export const ROLES = {
 }
 ```
 
-- `src/data/access.ts` の `APP_STATEMENTS` は、すべてのエリアのステートメントをリソース順にまとめ、2 つのエリアが同じリソースを宣言すると起動時に失敗します。`grantsOf(role)` は、すべてのエリアがそのロールに付与するものをまとめます。
+- `src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` は、すべてのエリアのステートメントをリソース順にまとめ、2 つのエリアが同じリソースを宣言すると起動時に失敗します。`grantsOf(role)` は、すべてのエリアがそのロールに付与するものをまとめます。
 - 認証エリアは `admin` と `settings`、商品エリアは `category` と `product`、コースエリアは `course` と `video`、決済エリアは `order` を宣言します。
 - Better Auth の `defaultStatements` は、`user` と `session` のリソースを追加します（`user: ["list", "set-role", "ban", "impersonate", "delete"]` や `session: ["list", "revoke"]` など）。
 - すべてのエリアは自分のステートメントをすべて `admin` に付与し、このロールには Better Auth の管理者ステートメントも付与されます。新規ユーザーのデフォルトロールである `customer` には、何も付与されません。
@@ -48,10 +48,10 @@ export const ROLES = {
 
 ## 権限を追加する
 
-1. リソースを所有するエリアのステートメントにアクションを追加します。例えば `src/data/analytics.access.ts` の `report: ["read", "export"]` です。新しいエリアは、自分のファイルと、`src/data/access.entries.ts` への 1 行を追加します。
+1. リソースを所有するエリアのステートメントにアクションを追加します。例えば `src/areas/analytics.access.ts` の `report: ["read", "export"]` です。新しいエリアは、自分のファイルと、`src/areas/access.entries.ts` への 1 行を追加します。
 2. 同じファイルの `grants` で付与します。エリアは `STATEMENTS` 全体を `ROLE_CODES.ADMIN` に付与し、それより少ない権限にとどめるロールにはその一部を付与します。
 3. サーバー関数でその権限を要求します：`.middleware([authorized({ report: ["export"] })])`。
-4. 許可されるケースと `FORBIDDEN` のケースの両方を、エリアの `src/data/__test__/<area>.access.test.ts` とユースケースのテストでテストします。
+4. 許可されるケースと `FORBIDDEN` のケースの両方を、エリアの `src/areas/__test__/<area>.access.test.ts` とユースケースのテストでテストします。
 
 ## ロールを追加する
 

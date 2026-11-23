@@ -1,20 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import type { LiveSiteCheck } from "~/src/data/live.constants"
 
-import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
+import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
 import * as ROUTES from "~/src/routes"
 
 const LOOKUP = await vi.hoisted(async () => {
-  const [{ CONTENT_TYPE }, { HTTP_STATUS }, zod] = await Promise.all([
-    import("~/src/data/live.constants"),
-    import("~/src/modules/_core/constants/api"),
-    import("zod"),
-  ])
+  const [{ CONTENT_TYPE }, zod] = await Promise.all([import("~/src/data/live.constants"), import("zod")])
   const answerSchema = zod.object({ problems: zod.array(zod.string()) })
 
   return {
@@ -25,14 +20,13 @@ const LOOKUP = await vi.hoisted(async () => {
       findProblems: (answer: unknown, origin: string) => answerSchema.parse(answer).problems.map((problem) => `${problem} on ${origin}`),
       name: "lookup",
     },
-    status: HTTP_STATUS.OK,
   } satisfies LiveSiteCheck
 })
 
-vi.mock(import("~/src/data/live"), async () => {
-  const { CORE_LIVE_CHECKS } = await import("~/src/data/core.live")
+vi.mock("~/src/areas/live.entries", async () => {
+  const { CORE_LIVE_CHECKS } = await import("~/src/areas/core.live")
 
-  return { LIVE_SITE_CHECKS: [...CORE_LIVE_CHECKS, LOOKUP] }
+  return { CORE_LIVE_CHECKS, LOOKUP_LIVE_CHECKS: [LOOKUP] }
 })
 
 const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
@@ -71,8 +65,8 @@ const lookupAnswer =
     Promise.resolve(Response.json({ problems }, { status }))
 
 const WORKING_SITE: Readonly<Record<string, Answer>> = {
-  ...Object.fromEntries(LIVE_SITE_CHECKS.map(({ contentType, path, status }) => [path, page(status, `${contentType}; charset=utf-8`)])),
-  [LOOKUP.path]: lookupAnswer(LOOKUP.status, []),
+  ...Object.fromEntries(LIVE_SITE_CHECKS.map(({ contentType, path }) => [path, page(HTTP_STATUS.OK, `${contentType}; charset=utf-8`)])),
+  [LOOKUP.path]: lookupAnswer(HTTP_STATUS.OK, []),
 }
 
 const fetchMock = vi.fn<(input: URL, init: RequestInit) => Promise<Response>>()

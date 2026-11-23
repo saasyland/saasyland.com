@@ -1,8 +1,11 @@
+export const ACCEPT_INVITATION = "/auth/invite"
 export const ADMIN = "/admin"
 export const ADMIN_SETTINGS = "/admin/settings"
 export const ADMIN_USERS = "/admin/users"
 export const ADMIN_USERS_ALL = "/admin/users/all"
+export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"
 export const API_AUTH = {
+  ACCEPT_INVITATION: "/invitation/accept",
   ADMIN_CREATE_USER: "/admin/create-user",
   ADMIN_SET_USER_PASSWORD: "/admin/set-user-password",
   ADMIN_UPDATE_USER: "/admin/update-user",

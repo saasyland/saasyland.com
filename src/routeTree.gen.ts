@@ -26,6 +26,7 @@ import { Route as AppLicenseRouteImport } from './routes/app.license'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as AuthInviteRouteImport } from './routes/auth.invite'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
@@ -53,6 +54,7 @@ import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
 import { Route as AdminUsersCustomersRouteImport } from './routes/admin.users.customers'
+import { Route as AdminUsersInvitationsRouteImport } from './routes/admin.users.invitations'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppSettingsDeleteAccountRouteImport } from './routes/app.settings_.delete-account'
 import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
@@ -150,6 +152,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthInviteRoute = AuthInviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
@@ -287,6 +294,11 @@ const AdminUsersCustomersRoute = AdminUsersCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AdminUsersRoute,
 } as any)
+const AdminUsersInvitationsRoute = AdminUsersInvitationsRouteImport.update({
+  id: '/invitations',
+  path: '/invitations',
+  getParentRoute: () => AdminUsersRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -387,6 +399,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -411,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
+  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs/': typeof SiteDocsIndexRoute
@@ -441,6 +455,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -463,6 +478,7 @@ export interface FileRoutesByTo {
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
+  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs': typeof SiteDocsIndexRoute
@@ -500,6 +516,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -524,6 +541,7 @@ export interface FileRoutesById {
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/customers': typeof AdminUsersCustomersRoute
+  '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings_/delete-account': typeof AppSettingsDeleteAccountRoute
   '/_site/_marketing/': typeof SiteMarketingIndexRoute
@@ -562,6 +580,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
+    | '/auth/invite'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -586,6 +605,7 @@ export interface FileRouteTypes {
     | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/customers'
+    | '/admin/users/invitations'
     | '/api/auth/$'
     | '/app/settings/delete-account'
     | '/docs/'
@@ -616,6 +636,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
+    | '/auth/invite'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -638,6 +659,7 @@ export interface FileRouteTypes {
     | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/customers'
+    | '/admin/users/invitations'
     | '/api/auth/$'
     | '/app/settings/delete-account'
     | '/docs'
@@ -674,6 +696,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
+    | '/auth/invite'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -698,6 +721,7 @@ export interface FileRouteTypes {
     | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/customers'
+    | '/admin/users/invitations'
     | '/api/auth/$'
     | '/app/settings_/delete-account'
     | '/_site/_marketing/'
@@ -851,6 +875,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/invite': {
+      id: '/auth/invite'
+      path: '/invite'
+      fullPath: '/auth/invite'
+      preLoaderRoute: typeof AuthInviteRouteImport
       parentRoute: typeof AuthRoute
     }
     '/auth/reset-password': {
@@ -1040,6 +1071,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/admin/users/customers'
       preLoaderRoute: typeof AdminUsersCustomersRouteImport
+      parentRoute: typeof AdminUsersRoute
+    }
+    '/admin/users/invitations': {
+      id: '/admin/users/invitations'
+      path: '/invitations'
+      fullPath: '/admin/users/invitations'
+      preLoaderRoute: typeof AdminUsersInvitationsRouteImport
       parentRoute: typeof AdminUsersRoute
     }
     '/api/auth/$': {
@@ -1264,6 +1302,7 @@ interface AdminUsersRouteChildren {
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminUsersAllRoute: typeof AdminUsersAllRoute
   AdminUsersCustomersRoute: typeof AdminUsersCustomersRoute
+  AdminUsersInvitationsRoute: typeof AdminUsersInvitationsRoute
   AdminUsersIndexRoute: typeof AdminUsersIndexRoute
 }
 
@@ -1271,6 +1310,7 @@ const AdminUsersRouteChildren: AdminUsersRouteChildren = {
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
   AdminUsersAllRoute: AdminUsersAllRoute,
   AdminUsersCustomersRoute: AdminUsersCustomersRoute,
+  AdminUsersInvitationsRoute: AdminUsersInvitationsRoute,
   AdminUsersIndexRoute: AdminUsersIndexRoute,
 }
 
@@ -1321,6 +1361,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 interface AuthRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthInviteRoute: typeof AuthInviteRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
@@ -1331,6 +1372,7 @@ interface AuthRouteChildren {
 const AuthRouteChildren: AuthRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthInviteRoute: AuthInviteRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,

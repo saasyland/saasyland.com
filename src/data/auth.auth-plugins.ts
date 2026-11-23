@@ -7,6 +7,7 @@ import type { AuthPluginEntry } from "~/src/data/auth-plugins"
 import { ROUTES } from "~/src/routes"
 
 const NEW_PASSWORD_PATHS = [
+  ROUTES.API_AUTH.ACCEPT_INVITATION,
   ROUTES.API_AUTH.ADMIN_CREATE_USER,
   ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD,
   ROUTES.API_AUTH.CHANGE_PASSWORD,

@@ -1,6 +1,8 @@
 import { hashPassword } from "better-auth/crypto"
 
 import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "./accounts"
 import { type TestSeed, literal } from "./seed"
 
@@ -23,4 +25,20 @@ export const accountStatements = async (accounts: readonly TestAccount[]): Promi
   ])
 }
 
-export const authSeed = async (): Promise<TestSeed> => ({ objects: [], statements: await accountStatements(TEST_ACCOUNTS) })
+const [admin] = TEST_ACCOUNTS
+
+const SEEDED_INVITATION = {
+  email: "seeded.invitation.for.a.rather.long.address@example.test",
+  expiresAt: Date.UTC(2099, 0, 1),
+  id: "test-invitation",
+  sentAt: Date.UTC(2026, 10, 20, 9),
+  tokenHash: "0".repeat(64),
+}
+
+const invitationStatement = (): string =>
+  `INSERT INTO invitation (id, email, role, locale, token_hash, invited_by, sent_at, expires_at) VALUES (${literal(SEEDED_INVITATION.id)}, ${literal(SEEDED_INVITATION.email)}, ${literal(ROLE_CODES.CUSTOMER)}, ${literal(I18N.DEFAULT_LOCALE)}, ${literal(SEEDED_INVITATION.tokenHash)}, ${literal(admin.id)}, ${String(SEEDED_INVITATION.sentAt)}, ${String(SEEDED_INVITATION.expiresAt)}) ON CONFLICT(id) DO NOTHING;`
+
+export const authSeed = async (): Promise<TestSeed> => ({
+  objects: [],
+  statements: [...(await accountStatements(TEST_ACCOUNTS)), invitationStatement()],
+})

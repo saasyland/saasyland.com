@@ -4,6 +4,8 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { invitation } from "~/src/modules/invitation/invitation.schema"
+import { listInvitationsQuery } from "~/src/modules/invitation/use-cases/list-invitations"
 import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user-sessions"
 import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
@@ -22,6 +24,16 @@ describe("admin user route loaders", () => {
   it("populates required query data before rendering /admin/users/all", async () => {
     vi.spyOn(getUsersQuery, "queryFn")
     expectPrefetched(await loadAsAdmin("/admin/users/all"), getUsersQuery, { ...EMPTY_PAGE, pendingVerification: 0 })
+  })
+
+  it("loads localized metadata and the open invitations before rendering /admin/users/invitations", async () => {
+    await db.delete(invitation)
+    vi.spyOn(listInvitationsQuery, "queryFn")
+
+    const router = await loadAsAdmin("/admin/users/invitations")
+
+    expectLocalizedAdminPage(router)
+    expectPrefetched(router, listInvitationsQuery, [])
   })
 
   it("titles a user's profile after them and loads their account and sessions", async () => {

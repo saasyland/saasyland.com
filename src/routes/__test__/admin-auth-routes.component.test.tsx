@@ -16,7 +16,11 @@ import { adminQueryClient, breadcrumbDividers, renderAdminPage } from "~/src/pre
 import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminUsersPending } from "~/src/presentation/components/custom/admin/admin-users-pending"
-import { AdminUserProfilePending, AdminUsersAllPending } from "~/src/presentation/components/custom/admin/auth-pending"
+import {
+  AdminUserProfilePending,
+  AdminUsersAllPending,
+  AdminUsersInvitationsPending,
+} from "~/src/presentation/components/custom/admin/auth-pending"
 
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
@@ -54,6 +58,13 @@ describe("admin users", () => {
     expect(preloadRoute).toHaveBeenNthCalledWith(1, { to: "/admin/users/all" })
     expect(preloadRoute).toHaveBeenNthCalledWith(2, { to: "/admin/users/all" })
   })
+
+  it("selects the invitations tab from /admin/users/invitations", () => {
+    renderAdminPage(UsersLayoutRoute.options.component, { path: "/admin/users/invitations" })
+
+    expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.invitations })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.allUsers })).toHaveAttribute("aria-selected", "false")
+  })
 })
 
 describe("admin users skeletons", () => {
@@ -63,6 +74,8 @@ describe("admin users skeletons", () => {
     ["/admin/users/all", AdminUsersPending, AdminUsersAllPending],
     ["/ja-JP/admin/users/ada", AdminUsersPending, AdminUserProfilePending],
     ["/admin/users/ada", AdminUsersPending, AdminUserProfilePending],
+    ["/admin/users/invitations", AdminPending, AdminUsersInvitationsPending],
+    ["/de-DE/admin/users/invitations", AdminUsersPending, AdminUsersInvitationsPending],
   ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
     const page = markupOf(<Page />)
     const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })

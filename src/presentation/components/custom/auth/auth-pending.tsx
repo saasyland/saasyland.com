@@ -113,6 +113,29 @@ export const SignUpPending = (): JSX.Element => (
   </div>
 )
 
+export const AcceptInvitationPending = (): JSX.Element => (
+  <div aria-busy="true" className="flex flex-col">
+    <TitlePending />
+    <div className="mt-3 flex flex-col text-body">
+      <Skeleton className="h-lh w-full scale-y-70" />
+      <Skeleton className="h-lh w-1/2 scale-y-70" />
+    </div>
+    <div className="mt-10 flex flex-col gap-6">
+      <OAuthPending />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
+          <FieldPending />
+          <FieldPending />
+          <FieldPending />
+        </div>
+        <PasswordRulesPending />
+        <Skeleton className="h-11 w-full rounded-md" />
+      </div>
+    </div>
+    <FooterPending />
+  </div>
+)
+
 export const ForgotPasswordPending = (): JSX.Element => (
   <div aria-busy="true" className="flex flex-col">
     <TitlePending />
@@ -183,6 +206,7 @@ export const VerifyEmailPending = (): JSX.Element => (
 )
 
 const AUTH_PAGES = new Map<string, () => JSX.Element>([
+  [ROUTES.ACCEPT_INVITATION, AcceptInvitationPending],
   [ROUTES.FORGOT_PASSWORD, ForgotPasswordPending],
   [ROUTES.RESET_PASSWORD, ResetPasswordPending],
   [ROUTES.SIGN_IN, SignInPending],

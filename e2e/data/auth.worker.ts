@@ -8,6 +8,8 @@ export const GITHUB_AUTHORIZE_TEST_PATH = "/__test/github/authorize"
 
 const GITHUB_CALLBACK_PATH = `${API_AUTH_BASE}/callback/${AUTH_PROVIDER.GITHUB}`
 
+const TEST_EMAIL_DOMAIN = "@example.test"
+
 const refuseAuthorization = (error: string): Response => Response.json({ error }, { status: HTTP_STATUS.BAD_REQUEST })
 
 export const AUTH_TEST_WORKER = [
@@ -30,6 +32,20 @@ export const AUTH_TEST_WORKER = [
       redirectUri.searchParams.set("code", code)
       redirectUri.searchParams.set("state", state)
       return Promise.resolve(Response.redirect(redirectUri.toString(), HTTP_STATUS.FOUND))
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/invitations/expire",
+    respond: async (url, env) => {
+      const email = url.searchParams.get("email")
+      if (email === null || !email.endsWith(TEST_EMAIL_DOMAIN)) {
+        return Response.json({ error: "A test email address is required" }, { status: HTTP_STATUS.BAD_REQUEST })
+      }
+      const { meta } = await env.DB.prepare("UPDATE invitation SET expires_at = ? WHERE email = ? AND accepted_at IS NULL AND revoked_at IS NULL")
+        .bind(Date.now() - 1, email)
+        .run()
+      return Response.json({ expired: meta.changes })
     },
   },
 ] as const satisfies readonly TestWorkerEntry[]

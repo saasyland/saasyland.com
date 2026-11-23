@@ -280,3 +280,18 @@ export const AdminUserProfilePending = (): JSX.Element => (
     </div>
   </div>
 )
+
+export const AdminUsersInvitationsPending = (): JSX.Element => (
+  <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
+    <div className="flex justify-end">
+      <Skeleton className="h-10 w-34 rounded-md" />
+    </div>
+    <div className="flex flex-col gap-4">
+      <div>
+        <Skeleton className="h-lh w-44 scale-y-70 text-title" />
+        <Skeleton className="mt-0.5 h-lh w-96 max-w-full scale-y-70 text-body-sm" />
+      </div>
+      <Skeleton className="h-lh w-96 max-w-full scale-y-70 text-body-sm" />
+    </div>
+  </div>
+)

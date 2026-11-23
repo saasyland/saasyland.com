@@ -138,3 +138,11 @@ export const expectDeleteAccountEmail = async (request: APIRequestContext, recip
   expect(email.subject).toBe("Confirm that you want to delete your account")
   return linkTo(email.html, "/app/settings/delete-account")
 }
+
+export const expectInvitationEmail = async (request: APIRequestContext, recipient: string, expectedCount = 1): Promise<URL> => {
+  const email = await latestEmail(request, recipient, EMAIL_PURPOSE.INVITATION, expectedCount)
+
+  expect(email.subject).toBe(`You're invited to ${APP_NAME}`)
+  expect(email.html).toContain('lang="en-US"')
+  return linkTo(email.html, "/auth/invite")
+}

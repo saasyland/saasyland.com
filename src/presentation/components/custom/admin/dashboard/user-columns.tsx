@@ -40,7 +40,9 @@ const UserCell = ({ row }: CellContext<DataGridFeatures, DashboardUser, string>)
   </div>
 )
 
-const RoleCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, string>): JSX.Element => <Badge>{getValue()}</Badge>
+const RoleCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, DashboardUser["role"]>): JSX.Element => (
+  <Badge>{getValue()}</Badge>
+)
 
 const StatusCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, UserStatus>): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard.users.table.status")

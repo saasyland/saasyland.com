@@ -13,7 +13,9 @@ const copyFixture = async (bucket: R2Bucket, videoId: string): Promise<number> =
   const copies = objects.map(async ({ key }) => {
     const object = await bucket.get(key)
     if (object !== null) {
-      await bucket.put(`${videoDirectory(videoId)}${key.slice(source.length)}`, object.body, { httpMetadata: object.httpMetadata })
+      const httpMetadata = new Headers()
+      object.writeHttpMetadata(httpMetadata)
+      await bucket.put(`${videoDirectory(videoId)}${key.slice(source.length)}`, object.body, { httpMetadata })
     }
     return object?.size ?? 0
   })

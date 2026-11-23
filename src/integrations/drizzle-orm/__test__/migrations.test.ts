@@ -329,7 +329,7 @@ describe("the migration that records the first paid lesson", () => {
     )
   })
 
-  it("keeps every other table, every index and every licence as it was, with no lesson recorded yet", () => {
+  it("keeps every other table, every index and every licence as it was, with no lesson ready yet", () => {
     const database = databaseBefore(LESSON_RECORDS)
     database.prepare("INSERT INTO user (id, name, email) VALUES (?, ?, ?)").run(BUYER.id, BUYER.name, BUYER.email)
     database

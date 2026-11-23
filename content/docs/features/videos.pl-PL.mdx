@@ -1,24 +1,76 @@
 ---
 title: "Wideo"
-description: "Nagrania kodowane do adaptacyjnego HLS na Twoim komputerze, przechowywane w Twoim własnym buckecie R2 i przesyłane strumieniowo przez podpisane linki, które wygasają."
+description: "Nagranie każdej lekcji, upuszczone w edytorze lekcji, przesłane w częściach do Twojego własnego bucketu R2, zakodowane przez FFmpeg do adaptacyjnego HLS i przesyłane strumieniowo przez podpisane linki, które wygasają."
 ---
 
 Filmy leżą w Twoim własnym buckecie R2, a strumieniuje je Twój własny Worker. Nie pośredniczy w tym żadna platforma wideo: Cloudflare nie pobiera opłat za transfer wychodzący z R2, więc płacisz za przechowywanie i żądania, a nie za obejrzane minuty.
 
+Film należy do lekcji, które go odtwarzają. Panel administracyjny nie ma osobnej strony z filmami: karta **Wideo** każdej lekcji służy do przesłania, podglądu, zastąpienia i usunięcia jej nagrania (zobacz [Edytor lekcji](/docs/features/courses#lesson-editor)).
+
 ## Co już działa
 
-- **Biblioteka**: `/admin/videos` (`src/routes/admin.videos.tsx`) pokazuje wszystkie opublikowane filmy, od najnowszego, z długością, rozdzielczością źródła, rozmiarem zapisanych plików, językami napisów, informacją, czy to film zastępczy, i datą publikacji. **Podgląd** odtwarza film w oknie dialogowym; **Usuń** prosi o potwierdzenie, a potem usuwa wiersz i wszystkie pliki pod prefiksem filmu w R2.
-- **Publikowanie**: `bun run video:publish:production <file> --title "…"` koduje nagranie programem FFmpeg, przesyła je do R2 i rejestruje w tabeli `video`, dzięki czemu film pojawia się w bibliotece.
+- **Przesyłanie**: karta **Wideo** w edytorze lekcji i okno **Dodaj lekcję** przyjmują nagranie przeciągnięte i upuszczone albo wybrane w oknie wyboru pliku. Przeglądarka przesyła je do R2 w częściach przez Workera, pokazuje postęp i wznawia przerwane przesyłanie od części, które są już zapisane. Zobacz [Przesyłanie w częściach](#upload-in-parts).
+- **Kodowanie**: `bun run video:encode:<environment>` koduje przez FFmpeg każde przesłane nagranie na komputerze, na którym je uruchomisz, przesyła strumienie do R2, rejestruje film i przypisuje go do jego lekcji. Zobacz [Kodowanie przesłanych nagrań](#encode-the-uploads).
+- **Publikowanie z wiersza poleceń**: `bun run video:publish:<environment> <file> --title "…"` koduje plik na Twoim komputerze i rejestruje film bez lekcji. Film pojawia się w oknie **Użyj istniejącego wideo**. Zobacz [Publikowanie nagrania z własnego komputera](#publish-a-recording-from-your-machine).
 - **Dostarczanie**: `/media/<expiry>.<signature>/<videoId>/<file>` serwuje pliki odtwarzaczowi (zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2)).
 - **Odtwarzacz**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) korzysta z Video.js 10 i jego własnego silnika HLS. Ma przyciski jakości, prędkości, napisów, obrazu w obrazie i pełnego ekranu, podgląd przy przewijaniu ze storyboardu oraz etykiety w języku strony.
 
 Lekcje kursów odtwarzają te filmy: kolumna `video_id` lekcji wskazuje wiersz tabeli `video`, a `getLessonPlayback` podpisuje ścieżki tylko dla osób, które mogą obejrzeć tę lekcję. Zobacz [Kursy](/docs/features/courses).
 
-## Filmy zastępcze [#placeholder-videos]
+## Od przesłania do lekcji, która się odtwarza [#from-the-upload-to-a-lesson-that-plays]
 
-Film można oznaczyć jako zastępczy przełącznikiem **Zastępcze** w bibliotece (`setVideoPlaceholder`, wartość w `video.placeholder`, wyłączona dla każdego opublikowanego filmu). Lekcja z filmem zastępczym ma oznaczenie **W trakcie nagrywania**: odwiedzający widzą lekcję i jej materiały, ale film się nie odtwarza, a długość lekcji nie wlicza się do długości kursu. Opublikuj jedno krótkie nagranie, oznacz je jako zastępcze i na początek przypisz je do każdej lekcji; gdy opublikujesz właściwe nagranie lekcji, wybierz je w edytorze lekcji, a lekcja od razu zacznie się odtwarzać wszędzie. Po wyłączeniu przełącznika każdą lekcję z tym filmem znów można odtworzyć. Zobacz [W trakcie nagrywania](/docs/features/courses#being-recorded).
+Przesyłane nagranie to wiersz tabeli `video_upload` (`src/modules/video-upload`), jeden na lekcję, dopóki koder nie zamieni go w film:
 
-Testowe dane początkowe publikują `Being recorded`, film zastępczy, z którego korzystają trzy lekcje drugiego rozdziału w tych danych, oraz `Spare take`, film bez żadnej lekcji, który testy w przeglądarce oznaczają i odznaczają. Baza danych nie ma filmu zastępczego, dopóki nie oznaczysz go w bibliotece: po migracji, która dodała tę flagę, każdy istniejący film nadal się odtwarza.
+| Stan        | `video_upload.status` | Edytor lekcji pokazuje                                                                                                                | Kursanci widzą                      |
+| ----------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Przesyłanie | `uploading`           | Plik, pasek postępu z liczbą przesłanych bajtów i **Anuluj przesyłanie**                                                              | Obecny film lekcji albo **Wkrótce** |
+| Przerwane   | `uploading`           | Ile już przesłano i **Wybierz plik ponownie**, aby wznowić przesyłanie                                                                | To samo                             |
+| Oczekiwanie | `queued`              | **Czeka na koder** z poleceniem do uruchomienia                                                                                       | To samo                             |
+| Kodowanie   | `encoding`            | **Kodowanie** z nieokreślonym paskiem postępu                                                                                         | To samo                             |
+| Błąd        | `failed`              | Powód, dla którego FFmpeg przerwał pracę (`failure`: `unreadable` albo `encoding`), **Zakoduj ponownie** i **Prześlij inne nagranie** | To samo                             |
+| Gotowe      | Brak wiersza          | Odtwarzacz, długość, rozmiar, rozdzielczość i języki napisów                                                                          | Film                                |
+
+Lekcja odtwarza swój obecny film, dopóki nagranie, które ma go zastąpić, jest przesyłane i kodowane; koder zamienia filmy w jednym kroku. Dopóki przesłane nagranie czeka na koder albo jest kodowane, edytor kursu pobiera dane ponownie co <RepositoryFact name="videoUploadPollSeconds" unit="second" />, więc karta i program same zmieniają stan.
+
+## Przesyłanie w częściach [#upload-in-parts]
+
+`useVideoUpload` (`src/hooks/use-video-upload.ts`) prowadzi przesyłanie w przeglądarce i trzyma jego stan poza komponentami, więc przesyłanie trwa dalej, gdy administrator przejdzie do innej lekcji w tej samej karcie, a program pokazuje jego postęp w procentach. Dopóki jakaś część jest w drodze, opuszczenie strony wymaga potwierdzenia.
+
+1. `startVideoUpload` sprawdza nazwę i rozmiar pliku, otwiera przez binding `MEDIA` przesyłanie wieloczęściowe R2 dla `uploads/<uploadId>/source.<extension>` i zapisuje je w bazie. Przyjmuje pliki <RepositoryFact name="videoUploadFileTypes" /> do <RepositoryFact name="videoUploadMaxGigabytes" /> GB (`VIDEO_UPLOAD_FILE_TYPES`, `VIDEO_UPLOAD_MAX_GIGABYTES`), a typ zawartości wynika z rozszerzenia, nigdy z tego, co poda przeglądarka. Gdy lekcja ma już przesyłanie tego samego pliku, rozpoznanego po nazwie, rozmiarze i dacie ostatniej modyfikacji, funkcja odpowiada listą części, które R2 już ma, a przeglądarka przesyła tylko pozostałe; przesyłanie innego pliku zastępuje poprzednie, a jego części albo źródło są usuwane.
+2. Przeglądarka przesyła części po <RepositoryFact name="videoUploadPartMegabytes" /> MB (`VIDEO_UPLOAD_PART_MEGABYTES`), po <RepositoryFact name="videoUploadConcurrency" /> naraz, każdą jako `FormData` do `uploadVideoPart`, które odrzuca część o numerze albo rozmiarze niezgodnym z oczekiwanym plikiem, zapisuje ją przez `uploadPart` i dopisuje jej ETag do `video_upload.parts`. Część, której nie udało się przesłać, przeglądarka próbuje przesłać <RepositoryFact name="videoUploadPartAttempts" /> razy, za każdym razem po dłuższej przerwie; potem przesyłanie się zatrzymuje i proponuje **Wznów przesyłanie**.
+3. `completeVideoUpload` sprawdza, czy są wszystkie części, kończy przesyłanie wieloczęściowe i ustawia źródło w kolejce do kodera (`queued`).
+
+Części przechodzą przez Workera, więc są sprawdzane względem sesji jak w każdej innej funkcji serwerowej i nie są potrzebne żadne dane uwierzytelniające R2 ani wstępnie podpisane adresy URL. Wszystkie te funkcje wymagają `course: ["update"]`; `startVideoUpload` uruchamia też `withRateLimit`, z limitem <RepositoryFact name="videoUploadsPerMinute" /> rozpoczęć z jednego adresu na minutę. `cancelVideoUpload` przerywa przesyłanie albo usuwa jego źródło i zapomina o nim, a `retryVideoUpload` ponownie ustawia w kolejce przesyłanie, którego kodowanie się nie powiodło. Przesyłanie wieloczęściowe, które przez siedem dni pozostaje niedokończone, R2 przerywa samo zgodnie ze swoją domyślną regułą cyklu życia.
+
+Usunięcie lekcji, rozdziału albo kursu, także przez import, usuwa też z R2 ich przesyłane nagrania razem ze źródłami.
+
+## Kodowanie przesłanych nagrań [#encode-the-uploads]
+
+Worker nie może uruchomić FFmpeg, więc kodowanie odbywa się na komputerze, który to potrafi:
+
+1. Zainstaluj FFmpeg, który zawiera `ffprobe`: w macOS poleceniem `brew install ffmpeg`. Aby użyć innych plików wykonywalnych, ustaw `FFMPEG` i `FFPROBE`.
+2. Zaloguj się do Cloudflare poleceniem `bunx wrangler login`. Skrypt uruchamia Wranglera na tym koncie, tak jak skrypty `db:migrate:*`, i nie czyta żadnego pliku `.env`.
+3. Uruchom koder dla środowiska, w którym są przesłane nagrania:
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`, `video:encode:development` i `video:encode:test` robią to samo dla bazy danych i bucketu środowiska podglądowego oraz dla lokalnego stanu środowiska deweloperskiego i testowego. Edytor lekcji pokazuje polecenie dla środowiska, w którym działa.
+
+`scripts/encode-videos.ts` wyszukuje przesłane nagrania w stanie `queued` i każde z nich oznacza jako `encoding`, pobiera źródło poleceniem `wrangler r2 object get`, koduje je tak samo jak `video:publish`, przesyła strumienie pod `videos/<uploadId>/`, a potem jedną listą instrukcji rejestruje film, przypisuje go do lekcji i usuwa wiersz przesyłanego nagrania (`finishEncodingQueries` w `src/modules/video-upload/video-upload.encoder.ts`), zanim usunie źródło. Film dostaje nazwę pliku. Plik, którego FFmpeg nie potrafi odczytać, dostaje status `failed` z `unreadable`, a przy każdym innym błędzie – `failed` z `encoding`. Przesyłanie anulowane albo zastąpione w trakcie kodowania zostaje pominięte, a strumienie, które koder dla niego przesłał, są usuwane.
+
+Testy w przeglądarce nie mają FFmpeg: ich testowy Worker odpowiada na `/__test/videos/encode`, kopiując dla każdego przesłanego nagrania w kolejce strumienie testowego filmu z danych początkowych i kończąc je tym samym `finishEncodingQueries`.
+
+## Ponowne użycie i usuwanie
+
+**Użyj istniejącego wideo** w edytorze lekcji wymienia zakodowane filmy od najnowszego (<RepositoryFact name="videoLibraryPageSize" /> najnowszych z `getVideos`, które wymaga `video: ["read"]`) wraz z liczbą lekcji, które używają każdego z nich. **Użyj** przypisuje film do lekcji (`replaceLessonVideo`), więc jedno nagranie może się odtwarzać w kilku lekcjach. Film, którego nie używa żadna lekcja, na przykład zastąpiony nowym nagraniem albo opublikowany z wiersza poleceń, można tam usunąć (`deleteVideo`, `video: ["delete"]`).
+
+**Usuń wideo** w lekcji odłącza od niej film przez `removeLessonVideo`, które wymaga `course: ["update"]` i `video: ["delete"]`. Gdy żadna inna lekcja nie używa filmu, usuwa też jego wiersz i wszystkie pliki pod prefiksem filmu w R2; w przeciwnym razie przycisk nazywa się **Odłącz od tej lekcji**, a film zostaje w pozostałych lekcjach.
+
+## Filmy zastępcze z wcześniejszych wersji
+
+Wcześniejsze wersje pozwalały oznaczyć film jako zastępczy dla lekcji w trakcie nagrywania. Teraz lekcja bez filmu sama to sygnalizuje, więc migracja `20261123021636_steady_microchip.sql` odłącza każdą lekcję od filmu zastępczego, a strony pokazują przy tych lekcjach **Wkrótce** dokładnie tak jak wcześniej. Same filmy zastępcze zostają, dopóki ich nie usuniesz w oknie **Użyj istniejącego wideo**, a kolumna `placeholder` nie jest już odczytywana.
 
 ## Co zawiera opublikowany film
 
@@ -35,23 +87,21 @@ Koder planuje pliki wynikowe na podstawie źródła:
 
 Segmenty mają format CMAF (fragmentowany MP4) z klatką kluczową co <RepositoryFact name="videoKeyframeSeconds" unit="second" />, więc wszystkie warianty przełączają się w tych samych punktach. Przepływność wynika ze stałej jakości (CRF <RepositoryFact name="videoQualityCrf" />), z górnym limitem proporcjonalnym do rozmiaru obrazu, więc nagranie ekranu, na którym niewiele się zmienia, zajmuje znacznie mniej miejsca, niż pozwala limit.
 
-## Publikowanie nagrania
+## Publikowanie nagrania z własnego komputera [#publish-a-recording-from-your-machine]
 
-1. Zainstaluj FFmpeg, który zawiera `ffprobe`: w macOS poleceniem `brew install ffmpeg`. Aby użyć innych plików wykonywalnych, ustaw `FFMPEG` i `FFPROBE`.
-2. Zaloguj się do Cloudflare poleceniem `bunx wrangler login`. Skrypt uruchamia Wranglera na tym koncie, tak jak skrypty `db:migrate:*`, i nie czyta żadnego pliku `.env`.
-3. Uruchom skrypt dla wybranego środowiska:
+`video:publish` nie wymaga przesyłania nagrania w przeglądarce: koduje plik na Twoim komputerze i przesyła do R2 tylko strumienie. Użyj go do długiego nagrania, które masz już lokalnie, albo gdy chcesz dodać własne napisy lub plakat:
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` i `--captions` są opcjonalne. Dla środowiska podglądowego użyj `video:publish:preview`.
+`--poster` i `--captions` są opcjonalne. Dla środowiska podglądowego użyj `video:publish:preview`. Potem wybierz film w oknie **Użyj istniejącego wideo** w edytorze lekcji.
 
-`scripts/publish-video.ts` odczytuje nazwę bucketu z bindingu `MEDIA` danego środowiska w `wrangler.jsonc`, koduje nagranie do katalogu tymczasowego, przesyła pliki poleceniem `wrangler r2 bulk put --remote`, po 20 naraz, pogrupowane według typu zawartości, i wstawia wiersz `video` poleceniem `wrangler d1 execute DB --env <environment> --remote`. Jeśli to się nie uda, usuwa przesłane obiekty poleceniem `wrangler r2 object delete`. Planowanie (warianty, argumenty FFmpeg, storyboard, nazwy plików) jest w `src/modules/video/video.encoding.ts` i `video.files.ts`, z których korzysta też Worker.
+`scripts/publish-video.ts` odczytuje nazwę bucketu z bindingu `MEDIA` danego środowiska w `wrangler.jsonc`, koduje nagranie do katalogu tymczasowego, przesyła pliki poleceniem `wrangler r2 bulk put --remote`, pogrupowane według typu zawartości, i wstawia wiersz `video` poleceniem `wrangler d1 execute DB --env <environment> --remote`. Jeśli to się nie uda, usuwa przesłane obiekty poleceniem `wrangler r2 object delete`. `publish-video.ts` i `encode-videos.ts` korzystają ze wspólnych kroków kodowania w `scripts/video-pipeline.ts`; planowanie (warianty, argumenty FFmpeg, storyboard, nazwy plików) jest w `src/modules/video/video.encoding.ts` i `video.files.ts`, z których korzysta też Worker.
 
 ## Koszt
 
-Przechowywanie w R2 Standard kosztuje 0,015 USD za GB miesięcznie, a transfer wychodzący jest bezpłatny, więc biblioteka 50 godzin nagrań ekranu, które we wszystkich wariantach zajmują około 1,2 GB na godzinę, kosztuje mniej niż 1 USD miesięcznie, niezależnie od tego, jak często się ją ogląda. Każde żądanie segmentu uruchamia Workera raz i czyta z R2 najwyżej raz w każdej lokalizacji brzegowej, ponieważ serwowane pliki trafiają do pamięci podręcznej Workers. Aktualne ceny sprawdź w cennikach [R2](https://developers.cloudflare.com/r2/pricing/) i [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+Przechowywanie w R2 Standard kosztuje 0,015 USD za GB miesięcznie, a transfer wychodzący jest bezpłatny, więc przechowywanie biblioteki 50 godzin nagrań ekranu, które we wszystkich wariantach zajmują około 1,2 GB na godzinę, kosztuje mniej niż 1 USD miesięcznie, niezależnie od tego, jak często się ją ogląda. Przesłane źródło jest usuwane, gdy tylko zostanie zakodowane. Każde żądanie segmentu uruchamia Workera raz i czyta z R2 najwyżej raz w każdej lokalizacji brzegowej, ponieważ serwowane pliki trafiają do pamięci podręcznej Workers. Aktualne ceny sprawdź w cennikach [R2](https://developers.cloudflare.com/r2/pricing/) i [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Powiązane strony
 

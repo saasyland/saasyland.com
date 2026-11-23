@@ -1,14 +1,17 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { count, desc } from "drizzle-orm"
+import { count, desc, eq, getTableColumns } from "drizzle-orm"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { VIDEO_QUERY_KEYS } from "~/src/modules/video/video.constants"
 import { video } from "~/src/modules/video/video.schema"
 import type { Video } from "~/src/modules/video/video.types"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
+
+const lessonCount = db.$count(lesson, eq(lesson.videoId, video.id))
 
 export const getVideos = createServerFn({ method: "GET" })
   .middleware([authorized({ video: ["read"] })])
@@ -16,7 +19,7 @@ export const getVideos = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const [rows, totals] = await db.batch([
       db
-        .select()
+        .select({ ...getTableColumns(video), lessonCount })
         .from(video)
         .orderBy(desc(video.createdAt), desc(video.id))
         .limit(data.pageSize)

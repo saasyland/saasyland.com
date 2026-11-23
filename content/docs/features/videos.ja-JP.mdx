@@ -1,24 +1,76 @@
 ---
 title: "動画"
-description: "手元のマシンでアダプティブ HLS にエンコードし、自分の R2 バケットに保存して、期限付きの署名済みリンクで配信する録画です。"
+description: "各レッスンの録画をレッスンエディターにドロップし、自分の R2 バケットに分割してアップロードし、FFmpeg でアダプティブ HLS にエンコードして、期限付きの署名済みリンクで配信します。"
 ---
 
 動画は自分の R2 バケットに保存され、自分の Worker から配信されます。間に動画プラットフォームは入りません。Cloudflare は R2 からのエグレス（下り転送）に料金を請求しないため、費用は視聴時間ではなく、ストレージとリクエストの分だけです。
 
+動画は、それを再生するレッスンのものです。管理画面に動画専用のページはありません。各レッスンの **動画** カードで、その録画をアップロード、プレビュー、置き換え、削除します（[レッスンエディター](/docs/features/courses#lesson-editor)を参照）。
+
 ## 存在するもの
 
-- **ライブラリ**: `/admin/videos`（`src/routes/admin.videos.tsx`）は、公開済みのすべての動画を、長さ、ソースの解像度、保存容量、字幕の言語、プレースホルダーかどうか、公開日とともに新しい順に一覧表示します。**プレビュー** はダイアログで動画を再生します。**削除** は確認を求めたうえで、行と、R2 にあるその動画のプレフィックス配下のすべてのファイルを削除します。
-- **公開**: `bun run video:publish:production <file> --title "…"` は、FFmpeg で録画をエンコードして R2 にアップロードし、`video` テーブルに登録します。この登録によって、動画がライブラリに表示されます。
+- **アップロード**: レッスンエディターの **動画** カードと **レッスンを追加** ダイアログは、ドラッグ＆ドロップまたはファイルピッカーで録画を受け付けます。ブラウザーは Worker を通して録画を分割して R2 に送り、その進捗を表示し、中断したアップロードはすでに保存されたパートから再開します。[分割アップロード](#upload-in-parts)を参照してください。
+- **エンコード**: `bun run video:encode:<environment>` は、アップロードされたすべての録画を、それを実行するマシン上の FFmpeg でエンコードし、ストリームを R2 にアップロードして動画を登録し、そのレッスンに設定します。[アップロードをエンコードする](#encode-the-uploads)を参照してください。
+- **コマンドラインからの公開**: `bun run video:publish:<environment> <file> --title "…"` は、手元のマシンでファイルをエンコードし、レッスンなしで登録します。登録した動画は **既存の動画を使う** に表示されます。[手元のマシンから録画を公開する](#publish-a-recording-from-your-machine)を参照してください。
 - **配信**: `/media/<expiry>.<signature>/<videoId>/<file>` がプレーヤーにファイルを配信します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。
 - **プレーヤー**: `VideoPlayer`（`src/presentation/components/custom/video-player.tsx`）は、独自の HLS エンジンを備えた Video.js 10 を使います。画質、再生速度、字幕、ピクチャー・イン・ピクチャー、全画面表示のコントロールと、ストーリーボードによるシークプレビューを表示し、ラベルはページの言語で表示します。
 
 コースのレッスンはこれらの動画を再生します。レッスンの `video_id` は `video` テーブルの行を参照し、`getLessonPlayback` はそのレッスンを視聴できる視聴者に対してのみパスに署名します。[コース](/docs/features/courses)を参照してください。
 
-## プレースホルダー動画 [#placeholder-videos]
+## アップロードから再生されるレッスンまで [#from-the-upload-to-a-lesson-that-plays]
 
-動画は、ライブラリの **プレースホルダー** スイッチでプレースホルダーとしてマークできます（`setVideoPlaceholder`。`video.placeholder` に保存され、公開済みのどの動画でもオフです）。プレースホルダー動画を使うレッスンは **収録中** として表示されます。訪問者にはレッスンとその資料が見えますが、再生されることはなく、その長さはコースの長さに含まれません。短い録画を 1 本公開してプレースホルダーとしてマークし、すべてのレッスンをその動画で始めてください。レッスンの実際の録画を公開したら、レッスンエディターでそれを選ぶと、そのレッスンはどこでも一斉に再生されるようになります。スイッチをオフにすると、その動画を使うすべてのレッスンが再生できるレッスンに戻ります。[収録中](/docs/features/courses#being-recorded)を参照してください。
+アップロードは、エンコーダーが動画に変えるまで、`video_upload` テーブル（`src/modules/video-upload`）の行としてレッスンごとに 1 つ存在します。
 
-テスト用のシードは、シード済みの 2 番目の章にある 3 つのレッスンが使うプレースホルダーの `Being recorded` と、どのレッスンも使わない動画で、ブラウザテストがマークしたり解除したりする `Spare take` を公開します。ライブラリでマークするまで、データベースにプレースホルダーはありません。このフラグを追加したマイグレーションは、既存の動画をすべて再生できるままにします。
+| 状態           | `video_upload.status` | レッスンエディターの表示                                                                                               | 受講者に見えるもの                        |
+| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| アップロード中 | `uploading`           | ファイル、送信済みのバイト数を示す進捗バー、**アップロードを取り消す**                                                 | レッスンの現在の動画、または **近日公開** |
+| 中断           | `uploading`           | どこまで進んだか、そして再開するための **ファイルをもう一度選択**                                                      | 同上                                      |
+| 待機中         | `queued`              | 実行するコマンドを添えた **エンコーダーを待っています**                                                                | 同上                                      |
+| エンコード中   | `encoding`            | 終わりがまだわからない進捗バーを添えた **エンコード中**                                                                | 同上                                      |
+| 失敗           | `failed`              | FFmpeg が止まった理由（`failure`: `unreadable` または `encoding`）、**もう一度エンコード**、**別の録画をアップロード** | 同上                                      |
+| 準備完了       | 行なし                | プレーヤー、長さ、サイズ、解像度、字幕の言語                                                                           | 動画                                      |
+
+レッスンは、差し替えの録画をアップロードしてエンコードする間も現在の動画を再生し続け、エンコーダーが 1 つの手順で両者を入れ替えます。アップロードがエンコーダーを待っている間やエンコード中は、コースエディターが <RepositoryFact name="videoUploadPollSeconds" unit="second" />ごとにデータを再取得するため、カードとカリキュラムの状態は自動で変わります。
+
+## 分割アップロード [#upload-in-parts]
+
+`useVideoUpload`（`src/hooks/use-video-upload.ts`）はブラウザーでアップロードを実行し、その状態をコンポーネントの外に保持します。そのため、管理者が同じタブで別のレッスンに移ってもアップロードは続き、カリキュラムにはその割合が表示されます。パートの送信中にページを離れようとすると、確認を求めます。
+
+1. `startVideoUpload` はファイルの名前とサイズを確認し、`MEDIA` バインディングで `uploads/<uploadId>/source.<extension>` の R2 マルチパートアップロードを開始して記録します。受け付けるのは最大 <RepositoryFact name="videoUploadMaxGigabytes" /> GB の <RepositoryFact name="videoUploadFileTypes" /> ファイルで（`VIDEO_UPLOAD_FILE_TYPES`、`VIDEO_UPLOAD_MAX_GIGABYTES`）、コンテンツタイプはブラウザーからではなく常に拡張子から決まります。レッスンに同じファイル（名前、サイズ、最終更新日時で判定）のアップロードがすでにある場合は、R2 がすでに保持しているパートを返し、ブラウザーは残りだけを送ります。別のファイルのアップロードはそれを置き換え、古いパートまたはソースは削除されます。
+2. ブラウザーは <RepositoryFact name="videoUploadPartMegabytes" /> MB のパート（`VIDEO_UPLOAD_PART_MEGABYTES`）を <RepositoryFact name="videoUploadConcurrency" /> 個ずつ並行して、それぞれ `FormData` として `uploadVideoPart` に送ります。`uploadVideoPart` は、番号やサイズが想定するファイルと一致しないパートを拒否し、`uploadPart` で保存して、その ETag を `video_upload.parts` に記録します。失敗したパートは、毎回待ち時間を長くしながら <RepositoryFact name="videoUploadPartAttempts" /> 回まで試行され、それでも失敗するとアップロードは止まり、**アップロードを再開** が表示されます。
+3. `completeVideoUpload` はすべてのパートがそろっていることを確認し、マルチパートアップロードを完了して、ソースをエンコーダーのキューに入れます（`queued`）。
+
+パートは Worker を通るため、ほかのすべてのサーバー関数と同じくセッションに照らして確認され、R2 の認証情報や署名付き URL は必要ありません。いずれも `course: ["update"]` を必要とし、`startVideoUpload` はさらに `withRateLimit` で、開始を 1 アドレスあたり 1 分に <RepositoryFact name="videoUploadsPerMinute" /> 回までに制限します。`cancelVideoUpload` はアップロードを中止するかそのソースを削除して、アップロードの記録を消します。`retryVideoUpload` は失敗したアップロードを再びキューに入れます。7 日間未完了のままのマルチパートアップロードは、R2 の既定のライフサイクルルールによって中止されます。
+
+レッスン、チャプター、コースを削除したり、インポートで削除したりすると、そのアップロードとソースも R2 から削除されます。
+
+## アップロードをエンコードする [#encode-the-uploads]
+
+Worker は FFmpeg を実行できないため、エンコードは FFmpeg を実行できるマシンで行います。
+
+1. `ffprobe` を含む FFmpeg をインストールします。macOS では `brew install ffmpeg` です。別のバイナリを使う場合は `FFMPEG` と `FFPROBE` を設定します。
+2. `bunx wrangler login` で Cloudflare にサインインします。スクリプトは `db:migrate:*` スクリプトと同じように、このログインで Wrangler を実行し、`.env` ファイルは読み込みません。
+3. アップロードがある環境に対応するエンコーダーを実行します。
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`、`video:encode:development`、`video:encode:test` は、プレビューのデータベースとバケット、およびローカルの開発とテストの状態に対して同じことを行います。レッスンエディターは、それが動いている環境のコマンドを表示します。
+
+`scripts/encode-videos.ts` は `queued` のアップロードを一覧し、それぞれについて `encoding` とマークし、`wrangler r2 object get` でソースをダウンロードし、`video:publish` と同じようにエンコードして、ストリームを `videos/<uploadId>/` 以下にアップロードします。続いて 1 つのステートメントのリストで、動画を登録し、レッスンに設定し、アップロードの行を削除してから（`src/modules/video-upload/video-upload.encoder.ts` の `finishEncodingQueries`）、ソースを削除します。動画の名前はファイル名から付けられます。FFmpeg が読み込めないファイルは `unreadable` で、その他のエラーは `encoding` で `failed` とマークされます。エンコード中に取り消されたり置き換えられたりしたアップロードはそのままにされ、エンコーダーがそのためにアップロードしたストリームは削除されます。
+
+ブラウザーのテストスイートには FFmpeg がありません。そのテスト用 Worker は `/__test/videos/encode` に対して、キューにある各アップロードにシード済みのテスト動画のストリームをコピーし、同じ `finishEncodingQueries` で完了させることで応答します。
+
+## 再利用と削除
+
+レッスンエディターの **既存の動画を使う** は、エンコード済みの動画を新しい順に（最新の <RepositoryFact name="videoLibraryPageSize" /> 本。`video: ["read"]` を必要とする `getVideos`）、それぞれを使っているレッスンの数とともに一覧表示します。**使う** で動画をレッスンに設定するため（`replaceLessonVideo`）、1 本の録画を複数のレッスンで再生できます。差し替えで使われなくなった動画やコマンドラインから公開した動画など、どのレッスンも使っていない動画は、そこで削除できます（`deleteVideo`、`video: ["delete"]`）。
+
+レッスンの **動画を削除** は、`course: ["update"]` と `video: ["delete"]` を必要とする `removeLessonVideo` で、そのレッスンから動画を外します。ほかのレッスンがその動画を使っていなければ、行と、R2 にあるその動画のプレフィックス配下のすべてのファイルを削除します。使っている場合はボタンが **このレッスンから外す** になり、動画はほかのレッスンに残ります。
+
+## 以前のバージョンのプレースホルダー
+
+以前のバージョンでは、収録中のレッスンのために動画をプレースホルダーとしてマークできました。今は動画のないレッスンがそれ自体で収録中であることを示すため、マイグレーション `20261123021636_steady_microchip.sql` はすべてのレッスンをプレースホルダー動画から外し、ページはそれらのレッスンをこれまでどおり **近日公開** として表示します。プレースホルダー動画そのものは **既存の動画を使う** で削除するまで残り、`placeholder` 列はもう読まれません。
 
 ## 公開された動画の中身
 
@@ -35,23 +87,21 @@ description: "手元のマシンでアダプティブ HLS にエンコードし�
 
 セグメントは CMAF（フラグメント化 MP4）で、<RepositoryFact name="videoKeyframeSeconds" unit="second" />ごとにキーフレームがあるため、すべてのレンディションが同じ位置で切り替わります。ビットレートは品質一定（CRF <RepositoryFact name="videoQualityCrf" />）で、画面サイズに比例した上限があります。そのため、ほとんど動きのない画面録画は、上限よりもはるかに少ない容量で済みます。
 
-## 録画を公開する
+## 手元のマシンから録画を公開する [#publish-a-recording-from-your-machine]
 
-1. `ffprobe` を含む FFmpeg をインストールします。macOS では `brew install ffmpeg` です。別のバイナリを使う場合は `FFMPEG` と `FFPROBE` を設定します。
-2. `bunx wrangler login` で Cloudflare にサインインします。スクリプトは `db:migrate:*` スクリプトと同じように、このログインで Wrangler を実行し、`.env` ファイルは読み込みません。
-3. 環境に対応するスクリプトを実行します。
+`video:publish` はアップロードを省きます。手元のマシンでファイルをエンコードし、ストリームだけを送ります。手元にある長い録画に使うか、自分で用意した字幕やポスターを付けたい場合に使います。
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` と `--captions` は省略できます。プレビュー環境には `video:publish:preview` を使います。
+`--poster` と `--captions` は省略できます。プレビュー環境には `video:publish:preview` を使います。その後、レッスンの **既存の動画を使う** でその動画を選びます。
 
-`scripts/publish-video.ts` は、`wrangler.jsonc` にある環境の `MEDIA` バインディングからバケット名を読み取り、一時ディレクトリにエンコードし、`wrangler r2 bulk put --remote` でファイルをコンテンツタイプごとにまとめて 20 個ずつアップロードしてから、`wrangler d1 execute DB --env <environment> --remote` で `video` の行を挿入します。これに失敗した場合は、アップロードしたオブジェクトを `wrangler r2 object delete` で削除します。エンコードの計画（レンディション、FFmpeg の引数、ストーリーボード、ファイル名）は `src/modules/video/video.encoding.ts` と `video.files.ts` にあり、Worker もこれらを使います。
+`scripts/publish-video.ts` は、`wrangler.jsonc` にある環境の `MEDIA` バインディングからバケット名を読み取り、一時ディレクトリにエンコードし、`wrangler r2 bulk put --remote` でファイルをコンテンツタイプごとにまとめてアップロードしてから、`wrangler d1 execute DB --env <environment> --remote` で `video` の行を挿入します。これに失敗した場合は、アップロードしたオブジェクトを `wrangler r2 object delete` で削除します。`publish-video.ts` と `encode-videos.ts` は `scripts/video-pipeline.ts` のエンコード手順を共有します。エンコードの計画（レンディション、FFmpeg の引数、ストーリーボード、ファイル名）は `src/modules/video/video.encoding.ts` と `video.files.ts` にあり、Worker もこれらを使います。
 
 ## 費用
 
-R2 Standard ストレージは 1 GB・月あたり $0.015 で、エグレス料金はかかりません。そのため、全レンディションの合計で 1 時間あたり約 1.2 GB になる画面録画を 50 時間分そろえたライブラリでも、どれだけ視聴されても保存費用は月 $1 未満です。配信したファイルは Workers のキャッシュに保持されるため、セグメントへのリクエストごとに Worker は 1 回実行され、R2 の読み取りはエッジロケーションごとに多くても 1 回です。最新の料金は [R2](https://developers.cloudflare.com/r2/pricing/) と [Workers](https://developers.cloudflare.com/workers/platform/pricing/) の料金ページで確認してください。
+R2 Standard ストレージは 1 GB・月あたり $0.015 で、エグレス料金はかかりません。そのため、全レンディションの合計で 1 時間あたり約 1.2 GB になる画面録画を 50 時間分そろえたライブラリでも、どれだけ視聴されても保存費用は月 $1 未満です。アップロードされたソースは、エンコードが終わると削除されます。配信したファイルは Workers のキャッシュに保持されるため、セグメントへのリクエストごとに Worker は 1 回実行され、R2 の読み取りはエッジロケーションごとに多くても 1 回です。最新の料金は [R2](https://developers.cloudflare.com/r2/pricing/) と [Workers](https://developers.cloudflare.com/workers/platform/pricing/) の料金ページで確認してください。
 
 ## 関連ページ
 

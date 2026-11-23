@@ -1,0 +1,207 @@
+import { writeFile } from "node:fs/promises"
+
+import type { Locator, Page } from "@playwright/test"
+import * as zod from "zod"
+
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
+import { TEST_VIDEO } from "../data/videos"
+import { expect, test } from "../fixtures/auth"
+import type { AuthPage, BasePage } from "../pages"
+import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
+
+const [admin, customer] = TEST_ACCOUNTS
+
+const SIGNED_PATH = /^\/media\/[\da-z]+\.[\da-f]{64}\//u
+const FORGED_SIGNATURE = "0".repeat(64)
+const ENCODER_WAIT_MS = 30_000
+const RECORDING = { name: "first-look.mp4", text: "a small recording for the encoder double" } as const
+
+const signIn = async (page: Page, authPage: AuthPage, account: (typeof TEST_ACCOUNTS)[number]): Promise<void> => {
+  await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+  await authPage.gotoSignIn()
+  await authPage.emailField().fill(account.email)
+  await authPage.passwordField().fill(TEST_PASSWORD)
+  await authPage.signInSubmitButton().click()
+  await expect(page).toHaveURL(account.role === ROLE_CODES.ADMIN ? /\/admin\/?$/u : /\/app\/?$/u)
+}
+
+const choose = async (scope: Locator, label: string, option: string): Promise<void> => {
+  await scope.getByRole("button", { name: new RegExp(label, "u") }).click()
+  await scope.page().getByRole("option", { name: option, exact: true }).click()
+  await expect(scope.page().getByRole("listbox")).toHaveCount(0)
+}
+
+const createCourse = async (
+  page: Page,
+  appPage: BasePage,
+  { lessonType, slug }: { readonly lessonType: string; readonly slug: string },
+): Promise<void> => {
+  await page.goto("/admin/courses/create", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByLabel("Title", { exact: true }).fill("Recorded in the browser")
+  await page.getByLabel("Summary", { exact: true }).fill("A course whose lesson gets its video in the lesson editor.")
+  await page.getByLabel("URL slug").fill(slug)
+  await choose(page.locator("form"), "Status", "Published")
+  await page.getByRole("button", { name: "Create course" }).click()
+  await expect(page).toHaveURL(/\/admin\/courses\/[\da-f-]{36}$/u)
+
+  await page.getByRole("button", { name: "Add chapter" }).click()
+  const chapterDialog = page.getByRole("dialog", { name: "Add chapter" })
+  await chapterDialog.getByLabel("Chapter title").fill("Getting started")
+  await chapterDialog.getByRole("button", { name: "Save chapter" }).click()
+  await expect(chapterDialog).toBeHidden()
+
+  await page.getByRole("button", { name: "Add lesson" }).click()
+  const lessonDialog = page.getByRole("dialog", { name: "Add lesson" })
+  await lessonDialog.getByLabel("Lesson title").fill("A first look")
+  await lessonDialog.getByLabel("Summary", { exact: true }).fill("What you are about to build.")
+  await lessonDialog.getByLabel("URL slug").fill("first-look")
+  await choose(lessonDialog, "Who can watch", "Everyone (free preview)")
+  await choose(lessonDialog, "Status", "Published")
+  await choose(lessonDialog, "Lesson type", lessonType)
+  await lessonDialog.getByRole("button", { name: "Save lesson" }).click()
+  await expect(lessonDialog).toBeHidden()
+}
+
+const deleteCourse = async (page: Page, appPage: BasePage, slug: string): Promise<void> => {
+  await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Recorded in the browser" }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
+  await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)
+}
+
+const DRAG_COPY = 1
+
+const dropRecording = async (zone: Locator, browserName: string): Promise<void> => {
+  const recording = test.info().outputPath(RECORDING.name)
+  await writeFile(recording, RECORDING.text)
+  if (browserName !== "chromium") {
+    await zone.locator("input[type=file]").setInputFiles(recording)
+    return
+  }
+
+  await zone.scrollIntoViewIfNeeded()
+  const centre = await zone.evaluate((element) => {
+    const { height, width, x, y } = element.getBoundingClientRect()
+    return { x: x + width / 2, y: y + height / 2 }
+  })
+  const devtools = await zone.page().context().newCDPSession(zone.page())
+  const data = { dragOperationsMask: DRAG_COPY, files: [recording], items: [] }
+  await devtools.send("Input.dispatchDragEvent", { ...centre, data, type: "dragEnter" })
+  await devtools.send("Input.dispatchDragEvent", { ...centre, data, type: "dragOver" })
+  await expect(zone.getByText("Release to upload")).toBeVisible()
+  await devtools.send("Input.dispatchDragEvent", { ...centre, data, type: "drop" })
+  await devtools.detach()
+}
+
+test.describe("lesson videos", () => {
+  test("an administrator drops a recording on a lesson, the encoder publishes it, the lesson plays it through a signed path and the video can be deleted", async ({
+    appPage,
+    authPage,
+    browser,
+    browserName,
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout + ENCODER_WAIT_MS)
+    const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+    await signIn(page, authPage, admin)
+    await createCourse(page, appPage, { lessonType: "Video lesson", slug })
+    await expect(page.getByText("No video yet")).toBeVisible()
+
+    await page.getByRole("link", { name: "Edit A first look" }).click()
+    await appPage.waitForAppReady()
+    const card = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Video" }) })
+    await dropRecording(card.locator("[data-slot=video-drop-zone]"), browserName)
+    await expect(card.getByText("Waiting for the encoder")).toBeVisible()
+    await expect(card.getByText("bun run video:encode:test")).toBeVisible()
+    await expect(card.getByRole("switch", { name: "This lesson has no video" })).toBeDisabled()
+
+    const encoded = await page.request.get("/__test/videos/encode")
+    expect(encoded.status()).toBe(HTTP_STATUS.OK)
+    const { encoded: videoIds } = zod.object({ encoded: zod.array(zod.string()) }).parse(await encoded.json())
+    expect(videoIds.length).toBeGreaterThan(0)
+
+    const playlist = page.waitForResponse((response) => SIGNED_PATH.test(new URL(response.url()).pathname) && response.url().endsWith("/master.m3u8"))
+    await expect(card.getByText("Plays for everyone who may open the lesson")).toBeVisible({ timeout: ENCODER_WAIT_MS })
+    await expect(card.getByRole("paragraph").filter({ hasText: /^first-look$/u })).toBeVisible()
+    const response = await playlist
+    expect(response.status()).toBe(HTTP_STATUS.OK)
+    expect(response.headers()["content-type"]).toBe("application/vnd.apple.mpegurl")
+    expect(await response.text()).toContain("#EXT-X-MEDIA:TYPE=AUDIO")
+    const segment = await page.request.get(response.url().replace("master.m3u8", "180p/seg-00000.m4s"))
+    expect(segment.status()).toBe(HTTP_STATUS.OK)
+    expect(segment.headers()["cache-control"]).toBe("private, max-age=86400, immutable")
+    const forged = await page.request.get(response.url().replace(/\.[\da-f]{64}\//u, `.${FORGED_SIGNATURE}/`))
+    expect(forged.status()).toBe(HTTP_STATUS.FORBIDDEN)
+
+    const visitor = await browser.newPage()
+    const visitorPlaylist = visitor.waitForResponse((entry) => entry.url().endsWith("/master.m3u8"))
+    await visitor.goto(`/courses/${slug}/first-look`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    expect((await visitorPlaylist).status()).toBe(HTTP_STATUS.OK)
+
+    await card.getByRole("button", { name: "Delete video" }).click()
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete video" }).click()
+    await expect(page.getByText("Video deleted")).toBeVisible()
+    await expect(card.locator("[data-slot=video-drop-zone]")).toBeVisible()
+    await visitor.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(visitor.getByText("The recording for this lesson is on its way.")).toBeVisible()
+    await visitor.close()
+
+    await deleteCourse(page, appPage, slug)
+  })
+
+  test("an administrator puts a video from the library on a lesson and visitors watch it", async ({ appPage, authPage, browser, page }) => {
+    const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+    await signIn(page, authPage, admin)
+    await createCourse(page, appPage, { lessonType: "Video lesson", slug })
+    await page.getByRole("link", { name: "Edit A first look" }).click()
+    await appPage.waitForAppReady()
+
+    await page.getByRole("button", { name: "Use an existing video" }).click()
+    const picker = page.getByRole("dialog", { name: "Use an existing video" })
+    await picker.getByRole("searchbox", { name: "Search videos" }).fill(TEST_VIDEO.title)
+    await picker.getByRole("button", { name: `Use ${TEST_VIDEO.title}` }).click()
+    await expect(page.getByText("Video added to the lesson")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Remove from this lesson" })).toBeVisible()
+
+    const visitor = await browser.newPage()
+    const playlist = visitor.waitForResponse((response) => response.url().endsWith(`/${TEST_VIDEO.id}/master.m3u8`))
+    await visitor.goto(`/courses/${slug}/first-look`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    expect((await playlist).status()).toBe(HTTP_STATUS.OK)
+    await visitor.close()
+
+    await deleteCourse(page, appPage, slug)
+  })
+
+  test("an administrator makes a text lesson that visitors read without a player or a recording notice", async ({ appPage, authPage, browser, page }) => {
+    const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+    await signIn(page, authPage, admin)
+    await createCourse(page, appPage, { lessonType: "Text lesson, no video", slug })
+    await expect(page.getByText("Text lesson", { exact: true })).toBeVisible()
+
+    const visitor = await browser.newPage()
+    await visitor.goto(`/courses/${slug}/first-look`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(visitor.getByRole("heading", { level: 1, name: "A first look" })).toBeVisible()
+    await expect(visitor.getByRole("article").getByText("Text lesson", { exact: true })).toBeVisible()
+    await expect(visitor.getByText("The recording for this lesson is on its way.")).toHaveCount(0)
+    await expect(visitor.getByText("Coming soon")).toHaveCount(0)
+    await expect(visitor.locator("video")).toHaveCount(0)
+    await visitor.goto(`/courses/${slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(visitor.getByText("Recording now")).toHaveCount(0)
+    await visitor.close()
+
+    await deleteCourse(page, appPage, slug)
+  })
+
+  test("a customer cannot open the course admin or stream a video without a signed path", async ({ authPage, page }) => {
+    await signIn(page, authPage, customer)
+    await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(page).toHaveURL(/\/app\/?$/u)
+
+    const unsigned = await page.request.get(`/media/zz.${FORGED_SIGNATURE}/${TEST_VIDEO.id}/master.m3u8`)
+    expect(unsigned.status()).toBe(HTTP_STATUS.FORBIDDEN)
+  })
+})

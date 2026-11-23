@@ -1,24 +1,76 @@
 ---
 title: "Videos"
-description: "Recordings encoded to adaptive HLS on your machine, stored in your own R2 bucket and streamed through signed links that expire."
+description: "Each lesson's recording, dropped into the lesson editor, uploaded in parts to your own R2 bucket, encoded to adaptive HLS with FFmpeg and streamed through signed links that expire."
 ---
 
 Videos are stored in your own R2 bucket and streamed by your own Worker. No video platform sits in between: Cloudflare does not charge for egress from R2, so the bill is storage and requests, not minutes watched.
 
+A video belongs to the lessons that play it. There is no separate video page in the admin: each lesson's **Video** card uploads, previews, replaces and deletes its recording (see [Lesson editor](/docs/features/courses#lesson-editor)).
+
 ## What exists
 
-- **Library**: `/admin/videos` (`src/routes/admin.videos.tsx`) lists every published video with its length, source resolution, stored size, caption languages, whether it is a placeholder and its publish date, newest first. **Preview** plays the video in a dialog; **Delete** asks for confirmation, then removes the row and every file under the video's prefix in R2.
-- **Publishing**: `bun run video:publish:production <file> --title "…"` encodes a recording with FFmpeg, uploads it to R2 and registers it in the `video` table, which is what makes it appear in the library.
+- **Upload**: the **Video** card of the lesson editor, and the **Add lesson** dialog, take a recording by drag and drop or from a file picker. The browser sends it to R2 in parts through the Worker, with its progress, and continues an interrupted upload from the parts already stored. See [Upload in parts](#upload-in-parts).
+- **Encoding**: `bun run video:encode:<environment>` encodes every uploaded recording with FFmpeg on the machine that runs it, uploads the streams to R2, registers the video and puts it on its lesson. See [Encode the uploads](#encode-the-uploads).
+- **Publishing from the command line**: `bun run video:publish:<environment> <file> --title "…"` encodes a file on your machine and registers it without a lesson. It appears in **Use an existing video**. See [Publish a recording from your machine](#publish-a-recording-from-your-machine).
 - **Delivery**: `/media/<expiry>.<signature>/<videoId>/<file>` serves the files to the player (see [Cloudflare R2](/docs/integrations/cloudflare-r2)).
 - **Player**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) uses Video.js 10 with its own HLS engine. It shows quality, speed, captions, picture-in-picture and fullscreen controls, seek previews from the storyboard, and labels in the page's language.
 
 Course lessons play these videos: a lesson's `video_id` points at a row of the `video` table, and `getLessonPlayback` signs the paths only for viewers who may watch that lesson. See [Courses](/docs/features/courses).
 
-## Placeholder videos
+## From the upload to a lesson that plays
 
-A video can be marked as a placeholder with the **Placeholder** switch in the library (`setVideoPlaceholder`, stored in `video.placeholder`, off for every published video). A lesson on a placeholder video is listed as **being recorded**: visitors see the lesson and its materials, but it never plays, and its length is left out of the course length. Publish one short recording, mark it as the placeholder, and start every lesson on it; when a lesson's real recording is published, pick it in the lesson editor and the lesson plays everywhere at once. Clearing the switch turns every lesson on that video back into a playable lesson. See [Being recorded](/docs/features/courses#being-recorded).
+An upload is a row of the `video_upload` table (`src/modules/video-upload`), one per lesson, until the encoder turns it into a video:
 
-The test seed publishes `Being recorded`, a placeholder that the three lessons of the second seeded chapter use, and `Spare take`, a video no lesson uses, which the browser tests mark and clear. A database has no placeholder until one is marked in the library: the migration that added the flag leaves every existing video playable.
+| State       | `video_upload.status` | The lesson editor shows                                                                                       | Learners see                                   |
+| ----------- | --------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Uploading   | `uploading`           | The file, a progress bar with the bytes sent, and **Cancel upload**                                           | The lesson's current video, or **Coming soon** |
+| Interrupted | `uploading`           | How far it got, and **Choose the file again** to continue it                                                  | The same                                       |
+| Waiting     | `queued`              | **Waiting for the encoder** with the command to run                                                           | The same                                       |
+| Encoding    | `encoding`            | **Encoding** with a progress bar that has no end yet                                                          | The same                                       |
+| Failed      | `failed`              | Why FFmpeg stopped (`failure`: `unreadable` or `encoding`), **Encode again** and **Upload another recording** | The same                                       |
+| Ready       | No row                | The player, the length, the size, the resolution and the caption languages                                    | The video                                      |
+
+A lesson keeps playing its current video while a replacement uploads and encodes; the encoder swaps them in one step. The course editor refetches its data every <RepositoryFact name="videoUploadPollSeconds" unit="second" /> while an upload waits for the encoder or is being encoded, so the card and the curriculum change state on their own.
+
+## Upload in parts
+
+`useVideoUpload` (`src/hooks/use-video-upload.ts`) runs the upload in the browser and keeps its state outside the components, so it carries on while the admin moves to another lesson of the same tab, and the curriculum shows its percentage. While a part is on its way, leaving the page asks for confirmation.
+
+1. `startVideoUpload` checks the file's name and size, opens an R2 multipart upload for `uploads/<uploadId>/source.<extension>` with the `MEDIA` binding and records it. It accepts <RepositoryFact name="videoUploadFileTypes" /> files of up to <RepositoryFact name="videoUploadMaxGigabytes" /> GB (`VIDEO_UPLOAD_FILE_TYPES`, `VIDEO_UPLOAD_MAX_GIGABYTES`), and takes the content type from the extension, never from the browser. When the lesson already has an upload of the same file, by name, size and last modification, it answers with the parts R2 already holds, and the browser sends only the others; an upload of another file replaces it, and its parts or source are deleted.
+2. The browser sends parts of <RepositoryFact name="videoUploadPartMegabytes" /> MB (`VIDEO_UPLOAD_PART_MEGABYTES`), <RepositoryFact name="videoUploadConcurrency" /> at a time, each as `FormData` to `uploadVideoPart`, which refuses a part whose number or size does not match the file it expects, stores it with `uploadPart` and records its ETag in `video_upload.parts`. A failed part is tried <RepositoryFact name="videoUploadPartAttempts" /> times, with a longer pause each time, before the upload stops and offers **Continue the upload**.
+3. `completeVideoUpload` checks that every part is there, completes the multipart upload and queues the source for the encoder (`queued`).
+
+The parts travel through the Worker, so they are checked against the session like every other server function, and no R2 credentials or presigned URLs are needed. All of them require `course: ["update"]`; `startVideoUpload` also runs `withRateLimit` with <RepositoryFact name="videoUploadsPerMinute" /> starts per address a minute. `cancelVideoUpload` aborts an upload or deletes its source and forgets it, and `retryVideoUpload` queues a failed one again. R2 aborts multipart uploads that stay incomplete for seven days with its default lifecycle rule.
+
+Deleting a lesson, a chapter or a course, or removing one with an import, also removes its uploads and their sources from R2.
+
+## Encode the uploads
+
+The Worker cannot run FFmpeg, so encoding happens on a machine that can:
+
+1. Install FFmpeg, which includes `ffprobe`: `brew install ffmpeg` on macOS. Set `FFMPEG` and `FFPROBE` to use other binaries.
+2. Sign in to Cloudflare with `bunx wrangler login`. The script runs Wrangler with that login, like the `db:migrate:*` scripts, and reads no `.env` file.
+3. Run the encoder for the environment the uploads are in:
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`, `video:encode:development` and `video:encode:test` do the same for the preview database and bucket and for the local development and test state. The lesson editor shows the command of the environment it runs in.
+
+`scripts/encode-videos.ts` lists the `queued` uploads, and for each one marks it `encoding`, downloads the source with `wrangler r2 object get`, encodes it as `video:publish` does, uploads the streams under `videos/<uploadId>/` and then, in one statement list, registers the video, puts it on the lesson and deletes the upload row (`finishEncodingQueries` in `src/modules/video-upload/video-upload.encoder.ts`), before it deletes the source. The video is named after the file. A file FFmpeg cannot read is marked `failed` with `unreadable`; any other error with `encoding`. An upload that was cancelled or replaced while it was encoding is left alone, and the streams the encoder uploaded for it are deleted.
+
+The browser suite has no FFmpeg: its test Worker answers `/__test/videos/encode` by copying the seeded test video's streams for each queued upload and finishing it with the same `finishEncodingQueries`.
+
+## Reuse and delete
+
+**Use an existing video** in the lesson editor lists the encoded videos, newest first (the <RepositoryFact name="videoLibraryPageSize" /> most recent, `getVideos`, which requires `video: ["read"]`), with how many lessons use each one. **Use** puts one on the lesson (`replaceLessonVideo`), so one recording can play in several lessons. A video no lesson uses, such as one a replacement took the place of or one published from the command line, can be deleted there (`deleteVideo`, `video: ["delete"]`).
+
+**Delete video** on a lesson takes the video off it with `removeLessonVideo`, which requires `course: ["update"]` and `video: ["delete"]`. When no other lesson uses the video, it deletes the row and every file under its prefix in R2; otherwise the button reads **Remove from this lesson** and the video stays on the others.
+
+## Placeholders from earlier versions
+
+Earlier versions let a video be marked as a placeholder for lessons being recorded. A lesson without a video now says so on its own, so the migration `20261123021636_steady_microchip.sql` takes every lesson off a placeholder video, and the pages show those lessons as **Coming soon** exactly as before. The placeholder videos themselves stay until you delete them under **Use an existing video**, and the `placeholder` column is no longer read.
 
 ## What a published video contains
 
@@ -35,23 +87,21 @@ The encoder plans the output from the source:
 
 Segments are CMAF (fragmented MP4) with a keyframe every <RepositoryFact name="videoKeyframeSeconds" unit="second" />, so every rendition switches at the same points. Bitrates are constant-quality (CRF <RepositoryFact name="videoQualityCrf" />) with a cap proportional to the picture size, so a mostly static screen recording takes far less space than the cap.
 
-## Publish a recording
+## Publish a recording from your machine
 
-1. Install FFmpeg, which includes `ffprobe`: `brew install ffmpeg` on macOS. Set `FFMPEG` and `FFPROBE` to use other binaries.
-2. Sign in to Cloudflare with `bunx wrangler login`. The script runs Wrangler with that login, like the `db:migrate:*` scripts, and reads no `.env` file.
-3. Run the script for the environment:
+`video:publish` skips the upload: it encodes a file on your machine and sends only the streams. Use it for a long recording you already have locally, or to add captions or a poster of your own:
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` and `--captions` are optional. Use `video:publish:preview` for the preview environment.
+`--poster` and `--captions` are optional. Use `video:publish:preview` for the preview environment. Then pick the video in the lesson's **Use an existing video**.
 
-`scripts/publish-video.ts` reads the bucket name from the environment's `MEDIA` binding in `wrangler.jsonc`, encodes into a temporary directory, uploads the files with `wrangler r2 bulk put --remote`, 20 at a time and grouped by content type, and inserts the `video` row with `wrangler d1 execute DB --env <environment> --remote`. If that fails, it deletes the uploaded objects with `wrangler r2 object delete`. The planning (renditions, FFmpeg arguments, storyboard, file names) lives in `src/modules/video/video.encoding.ts` and `video.files.ts`, which the Worker uses too.
+`scripts/publish-video.ts` reads the bucket name from the environment's `MEDIA` binding in `wrangler.jsonc`, encodes into a temporary directory, uploads the files with `wrangler r2 bulk put --remote`, grouped by content type, and inserts the `video` row with `wrangler d1 execute DB --env <environment> --remote`. If that fails, it deletes the uploaded objects with `wrangler r2 object delete`. `publish-video.ts` and `encode-videos.ts` share the encoding steps in `scripts/video-pipeline.ts`; the planning (renditions, FFmpeg arguments, storyboard, file names) lives in `src/modules/video/video.encoding.ts` and `video.files.ts`, which the Worker uses too.
 
 ## Cost
 
-With R2 Standard storage at $0.015 per GB-month and no egress charge, a library of 50 hours of screen recordings at roughly 1.2 GB per hour across all renditions costs under $1 a month to store, however often it is watched. Each segment request runs the Worker once and reads R2 at most once per edge location, because served files are kept in the Workers cache. Check current prices on the [R2](https://developers.cloudflare.com/r2/pricing/) and [Workers](https://developers.cloudflare.com/workers/platform/pricing/) pricing pages.
+With R2 Standard storage at $0.015 per GB-month and no egress charge, a library of 50 hours of screen recordings at roughly 1.2 GB per hour across all renditions costs under $1 a month to store, however often it is watched. An uploaded source is deleted once it is encoded. Each segment request runs the Worker once and reads R2 at most once per edge location, because served files are kept in the Workers cache. Check current prices on the [R2](https://developers.cloudflare.com/r2/pricing/) and [Workers](https://developers.cloudflare.com/workers/platform/pricing/) pricing pages.
 
 ## Related pages
 

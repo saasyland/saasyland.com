@@ -2,7 +2,7 @@ import { type JSX, useRef, useState } from "react"
 
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight, Lock, Play } from "lucide-react"
+import { ArrowRight, FileText, Lock, Play } from "lucide-react"
 import { useInView } from "motion/react"
 import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
@@ -12,6 +12,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 import { LANDING_VIDEO_SIZES } from "~/src/data/landing-videos"
 
@@ -147,6 +148,10 @@ const LessonIcon = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Elemen
 
   if (lesson.recording) {
     return <Play aria-hidden className="size-3 text-muted-foreground" strokeWidth={2} />
+  }
+
+  if (lesson.format === LESSON_FORMAT.TEXT) {
+    return <FileText aria-hidden className="size-3 text-ring" />
   }
 
   return <Play aria-hidden className="size-3 fill-current text-ring" strokeWidth={0} />

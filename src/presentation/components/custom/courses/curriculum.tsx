@@ -1,12 +1,12 @@
 import type { JSX } from "react"
 
 import { Link } from "@tanstack/react-router"
-import { Check, Lock, Play } from "lucide-react"
+import { Check, FileText, Lock, Play } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { isPlayable } from "~/src/modules/course/course.utils"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import { isAvailable } from "~/src/modules/course/course.utils"
+import { LESSON_ACCESS, LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 import { cn } from "~/src/lib/cn"
 import { wholeMinutes } from "~/src/lib/duration"
@@ -45,7 +45,13 @@ const LessonIcon = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
     return <Check aria-hidden className={cn(MARK_ICON, "size-3.5 text-ring")} strokeWidth={2.5} />
   }
 
-  if (isPlayable(lesson)) {
+  if (lesson.format === LESSON_FORMAT.TEXT) {
+    return (
+      <FileText aria-hidden className={cn(MARK_ICON, "size-3", { "text-muted-foreground": lesson.locked, "text-ring": !lesson.locked })} />
+    )
+  }
+
+  if (isAvailable(lesson)) {
     return <Play aria-hidden className={cn(MARK_ICON, "size-3 fill-current text-ring")} strokeWidth={0} />
   }
 
@@ -60,7 +66,7 @@ const LessonLock = ({ lesson }: { readonly lesson: Lesson }): JSX.Element | unde
   }
 
   if (!lesson.locked) {
-    return undefined
+    return
   }
 
   return <Lock aria-hidden className={cn(MARK_ICON, "size-3 text-muted-foreground")} strokeWidth={2.25} />
@@ -128,7 +134,7 @@ const ChapterSummary = ({ chapter }: { readonly chapter: Chapter }): JSX.Element
       {recorded.length === 0 && <span>{t("catalogue.recordingNow")}</span>}
       {!isPartlyRecorded && <span>{t("catalogue.lessons", { count: chapter.lessons.length })}</span>}
       {isPartlyRecorded && <span>{t("catalogue.recorded", { recorded: recorded.length, total: chapter.lessons.length })}</span>}
-      {recorded.length > 0 && <span className="tabular-nums">{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
+      {durationMs > 0 && <span className="tabular-nums">{t("catalogue.minutes", { minutes: wholeMinutes(durationMs) })}</span>}
       {previews > 0 && <span className="dark:text-ring">{t("catalogue.previews", { count: previews })}</span>}
     </span>
   )

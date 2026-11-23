@@ -36,13 +36,11 @@ import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-edi
 import { getCoursesQuery } from "~/src/modules/course/use-cases/get-courses"
 import type { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 import type { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
-import { LESSON_ACCESS, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import type { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import type { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import type { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
-import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
-import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
-import type { Video } from "~/src/modules/video/video.types"
+import { VIDEO_UPLOAD_FAILURE, VIDEO_UPLOAD_STATUS } from "~/src/modules/video-upload/video-upload.constants"
 
 import { Route as AdminCoursesRoute } from "~/src/routes/admin.courses"
 import { Route as CourseEditorRoute } from "~/src/routes/admin.courses.$courseId"
@@ -57,7 +55,6 @@ import {
   AdminCourseSectionPending,
   AdminCoursesPending,
   AdminLessonEditorPending,
-  AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/courses-pending"
 
 import validations from "~/messages/en-US/course.validations.json"
@@ -121,16 +118,14 @@ const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const CREATED_ID = "01960000-0000-7000-8000-00000000c009"
 
-const VIDEO: Video["select"] = {
+const VIDEO: NonNullable<Course["editorLesson"]["video"]> = {
   captionLocales: [],
-  createdAt: UPDATED_AT,
   durationMs: 125_000,
   height: 1080,
   id: "01960000-0000-7000-8000-00000000f001",
-  placeholder: false,
+  lessonCount: 1,
   sizeBytes: 1,
   title: "Boundaries take",
-  updatedAt: UPDATED_AT,
   width: 1920,
 }
 
@@ -156,6 +151,7 @@ const editorLesson = (slug: string, title: string, overrides: Partial<Course["ed
   attachments: [],
   chapterId: "chapter-one",
   description: {},
+  format: LESSON_FORMAT.VIDEO,
   id: `lesson-${slug}`,
   keyMoments: [],
   position: 1,
@@ -163,6 +159,7 @@ const editorLesson = (slug: string, title: string, overrides: Partial<Course["ed
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": `${title} summary.` },
   title: { "en-US": title },
+  upload: undefined,
   video: null,
   ...overrides,
 })
@@ -174,13 +171,22 @@ const EDITOR: Course["editor"] = {
       lessons: [
         editorLesson("boundaries", "Boundaries", {
           access: LESSON_ACCESS.PREVIEW,
-          video: { durationMs: VIDEO.durationMs, id: VIDEO.id, placeholder: false, title: VIDEO.title },
+          video: VIDEO,
         }),
         editorLesson("sessions", "Sessions", { position: 2, status: LESSON_STATUS.DRAFT }),
         editorLesson("billing", "Billing", {
           position: 3,
-          video: { durationMs: 10_000, id: "placeholder", placeholder: true, title: "Being recorded" },
+          upload: {
+            createdAt: UPDATED_AT,
+            failure: VIDEO_UPLOAD_FAILURE.ENCODING,
+            fileName: "billing.mp4",
+            id: "upload-billing",
+            sizeBytes: 2_000_000,
+            status: VIDEO_UPLOAD_STATUS.FAILED,
+            uploadedBytes: 2_000_000,
+          },
         }),
+        editorLesson("glossary", "Glossary", { format: LESSON_FORMAT.TEXT, position: 4 }),
       ],
       position: 1,
       summary: { "en-US": "Where everything starts." },
@@ -220,7 +226,6 @@ const createAdminCourseRouter = (path: string, editor: Course["editor"]) => {
   queryClient.setQueryData(getCoursesQuery.queryKey, LIST)
   queryClient.setQueryData(courseEditorQuery({ courseId: editor.course.id }).queryKey, editor)
   queryClient.setQueryData(courseEditorQuery({ courseId: CREATED_ID }).queryKey, { ...EDITOR, course: { ...COURSE, id: CREATED_ID } })
-  queryClient.setQueryData(getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }).queryKey, { rows: [VIDEO], total: 1 })
 
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   const metadata = { locale: "en-US", metadata: labels.metadata }
@@ -529,7 +534,7 @@ describe("admin course editor", () => {
     expect(within(boundaries).getByText("Boundaries take · 2:05")).toBeVisible()
     expect(within(boundaries).getByText(labels.lesson.accessLevels.preview)).toBeVisible()
     const sessions = lessonRow("Sessions")
-    expect(within(sessions).getByText(labels.curriculum.noVideo)).toBeVisible()
+    expect(within(sessions).getByText(labels.curriculum.video.none)).toBeVisible()
     expect(within(sessions).getByText(labels.lesson.statuses.draft)).toBeVisible()
     expect(within(chapterSection("Product")).getByText(labels.curriculum.noLessons)).toBeVisible()
   })
@@ -655,51 +660,6 @@ describe("admin course chapters", () => {
 })
 
 describe("admin course lessons", () => {
-  it("offers only lessons without a video while the library loads", async () => {
-    const { router, user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
-    const { queryClient } = router.options.context
-    const library = getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }).queryKey
-    const { promise } = Promise.withResolvers<never>()
-    queryClient.removeQueries({ queryKey: library })
-    queryClient.setQueryDefaults(library, { queryFn: () => promise })
-
-    await user.click(within(chapterSection("Product")).getByRole("button", { name: labels.curriculum.addLesson }))
-    await user.click(screen.getByRole("button", { name: new RegExp(labels.lesson.video, "u") }))
-
-    expect(await screen.findAllByRole("option")).toHaveLength(1)
-    expect(screen.getByRole("option", { name: labels.lesson.noVideo })).toBeVisible()
-  })
-
-  it("adds a lesson that plays a video from the library", async () => {
-    const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
-
-    await user.click(within(chapterSection("Product")).getByRole("button", { name: labels.curriculum.addLesson }))
-    const dialog = await screen.findByRole("dialog")
-    await fill(user, within(dialog).getByLabelText(labels.lesson.title), "Checkout")
-    await fill(user, within(dialog).getByLabelText(labels.lesson.summary), "Paying.")
-    await fill(user, within(dialog).getByLabelText(labels.lesson.slug), "checkout")
-    await chooseOption(user, labels.lesson.access, labels.lesson.accessLevels.account)
-    await chooseOption(user, labels.lesson.video, "Boundaries take · 2:05")
-    await fillPolishInPanel(user, [[labels.lesson.summary, "Płacenie."]])
-    await user.click(within(dialog).getByRole("button", { name: labels.lesson.save }))
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(labels.lesson.saved)
-    })
-    expect(mutations.createLesson).toHaveBeenCalledWith(
-      {
-        access: LESSON_ACCESS.ACCOUNT,
-        chapterId: "chapter-two",
-        slug: "checkout",
-        status: LESSON_STATUS.DRAFT,
-        summary: { "en-US": "Paying.", "pl-PL": "Płacenie." },
-        title: { "en-US": "Checkout" },
-        videoId: VIDEO.id,
-      },
-      expect.anything(),
-    )
-  })
-
   it("adds a lesson without a video and explains a failed save", async () => {
     mutations.createLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
@@ -718,6 +678,7 @@ describe("admin course lessons", () => {
       {
         access: LESSON_ACCESS.PAID,
         chapterId: "chapter-two",
+        format: LESSON_FORMAT.VIDEO,
         slug: "checkout",
         status: LESSON_STATUS.DRAFT,
         summary: { "en-US": "Paying." },
@@ -728,17 +689,18 @@ describe("admin course lessons", () => {
     expect(screen.getByRole("dialog")).toBeVisible()
   })
 
-  it("opens each lesson in its editor and marks the lessons that are being recorded", async () => {
+  it("opens each lesson in its editor and shows the state of its video", async () => {
     await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     expect(within(lessonRow("Sessions")).getByRole("link", { name: "Edit Sessions" })).toHaveAttribute(
       "href",
       `/admin/courses/${COURSE_ID}/lessons/lesson-sessions`,
     )
-    expect(within(lessonRow("Sessions")).getByText(labels.curriculum.recording)).toBeVisible()
-    expect(within(lessonRow("Billing")).getByText(labels.curriculum.recording)).toBeVisible()
-    expect(within(lessonRow("Billing")).getByText(`Being recorded · 0:10 · ${labels.lesson.placeholder}`)).toBeVisible()
-    expect(within(lessonRow("Boundaries")).queryByText(labels.curriculum.recording)).toBeNull()
+    expect(within(lessonRow("Boundaries")).getByText("Boundaries take · 2:05")).toBeVisible()
+    expect(within(lessonRow("Boundaries")).queryByText(labels.curriculum.video.none)).toBeNull()
+    expect(within(lessonRow("Sessions")).getByText(labels.curriculum.video.none)).toBeVisible()
+    expect(within(lessonRow("Billing")).getByText(labels.curriculum.video.status.failed)).toBeVisible()
+    expect(within(lessonRow("Glossary")).getByText(labels.curriculum.video.text)).toBeVisible()
     expect(screen.getByText("Where everything starts.")).toBeVisible()
   })
 
@@ -777,7 +739,6 @@ describe("admin course skeletons", () => {
   it.each([
     ["/admin/courses", AdminPending, AdminCoursesPending],
     ["/admin/courses/create", AdminPending, AdminCourseCreatePending],
-    ["/admin/videos", AdminPending, AdminVideosPending],
     ["/admin/courses", AdminCourseSectionPending, AdminCoursesPending],
     ["/pl-PL/admin/courses/create", AdminCourseSectionPending, AdminCourseCreatePending],
     [`/admin/courses/${COURSE_ID}`, AdminCourseSectionPending, AdminCourseEditorPending],

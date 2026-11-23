@@ -1,5 +1,3 @@
-import { env } from "cloudflare:workers"
-
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { eq } from "drizzle-orm"
@@ -9,23 +7,10 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { VIDEO_MUTATION_KEYS } from "~/src/modules/video/video.constants"
-import { videoDirectory } from "~/src/modules/video/video.files"
+import { removeVideoObjects } from "~/src/modules/video/video.objects"
 import { video } from "~/src/modules/video/video.schema"
 import type { Video } from "~/src/modules/video/video.types"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
-
-const deleteVideoObjects = async (prefix: string): Promise<void> => {
-  const page = await env.MEDIA.list({ prefix })
-  if (page.objects.length === 0) {
-    return
-  }
-
-  await env.MEDIA.delete(page.objects.map((object) => object.key))
-
-  if (page.truncated) {
-    await deleteVideoObjects(prefix)
-  }
-}
 
 export const deleteVideo = createServerFn({ method: "POST" })
   .middleware([authorized({ video: ["delete"] })])
@@ -37,7 +22,7 @@ export const deleteVideo = createServerFn({ method: "POST" })
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await deleteVideoObjects(videoDirectory(row.id))
+    await removeVideoObjects(row.id)
 
     return row
   })

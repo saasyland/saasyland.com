@@ -5,7 +5,6 @@ import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_PATH_PREFIX } from "../
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS, TEST_MATERIALS } from "../data/courses"
 import { TEST_COURSE_LEARNER } from "../data/licenses"
-import { TEST_PLACEHOLDER_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -80,15 +79,16 @@ test.describe("lesson materials", () => {
     expect(response.status()).toBe(HTTP_STATUS.OK)
     expect(response.headers()["content-disposition"]).toBe(`attachment; filename="${checklist.fileName}"`)
 
+    const recordingPage = await page.context().newPage()
     const streams: string[] = []
-    page.on("request", (request) => {
-      if (request.url().includes(`/${TEST_PLACEHOLDER_VIDEO.id}/`)) {
+    recordingPage.on("request", (request) => {
+      if (new URL(request.url()).pathname.endsWith(".m3u8")) {
         streams.push(request.url())
       }
     })
-    await page.goto(lessonPath(recording.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await appPage.waitForAppReady()
-    await expect(page.getByText("The recording for this lesson is on its way.")).toBeVisible()
+    await recordingPage.goto(lessonPath(recording.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(recordingPage.getByText("The recording for this lesson is on its way.")).toBeVisible()
     expect(streams).toStrictEqual([])
+    await recordingPage.close()
   })
 })

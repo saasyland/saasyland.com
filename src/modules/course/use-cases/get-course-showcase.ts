@@ -13,7 +13,7 @@ import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
-import { playableVideo } from "~/src/modules/lesson/lesson.playable"
+import { isBeingRecorded, playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { video } from "~/src/modules/video/video.schema"
@@ -40,6 +40,7 @@ const readLessons = (courseIds: readonly string[]) =>
       access: lesson.access,
       courseId: lesson.courseId,
       durationMs: video.durationMs,
+      format: lesson.format,
       slug: lesson.slug,
       title: lesson.title,
     })
@@ -67,17 +68,18 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
         id: entry.id,
         kind: entry.kind,
         lessonCount: own.length,
-        lessons: own.slice(0, COURSE_SHOWCASE.LESSONS).map(({ access, durationMs, slug, title }) => ({
+        lessons: own.slice(0, COURSE_SHOWCASE.LESSONS).map(({ access, durationMs, format, slug, title }) => ({
           access,
           durationMs,
+          format,
           locked: !hasLessonAccess(access, viewer),
-          recording: durationMs === null,
+          recording: isBeingRecorded({ durationMs, format }),
           slug,
           title: localize(title, locale),
         })),
         level: entry.level,
         previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
-        recordedCount: own.filter(({ durationMs }) => durationMs !== null).length,
+        recordedCount: own.filter(({ durationMs, format }) => !isBeingRecorded({ durationMs, format })).length,
         slug: entry.slug,
         title: localize(entry.title, locale),
       }

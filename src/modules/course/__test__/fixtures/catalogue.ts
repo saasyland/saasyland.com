@@ -6,7 +6,7 @@ import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { COURSE_KIND, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { user } from "~/src/modules/user/user.schema"
 import { video } from "~/src/modules/video/video.schema"
@@ -16,7 +16,7 @@ export const IDS = {
   CHAPTER_TWO: "01960000-0000-7000-8000-00000000c102",
   COURSE: "01960000-0000-7000-8000-00000000c001",
   DRAFT_COURSE: "01960000-0000-7000-8000-00000000c002",
-  PLACEHOLDER_VIDEO: "01960000-0000-7000-8000-00000000f002",
+  SPARE_VIDEO: "01960000-0000-7000-8000-00000000f002",
   TUTORIAL: "01960000-0000-7000-8000-00000000c003",
   VIDEO: "01960000-0000-7000-8000-00000000f001",
 } as const
@@ -35,7 +35,7 @@ export const USERS = {
 } as const
 
 const DURATION_MS = 125_000
-const PLACEHOLDER_DURATION_MS = 10_000
+const SPARE_DURATION_MS = 10_000
 
 export const seedCatalogue = async (): Promise<void> => {
   await db.delete(course)
@@ -46,12 +46,11 @@ export const seedCatalogue = async (): Promise<void> => {
   await db.insert(video).values([
     { captionLocales: ["en-US"], durationMs: DURATION_MS, height: 1080, id: IDS.VIDEO, sizeBytes: 1, title: "Lesson", width: 1920 },
     {
-      durationMs: PLACEHOLDER_DURATION_MS,
+      durationMs: SPARE_DURATION_MS,
       height: 1080,
-      id: IDS.PLACEHOLDER_VIDEO,
-      placeholder: true,
+      id: IDS.SPARE_VIDEO,
       sizeBytes: 1,
-      title: "Being recorded",
+      title: "Spare take",
       width: 1920,
     },
   ])
@@ -144,3 +143,8 @@ export const recordProgress = (values: { completedAt?: Date; lessonId: string; p
   db.insert(lessonProgress).values(values)
 
 export const playLessonOn = (lessonId: string, videoId: string) => db.update(lesson).set({ videoId }).where(eq(lesson.id, lessonId))
+
+export const takeVideoOff = (lessonId: string) => db.update(lesson).set({ videoId: null }).where(eq(lesson.id, lessonId))
+
+export const makeTextLesson = (lessonId: string) =>
+  db.update(lesson).set({ format: LESSON_FORMAT.TEXT, videoId: null }).where(eq(lesson.id, lessonId))

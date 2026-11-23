@@ -44,6 +44,16 @@ interface StoredObject {
   readonly etag: string
 }
 
+interface UploadedPart {
+  readonly body: Uint8Array<ArrayBuffer>
+  readonly etag: string
+}
+
+interface PendingUpload {
+  readonly key: string
+  readonly parts: Map<number, UploadedPart>
+}
+
 interface ObjectRange {
   readonly length: number
   readonly offset: number
@@ -58,13 +68,7 @@ const wranglerConfig: unknown = parse(readFileSync(resolve("wrangler.jsonc"), "u
 const testBuckets = testBucketsSchema.parse(wranglerConfig).env.test.r2_buckets
 
 const buckets = new Map(testBuckets.map(({ binding }) => [binding, new Map<string, StoredObject>()]))
-
-const objectMetadata = (key: string, stored: StoredObject) => ({
-  customMetadata: { ...stored.customMetadata },
-  httpEtag: `"${stored.etag}"`,
-  key,
-  size: stored.body.byteLength,
-})
+const multipartUploads = new Map<string, PendingUpload>()
 
 const bodyBytes = async (value: Blob | string | Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> => {
   if (typeof value === "string") {
@@ -76,7 +80,66 @@ const bodyBytes = async (value: Blob | string | Uint8Array<ArrayBuffer>): Promis
   return value
 }
 
+const pendingUpload = (key: string, uploadId: string): PendingUpload => {
+  const upload = multipartUploads.get(uploadId)
+  if (upload?.key !== key) {
+    throw new Error("NoSuchUpload: the multipart upload does not exist")
+  }
+  return upload
+}
+
+const joinParts = (parts: readonly UploadedPart[]): Uint8Array<ArrayBuffer> => {
+  const body = new Uint8Array(parts.reduce((total, part) => total + part.body.byteLength, 0))
+  parts.reduce((offset, part) => {
+    body.set(part.body, offset)
+    return offset + part.body.byteLength
+  }, 0)
+  return body
+}
+
+const multipartUpload = (objects: Map<string, StoredObject>, key: string, uploadId: string) => ({
+  abort: async () => {
+    pendingUpload(key, uploadId)
+    multipartUploads.delete(uploadId)
+  },
+  complete: async (parts: readonly { etag: string; partNumber: number }[]) => {
+    const upload = pendingUpload(key, uploadId)
+    const stored = parts.map(({ etag, partNumber }) => {
+      const part = upload.parts.get(partNumber)
+      if (part?.etag !== etag) {
+        throw new Error(`InvalidPart: part ${String(partNumber)} was not uploaded with that etag`)
+      }
+      return part
+    })
+    const body = joinParts(stored)
+    objects.set(key, { body, customMetadata: {}, etag: `${key}:${String(body.byteLength)}` })
+    multipartUploads.delete(uploadId)
+    return { key, size: body.byteLength }
+  },
+  key,
+  uploadId,
+  uploadPart: async (partNumber: number, value: Blob | string | Uint8Array<ArrayBuffer>) => {
+    const upload = pendingUpload(key, uploadId)
+    const body = await bodyBytes(value)
+    const etag = `${uploadId}:${String(partNumber)}:${String(body.byteLength)}`
+    upload.parts.set(partNumber, { body, etag })
+    return { etag, partNumber }
+  },
+})
+
+const objectMetadata = (key: string, stored: StoredObject) => ({
+  customMetadata: { ...stored.customMetadata },
+  httpEtag: `"${stored.etag}"`,
+  key,
+  size: stored.body.byteLength,
+})
+
 const createBucket = (objects: Map<string, StoredObject>) => ({
+  createMultipartUpload: async (key: string) => {
+    const uploadId = crypto.randomUUID()
+    multipartUploads.set(uploadId, { key, parts: new Map() })
+    return multipartUpload(objects, key, uploadId)
+  },
   delete: async (keys: string | string[]) => {
     for (const key of [keys].flat()) {
       objects.delete(key)
@@ -108,6 +171,7 @@ const createBucket = (objects: Map<string, StoredObject>) => ({
     const body = await bodyBytes(value)
     objects.set(key, { body, customMetadata: { ...options?.customMetadata }, etag: `${key}:${String(body.byteLength)}` })
   },
+  resumeMultipartUpload: (key: string, uploadId: string) => multipartUpload(objects, key, uploadId),
 })
 
 export const resetTestBindings = (): void => {
@@ -115,6 +179,7 @@ export const resetTestBindings = (): void => {
   for (const objects of buckets.values()) {
     objects.clear()
   }
+  multipartUploads.clear()
   pendingTasks.clear()
   database.exec("DELETE FROM rate_limit")
 }

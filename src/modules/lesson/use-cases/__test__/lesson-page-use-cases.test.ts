@@ -15,7 +15,15 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { IDS, LESSON_IDS, USERS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import {
+  IDS,
+  LESSON_IDS,
+  USERS,
+  makeTextLesson,
+  playLessonOn,
+  seedCatalogue,
+  takeVideoOff,
+} from "~/src/modules/course/__test__/fixtures/catalogue"
 import {
   LESSON_ATTACHMENT_FILE_TYPES,
   LESSON_ATTACHMENT_KIND,
@@ -24,6 +32,7 @@ import {
 import { serveAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.delivery"
 import { attachmentObjectKey } from "~/src/modules/lesson-attachment/lesson-attachment.files"
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
@@ -184,9 +193,21 @@ describe("getLesson", () => {
     expect(await response.text()).toBe(FILE_CONTENT)
   })
 
-  it("shows a lesson on a placeholder video as being recorded until a real video replaces it", async () => {
+  it("shows a text lesson as ready, with no length and no stream", async () => {
     signOut()
-    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+    await makeTextLesson(LESSON_IDS.PREVIEW)
+
+    const text = await page(LESSON_SLUGS.PREVIEW)
+
+    expect(text.lesson).toMatchObject({ captionLocales: [], durationMs: null, format: LESSON_FORMAT.TEXT, locked: false, recording: false })
+    await expect(executeQuery(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: LESSON_SLUGS.PREVIEW }))).rejects.toThrow(
+      ERROR_CODES.NOT_FOUND,
+    )
+  })
+
+  it("shows a lesson without a video as being recorded until a video is attached", async () => {
+    signOut()
+    await takeVideoOff(LESSON_IDS.PREVIEW)
 
     const recording = await page(LESSON_SLUGS.PREVIEW)
 

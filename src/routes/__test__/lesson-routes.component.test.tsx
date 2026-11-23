@@ -9,7 +9,7 @@ import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/lesson-progress.constants"
-import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
@@ -93,7 +93,10 @@ vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOrigin
       ...actual.lessonQuery(input),
       queryFn: () => {
         const source = fixtures.coursePages.get("current")
-        const lessonPage = source === undefined ? undefined : fixtures.lessonPageOf(source, input.lessonSlug)
+        if (source === undefined) {
+          return Promise.reject(new Error("No course page"))
+        }
+        const lessonPage = fixtures.lessonPageOf(source, input.lessonSlug)
         return lessonPage === undefined ? Promise.reject(new Error("No lesson page")) : Promise.resolve(lessonPage)
       },
     }),
@@ -353,7 +356,40 @@ describe("lesson page details and contents", () => {
 })
 
 describe("lesson page while recording, and its materials", () => {
-  it("shows a lesson on a placeholder video as being recorded and never plays it", async () => {
+  it("shows a text lesson without a stage or a player, and lets a learner complete it", async () => {
+    const user = userEvent.setup({ delay: null })
+    const text = page({
+      lessons: [
+        lesson("glossary", "Glossary", { access: LESSON_ACCESS.PREVIEW, durationMs: null, format: LESSON_FORMAT.TEXT, recording: false }),
+      ],
+      viewer: { mustConfirmEmail: false, signedIn: true },
+    })
+    await renderCourses({ data: text, path: "/courses/the-walkthrough/glossary" })
+
+    expect(screen.queryByText(messages.lesson.noVideo)).toBeNull()
+    expect(screen.queryByTestId("video-player")).toBeNull()
+    expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(meta.text)
+    await user.click(screen.getByRole("button", { name: messages.lesson.markComplete }))
+
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledWith({ completed: true, lessonId: "lesson-glossary", positionMs: 0 }, expect.anything())
+    })
+  })
+
+  it("locks a paid text lesson behind its offer", async () => {
+    await renderCourses({
+      data: page({
+        lessons: [lesson("glossary", "Glossary", { durationMs: null, format: LESSON_FORMAT.TEXT, recording: false, locked: true })],
+        viewer: { mustConfirmEmail: false, signedIn: false },
+      }),
+      path: "/courses/the-walkthrough/glossary",
+    })
+
+    expect(screen.queryByText(messages.lesson.noVideo)).toBeNull()
+    expect(screen.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeVisible()
+  })
+
+  it("shows a lesson without a video as being recorded and never plays it", async () => {
     const recording = page({
       lessons: [lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null })],
       viewer: { mustConfirmEmail: false, signedIn: false },

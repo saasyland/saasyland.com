@@ -1,7 +1,7 @@
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "../../src/modules/course/course.constants"
 import { LESSON_ATTACHMENT_KIND } from "../../src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
-import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "./videos"
+import { TEST_VIDEO } from "./videos"
 
 const FOUNDATIONS = {
   id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0a1",
@@ -71,7 +71,6 @@ export const TEST_LESSONS = [
     slug: "coverage-gate",
     summary: { "en-US": "Test strategy and the coverage gate." },
     title: { "en-US": "Test strategy and the coverage gate" },
-    videoId: TEST_PLACEHOLDER_VIDEO.id,
   },
   {
     access: LESSON_ACCESS.PAID,
@@ -82,7 +81,6 @@ export const TEST_LESSONS = [
     slug: "deploys",
     summary: { "en-US": "Previews per pull request and production on merge." },
     title: { "en-US": "Deploys you never run by hand" },
-    videoId: TEST_PLACEHOLDER_VIDEO.id,
   },
   {
     access: LESSON_ACCESS.PAID,
@@ -93,7 +91,6 @@ export const TEST_LESSONS = [
     slug: "rollbacks",
     summary: { "en-US": "See what production does and roll back safely." },
     title: { "en-US": "Logs and rollbacks" },
-    videoId: TEST_PLACEHOLDER_VIDEO.id,
   },
 ] as const
 

@@ -32,7 +32,7 @@ export const CourseFacts = ({ className, course }: { readonly className?: string
       {course.recorded === 0 && <RecordingNow />}
       {!isPartlyRecorded && <span>{t("lessons", { count: course.lessons })}</span>}
       {isPartlyRecorded && <span>{t("recorded", { recorded: course.recorded, total: course.lessons })}</span>}
-      {course.recorded > 0 && <span className="tabular-nums">{t("minutes", { minutes: wholeMinutes(course.durationMs) })}</span>}
+      {course.durationMs > 0 && <span className="tabular-nums">{t("minutes", { minutes: wholeMinutes(course.durationMs) })}</span>}
       {course.previews > 0 && <span className="text-ring">{t("previews", { count: course.previews })}</span>}
     </span>
   )

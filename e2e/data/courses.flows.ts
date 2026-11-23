@@ -36,8 +36,24 @@ const COURSE_COVER = {
 } as const
 
 const CUSTOMER_KEPT_OUT = {
-  spec: "videos.spec.ts",
-  title: "video library › a customer cannot open the library or stream without a signed path",
+  spec: "course-videos.spec.ts",
+  title: "lesson videos › a customer cannot open the course admin or stream a video without a signed path",
+} as const
+
+const UPLOAD_VIDEO = {
+  spec: "course-videos.spec.ts",
+  title:
+    "lesson videos › an administrator drops a recording on a lesson, the encoder publishes it, the lesson plays it through a signed path and the video can be deleted",
+} as const
+
+const LIBRARY_VIDEO = {
+  spec: "course-videos.spec.ts",
+  title: "lesson videos › an administrator puts a video from the library on a lesson and visitors watch it",
+} as const
+
+const TEXT_LESSON = {
+  spec: "course-videos.spec.ts",
+  title: "lesson videos › an administrator makes a text lesson that visitors read without a player or a recording notice",
 } as const
 
 export const COURSES_FLOWS = [
@@ -165,9 +181,16 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.COURSES,
     id: "lesson-being-recorded",
-    outcome: "A lesson on the placeholder video says that its recording is on its way and streams nothing",
+    outcome: "A lesson without a video says that its recording is on its way and streams nothing",
     status: FLOW_STATUS.COVERED,
     tests: [PAID_MATERIALS, WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "text-lesson",
+    outcome: "A visitor reads a text lesson without a player, a recording notice or Coming soon, and its course is not listed as being recorded",
+    status: FLOW_STATUS.COVERED,
+    tests: [TEXT_LESSON],
   },
   {
     area: FLOW_AREA.COURSES,
@@ -282,7 +305,7 @@ export const COURSES_FLOWS = [
     status: FLOW_STATUS.COVERED,
     tests: [
       CUSTOMER_KEPT_OUT,
-      { spec: "videos.spec.ts", title: "video library › an administrator previews a published video through a signed, expiring path" },
+      UPLOAD_VIDEO,
       { spec: "course-materials.spec.ts", title: "lesson materials › a visitor downloads the materials of a free lesson through a signed, expiring path" },
     ],
   },
@@ -310,7 +333,7 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-create-course",
-    outcome: "The admin creates a published course with a chapter and a free lesson on a video, and a visitor plays that lesson",
+    outcome: "The admin creates a published course with a chapter and a free lesson, puts a video from the library on it, and a visitor plays that lesson",
     status: FLOW_STATUS.COVERED,
     tests: [BUILD_COURSE],
   },
@@ -332,9 +355,9 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-replace-video",
-    outcome: "Replacing a lesson's video with the placeholder shows visitors the recording notice, and replacing it back plays the video",
+    outcome: "A lesson without a video shows visitors the recording notice, and putting a video from the library on it plays the video",
     status: FLOW_STATUS.COVERED,
-    tests: [WRITE_LESSON],
+    tests: [WRITE_LESSON, LIBRARY_VIDEO],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
@@ -486,43 +509,38 @@ export const COURSES_FLOWS = [
   },
   {
     area: FLOW_AREA.ADMIN_VIDEOS,
-    id: "admin-preview-video",
+    id: "admin-upload-video",
     outcome:
-      "The library shows a video's length and size, and its preview streams through a signed playlist whose segments may be cached, while a forged signature is refused",
+      "The admin drops a recording file on a lesson, it uploads in parts and waits for the encoder, and once encoded the lesson editor plays it through a signed playlist whose segments may be cached, while a forged signature is refused",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "videos.spec.ts", title: "video library › an administrator previews a published video through a signed, expiring path" }],
-  },
-  {
-    area: FLOW_AREA.ADMIN_VIDEOS,
-    id: "admin-placeholder-video",
-    outcome: "The admin marks a video as the placeholder for lessons being recorded, the choice survives a reload, and clearing it works",
-    status: FLOW_STATUS.COVERED,
-    tests: [
-      {
-        spec: "videos.spec.ts",
-        title: "video library › an administrator marks a video as the placeholder for lessons being recorded and clears it",
-      },
-    ],
+    tests: [UPLOAD_VIDEO],
   },
   {
     area: FLOW_AREA.ADMIN_VIDEOS,
     id: "admin-delete-video",
-    outcome: "Deleting a video removes it from the library and its files from storage",
-    reason: "No spec deletes a video.",
+    outcome: "Deleting a lesson's only video removes it and shows visitors the recording notice again",
+    status: FLOW_STATUS.COVERED,
+    tests: [UPLOAD_VIDEO],
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-text-lesson",
+    outcome: "The admin adds a lesson without a video, which the curriculum lists as a text lesson",
+    status: FLOW_STATUS.COVERED,
+    tests: [TEXT_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-resume-upload",
+    outcome: "An upload cut off midway continues from the parts already stored when the same file is chosen again",
+    reason: "No spec interrupts an upload; the unit tests of useVideoUpload and startVideoUpload cover the resume.",
     status: FLOW_STATUS.MISSING,
   },
   {
     area: FLOW_AREA.ADMIN_VIDEOS,
-    id: "admin-upload-video",
-    outcome: "The admin uploads a recording from the video library",
-    reason: "Recordings are encoded and uploaded with bun run video:publish; the library has no upload.",
-    status: FLOW_STATUS.TO_BUILD,
-  },
-  {
-    area: FLOW_AREA.ADMIN_VIDEOS,
     id: "admin-videos-refused",
-    outcome: "A customer and a signed-out visitor are refused by every video library server function, and nothing changes",
-    reason: "The spec checks the route guard and an unsigned stream; no spec calls the library's server functions as a customer.",
+    outcome: "A customer and a signed-out visitor are refused by every upload and video server function, and nothing changes",
+    reason: "The spec checks the route guard and an unsigned stream; no spec calls the upload's server functions as a customer.",
     status: FLOW_STATUS.MISSING,
     tests: [CUSTOMER_KEPT_OUT],
   },

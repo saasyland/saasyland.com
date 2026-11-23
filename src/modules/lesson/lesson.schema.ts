@@ -8,7 +8,14 @@ import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { course } from "~/src/modules/course/course.schema"
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
-import { LESSON_ACCESS, LESSON_ACCESS_LEVELS, LESSON_STATUS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
+import {
+  LESSON_ACCESS,
+  LESSON_ACCESS_LEVELS,
+  LESSON_FORMAT,
+  LESSON_FORMATS,
+  LESSON_STATUS,
+  LESSON_STATUSES,
+} from "~/src/modules/lesson/lesson.constants"
 import { video } from "~/src/modules/video/video.schema"
 
 export const lesson = sqliteTable(
@@ -25,6 +32,7 @@ export const lesson = sqliteTable(
       .$type<LocalizedText>()
       .notNull()
       .default(sql`'{}'`),
+    format: text("format", { enum: LESSON_FORMATS }).notNull().default(LESSON_FORMAT.VIDEO),
     id: text("id").primaryKey(),
     keyMoments: text("key_moments", { mode: "json" })
       .$type<{ label: LocalizedText; seconds: number }[]>()

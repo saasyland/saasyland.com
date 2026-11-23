@@ -31,7 +31,7 @@ export const COURSES_DASHBOARD = [
     order: 50,
     placement: DASHBOARD_PLACEMENT.STAT,
     prefetch: (queryClient) => queryClient.query({ ...getVideosQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_VIDEOS,
+    to: ROUTES.ADMIN_COURSES,
     useValue: () => useSuspenseQuery(getVideosQuery).data.total,
   },
   {

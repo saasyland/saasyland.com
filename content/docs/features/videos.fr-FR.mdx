@@ -1,24 +1,76 @@
 ---
 title: "Vidéos"
-description: "Des enregistrements encodés en HLS adaptatif sur votre machine, stockés dans votre propre bucket R2 et diffusés par des liens signés qui expirent."
+description: "L’enregistrement de chaque leçon, déposé dans l’éditeur de leçon, téléversé par parties dans votre propre bucket R2, encodé en HLS adaptatif avec FFmpeg et diffusé par des liens signés qui expirent."
 ---
 
 Les vidéos sont stockées dans votre propre bucket R2 et diffusées par votre propre Worker. Aucune plateforme vidéo ne s’intercale : Cloudflare ne facture pas la sortie de données depuis R2, la facture porte donc sur le stockage et les requêtes, pas sur les minutes visionnées.
 
+Une vidéo appartient aux leçons qui la lisent. L’administration n’a pas de page distincte pour les vidéos : la carte **Vidéo** de chaque leçon téléverse, prévisualise, remplace et supprime son enregistrement (voir [Éditeur de leçon](/docs/features/courses#lesson-editor)).
+
 ## Ce qui existe
 
-- **Vidéothèque** : `/admin/videos` (`src/routes/admin.videos.tsx`) liste chaque vidéo publiée avec sa durée, la résolution de la source, la taille stockée, les langues des sous-titres, le fait qu’elle soit provisoire ou non et la date de publication, de la plus récente à la plus ancienne. **Lire** ouvre la vidéo dans une boîte de dialogue ; **Supprimer** demande une confirmation, puis supprime la ligne et tous les fichiers situés sous le préfixe de la vidéo dans R2.
-- **Publication** : `bun run video:publish:production <file> --title "…"` encode un enregistrement avec FFmpeg, le téléverse dans R2 et l’enregistre dans la table `video`, ce qui le fait apparaître dans la vidéothèque.
+- **Téléversement** : la carte **Vidéo** de l’éditeur de leçon, ainsi que la boîte de dialogue **Ajouter une leçon**, reçoivent un enregistrement par glisser-déposer ou depuis un sélecteur de fichiers. Le navigateur l’envoie à R2 par parties en passant par le Worker, en affichant sa progression, et reprend un téléversement interrompu à partir des parties déjà stockées. Voir [Téléversement par parties](#upload-in-parts).
+- **Encodage** : `bun run video:encode:<environment>` encode avec FFmpeg chaque enregistrement téléversé, sur la machine qui l’exécute, téléverse les flux dans R2, enregistre la vidéo et la place sur sa leçon. Voir [Encoder les téléversements](#encode-the-uploads).
+- **Publication en ligne de commande** : `bun run video:publish:<environment> <file> --title "…"` encode un fichier sur votre machine et l’enregistre sans leçon. La vidéo apparaît dans **Utiliser une vidéo existante**. Voir [Publier un enregistrement depuis votre machine](#publish-a-recording-from-your-machine).
 - **Diffusion** : `/media/<expiry>.<signature>/<videoId>/<file>` sert les fichiers au lecteur (voir [Cloudflare R2](/docs/integrations/cloudflare-r2)).
 - **Lecteur** : `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) utilise Video.js 10 avec son propre moteur HLS. Il affiche les commandes de qualité, de vitesse, de sous-titres, d’image dans l’image et de plein écran, des aperçus pendant la recherche tirés du storyboard, et des libellés dans la langue de la page.
 
 Les leçons des cours lisent ces vidéos : la colonne `video_id` d’une leçon pointe vers une ligne de la table `video`, et `getLessonPlayback` ne signe les chemins que pour les spectateurs autorisés à regarder cette leçon. Voir [Cours](/docs/features/courses).
 
-## Vidéos provisoires [#placeholder-videos]
+## Du téléversement à une leçon qui se lit [#from-the-upload-to-a-lesson-that-plays]
 
-Une vidéo peut être marquée comme provisoire avec l’interrupteur **Provisoire** de la vidéothèque (`setVideoPlaceholder`, stocké dans `video.placeholder`, désactivé pour toute vidéo publiée). Une leçon sur une vidéo provisoire apparaît **en cours d’enregistrement** : les visiteurs voient la leçon et ses ressources, mais elle n’est jamais lue, et sa durée est exclue de celle du cours. Publiez un court enregistrement, marquez-le comme vidéo provisoire et faites commencer chaque leçon dessus ; quand le véritable enregistrement d’une leçon est publié, choisissez-le dans l’éditeur de leçon, et la leçon devient lisible partout à la fois. Désactiver l’interrupteur rend de nouveau lisible chaque leçon qui utilise cette vidéo. Voir [En cours d’enregistrement](/docs/features/courses#being-recorded).
+Un téléversement est une ligne de la table `video_upload` (`src/modules/video-upload`), une par leçon, jusqu’à ce que l’encodeur en fasse une vidéo :
 
-Les données de test publient `Being recorded`, une vidéo provisoire qu’utilisent les trois leçons du deuxième chapitre de test, et `Spare take`, une vidéo qu’aucune leçon n’utilise, que les tests de navigateur marquent puis démarquent. Une base de données n’a aucune vidéo provisoire tant qu’aucune n’est marquée dans la vidéothèque : la migration qui a ajouté l’indicateur laisse toutes les vidéos existantes lisibles.
+| État          | `video_upload.status` | L’éditeur de leçon affiche                                                                                                             | Les apprenants voient                                    |
+| ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Téléversement | `uploading`           | Le fichier, une barre de progression avec les octets envoyés, et **Annuler l’envoi**                                                   | La vidéo actuelle de la leçon, ou **Bientôt disponible** |
+| Interrompu    | `uploading`           | Où il en était, et **Choisir de nouveau le fichier** pour le reprendre                                                                 | La même chose                                            |
+| En attente    | `queued`              | **En attente de l’encodeur** avec la commande à exécuter                                                                               | La même chose                                            |
+| Encodage      | `encoding`            | **Encodage de** suivi du nom du fichier, avec une barre de progression qui n’a pas encore de fin                                       | La même chose                                            |
+| Échec         | `failed`              | La raison de l’arrêt de FFmpeg (`failure` : `unreadable` ou `encoding`), **Encoder de nouveau** et **Envoyer un autre enregistrement** | La même chose                                            |
+| Prête         | Aucune ligne          | Le lecteur, la durée, la taille, la résolution et les langues des sous-titres                                                          | La vidéo                                                 |
+
+Une leçon continue de lire sa vidéo actuelle pendant qu’une vidéo de remplacement est téléversée puis encodée ; l’encodeur les échange en une seule étape. L’éditeur de cours recharge ses données toutes les <RepositoryFact name="videoUploadPollSeconds" unit="second" /> tant qu’un téléversement attend l’encodeur ou est en cours d’encodage : la carte et le programme changent donc d’état d’eux-mêmes.
+
+## Téléversement par parties [#upload-in-parts]
+
+`useVideoUpload` (`src/hooks/use-video-upload.ts`) exécute le téléversement dans le navigateur et garde son état en dehors des composants : il se poursuit donc pendant que l’administrateur passe à une autre leçon dans le même onglet, et le programme affiche son pourcentage. Tant qu’une partie est en route, quitter la page demande une confirmation.
+
+1. `startVideoUpload` vérifie le nom et la taille du fichier, ouvre un téléversement multipart R2 pour `uploads/<uploadId>/source.<extension>` avec le binding `MEDIA` et l’enregistre. Il accepte les fichiers <RepositoryFact name="videoUploadFileTypes" /> jusqu’à <RepositoryFact name="videoUploadMaxGigabytes" /> Go (`VIDEO_UPLOAD_FILE_TYPES`, `VIDEO_UPLOAD_MAX_GIGABYTES`), et tire le type de contenu de l’extension, jamais du navigateur. Quand la leçon a déjà un téléversement du même fichier, reconnu à son nom, à sa taille et à sa dernière modification, il répond avec les parties que R2 détient déjà, et le navigateur n’envoie que les autres ; le téléversement d’un autre fichier le remplace, et ses parties ou sa source sont supprimées.
+2. Le navigateur envoie des parties de <RepositoryFact name="videoUploadPartMegabytes" /> Mo (`VIDEO_UPLOAD_PART_MEGABYTES`), <RepositoryFact name="videoUploadConcurrency" /> à la fois, chacune sous forme de `FormData` à `uploadVideoPart`, qui refuse une partie dont le numéro ou la taille ne correspond pas au fichier attendu, la stocke avec `uploadPart` et inscrit son ETag dans `video_upload.parts`. Une partie qui échoue est tentée <RepositoryFact name="videoUploadPartAttempts" /> fois, avec une pause plus longue à chaque fois, avant que le téléversement ne s’arrête et propose **Reprendre l’envoi**.
+3. `completeVideoUpload` vérifie que toutes les parties sont là, termine le téléversement multipart et place la source dans la file de l’encodeur (`queued`).
+
+Les parties passent par le Worker : elles sont donc vérifiées par rapport à la session comme toute autre fonction serveur, et aucun identifiant R2 ni aucune URL présignée n’est nécessaire. Toutes ces fonctions exigent `course: ["update"]` ; `startVideoUpload` exécute aussi `withRateLimit` avec <RepositoryFact name="videoUploadsPerMinute" /> démarrages par adresse et par minute. `cancelVideoUpload` abandonne un téléversement ou supprime sa source et l’oublie, et `retryVideoUpload` remet dans la file un téléversement qui a échoué. Avec sa règle de cycle de vie par défaut, R2 abandonne les téléversements multipart restés incomplets pendant sept jours.
+
+Supprimer une leçon, un chapitre ou un cours, ou en retirer un par un import, supprime aussi ses téléversements et leurs sources de R2.
+
+## Encoder les téléversements [#encode-the-uploads]
+
+Le Worker ne peut pas exécuter FFmpeg : l’encodage se fait donc sur une machine qui le peut :
+
+1. Installez FFmpeg, qui inclut `ffprobe` : `brew install ffmpeg` sur macOS. Définissez `FFMPEG` et `FFPROBE` pour utiliser d’autres binaires.
+2. Connectez-vous à Cloudflare avec `bunx wrangler login`. Le script exécute Wrangler avec cette connexion, comme les scripts `db:migrate:*`, et ne lit aucun fichier `.env`.
+3. Lancez l’encodeur pour l’environnement où se trouvent les téléversements :
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`, `video:encode:development` et `video:encode:test` font de même pour la base de données et le bucket de préversion, et pour l’état local de développement et de test. L’éditeur de leçon affiche la commande de l’environnement dans lequel il s’exécute.
+
+`scripts/encode-videos.ts` liste les téléversements `queued` et, pour chacun, le marque `encoding`, télécharge la source avec `wrangler r2 object get`, l’encode comme le fait `video:publish`, téléverse les flux sous `videos/<uploadId>/` puis, dans une seule liste d’instructions, enregistre la vidéo, la place sur la leçon et supprime la ligne du téléversement (`finishEncodingQueries` dans `src/modules/video-upload/video-upload.encoder.ts`), avant de supprimer la source. La vidéo prend le nom du fichier. Un fichier que FFmpeg ne peut pas lire est marqué `failed` avec `unreadable` ; toute autre erreur, avec `encoding`. Un téléversement annulé ou remplacé pendant son encodage est laissé tel quel, et les flux que l’encodeur a téléversés pour lui sont supprimés.
+
+La suite de tests de navigateur n’a pas FFmpeg : son Worker de test répond à `/__test/videos/encode` en copiant, pour chaque téléversement en file, les flux de la vidéo de test des données initiales, puis le termine avec le même `finishEncodingQueries`.
+
+## Réutiliser et supprimer
+
+**Utiliser une vidéo existante**, dans l’éditeur de leçon, liste les vidéos encodées, des plus récentes aux plus anciennes (les <RepositoryFact name="videoLibraryPageSize" /> plus récentes, par `getVideos`, qui exige `video: ["read"]`), avec le nombre de leçons qui utilisent chacune. **Utiliser** en place une sur la leçon (`replaceLessonVideo`), si bien qu’un même enregistrement peut être lu dans plusieurs leçons. Une vidéo qu’aucune leçon n’utilise, comme celle qu’un remplacement a supplantée ou celle publiée en ligne de commande, peut y être supprimée (`deleteVideo`, `video: ["delete"]`).
+
+**Supprimer la vidéo**, sur une leçon, lui retire sa vidéo avec `removeLessonVideo`, qui exige `course: ["update"]` et `video: ["delete"]`. Quand aucune autre leçon n’utilise la vidéo, il supprime la ligne et tous les fichiers situés sous son préfixe dans R2 ; sinon, le bouton s’intitule **Retirer de cette leçon** et la vidéo reste sur les autres.
+
+## Vidéos provisoires des versions antérieures
+
+Les versions antérieures permettaient de marquer une vidéo comme provisoire pour les leçons en cours d’enregistrement. Une leçon sans vidéo l’indique désormais d’elle-même : la migration `20261123021636_steady_microchip.sql` retire donc sa vidéo provisoire à chaque leçon qui en avait une, et les pages affichent ces leçons comme **Bientôt disponible**, exactement comme avant. Les vidéos provisoires elles-mêmes restent jusqu’à ce que vous les supprimiez sous **Utiliser une vidéo existante**, et la colonne `placeholder` n’est plus lue.
 
 ## Contenu d’une vidéo publiée
 
@@ -35,23 +87,21 @@ L’encodeur planifie la sortie à partir de la source :
 
 Les segments sont au format CMAF (MP4 fragmenté) avec une image clé toutes les <RepositoryFact name="videoKeyframeSeconds" unit="second" />, si bien que tous les rendus basculent aux mêmes points. Les débits sont à qualité constante (CRF <RepositoryFact name="videoQualityCrf" />) avec un plafond proportionnel à la taille de l’image : un enregistrement d’écran presque statique occupe donc bien moins de place que ce plafond.
 
-## Publier un enregistrement
+## Publier un enregistrement depuis votre machine [#publish-a-recording-from-your-machine]
 
-1. Installez FFmpeg, qui inclut `ffprobe` : `brew install ffmpeg` sur macOS. Définissez `FFMPEG` et `FFPROBE` pour utiliser d’autres binaires.
-2. Connectez-vous à Cloudflare avec `bunx wrangler login`. Le script exécute Wrangler avec cette connexion, comme les scripts `db:migrate:*`, et ne lit aucun fichier `.env`.
-3. Exécutez le script pour l’environnement :
+`video:publish` saute l’étape du téléversement : il encode un fichier sur votre machine et n’envoie que les flux. Utilisez-le pour un long enregistrement que vous avez déjà en local, ou pour ajouter vos propres sous-titres ou votre propre affiche :
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` et `--captions` sont facultatifs. Utilisez `video:publish:preview` pour l’environnement de préversion.
+`--poster` et `--captions` sont facultatifs. Utilisez `video:publish:preview` pour l’environnement de préversion. Choisissez ensuite la vidéo dans **Utiliser une vidéo existante** de la leçon.
 
-`scripts/publish-video.ts` lit le nom du bucket dans le binding `MEDIA` de l’environnement dans `wrangler.jsonc`, encode dans un répertoire temporaire, téléverse les fichiers avec `wrangler r2 bulk put --remote`, 20 à la fois et regroupés par type de contenu, puis insère la ligne `video` avec `wrangler d1 execute DB --env <environment> --remote`. En cas d’échec, il supprime les objets téléversés avec `wrangler r2 object delete`. La planification (rendus, arguments FFmpeg, storyboard, noms de fichiers) se trouve dans `src/modules/video/video.encoding.ts` et `video.files.ts`, que le Worker utilise aussi.
+`scripts/publish-video.ts` lit le nom du bucket dans le binding `MEDIA` de l’environnement dans `wrangler.jsonc`, encode dans un répertoire temporaire, téléverse les fichiers avec `wrangler r2 bulk put --remote`, regroupés par type de contenu, puis insère la ligne `video` avec `wrangler d1 execute DB --env <environment> --remote`. En cas d’échec, il supprime les objets téléversés avec `wrangler r2 object delete`. `publish-video.ts` et `encode-videos.ts` partagent les étapes d’encodage de `scripts/video-pipeline.ts` ; la planification (rendus, arguments FFmpeg, storyboard, noms de fichiers) se trouve dans `src/modules/video/video.encoding.ts` et `video.files.ts`, que le Worker utilise aussi.
 
 ## Coût
 
-Avec le stockage R2 Standard à 0,015 $ par Go-mois et sans frais de sortie de données, une vidéothèque de 50 heures d’enregistrements d’écran, à environ 1,2 Go par heure tous rendus confondus, coûte moins de 1 $ par mois en stockage, quel que soit le nombre de visionnages. Chaque requête de segment exécute le Worker une fois et lit R2 au plus une fois par point de présence, car les fichiers servis sont conservés dans le cache des Workers. Vérifiez les prix en vigueur sur les pages de tarification de [R2](https://developers.cloudflare.com/r2/pricing/) et de [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+Avec le stockage R2 Standard à 0,015 $ par Go-mois et sans frais de sortie de données, une vidéothèque de 50 heures d’enregistrements d’écran, à environ 1,2 Go par heure tous rendus confondus, coûte moins de 1 $ par mois en stockage, quel que soit le nombre de visionnages. Une source téléversée est supprimée une fois encodée. Chaque requête de segment exécute le Worker une fois et lit R2 au plus une fois par point de présence, car les fichiers servis sont conservés dans le cache des Workers. Vérifiez les prix en vigueur sur les pages de tarification de [R2](https://developers.cloudflare.com/r2/pricing/) et de [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Pages associées
 

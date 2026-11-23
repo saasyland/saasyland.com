@@ -12,19 +12,21 @@ import type { Chapter } from "~/src/modules/chapter/chapter.types"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import { attachmentObjectKeys, removeAttachmentObjects } from "~/src/modules/lesson-attachment/lesson-attachment.objects"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { removeUploadObjects, uploadObjects } from "~/src/modules/video-upload/video-upload.objects"
 
 export const deleteChapter = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Chapter["deleteChapter"]) => chapterZodSchemas.deleteChapter.parse(input))
   .handler(async ({ data }) => {
-    const objectKeys = await attachmentObjectKeys(eq(lesson.chapterId, data.chapterId))
+    const lessons = eq(lesson.chapterId, data.chapterId)
+    const [objectKeys, uploads] = await Promise.all([attachmentObjectKeys(lessons), uploadObjects(lessons)])
     const [row] = await db.delete(chapter).where(eq(chapter.id, data.chapterId)).returning({ id: chapter.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await removeAttachmentObjects(objectKeys)
+    await Promise.all([removeAttachmentObjects(objectKeys), removeUploadObjects(uploads)])
 
     return row
   })

@@ -12,7 +12,7 @@ import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
@@ -43,7 +43,7 @@ const readCourses = () =>
       level: course.level,
       paid: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PAID}), 0)`,
       previews: sql<number>`coalesce(sum(${lesson.access} = ${LESSON_ACCESS.PREVIEW}), 0)`,
-      recorded: count(video.id),
+      recorded: sql<number>`count(${video.id}) + coalesce(sum(${lesson.format} = ${LESSON_FORMAT.TEXT}), 0)`,
       slug: course.slug,
       summary: course.summary,
       title: course.title,

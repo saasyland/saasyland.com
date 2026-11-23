@@ -11,7 +11,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { LESSON_ACCESS_LEVELS, LESSON_KEY_MOMENTS_MAX_ITEMS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS_LEVELS, LESSON_FORMAT, LESSON_KEY_MOMENTS_MAX_ITEMS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
@@ -258,7 +258,7 @@ export const LessonForm = ({ lesson }: { readonly lesson: Course["editorLesson"]
               {(field) => <CourseTextField field={field} id="lesson-slug" isCode label={t("lesson.slug")} />}
             </form.Field>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 @lg/field-group:grid-cols-2">
               <form.Field name="access">
                 {(field) => (
                   <CourseOptionField
@@ -285,7 +285,7 @@ export const LessonForm = ({ lesson }: { readonly lesson: Course["editorLesson"]
               </form.Field>
             </div>
 
-            <KeyMomentsField form={form} locale={languages.locale} />
+            {lesson.format === LESSON_FORMAT.VIDEO && <KeyMomentsField form={form} locale={languages.locale} />}
           </FieldGroup>
         </CardContent>
         <CardFooter className="justify-end">

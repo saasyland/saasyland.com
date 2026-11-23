@@ -11,7 +11,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { IDS, LESSON_IDS, USERS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { IDS, LESSON_IDS, USERS, makeTextLesson, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { course } from "~/src/modules/course/course.schema"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
@@ -102,9 +102,9 @@ describe("course route loaders", () => {
     ).toHaveProperty("lesson.slug", "boundaries")
   })
 
-  it("does not sign a stream for a lesson on the placeholder video", async () => {
+  it("does not sign a stream for a text lesson", async () => {
     signOut()
-    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+    await makeTextLesson(LESSON_IDS.PREVIEW)
 
     const router = await load("/courses/the-walkthrough/boundaries")
 

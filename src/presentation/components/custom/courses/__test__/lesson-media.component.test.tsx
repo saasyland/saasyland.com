@@ -13,7 +13,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import type { Video } from "~/src/modules/video/video.types"
 
@@ -66,6 +66,7 @@ const LESSON: Course["pageLesson"] = {
   chapterId: "chapter",
   completed: false,
   durationMs: 125_000,
+  format: LESSON_FORMAT.VIDEO,
   id: "lesson",
   locked: false,
   positionMs: 0,

@@ -209,7 +209,7 @@ describe("importing courses", () => {
 
     expect(await dialog.findByText("2 uploaded files are deleted with their lessons.")).toBeVisible()
     expect(
-      dialog.getByText("the-walkthrough, billing: video missing-video is not in this library, so the lesson keeps its current video."),
+      dialog.getByText("the-walkthrough, billing: video missing-video is not on this site, so the lesson keeps its current video."),
     ).toBeVisible()
     expect(importCourses.mock.calls[1]?.[0]).toStrictEqual({ document: FILE_TEXT, dryRun: true, removeMissing: true })
   })

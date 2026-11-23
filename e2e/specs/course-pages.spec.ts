@@ -195,7 +195,7 @@ test.describe("course and lesson pages", () => {
 
     const header = page.locator("header").filter({ has: page.getByRole("heading", { level: 1 }) })
     await expect(header.getByText("Intermediate", { exact: true })).toBeVisible()
-    await expect(header.getByText("3 of 6 lessons recorded")).toBeVisible()
+    await expect(header.getByText("3 of 6 lessons ready")).toBeVisible()
     await expect(page.getByRole("heading", { level: 2, name: "What you’ll learn" })).toBeVisible()
     await expect(page.getByText(TEST_COURSE.prerequisites["en-US"][0])).toBeVisible()
     await expect(page.getByRole("link", { name: new RegExp(`^${preview.title["en-US"]}.*Free preview`, "u") })).toBeVisible()

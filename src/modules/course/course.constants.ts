@@ -7,6 +7,7 @@ import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { COURSE_COVER_MAX_MEGABYTES } from "~/src/modules/course/course.cover"
 import { LESSON_ATTACHMENT_MAX_MEGABYTES } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
+import { VIDEO_UPLOAD_MAX_GIGABYTES } from "~/src/modules/video-upload/video-upload.constants"
 
 export const COURSE_KIND = {
   COURSE: "course",
@@ -115,4 +116,5 @@ export const COURSE_VALIDATION_PARAMS: Record<string, Record<string, number>> = 
   textTooLong: { max: LOCALIZED_TEXT_MAX_LENGTH },
   tooManyItems: { max: LOCALIZED_LIST_MAX_ITEMS },
   tooManyKeyMoments: { max: LESSON_KEY_MOMENTS_MAX_ITEMS },
+  videoTooLarge: { max: VIDEO_UPLOAD_MAX_GIGABYTES },
 }

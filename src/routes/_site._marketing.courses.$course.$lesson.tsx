@@ -10,7 +10,7 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, isPlayable } from "~/src/modules/course/course.utils"
+import { courseLessons, isAvailable, isPlayable } from "~/src/modules/course/course.utils"
 import type { Lesson as LessonDetail } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
@@ -194,7 +194,7 @@ const LessonPage = (): JSX.Element => {
                 <CourseContentsSheet currentSlug={lesson.slug} data={data} key={lesson.slug} />
               </div>
               <div className="ml-auto flex min-w-0 items-center gap-2">
-                {data.viewer.signedIn && playable && <CompletionControl lesson={lesson} />}
+                {data.viewer.signedIn && isAvailable(lesson) && <CompletionControl lesson={lesson} />}
                 {next !== undefined && <UpNext courseSlug={data.course.slug} lesson={next} />}
               </div>
             </div>

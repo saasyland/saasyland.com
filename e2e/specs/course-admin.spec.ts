@@ -6,7 +6,7 @@ import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { ROUTES } from "../../src/routes"
 import coursesMessages from "../../messages/en-US/pages.admin.courses.json" with { type: "json" }
 import { TEST_COURSE, TEST_MATERIALS } from "../data/courses"
-import { TEST_PLACEHOLDER_VIDEO, TEST_VIDEO } from "../data/videos"
+import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
 import { filterByOption, filteredEmpty, gridMessages, gridOf, hideColumn, removeFilter, resetLayout } from "../fixtures/data-grid"
 import type { AuthPage } from "../pages"
@@ -26,6 +26,13 @@ const signInAsAdmin = async (page: Page, authPage: AuthPage): Promise<void> => {
 const choose = async (scope: Locator, label: string, option: string): Promise<void> => {
   await scope.getByRole("button", { name: new RegExp(label, "u") }).click()
   await scope.page().getByRole("option", { name: option, exact: true }).click()
+}
+
+const useLibraryVideo = async (page: Page): Promise<void> => {
+  await page.getByRole("link", { name: "Edit A first look" }).click()
+  await page.getByRole("button", { name: "Use an existing video" }).click()
+  await page.getByRole("dialog", { name: "Use an existing video" }).getByRole("button", { name: `Use ${TEST_VIDEO.title}` }).click()
+  await expect(page.getByText("Video added to the lesson")).toBeVisible()
 }
 
 test("an administrator builds a course whose free lesson visitors can watch", async ({ appPage, authPage, browser, page }) => {
@@ -58,9 +65,10 @@ test("an administrator builds a course whose free lesson visitors can watch", as
   await lessonDialog.getByLabel("URL slug").fill("first-look")
   await choose(lessonDialog, "Who can watch", "Everyone (free preview)")
   await choose(lessonDialog, "Status", "Published")
-  await choose(lessonDialog, "Video", `${TEST_VIDEO.title} · 0:02`)
   await lessonDialog.getByRole("button", { name: "Save lesson" }).click()
   await expect(lessonDialog).toBeHidden()
+  await useLibraryVideo(page)
+  await page.getByRole("link", { name: "Shipping the first release" }).click()
   await expect(page.getByText(`${TEST_VIDEO.title} · 0:02`)).toBeVisible()
 
   const visitor = await browser.newPage()
@@ -155,7 +163,6 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await lessonDialog.getByLabel("URL slug").fill("first-look")
   await choose(lessonDialog, "Who can watch", "Everyone (free preview)")
   await choose(lessonDialog, "Status", "Published")
-  await choose(lessonDialog, "Video", `${TEST_VIDEO.title} · 0:02`)
   await lessonDialog.getByRole("button", { name: "Save lesson" }).click()
   await expect(lessonDialog).toBeHidden()
 
@@ -168,10 +175,6 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await page.getByLabel("Label of moment 1", { exact: true }).fill("The modules folder")
   await page.getByRole("button", { name: "Save lesson" }).click()
   await expect(page.getByText("Lesson saved")).toBeVisible()
-
-  await choose(page.locator("form").filter({ hasText: "Replace with" }), "Replace with", `${TEST_PLACEHOLDER_VIDEO.title} · 0:02 · Placeholder`)
-  await page.getByRole("button", { name: "Replace video" }).click()
-  await expect(page.getByText("Video replaced")).toBeVisible()
 
   await page.getByRole("button", { name: "Upload a file" }).click()
   const uploadDialog = page.getByRole("dialog")
@@ -195,8 +198,8 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   expect((await visitor.request.get(download ?? "")).status()).toBe(200)
   await expect(visitor.getByRole("link", { name: "Course docs" })).toHaveAttribute("href", "/docs/features/courses")
 
-  await choose(page.locator("form").filter({ hasText: "Replace with" }), "Replace with", `${TEST_VIDEO.title} · 0:02`)
-  await page.getByRole("button", { name: "Replace video" }).click()
+  await page.getByRole("button", { name: "Use an existing video" }).click()
+  await page.getByRole("dialog", { name: "Use an existing video" }).getByRole("button", { name: `Use ${TEST_VIDEO.title}` }).click()
   await expect(page.getByText("Plays for everyone who may open the lesson")).toBeVisible()
 
   const playlist = visitor.waitForResponse((response) => response.url().endsWith(`/${TEST_VIDEO.id}/master.m3u8`))

@@ -17,6 +17,9 @@ import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachm
 import type { LessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.types"
 import { attachmentTarget } from "~/src/modules/lesson-attachment/lesson-attachment.utils"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { VIDEO_UPLOAD_POLL_MS, VIDEO_UPLOAD_STATUS } from "~/src/modules/video-upload/video-upload.constants"
+import { uploadedBytes } from "~/src/modules/video-upload/video-upload.files"
+import { videoUpload } from "~/src/modules/video-upload/video-upload.schema"
 import { video } from "~/src/modules/video/video.schema"
 
 const readLessons = (courseId: string) =>
@@ -25,6 +28,7 @@ const readLessons = (courseId: string) =>
       access: lesson.access,
       chapterId: lesson.chapterId,
       description: lesson.description,
+      format: lesson.format,
       id: lesson.id,
       keyMoments: lesson.keyMoments,
       position: lesson.position,
@@ -32,10 +36,30 @@ const readLessons = (courseId: string) =>
       status: lesson.status,
       summary: lesson.summary,
       title: lesson.title,
-      video: { durationMs: video.durationMs, id: video.id, placeholder: video.placeholder, title: video.title },
+      upload: {
+        createdAt: videoUpload.createdAt,
+        failure: videoUpload.failure,
+        fileName: videoUpload.fileName,
+        id: videoUpload.id,
+        partBytes: videoUpload.partBytes,
+        parts: videoUpload.parts,
+        sizeBytes: videoUpload.sizeBytes,
+        status: videoUpload.status,
+      },
+      video: {
+        captionLocales: video.captionLocales,
+        durationMs: video.durationMs,
+        height: video.height,
+        id: video.id,
+        lessonCount: db.$count(lesson, eq(lesson.videoId, video.id)),
+        sizeBytes: video.sizeBytes,
+        title: video.title,
+        width: video.width,
+      },
     })
     .from(lesson)
     .leftJoin(video, eq(video.id, lesson.videoId))
+    .leftJoin(videoUpload, eq(videoUpload.lessonId, lesson.id))
     .where(eq(lesson.courseId, courseId))
     .orderBy(asc(lesson.position), asc(lesson.id))
 
@@ -46,6 +70,17 @@ const readAttachments = (courseId: string) =>
     .innerJoin(lesson, eq(lesson.id, lessonAttachment.lessonId))
     .where(eq(lesson.courseId, courseId))
     .orderBy(asc(lessonAttachment.position), asc(lessonAttachment.id))
+
+const editorUpload = ({
+  partBytes,
+  parts,
+  sizeBytes,
+  ...upload
+}: NonNullable<Awaited<ReturnType<typeof readLessons>>[number]["upload"]>) => ({
+  ...upload,
+  sizeBytes,
+  uploadedBytes: uploadedBytes({ partBytes, parts, sizeBytes }),
+})
 
 const editorAttachment = (attachment: LessonAttachment["select"]) => {
   const target = attachmentTarget(attachment)
@@ -78,7 +113,12 @@ export const getCourseEditor = createServerFn({ method: "GET" })
       (entry) => entry.lessonId,
     )
     const lessonsByChapter = Map.groupBy(
-      lessons.map((entry) => Object.assign(entry, { attachments: attachmentsByLesson.get(entry.id) ?? [] })),
+      lessons.map(({ upload, ...entry }) =>
+        Object.assign(entry, {
+          attachments: attachmentsByLesson.get(entry.id) ?? [],
+          upload: upload === null ? undefined : editorUpload(upload),
+        }),
+      ),
       (entry) => entry.chapterId,
     )
 
@@ -94,9 +134,15 @@ export const getCourseEditor = createServerFn({ method: "GET" })
     }
   })
 
+const ENCODER_STATUSES = new Set<string>([VIDEO_UPLOAD_STATUS.QUEUED, VIDEO_UPLOAD_STATUS.ENCODING])
+
+const awaitsEncoder = (editor: Awaited<ReturnType<typeof getCourseEditor>> | undefined): boolean =>
+  editor?.chapters.some(({ lessons }) => lessons.some(({ upload }) => upload !== undefined && ENCODER_STATUSES.has(upload.status))) ?? false
+
 export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
   queryOptions({
     queryFn: () => getCourseEditor({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.EDITOR, input.courseId],
+    refetchInterval: (query) => (awaitsEncoder(query.state.data) ? VIDEO_UPLOAD_POLL_MS : false),
     staleTime: COURSE_STALE_MS,
   })

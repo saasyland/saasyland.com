@@ -23,7 +23,7 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminLessonEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { LessonForm } from "~/src/presentation/components/custom/admin/courses/lesson-form"
 import { LessonMaterials } from "~/src/presentation/components/custom/admin/courses/lesson-materials"
-import { LessonVideoCard } from "~/src/presentation/components/custom/admin/courses/lesson-video-card"
+import { LessonVideo } from "~/src/presentation/components/custom/admin/courses/lesson-video"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 
 import { ROUTES } from "~/src/routes"
@@ -69,7 +69,7 @@ const LessonEditorPage = (): JSX.Element => {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <LessonForm key={lesson.id} lesson={lesson} />
         <div className="flex flex-col gap-6">
-          <LessonVideoCard key={lesson.video?.id ?? lesson.id} lesson={lesson} />
+          <LessonVideo lesson={lesson} />
           <LessonMaterials lesson={lesson} />
         </div>
       </div>

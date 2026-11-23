@@ -20,12 +20,16 @@ import { exportCoursesMutation } from "~/src/modules/course/use-cases/export-cou
 import { importCoursesMutation } from "~/src/modules/course/use-cases/import-courses"
 import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
-import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { VIDEO_UPLOAD_PART_BYTES, VIDEO_UPLOAD_STATUS } from "~/src/modules/video-upload/video-upload.constants"
+import { videoUpload } from "~/src/modules/video-upload/video-upload.schema"
 
 const CURRICULUM = readFileSync("content/courses/saasy-land-courses.json", "utf8")
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
 const OBJECT_KEY = "attachments/attachment-file/notes.pdf"
+const UPLOAD_ID = "01960000-0000-7000-8000-00000000e001"
+const UPLOAD_KEY = `uploads/${UPLOAD_ID}/source.mp4`
 
 type Document = Course["courseDocument"]
 
@@ -264,6 +268,19 @@ describe("removing what the file does not contain", () => {
 
   it("counts everything a removed course takes with it", async () => {
     await addAttachments()
+    await db.insert(videoUpload).values({
+      contentType: "video/mp4",
+      fileName: "take.mp4",
+      id: UPLOAD_ID,
+      lastModified: 1,
+      lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO,
+      multipartId: "multipart",
+      objectKey: UPLOAD_KEY,
+      partBytes: VIDEO_UPLOAD_PART_BYTES,
+      sizeBytes: 1,
+      status: VIDEO_UPLOAD_STATUS.QUEUED,
+    })
+    await env.MEDIA.put(UPLOAD_KEY, "take")
     const document = await exported()
     document.courses = document.courses.filter(({ slug }) => slug !== "the-walkthrough")
 
@@ -275,15 +292,38 @@ describe("removing what the file does not contain", () => {
       lessons: tally({ remove: 5 }),
       links: tally({ remove: 2 }),
     })
-    expect(plan.files).toBe(1)
+    expect(plan.files).toBe(2)
     expect(await db.select().from(lesson)).toStrictEqual([])
+    expect(await db.select().from(videoUpload)).toStrictEqual([])
+    expect(await env.MEDIA.get(UPLOAD_KEY)).toBeNull()
+  })
+})
+
+describe("lesson formats", () => {
+  it("exports a text lesson as one and imports it back without changes", async () => {
+    await db.update(lesson).set({ format: LESSON_FORMAT.TEXT, videoId: null }).where(eq(lesson.id, LESSON_IDS.PAID_WITHOUT_VIDEO))
+    const document = await exported()
+
+    expect(lessonOf(document, "coverage")).toMatchObject({ format: LESSON_FORMAT.TEXT })
+    expect(lessonOf(document, "billing")).not.toHaveProperty("format")
+    await expect(importDocument(document)).resolves.toMatchObject({ changes: 0 })
+  })
+
+  it("turns a lesson into a text lesson when the file says so", async () => {
+    const document = await exported()
+    lessonOf(document, "coverage").format = LESSON_FORMAT.TEXT
+
+    await importDocument(document)
+
+    const [row] = await db.select({ format: lesson.format }).from(lesson).where(eq(lesson.id, LESSON_IDS.PAID_WITHOUT_VIDEO))
+    expect(row).toStrictEqual({ format: LESSON_FORMAT.TEXT })
   })
 })
 
 describe("lesson videos", () => {
   it("puts a lesson on the video the file names and keeps its video when this library lacks the one named", async () => {
     const document = await exported()
-    lessonOf(document, "coverage").videoId = IDS.PLACEHOLDER_VIDEO
+    lessonOf(document, "coverage").videoId = IDS.SPARE_VIDEO
     lessonOf(document, "billing").videoId = MISSING_ID
 
     const plan = await importDocument(document)
@@ -296,7 +336,7 @@ describe("lesson videos", () => {
       .orderBy(asc(lesson.slug))
     expect(rows).toStrictEqual([
       { slug: "billing", videoId: IDS.VIDEO },
-      { slug: "coverage", videoId: IDS.PLACEHOLDER_VIDEO },
+      { slug: "coverage", videoId: IDS.SPARE_VIDEO },
       { slug: "unfinished", videoId: IDS.VIDEO },
     ])
   })

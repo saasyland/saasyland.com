@@ -2,6 +2,7 @@ import { type JSX, type ReactNode, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { FileVideo, X } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
@@ -9,38 +10,79 @@ import { validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { idField } from "~/src/modules/_core/utils/zod-fields"
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
-import { LESSON_ACCESS, LESSON_ACCESS_LEVELS, LESSON_STATUS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
+import {
+  LESSON_ACCESS,
+  LESSON_ACCESS_LEVELS,
+  LESSON_FORMAT,
+  LESSON_FORMATS,
+  LESSON_STATUS,
+  LESSON_STATUSES,
+} from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useFileSize } from "~/src/hooks/use-file-size"
 import { useFormLocale } from "~/src/hooks/use-form-locale"
-import { useVideoLibrary } from "~/src/hooks/use-video-library"
+import { uploadLessonVideo } from "~/src/hooks/use-video-upload"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
-import { FieldGroup } from "~/src/presentation/components/shadcn/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
 
 import { CourseOptionField, CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
+import { VideoDropZone } from "~/src/presentation/components/custom/admin/courses/video-drop-zone"
 import { FormLanguages, TranslationsSheet } from "~/src/presentation/components/custom/admin/form-languages"
 
-const NO_VIDEO = "none"
+const lessonFormSchema = lessonZodSchemas.createLesson.omit({ chapterId: true })
 
-const lessonFormSchema = lessonZodSchemas.createLesson.omit({ chapterId: true }).extend({ videoId: idField })
-
-type LessonFormValues = Omit<Lesson["createLesson"], "chapterId" | "videoId"> & { videoId: string }
-
-const NEW_LESSON: LessonFormValues = {
+const NEW_LESSON: Omit<Lesson["createLesson"], "chapterId"> = {
   access: LESSON_ACCESS.PAID,
+  format: LESSON_FORMAT.VIDEO,
   slug: "",
   status: LESSON_STATUS.DRAFT,
   summary: { [I18N.DEFAULT_LOCALE]: "" },
   title: { [I18N.DEFAULT_LOCALE]: "" },
-  videoId: NO_VIDEO,
+}
+
+interface RecordingFieldProps {
+  readonly onChange: (file: File | undefined) => void
+  readonly recording: File | undefined
+}
+
+const RecordingField = ({ onChange, recording }: RecordingFieldProps): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.lesson")
+  const fileSize = useFileSize()
+
+  return (
+    <Field>
+      <FieldLabel>{t("recording")}</FieldLabel>
+      {recording === undefined && <VideoDropZone isCompact label={t("recording")} onFile={onChange} />}
+      {recording !== undefined && (
+        <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 py-1.5 pr-1.5 pl-3">
+          <FileVideo aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate font-mono text-spec text-foreground">
+            {recording.name} · {fileSize(recording.size)}
+          </span>
+          <Button
+            aria-label={t("removeRecording", { name: recording.name })}
+            className="size-8 text-muted-foreground"
+            onPress={() => {
+              onChange(undefined)
+            }}
+            size="icon"
+            variant="ghost"
+          >
+            <X aria-hidden className="size-4" />
+          </Button>
+        </div>
+      )}
+      <FieldDescription>{t("recordingHint")}</FieldDescription>
+    </Field>
+  )
 }
 
 interface LessonDialogProps {
@@ -53,14 +95,22 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
   const [isOpen, setOpen] = useState(false)
+  const [recording, setRecording] = useState<File>()
 
   const { holders } = useCourseAccessNames()
-  const library = useVideoLibrary(isOpen)
 
-  const onSuccess = async (): Promise<void> => {
+  const changeOpen = (open: boolean): void => {
+    setOpen(open)
+    setRecording(undefined)
+  }
+  const onSuccess = async ({ id }: { id: string }, { format }: Lesson["createLesson"]): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
-    toast.success(t("saved"))
-    setOpen(false)
+    const uploading = format === LESSON_FORMAT.VIDEO && recording !== undefined
+    if (uploading) {
+      void uploadLessonVideo({ file: recording, lessonId: id, queryClient })
+    }
+    toast.success(t(uploading ? "savedUploading" : "saved"))
+    changeOpen(false)
   }
   const onError = (error: Error): void => {
     toast.error(errorMessage(error))
@@ -70,19 +120,16 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
   const form = useForm({
     defaultValues: NEW_LESSON,
     listeners: { onBlur: validateOnBlur },
-    onSubmit: ({ value: { videoId, ...fields } }) => {
-      const video = videoId === NO_VIDEO ? {} : { videoId }
-      create.mutate({ ...fields, ...video, chapterId })
+    onSubmit: ({ value }) => {
+      create.mutate({ ...value, chapterId })
     },
     validators: { onChange: lessonFormSchema },
   })
 
   const languages = useFormLocale(form, ({ summary, title }) => ({ texts: { summary, title } }))
 
-  const videoLabels = new Map([[NO_VIDEO, t("noVideo")], ...library])
-
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
+    <DialogTrigger isOpen={isOpen} onOpenChange={changeOpen}>
       {trigger}
       <Dialog className="sm:max-w-2xl">
         <form
@@ -145,7 +192,7 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
 
             <form.Field name="slug">{(field) => <CourseTextField field={field} id="lesson-slug" isCode label={t("slug")} />}</form.Field>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 @lg/field-group:grid-cols-2 @3xl/field-group:grid-cols-3">
               <form.Field name="access">
                 {(field) => (
                   <CourseOptionField
@@ -165,19 +212,17 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
                   </CourseOptionField>
                 )}
               </form.Field>
-              <form.Field name="videoId">
+              <form.Field name="format">
                 {(field) => (
-                  <CourseOptionField
-                    label={t("video")}
-                    onChange={field.handleChange}
-                    options={[...videoLabels.keys()]}
-                    value={field.state.value}
-                  >
-                    {(videoId) => videoLabels.get(videoId)}
+                  <CourseOptionField label={t("format")} onChange={field.handleChange} options={LESSON_FORMATS} value={field.state.value}>
+                    {(format) => t(`formats.${format}`)}
                   </CourseOptionField>
                 )}
               </form.Field>
             </div>
+            <form.Subscribe selector={(state) => state.values.format}>
+              {(format) => format === LESSON_FORMAT.VIDEO && <RecordingField onChange={setRecording} recording={recording} />}
+            </form.Subscribe>
           </FieldGroup>
           <DialogFooter>
             <Button isPending={create.isPending} type="submit">

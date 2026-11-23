@@ -1,24 +1,76 @@
 ---
 title: "Vídeos"
-description: "Gravações codificadas em HLS adaptativo na sua máquina, armazenadas no seu próprio bucket do R2 e transmitidas por links assinados que expiram."
+description: "A gravação de cada aula, solta no editor da aula, enviada em partes para o seu próprio bucket do R2, codificada em HLS adaptativo com o FFmpeg e transmitida por links assinados que expiram."
 ---
 
 Os vídeos ficam armazenados no seu próprio bucket do R2 e são transmitidos pelo seu próprio Worker. Nenhuma plataforma de vídeo fica no meio do caminho: a Cloudflare não cobra pela saída de dados (egress) do R2, então a conta é de armazenamento e requisições, não de minutos assistidos.
 
+Um vídeo pertence às aulas que o reproduzem. Não existe uma página de vídeos separada na administração: o card **Vídeo** de cada aula envia, pré-visualiza, substitui e exclui a gravação dela (veja [Editor da aula](/docs/features/courses#lesson-editor)).
+
 ## O que existe
 
-- **Biblioteca**: `/admin/videos` (`src/routes/admin.videos.tsx`) lista todos os vídeos publicados com a duração, a resolução da origem, o tamanho armazenado, os idiomas das legendas, se ele é provisório e a data de publicação, dos mais recentes para os mais antigos. **Assistir** reproduz o vídeo em um diálogo; **Excluir** pede confirmação e depois remove a linha e todos os arquivos sob o prefixo do vídeo no R2.
-- **Publicação**: `bun run video:publish:production <file> --title "…"` codifica uma gravação com o FFmpeg, a envia para o R2 e a registra na tabela `video`, o que a faz aparecer na biblioteca.
+- **Envio**: o card **Vídeo** do editor da aula e o diálogo **Adicionar aula** recebem uma gravação arrastada e solta ou escolhida em um seletor de arquivos. O navegador a envia para o R2 em partes, por meio do Worker, mostrando o progresso, e retoma um envio interrompido a partir das partes já guardadas. Veja [Envio em partes](#upload-in-parts).
+- **Codificação**: `bun run video:encode:<environment>` codifica com o FFmpeg cada gravação enviada, na máquina que o executa, envia os streams para o R2, registra o vídeo e o coloca na aula dele. Veja [Codificar os envios](#encode-the-uploads).
+- **Publicação pela linha de comando**: `bun run video:publish:<environment> <file> --title "…"` codifica um arquivo na sua máquina e o registra sem aula. Ele aparece em **Usar um vídeo existente**. Veja [Publicar uma gravação da sua máquina](#publish-a-recording-from-your-machine).
 - **Entrega**: `/media/<expiry>.<signature>/<videoId>/<file>` serve os arquivos para o player (veja [Cloudflare R2](/docs/integrations/cloudflare-r2)).
 - **Player**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) usa o Video.js 10 com o seu próprio mecanismo de HLS. Ele mostra controles de qualidade, velocidade, legendas, picture-in-picture e tela cheia, prévias ao buscar a partir do storyboard e rótulos no idioma da página.
 
 As aulas dos cursos reproduzem esses vídeos: a coluna `video_id` de uma aula aponta para uma linha da tabela `video`, e `getLessonPlayback` assina os caminhos apenas para espectadores que podem assistir àquela aula. Veja [Cursos](/docs/features/courses).
 
-## Vídeos provisórios [#placeholder-videos]
+## Do envio a uma aula que é reproduzida [#from-the-upload-to-a-lesson-that-plays]
 
-Um vídeo pode ser marcado como provisório com o interruptor **Provisório** na biblioteca (`setVideoPlaceholder`, guardado em `video.placeholder`, desligado para todo vídeo publicado). Uma aula com um vídeo provisório aparece como **Em gravação**: os visitantes veem a aula e os materiais dela, mas ela nunca é reproduzida, e a duração dela fica fora da duração do curso. Publique uma gravação curta, marque-a como provisória e comece todas as aulas com ela; quando a gravação real de uma aula for publicada, escolha-a no editor da aula e a aula passa a ser reproduzida em todos os lugares de uma vez. Desligar o interruptor transforma de novo cada aula com aquele vídeo em uma aula reproduzível. Veja [Em gravação](/docs/features/courses#being-recorded).
+Um envio é uma linha da tabela `video_upload` (`src/modules/video-upload`), uma por aula, até que o codificador o transforme em um vídeo:
 
-O seed de teste publica `Being recorded`, um vídeo provisório que as três aulas do segundo capítulo semeado usam, e `Spare take`, um vídeo que nenhuma aula usa e que os testes de navegador marcam e desmarcam. Um banco de dados não tem nenhum vídeo provisório até que um seja marcado na biblioteca: a migração que adicionou a flag deixa todos os vídeos existentes reproduzíveis.
+| Estado       | `video_upload.status` | O editor da aula mostra                                                                                           | Os alunos veem                         |
+| ------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Enviando     | `uploading`           | O arquivo, uma barra de progresso com os bytes enviados e **Cancelar envio**                                      | O vídeo atual da aula, ou **Em breve** |
+| Interrompido | `uploading`           | Até onde chegou e **Escolher o arquivo de novo** para continuá-lo                                                 | O mesmo                                |
+| Aguardando   | `queued`              | **Aguardando o codificador** com o comando a executar                                                             | O mesmo                                |
+| Codificando  | `encoding`            | **Codificando** com uma barra de progresso indeterminada                                                          | O mesmo                                |
+| Com falha    | `failed`              | Por que o FFmpeg parou (`failure`: `unreadable` ou `encoding`), **Codificar de novo** e **Enviar outra gravação** | O mesmo                                |
+| Pronto       | Nenhuma linha         | O player, a duração, o tamanho, a resolução e os idiomas das legendas                                             | O vídeo                                |
+
+Uma aula continua reproduzindo o vídeo atual enquanto uma substituição é enviada e codificada; o codificador troca um pelo outro em um único passo. O editor do curso busca os dados de novo a cada <RepositoryFact name="videoUploadPollSeconds" unit="second" /> enquanto um envio aguarda o codificador ou está sendo codificado, então o card e o conteúdo programático mudam de estado sozinhos.
+
+## Envio em partes [#upload-in-parts]
+
+`useVideoUpload` (`src/hooks/use-video-upload.ts`) executa o envio no navegador e mantém o estado dele fora dos componentes, então ele continua enquanto o admin passa para outra aula na mesma aba, e o conteúdo programático mostra a porcentagem. Enquanto uma parte está a caminho, sair da página pede confirmação.
+
+1. `startVideoUpload` verifica o nome e o tamanho do arquivo, abre um envio multipart do R2 para `uploads/<uploadId>/source.<extension>` com o binding `MEDIA` e o registra. Ele aceita arquivos <RepositoryFact name="videoUploadFileTypes" /> de até <RepositoryFact name="videoUploadMaxGigabytes" /> GB (`VIDEO_UPLOAD_FILE_TYPES`, `VIDEO_UPLOAD_MAX_GIGABYTES`) e tira o tipo de conteúdo da extensão, nunca do navegador. Quando a aula já tem um envio do mesmo arquivo, pelo nome, pelo tamanho e pela última modificação, ele responde com as partes que o R2 já guarda, e o navegador envia só as outras; um envio de outro arquivo o substitui, e as partes ou a origem dele são excluídas.
+2. O navegador envia partes de <RepositoryFact name="videoUploadPartMegabytes" /> MB (`VIDEO_UPLOAD_PART_MEGABYTES`), <RepositoryFact name="videoUploadConcurrency" /> por vez, cada uma como `FormData` para `uploadVideoPart`, que recusa uma parte cujo número ou tamanho não corresponde ao arquivo que espera, a guarda com `uploadPart` e registra a ETag dela em `video_upload.parts`. Uma parte que falha é tentada <RepositoryFact name="videoUploadPartAttempts" /> vezes, com uma pausa mais longa a cada vez, antes que o envio pare e ofereça **Continuar o envio**.
+3. `completeVideoUpload` verifica que todas as partes estão lá, conclui o envio multipart e coloca a origem na fila do codificador (`queued`).
+
+As partes passam pelo Worker, então são verificadas contra a sessão como qualquer outra função de servidor, e não são necessárias credenciais do R2 nem URLs pré-assinadas. Todas elas exigem `course: ["update"]`; `startVideoUpload` também executa `withRateLimit` com <RepositoryFact name="videoUploadsPerMinute" /> inícios por endereço por minuto. `cancelVideoUpload` aborta um envio ou exclui a origem dele e o esquece, e `retryVideoUpload` coloca de novo na fila um envio que falhou. Com a regra de ciclo de vida padrão, o R2 aborta os envios multipart que ficam incompletos por sete dias.
+
+Excluir uma aula, um capítulo ou um curso, ou removê-los com uma importação, também remove do R2 os envios deles e as origens desses envios.
+
+## Codificar os envios [#encode-the-uploads]
+
+O Worker não consegue executar o FFmpeg, então a codificação acontece em uma máquina que consegue:
+
+1. Instale o FFmpeg, que inclui o `ffprobe`: `brew install ffmpeg` no macOS. Defina `FFMPEG` e `FFPROBE` para usar outros binários.
+2. Faça login na Cloudflare com `bunx wrangler login`. O script executa o Wrangler com esse login, como os scripts `db:migrate:*`, e não lê nenhum arquivo `.env`.
+3. Execute o codificador do ambiente em que os envios estão:
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`, `video:encode:development` e `video:encode:test` fazem o mesmo para o banco de dados e o bucket do preview e para o estado local de desenvolvimento e de teste. O editor da aula mostra o comando do ambiente em que está rodando.
+
+`scripts/encode-videos.ts` lista os envios `queued` e, para cada um, o marca como `encoding`, baixa a origem com `wrangler r2 object get`, a codifica como `video:publish` faz, envia os streams para `videos/<uploadId>/` e então, em uma única lista de instruções, registra o vídeo, o coloca na aula e exclui a linha do envio (`finishEncodingQueries` em `src/modules/video-upload/video-upload.encoder.ts`), antes de excluir a origem. O vídeo recebe o nome do arquivo. Um arquivo que o FFmpeg não consegue ler é marcado como `failed` com `unreadable`; qualquer outro erro, com `encoding`. Um envio que foi cancelado ou substituído enquanto era codificado fica como está, e os streams que o codificador enviou para ele são excluídos.
+
+A suíte de navegador não tem FFmpeg: o Worker de teste dela responde a `/__test/videos/encode` copiando os streams do vídeo de teste semeado para cada envio na fila e concluindo-o com o mesmo `finishEncodingQueries`.
+
+## Reutilizar e excluir
+
+**Usar um vídeo existente**, no editor da aula, lista os vídeos codificados, dos mais recentes para os mais antigos (os <RepositoryFact name="videoLibraryPageSize" /> mais recentes, `getVideos`, que exige `video: ["read"]`), com quantas aulas usam cada um. **Usar** coloca um deles na aula (`replaceLessonVideo`), então uma gravação pode ser reproduzida em várias aulas. Um vídeo que nenhuma aula usa, como um que foi trocado por uma substituição ou um publicado pela linha de comando, pode ser excluído ali (`deleteVideo`, `video: ["delete"]`).
+
+**Excluir vídeo**, em uma aula, tira o vídeo dela com `removeLessonVideo`, que exige `course: ["update"]` e `video: ["delete"]`. Quando nenhuma outra aula usa o vídeo, ele exclui a linha e todos os arquivos sob o prefixo do vídeo no R2; caso contrário, o botão diz **Remover desta aula** e o vídeo continua nas outras.
+
+## Vídeos provisórios de versões anteriores
+
+Versões anteriores permitiam marcar um vídeo como provisório para as aulas em gravação. Agora uma aula sem vídeo indica isso sozinha, então a migração `20261123021636_steady_microchip.sql` tira todas as aulas de um vídeo provisório, e as páginas mostram essas aulas como **Em breve** exatamente como antes. Os próprios vídeos provisórios continuam até que você os exclua em **Usar um vídeo existente**, e a coluna `placeholder` não é mais lida.
 
 ## O que um vídeo publicado contém
 
@@ -35,23 +87,21 @@ O codificador planeja a saída a partir da origem:
 
 Os segmentos são CMAF (MP4 fragmentado) com um quadro-chave a cada <RepositoryFact name="videoKeyframeSeconds" unit="second" />, então todas as variantes trocam nos mesmos pontos. As taxas de bits são de qualidade constante (CRF <RepositoryFact name="videoQualityCrf" />), com um teto proporcional ao tamanho da imagem, então uma gravação de tela quase estática ocupa muito menos espaço do que o teto.
 
-## Publicar uma gravação
+## Publicar uma gravação da sua máquina [#publish-a-recording-from-your-machine]
 
-1. Instale o FFmpeg, que inclui o `ffprobe`: `brew install ffmpeg` no macOS. Defina `FFMPEG` e `FFPROBE` para usar outros binários.
-2. Faça login na Cloudflare com `bunx wrangler login`. O script executa o Wrangler com esse login, como os scripts `db:migrate:*`, e não lê nenhum arquivo `.env`.
-3. Execute o script do ambiente:
+`video:publish` pula o envio: ele codifica um arquivo na sua máquina e envia só os streams. Use-o para uma gravação longa que você já tem localmente, ou para adicionar legendas ou um pôster próprios:
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` e `--captions` são opcionais. Use `video:publish:preview` para o ambiente de preview.
+`--poster` e `--captions` são opcionais. Use `video:publish:preview` para o ambiente de preview. Depois, escolha o vídeo em **Usar um vídeo existente** na aula.
 
-`scripts/publish-video.ts` lê o nome do bucket do binding `MEDIA` do ambiente em `wrangler.jsonc`, codifica em um diretório temporário, envia os arquivos com `wrangler r2 bulk put --remote`, 20 por vez e agrupados por tipo de conteúdo, e insere a linha de `video` com `wrangler d1 execute DB --env <environment> --remote`. Se isso falhar, ele apaga os objetos enviados com `wrangler r2 object delete`. O planejamento (variantes, argumentos do FFmpeg, storyboard, nomes de arquivo) fica em `src/modules/video/video.encoding.ts` e `video.files.ts`, que o Worker também usa.
+`scripts/publish-video.ts` lê o nome do bucket do binding `MEDIA` do ambiente em `wrangler.jsonc`, codifica em um diretório temporário, envia os arquivos com `wrangler r2 bulk put --remote`, agrupados por tipo de conteúdo, e insere a linha de `video` com `wrangler d1 execute DB --env <environment> --remote`. Se isso falhar, ele apaga os objetos enviados com `wrangler r2 object delete`. `publish-video.ts` e `encode-videos.ts` compartilham as etapas de codificação em `scripts/video-pipeline.ts`; o planejamento (variantes, argumentos do FFmpeg, storyboard, nomes de arquivo) fica em `src/modules/video/video.encoding.ts` e `video.files.ts`, que o Worker também usa.
 
 ## Custo
 
-Com o armazenamento R2 Standard a US$ 0,015 por GB-mês e sem cobrança de saída de dados, uma biblioteca de 50 horas de gravações de tela, a cerca de 1,2 GB por hora somando todas as variantes, custa menos de US$ 1 por mês para armazenar, não importa quantas vezes seja assistida. Cada requisição de segmento executa o Worker uma vez e lê o R2 no máximo uma vez por local de borda, porque os arquivos servidos ficam guardados no cache do Workers. Confira os preços atuais nas páginas de preços do [R2](https://developers.cloudflare.com/r2/pricing/) e do [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+Com o armazenamento R2 Standard a US$ 0,015 por GB-mês e sem cobrança de saída de dados, uma biblioteca de 50 horas de gravações de tela, a cerca de 1,2 GB por hora somando todas as variantes, custa menos de US$ 1 por mês para armazenar, não importa quantas vezes seja assistida. Uma origem enviada é excluída assim que é codificada. Cada requisição de segmento executa o Worker uma vez e lê o R2 no máximo uma vez por local de borda, porque os arquivos servidos ficam guardados no cache do Workers. Confira os preços atuais nas páginas de preços do [R2](https://developers.cloudflare.com/r2/pricing/) e do [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Páginas relacionadas
 

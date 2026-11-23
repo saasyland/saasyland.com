@@ -48,8 +48,9 @@ const documentLink = zod.strictObject(lessonAttachmentZodSchemas.createLessonAtt
 
 const documentLesson = zod.strictObject({
   ...lessonZodSchemas.updateLesson.omit({ lessonId: true }).shape,
+  format: lessonZodSchemas.createLesson.shape.format.optional(),
   links: zod.array(documentLink),
-  videoId: lessonZodSchemas.createLesson.shape.videoId,
+  videoId: idField.optional(),
 })
 
 const documentChapter = zod.strictObject({

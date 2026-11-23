@@ -1,24 +1,76 @@
 ---
 title: "Video"
-description: "Registrazioni codificate in HLS adattivo sul tuo computer, archiviate nel tuo bucket R2 e trasmesse tramite link firmati che scadono."
+description: "La registrazione di ogni lezione, trascinata nell’editor della lezione, caricata a parti nel tuo bucket R2, codificata in HLS adattivo con FFmpeg e trasmessa tramite link firmati che scadono."
 ---
 
 I video sono archiviati nel tuo bucket R2 e trasmessi dal tuo Worker. Non c’è nessuna piattaforma video in mezzo: Cloudflare non addebita l’egress da R2, quindi paghi lo spazio di archiviazione e le richieste, non i minuti guardati.
 
+Un video appartiene alle lezioni che lo riproducono. Nell’amministrazione non c’è una pagina separata per i video: il riquadro **Video** di ogni lezione carica, mostra in anteprima, sostituisce ed elimina la sua registrazione (vedi [Editor della lezione](/docs/features/courses#lesson-editor)).
+
 ## Cosa esiste
 
-- **Libreria**: `/admin/videos` (`src/routes/admin.videos.tsx`) elenca ogni video pubblicato con durata, risoluzione della sorgente, spazio occupato, lingue dei sottotitoli, se è un segnaposto e data di pubblicazione, dal più recente. **Guarda** riproduce il video in una finestra di dialogo; **Elimina** chiede conferma, poi rimuove la riga e ogni file sotto il prefisso del video in R2.
-- **Pubblicazione**: `bun run video:publish:production <file> --title "…"` codifica una registrazione con FFmpeg, la carica su R2 e la registra nella tabella `video`, ed è questo che la fa comparire nella libreria.
+- **Caricamento**: il riquadro **Video** dell’editor della lezione, e la finestra di dialogo **Aggiungi lezione**, accettano una registrazione trascinata o scelta da un selettore di file. Il browser la invia a R2 a parti passando dal Worker, mostrando l’avanzamento, e riprende un caricamento interrotto dalle parti già salvate. Vedi [Caricamento a parti](#upload-in-parts).
+- **Codifica**: `bun run video:encode:<environment>` codifica con FFmpeg ogni registrazione caricata, sul computer che lo esegue, carica gli stream su R2, registra il video e lo assegna alla sua lezione. Vedi [Codificare i caricamenti](#encode-the-uploads).
+- **Pubblicazione dalla riga di comando**: `bun run video:publish:<environment> <file> --title "…"` codifica un file sul tuo computer e lo registra senza una lezione. Il video compare in **Usa un video esistente**. Vedi [Pubblicare una registrazione dal tuo computer](#publish-a-recording-from-your-machine).
 - **Distribuzione**: `/media/<expiry>.<signature>/<videoId>/<file>` serve i file al player (vedi [Cloudflare R2](/docs/integrations/cloudflare-r2)).
 - **Player**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) usa Video.js 10 con il proprio motore HLS. Mostra i controlli di qualità, velocità, sottotitoli, picture-in-picture e schermo intero, le anteprime di ricerca dallo storyboard e le etichette nella lingua della pagina.
 
 Le lezioni dei corsi riproducono questi video: la colonna `video_id` di una lezione punta a una riga della tabella `video`, e `getLessonPlayback` firma i percorsi solo per gli spettatori che possono guardare quella lezione. Vedi [Corsi](/docs/features/courses).
 
-## Video segnaposto [#placeholder-videos]
+## Dal caricamento a una lezione che si riproduce [#from-the-upload-to-a-lesson-that-plays]
 
-Un video può essere contrassegnato come segnaposto con l’interruttore **Segnaposto** nella libreria (`setVideoPlaceholder`, salvato in `video.placeholder`, disattivato per ogni video pubblicato). Una lezione su un video segnaposto compare come **in registrazione**: i visitatori vedono la lezione e i suoi materiali, ma non viene mai riprodotta, e la sua durata è esclusa da quella del corso. Pubblica una breve registrazione, contrassegnala come segnaposto e assegnala fin dall’inizio a ogni lezione; quando viene pubblicata la registrazione vera di una lezione, sceglila nell’editor della lezione e la lezione viene riprodotta ovunque nello stesso momento. Disattivare l’interruttore rende di nuovo riproducibile ogni lezione su quel video. Vedi [In registrazione](/docs/features/courses#being-recorded).
+Un caricamento è una riga della tabella `video_upload` (`src/modules/video-upload`), una per lezione, finché l’encoder non lo trasforma in un video:
 
-I dati di test pubblicano `Being recorded`, un segnaposto che usano le tre lezioni del secondo capitolo di test, e `Spare take`, un video che nessuna lezione usa, che i test nel browser contrassegnano e poi ripristinano. Un database non ha alcun segnaposto finché non se ne contrassegna uno nella libreria: la migrazione che ha aggiunto il contrassegno lascia riproducibili tutti i video esistenti.
+| Stato        | `video_upload.status` | L’editor della lezione mostra                                                                                                | Gli studenti vedono                                      |
+| ------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Caricamento  | `uploading`           | Il file, una barra di avanzamento con i byte inviati, e **Annulla il caricamento**                                           | Il video attuale della lezione, oppure **Prossimamente** |
+| Interrotto   | `uploading`           | Fin dove è arrivato, e **Scegli di nuovo il file** per riprenderlo                                                           | Lo stesso                                                |
+| In attesa    | `queued`              | **In attesa dell’encoder** con il comando da eseguire                                                                        | Lo stesso                                                |
+| Codifica     | `encoding`            | **Codifica di** seguito dal nome del file, con una barra di avanzamento che non ha ancora una fine                           | Lo stesso                                                |
+| Non riuscito | `failed`              | Perché FFmpeg si è fermato (`failure`: `unreadable` o `encoding`), **Codifica di nuovo** e **Carica un’altra registrazione** | Lo stesso                                                |
+| Pronto       | Nessuna riga          | Il player, la durata, la dimensione, la risoluzione e le lingue dei sottotitoli                                              | Il video                                                 |
+
+Una lezione continua a riprodurre il suo video attuale mentre un sostituto viene caricato e codificato; l’encoder li scambia in un solo passaggio. L’editor del corso ricarica i suoi dati ogni <RepositoryFact name="videoUploadPollSeconds" unit="second" /> mentre un caricamento attende l’encoder o è in codifica, così il riquadro e il programma cambiano stato da soli.
+
+## Caricamento a parti [#upload-in-parts]
+
+`useVideoUpload` (`src/hooks/use-video-upload.ts`) esegue il caricamento nel browser e tiene il suo stato fuori dai componenti, così prosegue mentre l’amministratore passa a un’altra lezione nella stessa scheda, e il programma ne mostra la percentuale. Mentre una parte è in viaggio, lasciare la pagina chiede una conferma.
+
+1. `startVideoUpload` controlla il nome e la dimensione del file, apre un caricamento multipart R2 per `uploads/<uploadId>/source.<extension>` con il binding `MEDIA` e lo registra. Accetta file <RepositoryFact name="videoUploadFileTypes" /> fino a <RepositoryFact name="videoUploadMaxGigabytes" /> GB (`VIDEO_UPLOAD_FILE_TYPES`, `VIDEO_UPLOAD_MAX_GIGABYTES`), e prende il tipo di contenuto dall’estensione, mai dal browser. Quando la lezione ha già un caricamento dello stesso file, riconosciuto da nome, dimensione e ultima modifica, risponde con le parti che R2 ha già, e il browser invia solo le altre; il caricamento di un altro file lo sostituisce, e le sue parti o la sua sorgente vengono eliminate.
+2. Il browser invia parti da <RepositoryFact name="videoUploadPartMegabytes" /> MB (`VIDEO_UPLOAD_PART_MEGABYTES`), <RepositoryFact name="videoUploadConcurrency" /> alla volta, ciascuna come `FormData` a `uploadVideoPart`, che rifiuta una parte il cui numero o la cui dimensione non corrisponde al file che si aspetta, la salva con `uploadPart` e registra il suo ETag in `video_upload.parts`. Una parte non riuscita viene tentata <RepositoryFact name="videoUploadPartAttempts" /> volte, con una pausa più lunga ogni volta, prima che il caricamento si fermi e offra **Riprendi il caricamento**.
+3. `completeVideoUpload` controlla che ci siano tutte le parti, completa il caricamento multipart e mette la sorgente in coda per l’encoder (`queued`).
+
+Le parti passano dal Worker, quindi vengono verificate rispetto alla sessione come ogni altra funzione server, e non servono credenziali R2 né URL prefirmati. Tutte queste funzioni richiedono `course: ["update"]`; `startVideoUpload` esegue anche `withRateLimit` con <RepositoryFact name="videoUploadsPerMinute" /> avvii per indirizzo al minuto. `cancelVideoUpload` interrompe un caricamento o ne elimina la sorgente e lo dimentica, e `retryVideoUpload` rimette in coda uno non riuscito. Con la sua regola di ciclo di vita predefinita, R2 interrompe i caricamenti multipart che restano incompleti per sette giorni.
+
+Eliminare una lezione, un capitolo o un corso, o rimuoverne uno con un’importazione, rimuove da R2 anche i suoi caricamenti e le loro sorgenti.
+
+## Codificare i caricamenti [#encode-the-uploads]
+
+Il Worker non può eseguire FFmpeg, quindi la codifica avviene su un computer che può farlo:
+
+1. Installa FFmpeg, che include `ffprobe`: `brew install ffmpeg` su macOS. Imposta `FFMPEG` e `FFPROBE` per usare altri binari.
+2. Accedi a Cloudflare con `bunx wrangler login`. Lo script esegue Wrangler con quell’accesso, come gli script `db:migrate:*`, e non legge alcun file `.env`.
+3. Esegui l’encoder per l’ambiente in cui si trovano i caricamenti:
+
+```bash
+bun run video:encode:production
+```
+
+`video:encode:preview`, `video:encode:development` e `video:encode:test` fanno lo stesso per il database e il bucket di preview e per lo stato locale di sviluppo e di test. L’editor della lezione mostra il comando dell’ambiente in cui viene eseguito.
+
+`scripts/encode-videos.ts` elenca i caricamenti `queued` e, per ciascuno, lo segna come `encoding`, scarica la sorgente con `wrangler r2 object get`, la codifica come fa `video:publish`, carica gli stream sotto `videos/<uploadId>/` e poi, in un’unica lista di istruzioni, registra il video, lo assegna alla lezione ed elimina la riga del caricamento (`finishEncodingQueries` in `src/modules/video-upload/video-upload.encoder.ts`), prima di eliminare la sorgente. Il video prende il nome del file. Un file che FFmpeg non riesce a leggere viene segnato come `failed` con `unreadable`; qualsiasi altro errore con `encoding`. Un caricamento annullato o sostituito durante la codifica viene lasciato com’è, e gli stream che l’encoder ha caricato per esso vengono eliminati.
+
+La suite del browser non ha FFmpeg: il suo Worker di test risponde a `/__test/videos/encode` copiando gli stream del video di test dei dati iniziali per ogni caricamento in coda e completandolo con lo stesso `finishEncodingQueries`.
+
+## Riutilizzare ed eliminare
+
+**Usa un video esistente** nell’editor della lezione elenca i video codificati, dal più recente (i <RepositoryFact name="videoLibraryPageSize" /> più recenti, da `getVideos`, che richiede `video: ["read"]`), con il numero di lezioni che usano ciascuno. **Usa** ne assegna uno alla lezione (`replaceLessonVideo`), così una registrazione può essere riprodotta in più lezioni. Un video che nessuna lezione usa, come uno il cui posto è stato preso da un sostituto o uno pubblicato dalla riga di comando, si può eliminare lì (`deleteVideo`, `video: ["delete"]`).
+
+**Elimina video** su una lezione le toglie il video con `removeLessonVideo`, che richiede `course: ["update"]` e `video: ["delete"]`. Quando nessun’altra lezione usa il video, elimina la riga e ogni file sotto il suo prefisso in R2; altrimenti il pulsante dice **Rimuovi da questa lezione** e il video resta sulle altre.
+
+## Segnaposto delle versioni precedenti
+
+Le versioni precedenti permettevano di contrassegnare un video come segnaposto per le lezioni in registrazione. Ora una lezione senza video lo dice da sola, quindi la migrazione `20261123021636_steady_microchip.sql` toglie il video segnaposto a ogni lezione che ne aveva uno, e le pagine mostrano quelle lezioni come **Prossimamente** esattamente come prima. I video segnaposto restano finché non li elimini in **Usa un video esistente**, e la colonna `placeholder` non viene più letta.
 
 ## Cosa contiene un video pubblicato
 
@@ -35,23 +87,21 @@ L’encoder pianifica l’output in base alla sorgente:
 
 I segmenti sono CMAF (MP4 frammentato) con un keyframe ogni <RepositoryFact name="videoKeyframeSeconds" unit="second" />, così tutte le rendition cambiano negli stessi punti. I bitrate sono a qualità costante (CRF <RepositoryFact name="videoQualityCrf" />) con un limite proporzionale alla dimensione dell’immagine, così una registrazione dello schermo in gran parte statica occupa molto meno spazio di quanto consentirebbe il limite.
 
-## Pubblicare una registrazione
+## Pubblicare una registrazione dal tuo computer [#publish-a-recording-from-your-machine]
 
-1. Installa FFmpeg, che include `ffprobe`: `brew install ffmpeg` su macOS. Imposta `FFMPEG` e `FFPROBE` per usare altri binari.
-2. Accedi a Cloudflare con `bunx wrangler login`. Lo script esegue Wrangler con quell’accesso, come gli script `db:migrate:*`, e non legge alcun file `.env`.
-3. Esegui lo script per l’ambiente:
+`video:publish` salta il caricamento: codifica un file sul tuo computer e invia solo gli stream. Usalo per una registrazione lunga che hai già in locale, o per aggiungere sottotitoli o un poster tuoi:
 
 ```bash
 bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
 ```
 
-`--poster` e `--captions` sono facoltativi. Usa `video:publish:preview` per l’ambiente di preview.
+`--poster` e `--captions` sono facoltativi. Usa `video:publish:preview` per l’ambiente di preview. Poi scegli il video in **Usa un video esistente** della lezione.
 
-`scripts/publish-video.ts` legge il nome del bucket dal binding `MEDIA` dell’ambiente in `wrangler.jsonc`, codifica in una directory temporanea, carica i file con `wrangler r2 bulk put --remote`, 20 alla volta e raggruppati per tipo di contenuto, e inserisce la riga `video` con `wrangler d1 execute DB --env <environment> --remote`. Se l’operazione fallisce, elimina gli oggetti caricati con `wrangler r2 object delete`. La pianificazione (rendition, argomenti di FFmpeg, storyboard, nomi dei file) si trova in `src/modules/video/video.encoding.ts` e `video.files.ts`, che usa anche il Worker.
+`scripts/publish-video.ts` legge il nome del bucket dal binding `MEDIA` dell’ambiente in `wrangler.jsonc`, codifica in una directory temporanea, carica i file con `wrangler r2 bulk put --remote`, raggruppati per tipo di contenuto, e inserisce la riga `video` con `wrangler d1 execute DB --env <environment> --remote`. Se l’operazione fallisce, elimina gli oggetti caricati con `wrangler r2 object delete`. `publish-video.ts` e `encode-videos.ts` condividono i passaggi di codifica in `scripts/video-pipeline.ts`; la pianificazione (rendition, argomenti di FFmpeg, storyboard, nomi dei file) si trova in `src/modules/video/video.encoding.ts` e `video.files.ts`, che usa anche il Worker.
 
 ## Costi
 
-Con lo storage R2 Standard a 0,015 $ per GB al mese e nessun costo di egress, una libreria di 50 ore di registrazioni dello schermo a circa 1,2 GB all’ora, contando tutte le rendition, costa meno di 1 $ al mese di archiviazione, per quante volte venga guardata. Ogni richiesta di un segmento esegue il Worker una volta e legge R2 al massimo una volta per località edge, perché i file serviti vengono conservati nella cache di Workers. Controlla i prezzi aggiornati nelle pagine dei prezzi di [R2](https://developers.cloudflare.com/r2/pricing/) e di [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+Con lo storage R2 Standard a 0,015 $ per GB al mese e nessun costo di egress, una libreria di 50 ore di registrazioni dello schermo a circa 1,2 GB all’ora, contando tutte le rendition, costa meno di 1 $ al mese di archiviazione, per quante volte venga guardata. Una sorgente caricata viene eliminata una volta codificata. Ogni richiesta di un segmento esegue il Worker una volta e legge R2 al massimo una volta per località edge, perché i file serviti vengono conservati nella cache di Workers. Controlla i prezzi aggiornati nelle pagine dei prezzi di [R2](https://developers.cloudflare.com/r2/pricing/) e di [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Pagine correlate
 

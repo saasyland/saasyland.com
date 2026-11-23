@@ -13,11 +13,20 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
-import { IDS, LESSON_IDS, USERS, playLessonOn, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import {
+  IDS,
+  LESSON_IDS,
+  USERS,
+  makeTextLesson,
+  recordProgress,
+  seedCatalogue,
+  takeVideoOff,
+} from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
+import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
 vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
@@ -85,15 +94,15 @@ describe("getCatalogue", () => {
     ])
   })
 
-  it("leaves lessons on the placeholder video out of the length", async () => {
+  it("counts a text lesson as ready and leaves it out of the length", async () => {
     signOut()
-    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+    await makeTextLesson(LESSON_IDS.PREVIEW)
 
     const {
       courses: [walkthrough],
     } = await executeQuery(catalogueQuery({ locale: "en-US" }))
 
-    expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4, recorded: 2 })
+    expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4, recorded: 3 })
   })
 
   it("counts the lessons the viewer has completed and says that course access opens the paid ones", async () => {
@@ -177,13 +186,17 @@ describe("getCourse", () => {
     expect(page.chapters.map(({ summary }) => summary)).toStrictEqual(["Podstawy.", ""])
   })
 
-  it("lists a lesson on the placeholder video as being recorded, with no length", async () => {
+  it("lists a lesson without a video as being recorded and a text lesson as ready, both with no length", async () => {
     signOut()
-    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+    await takeVideoOff(LESSON_IDS.PREVIEW)
+    await makeTextLesson(LESSON_IDS.ACCOUNT)
 
     const page = await executeQuery(courseQuery({ locale: "en-US", slug: "the-walkthrough" }))
 
-    expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: null, locked: false, recording: true, slug: "boundaries" })
+    expect(page.chapters[0]?.lessons).toMatchObject([
+      { durationMs: null, format: LESSON_FORMAT.VIDEO, locked: false, recording: true, slug: "boundaries" },
+      { durationMs: null, format: LESSON_FORMAT.TEXT, recording: false, slug: "sessions" },
+    ])
   })
 
   it.each([

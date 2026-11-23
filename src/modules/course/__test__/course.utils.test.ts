@@ -2,8 +2,15 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, findEditorLesson, locateLesson, nextLessonToWatch } from "~/src/modules/course/course.utils"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import {
+  courseLessons,
+  findEditorLesson,
+  isAvailable,
+  isPlayable,
+  locateLesson,
+  nextLessonToWatch,
+} from "~/src/modules/course/course.utils"
+import { LESSON_ACCESS, LESSON_FORMAT, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 
 const lesson = (slug: string, overrides: Partial<Course["pageLesson"]> = {}): Course["pageLesson"] => ({
   access: LESSON_ACCESS.PREVIEW,
@@ -11,6 +18,7 @@ const lesson = (slug: string, overrides: Partial<Course["pageLesson"]> = {}): Co
   chapterId: "chapter",
   completed: false,
   durationMs: 1000,
+  format: LESSON_FORMAT.VIDEO,
   id: slug,
   locked: false,
   positionMs: 0,
@@ -64,6 +72,22 @@ describe("course utils", () => {
     expect(nextLessonToWatch([lesson("a", { durationMs: null, recording: true })])).toBeUndefined()
   })
 
+  it("offers a text lesson as the next one to take", () => {
+    const text = lesson("a", { durationMs: null, format: LESSON_FORMAT.TEXT })
+
+    expect(nextLessonToWatch([lesson("b", { locked: true }), text])?.slug).toBe("a")
+  })
+
+  it("plays only an open video lesson that is not being recorded", () => {
+    const text = lesson("a", { durationMs: null, format: LESSON_FORMAT.TEXT })
+
+    expect(isAvailable(text)).toBe(true)
+    expect(isPlayable(text)).toBe(false)
+    expect(isPlayable(lesson("b"))).toBe(true)
+    expect(isPlayable(lesson("c", { locked: true }))).toBe(false)
+    expect(isPlayable(lesson("d", { durationMs: null, recording: true }))).toBe(false)
+  })
+
   it("has nothing to watch when every lesson is locked", () => {
     expect(nextLessonToWatch([lesson("a", { locked: true })])).toBeUndefined()
   })
@@ -84,6 +108,7 @@ const editorLesson = (id: string): Course["editorLesson"] => ({
   attachments: [],
   chapterId: "chapter",
   description: {},
+  format: LESSON_FORMAT.VIDEO,
   id,
   keyMoments: [],
   position: 1,
@@ -91,6 +116,7 @@ const editorLesson = (id: string): Course["editorLesson"] => ({
   status: LESSON_STATUS.DRAFT,
   summary: { "en-US": id },
   title: { "en-US": id },
+  upload: undefined,
   video: null,
 })
 

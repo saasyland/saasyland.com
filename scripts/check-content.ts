@@ -2,7 +2,7 @@ import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, relative } from "node:path"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { canonicalizePathname, deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
@@ -47,10 +47,10 @@ const ROUTES_PREFIX = /^ROUTES\./u
 const ROUTE_WILDCARD = "/*"
 const DOCS_PREFIX = "docs/"
 
-const frontmatterSchema = z.record(z.string(), z.unknown())
-const packageSchema = z.object({ scripts: z.record(z.string(), z.string()) })
-const metaSchema = z.object({ pages: z.array(z.string()).optional() })
-const datesSchema = z.object({ date: z.string().optional(), updated: z.string().optional() })
+const frontmatterSchema = zod.record(zod.string(), zod.unknown())
+const packageSchema = zod.object({ scripts: zod.record(zod.string(), zod.string()) })
+const metaSchema = zod.object({ pages: zod.array(zod.string()).optional() })
+const datesSchema = zod.object({ date: zod.string().optional(), updated: zod.string().optional() })
 
 interface Translation {
   readonly label: string

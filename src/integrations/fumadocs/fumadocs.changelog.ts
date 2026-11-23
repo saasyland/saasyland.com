@@ -1,6 +1,6 @@
 import type { Plugin } from "fumadocs-mdx"
 import process from "node:process"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import {
   type ChangelogEntry,

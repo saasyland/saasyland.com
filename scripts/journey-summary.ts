@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import process from "node:process"
 import { stripVTControlCharacters } from "node:util"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
@@ -20,30 +20,30 @@ const OUTCOME_LABEL: Readonly<Record<string, string>> = {
 
 export const SUMMARY_TITLE = "## Journey on preview"
 
-const errorSchema = z.object({ message: z.string().default("") })
-const resultSchema = z.object({ duration: z.number(), error: errorSchema.optional() })
-const testSchema = z.object({ results: z.array(resultSchema), status: z.string() })
-const specSchema = z.object({ tests: z.array(testSchema), title: z.string() })
+const errorSchema = zod.object({ message: zod.string().default("") })
+const resultSchema = zod.object({ duration: zod.number(), error: errorSchema.optional() })
+const testSchema = zod.object({ results: zod.array(resultSchema), status: zod.string() })
+const specSchema = zod.object({ tests: zod.array(testSchema), title: zod.string() })
 
 interface Suite {
-  readonly specs: z.infer<typeof specSchema>[]
+  readonly specs: zod.infer<typeof specSchema>[]
   readonly suites: Suite[]
 }
 
-const suiteSchema: z.ZodType<Suite> = z.object({
-  specs: z.array(specSchema).default([]),
+const suiteSchema: zod.ZodType<Suite> = zod.object({
+  specs: zod.array(specSchema).default([]),
   get suites() {
-    return z.array(suiteSchema).default([])
+    return zod.array(suiteSchema).default([])
   },
 })
 
-const reportSchema = z.object({
-  errors: z.array(errorSchema).default([]),
-  stats: z.object({ duration: z.number(), expected: z.int(), flaky: z.int(), skipped: z.int(), unexpected: z.int() }),
-  suites: z.array(suiteSchema),
+const reportSchema = zod.object({
+  errors: zod.array(errorSchema).default([]),
+  stats: zod.object({ duration: zod.number(), expected: zod.int(), flaky: zod.int(), skipped: zod.int(), unexpected: zod.int() }),
+  suites: zod.array(suiteSchema),
 })
 
-const argumentsSchema = z.tuple([z.string().min(1)])
+const argumentsSchema = zod.tuple([zod.string().min(1)])
 
 interface Row {
   readonly duration: number

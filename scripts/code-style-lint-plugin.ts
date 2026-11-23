@@ -106,6 +106,36 @@ export const noUndefinedBranch = defineRule({
   },
 })
 
+const ZOD = "zod"
+
+const ZOD_SOURCE = /^zod(?:\/|$)/u
+
+const isZodNamespace = (node: ESTree.ImportDeclaration): boolean => {
+  const [specifier, ...others] = node.specifiers
+
+  return node.source.value === ZOD && others.length === 0 && specifier?.type === "ImportNamespaceSpecifier" && specifier.local.name === ZOD
+}
+
+export const zodNamespaceImport = defineRule({
+  create: (context) => ({
+    ImportDeclaration: (node) => {
+      if (ZOD_SOURCE.test(node.source.value) && !isZodNamespace(node)) {
+        context.report({ messageId: "import", node })
+      }
+    },
+  }),
+  meta: {
+    docs: {
+      description: "Zod is imported one way, as the namespace zod from the package root, the form Zod 4's documentation shows.",
+    },
+    messages: {
+      import:
+        'Import Zod as `import * as zod from "zod"`, or `import type * as zod from "zod"` for types only, and read every export through `zod.`.',
+    },
+    type: "problem",
+  },
+})
+
 export default definePlugin({
   meta: { name: "code-style" },
   rules: {
@@ -113,5 +143,6 @@ export default definePlugin({
     "no-multiline-ternary": noMultilineTernary,
     "no-undefined-branch": noUndefinedBranch,
     "no-undefined-fallback": noUndefinedFallback,
+    "zod-namespace-import": zodNamespaceImport,
   },
 })

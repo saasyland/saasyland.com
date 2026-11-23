@@ -4,7 +4,7 @@ import { useForm } from "@tanstack/react-form"
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vite-plus/test"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { type StringField, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"

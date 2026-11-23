@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import "~/src/integrations/zod/zod.config"
 

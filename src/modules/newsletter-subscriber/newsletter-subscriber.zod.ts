@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
 

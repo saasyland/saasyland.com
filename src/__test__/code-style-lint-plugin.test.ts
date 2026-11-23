@@ -1,6 +1,12 @@
 import { RuleTester } from "vite-plus/lint/plugins-dev"
 
-import { noComments, noMultilineTernary, noUndefinedBranch, noUndefinedFallback } from "~/scripts/code-style-lint-plugin"
+import {
+  noComments,
+  noMultilineTernary,
+  noUndefinedBranch,
+  noUndefinedFallback,
+  zodNamespaceImport,
+} from "~/scripts/code-style-lint-plugin"
 
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "tsx" } } })
 
@@ -10,6 +16,7 @@ const multiline = { messageId: "multiline" }
 const fallback = { messageId: "fallback" }
 const ternary = { messageId: "ternary" }
 const returned = { messageId: "return" }
+const zodImport = { messageId: "import" }
 
 tester.run("no-comments", noComments, {
   invalid: [
@@ -92,5 +99,24 @@ tester.run("no-undefined-branch", noUndefinedBranch, {
     "const read = (value) => {\n  return value\n}",
     "const pattern = isStrict ? /^null$/u : /null/u",
     "type Maybe<T> = T extends string ? T : undefined",
+  ],
+})
+
+tester.run("zod-namespace-import", zodNamespaceImport, {
+  invalid: [
+    { code: 'import zod from "zod/v4"', errors: [zodImport] },
+    { code: 'import * as zod from "zod/v4"', errors: [zodImport] },
+    { code: 'import zod from "zod"', errors: [zodImport] },
+    { code: 'import { z } from "zod"', errors: [zodImport] },
+    { code: 'import { ZodError } from "zod"', errors: [zodImport] },
+    { code: 'import * as z from "zod"', errors: [zodImport] },
+    { code: 'import type { ZodType } from "zod"', errors: [zodImport] },
+    { code: 'import { z } from "zod/mini"', errors: [zodImport] },
+  ],
+  valid: [
+    'import * as zod from "zod"',
+    'import type * as zod from "zod"',
+    'import { zodResolver } from "zod-form-adapter"',
+    'import { createServerFn } from "@tanstack/react-start"',
   ],
 })

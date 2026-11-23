@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
@@ -13,16 +13,16 @@ import { scriptArguments } from "./run-command.ts"
 const SQLITE_TRUE = 1
 const USAGE = "Usage: bun run admin:grant:<local|preview|production> <email>"
 
-const environmentSchema = z.enum(D1_ENVIRONMENTS)
-const accountSchema = z.object({
-  banned: z.number(),
-  email: z.string(),
-  email_verified: z.number(),
-  id: z.string(),
-  role: z.string(),
+const environmentSchema = zod.enum(D1_ENVIRONMENTS)
+const accountSchema = zod.object({
+  banned: zod.number(),
+  email: zod.string(),
+  email_verified: zod.number(),
+  id: zod.string(),
+  role: zod.string(),
 })
 
-type Account = z.infer<typeof accountSchema>
+type Account = zod.infer<typeof accountSchema>
 
 const [environmentArgument, emailArgument = ""] = scriptArguments()
 const environment = environmentSchema.safeParse(environmentArgument)

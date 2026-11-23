@@ -25,7 +25,7 @@ import {
   sortFn_text,
   tableFeatures,
 } from "@tanstack/react-table"
-import type zod from "zod/v4"
+import type * as zod from "zod"
 
 import type { dateRangeField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 

@@ -1,5 +1,5 @@
 import { pageSchema } from "fumadocs-core/source/schema"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { BLOG_AUTHOR, BLOG_TAGS } from "../../data/blog"
 

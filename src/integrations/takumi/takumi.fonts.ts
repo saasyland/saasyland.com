@@ -1,7 +1,7 @@
 import type { FontLoader } from "@takumi-rs/core"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { APP_NAME } from "~/src/presentation/branding"
 

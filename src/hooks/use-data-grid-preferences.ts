@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react"
 
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { DATA_GRID_DENSITIES, DATA_GRID_PIN } from "~/src/integrations/tanstack-table/table.features"
 

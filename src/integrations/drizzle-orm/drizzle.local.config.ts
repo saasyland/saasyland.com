@@ -1,5 +1,5 @@
 import { defineConfig } from "drizzle-kit"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { DRIZZLE_PROJECT, LOCAL_DATABASE_FILE_VARIABLE } from "./drizzle.config.ts"
 

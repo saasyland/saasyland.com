@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { SKILL_SOURCES, matchesPackage } from "../src/data/skills.ts"
 import type { Dependency } from "./dependencies.ts"
@@ -12,16 +12,16 @@ export const SKILLS_SYNC_COMMAND = "bun run skills:sync"
 
 const JSON_INDENT = 2
 
-const lockedSkillSchema = z.object({
-  commit: z.string().optional(),
-  computedHash: z.string(),
-  skillPath: z.string(),
-  source: z.string(),
+const lockedSkillSchema = zod.object({
+  commit: zod.string().optional(),
+  computedHash: zod.string(),
+  skillPath: zod.string(),
+  source: zod.string(),
 })
-const skillsLockSchema = z.object({ skills: z.record(z.string(), lockedSkillSchema) })
-const recordedVersionsSchema = z.record(z.string(), z.string())
+const skillsLockSchema = zod.object({ skills: zod.record(zod.string(), lockedSkillSchema) })
+const recordedVersionsSchema = zod.record(zod.string(), zod.string())
 
-export type LockedSkill = z.infer<typeof lockedSkillSchema>
+export type LockedSkill = zod.infer<typeof lockedSkillSchema>
 
 export type SkillsLock = Readonly<Record<string, LockedSkill>>
 

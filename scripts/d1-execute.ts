@@ -1,6 +1,6 @@
 import { spawn } from "bun"
 import { drizzle } from "drizzle-orm/sqlite-proxy"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
@@ -18,11 +18,11 @@ const JSON_START = /^[[{]/mu
 const NO_OUTPUT = "{}"
 const NOT_FOUND = -1
 
-const sqlParameterSchema = z.union([z.string(), z.number(), z.null()])
-const statementResultSchema = z.object({ results: z.array(z.unknown()) })
-const outputSchema = z.array(statementResultSchema).min(1)
-const noteSchema = z.object({ text: z.string() })
-const failureSchema = z.object({ error: z.object({ notes: z.array(noteSchema).default([]), text: z.string() }) })
+const sqlParameterSchema = zod.union([zod.string(), zod.number(), zod.null()])
+const statementResultSchema = zod.object({ results: zod.array(zod.unknown()) })
+const outputSchema = zod.array(statementResultSchema).min(1)
+const noteSchema = zod.object({ text: zod.string() })
+const failureSchema = zod.object({ error: zod.object({ notes: zod.array(noteSchema).default([]), text: zod.string() }) })
 
 const jsonOf = (output: string): unknown => {
   const start = output.search(JSON_START)

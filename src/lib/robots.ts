@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 const ANY_AGENT = "*"
 const END_ANCHOR = "$"

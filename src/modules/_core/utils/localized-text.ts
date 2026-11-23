@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 

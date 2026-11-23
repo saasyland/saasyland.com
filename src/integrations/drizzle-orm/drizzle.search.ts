@@ -1,5 +1,5 @@
 import { type SQL, type SQLWrapper, eq, gte, inArray, lte, sql } from "drizzle-orm"
-import type zod from "zod/v4"
+import type * as zod from "zod"
 
 import { CURRENCY_CODES, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { FLAG_FILTER, type FlagFilter } from "~/src/modules/_core/utils/pagination"

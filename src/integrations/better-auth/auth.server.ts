@@ -10,7 +10,7 @@ import { admin } from "better-auth/plugins/admin"
 import { twoFactor } from "better-auth/plugins/two-factor"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { v7 as uuidv7 } from "uuid"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { ROLES, ac } from "~/src/integrations/better-auth/auth.access"
 import { pageCallbackURL } from "~/src/integrations/better-auth/auth.callbacks"

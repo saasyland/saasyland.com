@@ -256,6 +256,7 @@ const tooling = {
       "code-style/no-multiline-ternary": "error",
       "code-style/no-undefined-branch": "error",
       "code-style/no-undefined-fallback": "error",
+      "code-style/zod-namespace-import": "error",
       "id-length": ["error", { exceptions: ["_", "m", "t"], properties: "never" }],
       "max-lines": ["error", { max: 800 }],
       "max-lines-per-function": ["error", { max: 150 }],

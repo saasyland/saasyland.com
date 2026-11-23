@@ -1,7 +1,7 @@
 import { createMiddleware, createServerOnlyFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { getIP, isAPIError } from "better-auth/api"
-import { ZodError } from "zod"
+import * as zod from "zod"
 
 import { type Permission, hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
@@ -30,7 +30,7 @@ const handleRequestError = (error: unknown): never => {
   if (isAPIError(error)) {
     throw new AppError(ERROR_CODES.AUTH_API_ERROR, authErrorKey(error))
   }
-  if (error instanceof ZodError) {
+  if (error instanceof zod.ZodError) {
     throw new AppError(ERROR_CODES.VALIDATION)
   }
   console.error("Server function failed", error)

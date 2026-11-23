@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process"
 import process from "node:process"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { MAIN_BRANCH } from "~/src/lib/changelog"
 
@@ -10,19 +10,19 @@ export const RULE_TYPE = { REQUIRED_STATUS_CHECKS: "required_status_checks" } as
 
 export const CHECK_CONCLUSION = { FAILURE: "failure", SKIPPED: "skipped", SUCCESS: "success" } as const
 
-const requiredCheckSchema = z.object({ context: z.string() })
-const checkRunSchema = z.object({ conclusion: z.string().nullable(), name: z.string() })
+const requiredCheckSchema = zod.object({ context: zod.string() })
+const checkRunSchema = zod.object({ conclusion: zod.string().nullable(), name: zod.string() })
 
-const argumentsSchema = z.tuple([z.string().regex(/^[\da-f]{40,64}$/u)])
-const environmentSchema = z.object({ GITHUB_REPOSITORY: z.string().min(1) })
-const rulesSchema = z.array(z.looseObject({ type: z.string() }))
-const statusChecksRuleSchema = z.object({
-  parameters: z.object({ required_status_checks: z.array(requiredCheckSchema) }),
-  type: z.literal(RULE_TYPE.REQUIRED_STATUS_CHECKS),
+const argumentsSchema = zod.tuple([zod.string().regex(/^[\da-f]{40,64}$/u)])
+const environmentSchema = zod.object({ GITHUB_REPOSITORY: zod.string().min(1) })
+const rulesSchema = zod.array(zod.looseObject({ type: zod.string() }))
+const statusChecksRuleSchema = zod.object({
+  parameters: zod.object({ required_status_checks: zod.array(requiredCheckSchema) }),
+  type: zod.literal(RULE_TYPE.REQUIRED_STATUS_CHECKS),
 })
-const checkRunsSchema = z.object({ check_runs: z.array(checkRunSchema) })
+const checkRunsSchema = zod.object({ check_runs: zod.array(checkRunSchema) })
 
-export type CheckRun = z.infer<typeof checkRunSchema>
+export type CheckRun = zod.infer<typeof checkRunSchema>
 
 interface CommitChecks {
   readonly checkRuns: readonly CheckRun[]

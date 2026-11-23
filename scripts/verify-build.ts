@@ -4,7 +4,7 @@ import { accessSync, existsSync, globSync, readFileSync, readdirSync, statSync }
 import { dirname, join, relative, resolve } from "node:path"
 import process from "node:process"
 import { pathToFileURL } from "node:url"
-import { z } from "zod/v4"
+import * as zod from "zod"
 
 import { BLOG_DIRECTORY, DOCS_DIRECTORY } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -47,14 +47,14 @@ const CONTENT_ROUTES = [
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
 
-const environmentSchema = z.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION, ENVIRONMENT.TEST])
-const deploymentSchema = z.object({ configPath: z.string() })
-const workerConfigSchema = z.object({ name: z.string() })
-const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })
-const frontmatterSchema = z.object({ yaml: z.string() })
-const searchIndexSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES) })
-const publicationSchema = z.object({ published: z.boolean().default(true) })
-const titleSchema = z.object({ title: z.string() })
+const environmentSchema = zod.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION, ENVIRONMENT.TEST])
+const deploymentSchema = zod.object({ configPath: zod.string() })
+const workerConfigSchema = zod.object({ name: zod.string() })
+const contentPageSchema = zod.object({ locale: zod.enum(I18N.SUPPORTED_LOCALES), slug: zod.string() })
+const frontmatterSchema = zod.object({ yaml: zod.string() })
+const searchIndexSchema = zod.object({ locale: zod.enum(I18N.SUPPORTED_LOCALES) })
+const publicationSchema = zod.object({ published: zod.boolean().default(true) })
+const titleSchema = zod.object({ title: zod.string() })
 const PAGE_RESULT = "page"
 const ALL_RESULTS = { limit: Number.MAX_SAFE_INTEGER }
 

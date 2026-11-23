@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { type ParsedLocation, redirect } from "@tanstack/react-router"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors"

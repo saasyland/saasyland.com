@@ -173,11 +173,18 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 ### カリキュラム
 
-カリキュラムエディター（`curriculum-editor.tsx`）は、チャプターを順に表示し、それぞれのレッスンを並べます。各レッスンの行では、タイトルを 1 行に置き、その下にスラッグと動画、さらにその下にタグとボタンの行を置きます。この行はカードが狭くなると折り返すため、どの幅でも文字が重なりません。
+カリキュラムエディター（`curriculum-editor.tsx`）は、チャプターを順に、それぞれの後にそのレッスンを続けて、1 つの React Aria の `GridList` として表示します。各レッスンの行では、タイトルを 1 行に置き、その下にスラッグと動画、さらにその下にタグとボタンの行を置きます。この行はカードが狭くなると折り返すため、どの幅でも文字が重なりません。
 
-- **章を追加** は `chapter-dialog.tsx` を開き、ロケールごとに **章のタイトル** と任意の **概要** を入力します。各チャプターはタイトルの下に概要を表示し、上下に移動する、編集する、削除するためのボタンがあります。
-- チャプターのレッスンの下にある **レッスンを追加** は、レッスンを作成する `lesson-dialog.tsx` を開きます。
-- 各レッスンには、スラッグ、動画と再生時間、アクセスレベル、状態、そして動画の状態が表示されます。動画の状態は、**動画はまだありません**、このタブでアップロードしている間は割合付きの **アップロード中**、**アップロード停止**、**エンコード待ち**、**エンコード中**、**エンコード失敗**、または **テキストのレッスン** です。ボタンでは、チャプター内で上下に移動する、レッスンエディターで開く、削除するという操作ができます。レッスンを別のチャプターに移動することはできません。
+### カリキュラムの並べ替え
+
+各チャプターと各レッスンの先頭にはハンドルがあります。レッスンをハンドルでドラッグすると、同じチャプターの中で、または空のチャプターを含む別のチャプターへ移動します。チャプターをドラッグすると、そのすべてのレッスンと一緒に移動します。キーボードでも同じ操作ができます。行にフォーカスし、右矢印キーでそのハンドルに移って Enter を押し、上下の矢印キーで場所を選んでもう一度 Enter を押します。Escape を押すと元の場所のままになります。React Aria は各ステップをページの言語でスクリーンリーダーに読み上げ、カードはタイトルの下で操作方法を説明します。
+
+- 意味のある場所だけが候補になります。レッスンは最初のチャプターより上には置けず、チャプターは別のチャプターの前か最後のレッスンの後にだけ置けます（`src/modules/course/course.curriculum.ts` の `canDropInCurriculum`。同じファイルの `moveInCurriculum` が新しい順序も計算します）。
+- 新しい順序は、サーバーの応答を待たずにすぐ表示されます。続いて `reorderCurriculum` が、すべてのチャプターとそれぞれのレッスンを順番どおりに並べたカリキュラム全体を保存し、チャプターか位置が変わった行だけを 1 回の `db.batch` で書き込みます。受け取ったチャプターとレッスンがそのコースのものと正確に一致しない場合、たとえば別のタブで変更があった後には、`CONFLICT` を返します。するとエディターは元の順序に戻し、その理由を伝えてコースを再取得します。移動は、行われた順に 1 つずつ保存されます。
+
+- **章を追加** は `chapter-dialog.tsx` を開き、ロケールごとに **章のタイトル** と任意の **概要** を入力します。各チャプターはタイトルの下に概要を表示し、レッスンを追加する、編集する、削除するためのボタンがあります。
+- チャプターの行にある **レッスンを追加** は `lesson-dialog.tsx` を開き、そのチャプターの末尾にレッスンを作成します。
+- 各レッスンには、スラッグ、動画と再生時間、アクセスレベル、状態、そして動画の状態が表示されます。動画の状態は、**動画はまだありません**、このタブでアップロードしている間は割合付きの **アップロード中**、**アップロード停止**、**エンコード待ち**、**エンコード中**、**エンコード失敗**、または **テキストのレッスン** です。ボタンでは、レッスンエディターで開く、削除するという操作ができます。
 
 レッスンのダイアログには次のフィールドがあります。
 
@@ -288,8 +295,9 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 | `course`            | `uploadCourseCover`, `removeCourseCover`                                                                                       | `course: ["update"]`                      |
 | `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                      |
 | `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]`  |
-| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                      |
-| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `setLessonFormat`, `deleteLesson`, `moveLesson`                          | `course: ["update"]`                      |
+| `course`            | `reorderCurriculum`                                                                                                            | `course: ["update"]`                      |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`                                                                              | `course: ["update"]`                      |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `setLessonFormat`, `deleteLesson`                                        | `course: ["update"]`                      |
 | `lesson`            | `removeLessonVideo`                                                                                                            | `course: ["update"]`, `video: ["delete"]` |
 | `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]`                      |
 | `video-upload`      | `startVideoUpload`, `uploadVideoPart`, `completeVideoUpload`, `cancelVideoUpload`, `retryVideoUpload`                          | `course: ["update"]`                      |
@@ -302,7 +310,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 - アップロードは受講者が視聴できるものを変えるため、ほかのレッスンの書き込みと同じく `course: ["update"]` をチェックします。`startVideoUpload` はさらに `withRateLimit` で、開始を 1 アドレスあたり 1 分に <RepositoryFact name="videoUploadsPerMinute" /> 回までに制限します。`removeLessonVideo` は動画を削除できるため、`video: ["delete"]` も必要とします。
 - **既存の動画を使う** の一覧は `getVideos` から取得し、これには `video: ["read"]` が必要です。
 - すでに使われているスラッグには `CONFLICT` を返します。`rethrowAsConflict`（`src/integrations/drizzle-orm/drizzle.errors.ts`）が D1 の一意制約エラーを `AppError` に変換します。どの行にも一致しない ID には `NOT_FOUND` を返します。
-- 新しいコース、チャプター、レッスンは、同じ階層の行の中で最大の `position` に 1 を足した値を取ります（`nextPosition`）。移動では行を隣の行と入れ替え、同じ階層の行を 1 から番号付けし直します（`reorder`）。これは 1 回の `db.batch` で行います。どちらの関数も `src/modules/_core/utils/ordering.ts` にあり、方向は `src/modules/_core/constants/ordering.ts` の `MOVE_DIRECTION` です。
+- 新しいコース、チャプター、レッスンは、同じ階層の行の中で最大の `position` に 1 を足した値を取ります（`nextPosition`）。チャプターとレッスンの順序は、前述の `reorderCurriculum` で決まります。コースと資料は矢印で移動します。移動では行を隣の行と入れ替え、同じ階層の行を 1 から番号付けし直します（`reorder`）。これは 1 回の `db.batch` で行います。どちらの関数も `src/modules/_core/utils/ordering.ts` にあり、方向は `src/modules/_core/constants/ordering.ts` の `MOVE_DIRECTION` です。
 - すべての書き込みで、タイトルと概要を `localizedTextSchema` で検証します。`en-US` は必須で、各テキストは最大 <RepositoryFact name="localizedTextMaxLength" /> 文字です。スラッグは最大 <RepositoryFact name="slugMaxLength" /> 文字です。フォームのメッセージは `defaultLocaleRequired`、`textTooLong`、`slugInvalid`、`itemRequired`、`timeInvalid`、`urlInvalid`、`fileTooLarge` などで、`course.validations` にあります。上限値は `COURSE_VALIDATION_PARAMS`（`course.constants.ts`）が渡します。
 - コースのスラッグと、コース内のレッスンのスラッグは一意であるため、データベースをまたいでコースとレッスンを特定できます。コースのカリキュラムは、そのチャプターを順に並べたものです。
 - `courseEditorQuery` は公開側のコースのクエリと同じく `staleTime: COURSE_STALE_MS` を保ち、変更のたびに `course` のクエリが無効化されるため、一覧とエディターが再取得されます。
@@ -313,7 +321,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 - `e2e/specs/course-pages.spec.ts` は、訪問者、Complete を持たない顧客、Complete の受講者に、それぞれの種類のレッスンを表示します。コースページのバッジ、数値、アコーディオン、スクロールした後もパネルがヘッダーの下の同じ距離に固定されること、主要な場面と文字起こしの行でプレーヤーがシークすること、レッスンの横とスマートフォンのシートに表示されるコースの内容、ポーランド語のページを確認します。さらに、管理画面でコースのタイトルを変更し、デプロイなしでランディングページとカタログにそのタイトルが表示されることを確かめます。
 - `e2e/specs/courses.spec.ts` はレッスンを視聴し、`e2e/specs/course-materials.spec.ts` はダウンロードのアクセスルールを確認します。訪問者は無料レッスンのファイルを署名済みのパスでダウンロードでき、偽造したパスには `403` が返ります。訪問者と Complete を持たない顧客には有料レッスンの資料がリンクなしで表示され、Complete のライセンスの保有者はそれらをダウンロードでき、動画のないレッスンがストリームを要求せずに収録中として表示されます。
-- `e2e/specs/course-admin.spec.ts` では、管理者がコース、チャプター、無料レッスンを作成し、**既存の動画を使う** でシード済みの動画をそのレッスンに設定し、別のブラウザページの訪問者がそのレッスンを視聴し、最後に管理者がコースを削除します。2 つ目のテストは、レッスンの説明と主要な場面を書き、ファイルをアップロードしてリンクを追加し、訪問者には動画のないレッスンが収録中として表示されファイルをダウンロードできることを確認し、レッスンに録画を設定して訪問者のページで再生されるようにし、コースを削除するとファイルも削除されることを確認します。`e2e/specs/course-videos.spec.ts` は、小さな録画をレッスンにドロップし、テスト用 Worker のエンコーダーで **エンコーダーを待っています** からプレーヤーまでを追い、署名済みのストリームを確認し、動画を削除し、訪問者がプレーヤーも **近日公開** もなしに読むテキストのレッスンを作成します。
+- `e2e/specs/course-admin.spec.ts` では、管理者がコース、チャプター、無料レッスンを作成し、**既存の動画を使う** でシード済みの動画をそのレッスンに設定し、別のブラウザページの訪問者がそのレッスンを視聴し、最後に管理者がコースを削除します。2 つ目のテストは、レッスンの説明と主要な場面を書き、ファイルをアップロードしてリンクを追加し、訪問者には動画のないレッスンが収録中として表示されファイルをダウンロードできることを確認し、レッスンに録画を設定して訪問者のページで再生されるようにし、コースを削除するとファイルも削除されることを確認します。`e2e/specs/course-curriculum.spec.ts` は、コースを作成し、マウスでレッスンをもう一方のチャプターへ、キーボードでチャプターを最初のチャプターの上へ動かし、再読み込み後の順序と、レッスンページの前後のレッスンへのリンクの順序を確認します。`e2e/specs/course-videos.spec.ts` は、小さな録画をレッスンにドロップし、テスト用 Worker のエンコーダーで **エンコーダーを待っています** からプレーヤーまでを追い、署名済みのストリームを確認し、動画を削除し、訪問者がプレーヤーも **近日公開** もなしに読むテキストのレッスンを作成します。
 - `e2e/specs/landing.spec.ts` は、コースブロックがシード済みのコースを、開けるレッスン、ロックされたレッスン、収録中のレッスン、**+ ほか1レッスン** とともに表示すること、無料レッスンを開き、講座ページの紹介動画を再生できること、コースが届いたとき、読み込めなかったとき、1 件もないときにブロックが表示内容と同じ高さになること、そしてビューポートの下でコースがブロックを埋めても画面上で何も動かないことを確認します。`e2e/specs/course-access.spec.ts` は、有料レッスンでゲストに表示される価格、登録リンク、サインインリンクを確認し、ライセンスのない顧客としてサインインして、有料レッスンがレッスンを保持した `/app/license?tier=complete` へのリンク付きで Complete を案内することと、概要ページがライセンスの案内の横にロックされたコースを表示することを確認します。`e2e/specs/course-import.spec.ts` では、管理者がダイアログから `content/courses/saasy-land-courses.json` をインポートし、訪問者が `/courses` でそのコースを見つけて最初のコースが収録中であることを確認し、同じファイルをもう一度確認するとインポートするものが何もないことを確かめます。
 
 `course-import.test.ts` と `course-transfer.test.ts` は、テストデータベースに対してインポートを実行します。対象は、カリキュラムのドライラン、そのインポート、何も変えない 2 回目のインポート、同じドキュメントを返すエクスポート、編集したエクスポートによる更新・移動・新しい行、削除で消えるもの（アップロード済みファイルを含む）、動画の参照、そして壊れたファイルが報告する問題です。

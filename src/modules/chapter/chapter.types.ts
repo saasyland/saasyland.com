@@ -8,6 +8,5 @@ export interface Chapter {
   insert: typeof chapter.$inferInsert
   createChapter: zod.input<typeof chapterZodSchemas.createChapter>
   deleteChapter: zod.input<typeof chapterZodSchemas.deleteChapter>
-  moveChapter: zod.input<typeof chapterZodSchemas.moveChapter>
   updateChapter: zod.input<typeof chapterZodSchemas.updateChapter>
 }

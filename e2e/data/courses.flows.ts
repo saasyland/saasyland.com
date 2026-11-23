@@ -30,6 +30,12 @@ const FRESH_COURSE = {
   title: "a course created and renamed in the admin reaches the landing page and the catalogue without a deploy",
 } as const
 
+const ORDER_CURRICULUM = {
+  spec: "course-curriculum.spec.ts",
+  title:
+    "an administrator orders chapters and lessons by dragging them, a lesson into another chapter too, and visitors see the new order",
+} as const
+
 const COURSE_COVER = {
   spec: "course-cover.spec.ts",
   title: "an administrator uploads a course cover that the catalogue, the landing page and the course page show, then removes it",
@@ -446,9 +452,9 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-reorder-chapters",
-    outcome: "Moving a chapter changes its place on the course page",
-    reason: "No spec moves a chapter.",
-    status: FLOW_STATUS.MISSING,
+    outcome: "Dragging a chapter, with the mouse or the keyboard, moves it with its lessons, and the course follows after a reload",
+    status: FLOW_STATUS.COVERED,
+    tests: [ORDER_CURRICULUM],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,
@@ -460,9 +466,9 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-reorder-lessons",
-    outcome: "Moving a lesson changes its place in its chapter and the course's next and previous links",
-    reason: "No spec moves a lesson.",
-    status: FLOW_STATUS.MISSING,
+    outcome: "Dragging a lesson, with the mouse or the keyboard, moves it within its chapter or into another one, and the lesson page's previous and next links follow",
+    status: FLOW_STATUS.COVERED,
+    tests: [ORDER_CURRICULUM],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,

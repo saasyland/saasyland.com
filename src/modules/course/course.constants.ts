@@ -84,6 +84,7 @@ export const COURSE_MUTATION_KEYS = {
   IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
   REMOVE_COVER: ["course", "removeCourseCover"],
+  REORDER_CURRICULUM: ["course", "reorderCurriculum"],
   UPDATE: ["course", "updateCourse"],
   UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const

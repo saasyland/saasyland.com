@@ -71,11 +71,11 @@ const toPattern = (path: string): RegExp => {
   return new RegExp(`^${source}${anchored ? END_ANCHOR : ""}`, "u")
 }
 
-const outranks = (rule: RobotsRule, other: RobotsRule): boolean =>
-  rule.path.length > other.path.length || (rule.path.length === other.path.length && rule.allow)
+const byPrecedence = (first: RobotsRule, second: RobotsRule): number =>
+  second.path.length - first.path.length || Number(second.allow) - Number(first.allow)
 
 export const isAllowedByRobots = (rules: readonly RobotsRule[], pathname: string): boolean =>
   rules
     .filter(({ path }) => toPattern(path).test(pathname))
-    .reduce<RobotsRule | undefined>((winner, rule) => (winner === undefined || outranks(rule, winner) ? rule : winner), undefined)?.allow ??
-  true
+    .toSorted(byPrecedence)
+    .at(0)?.allow ?? true

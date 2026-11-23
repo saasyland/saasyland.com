@@ -267,9 +267,8 @@ const patternsFor = (locale: SupportedLocale): RegExp[] => {
 }
 
 export const formOfAddressProblems = ({ locale, text }: { locale: SupportedLocale; text: string }): string[] => {
-  const formOfAddress: FormOfAddress = FORMS_OF_ADDRESS[locale]
   const readable = text.replaceAll(IGNORED_TEXT, " ")
   const found = new Set(patternsFor(locale).flatMap((pattern) => readable.match(pattern) ?? []))
 
-  return [...found].map((word) => `uses “${word}” where ${locale} addresses the reader as “${formOfAddress.form}”`)
+  return [...found].map((word) => `uses “${word}” where ${locale} addresses the reader as “${FORMS_OF_ADDRESS[locale].form}”`)
 }

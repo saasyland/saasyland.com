@@ -18,25 +18,36 @@ const KEY_VALUE_DELIMITER = "="
 
 const KEY_VALUE_DELIMITER_LENGTH = KEY_VALUE_DELIMITER.length
 
-const decodeCookieValue = (value: string): string | undefined => {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return undefined
-  }
+interface Cookie {
+  readonly name: string
+  readonly value: string
 }
 
-export const readCookie = ({ header, name }: { header: string | null | undefined; name: string }): string | undefined => {
-  for (const entry of header?.split(ENTRY_DELIMITER) ?? []) {
+const cookiesOf = (header: string): Cookie[] =>
+  header.split(ENTRY_DELIMITER).flatMap((entry) => {
     const separator = entry.indexOf(KEY_VALUE_DELIMITER)
 
-    if (separator > 0 && entry.slice(0, separator).trim() === name) {
-      return decodeCookieValue(entry.slice(separator + KEY_VALUE_DELIMITER_LENGTH).trim())
+    if (separator <= 0) {
+      return []
     }
-  }
 
-  return undefined
+    return [{ name: entry.slice(0, separator).trim(), value: entry.slice(separator + KEY_VALUE_DELIMITER_LENGTH).trim() }]
+  })
+
+const decodedValue = ({ value }: Cookie): string[] => {
+  try {
+    return [decodeURIComponent(value)]
+  } catch {
+    return []
+  }
 }
+
+export const readCookie = ({ header, name }: { header: string | null | undefined; name: string }): string | undefined =>
+  cookiesOf(header ?? "")
+    .filter((cookie) => cookie.name === name)
+    .slice(0, 1)
+    .flatMap((cookie) => decodedValue(cookie))
+    .at(0)
 
 export const serializeCookie = ({ name, options = {}, value }: { name: string; options?: CookieOptions; value: string }): string => {
   const { httpOnly = false, maxAge = ONE_YEAR_IN_SECONDS, path = DEFAULT_PATH, sameSite = DEFAULT_SAME_SITE } = options

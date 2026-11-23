@@ -40,8 +40,7 @@ const storageKey = (id: string): string => `${STORAGE_PREFIX}${id}`
 
 const parse = (raw: string): DataGridPreferences => {
   try {
-    const parsed = preferencesSchema.safeParse(JSON.parse(raw))
-    return parsed.success ? parsed.data : NO_PREFERENCES
+    return preferencesSchema.safeParse(JSON.parse(raw)).data ?? NO_PREFERENCES
   } catch {
     return NO_PREFERENCES
   }

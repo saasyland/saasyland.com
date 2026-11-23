@@ -2,7 +2,7 @@ import { env, waitUntil } from "cloudflare:workers"
 
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
+import zod from "zod/v4"
 
 import { MILLISECONDS_PER_HOUR } from "~/src/lib/duration"
 
@@ -14,9 +14,9 @@ export const STAR_COUNT_REFRESH_AFTER_MS = MILLISECONDS_PER_HOUR
 
 export const STAR_COUNT_FETCH_TIMEOUT_MS = 3000
 
-const starCountSchema = z.int().nonnegative()
-const cachedStarCountSchema = z.object({ count: starCountSchema, fetchedAt: z.int().nonnegative() })
-const repositorySchema = z.object({ stargazers_count: starCountSchema })
+const starCountSchema = zod.int().nonnegative()
+const cachedStarCountSchema = zod.object({ count: starCountSchema, fetchedAt: zod.int().nonnegative() })
+const repositorySchema = zod.object({ stargazers_count: starCountSchema })
 
 const fetchStarCount = async (): Promise<number> => {
   const credentials = btoa(`${env.AUTH_GITHUB_CLIENT_ID}:${env.AUTH_GITHUB_CLIENT_SECRET}`)

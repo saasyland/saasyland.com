@@ -24,20 +24,12 @@ export const formatClock = (milliseconds: number): string => {
   return `${String(minutes)}:${pad(seconds)}`
 }
 
-const CLOCK = /^(?:(?<hours>\d+):(?=\d{2}:))?(?<minutes>\d+):(?<seconds>[0-5]\d)$/u
+const CLOCK = /^(?:(?<hours>\d+):(?=[0-5]\d:))?(?<minutes>\d+):(?<seconds>[0-5]\d)$/u
 
 export const parseClock = (clock: string): number | undefined => {
   const parts = CLOCK.exec(clock.trim())?.groups
-  if (parts === undefined) {
-    return undefined
-  }
 
-  const minutes = Number(parts["minutes"])
-  if (parts["hours"] !== undefined && minutes >= MINUTES_PER_HOUR) {
-    return undefined
-  }
-
-  return Number(parts["hours"] ?? 0) * SECONDS_PER_HOUR + minutes * SECONDS_PER_MINUTE + Number(parts["seconds"])
+  return parts && Number(parts["hours"] ?? 0) * SECONDS_PER_HOUR + Number(parts["minutes"]) * SECONDS_PER_MINUTE + Number(parts["seconds"])
 }
 
 export const wholeMinutes = (milliseconds: number): number => Math.ceil(milliseconds / MILLISECONDS_PER_MINUTE)

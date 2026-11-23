@@ -11,9 +11,10 @@ import {
 
 import { choiceOf, flagFilterField, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { searchSchema } from "~/src/modules/_core/utils/search"
-import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { MIN_FIELD_LENGTH, dateRangeField, idField } from "~/src/modules/_core/utils/zod-fields"
 import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES, USER_SORT_COLUMNS, USER_STATUSES } from "~/src/modules/user/user.constants"
+
+import { timeRangeSchema } from "~/src/lib/time-series"
 
 const timezone = zod.enum(TIMEZONE_CODES)
 

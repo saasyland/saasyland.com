@@ -3,14 +3,15 @@ import { createServerFn } from "@tanstack/react-start"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 
-import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { upgradePrice } from "~/src/modules/license/license.upgrade-price"
 import { canUpgrade } from "~/src/modules/license/license.upgrades"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
+
+import { fromMinorUnits } from "~/src/data/currencies"
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 export const getUpgradePrice = createServerFn({ method: "GET" })
   .middleware([authorized()])

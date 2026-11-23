@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { LOCALES, LOCALE_CODES, getLocaleDirection, getLocaleName, isLocaleCode } from "~/src/modules/_core/constants/locale"
+import { LOCALES, LOCALE_CODES, getLocaleDirection, getLocaleName, isLocaleCode } from "~/src/data/locales"
 
 afterEach(() => {
   vi.restoreAllMocks()

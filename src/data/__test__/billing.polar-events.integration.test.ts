@@ -19,9 +19,10 @@ import {
 } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { order } from "~/src/modules/order/order.schema"
 import { subscription } from "~/src/modules/subscription/subscription.schema"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { ROUTES } from "~/src/routes"
 

@@ -4,10 +4,9 @@ import { Link, useRouter } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
-
 import { CONSULTING_HOURLY_RATE, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"

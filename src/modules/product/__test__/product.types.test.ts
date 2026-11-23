@@ -2,9 +2,10 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const PRODUCT_ID = "01900000-0000-7000-8000-000000000002"
 

@@ -1,7 +1,7 @@
 import { getTableName, is } from "drizzle-orm"
 import { SQLiteTable } from "drizzle-orm/sqlite-core"
-import { globSync, readFileSync } from "node:fs"
-import { basename, dirname } from "node:path"
+import { globSync, readFileSync, readdirSync } from "node:fs"
+import { basename, dirname, relative } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 
 import { createContentDirectory } from "~/src/platform/testing/lib/content-directory"
@@ -12,6 +12,10 @@ import { collectModuleTables } from "~/scripts/repository-facts"
 
 const STANDARD_FILES = ["constants", "schema", "types", "utils", "zod"]
 const LISTED_FILE = /^- `(?<path>[\w-]+\/[\w.-]+\.ts)`/gmu
+const CORE_FOLDER = "_core"
+const CORE_DIRECTORY = `src/modules/${CORE_FOLDER}`
+const CORE_PAGE = "content/docs/architecture/core.en-US.mdx"
+const CORE_FILE = /^(?:\| |- )`(?<path>[\w-]+\/[\w.-]+\.ts)`/gmu
 
 const TABLES = collectModuleTables()
 const USE_CASES = globSync("src/modules/*/use-cases/*.ts").map((path) => basename(path, ".ts"))
@@ -72,5 +76,24 @@ describe("the module catalog", () => {
       .map((path) => `${basename(dirname(path))}/${basename(path)}`)
 
     expect([...page.matchAll(LISTED_FILE)].map(({ groups }) => groups?.["path"] ?? "").toSorted()).toStrictEqual(files.toSorted())
+  })
+})
+
+describe("the modules folder", () => {
+  it("holds a folder for each module that owns a table, and _core", () => {
+    const folders = readdirSync("src/modules", { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+
+    expect(folders.toSorted()).toStrictEqual([CORE_FOLDER, ...TABLES.modules.map(([name]) => name)].toSorted())
+  })
+
+  it("keeps in _core only the files the Core page describes", () => {
+    const page = readFileSync(CORE_PAGE, "utf8")
+    const files = globSync(`${CORE_DIRECTORY}/**/*.ts`)
+      .filter((path) => !path.includes("__test__"))
+      .map((path) => relative(CORE_DIRECTORY, path))
+
+    expect([...page.matchAll(CORE_FILE)].map(({ groups }) => groups?.["path"] ?? "").toSorted()).toStrictEqual(files.toSorted())
   })
 })

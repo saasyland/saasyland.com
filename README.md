@@ -197,7 +197,7 @@ src/
   server.ts                      Cloudflare Worker entry: the areas' Worker handlers, locale middleware, and security headers
   integrations/{vendor}/         Vendor configuration and adapters ({prefix}.{concern}.ts, e.g. auth.server.ts)
   modules/{table}/               One folder per database table: schema, zod, constants, types, use-cases/*.ts
-  modules/_core/                 Shared error codes, catalogues, and helpers
+  modules/_core/                 Error codes, HTTP constants, Zod fields and use-case inputs
   presentation/
     assets/motion/               Published landing-page videos and posters
     branding/                    Application identity and canonical URL

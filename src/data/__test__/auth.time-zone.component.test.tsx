@@ -17,9 +17,10 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
-import type { TimezoneCode } from "~/src/modules/_core/constants/timezone"
 import type { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
+
+import type { TimezoneCode } from "~/src/data/timezones"
 
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 

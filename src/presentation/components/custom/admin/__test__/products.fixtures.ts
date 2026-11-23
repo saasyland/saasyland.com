@@ -1,12 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 

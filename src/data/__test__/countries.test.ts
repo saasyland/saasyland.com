@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
-import { CURRENCIES } from "~/src/modules/_core/constants/currency"
+import { COUNTRIES, type CountryCode } from "~/src/data/countries"
+import { CURRENCIES } from "~/src/data/currencies"
 
 describe("country catalog", () => {
   it("keeps alpha-2 codes unique and uppercase", () => {

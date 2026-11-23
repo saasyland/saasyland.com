@@ -1,6 +1,5 @@
 import * as zod from "zod"
 
-import { COUNTRY_CODES } from "~/src/modules/_core/constants/country"
 import {
   MAX_FILTER_VALUES,
   choiceOf,
@@ -10,9 +9,12 @@ import {
   sortingOf,
 } from "~/src/modules/_core/utils/pagination"
 import { searchSchema } from "~/src/modules/_core/utils/search"
-import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { countryCodeField, dateRangeField, idField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 import { CUSTOMER_SORT_COLUMNS, ORDER_SORT_COLUMNS, ORDER_STATUSES } from "~/src/modules/order/order.constants"
+
+import { COUNTRY_CODES } from "~/src/data/countries"
+
+import { timeRangeSchema } from "~/src/lib/time-series"
 
 const orderFilters = zod.object({
   country: zod.array(countryCodeField).max(COUNTRY_CODES.length).optional(),

@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { TIME_RANGES } from "~/src/modules/_core/utils/time-series"
+import { TIME_RANGES } from "~/src/lib/time-series"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 

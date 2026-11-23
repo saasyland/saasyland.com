@@ -1,5 +1,4 @@
-import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
-
+import type { CurrencyCode } from "~/src/data/currencies"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
 export const AFFILIATE_PROGRAM: FeatureStatus = FEATURE_STATUS.ARRIVING

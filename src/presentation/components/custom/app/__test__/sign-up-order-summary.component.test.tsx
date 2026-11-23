@@ -7,11 +7,11 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { PURCHASE_STEP, PURCHASE_STEP_COUNT } from "~/src/data/license"
 import { TIER_PRICES } from "~/src/data/marketing"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { SignUpOrderSummary, SignUpOrderSummaryPending } from "~/src/presentation/components/custom/app/sign-up-order-summary"

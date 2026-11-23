@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
 
-import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT } from "../../src/data/pricing"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TIER_PRICES } from "../../src/data/marketing"
 import { REFUND_TERMS } from "../../src/data/refunds"

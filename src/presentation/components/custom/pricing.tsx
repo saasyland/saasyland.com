@@ -5,13 +5,13 @@ import { BadgeCheck, Check, CircleDashed, FlaskConical, Receipt, RotateCcw } fro
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { COURSE_PLATFORM_VALUES, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
+import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 

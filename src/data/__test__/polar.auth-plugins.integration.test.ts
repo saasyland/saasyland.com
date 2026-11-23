@@ -14,10 +14,10 @@ import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 import type { PolarEventHandler } from "~/src/data/polar-events"
 import { POLAR_AUTH_PLUGINS } from "~/src/data/polar.auth-plugins"
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { ROUTES } from "~/src/routes"
 

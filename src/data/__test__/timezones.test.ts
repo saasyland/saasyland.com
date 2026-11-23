@@ -2,8 +2,9 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
+
+import { TIMEZONES } from "~/src/data/timezones"
 
 describe("timezone catalog", () => {
   it("derives one code per catalog entry, with no duplicates", () => {

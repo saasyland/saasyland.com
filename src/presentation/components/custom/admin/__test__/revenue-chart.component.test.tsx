@@ -2,9 +2,10 @@ import { act, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vite-plus/test"
 
-import { TIME_BUCKET, TIME_RANGE, type TimeBucket, type TimeRange, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 import type { Order } from "~/src/modules/order/order.types"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
+
+import { TIME_BUCKET, TIME_RANGE, type TimeBucket, type TimeRange, pointsOf, timeSeries } from "~/src/lib/time-series"
 
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"

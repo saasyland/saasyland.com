@@ -23,12 +23,12 @@ import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
-import { COUNTRIES } from "~/src/modules/_core/constants/country"
 import { invitationPlugin } from "~/src/modules/invitation/invitation.plugin"
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 import { AUTH_EMAILS } from "~/src/data/auth-emails"
 import { AUTH_PLUGINS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
+import { COUNTRIES } from "~/src/data/countries"
 
 import { consumeRateLimit } from "~/src/lib/rate-limit"
 

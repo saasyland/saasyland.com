@@ -12,13 +12,14 @@ import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { getLocaleName } from "~/src/modules/_core/constants/locale"
 import { INVITATION_LIFETIME_DAYS, INVITATION_QUERY_KEYS } from "~/src/modules/invitation/invitation.constants"
 import type { Invitation } from "~/src/modules/invitation/invitation.types"
 import { invitationZodSchemas } from "~/src/modules/invitation/invitation.zod"
 import { createInvitationMutation } from "~/src/modules/invitation/use-cases/create-invitation"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+
+import { getLocaleName } from "~/src/data/locales"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import {

@@ -14,11 +14,12 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import type { Product } from "~/src/modules/product/product.types"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"

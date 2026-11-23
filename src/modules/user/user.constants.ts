@@ -1,4 +1,4 @@
-import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
+import { TIMEZONES } from "~/src/data/timezones"
 
 export const BAN_REASON_MAX_LENGTH = 255
 

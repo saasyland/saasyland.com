@@ -8,7 +8,6 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { getLocaleName } from "~/src/modules/_core/constants/locale"
 import {
   INVITATION_LIFETIME_DAYS,
   INVITATION_MUTATION_KEYS,
@@ -22,6 +21,8 @@ import type { resendInvitationMutation } from "~/src/modules/invitation/use-case
 import type { revokeInvitationMutation } from "~/src/modules/invitation/use-cases/revoke-invitation"
 
 import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
+
+import { getLocaleName } from "~/src/data/locales"
 
 import * as download from "~/src/lib/download"
 

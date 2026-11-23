@@ -1,9 +1,10 @@
 import { type SQL, type SQLWrapper, eq, gte, inArray, lte, sql } from "drizzle-orm"
 import type * as zod from "zod"
 
-import { CURRENCY_CODES, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { FLAG_FILTER, type FlagFilter } from "~/src/modules/_core/utils/pagination"
 import type { dateRangeField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
+
+import { CURRENCY_CODES, toMinorUnits } from "~/src/data/currencies"
 
 type DateRange = zod.infer<typeof dateRangeField>
 

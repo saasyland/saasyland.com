@@ -10,8 +10,6 @@ export const DEFAULT_PAGE_SIZE = PAGE_SIZE.SMALL
 
 export const MAX_PAGE_SIZE = PAGE_SIZE.LARGEST
 
-export const DEFAULT_PAGINATION = { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE }
-
 export const MAX_SORTED_COLUMNS = 3
 
 export const SEARCH_MAX_LENGTH = 120

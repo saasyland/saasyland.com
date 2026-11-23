@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { LICENSE_CHECKOUT_METADATA, LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"

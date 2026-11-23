@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only"
 
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
 import type { LicenseTier } from "~/src/modules/license/license.constants"

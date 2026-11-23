@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import type { models } from "@polar-sh/sdk/2026-10"
 import { eq } from "drizzle-orm"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"

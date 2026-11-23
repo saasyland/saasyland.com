@@ -3,7 +3,7 @@ import "@tanstack/react-start/server-only"
 import { env } from "cloudflare:workers"
 
 import { apiZodSchemas } from "@saasyland/stack/api"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { SIGNED_BUNDLE_PATH, bundleObjectKey, verifyBundle } from "~/src/modules/license/license.bundles"

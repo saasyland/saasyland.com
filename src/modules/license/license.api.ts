@@ -18,7 +18,7 @@ import {
 } from "@saasyland/stack/api"
 import { and, eq, isNull } from "drizzle-orm"
 import { inspect } from "node:util"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { clientAddress } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"

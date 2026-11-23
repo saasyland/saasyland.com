@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import { resolve } from "node:path"
 import { createTranslator } from "use-intl"
 import { describe, expect, it } from "vite-plus/test"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace, loadPageMetadata, toNamespace } from "~/src/integrations/use-intl/i18n.messages"

@@ -1,5 +1,5 @@
 import type { ValidationCause } from "@tanstack/react-form"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 interface FieldErrorTiming {
   readonly state: { readonly meta: { readonly isBlurred: boolean; readonly isValid: boolean } }

@@ -1,4 +1,4 @@
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 

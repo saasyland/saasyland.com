@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import zod from "zod/v4"
+import * as zod from "zod"
 
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"

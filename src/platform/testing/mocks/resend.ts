@@ -37,7 +37,7 @@ export interface SentEmail {
 }
 
 const sentEmails: SentEmail[] = []
-const idempotentRequests = new Map<string, { readonly body: string; readonly id: string }>()
+const idempotentRequests = new Map<string | null, { readonly body: string; readonly id: string }>()
 
 export const getSentEmails = (recipient?: string): SentEmail[] =>
   sentEmails.filter(({ to }) => recipient === undefined || to.includes(recipient))
@@ -62,7 +62,7 @@ const sendEmail = async (request: Request) => {
   if (!email.success) {
     return refuse(HTTP_STATUS.UNPROCESSABLE_CONTENT, "validation_error", zod.prettifyError(email.error))
   }
-  const previous = idempotencyKey === null ? undefined : idempotentRequests.get(idempotencyKey)
+  const previous = idempotentRequests.get(idempotencyKey)
   if (previous !== undefined && previous.body !== body) {
     return refuse(HTTP_STATUS.CONFLICT, "invalid_idempotent_request", "Same idempotency key used with a different request payload.")
   }

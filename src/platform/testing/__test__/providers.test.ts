@@ -5,7 +5,7 @@ import { createElement } from "react"
 import { beforeEach, describe, expect, it } from "vite-plus/test"
 
 import type { PolarProduct } from "~/src/platform/testing/lib/polar"
-import { createPolarOrder, polarApi, polarCheckouts, seedPolarCatalogue } from "~/src/platform/testing/mocks/polar"
+import { POLAR_API, createPolarOrder, polarApi, polarCheckouts, seedPolarCatalogue } from "~/src/platform/testing/mocks/polar"
 import { takeProviderRefusals } from "~/src/platform/testing/mocks/providers"
 import { getSentEmails, resendApi } from "~/src/platform/testing/mocks/resend"
 
@@ -17,7 +17,7 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 const RESEND_EMAILS = `${resendApi.origin}/emails`
-const POLAR_CHECKOUTS = `${polarApi.origin}/v1/checkouts/`
+const POLAR_CHECKOUTS = `${polarApi.origin}${POLAR_API.CHECKOUTS}`
 
 const STARTER_KIT: PolarProduct = {
   id: crypto.randomUUID(),
@@ -170,12 +170,16 @@ describe("Polar test double", () => {
   })
 
   it("answers 401 to a request without the configured access token", async () => {
-    await expect(fetch(`${polarApi.origin}/v1/orders/${crypto.randomUUID()}`)).resolves.toHaveProperty("status", HTTP_STATUS.UNAUTHORIZED)
+    const order = POLAR_API.ORDER.replace(":id", crypto.randomUUID())
+
+    await expect(fetch(`${polarApi.origin}${order}`)).resolves.toHaveProperty("status", HTTP_STATUS.UNAUTHORIZED)
     expect(takeProviderRefusals()).toHaveLength(1)
   })
 
   it("refuses an endpoint the application never calls", async () => {
-    const response = await fetch(`${polarApi.origin}/v1/products/`, { headers: { authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` } })
+    const response = await fetch(`${polarApi.origin}${POLAR_API.PRODUCTS}`, {
+      headers: { authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` },
+    })
 
     expect(response.status).toBe(HTTP_STATUS.NOT_FOUND)
     expect(takeProviderRefusals()).toHaveLength(1)

@@ -36,10 +36,18 @@ const METADATA_MAX_KEYS = 50
 const METADATA_KEY_MAX_LENGTH = 40
 const METADATA_VALUE_MAX_LENGTH = 500
 const CHECKOUT_LIFETIME_MS = 3_600_000
-const LICENSE_KEY_PATH = /^\/v1\/license-keys\/(?<id>[^/]+)$/u
 const AD_HOC_CURRENCY = "usd" satisfies models.PresentmentCurrency
-const ORDER_PATH = /^\/v1\/orders\/(?<id>[^/]+)$/u
-const ORDER_INVOICE_PATH = /^\/v1\/orders\/(?<id>[^/]+)\/invoice$/u
+
+export const POLAR_API = {
+  CHECKOUTS: "/v1/checkouts/",
+  LICENSE_KEY: "/v1/license-keys/:id",
+  LICENSE_KEY_ACTIVATION: "/v1/license-keys/activate",
+  LICENSE_KEY_DEACTIVATION: "/v1/license-keys/deactivate",
+  ORDER: "/v1/orders/:id",
+  ORDERS: "/v1/orders/",
+  ORDER_INVOICE: "/v1/orders/:id/invoice",
+  PRODUCTS: "/v1/products/",
+} as const
 
 const AREAS: Readonly<Record<string, PolarCatalogue>> = AREA_POLAR_CATALOGUES
 
@@ -276,6 +284,8 @@ const notPermitted = (detail: string): Response =>
 
 const refuse = (status: number, body: unknown, reason: string) => ({ reason, response: respond(status, body) })
 
+type Reply = ReturnType<typeof refuse> | Response
+
 const invalid = (location: string, issues: string) =>
   refuse(
     HTTP_STATUS.UNPROCESSABLE_CONTENT,
@@ -481,7 +491,8 @@ const deactivateLicenseKey = async (request: Request) => {
   return respond(HTTP_STATUS.NO_CONTENT)
 }
 
-const updateLicenseKey = async (licenseKeyId: string, request: Request) => {
+const updateLicenseKey = async (request: Request, match: URLPatternResult) => {
+  const licenseKeyId = resourceId(match)
   const body = licenseKeyUpdateSchema.safeParse(await request.json())
   if (!body.success) {
     return invalid("body", zod.prettifyError(body.error))
@@ -500,8 +511,9 @@ const updateLicenseKey = async (licenseKeyId: string, request: Request) => {
   return respond(HTTP_STATUS.OK, read satisfies models.LicenseKeyRead)
 }
 
-const listOrders = (url: URL) => {
-  const query = ordersQuerySchema.safeParse({ ...Object.fromEntries(url.searchParams), product_id: url.searchParams.getAll("product_id") })
+const listOrders = (request: Request) => {
+  const { searchParams } = new URL(request.url)
+  const query = ordersQuerySchema.safeParse({ ...Object.fromEntries(searchParams), product_id: searchParams.getAll("product_id") })
   if (!query.success) {
     return invalid("query", zod.prettifyError(query.error))
   }
@@ -517,7 +529,8 @@ const listOrders = (url: URL) => {
 
 export const polarInvoiceUrl = (orderId: string): string => `${polarCheckoutOrigin(env.POLAR_SERVER)}/invoices/${orderId}.pdf`
 
-const readInvoice = (orderId: string): Response => {
+const readInvoice = (_request: Request, match: URLPatternResult): Response => {
+  const orderId = resourceId(match)
   const order = orders.get(orderId)
   if (order?.is_invoice_generated !== true) {
     return notFound()
@@ -525,50 +538,52 @@ const readInvoice = (orderId: string): Response => {
   return respond(HTTP_STATUS.OK, { url: polarInvoiceUrl(orderId) } satisfies models.OrderInvoice)
 }
 
-const read = (value: models.LicenseKeyWithActivations | models.Order | undefined): Response =>
-  value === undefined ? notFound() : respond(HTTP_STATUS.OK, value)
-
-const currentOrder = (orderId: string): models.Order | undefined => {
-  const order = orders.get(orderId)
-  return order === undefined ? undefined : { ...order, customer: customerOf(order) }
-}
-
-const routeLicenseKey = (request: Request, url: URL) => {
-  const licenseKeyId = LICENSE_KEY_PATH.exec(url.pathname)?.groups?.["id"]
-  if (licenseKeyId !== undefined && request.method === "PATCH") {
-    return updateLicenseKey(licenseKeyId, request)
+const readLicenseKey = (_request: Request, match: URLPatternResult): Response => {
+  const licenseKey = licenseKeys.get(resourceId(match))
+  if (licenseKey === undefined) {
+    return notFound()
   }
-  return licenseKeyId !== undefined && request.method === "GET" ? read(licenseKeys.get(licenseKeyId)) : undefined
+  return respond(HTTP_STATUS.OK, licenseKey)
 }
+
+const readOrder = (_request: Request, match: URLPatternResult): Response => {
+  const order = orders.get(resourceId(match))
+  if (order === undefined) {
+    return notFound()
+  }
+  return respond(HTTP_STATUS.OK, { ...order, customer: customerOf(order) })
+}
+
+interface Endpoint {
+  method: string
+  pattern: URLPattern
+  respond: (request: Request, match: URLPatternResult) => Promise<Reply> | Reply
+}
+
+const resourceSchema = zod.object({ id: zod.string() })
+
+const resourceId = (match: URLPatternResult): string => resourceSchema.parse(match.pathname.groups).id
+
+const ENDPOINTS: readonly Endpoint[] = [
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDERS }), respond: listOrders },
+  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.CHECKOUTS }), respond: createCheckout },
+  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_ACTIVATION }), respond: activateLicenseKey },
+  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_DEACTIVATION }), respond: deactivateLicenseKey },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }), respond: readLicenseKey },
+  { method: "PATCH", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }), respond: updateLicenseKey },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER }), respond: readOrder },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER_INVOICE }), respond: readInvoice },
+]
 
 const route = (request: Request) => {
-  const url = new URL(request.url)
-  const endpoint = `${request.method} ${url.pathname}`
-  if (endpoint === "POST /v1/checkouts/") {
-    return createCheckout(request)
+  for (const endpoint of ENDPOINTS) {
+    const match = endpoint.pattern.exec(request.url)
+    if (endpoint.method === request.method && match !== null) {
+      return endpoint.respond(request, match)
+    }
   }
-  if (endpoint === "POST /v1/license-keys/activate") {
-    return activateLicenseKey(request)
-  }
-  if (endpoint === "POST /v1/license-keys/deactivate") {
-    return deactivateLicenseKey(request)
-  }
-  if (endpoint === "GET /v1/orders/") {
-    return listOrders(url)
-  }
-  const licenseKey = routeLicenseKey(request, url)
-  if (licenseKey !== undefined) {
-    return licenseKey
-  }
-  const orderId = request.method === "GET" ? ORDER_PATH.exec(url.pathname)?.groups?.["id"] : undefined
-  if (orderId !== undefined) {
-    return read(currentOrder(orderId))
-  }
-  const invoiceOrderId = request.method === "GET" ? ORDER_INVOICE_PATH.exec(url.pathname)?.groups?.["id"] : undefined
-  if (invoiceOrderId !== undefined) {
-    return readInvoice(invoiceOrderId)
-  }
-  return refuse(HTTP_STATUS.NOT_FOUND, { detail: "Not Found" }, `the test double does not serve ${endpoint}`)
+  const { pathname } = new URL(request.url)
+  return refuse(HTTP_STATUS.NOT_FOUND, { detail: "Not Found" }, `the test double does not serve ${request.method} ${pathname}`)
 }
 
 export const polarApi = {

@@ -1,1 +1,1 @@
-export const POLAR_DEPLOY_CHECKS = ["polar:verify"] as const
+export const POLAR_DEPLOY_CHECKS = ["polar:verify"] as const satisfies readonly string[]

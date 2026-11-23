@@ -55,23 +55,17 @@ export interface AuthEmails {
 
 const AREAS: readonly AuthEmails[] = Object.values(AREA_AUTH_EMAILS)
 
+const fromEveryArea =
+  <Email>(send: (area: AuthEmails, email: Email) => Promise<void>) =>
+  async (email: Email): Promise<void> => {
+    await Promise.all(AREAS.map((area) => send(area, email)))
+  }
+
 export const AUTH_EMAILS: AuthEmails = {
-  sendChangeEmailConfirmation: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendChangeEmailConfirmation(email)))
-  },
-  sendDeleteAccount: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendDeleteAccount(email)))
-  },
-  sendExistingAccount: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendExistingAccount(email)))
-  },
-  sendPasswordChanged: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendPasswordChanged(email)))
-  },
-  sendResetPassword: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendResetPassword(email)))
-  },
-  sendVerification: async (email) => {
-    await Promise.all(AREAS.map((area) => area.sendVerification(email)))
-  },
+  sendChangeEmailConfirmation: fromEveryArea((area, email) => area.sendChangeEmailConfirmation(email)),
+  sendDeleteAccount: fromEveryArea((area, email) => area.sendDeleteAccount(email)),
+  sendExistingAccount: fromEveryArea((area, email) => area.sendExistingAccount(email)),
+  sendPasswordChanged: fromEveryArea((area, email) => area.sendPasswordChanged(email)),
+  sendResetPassword: fromEveryArea((area, email) => area.sendResetPassword(email)),
+  sendVerification: fromEveryArea((area, email) => area.sendVerification(email)),
 }

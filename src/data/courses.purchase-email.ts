@@ -14,15 +14,15 @@ const NAMESPACE = "purchase-email.courses"
 export const COURSES_PURCHASE_EMAIL = [
   {
     key: "courses",
-    line: createServerOnlyFn(async ({ locale, userId }: PurchaseEmailContext): Promise<PurchaseEmailLine | undefined> => {
+    lines: createServerOnlyFn(async ({ locale, userId }: PurchaseEmailContext): Promise<readonly PurchaseEmailLine[]> => {
       if (!(await holdsCourseAccess(userId))) {
-        return undefined
+        return []
       }
 
       const messages = await loadNamespace<typeof coursesStepMessages>({ locale, namespace: NAMESPACE })
       const t = createTranslator({ locale, messages: { "purchase-email": { courses: messages } }, namespace: "purchase-email.courses" })
 
-      return { link: t("link"), pathname: ROUTES.COURSES, text: t("text") }
+      return [{ link: t("link"), pathname: ROUTES.COURSES, text: t("text") }]
     }),
   },
 ] as const satisfies readonly PurchaseEmailStep[]

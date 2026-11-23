@@ -42,7 +42,7 @@ const productFields = (organizationId: string, { id, name, recurringInterval }: 
   name,
   organization_id: organizationId,
   recurring_interval: recurringInterval,
-  recurring_interval_count: recurringInterval === null ? null : RECURRING_INTERVAL_COUNT,
+  recurring_interval_count: recurringInterval && RECURRING_INTERVAL_COUNT,
   trial_interval: null,
   trial_interval_count: null,
   visibility: "public",

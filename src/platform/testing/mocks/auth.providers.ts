@@ -74,30 +74,28 @@ export const githubLogin = {
 export const githubApi = {
   origin: "https://api.github.com",
   reset: () => {},
-  respond: (request: Request) => {
+  respond: async (request: Request) => {
     if (request.method === "GET" && new URL(request.url).pathname === REPOSITORY_PATH) {
-      return Promise.resolve(Response.json({ stargazers_count: GITHUB_TEST_STAR_COUNT }))
+      return Response.json({ stargazers_count: GITHUB_TEST_STAR_COUNT })
     }
     const identity = githubTestIdentity(request.headers.get("authorization")?.replace(BEARER_PREFIX, "") ?? "")
     if (request.method !== "GET" || identity === undefined) {
-      return Promise.resolve(refuse(request, HTTP_STATUS.UNAUTHORIZED))
+      return refuse(request, HTTP_STATUS.UNAUTHORIZED)
     }
     const { pathname } = new URL(request.url)
     if (pathname === "/user") {
-      return Promise.resolve(
-        Response.json({
-          avatar_url: null,
-          email: identity.email,
-          id: identity.id,
-          login: `user${String(identity.id)}`,
-          name: identity.name,
-        }),
-      )
+      return Response.json({
+        avatar_url: null,
+        email: identity.email,
+        id: identity.id,
+        login: `user${String(identity.id)}`,
+        name: identity.name,
+      })
     }
     if (pathname === "/user/emails") {
-      return Promise.resolve(Response.json([{ email: identity.email, primary: true, verified: true, visibility: "public" }]))
+      return Response.json([{ email: identity.email, primary: true, verified: true, visibility: "public" }])
     }
-    return Promise.resolve(refuse(request, HTTP_STATUS.NOT_FOUND))
+    return refuse(request, HTTP_STATUS.NOT_FOUND)
   },
 } satisfies ProviderDouble
 

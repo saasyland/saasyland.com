@@ -19,11 +19,9 @@ export const licenseSearchSchema = zod.object({
 const TIER_PAGES = new Set<string>([ROUTES.APP, ROUTES.APP_LICENSE])
 
 export const redirectTierSchema = callbackPathSchema
-  .transform((redirect) => {
-    const { pathname, searchParams } = new URL(redirect, APP_URL)
-
-    return TIER_PAGES.has(deLocalizePathname(pathname)) ? licenseSearchSchema.parse(Object.fromEntries(searchParams)).tier : undefined
-  })
+  .transform((redirect) => new URL(redirect, APP_URL))
+  .refine(({ pathname }) => TIER_PAGES.has(deLocalizePathname(pathname)))
+  .transform(({ searchParams }) => licenseSearchSchema.parse(Object.fromEntries(searchParams)).tier)
   .pipe(zod.enum(LICENSE_TIER))
 
 export const PURCHASE_STEP = {

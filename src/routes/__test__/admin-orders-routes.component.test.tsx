@@ -50,6 +50,7 @@ import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
 import licenseMessages from "~/messages/en-US/pages.admin.users.license.json"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
+import { routeTree } from "~/src/routeTree.gen"
 
 const { detail } = ordersMessages
 const polarLabels = detail.polar
@@ -291,7 +292,7 @@ describe("orders page filters and export", () => {
 
   it("mirrors the page in its skeleton", () => {
     const page = markupOf(<AdminOrdersPending />)
-    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/orders") })
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/orders", routeTree) })
 
     expect(busyMarkup(container)).toBe(page)
   })
@@ -484,7 +485,7 @@ describe("customers tab", () => {
 
   it("mirrors the tab in the skeleton of user management", () => {
     const page = markupOf(<AdminCustomersPending />)
-    const { container } = renderWithRouter(<AdminUsersPending />, { router: createTestRouter(ROUTES.ADMIN_USERS_CUSTOMERS) })
+    const { container } = renderWithRouter(<AdminUsersPending />, { router: createTestRouter(ROUTES.ADMIN_USERS_CUSTOMERS, routeTree) })
 
     expect(container.innerHTML).toContain(page)
   })

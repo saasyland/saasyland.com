@@ -22,6 +22,7 @@ import { AdminProductsPending } from "~/src/presentation/components/custom/admin
 
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
+import { routeTree } from "~/src/routeTree.gen"
 
 const products = [
   adminProduct(),
@@ -235,7 +236,7 @@ describe("admin catalog export", () => {
 describe("admin catalog skeletons", () => {
   it("renders the skeleton of the catalog", () => {
     const page = markupOf(<AdminProductsPending />)
-    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/products") })
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/products", routeTree) })
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
     expect(busyMarkup(container)).toBe(page)

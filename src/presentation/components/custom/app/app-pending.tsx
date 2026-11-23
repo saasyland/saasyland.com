@@ -1,11 +1,8 @@
 import type { JSX } from "react"
 
-import { useRouterState } from "@tanstack/react-router"
-
-import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
+import { usePagePending } from "~/src/hooks/use-page-pending"
 
 import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
-import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -64,8 +61,7 @@ const AppSidebarPending = (): JSX.Element => (
 )
 
 export const AppPending = (): JSX.Element => {
-  const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = PAGE_SKELETONS.get(pathname)
+  const Page = usePagePending("/app")
 
   return (
     <div className="flex h-svh w-full overflow-hidden">

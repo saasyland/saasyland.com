@@ -9,12 +9,14 @@ import { AUTH_APP_OVERVIEW } from "~/src/data/auth.app-overview"
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
 import { AppDeleteAccountPending, AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 
+import { routeTree } from "~/src/routeTree.gen"
+
 afterEach(cleanup)
 
 describe("customer app skeletons", () => {
   it.each(["/app/settings", "/ja-JP/app/settings"])("renders the settings skeleton at %s", (path) => {
     const page = markupOf(<AppSettingsPending />)
-    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter(path) })
+    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter(path, routeTree) })
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
     expect(busyMarkup(container)).toBe(page)
@@ -22,7 +24,9 @@ describe("customer app skeletons", () => {
 
   it("renders the account deletion skeleton on the page the deletion link opens", () => {
     const page = markupOf(<AppDeleteAccountPending />)
-    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter("/app/settings/delete-account?token=abc") })
+    const { container } = renderWithRouter(<AppPending />, {
+      router: createTestRouter("/app/settings/delete-account?token=abc", routeTree),
+    })
 
     expect(busyMarkup(container)).toBe(page)
   })
@@ -39,7 +43,7 @@ describe("customer app skeletons", () => {
   })
 
   it("renders only the app chrome for a path without a page skeleton", () => {
-    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter("/app/unknown") })
+    const { container } = renderWithRouter(<AppPending />, { router: createTestRouter("/app/unknown", routeTree) })
 
     expect(container.firstElementChild).not.toBeNull()
     expect(container.querySelector('[aria-busy="true"]')).toBeNull()

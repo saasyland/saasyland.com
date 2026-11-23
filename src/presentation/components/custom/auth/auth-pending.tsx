@@ -4,9 +4,10 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
-import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { createOtpSlotIndices } from "~/src/modules/two-factor/two-factor.utils"
+
+import { usePagePending } from "~/src/hooks/use-page-pending"
 
 import { AUTH_ASSURANCES, OAUTH_PROVIDERS } from "~/src/data/auth"
 import { findSignUpIntro } from "~/src/data/sign-up-intros"
@@ -15,8 +16,6 @@ import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
-
-import { ROUTES } from "~/src/routes"
 
 const TitlePending = (): JSX.Element => <Skeleton className="h-lh w-3/5 scale-y-70 text-headline-support" />
 
@@ -205,19 +204,8 @@ export const VerifyEmailPending = (): JSX.Element => (
   </div>
 )
 
-const AUTH_PAGES = new Map<string, () => JSX.Element>([
-  [ROUTES.ACCEPT_INVITATION, AcceptInvitationPending],
-  [ROUTES.FORGOT_PASSWORD, ForgotPasswordPending],
-  [ROUTES.RESET_PASSWORD, ResetPasswordPending],
-  [ROUTES.SIGN_IN, SignInPending],
-  [ROUTES.SIGN_UP, SignUpPending],
-  [ROUTES.TWO_FACTOR, TwoFactorPending],
-  [ROUTES.VERIFY_EMAIL, VerifyEmailPending],
-])
-
 export const AuthPending = (): JSX.Element => {
-  const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = AUTH_PAGES.get(pathname)
+  const Page = usePagePending("/auth")
 
   return (
     <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">

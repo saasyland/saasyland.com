@@ -24,6 +24,7 @@ import {
 
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
+import { routeTree } from "~/src/routeTree.gen"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -78,7 +79,7 @@ describe("admin users skeletons", () => {
     ["/de-DE/admin/users/invitations", AdminUsersPending, AdminUsersInvitationsPending],
   ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
     const page = markupOf(<Page />)
-    const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })
+    const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path, routeTree) })
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
     expect(busyMarkup(container)).toBe(page)
@@ -92,7 +93,7 @@ describe("admin users skeletons", () => {
   })
 
   it("draws the breadcrumb trail of /pl-PL/admin/users/all", () => {
-    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/pl-PL/admin/users/all") })
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/pl-PL/admin/users/all", routeTree) })
 
     expect(breadcrumbDividers(container)).toHaveLength(2)
   })

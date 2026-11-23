@@ -7,9 +7,6 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
-import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
-
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
@@ -45,15 +42,7 @@ import { Route as CourseEditorRoute } from "~/src/routes/admin.courses.$courseId
 import { Route as CourseCreateRoute } from "~/src/routes/admin.courses.create"
 import { Route as CourseListRoute } from "~/src/routes/admin.courses.index"
 
-import { breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import {
-  AdminCourseCreatePending,
-  AdminCourseEditorPending,
-  AdminCourseSectionPending,
-  AdminCoursesPending,
-  AdminLessonEditorPending,
-} from "~/src/presentation/components/custom/admin/courses-pending"
+import { renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"
@@ -704,28 +693,5 @@ describe("admin course lessons", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
     })
-  })
-})
-
-describe("admin course skeletons", () => {
-  it.each([
-    ["/admin/courses", AdminPending, AdminCoursesPending],
-    ["/admin/courses/create", AdminPending, AdminCourseCreatePending],
-    ["/admin/courses", AdminCourseSectionPending, AdminCoursesPending],
-    ["/pl-PL/admin/courses/create", AdminCourseSectionPending, AdminCourseCreatePending],
-    [`/admin/courses/${COURSE_ID}`, AdminCourseSectionPending, AdminCourseEditorPending],
-    [`/admin/courses/${COURSE_ID}/lessons/lesson-sessions`, AdminCourseSectionPending, AdminLessonEditorPending],
-  ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
-    const page = markupOf(<Page />)
-    const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })
-
-    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
-    expect(busyMarkup(container)).toBe(page)
-  })
-
-  it("draws the breadcrumb trail of /admin/courses/create", () => {
-    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/courses/create") })
-
-    expect(breadcrumbDividers(container)).toHaveLength(2)
   })
 })

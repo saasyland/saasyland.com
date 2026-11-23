@@ -1,13 +1,13 @@
 import type { ReactElement, ReactNode } from "react"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { RouterContextProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router"
+import { type AnyRoute, RouterContextProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router"
 import { type RenderOptions, render } from "@testing-library/react"
 
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
-export const createTestRouter = (path = "/") =>
-  createRouter({ history: createMemoryHistory({ initialEntries: [path] }), rewrite: LOCALE_REWRITE, routeTree: createRootRoute() })
+export const createTestRouter = (path = "/", routeTree: AnyRoute = createRootRoute()) =>
+  createRouter({ history: createMemoryHistory({ initialEntries: [path] }), rewrite: LOCALE_REWRITE, routeTree })
 
 export const TestProviders = ({
   children,

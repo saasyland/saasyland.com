@@ -19,17 +19,19 @@ description: "Die Tabellenkomponente: Suche, Filter nach Spaltentyp, Sortierung,
 
 ## Props
 
-| Prop          | Zweck                                                                                                                  |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `columns`     | Der Spaltensatz aus der `<entity>-columns.tsx` der Seite. Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient |
-| `id`          | Benennt das Raster: der Schlüssel seines gespeicherten Layouts im Browser und der Anfang seines CSV-Dateinamens        |
-| `label`       | Der zugängliche Name der Tabelle, meist der Seitentitel                                                                |
-| `data`        | Zeilen im Arbeitsspeicher, für ein Raster, das auf dem Client sucht, filtert, sortiert und paginiert                   |
-| `query`       | Servermodus: eine Funktion der Anfrage des Rasters, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen   |
-| `search`      | Beschriftung und Platzhalter des Suchfelds; ohne sie hat das Raster keine Suche                                        |
-| `empty`       | Was das Raster sagt, solange es keine Zeilen hat und weder Suche noch Filter gesetzt sind                              |
-| `selectable`  | Fügt eine Checkbox-Spalte und die Auswahlleiste hinzu                                                                  |
-| `bulkActions` | Eine Funktion der ausgewählten Zeilen, die weitere Schaltflächen in der Auswahlleiste rendert                          |
+| Prop             | Zweck                                                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `columns`        | Der Spaltensatz aus der `<entity>-columns.tsx` der Seite. Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient     |
+| `id`             | Benennt das Raster: der Schlüssel seines gespeicherten Layouts im Browser und der Anfang seines CSV-Dateinamens            |
+| `label`          | Der zugängliche Name der Tabelle, meist der Seitentitel                                                                    |
+| `data`           | Zeilen im Arbeitsspeicher, für ein Raster, das auf dem Client sucht, filtert, sortiert und paginiert                       |
+| `query`          | Servermodus: eine Funktion der Anfrage des Rasters, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen       |
+| `search`         | Beschriftung und Platzhalter des Suchfelds; ohne sie hat das Raster keine Suche                                            |
+| `empty`          | Was das Raster sagt, solange es keine Zeilen hat und weder Suche noch Filter gesetzt sind                                  |
+| `selectable`     | Fügt eine Checkbox-Spalte und die Auswahlleiste hinzu                                                                      |
+| `bulkActions`    | Eine Funktion der ausgewählten Zeilen, die weitere Schaltflächen in der Auswahlleiste rendert                              |
+| `rowActions`     | Eine Komponente, die jede `row` erhält und sie in einer rechts angehefteten Spalte abschließt                              |
+| `rowActionsSize` | Die Breite dieser Spalte in Pixeln, <RepositoryFact name="dataGridActionsSize" />, sofern die Aktionen nicht mehr brauchen |
 
 ## Spalten
 
@@ -58,6 +60,7 @@ columnHelper.accessor("status", {
 | `hidden`  | Ausgeblendet, bis der Admin sie im Menü Spalten einblendet                                                                                                         |
 | `pinned`  | Am `start` oder am `end` angeheftet, bis der Admin sie löst                                                                                                        |
 | `export`  | Der Text, den die CSV für eine Zeile erhält. Ohne ihn übernimmt die CSV Strings und Zahlen unverändert, Datumswerte als ISO-Zeitpunkte und lässt alles andere leer |
+| `align`   | `end` richtet die Kopfzeile und die Zellen rechtsbündig mit tabellarischen Ziffern aus, für Beträge und Anzahlen                                                   |
 
 `size` ist die Anfangsbreite der Spalte in Pixeln. Eine Spalte ist sortierbar, sofern sie nicht `enableSorting: false` setzt; im Servermodus sollten nur die Spalten sortierbar sein, nach denen das Zod-Schema des Moduls sortieren kann.
 
@@ -73,7 +76,7 @@ Die Filterarten sind <RepositoryFact name="dataGridFilterKinds" />. Jede hat ein
 | `numberRange` | Zwei Zahlenfelder, Mindestens und Höchstens, jedes darf leer bleiben                                         | `{ min?, max? }`       |
 | `dateRange`   | Letzte 7 Tage, Letzte 30 Tage, Letzte 12 Monate oder beliebige Tage in einem Kalender                        | `{ from?, to? }` in ms |
 
-Tage werden in der Zeitzone des Admins in Zeitpunkte umgewandelt, vom Beginn des ersten Tages bis zur letzten Millisekunde des letzten, sodass der Server einfache Zeitpunkte vergleicht. Jeder aktive Filter erscheint als Chip mit einer kurzen Zusammenfassung, etwa mindestens 40, Bezahlt oder Erstattet, oder 3 ausgewählt; sein × entfernt ihn, und Filter entfernen entfernt alle. Eine Änderung der Suche, eines Filters oder der Sortierung springt zurück auf die erste Seite und hebt die Auswahl auf.
+Tage werden in der Zeitzone des Admins in Zeitpunkte umgewandelt, vom Beginn des ersten Tages bis zur letzten Millisekunde des letzten, sodass der Server einfache Zeitpunkte vergleicht. Jeder aktive Filter erscheint als Chip in der Werkzeugleiste neben der Schaltfläche Filtern, sobald er gesetzt ist, sodass sich die Chips und die Ergebnisse ändern, während der Filter offen bleibt. Ein Chip trägt eine kurze Zusammenfassung, etwa mindestens 40, Bezahlt oder Erstattet, oder 3 ausgewählt; sein × entfernt ihn, und Filter entfernen entfernt alle. Eine Änderung der Suche, eines Filters oder der Sortierung springt zurück auf die erste Seite und hebt die Auswahl auf.
 
 ## Servermodus
 
@@ -103,7 +106,11 @@ Der Admin stellt das Raster um, und der Browser speichert es unter der `id` des 
 - **Dichte.** Geräumige oder kompakte Zeilen.
 - **Seitengröße.** <RepositoryFact name="dataGridPageSizes" /> Zeilen pro Seite.
 
-Die Kopfzeile bleibt sichtbar, während die Zeilen innerhalb des Rasters scrollen, und angeheftete Spalten bleiben sichtbar, während das Raster seitwärts scrollt; so zeigt ein Smartphone eine breite Tabelle.
+Das Raster ist eine einzige Karte: oben die Werkzeugleiste, dann die Tabelle und unten die Paginierung, getrennt durch Haarlinien. Jedes Steuerelement der Werkzeugleiste und jeder Filter-Chip hat dieselbe Höhe; die Kopfzeilen stehen in Satzschreibung in der Spec-Größe auf einem gedämpften Band, die Zellen in der Body-Größe, und die letzte Datenspalte nimmt die verbleibende Breite ein, während die Aktionsspalte ihre eigene behält. In jeder Liste des Rasters wird die Option unter dem Zeiger so hervorgehoben wie die, auf der die Tastatur steht. Das Suchfeld nimmt die freie Breite der Werkzeugleiste ein, sodass sein Platzhalter nie abgeschnitten wird, und ein Spaltenkopf, der zu lang für seine Spalte ist, bricht in eine zweite Zeile um, statt gekürzt zu werden. In einem Raster schmaler als 64rem zeigen „Spalten“, „CSV exportieren“ und „Layout zurücksetzen“ nur ihre Symbole, damit die Suche Platz behält.
+
+Die Kopfzeile bleibt sichtbar, während die Zeilen innerhalb des Rasters scrollen, und angeheftete Spalten bleiben sichtbar, während das Raster seitwärts scrollt; so zeigt ein Smartphone eine breite Tabelle. Ein Schatten an der Seite, auf der weitere Spalten außer Sicht liegen, und am Rand der angehefteten Spalten, sobald andere unter ihnen hindurchlaufen, zeigt, dass das Raster scrollt (`.grid-scroller` in `globals.css`).
+
+Die Spalte der Zeilenaktionen hat kein Spaltenmenü: Sie sortiert nicht, lässt sich nicht ausblenden, verschieben oder in der Größe ändern, erscheint nicht in der CSV und bleibt rechts an letzter Stelle.
 
 ## Auswahl und Export
 

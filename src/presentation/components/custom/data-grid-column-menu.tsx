@@ -4,7 +4,7 @@ import type { Column } from "@tanstack/react-table"
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, EllipsisVertical, EyeOff, PanelLeft, PanelRight, PinOff, X } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { SELECT_COLUMN_ID, columnLabel, reorderColumn } from "~/src/integrations/tanstack-table/table.columns"
+import { columnLabel, isDataColumn, reorderColumn } from "~/src/integrations/tanstack-table/table.columns"
 import { DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -38,11 +38,11 @@ const regionOf = <TData extends DataGridRow>(table: DataGridTableInstance<TData>
   const pinned = column.getIsPinned()
 
   if (pinned === DATA_GRID_PIN.START) {
-    return table.getStartVisibleLeafColumns().filter(({ id }) => id !== SELECT_COLUMN_ID)
+    return table.getStartVisibleLeafColumns().filter(({ id }) => isDataColumn(id))
   }
 
   if (pinned === DATA_GRID_PIN.END) {
-    return table.getEndVisibleLeafColumns()
+    return table.getEndVisibleLeafColumns().filter(({ id }) => isDataColumn(id))
   }
 
   return table.getCenterVisibleLeafColumns()

@@ -19,17 +19,19 @@ description: "Komponent tabeli: wyszukiwanie, filtry według typu kolumny, sorto
 
 ## Propsy
 
-| Prop          | Przeznaczenie                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `columns`     | Zestaw kolumn z `<entity>-columns.tsx` strony. Każdy wiersz potrzebuje tekstowego `id`, używanego jako ID wiersza |
-| `id`          | Nazwa siatki: klucz jej zapisanego układu w przeglądarce i początek nazwy jej pliku CSV                           |
-| `label`       | Nazwa dostępna tabeli, zwykle tytuł strony                                                                        |
-| `data`        | Wiersze w pamięci, dla siatki, która wyszukuje, filtruje, sortuje i stronicuje po stronie klienta                 |
-| `query`       | Tryb serwerowy: funkcja, która z żądania siatki tworzy opcje zapytania zwracającego `{ rows, total }`             |
-| `search`      | Etykieta i tekst zastępczy pola wyszukiwania; bez nich siatka nie ma wyszukiwania                                 |
-| `empty`       | Komunikat siatki, gdy nie ma wierszy, a wyszukiwanie i filtry nie są ustawione                                    |
-| `selectable`  | Dodaje kolumnę pól wyboru i pasek zaznaczenia                                                                     |
-| `bulkActions` | Funkcja, która dla zaznaczonych wierszy renderuje dodatkowe przyciski na pasku zaznaczenia                        |
+| Prop             | Przeznaczenie                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `columns`        | Zestaw kolumn z `<entity>-columns.tsx` strony. Każdy wiersz potrzebuje tekstowego `id`, używanego jako ID wiersza  |
+| `id`             | Nazwa siatki: klucz jej zapisanego układu w przeglądarce i początek nazwy jej pliku CSV                            |
+| `label`          | Nazwa dostępna tabeli, zwykle tytuł strony                                                                         |
+| `data`           | Wiersze w pamięci, dla siatki, która wyszukuje, filtruje, sortuje i stronicuje po stronie klienta                  |
+| `query`          | Tryb serwerowy: funkcja, która z żądania siatki tworzy opcje zapytania zwracającego `{ rows, total }`              |
+| `search`         | Etykieta i tekst zastępczy pola wyszukiwania; bez nich siatka nie ma wyszukiwania                                  |
+| `empty`          | Komunikat siatki, gdy nie ma wierszy, a wyszukiwanie i filtry nie są ustawione                                     |
+| `selectable`     | Dodaje kolumnę pól wyboru i pasek zaznaczenia                                                                      |
+| `bulkActions`    | Funkcja, która dla zaznaczonych wierszy renderuje dodatkowe przyciski na pasku zaznaczenia                         |
+| `rowActions`     | Komponent na końcu każdego wiersza, w kolumnie przypiętej do prawej; dostaje `row`                                 |
+| `rowActionsSize` | Szerokość tej kolumny w pikselach: <RepositoryFact name="dataGridActionsSize" />, chyba że akcje potrzebują więcej |
 
 ## Kolumny
 
@@ -58,6 +60,7 @@ Z kolumny siatka odczytuje `meta`:
 | `hidden` | Ukryta, dopóki administrator nie pokaże jej z menu Kolumny                                                                                          |
 | `pinned` | Przypięta do `start` albo do `end`, dopóki administrator jej nie odepnie                                                                            |
 | `export` | Tekst, który CSV dostaje dla wiersza. Bez niego CSV bierze teksty i liczby bez zmian, daty jako znaczniki czasu ISO, a wszystko inne zostawia puste |
+| `align`  | `end` wyrównuje nagłówek i komórki do prawej i używa cyfr tabelarycznych; do kolumn z kwotami i liczbami                                            |
 
 `size` to początkowa szerokość kolumny w pikselach. Kolumnę można sortować, chyba że ustawia `enableSorting: false`; w trybie serwerowym sortować powinny się tylko kolumny, po których może sortować schemat Zod modułu.
 
@@ -73,7 +76,7 @@ Rodzaje filtrów to <RepositoryFact name="dataGridFilterKinds" />. Każdy ma wł
 | `numberRange` | Dwa pola liczbowe, co najmniej i co najwyżej, każde może zostać puste                                  | `{ min?, max? }`            |
 | `dateRange`   | Ostatnie 7 dni, ostatnie 30 dni, ostatnie 12 miesięcy albo dowolne dni w kalendarzu                    | `{ from?, to? }` w ms       |
 
-Dni są zamieniane na znaczniki czasu w strefie czasowej administratora, od początku pierwszego dnia do ostatniej milisekundy ostatniego, więc serwer porównuje zwykłe znaczniki czasu. Każdy aktywny filtr widać jako chip z krótkim podsumowaniem, na przykład co najmniej 40, Opłacone lub Zwrócone albo wybrano: 3; jego × go usuwa, a Usuń filtry usuwa wszystkie. Zmiana wyszukiwania, filtra lub sortowania przenosi na pierwszą stronę i czyści zaznaczenie.
+Dni są zamieniane na znaczniki czasu w strefie czasowej administratora, od początku pierwszego dnia do ostatniej milisekundy ostatniego, więc serwer porównuje zwykłe znaczniki czasu. Każdy aktywny filtr pojawia się jako chip na pasku narzędzi, obok przycisku Filtruj, gdy tylko zostanie ustawiony, więc chipy i wyniki zmieniają się, a edytor filtra pozostaje otwarty. Chip pokazuje krótkie podsumowanie, na przykład co najmniej 40, Opłacone lub Zwrócone albo wybrano: 3; jego × go usuwa, a Wyczyść filtry usuwa wszystkie. Zmiana wyszukiwania, filtra lub sortowania przenosi na pierwszą stronę i czyści zaznaczenie.
 
 ## Tryb serwerowy
 
@@ -103,7 +106,11 @@ Administrator zmienia układ siatki, a przeglądarka zapisuje go pod `id` siatki
 - **Gęstość.** Przestronne lub zwarte wiersze.
 - **Rozmiar strony.** <RepositoryFact name="dataGridPageSizes" /> wierszy na stronę.
 
-Wiersz nagłówka pozostaje widoczny, gdy wiersze przewijają się wewnątrz siatki, a przypięte kolumny pozostają widoczne, gdy siatka przewija się w poziomie; tak telefon pokazuje szeroką tabelę.
+Siatka to jedna karta: na górze pasek narzędzi, pod nim tabela, a na dole pasek paginacji, oddzielone cienkimi liniami. Wszystkie kontrolki paska narzędzi i chipy filtrów mają tę samą wysokość. Nagłówki zaczynają się wielką literą tylko w pierwszym słowie, mają rozmiar metadanych i przygaszone tło, komórki mają rozmiar zwykłego tekstu, a ostatnia kolumna z danymi zajmuje całą pozostałą szerokość, podczas gdy kolumna akcji zachowuje własną. Na każdej liście w siatce opcja pod kursorem jest podświetlona tak samo jak ta, na której jest fokus klawiatury. Pole wyszukiwania zajmuje wolne miejsce na pasku narzędzi, więc jego tekst zastępczy nigdy nie jest ucięty, a nagłówek za długi na swoją kolumnę zawija się do drugiej linii, zamiast się skracać. W siatce węższej niż 64rem przyciski Kolumny, Eksportuj CSV i Przywróć układ pokazują tylko ikony, dzięki czemu wyszukiwanie ma więcej miejsca.
+
+Wiersz nagłówka pozostaje widoczny, gdy wiersze przewijają się wewnątrz siatki, a przypięte kolumny pozostają widoczne, gdy siatka przewija się w poziomie; tak telefon pokazuje szeroką tabelę. Cień po stronie, po której część kolumn jest jeszcze poza widokiem, oraz na krawędzi przypiętych kolumn, gdy inne przesuwają się pod nimi, pokazuje, że siatkę można przewijać (`.grid-scroller` w `globals.css`).
+
+Kolumna akcji wiersza nie ma menu w nagłówku: nie można jej sortować, ukryć, przesunąć ani zmienić jej szerokości, nie trafia do pliku CSV i zawsze zostaje ostatnia po prawej.
 
 ## Zaznaczanie i eksport
 

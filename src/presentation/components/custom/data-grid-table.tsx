@@ -1,12 +1,24 @@
 import { type DragEvent, type JSX, type KeyboardEvent, useState } from "react"
 
 import type { Column, Header, Row } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ChevronsUpDown, SearchX } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox, SearchX } from "lucide-react"
 import { Button as ButtonPrimitive } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
-import { SELECT_COLUMN_ID, columnLabel, pinnedStyle, reorderColumn } from "~/src/integrations/tanstack-table/table.columns"
-import { DATA_GRID_PIN, type DataGridDensity, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+import {
+  ACTIONS_COLUMN_ID,
+  SELECT_COLUMN_ID,
+  columnLabel,
+  isDataColumn,
+  pinnedStyle,
+  reorderColumn,
+} from "~/src/integrations/tanstack-table/table.columns"
+import {
+  DATA_GRID_ALIGN,
+  DATA_GRID_PIN,
+  type DataGridDensity,
+  type DataGridFeatures,
+} from "~/src/integrations/tanstack-table/table.features"
 
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 
@@ -28,8 +40,6 @@ const FIRST_BODY_ROW_INDEX = 2
 
 const RESIZE_STEP_PX = 16
 
-const LAST_INDEX = -1
-
 const SKELETON_ROWS = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => index)
 
 const ARIA_SORT = { asc: "ascending", desc: "descending" } as const
@@ -41,9 +51,12 @@ const RESIZE_KEYS: Readonly<Record<string, number>> = { ArrowLeft: -RESIZE_STEP_
 const pinnedClasses = <TData extends DataGridRow>(column: Column<DataGridFeatures, TData>): string => {
   const pinned = column.getIsPinned()
 
+  const isEndEdge = pinned === DATA_GRID_PIN.END && column.getIsFirstColumn(DATA_GRID_PIN.END)
+  const isStartEdge = pinned === DATA_GRID_PIN.START && column.getIsLastColumn(DATA_GRID_PIN.START)
+
   return cn({
-    "border-l border-l-border": pinned === DATA_GRID_PIN.END && column.getIsFirstColumn(DATA_GRID_PIN.END),
-    "border-r border-r-border": pinned === DATA_GRID_PIN.START && column.getIsLastColumn(DATA_GRID_PIN.START),
+    "grid-end-edge border-l border-l-border": isEndEdge,
+    "grid-start-edge border-r border-r-border": isStartEdge,
     sticky: pinned !== false,
   })
 }
@@ -145,7 +158,8 @@ const DataGridHead = <TData extends DataGridRow>({
   const { column } = header
   const label = columnLabel(column)
   const sorted = column.getIsSorted()
-  const isMovable = column.id !== SELECT_COLUMN_ID
+  const isMovable = isDataColumn(column.id)
+  const isEnd = column.columnDef.meta?.align === DATA_GRID_ALIGN.END
   const draggedColumn = dragging.dragged === undefined ? undefined : table.getColumn(dragging.dragged)
   const accepts =
     isMovable && draggedColumn !== undefined && draggedColumn.id !== column.id && draggedColumn.getIsPinned() === column.getIsPinned()
@@ -154,9 +168,15 @@ const DataGridHead = <TData extends DataGridRow>({
     <TableHead
       aria-sort={column.getCanSort() && sorted !== false ? ARIA_SORT[sorted] : undefined}
       className={cn(
-        "group/head sticky top-0 z-20 border-b border-b-border bg-background transition-colors duration-150",
+        "group/head sticky top-0 z-20 h-10 border-b border-b-border/70 bg-(--grid-head) py-1.5 text-spec leading-snug font-medium tracking-normal whitespace-normal normal-case transition-colors duration-150",
         pinnedClasses(column),
-        { "bg-muted": isDropTarget, "opacity-50": dragging.dragged === column.id, "z-30": column.getIsPinned() !== false },
+        {
+          "bg-muted": isDropTarget,
+          "opacity-50": dragging.dragged === column.id,
+          "text-foreground": sorted !== false,
+          "text-right": isEnd,
+          "z-30": column.getIsPinned() !== false,
+        },
       )}
       draggable={isMovable}
       onDragEnd={() => {
@@ -187,21 +207,24 @@ const DataGridHead = <TData extends DataGridRow>({
       }}
       style={pinnedStyle(column)}
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div className={cn("flex min-w-0 items-center gap-1", { "flex-row-reverse": isEnd })}>
         {column.getCanSort() && (
           <ButtonPrimitive
-            className="-mx-1 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 py-0.5 text-left uppercase transition-colors duration-200 ease-exp outline-none hover:text-foreground data-focus-visible:ring-2 data-focus-visible:ring-ring/50"
+            className={cn(
+              "-mx-1 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 py-0.5 text-left transition-colors duration-200 ease-exp outline-none hover:text-foreground data-focus-visible:ring-2 data-focus-visible:ring-ring/50",
+              { "flex-row-reverse text-right": isEnd },
+            )}
             onPress={(event) => {
               column.toggleSorting(undefined, event.shiftKey)
             }}
           >
-            <span className="truncate">
+            <span className="line-clamp-2 break-words">
               <table.FlexRender header={header} />
             </span>
             <SortIndicator column={column} sorts={table.state.sorting.length} />
           </ButtonPrimitive>
         )}
-        {!column.getCanSort() && typeof column.columnDef.header === "string" && <span className="truncate">{label}</span>}
+        {!column.getCanSort() && typeof column.columnDef.header === "string" && <span className="line-clamp-2 break-words">{label}</span>}
         {!column.getCanSort() && typeof column.columnDef.header !== "string" && <table.FlexRender header={header} />}
         {isMovable && <DataGridColumnMenu announce={announce} column={column} table={table} />}
       </div>
@@ -223,10 +246,11 @@ const DataGridBodyRow = <TData extends DataGridRow>({
     {row.getVisibleCells().map((cell) => (
       <TableCell
         className={cn(
-          "truncate border-b border-b-border group-last/row:border-b-0 group-data-[density=compact]/grid:py-1.5",
+          "truncate border-b border-b-border/70 text-sm group-last/row:border-b-0 group-data-[density=compact]/grid:py-1.5",
           pinnedClasses(cell.column),
           {
-            "z-10 bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_45%,var(--background))] group-data-[state=selected]/row:bg-muted":
+            "text-right tabular-nums": cell.column.columnDef.meta?.align === DATA_GRID_ALIGN.END,
+            "z-10 bg-card group-hover/row:bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))] group-data-[state=selected]/row:bg-muted":
               cell.column.getIsPinned() !== false,
           },
         )}
@@ -248,16 +272,17 @@ const SkeletonRows = <TData extends DataGridRow>({
     <TableRow className="hover:bg-transparent" key={row}>
       {columns.map((column) => (
         <TableCell
-          className={cn("border-b border-b-border group-data-[density=compact]/grid:py-1.5", pinnedClasses(column), {
-            "z-10 bg-background": column.getIsPinned() !== false,
+          className={cn("border-b border-b-border/70 group-data-[density=compact]/grid:py-1.5", pinnedClasses(column), {
+            "z-10 bg-card": column.getIsPinned() !== false,
           })}
           key={column.id}
           style={pinnedStyle(column)}
         >
           <Skeleton
             className={cn("h-lh scale-y-70", {
+              "ml-auto size-7 scale-y-100 rounded-md": column.id === ACTIONS_COLUMN_ID,
               "size-4 scale-y-100 rounded-sm": column.id === SELECT_COLUMN_ID,
-              "w-3/4": column.id !== SELECT_COLUMN_ID,
+              "w-3/4": isDataColumn(column.id),
             })}
           />
         </TableCell>
@@ -278,8 +303,11 @@ const DataGridEmpty = ({
 
   if (!isFiltered) {
     return (
-      <Empty className="sticky left-0 py-12" role="status">
+      <Empty className="sticky left-0 py-14" role="status">
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Inbox aria-hidden />
+          </EmptyMedia>
           <EmptyTitle>{empty ?? t("title")}</EmptyTitle>
         </EmptyHeader>
       </Empty>
@@ -287,7 +315,7 @@ const DataGridEmpty = ({
   }
 
   return (
-    <Empty className="sticky left-0 py-12" role="status">
+    <Empty className="sticky left-0 py-14" role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <SearchX aria-hidden />
@@ -331,11 +359,11 @@ export const DataGridTable = <TData extends DataGridRow>({
   const columns = table.getVisibleLeafColumns()
   const { rows } = table.getRowModel()
   const { pageIndex, pageSize } = table.state.pagination
-  const lastColumn = columns.at(LAST_INDEX)
+  const stretched = columns.findLast((column) => isDataColumn(column.id))
 
   return (
     <TableContainer
-      className="group/grid max-h-[max(24rem,calc(100dvh-14rem))] overflow-auto overscroll-x-contain rounded-lg border border-border bg-background"
+      className="group/grid grid-scroller max-h-[max(24rem,calc(100dvh-16rem))] overflow-auto overscroll-x-contain"
       data-density={density}
     >
       <Table
@@ -347,7 +375,7 @@ export const DataGridTable = <TData extends DataGridRow>({
       >
         <colgroup>
           {columns.map((column) => (
-            <col key={column.id} style={column === lastColumn ? undefined : { width: column.getSize() }} />
+            <col key={column.id} style={column === stretched ? undefined : { width: column.getSize() }} />
           ))}
         </colgroup>
         <TableHeader>

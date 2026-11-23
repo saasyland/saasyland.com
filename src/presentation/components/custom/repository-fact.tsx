@@ -21,7 +21,12 @@ import {
 } from "~/src/integrations/better-auth/auth.constraints"
 import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/better-auth/auth.middleware"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
-import { DATA_GRID_DENSITIES, DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
+import {
+  DATA_GRID_ACTIONS_SIZE,
+  DATA_GRID_DENSITIES,
+  DATA_GRID_FILTER,
+  DATA_GRID_TYPING_DELAY_MS,
+} from "~/src/integrations/tanstack-table/table.features"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
@@ -209,6 +214,7 @@ const FACTS = {
   coverageExclude: coverageScope.exclude,
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,
+  dataGridActionsSize: DATA_GRID_ACTIONS_SIZE,
   dataGridDensities: DATA_GRID_DENSITIES,
   dataGridExportPageSize: MAX_PAGE_SIZE,
   dataGridFilterKinds: Object.values(DATA_GRID_FILTER),

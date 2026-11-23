@@ -6,7 +6,7 @@ import { SearchField, type Selection } from "react-aria-components"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { SELECT_COLUMN_ID, columnLabel, exportValueOf } from "~/src/integrations/tanstack-table/table.columns"
+import { columnLabel, exportValueOf, isDataColumn } from "~/src/integrations/tanstack-table/table.columns"
 import { DATA_GRID_DENSITIES, DATA_GRID_DENSITY, type DataGridDensity } from "~/src/integrations/tanstack-table/table.features"
 
 import { SEARCH_MAX_LENGTH } from "~/src/modules/_core/utils/pagination"
@@ -16,7 +16,7 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { CSV_MEDIA_TYPE, csvOf } from "~/src/lib/csv"
 import { downloadFile } from "~/src/lib/download"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { Button, type ButtonVariantProps } from "~/src/presentation/components/shadcn/button"
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from "~/src/presentation/components/shadcn/dropdown-menu"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/src/presentation/components/shadcn/input-group"
 import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
@@ -27,7 +27,7 @@ import { DataGridFilterChips, DataGridFilterMenu } from "~/src/presentation/comp
 const ISO_DAY_LENGTH = "YYYY-MM-DD".length
 
 const csvOfRows = <TData extends DataGridRow>(table: DataGridTableInstance<TData>, rows: readonly TData[]): string => {
-  const columns = table.getVisibleLeafColumns().filter((column) => column.id !== SELECT_COLUMN_ID)
+  const columns = table.getVisibleLeafColumns().filter((column) => isDataColumn(column.id))
 
   return csvOf([
     columns.map((column) => columnLabel(column)),
@@ -39,11 +39,13 @@ const ExportButton = <TData extends DataGridRow>({
   children,
   id,
   rows,
+  size,
   table,
 }: {
   readonly children: ReactNode
   readonly id: string
   readonly rows: () => Promise<readonly TData[]>
+  readonly size: NonNullable<ButtonVariantProps["size"]>
   readonly table: DataGridTableInstance<TData>
 }): JSX.Element => {
   const errorMessage = useErrorMessage()
@@ -63,7 +65,7 @@ const ExportButton = <TData extends DataGridRow>({
       onPress={() => {
         exporting.mutate()
       }}
-      size="sm"
+      size={size}
       variant="outline"
     >
       <Download aria-hidden />
@@ -81,7 +83,7 @@ const DataGridSearch = ({
   readonly onSearch: (text: string) => void
   readonly search: string
 }): JSX.Element => (
-  <SearchField aria-label={label} className="w-full sm:w-72" onChange={onSearch} value={search}>
+  <SearchField aria-label={label} className="min-w-56 flex-1 basis-72" onChange={onSearch} value={search}>
     <InputGroup>
       <InputGroupAddon>
         <Search aria-hidden />
@@ -120,7 +122,6 @@ const DensityToggle = ({
       }}
       selectedKeys={[density]}
       selectionMode="single"
-      size="sm"
       spacing={0}
       variant="outline"
     >
@@ -140,9 +141,9 @@ const ColumnsMenu = <TData extends DataGridRow>({ table }: { readonly table: Dat
 
   return (
     <DropdownMenuTrigger>
-      <Button size="sm" variant="outline">
+      <Button variant="outline">
         <Columns3 aria-hidden />
-        <span className="max-sm:sr-only">{t("columns")}</span>
+        <span className="@max-5xl/toolbar:sr-only">{t("columns")}</span>
       </Button>
       <DropdownMenu
         aria-label={t("columns")}
@@ -198,31 +199,31 @@ export const DataGridToolbar = <TData extends DataGridRow>({
   const t = useTranslations("components.custom.data-grid.toolbar")
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {searchLabel !== undefined && <DataGridSearch label={searchLabel} onSearch={onSearch} search={search} />}
-        <DataGridFilterMenu table={table} />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <DensityToggle density={density} onDensityChange={onDensityChange} />
-          <ColumnsMenu table={table} />
-          <ExportButton id={id} rows={collectRows} table={table}>
-            <span className="max-sm:sr-only">{t("export")}</span>
-          </ExportButton>
-          <Button
-            isDisabled={!isChanged}
-            onPress={() => {
-              onReset()
-              announce(t("resetDone"))
-            }}
-            size="sm"
-            variant="ghost"
-          >
-            <RotateCcw aria-hidden />
-            <span className="max-sm:sr-only">{t("reset")}</span>
-          </Button>
-        </div>
-      </div>
+    <div
+      className="@container/toolbar flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5"
+      data-slot="data-grid-toolbar"
+    >
+      {searchLabel !== undefined && <DataGridSearch label={searchLabel} onSearch={onSearch} search={search} />}
+      <DataGridFilterMenu table={table} />
       <DataGridFilterChips table={table} />
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <DensityToggle density={density} onDensityChange={onDensityChange} />
+        <ColumnsMenu table={table} />
+        <ExportButton id={id} rows={collectRows} size="default" table={table}>
+          <span className="@max-5xl/toolbar:sr-only">{t("export")}</span>
+        </ExportButton>
+        <Button
+          isDisabled={!isChanged}
+          onPress={() => {
+            onReset()
+            announce(t("resetDone"))
+          }}
+          variant="ghost"
+        >
+          <RotateCcw aria-hidden />
+          <span className="@max-5xl/toolbar:sr-only">{t("reset")}</span>
+        </Button>
+      </div>
     </div>
   )
 }
@@ -252,7 +253,7 @@ export const DataGridSelection = <TData extends DataGridRow>({
         <span aria-live="polite" className="text-sm font-medium tabular-nums">
           {t("count", { count: rows.length })}
         </span>
-        <ExportButton id={id} rows={() => Promise.resolve(rows)} table={table}>
+        <ExportButton id={id} rows={() => Promise.resolve(rows)} size="sm" table={table}>
           {t("export")}
         </ExportButton>
         {bulkActions?.(rows)}

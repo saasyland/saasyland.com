@@ -27,7 +27,7 @@ export const DataGridPagination = <TData extends DataGridRow>({
   const canGoOn = !isRefreshing && table.getCanNextPage()
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-spec text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/70 px-3 py-2 text-spec text-muted-foreground">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Select
           className="flex items-center gap-2"

@@ -46,9 +46,11 @@ describe("data grid", () => {
     renderGrid()
 
     expect(screen.getByRole("table", { name: "People" })).toHaveAttribute("aria-rowcount", String(PEOPLE.length + 1))
-    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Profile"])
     expect(screen.getByRole("columnheader", { name: /^Name/u })).toHaveClass("sticky")
-    expect(screen.getByRole("columnheader", { name: /^Actions/u })).toHaveClass("sticky")
+    expect(screen.getByRole("columnheader", { name: /^Profile/u })).toHaveClass("sticky")
+    expect(within(screen.getByRole("columnheader", { name: /^Name/u })).getByText("Name")).toHaveClass("line-clamp-2")
+    expect(within(screen.getByRole("columnheader", { name: /^Profile/u })).getByText("Profile")).toHaveClass("line-clamp-2")
     expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
     expect(bodyRows().map((row) => row.getAttribute("aria-rowindex"))).toStrictEqual(["2", "3", "4"])
   })
@@ -182,7 +184,7 @@ describe("data grid paging, density and export", () => {
       )
     })
     expect(downloaded()).toBe(
-      "﻿Name,Team,Role,Age,Actions\r\nAda,COMPILERS,Engineer,36,\r\nGrace,COMPILERS,Lead,45,\r\nAlan,KERNELS,Researcher,41,\r\n",
+      "﻿Name,Team,Role,Age,Profile\r\nAda,COMPILERS,Engineer,36,\r\nGrace,COMPILERS,Lead,45,\r\nAlan,KERNELS,Researcher,41,\r\n",
     )
     vi.useRealTimers()
   })
@@ -231,7 +233,7 @@ describe("data grid selection", () => {
 
     await user.click(within(bar).getByRole("button", { name: selection.export }))
     await waitFor(() => {
-      expect(downloaded()).toBe("\uFEFFName,Team,Role,Age,Actions\r\nAda,COMPILERS,Engineer,36,\r\n")
+      expect(downloaded()).toBe("\uFEFFName,Team,Role,Age,Profile\r\nAda,COMPILERS,Engineer,36,\r\n")
     })
 
     await user.click(within(bar).getByRole("button", { name: selection.clear }))
@@ -259,5 +261,38 @@ describe("data grid selection", () => {
     await user.click(within(bodyRows()[0] ?? document.body).getByRole("checkbox", { name: selection.selectRow }))
 
     expect(within(screen.getByRole("region", { name: selection.region })).getAllByRole("button")).toHaveLength(2)
+  })
+})
+
+const PersonActions = ({ row }: { readonly row: Person }) => <button type="button">{`Open ${row.name}`}</button>
+
+describe("data grid row actions", () => {
+  it("ends every row with its actions, pinned to the right, out of the menus and the CSV", async () => {
+    const user = userEvent.setup()
+    renderGrid({ rowActions: PersonActions, selectable: true })
+
+    expect(headerNames()).toStrictEqual(["", "Name", "Team", "Role", "Age", "Profile", gridMessages.actions.header])
+    expect(screen.getByRole("columnheader", { name: gridMessages.actions.header })).toHaveClass("sticky")
+    expect(within(bodyRows()[1] ?? document.body).getByRole("button", { name: "Open Grace" })).toBeVisible()
+    expect(screen.queryByRole("button", { name: `${gridMessages.actions.header} column options` })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: toolbar.columns }))
+    expect(screen.queryByRole("menuitemcheckbox", { name: gridMessages.actions.header })).not.toBeInTheDocument()
+    await user.keyboard("{Escape}")
+
+    await user.click(screen.getByRole("button", { name: toolbar.export }))
+    await waitFor(() => {
+      expect(downloaded()).toBe(
+        "﻿Name,Team,Role,Age,Profile\r\nAda,COMPILERS,Engineer,36,\r\nGrace,COMPILERS,Lead,45,\r\nAlan,KERNELS,Researcher,41,\r\n",
+      )
+    })
+  })
+
+  it("keeps the actions column at its width and lets the last data column take the rest", () => {
+    const { container } = renderGrid({ rowActions: PersonActions, rowActionsSize: 120 })
+
+    const widths = [...container.querySelectorAll("col")].map((col) => col.style.width)
+    expect(widths.at(-1)).toBe("120px")
+    expect(widths.at(-2)).toBe("")
   })
 })

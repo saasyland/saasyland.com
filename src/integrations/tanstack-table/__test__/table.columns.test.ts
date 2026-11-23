@@ -2,12 +2,15 @@ import { createColumnHelper } from "@tanstack/react-table"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  ACTIONS_COLUMN_ID,
+  NO_FIXED_COLUMNS,
   SELECT_COLUMN_ID,
   columnIdOf,
   defaultPinning,
   defaultVisibility,
+  isDataColumn,
   moveColumn,
-  withSelectPinned,
+  withFixedColumnsPinned,
 } from "~/src/integrations/tanstack-table/table.columns"
 import { DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
@@ -37,11 +40,18 @@ describe("data grid columns", () => {
     expect(defaultPinning(COLUMNS)).toStrictEqual({ end: ["identifier"], start: ["name"] })
   })
 
-  it("keeps the selection column first among the pinned columns, and only when rows can be selected", () => {
-    const pinning = { end: [SELECT_COLUMN_ID, "identifier"], start: ["name", SELECT_COLUMN_ID] }
+  it("keeps the selection column first and the actions column last among the pinned columns, and only when the grid has them", () => {
+    const pinning = { end: [SELECT_COLUMN_ID, ACTIONS_COLUMN_ID, "identifier"], start: ["name", ACTIONS_COLUMN_ID, SELECT_COLUMN_ID] }
 
-    expect(withSelectPinned(pinning, true)).toStrictEqual({ end: ["identifier"], start: [SELECT_COLUMN_ID, "name"] })
-    expect(withSelectPinned(pinning, false)).toStrictEqual({ end: ["identifier"], start: ["name"] })
+    expect(withFixedColumnsPinned(pinning, { actions: true, selectable: true })).toStrictEqual({
+      end: ["identifier", ACTIONS_COLUMN_ID],
+      start: [SELECT_COLUMN_ID, "name"],
+    })
+    expect(withFixedColumnsPinned(pinning, NO_FIXED_COLUMNS)).toStrictEqual({ end: ["identifier"], start: ["name"] })
+  })
+
+  it("tells the columns that hold data from the selection and actions columns", () => {
+    expect([SELECT_COLUMN_ID, ACTIONS_COLUMN_ID, "name"].map((id) => isDataColumn(id))).toStrictEqual([false, false, true])
   })
 
   it("moves a column onto another one's place from either side", () => {

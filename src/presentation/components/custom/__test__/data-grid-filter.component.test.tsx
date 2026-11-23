@@ -100,6 +100,26 @@ describe("data grid filters", () => {
     expect(screen.queryByRole("group", { hidden: true, name: "Team" })).not.toBeInTheDocument()
   })
 
+  it("highlights the option under the pointer and shows each choice as a chip in the toolbar while the list stays open", async () => {
+    const user = userEvent.setup()
+    renderGrid({ columns: TEAM_CHOICES })
+
+    const dialog = await openFilter(user, "Team")
+    const kernels = within(dialog).getByRole("option", { name: "Kernels" })
+    await user.hover(kernels)
+    expect(kernels).toHaveAttribute("data-hovered", "true")
+    expect(kernels).toHaveClass("data-hovered:bg-accent")
+
+    await user.click(within(dialog).getByRole("option", { name: "Compilers" }))
+    expect(within(chip("Team")).getByRole("button", { hidden: true, name: "Team: Compilers" })).toBeInTheDocument()
+    expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace"])
+    await user.click(kernels)
+    expect(within(chip("Team")).getByRole("button", { hidden: true, name: "Team: Compilers or Kernels" })).toBeInTheDocument()
+    expect(columnTexts("Name")).toHaveLength(3)
+    expect(screen.getByRole("dialog")).toBeVisible()
+    expect(chip("Team").closest("[data-slot=data-grid-toolbar]")).not.toBeNull()
+  })
+
   it("searches a long list of options", async () => {
     const user = userEvent.setup()
     renderGrid()

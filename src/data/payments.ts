@@ -37,7 +37,7 @@ export const ORDER_COLUMN_SIZES = {
   country: 136,
   customer: 216,
   discount: 200,
-  placedAt: 200,
+  placedAt: 232,
   product: 168,
   refundedAmount: 152,
   status: 148,

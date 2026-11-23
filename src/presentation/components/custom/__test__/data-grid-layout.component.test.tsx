@@ -52,16 +52,16 @@ describe("data grid layout", () => {
       within(menu)
         .getAllByRole("menuitemcheckbox")
         .map((item) => item.textContent),
-    ).toStrictEqual(["Name", "Team", "Role", "Age", "Joined", "Actions"])
+    ).toStrictEqual(["Name", "Team", "Role", "Age", "Joined", "Profile"])
     expect(within(menu).getByRole("menuitemcheckbox", { name: "Joined" })).toHaveAttribute("aria-checked", "false")
 
     await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Joined" }))
     await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Team" }))
     await closePopover(user)
 
-    expect(headerNames()).toStrictEqual(["Name", "Role", "Age", "Joined", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Role", "Age", "Joined", "Profile"])
     expect(JSON.parse(localStorage.getItem(`${STORED}visible`) ?? "")).toStrictEqual({
-      columnVisibility: { actions: true, age: true, joined: true, name: true, role: true, team: false },
+      columnVisibility: { age: true, joined: true, name: true, profile: true, role: true, team: false },
     })
   })
 
@@ -73,12 +73,12 @@ describe("data grid layout", () => {
     )
     const { container } = renderGrid({ id: "saved" })
 
-    expect(headerNames()).toStrictEqual(["Name", "Age", "Role", "Joined", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Age", "Role", "Joined", "Profile"])
     expect(container.querySelector("[data-density]")).toHaveAttribute("data-density", "compact")
 
     await user.click(screen.getByRole("button", { name: toolbar.reset }))
 
-    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Profile"])
     expect(container.querySelector("[data-density]")).toHaveAttribute("data-density", "comfortable")
     expect(screen.getByRole("button", { name: toolbar.reset })).toBeDisabled()
     expect(localStorage.getItem(`${STORED}saved`)).toBeNull()
@@ -109,7 +109,7 @@ describe("data grid column menu", () => {
 
     expect(within(await openColumnMenu(user, "Age")).getByRole("menuitem", { name: column.unpin })).toHaveAttribute("aria-disabled", "true")
     await user.click(screen.getByRole("menuitem", { name: column.pinStart }))
-    expect(headerNames()).toStrictEqual(["", "Name", "Age", "Team", "Role", "Actions"])
+    expect(headerNames()).toStrictEqual(["", "Name", "Age", "Team", "Role", "Profile"])
     expect(header("Age")).toHaveStyle({ insetInlineStart: "220px" })
     expect(announced()).toBe("Age pinned to the left.")
 
@@ -117,7 +117,7 @@ describe("data grid column menu", () => {
     expect(within(menu).getByRole("menuitem", { name: column.pinStart })).toHaveAttribute("aria-disabled", "true")
     expect(within(menu).queryByRole("menuitem", { name: column.moveEnd })).not.toBeInTheDocument()
     await user.click(within(menu).getByRole("menuitem", { name: column.moveStart }))
-    expect(headerNames()).toStrictEqual(["", "Age", "Name", "Team", "Role", "Actions"])
+    expect(headerNames()).toStrictEqual(["", "Age", "Name", "Team", "Role", "Profile"])
     expect(announced()).toBe("Age moved before Name.")
   })
 
@@ -126,12 +126,12 @@ describe("data grid column menu", () => {
     renderGrid()
 
     await user.click(within(await openColumnMenu(user, "Age")).getByRole("menuitem", { name: column.pinEnd }))
-    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Actions", "Age"])
+    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Profile", "Age"])
     expect(header("Age")).toHaveStyle({ insetInlineEnd: "0px" })
     expect(announced()).toBe("Age pinned to the right.")
 
     await user.click(within(await openColumnMenu(user, "Age")).getByRole("menuitem", { name: column.unpin }))
-    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Profile"])
     expect(announced()).toBe("Age unpinned.")
   })
 
@@ -140,11 +140,11 @@ describe("data grid column menu", () => {
     renderGrid()
 
     await user.click(within(await openColumnMenu(user, "Team")).getByRole("menuitem", { name: column.moveEnd }))
-    expect(headerNames()).toStrictEqual(["Name", "Role", "Team", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Role", "Team", "Age", "Profile"])
     expect(announced()).toBe("Team moved after Role.")
 
     await user.click(within(await openColumnMenu(user, "Team")).getByRole("menuitem", { name: column.hide }))
-    expect(headerNames()).toStrictEqual(["Name", "Role", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Role", "Age", "Profile"])
     expect(announced()).toBe("Team hidden. Show it again from the Columns menu.")
   })
 
@@ -152,7 +152,7 @@ describe("data grid column menu", () => {
     const user = userEvent.setup()
     renderGrid()
 
-    const menu = await openColumnMenu(user, "Actions")
+    const menu = await openColumnMenu(user, "Profile")
 
     expect(within(menu).queryByRole("menuitem", { name: column.sortAscending })).not.toBeInTheDocument()
     expect(within(menu).queryByRole("menuitem", { name: column.moveStart })).not.toBeInTheDocument()
@@ -183,7 +183,7 @@ describe("data grid column dragging and resizing", () => {
     fireEvent.drop(header("Team"), { dataTransfer: transfer })
     fireEvent.dragEnd(header("Age"))
 
-    expect(headerNames()).toStrictEqual(["Name", "Age", "Team", "Role", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Age", "Team", "Role", "Profile"])
     expect(announced()).toBe("Age moved before Team.")
   })
 
@@ -192,7 +192,7 @@ describe("data grid column dragging and resizing", () => {
 
     fireEvent.drop(header("Team"), { dataTransfer: dataTransfer() })
 
-    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Actions"])
+    expect(headerNames()).toStrictEqual(["Name", "Team", "Role", "Age", "Profile"])
   })
 
   it("resizes a column with the arrow keys and keeps the width", async () => {

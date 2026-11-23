@@ -16,7 +16,7 @@ export const ValidationFieldError = ({ id, message, namespace, params }: Validat
   const key = `${namespace}.${message}`
 
   if (message === undefined || message === "") {
-    return undefined
+    return
   }
 
   return <FieldError id={id}>{t.has(key) ? t(key, params?.[message]) : t("errors.codes.VALIDATION")}</FieldError>

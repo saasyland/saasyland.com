@@ -186,7 +186,7 @@ const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS 
   const format = useFormatter()
 
   if (typeof value === "number") {
-    return <>{format.number(value, unit === undefined ? undefined : UNIT_FORMATS[unit])}</>
+    return <>{format.number(value, unit && UNIT_FORMATS[unit])}</>
   }
 
   if (typeof value === "string") {
@@ -387,6 +387,7 @@ Questi pezzi vanno bene per la maggior parte dei siti TypeScript costruiti con V
 ```ts
 import { globSync, readFileSync } from "node:fs"
 import type { Plugin } from "vite"
+import { exactRegex } from "vite/rolldown/pluginutils"
 
 const MODULE_ID = "virtual:facts"
 const RESOLVED_ID = `\0${MODULE_ID}`
@@ -398,8 +399,8 @@ const collectFacts = () => ({
 
 export const facts = (): Plugin => ({
   name: "facts",
-  resolveId: (id) => (id === MODULE_ID ? RESOLVED_ID : undefined),
-  load: (id) => (id === RESOLVED_ID ? `export default ${JSON.stringify(collectFacts())}` : undefined),
+  resolveId: { filter: { id: exactRegex(MODULE_ID) }, handler: () => RESOLVED_ID },
+  load: { filter: { id: exactRegex(RESOLVED_ID) }, handler: () => `export default ${JSON.stringify(collectFacts())}` },
 })
 ```
 

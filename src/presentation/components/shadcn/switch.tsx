@@ -2,6 +2,8 @@ import { SwitchButton, SwitchField, type SwitchFieldProps, composeRenderProps } 
 
 import { cn } from "~/src/lib/cn"
 
+const SELECTED_THUMB = { "data-selected": true } as const
+
 const Switch = ({
   children,
   className,
@@ -25,7 +27,7 @@ const Switch = ({
           >
             <span
               className="pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=default]/switch:not-data-selected:translate-x-0 group-data-[size=sm]/switch:size-3 group-data-[size=sm]/switch:not-data-selected:translate-x-0 dark:not-data-selected:bg-foreground group-data-[size=default]/switch:data-selected:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-selected:translate-x-[calc(100%-2px)] dark:data-selected:bg-primary-foreground"
-              data-selected={isSelected ? true : undefined}
+              {...(isSelected && SELECTED_THUMB)}
               data-slot="switch-thumb"
             />
           </span>

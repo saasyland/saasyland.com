@@ -156,7 +156,7 @@ const MoveItems = <TData extends DataGridRow>({ announce, column, table }: Colum
   const next = region[position + NEXT]
 
   if (previous === undefined && next === undefined) {
-    return undefined
+    return
   }
 
   const moveOnto = (target: Column<DataGridFeatures, TData>): void => {

@@ -115,7 +115,7 @@ const UpNext = ({ courseSlug, lesson }: { readonly courseSlug: string; readonly 
   )
 }
 
-const OnThisPage = ({ lesson }: { readonly lesson: LessonDetail["detail"] }): JSX.Element | undefined => {
+const OnThisPage = ({ lesson }: { readonly lesson: LessonDetail["detail"] }): JSX.Element | false => {
   const t = useTranslations("pages.courses.lesson")
   const entries = [
     ...(lesson.description.length > 0 ? [{ id: SECTION_IDS.DESCRIPTION, label: t("about") }] : []),
@@ -123,22 +123,23 @@ const OnThisPage = ({ lesson }: { readonly lesson: LessonDetail["detail"] }): JS
     ...(lesson.attachments.length > 0 ? [{ id: SECTION_IDS.MATERIALS, label: t("materials.title") }] : []),
   ]
 
-  if (entries.length < TOC_MIN_ENTRIES) {
-    return undefined
-  }
-
   return (
-    <nav aria-label={t("onThisPage")} className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border py-3 text-body-sm">
-      <span className="inline-flex items-center gap-2 text-foreground">
-        <AlignLeft aria-hidden className="size-3.5" />
-        {t("onThisPage")}
-      </span>
-      {entries.map((entry) => (
-        <a className={TOC_LINK_CLASSNAME} href={`#${entry.id}`} key={entry.id}>
-          {entry.label}
-        </a>
-      ))}
-    </nav>
+    entries.length >= TOC_MIN_ENTRIES && (
+      <nav
+        aria-label={t("onThisPage")}
+        className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border py-3 text-body-sm"
+      >
+        <span className="inline-flex items-center gap-2 text-foreground">
+          <AlignLeft aria-hidden className="size-3.5" />
+          {t("onThisPage")}
+        </span>
+        {entries.map((entry) => (
+          <a className={TOC_LINK_CLASSNAME} href={`#${entry.id}`} key={entry.id}>
+            {entry.label}
+          </a>
+        ))}
+      </nav>
+    )
   )
 }
 

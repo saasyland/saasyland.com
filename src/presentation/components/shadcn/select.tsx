@@ -27,6 +27,7 @@ import {
 } from "react-aria-components"
 
 import { cn } from "~/src/lib/cn"
+import { textValueProps } from "~/src/lib/text-value"
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/src/presentation/components/shadcn/input-group"
 import { Label } from "~/src/presentation/components/shadcn/label"
@@ -53,7 +54,7 @@ const Select = <TValue extends object, TSelectionMode extends "single" | "multip
   ...props
 }: Readonly<SelectComponentProps<TValue, TSelectionMode>>) => (
   <SelectPrimitive className={cn("w-fit", className)} data-slot="select" {...props}>
-    {shouldRenderSelectFieldLabel(fieldLabel) ? <Label className={fieldLabelClassName}>{fieldLabel}</Label> : undefined}
+    {shouldRenderSelectFieldLabel(fieldLabel) && <Label className={fieldLabelClassName}>{fieldLabel}</Label>}
     {children}
   </SelectPrimitive>
 )
@@ -173,30 +174,26 @@ const SelectLabel = ({ className, ...props }: Readonly<HeaderProps>) => (
   <HeaderPrimitive className={cn("px-1.5 py-1 text-spec text-muted-foreground", className)} data-slot="select-label" {...props} />
 )
 
-const SelectItem = <TValue extends object>({ children, className, textValue, ...props }: Readonly<ListBoxItemProps<TValue>>) => {
-  const resolvedTextValue = textValue ?? (typeof children === "string" || typeof children === "number" ? String(children) : undefined)
-
-  return (
-    <ListBoxItemPrimitive
-      className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-focused:bg-accent data-focused:text-accent-foreground data-hovered:bg-accent data-hovered:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className,
-      )}
-      data-slot="select-item"
-      {...props}
-      {...(resolvedTextValue === undefined ? {} : { textValue: resolvedTextValue })}
-    >
-      {composeRenderProps(children, (renderedChildren, { isSelected }) => (
-        <>
-          <span className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">{renderedChildren}</span>
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-            {isSelected ? <CheckIcon className="pointer-events-none" /> : undefined}
-          </span>
-        </>
-      ))}
-    </ListBoxItemPrimitive>
-  )
-}
+const SelectItem = <TValue extends object>({ children, className, textValue, ...props }: Readonly<ListBoxItemProps<TValue>>) => (
+  <ListBoxItemPrimitive
+    className={cn(
+      "relative flex w-full cursor-default items-center gap-1.5 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-focused:bg-accent data-focused:text-accent-foreground data-hovered:bg-accent data-hovered:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+      className,
+    )}
+    data-slot="select-item"
+    {...props}
+    {...textValueProps(textValue, children)}
+  >
+    {composeRenderProps(children, (renderedChildren, { isSelected }) => (
+      <>
+        <span className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">{renderedChildren}</span>
+        <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+          {isSelected && <CheckIcon className="pointer-events-none" />}
+        </span>
+      </>
+    ))}
+  </ListBoxItemPrimitive>
+)
 
 const SelectSeparator = ({ className, ...props }: Readonly<SeparatorProps>) => (
   <SeparatorPrimitive className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)} data-slot="select-separator" {...props} />

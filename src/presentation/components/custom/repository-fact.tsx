@@ -367,7 +367,7 @@ const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS 
   const format = useFormatter()
 
   if (typeof value === "number") {
-    return <>{format.number(value, unit === undefined ? undefined : UNIT_FORMATS[unit])}</>
+    return <>{format.number(value, unit && UNIT_FORMATS[unit])}</>
   }
 
   if (typeof value === "string") {

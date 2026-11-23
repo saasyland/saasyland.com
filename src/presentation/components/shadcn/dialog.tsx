@@ -102,7 +102,7 @@ const DialogFooter = ({
       {...props}
     >
       {children}
-      {showCloseButton ? <DialogClose variant="outline">{t("close")}</DialogClose> : undefined}
+      {showCloseButton && <DialogClose variant="outline">{t("close")}</DialogClose>}
     </div>
   )
 }

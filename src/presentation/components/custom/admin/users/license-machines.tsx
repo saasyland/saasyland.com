@@ -77,7 +77,7 @@ export const LicenseMachines = ({ userId }: { readonly userId: string }): JSX.El
   const owned = machines.find((entry) => entry.userId === userId)
 
   if (owned === undefined) {
-    return undefined
+    return
   }
 
   return (

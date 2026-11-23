@@ -199,30 +199,31 @@ export const DataGridToolbar = <TData extends DataGridRow>({
   const t = useTranslations("components.custom.data-grid.toolbar")
 
   return (
-    <div
-      className="@container/toolbar flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5"
-      data-slot="data-grid-toolbar"
-    >
-      {searchLabel !== undefined && <DataGridSearch label={searchLabel} onSearch={onSearch} search={search} />}
-      <DataGridFilterMenu table={table} />
-      <DataGridFilterChips table={table} />
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <DensityToggle density={density} onDensityChange={onDensityChange} />
-        <ColumnsMenu table={table} />
-        <ExportButton id={id} rows={collectRows} size="default" table={table}>
-          <span className="@max-5xl/toolbar:sr-only">{t("export")}</span>
-        </ExportButton>
-        <Button
-          isDisabled={!isChanged}
-          onPress={() => {
-            onReset()
-            announce(t("resetDone"))
-          }}
-          variant="ghost"
-        >
-          <RotateCcw aria-hidden />
-          <span className="@max-5xl/toolbar:sr-only">{t("reset")}</span>
-        </Button>
+    <div className="@container/toolbar flex flex-col border-b border-border/70" data-slot="data-grid-toolbar">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+        {searchLabel !== undefined && <DataGridSearch label={searchLabel} onSearch={onSearch} search={search} />}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <DensityToggle density={density} onDensityChange={onDensityChange} />
+          <ColumnsMenu table={table} />
+          <ExportButton id={id} rows={collectRows} size="default" table={table}>
+            <span className="@max-5xl/toolbar:sr-only">{t("export")}</span>
+          </ExportButton>
+          <Button
+            isDisabled={!isChanged}
+            onPress={() => {
+              onReset()
+              announce(t("resetDone"))
+            }}
+            variant="ghost"
+          >
+            <RotateCcw aria-hidden />
+            <span className="@max-5xl/toolbar:sr-only">{t("reset")}</span>
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
+        <DataGridFilterMenu table={table} />
+        <DataGridFilterChips table={table} />
       </div>
     </div>
   )

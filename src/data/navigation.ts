@@ -1,9 +1,17 @@
-import { ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
-import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
+import * as AREAS from "~/src/areas/navigation.entries"
+import {
+  ADMIN_NAVIGATION_GROUPS,
+  FOOTER_COLUMNS,
+  NAVIGATION_PLACEMENT,
+  type NavigationArea,
+  type NavigationEntry,
+} from "~/src/data/navigation.constants"
 
-const ENTRIES: readonly NavigationEntry[] = Object.values(AREA_NAVIGATION)
-  .flat()
-  .toSorted((first, second) => first.order - second.order)
+const NAVIGATION_AREAS: readonly NavigationArea[] = Object.values(AREAS)
+
+const ENTRIES: readonly NavigationEntry[] = NAVIGATION_AREAS.flatMap(({ entries, name }) =>
+  entries.map((entry) => ({ ...entry, area: name })),
+).toSorted((first, second) => first.order - second.order)
 
 const ADMIN_ENTRIES = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.ADMIN)
 

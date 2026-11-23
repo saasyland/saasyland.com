@@ -2,10 +2,10 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import * as NAVIGATION_AREAS from "~/src/areas/navigation.entries"
 import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
-import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { USER_TABS } from "~/src/data/user-tabs"
 
@@ -58,11 +58,11 @@ describe("the website's navigation", () => {
   })
 
   it("labels exactly the entries, user tabs and command palette searches that the areas declare, and only breadcrumbs of their sections", () => {
-    const entryLabels = Object.values(AREA_NAVIGATION)
-      .flat()
-      .flatMap(({ area, key, placement, ...entry }) =>
-        [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${area}.${placement}.${label}`),
-      )
+    const entryLabels = Object.values(NAVIGATION_AREAS).flatMap(({ entries, name }) =>
+      entries.flatMap(({ key, placement, ...entry }) =>
+        [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${name}.${placement}.${label}`),
+      ),
+    )
     const tabLabels = USER_TABS.map(({ area, key }) => `${area}.${USER_TABS_GROUP}.${key}`)
     const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${area}.${COMMAND_SEARCH_GROUP}.${key}`)
 

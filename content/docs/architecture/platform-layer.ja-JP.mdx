@@ -21,19 +21,21 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 プラットフォームのファイルはどのエリアも名指ししません。コースやライセンス販売といった各エリアが、Worker、ルートルート、Vite のビルド、デプロイに必要なものを自分のファイルで追加し、パスやメニューと同じようにバレルがそれらをまとめます（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）。
 
-| 対象                 | 各エリアが宣言するもの                                              | バレル                          | 使う側                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Worker ハンドラー    | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ | `src/data/worker.entries.ts`    | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します                           |
-| ルートコンポーネント | `src/data/<area>.root.ts`: `<AREA>_ROOT_COMPONENTS` のリスト 1 つ   | `src/data/root.entries.ts`      | `src/data/root.ts` の `ROOT_COMPONENTS`。`src/routes/__root.tsx` がアウトレットの隣にマウントします                       |
-| タイムゾーン         | `src/data/<area>.time-zone.ts`: `<AREA>_TIME_ZONES` のリスト 1 つ   | `src/data/time-zone.entries.ts` | `src/data/time-zone.ts` の `TIME_ZONE_SOURCES`。`TranslationsProvider` はその最初のタイムゾーンで日付をフォーマットします |
-| Vite プラグイン      | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ      | `src/data/vite.entries.ts`      | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                                                      |
-| 公開サイトのチェック | `src/areas/<area>.live.ts`: `<AREA>_LIVE_CHECKS` のリスト 1 つ      | `src/areas/live.entries.ts`     | `src/lib/deployment.ts` の `LIVE_SITE_CHECKS`。デプロイ後に `scripts/verify-deployment.ts` がリクエストします             |
+| 対象                 | 各エリアが宣言するもの                                                         | バレル                         | 使う側                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Worker ハンドラー    | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ            | `src/data/worker.entries.ts`   | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します                        |
+| ルートコンポーネント | `src/areas/<area>.ts`：1 つの `<AREA>_BROWSER` オブジェクトの `rootComponents` | `src/areas/browser.entries.ts` | `src/areas/browser.ts` の `ROOT_COMPONENTS`。`src/routes/__root.tsx` がアウトレットの隣にマウントします                |
+| タイムゾーン         | `src/areas/<area>.ts`：1 つの `<AREA>_BROWSER` オブジェクトの `useTimeZone`    | `src/areas/browser.entries.ts` | `src/areas/browser.ts` の `TIME_ZONE_HOOKS`。`TranslationsProvider` はその最初のタイムゾーンで日付をフォーマットします |
+| Vite プラグイン      | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ                 | `src/data/vite.entries.ts`     | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                                                   |
+| 公開サイトのチェック | `src/areas/<area>.live.ts`: `<AREA>_LIVE_CHECKS` のリスト 1 つ                 | `src/areas/live.entries.ts`    | `src/lib/deployment.ts` の `LIVE_SITE_CHECKS`。デプロイ後に `scripts/verify-deployment.ts` がリクエストします          |
 
 リクエストハンドラーは `pathPrefix` を受け持ち、その配下のすべてのリクエストに、ロケールのミドルウェア、静的アセット、TanStack Start より先に応答します。コースのエリアのハンドラーが `/media/` に対して、ライセンスのエリアのハンドラーが `/bundles/` に対して行っているのがこれです。ドキュメントハンドラーは、Worker が返すすべての HTML ページをそのロケールとリクエストとともに受け取り、送信するページを返します。ライセンスのエリアの地域別価格がこれにあたります。`src/server.ts` はハンドラーを静的にインポートするため、ハンドラーはコールドスタートのたびに評価されます。そのためハンドラーのファイルがインポートするのは定数と純粋なヘルパーだけで、それより大きなものは動的 `import()` で読み込みます（[パフォーマンス](/docs/conventions/performance)を参照）。
 
 Vite プラグインのエントリーには、ほかのエリアのプラグインの中での位置を決める `order` と、Vitest でも読み込むかどうかを示す `vitest` があります。Vite は `~` エイリアスを解決する前に設定を読み込むため、`vite.ts`、`vite.entries.ts`、各 `<area>.vite.ts` は `.ts` 拡張子付きの相対パスでインポートします。また、`vp lint` と `vp fmt` がプラグインのパッケージを読み込まないように、エントリーはそのパッケージを `plugins` 関数の中でインポートします。
 
 タイムゾーンのソースは、日付のフォーマットに使うタイムゾーンを返すフックです。認証のエリアのソースは、ルートガードが読み込んだセッションからサインイン中のユーザーのタイムゾーンを返し、セッションがなければ `UTC` を返します。ソースがない場合も、`TranslationsProvider` は `UTC` を使います。
+
+エリアのブラウザー用ファイル `src/areas/<area>.ts` は、エリアがページに追加するものを、エリアの `name` とともに `<AREA>_BROWSER` オブジェクト 1 つに持ち、`src/areas/browser.entries.ts` がそれらを `src/areas/browser.ts` の `BROWSER_AREAS` にまとめます。これを読み込むのはブラウザーとサーバーレンダリングだけで、Worker のエントリー、`vite.config.ts`、Remotion プロジェクトは読み込みません。`src/areas/__test__/areas.test.ts` は、各エリアのファイルを新しいモジュールグラフで最初にインポートし、その後にその種類をまとめるモジュールをインポートします。これにより、そのモジュールに戻るインポートは、サイトの読み込み時ではなくテストで失敗します。このテストは、各エリアの名前がファイル名と同じであることも確かめます。
 
 デプロイ前チェックは `<name>:verify:<environment>` という名前のパッケージスクリプトで、エリアが自身のスクリプトの 1 つとして `package.json` に追加します。`bun scripts/run-deploy-checks.ts preview` は、名前が `:verify:preview` で終わるスクリプトをすべて実行します。現在は認証エリアの `auth:verify:preview` と Polar のエリアの `polar:verify:preview` です。そのため、これらのエリアのいずれかがないプロジェクトには、そのエリアのスクリプトもチェックもありません。空のシークレットやプレースホルダーのシークレットに対するチェックは、どのエリアも宣言しません。デプロイ前チェックの前に `scripts/prepare-deploy-secrets.ts` が実行され、`wrangler.jsonc` が宣言するすべてのシークレットの中からそうした値を拒否するからです。
 
@@ -43,7 +45,7 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 
 認証のエリアはワークスペースのメニュー項目の横に付けるバッジを `src/data/app-badges.ts` で定義し、空の `AUTH_APP_BADGES` を追加します。コースのエリアは `src/data/courses.app-badges.ts` でコースの進捗を追加します（[カスタマーアプリ](/docs/features/customer-app)）。
 
-任意のエリアだけが中身を入れるバレルには、コアが空のリストを追加します。`src/data/core.worker.ts`、`core.root.ts`、`core.time-zone.ts`、`core.namespaces.ts` です。これにより、それらのエリアがないプロジェクトでも型チェックと lint が通ります。認証のエリアも、自分のプラグインのリストに空の `AUTH_AUTH_PLUGINS` を、登録の案内に空の `AUTH_SIGN_UP_NOTICES` を、登録の導入文に空の `AUTH_SIGN_UP_INTROS` を、概要ページに空の `AUTH_APP_OVERVIEW` を、ユーザーのプロフィールに空の `AUTH_USER_PROFILE` を追加し、Polar のエリアは自分の Webhook イベントに空の `POLAR_POLAR_EVENTS` を追加します。メールを送る各モジュールは、`VERIFICATION_EMAIL_PURPOSE` のように、メールの目的の名前を自分の `<module>.constants.ts` に定義します（[Resend](/docs/integrations/resend)）。
+任意のエリアだけが中身を入れるバレルには、コアがファイルを追加します。空のリストを持つ `src/data/core.worker.ts` と、名前だけを持つ `src/areas/core.ts` です。これにより、それらのエリアがないプロジェクトでも型チェックと lint が通ります。認証のエリアも、自分のプラグインのリストに空の `AUTH_AUTH_PLUGINS` を、登録の案内に空の `AUTH_SIGN_UP_NOTICES` を、登録の導入文に空の `AUTH_SIGN_UP_INTROS` を、概要ページに空の `AUTH_APP_OVERVIEW` を、ユーザーのプロフィールに空の `AUTH_USER_PROFILE` を追加し、Polar のエリアは自分の Webhook イベントに空の `POLAR_POLAR_EVENTS` を追加します。メールを送る各モジュールは、`VERIFICATION_EMAIL_PURPOSE` のように、メールの目的の名前を自分の `<module>.constants.ts` に定義します（[Resend](/docs/integrations/resend)）。
 
 ## 環境
 

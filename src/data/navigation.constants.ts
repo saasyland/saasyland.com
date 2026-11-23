@@ -60,7 +60,6 @@ export const FOOTER_COLUMN = {
 export const FOOTER_COLUMNS = [FOOTER_COLUMN.PRODUCT, FOOTER_COLUMN.LEGAL] as const
 
 interface Entry {
-  readonly area: string
   readonly key: string
   readonly order: number
   readonly to: string
@@ -104,4 +103,11 @@ interface HeaderEntry extends Entry {
   readonly signedIn?: Pick<Entry, "key">
 }
 
-export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | CommandEntry | DashboardEntry | FooterEntry | HeaderEntry
+export type AreaNavigationEntry = AdminEntry | AppEntry | AppResourceEntry | CommandEntry | DashboardEntry | FooterEntry | HeaderEntry
+
+export type NavigationEntry = AreaNavigationEntry & { readonly area: string }
+
+export interface NavigationArea {
+  readonly entries: readonly AreaNavigationEntry[]
+  readonly name: string
+}

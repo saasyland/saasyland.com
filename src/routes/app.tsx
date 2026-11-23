@@ -6,7 +6,7 @@ import { requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/data/namespaces"
+import { layoutNamespaces } from "~/src/areas/browser"
 
 import { SidebarInset, SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 

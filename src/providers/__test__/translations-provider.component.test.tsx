@@ -13,8 +13,6 @@ import { TranslationsProvider } from "~/src/providers/translations-provider"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
-import type { TimeZoneSource } from "~/src/data/time-zone"
-
 import errorsGlobalMessages from "~/messages/en-US/errors.global.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 
@@ -22,9 +20,9 @@ const ACTIVATED_AT = new Date("2025-01-01T12:00:00Z")
 const PUBLISHED_ON = new Date("2026-11-14")
 const PENDING = "pending"
 
-const timeZoneSources = vi.hoisted((): TimeZoneSource[] => [])
+const timeZoneHooks = vi.hoisted((): (() => string)[] => [])
 
-vi.mock(import("~/src/data/time-zone"), () => ({ TIME_ZONE_SOURCES: timeZoneSources }))
+vi.mock(import("~/src/areas/browser"), () => ({ TIME_ZONE_HOOKS: timeZoneHooks }))
 
 const DateProbe = () => {
   const format = useFormatter()
@@ -38,14 +36,14 @@ const DateProbe = () => {
 }
 
 afterEach(() => {
-  timeZoneSources.splice(0)
+  timeZoneHooks.splice(0)
 })
 
 const loadNamespaces = (queryClient: QueryClient, namespaces: readonly string[] = ROOT_NAMESPACES) =>
   act(() => preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces, queryClient }))
 
 const renderDatesIn = async (...timeZones: readonly string[]) => {
-  timeZoneSources.push(...timeZones.map((timeZone) => ({ useTimeZone: () => timeZone })))
+  timeZoneHooks.push(...timeZones.map((timeZone) => () => timeZone))
   const queryClient = new QueryClient()
   await preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces: ROOT_NAMESPACES, queryClient })
 

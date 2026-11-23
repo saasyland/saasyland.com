@@ -18,7 +18,9 @@ import * as ROUTES from "~/src/routes"
 
 const AreaWidget = vi.hoisted(() => () => <p>Mounted by an area</p>)
 
-vi.mock("~/src/data/root.entries", () => ({ TEST_ROOT_COMPONENTS: [{ component: AreaWidget, key: "areaWidget" }] }))
+vi.mock("~/src/areas/browser.entries", () => ({
+  TEST_BROWSER: { name: "test", rootComponents: [{ component: AreaWidget, key: "areaWidget" }] },
+}))
 
 beforeEach(() => {
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})

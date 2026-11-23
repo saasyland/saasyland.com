@@ -8,12 +8,12 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, buildMessageTree, messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { TIME_ZONE_SOURCES } from "~/src/data/time-zone"
+import { TIME_ZONE_HOOKS } from "~/src/areas/browser"
 
 export const TranslationsProvider = ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => {
   const locale = getCurrentLocale()
   const matches = useMatches()
-  const [timeZone = I18N.DEFAULT_TIMEZONE] = TIME_ZONE_SOURCES.map((source) => source.useTimeZone())
+  const [timeZone = I18N.DEFAULT_TIMEZONE] = TIME_ZONE_HOOKS.map((useTimeZone) => useTimeZone())
 
   const namespaces = useMemo(
     () => [...new Set([...ROOT_NAMESPACES, ...matches.flatMap((match) => match.staticData.namespaces ?? [])])],

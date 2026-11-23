@@ -38,17 +38,17 @@ Klucz listy przechowuje sparsowane wejście, więc `getCoursesPageQuery()` i `ge
 
 Zapytanie, którego wynik jest taki sam dla każdego odwiedzającego, niezależnie od tego, kto jest zalogowany, deklaruje `meta: { public: true }`:
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-Tłumaczenia (`messagesQueryOptions`), liczba gwiazdek na GitHubie (`starCountQuery`), katalog kursów (`catalogueQuery`) i blok kursów na stronie głównej (`courseShowcaseQuery`) są publiczne. Każde inne zapytanie należy do zalogowanego użytkownika. Gdy użytkownik się zmienia, `removeUserData` w `auth.session.ts` usuwa te zapytania i wszystkie mutacje, a publiczne zachowuje, więc następny użytkownik nigdy nie zobaczy danych poprzedniego, a strona wyrenderowana z góry zachowuje dane, z którymi została wyrenderowana: flaga jest częścią każdego zapytania, które serwer dehydratuje do strony. Zapytanie bez tej flagi zostaje pobrane ponownie dla następnego użytkownika, co kosztuje jedno żądanie, ale nigdy nie prowadzi do wycieku danych, więc oznaczaj zapytanie jako publiczne tylko wtedy, gdy jego funkcja serwerowa nigdy nie odczytuje sesji. `auth.session.test.ts` wykonuje każde publiczne zapytanie i kończy się błędem, jeśli któreś z nich odczytuje sesję albo jeśli plik źródłowy deklaruje publiczne zapytanie, którego test nie wykonuje. Każdy obszar wymienia swoje publiczne zapytania dla tego testu w `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+Tłumaczenia (`messagesQueryOptions`) i liczba gwiazdek na GitHubie (`starCountQuery`) są publiczne. Każde inne zapytanie należy do zalogowanego użytkownika. Gdy użytkownik się zmienia, `removeUserData` w `auth.session.ts` usuwa te zapytania i wszystkie mutacje, a publiczne zachowuje, więc następny użytkownik nigdy nie zobaczy danych poprzedniego, a strona wyrenderowana z góry zachowuje dane, z którymi została wyrenderowana: flaga jest częścią każdego zapytania, które serwer dehydratuje do strony. Zapytanie bez tej flagi zostaje pobrane ponownie dla następnego użytkownika, co kosztuje jedno żądanie, ale nigdy nie prowadzi do wycieku danych, więc oznaczaj zapytanie jako publiczne tylko wtedy, gdy jego funkcja serwerowa nigdy nie odczytuje sesji. `auth.session.test.ts` wykonuje każde publiczne zapytanie i kończy się błędem, jeśli któreś z nich odczytuje sesję albo jeśli plik źródłowy deklaruje publiczne zapytanie, którego test nie wykonuje. Każdy obszar wymienia swoje publiczne zapytania dla tego testu w `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Świeżość
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-Zapytanie, które potrzebuje innej świeżości, ustawia `staleTime` nazwaną stałą, która mówi dlaczego: `PLAYBACK_STALE_MS` (godzina, w granicach czasu życia podpisanego adresu URL odtwarzania), `REFRESH_AFTER_MS` dla liczby gwiazdek na GitHubie, `Infinity` dla komunikatów tłumaczeń, które zmieniają się tylko przy wdrożeniu. Nigdy nie twórz `QueryClient` na poziomie modułu; na serwerze współdzieliłby dane jednego użytkownika z kolejnym żądaniem.
+Zapytanie, które potrzebuje innej świeżości, ustawia `staleTime` nazwaną stałą, która mówi dlaczego: `PLAYBACK_STALE_MS` (godzina, w granicach czasu życia podpisanego adresu URL odtwarzania), `STAR_COUNT_REFRESH_AFTER_MS` dla liczby gwiazdek na GitHubie, `Infinity` dla komunikatów tłumaczeń, które zmieniają się tylko przy wdrożeniu. Nigdy nie twórz `QueryClient` na poziomie modułu; na serwerze współdzieliłby dane jednego użytkownika z kolejnym żądaniem.
 
 ## Loadery pobierają z wyprzedzeniem, komponenty odczytują
 

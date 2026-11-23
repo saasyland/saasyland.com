@@ -24,10 +24,11 @@ description: "Модуль — це одна таблиця бази даних:
 
 ## Схема
 
-```ts
+```ts title="src/modules/course/course.schema.ts"
 export const course = sqliteTable(
   "course",
   {
+    cover: text("cover"),
     icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
@@ -72,18 +73,14 @@ export const course = sqliteTable(
 
 ## Константи
 
-```ts
-export const COURSE_STATUS = {
-  DRAFT: "draft",
-  PUBLISHED: "published",
-} as const
-
+```ts title="src/modules/course/course.constants.ts"
 export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {
-  COURSES: 2,
+  COURSES: 5,
+  LESSONS: 5,
 } as const
 
 export const COURSE_QUERY_KEYS = {
@@ -92,14 +89,19 @@ export const COURSE_QUERY_KEYS = {
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SEARCH: ["course", "searchCourses"],
   SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  EXPORT: ["course", "exportCourses"],
+  IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
+  REMOVE_COVER: ["course", "removeCourseCover"],
   UPDATE: ["course", "updateCourse"],
+  UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 ```
 
@@ -154,7 +156,7 @@ export const chapterZodSchemas = {
 
 `<table>.types.ts` експортує рівно один інтерфейс, названий за модулем, ключі якого віддзеркалюють об’єкт Zod:
 
-```ts
+```ts title="src/modules/lesson/lesson.types.ts"
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
@@ -165,8 +167,10 @@ export interface Lesson {
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
   getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  getLessonTitle: zod.input<typeof lessonZodSchemas.getLessonTitle>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
   replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
+  searchLessons: zod.input<typeof lessonZodSchemas.searchLessons>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -186,10 +190,16 @@ export interface Lesson {
 | Файл                                              | Аспект                                                                                                         |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `course/course.outline.ts`                        | Структура опублікованого курсу для глядача, для `getCourse` і `getLesson`                                      |
+| `course/course.cover.ts`                          | Розміри, ширини, допустимі типи й ключі об’єктів обкладинки курсу; чистий                                      |
+| `course/course.delivery.ts`                       | Обробник Worker `serveCover`, що віддає обкладинки курсів                                                      |
+| `course/course.objects.ts`                        | Видалення об’єктів обкладинки курсу з R2                                                                       |
+| `course/course.transfer.ts`                       | Експорт та імпорт курсів як одного JSON-документа                                                              |
 | `lesson/lesson.access.ts`                         | Хто може дивитися урок; чистий, використовується на сервері й у тестах                                         |
 | `lesson/lesson.playable.ts`                       | З’єднання (join) з відео уроку, яке пропускає заглушки                                                         |
 | `lesson-attachment/lesson-attachment.download.ts` | Підписування URL-адрес для завантаження матеріалів уроків                                                      |
 | `lesson-attachment/lesson-attachment.delivery.ts` | Обробник Worker для підписаних запитів `/media/downloads/`                                                     |
+| `lesson-attachment/lesson-attachment.files.ts`    | Типи вмісту, імена файлів, ключі об’єктів і поля завантаження матеріалів уроків                                |
+| `lesson-attachment/lesson-attachment.objects.ts`  | Перелік і видалення об’єктів R2 матеріалів уроків                                                              |
 | `lesson/lesson.viewer.ts`                         | Визначає на сервері глядача, який увійшов, і його доступ до курсів та записує платний урок, який він відкриває |
 | `order/order.polar.ts`                            | Знижка та країна для рахунку замовлення Polar, для `recordOrder` і `scripts/backfill-order-terms.ts`; чистий   |
 | `license/license.webhooks.ts`                     | Обробники вебхуків Polar, які викликає `license.polar-events.ts`                                               |
@@ -199,12 +209,15 @@ export interface Lesson {
 | `license/license.ppp.ts`                          | Ціна плану для покупця під час оплати, з урахуванням регіональної ціни                                         |
 | `license/license.pricing.ts`                      | Діапазони регіональних цін і cookie відмови; чистий                                                            |
 | `license/license.upgrade-price.ts`                | Ціна підвищення плану за ліцензійними замовленнями клієнта в Polar                                             |
+| `license/license.upgrades.ts`                     | Які тарифи є підвищенням і підвищення, яке записують метадані замовлення; чистий                               |
 | `license/license.refunds.ts`                      | Чи можна повернути кошти за покупку, за її записами; чистий                                                    |
 | `withdrawal/withdrawal.contracts.ts`              | Активна ліцензія, яку називає заява про відмову від договору, і її умови повернення коштів                     |
 | `video/video.delivery.ts`                         | Обробник Worker для підписаних запитів `/media/`                                                               |
 | `video/video.playback.ts`, `video/video.files.ts` | Підписування URL-адрес відтворення; ключі об’єктів і типи вмісту                                               |
+| `video/video.encoding.ts`                         | Варіанти роздільності, довжина сегментів і налаштування якості кодування відео                                 |
+| `account/account.links.ts`                        | Посилання в листах облікового запису, побудовані з callback URL                                                |
 
-Файл, який ніколи не має потрапити в браузерний бандл, починається з `import "@tanstack/react-start/server-only"`, як `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `video.delivery.ts` і `license.utils.ts` (який читає ідентифікатори продуктів Polar, `POLAR_PRODUCT_IDS`, із середовища Worker). Чисті файли, як-от `lesson.access.ts` і `course.utils.ts`, нічого серверного не імпортують, тож їх можуть використовувати компоненти й тести.
+Файл, який ніколи не має потрапити в браузерний бандл, починається з `import "@tanstack/react-start/server-only"`, як `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` і `license.utils.ts` (який читає ідентифікатори продуктів Polar, `POLAR_PRODUCT_IDS`, із середовища Worker). Чисті файли, як-от `lesson.access.ts` і `course.utils.ts`, нічого серверного не імпортують, тож їх можуть використовувати компоненти й тести.
 
 ## Додавання модуля
 

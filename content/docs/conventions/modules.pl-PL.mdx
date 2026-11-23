@@ -24,10 +24,11 @@ Wzorcem jest `src/modules/course`. Moduł zawiera następujące pliki, wszystkie
 
 ## Schemat
 
-```ts
+```ts title="src/modules/course/course.schema.ts"
 export const course = sqliteTable(
   "course",
   {
+    cover: text("cover"),
     icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
@@ -72,18 +73,14 @@ export const course = sqliteTable(
 
 ## Stałe
 
-```ts
-export const COURSE_STATUS = {
-  DRAFT: "draft",
-  PUBLISHED: "published",
-} as const
-
+```ts title="src/modules/course/course.constants.ts"
 export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {
-  COURSES: 2,
+  COURSES: 5,
+  LESSONS: 5,
 } as const
 
 export const COURSE_QUERY_KEYS = {
@@ -92,14 +89,19 @@ export const COURSE_QUERY_KEYS = {
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SEARCH: ["course", "searchCourses"],
   SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  EXPORT: ["course", "exportCourses"],
+  IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
+  REMOVE_COVER: ["course", "removeCourseCover"],
   UPDATE: ["course", "updateCourse"],
+  UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 ```
 
@@ -154,7 +156,7 @@ export const chapterZodSchemas = {
 
 `<table>.types.ts` eksportuje dokładnie jeden interfejs, nazwany jak moduł, którego klucze odzwierciedlają obiekt Zod:
 
-```ts
+```ts title="src/modules/lesson/lesson.types.ts"
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
@@ -165,8 +167,10 @@ export interface Lesson {
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
   getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  getLessonTitle: zod.input<typeof lessonZodSchemas.getLessonTitle>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
   replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
+  searchLessons: zod.input<typeof lessonZodSchemas.searchLessons>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -186,10 +190,16 @@ Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czyst
 | Plik                                              | Zagadnienie                                                                                                     |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `course/course.outline.ts`                        | Konspekt opublikowanego kursu dla widza, dla `getCourse` i `getLesson`                                          |
+| `course/course.cover.ts`                          | Rozmiary, szerokości, akceptowane typy i klucze obiektów okładki kursu; czysta logika                           |
+| `course/course.delivery.ts`                       | Handler Workera `serveCover`, który serwuje okładki kursów                                                      |
+| `course/course.objects.ts`                        | Usuwanie obiektów okładki kursu z R2                                                                            |
+| `course/course.transfer.ts`                       | Eksport i import kursów jako jednego dokumentu JSON                                                             |
 | `lesson/lesson.access.ts`                         | Kto może oglądać lekcję; czysta logika, używana na serwerze i w testach                                         |
 | `lesson/lesson.playable.ts`                       | Złączenie z wideo lekcji, które pomija filmy zastępcze                                                          |
 | `lesson-attachment/lesson-attachment.download.ts` | Podpisywanie adresów URL do pobierania materiałów lekcji                                                        |
 | `lesson-attachment/lesson-attachment.delivery.ts` | Handler Workera dla podpisanych żądań `/media/downloads/`                                                       |
+| `lesson-attachment/lesson-attachment.files.ts`    | Typy zawartości, nazwy plików, klucze obiektów i pola przesyłania materiałów lekcji                             |
+| `lesson-attachment/lesson-attachment.objects.ts`  | Listowanie i usuwanie obiektów R2 materiałów lekcji                                                             |
 | `lesson/lesson.viewer.ts`                         | Ustala na serwerze zalogowanego widza i jego dostęp do kursów oraz zapisuje otwartą przez niego płatną lekcję   |
 | `order/order.polar.ts`                            | Rabat i kraj rozliczenia zamówienia Polar, dla `recordOrder` i `scripts/backfill-order-terms.ts`; czysta logika |
 | `license/license.webhooks.ts`                     | Handlery webhooków Polar, wywoływane przez `license.polar-events.ts`                                            |
@@ -199,12 +209,15 @@ Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czyst
 | `license/license.ppp.ts`                          | Cena planu dla kupującego przy płatności, z uwzględnieniem ceny regionalnej                                     |
 | `license/license.pricing.ts`                      | Przedziały cen regionalnych i cookie rezygnacji; czysta logika                                                  |
 | `license/license.upgrade-price.ts`                | Cena przejścia na wyższy plan na podstawie zamówień licencji klienta w Polar                                    |
+| `license/license.upgrades.ts`                     | Które plany są ulepszeniem i ulepszenie zapisane w metadanych zamówienia; czysta logika                         |
 | `license/license.refunds.ts`                      | Czy zakup można zwrócić, na podstawie jego zapisów; czysta logika                                               |
 | `withdrawal/withdrawal.contracts.ts`              | Aktywna licencja wskazana w oświadczeniu o odstąpieniu od umowy i jej warunki zwrotu                            |
 | `video/video.delivery.ts`                         | Handler Workera dla podpisanych żądań `/media/`                                                                 |
 | `video/video.playback.ts`, `video/video.files.ts` | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości                                         |
+| `video/video.encoding.ts`                         | Warianty jakości, długość segmentów i ustawienia jakości kodowania wideo                                        |
+| `account/account.links.ts`                        | Linki w e-mailach konta, budowane z adresu URL wywołania zwrotnego                                              |
 
-Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
+Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar, `POLAR_PRODUCT_IDS`, ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
 
 ## Dodawanie modułu
 

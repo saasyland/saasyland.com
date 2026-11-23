@@ -3,21 +3,25 @@ title: "Шаблони листів"
 description: "Пишіть шаблони React Email з перекладеними повідомленнями й надсилайте їх зі сценаріїв використання через Resend."
 ---
 
-Лист складається з трьох частин: шаблону в `src/presentation/emails/`, простору імен повідомлень у `messages/<locale>/emails.<name>.json` і сценарію використання, що завантажує повідомлення, рендерить шаблон і надсилає його. Шаблони: `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email`, `newsletter-notification-email` і `purchase-confirmation-email`.
+Лист складається з трьох частин: шаблону в `src/presentation/emails/`, простору імен повідомлень у `messages/<locale>/emails.<name>.json` і сценарію використання, що завантажує повідомлення, рендерить шаблон і надсилає його. Сторінка [Resend](/docs/integrations/resend) перелічує всі шаблони разом зі сценаріями використання, які їх надсилають.
 
 ## Шаблон
 
 Шаблон містить лише розмітку й експортує свій простір імен. Він перекладає через `createTranslator` з `use-intl`, бо рендериться поза контекстом React. `src/presentation/emails/verify-email.tsx`:
 
-```tsx
+```tsx title="src/presentation/emails/verify-email.tsx"
 import type { JSX } from "react"
 
 import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
 import { createTranslator } from "use-intl"
 
+import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+import { APP_NAME } from "~/src/presentation/branding"
+import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
+import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
 
 export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
 
@@ -38,8 +42,9 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
       <Tailwind config={TAILWIND_CONFIG}>
         <Head />
         <Body className="font-sans">
-          <Preview>{t("preview")}</Preview>
+          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
           <Container className="mx-auto px-5 py-10">
+            <EmailBrandHeader />
             <Section>
               <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
               <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
@@ -49,6 +54,8 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
               >
                 {t("button")}
               </Button>
+              <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
+              <EmailFallbackLink label={t("fallback")} url={verifyUrl} />
               <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
             </Section>
           </Container>
@@ -63,13 +70,15 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 Створіть `messages/<locale>/emails.<name>.json` для кожної мови. Додайте ключ `subject`; сценарій використання перекладає його окремо від тіла листа.
 
-```json
+```json title="messages/en-US/emails.verify-email.json"
 {
   "subject": "Verify your email address",
-  "preview": "Verify your email for SaaSy Land",
+  "preview": "Verify your email for {appName}",
   "heading": "Verify your email",
   "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
   "button": "Verify email",
+  "expiry": "The link works for {hours, plural, one {# hour} other {# hours}}.",
+  "fallback": "If the button does not work, copy this link into your browser:",
   "footer": "If you did not create an account, you can safely ignore this email."
 }
 ```
@@ -80,7 +89,7 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 Сценарій використання бере мову з отриманого callback-URL, перевіряє ліміт на одержувача, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
 
-```ts
+```ts title="src/modules/verification/use-cases/send-verify-email.ts"
 export const sendVerifyEmail = async ({
   callbackURL,
   token,
@@ -118,10 +127,12 @@ export const sendVerifyEmail = async ({
 
 ## Хто що надсилає
 
-- Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання через `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendExistingAccountEmail` для повторних реєстрацій підтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` для `emailAndPassword.onPasswordReset` і `sendChangeEmailConfirmationEmail` для `user.changeEmail`.
+- Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання через `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendExistingAccountEmail` для повторних реєстрацій підтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` для `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` для `user.changeEmail` і `sendDeleteAccountEmail` для `user.deleteUser.sendDeleteAccountVerification`.
 - Запити Better Auth надходять на `/api/auth` без мовного префікса, тож hooks визначають мову листа з `callbackURL` сценарію, тобто локалізованого шляху сторінки, через `extractLocaleFromCallbackURL` або `extractLocaleFromPath` з `src/integrations/use-intl/i18n.paths.ts`. Резервною мовою є англійська.
 - Сценарії використання розсилки самі надсилають листи підтвердження й сповіщення, наприклад `subscribeToNewsletter`.
 - Обробник вебхука `onOrderPaid` розділу ліцензій викликає `sendPurchaseConfirmationEmail` після того, як видасть ліцензію. Лист бере мову з `metadata.locale` замовлення, посилання — з хоста, який отримав вебхук, а токен ідемпотентності — з ID замовлення в Polar; невдале надсилання завершує обробник помилкою, щоб Polar повторив спробу.
+- Якщо оплачене замовлення ліцензії не відповідає жодному обліковому запису, `onOrderPaid` нічого не видає й викликає `sendUnmatchedOrderAlert`, який сповіщає власника сайту англійською.
+- `recordWithdrawal`, який викликає `submitWithdrawal`, надсилає підтвердження отримання заяви про відмову від договору мовою сторінки, з якої її надіслано, а сповіщення про відмову — власникові сайту англійською. Невдале надсилання записується в лог і не зриває заяву.
 - `sendVerifyEmail`, `sendResetPasswordEmail`, `sendExistingAccountEmail` і `subscribeToNewsletter` перед надсиланням викликають `withinRecipientRateLimit` (`src/lib/rate-limit.ts`): ліміт листів одного типу на адресу за годину — <RepositoryFact name="recipientEmailsPerHour" />, з ключем за хешем SHA-256 адреси. Понад ліміт вони записують попередження в лог і нічого не надсилають. Додайте таку саму перевірку до будь-якого листа, який відвідувач може викликати без облікового запису.
 
 ## Додайте лист

@@ -24,10 +24,11 @@ Die Module sind <RepositoryFact name="modules" />. `license` besitzt zwei Tabell
 
 ## Schema
 
-```ts
+```ts title="src/modules/course/course.schema.ts"
 export const course = sqliteTable(
   "course",
   {
+    cover: text("cover"),
     icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
@@ -72,18 +73,14 @@ export const course = sqliteTable(
 
 ## Konstanten
 
-```ts
-export const COURSE_STATUS = {
-  DRAFT: "draft",
-  PUBLISHED: "published",
-} as const
-
+```ts title="src/modules/course/course.constants.ts"
 export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {
-  COURSES: 2,
+  COURSES: 5,
+  LESSONS: 5,
 } as const
 
 export const COURSE_QUERY_KEYS = {
@@ -92,14 +89,19 @@ export const COURSE_QUERY_KEYS = {
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SEARCH: ["course", "searchCourses"],
   SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  EXPORT: ["course", "exportCourses"],
+  IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
+  REMOVE_COVER: ["course", "removeCourseCover"],
   UPDATE: ["course", "updateCourse"],
+  UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 ```
 
@@ -154,7 +156,7 @@ export const chapterZodSchemas = {
 
 `<table>.types.ts` exportiert genau ein Interface, benannt nach dem Modul, dessen Schlüssel das Zod-Objekt spiegeln:
 
-```ts
+```ts title="src/modules/lesson/lesson.types.ts"
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
@@ -165,8 +167,10 @@ export interface Lesson {
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
   getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  getLessonTitle: zod.input<typeof lessonZodSchemas.getLessonTitle>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
   replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
+  searchLessons: zod.input<typeof lessonZodSchemas.searchLessons>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -186,10 +190,16 @@ Braucht eine Tabelle Logik, die weder ein Use Case noch eine reine Hilfsfunktion
 | Datei                                             | Aspekt                                                                                                                              |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `course/course.outline.ts`                        | Die Gliederung eines veröffentlichten Kurses für einen Betrachter, für `getCourse` und `getLesson`                                  |
+| `course/course.cover.ts`                          | Größen, Breiten, zulässige Typen und Objektschlüssel eines Kurs-Titelbilds; rein                                                    |
+| `course/course.delivery.ts`                       | Der Worker-Handler `serveCover`, der die Titelbilder der Kurse ausliefert                                                           |
+| `course/course.objects.ts`                        | Entfernen der Objekte eines Kurs-Titelbilds aus R2                                                                                  |
+| `course/course.transfer.ts`                       | Export und Import von Kursen als ein JSON-Dokument                                                                                  |
 | `lesson/lesson.access.ts`                         | Wer eine Lektion ansehen darf; rein, genutzt auf dem Server und in Tests                                                            |
 | `lesson/lesson.playable.ts`                       | Die Verknüpfung mit dem Video einer Lektion, die Platzhalter auslässt                                                               |
 | `lesson-attachment/lesson-attachment.download.ts` | Signieren der Download-URLs von Lektionsmaterialien                                                                                 |
 | `lesson-attachment/lesson-attachment.delivery.ts` | Der Worker-Handler für signierte `/media/downloads/`-Anfragen                                                                       |
+| `lesson-attachment/lesson-attachment.files.ts`    | Content-Types, Dateinamen, Objektschlüssel und Upload-Felder von Lektionsmaterialien                                                |
+| `lesson-attachment/lesson-attachment.objects.ts`  | Auflisten und Entfernen der R2-Objekte von Lektionsmaterialien                                                                      |
 | `lesson/lesson.viewer.ts`                         | Ermittelt auf dem Server den angemeldeten Betrachter und seinen Kurszugang und erfasst eine kostenpflichtige Lektion, die er öffnet |
 | `order/order.polar.ts`                            | Rabatt und Rechnungsland einer Polar-Bestellung, für `recordOrder` und `scripts/backfill-order-terms.ts`; rein                      |
 | `license/license.webhooks.ts`                     | Polar-Webhook-Handler, aufgerufen von `license.polar-events.ts`                                                                     |
@@ -199,12 +209,15 @@ Braucht eine Tabelle Logik, die weder ein Use Case noch eine reine Hilfsfunktion
 | `license/license.ppp.ts`                          | Der Preis einer Stufe für den Käufer im Checkout, regionaler Preis inbegriffen                                                      |
 | `license/license.pricing.ts`                      | Regionale Preisstufen und das Cookie zum Abwählen; rein                                                                             |
 | `license/license.upgrade-price.ts`                | Der Preis eines Upgrades, aus den Lizenzbestellungen des Kunden in Polar                                                            |
+| `license/license.upgrades.ts`                     | Welche Stufen ein Upgrade sind und das Upgrade, das die Metadaten einer Bestellung festhalten; rein                                 |
 | `license/license.refunds.ts`                      | Ob ein Kauf erstattet werden kann, anhand seiner Nachweise; rein                                                                    |
 | `withdrawal/withdrawal.contracts.ts`              | Die aktive Lizenz, die eine Widerrufserklärung nennt, und ihre Erstattungsbedingungen                                               |
 | `video/video.delivery.ts`                         | Der Worker-Handler für signierte `/media/`-Anfragen                                                                                 |
 | `video/video.playback.ts`, `video/video.files.ts` | Signieren von Wiedergabe-URLs; Objektschlüssel und Content-Types                                                                    |
+| `video/video.encoding.ts`                         | Renditionen, Segmentlänge und Qualitätseinstellungen der Videokodierung                                                             |
+| `account/account.links.ts`                        | Die Links der Konto-E-Mails, gebaut aus der Callback-URL                                                                            |
 
-Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs, `POLAR_PRODUCT_IDS`, aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
+Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs, `POLAR_PRODUCT_IDS`, aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
 
 ## Ein Modul hinzufügen
 

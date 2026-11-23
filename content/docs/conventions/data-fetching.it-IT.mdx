@@ -38,17 +38,17 @@ La chiave dell'elenco memorizza l'input già analizzato, quindi `getCoursesPageQ
 
 Una query il cui risultato è lo stesso per ogni visitatore, chiunque abbia effettuato l'accesso, dichiara `meta: { public: true }`:
 
-```ts
-export const catalogueQuery = (input: Course["getCatalogue"]) =>
-  queryOptions({
-    meta: { public: true },
-    queryFn: () => getCatalogue({ data: input }),
-    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
-    staleTime: COURSE_STALE_MS,
-  })
+```ts title="src/lib/github.ts"
+export const starCountQuery = queryOptions({
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
+  meta: { public: true },
+  queryFn: () => getStarCount(),
+  queryKey: ["github", "stars"],
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+})
 ```
 
-Le traduzioni (`messagesQueryOptions`), il numero di stelle su GitHub (`starCountQuery`), il catalogo dei corsi (`catalogueQuery`) e il blocco dei corsi della landing page (`courseShowcaseQuery`) sono pubblici. Ogni altra query appartiene all'utente che ha effettuato l'accesso. Quando l'utente cambia, `removeUserData` in `auth.session.ts` rimuove quelle query e ogni mutation e mantiene quelle pubbliche, così l'utente successivo non vede mai i dati del precedente e una pagina prerenderizzata conserva i dati con cui è stata renderizzata: il flag viaggia con ogni query che il server disidrata nella pagina. Una query senza il flag viene recuperata di nuovo per l'utente successivo, il che costa una richiesta ma non espone mai dati, quindi contrassegna una query come pubblica solo quando la sua server function non legge mai la sessione. `auth.session.test.ts` esegue ogni query pubblica e fallisce se una di esse legge la sessione, o se un file sorgente dichiara una query pubblica che il test non esegue. Ogni area elenca le sue query pubbliche per quel test in `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
+Le traduzioni (`messagesQueryOptions`) e il numero di stelle su GitHub (`starCountQuery`) sono pubblici. Ogni altra query appartiene all'utente che ha effettuato l'accesso. Quando l'utente cambia, `removeUserData` in `auth.session.ts` rimuove quelle query e ogni mutation e mantiene quelle pubbliche, così l'utente successivo non vede mai i dati del precedente e una pagina prerenderizzata conserva i dati con cui è stata renderizzata: il flag viaggia con ogni query che il server disidrata nella pagina. Una query senza il flag viene recuperata di nuovo per l'utente successivo, il che costa una richiesta ma non espone mai dati, quindi contrassegna una query come pubblica solo quando la sua server function non legge mai la sessione. `auth.session.test.ts` esegue ogni query pubblica e fallisce se una di esse legge la sessione, o se un file sorgente dichiara una query pubblica che il test non esegue. Ogni area elenca le sue query pubbliche per quel test in `src/integrations/better-auth/__test__/<area>.public-queries.ts`.
 
 ## Freschezza
 
@@ -65,7 +65,7 @@ const queryClient = new QueryClient({
 })
 ```
 
-Una query che richiede un'altra freschezza imposta `staleTime` con una costante il cui nome dice il perché: `PLAYBACK_STALE_MS` (un'ora, entro la durata di un URL di riproduzione firmato), `REFRESH_AFTER_MS` per il numero di stelle su GitHub, `Infinity` per i messaggi di traduzione, che cambiano solo con un deploy. Non creare mai un `QueryClient` a livello di modulo; sul server condividerebbe i dati di un utente con la richiesta successiva.
+Una query che richiede un'altra freschezza imposta `staleTime` con una costante il cui nome dice il perché: `PLAYBACK_STALE_MS` (un'ora, entro la durata di un URL di riproduzione firmato), `STAR_COUNT_REFRESH_AFTER_MS` per il numero di stelle su GitHub, `Infinity` per i messaggi di traduzione, che cambiano solo con un deploy. Non creare mai un `QueryClient` a livello di modulo; sul server condividerebbe i dati di un utente con la richiesta successiva.
 
 ## I loader precaricano, i componenti leggono
 

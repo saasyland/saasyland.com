@@ -9,7 +9,7 @@ Jede Datei in `src/routes` hat dieselbe Form, sodass ein Leser, der eine kennt, 
 
 `src/routes/admin.courses.index.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.index.tsx"
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
 
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 Eine Seite, deren Titel aus einem Datensatz stammt, wartet auf diesen Datensatz und baut ihren Head aus den Loader-Daten, wie `admin.courses.$courseId.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 
 `src/routes/admin.courses.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.tsx"
 const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
 
 export const Route = createFileRoute("/admin/courses")({
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Ein Layout deklariert `const NAMESPACES = [...] as const` über `export const Route` und lädt sie vor. Hat es keine, lässt es die Option weg; ein `namespaces: []` gibt es nicht.
-- Einen Namespace, den eine Komponente eines anderen Bereichs im Layout braucht, fügt dieser Bereich in `src/data/<area>.namespaces.ts` hinzu, das das Layout über seine Routen-ID benennt, und das Layout übernimmt `...layoutNamespaces("/app")` per Spread in seine `NAMESPACES`. Der Lizenzbereich fügt `/app`, dessen Übersicht die Lizenzkarte und das Angebot zeigt, `pages.license` hinzu, und der Newsletter-Bereich fügt `/_site/_marketing` und `/_site/docs`, deren Footer das Newsletter-Formular zeigen, `auth.validations` hinzu. `namespaces.test.ts` prüft beim Kompilieren, dass jedes Layout, das ein Bereich nennt, eine Routen-ID ist.
+- Einen Namespace, den eine Komponente eines anderen Bereichs im Layout braucht, fügt dieser Bereich in `src/data/<area>.namespaces.ts` hinzu, das das Layout über seine Routen-ID benennt, und das Layout übernimmt `...layoutNamespaces("/app")` per Spread in seine `NAMESPACES`. Der Lizenzbereich fügt `pages.license`, `pages.withdrawal` und `withdrawal.validations` zu `/app` hinzu, dessen Übersicht die Lizenzkarte und das Angebot und dessen Lizenzseite die Widerrufskarte zeigt, außerdem `withdrawal.validations` zu `/_site/_marketing` und `pages.admin.users.license` zu `/admin/users`; der Zahlungsbereich fügt `pages.admin.customers` und `pages.admin.orders` zu `/admin/users` hinzu; und der Newsletter-Bereich fügt `/_site/_marketing` und `/_site/docs`, deren Footer das Newsletter-Formular zeigen, `auth.validations` hinzu. `namespaces.test.ts` prüft beim Kompilieren, dass jedes Layout, das ein Bereich nennt, eine Routen-ID ist.
 - Die Komponente, sofern das Layout eine rendert, heißt `<Name>Layout` und platziert ein `<Outlet />`.
 - Ein Guard gehört in `beforeLoad` des Layouts, dem der Bereich gehört: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, beides Layouts des Auth-Bereichs. Guards entscheiden nur über die Navigation; jede Server Function prüft trotzdem ihre eigene Berechtigung.
 
@@ -99,9 +99,9 @@ export const Route = createFileRoute("/admin/courses")({
 
 `sort-keys` ist in `src/routes` abgeschaltet, weil TanStack Router Typen in der Reihenfolge der Deklaration ableitet. Optionen sind alphabetisch sortiert, außer dass `validateSearch` als Erstes kommt, vor allen Optionen, die die Suchparameter lesen:
 
-```tsx
+```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     error: searchText(),
     token: searchText(),
   }),
@@ -224,11 +224,11 @@ Der Lizenzbereich fügt der Seitenleiste des Kundenbereichs seinen Eintrag **Liz
 
 Eine Dashboard-Statistik hat ein `prefetch`, das der Loader von `/admin` ausführt, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl zu lesen.
 
-Ein Seiten-Skeleton verbindet das `to` der Seite mit ihrem `pendingComponent`, demselben Skeleton, das die Route der Seite setzt. Die Layout-Skeletons `AdminPending`, `AppPending` und `MarketingPending` zeichnen das Skeleton des aktuellen Pfads, wenn jemand ihr Layout von woanders betritt. Ein Bereich deklariert die Skeletons all seiner Seiten, gleich welches Layout sie anzeigt: Der Lizenzbereich deklariert `/app` und `/app/license`, der Bereich der Rechtstexte seine fünf öffentlichen Seiten.
+Ein Seiten-Skeleton verbindet das `to` der Seite mit ihrem `pendingComponent`, demselben Skeleton, das die Route der Seite setzt. Die Layout-Skeletons `AdminPending`, `AppPending` und `MarketingPending` zeichnen das Skeleton des aktuellen Pfads, wenn jemand ihr Layout von woanders betritt. Ein Bereich deklariert die Skeletons all seiner Seiten, gleich welches Layout sie anzeigt: Der Lizenzbereich deklariert `/app/license` und `/withdrawal`, der Bereich der Rechtstexte seine fünf öffentlichen Seiten.
 
 Die Access-Datei eines Bereichs deklariert die Berechtigungs-Statements seiner Ressourcen und die Rollen, denen er sie gewährt. `auth.access.ts` baut die Zugriffskontrolle von Better Auth aus `APP_STATEMENTS` und jede Rolle aus `grantsOf(role)` auf, sodass die Auth-Integration keinen Bereich nennt, und `APP_STATEMENTS` schlägt fehl, wenn zwei Bereiche dieselbe Ressource deklarieren (siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)).
 
-Die Listen in `src/data/navigation.ts` und `PAGE_SKELETONS` haben deklarierte Typen, `NavigationEntry` und `PageSkeleton`, statt der Typen der Einträge, die die Bereiche gerade deklarieren. Eine Platzierung, die kein Bereich füllt, etwa die Dashboard-Aktionen in einem Projekt ohne den Produktbereich, ist deshalb eine leere Liste, die trotzdem die Typprüfung besteht. `navigation.test.ts` und `skeletons.test.ts` prüfen beim Kompilieren, dass das `to` jedes Eintrags und jedes Skeletons, das ein Bereich deklariert, ein Pfad des Routenbaums ist (`FileRouteTypes["to"]` aus `src/routeTree.gen.ts`).
+Die Listen in `src/data/navigation.ts` und `PAGE_SKELETONS` haben deklarierte Typen, `NavigationEntry` und `PageSkeleton`, statt der Typen der Einträge, die die Bereiche gerade deklarieren. Eine Platzierung, die kein Bereich füllt, etwa die Dashboard-Aktionen in einem Projekt ohne den Zahlungsbereich, ist deshalb eine leere Liste, die trotzdem die Typprüfung besteht. `navigation.test.ts` und `skeletons.test.ts` prüfen beim Kompilieren, dass das `to` jedes Eintrags und jedes Skeletons, das ein Bereich deklariert, ein Pfad des Routenbaums ist (`FileRouteTypes["to"]` aus `src/routeTree.gen.ts`).
 
 Ein Eintrag nennt mit `area` seinen Bereich, und der Bereich beschriftet ihn in seiner eigenen Nachrichtendatei: `<placement>.<key>` in `messages/<locale>/navigation.<area>.json`, etwa `admin.courses` und `header.courses` in `navigation.courses.json`. Eine Dashboard-Statistik wird über ihren `key` in `dashboard.<area>.json` beschriftet, und ein Admin-Abschnitt beschriftet seine Unterseiten für die Breadcrumbs unter `breadcrumbs.<segment>` in seiner `navigation.<area>.json`, etwa `breadcrumbs.create`; ein Tab der Benutzerverwaltung wird unter `userTabs.<key>` beschriftet, was den Tab und seine Seite in den Breadcrumbs benennt, und ein Dashboard-Panel hält seine Texte unter seinem `key` in `dashboard.<area>.json`. Beide Arten von Dateien sind Root-Namespaces, sodass jedes Menü jeden Eintrag beschriften kann, und `useNavigationLabel` in `src/hooks/use-navigation-label.ts` liefert die Beschriftung eines Eintrags. Was zum Menü selbst gehört, bleibt in dessen Namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` und der Call-to-Action, der Menü-Button und der Skip-Link des Headers in `components.custom.navigation`. `enum-labels.test.ts` schlägt fehl, wenn einem Eintrag oder einer Statistik in einer Locale die Beschriftung fehlt.
 

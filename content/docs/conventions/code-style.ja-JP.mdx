@@ -3,7 +3,7 @@ title: "コードスタイル"
 description: "フォーマッター、リンター、コンパイラー、コメントチェックが強制すること。コメントの禁止、抜け道の禁止、1 行の三項演算子、?? undefined の禁止、名前付きの定数。"
 ---
 
-`bun run check` は `bun run check:comments` を実行してから `vp check` を実行します。`vp check` は `vite.config.ts` と `tsconfig.json` の設定に従い、oxfmt によるフォーマット、oxlint によるリント、TypeScript による型チェックを一度に行います。CI も同じコマンドを実行します。ここに好みの問題は何もありません。このページのルールに反するコードをツールが受け入れたとしても、レビューで却下されます。
+`bun run check` は `bun run generate:cn`、`bun run check:comments`、`bun run check:i18n`、`bun run check:flows` を実行してから `vp check` を実行します。`vp check` は `vite.config.ts` と `tsconfig.json` の設定に従い、oxfmt によるフォーマット、oxlint によるリント、TypeScript による型チェックを一度に行います。CI も同じコマンドを実行します。ここに好みの問題は何もありません。このページのルールに反するコードをツールが受け入れたとしても、レビューで却下されます。
 
 ## ツールが強制すること
 
@@ -24,8 +24,11 @@ oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicio
 | `code-style/no-comments`                | `error`                                                         | ディレクティブのコメントも含め、コメントを書かない                |
 | `code-style/no-multiline-ternary`       | `error`                                                         | 三項演算子は 1 行に収める                                         |
 | `code-style/no-undefined-fallback`      | `error`                                                         | `?? undefined` を書かない                                         |
+| `radius/no-off-scale`                   | `error`                                                         | 角の半径はスケールから選ぶ                                        |
+| `type/no-off-scale`                     | `error`                                                         | 文字サイズはタイプスケールのいずれかの段階                        |
+| `type/mono-for-code`                    | `error`                                                         | 等幅フォントはコードにだけ使う                                    |
 
-オーバーライドは限定的で、ファイル単位で適用されます。テストと `src/platform/testing` の共有テストヘルパーは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null`、`hydration/no-clock-or-locale-in-render`、`admin-data/no-literal-data` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。また、管理画面のルート、コンポーネント、データファイルでは `admin-data/no-literal-data` を有効にしています（[管理ダッシュボード](/docs/features/admin-dashboard#real-data-only)を参照）。
+オーバーライドは限定的で、ファイル単位で適用されます。テストと `src/platform/testing` の共有テストヘルパーは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null`、`hydration/no-clock-or-locale-in-render`、`admin-data/no-literal-data` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。また、管理画面のルート、コンポーネント、データファイルでは `admin-data/no-literal-data` を有効にしています（[管理ダッシュボード](/docs/features/admin-dashboard#real-data-only)を参照）。`src` 全体では `radius/no-off-scale`、`type/no-off-scale`、`type/mono-for-code` を有効にし、テストと `src/platform/testing` ではそれらを再び無効にしています。`src/presentation/social-card.tsx` では `type/no-off-scale` を無効にしています。Takumi はソーシャルカードを固定サイズの画像として描画し、その文字サイズはページのタイプスケールではなくインラインスタイルで指定するためです（[テーマ](/docs/ui/theme#type-scale)を参照）。
 
 `tsconfig.json` は、コードの書き方を左右する厳格なフラグを追加しています。`strict`、`exactOptionalPropertyTypes`、`noUncheckedIndexedAccess`、`noPropertyAccessFromIndexSignature`、`noImplicitReturns`、`noFallthroughCasesInSwitch`、`noUnusedLocals`、`noUnusedParameters` です。インデックスによる読み取りは `undefined` の可能性があり、省略可能なプロパティに明示的に `undefined` を設定することはできず、インデックスシグネチャは `record["key"]` の形で読み取ります。
 
@@ -73,7 +76,7 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 ## null と undefined
 
-テストと `src/platform/testing` 以外では、値がないことは `undefined` で表し、`null` を値として書くことはありません。リンターが `null` を許すのは、API がそれを決めている箇所だけです。1 つは `null` になりうる値との比較で、null 許容のカラム（`get-course.ts` の `entry.completedAt !== null`）がその例です。もう 1 つは React の DOM ref で、React は `ref` を `RefObject<T | null>` として型付けし、アンマウント時に `null` に戻すため、`useRef<HTMLElement>(null)` から始めます（`course-showcase.tsx`）。`null` を返す API を `?? undefined` で橋渡ししてはいけません。`code-style/no-undefined-fallback` がそれを失敗させます。先に入力をバリデーションして呼び出しが失敗しないようにするか、最初から `undefined` を返すパーサーを使います。よくあるのは検索パラメーターで、`src/lib/search-params.ts` の `searchParam(schema)` は、値がない場合や不正な場合に `undefined` を返します。
+テストと `src/platform/testing` 以外では、値がないことは `undefined` で表し、`null` を値として書くことはありません。リンターが `null` を許すのは、API がそれを決めている箇所だけです。1 つは `null` になりうる値との比較で、null 許容のカラム（`course.outline.ts` の `entry.completedAt !== null`）がその例です。もう 1 つは React の DOM ref で、React は `ref` を `RefObject<T | null>` として型付けし、アンマウント時に `null` に戻すため、`useRef<HTMLElement>(null)` から始めます（`course-showcase.tsx`）。`null` を返す API を `?? undefined` で橋渡ししてはいけません。`code-style/no-undefined-fallback` がそれを失敗させます。先に入力をバリデーションして呼び出しが失敗しないようにするか、最初から `undefined` を返すパーサーを使います。よくあるのは検索パラメーターで、`src/lib/search-params.ts` の `searchParam(schema)` は、値がない場合や不正な場合に `undefined` を返します。
 
 ```ts
 export const authSearchSchema = zod.object({

@@ -9,7 +9,7 @@ Every file in `src/routes` has the same shape, so a reader who knows one knows a
 
 `src/routes/admin.courses.index.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.index.tsx"
 const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
 
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 A page whose title comes from a record awaits that record and builds its head from the loader data, as `admin.courses.$courseId.tsx` does:
 
-```tsx
+```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 
 `src/routes/admin.courses.tsx`:
 
-```tsx
+```tsx title="src/routes/admin.courses.tsx"
 const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
 
 export const Route = createFileRoute("/admin/courses")({
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - A layout declares `const NAMESPACES = [...] as const` above `export const Route` and preloads it. When it has none, it omits the option; there is no `namespaces: []`.
-- A namespace that a component of another area needs in the layout is added by that area in `src/data/<area>.namespaces.ts`, which names the layout by its route id, and the layout spreads `...layoutNamespaces("/app")` into its `NAMESPACES`. The licence area adds `pages.license` to `/app`, whose overview shows the licence card and offer, and the newsletter area adds `auth.validations` to `/_site/_marketing` and `/_site/docs`, whose footers show the newsletter form. `namespaces.test.ts` checks at compile time that every layout an area names is a route id.
+- A namespace that a component of another area needs in the layout is added by that area in `src/data/<area>.namespaces.ts`, which names the layout by its route id, and the layout spreads `...layoutNamespaces("/app")` into its `NAMESPACES`. The licence area adds `pages.license`, `pages.withdrawal` and `withdrawal.validations` to `/app`, whose overview shows the licence card and offer and whose licence page shows the withdrawal card, `withdrawal.validations` to `/_site/_marketing` and `pages.admin.users.license` to `/admin/users`; the payments area adds `pages.admin.customers` and `pages.admin.orders` to `/admin/users`; and the newsletter area adds `auth.validations` to `/_site/_marketing` and `/_site/docs`, whose footers show the newsletter form. `namespaces.test.ts` checks at compile time that every layout an area names is a route id.
 - The component, when the layout renders one, is named `<Name>Layout` and places an `<Outlet />`.
 - A guard goes in `beforeLoad` on the layout that owns the area: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, both layouts of the auth area. Guards decide navigation only; every server function still checks its own permission.
 
@@ -99,9 +99,9 @@ export const Route = createFileRoute("/admin/courses")({
 
 `sort-keys` is off in `src/routes` because TanStack Router infers types in declaration order. Options are alphabetical, except that `validateSearch` comes first, before anything that reads the search:
 
-```tsx
+```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     error: searchText(),
     token: searchText(),
   }),
@@ -224,11 +224,11 @@ The licence area adds its **Licence** entry to the customer sidebar, and the con
 
 A dashboard statistic has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
 
-A page skeleton pairs the page's `to` with its `pendingComponent`, the same skeleton the page's route sets. The layout skeletons `AdminPending`, `AppPending` and `MarketingPending` draw the one for the current path when someone enters their layout from elsewhere. An area declares the skeletons of all its pages, whichever layout shows them: the licence area declares `/app` and `/app/license`, and the legal area its five public pages.
+A page skeleton pairs the page's `to` with its `pendingComponent`, the same skeleton the page's route sets. The layout skeletons `AdminPending`, `AppPending` and `MarketingPending` draw the one for the current path when someone enters their layout from elsewhere. An area declares the skeletons of all its pages, whichever layout shows them: the licence area declares `/app/license` and `/withdrawal`, and the legal area its five public pages.
 
 An area's access file declares the permission statements of its resources and the roles it grants them to. `auth.access.ts` builds Better Auth's access control from `APP_STATEMENTS` and each role from `grantsOf(role)`, so the auth integration names no area, and `APP_STATEMENTS` fails when two areas declare the same resource (see [Roles and permissions](/docs/guides/roles-and-permissions)).
 
-The lists in `src/data/navigation.ts` and `PAGE_SKELETONS` have declared types, `NavigationEntry` and `PageSkeleton`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the products area, is an empty list that still type-checks. `navigation.test.ts` and `skeletons.test.ts` check at compile time that the `to` of every entry and skeleton an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
+The lists in `src/data/navigation.ts` and `PAGE_SKELETONS` have declared types, `NavigationEntry` and `PageSkeleton`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the payments area, is an empty list that still type-checks. `navigation.test.ts` and `skeletons.test.ts` check at compile time that the `to` of every entry and skeleton an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
 
 An entry names its `area`, and the area labels it in its own message file: `<placement>.<key>` in `messages/<locale>/navigation.<area>.json`, such as `admin.courses` and `header.courses` in `navigation.courses.json`. A dashboard statistic is labelled by its `key` in `dashboard.<area>.json`, and an admin section labels its sub-pages for the breadcrumbs under `breadcrumbs.<segment>` in its `navigation.<area>.json`, such as `breadcrumbs.create`; a user management tab is labelled under `userTabs.<key>`, which names the tab and its page in the breadcrumbs, and a dashboard panel keeps its copy under its `key` in `dashboard.<area>.json`. Both kinds of file are root namespaces, so every menu can label every entry, and `useNavigationLabel` in `src/hooks/use-navigation-label.ts` returns an entry's label. What belongs to a menu itself stays in its namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` and the header's call to action, menu button and skip link in `components.custom.navigation`. `enum-labels.test.ts` fails when an entry or statistic has no label in a locale.
 

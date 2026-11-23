@@ -3,21 +3,25 @@ title: "Modèles d'e-mails"
 description: "Écrivez des modèles React Email avec des messages traduits et envoyez-les depuis les cas d'usage via Resend."
 ---
 
-Un e-mail comporte trois parties : un modèle dans `src/presentation/emails/`, un espace de noms de messages dans `messages/<locale>/emails.<name>.json` et le cas d'usage qui charge les messages, affiche le modèle et l'envoie. Modèles : `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email`, `newsletter-notification-email` et `purchase-confirmation-email`.
+Un e-mail comporte trois parties : un modèle dans `src/presentation/emails/`, un espace de noms de messages dans `messages/<locale>/emails.<name>.json` et le cas d'usage qui charge les messages, affiche le modèle et l'envoie. La page [Resend](/docs/integrations/resend) liste chaque modèle avec le cas d'usage qui l'envoie.
 
 ## Modèle
 
 Un modèle ne contient que du balisage et exporte son espace de noms. Il traduit avec `createTranslator` de `use-intl`, car il s'affiche hors du contexte React. `src/presentation/emails/verify-email.tsx` :
 
-```tsx
+```tsx title="src/presentation/emails/verify-email.tsx"
 import type { JSX } from "react"
 
 import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
 import { createTranslator } from "use-intl"
 
+import { EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+import { APP_NAME } from "~/src/presentation/branding"
+import { EmailBrandHeader } from "~/src/presentation/emails/email-brand-header"
+import { EmailFallbackLink } from "~/src/presentation/emails/email-fallback-link"
 
 export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
 
@@ -38,8 +42,9 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
       <Tailwind config={TAILWIND_CONFIG}>
         <Head />
         <Body className="font-sans">
-          <Preview>{t("preview")}</Preview>
+          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
           <Container className="mx-auto px-5 py-10">
+            <EmailBrandHeader />
             <Section>
               <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
               <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
@@ -49,6 +54,8 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
               >
                 {t("button")}
               </Button>
+              <Text className="mt-6 mb-0 text-base text-neutral-600">{t("expiry", { hours: EMAIL_LINK_LIFETIME_HOURS })}</Text>
+              <EmailFallbackLink label={t("fallback")} url={verifyUrl} />
               <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
             </Section>
           </Container>
@@ -63,13 +70,15 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 Créez `messages/<locale>/emails.<name>.json` dans toutes les langues. Incluez une clé `subject` ; le cas d'usage la traduit séparément du corps.
 
-```json
+```json title="messages/en-US/emails.verify-email.json"
 {
   "subject": "Verify your email address",
-  "preview": "Verify your email for SaaSy Land",
+  "preview": "Verify your email for {appName}",
   "heading": "Verify your email",
   "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
   "button": "Verify email",
+  "expiry": "The link works for {hours, plural, one {# hour} other {# hours}}.",
+  "fallback": "If the button does not work, copy this link into your browser:",
   "footer": "If you did not create an account, you can safely ignore this email."
 }
 ```
@@ -80,7 +89,7 @@ Les routes ne préchargent jamais les espaces de noms d'e-mails ; le cas d'usage
 
 Le cas d'usage tire la langue de l'URL de callback qu'il reçoit, vérifie la limite par destinataire, charge les messages, construit des liens absolus avec `localizePathname` et appelle `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts` :
 
-```ts
+```ts title="src/modules/verification/use-cases/send-verify-email.ts"
 export const sendVerifyEmail = async ({
   callbackURL,
   token,
@@ -118,10 +127,12 @@ L’e-mail de vérification prend une clé neuve à chaque envoi, `crypto.random
 
 ## Qui envoie quoi
 
-- Les hooks Better Auth de `src/integrations/better-auth/auth.server.ts` appellent les cas d'usage via `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`) : `sendVerifyEmail` pour `emailVerification.sendVerificationEmail` et les inscriptions répétées de comptes non vérifiés, `sendExistingAccountEmail` pour les inscriptions répétées de comptes vérifiés, `sendResetPasswordEmail` pour `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` pour `emailAndPassword.onPasswordReset` et `sendChangeEmailConfirmationEmail` pour `user.changeEmail`.
+- Les hooks Better Auth de `src/integrations/better-auth/auth.server.ts` appellent les cas d'usage via `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`) : `sendVerifyEmail` pour `emailVerification.sendVerificationEmail` et les inscriptions répétées de comptes non vérifiés, `sendExistingAccountEmail` pour les inscriptions répétées de comptes vérifiés, `sendResetPasswordEmail` pour `emailAndPassword.sendResetPassword`, `sendPasswordChangedEmail` pour `emailAndPassword.onPasswordReset`, `sendChangeEmailConfirmationEmail` pour `user.changeEmail` et `sendDeleteAccountEmail` pour `user.deleteUser.sendDeleteAccountVerification`.
 - Les requêtes Better Auth arrivent sur `/api/auth` sans préfixe de langue : les hooks déterminent donc la langue de l'e-mail à partir du `callbackURL` du parcours, un chemin de page localisé, avec `extractLocaleFromCallbackURL` ou `extractLocaleFromPath` de `src/integrations/use-intl/i18n.paths.ts`. L'anglais sert de langue de repli.
 - Les cas d'usage de la newsletter envoient eux-mêmes les e-mails de confirmation et de notification, par exemple `subscribeToNewsletter`.
 - Le handler de webhook `onOrderPaid` de la zone des licences appelle `sendPurchaseConfirmationEmail` après avoir accordé la licence. L'e-mail tire sa langue du `metadata.locale` de la commande, ses liens de l'hôte qui a reçu le webhook et son jeton d'idempotence de l'identifiant de la commande Polar, et un envoi en échec fait échouer le handler afin que Polar réessaie.
+- Lorsqu'une commande de licence payée ne correspond à aucun compte, `onOrderPaid` n'accorde rien et appelle `sendUnmatchedOrderAlert`, qui prévient le propriétaire du site en anglais.
+- `recordWithdrawal`, qu'appelle `submitWithdrawal`, envoie l'accusé de réception d'une déclaration de rétractation dans la langue de la page d'où elle a été envoyée, et la notification de rétractation au propriétaire du site en anglais. Un envoi en échec est journalisé et ne fait pas échouer la déclaration.
 - `sendVerifyEmail`, `sendResetPasswordEmail`, `sendExistingAccountEmail` et `subscribeToNewsletter` appellent `withinRecipientRateLimit` (`src/lib/rate-limit.ts`) avant l'envoi : au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails d'un même type par adresse et par heure, avec pour clé un hachage SHA-256 de l'adresse. Au-delà de la limite, ils journalisent un avertissement et n'envoient rien. Ajoutez la même vérification à tout e-mail qu'un visiteur peut déclencher sans compte.
 
 ## Ajouter un e-mail

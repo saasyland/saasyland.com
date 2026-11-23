@@ -24,10 +24,11 @@ The modules are <RepositoryFact name="modules" />. `license` owns two tables, `l
 
 ## Schema
 
-```ts
+```ts title="src/modules/course/course.schema.ts"
 export const course = sqliteTable(
   "course",
   {
+    cover: text("cover"),
     icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
@@ -72,18 +73,14 @@ export const course = sqliteTable(
 
 ## Constants
 
-```ts
-export const COURSE_STATUS = {
-  DRAFT: "draft",
-  PUBLISHED: "published",
-} as const
-
+```ts title="src/modules/course/course.constants.ts"
 export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {
-  COURSES: 2,
+  COURSES: 5,
+  LESSONS: 5,
 } as const
 
 export const COURSE_QUERY_KEYS = {
@@ -92,14 +89,19 @@ export const COURSE_QUERY_KEYS = {
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SEARCH: ["course", "searchCourses"],
   SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  EXPORT: ["course", "exportCourses"],
+  IMPORT: ["course", "importCourses"],
   MOVE: ["course", "moveCourse"],
+  REMOVE_COVER: ["course", "removeCourseCover"],
   UPDATE: ["course", "updateCourse"],
+  UPLOAD_COVER: ["course", "uploadCourseCover"],
 } as const
 ```
 
@@ -154,7 +156,7 @@ export const chapterZodSchemas = {
 
 `<table>.types.ts` exports exactly one interface, named after the module, whose keys mirror the Zod object:
 
-```ts
+```ts title="src/modules/lesson/lesson.types.ts"
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
@@ -165,8 +167,10 @@ export interface Lesson {
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
   getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  getLessonTitle: zod.input<typeof lessonZodSchemas.getLessonTitle>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
   replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
+  searchLessons: zod.input<typeof lessonZodSchemas.searchLessons>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -186,10 +190,16 @@ When a table needs logic that is neither a use case nor a pure helper, it gets o
 | File                                              | Concern                                                                                                          |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `course/course.outline.ts`                        | A published course's outline for a viewer, for `getCourse` and `getLesson`                                       |
+| `course/course.cover.ts`                          | The sizes, widths, accepted types and object keys of a course cover; pure                                        |
+| `course/course.delivery.ts`                       | The Worker handler `serveCover`, which serves course covers                                                      |
+| `course/course.objects.ts`                        | Removing a course cover's objects from R2                                                                        |
+| `course/course.transfer.ts`                       | Exporting and importing courses as one JSON document                                                             |
 | `lesson/lesson.access.ts`                         | Who may watch a lesson; pure, used on the server and in tests                                                    |
 | `lesson/lesson.playable.ts`                       | The join to a lesson's video that leaves placeholders out                                                        |
 | `lesson-attachment/lesson-attachment.download.ts` | Signing download URLs of lesson materials                                                                        |
 | `lesson-attachment/lesson-attachment.delivery.ts` | The Worker handler for signed `/media/downloads/` requests                                                       |
+| `lesson-attachment/lesson-attachment.files.ts`    | Content types, file names, object keys and upload fields of lesson materials                                     |
+| `lesson-attachment/lesson-attachment.objects.ts`  | Listing and removing the R2 objects of lesson materials                                                          |
 | `lesson/lesson.viewer.ts`                         | Resolves the signed-in viewer and their course access on the server, and records a paid lesson they open         |
 | `order/order.polar.ts`                            | The discount and billing country of a Polar order, for `recordOrder` and `scripts/backfill-order-terms.ts`; pure |
 | `license/license.webhooks.ts`                     | Polar webhook handlers, called by `license.polar-events.ts`                                                      |
@@ -199,12 +209,15 @@ When a table needs logic that is neither a use case nor a pure helper, it gets o
 | `license/license.ppp.ts`                          | The buyer's price for a tier at checkout, regional price included                                                |
 | `license/license.pricing.ts`                      | Regional price bands and the opt-out cookie; pure                                                                |
 | `license/license.upgrade-price.ts`                | The price of an upgrade, from the customer's licence orders in Polar                                             |
+| `license/license.upgrades.ts`                     | Which tiers are an upgrade, and the upgrade an order's metadata records; pure                                    |
 | `license/license.refunds.ts`                      | Whether a purchase can be refunded, from its records; pure                                                       |
 | `withdrawal/withdrawal.contracts.ts`              | The active licence a withdrawal statement names, and its refund terms                                            |
 | `video/video.delivery.ts`                         | The Worker handler for signed `/media/` requests                                                                 |
 | `video/video.playback.ts`, `video/video.files.ts` | Signing playback URLs; object keys and content types                                                             |
+| `video/video.encoding.ts`                         | The renditions, segment length and quality settings of the video encoding                                        |
+| `account/account.links.ts`                        | The links of the account emails, built from the callback URL                                                     |
 
-A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `video.delivery.ts` and `license.utils.ts` (which reads the Polar product IDs, `POLAR_PRODUCT_IDS`, from the Worker environment) do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
+A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `course.outline.ts`, `course.delivery.ts`, `course.objects.ts`, `course.transfer.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `license.ppp.ts`, `license.upgrade-price.ts`, `order.utils.ts`, `withdrawal.contracts.ts`, `account.links.ts`, `video.delivery.ts` and `license.utils.ts` (which reads the Polar product IDs, `POLAR_PRODUCT_IDS`, from the Worker environment) do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
 
 ## Adding a module
 

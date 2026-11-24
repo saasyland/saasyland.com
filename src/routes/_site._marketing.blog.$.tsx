@@ -16,8 +16,9 @@ import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import { BLOG_COVER } from "~/src/data/blog"
 
+import { buildBlogPostStructuredDataHtml, pageAuthor } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
-import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+import { type PageAuthor, buildPageHead } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import { BackToBlogLink } from "~/src/presentation/components/custom/blog/back-to-blog-link"
@@ -137,6 +138,7 @@ const BlogPostPage = (): JSX.Element => {
 const NAMESPACE = "pages.blog"
 
 interface BlogPostLoaderData {
+  readonly author: PageAuthor
   readonly locale: SupportedLocale
   readonly post: BlogPostData
   readonly section: string
@@ -150,7 +152,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     }
 
     return buildPageHead({
-      author: loaderData?.post.author,
+      author: loaderData?.author,
       dates: loaderData?.post,
       description: loaderData?.post.description ?? loaderData?.post.summary,
       locale: loaderData?.locale,
@@ -173,6 +175,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     }
     await blogContent.preload(post.path)
     return {
+      author: pageAuthor(post.author),
       locale,
       post: toPostData({ locale, post, posts }),
       posts: posts.map((other) => toBlogPostLink(other, locale)),

@@ -41,7 +41,7 @@ URL は、コントラクトが求めるとおり HTTPS で、リクエストに
 - `expiry` は 36 進数の Unix 時刻で、URL を発行した秒から <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />後です（`API_LIMIT.BUNDLE_URL_TTL_SECONDS`）。`expiresAt` は同じ時刻を ISO 8601 で表したものです。
 - `signature` は、HKDF が `AUTH_SECRET` からバンドルの URL 専用に導出した鍵による `<version>.<expiry>` の HMAC-SHA-256 です（`src/lib/hmac.ts` の `signHmac`）。URL には S3 の認証情報も独自のシークレットも必要なく、署名済みの動画のパスでバンドルが開くことはありません。
 
-`src/data/license.worker.ts` にあるライセンスのエリアのリクエストハンドラーは、`/bundles/` 配下のすべてのパスを、ロケールミドルウェアと TanStack Start より前に `serveBundle`（`src/modules/license/license.delivery.ts`）へ渡します。`serveBundle` は `GET` と `HEAD` だけを受け付け（それ以外は `405`）、署名済みのバンドルのパスではないパスやアーカイブのないリリースには `404` を、期限切れまたは不正な署名には `403` を返し、それ以外の場合はオブジェクトを <RepositoryFact name="cliBundleContentType" /> として、その `Content-Length`、`ETag`、`Cache-Control: private, no-store` とともにストリーミングします。署名済み URL は、期限が切れるまでベアラーリンクとして機能します。誰がダウンロードできるかのチェックは、URL を発行する時点で行われます。
+`src/server.ts` の `REQUEST_HANDLERS` にあるライセンスのエントリーは、`/bundles/` 配下のすべてのパスを、ロケールミドルウェアと TanStack Start より前に `serveBundle`（`src/modules/license/license.delivery.ts`）へ渡します。`serveBundle` は `GET` と `HEAD` だけを受け付け（それ以外は `405`）、署名済みのバンドルのパスではないパスやアーカイブのないリリースには `404` を、期限切れまたは不正な署名には `403` を返し、それ以外の場合はオブジェクトを <RepositoryFact name="cliBundleContentType" /> として、その `Content-Length`、`ETag`、`Cache-Control: private, no-store` とともにストリーミングします。署名済み URL は、期限が切れるまでベアラーリンクとして機能します。誰がダウンロードできるかのチェックは、URL を発行する時点で行われます。
 
 コントラクトはスタック自身のスキーマで回答を検証するため、ルールが禁止するスタックのリクエストには、何も読み取る前に `invalidRequest` を返します。どのスタックにもそのリリースの同じバンドルが返され、サイトは回答もリリースも保存しません。読み取れないバケットや、メタデータ <RepositoryFact name="cliBundleDigestMetadata" /> に SHA-256 がないオブジェクトには `serviceUnavailable` を返し、ログにそのオブジェクトを記録します。
 

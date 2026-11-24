@@ -4,10 +4,16 @@ import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { RELEASE_TAG, readChangelog } from "~/src/lib/changelog"
-import { releaseNotes } from "~/src/lib/release"
+import { readChangelog, releaseNotes } from "~/src/lib/changelog"
+import { RELEASE_TAG } from "~/src/lib/release"
 
 import { scriptArguments } from "./run-command.ts"
+
+const RELEASE_NOTES: readonly ((tag: string) => Promise<string>)[] = [
+  async (tag) => releaseNotes(await readChangelog({ cwd: process.cwd(), locale: I18N.DEFAULT_LOCALE, upcomingRelease: tag }), tag),
+]
+
+const NOTES_SEPARATOR = "\n\n"
 
 const argumentsSchema = zod.tuple([zod.string().min(1), zod.string().regex(RELEASE_TAG)])
 
@@ -17,8 +23,7 @@ const existing = await $`gh release view ${tag}`.nothrow().quiet()
 if (existing.exitCode === 0) {
   process.stdout.write(`${tag} is already released.\n`)
 } else {
-  const changelog = await readChangelog({ cwd: process.cwd(), locale: I18N.DEFAULT_LOCALE, upcomingRelease: tag })
-  const notes = releaseNotes(changelog, tag)
+  const notes = await Promise.all(RELEASE_NOTES.map((notesOf) => notesOf(tag)))
 
-  await $`gh release create ${tag} --target ${commit} --notes-file - < ${new Response(notes)}`
+  await $`gh release create ${tag} --target ${commit} --notes-file - < ${new Response(notes.join(NOTES_SEPARATOR))}`
 }

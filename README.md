@@ -194,7 +194,7 @@ src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
   routes.ts                      ROUTES: every path and the paths kept out of prerendering, with no import so every runtime loads it
   router.tsx                     Per-request QueryClient and SSR integration
-  server.ts                      Cloudflare Worker entry: the areas' Worker handlers, locale middleware, and security headers
+  server.ts                      Cloudflare Worker entry: request handlers, document rewrites, locale middleware, and security headers
   integrations/{vendor}/         Vendor configuration and adapters ({prefix}.{concern}.ts, e.g. auth.server.ts)
   modules/{table}/               One folder per database table: schema, zod, constants, types, use-cases/*.ts
   modules/_core/                 Error codes, HTTP constants, Zod fields and use-case inputs
@@ -207,7 +207,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files, every menu (navigation.ts), and the lists each area adds to, as AGENTS.md's "Where code goes" names them
+  data/                          Data shared by several files and every menu (navigation.ts)
   hooks/                         Shared React hooks
   lib/                           Utilities and server functions that own no table
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers

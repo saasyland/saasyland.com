@@ -4,8 +4,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { BLOG_AUTHOR, BLOG_AUTHORS } from "~/src/data/blog"
-
 import { readPageHead } from "~/src/lib/page-head"
 import { ROBOTS, SOCIAL_IMAGE, buildPageHead } from "~/src/lib/seo"
 
@@ -66,7 +64,7 @@ describe("readPageHead", () => {
 
   it("reads back an article's author, dates, description and every tag", () => {
     const head = buildPageHead({
-      author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+      author: { name: "Ada Lovelace", pathname: "/authors/ada-lovelace" },
       dates: { date: "2026-08-15", updated: "2026-09-01" },
       description: "A post about tests",
       pathname: `${ROUTES.BLOG}/post`,
@@ -77,7 +75,7 @@ describe("readPageHead", () => {
     const document = renderDocument(head, "en-US").replace("</head>", `${tags}</head>`)
 
     expect(readPageHead(document)).toMatchObject({
-      author: BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI].name,
+      author: "Ada Lovelace",
       description: "A post about tests",
       modified: "2026-09-01T00:00:00.000Z",
       published: "2026-08-15T00:00:00.000Z",

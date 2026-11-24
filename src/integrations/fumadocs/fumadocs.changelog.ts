@@ -2,15 +2,8 @@ import type { Plugin } from "fumadocs-mdx"
 import process from "node:process"
 import * as zod from "zod"
 
-import {
-  type ChangelogEntry,
-  type MergedEntry,
-  RELEASE_TAG,
-  joinEntries,
-  originOf,
-  readChangelog,
-  unreleasedEntryProblems,
-} from "../../lib/changelog"
+import { type ChangelogEntry, type MergedEntry, joinEntries, originOf, readChangelog, unreleasedEntryProblems } from "../../lib/changelog"
+import { RELEASE_TAG } from "../../lib/release"
 
 interface CompiledDocument {
   readonly cwd: string

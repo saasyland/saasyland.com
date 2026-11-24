@@ -38,9 +38,15 @@ const SEO_LINKS = localeLinks({ origin: "", pathname: ROUTES.HOME })
 const CANONICAL_LINKS = SEO_LINKS.filter(({ rel }) => rel === "canonical").length
 const ALTERNATE_LINKS = SEO_LINKS.filter(({ rel }) => rel === "alternate").length
 
-const CONTENT_ROUTES = [
-  { directory: DOCS_DIRECTORY, route: ROUTES.DOCS },
-  { directory: BLOG_DIRECTORY, route: ROUTES.BLOG },
+interface ContentRoute {
+  readonly directory: string
+  readonly route: string
+  readonly searched: boolean
+}
+
+const CONTENT_ROUTES: readonly ContentRoute[] = [
+  { directory: DOCS_DIRECTORY, route: ROUTES.DOCS, searched: true },
+  { directory: BLOG_DIRECTORY, route: ROUTES.BLOG, searched: false },
 ]
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
@@ -246,34 +252,38 @@ const searchIndexes = readdirSync(ASSETS_DIR).flatMap((name) => {
   return groups === undefined ? [] : [{ locale: searchIndexSchema.parse(groups).locale, name }]
 })
 
-const docsPage = (file: string): string => {
+const searchedPage = ({ directory, route }: ContentRoute, file: string): string => {
   const { slug } = contentPageSchema.parse(CONTENT_PAGE.exec(file)?.groups)
-  const { title } = titleSchema.parse(frontmatterOf(join(DOCS_DIRECTORY, file)))
+  const { title } = titleSchema.parse(frontmatterOf(join(directory, file)))
 
-  return `${[ROUTES.DOCS, slug].filter(Boolean).join("/")} ${title}`
+  return `${[route, slug].filter(Boolean).join("/")} ${title}`
 }
 
-const verifySearchIndex = async (locale: SupportedLocale): Promise<void> => {
+const verifySearchIndex = async (searched: ContentRoute, locale: SupportedLocale): Promise<void> => {
   const indexes = searchIndexes.filter((index) => index.locale === locale)
   const [index] = indexes
 
   if (index === undefined || indexes.length > 1) {
-    throw new Error(`Expected one docs search index for ${locale} in ${ASSETS_DIR}, found ${String(indexes.length)}`)
+    throw new Error(`Expected one search index for ${locale} in ${ASSETS_DIR}, found ${String(indexes.length)}`)
   }
 
   const from = pathToFileURL(resolve(ASSETS_DIR, index.name)).href
   const results = await staticClient({ from, search: ALL_RESULTS }).search("")
   const indexed = results.filter(({ type }) => type === PAGE_RESULT).map(({ content, url }) => `${url} ${content}`)
-  const pages = globSync(`**/*.${locale}.mdx`, { cwd: DOCS_DIRECTORY }).map((file) => docsPage(file))
+  const pages = globSync(`**/*.${locale}.mdx`, { cwd: searched.directory }).map((file) => searchedPage(searched, file))
 
   if (indexed.toSorted().join("\n") !== pages.toSorted().join("\n")) {
     throw new Error(
-      `The ${locale} docs search index does not hold exactly the ${String(pages.length)} pages of ${DOCS_DIRECTORY} under their ${locale} titles`,
+      `The ${locale} search index does not hold exactly the ${String(pages.length)} pages of ${searched.directory} under their ${locale} titles`,
     )
   }
 }
 
-await Promise.all(I18N.SUPPORTED_LOCALES.map((locale) => verifySearchIndex(locale)))
+await Promise.all(
+  CONTENT_ROUTES.filter(({ searched }) => searched).flatMap((route) =>
+    I18N.SUPPORTED_LOCALES.map((locale) => verifySearchIndex(route, locale)),
+  ),
+)
 
 const serverBytes = bytesOf(serverChunks)
 const routeTreeBytes = bytesOf(staticClosureOf(chunkOf(ROUTE_TREE_MODULE)))

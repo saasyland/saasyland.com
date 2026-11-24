@@ -19,18 +19,18 @@ Vite+ (`vite-plus`, команда `vp`) об'єднує Vite, Vitest, oxlint і
 
 ## Конфігурація
 
-`vite.config.ts` сам не називає жодного плагіна: він ліниво завантажує плагіни, які кожен розділ оголошує в `src/data/<area>.vite.ts`, `src/data/vite.entries.ts` їх об’єднує, а `vitePlugins` у `src/data/vite.ts` впорядковує за їхнім `order` (див. [Що додають розділи](/docs/architecture/platform-layer#what-the-areas-add)). Під Vitest завантажуються лише записи з позначкою `vitest`, тобто `repositoryFacts()`, `contentIndexes()` і `@vitejs/plugin-react`; в інших випадках набір такий:
+`vite.config.ts` перелічує свої плагіни в `VITE_PLUGINS` і завантажує їх ліниво, кожен запис імпортує свій пакет усередині `load`; плагіни постачальника беруться з `src/integrations/<vendor>/<vendor>.vite.ts` (див. [Що виконують Worker і збірка](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)). Під Vitest завантажуються лише записи з позначкою `vitest`, тобто `contentIndexes()`, `repositoryFacts()` і `@vitejs/plugin-react`; в інших випадках набір такий:
 
 - `@cloudflare/vite-plugin`: запускає Worker у середовищі SSR і зберігає локальний стан (у `.wrangler/test` для режиму `test`, в інших випадках у `.wrangler/state`), з `remoteBindings: false`, тож dev-сервер чи збірка жодного середовища не підключається до віддаленої прив'язки.
 - `fumadocs-mdx`: компілює колекції документації та блогу.
+- `saasyland:fumadocs-bundled`: залишає `fumadocs-core` і `@fumadocs/base-ui` у серверному бандлі (`resolve.noExternal`). Він і `fumadocs-mdx` походять із `fumadocsVitePlugins` (`src/integrations/fumadocs/fumadocs.vite.ts`).
 - `contentIndexes` (`scripts/content-indexes.ts`): надає `virtual:content-indexes` і `virtual:docs-search` — індекси документації, блогу й пошуку, які `fumadocs.indexes.ts` будує з `content/docs` і `content/blog`; див. [Fumadocs](/docs/integrations/fumadocs#content-indexes).
-- `saasyland:fumadocs-bundled`: залишає `fumadocs-core` і `@fumadocs/base-ui` у серверному бандлі (`resolve.noExternal`).
 - `repositoryFacts` (`scripts/repository-facts.ts`): надає модуль `virtual:repository-facts`: кількості, версії та налаштування інструментів, які виводять головна сторінка й документація, прочитані з репозиторію під час збірки; див. [Переклади та контент](/docs/conventions/translations).
 - `unused-primitives` (`scripts/unused-primitives.ts`): перед Tailwind пропускає класи кожного примітиву shadcn, який не імпортує жоден вихідний код застосунку; див. [Компоненти shadcn](/docs/ui/shadcn-components).
 - `@tailwindcss/vite`: Tailwind CSS 4.
-- `tanstackStart`: маршрутизація, розділення коду та попередній рендеринг публічних сторінок.
+- `tanstackStart`: маршрутизація, розділення коду та попередній рендеринг публічних сторінок, відфільтрований `shouldPrerender` (`src/lib/prerender.ts`).
 - `@vitejs/plugin-react`.
-- `saasyland:zod-config-chunk`: у клієнтській збірці кладе `src/integrations/zod/zod.config.ts` у власний чанк zod, тож zod працює в режимі `jitless` ще до того, як будь-який чанк створить схему, і під Content Security Policy ніколи не перевіряє, чи доступний `eval`; див. [Безпека та посилення захисту](/docs/features/security).
+- `saasyland:zod-config-chunk` (`src/integrations/zod/zod.vite.ts`): у клієнтській збірці кладе `src/integrations/zod/zod.config.ts` у власний чанк zod, тож zod працює в режимі `jitless` ще до того, як будь-який чанк створить схему, і під Content Security Policy ніколи не перевіряє, чи доступний `eval`; див. [Безпека та посилення захисту](/docs/features/security).
 - `deployedWorker` (`scripts/deployed-worker.ts`): після попереднього рендерингу заново збирає Worker без скомпільованих сторінок документації та блогу і без перекладів лендингу та юридичних сторінок; див. [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 - `saasyland:polar-sdk-optional-peers`: позначає як зовнішні не встановлені необов’язкові peer-залежності `@polar-sh/sdk` (`build.rolldownOptions.external`); див. [Залежності](/docs/conventions/dependencies).
 
@@ -38,7 +38,7 @@ Dev-сервер слухає `localhost:3000` і завершується з п
 
 `vp preview`, який запускають `start`, `start:test` і пререндеринг, слухає `127.0.0.1:3000`, адресу `LOCAL_SERVER` з `src/data/local-server.ts`, і Playwright відкриває цю адресу; пререндеринг використовує ту саму адресу з вільним портом. З `localhost` сервер слухав би лише першу адресу, до якої Node розв'язує це ім'я, `::1`, а кожен клієнт пробував би спершу `::1`, потім `127.0.0.1` і давав би кожній адресі лише короткий час на відповідь: на завантаженій машині цей час спливає раніше, ніж клієнт помічає з'єднання, клієнт полишає `::1`, на `127.0.0.1` нічого не знаходить, і пререндеринг зупиняється з `ETIMEDOUT ::1` і `ECONNREFUSED 127.0.0.1`.
 
-`src/integrations/polar/polar.vite.ts` додає плагін, хук `config` якого перелічує в `build.rolldownOptions.external` необов'язкові peer-залежності `@polar-sh/sdk` (OpenTelemetry та `ioredis`). Їх не встановлено, а модуль, який їх імпортує, вилучається з Worker завдяки tree-shaking.
+`polarVitePlugins` у `src/integrations/polar/polar.vite.ts` повертає плагін, хук `config` якого перелічує в `build.rolldownOptions.external` необов'язкові peer-залежності `@polar-sh/sdk` (OpenTelemetry та `ioredis`). Їх не встановлено, а модуль, який їх імпортує, вилучається з Worker завдяки tree-shaking.
 
 ## Git-хуки
 

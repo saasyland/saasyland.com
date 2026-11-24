@@ -20,8 +20,9 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { BLOG_ARCHIVE } from "~/src/data/blog"
 
+import { buildBlogArchiveStructuredDataHtml } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
-import { type PageLoaderData, buildBlogArchiveStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+import { type PageLoaderData, buildPageHead } from "~/src/lib/seo"
 
 import { BlogArchivePending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post-finder"

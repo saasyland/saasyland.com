@@ -192,29 +192,43 @@ Worker はアイソレートの中で動きます。Cloudflare によれば、�
 
 ### 実例：ビルドで確認する起動の予算
 
-`src/server.ts` と、それが静的にインポートするエリアのハンドラーは、定数と小さなヘルパーだけを持ち、残りは、コースのエリアの `/media/` 用ハンドラーのように、リクエストが必要としたときに読み込みます。
+`src/server.ts` と、それが静的にインポートするモジュールは、定数と小さなヘルパーだけを持ち、残りは、`/media/` と `/bundles/` のリクエストハンドラーのように、リクエストが必要としたときに読み込みます。
 
-```ts title="src/data/courses.worker.ts"
-export const COURSES_WORKER_HANDLERS = [
+```ts title="src/server.ts"
+const REQUEST_HANDLERS: readonly RequestHandler[] = [
   {
     fetch: async (request) => {
-      if (isUnder(request, COURSE_COVER_PATH_PREFIX)) {
-        const { serveCover } = await import("~/src/modules/course/course.delivery")
-        return serveCover(request)
-      }
+      const { serveCover } = await import("~/src/modules/course/course.delivery")
 
-      if (isUnder(request, LESSON_ATTACHMENT_PATH_PREFIX)) {
-        const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
-        return serveAttachment(request)
-      }
+      return serveCover(request)
+    },
+    pathPrefix: `${COURSE_COVER_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
 
+      return serveAttachment(request)
+    },
+    pathPrefix: `${LESSON_ATTACHMENT_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
       const { serveMedia } = await import("~/src/modules/video/video.delivery")
+
       return serveMedia(request)
     },
-    kind: WORKER_HANDLER_KIND.REQUEST,
     pathPrefix: `${MEDIA_PATH_PREFIX}/`,
   },
-] as const satisfies readonly WorkerHandler[]
+  {
+    fetch: async (request) => {
+      const { serveBundle } = await import("~/src/modules/license/license.delivery")
+
+      return serveBundle(request)
+    },
+    pathPrefix: `${BUNDLE_PATH_PREFIX}/`,
+  },
+]
 ```
 
 TanStack Start 自身のハンドラーも同じ方法でインポートするので、プリレンダリング済みのページがサーバーレンダラーを読み込むことはありません。この予算はビルドで強制しています。`scripts/verify-build.ts` は、デプロイされる Worker のエントリーの静的インポートをたどり、それらが Polar SDK、Drizzle、Resend に到達した場合や、合計が上限を超えた場合に失敗します。

@@ -3,7 +3,9 @@ import type { JSX } from "react"
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 import { stackArguments } from "@saasyland/stack"
 
-import { CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET, resolveCliAnswers } from "~/src/data/cli"
+import { CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
+
+import { resolveCliAnswers } from "~/src/lib/cli"
 
 const CONTINUED_LINE = " \\\n  "
 

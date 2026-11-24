@@ -239,29 +239,43 @@ Le regole che ne derivano:
 
 ### Esempio concreto: un budget di avvio nella build
 
-`src/server.ts` e gli handler delle aree che importa staticamente contengono solo costanti e piccoli helper, e caricano il resto quando una richiesta ne ha bisogno, come l’handler di `/media/` dell’area dei corsi:
+`src/server.ts` e i moduli che importa staticamente contengono solo costanti e piccoli helper, e caricano il resto quando una richiesta ne ha bisogno, come gli handler delle richieste per `/media/` e `/bundles/`:
 
-```ts title="src/data/courses.worker.ts"
-export const COURSES_WORKER_HANDLERS = [
+```ts title="src/server.ts"
+const REQUEST_HANDLERS: readonly RequestHandler[] = [
   {
     fetch: async (request) => {
-      if (isUnder(request, COURSE_COVER_PATH_PREFIX)) {
-        const { serveCover } = await import("~/src/modules/course/course.delivery")
-        return serveCover(request)
-      }
+      const { serveCover } = await import("~/src/modules/course/course.delivery")
 
-      if (isUnder(request, LESSON_ATTACHMENT_PATH_PREFIX)) {
-        const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
-        return serveAttachment(request)
-      }
+      return serveCover(request)
+    },
+    pathPrefix: `${COURSE_COVER_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
 
+      return serveAttachment(request)
+    },
+    pathPrefix: `${LESSON_ATTACHMENT_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
       const { serveMedia } = await import("~/src/modules/video/video.delivery")
+
       return serveMedia(request)
     },
-    kind: WORKER_HANDLER_KIND.REQUEST,
     pathPrefix: `${MEDIA_PATH_PREFIX}/`,
   },
-] as const satisfies readonly WorkerHandler[]
+  {
+    fetch: async (request) => {
+      const { serveBundle } = await import("~/src/modules/license/license.delivery")
+
+      return serveBundle(request)
+    },
+    pathPrefix: `${BUNDLE_PATH_PREFIX}/`,
+  },
+]
 ```
 
 L’handler di TanStack Start stesso viene importato allo stesso modo, quindi una pagina prerenderizzata non carica mai il renderer del server. La build impone il budget. `scripts/verify-build.ts` segue gli import statici dell’entry point del Worker distribuito e fallisce quando raggiungono l’SDK di Polar, Drizzle o Resend, o quando nel complesso superano il suo limite:

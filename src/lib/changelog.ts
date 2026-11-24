@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process"
 import { readFile, readdir } from "node:fs/promises"
 import { join } from "node:path"
 
+import { APP_URL } from "../presentation/branding"
+import * as ROUTES from "../routes.ts"
 import { MILLISECONDS_PER_SECOND } from "./duration"
+import { MAIN_BRANCH, RELEASE_TAG } from "./release"
 
 export interface ChangelogEntry {
   readonly key: string
@@ -32,13 +35,9 @@ export const CHANGELOG_DIRECTORY = "content/changelog"
 
 export const ENTRY_KEY = /^(?:[1-9]\d*|[\da-f]{40})$/u
 
-export const RELEASE_TAG = /^(?<firstTag>v(?<year>\d{4})\.(?<month>\d{2})\.(?<day>\d{2}))(?:\.(?<sequence>\d+))?$/u
-
 export const ENTRY_ORIGIN = { COMMIT: "commit", PULL_REQUEST: "pullRequest" } as const
 
 export type EntryOrigin = (typeof ENTRY_ORIGIN)[keyof typeof ENTRY_ORIGIN]
-
-export const MAIN_BRANCH = "main"
 
 const MAIN_REF = `refs/heads/${MAIN_BRANCH}`
 const PULL_REQUEST_KEY = /^[1-9]\d*$/u
@@ -54,6 +53,8 @@ const LOG_FIELD_SEPARATOR = "\t"
 const DECORATION_SEPARATOR = ", "
 const TAG_DECORATION = /^tag: /u
 const SHALLOW_REPOSITORY = "true"
+const CHANGELOG_URL = `${APP_URL}${ROUTES.DOCS}/project/changelog`
+const SITE_LINK = "](/"
 
 const keyOrder = new Intl.Collator(undefined, { numeric: true })
 
@@ -179,6 +180,18 @@ export const entryItems = (source: string): string[] =>
 
 export const joinEntries = <Entry extends ChangelogEntry>(entries: readonly Entry[], reference: (entry: Entry) => string): string =>
   entries.flatMap((entry) => entryItems(entry.source).map((item) => `${item} ${reference(entry)}`)).join("\n")
+
+const referenceOf = ({ key }: ChangelogEntry): string => (originOf(key) === ENTRY_ORIGIN.PULL_REQUEST ? `(#${key})` : `(${key})`)
+
+export const releaseNotes = (changelog: Changelog, tag: string): string => {
+  const shipped = changelog.days.flatMap(({ entries }) => entries).filter(({ release }) => release === tag)
+
+  if (shipped.length === 0) {
+    return `See the [changelog](${CHANGELOG_URL}).`
+  }
+
+  return joinEntries(shipped, referenceOf).replaceAll(SITE_LINK, `](${APP_URL}/`)
+}
 
 export const pullRequestOf = (ref: string): string | undefined =>
   (PULL_REQUEST_REF.exec(ref) ?? MERGE_GROUP_REF.exec(ref))?.groups?.["number"]

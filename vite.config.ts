@@ -1,10 +1,107 @@
 import { resolve } from "node:path"
-import { type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
+import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
 import { LOCAL_SERVER } from "./src/data/local-server.ts"
-import { vitePlugins } from "./src/data/vite.ts"
+import { fumadocsVitePlugins } from "./src/integrations/fumadocs/fumadocs.vite.ts"
+import { polarVitePlugins } from "./src/integrations/polar/polar.vite.ts"
+import { zodVitePlugins } from "./src/integrations/zod/zod.vite.ts"
+import { shouldPrerender } from "./src/lib/prerender.ts"
 
 const projectRoot = import.meta.dirname
+
+interface VitePlugins {
+  readonly load: (mode: string) => Promise<readonly PluginOption[]>
+  readonly vitest: boolean
+}
+
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+
+export const VITE_PLUGINS: readonly VitePlugins[] = [
+  {
+    load: async (mode) => {
+      const { cloudflare } = await import("@cloudflare/vite-plugin")
+
+      return [
+        cloudflare({
+          inspectorPort: false,
+          persistState: mode === "test" ? { path: ".wrangler/test" } : true,
+          remoteBindings: false,
+          viteEnvironment: { name: "ssr" },
+        }),
+      ]
+    },
+    vitest: false,
+  },
+  { load: fumadocsVitePlugins, vitest: false },
+  {
+    load: async () => {
+      const { contentIndexes } = await import("./scripts/content-indexes.ts")
+
+      return [contentIndexes()]
+    },
+    vitest: true,
+  },
+  {
+    load: async () => {
+      const { repositoryFacts } = await import("./scripts/repository-facts.ts")
+
+      return [repositoryFacts()]
+    },
+    vitest: true,
+  },
+  {
+    load: async () => {
+      const [{ default: tailwindcss }, { unusedPrimitivesPlugin }] = await Promise.all([
+        import("@tailwindcss/vite"),
+        import("./scripts/unused-primitives.ts"),
+      ])
+
+      return [unusedPrimitivesPlugin(), tailwindcss()]
+    },
+    vitest: false,
+  },
+  {
+    load: async () => {
+      const { tanstackStart } = await import("@tanstack/react-start/plugin/vite")
+
+      return [
+        tanstackStart({
+          importProtection: { client: { specifiers: SERVER_ONLY_PACKAGES } },
+          prerender: { autoStaticPathsDiscovery: true, crawlLinks: true, enabled: true, filter: shouldPrerender },
+          router: {
+            codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },
+            routeFileIgnorePattern: "__test__",
+          },
+        }),
+      ]
+    },
+    vitest: false,
+  },
+  {
+    load: async () => {
+      const { default: viteReact } = await import("@vitejs/plugin-react")
+
+      return [viteReact()]
+    },
+    vitest: true,
+  },
+  { load: zodVitePlugins, vitest: false },
+  {
+    load: async () => {
+      const { deployedWorker } = await import("./scripts/deployed-worker.ts")
+
+      return [deployedWorker()]
+    },
+    vitest: false,
+  },
+  { load: polarVitePlugins, vitest: false },
+]
+
+const vitePlugins = async ({ mode, vitest }: { mode: string; vitest: boolean }): Promise<PluginOption[]> => {
+  const plugins = await Promise.all(VITE_PLUGINS.filter((entry) => entry.vitest || !vitest).map((entry) => entry.load(mode)))
+
+  return plugins.flat()
+}
 
 const ignorePatterns = [
   "**/*.d.ts",

@@ -19,18 +19,18 @@ Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfm
 
 ## 設定
 
-`vite.config.ts` 自体はプラグインを1つも指定しません。各エリアが `src/data/<area>.vite.ts` で宣言したプラグインを遅延読み込みし、`src/data/vite.entries.ts` がそれらをまとめ、`src/data/vite.ts` の `vitePlugins` が `order` の順に並べます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。Vitest の実行中は `vitest` が指定されたエントリー、つまり `repositoryFacts()`、`contentIndexes()`、`@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
+`vite.config.ts` はプラグインを `VITE_PLUGINS` に並べて遅延読み込みし、各エントリーはそのパッケージを `load` の中でインポートします。ベンダーのプラグインは `src/integrations/<vendor>/<vendor>.vite.ts` から読み込みます（[Worker とビルドが実行するもの](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)を参照）。Vitest の実行中は `vitest` が指定されたエントリー、つまり `contentIndexes()`、`repositoryFacts()`、`@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
 
 - `@cloudflare/vite-plugin`: SSR 環境で Worker を実行し、ローカルの状態を永続化します（`test` モードでは `.wrangler/test` 内、それ以外では `.wrangler/state` 内）。`remoteBindings: false` で動作するため、どの環境の開発サーバーやビルドもリモートのバインディングに接続しません。
 - `fumadocs-mdx`: ドキュメントとブログのコレクションをコンパイルします。
+- `saasyland:fumadocs-bundled`: `fumadocs-core` と `@fumadocs/base-ui` をサーバーバンドルに含めます（`resolve.noExternal`）。このプラグインと `fumadocs-mdx` は `fumadocsVitePlugins`（`src/integrations/fumadocs/fumadocs.vite.ts`）が返します。
 - `contentIndexes`（`scripts/content-indexes.ts`）: `fumadocs.indexes.ts` が `content/docs` と `content/blog` から作るドキュメント、ブログ、検索のインデックスを、`virtual:content-indexes` と `virtual:docs-search` として提供します。[Fumadocs](/docs/integrations/fumadocs#content-indexes) を参照してください。
-- `saasyland:fumadocs-bundled`: `fumadocs-core` と `@fumadocs/base-ui` をサーバーバンドルに含めます（`resolve.noExternal`）。
 - `repositoryFacts`（`scripts/repository-facts.ts`）: ランディングページとドキュメントが表示する数値、バージョン、ツールの設定をビルド時にリポジトリから読み取り、`virtual:repository-facts` モジュールとして提供します。[翻訳とコンテンツ](/docs/conventions/translations)を参照してください。
 - `unused-primitives`（`scripts/unused-primitives.ts`）: Tailwind の前に実行され、アプリケーションのソースがどこからもインポートしない shadcn のプリミティブのクラスを除外します。[shadcn コンポーネント](/docs/ui/shadcn-components)を参照してください。
 - `@tailwindcss/vite`: Tailwind CSS 4。
-- `tanstackStart`: ルーティング、コード分割、公開ページのプリレンダリング。
+- `tanstackStart`: ルーティング、コード分割、公開ページのプリレンダリング。プリレンダリングするページは `shouldPrerender`（`src/lib/prerender.ts`）が絞り込みます。
 - `@vitejs/plugin-react`。
-- `saasyland:zod-config-chunk`: クライアントのビルドで `src/integrations/zod/zod.config.ts` を zod 自身のチャンクに入れます。これにより、どのチャンクがスキーマを作るよりも前に zod が `jitless` モードになり、Content Security Policy の下で `eval` の有無を確かめることがありません。[セキュリティと堅牢化](/docs/features/security)を参照してください。
+- `saasyland:zod-config-chunk`（`src/integrations/zod/zod.vite.ts`）: クライアントのビルドで `src/integrations/zod/zod.config.ts` を zod 自身のチャンクに入れます。これにより、どのチャンクがスキーマを作るよりも前に zod が `jitless` モードになり、Content Security Policy の下で `eval` の有無を確かめることがありません。[セキュリティと堅牢化](/docs/features/security)を参照してください。
 - `deployedWorker`（`scripts/deployed-worker.ts`）: プリレンダリングの後、コンパイル済みのドキュメントとブログのページと、ランディングと法務の各ページの翻訳を除いて Worker を再ビルドします。[Cloudflare Workers](/docs/integrations/cloudflare-workers) を参照してください。
 - `saasyland:polar-sdk-optional-peers`: インストールされていない `@polar-sh/sdk` の任意のピア依存関係を外部扱いにします（`build.rolldownOptions.external`）。[依存関係](/docs/conventions/dependencies)を参照してください。
 
@@ -38,7 +38,7 @@ Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfm
 
 `start`、`start:test`、プリレンダリングが実行する `vp preview` は、`src/data/local-server.ts` の `LOCAL_SERVER` のアドレスである `127.0.0.1:3000` で待ち受け、Playwright もこのアドレスを開きます。プリレンダリングは同じアドレスの空いているポートを使います。`localhost` にすると、サーバーは Node がこの名前を解決した最初のアドレスである `::1` だけで待ち受け、クライアントはまず `::1`、次に `127.0.0.1` を試し、それぞれに短い応答時間しか与えません。負荷の高いマシンではクライアントが接続を確認する前にその時間が切れ、クライアントは `::1` をあきらめ、`127.0.0.1` では何も見つけられず、プリレンダリングは `ETIMEDOUT ::1` と `ECONNREFUSED 127.0.0.1` で止まります。
 
-`src/integrations/polar/polar.vite.ts` は、`config` フックで `build.rolldownOptions.external` に `@polar-sh/sdk` のオプションの peer 依存関係（OpenTelemetry と `ioredis`）を指定するプラグインを追加します。これらはインストールしておらず、それらをインポートするモジュールはツリーシェイキングによって Worker から取り除かれます。
+`src/integrations/polar/polar.vite.ts` の `polarVitePlugins` は、`config` フックで `build.rolldownOptions.external` に `@polar-sh/sdk` のオプションの peer 依存関係（OpenTelemetry と `ioredis`）を指定するプラグインを返します。これらはインストールしておらず、それらをインポートするモジュールはツリーシェイキングによって Worker から取り除かれます。
 
 ## Git フック
 

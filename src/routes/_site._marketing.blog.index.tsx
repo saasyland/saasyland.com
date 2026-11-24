@@ -20,9 +20,10 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { BLOG_ARCHIVE, BLOG_SORT, BLOG_SORTS, BLOG_TAGS } from "~/src/data/blog"
 
+import { buildBlogStructuredDataHtml } from "~/src/lib/blog-seo"
 import { BLOG_FEED_TYPE, blogFeedPath } from "~/src/lib/feed"
 import { searchChoice, searchParam, searchText } from "~/src/lib/search-params"
-import { type PageLoaderData, buildBlogStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+import { type PageLoaderData, buildPageHead } from "~/src/lib/seo"
 
 import { BlogIndexPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { FeaturedPosts } from "~/src/presentation/components/custom/blog/featured-posts"

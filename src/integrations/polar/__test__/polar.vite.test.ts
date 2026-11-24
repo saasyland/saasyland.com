@@ -1,14 +1,12 @@
 import { expect, it } from "vite-plus/test"
 
-import { POLAR_VITE_PLUGINS } from "~/src/integrations/polar/polar.vite"
-
-const [optionalPeers] = POLAR_VITE_PLUGINS
+import { polarVitePlugins } from "~/src/integrations/polar/polar.vite"
 
 it("leaves the Polar SDK's uninstalled optional peers out of the bundle", async () => {
-  const plugins = await optionalPeers.plugins()
+  const plugins = await polarVitePlugins()
 
   expect(plugins.map((plugin) => plugin.config())).toStrictEqual([
     { build: { rolldownOptions: { external: [/^@opentelemetry\//u, "ioredis"] } } },
   ])
-  expect(optionalPeers.vitest).toBe(false)
+  expect(plugins.map(({ name }) => name)).toStrictEqual(["saasyland:polar-sdk-optional-peers"])
 })

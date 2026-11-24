@@ -23,7 +23,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 ## 構造化データ [#structured-data]
 
-`src/lib/seo.ts` は、検索エンジンにサイトを説明する JSON-LD も書き出します。JSON-LD のスクリプトはすべて `<` をエスケープしてシリアライズするため、どの値も `script` 要素を閉じられません。
+`src/lib/seo.ts` は、検索エンジンにサイトを説明する JSON-LD も書き出し、`src/lib/blog-seo.ts` はブログのページの JSON-LD を書き出します。JSON-LD のスクリプトはすべて `<` をエスケープしてシリアライズするため、どの値も `script` 要素を閉じられません。
 
 - ホームページは `ORGANIZATION_STRUCTURED_DATA_HTML` で組織を説明します。これは `APP_NAME`、`APP_URL`、`CONTACT_EMAIL`、`ORGANIZATION_LOGO.PATH` にあるロゴを持つ `Organization` で、`sameAs` には他のサイトにある組織のプロフィール、`APP_GITHUB_OWNER_URL` と `APP_INSTAGRAM_URL` が入ります。`sameAs` に挙げるのは組織自身のプロフィールなので、リポジトリではなく GitHub の組織を指します。Google はこの情報をホームページから読み取るため、ほかのページでは繰り返しません。
 - ブログ記事は、`BlogPosting`、`BreadcrumbList`、そしてフロントマターに `faq` の項目がある場合は `FAQPage` を追加します（`buildBlogPostStructuredDataHtml`）。[ブログ](/docs/features/blog)を参照してください。`BlogPosting` には、見出し、説明、`BLOG_COVER` のサイズの `ImageObject` としてのカバー画像、日付、`inLanguage` としての言語、`keywords` としてのその言語でのタグ、同じグラフの `Person` ノードへの参照としての執筆者、そしてロゴを含めた組織が `publisher` として入ります。`Person` は `BLOG_AUTHORS` と記事のメッセージから作られ、名前、`jobTitle` としての役職、`image` としての写真、`url` としてのページの言語での執筆者のページ、そこに `#person` を付けた `@id`、`sameAs` としての執筆者のプロフィールを持ちます。パンくずリストは、ページの言語の URL とブログのタイトルで、`APP_NAME` からブログを経て記事へとたどります。
@@ -35,7 +35,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 プリレンダリングされた各ページには `/images/og/<canonical path>.png` に専用のカードがあり、ホームページのカードは `/images/og/index.png` です（`socialImagePath`）。カードには、サイトの背景と同じグリッドとグローの上に、ワードマーク、セクションがあればアクセントカラーのセクション名、ページの `og:title`、ドメインが表示されます。代替テキストはその内容をページの言語で表したもので、タイトル、セクション、`APP_NAME` を言語ごとのタイトルの区切り文字でつないだものです。
 
-プリレンダリングされないページ、つまり <RepositoryFact name="unlistedRoutes" /> とその配下のすべてのパスは、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。`src/routes.ts` の `UNLISTED_ROUTES` が、ほかのパスと並べてそれらを列挙します。`src/data/tanstack.vite.ts` の TanStack Start プラグインはこれらをプリレンダリングの対象から外し、`buildPageHead` はこれらにサイトカードを割り当てます。 唯一の例外はカバー画像のあるコースのページで、`courseShareImage`（`src/modules/course/course.utils.ts`）がそのカバー画像を `og:image` と `twitter:image` に設定します。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。
+プリレンダリングされないページ、つまり <RepositoryFact name="unlistedRoutes" /> とその配下のすべてのパスは、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。`src/routes.ts` の `UNLISTED_ROUTES` が、ほかのパスと並べてそれらを列挙します。`shouldPrerender`（`src/lib/prerender.ts`）はこれらをプリレンダリングの対象から外し、`buildPageHead` はこれらにサイトカードを割り当てます。 唯一の例外はカバー画像のあるコースのページで、`courseShareImage`（`src/modules/course/course.utils.ts`）がそのカバー画像を `og:image` と `twitter:image` に設定します。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。
 
 カードは React コンポーネントで、`src/presentation/social-card.tsx` の `PageCard` と `SiteCard` です。同じファイルの `LogoCard` は、組織のロゴ、つまり明るい背景に置いた `APP_LOGO_PATH` のマークを、正方形の PNG として `ORGANIZATION_LOGO.PATH` に描画します。これが、構造化データがロゴとして指定する画像です。`src/integrations/takumi/takumi.render.tsx` の `createSocialCardRenderer` が、これらを [Takumi](https://takumi.kane.tw/docs/)（`@takumi-rs/core`）で描画します。Takumi はネイティブの Node バインディングを持つ Rust 製のレンダラーで、ブラウザーを必要としません。
 
@@ -55,7 +55,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 2. サイトマップに載っているブログの一覧と記事の head から、すべての言語のブログの RSS フィードを書き出します（`src/lib/feed.ts` の `buildBlogFeeds`）。[ブログ](/docs/features/blog#feed)を参照してください。
 3. サイトカードとすべてのページのカードを `dist/client/images/og` に描画し、組織のロゴも描画します。2 つのページが同じ画像を指定している場合は失敗します。
 
-スクリプトは、サイトマップに載せたページ数、書き出したフィードとカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
+スクリプトはサイトマップとフィードを 1 つの XML ファイルのリストとして書き出すため、ブログのないプロジェクトではサイトマップだけを書き出します。そして、書き出したファイル、サイトマップに載せたページ数、書き出したカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
 
 Worker は変わりません。Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml` とカードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
 

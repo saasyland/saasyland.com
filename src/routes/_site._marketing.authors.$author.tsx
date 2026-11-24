@@ -14,8 +14,9 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { AUTHOR_IMAGE_SIZE, BLOG_AUTHOR, BLOG_AUTHORS, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
 
+import { buildAuthorStructuredDataHtml } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
-import { buildAuthorStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+import { buildPageHead } from "~/src/lib/seo"
 
 import { AuthorLinks } from "~/src/presentation/components/custom/blog/author-links"
 import { BackToBlogLink } from "~/src/presentation/components/custom/blog/back-to-blog-link"

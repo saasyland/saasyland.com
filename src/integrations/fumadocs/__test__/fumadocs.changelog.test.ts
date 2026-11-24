@@ -6,7 +6,7 @@ import { type GitRepository, createGitRepository } from "~/src/platform/testing/
 import { addChangelogEntries, changelogEntries, listChangelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { MAIN_BRANCH } from "~/src/lib/changelog"
+import { MAIN_BRANCH } from "~/src/lib/release"
 
 const PAGE = `content/docs/project/changelog.${I18N.DEFAULT_LOCALE}.mdx`
 const INTRODUCTION = "Each section lists the changes that reached `main` on that day."

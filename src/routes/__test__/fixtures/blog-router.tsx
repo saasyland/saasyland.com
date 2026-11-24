@@ -20,6 +20,8 @@ import { Route as BlogArchiveRoute } from "~/src/routes/_site._marketing.blog.pa
 
 import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_TAG } from "~/src/data/blog"
 
+import { pageAuthor } from "~/src/lib/blog-seo"
+
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import type { RouterContext } from "~/src/router"
 
@@ -147,7 +149,13 @@ export const createBlogRouter = ({
   Object.assign(BlogPostRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post, posts: rail, section: pagesBlogMessages.metadata.title }),
+    loader: (): typeof BlogPostRoute.types.loaderData => ({
+      author: pageAuthor(post.author),
+      locale,
+      post,
+      posts: rail,
+      section: pagesBlogMessages.metadata.title,
+    }),
     path: "/$",
   })
   Object.assign(AuthorRoute.options, {

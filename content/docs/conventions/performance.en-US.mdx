@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression. `scripts/verify-build.ts` checks it on every build: it follows the static imports of the deployed Worker's entry, `dist/server/index.js`, and fails when they reach code bundled from `@polar-sh`, `drizzle-orm` or `resend`, or add up to more than `BOOT_CLOSURE_MAX_BYTES`. The paths are part of that closure, so `src/routes.ts` declares them and imports nothing.
+One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to a module it imports, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression. `scripts/verify-build.ts` checks it on every build: it follows the static imports of the deployed Worker's entry, `dist/server/index.js`, and fails when they reach code bundled from `@polar-sh`, `drizzle-orm` or `resend`, or add up to more than `BOOT_CLOSURE_MAX_BYTES`. The paths are part of that closure, so `src/routes.ts` declares them and imports nothing.
 
 ## Keep the route tree light
 
@@ -178,9 +178,9 @@ Drizzle runs only in the Worker. The browser needs a module's Zod schemas for it
 | `/app`         | 496.6 KiB | 421.0 KiB |
 | `/admin`       | 515.0 KiB | 439.4 KiB |
 
-`src/data/tanstack.vite.ts` denies `drizzle-orm` to the client environment through TanStack Start's import protection:
+`vite.config.ts` denies `drizzle-orm` to the client environment through TanStack Start's import protection:
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ The CLI configurator on the landing page renders forty React Aria buttons, each 
 
 ## Skeletons stay in the entry script
 
-TanStack Router does not split `pendingComponent` into its own chunk by default, and `src/data/tanstack.vite.ts` keeps that default, so every skeleton is in the entry script and shows the moment a navigation passes `pendingMs`. Splitting them was measured and rejected:
+TanStack Router does not split `pendingComponent` into its own chunk by default, and `vite.config.ts` keeps that default, so every skeleton is in the entry script and shows the moment a navigation passes `pendingMs`. Splitting them was measured and rejected:
 
 - When this was measured, the layout skeletons `AdminPending`, `AppPending` and `MarketingPending` drew the page skeleton from a list that imported every area's skeletons, and the router loads the pending components of the matched routes before the page hydrates. `/`, `/app` and `/admin` still loaded every skeleton, now in chunks of their own, and grew by 3.5 to 6.5 KiB gzipped; only pages whose layout has a skeleton of its own, such as `/docs` and `/blog`, got lighter.
 - A split skeleton has to load before it can show. In headless Chromium with 400 ms of added latency and 200 KiB/s, a client navigation from `/` to `/blog` rendered the blog after 2,290 ms instead of 1,390 ms, behind a skeleton the unsplit build never needed; with 150 ms of latency it took 800 ms instead of 640 ms.

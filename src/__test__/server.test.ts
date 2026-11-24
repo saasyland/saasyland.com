@@ -4,9 +4,16 @@ import { parse } from "jsonc-parser"
 import { readFileSync } from "node:fs"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
+import { createEdgeCache } from "~/src/platform/testing/mocks/cache"
+
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { COUNTRY_HEADER, HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
+import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
+import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
+import { PPP_ATTRIBUTE } from "~/src/modules/license/license.pricing"
+import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { POLAR_SERVER } from "~/src/data/polar"
 
@@ -14,12 +21,10 @@ import { documentPolicy } from "~/src/lib/content-security-policy"
 
 import worker from "~/src/server"
 
-const AREA_PATH_PREFIX = vi.hoisted(() => "/area-files/")
 const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options: { context: { nonce: string } }) => Promise<Response>>())
-const areaFetch = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>())
-const areaRewrite = vi.hoisted(() => vi.fn<(document: Response, context: { locale: string; request: Request }) => Response>())
 
 const rewriteHandlers = vi.hoisted(() => vi.fn<(selector: string, handlers: HTMLRewriterElementContentHandlers) => void>())
+const transformPage = vi.hoisted(() => vi.fn<(page: Response) => Response>())
 
 class TestHTMLRewriter {
   on(selector: string, handlers: HTMLRewriterElementContentHandlers): this {
@@ -28,32 +33,20 @@ class TestHTMLRewriter {
   }
 
   transform(page: Response): Response {
-    return page
+    return transformPage(page)
   }
 }
 
 vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: fetchHandler } }))
-vi.mock("~/src/data/worker.entries", async () => {
-  const { WORKER_HANDLER_KIND } = await import("~/src/data/worker.constants")
-
-  return {
-    TEST_WORKER_HANDLERS: [
-      { kind: WORKER_HANDLER_KIND.DOCUMENT, rewrite: areaRewrite },
-      { fetch: areaFetch, kind: WORKER_HANDLER_KIND.REQUEST, pathPrefix: AREA_PATH_PREFIX },
-    ],
-  }
-})
 
 beforeEach(() => {
   vi.stubEnv("DEV", false)
   vi.stubGlobal("HTMLRewriter", TestHTMLRewriter)
   rewriteHandlers.mockReset()
+  transformPage.mockReset()
+  transformPage.mockImplementation((page) => page)
   fetchHandler.mockReset()
   fetchHandler.mockResolvedValue(new Response("rendered", { headers: { "Set-Cookie": "session=kept" } }))
-  areaFetch.mockReset()
-  areaFetch.mockResolvedValue(new Response("area file"))
-  areaRewrite.mockReset()
-  areaRewrite.mockImplementation((document) => document)
 })
 afterEach(() => {
   vi.restoreAllMocks()
@@ -182,7 +175,7 @@ it.each(["prerendered", "rendered"])(
 it.each([
   { kind: "asset that is not HTML", url: "http://localhost/images/hero.png" },
   { kind: "locale redirect", url: "http://localhost/pl/docs" },
-  { kind: "file an area serves", url: `http://localhost${AREA_PATH_PREFIX}bundle.tgz` },
+  { kind: "file the Worker serves itself", url: `http://localhost${MEDIA_PATH_PREFIX}/videos/unsigned/master.m3u8` },
 ])("keeps a $kind on the base policy and rewrites nothing", async ({ kind, url }) => {
   if (kind === "asset that is not HTML") {
     vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("image", { headers: { "Content-Type": "image/png" } }))
@@ -374,47 +367,116 @@ it.each([
   }
   vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(asset)
 
-  const response = await worker.fetch(new Request("http://localhost/images/hero.png"), env)
+  const response = await worker.fetch(new Request("http://localhost/images/hero.png", { headers: { [COUNTRY_HEADER]: "PL" } }), env)
 
   expect(response.status).toBe(status)
   expect(response.headers.get("content-type")).toBe(contentType)
   expect(await response.text()).toBe(body ?? "")
-  expect(areaRewrite).not.toHaveBeenCalled()
+  expect(rewriteHandlers).not.toHaveBeenCalled()
 })
 
+const runElementHandler = async (selector: string, element: object): Promise<void> => {
+  const handlers = new Map(rewriteHandlers.mock.calls).get(selector)
+  if (!handlers?.element) {
+    throw new Error(`The Worker registered no ${selector} element handler`)
+  }
+  await Reflect.apply(handlers.element.bind(handlers), handlers, [element])
+}
+
 it.each([
-  { locale: I18N.DEFAULT_LOCALE, pathname: "/docs", source: "prerendered" },
-  { locale: "pl-PL", pathname: "/pl-PL/docs", source: "prerendered" },
-  { locale: "de-DE", pathname: "/de-DE/auth/sign-in", source: "rendered" },
-])("hands $source HTML at $pathname to the document handlers of the areas with its locale", async ({ locale, pathname, source }) => {
+  { pathname: "/docs", source: "prerendered", style: '--ppp-region:"Poland";--ppp-percent:"30%"' },
+  { pathname: "/pl-PL/docs", source: "prerendered", style: '--ppp-region:"Polska";--ppp-percent:"30%"' },
+  { pathname: "/de-DE/auth/sign-in", source: "rendered", style: '--ppp-region:"Polen";--ppp-percent:"30\u00A0%"' },
+])("offers the regional price on $source HTML at $pathname in the locale of the page", async ({ pathname, source, style }) => {
   const html = new Response("<html>Page</html>", { headers: { "Content-Type": "text/html" } })
   if (source === "prerendered") {
     vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(html)
+    transformPage.mockImplementationOnce((page) => page)
   } else {
     fetchHandler.mockResolvedValueOnce(html)
   }
-  areaRewrite.mockImplementationOnce(() => new Response("rewritten page"))
-  const request = new Request(`http://localhost${pathname}`)
+  transformPage.mockImplementationOnce(() => new Response("regional page"))
 
-  const response = await worker.fetch(request, env)
+  const response = await worker.fetch(new Request(`http://localhost${pathname}`, { headers: { [COUNTRY_HEADER]: "PL" } }), env)
+  const setAttribute = vi.fn()
+  await runElementHandler("html", { setAttribute })
 
-  expect(await response.text()).toBe("rewritten page")
-  expect(areaRewrite).toHaveBeenCalledExactlyOnceWith(expect.any(Response), { locale, request })
-  expect(areaRewrite.mock.calls[0]?.[0].headers.get("link")).toContain("</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload")
+  expect(await response.text()).toBe("regional page")
+  expect(transformPage.mock.calls.at(-1)?.[0].headers.get("link")).toContain(
+    "</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload",
+  )
+  expect(setAttribute.mock.calls).toStrictEqual([
+    [PPP_ATTRIBUTE, "70"],
+    ["style", style],
+  ])
   expect(headersNamed(response, Object.keys(OTHER_SECURITY_HEADERS))).toStrictEqual(OTHER_SECURITY_HEADERS)
 })
 
-it("answers a path an area claims with that area's handler, without the locale middleware or TanStack Start", async () => {
-  const request = new Request(`https://localhost${AREA_PATH_PREFIX}file.txt`, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } })
+it("serves a course cover itself, without the locale middleware or TanStack Start", async () => {
+  createEdgeCache()
+  const cover = "covers/0195a2b4-6c8d-7e9f-8a0b-00000000c0c0/0195a2b4-6c8d-7e9f-8a0b-00000000c0e1.webp"
+  await env.MEDIA.put(cover, "RIFF")
 
-  const response = await worker.fetch(request, env)
+  const response = await worker.fetch(
+    new Request(`https://localhost${MEDIA_PATH_PREFIX}/${cover}`, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }),
+    env,
+  )
 
-  expect(await response.text()).toBe("area file")
-  expect(areaFetch).toHaveBeenCalledExactlyOnceWith(request)
+  expect(COURSE_COVER_PATH_PREFIX.startsWith(`${MEDIA_PATH_PREFIX}/`)).toBe(true)
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toBe("RIFF")
+  expect(response.headers.get("content-type")).toBe("image/webp")
   expect(response.headers.get("set-cookie")).toBeNull()
   expect(headersNamed(response, Object.keys(HTTPS_SECURITY_HEADERS))).toStrictEqual(HTTPS_SECURITY_HEADERS)
   expect(fetchHandler).not.toHaveBeenCalled()
-  expect(areaRewrite).not.toHaveBeenCalled()
+})
+
+it("streams signed media itself, without the locale middleware or TanStack Start", async () => {
+  createEdgeCache()
+  const { createPlayback } = await import("~/src/modules/video/video.playback")
+  const videoId = "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b"
+  await env.MEDIA.put(`videos/${videoId}/master.m3u8`, "#EXTM3U\n")
+  const { src } = await createPlayback({ now: Date.now(), secret: env.AUTH_SECRET, video: { captionLocales: [], id: videoId } })
+
+  const response = await worker.fetch(new Request(`https://localhost${src}`, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }), env)
+
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toBe("#EXTM3U\n")
+  expect(response.headers.get("set-cookie")).toBeNull()
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+  expect(fetchHandler).not.toHaveBeenCalled()
+})
+
+it("serves a signed lesson download itself, without the locale middleware or TanStack Start", async () => {
+  const { signDownload } = await import("~/src/modules/lesson-attachment/lesson-attachment.download")
+  const { attachmentObjectKey } = await import("~/src/modules/lesson-attachment/lesson-attachment.files")
+  const attachmentId = "0195a2b4-6c8d-7e9f-8a0b-00000000a0a1"
+  const objectKey = attachmentObjectKey({ attachmentId, fileName: "notes.md" })
+  await env.MEDIA.put(objectKey, "# Notes\n")
+  const path = await signDownload({ attachmentId, now: Date.now(), objectKey, secret: env.AUTH_SECRET })
+
+  const response = await worker.fetch(new Request(`https://localhost${path}`, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }), env)
+
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toBe("# Notes\n")
+  expect(response.headers.get("content-disposition")).toBe('attachment; filename="notes.md"')
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+  expect(fetchHandler).not.toHaveBeenCalled()
+})
+
+it("streams a signed template bundle itself, without the locale middleware or TanStack Start", async () => {
+  const version = "0.1.0"
+  await env.BUNDLES.put(bundleObjectKey(version), "archive")
+  const { url } = await signBundle({ host: "localhost", now: Date.now(), secret: env.AUTH_SECRET, version })
+
+  const response = await worker.fetch(new Request(url, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }), env)
+
+  expect(new URL(url).pathname.startsWith(`${BUNDLE_PATH_PREFIX}/`)).toBe(true)
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toBe("archive")
+  expect(response.headers.get("set-cookie")).toBeNull()
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+  expect(fetchHandler).not.toHaveBeenCalled()
 })
 
 it("delegates request observability to Cloudflare", () => {

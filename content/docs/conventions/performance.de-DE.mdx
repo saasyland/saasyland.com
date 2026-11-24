@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor du `server.ts` oder einer `<area>.worker.ts` einen statischen Import hinzufügst, verfolge dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression. `scripts/verify-build.ts` prüft das bei jedem Build: Es verfolgt die statischen Importe des Einstiegspunkts des deployten Workers, `dist/server/index.js`, und schlägt fehl, wenn sie Code erreichen, der aus `@polar-sh`, `drizzle-orm` oder `resend` gebündelt wurde, oder zusammen mehr als `BOOT_CLOSURE_MAX_BYTES` ergeben. Die Pfade gehören zu diesen statischen Importen, deshalb deklariert `src/routes.ts` sie und importiert nichts.
+Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor du `server.ts` oder einem Modul, das er importiert, einen statischen Import hinzufügst, verfolge dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression. `scripts/verify-build.ts` prüft das bei jedem Build: Es verfolgt die statischen Importe des Einstiegspunkts des deployten Workers, `dist/server/index.js`, und schlägt fehl, wenn sie Code erreichen, der aus `@polar-sh`, `drizzle-orm` oder `resend` gebündelt wurde, oder zusammen mehr als `BOOT_CLOSURE_MAX_BYTES` ergeben. Die Pfade gehören zu diesen statischen Importen, deshalb deklariert `src/routes.ts` sie und importiert nichts.
 
 ## Den Routenbaum leicht halten [#keep-the-route-tree-light]
 
@@ -178,9 +178,9 @@ Drizzle läuft nur im Worker. Der Browser braucht die Zod-Schemas eines Moduls f
 | `/app`         | 496,6 KiB | 421,0 KiB |
 | `/admin`       | 515,0 KiB | 439,4 KiB |
 
-`src/data/tanstack.vite.ts` verweigert `drizzle-orm` der Client-Umgebung über den Importschutz von TanStack Start:
+`vite.config.ts` verweigert `drizzle-orm` der Client-Umgebung über den Importschutz von TanStack Start:
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ Der CLI-Konfigurator auf der Landingpage rendert vierzig React-Aria-Buttons, jed
 
 ## Skeletons bleiben im Einstiegsskript [#skeletons-stay-in-the-entry-script]
 
-TanStack Router teilt `pendingComponent` standardmäßig nicht in einen eigenen Chunk auf, und `src/data/tanstack.vite.ts` behält diese Voreinstellung bei, sodass jedes Skeleton im Einstiegsskript liegt und erscheint, sobald eine Navigation `pendingMs` überschreitet. Sie aufzuteilen wurde gemessen und verworfen:
+TanStack Router teilt `pendingComponent` standardmäßig nicht in einen eigenen Chunk auf, und `vite.config.ts` behält diese Voreinstellung bei, sodass jedes Skeleton im Einstiegsskript liegt und erscheint, sobald eine Navigation `pendingMs` überschreitet. Sie aufzuteilen wurde gemessen und verworfen:
 
 - Bei der Messung zeichneten die Layout-Skeletons `AdminPending`, `AppPending` und `MarketingPending` das Seiten-Skeleton aus einer Liste, die die Skeletons aller Bereiche importierte, und der Router lädt die Pending-Komponenten der passenden Routen, bevor die Seite hydriert. `/`, `/app` und `/admin` luden weiterhin jedes Skeleton, nun in eigenen Chunks, und wurden um 3,5 bis 6,5 KiB gzip-komprimiert größer; leichter wurden nur Seiten, deren Layout ein eigenes Skeleton hat, etwa `/docs` und `/blog`.
 - Ein aufgeteiltes Skeleton muss geladen sein, bevor es erscheinen kann. In Headless-Chromium mit 400 ms zusätzlicher Latenz und 200 KiB/s zeigte eine clientseitige Navigation von `/` zu `/blog` den Blog nach 2.290 ms statt nach 1.390 ms, hinter einem Skeleton, das der Build ohne Aufteilung nie brauchte; mit 150 ms Latenz dauerte sie 800 ms statt 640 ms.

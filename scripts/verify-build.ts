@@ -12,8 +12,6 @@ import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import { UNLISTED_ROUTES } from "~/src/areas/shared"
-
 import { CLIENT_DIR } from "./prerendered-pages.ts"
 import { scriptArguments } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
@@ -116,7 +114,7 @@ for (const alias of LOCALE_ALIASES) {
   }
 }
 
-for (const route of UNLISTED_ROUTES) {
+for (const route of ROUTES.UNLISTED_ROUTES) {
   const prerendered = globSync("**/index.html", { cwd: join(CLIENT_DIR, route) })
 
   if (prerendered.length > 0) {

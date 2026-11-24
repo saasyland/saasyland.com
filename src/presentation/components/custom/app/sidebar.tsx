@@ -4,8 +4,6 @@ import { Link, getRouteApi, useRouterState } from "@tanstack/react-router"
 import { Mail } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { appBadge } from "~/src/data/app-badges"
 import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 
@@ -35,8 +33,7 @@ import * as ROUTES from "~/src/routes"
 const route = getRouteApi("/app")
 
 export const AppSidebar = (): JSX.Element => {
-  const t = useTranslations("pages.app.sidebar")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { user } = route.useRouteContext().session
   const { setOpenMobile } = useSidebar()
@@ -58,7 +55,7 @@ export const AppSidebar = (): JSX.Element => {
         </Link>
       </SidebarHeader>
       <SidebarContent className="custom-scrollbar gap-6 px-2 pt-4">
-        <nav aria-label={t("navigation.label")}>
+        <nav aria-label={t("pages.app.sidebar.navigation.label")}>
           <SidebarGroup className="p-0">
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
@@ -79,7 +76,7 @@ export const AppSidebar = (): JSX.Element => {
                         className={cn({ "text-muted-foreground": !isActive, "text-ring": isActive })}
                         strokeWidth={1.5}
                       />
-                      <span>{navigationLabel(item)}</span>
+                      <span>{t(item.label)}</span>
                     </SidebarMenuLink>
                     {badge !== undefined && (
                       <SidebarMenuBadge>
@@ -92,22 +89,22 @@ export const AppSidebar = (): JSX.Element => {
             </SidebarMenu>
           </SidebarGroup>
         </nav>
-        <nav aria-label={t("navigation.resources")}>
+        <nav aria-label={t("pages.app.sidebar.navigation.resources")}>
           <SidebarGroup className="p-0">
-            <p className="mb-1.5 px-2 text-label text-muted-foreground uppercase">{t("navigation.resources")}</p>
+            <p className="mb-1.5 px-2 text-label text-muted-foreground uppercase">{t("pages.app.sidebar.navigation.resources")}</p>
             <SidebarMenu className="gap-1">
               {APP_RESOURCE_NAVIGATION.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuLink className="h-9 gap-2.5 text-body-sm text-muted-foreground" to={item.to} onPress={closeMobile}>
                     <item.icon aria-hidden strokeWidth={1.5} />
-                    <span>{navigationLabel(item)}</span>
+                    <span>{t(item.label)}</span>
                   </SidebarMenuLink>
                 </SidebarMenuItem>
               ))}
               <SidebarMenuItem>
                 <SidebarMenuButton className="h-9 gap-2.5 text-body-sm text-muted-foreground" href={`mailto:${CONTACT_EMAIL}`}>
                   <Mail aria-hidden strokeWidth={1.5} />
-                  <span>{t("navigation.support")}</span>
+                  <span>{t("pages.app.sidebar.navigation.support")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -116,7 +113,7 @@ export const AppSidebar = (): JSX.Element => {
       </SidebarContent>
       <SidebarFooter className="gap-3 border-t border-sidebar-border p-3">
         <LocaleSelect />
-        <section aria-label={t("account.label")} className="flex min-w-0 items-center gap-2.5">
+        <section aria-label={t("pages.app.sidebar.account.label")} className="flex min-w-0 items-center gap-2.5">
           <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-body-sm font-semibold">
             {name.charAt(0).toUpperCase()}
           </span>

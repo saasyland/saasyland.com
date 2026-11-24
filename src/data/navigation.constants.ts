@@ -26,16 +26,6 @@ export const MARKETING_SECTION_IDS = {
   TOOLKIT: "toolkit",
 } as const
 
-export const NAVIGATION_PLACEMENT = {
-  ADMIN: "admin",
-  APP: "app",
-  APP_RESOURCES: "appResources",
-  COMMAND: "command",
-  DASHBOARD: "dashboard",
-  FOOTER: "footer",
-  HEADER: "header",
-} as const
-
 export const ADMIN_NAVIGATION_GROUP = {
   ADMINISTRATION: "administration",
   CONTENT: "content",
@@ -44,70 +34,35 @@ export const ADMIN_NAVIGATION_GROUP = {
   SALES: "sales",
 } as const
 
-export const ADMIN_NAVIGATION_GROUPS = [
-  ADMIN_NAVIGATION_GROUP.OVERVIEW,
-  ADMIN_NAVIGATION_GROUP.OFFERINGS,
-  ADMIN_NAVIGATION_GROUP.SALES,
-  ADMIN_NAVIGATION_GROUP.CONTENT,
-  ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-] as const
-
 export const FOOTER_COLUMN = {
   LEGAL: "legal",
   PRODUCT: "product",
 } as const
 
-export const FOOTER_COLUMNS = [FOOTER_COLUMN.PRODUCT, FOOTER_COLUMN.LEGAL] as const
-
-interface Entry {
-  readonly key: string
-  readonly order: number
+export interface NavigationEntry {
+  readonly label: string
   readonly to: string
 }
 
-interface AdminEntry extends Entry {
-  readonly group: (typeof ADMIN_NAVIGATION_GROUPS)[number]
+export interface IconEntry extends NavigationEntry {
   readonly icon: LucideIcon
-  readonly placement: typeof NAVIGATION_PLACEMENT.ADMIN
 }
 
-interface AppEntry extends Entry {
-  readonly icon: LucideIcon
-  readonly placement: typeof NAVIGATION_PLACEMENT.APP
+export interface AdminEntry extends IconEntry {
+  readonly breadcrumbs?: Readonly<Record<string, string>>
 }
 
-interface AppResourceEntry extends Entry {
-  readonly icon: LucideIcon
-  readonly placement: typeof NAVIGATION_PLACEMENT.APP_RESOURCES
+export interface AdminNavigationGroup {
+  readonly items: readonly AdminEntry[]
+  readonly key: (typeof ADMIN_NAVIGATION_GROUP)[keyof typeof ADMIN_NAVIGATION_GROUP]
 }
 
-interface CommandEntry extends Entry {
-  readonly icon: LucideIcon
-  readonly placement: typeof NAVIGATION_PLACEMENT.COMMAND
-}
-
-interface DashboardEntry extends Entry {
-  readonly icon: LucideIcon
-  readonly placement: typeof NAVIGATION_PLACEMENT.DASHBOARD
-}
-
-interface FooterEntry extends Entry {
-  readonly column: (typeof FOOTER_COLUMNS)[number]
-  readonly placement: typeof NAVIGATION_PLACEMENT.FOOTER
-  readonly signedIn?: Pick<Entry, "key">
-}
-
-interface HeaderEntry extends Entry {
+export interface SiteEntry extends NavigationEntry {
   readonly hash?: string
-  readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
-  readonly signedIn?: Pick<Entry, "key">
+  readonly signedIn?: Pick<NavigationEntry, "label">
 }
 
-export type AreaNavigationEntry = AdminEntry | AppEntry | AppResourceEntry | CommandEntry | DashboardEntry | FooterEntry | HeaderEntry
-
-export type NavigationEntry = AreaNavigationEntry & { readonly area: string }
-
-export interface NavigationArea {
-  readonly entries: readonly AreaNavigationEntry[]
-  readonly name: string
+export interface FooterNavigationColumn {
+  readonly key: (typeof FOOTER_COLUMN)[keyof typeof FOOTER_COLUMN]
+  readonly links: readonly SiteEntry[]
 }

@@ -5,31 +5,30 @@ import { AREA, AREAS, AREA_SCENARIO, AREA_SCENARIOS } from "~/scripts/areas"
 import { areaRemoval, isInFootprint, problemLines, removedAreas, removedNames, removedNamespaces } from "~/scripts/check-areas"
 import { pruneProject } from "~/scripts/prune-references"
 
-const ROUTES_BARREL = "src/routes.ts"
-const AUTH_SHARED = "src/areas/auth.shared.ts"
-const CORE_SHARED = "src/areas/core.shared.ts"
-const COURSES_SHARED = "src/areas/courses.shared.ts"
+const ROUTES_FILE = "src/routes.ts"
+const COURSES_PAGE = "src/routes/_site._marketing.courses.tsx"
 const PAGE = "src/presentation/components/custom/probe.tsx"
 const GENERATED = "src/routeTree.gen.ts"
 const CONFIRM_MESSAGES = "messages/en-US/pages.newsletter.confirm.json"
 const LANDING_MESSAGES = "messages/en-US/pages.landing.json"
 const SOURCES: Readonly<Record<string, string>> = {
-  [AUTH_SHARED]: [
+  [GENERATED]: 'import { NEWSLETTER } from "./routes.ts"\n',
+  [PAGE]:
+    'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME, ROUTES.NEWSLETTER, ROUTES.ACCEPT_INVITATION]\nexport const NAMESPACES = ["pages.landing", "pages.newsletter.confirm"]\nexport const PAGE = ROUTES.NEWSLETTER\n',
+  [ROUTES_FILE]: [
     'export const ACCEPT_INVITATION = "/auth/invite"',
     'export const ADMIN = "/admin"',
     'export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"',
     'export const API_AUTH = { ACCEPT_INVITATION: "/invitation/accept", GET_SESSION: "/get-session" } as const',
+    'export const HOME = "/"',
+    'export const NEWSLETTER = "/newsletter"',
+    'export const NEWSLETTER_CONFIRM = "/newsletter/confirm"',
+    'export const NEWSLETTER_UNSUBSCRIBE = "/newsletter/unsubscribe"',
+    "export const UNLISTED_ROUTES: readonly string[] = [ADMIN, NEWSLETTER]",
     "",
   ].join("\n"),
-  [CORE_SHARED]: 'export const HOME = "/"\n',
-  [COURSES_SHARED]: 'export const COURSES = "/courses"\n',
-  [GENERATED]: 'import { COURSES } from "./areas/courses.shared.ts"\n',
-  [PAGE]:
-    'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME, ROUTES.COURSES, ROUTES.ACCEPT_INVITATION]\nexport const NAMESPACES = ["pages.landing", "pages.newsletter.confirm"]\nexport const PAGE = ROUTES.COURSES\n',
-  [ROUTES_BARREL]:
-    'export { ACCEPT_INVITATION, ADMIN } from "./areas/auth.shared.ts"\nexport { HOME } from "./areas/core.shared.ts"\nexport { COURSES } from "./areas/courses.shared.ts"\n',
 }
-const FILES = [AUTH_SHARED, CORE_SHARED, COURSES_SHARED, GENERATED, PAGE, ROUTES_BARREL, CONFIRM_MESSAGES, LANDING_MESSAGES]
+const FILES = [GENERATED, PAGE, ROUTES_FILE, CONFIRM_MESSAGES, LANDING_MESSAGES]
 const PROJECT = { generated: new Set([GENERATED]), read: (file: string): string => SOURCES[file] ?? "" }
 
 describe("removedAreas", () => {
@@ -45,16 +44,18 @@ describe("removedAreas", () => {
 
 describe("isInFootprint", () => {
   it("matches a file against the globs of the removed areas only", () => {
-    expect(isInFootprint(COURSES_SHARED, [AREA.COURSES])).toBe(true)
-    expect(isInFootprint(COURSES_SHARED, [AREA.NEWSLETTER])).toBe(false)
-    expect(isInFootprint(CORE_SHARED, [AREA.COURSES])).toBe(false)
+    expect(isInFootprint(COURSES_PAGE, [AREA.COURSES])).toBe(true)
+    expect(isInFootprint(COURSES_PAGE, [AREA.NEWSLETTER])).toBe(false)
+    expect(isInFootprint(ROUTES_FILE, [AREA.COURSES])).toBe(false)
   })
 })
 
 describe("removedNames", () => {
   it("collects, by file, the names the removed areas own in files they keep", () => {
-    expect(removedNames([AREA.NEWSLETTER, AREA.TEAM])).toStrictEqual(new Map(Object.entries(AREAS[AREA.TEAM].names ?? {})))
-    expect(removedNames([AREA.NEWSLETTER])).toStrictEqual(new Map())
+    expect(removedNames([AREA.NEWSLETTER, AREA.TEAM])).toStrictEqual(
+      new Map([[ROUTES_FILE, [AREAS[AREA.NEWSLETTER].names, AREAS[AREA.TEAM].names].flatMap((names) => names?.[ROUTES_FILE] ?? [])]]),
+    )
+    expect(removedNames([AREA.ANALYTICS])).toStrictEqual(new Map())
   })
 })
 
@@ -71,27 +72,35 @@ describe("removedNamespaces", () => {
 
 describe("areaRemoval", () => {
   it("keeps the files outside the footprints and prunes what the kept ones name of the removed areas", () => {
-    const removal = areaRemoval([AREA.COURSES, AREA.NEWSLETTER, AREA.TEAM], FILES, PROJECT)
+    const removal = areaRemoval([AREA.NEWSLETTER, AREA.TEAM], FILES, PROJECT)
 
-    expect(removal.removed).toStrictEqual(removedAreas([AREA.COURSES, AREA.NEWSLETTER, AREA.TEAM]))
-    expect(removal.kept).toStrictEqual([AUTH_SHARED, CORE_SHARED, GENERATED, PAGE, ROUTES_BARREL, LANDING_MESSAGES])
+    expect(removal.removed).toStrictEqual([AREA.NEWSLETTER, AREA.TEAM])
+    expect(removal.kept).toStrictEqual([GENERATED, PAGE, ROUTES_FILE, LANDING_MESSAGES])
     expect(removal.sources).toStrictEqual(
       new Map([
-        [AUTH_SHARED, 'export const ADMIN = "/admin"\nexport const API_AUTH = { GET_SESSION: "/get-session" } as const\n'],
         [
           PAGE,
-          'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME]\nexport const NAMESPACES = ["pages.landing"]\nexport const PAGE = ROUTES.COURSES\n',
+          'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME]\nexport const NAMESPACES = ["pages.landing"]\nexport const PAGE = ROUTES.NEWSLETTER\n',
         ],
-        [ROUTES_BARREL, 'export { ADMIN } from "./areas/auth.shared.ts"\nexport { HOME } from "./areas/core.shared.ts"\n'],
+        [
+          ROUTES_FILE,
+          [
+            'export const ADMIN = "/admin"',
+            'export const API_AUTH = { GET_SESSION: "/get-session" } as const',
+            'export const HOME = "/"',
+            "export const UNLISTED_ROUTES: readonly string[] = [ADMIN]",
+            "",
+          ].join("\n"),
+        ],
       ]),
     )
     expect(problemLines(removal.problems)).toStrictEqual([
-      `${PAGE}:5:21: \`ROUTES.COURSES\` names what the removed areas take away, and no array element, object property or JSX element around it can go with it`,
+      `${PAGE}:5:21: \`ROUTES.NEWSLETTER\` names what the removed areas take away, and no array element, object property or JSX element around it can go with it`,
     ])
   })
 
   it("changes nothing when the kept files name nothing the removed areas take away", () => {
-    expect(areaRemoval([AREA.AFFILIATES], FILES, PROJECT)).toMatchObject({ problems: [], sources: new Map() })
+    expect(areaRemoval([AREA.ANALYTICS], FILES, PROJECT)).toMatchObject({ problems: [], sources: new Map() })
   })
 })
 
@@ -103,8 +112,8 @@ describe("the area footprints in scripts/areas.ts", () => {
     },
   )
 
-  it.each(Object.entries(AREAS).flatMap(([area, { names = {} }]) => Object.entries(names).map(([file, list]) => ({ area, file, list }))))(
-    "$area: every name it owns in $file is declared there",
+  it.each(Object.values(AREA).flatMap((area) => [...removedNames(removedAreas([area]))].map(([file, list]) => ({ area, file, list }))))(
+    "$area: every name it and the areas that require it own in $file is declared there and can be pruned",
     ({ file, list }) => {
       const { problems } = pruneProject({
         deleted: new Set(),

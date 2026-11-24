@@ -3,7 +3,6 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
@@ -31,8 +30,7 @@ const PROFILE_LINKS = [
 ] as const
 
 export const Footer = (): JSX.Element => {
-  const t = useTranslations("components.custom.footer")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
   const workspace = useVisitorWorkspace()
 
   const { buildYear } = REPOSITORY_FACTS
@@ -43,8 +41,8 @@ export const Footer = (): JSX.Element => {
       <div className="mx-auto w-full max-w-site px-6 md:px-10">
         <div className="grid gap-x-16 gap-y-8 border-b border-border py-14 md:grid-cols-2 md:items-end md:py-16">
           <div>
-            <h2 className="text-headline-support text-foreground">{t("buildLog.title")}</h2>
-            <p className="mt-3 max-w-136 text-body text-pretty text-muted-foreground">{t("buildLog.body")}</p>
+            <h2 className="text-headline-support text-foreground">{t("components.custom.footer.buildLog.title")}</h2>
+            <p className="mt-3 max-w-136 text-body text-pretty text-muted-foreground">{t("components.custom.footer.buildLog.body")}</p>
           </div>
           <NewsletterForm />
         </div>
@@ -52,7 +50,7 @@ export const Footer = (): JSX.Element => {
         <div className="flex flex-wrap items-start gap-x-8 gap-y-12 py-14 md:gap-x-12 md:py-16">
           <div className="basis-full md:flex-[1.5]">
             <Wordmark />
-            <p className="mt-4 max-w-[24rem] text-body text-pretty text-muted-foreground">{t("tagline")}</p>
+            <p className="mt-4 max-w-[24rem] text-body text-pretty text-muted-foreground">{t("components.custom.footer.tagline")}</p>
             <a
               className="mt-4.5 inline-block rounded-sm py-1.5 text-spec text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               href={`mailto:${CONTACT_EMAIL}`}
@@ -63,23 +61,23 @@ export const Footer = (): JSX.Element => {
 
           {FOOTER_NAVIGATION.map((column) => (
             <div className={cn("flex-1", { "md:flex-[1.3]": column.key === FOOTER_COLUMN.PRODUCT })} key={column.key}>
-              <h3 className={HEADING_CLASSNAME}>{t(`columns.${column.key}`)}</h3>
+              <h3 className={HEADING_CLASSNAME}>{t(`components.custom.footer.columns.${column.key}`)}</h3>
               <ul className={cn("mt-4", { "md:grid md:grid-cols-[1fr_1fr] md:gap-x-8": column.key === FOOTER_COLUMN.PRODUCT })}>
                 {column.key === FOOTER_COLUMN.PRODUCT &&
                   FOOTER_SECTIONS.map((section) => (
                     <li key={section}>
                       <Link activeOptions={{ includeHash: true }} className={LINK_CLASSNAME} hash={section} to={ROUTES.HOME}>
-                        {t(`links.${section}`)}
+                        {t(`components.custom.footer.links.${section}`)}
                       </Link>
                     </li>
                   ))}
                 {column.links.map((link) => {
-                  const { key, to } = signedInDestination(link, workspace)
+                  const { label, to } = signedInDestination(link, workspace)
 
                   return (
-                    <li key={link.key}>
+                    <li key={link.label}>
                       <Link className={LINK_CLASSNAME} to={to}>
-                        {navigationLabel({ area: link.area, key, placement: link.placement })}
+                        {t(label)}
                       </Link>
                     </li>
                   )
@@ -92,8 +90,8 @@ export const Footer = (): JSX.Element => {
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-border py-7">
           <p className="text-spec text-muted-foreground">
             <span>{APP_NAME}</span>
-            <span className="ml-2">{t("copyright", { years })}</span>
-            <span className="ml-2">{t("rights")}</span>
+            <span className="ml-2">{t("components.custom.footer.copyright", { years })}</span>
+            <span className="ml-2">{t("components.custom.footer.rights")}</span>
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {PROFILE_LINKS.map((link) => (
@@ -104,7 +102,7 @@ export const Footer = (): JSX.Element => {
                 rel="noreferrer"
                 target="_blank"
               >
-                {t(`links.${link.key}`)}
+                {t(`components.custom.footer.links.${link.key}`)}
               </a>
             ))}
             <span aria-hidden className="h-4 w-px bg-border" />

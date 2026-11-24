@@ -8,7 +8,9 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, buildMessageTree, messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { TIME_ZONE_HOOKS } from "~/src/areas/browser"
+import { useSessionTimeZone } from "~/src/hooks/use-session-time-zone"
+
+const TIME_ZONE_HOOKS: readonly (() => string)[] = [useSessionTimeZone]
 
 export const TranslationsProvider = ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => {
   const locale = getCurrentLocale()

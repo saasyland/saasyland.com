@@ -13,7 +13,6 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import { ROOT_COMPONENTS } from "~/src/areas/browser"
 import { getLocaleDirection } from "~/src/data/locales"
 import { THEME } from "~/src/presentation/theme"
 
@@ -23,6 +22,7 @@ import { listenForStaleBuilds } from "~/src/lib/stale-build"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
+import { AffiliateReferral } from "~/src/presentation/components/custom/affiliate-referral"
 import { OfflineBanner } from "~/src/presentation/components/custom/offline-banner"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
@@ -35,9 +35,7 @@ const RootComponent = () => {
   return (
     <AriaProvider>
       <OfflineBanner />
-      {ROOT_COMPONENTS.map(({ component: Component, key }) => (
-        <Component key={key} />
-      ))}
+      <AffiliateReferral />
       <Outlet />
       <ThemeProvider>
         <Toaster />

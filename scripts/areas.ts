@@ -30,6 +30,8 @@ const areaData = (area: Area): string => `{src/areas,src/data,e2e/data}/**/${are
 
 const areaMessages = (area: Area): string => `messages/*/*.${area}.json`
 
+const ROUTES_FILE = "src/routes.ts"
+
 export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
   [AREA.AFFILIATES]: {
     files: [
@@ -40,8 +42,9 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/__test__/affiliate-referral.component.test.tsx",
       "src/types/affiliates.d.ts",
       "e2e/specs/affiliates.spec.ts",
-      "messages/*/pages.legal.affiliates.json",
+      areaMessages(AREA.AFFILIATES),
     ],
+    names: { [ROUTES_FILE]: ["AFFILIATES"] },
     requires: [],
   },
   [AREA.ANALYTICS]: { files: [areaData(AREA.ANALYTICS)], requires: [AREA.AUTH] },
@@ -67,8 +70,8 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/__test__/{account-deletion-records,preferences-card,preferences-card-pending,validation-field-error}.component.test.tsx",
       "src/presentation/emails/{change-email-confirmation-email,delete-account-email,existing-account-email,password-changed-email,reset-password-email,verify-email}.tsx",
       "src/presentation/emails/__test__/{change-email-confirmation-email,reset-password-email,verify-email}.component.test.ts",
-      "src/hooks/use-{admin-sections,auth-redirect,email-link-resend,email-verification,last-login-method,prefilled-email,sign-out,visitor-workspace}.ts",
-      "src/hooks/__test__/use-{auth-redirect,email-link-resend,visitor-workspace}.component.test.tsx",
+      "src/hooks/use-{admin-sections,auth-redirect,email-link-resend,email-verification,last-login-method,prefilled-email,session-time-zone,sign-out,visitor-workspace}.ts",
+      "src/hooks/__test__/use-{auth-redirect,email-link-resend,session-time-zone,visitor-workspace}.component.test.tsx",
       "src/lib/{auth,email-suggestion}.ts",
       "src/lib/__test__/{auth,email-suggestion}.test.ts",
       "src/integrations/drizzle-orm/__test__/auth.rows.ts",
@@ -85,6 +88,28 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/emails.{change-email-confirmation-email,delete-account-email,existing-account-email,password-changed-email,reset-password-email,verify-email}.json",
       "scripts/{grant-admin,local-admin,verify-auth}.ts",
     ],
+    names: {
+      [ROUTES_FILE]: [
+        "ADMIN",
+        "ADMIN_SETTINGS",
+        "ADMIN_USERS",
+        "ADMIN_USERS_ALL",
+        "API_AUTH",
+        "API_AUTH_BASE",
+        "API_AUTH_VERIFY_EMAIL",
+        "APP",
+        "APP_DELETE_ACCOUNT",
+        "APP_SETTINGS",
+        "AUTH",
+        "AUTH_CALLBACK",
+        "FORGOT_PASSWORD",
+        "RESET_PASSWORD",
+        "SIGN_IN",
+        "SIGN_UP",
+        "TWO_FACTOR",
+        "VERIFY_EMAIL",
+      ],
+    },
     requires: [],
   },
   [AREA.BILLING]: {
@@ -120,6 +145,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/{fumadocs,pages.blog}.json",
       "messages/*/components.custom.changelog-links.json",
     ],
+    names: { [ROUTES_FILE]: ["AUTHORS", "BLOG", "BLOG_FEED", "DOCS", "DOCS_CLI", "DOCS_TEST_COVERAGE"] },
     requires: [],
   },
   [AREA.COURSES]: {
@@ -157,6 +183,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/pages.admin.courses.*.json",
       "messages/*/components.custom.{course-facts,course-progress-badge,course-unlocks,lesson-meta}.json",
     ],
+    names: { [ROUTES_FILE]: ["ADMIN_COURSES", "ADMIN_COURSES_CREATE", "COURSES"] },
     requires: [AREA.AUTH],
   },
   [AREA.LEGAL]: {
@@ -172,6 +199,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/pages.legal.{licence,privacy,refunds,terms}.json",
       "messages/*/components.custom.sign-up-consent.json",
     ],
+    names: { [ROUTES_FILE]: ["LICENCE", "PRIVACY", "REFUNDS", "TERMS"] },
     requires: [],
   },
   [AREA.LICENSE]: {
@@ -208,6 +236,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/components.custom.{pricing,sign-up-order-summary}.json",
       "messages/*/emails.{purchase-confirmation-email,unmatched-order-alert-email,withdrawal-acknowledgement-email,withdrawal-notification-email}.json",
     ],
+    names: { [ROUTES_FILE]: ["APP_LICENSE", "WITHDRAWAL"] },
     requires: [AREA.AUTH, AREA.BILLING, AREA.COURSES, AREA.LEGAL, AREA.POLAR],
   },
   [AREA.NEWSLETTER]: {
@@ -227,6 +256,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/components.custom.newsletter-form.json",
       "messages/*/emails.newsletter-*.json",
     ],
+    names: { [ROUTES_FILE]: ["NEWSLETTER", "NEWSLETTER_CONFIRM", "NEWSLETTER_UNSUBSCRIBE"] },
     requires: [],
   },
   [AREA.PAGE_BUILDER]: { files: [areaData(AREA.PAGE_BUILDER)], requires: [AREA.AUTH] },
@@ -246,6 +276,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "e2e/specs/admin-orders.spec.ts",
       "messages/*/pages.admin.{customers,orders}.json",
     ],
+    names: { [ROUTES_FILE]: ["ADMIN_ORDERS", "ADMIN_USERS_CUSTOMERS"] },
     requires: [AREA.AUTH, AREA.BILLING],
   },
   [AREA.POLAR]: {
@@ -260,6 +291,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/platform/testing/mocks/{polar,polar-catalogue.entries}.ts",
       "scripts/verify-polar.ts",
     ],
+    names: { [ROUTES_FILE]: ["API_AUTH_CUSTOMER_PORTAL", "API_AUTH_POLAR"] },
     requires: [AREA.AUTH],
   },
   [AREA.POST_EDITOR]: { files: [areaData(AREA.POST_EDITOR)], requires: [AREA.AUTH] },
@@ -279,6 +311,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "e2e/specs/admin-products.spec.ts",
       "messages/*/{category.errors,product.errors}.json",
     ],
+    names: { [ROUTES_FILE]: ["ADMIN_PRODUCTS"] },
     requires: [AREA.AUTH, AREA.POLAR],
   },
   [AREA.REPOSITORY_FACTS]: {
@@ -310,7 +343,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "e2e/specs/admin-invitations.spec.ts",
       "messages/*/{emails.invitation-email,pages.auth.invite}.json",
     ],
-    names: { "src/areas/auth.shared.ts": ["ACCEPT_INVITATION", "ADMIN_USERS_INVITATIONS", "API_AUTH.ACCEPT_INVITATION"] },
+    names: { [ROUTES_FILE]: ["ACCEPT_INVITATION", "ADMIN_USERS_INVITATIONS", "API_AUTH.ACCEPT_INVITATION"] },
     requires: [AREA.AUTH],
   },
 }

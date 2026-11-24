@@ -37,9 +37,9 @@ const HIGHLIGHT_STEP = 0.5 * FPS
 
 const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
 
-const DASHBOARD_ROW = ADMIN_ITEMS.findIndex(({ key }) => key === "dashboard")
+const DASHBOARD_ROW = ADMIN_ITEMS.findIndex(({ label }) => label === "navigation.auth.admin.dashboard")
 
-const USERS_ROW = ADMIN_ITEMS.findIndex(({ key }) => key === "userManagement")
+const USERS_ROW = ADMIN_ITEMS.findIndex(({ label }) => label === "navigation.auth.admin.userManagement")
 
 function StatPlate() {
   return (

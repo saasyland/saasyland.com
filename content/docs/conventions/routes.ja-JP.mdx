@@ -115,7 +115,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - レイアウトは `export const Route` の上で `const NAMESPACES = [...] as const` を宣言し、それをプリロードします。名前空間がない場合はオプションごと省略し、`namespaces: []` とは書きません。
-- ほかのエリアのコンポーネントがレイアウト内で必要とする名前空間は、そのエリアが `src/areas/<area>.ts` で追加します。このファイルはレイアウトをルート ID で指定し、レイアウトは `...layoutNamespaces("/app")` を自分の `NAMESPACES` に展開します。ライセンスのエリアは、概要にライセンスカードと購入案内を、ライセンスページに撤回のカードを表示する `/app` に `pages.license`、`pages.withdrawal`、`withdrawal.validations` を、`/_site/_marketing` に `withdrawal.validations` を、`/admin/users` に `pages.admin.users.license` を追加します。決済エリアは `/admin/users` に `pages.admin.customers` と `pages.admin.orders` を追加し、ニュースレターのエリアは、フッターにニュースレターのフォームを表示する `/_site/_marketing` と `/_site/docs` に `auth.validations` を追加します。`browser.test.tsx` は、エリアが指定するすべてのレイアウトがルート ID であることをコンパイル時にチェックします。
+- レイアウトは、配下のページとそのコンポーネントが必要とするすべての名前空間を、ほかの機能のものも含めて、`NAMESPACES` にただの文字列として挙げます。`/app` は、概要にライセンスカードと購入案内を、ライセンスページに撤回のカードを表示するため、`pages.license`、`pages.withdrawal`、`withdrawal.validations` を挙げます。`/admin/users` は `pages.admin.customers`、`pages.admin.orders`、`pages.admin.users.license` を挙げます。`/_site/_marketing` と `/_site/docs` は、フッターにニュースレターのフォームを表示するため `auth.validations` を挙げ、マーケティングのレイアウトはさらに `withdrawal.validations` も挙げます。機能を外すとそのメッセージファイルが削除され、刈り込みのルールがそれらを指す文字列をそれぞれ削除します（[テスト](/docs/conventions/testing#tests-follow-the-areas)）。
 - レイアウトがコンポーネントを描画する場合、その名前は `<Name>Layout` とし、`<Outlet />` を配置します。
 - ガードは、そのエリアを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` で、どちらも認証のエリアのレイアウトです。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
 
@@ -166,91 +166,49 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 ## パスとナビゲーション [#paths-and-navigation]
 
-すべてのエリアを列挙するアプリケーションのファイルはありません。コース、商品、法務ページといった各エリアが、自分のパス、メニュー項目とそのラベル、ページのスケルトン、権限を宣言し、バレルがそれらをまとめます。そのため、エリアはそのエリア自身のファイルを追加するか外すだけで加えたり除いたりできます。`saasyland` CLI はこの仕組みでテンプレートのレイヤーからプロジェクトを組み立てます。アプリケーションが読み込まない `scripts/areas.ts` だけが、オプションのエリアをそのファイルとともに列挙しており、`bun run check:areas` はそれを使ってエリアを 1 つずつ外したサイトの型をチェックします（[テスト](/docs/conventions/testing#tests-follow-the-areas)）。
+各パスと各メニュー項目は、1 つのリストに一度だけ書きます。コース、商品、法務ページのように外せる機能は、自分のパスを名指しする 1 つの要素としてそのリストに加わります。機能を外すとそのファイルと名前が削除され、それとともにそれらを名指しする要素もすべて削除されるため、リストには機能ごとのファイルもバレルも要りません。`saasyland` CLI はこの仕組みでテンプレートのレイヤーからプロジェクトを組み立てます。アプリケーションが読み込まない `scripts/areas.ts` だけが、オプションのエリアをそのファイルと持っているパスとともに列挙しており、`bun run check:areas` はそれを使ってエリアを 1 つずつ外したサイトの型をチェックします（[テスト](/docs/conventions/testing#tests-follow-the-areas)）。
 
-| 対象                         | 各エリアが宣言するもの                                                                | バレル                            | 読み取り元                                                                                                                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| パス                         | `src/areas/<area>.shared.ts`：パスごとに 1 つの `export const`                        | `src/routes.ts`                   | `import * as ROUTES from "~/src/routes"`                                                                                                                                                  |
-| メニュー項目                 | `src/areas/<area>.navigation.ts`：1 つの `<AREA>_NAVIGATION` オブジェクトの `entries` | `src/areas/navigation.entries.ts` | `src/data/navigation.ts` の `ADMIN_NAVIGATION`、`ADMIN_COMMAND_ACTIONS`、`ADMIN_DASHBOARD_ACTIONS`、`APP_NAVIGATION`、`APP_RESOURCE_NAVIGATION`、`HEADER_NAVIGATION`、`FOOTER_NAVIGATION` |
-| ダッシュボードの統計とパネル | `src/data/<area>.dashboard.ts`：1 つの `<AREA>_DASHBOARD` リスト                      | `src/data/dashboard.entries.ts`   | `src/data/dashboard.ts` の `ADMIN_DASHBOARD_STATS` と `ADMIN_DASHBOARD_PANELS`                                                                                                            |
-| 権限                         | `src/areas/<area>.access.ts`：1 つの `<AREA>_ACCESS` オブジェクト                     | `src/areas/access.entries.ts`     | `src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` と `grantsOf`                                                                                                           |
-| 非掲載のパス                 | `src/areas/<area>.shared.ts`：1 つの `<AREA>_SHARED` オブジェクトの `unlisted`        | `src/areas/shared.entries.ts`     | `src/areas/shared.ts` の `UNLISTED_ROUTES` と `isUnlistedRoute`                                                                                                                           |
-| レイアウトの名前空間         | `src/areas/<area>.ts`：1 つの `<AREA>_BROWSER` オブジェクトの `layoutNamespaces`      | `src/areas/browser.entries.ts`    | `src/areas/browser.ts` の `layoutNamespaces(layout)`                                                                                                                                      |
+| 対象                 | 宣言する場所                                                                                                                                                                                                      | 読み取り元                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| パス                 | `src/routes.ts`：パスごとに 1 つの `export const`                                                                                                                                                                 | `import * as ROUTES from "~/src/routes"`                                                               |
+| 非掲載のパス         | `src/routes.ts` の `UNLISTED_ROUTES`                                                                                                                                                                              | `src/routes.ts` の `isUnlistedRoute`                                                                   |
+| メニュー項目         | `src/data/navigation.ts` の `ADMIN_NAVIGATION`、`ADMIN_COMMAND_ACTIONS`、`ADMIN_DASHBOARD_ACTIONS`、`APP_NAVIGATION`、`APP_RESOURCE_NAVIGATION`、`HEADER_NAVIGATION`、`FOOTER_NAVIGATION`（表示する順に並べます） | サイドバー、ヘッダー、フッター、コマンドパレット、ダッシュボード                                       |
+| レイアウトの名前空間 | レイアウトルートの `NAMESPACES`                                                                                                                                                                                   | レイアウトのローダーと `staticData`                                                                    |
+| 公開サイトのチェック | `src/lib/deployment.ts` の `LIVE_SITE_CHECKS`                                                                                                                                                                     | `verifyDeployment`（[プラットフォームとテスト](/docs/architecture/platform-layer#what-the-areas-add)） |
 
-バレルには `export { … } from` の行だけを、エリアのファイルごとに 1 行、モジュール順に並べます。`src/integrations/drizzle-orm/drizzle.schemas.ts` と同じ形です。任意のエリアだけが中身を入れるバレルには、コアもファイルを追加します（コアの名前だけを持つ `src/areas/core.ts` など）。これにより、それらのエリアがないプロジェクトでも型チェックと lint が通ります。パスのバレルは `src/routes.ts` そのもので、どのファイルもこれを 1 つの名前空間としてインポートします（`import * as ROUTES from "~/src/routes"`）。そのため各パスはリテラル型を保ち、`<Link to={ROUTES.COURSES}>` は引き続きルートツリーに対して型検査されます。
+`src/routes.ts` はすべてのパスを宣言し、何もインポートしません。ブラウザー、コールドスタートごとの Worker、Bun のスクリプト、Playwright、`vite.config.ts`、Remotion プロジェクトのすべての実行環境が読み込むからです。どのファイルもこれを 1 つの名前空間としてインポートします（`import * as ROUTES from "~/src/routes"`）。そのため各パスはリテラル型を保ち、`<Link to={ROUTES.COURSES}>` は引き続きルートツリーに対して型検査されます。`BLOG` から組み立てる `BLOG_FEED` のように、ほかのパスから組み立てるパスは、元になるパスの後に置きます。
 
-```ts title="src/routes.ts"
-export { API, HOME } from "./areas/core.shared.ts"
-export { ADMIN_COURSES, ADMIN_COURSES_CREATE, COURSES } from "./areas/courses.shared.ts"
+ダッシュボードの統計とパネル、権限、そしてエリアがいまも自分のファイルで項目を追加するほかのリストは、当面バレルを残します。`src/data/<area>.dashboard.ts` は `src/data/dashboard.entries.ts` によって `ADMIN_DASHBOARD_STATS` と `ADMIN_DASHBOARD_PANELS` にまとめられ、`src/areas/<area>.access.ts` は `src/areas/access.entries.ts` によって `src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` と `grantsOf` にまとめられます。バレルには `export { … } from` の行だけを、エリアのファイルごとに 1 行、モジュール順に並べます。`src/integrations/drizzle-orm/drizzle.schemas.ts` と同じ形です。
+
+`src/data/navigation.ts` は 7 つのメニューをリテラルのリストとして持ちます。各項目は `to` にそのページを、`label` にメッセージの完全なキーを持ち、管理画面とワークスペースでは `lucide-react` のアイコンも持ちます。管理画面のメニューは項目をサイドバーのグループ（`ADMIN_NAVIGATION_GROUP` の `key`）の下にまとめ、フッターはリンクを列（`FOOTER_COLUMN` の `key`）の下にまとめます。このファイルがインポートするのは `lucide-react`、`~/src/routes`、`~/src/data/navigation.constants` だけです。Remotion プロジェクトが管理画面のメニューを読み込み、その CI ジョブは Remotion 自身のパッケージしかインストールしないからです。ほかのものをインポートすると `src/__test__/source-layout.test.ts` が失敗します。管理画面と顧客ワークスペースはサインインがあって初めて存在するため、それらの項目は認証のエリアのパスを名指しし、エリアと一緒に消えます。ヘッダーとフッターの **ログイン** も同じです。
+
+```ts title="src/data/navigation.ts"
+export const HEADER_NAVIGATION: readonly SiteEntry[] = [
+  { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
+  { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+]
 ```
 
-メニュー項目は `placement`（`src/data/navigation.constants.ts` の `NAVIGATION_PLACEMENT`）で表示場所を示します。管理画面のサイドバー、ダッシュボード上部のボタン、コマンドパレットのクイックアクション、顧客向けアプリのサイドバーとそのリソース欄、公開ヘッダー、フッターのいずれかです。`order` によってほかのエリアの項目との並び順が決まるため、どのリストもファイルの順序に依存しません。管理画面の項目はサイドバーのグループ（`group`）を、フッターのリンクは列（`column`）も指定します。グループと列の順序は `ADMIN_NAVIGATION_GROUPS` と `FOOTER_COLUMNS` で決まり、どのエリアも項目を入れないグループや列は表示されません。管理画面と顧客ワークスペースはサインインがあって初めて存在するため、認証のエリアがそれらを所有します。そのパスである `/admin`、`/admin/settings`、`/app`、`/app/settings`、ダッシュボード、概要、設定、ユーザー管理の項目、そしてヘッダーとフッターの **ログイン** です。
-
-```ts title="src/areas/auth.navigation.ts"
-export const AUTH_NAVIGATION = {
-  entries: [
-    {
-      group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
-      icon: Home,
-      key: "dashboard",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Users,
-      key: "userManagement",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_USERS,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Settings,
-      key: "settings",
-      order: 30,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_SETTINGS,
-    },
-    { icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
-    { icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
-    { icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
-    {
-      column: FOOTER_COLUMN.PRODUCT,
-      key: "signIn",
-      order: 40,
-      placement: NAVIGATION_PLACEMENT.FOOTER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-    {
-      key: "signIn",
-      order: 50,
-      placement: NAVIGATION_PLACEMENT.HEADER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-  ],
-  name: "auth",
-} as const satisfies NavigationArea
-```
+コースのないプロジェクトには `ROUTES.COURSES` がないため、刈り込みのルールがヘッダーの **講座** 項目を削除し、それによって空になったグループや列も一緒に削除されます。法務ページのないプロジェクトで、フッターの法的情報の列が消えるのと同じです。
 
 ヘッダーやフッターのエントリは、サインイン済みの訪問者向けに自分のラベルを置き換える `signedIn` ラベルを指定でき、そのリンクは訪問者のワークスペースに向かいます。管理者権限を持つアカウントは `/admin`、それ以外は `/app` です。`useVisitorWorkspace`（`src/hooks/use-visitor-workspace.ts`）が、セッションのロールから `hasPermission` と、`requireAdmin` が確認する `admin: ["access"]` 権限で決めます。公開ページはプリレンダリングされるため、その HTML には **ログイン** が表示されます。ハイドレーション後、Better Auth の前回使用したサインイン方法の Cookie を持つブラウザはセッションを問い合わせ、ヘッダー、そのモバイルメニュー、フッターはその場所に、最初から正しいワークスペースへリンクする **マイアカウント** を表示します。一度もサインインしたことのないブラウザは何も問い合わせません。 ページの一部がハイドレートされるまで、ブラウザーがすでにセッションを持っていても `useVisitorWorkspace` は何も返しません。React のハイドレーション中は `useHydrated` がサーバーの値を返すためです。セッションが届いた後にハイドレートされるフッターも HTML と同じ **ログイン** を表示し、その後で切り替わるので、ハイドレーションが壊れません。
 
 管理画面のエントリはすべて、実データで動作する画面を開きます。ランディングページはそれらをすべて数えます。データの取得元がまだない画面には、エントリがありません（[管理ダッシュボード](/docs/features/admin-dashboard#real-data-only)を参照）。
 
-ライセンスのエリアは顧客向けアプリのサイドバーに自分の **ライセンス** 項目を追加し、コンテンツのエリアはサイドバーのリソース欄のサポートの連絡先の上に **ドキュメント** を追加します。コアエリアが宣言するのは `/` と `/api`、そしてヘッダーの **料金** だけです。**料金** は `hash` を持つ唯一の項目で、`/` の料金セクションへリンクします。
+顧客向けアプリのサイドバーにはライセンスの **ライセンス** 項目があり、そのリソース欄には、サポートの連絡先の上にコンテンツの **ドキュメント** があります。コアに必要なのは `/` と `/api`、そしてヘッダーの **料金** だけです。**料金** は `hash` を持つ唯一の項目で、`/` の料金セクションへリンクします。
 
 ダッシュボードの統計には、`/admin` のローダーが実行する `prefetch` と、`DashboardStats` が数値を読み取るために呼び出す `useValue` フックがあります。
 
 エリアのアクセスファイルは、そのエリアのリソースの権限ステートメントと、それを付与するロールを宣言します。`auth.access.ts` は `APP_STATEMENTS` から Better Auth のアクセス制御を、`grantsOf(role)` から各ロールを組み立てるため、認証のインテグレーションはどのエリアも名指ししません。また、2 つのエリアが同じリソースを宣言すると `APP_STATEMENTS` が失敗します（[ロールと権限](/docs/guides/roles-and-permissions)を参照）。
 
-`src/data/navigation.ts` のリストには、エリアがその時点で宣言している項目の型ではなく、宣言済みの型 `NavigationEntry` が付いています。そのため、決済エリアのないプロジェクトのダッシュボードアクションのように、どのエリアも項目を置かない配置は空のリストになり、それでも型チェックを通ります。`navigation.test.ts` は、エリアが宣言したすべての項目の `to` がルートツリーのパス（`src/routeTree.gen.ts` の `FileRouteTypes["to"]`）であることをコンパイル時にチェックします。
+`src/data/navigation.ts` のリストには、`IconEntry` や `SiteEntry` のような、`src/data/navigation.constants.ts` で宣言された型が付いています。そのため、決済エリアのないプロジェクトのダッシュボードアクションのように、プロジェクトが項目を外したリストは空のリストになり、それでも型チェックを通ります。`navigation.test.ts` は、すべての項目の `to` がルートツリーのパスであること、そしてどのメニューも同じページやラベルを 2 回指定していないことをチェックします。
 
-項目の `area` は、そのエリアの `<AREA>_NAVIGATION` オブジェクトの `name` から付き、そのエリアが自分のメッセージファイルで項目にラベルを付けます。ラベルは `messages/<locale>/navigation.<area>.json` の `<placement>.<key>` で、たとえば `navigation.courses.json` の `admin.courses` と `header.courses` です。ダッシュボードの統計には `dashboard.<area>.json` でその `key` によってラベルが付きます。管理画面のセクションは、パンくずリストに表示するサブページのラベルを、自分の `navigation.<area>.json` の `breadcrumbs.<segment>`（`breadcrumbs.create` など）に置きます。ユーザー管理のタブには `userTabs.<key>` でラベルが付き、それがタブ名にもパンくずリストのページ名にもなります。ダッシュボードのパネルは、文言を `dashboard.<area>.json` の自分の `key` の下に置きます。どちらの種類のファイルも root 名前空間なので、どのメニューもすべての項目にラベルを付けられ、`src/hooks/use-navigation-label.ts` の `useNavigationLabel` が項目のラベルを返します。メニュー自体に属するものは、そのメニューの名前空間に残ります。`pages.admin.sidebar` の `groups.<group>`、`components.custom.footer` の `columns.<column>`、`components.custom.navigation` のヘッダーの行動喚起ボタン、メニューボタン、スキップリンクです。いずれかのロケールで項目や統計のラベルが欠けていると `enum-labels.test.ts` が失敗します。
+項目の `label` はメッセージの完全なキーで（`navigation.courses.admin.courses` など）、メッセージはそのページを所有する機能のファイル `messages/<locale>/navigation.<area>.json` にあります。そのため、機能を外すとそのラベルも一緒に消えます。コンポーネントは `useTranslations()` の `t(entry.label)` でラベルを描画します。管理画面のセクションは、パンくずリストに表示するサブページのラベルを、項目の `breadcrumbs` にパスのセグメントからキーへの対応として置きます（`create` から `navigation.courses.breadcrumbs.create` など）。ユーザー管理のタブとコマンドパレットの検索には、いまもエリアごとに `navigation.<area>.userTabs.<key>` と `navigation.<area>.search.<key>` でラベルが付き、ダッシュボードの統計とパネルには `dashboard.<area>.json` でその `key` によってラベルが付きます。どちらの種類のファイルも root 名前空間なので、どのメニューもすべての項目にラベルを付けられます。メニュー自体に属するものは、そのメニューの名前空間に残ります。`pages.admin.sidebar` の `groups.<group>`、`components.custom.footer` の `columns.<column>`、`components.custom.navigation` のヘッダーの行動喚起ボタン、メニューボタン、スキップリンクです。いずれかのロケールで項目、サインイン時の別ラベル、パンくずリストのメッセージが欠けていると `navigation.test.ts` が失敗し、統計のラベルが欠けていると `enum-labels.test.ts` が失敗します。
 
-`/admin`、`/auth`、`/courses` のように、ページがリクエストごとに Worker 上でレンダリングされるエリアは、それらのパスを `src/areas/<area>.shared.ts` の `<AREA>_SHARED` オブジェクトの `unlisted` フィールドに列挙します。`src/data/tanstack.vite.ts` の TanStack Start プラグインは `isUnlistedRoute` でそれらをプリレンダリングから除外し、`buildPageHead` はページごとのカードではなくサイトカードを割り当てます（[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照）。Vite は自身の設定を読み込む間 `~` エイリアスを解決しないため、Vite が読み込む `src/areas` のファイル（`shared.ts`、`shared.entries.ts`、各 `<area>.shared.ts`）は相対パスでインポートします。 Worker のエントリー、`vite.config.ts`、Remotion プロジェクトは `ROUTES` を通じてすべての共有ファイルに到達するため、共有ファイルにはパスだけを置き、依存関係を引き込むものは置きません。 公開サイトのチェックは独自のファイルの種類 `src/areas/<area>.live.ts` です。読み込むのはデプロイ後の検証とドキュメントだけだからです。メニュー項目も独自の純粋なファイルの種類 `src/areas/<area>.navigation.ts` で、`src/areas/navigation.entries.ts` がまとめ、`src/data/navigation.ts` が読み込みます。Remotion プロジェクトが管理画面のメニューを読み込み、その CI ジョブは Remotion 自身のパッケージしかインストールしないため、ルーター、TanStack Query、サーバー関数のコードをインポートするエリアのブラウザー用ファイル `src/areas/<area>.ts` を読み込めないからです。
+`/admin`、`/auth`、`/courses` のように、リクエストごとに Worker 上でレンダリングされるページは、`src/routes.ts` の `UNLISTED_ROUTES` に列挙します。`src/data/tanstack.vite.ts` の TanStack Start プラグインは `isUnlistedRoute` でそれらをプリレンダリングから除外し、`buildPageHead` はページごとのカードではなくサイトカードを割り当てます（[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照）。Vite は自身の設定を読み込む間 `~` エイリアスを解決しないため、`tanstack.vite.ts` は `src/routes.ts` を相対パスでインポートします。
 
 ## 関連ページ
 

@@ -16,12 +16,6 @@ import { isStaleBuildError } from "~/src/lib/stale-build"
 import sonnerMessages from "~/messages/pl-PL/components.shadcn.sonner.json"
 import * as ROUTES from "~/src/routes"
 
-const AreaWidget = vi.hoisted(() => () => <p>Mounted by an area</p>)
-
-vi.mock("~/src/areas/browser.entries", () => ({
-  TEST_BROWSER: { name: "test", rootComponents: [{ component: AreaWidget, key: "areaWidget" }] },
-}))
-
 beforeEach(() => {
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
   vi.stubGlobal(
@@ -78,11 +72,10 @@ it.each([
   expect(router.state.matches.at(0)?.meta).toContainEqual({ content: robots, name: "robots" })
 })
 
-it("mounts the components the areas add to the root beside every page", async () => {
+it("renders every page inside the root layout", async () => {
   await renderRoot()
 
   expect(await screen.findByRole("heading", { level: 1, name: "Home page" })).toBeVisible()
-  expect(screen.getByText("Mounted by an area")).toBeInTheDocument()
 })
 
 it("names the notifications region in the page's language", async () => {

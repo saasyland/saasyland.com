@@ -115,7 +115,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Un layout déclare `const NAMESPACES = [...] as const` au-dessus de `export const Route` et les précharge. Lorsqu'il n'en a aucun, il omet l'option ; il n'y a pas de `namespaces: []`.
-- Un namespace dont un composant d'une autre zone a besoin dans le layout est ajouté par cette zone dans `src/areas/<area>.ts`, qui nomme le layout par son identifiant de route, et le layout étale `...layoutNamespaces("/app")` dans ses `NAMESPACES`. La zone de la licence ajoute `pages.license`, `pages.withdrawal` et `withdrawal.validations` à `/app`, dont la vue d'ensemble affiche la carte et l'offre de licence et dont la page de licence affiche la carte de rétractation, `withdrawal.validations` à `/_site/_marketing` et `pages.admin.users.license` à `/admin/users` ; la zone des paiements ajoute `pages.admin.customers` et `pages.admin.orders` à `/admin/users` ; et la zone de la newsletter ajoute `auth.validations` à `/_site/_marketing` et `/_site/docs`, dont les pieds de page affichent le formulaire de la newsletter. `browser.test.tsx` vérifie à la compilation que chaque layout qu'une zone nomme est un identifiant de route.
+- Un layout nomme chaque namespace dont ses pages et leurs composants ont besoin, y compris ceux d'autres fonctionnalités, sous forme de simples chaînes dans ses `NAMESPACES`. `/app` liste `pages.license`, `pages.withdrawal` et `withdrawal.validations`, car sa vue d'ensemble affiche la carte et l'offre de licence et sa page de licence la carte de rétractation ; `/admin/users` liste `pages.admin.customers`, `pages.admin.orders` et `pages.admin.users.license` ; et `/_site/_marketing` et `/_site/docs` listent `auth.validations`, car leurs pieds de page affichent le formulaire de la newsletter, et le layout marketing aussi `withdrawal.validations`. Retirer une fonctionnalité supprime ses fichiers de messages, et la règle d'élagage supprime chaque chaîne qui nomme l'un d'eux ([Tests](/docs/conventions/testing#tests-follow-the-areas)).
 - Le composant, lorsque le layout en affiche un, est nommé `<Name>Layout` et place un `<Outlet />`.
 - Un guard va dans le `beforeLoad` du layout qui possède la zone : `beforeLoad: requireAdmin` dans `admin.tsx`, `requireSignedIn` dans `app.tsx`, les deux layouts de la zone d'authentification. Les guards ne décident que de la navigation ; chaque fonction serveur vérifie toujours sa propre permission.
 
@@ -166,91 +166,49 @@ La navigation doit sembler instantanée : chaque route qui affiche une page a do
 
 ## Chemins et navigation [#paths-and-navigation]
 
-Aucun fichier de l'application ne liste toutes les zones. Chaque zone, comme les cours, les produits ou les pages légales, déclare ses propres chemins, ses entrées de menu et leurs libellés, ses squelettes de pages et ses permissions, et un barrel les réunit : une zone s'ajoute ou se retire donc avec ses propres fichiers. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates. Seul `scripts/areas.ts`, que l'application ne charge jamais, liste les zones optionnelles avec leurs fichiers, pour que `bun run check:areas` puisse vérifier les types du site sans chacune d'elles ([Tests](/docs/conventions/testing#tests-follow-the-areas)).
+Chaque chemin et chaque entrée de menu s'écrit une seule fois, dans une seule liste, et une fonctionnalité qui peut être retirée, comme les cours, les produits ou les pages légales, y figure comme un élément qui nomme son propre chemin. Retirer la fonctionnalité supprime ses fichiers et ses noms, et avec eux chaque élément qui en nomme un : les listes n'ont donc besoin ni d'un fichier par fonctionnalité ni d'un barrel. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates. Seul `scripts/areas.ts`, que l'application ne charge jamais, liste les zones optionnelles avec leurs fichiers et les chemins qui leur appartiennent, pour que `bun run check:areas` puisse vérifier les types du site sans chacune d'elles ([Tests](/docs/conventions/testing#tests-follow-the-areas)).
 
-| Quoi                                        | Chaque zone déclare                                                            | Barrel                            | Lu depuis                                                                                                                                                                                     |
-| ------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chemins                                     | `src/areas/<area>.shared.ts` : un `export const` par chemin                    | `src/routes.ts`                   | `import * as ROUTES from "~/src/routes"`                                                                                                                                                      |
-| Entrées de menu                             | `src/areas/<area>.navigation.ts` : `entries` dans un objet `<AREA>_NAVIGATION` | `src/areas/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
-| Statistiques et panneaux du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`                  | `src/data/dashboard.entries.ts`   | `ADMIN_DASHBOARD_STATS` et `ADMIN_DASHBOARD_PANELS` dans `src/data/dashboard.ts`                                                                                                              |
-| Permissions                                 | `src/areas/<area>.access.ts` : un objet `<AREA>_ACCESS`                        | `src/areas/access.entries.ts`     | `APP_STATEMENTS` et `grantsOf` dans `src/integrations/better-auth/auth.access.ts`                                                                                                             |
-| Chemins non listés                          | `src/areas/<area>.shared.ts` : `unlisted` dans un objet `<AREA>_SHARED`        | `src/areas/shared.entries.ts`     | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/areas/shared.ts`                                                                                                                             |
-| Namespaces des layouts                      | `src/areas/<area>.ts` : `layoutNamespaces` dans un objet `<AREA>_BROWSER`      | `src/areas/browser.entries.ts`    | `layoutNamespaces(layout)` dans `src/areas/browser.ts`                                                                                                                                        |
+| Quoi                           | Déclaré dans                                                                                                                                                                                                                     | Lu depuis                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Chemins                        | `src/routes.ts` : un `export const` par chemin                                                                                                                                                                                   | `import * as ROUTES from "~/src/routes"`                                                         |
+| Chemins non listés             | `UNLISTED_ROUTES` dans `src/routes.ts`                                                                                                                                                                                           | `isUnlistedRoute` dans `src/routes.ts`                                                           |
+| Entrées de menu                | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts`, dans l'ordre où elles s'affichent | Les barres latérales, l'en-tête, le pied de page, la palette de commandes et le tableau de bord  |
+| Namespaces des layouts         | `NAMESPACES` dans la route de layout                                                                                                                                                                                             | Le loader et les `staticData` du layout                                                          |
+| Vérifications du site en ligne | `LIVE_SITE_CHECKS` dans `src/lib/deployment.ts`                                                                                                                                                                                  | `verifyDeployment` ([Plateforme et tests](/docs/architecture/platform-layer#what-the-areas-add)) |
 
-Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. Un barrel que seules des zones facultatives remplissent reçoit aussi un fichier de la base, comme `src/areas/core.ts`, qui ne contient que le nom de la base, si bien qu'un projet sans ces zones passe toujours la vérification des types et le lint. Le barrel des chemins est `src/routes.ts` lui-même, et chaque fichier l'importe sous un seul namespace, `import * as ROUTES from "~/src/routes"` : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
+`src/routes.ts` déclare chaque chemin et n'importe rien, car tous les environnements d'exécution le chargent : le navigateur, le Worker à chaque démarrage à froid, les scripts Bun, Playwright, `vite.config.ts` et le projet Remotion. Chaque fichier l'importe sous un seul namespace, `import * as ROUTES from "~/src/routes"` : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes. Un chemin construit à partir d'un autre, comme `BLOG_FEED` à partir de `BLOG`, vient après celui dont il dérive.
 
-```ts title="src/routes.ts"
-export { API, HOME } from "./areas/core.shared.ts"
-export { ADMIN_COURSES, ADMIN_COURSES_CREATE, COURSES } from "./areas/courses.shared.ts"
+Les statistiques et panneaux du tableau de bord, les permissions et les autres listes auxquelles une zone contribue encore dans un fichier à part gardent pour l'instant leurs barrels : `src/data/<area>.dashboard.ts`, que `src/data/dashboard.entries.ts` réunit dans `ADMIN_DASHBOARD_STATS` et `ADMIN_DASHBOARD_PANELS`, et `src/areas/<area>.access.ts`, que `src/areas/access.entries.ts` réunit dans `APP_STATEMENTS` et `grantsOf`, dans `src/integrations/better-auth/auth.access.ts`. Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`.
+
+`src/data/navigation.ts` contient les sept menus sous forme de listes littérales, chaque entrée avec sa page dans `to`, la clé complète de son message dans `label` et, dans la console d'administration et l'espace client, son icône `lucide-react`. Le menu d'administration regroupe ses entrées sous un groupe de barre latérale, `key` tiré de `ADMIN_NAVIGATION_GROUP`, et le pied de page ses liens sous une colonne, `key` tiré de `FOOTER_COLUMN`. Le fichier n'importe que `lucide-react`, `~/src/routes` et `~/src/data/navigation.constants`, car le projet Remotion lit le menu d'administration et son job de CI n'installe que les paquets propres à Remotion ; `src/__test__/source-layout.test.ts` échoue quand il importe autre chose. La console d'administration et l'espace client n'existent qu'avec la connexion : leurs entrées nomment donc les chemins de la zone d'authentification et disparaissent avec elle, comme **Se connecter** dans l'en-tête et le pied de page :
+
+```ts title="src/data/navigation.ts"
+export const HEADER_NAVIGATION: readonly SiteEntry[] = [
+  { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
+  { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+]
 ```
 
-Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, les actions rapides de la palette de commandes, la barre latérale de l'espace client et ses ressources, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La console d'administration et l'espace client n'existent qu'avec la connexion, la zone d'authentification en est donc propriétaire : leurs chemins, `/admin`, `/admin/settings`, `/app` et `/app/settings`, leurs entrées de tableau de bord, de vue d'ensemble, de paramètres et de gestion des utilisateurs, et **Se connecter** dans l'en-tête et le pied de page :
-
-```ts title="src/areas/auth.navigation.ts"
-export const AUTH_NAVIGATION = {
-  entries: [
-    {
-      group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
-      icon: Home,
-      key: "dashboard",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Users,
-      key: "userManagement",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_USERS,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Settings,
-      key: "settings",
-      order: 30,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_SETTINGS,
-    },
-    { icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
-    { icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
-    { icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
-    {
-      column: FOOTER_COLUMN.PRODUCT,
-      key: "signIn",
-      order: 40,
-      placement: NAVIGATION_PLACEMENT.FOOTER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-    {
-      key: "signIn",
-      order: 50,
-      placement: NAVIGATION_PLACEMENT.HEADER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-  ],
-  name: "auth",
-} as const satisfies NavigationArea
-```
+Un projet sans les cours n'a pas de `ROUTES.COURSES` : la règle d'élagage supprime donc l'entrée **Cours** de l'en-tête, et un groupe ou une colonne qu'elle vide disparaît avec elle, comme la colonne légale du pied de page dans un projet sans les pages légales.
 
 Une entrée de l’en-tête ou du pied de page peut nommer un libellé `signedIn` qui remplace le sien pour un visiteur connecté, et son lien mène alors à l’espace de ce visiteur : `/admin` pour un compte qui a l’accès administrateur, `/app` pour tous les autres. `useVisitorWorkspace` (`src/hooks/use-visitor-workspace.ts`) le décide d’après le rôle de la session, avec `hasPermission` et la permission `admin: ["access"]` que vérifie `requireAdmin`. Les pages publiques sont prérendues, leur HTML affiche donc **Se connecter** ; après l’hydratation, un navigateur qui détient le cookie de Better Auth indiquant la dernière méthode de connexion demande sa session, et l’en-tête, son menu mobile et le pied de page affichent **Votre compte** à la place, avec déjà le lien vers le bon espace. Un navigateur qui ne s’est jamais connecté ne demande rien. Tant qu'une partie de la page n'est pas hydratée, `useVisitorWorkspace` ne renvoie rien, même si le navigateur a déjà la session, car `useHydrated` répond avec la valeur du serveur pendant que React hydrate : un pied de page qui s'hydrate après l'arrivée de la session affiche le même **Se connecter** que le HTML et change ensuite, au lieu de casser l'hydratation.
 
 Chaque entrée d’administration ouvre un écran qui fonctionne sur des données réelles, et la page d’accueil les compte toutes. Un écran dont les données n’ont pas encore de source n’a pas d’entrée (voir [Tableau de bord d’administration](/docs/features/admin-dashboard#real-data-only)).
 
-La zone de la licence ajoute son entrée **Licence** à la barre latérale de l'espace client, et la zone de contenu ajoute **Documentation** à ses ressources, au-dessus de l'adresse du support. La zone de base ne déclare que `/` et `/api`, ainsi que l'entrée **Tarifs** de l'en-tête, la seule entrée avec un `hash`, qui renvoie vers la section des tarifs de `/`.
+La barre latérale de l'espace client contient l'entrée **Licence** de la zone de la licence, et ses ressources l'entrée **Documentation** de la zone de contenu, au-dessus de l'adresse du support. La base n'a besoin que de `/` et `/api`, ainsi que de l'entrée **Tarifs** de l'en-tête, la seule entrée avec un `hash`, qui renvoie vers la section des tarifs de `/`.
 
 Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` exécute, et un hook `useValue`, que `DashboardStats` appelle pour lire le nombre.
 
 Le fichier d'accès d'une zone contient les déclarations de permissions de ses ressources et les rôles auxquels elle les accorde. `auth.access.ts` construit le contrôle d'accès de Better Auth à partir de `APP_STATEMENTS` et chaque rôle à partir de `grantsOf(role)` : l'intégration d'authentification ne nomme donc aucune zone, et `APP_STATEMENTS` échoue quand deux zones déclarent la même ressource (voir [Rôles et permissions](/docs/guides/roles-and-permissions)).
 
-Les listes de `src/data/navigation.ts` ont un type déclaré, `NavigationEntry`, plutôt que les types des entrées que les zones déclarent à un moment donné : un emplacement qu'aucune zone ne remplit, comme les actions du tableau de bord dans un projet sans la zone des paiements, est donc une liste vide qui passe toujours la vérification des types. `navigation.test.ts` vérifie à la compilation que le `to` de chaque entrée qu'une zone déclare est un chemin de l'arbre des routes (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`).
+Les listes de `src/data/navigation.ts` ont un type déclaré dans `src/data/navigation.constants.ts`, comme `IconEntry` ou `SiteEntry` : une liste dont un projet retire les entrées, comme les actions du tableau de bord sans la zone des paiements, est donc une liste vide qui passe toujours la vérification des types. `navigation.test.ts` vérifie que le `to` de chaque entrée est un chemin de l'arbre des routes et qu'aucun menu ne nomme deux fois une page ou un libellé.
 
-Une entrée reçoit son `area` du `name` de l'objet `<AREA>_NAVIGATION` de sa zone, et la zone lui donne son libellé dans son propre fichier de messages : `<placement>.<key>` dans `messages/<locale>/navigation.<area>.json`, comme `admin.courses` et `header.courses` dans `navigation.courses.json`. Une statistique du tableau de bord a son libellé sous sa `key` dans `dashboard.<area>.json`, et une section d'administration définit les libellés de ses sous-pages dans le fil d'Ariane sous `breadcrumbs.<segment>` dans son `navigation.<area>.json`, comme `breadcrumbs.create` ; un onglet de la gestion des utilisateurs a son libellé sous `userTabs.<key>`, qui nomme l’onglet et sa page dans le fil d'Ariane, et un panneau du tableau de bord garde ses textes sous sa `key` dans `dashboard.<area>.json`. Ces deux sortes de fichiers sont des namespaces racine : chaque menu peut donc afficher le libellé de n'importe quelle entrée, et `useNavigationLabel` dans `src/hooks/use-navigation-label.ts` renvoie le libellé d'une entrée. Ce qui appartient au menu lui-même reste dans son namespace : `groups.<group>` dans `pages.admin.sidebar`, `columns.<column>` dans `components.custom.footer` et l'appel à l'action, le bouton du menu et le lien d'évitement de l'en-tête dans `components.custom.navigation`. `enum-labels.test.ts` échoue quand une entrée ou une statistique n'a pas de libellé dans une locale.
+Le `label` d'une entrée est la clé complète de son message, comme `navigation.courses.admin.courses`, et le message se trouve dans le fichier de la fonctionnalité à laquelle appartient la page, `messages/<locale>/navigation.<area>.json` : retirer la fonctionnalité supprime donc aussi ses libellés. Un composant l'affiche avec `t(entry.label)`, tiré de `useTranslations()`. Une section d'administration définit les libellés de ses sous-pages dans le fil d'Ariane dans les `breadcrumbs` de son entrée, du segment de chemin à la clé, comme `create` vers `navigation.courses.breadcrumbs.create`. Un onglet de la gestion des utilisateurs et une recherche de la palette de commandes ont toujours leur libellé dans leur zone, sous `navigation.<area>.userTabs.<key>` et `navigation.<area>.search.<key>`, et une statistique et un panneau du tableau de bord sous leur `key` dans `dashboard.<area>.json`. Ces deux sortes de fichiers sont des namespaces racine : chaque menu peut donc afficher le libellé de n'importe quelle entrée. Ce qui appartient au menu lui-même reste dans son namespace : `groups.<group>` dans `pages.admin.sidebar`, `columns.<column>` dans `components.custom.footer` et l'appel à l'action, le bouton du menu et le lien d'évitement de l'en-tête dans `components.custom.navigation`. `navigation.test.ts` échoue quand une entrée, sa variante pour un visiteur connecté ou un élément du fil d'Ariane n'a pas de message dans une locale, et `enum-labels.test.ts` quand une statistique n'en a pas.
 
-Une zone dont les pages sont rendues par le Worker à chaque requête, comme `/admin`, `/auth` ou `/courses`, liste ces chemins dans le champ `unlisted` de son objet `<AREA>_SHARED`, dans `src/areas/<area>.shared.ts`. Le plugin TanStack Start de `src/data/tanstack.vite.ts` les exclut du prérendu avec `isUnlistedRoute`, et `buildPageHead` leur attribue la carte du site au lieu d'une carte de page (voir [Référencement et aperçus sociaux](/docs/features/seo)). Vite ne résout pas l'alias `~` pendant qu'il charge sa propre configuration : chaque fichier de `src/areas` qu'il charge, `shared.ts`, `shared.entries.ts` et chaque `<area>.shared.ts`, importe donc par chemin relatif. L'entrée du Worker, `vite.config.ts` et le projet Remotion atteignent chaque fichier partagé via `ROUTES` : un fichier partagé contient donc des chemins et rien qui entraîne une dépendance. Les vérifications du site en ligne forment un type de fichier à part, `src/areas/<area>.live.ts`, car seules la vérification après déploiement et la documentation les chargent. Les entrées de menu forment elles aussi un type de fichier à part et pur, `src/areas/<area>.navigation.ts`, que `src/areas/navigation.entries.ts` réunit et que lit `src/data/navigation.ts`, car le projet Remotion lit le menu d'administration et son job de CI n'installe que les paquets propres à Remotion : il ne peut donc pas charger le fichier navigateur d'une zone, `src/areas/<area>.ts`, qui importe du code du routeur, de TanStack Query et des fonctions serveur.
+Les pages rendues par le Worker à chaque requête, comme `/admin`, `/auth` ou `/courses`, sont listées dans `UNLISTED_ROUTES`, dans `src/routes.ts`. Le plugin TanStack Start de `src/data/tanstack.vite.ts` les exclut du prérendu avec `isUnlistedRoute`, et `buildPageHead` leur attribue la carte du site au lieu d'une carte de page (voir [Référencement et aperçus sociaux](/docs/features/seo)). Vite ne résout pas l'alias `~` pendant qu'il charge sa propre configuration : `tanstack.vite.ts` importe donc `src/routes.ts` par chemin relatif.
 
 ## Pages associées
 

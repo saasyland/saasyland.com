@@ -13,7 +13,6 @@ import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
-import { LEGAL_NAVIGATION } from "~/src/areas/legal.navigation"
 import { LOCAL_SERVER, TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
@@ -341,9 +340,9 @@ const listedCodes = (readme: string, pattern: RegExp): string[] =>
   [...(pattern.exec(readme)?.[0] ?? "").matchAll(INLINE_CODE)].map(({ groups }) => groups?.["code"] ?? "")
 
 const LEGAL_PATHS = [
-  ...LEGAL_NAVIGATION.entries,
-  ...FOOTER_NAVIGATION.filter(({ key }) => key === FOOTER_COLUMN.LEGAL).flatMap(({ links }) => links),
-].map(({ to }) => to)
+  ROUTES.AFFILIATES,
+  ...FOOTER_NAVIGATION.filter(({ key }) => key === FOOTER_COLUMN.LEGAL).flatMap(({ links }) => links.map(({ to }) => to)),
+]
 
 describe("README.md", () => {
   it("states only values the code defines", () => {
@@ -373,7 +372,7 @@ describe("README.md", () => {
     expect(listedCodes(README, /The public legal routes are [^.]+\./u).toSorted()).toStrictEqual([...new Set(LEGAL_PATHS)].toSorted())
     expect(
       new Set(
-        listedCodes(README, /it requests the paths the areas' live checks name [^\n]+?sign-in through `[^`]+`/u).filter((code) =>
+        listedCodes(README, /it requests the paths that `LIVE_SITE_CHECKS` names [^\n]+?sign-in through `[^`]+`/u).filter((code) =>
           code.startsWith("/"),
         ),
       ),

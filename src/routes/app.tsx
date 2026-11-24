@@ -6,8 +6,6 @@ import { requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/areas/browser"
-
 import { SidebarInset, SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
@@ -44,8 +42,10 @@ const NAMESPACES = [
   "auth.validations",
   "countries",
   "pages.app.sidebar",
+  "pages.license",
+  "pages.withdrawal",
   "timezones",
-  ...layoutNamespaces("/app"),
+  "withdrawal.validations",
 ] as const
 
 export const Route = createFileRoute("/app")({

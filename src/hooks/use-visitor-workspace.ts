@@ -6,8 +6,6 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 
 import { useLastLoginMethod } from "~/src/hooks/use-last-login-method"
 
-import type { NavigationEntry, SiteEntry } from "~/src/data/navigation.constants"
-
 import * as ROUTES from "~/src/routes"
 
 type Workspace = typeof ROUTES.ADMIN | typeof ROUTES.APP
@@ -26,6 +24,3 @@ export const useVisitorWorkspace = (): Workspace | undefined => {
 
   return workspaceOf(data.user.role)
 }
-
-export const signedInDestination = (entry: SiteEntry, workspace: Workspace | undefined): NavigationEntry =>
-  workspace !== undefined && entry.signedIn !== undefined ? { label: entry.signedIn.label, to: workspace } : entry

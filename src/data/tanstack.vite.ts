@@ -1,4 +1,4 @@
-import { isUnlistedRoute } from "../areas/shared.ts"
+import * as ROUTES from "../routes.ts"
 import type { VitePluginEntry } from "./vite.ts"
 
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
@@ -11,7 +11,7 @@ export const shouldPrerender = ({ path }: { path: string }): boolean => {
     return false
   }
 
-  return !isUnlistedRoute(path.replace(LOCALE_PREFIX, ""))
+  return !ROUTES.isUnlistedRoute(path.replace(LOCALE_PREFIX, ""))
 }
 
 export const TANSTACK_VITE_PLUGINS = [

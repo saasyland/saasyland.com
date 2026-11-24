@@ -1,7 +1,10 @@
-import { Home, Settings } from "lucide-react"
-import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 
-import * as AREAS from "~/src/areas/navigation.entries"
+import { createTestRouter } from "~/src/platform/testing/lib/render"
+
+import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import {
   ADMIN_COMMAND_ACTIONS,
   ADMIN_DASHBOARD_ACTIONS,
@@ -11,122 +14,58 @@ import {
   FOOTER_NAVIGATION,
   HEADER_NAVIGATION,
 } from "~/src/data/navigation"
-import {
-  ADMIN_NAVIGATION_GROUP,
-  ADMIN_NAVIGATION_GROUPS,
-  FOOTER_COLUMNS,
-  NAVIGATION_PLACEMENT,
-  type NavigationArea,
-} from "~/src/data/navigation.constants"
+import type { NavigationEntry } from "~/src/data/navigation.constants"
 
 import * as ROUTES from "~/src/routes"
-import type { FileRouteTypes } from "~/src/routeTree.gen"
-
-type DeclaredEntry = (typeof AREAS)[keyof typeof AREAS]["entries"][number]
-
-const ENTRIES = Object.values(AREAS).flatMap(({ entries }): readonly DeclaredEntry[] => entries)
-
-const SAMPLE_NAVIGATION = {
-  entries: [
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Settings,
-      key: "settings",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.API,
-    },
-    { icon: Home, key: "home", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.HOME },
-  ],
-  name: "sample",
-} as const satisfies NavigationArea
-
-const SAMPLE_AREAS = { SAMPLE_NAVIGATION }
+import { routeTree } from "~/src/routeTree.gen"
 
 const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
 
 const FOOTER_LINKS = FOOTER_NAVIGATION.flatMap(({ links }) => links)
 
-const PLACEMENT_LISTS = [
-  [NAVIGATION_PLACEMENT.ADMIN, ADMIN_ITEMS],
-  [NAVIGATION_PLACEMENT.COMMAND, ADMIN_COMMAND_ACTIONS],
-  [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS],
-  [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION],
-  [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION],
-  [NAVIGATION_PLACEMENT.HEADER, HEADER_NAVIGATION],
-  [NAVIGATION_PLACEMENT.FOOTER, FOOTER_LINKS],
-] as const
-
-const ORDERED_LISTS = [
-  ...ADMIN_NAVIGATION.map(({ items, key }) => [`${NAVIGATION_PLACEMENT.ADMIN} ${key}`, items] as const),
-  [NAVIGATION_PLACEMENT.COMMAND, ADMIN_COMMAND_ACTIONS] as const,
-  [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS] as const,
-  [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION] as const,
-  [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION] as const,
-  [NAVIGATION_PLACEMENT.HEADER, HEADER_NAVIGATION] as const,
-  ...FOOTER_NAVIGATION.map(({ key, links }) => [`${NAVIGATION_PLACEMENT.FOOTER} ${key}`, links] as const),
+const MENUS: readonly (readonly [string, readonly NavigationEntry[]])[] = [
+  ["admin", ADMIN_ITEMS],
+  ["command", ADMIN_COMMAND_ACTIONS],
+  ["dashboard", ADMIN_DASHBOARD_ACTIONS],
+  ["app", APP_NAVIGATION],
+  ["app resources", APP_RESOURCE_NAVIGATION],
+  ["header", HEADER_NAVIGATION],
+  ["footer", FOOTER_LINKS],
 ]
 
-const identity = ({ key, placement }: { readonly key: string; readonly placement: string }): string => `${placement}:${key}`
+const ENTRIES = MENUS.flatMap(([, entries]) => entries)
 
-describe("navigation composition", () => {
-  it("places every entry an area contributes exactly once", () => {
-    const placed = PLACEMENT_LISTS.flatMap(([placement, list]) => list.map(({ key }) => identity({ key, placement })))
+const LABELS = [
+  ...ENTRIES.map(({ label }) => label),
+  ...[...HEADER_NAVIGATION, ...FOOTER_LINKS].flatMap(({ signedIn }) => (signedIn === undefined ? [] : [signedIn.label])),
+  ...ADMIN_ITEMS.flatMap(({ breadcrumbs = {} }) => Object.values(breadcrumbs)),
+]
 
-    expect(placed.toSorted()).toStrictEqual(ENTRIES.map((entry) => identity(entry)).toSorted())
+const ROUTE_PATHS = new Set(Object.keys(createTestRouter(ROUTES.HOME, routeTree).routesByPath))
+
+describe("the menus", () => {
+  it.each(MENUS)("gives every %s entry its own label and page", (_menu, entries) => {
+    expect(new Set(entries.map(({ label }) => label)).size).toBe(entries.length)
+    expect(new Set(entries.map(({ to }) => to)).size).toBe(entries.length)
   })
 
-  it("points every entry an area declares at a path of the route tree", () => {
-    expectTypeOf<(typeof ENTRIES)[number]["to"]>().toExtend<FileRouteTypes["to"]>()
+  it("keeps each admin group and footer column once, and none of them empty", () => {
+    expect(new Set(ADMIN_NAVIGATION.map(({ key }) => key)).size).toBe(ADMIN_NAVIGATION.length)
+    expect(new Set(FOOTER_NAVIGATION.map(({ key }) => key)).size).toBe(FOOTER_NAVIGATION.length)
+    expect(
+      [...ADMIN_NAVIGATION.map(({ items }) => items), ...FOOTER_NAVIGATION.map(({ links }) => links)].filter(({ length }) => length === 0),
+    ).toStrictEqual([])
   })
 
-  it.each(PLACEMENT_LISTS)("gives every %s entry its own key", (_placement, list) => {
-    const keys = list.map(({ key }) => key)
-
-    expect(new Set(keys).size).toBe(keys.length)
+  it("points every entry at a page of the route tree", () => {
+    expect(ENTRIES.map(({ to }) => to).filter((to) => !ROUTE_PATHS.has(to))).toStrictEqual([])
   })
 
-  it.each(ORDERED_LISTS)("lists the %s entries by distinct orders", (_list, entries) => {
-    const orders = entries.map(({ order }) => order)
+  it.each(I18N.SUPPORTED_LOCALES)("labels every entry, signed-in variant and breadcrumb in %s", (locale) => {
+    const messages = getTestMessages(locale)
 
-    expect(new Set(orders).size).toBe(orders.length)
-    expect(orders).toStrictEqual(orders.toSorted((first, second) => first - second))
-  })
-
-  it("keeps admin groups and footer columns in their declared order, each holding only its own entries", () => {
-    expect(ADMIN_NAVIGATION.map(({ key }) => key)).toStrictEqual(
-      ADMIN_NAVIGATION_GROUPS.filter((group) =>
-        ENTRIES.some((entry) => entry.placement === NAVIGATION_PLACEMENT.ADMIN && entry.group === group),
-      ),
-    )
-    expect(FOOTER_NAVIGATION.map(({ key }) => key)).toStrictEqual(
-      FOOTER_COLUMNS.filter((column) =>
-        ENTRIES.some((entry) => entry.placement === NAVIGATION_PLACEMENT.FOOTER && entry.column === column),
-      ),
-    )
-    expect(ADMIN_NAVIGATION.every(({ items, key }) => items.every(({ group }) => group === key))).toBe(true)
-    expect(FOOTER_NAVIGATION.every(({ key, links }) => links.every(({ column }) => column === key))).toBe(true)
-  })
-
-  it("links each admin section once", () => {
-    expect(new Set(ADMIN_ITEMS.map(({ to }) => to)).size).toBe(ADMIN_ITEMS.length)
-  })
-
-  it("names each entry after its area and leaves out every group, column and list no area contributes to", async () => {
-    vi.resetModules()
-    vi.doMock("~/src/areas/navigation.entries", () => SAMPLE_AREAS)
-
-    const navigation = await import("~/src/data/navigation")
-
-    expect(navigation.ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
-      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.API]],
-    ])
-    expect(navigation.APP_NAVIGATION.map(({ area, to }) => [area, to])).toStrictEqual([[SAMPLE_NAVIGATION.name, ROUTES.HOME]])
-    expect(navigation.APP_RESOURCE_NAVIGATION).toStrictEqual([])
-    expect(navigation.ADMIN_COMMAND_ACTIONS).toStrictEqual([])
-    expect(navigation.ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
-    expect(navigation.FOOTER_NAVIGATION).toStrictEqual([])
-    expect(navigation.HEADER_NAVIGATION).toStrictEqual([])
-    vi.doUnmock("~/src/areas/navigation.entries")
+    for (const label of LABELS) {
+      expect(messages).toHaveProperty(label.split("."), expect.stringMatching(/\S/u))
+    }
   })
 })

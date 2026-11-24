@@ -3,8 +3,6 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -36,8 +34,7 @@ const isActiveUrl = (pathname: string, url: string): boolean => {
 }
 
 export const AdminSidebar = (): JSX.Element => {
-  const t = useTranslations("pages.admin.sidebar")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   return (
@@ -53,19 +50,19 @@ export const AdminSidebar = (): JSX.Element => {
       </SidebarHeader>
 
       <SidebarContent className="custom-scrollbar px-2 pt-3">
-        <nav aria-label={t("navigationLabel")} className="flex flex-col gap-3">
+        <nav aria-label={t("pages.admin.sidebar.navigationLabel")} className="flex flex-col gap-3">
           {ADMIN_NAVIGATION.map((group) => (
             <SidebarGroup className="p-0" key={group.key}>
               <SidebarGroupLabel className="h-7 px-2 text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
-                {t(`groups.${group.key}`)}
+                {t(`pages.admin.sidebar.groups.${group.key}`)}
               </SidebarGroupLabel>
               <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5" role="group">
                 {group.items.map((item) => {
                   const isActive = isActiveUrl(pathname, item.to)
-                  const label = navigationLabel(item)
+                  const label = t(item.label)
 
                   return (
-                    <SidebarMenuItem key={item.key}>
+                    <SidebarMenuItem key={item.to}>
                       <SidebarMenuLink
                         activeOptions={{ exact: item.to === ROUTES.ADMIN }}
                         className="relative h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent group-data-[collapsible=icon]:before:hidden data-active:font-medium data-active:before:bg-ring"

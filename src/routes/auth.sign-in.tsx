@@ -10,8 +10,6 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { ADMIN_NAVIGATION, APP_NAVIGATION } from "~/src/data/navigation"
 
 import { searchText } from "~/src/lib/search-params"
@@ -29,15 +27,14 @@ const SIGNED_IN_PAGES = [...APP_NAVIGATION, ...ADMIN_NAVIGATION.flatMap(({ items
 const QUERY_OR_HASH = /[?#]/u
 
 const SessionEnded = ({ redirect }: { readonly redirect: string | undefined }): JSX.Element => {
-  const t = useTranslations("pages.auth.sign-in")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
 
   const pathname = deLocalizePathname(redirect?.split(QUERY_OR_HASH)[0] ?? "")
   const page = SIGNED_IN_PAGES.find(({ to }) => to === pathname)
 
   return (
     <p className="rounded-lg border border-border bg-card px-4 py-3 text-body-sm text-pretty text-foreground" role="status">
-      {page === undefined ? t("sessionEnded") : t("sessionEndedTo", { page: navigationLabel(page) })}
+      {page === undefined ? t("pages.auth.sign-in.sessionEnded") : t("pages.auth.sign-in.sessionEndedTo", { page: t(page.label) })}
     </p>
   )
 }

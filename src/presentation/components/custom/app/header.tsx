@@ -4,8 +4,6 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { ArrowUpRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { SidebarTrigger } from "~/src/presentation/components/shadcn/sidebar"
@@ -14,7 +12,6 @@ import * as ROUTES from "~/src/routes"
 
 export const AppHeader = (): JSX.Element => {
   const t = useTranslations()
-  const navigationLabel = useNavigationLabel()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const current = APP_NAVIGATION.find((item) => item.to === pathname) ?? APP_NAVIGATION.find((item) => item.to === ROUTES.APP)
 
@@ -23,7 +20,7 @@ export const AppHeader = (): JSX.Element => {
       <div className="flex min-w-0 items-center gap-2">
         <SidebarTrigger className="-ml-1 text-muted-foreground" />
         <span aria-hidden className="h-4 w-px bg-border" />
-        <span className="truncate text-body-sm font-medium">{current && navigationLabel(current)}</span>
+        <span className="truncate text-body-sm font-medium">{current && t(current.label)}</span>
       </div>
       <Link
         className="flex shrink-0 items-center gap-1 rounded-sm text-body-sm text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"

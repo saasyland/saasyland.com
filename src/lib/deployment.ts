@@ -1,7 +1,32 @@
 import { DEPLOYED_HOSTS, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import * as AREA_LIVE_CHECKS from "~/src/areas/live.entries"
-import { CONTENT_TYPE, type LiveSiteCheck } from "~/src/data/live.constants"
+import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH } from "~/src/data/auth"
+
+import { signInPost } from "~/src/lib/auth"
+import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
+
+import * as ROUTES from "~/src/routes"
+
+export const CONTENT_TYPE = {
+  HTML: "text/html",
+  JSON: "application/json",
+  PLAIN_TEXT: "text/plain",
+  XML: "application/xml",
+} as const
+
+export interface LiveSitePost {
+  readonly body: Readonly<Record<string, string>>
+  readonly findProblems: (answer: unknown, origin: string) => readonly string[]
+  readonly name: string
+}
+
+export interface LiveSiteCheck {
+  readonly contentType: string
+  readonly path: string
+  readonly post?: LiveSitePost
+}
+
+const ROBOTS_TXT = "/robots.txt"
 
 export const LIVE_SITE_CHECK_RETRY_DELAY_MS = 5000
 
@@ -9,9 +34,18 @@ export const LIVE_SITE_CHECK_RETRY_DELAYS_MS = [LIVE_SITE_CHECK_RETRY_DELAY_MS, 
 
 export const LIVE_SITE_CHECK_TIMEOUT_MS = 15_000
 
-const AREAS: Readonly<Record<string, readonly LiveSiteCheck[]>> = AREA_LIVE_CHECKS
-
-export const LIVE_SITE_CHECKS = Object.values(AREAS).flat()
+export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
+  { contentType: CONTENT_TYPE.HTML, path: ROUTES.HOME },
+  { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROBOTS_TXT },
+  { contentType: CONTENT_TYPE.XML, path: SITEMAP_PATH },
+  { contentType: SOCIAL_IMAGE.TYPE, path: SOCIAL_IMAGE.SITE_PATH },
+  { contentType: SOCIAL_IMAGE.TYPE, path: ORGANIZATION_LOGO.PATH },
+  { contentType: CONTENT_TYPE.JSON, path: ROUTES.API },
+  { contentType: CONTENT_TYPE.JSON, path: `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}` },
+  ...OAUTH_PROVIDERS.map((provider) => ({ contentType: CONTENT_TYPE.JSON, path: SOCIAL_SIGN_IN_PATH, post: signInPost(provider) })),
+  { contentType: CONTENT_TYPE.XML, path: ROUTES.BLOG_FEED },
+  { contentType: CONTENT_TYPE.HTML, path: ROUTES.COURSES },
+]
 
 const METHOD = { GET: "GET", POST: "POST" } as const
 
@@ -84,14 +118,17 @@ const checkUntilAnswered = async (
   return checkUntilAnswered(url, check, laterDelays)
 }
 
-export const verifyDeployment = async (environment: DeployedEnvironment): Promise<string> => {
+export const verifyDeployment = async (
+  environment: DeployedEnvironment,
+  checks: readonly LiveSiteCheck[] = LIVE_SITE_CHECKS,
+): Promise<string> => {
   const origin = `https://${DEPLOYED_HOSTS[environment]}`
-  const problems = await Promise.all(LIVE_SITE_CHECKS.map((check) => checkUntilAnswered(new URL(check.path, origin), check)))
+  const problems = await Promise.all(checks.map((check) => checkUntilAnswered(new URL(check.path, origin), check)))
   const failures = problems.flat()
 
   if (failures.length > 0) {
     throw new Error([`The ${environment} Worker at ${origin} is deployed but does not answer as expected:`, ...failures].join("\n"))
   }
 
-  return `The ${environment} Worker at ${origin} answered ${LIVE_SITE_CHECKS.map((check) => describeCheck(check)).join(", ")} as expected.`
+  return `The ${environment} Worker at ${origin} answered ${checks.map((check) => describeCheck(check)).join(", ")} as expected.`
 }

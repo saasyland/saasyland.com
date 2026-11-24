@@ -1,7 +1,6 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { isUnlistedRoute } from "~/src/areas/shared"
 import { BLOG_AUTHORS, BLOG_COVER, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -76,7 +75,7 @@ const socialImage = ({
   readonly title: string | undefined
 }): ShareImage => {
   const card = { height: SOCIAL_IMAGE.HEIGHT, type: SOCIAL_IMAGE.TYPE, width: SOCIAL_IMAGE.WIDTH }
-  if (isUnlistedRoute(deLocalizePathname(canonicalPath))) {
+  if (ROUTES.isUnlistedRoute(deLocalizePathname(canonicalPath))) {
     return { ...card, alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
   }
 

@@ -1,12 +1,12 @@
-import { API_AUTH_BASE } from "../../src/areas/auth.shared"
 import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { githubTestIdentity } from "./github"
+import * as ROUTES from "../../src/routes"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 export const GITHUB_AUTHORIZE_TEST_PATH = "/__test/github/authorize"
 
-const GITHUB_CALLBACK_PATH = `${API_AUTH_BASE}/callback/${AUTH_PROVIDER.GITHUB}`
+const GITHUB_CALLBACK_PATH = `${ROUTES.API_AUTH_BASE}/callback/${AUTH_PROVIDER.GITHUB}`
 
 const TEST_EMAIL_DOMAIN = "@example.test"
 

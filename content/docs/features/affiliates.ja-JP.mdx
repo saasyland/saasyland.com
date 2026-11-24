@@ -9,7 +9,7 @@ description: "Affonso が計測し、Polar の注文で成果を計上する紹�
 
 プログラムが開始しているかどうかは、`src/data/affiliates.ts` の `AFFILIATE_PROGRAM` で決まります。これは `CLI_GENERATION` と同じく `FEATURE_STATUS` の値です。現在の値は <RepositoryFact name="affiliateProgram" /> です。Affonso は有料プランでのみプログラムを運用し、CLI がプロジェクトを生成するようになった今、SaaSy Land のプログラムはまもなく開始するためです。このステータスは次の 2 点を決めます。
 
-- **紹介のトラッキング。** `src/areas/affiliates.ts` は、ステータスが `FEATURE_STATUS.AVAILABLE` の間だけ `AffiliateReferral` をルートルートにマウントします。`FEATURE_STATUS.ARRIVING` の間は何もマウントしないため、紹介パラメーター付きの訪問であっても、Affonso のスクリプトの読み込みも、Affonso へのリクエストも、`affonso_referral` Cookie の保存も行われません。そのため購入手続きは Cookie を見つけず、Polar には紹介情報を送らず、購入者の言語だけを送ります。
+- **紹介のトラッキング。** ルートルートはすべてのページで `AffiliateReferral` を描画しますが、これが動作するのはステータスが `FEATURE_STATUS.AVAILABLE` の間だけです。`FEATURE_STATUS.ARRIVING` の間は何も描画しないため、紹介パラメーター付きの訪問であっても、Affonso のスクリプトの読み込みも、Affonso へのリクエストも、`affonso_referral` Cookie の保存も行われません。そのため購入手続きは Cookie を見つけず、Polar には紹介情報を送らず、購入者の言語だけを送ります。
 - **参加方法。** ページの `description` と `sections.join.body` のメッセージは、`program` に対する ICU の select で、`available` のバリアントと開始前のバリアント（`other`）を持ちます。開始後のバリアントはパートナーポータルにリンクし、開始前のバリアントは連絡先アドレスへのメールを案内します。開始前のバリアントの最初の文は `generation` に対する select です（[ランディングページ](/docs/features/landing-page)を参照）。CLI がプロジェクトの生成を開始した時点でプログラムが開始することを伝え、生成機能の提供後は、まもなく開始することを伝えます。報酬、保留期間、支払いなどの条件はすべて、どちらの状態でもページに残ります。いずれも今後適用される条件です。
 
 プログラムを開始する手順は次のとおりです。
@@ -23,7 +23,7 @@ description: "Affonso が計測し、Polar の注文で成果を計上する紹�
 ## 紹介が計上されるまでの流れ
 
 1. アフィリエイトは、紹介パラメーター付きで任意のページを共有します（例: `/?via=jane`）。Affonso が読み取るパラメーターは `AFFONSO.REFERRAL_PARAMS`（`src/integrations/affonso/affonso.constants.ts`）に定義されており、<RepositoryFact name="affonsoReferralParams" /> です。
-2. プログラムの開始後に `src/areas/affiliates.ts` がルートルートに一度だけマウントする `AffiliateReferral`（`src/presentation/components/custom/affiliate-referral.tsx`）が、ハイドレーション後に URL を確認します。これらのパラメーターのいずれかがある場合に限り、サーバーにプログラム ID を問い合わせ（`getAffonsoProgramId`、`src/integrations/affonso/affonso.program.ts`）、`data-cookie_duration` を `AFFILIATE_TERMS.COOKIE_DAYS`（<RepositoryFact name="affiliateCookieDays" unit="day" />）に設定した Affonso のスクリプトをレンダリングします。紹介パラメーターのない訪問では、サードパーティのスクリプトを一切読み込みません。
+2. `src/routes/__root.tsx` がアウトレットの隣に一度だけ描画する `AffiliateReferral`（`src/presentation/components/custom/affiliate-referral.tsx`）は、プログラムが開いている間、ハイドレーション後に URL を確認します。これらのパラメーターのいずれかがある場合に限り、サーバーにプログラム ID を問い合わせ（`getAffonsoProgramId`、`src/integrations/affonso/affonso.program.ts`）、`data-cookie_duration` を `AFFILIATE_TERMS.COOKIE_DAYS`（<RepositoryFact name="affiliateCookieDays" unit="day" />）に設定した Affonso のスクリプトをレンダリングします。紹介パラメーターのない訪問では、サードパーティのスクリプトを一切読み込みません。
 3. スクリプトは Affonso にクリックを記録し、クリック ID をファーストパーティの `affonso_referral` Cookie に保存します。
 4. 訪問者が購入を開始すると、`startCheckout` は `affonsoReferralMetadata(headers)`（`src/integrations/affonso/affonso.referral.ts`）を、購入者の言語と並べて購入セッションの `metadata` に加えます。この関数は Cookie を読み取り、英字、数字、`_`、`-` からなる 128 文字以内の値だけを受け入れて `{ affonso_referral: <click ID> }` を返します。有効な紹介がない場合は空のオブジェクトを返します。
 5. Polar は購入セッションのメタデータを注文にコピーし、`order.created` と `order.refunded` を Affonso に送信します。Affonso はそれに応じて報酬を計上または取り消します。
@@ -59,7 +59,7 @@ SaaSy Land 自身の本番 Worker は `wrangler.jsonc` でこの値を設定し�
 
 ## 規約ページ
 
-`/affiliates`（`src/routes/_site._marketing.affiliates.tsx`、メッセージは `pages.legal.affiliates`）は、すべてのロケールで規約を公開し、フッターからリンクされています。プログラムの開始後、「参加方法」セクションは `AFFILIATE_PORTAL_URL`（`src/data/affiliates.ts`）からパートナーポータルにリンクします。メッセージはポータルのホスト名である `{portal}` を `<link>` タグで囲み、ルートがそれをポータルへのリンクとしてレンダリングします。開始前は、このセクションがメールでの連絡を案内し、ルートはステータスを `program` として `CLI_GENERATION_VALUES` とともに渡します。ページ上の数字はすべて `AFFILIATE_TERMS` から差し込まれ、最低支払額は訪問者のロケールに合わせて `AFFILIATE_TERMS.PAYOUT_CURRENCY` で表示されます。これは Affonso がアフィリエイトに支払う通貨で、ストアがどの通貨で課金していても米ドルのままです。プライバシーポリシーでは、紹介 Cookie、Affonso が受け取る情報、法的根拠を説明しています。
+`/affiliates`（`src/routes/_site._marketing.affiliates.tsx`、メッセージは `pages.legal.affiliates`）は、すべてのロケールで規約を公開し、`navigation.affiliates.json` のラベルでフッターからリンクされています。プログラムの開始後、「参加方法」セクションは `AFFILIATE_PORTAL_URL`（`src/data/affiliates.ts`）からパートナーポータルにリンクします。メッセージはポータルのホスト名である `{portal}` を `<link>` タグで囲み、ルートがそれをポータルへのリンクとしてレンダリングします。開始前は、このセクションがメールでの連絡を案内し、ルートはステータスを `program` として `CLI_GENERATION_VALUES` とともに渡します。ページ上の数字はすべて `AFFILIATE_TERMS` から差し込まれ、最低支払額は訪問者のロケールに合わせて `AFFILIATE_TERMS.PAYOUT_CURRENCY` で表示されます。これは Affonso がアフィリエイトに支払う通貨で、ストアがどの通貨で課金していても米ドルのままです。プライバシーポリシーでは、紹介 Cookie、Affonso が受け取る情報、法的根拠を説明しています。
 
 ## テスト
 

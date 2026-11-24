@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { act, render, screen } from "@testing-library/react"
 import { useFormatter, useTranslations } from "use-intl/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { expect, it } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
@@ -20,10 +20,6 @@ const ACTIVATED_AT = new Date("2025-01-01T12:00:00Z")
 const PUBLISHED_ON = new Date("2026-11-14")
 const PENDING = "pending"
 
-const timeZoneHooks = vi.hoisted((): (() => string)[] => [])
-
-vi.mock(import("~/src/areas/browser"), () => ({ TIME_ZONE_HOOKS: timeZoneHooks }))
-
 const DateProbe = () => {
   const format = useFormatter()
 
@@ -35,15 +31,10 @@ const DateProbe = () => {
   )
 }
 
-afterEach(() => {
-  timeZoneHooks.splice(0)
-})
-
 const loadNamespaces = (queryClient: QueryClient, namespaces: readonly string[] = ROOT_NAMESPACES) =>
   act(() => preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces, queryClient }))
 
-const renderDatesIn = async (...timeZones: readonly string[]) => {
-  timeZoneHooks.push(...timeZones.map((timeZone) => () => timeZone))
+const renderDates = async () => {
   const queryClient = new QueryClient()
   await preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces: ROOT_NAMESPACES, queryClient })
 
@@ -121,18 +112,9 @@ it("adds the namespaces declared by matched routes to the shared translations", 
   )
 })
 
-describe("time zone", () => {
-  it("formats dates in UTC when no source supplies a time zone", async () => {
-    await renderDatesIn()
+it("formats dates in UTC for a visitor nobody has signed in as, and keeps calendar dates on their day", async () => {
+  await renderDates()
 
-    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
-    expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
-  })
-
-  it("formats dates in the time zone of the first source and keeps calendar dates on their day", async () => {
-    await renderDatesIn("America/Los_Angeles", "Asia/Tokyo")
-
-    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 4:00 AM PST")
-    expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
-  })
+  expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
+  expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
 })

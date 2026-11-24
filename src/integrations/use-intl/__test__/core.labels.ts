@@ -3,22 +3,13 @@ import { USER_STATUS } from "~/src/modules/user/user.constants"
 
 import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
-import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
-
-const ENTRIES = [
-  ...ADMIN_NAVIGATION.flatMap(({ items }) => items),
-  ...ADMIN_DASHBOARD_ACTIONS,
-  ...APP_NAVIGATION,
-  ...FOOTER_NAVIGATION.flatMap(({ links }) => links),
-  ...HEADER_NAVIGATION,
-]
+import { ADMIN_NAVIGATION, FOOTER_NAVIGATION } from "~/src/data/navigation"
 
 export const CORE_LABELS = [
   { keys: FOOTER_NAVIGATION.map(({ key }) => key), labels: "components.custom.footer.columns" },
   { keys: FOOTER_SECTIONS, labels: "components.custom.footer.links" },
   { keys: ADMIN_DASHBOARD_STATS.map(({ area, key }) => `${area}.${key}`), labels: "dashboard" },
   { keys: Object.values(ERROR_CODES), labels: "errors.codes" },
-  { keys: ENTRIES.map(({ area, key, placement }) => `${area}.${placement}.${key}`), labels: "navigation" },
   { keys: Object.values(USER_STATUS), labels: "pages.admin.dashboard.users.table.status" },
   { keys: ADMIN_NAVIGATION.map(({ key }) => key), labels: "pages.admin.sidebar.groups" },
 ]

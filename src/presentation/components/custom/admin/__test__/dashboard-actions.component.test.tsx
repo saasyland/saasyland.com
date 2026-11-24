@@ -11,17 +11,9 @@ import { DashboardActions } from "~/src/presentation/components/custom/admin/das
 
 const TEST_ACTION = await vi.hoisted(async () => {
   const { FileDown } = await import("lucide-react")
-  const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
   const ROUTES = await import("~/src/routes")
 
-  return {
-    area: "reports",
-    icon: FileDown,
-    key: "exportReport",
-    order: 10,
-    placement: NAVIGATION_PLACEMENT.DASHBOARD,
-    to: ROUTES.ADMIN_SETTINGS,
-  } as const
+  return { icon: FileDown, label: "navigation.reports.dashboard.exportReport", to: ROUTES.ADMIN_SETTINGS } as const
 })
 
 const TEST_ACTION_LABEL = "Export report"
@@ -32,11 +24,11 @@ vi.mock(import("~/src/data/navigation"), async (importOriginal) => ({
 }))
 
 const messages = {
-  navigation: { [TEST_ACTION.area]: { [TEST_ACTION.placement]: { [TEST_ACTION.key]: TEST_ACTION_LABEL } } },
+  navigation: { reports: { dashboard: { exportReport: TEST_ACTION_LABEL } } },
 }
 
 describe("dashboard actions", () => {
-  it("links every action an area contributes, labelled by its area, and nothing else", () => {
+  it("links every action of the list, labelled by its message key, and nothing else", () => {
     renderWithRouter(
       <IntlProvider locale="en-US" messages={messages} timeZone="UTC">
         <DashboardActions />

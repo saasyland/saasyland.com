@@ -5,7 +5,6 @@ import { Outlet, createFileRoute, useMatches } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/areas/browser"
 import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"
@@ -28,7 +27,7 @@ const MarketingLayout = (): JSX.Element => {
   )
 }
 
-const NAMESPACES = [...layoutNamespaces("/_site/_marketing")] as const
+const NAMESPACES = ["auth.validations", "withdrawal.validations"] as const
 
 export const Route = createFileRoute("/_site/_marketing")({
   component: MarketingLayout,

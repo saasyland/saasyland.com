@@ -6,7 +6,6 @@ import { useTranslations } from "use-intl/react"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { layoutNamespaces } from "~/src/areas/browser"
 import { AUTH_USER_TABS } from "~/src/data/auth.user-tabs"
 import { USER_TABS } from "~/src/data/user-tabs"
 
@@ -43,7 +42,7 @@ const AdminUsersLayout = (): JSX.Element => {
   )
 }
 
-const NAMESPACES = ["pages.admin.users", ...layoutNamespaces("/admin/users")] as const
+const NAMESPACES = ["pages.admin.customers", "pages.admin.orders", "pages.admin.users", "pages.admin.users.license"] as const
 
 export const Route = createFileRoute("/admin/users")({
   component: AdminUsersLayout,

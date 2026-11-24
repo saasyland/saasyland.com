@@ -1,33 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import * as zod from "zod"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import type { LiveSiteCheck } from "~/src/data/live.constants"
-
-import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
+import {
+  CONTENT_TYPE,
+  LIVE_SITE_CHECKS,
+  LIVE_SITE_CHECK_RETRY_DELAYS_MS,
+  LIVE_SITE_CHECK_TIMEOUT_MS,
+  type LiveSiteCheck,
+  verifyDeployment,
+} from "~/src/lib/deployment"
 
 import * as ROUTES from "~/src/routes"
 
-const LOOKUP = await vi.hoisted(async () => {
-  const [{ CONTENT_TYPE }, zod] = await Promise.all([import("~/src/data/live.constants"), import("zod")])
-  const answerSchema = zod.object({ problems: zod.array(zod.string()) })
+const answerSchema = zod.object({ problems: zod.array(zod.string()) })
 
-  return {
-    contentType: CONTENT_TYPE.JSON,
-    path: "/api/lookup",
-    post: {
-      body: { term: "deployment" },
-      findProblems: (answer: unknown, origin: string) => answerSchema.parse(answer).problems.map((problem) => `${problem} on ${origin}`),
-      name: "lookup",
-    },
-  } satisfies LiveSiteCheck
-})
+const LOOKUP = {
+  contentType: CONTENT_TYPE.JSON,
+  path: "/api/lookup",
+  post: {
+    body: { term: "deployment" },
+    findProblems: (answer: unknown, origin: string) => answerSchema.parse(answer).problems.map((problem) => `${problem} on ${origin}`),
+    name: "lookup",
+  },
+} satisfies LiveSiteCheck
 
-vi.mock("~/src/areas/live.entries", async () => {
-  const { CORE_LIVE_CHECKS } = await import("~/src/areas/core.live")
-
-  return { CORE_LIVE_CHECKS, LOOKUP_LIVE_CHECKS: [LOOKUP] }
-})
+const CHECKS: readonly LiveSiteCheck[] = [...LIVE_SITE_CHECKS.filter(({ post }) => post === undefined), LOOKUP]
 
 const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
 
@@ -39,7 +38,7 @@ const JSON_BODY = "application/json"
 
 const XML = "application/xml"
 
-const CHECKED_PATHS = LIVE_SITE_CHECKS.map(({ path }) => path)
+const CHECKED_PATHS = CHECKS.map(({ path }) => path)
 
 const DESCRIBED_CHECKS = CHECKED_PATHS.map((path) => (path === LOOKUP.path ? `${path} (${LOOKUP.post.name})` : path))
 
@@ -65,7 +64,7 @@ const lookupAnswer =
     Promise.resolve(Response.json({ problems }, { status }))
 
 const WORKING_SITE: Readonly<Record<string, Answer>> = {
-  ...Object.fromEntries(LIVE_SITE_CHECKS.map(({ contentType, path }) => [path, page(HTTP_STATUS.OK, `${contentType}; charset=utf-8`)])),
+  ...Object.fromEntries(CHECKS.map(({ contentType, path }) => [path, page(HTTP_STATUS.OK, `${contentType}; charset=utf-8`)])),
   [LOOKUP.path]: lookupAnswer(HTTP_STATUS.OK, []),
 }
 
@@ -89,7 +88,7 @@ const productionRefusal = (...problems: readonly string[]): Error =>
   new Error([`The production Worker at ${PRODUCTION_ORIGIN} is deployed but does not answer as expected:`, ...problems].join("\n"))
 
 const expectProductionRefusal = async (expected: Error | string): Promise<void> => {
-  const failure = expect(verifyDeployment(ENVIRONMENT.PRODUCTION)).rejects.toThrow(expected)
+  const failure = expect(verifyDeployment(ENVIRONMENT.PRODUCTION, CHECKS)).rejects.toThrow(expected)
   await vi.advanceTimersByTimeAsync(EVERY_RETRY_MS)
 
   await failure
@@ -106,6 +105,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe("LIVE_SITE_CHECKS", () => {
+  it("checks each request once", () => {
+    const requests = LIVE_SITE_CHECKS.map(({ path, post }) => [path, post?.name].join(" "))
+
+    expect(new Set(requests).size).toBe(requests.length)
+  })
+})
+
 describe("verifyDeployment on a working site", () => {
   it.each([
     [ENVIRONMENT.PRODUCTION, PRODUCTION_ORIGIN],
@@ -113,7 +120,7 @@ describe("verifyDeployment on a working site", () => {
   ] as const)("asks the %s Worker on its custom domain for every checked path", async (environment, origin) => {
     serve()
 
-    await expect(verifyDeployment(environment)).resolves.toBe(
+    await expect(verifyDeployment(environment, CHECKS)).resolves.toBe(
       `The ${environment} Worker at ${origin} answered ${DESCRIBED_CHECKS.join(", ")} as expected.`,
     )
     expect(fetchMock.mock.calls.map(([url]) => url.href).toSorted()).toStrictEqual(
@@ -125,7 +132,7 @@ describe("verifyDeployment on a working site", () => {
     serve()
     const timeout = vi.spyOn(AbortSignal, "timeout")
 
-    await verifyDeployment(ENVIRONMENT.PRODUCTION)
+    await verifyDeployment(ENVIRONMENT.PRODUCTION, CHECKS)
 
     expect(fetchMock).toHaveBeenCalledTimes(CHECKED_PATHS.length)
     expect(fetchMock.mock.calls.every(([, init]) => init.redirect === "manual" && init.signal instanceof AbortSignal)).toBe(true)
@@ -135,7 +142,7 @@ describe("verifyDeployment on a working site", () => {
   it("posts a check's JSON body from the site's own origin and fetches every other path without a body", async () => {
     serve()
 
-    await verifyDeployment(ENVIRONMENT.PREVIEW)
+    await verifyDeployment(ENVIRONMENT.PREVIEW, CHECKS)
 
     const posts = fetchMock.mock.calls.filter(([url]) => url.pathname === LOOKUP.path).map(([, init]) => init)
     expect(posts).toStrictEqual([
@@ -165,7 +172,7 @@ describe("verifyDeployment on a site that answers wrongly", () => {
   it("refuses a home page that redirects, naming the status alone when there is no content type", async () => {
     serve({ "/": untyped(302) })
 
-    const failure = expect(verifyDeployment(ENVIRONMENT.PREVIEW)).rejects.toThrow(
+    const failure = expect(verifyDeployment(ENVIRONMENT.PREVIEW, CHECKS)).rejects.toThrow(
       new Error(
         [
           `The preview Worker at ${PREVIEW_ORIGIN} is deployed but does not answer as expected:`,
@@ -237,7 +244,7 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     serve({ "/": home })
 
     const [firstRetryDelay = 0] = LIVE_SITE_CHECK_RETRY_DELAYS_MS
-    const verifying = verifyDeployment(ENVIRONMENT.PRODUCTION)
+    const verifying = verifyDeployment(ENVIRONMENT.PRODUCTION, CHECKS)
     await vi.advanceTimersByTimeAsync(firstRetryDelay - 1)
 
     expect(home).toHaveBeenCalledOnce()

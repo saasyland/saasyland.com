@@ -115,7 +115,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - A layout declares `const NAMESPACES = [...] as const` above `export const Route` and preloads it. When it has none, it omits the option; there is no `namespaces: []`.
-- A namespace that a component of another area needs in the layout is added by that area in `src/areas/<area>.ts`, which names the layout by its route id, and the layout spreads `...layoutNamespaces("/app")` into its `NAMESPACES`. The licence area adds `pages.license`, `pages.withdrawal` and `withdrawal.validations` to `/app`, whose overview shows the licence card and offer and whose licence page shows the withdrawal card, `withdrawal.validations` to `/_site/_marketing` and `pages.admin.users.license` to `/admin/users`; the payments area adds `pages.admin.customers` and `pages.admin.orders` to `/admin/users`; and the newsletter area adds `auth.validations` to `/_site/_marketing` and `/_site/docs`, whose footers show the newsletter form. `browser.test.tsx` checks at compile time that every layout an area names is a route id.
+- A layout names every namespace its pages and their components need, those of other features included, as plain strings in its `NAMESPACES`. `/app` lists `pages.license`, `pages.withdrawal` and `withdrawal.validations`, because its overview shows the licence card and offer and its licence page shows the withdrawal card; `/admin/users` lists `pages.admin.customers`, `pages.admin.orders` and `pages.admin.users.license`; and `/_site/_marketing` and `/_site/docs` list `auth.validations`, because their footers show the newsletter form, and the marketing layout also `withdrawal.validations`. Leaving a feature out deletes its message files, and the pruning rule deletes each string that names one of them ([Testing](/docs/conventions/testing#tests-follow-the-areas)).
 - The component, when the layout renders one, is named `<Name>Layout` and places an `<Outlet />`.
 - A guard goes in `beforeLoad` on the layout that owns the area: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, both layouts of the auth area. Guards decide navigation only; every server function still checks its own permission.
 
@@ -166,91 +166,49 @@ Navigation must feel instant, so every route that renders a page has a `pendingC
 
 ## Paths and navigation
 
-No file of the application lists every area. Each area, such as the courses, the products or the legal pages, declares its own paths, menu entries and their labels, page skeletons and permissions, and a barrel joins them, so an area is added or left out with its own files. This is how the `saasyland` CLI builds a project from template layers. Only `scripts/areas.ts`, which the application never loads, lists the optional areas with their files, so that `bun run check:areas` can type-check the site without each of them ([Testing](/docs/conventions/testing#tests-follow-the-areas)).
+Each path and each menu entry is written once, in one list, and a feature that can be left out, such as the courses, the products or the legal pages, joins that list as one element that names its own path. Leaving the feature out deletes its files and its names, and with them every element that names one, so the lists need no file per feature and no barrel. This is how the `saasyland` CLI builds a project from template layers. Only `scripts/areas.ts`, which the application never loads, lists the optional areas with their files and the paths they own, so that `bun run check:areas` can type-check the site without each of them ([Testing](/docs/conventions/testing#tests-follow-the-areas)).
 
-| What                            | Each area declares                                                            | Barrel                            | Read from                                                                                                                                                                                    |
-| ------------------------------- | ----------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Paths                           | `src/areas/<area>.shared.ts`: one `export const` per path                     | `src/routes.ts`                   | `import * as ROUTES from "~/src/routes"`                                                                                                                                                     |
-| Menu entries                    | `src/areas/<area>.navigation.ts`: `entries` in one `<AREA>_NAVIGATION` object | `src/areas/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` and `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
-| Dashboard statistics and panels | `src/data/<area>.dashboard.ts`: one `<AREA>_DASHBOARD` list                   | `src/data/dashboard.entries.ts`   | `ADMIN_DASHBOARD_STATS` and `ADMIN_DASHBOARD_PANELS` in `src/data/dashboard.ts`                                                                                                              |
-| Permissions                     | `src/areas/<area>.access.ts`: one `<AREA>_ACCESS` object                      | `src/areas/access.entries.ts`     | `APP_STATEMENTS` and `grantsOf` in `src/integrations/better-auth/auth.access.ts`                                                                                                             |
-| Unlisted paths                  | `src/areas/<area>.shared.ts`: `unlisted` in one `<AREA>_SHARED` object        | `src/areas/shared.entries.ts`     | `UNLISTED_ROUTES` and `isUnlistedRoute` in `src/areas/shared.ts`                                                                                                                             |
-| Layout namespaces               | `src/areas/<area>.ts`: `layoutNamespaces` in one `<AREA>_BROWSER` object      | `src/areas/browser.entries.ts`    | `layoutNamespaces(layout)` in `src/areas/browser.ts`                                                                                                                                         |
+| What              | Declared in                                                                                                                                                                                                               | Read from                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Paths             | `src/routes.ts`: one `export const` per path                                                                                                                                                                              | `import * as ROUTES from "~/src/routes"`                                                          |
+| Unlisted paths    | `UNLISTED_ROUTES` in `src/routes.ts`                                                                                                                                                                                      | `isUnlistedRoute` in `src/routes.ts`                                                              |
+| Menu entries      | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` and `FOOTER_NAVIGATION` in `src/data/navigation.ts`, in the order they are shown | The sidebars, the header, the footer, the command palette and the dashboard                       |
+| Layout namespaces | `NAMESPACES` in the layout route                                                                                                                                                                                          | The layout's loader and `staticData`                                                              |
+| Live site checks  | `LIVE_SITE_CHECKS` in `src/lib/deployment.ts`                                                                                                                                                                             | `verifyDeployment` ([Platform and testing](/docs/architecture/platform-layer#what-the-areas-add)) |
 
-A barrel holds only `export { … } from` lines, one per area file, sorted by module, like `src/integrations/drizzle-orm/drizzle.schemas.ts`. A barrel that only optional areas fill also gets a file from the core, such as `src/areas/core.ts`, which holds only the core's name, so a project without those areas still type-checks and lints. The barrel of the paths is `src/routes.ts` itself, and every file imports it as one namespace, `import * as ROUTES from "~/src/routes"`, so each path keeps its literal type and `<Link to={ROUTES.COURSES}>` is still checked against the route tree:
+`src/routes.ts` declares every path and imports nothing, because every runtime loads it: the browser, the Worker on each cold start, Bun scripts, Playwright, `vite.config.ts` and the Remotion project. Every file imports it as one namespace, `import * as ROUTES from "~/src/routes"`, so each path keeps its literal type and `<Link to={ROUTES.COURSES}>` is still checked against the route tree. A path built from another, such as `BLOG_FEED` from `BLOG`, follows the one it is built from.
 
-```ts title="src/routes.ts"
-export { API, HOME } from "./areas/core.shared.ts"
-export { ADMIN_COURSES, ADMIN_COURSES_CREATE, COURSES } from "./areas/courses.shared.ts"
+The dashboard statistics and panels, the permissions and the other lists that an area still adds to in a file of its own keep their barrels for now: `src/data/<area>.dashboard.ts`, joined by `src/data/dashboard.entries.ts` into `ADMIN_DASHBOARD_STATS` and `ADMIN_DASHBOARD_PANELS`, and `src/areas/<area>.access.ts`, joined by `src/areas/access.entries.ts` into `APP_STATEMENTS` and `grantsOf` in `src/integrations/better-auth/auth.access.ts`. A barrel holds only `export { … } from` lines, one per area file, sorted by module, like `src/integrations/drizzle-orm/drizzle.schemas.ts`.
+
+`src/data/navigation.ts` holds the seven menus as literal lists, each entry with its page in `to`, the full key of its message in `label` and, in the admin console and the workspace, its `lucide-react` icon. The admin menu groups its entries under a sidebar group, `key` from `ADMIN_NAVIGATION_GROUP`, and the footer its links under a column, `key` from `FOOTER_COLUMN`. The file imports only `lucide-react`, `~/src/routes` and `~/src/data/navigation.constants`, because the Remotion project reads the admin menu and its CI job installs only Remotion's own packages; `src/__test__/source-layout.test.ts` fails when it imports anything else. The admin console and the customer workspace exist only with sign-in, so their entries name the auth area's paths and leave with it, as **Sign in** in the header and the footer does:
+
+```ts title="src/data/navigation.ts"
+export const HEADER_NAVIGATION: readonly SiteEntry[] = [
+  { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
+  { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+]
 ```
 
-A menu entry names where it appears with `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): the admin sidebar, the buttons above the dashboard, the quick actions of the command palette, the customer sidebar and its resources, the public header or the footer. Its `order` sorts it among the entries of the other areas, so no list depends on the order of files. Admin entries also name their sidebar `group`, and footer links their `column`; `ADMIN_NAVIGATION_GROUPS` and `FOOTER_COLUMNS` fix the order of groups and columns, and one that no area fills is left out. The admin console and the customer workspace exist only with sign-in, so the auth area owns them: their paths, `/admin`, `/admin/settings`, `/app` and `/app/settings`, their dashboard, overview, settings and user management entries, and **Sign in** in the header and the footer:
-
-```ts title="src/areas/auth.navigation.ts"
-export const AUTH_NAVIGATION = {
-  entries: [
-    {
-      group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
-      icon: Home,
-      key: "dashboard",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Users,
-      key: "userManagement",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_USERS,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Settings,
-      key: "settings",
-      order: 30,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_SETTINGS,
-    },
-    { icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
-    { icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
-    { icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
-    {
-      column: FOOTER_COLUMN.PRODUCT,
-      key: "signIn",
-      order: 40,
-      placement: NAVIGATION_PLACEMENT.FOOTER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-    {
-      key: "signIn",
-      order: 50,
-      placement: NAVIGATION_PLACEMENT.HEADER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-  ],
-  name: "auth",
-} as const satisfies NavigationArea
-```
+A project without the courses has no `ROUTES.COURSES`, so the pruning rule deletes the **Courses** entry of the header, and a group or column it empties goes with it, as the footer's legal column does in a project without the legal pages.
 
 A header or footer entry may name a `signedIn` label that replaces its own for a signed-in visitor, and its link then leads to the visitor's workspace: `/admin` for an account with admin access, `/app` for everyone else. `useVisitorWorkspace` (`src/hooks/use-visitor-workspace.ts`) decides from the role in the session with `hasPermission` and the `admin: ["access"]` permission that `requireAdmin` checks. The public pages are prerendered, so their HTML shows **Sign in**; after hydration, a browser that holds Better Auth's last-used sign-in method cookie asks for its session, and the header, its mobile menu and the footer show **Your account** in its place, already linking to the right workspace. A browser that never signed in asks for nothing. Until a part of the page has hydrated, `useVisitorWorkspace` returns nothing, even when the browser already holds the session, because `useHydrated` answers with the server's value while React hydrates: a footer that hydrates after the session has arrived renders the same **Sign in** as the HTML and switches after it, instead of breaking hydration.
 
 Every admin entry opens a screen that works on real data, and the landing page counts them all. A screen whose data has no source yet gets no entry (see [Admin dashboard](/docs/features/admin-dashboard#real-data-only)).
 
-The licence area adds its **Licence** entry to the customer sidebar, and the content area adds **Documentation** to the sidebar's resources, above the support address. The core area declares only `/` and `/api`, and the header's **Pricing**, the one entry with a `hash`, which links to the pricing section of `/`.
+The customer sidebar holds the licence's **Licence** entry, and its resources the content's **Documentation**, above the support address. The core needs only `/` and `/api`, and the header's **Pricing**, the one entry with a `hash`, which links to the pricing section of `/`.
 
 A dashboard statistic has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
 
 An area's access file declares the permission statements of its resources and the roles it grants them to. `auth.access.ts` builds Better Auth's access control from `APP_STATEMENTS` and each role from `grantsOf(role)`, so the auth integration names no area, and `APP_STATEMENTS` fails when two areas declare the same resource (see [Roles and permissions](/docs/guides/roles-and-permissions)).
 
-The lists in `src/data/navigation.ts` have a declared type, `NavigationEntry`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the payments area, is an empty list that still type-checks. `navigation.test.ts` checks at compile time that the `to` of every entry an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
+The lists in `src/data/navigation.ts` have a declared type from `src/data/navigation.constants.ts`, such as `IconEntry` or `SiteEntry`, so a list whose entries a project leaves out, such as the dashboard actions without the payments area, is an empty list that still type-checks. `navigation.test.ts` checks that the `to` of every entry is a path of the route tree and that no menu names a page or a label twice.
 
-An entry takes its `area` from the `name` of its area's `<AREA>_NAVIGATION` object, and the area labels it in its own message file: `<placement>.<key>` in `messages/<locale>/navigation.<area>.json`, such as `admin.courses` and `header.courses` in `navigation.courses.json`. A dashboard statistic is labelled by its `key` in `dashboard.<area>.json`, and an admin section labels its sub-pages for the breadcrumbs under `breadcrumbs.<segment>` in its `navigation.<area>.json`, such as `breadcrumbs.create`; a user management tab is labelled under `userTabs.<key>`, which names the tab and its page in the breadcrumbs, and a dashboard panel keeps its copy under its `key` in `dashboard.<area>.json`. Both kinds of file are root namespaces, so every menu can label every entry, and `useNavigationLabel` in `src/hooks/use-navigation-label.ts` returns an entry's label. What belongs to a menu itself stays in its namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` and the header's call to action, menu button and skip link in `components.custom.navigation`. `enum-labels.test.ts` fails when an entry or statistic has no label in a locale.
+An entry's `label` is the full key of its message, such as `navigation.courses.admin.courses`, and the message lives in the file of the feature that owns the page, `messages/<locale>/navigation.<area>.json`, so leaving the feature out deletes its labels with it. A component renders it with `t(entry.label)` from `useTranslations()`. An admin section labels its sub-pages for the breadcrumbs in its entry's `breadcrumbs`, from the path segment to the key, such as `create` to `navigation.courses.breadcrumbs.create`. A user management tab and a command palette search are still labelled by their area, under `navigation.<area>.userTabs.<key>` and `navigation.<area>.search.<key>`, and a dashboard statistic and panel by their `key` in `dashboard.<area>.json`. Both kinds of file are root namespaces, so every menu can label every entry. What belongs to a menu itself stays in its namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` and the header's call to action, menu button and skip link in `components.custom.navigation`. `navigation.test.ts` fails when an entry, a signed-in variant or a breadcrumb has no message in a locale, and `enum-labels.test.ts` when a statistic has none.
 
-An area whose pages render on the Worker for each request, such as `/admin`, `/auth` or `/courses`, lists those paths in the `unlisted` field of its `<AREA>_SHARED` object in `src/areas/<area>.shared.ts`. The TanStack Start plugin in `src/data/tanstack.vite.ts` keeps them out of prerendering with `isUnlistedRoute`, and `buildPageHead` gives them the site card instead of a page card (see [Search and social previews](/docs/features/seo)). Vite does not resolve the `~` alias while it loads its own configuration, so every file in `src/areas` that it loads, `shared.ts`, `shared.entries.ts` and each `<area>.shared.ts`, imports by relative path. The Worker entry, `vite.config.ts` and the Remotion project reach every shared file through `ROUTES`, so a shared file holds paths and nothing that pulls in a dependency. Live site checks are a file kind of their own, `src/areas/<area>.live.ts`, because only deploy verification and the docs load them. Menu entries are a pure kind of their own as well, `src/areas/<area>.navigation.ts`, joined by `src/areas/navigation.entries.ts` and read by `src/data/navigation.ts`, because the Remotion project reads the admin menu and its CI job installs only Remotion's own packages, so it cannot load an area's browser file, `src/areas/<area>.ts`, which imports router, query and server-function code.
+Pages that render on the Worker for each request, such as `/admin`, `/auth` or `/courses`, are listed in `UNLISTED_ROUTES` in `src/routes.ts`. The TanStack Start plugin in `src/data/tanstack.vite.ts` keeps them out of prerendering with `isUnlistedRoute`, and `buildPageHead` gives them the site card instead of a page card (see [Search and social previews](/docs/features/seo)). Vite does not resolve the `~` alias while it loads its own configuration, so `tanstack.vite.ts` imports `src/routes.ts` by relative path.
 
 ## Related pages
 

@@ -81,7 +81,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("the auth area's time zone", () => {
+describe("the session time zone", () => {
   it("formats dates in UTC for a visitor without a session and never fetches one", async () => {
     await renderDates(new QueryClient())
 

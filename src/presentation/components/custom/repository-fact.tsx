@@ -98,7 +98,6 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
-import { UNLISTED_ROUTES } from "~/src/areas/shared"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
@@ -136,6 +135,8 @@ import { SOCIAL_IMAGE } from "~/src/lib/seo"
 import { DEFAULT_TIME_RANGE, TIME_RANGES } from "~/src/lib/time-series"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
+
+import * as ROUTES from "~/src/routes"
 
 type Value = number | string | readonly string[]
 
@@ -301,7 +302,7 @@ const FACTS = {
       .filter((action) => !moduleTables.checkedPermissions.includes(`${resource}.${action}`))
       .map((action) => `${resource}: ["${action}"]`),
   ),
-  unlistedRoutes: UNLISTED_ROUTES,
+  unlistedRoutes: ROUTES.UNLISTED_ROUTES,
   verificationPollSeconds: VERIFICATION_POLL_MS / MILLISECONDS_PER_SECOND,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
   videoLibraryPageSize: VIDEO_LIBRARY_PAGE_SIZE,

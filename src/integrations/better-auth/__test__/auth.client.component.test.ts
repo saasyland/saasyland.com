@@ -3,14 +3,12 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { authClient } from "~/src/integrations/better-auth/auth.client"
 
-import type * as AuthRoutes from "~/src/areas/auth.shared"
-
 import * as ROUTES from "~/src/routes"
 
 const { SAMPLE_AUTH_BASE } = vi.hoisted(() => ({ SAMPLE_AUTH_BASE: "/sample/auth" }))
 
-vi.mock("~/src/areas/auth.shared", async (importOriginal) => ({
-  ...(await importOriginal<typeof AuthRoutes>()),
+vi.mock("~/src/routes", async (importOriginal) => ({
+  ...(await importOriginal<typeof ROUTES>()),
   API_AUTH_BASE: SAMPLE_AUTH_BASE,
 }))
 

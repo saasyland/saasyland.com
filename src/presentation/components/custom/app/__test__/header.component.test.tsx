@@ -14,17 +14,9 @@ import * as ROUTES from "~/src/routes"
 
 const TEST_ENTRY = await vi.hoisted(async () => {
   const { Settings } = await import("lucide-react")
-  const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
   const PATHS = await import("~/src/routes")
 
-  return {
-    area: "sample",
-    icon: Settings,
-    key: "settings",
-    order: 10,
-    placement: NAVIGATION_PLACEMENT.APP,
-    to: PATHS.APP_SETTINGS,
-  } as const
+  return { icon: Settings, label: "navigation.sample.app.settings", to: PATHS.APP_SETTINGS } as const
 })
 
 const TEST_ENTRY_LABEL = "Sample settings"
@@ -36,7 +28,7 @@ vi.mock(import("~/src/data/navigation"), async (importOriginal) => ({
 
 const messages = {
   components: { shadcn: { sidebar: shadcnSidebarMessages } },
-  navigation: { [TEST_ENTRY.area]: { [TEST_ENTRY.placement]: { [TEST_ENTRY.key]: TEST_ENTRY_LABEL } } },
+  navigation: { sample: { app: { settings: TEST_ENTRY_LABEL } } },
   pages: { app: { sidebar: sidebarMessages } },
 }
 

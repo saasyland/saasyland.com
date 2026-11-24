@@ -14,8 +14,10 @@ import { Mark } from "./course-ui"
 export const RAIL_WIDTH = 300
 export const HEADER_HEIGHT = 84
 
-const AREA_LABELS = new Map(
-  Object.entries({ auth, courses, products }).map(([area, labels]) => [area, new Map(Object.entries(labels.admin))]),
+const ADMIN_LABELS = new Map(
+  Object.entries({ auth, courses, products }).flatMap(([area, labels]) =>
+    Object.entries(labels.admin).map(([key, label]) => [`navigation.${area}.admin.${key}`, label]),
+  ),
 )
 
 export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; reveal: (index: number) => number }>) {
@@ -67,7 +69,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                 const isActive = index === activeIndex
                 return (
                   <div
-                    key={item.key}
+                    key={item.label}
                     style={{
                       alignItems: "center",
                       backgroundColor: isActive ? THEME.muted : "transparent",
@@ -91,7 +93,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                         width: 12,
                       }}
                     />
-                    {AREA_LABELS.get(item.area)?.get(item.key)}
+                    {ADMIN_LABELS.get(item.label)}
                   </div>
                 )
               })}

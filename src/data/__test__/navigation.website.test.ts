@@ -2,9 +2,16 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import * as NAVIGATION_AREAS from "~/src/areas/navigation.entries"
 import { COMMAND_SEARCHES } from "~/src/data/command-search"
-import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
+import {
+  ADMIN_COMMAND_ACTIONS,
+  ADMIN_DASHBOARD_ACTIONS,
+  ADMIN_NAVIGATION,
+  APP_NAVIGATION,
+  APP_RESOURCE_NAVIGATION,
+  FOOTER_NAVIGATION,
+  HEADER_NAVIGATION,
+} from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { USER_TABS } from "~/src/data/user-tabs"
@@ -13,8 +20,8 @@ import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { loadLocaleMessages } from "~/scripts/i18n-messages"
 import * as ROUTES from "~/src/routes"
 
-const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)["navigation"]
-const BREADCRUMBS = "breadcrumbs"
+const NAVIGATION = "navigation"
+const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)[NAVIGATION]
 const USER_TABS_GROUP = "userTabs"
 const COMMAND_SEARCH_GROUP = "search"
 
@@ -26,17 +33,29 @@ const leafKeys = (value: unknown, prefix: string): string[] => {
   return Object.entries(value).flatMap(([key, nested]) => leafKeys(nested, prefix.length > 0 ? `${prefix}.${key}` : key))
 }
 
-const LABELS = leafKeys(NAVIGATION_MESSAGES, "")
+const LABELS = leafKeys(NAVIGATION_MESSAGES, NAVIGATION)
 
-const SECTION_ACTIONS = Object.values(ROUTES).flatMap((route) => {
-  const [, admin, section, action] = typeof route === "string" ? route.split("/") : []
-  const item = ADMIN_NAVIGATION.flatMap(({ items }) => items).find(({ to }) => to === `/${admin}/${section}`)
+const PATHS = new Set(Object.values(ROUTES).filter((route) => typeof route === "string"))
 
-  return item === undefined || action === undefined ? [] : [`${item.area}.${BREADCRUMBS}.${action}`]
-})
+const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
+
+const SITE_ENTRIES = [...HEADER_NAVIGATION, ...FOOTER_NAVIGATION.flatMap(({ links }) => links)]
+
+const ENTRY_LABELS = [
+  ...[
+    ...ADMIN_ITEMS,
+    ...ADMIN_COMMAND_ACTIONS,
+    ...ADMIN_DASHBOARD_ACTIONS,
+    ...APP_NAVIGATION,
+    ...APP_RESOURCE_NAVIGATION,
+    ...SITE_ENTRIES,
+  ].map(({ label }) => label),
+  ...SITE_ENTRIES.flatMap(({ signedIn }) => (signedIn === undefined ? [] : [signedIn.label])),
+  ...ADMIN_ITEMS.flatMap(({ breadcrumbs = {} }) => Object.values(breadcrumbs)),
+]
 
 describe("the website's navigation", () => {
-  it("arranges the website's navigation as before the areas contributed it", () => {
+  it("arranges the website's menus in their order", () => {
     expect(ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
       [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
       [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
@@ -57,22 +76,19 @@ describe("the website's navigation", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
   })
 
-  it("labels exactly the entries, user tabs and command palette searches that the areas declare, and only breadcrumbs of their sections", () => {
-    const entryLabels = Object.values(NAVIGATION_AREAS).flatMap(({ entries, name }) =>
-      entries.flatMap(({ key, placement, ...entry }) =>
-        [key, ...("signedIn" in entry ? [entry.signedIn.key] : [])].map((label) => `${name}.${placement}.${label}`),
-      ),
-    )
-    const tabLabels = USER_TABS.map(({ area, key }) => `${area}.${USER_TABS_GROUP}.${key}`)
-    const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${area}.${COMMAND_SEARCH_GROUP}.${key}`)
+  it("labels exactly the menu entries, user tabs and command palette searches, and gives breadcrumbs only to pages below a section", () => {
+    const tabLabels = USER_TABS.map(({ area, key }) => `${NAVIGATION}.${area}.${USER_TABS_GROUP}.${key}`)
+    const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${NAVIGATION}.${area}.${COMMAND_SEARCH_GROUP}.${key}`)
 
-    expect(LABELS.filter((label) => !label.includes(`.${BREADCRUMBS}.`)).toSorted()).toStrictEqual(
-      [...new Set([...entryLabels, ...tabLabels, ...searchLabels])].toSorted(),
-    )
-    expect(SECTION_ACTIONS).toEqual(expect.arrayContaining(LABELS.filter((label) => label.includes(`.${BREADCRUMBS}.`))))
+    expect(LABELS.toSorted()).toStrictEqual([...new Set([...ENTRY_LABELS, ...tabLabels, ...searchLabels])].toSorted())
+    expect(
+      ADMIN_ITEMS.flatMap(({ breadcrumbs = {}, to }) => Object.keys(breadcrumbs).map((action) => `${to}/${action}`)).filter(
+        (path) => !PATHS.has(path),
+      ),
+    ).toStrictEqual([])
   })
 
   it("counts every admin section on the landing page", () => {
-    expect(REPOSITORY_FACTS.adminSections).toBe(ADMIN_NAVIGATION.flatMap(({ items }) => items).length)
+    expect(REPOSITORY_FACTS.adminSections).toBe(ADMIN_ITEMS.length)
   })
 })

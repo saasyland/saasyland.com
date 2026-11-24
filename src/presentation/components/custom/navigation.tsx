@@ -3,7 +3,6 @@ import { type JSX, useEffect } from "react"
 import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
@@ -47,8 +46,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 }
 
 export const Navigation = (): JSX.Element => {
-  const t = useTranslations("components.custom.navigation")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
   const workspace = useVisitorWorkspace()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
   const contentId = useMatches({
@@ -73,11 +71,11 @@ export const Navigation = (): JSX.Element => {
         className="sr-only rounded-md bg-background px-3 py-2 text-body-sm font-medium text-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         href={`#${contentId}`}
       >
-        {t("skipToContent")}
+        {t("components.custom.navigation.skipToContent")}
       </a>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-background/72 backdrop-blur-xl">
         <nav
-          aria-label={t("ariaLabel")}
+          aria-label={t("components.custom.navigation.ariaLabel")}
           className="mx-auto flex h-header w-full max-w-site items-center justify-between gap-6 px-6 md:px-10"
         >
           <HomeLink />
@@ -85,18 +83,18 @@ export const Navigation = (): JSX.Element => {
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden items-center gap-1 lg:flex">
               {HEADER_NAVIGATION.map((entry) => {
-                const { key, to } = signedInDestination(entry, workspace)
+                const { label, to } = signedInDestination(entry, workspace)
 
                 return (
                   <Link
                     {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
                     className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
-                    key={entry.key}
+                    key={entry.label}
                     to={to}
                   >
                     {({ isActive }) => (
                       <>
-                        {navigationLabel({ area: entry.area, key, placement: entry.placement })}
+                        {t(label)}
                         {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
                       </>
                     )}
@@ -109,7 +107,7 @@ export const Navigation = (): JSX.Element => {
               aria-current={undefined}
               className="hidden h-9 shrink-0 items-center rounded-md border border-border bg-card/60 px-3.5 text-body-sm font-medium whitespace-nowrap text-foreground transition-[color,border-color,background-color] duration-200 ease-exp hover:border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px sm:inline-flex"
             >
-              {t("getStarted")}
+              {t("components.custom.navigation.getStarted")}
             </a>
             <MobileMenu />
           </div>

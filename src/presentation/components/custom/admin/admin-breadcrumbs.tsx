@@ -3,8 +3,6 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 import { USER_TABS } from "~/src/data/user-tabs"
 
@@ -35,9 +33,8 @@ const CurrentPage = ({ label }: { readonly label: string }): JSX.Element => (
 export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const t = useTranslations()
-  const navigationLabel = useNavigationLabel()
 
-  const [area, section, action] = pathname.split("/").filter(Boolean)
+  const [area, section, action = ""] = pathname.split("/").filter(Boolean)
 
   if (area !== "admin") {
     return
@@ -46,6 +43,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`
   const item = SIDEBAR_ITEMS.find((candidate) => candidate.to === sectionUrl)
   const tab = USER_TABS.find((candidate) => candidate.to === pathname)
+  const crumb = item?.breadcrumbs?.[action]
 
   return (
     <nav
@@ -63,14 +61,12 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
             className={cn(LINK_CLASSNAME, "data-[status=active]:font-medium data-[status=active]:text-foreground")}
             to={item.to}
           >
-            {navigationLabel(item)}
+            {t(item.label)}
           </Link>
         </>
       )}
       {tab && <CurrentPage label={t(`navigation.${tab.area}.userTabs.${tab.key}`)} />}
-      {item && !tab && action !== undefined && t.has(`navigation.${item.area}.breadcrumbs.${action}`) && (
-        <CurrentPage label={t(`navigation.${item.area}.breadcrumbs.${action}`)} />
-      )}
+      {!tab && crumb !== undefined && <CurrentPage label={t(crumb)} />}
     </nav>
   )
 }

@@ -115,7 +115,7 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Макет оголошує `const NAMESPACES = [...] as const` над `export const Route` і завантажує їх наперед. Якщо просторів імен немає, опцію пропускають; `namespaces: []` не буває.
-- Простір імен, потрібний компоненту іншого розділу в макеті, додає цей розділ у `src/areas/<area>.ts`, який називає макет за ідентифікатором маршруту, а макет розгортає `...layoutNamespaces("/app")` у свої `NAMESPACES`. Розділ ліцензій додає `pages.license`, `pages.withdrawal` і `withdrawal.validations` до `/app`, огляд якого показує картку ліцензії та пропозицію, а сторінка ліцензії — картку відмови від договору, `withdrawal.validations` — до `/_site/_marketing`, а `pages.admin.users.license` — до `/admin/users`; розділ платежів додає `pages.admin.customers` і `pages.admin.orders` до `/admin/users`; а розділ розсилки додає `auth.validations` до `/_site/_marketing` і `/_site/docs`, футери яких показують форму підписки на розсилку. `browser.test.tsx` під час компіляції перевіряє, що кожен макет, який називає розділ, є ідентифікатором маршруту.
+- Макет називає у своїх `NAMESPACES` звичайними рядками кожен простір імен, потрібний його сторінкам та їхнім компонентам, зокрема простори імен інших можливостей. `/app` перелічує `pages.license`, `pages.withdrawal` і `withdrawal.validations`, бо його огляд показує картку ліцензії та пропозицію, а сторінка ліцензії — картку відмови від договору; `/admin/users` перелічує `pages.admin.customers`, `pages.admin.orders` і `pages.admin.users.license`; а `/_site/_marketing` і `/_site/docs` перелічують `auth.validations`, бо їхні футери показують форму підписки на розсилку, а маркетинговий макет ще й `withdrawal.validations`. Якщо пропустити можливість, зникають її файли повідомлень, а правило очищення видаляє кожен рядок, що називає один із них ([Тестування](/docs/conventions/testing#tests-follow-the-areas)).
 - Компонент, якщо макет його рендерить, називається `<Name>Layout` і розміщує `<Outlet />`.
 - Guard розміщується в `beforeLoad` макета, якому належить розділ: `beforeLoad: requireAdmin` в `admin.tsx`, `requireSignedIn` в `app.tsx`, обидва — макети розділу автентифікації. Guard-и вирішують лише навігацію; кожна серверна функція все одно перевіряє власний дозвіл.
 
@@ -166,91 +166,49 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 ## Шляхи та навігація [#paths-and-navigation]
 
-Жоден файл застосунку не перелічує всі розділи. Кожен розділ, як-от курси, продукти чи юридичні сторінки, оголошує власні шляхи, пункти меню та їхні підписи, скелетони сторінок і дозволи, а barrel-файл їх об’єднує, тож розділ додається або вилучається разом із власними файлами. Саме так CLI `saasyland` збирає проєкт із шарів шаблонів. Лише `scripts/areas.ts`, якого застосунок ніколи не завантажує, перелічує необов’язкові розділи з їхніми файлами, щоб `bun run check:areas` міг перевірити типи сайту без кожного з них ([Тестування](/docs/conventions/testing#tests-follow-the-areas)).
+Кожен шлях і кожен пункт меню записано один раз, в одному списку, а можливість, яку можна пропустити, як-от курси, продукти чи юридичні сторінки, входить до цього списку одним елементом, що називає її власний шлях. Якщо пропустити можливість, зникають її файли та імена, а разом із ними й кожен елемент, що називає одне з них, тож спискам не потрібні ні файл на кожну можливість, ні barrel-файл. Саме так CLI `saasyland` збирає проєкт із шарів шаблонів. Лише `scripts/areas.ts`, якого застосунок ніколи не завантажує, перелічує необов’язкові розділи з їхніми файлами та шляхами, що їм належать, щоб `bun run check:areas` міг перевірити типи сайту без кожного з них ([Тестування](/docs/conventions/testing#tests-follow-the-areas)).
 
-| Що                                   | Кожен розділ оголошує                                                            | Barrel-файл                       | Звідки читається                                                                                                                                                                          |
-| ------------------------------------ | -------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Шляхи                                | `src/areas/<area>.shared.ts`: один `export const` на шлях                        | `src/routes.ts`                   | `import * as ROUTES from "~/src/routes"`                                                                                                                                                  |
-| Пункти меню                          | `src/areas/<area>.navigation.ts`: `entries` в одному об’єкті `<AREA>_NAVIGATION` | `src/areas/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` і `FOOTER_NAVIGATION` у `src/data/navigation.ts` |
-| Статистика й панелі панелі керування | `src/data/<area>.dashboard.ts`: один список `<AREA>_DASHBOARD`                   | `src/data/dashboard.entries.ts`   | `ADMIN_DASHBOARD_STATS` і `ADMIN_DASHBOARD_PANELS` у `src/data/dashboard.ts`                                                                                                              |
-| Дозволи                              | `src/areas/<area>.access.ts`: один об’єкт `<AREA>_ACCESS`                        | `src/areas/access.entries.ts`     | `APP_STATEMENTS` і `grantsOf` у `src/integrations/better-auth/auth.access.ts`                                                                                                             |
-| Неперелічені шляхи                   | `src/areas/<area>.shared.ts`: `unlisted` в одному об’єкті `<AREA>_SHARED`        | `src/areas/shared.entries.ts`     | `UNLISTED_ROUTES` і `isUnlistedRoute` у `src/areas/shared.ts`                                                                                                                             |
-| Простори імен макетів                | `src/areas/<area>.ts`: `layoutNamespaces` в одному об’єкті `<AREA>_BROWSER`      | `src/areas/browser.entries.ts`    | `layoutNamespaces(layout)` у `src/areas/browser.ts`                                                                                                                                       |
+| Що                     | Де оголошено                                                                                                                                                                                                | Звідки читається                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Шляхи                  | `src/routes.ts`: один `export const` на шлях                                                                                                                                                                | `import * as ROUTES from "~/src/routes"`                                                             |
+| Неперелічені шляхи     | `UNLISTED_ROUTES` у `src/routes.ts`                                                                                                                                                                         | `isUnlistedRoute` у `src/routes.ts`                                                                  |
+| Пункти меню            | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` і `FOOTER_NAVIGATION` у `src/data/navigation.ts`, у порядку показу | Бічні панелі, заголовок, футер, палітра команд і панель керування                                    |
+| Простори імен макетів  | `NAMESPACES` у маршруті макета                                                                                                                                                                              | Loader макета і `staticData`                                                                         |
+| Перевірки живого сайту | `LIVE_SITE_CHECKS` у `src/lib/deployment.ts`                                                                                                                                                                | `verifyDeployment` ([Платформа та тестування](/docs/architecture/platform-layer#what-the-areas-add)) |
 
-Barrel-файл містить лише рядки `export { … } from`, по одному на файл розділу, відсортовані за модулем, як `src/integrations/drizzle-orm/drizzle.schemas.ts`. Barrel-файл, який заповнюють лише необов'язкові розділи, також отримує файл від основного розділу, як-от `src/areas/core.ts`, що містить лише назву основного розділу, тож проєкт без цих розділів і далі проходить перевірку типів і lint. Barrel-файлом шляхів є сам `src/routes.ts`, і кожен файл імпортує його як один простір імен, `import * as ROUTES from "~/src/routes"`, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів:
+`src/routes.ts` оголошує кожен шлях і нічого не імпортує, бо його завантажує кожне середовище виконання: браузер, Worker під час кожного холодного старту, скрипти Bun, Playwright, `vite.config.ts` і проєкт Remotion. Кожен файл імпортує його як один простір імен, `import * as ROUTES from "~/src/routes"`, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів. Шлях, побудований з іншого, як-от `BLOG_FEED` із `BLOG`, стоїть одразу після того, з якого його побудовано.
 
-```ts title="src/routes.ts"
-export { API, HOME } from "./areas/core.shared.ts"
-export { ADMIN_COURSES, ADMIN_COURSES_CREATE, COURSES } from "./areas/courses.shared.ts"
+Статистика й панелі панелі керування, дозволи та інші списки, до яких розділ і далі додає записи у власному файлі, поки що зберігають свої barrel-файли: `src/data/<area>.dashboard.ts`, які `src/data/dashboard.entries.ts` об’єднує в `ADMIN_DASHBOARD_STATS` і `ADMIN_DASHBOARD_PANELS`, і `src/areas/<area>.access.ts`, які `src/areas/access.entries.ts` об’єднує в `APP_STATEMENTS` і `grantsOf` у `src/integrations/better-auth/auth.access.ts`. Barrel-файл містить лише рядки `export { … } from`, по одному на файл розділу, відсортовані за модулем, як `src/integrations/drizzle-orm/drizzle.schemas.ts`.
+
+`src/data/navigation.ts` містить сім меню, записаних як літеральні списки: кожен пункт має свою сторінку в `to`, повний ключ свого повідомлення в `label`, а в адмін-панелі та робочому просторі клієнта — ще й іконку з `lucide-react`. Меню адмін-панелі групує пункти в групи бічної панелі, `key` яких береться з `ADMIN_NAVIGATION_GROUP`, а футер — посилання в колонки, `key` яких береться з `FOOTER_COLUMN`. Файл імпортує лише `lucide-react`, `~/src/routes` і `~/src/data/navigation.constants`, бо проєкт Remotion читає меню адмін-панелі, а його завдання CI встановлює лише власні пакети Remotion; `src/__test__/source-layout.test.ts` падає, коли файл імпортує щось інше. Адмін-панель і робочий простір клієнта існують лише разом із входом, тож їхні пункти називають шляхи розділу автентифікації й зникають разом із ним, як і **Увійти** в заголовку й футері:
+
+```ts title="src/data/navigation.ts"
+export const HEADER_NAVIGATION: readonly SiteEntry[] = [
+  { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
+  { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+]
 ```
 
-Пункт меню вказує полем `placement` (`NAVIGATION_PLACEMENT` у `src/data/navigation.constants.ts`), де він з’являється: у бічній панелі адмін-панелі, у кнопках над панеллю, у швидких діях палітри команд, у бічній панелі застосунку клієнта та її ресурсах, у публічному заголовку чи у футері. Його `order` ставить його серед пунктів інших розділів, тож жоден список не залежить від порядку файлів. Пункти адмін-панелі також називають свою групу бічної панелі (`group`), а посилання футера — свою колонку (`column`); `ADMIN_NAVIGATION_GROUPS` і `FOOTER_COLUMNS` задають порядок груп і колонок, а ті, які не заповнює жоден розділ, пропускаються. Адмін-панель і робочий простір клієнта існують лише разом із входом, тож ними володіє розділ автентифікації: їхні шляхи `/admin`, `/admin/settings`, `/app` і `/app/settings`, їхні пункти панелі, огляду, налаштувань і керування користувачами, а також **Увійти** в заголовку й футері:
-
-```ts title="src/areas/auth.navigation.ts"
-export const AUTH_NAVIGATION = {
-  entries: [
-    {
-      group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
-      icon: Home,
-      key: "dashboard",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Users,
-      key: "userManagement",
-      order: 10,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_USERS,
-    },
-    {
-      group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
-      icon: Settings,
-      key: "settings",
-      order: 30,
-      placement: NAVIGATION_PLACEMENT.ADMIN,
-      to: ROUTES.ADMIN_SETTINGS,
-    },
-    { icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
-    { icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
-    { icon: Globe, key: "viewSite", order: 90, placement: NAVIGATION_PLACEMENT.COMMAND, to: ROUTES.HOME },
-    {
-      column: FOOTER_COLUMN.PRODUCT,
-      key: "signIn",
-      order: 40,
-      placement: NAVIGATION_PLACEMENT.FOOTER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-    {
-      key: "signIn",
-      order: 50,
-      placement: NAVIGATION_PLACEMENT.HEADER,
-      signedIn: { key: "account" },
-      to: ROUTES.SIGN_IN,
-    },
-  ],
-  name: "auth",
-} as const satisfies NavigationArea
-```
+Проєкт без курсів не має `ROUTES.COURSES`, тож правило очищення видаляє із заголовка пункт **Курси**, а група чи колонка, що через це спорожніла, зникає разом із ним, як колонка правової інформації у футері проєкту без юридичних сторінок.
 
 Пункт заголовка або футера може вказати мітку `signedIn`, яка замінює його власну для відвідувача, що ввійшов, і його посилання тоді веде до робочого простору цього відвідувача: `/admin` для облікового запису з доступом адміністратора, `/app` для всіх інших. `useVisitorWorkspace` (`src/hooks/use-visitor-workspace.ts`) вирішує це за роллю із сесії через `hasPermission` і дозвіл `admin: ["access"]`, який перевіряє `requireAdmin`. Публічні сторінки попередньо відрендерені, тож їхній HTML показує **Увійти**; після гідратації браузер, у якому є cookie Better Auth з останнім способом входу, запитує свою сесію, і заголовок, його мобільне меню та футер показують на цьому місці **Ваш обліковий запис** одразу з посиланням на правильний простір. Браузер, у якому ніколи не входили, нічого не запитує. Доки частина сторінки не гідратована, `useVisitorWorkspace` нічого не повертає, навіть коли браузер уже має сесію, бо під час гідратації React `useHydrated` відповідає значенням сервера: футер, що гідратується після надходження сесії, показує те саме **Увійти**, що й HTML, і перемикається потім, замість того щоб зламати гідратацію.
 
 Кожен пункт адмін-панелі відкриває екран, що працює з реальними даними, і головна сторінка рахує їх усі. Екран, дані якого ще не мають джерела, не отримує пункту (див. [Панель адміністратора](/docs/features/admin-dashboard#real-data-only)).
 
-Розділ ліцензій додає до бічної панелі застосунку клієнта свій пункт **Ліцензія**, а розділ контенту додає до її ресурсів, над адресою підтримки, пункт **Документація**. Основний розділ оголошує лише `/` і `/api`, а також **Ціни** в заголовку — єдиний пункт із `hash`, який веде до розділу з цінами на `/`.
+Бічна панель застосунку клієнта містить пункт **Ліцензія** з розділу ліцензій, а її ресурси, над адресою підтримки, — пункт **Документація** з розділу контенту. Основному розділу потрібні лише `/` і `/api`, а також **Ціни** в заголовку — єдиний пункт із `hash`, який веде до розділу з цінами на `/`.
 
 Статистика панелі має `prefetch`, який виконує loader `/admin`, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число.
 
 Файл доступу розділу оголошує декларації дозволів його ресурсів і ролі, яким він їх надає. `auth.access.ts` будує контроль доступу Better Auth з `APP_STATEMENTS`, а кожну роль — з `grantsOf(role)`, тож інтеграція автентифікації не називає жодного розділу, а `APP_STATEMENTS` падає, коли два розділи оголошують той самий ресурс (див. [Ролі та дозволи](/docs/guides/roles-and-permissions)).
 
-Списки в `src/data/navigation.ts` мають оголошений тип, `NavigationEntry`, а не типи пунктів, які розділи оголошують зараз, тож розміщення, яке не заповнює жоден розділ, як-от дії панелі в проєкті без розділу платежів, є порожнім списком, що все одно проходить перевірку типів. `navigation.test.ts` під час компіляції перевіряє, що `to` кожного пункту, який оголошує розділ, є шляхом дерева маршрутів (`FileRouteTypes["to"]` із `src/routeTree.gen.ts`).
+Списки в `src/data/navigation.ts` мають оголошений тип із `src/data/navigation.constants.ts`, як-от `IconEntry` чи `SiteEntry`, тож список, пункти якого проєкт пропускає, як-от дії панелі керування без розділу платежів, є порожнім списком, що все одно проходить перевірку типів. `navigation.test.ts` перевіряє, що `to` кожного пункту є шляхом дерева маршрутів і що жодне меню не називає сторінку чи підпис двічі.
 
-Пункт отримує свій розділ (`area`) з поля `name` об’єкта `<AREA>_NAVIGATION` свого розділу, а розділ підписує його у власному файлі повідомлень: `<placement>.<key>` у `messages/<locale>/navigation.<area>.json`, як-от `admin.courses` і `header.courses` у `navigation.courses.json`. Статистику панелі підписано за її `key` у `dashboard.<area>.json`, а секція адмін-панелі підписує свої підсторінки для хлібних крихт під `breadcrumbs.<segment>` у своєму `navigation.<area>.json`, як-от `breadcrumbs.create`; вкладку керування користувачами підписано під `userTabs.<key>`, що називає вкладку та її сторінку в хлібних крихтах, а панель панелі керування тримає свої тексти під своїм `key` у `dashboard.<area>.json`. Обидва види файлів є кореневими просторами імен, тож кожне меню може підписати кожен пункт, а `useNavigationLabel` у `src/hooks/use-navigation-label.ts` повертає підпис пункту. Те, що належить самому меню, лишається в його просторі імен: `groups.<group>` у `pages.admin.sidebar`, `columns.<column>` у `components.custom.footer` і заклик до дії, кнопка меню та посилання для переходу до вмісту із заголовка в `components.custom.navigation`. `enum-labels.test.ts` падає, коли пункту чи статистиці бракує підпису в якійсь локалі.
+`label` пункту — це повний ключ його повідомлення, як-от `navigation.courses.admin.courses`, а повідомлення лежить у файлі можливості, якій належить сторінка, `messages/<locale>/navigation.<area>.json`, тож якщо пропустити можливість, разом із нею зникають і її підписи. Компонент рендерить підпис через `t(entry.label)` з `useTranslations()`. Секція адмін-панелі підписує свої підсторінки для хлібних крихт у полі `breadcrumbs` свого пункту, яке зіставляє сегмент шляху з ключем, як-от `create` з `navigation.courses.breadcrumbs.create`. Вкладку керування користувачами й пошук у палітрі команд і далі підписує їхній розділ, під `navigation.<area>.userTabs.<key>` і `navigation.<area>.search.<key>`, а статистику й панель панелі керування — за їхнім `key` у `dashboard.<area>.json`. Обидва види файлів є кореневими просторами імен, тож кожне меню може підписати кожен пункт. Те, що належить самому меню, лишається в його просторі імен: `groups.<group>` у `pages.admin.sidebar`, `columns.<column>` у `components.custom.footer` і заклик до дії, кнопка меню та посилання для переходу до вмісту із заголовка в `components.custom.navigation`. `navigation.test.ts` падає, коли пункту, його варіанту для відвідувача, що ввійшов, чи хлібній крихті бракує повідомлення в якійсь локалі, а `enum-labels.test.ts` — коли його бракує статистиці.
 
-Розділ, сторінки якого рендеряться у Worker для кожного запиту, як-от `/admin`, `/auth` чи `/courses`, перелічує ці шляхи в полі `unlisted` свого об’єкта `<AREA>_SHARED` у `src/areas/<area>.shared.ts`. Плагін TanStack Start у `src/data/tanstack.vite.ts` виключає їх із пререндерингу за допомогою `isUnlistedRoute`, а `buildPageHead` дає їм картку сайту замість картки сторінки (див. [Пошук і попередній перегляд у соцмережах](/docs/features/seo)). Vite не розпізнає аліас `~`, поки завантажує власну конфігурацію, тому кожен файл у `src/areas`, який він завантажує, — `shared.ts`, `shared.entries.ts` і кожен `<area>.shared.ts`, — імпортує за відносним шляхом. Точка входу Worker, `vite.config.ts` і проєкт Remotion досягають кожного спільного файлу через `ROUTES`, тож спільний файл містить шляхи й нічого, що тягне за собою залежність. Перевірки живого сайту — окремий вид файлів, `src/areas/<area>.live.ts`, бо їх завантажують лише перевірка після розгортання й документація. Пункти меню теж є окремим чистим видом файлів, `src/areas/<area>.navigation.ts`, які об’єднує `src/areas/navigation.entries.ts` і читає `src/data/navigation.ts`, бо проєкт Remotion читає меню адмін-панелі, а його завдання CI встановлює лише власні пакети Remotion, тож він не може завантажити браузерний файл розділу, `src/areas/<area>.ts`, який імпортує код маршрутизатора, TanStack Query і серверних функцій.
+Сторінки, які рендеряться у Worker для кожного запиту, як-от `/admin`, `/auth` чи `/courses`, перелічено в `UNLISTED_ROUTES` у `src/routes.ts`. Плагін TanStack Start у `src/data/tanstack.vite.ts` виключає їх із пререндерингу за допомогою `isUnlistedRoute`, а `buildPageHead` дає їм картку сайту замість картки сторінки (див. [Пошук і попередній перегляд у соцмережах](/docs/features/seo)). Vite не розпізнає аліас `~`, поки завантажує власну конфігурацію, тому `tanstack.vite.ts` імпортує `src/routes.ts` за відносним шляхом.
 
 ## Пов’язані сторінки
 

@@ -13,8 +13,6 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { SEARCH_TEXT_MIN_LENGTH } from "~/src/modules/_core/utils/search"
 
-import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
-
 import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import { ADMIN_COMMAND_ACTIONS, ADMIN_NAVIGATION } from "~/src/data/navigation"
 
@@ -141,31 +139,30 @@ const useRecordGroups = (query: string): { readonly groups: readonly PaletteGrou
 }
 
 const usePaletteGroups = (query: string, recent: readonly PaletteItem[]) => {
-  const t = useTranslations("pages.admin")
-  const navigationLabel = useNavigationLabel()
+  const t = useTranslations()
 
   const { contains } = useFilter({ sensitivity: "base" })
   const { groups: records, isSearching } = useRecordGroups(query)
 
   const matches = (item: PaletteItem): boolean => contains(`${item.title} ${item.detail}`, query.trim())
   const pages = PAGE_ITEMS.map(({ group, item }) => ({
-    detail: t(`sidebar.groups.${group}`),
+    detail: t(`pages.admin.sidebar.groups.${group}`),
     group: "pages",
     icon: item.icon,
-    title: navigationLabel(item),
+    title: t(item.label),
     to: item.to,
   }))
   const actions = ADMIN_COMMAND_ACTIONS.map((action) => ({
     detail: "",
     group: "actions",
     icon: action.icon,
-    title: navigationLabel(action),
+    title: t(action.label),
     to: action.to,
   }))
   const groups = [
-    { heading: t("components.commandPalette.groups.recent"), id: "recent", items: query.trim().length === 0 ? recent : [] },
-    { heading: t("components.commandPalette.groups.actions"), id: "actions", items: actions.filter((item) => matches(item)) },
-    { heading: t("components.commandPalette.groups.pages"), id: "pages", items: pages.filter((item) => matches(item)) },
+    { heading: t("pages.admin.components.commandPalette.groups.recent"), id: "recent", items: query.trim().length === 0 ? recent : [] },
+    { heading: t("pages.admin.components.commandPalette.groups.actions"), id: "actions", items: actions.filter((item) => matches(item)) },
+    { heading: t("pages.admin.components.commandPalette.groups.pages"), id: "pages", items: pages.filter((item) => matches(item)) },
     ...records,
   ]
 

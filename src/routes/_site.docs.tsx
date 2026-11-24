@@ -98,7 +98,7 @@ const DocumentationLayout = (): JSX.Element => {
   )
 }
 
-const NAMESPACES = ["auth.validations", "fumadocs"] as const
+const NAMESPACES = ["auth.validations", "flow-areas", "fumadocs", "stack"] as const
 
 export const Route = createFileRoute("/_site/docs")({
   component: DocumentationLayout,

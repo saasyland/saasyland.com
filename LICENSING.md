@@ -15,9 +15,10 @@ Land product or the brand assets identified below.
 The SaaSy Land CLI, private generator templates, and separately supplied paid
 learning and design material are proprietary. They are not covered by this
 repository's MIT licence. The CLI is maintained in a separate, private repository;
-installing and using it requires a purchase and a valid licence key under the
-[SaaSy Land Commercial Licence](https://saasyland.com/licence). Publishing this
-website's source code does not grant access to or rights in that product.
+npm lets anyone install it, and using it requires a purchase and a valid licence
+key under the [SaaSy Land Commercial Licence](https://saasyland.com/licence).
+Publishing this website's source code does not grant access to or rights in that
+product.
 
 ## Name and branding
 

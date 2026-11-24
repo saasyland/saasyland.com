@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
 import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
@@ -43,12 +43,11 @@ import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 
+import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
 import { TEST_ACCOUNTS } from "~/e2e/data/accounts"
-import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
-import { FLOWS } from "~/scripts/check-flows"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
 import * as ROUTES from "~/src/routes"
 
@@ -65,15 +64,6 @@ const inUnit = (unit: string, value: number): string =>
 const englishList = (words: readonly string[]): string => new Intl.ListFormat("en-US").format(words)
 
 const listItems = (): (string | null)[] => screen.getAllByRole("listitem").map((item) => item.textContent)
-
-const tableRows = (): string[][] =>
-  within(screen.getByRole("table"))
-    .getAllByRole("row")
-    .map((row) =>
-      within(row)
-        .queryAllByRole("cell")
-        .map((cell) => cell.textContent),
-    )
 
 describe("RepositoryFact", () => {
   it.each(["en-US", "de-DE"] as const)("prints a measured repository count formatted for %s", (locale) => {
@@ -325,60 +315,6 @@ describe("RepositoryTable", () => {
         ]
       }),
     )
-  })
-})
-
-const statusOf = ([id]: readonly (string | null)[]) => FLOWS.find((flow) => flow.id === id)?.status
-
-describe("the flow inventory", () => {
-  it("counts every area's flows by status, formatted for the page locale", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Area", "Flows", "Covered", "Missing", "To build"]} name="flowAreaTable" />)
-
-    expect(tableRows().slice(1)).toEqual(
-      Object.values(FLOW_AREA).map((area) => {
-        const flows = FLOWS.filter((flow) => flow.area === area)
-        const count = (status: string): string => String(flows.filter((flow) => flow.status === status).length)
-
-        return [area, String(flows.length), count(FLOW_STATUS.COVERED), count(FLOW_STATUS.MISSING), count(FLOW_STATUS.TO_BUILD)]
-      }),
-    )
-  })
-
-  it("lists each covered flow with the spec and title of every test that proves it", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Tests"]} name="coveredFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.COVERED).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.COVERED))
-    expect(rows).toContainEqual([
-      "admin-impersonate",
-      FLOW_AREA.ADMIN_USERS,
-      expect.stringMatching(/^The admin impersonates a customer/u),
-      "admin-users.spec.ts › admin impersonates a customer and stops impersonating",
-    ])
-  })
-
-  it("lists each missing flow with what is missing and the tests or journey step that do part of it", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Missing", "Partly done by"]} name="missingFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.MISSING).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.MISSING))
-    expect(rows).toContainEqual([
-      "free-slot",
-      FLOW_AREA.LICENCE,
-      expect.any(String),
-      expect.stringMatching(/^Only the journey suite/u),
-      "journey.spec.ts › free a CI slot on /app/license, and the refused machine takes it",
-    ])
-  })
-
-  it("lists each flow still to build with the reason it cannot be tested yet", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Why"]} name="toBuildFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.TO_BUILD).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.TO_BUILD))
   })
 })
 

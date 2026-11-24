@@ -9,11 +9,11 @@ import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTie
 import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { COURSE_PLATFORM_VALUES, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
 import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/data/tier-features"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
@@ -57,15 +57,7 @@ const storeRegionalChoice = (isSelected: boolean): void => {
   })
 }
 
-const FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...COURSE_PLATFORM_VALUES }
-
 const FEATURE_ICONS = { [FEATURE_STATUS.ARRIVING]: CircleDashed, [FEATURE_STATUS.AVAILABLE]: Check } as const
-
-export const tierFeaturesWith = (tier: LicenseTier, status: FeatureStatus): readonly { readonly id: string }[] => {
-  const features: readonly { readonly id: string; readonly status: FeatureStatus }[] = TIER_FEATURES[tier]
-
-  return features.filter((feature) => feature.status === status)
-}
 
 const TierFeature = ({ children, status }: Readonly<{ children: ReactNode; status: FeatureStatus }>): JSX.Element => {
   const Icon = FEATURE_ICONS[status]
@@ -99,7 +91,7 @@ const TierFeatures = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element =>
           <ul aria-labelledby={`${id}-${status}`} className="mt-3 space-y-3">
             {tierFeaturesWith(tier, status).map((feature) => (
               <TierFeature key={feature.id} status={status}>
-                {t(`tiers.${tier}.features.${feature.id}`, FEATURE_VALUES)}
+                {t(`tiers.${tier}.features.${feature.id}`, TIER_FEATURE_VALUES)}
               </TierFeature>
             ))}
             {status === FEATURE_STATUS.AVAILABLE && (

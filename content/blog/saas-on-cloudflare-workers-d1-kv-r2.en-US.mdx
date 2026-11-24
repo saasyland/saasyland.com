@@ -99,7 +99,7 @@ A practical guide to building a SaaS on Cloudflare Workers with D1, KV and R2, w
 
 </Callout>
 
-_Last checked 20 November 2026. Every limit and price of Cloudflare below was read on Cloudflare’s own documentation that day and is linked at the bottom. Everything about saasyland.com comes from its code, with real file paths and excerpts, and its measured values are printed from the code rather than typed. We sell a product built on this stack, so read the section on when to choose something else as carefully as the rest._
+_Last checked 20 November 2026. Every limit and price of Cloudflare below was read on Cloudflare’s own documentation that day and is linked at the bottom. Everything about saasyland.com comes from its code, with real file paths and excerpts. Its current values are printed from the code rather than typed; the measurements of cold starts, uploads and CPU time are typed, each with the pull request and the date it was taken. We sell a product built on this stack, so read the section on when to choose something else as carefully as the rest._
 
 ## The short answer
 
@@ -128,7 +128,7 @@ It fits badly when:
 - **Your writes need long transactions or heavy concurrency on one database.** A workflow that must hold locks while it calls other services, or a write rate that one single-threaded database cannot absorb, is easier on a database server. Hyperdrive, which Cloudflare describes as global connection pooling and query caching for your existing databases, lets a Worker use one you already run.
 - **Your work is long or heavy CPU.** A request gets at most five minutes of CPU on Workers Paid and 128 MB of memory per isolate, so video encoding and large batch jobs belong somewhere else, or in pieces on Queues, which Cloudflare describes as sending and receiving messages "with guaranteed delivery".
 
-saasyland.com is the first kind of product: modest relational data, short requests, big files that are read often. Its one heavy job, encoding course videos, runs on the publisher’s machine before upload.
+saasyland.com is the first kind of product: modest relational data, short requests, big files that are read often. Its one heavy job, encoding course videos, runs after the upload on a machine with FFmpeg, outside the Worker.
 
 ## Put each kind of data where it belongs
 
@@ -282,7 +282,7 @@ The check exists because of a mistake. One static import of a header name from a
 
 ### Worked example: two pull requests that halved the cold path
 
-**The route tree stopped importing content.** TanStack Start loads its route tree before it handles any request, a server function call included. Before [#236](https://github.com/saasyland/saasyland.com/pull/236), the route tree imported the docs search, which imported the compiled MDX of every docs page and blog post in every language. Loading each page’s MDX only when a request needed it, and the search code only when someone searched, took the route tree from 1,635 modules and 21.7 MiB to 296 modules and 4.9 MiB, and the first server function on a new isolate went from a median of 481 ms to 341 ms on the preview deployment.
+**The route tree stopped importing content.** TanStack Start loads its route tree before it handles any request, a server function call included. Before [#236](https://github.com/saasyland/saasyland.com/pull/236), merged on 17 November 2026, the route tree imported the docs search, which imported the compiled MDX of every docs page and blog post in every language. Loading each page’s MDX only when a request needed it, and the search code only when someone searched, took the route tree from 1,635 modules and 21.7 MiB to 296 modules and 4.9 MiB, and the first server function on a new isolate went from a median of 481 ms to 341 ms on the preview deployment.
 
 **The Worker stopped holding content at all.** [#239](https://github.com/saasyland/saasyland.com/pull/239), merged on 20 November 2026, turns the docs, the blog and the search index into files that the build writes under `/assets/`. Every docs page and blog post is prerendered, client navigations read those indexes in the browser, the Worker that is deployed resolves every import of a compiled page to a module that throws, and the build fails if any page’s content reaches it. The upload went from 30,115 KiB to 13,465 KiB, and on new isolates of the preview deployment the wait before the handler started fell from a median of 934 ms to 561 ms, and the time to first byte from 1,145 ms to 676 ms. A docs navigation now makes no Worker request at all, and the docs search, which had taken between 7 and 16 seconds on its first query while each isolate built an index, now answers in under two.
 
@@ -506,13 +506,13 @@ Whichever you choose, both kinds of URL are bearer tokens. R2’s documentation 
 
 **Uploading well:**
 
-- A request body to a Worker is limited to 100 MB on the Free and Pro plans and 200 MB on Business, so large uploads go to R2 directly, through a presigned `PUT` or a tool, not through your Worker.
-- **Do heavy processing before upload.** Encoding video inside a request is out of reach of a Worker’s CPU and memory limits.
+- A request body to a Worker is limited to 100 MB on the Free and Pro plans and 200 MB on Business, so a large upload reaches R2 in parts below that limit: through the Worker as a multipart upload, or directly through a presigned `PUT` or a tool.
+- **Do heavy processing outside the Worker.** Encoding video inside a request is out of reach of a Worker’s CPU and memory limits, so it runs after the upload on a machine that can.
 - **Store what you will need to know about an object as custom metadata** when you write it, so later requests can answer from `head()` without reading the object.
 
 ### Worked example: course videos and CLI bundles
 
-saasyland.com keeps course videos, course covers and lesson materials in `MEDIA` and the CLI’s template bundles in `BUNDLES`, both private. A recording is encoded on the publisher’s machine with FFmpeg into adaptive HLS, with renditions up to <RepositoryFact name="videoTopRendition" />, segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, a poster, a storyboard for seek previews and captions per language, and uploaded with Wrangler. The Worker never accepts a video upload. A lesson in D1 points at a row of the `video` table, and a lesson whose video is marked as a placeholder is listed as being recorded instead of playing.
+saasyland.com keeps course videos, course covers and lesson materials in `MEDIA` and the CLI’s template bundles in `BUNDLES`, both private. An admin drops a lesson’s recording into the lesson editor, and the browser sends it through the Worker to an R2 multipart upload in parts of <RepositoryFact name="videoUploadPartMegabytes" /> MB, each checked against the session. After the upload, a machine with FFmpeg encodes it into adaptive HLS, with renditions up to <RepositoryFact name="videoTopRendition" />, segments of <RepositoryFact name="videoSegmentSeconds" unit="second" />, a poster, a storyboard for seek previews and captions per language, and uploads the streams with Wrangler. A lesson in D1 points at a row of the `video` table, and a lesson whose video is marked as a placeholder is listed as being recorded instead of playing.
 
 When a visitor opens a lesson, `getLessonPlayback` loads it from D1, checks with `hasLessonAccess` that this viewer may watch it, and only then signs the paths:
 
@@ -532,9 +532,9 @@ export const createPlayback = async ({ now, secret, video }: PlaybackGrant) => {
 }
 ```
 
-The signature is an HMAC-SHA-256 with a key that HKDF derives from the auth secret for video playback alone. The expiry is at least <RepositoryFact name="signedMediaHours" unit="hour" /> ahead, rounded up to the hour. `serveMedia` checks the method, the file name and the signature, answers `Range` requests with `206` straight from R2, and keeps whole files in the Workers cache under a key without the signature. Lesson materials use the same scheme under `/media/downloads/`, with a key of their own and links valid for at least <RepositoryFact name="signedDownloadHours" unit="hour" />; they and course covers are the two uploads the Worker accepts, from an admin, up to <RepositoryFact name="attachmentMaxMegabytes" /> MB per material and <RepositoryFact name="courseCoverMaxMegabytes" /> MB per size of a cover. Covers are public: `serveCover` serves them unsigned under `/media/covers/`, cacheable for a year, because every new cover gets a new id.
+The signature is an HMAC-SHA-256 with a key that HKDF derives from the auth secret for video playback alone. The expiry is at least <RepositoryFact name="signedMediaHours" unit="hour" /> ahead, rounded up to the hour. `serveMedia` checks the method, the file name and the signature, answers `Range` requests with `206` straight from R2, and keeps whole files in the Workers cache under a key without the signature. Lesson materials use the same scheme under `/media/downloads/`, with a key of their own and links valid for at least <RepositoryFact name="signedDownloadHours" unit="hour" />; they, course covers and lesson recordings are the uploads the Worker accepts, all from an admin, up to <RepositoryFact name="attachmentMaxMegabytes" /> MB per material, <RepositoryFact name="courseCoverMaxMegabytes" /> MB per size of a cover and <RepositoryFact name="videoUploadMaxGigabytes" /> GB per recording. Covers are public: `serveCover` serves them unsigned under `/media/covers/`, cacheable for a year, because every new cover gets a new id.
 
-The bundles show the metadata rule. Each CLI release uploads its template bundle with the SHA-256 of its content as R2 custom metadata, and the licence API answers a bundle request by reading that digest with `head()`, then signs a download URL valid for <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Before [#208](https://github.com/saasyland/saasyland.com/pull/208), the Worker downloaded, decompressed and hashed the archive on every request, about 31 ms of CPU for a 1.7 MB bundle in our local measurements; reading the metadata brought it to about 3 ms, whatever the bundle’s size.
+The bundles show the metadata rule. Each CLI release uploads its template bundle with the SHA-256 of its content as R2 custom metadata, and the licence API answers a bundle request by reading that digest with `head()`, then signs a download URL valid for <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />. Before [#208](https://github.com/saasyland/saasyland.com/pull/208), merged on 17 November 2026, the Worker downloaded, decompressed and hashed the archive on every request, about 31 ms of CPU for a 1.7 MB bundle in our local measurements; reading the metadata brought it to about 3 ms, whatever the bundle’s size.
 
 ## Rate limiting that holds across isolates
 

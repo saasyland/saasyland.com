@@ -109,7 +109,7 @@ interface ChoiceRowProps extends Pick<ToggleButtonGroupProps, "disallowEmptySele
 }
 
 const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ...selection }: ChoiceRowProps): JSX.Element => {
-  const t = useTranslations("pages.landing.cli")
+  const t = useTranslations("stack")
   const labelId = useId()
   const noteId = useId()
   const parent = STACK_CHOICES.find((choice) => choice.id === LISTED_UNDER[choiceId])
@@ -128,7 +128,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
         key={option.id}
         {...(describedBy !== "" && { "aria-describedby": describedBy })}
       >
-        {t(`choices.${choiceId}.options.${option.id}`)}
+        {t(`${choiceId}.options.${option.id}`)}
         {isComing && <ComingMark />}
       </ToggleGroupItem>
     )
@@ -137,7 +137,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
   return (
     <div className="grid gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-3.5">
       <dt className="text-label text-muted-foreground uppercase" id={labelId}>
-        {t(`choices.${choiceId}.label`)}
+        {t(`${choiceId}.label`)}
       </dt>
       <dd className="grid gap-3">
         <ToggleGroup
@@ -153,8 +153,8 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
             groupsOf(options, parent).map((group) => (
               <OptionGroupRow
                 key={group.id}
-                label={t(`choices.${parent.id}.options.${group.id}`)}
-                shared={group.shared.map((option) => t(`choices.${choiceId}.options.${option.id}`))}
+                label={t(`${parent.id}.options.${group.id}`)}
+                shared={group.shared.map((option) => t(`${choiceId}.options.${option.id}`))}
               >
                 {group.options.map((option) => optionItem(option))}
               </OptionGroupRow>
@@ -162,7 +162,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
         </ToggleGroup>
         {options.some((option) => isRuled(option)) && (
           <p className="text-spec text-pretty text-muted-foreground" id={noteId}>
-            {t(`choices.${choiceId}.note`)}
+            {t(`${choiceId}.note`)}
           </p>
         )}
       </dd>

@@ -1,10 +1,12 @@
 import type { JSX } from "react"
 
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
+import { STACK_CHOICES, STACK_EXTRAS } from "@saasyland/stack"
 import { CI_PROVIDER, CI_PROVIDERS, CI_REPOSITORY_VARIABLE, PLATFORM } from "@saasyland/stack/api"
 import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli"
 import { adminAc } from "better-auth/plugins/admin/access"
-import { useFormatter } from "use-intl/react"
+import type { TranslationValues } from "use-intl"
+import { useFormatter, useTranslations } from "use-intl/react"
 import { cliApiTables, commitEmojis, coverageScope, flowTables, moduleTables, seededAccounts } from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
@@ -67,6 +69,8 @@ import {
   LICENSE_API_RETRY_AFTER_SECONDS,
   LICENSE_CHECKOUT_FIELD,
   LICENSE_POLL_MS,
+  LICENSE_TIERS,
+  type LicenseTier,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
@@ -104,11 +108,13 @@ import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath 
 import {
   CLI_COMMAND,
   CLI_EXEC,
+  CLI_GENERATION,
   CLI_INIT_COMMAND,
   CLI_KEY_LINES,
   CLI_PACKAGE_SPEC,
   CLI_RELEASE_CHANNEL,
   CLI_SETUP_LINES,
+  CLI_TEMPLATE_SUPPORT,
   PACKAGE_MANAGERS,
   SCAFFOLD_TARGET,
 } from "~/src/data/cli"
@@ -116,15 +122,23 @@ import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
-import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
+import {
+  FEATURE_STATUS,
+  FEATURE_STATUSES,
+  type FeatureStatus,
+  NAVIGATION_PENDING_MIN_MS,
+  NAVIGATION_PENDING_MS,
+} from "~/src/data/navigation.constants"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
 import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SKILL_SOURCES } from "~/src/data/skills"
+import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/data/tier-features"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { cliCommand } from "~/src/lib/cli"
+import { cn } from "~/src/lib/cn"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
@@ -140,10 +154,44 @@ import * as ROUTES from "~/src/routes"
 
 type Value = number | string | readonly string[]
 
+interface Label {
+  readonly label: string
+  readonly values?: TranslationValues
+}
+
+interface Text {
+  readonly text: string
+}
+
+type Cell = Label | Text | Value
+
+type Row = readonly [Cell, ...Cell[]]
+
 const OCTAL_RADIX = 8
+const WORD_SEPARATOR = " "
+const LINE_SEPARATOR = "\n"
 const FILE_MODE_DIGITS = 4
 
 const renditionName = (height: number): string => `${String(height)}p`
+
+const statusLabel = (status: FeatureStatus): Label => ({ label: `components.custom.pricing.status.${status}` })
+
+const generationStatus = (supported: readonly string[], id: string): Label =>
+  statusLabel(supported.includes(id) ? CLI_GENERATION : FEATURE_STATUS.ARRIVING)
+
+const flowArea = (area: string): Label => ({ label: `flow-areas.${area}` })
+
+const tierFeatureRows = (tier: LicenseTier) =>
+  FEATURE_STATUSES.flatMap((status) =>
+    tierFeaturesWith(tier, status).map(
+      ({ id }) =>
+        [
+          { label: `components.custom.pricing.tiers.${tier}.name` },
+          { label: `components.custom.pricing.tiers.${tier}.features.${id}`, values: TIER_FEATURE_VALUES },
+          statusLabel(status),
+        ] as const,
+    ),
+  )
 
 const FACTS = {
   ...REPOSITORY_FACTS,
@@ -331,16 +379,37 @@ const TABLES = {
     [PLATFORM.MACOS, CREDENTIALS_STORE.DIRECTORY.MACOS],
     [PLATFORM.WINDOWS, CREDENTIALS_STORE.DIRECTORY.WINDOWS],
   ],
+  cliExtras: STACK_EXTRAS.map(
+    ({ id }) => [{ label: `stack.extras.options.${id}` }, generationStatus(CLI_TEMPLATE_SUPPORT.extras, id)] as const,
+  ),
+  cliOptions: STACK_CHOICES.flatMap((choice) =>
+    choice.options.map(
+      ({ id }) =>
+        [
+          { label: `stack.${choice.id}.label` },
+          { label: `stack.${choice.id}.options.${id}` },
+          generationStatus(CLI_TEMPLATE_SUPPORT.choices[choice.id], id),
+        ] as const,
+    ),
+  ),
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
-  coveredFlowTable: flowTables.covered,
-  flowAreaTable: flowTables.areas,
+  coveredFlowTable: flowTables.covered.map(
+    ([id, area, outcome, tests]) => [flowArea(area), id, { text: outcome }, { text: tests.join(LINE_SEPARATOR) }] as const,
+  ),
+  flowAreaTable: flowTables.areas.map(
+    ([area, flows, covered, missing, toBuild]) => [flowArea(area), flows, covered, missing, toBuild] as const,
+  ),
   formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
     const { clauseOpeners, form, never, neverEndingSentence, neverInsideSentence, neverStartingClause } = FORMS_OF_ADDRESS[locale]
 
     return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
-  missingFlowTable: flowTables.missing,
+  missingFlowGaps: flowTables.missing.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  missingFlowTable: flowTables.missing.map(
+    ([id, area, outcome, reason, tests]) =>
+      [flowArea(area), id, { text: outcome }, { text: reason }, { text: tests.join(LINE_SEPARATOR) }] as const,
+  ),
   moduleUseCases: moduleTables.modules,
   permissionChecks: moduleTables.permissions,
   polishNames: POLISH_NAMES,
@@ -349,8 +418,12 @@ const TABLES = {
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
   skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),
-  toBuildFlowTable: flowTables.toBuild,
-} satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
+  tierFeatures: LICENSE_TIERS.flatMap((tier) => tierFeatureRows(tier)),
+  toBuildFlowGaps: flowTables.toBuild.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  toBuildFlowTable: flowTables.toBuild.map(
+    ([id, area, outcome, reason]) => [flowArea(area), id, { text: outcome }, { text: reason }] as const,
+  ),
+} satisfies Record<string, readonly Row[]>
 
 const UNIT_FORMATS = {
   currency: CURRENCY_FORMAT,
@@ -377,6 +450,81 @@ const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS 
   return <>{format.list(value.map((item) => <code key={item}>{item}</code>))}</>
 }
 
+const CellCode = ({ value }: { readonly value: string }): JSX.Element => (
+  <code className={cn({ "whitespace-nowrap": !value.includes(WORD_SEPARATOR) })}>{value}</code>
+)
+
+const LabelValue = ({ label, values }: Label): JSX.Element => {
+  const t = useTranslations()
+
+  return <>{t(label, values)}</>
+}
+
+const CellValue = ({ value }: { readonly value: Cell }): JSX.Element => {
+  const format = useFormatter()
+
+  if (typeof value === "object" && "label" in value) {
+    return <LabelValue {...value} />
+  }
+
+  if (typeof value === "object" && "text" in value) {
+    return <span className="whitespace-pre-line">{value.text}</span>
+  }
+
+  if (typeof value === "number") {
+    return <FactValue value={value} />
+  }
+
+  if (typeof value === "string") {
+    return <CellCode value={value} />
+  }
+
+  return <>{format.list(value.map((item) => <CellCode key={item} value={item} />))}</>
+}
+
+const groupRows = (rows: readonly Row[]): readonly { readonly heading: Cell; readonly rows: readonly (readonly Cell[])[] }[] => {
+  const groups = new Map<string, { readonly heading: Cell; readonly rows: (readonly Cell[])[] }>()
+
+  for (const [heading, ...cells] of rows) {
+    const key = JSON.stringify(heading)
+    const group = groups.get(key) ?? { heading, rows: [] }
+    group.rows.push(cells)
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+}
+
+const TableHead = ({ columns }: { readonly columns: readonly string[] }): JSX.Element => (
+  <thead>
+    <tr>
+      {columns.map((column) => (
+        <th key={column}>{column}</th>
+      ))}
+    </tr>
+  </thead>
+)
+
+const TableBody = ({
+  columns,
+  rows,
+}: {
+  readonly columns: readonly string[]
+  readonly rows: readonly (readonly Cell[])[]
+}): JSX.Element => (
+  <tbody>
+    {rows.map((row) => (
+      <tr key={JSON.stringify(row)}>
+        {row.map((value, index) => (
+          <td key={columns[index]}>
+            <CellValue value={value} />
+          </td>
+        ))}
+      </tr>
+    ))}
+  </tbody>
+)
+
 export const RepositoryFact = ({
   name,
   unit,
@@ -387,29 +535,33 @@ export const RepositoryFact = ({
 
 export const RepositoryTable = ({
   columns,
+  grouped = false,
   name,
 }: {
   readonly columns: readonly string[]
+  readonly grouped?: boolean
   readonly name: keyof typeof TABLES
-}): JSX.Element => (
-  <defaultMdxComponents.table>
-    <thead>
-      <tr>
-        {columns.map((column) => (
-          <th key={column}>{column}</th>
+}): JSX.Element => {
+  if (grouped) {
+    return (
+      <>
+        {groupRows(TABLES[name]).map(({ heading, rows }) => (
+          <defaultMdxComponents.table key={JSON.stringify(heading)}>
+            <caption className="caption-top pb-2 text-left font-medium text-fd-foreground">
+              <CellValue value={heading} />
+            </caption>
+            <TableHead columns={columns} />
+            <TableBody columns={columns} rows={rows} />
+          </defaultMdxComponents.table>
         ))}
-      </tr>
-    </thead>
-    <tbody>
-      {TABLES[name].map((row) => (
-        <tr key={row[0]}>
-          {row.map((value, index) => (
-            <td key={columns[index]}>
-              <FactValue value={value} />
-            </td>
-          ))}
-        </tr>
-      ))}
-    </tbody>
-  </defaultMdxComponents.table>
-)
+      </>
+    )
+  }
+
+  return (
+    <defaultMdxComponents.table>
+      <TableHead columns={columns} />
+      <TableBody columns={columns} rows={TABLES[name]} />
+    </defaultMdxComponents.table>
+  )
+}

@@ -138,6 +138,7 @@ import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/data/tier-features"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { cliCommand } from "~/src/lib/cli"
+import { cn } from "~/src/lib/cn"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
@@ -158,9 +159,17 @@ interface Label {
   readonly values?: TranslationValues
 }
 
-type Cell = Label | Value
+interface Text {
+  readonly text: string
+}
+
+type Cell = Label | Text | Value
+
+type Row = readonly [Cell, ...Cell[]]
 
 const OCTAL_RADIX = 8
+const WORD_SEPARATOR = " "
+const LINE_SEPARATOR = "\n"
 const FILE_MODE_DIGITS = 4
 
 const renditionName = (height: number): string => `${String(height)}p`
@@ -169,6 +178,8 @@ const statusLabel = (status: FeatureStatus): Label => ({ label: `components.cust
 
 const generationStatus = (supported: readonly string[], id: string): Label =>
   statusLabel(supported.includes(id) ? CLI_GENERATION : FEATURE_STATUS.ARRIVING)
+
+const flowArea = (area: string): Label => ({ label: `flow-areas.${area}` })
 
 const tierFeatureRows = (tier: LicenseTier) =>
   FEATURE_STATUSES.flatMap((status) =>
@@ -383,14 +394,22 @@ const TABLES = {
   ),
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
-  coveredFlowTable: flowTables.covered,
-  flowAreaTable: flowTables.areas,
+  coveredFlowTable: flowTables.covered.map(
+    ([id, area, outcome, tests]) => [flowArea(area), id, { text: outcome }, { text: tests.join(LINE_SEPARATOR) }] as const,
+  ),
+  flowAreaTable: flowTables.areas.map(
+    ([area, flows, covered, missing, toBuild]) => [flowArea(area), flows, covered, missing, toBuild] as const,
+  ),
   formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
     const { clauseOpeners, form, never, neverEndingSentence, neverInsideSentence, neverStartingClause } = FORMS_OF_ADDRESS[locale]
 
     return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
-  missingFlowTable: flowTables.missing,
+  missingFlowGaps: flowTables.missing.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  missingFlowTable: flowTables.missing.map(
+    ([id, area, outcome, reason, tests]) =>
+      [flowArea(area), id, { text: outcome }, { text: reason }, { text: tests.join(LINE_SEPARATOR) }] as const,
+  ),
   moduleUseCases: moduleTables.modules,
   permissionChecks: moduleTables.permissions,
   polishNames: POLISH_NAMES,
@@ -400,8 +419,11 @@ const TABLES = {
   seededAccounts,
   skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),
   tierFeatures: LICENSE_TIERS.flatMap((tier) => tierFeatureRows(tier)),
-  toBuildFlowTable: flowTables.toBuild,
-} satisfies Record<string, readonly (readonly Cell[])[]>
+  toBuildFlowGaps: flowTables.toBuild.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  toBuildFlowTable: flowTables.toBuild.map(
+    ([id, area, outcome, reason]) => [flowArea(area), id, { text: outcome }, { text: reason }] as const,
+  ),
+} satisfies Record<string, readonly Row[]>
 
 const UNIT_FORMATS = {
   currency: CURRENCY_FORMAT,
@@ -428,6 +450,10 @@ const FactValue = ({ unit, value }: { readonly unit?: keyof typeof UNIT_FORMATS 
   return <>{format.list(value.map((item) => <code key={item}>{item}</code>))}</>
 }
 
+const CellCode = ({ value }: { readonly value: string }): JSX.Element => (
+  <code className={cn({ "whitespace-nowrap": !value.includes(WORD_SEPARATOR) })}>{value}</code>
+)
+
 const LabelValue = ({ label, values }: Label): JSX.Element => {
   const t = useTranslations()
 
@@ -435,12 +461,69 @@ const LabelValue = ({ label, values }: Label): JSX.Element => {
 }
 
 const CellValue = ({ value }: { readonly value: Cell }): JSX.Element => {
+  const format = useFormatter()
+
   if (typeof value === "object" && "label" in value) {
     return <LabelValue {...value} />
   }
 
-  return <FactValue value={value} />
+  if (typeof value === "object" && "text" in value) {
+    return <span className="whitespace-pre-line">{value.text}</span>
+  }
+
+  if (typeof value === "number") {
+    return <FactValue value={value} />
+  }
+
+  if (typeof value === "string") {
+    return <CellCode value={value} />
+  }
+
+  return <>{format.list(value.map((item) => <CellCode key={item} value={item} />))}</>
 }
+
+const groupRows = (rows: readonly Row[]): readonly { readonly heading: Cell; readonly rows: readonly (readonly Cell[])[] }[] => {
+  const groups = new Map<string, { readonly heading: Cell; readonly rows: (readonly Cell[])[] }>()
+
+  for (const [heading, ...cells] of rows) {
+    const key = JSON.stringify(heading)
+    const group = groups.get(key) ?? { heading, rows: [] }
+    group.rows.push(cells)
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+}
+
+const TableHead = ({ columns }: { readonly columns: readonly string[] }): JSX.Element => (
+  <thead>
+    <tr>
+      {columns.map((column) => (
+        <th key={column}>{column}</th>
+      ))}
+    </tr>
+  </thead>
+)
+
+const TableBody = ({
+  columns,
+  rows,
+}: {
+  readonly columns: readonly string[]
+  readonly rows: readonly (readonly Cell[])[]
+}): JSX.Element => (
+  <tbody>
+    {rows.map((row) => (
+      <tr key={JSON.stringify(row)}>
+        {row.map((value, index) => (
+          <td key={columns[index]}>
+            <CellValue value={value} />
+          </td>
+        ))}
+      </tr>
+    ))}
+  </tbody>
+)
 
 export const RepositoryFact = ({
   name,
@@ -452,29 +535,33 @@ export const RepositoryFact = ({
 
 export const RepositoryTable = ({
   columns,
+  grouped = false,
   name,
 }: {
   readonly columns: readonly string[]
+  readonly grouped?: boolean
   readonly name: keyof typeof TABLES
-}): JSX.Element => (
-  <defaultMdxComponents.table>
-    <thead>
-      <tr>
-        {columns.map((column) => (
-          <th key={column}>{column}</th>
+}): JSX.Element => {
+  if (grouped) {
+    return (
+      <>
+        {groupRows(TABLES[name]).map(({ heading, rows }) => (
+          <defaultMdxComponents.table key={JSON.stringify(heading)}>
+            <caption className="caption-top pb-2 text-left font-medium text-fd-foreground">
+              <CellValue value={heading} />
+            </caption>
+            <TableHead columns={columns} />
+            <TableBody columns={columns} rows={rows} />
+          </defaultMdxComponents.table>
         ))}
-      </tr>
-    </thead>
-    <tbody>
-      {TABLES[name].map((row) => (
-        <tr key={JSON.stringify(row)}>
-          {row.map((value, index) => (
-            <td key={columns[index]}>
-              <CellValue value={value} />
-            </td>
-          ))}
-        </tr>
-      ))}
-    </tbody>
-  </defaultMdxComponents.table>
-)
+      </>
+    )
+  }
+
+  return (
+    <defaultMdxComponents.table>
+      <TableHead columns={columns} />
+      <TableBody columns={columns} rows={TABLES[name]} />
+    </defaultMdxComponents.table>
+  )
+}

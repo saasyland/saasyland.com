@@ -1,10 +1,8 @@
 import type { ReactNode } from "react"
 
-import { STACK_CHOICES, STACK_EXTRAS } from "@saasyland/stack"
 import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { adminAc } from "better-auth/plugins/admin/access"
-import { type Messages, createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -12,7 +10,6 @@ import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
@@ -25,7 +22,6 @@ import {
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
   LICENSE_CHECKOUT_FIELD,
-  LICENSE_TIERS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
@@ -33,10 +29,10 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
-import { CLI_KEY_LINES, CLI_TEMPLATE_SUPPORT, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_KEY_LINES, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { LOCAL_SERVER, TEST_SERVER_PORTS } from "~/src/data/local-server"
-import { ANGULARPROJECTS_ACCESS, COURSE_PLATFORM_VALUES, REACTPROJECTS_ACCESS, TIER_FEATURES } from "~/src/data/marketing"
-import { FEATURE_STATUS, NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
+import { ANGULARPROJECTS_ACCESS, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
+import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -47,23 +43,13 @@ import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 
+import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
 import { TEST_ACCOUNTS } from "~/e2e/data/accounts"
-import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
-import { FLOWS } from "~/scripts/check-flows"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
 import * as ROUTES from "~/src/routes"
-
-const renderTranslated = (locale: SupportedLocale, children: ReactNode) =>
-  render(
-    <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
-      {children}
-    </IntlProvider>,
-  )
-
-const translator = (locale: SupportedLocale) => createTranslator<Messages>({ locale, messages: getTestMessages(locale) })
 
 const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
   render(
@@ -78,15 +64,6 @@ const inUnit = (unit: string, value: number): string =>
 const englishList = (words: readonly string[]): string => new Intl.ListFormat("en-US").format(words)
 
 const listItems = (): (string | null)[] => screen.getAllByRole("listitem").map((item) => item.textContent)
-
-const tableRows = (): string[][] =>
-  within(screen.getByRole("table"))
-    .getAllByRole("row")
-    .map((row) =>
-      within(row)
-        .queryAllByRole("cell")
-        .map((cell) => cell.textContent),
-    )
 
 describe("RepositoryFact", () => {
   it.each(["en-US", "de-DE"] as const)("prints a measured repository count formatted for %s", (locale) => {
@@ -339,145 +316,6 @@ describe("RepositoryTable", () => {
       }),
     )
   })
-})
-
-const statusOf = ([id]: readonly (string | null)[]) => FLOWS.find((flow) => flow.id === id)?.status
-
-describe("the flow inventory", () => {
-  it("counts every area's flows by status, formatted for the page locale", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Area", "Flows", "Covered", "Missing", "To build"]} name="flowAreaTable" />)
-
-    expect(tableRows().slice(1)).toEqual(
-      Object.values(FLOW_AREA).map((area) => {
-        const flows = FLOWS.filter((flow) => flow.area === area)
-        const count = (status: string): string => String(flows.filter((flow) => flow.status === status).length)
-
-        return [area, String(flows.length), count(FLOW_STATUS.COVERED), count(FLOW_STATUS.MISSING), count(FLOW_STATUS.TO_BUILD)]
-      }),
-    )
-  })
-
-  it("lists each covered flow with the spec and title of every test that proves it", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Tests"]} name="coveredFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.COVERED).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.COVERED))
-    expect(rows).toContainEqual([
-      "admin-impersonate",
-      FLOW_AREA.ADMIN_USERS,
-      expect.stringMatching(/^The admin impersonates a customer/u),
-      "admin-users.spec.ts › admin impersonates a customer and stops impersonating",
-    ])
-  })
-
-  it("lists each missing flow with what is missing and the tests or journey step that do part of it", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Missing", "Partly done by"]} name="missingFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.MISSING).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.MISSING))
-    expect(rows).toContainEqual([
-      "free-slot",
-      FLOW_AREA.LICENCE,
-      expect.any(String),
-      expect.stringMatching(/^Only the journey suite/u),
-      "journey.spec.ts › free a CI slot on /app/license, and the refused machine takes it",
-    ])
-  })
-
-  it("lists each flow still to build with the reason it cannot be tested yet", () => {
-    renderInLocale("en-US", <RepositoryTable columns={["Flow", "Area", "Outcome", "Why"]} name="toBuildFlowTable" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.TO_BUILD).length)
-    expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.TO_BUILD))
-  })
-})
-
-describe("the roadmap tables", () => {
-  it.each(["en-US", "pl-PL"] as const)(
-    "lists every question and option of the stack in %s with whether the templates generate it",
-    (locale) => {
-      const t = translator(locale)
-      renderTranslated(locale, <RepositoryTable columns={["Question", "Option", "Status"]} name="cliOptions" />)
-
-      expect(tableRows().slice(1)).toEqual(
-        STACK_CHOICES.flatMap((choice) => {
-          const supported: readonly string[] = CLI_TEMPLATE_SUPPORT.choices[choice.id]
-
-          return choice.options.map(({ id }) => [
-            t(`stack.${choice.id}.label`),
-            t(`stack.${choice.id}.options.${id}`),
-            t(`components.custom.pricing.status.${supported.includes(id) ? FEATURE_STATUS.AVAILABLE : FEATURE_STATUS.ARRIVING}`),
-          ])
-        }),
-      )
-    },
-  )
-
-  it("marks the options the templates do not generate as arriving, and the others as available", () => {
-    const t = translator("en-US")
-    renderTranslated("en-US", <RepositoryTable columns={["Question", "Option", "Status"]} name="cliOptions" />)
-
-    const rows = tableRows().slice(1)
-    expect(rows).toContainEqual([
-      t("stack.billing.label"),
-      t("stack.billing.options.polar"),
-      t("components.custom.pricing.status.arriving"),
-    ])
-    expect(rows).toContainEqual([
-      t("stack.billing.label"),
-      t("stack.billing.options.none"),
-      t("components.custom.pricing.status.available"),
-    ])
-  })
-
-  it("lists every extra with whether the templates generate it", () => {
-    const t = translator("en-US")
-    renderTranslated("en-US", <RepositoryTable columns={["Extra", "Status"]} name="cliExtras" />)
-
-    const extras: readonly string[] = CLI_TEMPLATE_SUPPORT.extras
-    expect(tableRows().slice(1)).toEqual(
-      STACK_EXTRAS.map(({ id }) => [
-        t(`stack.extras.options.${id}`),
-        t(`components.custom.pricing.status.${extras.includes(id) ? FEATURE_STATUS.AVAILABLE : FEATURE_STATUS.ARRIVING}`),
-      ]),
-    )
-  })
-
-  it.each(["en-US", "pl-PL"] as const)(
-    "lists every tier's features in %s, available first and then arriving, as its pricing card does",
-    (locale) => {
-      const t = translator(locale)
-      renderTranslated(locale, <RepositoryTable columns={["Tier", "Feature", "Status"]} name="tierFeatures" />)
-
-      const rows = tableRows().slice(1)
-      expect(rows).toHaveLength(Object.values(TIER_FEATURES).flat().length)
-      expect(rows.slice(0, TIER_FEATURES.core.length).map(([tier]) => tier)).toEqual(
-        TIER_FEATURES.core.map(() => t("components.custom.pricing.tiers.core.name")),
-      )
-      expect(rows).toContainEqual([
-        t("components.custom.pricing.tiers.agency.name"),
-        t("components.custom.pricing.tiers.agency.features.seats", COURSE_PLATFORM_VALUES),
-        t("components.custom.pricing.status.arriving"),
-      ])
-      expect(rows).toContainEqual([
-        t("components.custom.pricing.tiers.core.name"),
-        t("components.custom.pricing.tiers.core.features.tests", { coverageThreshold: REPOSITORY_FACTS.coverageThreshold }),
-        t("components.custom.pricing.status.available"),
-      ])
-      const available = t("components.custom.pricing.status.available")
-      const arriving = t("components.custom.pricing.status.arriving")
-      for (const tier of LICENSE_TIERS) {
-        const statuses = rows.filter(([name]) => name === t(`components.custom.pricing.tiers.${tier}.name`)).map((row) => row.at(-1))
-        expect(statuses).toEqual([
-          ...statuses.filter((status) => status === available),
-          ...statuses.filter((status) => status === arriving),
-        ])
-      }
-    },
-  )
 })
 
 describe("CLI template bundles", () => {

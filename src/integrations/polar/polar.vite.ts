@@ -1,4 +1,4 @@
-import type { VitePluginEntry } from "./vite.ts"
+import type { VitePluginEntry } from "../../data/vite.ts"
 
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 

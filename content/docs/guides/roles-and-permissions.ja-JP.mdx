@@ -1,39 +1,37 @@
 ---
 title: "ロールと権限"
-description: "エリアの権限ステートメントとロールへの付与をそのアクセスファイルで宣言し、ルートガードとサーバー関数でチェックします。"
+description: "Better Auth のアクセスファイルで権限ステートメントとロールへの付与を宣言し、ルートガードとサーバー関数でチェックします。"
 ---
 
-アクセス制御には Better Auth の admin プラグインを使います。各エリアは、自分のリソースの権限ステートメントと、それを付与するロールを `src/areas/<area>.access.ts` で宣言します。`src/areas/access.entries.ts` がエリアをまとめ、`src/integrations/better-auth/auth.access.ts` がそこから Better Auth のアクセス制御、ロール、権限チェックを組み立てるため、認証のインテグレーションはどのエリアも名指ししません。ロールコードは `src/integrations/better-auth/auth.roles.ts` にあります。
+アクセス制御には Better Auth の admin プラグインを使います。`src/integrations/better-auth/auth.access.ts` は、すべてのリソースの権限ステートメントを `APP_STATEMENTS` で宣言してロールに付与し、そこから Better Auth のアクセス制御と権限チェックを組み立てます。これらはすべて、人がレビューする 1 つのファイルにまとまっています。ロールコードは `src/integrations/better-auth/auth.roles.ts` にあります。
 
 ## ステートメントとロール
 
-```ts title="src/areas/auth.access.ts"
-const STATEMENTS = {
+```ts title="src/integrations/better-auth/auth.access.ts"
+export const APP_STATEMENTS = {
   admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
+  video: ["read", "delete"],
 } as const
 
-export const AUTH_ACCESS = {
-  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
-  statements: STATEMENTS,
-} as const satisfies AreaAccess
-```
-
-```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
 }
 ```
 
-- `src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` は、すべてのエリアのステートメントをリソース順にまとめ、2 つのエリアが同じリソースを宣言すると起動時に失敗します。`grantsOf(role)` は、すべてのエリアがそのロールに付与するものをまとめます。
-- 認証エリアは `admin` と `settings`、商品エリアは `category` と `product`、コースエリアは `course` と `video`、決済エリアは `order` を宣言します。
+- `APP_STATEMENTS` は、リソースごとに 1 つのステートメントをリソース順に並べます。管理画面とその設定には `admin` と `settings`、商品には `category` と `product`、コースには `course` と `video`、注文には `order` です。
 - Better Auth の `defaultStatements` は、`user` と `session` のリソースを追加します（`user: ["list", "set-role", "ban", "impersonate", "delete"]` や `session: ["list", "revoke"]` など）。
-- すべてのエリアは自分のステートメントをすべて `admin` に付与し、このロールには Better Auth の管理者ステートメントも付与されます。新規ユーザーのデフォルトロールである `customer` には、何も付与されません。
+- `admin` には、すべてのステートメントと Better Auth の管理者ステートメントが付与されます。新規ユーザーのデフォルトロールである `customer` には、何も付与されません。
+- プロジェクトが外す機能は、そのステートメントも一緒に持っていきます。`scripts/areas.ts` が `APP_STATEMENTS.course` のようにそれらを名指しし、刈り込みのルールがオブジェクトからそれらを削除します（[テスト](/docs/conventions/testing#tests-follow-the-areas)）。
 - `ROLE_VALUES` は、`user.role` カラムと `user.zod.ts` のロールのスキーマに型を与えます。
-- `authorized` と `hasPermission` が受け取る型 `Permission` は、エリアが宣言するステートメントから組み立てられます。そのため、どのエリアも宣言していないステートメントやアクションはコンパイルを通りません。
+- `authorized` と `hasPermission` が受け取る型 `Permission` は `APP_STATEMENTS` から組み立てられます。そのため、そこで宣言されていないステートメントやアクションはコンパイルを通りません。
 
 ## 権限をチェックする場所
 
@@ -48,15 +46,15 @@ export const ROLES = {
 
 ## 権限を追加する
 
-1. リソースを所有するエリアのステートメントにアクションを追加します。例えば `src/areas/analytics.access.ts` の `report: ["read", "export"]` です。新しいエリアは、自分のファイルと、`src/areas/access.entries.ts` への 1 行を追加します。
-2. 同じファイルの `grants` で付与します。エリアは `STATEMENTS` 全体を `ROLE_CODES.ADMIN` に付与し、それより少ない権限にとどめるロールにはその一部を付与します。
+1. `APP_STATEMENTS` にあるリソースのステートメントにアクションを追加するか、リソースを並び順どおりの位置に追加します。例えば `report: ["read", "export"]` です。外せる機能は、新しいリソースを `scripts/areas.ts` の自分の `names` に `APP_STATEMENTS.report` のように記載します。
+2. `ROLES` で付与します。`admin` は `APP_STATEMENTS` 全体を受け取り、それより少ない権限にとどめるロールにはその一部を付与します。
 3. サーバー関数でその権限を要求します：`.middleware([authorized({ report: ["export"] })])`。
-4. 許可されるケースと `FORBIDDEN` のケースの両方を、エリアの `src/areas/__test__/<area>.access.test.ts` とユースケースのテストでテストします。
+4. 許可されるケースと `FORBIDDEN` のケースの両方を、`src/integrations/better-auth/__test__/auth.access.<area>.test.ts` とユースケースのテストでテストします。
 
 ## ロールを追加する
 
 1. `auth.roles.ts` の `ROLE_CODES` と `ROLE_VALUES` にコードを追加します。
-2. `auth.access.ts` の `ROLES` にロールを追加し、そのロールが使えるエリアの `grants` でステートメントを付与します。
+2. `auth.access.ts` の `ROLES` に、そのロールが使えるステートメントと一緒にロールを追加します。
 3. すべてのロケールの `messages/<locale>/pages.admin.users.json` にある `filters.role.options` に、ロールのラベルを追加します。
 
 認証クライアント（`auth.client.ts`）は `ac` と `ROLES` を受け取るため、ブラウザでの管理操作も同じ定義を使います。

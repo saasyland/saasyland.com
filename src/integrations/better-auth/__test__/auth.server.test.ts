@@ -10,8 +10,6 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { ENVIRONMENT, IP_ADDRESS_HEADER, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
-
 import { SECONDS_PER_HOUR } from "~/src/lib/duration"
 
 import { APP_SLUG } from "~/src/presentation/branding"
@@ -48,7 +46,7 @@ describe("Cloudflare auth configuration", () => {
       customRules: {
         [ROUTES.API_AUTH.GET_SESSION]: false,
         [ROUTES.API_AUTH.SIGN_OUT]: false,
-        ...Object.fromEntries(RATE_LIMIT_EXEMPT_AUTH_PATHS.map((path) => [path, false])),
+        [ROUTES.API_AUTH_POLAR.WEBHOOKS]: false,
       },
       enabled: true,
     })
@@ -101,6 +99,20 @@ describe("Cloudflare auth configuration", () => {
   })
   it("hashes verification identifiers in D1", () => {
     expect(auth.options.verification).toEqual({ storeIdentifier: "hashed" })
+  })
+  it("runs every plugin in the order Better Auth applies them", () => {
+    expect(auth.options.plugins.map(({ id }) => id)).toStrictEqual([
+      "admin",
+      "two-factor",
+      "last-login-method",
+      "invitation",
+      "have-i-been-pwned",
+      "password-change-notice",
+      "license-retention",
+      "polar",
+      "polar-verified-customer",
+      "tanstack-start-cookies",
+    ])
   })
   it("keeps TanStack Start cookies last and runs without multi-session or telemetry", () => {
     expect(auth.options.plugins.at(-1)?.id).toBe("tanstack-start-cookies")

@@ -22,7 +22,11 @@ const EXTRA_COURSES = 4
 const EXTRA_LESSONS = 4
 const FIRST_EXTRA_POSITION = 4
 
-vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => {
+  const { withTestCourseAccess } = await import("~/src/modules/course/__test__/fixtures/course-access")
+
+  return withTestCourseAccess(importOriginal)
+})
 
 const signIn = (userId: string): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId }))

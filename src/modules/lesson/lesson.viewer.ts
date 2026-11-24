@@ -5,11 +5,9 @@ import { getRequest } from "@tanstack/react-start/server"
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { getRequestSession } from "~/src/integrations/better-auth/auth.session"
 
-import { GUEST, type Viewer } from "~/src/modules/lesson/lesson.access"
+import { GUEST, type Viewer, holdsCourseAccess, recordCourseAccessUse } from "~/src/modules/lesson/lesson.access"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
-
-import { holdsCourseAccess, recordCourseAccessUse } from "~/src/data/course-access"
 
 export const resolveViewer = async (): Promise<Viewer> => {
   const session = await getRequestSession(getRequest())

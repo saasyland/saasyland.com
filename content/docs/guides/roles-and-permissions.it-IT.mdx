@@ -1,39 +1,37 @@
 ---
 title: "Ruoli e permessi"
-description: "Definisci le dichiarazioni di permesso di un'area e i ruoli a cui le concede nel suo file di accesso e controllale nelle guardie delle route e nelle funzioni server."
+description: "Definisci le dichiarazioni di permesso e i ruoli a cui sono concesse nel file di accesso di Better Auth e controllale nelle guardie delle route e nelle funzioni server."
 ---
 
-Il controllo degli accessi usa il plugin admin di Better Auth. Ogni area definisce le dichiarazioni di permesso delle sue risorse e i ruoli a cui le concede in `src/areas/<area>.access.ts`. `src/areas/access.entries.ts` riunisce le aree, e `src/integrations/better-auth/auth.access.ts` costruisce da esse il controllo degli accessi di Better Auth, i ruoli e la verifica dei permessi, quindi l'integrazione di autenticazione non nomina alcuna area. I codici dei ruoli si trovano in `src/integrations/better-auth/auth.roles.ts`.
+Il controllo degli accessi usa il plugin admin di Better Auth. `src/integrations/better-auth/auth.access.ts` definisce in `APP_STATEMENTS` le dichiarazioni di permesso di ogni risorsa, le concede ai ruoli e ne costruisce il controllo degli accessi di Better Auth e la verifica dei permessi, in un unico file che una persona revisiona. I codici dei ruoli si trovano in `src/integrations/better-auth/auth.roles.ts`.
 
 ## Permessi e ruoli
 
-```ts title="src/areas/auth.access.ts"
-const STATEMENTS = {
+```ts title="src/integrations/better-auth/auth.access.ts"
+export const APP_STATEMENTS = {
   admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
+  video: ["read", "delete"],
 } as const
 
-export const AUTH_ACCESS = {
-  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
-  statements: STATEMENTS,
-} as const satisfies AreaAccess
-```
-
-```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
 }
 ```
 
-- `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` riunisce le dichiarazioni di tutte le aree, ordinate per risorsa, e fallisce all'avvio quando due aree dichiarano la stessa risorsa. `grantsOf(role)` riunisce ciò che ogni area concede a quel ruolo.
-- L'area di autenticazione dichiara `admin` e `settings`, l'area dei prodotti `category` e `product`, l'area dei corsi `course` e `video` e l'area dei pagamenti `order`.
+- `APP_STATEMENTS` elenca una dichiarazione per risorsa, ordinate per risorsa: `admin` e `settings` per la console di amministrazione e le sue impostazioni, `category` e `product` per i prodotti, `course` e `video` per i corsi e `order` per gli ordini.
 - I `defaultStatements` di Better Auth aggiungono le risorse `user` e `session` (ad esempio `user: ["list", "set-role", "ban", "impersonate", "delete"]` e `session: ["list", "revoke"]`).
-- Ogni area concede tutte le sue dichiarazioni ad `admin`, che riceve anche le dichiarazioni di amministrazione di Better Auth; a `customer`, il ruolo predefinito dei nuovi utenti, non ne viene concessa nessuna.
+- `admin` riceve ogni dichiarazione e anche le dichiarazioni di amministrazione di Better Auth; a `customer`, il ruolo predefinito dei nuovi utenti, non ne viene concessa nessuna.
+- Una funzionalità che un progetto esclude porta con sé le proprie dichiarazioni: `scripts/areas.ts` le nomina, come `APP_STATEMENTS.course`, e la regola di potatura le elimina dall'oggetto ([Test](/docs/conventions/testing#tests-follow-the-areas)).
 - `ROLE_VALUES` tipizza la colonna `user.role` e gli schemi di ruolo in `user.zod.ts`.
-- `Permission`, il tipo che accettano `authorized` e `hasPermission`, è costruito dalle dichiarazioni delle aree, quindi una dichiarazione o un'azione che nessuna area dichiara non compila.
+- `Permission`, il tipo che accettano `authorized` e `hasPermission`, è costruito da `APP_STATEMENTS`, quindi una dichiarazione o un'azione che non vi compare non compila.
 
 ## Dove vengono controllati i permessi
 
@@ -48,15 +46,15 @@ La guardia della route decide solo quali pagine vengono mostrate. Le funzioni se
 
 ## Aggiungi un permesso
 
-1. Aggiungi l'azione alle dichiarazioni dell'area che possiede la risorsa, ad esempio `report: ["read", "export"]` in `src/areas/analytics.access.ts`. Una nuova area aggiunge il suo file e una riga a `src/areas/access.entries.ts`.
-2. Concedila nei `grants` dello stesso file: le aree concedono tutti i loro `STATEMENTS` a `ROLE_CODES.ADMIN`, e a un ruolo che deve ricevere meno se ne concede un sottoinsieme.
+1. Aggiungi l'azione alla dichiarazione della risorsa in `APP_STATEMENTS`, oppure aggiungi la risorsa al suo posto nell'ordine, ad esempio `report: ["read", "export"]`. Una funzionalità che si può escludere nomina una nuova risorsa nei propri `names` in `scripts/areas.ts`, come `APP_STATEMENTS.report`.
+2. Concedila in `ROLES`: `admin` riceve tutto `APP_STATEMENTS`, e a un ruolo che deve ricevere meno se ne concede un sottoinsieme.
 3. Richiedila nella funzione server: `.middleware([authorized({ report: ["export"] })])`.
-4. Testa sia il caso consentito sia il caso `FORBIDDEN`, nel file `src/areas/__test__/<area>.access.test.ts` dell'area e nei test del caso d'uso.
+4. Testa sia il caso consentito sia il caso `FORBIDDEN`, in `src/integrations/better-auth/__test__/auth.access.<area>.test.ts` e nei test del caso d'uso.
 
 ## Aggiungi un ruolo
 
 1. Aggiungi il codice a `ROLE_CODES` e `ROLE_VALUES` in `auth.roles.ts`.
-2. Aggiungilo a `ROLES` in `auth.access.ts` e concedigli dichiarazioni nei `grants` delle aree che può usare.
+2. Aggiungilo a `ROLES` in `auth.access.ts` con le dichiarazioni che può usare.
 3. Aggiungi l'etichetta del ruolo a `filters.role.options` in `messages/<locale>/pages.admin.users.json` in tutte le lingue.
 
 Il client di autenticazione (`auth.client.ts`) riceve `ac` e `ROLES`, quindi le azioni di amministrazione nel browser usano le stesse definizioni.

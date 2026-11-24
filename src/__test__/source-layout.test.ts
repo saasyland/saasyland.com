@@ -1,7 +1,9 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
 import { analyzeModule } from "~/scripts/module-bindings"
+
+const AREAS_FOLDER = "src/areas"
 
 const ROUTES_FILE = "src/routes.ts"
 
@@ -29,5 +31,9 @@ describe("the source layout", () => {
 
   it(`lets ${NAVIGATION_FILE} import only what the Remotion project can load`, () => {
     expect(importsOf(NAVIGATION_FILE).filter((source) => !NAVIGATION_IMPORTS.has(source))).toStrictEqual([])
+  })
+
+  it(`has no ${AREAS_FOLDER}, because each list lives in the file that renders or runs it`, () => {
+    expect(existsSync(AREAS_FOLDER)).toBe(false)
   })
 })

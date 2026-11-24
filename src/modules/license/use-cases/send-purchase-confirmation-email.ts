@@ -13,11 +13,11 @@ import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
+import { holdsCourseAccess } from "~/src/modules/lesson/lesson.access"
 import { LICENSE_CHECKOUT_METADATA, LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
 import { refundDeadline } from "~/src/modules/license/license.refunds"
 import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
-import { holdsCourseAccess } from "~/src/data/course-access"
 import { fromMinorUnits } from "~/src/data/currencies"
 
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"

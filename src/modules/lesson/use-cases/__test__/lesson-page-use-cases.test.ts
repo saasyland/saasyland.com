@@ -37,7 +37,11 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
-vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => {
+  const { withTestCourseAccess } = await import("~/src/modules/course/__test__/fixtures/course-access")
+
+  return withTestCourseAccess(importOriginal)
+})
 
 const COURSE_SLUG = "the-walkthrough"
 const FILE_CONTENT = "%PDF-1.7"

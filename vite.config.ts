@@ -73,8 +73,6 @@ const tooling = {
         },
         {
           elementNamePattern: [
-            "~/src/areas",
-            "~/src/areas/**",
             "~/src/constants",
             "~/src/constants/**",
             "~/src/data",

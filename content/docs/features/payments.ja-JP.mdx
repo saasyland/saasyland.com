@@ -1,21 +1,16 @@
 ---
 title: "決済"
-description: "Polar のエリア。Better Auth の Polar プラグイン、カスタマーポータル、各エリアに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
+description: "Better Auth の Polar プラグイン、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
 ---
 
-決済は、Polar のエリアが `src/data/polar.auth-plugins.ts` で Better Auth に追加する `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
+決済は `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。このプラグインは、`src/integrations/better-auth/auth.server.ts` の `plugins` に、直後に続く専用のプラグインと一緒に並んでいます。
 
-```ts title="src/data/polar.auth-plugins.ts"
-export const POLAR_AUTH_PLUGINS = [
-  {
-    plugin: polar({
+```ts title="src/integrations/better-auth/auth.server.ts"
+    polar({
       client: polarCore,
       use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],
     }),
-    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
-  },
-  {
-    plugin: {
+    {
       hooks: {
         before: [
           {
@@ -26,41 +21,38 @@ export const POLAR_AUTH_PLUGINS = [
       },
       id: "polar-verified-customer",
     },
-    rateLimitExemptPaths: [],
-  },
-] as const satisfies readonly AuthPluginEntry[]
 ```
 
-プラグインはカスタマーポータルと Webhook を追加し、Webhook は Better Auth のレート制限の対象外です。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/data/__test__/polar.auth-plugins.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。販売を行うエリアは、独自のチェックを行った後、Polar SDK で購入セッションを作成します。ライセンスのエリアの `startCheckout` がその例です（[ライセンス](/docs/features/licences)を参照）。
+プラグインはカスタマーポータルと Webhook を追加し、Webhook は `rateLimit.customRules` の `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` によって Better Auth のレート制限の対象外になります。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。販売を行う機能は、独自のチェックを行った後、Polar SDK で購入セッションを作成します。ライセンスの `startCheckout` がその例です（[ライセンス](/docs/features/licences)を参照）。
 
-2 つ目のエントリー `polar-verified-customer` は独立したプラグインで、`/customer/` 以下のすべてのエンドポイントの前に `requireVerifiedEmail`（`auth.hooks.ts`）を実行します。そのため、アカウントのアドレスが確認されるまで、カスタマーポータルは `403 EMAIL_NOT_VERIFIED` を返します（[メール確認](/docs/features/email-verification)）。
+2 つ目の要素 `polar-verified-customer` は独立したプラグインで、`/customer/` 以下のすべてのエンドポイントの前に `requireVerifiedEmail`（`auth.hooks.ts`）を実行します。そのため、アカウントのアドレスが確認されるまで、カスタマーポータルは `403 EMAIL_NOT_VERIFIED` を返します（[メール確認](/docs/features/email-verification)）。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のエリアのパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/areas/polar.shared.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## Webhook [#webhooks]
 
-Polar は `/api/auth/polar/webhooks` にイベントを送信します。プラグインは `POLAR_WEBHOOK_SECRET` で署名を検証し、各イベントを `src/data/polar-events.ts` の `handlePolarEvent` に渡します。Polar のイベントに反応するエリアは、`src/data/<area>.polar-events.ts` でリストを宣言し、それを `src/data/polar-events.entries.ts` に追加します。各エントリーは、処理するイベントと、それを処理する関数を指定します。
+Polar は `/api/auth/polar/webhooks` にイベントを送信します。プラグインは `POLAR_WEBHOOK_SECRET` で署名を検証し、各イベントを `src/integrations/polar/polar.webhooks.ts` の `handlePolarEvent` に渡します。同じファイルの `POLAR_EVENT_HANDLERS` は各イベントが届くコードを列挙し、各要素は、処理するイベントと、それを処理する関数を指定します。
 
-```ts
+```ts title="src/integrations/polar/polar.webhooks.ts"
 export interface PolarEventHandler {
   readonly events: readonly models.WebhookEventType[]
   readonly handle: (event: webhooks.WebhookPayload) => Promise<void>
 }
 ```
 
-- `handlePolarEvent` は、そのイベントの種類を列挙しているすべてのエントリーの `handle` を同時に実行し、すべての完了を待ちます。
-- いずれかが失敗しても、`handlePolarEvent` は他のハンドラーの完了を待ち、どの領域も書き込みの途中で止まらないようにしてから、すべての失敗をまとめた `AggregateError` で reject します。プラグインは 500 を返し、Polar は後でイベントを再送します。そのため、各ハンドラーは同じイベントで 2 回実行されても安全でなければなりません。Polar は失敗し続けるエンドポイントを無効にし、`polar:verify` は無効になったエンドポイントを報告します。
-- どのエントリーにも列挙されていないイベントは受領され、どこにも渡されません。
-- `POLAR_EVENTS` は、すべてのエントリーのイベントを重複なく並べ替えてまとめたものです。Polar の Webhook エンドポイントはこれらのイベントだけを過不足なく送信する必要があり、`polar:verify` が両者を比較します。
-- Polar のエリアは `src/data/polar.polar-events.ts` で空のリストを追加するため、バレルが空になることはありません。請求のエリアは `src/data/billing.polar-events.ts` で注文とサブスクリプションを D1 にコピーし（[コピーの書き込み](#writing-the-copies)を参照）、ライセンスのエリアは `src/data/license.polar-events.ts` でライセンスを付与し、取り消します（[ライセンス](/docs/features/licences#webhooks-and-licences)を参照）。
+- `handlePolarEvent` は、そのイベントの種類を列挙しているすべての要素の `handle` を同時に実行し、すべての完了を待ちます。
+- いずれかが失敗しても、`handlePolarEvent` は他のハンドラーの完了を待ち、どのハンドラーも書き込みの途中で止まらないようにしてから、すべての失敗をまとめた `AggregateError` で reject します。プラグインは 500 を返し、Polar は後でイベントを再送します。そのため、各ハンドラーは同じイベントで 2 回実行されても安全でなければなりません。Polar は失敗し続けるエンドポイントを無効にし、`polar:verify` は無効になったエンドポイントを報告します。
+- どの要素にも列挙されていないイベントは受領され、どこにも渡されません。
+- `POLAR_EVENTS` は、すべての要素のイベントを重複なく並べ替えてまとめたものです。Polar の Webhook エンドポイントはこれらのイベントだけを過不足なく送信する必要があり、`polar:verify` が両者を比較します。
+- 最初の 2 つの要素は、`ORDER_WEBHOOK_EVENTS`（`order.constants.ts`）と `SUBSCRIPTION_WEBHOOK_EVENTS`（`subscription.constants.ts`）のイベントで注文とサブスクリプションを D1 にコピーし（[コピーの書き込み](#writing-the-copies)を参照）、3 つ目は `LICENSE_WEBHOOK_EVENTS` のイベントでライセンスを付与し、取り消します（[ライセンス](/docs/features/licences#webhooks-and-licences)を参照）。ライセンスや注文のコピーがないプロジェクトでは、それらのファイルを指す要素が外れます。
 
-`polar:verify` は Worker の外の Bun で実行され、`POLAR_EVENTS` を読み取ります。そのため、`src/data/polar-events.ts` とすべての `<area>.polar-events.ts` はサーバーのコードを何もインポートしません。エリアの `handle` は、イベントが届いたときにハンドラーを読み込みます。
+`polar:verify` は Worker の外の Bun で実行され、`POLAR_EVENTS` を読み取ります。そのため、`polar.webhooks.ts` は定数だけをインポートします。ハンドラーは、イベントが届いたときに自分のコードを読み込みます。
 
-```ts
+```ts title="src/integrations/polar/polar.webhooks.ts"
 const { licenseWebhookHandlers } = await import("~/src/modules/license/license.webhooks")
 ```
 
-`src/data/__test__/polar-events.test.ts` は Bun で `src/data/polar-events.ts` をインポートし、そのインポートが Worker のランタイムに到達すると失敗します。
+`src/integrations/polar/__test__/polar.webhooks.test.ts` は Bun で `polar.webhooks.ts` をインポートし、そのインポートが Worker のランタイムに到達すると失敗します。
 
 ## D1 の注文とサブスクリプション [#orders-and-subscriptions-in-d1]
 
@@ -81,7 +73,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 
 ### コピーの書き込み [#writing-the-copies]
 
-`src/data/billing.polar-events.ts` は Polar のイベントに 2 つのエントリーを追加し（[Webhook](#webhooks)を参照）、各エントリーはイベントが届いたときに自分のユースケースを読み込みます。
+`POLAR_EVENT_HANDLERS` の最初の 2 つの要素（[Webhook](#webhooks)を参照）は、それぞれイベントが届いたときに自分のユースケースを読み込みます。
 
 | イベント                                                         | ユースケース                                                                        |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -91,7 +83,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 - 各ユースケースは Polar のレコード（`models.Order` または `models.Subscription`）を受け取り、1 つの文で書き込みます。Polar の ID で行を挿入し、行がすでにある場合は、保存されている `changed_at` がレコードのものより後でないときだけ更新します。新しいバージョンは反映され、遅れて届いた古いバージョンは何も変えず、2 回届いた同じバージョンは同じ値で書き直されます。同じ `modified_at` を持つ 2 つの異なる状態では、最後に書き込まれたほうが、Polar がレコードを再び変更するまで残ります。
 - `recordOrder` は割引と請求先の国を `polarOrderTerms`（`src/modules/order/order.polar.ts`）から取得し、`scripts/backfill-order-terms.ts` も同じものを使います。請求先住所のない後のバージョンは、すでにコピーされた国を保ちます。
 - 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は販売するエリアがチェックアウト時に設定します。ライセンスのエリアの `startCheckout` もそうしています。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
-- ライセンスのエリアも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のエリアを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
+- ライセンスも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のハンドラーを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
 - 管理ダッシュボードは注文のコピーを読み取り、ライセンスのない支払い済みのライセンス注文を一覧表示し（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）、売上を集計します（[ダッシュボードの売上](#revenue-on-the-dashboard)を参照）。サブスクリプションのコピーを読み取るページはまだありません。
 
 ## カスタマーポータル
@@ -100,7 +92,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 
 ## ダッシュボードの売上 [#revenue-on-the-dashboard]
 
-決済のエリアは `order` の権限定義（`read`、`update`、`refund`）を `src/areas/payments.access.ts` で宣言し、`DASHBOARD_PANELS`（`custom/admin/dashboard/panels.tsx`）の項目としてダッシュボードに **売上** パネルを追加します。そのクエリである `src/modules/order/use-cases/get-revenue.ts` の `getRevenue` は `order: ["read"]` をチェックし、期間内の支払い済みの注文のコピーを、返金を差し引いて通貨ごとに集計します。何を数えるかは[管理ダッシュボード](/docs/features/admin-dashboard#revenue)で説明しています。ライセンスのエリアの `get-unlicensed-orders` も `order: ["read"]` をチェックします。コピーを読む管理画面は[注文と顧客](/docs/features/orders)で説明しています。注文を更新したり返金したりするユースケースはまだなく、返金と出金は Polar で行います。
+`order` の権限ステートメント（`read`、`update`、`refund`）は `APP_STATEMENTS`（`src/integrations/better-auth/auth.access.ts`）にあり、決済のエリアは `DASHBOARD_PANELS`（`custom/admin/dashboard/panels.tsx`）の項目としてダッシュボードに **売上** パネルを追加します。そのクエリである `src/modules/order/use-cases/get-revenue.ts` の `getRevenue` は `order: ["read"]` をチェックし、期間内の支払い済みの注文のコピーを、返金を差し引いて通貨ごとに集計します。何を数えるかは[管理ダッシュボード](/docs/features/admin-dashboard#revenue)で説明しています。ライセンスのエリアの `get-unlicensed-orders` も `order: ["read"]` をチェックします。コピーを読む管理画面は[注文と顧客](/docs/features/orders)で説明しています。注文を更新したり返金したりするユースケースはまだなく、返金と出金は Polar で行います。
 
 ## 関連ページ
 

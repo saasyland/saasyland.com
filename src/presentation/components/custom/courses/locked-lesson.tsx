@@ -8,6 +8,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { refreshUserData } from "~/src/integrations/better-auth/auth.session"
 
 import type { Course } from "~/src/modules/course/course.types"
+import { COURSE_ACCESS_GRANTS } from "~/src/modules/lesson/lesson.access"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import { sendVerificationEmailMutation } from "~/src/modules/verification/use-cases/send-verification-email"
 
@@ -16,7 +17,6 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useEmailLinkResend } from "~/src/hooks/use-email-link-resend"
 import { useEmailVerification } from "~/src/hooks/use-email-verification"
 
-import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 import { CTA_CLASSES } from "~/src/data/cta"
 import { CURRENCY_FORMAT } from "~/src/data/pricing"
 

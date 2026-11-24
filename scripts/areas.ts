@@ -26,9 +26,11 @@ export interface AreaFootprint {
   readonly requires: readonly Area[]
 }
 
-const areaData = (area: Area): string => `{src/areas,src/data,e2e/data}/**/${area}.*`
+const areaData = (area: Area): string => `{src/data,e2e/data}/**/${area}.*`
 
 const areaMessages = (area: Area): string => `messages/*/*.${area}.json`
+
+const ACCESS_FILE = "src/integrations/better-auth/auth.access.ts"
 
 const ROUTES_FILE = "src/routes.ts"
 
@@ -52,10 +54,8 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     files: [
       areaData(AREA.AUTH),
       areaMessages(AREA.AUTH),
-      "src/areas/access.entries.ts",
-      "src/data/auth-plugins.{ts,entries.ts}",
       "src/data/{admin,email-domains}.ts",
-      "src/data/__test__/{admin,auth-plugins}.test.ts",
+      "src/data/__test__/admin.test.ts",
       "src/integrations/better-auth/**",
       "src/modules/{account,session,two-factor,user,verification}/**",
       "src/routes/{admin,app,auth}.tsx",
@@ -112,7 +112,12 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     requires: [],
   },
   [AREA.BILLING]: {
-    files: [areaData(AREA.BILLING), "src/modules/{order,subscription}/**"],
+    files: [
+      areaData(AREA.BILLING),
+      "src/modules/{order,subscription}/**",
+      "src/integrations/better-auth/__test__/auth.access.billing.test.ts",
+    ],
+    names: { [ACCESS_FILE]: ["APP_STATEMENTS.order"] },
     requires: [AREA.POLAR],
   },
   [AREA.CONTENT]: {
@@ -151,8 +156,8 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     files: [
       areaData(AREA.COURSES),
       areaMessages(AREA.COURSES),
-      "src/data/{admin-courses,course-access,course-access.entries,course-badges,course-icons}.ts",
-      "src/data/__test__/{course-access,course-platform-access}.test.ts",
+      "src/data/{admin-courses,course-badges,course-icons}.ts",
+      "src/data/__test__/course-platform-access.test.ts",
       "src/modules/{chapter,course,lesson,lesson-attachment,lesson-progress,video,video-upload}/**",
       "src/routes/_site._marketing.courses.tsx",
       "src/routes/_site._marketing.courses.*.tsx",
@@ -166,6 +171,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/admin/courses-pending.tsx",
       "src/presentation/components/custom/admin/__test__/{course-cover,course-progress,course-transfer,courses-pending,curriculum-editor,lesson-dialog,lesson-video}.component.test.tsx",
       "src/presentation/components/custom/admin/__test__/courses.fixtures.ts",
+      "src/integrations/better-auth/__test__/auth.access.courses.test.ts",
       "src/presentation/components/custom/app/course-unlocks.tsx",
       "src/presentation/components/custom/app/__test__/course-unlocks.component.test.tsx",
       "src/presentation/components/custom/video-player.tsx",
@@ -182,7 +188,10 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/pages.admin.courses.*.json",
       "messages/*/components.custom.{course-facts,course-progress-badge,course-unlocks,lesson-meta}.json",
     ],
-    names: { [ROUTES_FILE]: ["ADMIN_COURSES", "ADMIN_COURSES_CREATE", "COURSES"] },
+    names: {
+      [ACCESS_FILE]: ["APP_STATEMENTS.course", "APP_STATEMENTS.video"],
+      [ROUTES_FILE]: ["ADMIN_COURSES", "ADMIN_COURSES_CREATE", "COURSES"],
+    },
     requires: [AREA.AUTH],
   },
   [AREA.LEGAL]: {
@@ -206,6 +215,9 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       areaData(AREA.LICENSE),
       areaMessages(AREA.LICENSE),
       "src/modules/{license,withdrawal}/**",
+      "src/modules/lesson/__test__/lesson.access.license.{test.ts,component.test.tsx}",
+      "src/integrations/better-auth/__test__/auth.server.license.integration.test.ts",
+      "src/integrations/polar/__test__/polar.webhooks.license.test.ts",
       "src/routes/app.license.tsx",
       "src/routes/_site._marketing.withdrawal.tsx",
       "src/routes/api/cli.v1.*.ts",
@@ -279,9 +291,8 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
   [AREA.POLAR]: {
     files: [
       areaData(AREA.POLAR),
-      "src/data/{polar-events,polar-events.entries}.ts",
-      "src/data/__test__/polar-events.test.ts",
       "src/integrations/polar/**",
+      "src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts",
       "src/integrations/drizzle-orm/__test__/polar.rows.ts",
       "src/types/polar.d.ts",
       "src/platform/testing/lib/polar.ts",
@@ -298,6 +309,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       areaMessages(AREA.PRODUCTS),
       "src/data/admin-products.ts",
       "src/modules/{category,product}/**",
+      "src/integrations/better-auth/__test__/auth.access.products.test.ts",
       "src/routes/admin.products.*.tsx",
       "src/routes/__test__/admin-products-*",
       "src/presentation/components/custom/admin/products/**",
@@ -308,7 +320,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "e2e/specs/admin-products.spec.ts",
       "messages/*/{category.errors,product.errors}.json",
     ],
-    names: { [ROUTES_FILE]: ["ADMIN_PRODUCTS"] },
+    names: { [ACCESS_FILE]: ["APP_STATEMENTS.category", "APP_STATEMENTS.product"], [ROUTES_FILE]: ["ADMIN_PRODUCTS"] },
     requires: [AREA.AUTH, AREA.POLAR],
   },
   [AREA.REPOSITORY_FACTS]: {

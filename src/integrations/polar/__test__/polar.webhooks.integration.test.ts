@@ -1,10 +1,12 @@
 import { env } from "cloudflare:workers"
 
+import type { models } from "@polar-sh/sdk/2026-10"
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { signedPolarWebhook } from "~/src/platform/testing/lib/polar"
+import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+import { type PolarProduct, polarCustomer, polarOrder, polarSubscription, signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { executeQuery } from "~/src/platform/testing/lib/query"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import {
@@ -19,7 +21,12 @@ import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 import { promoteToAdmin, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_ORDER_STATUS,
+  POLAR_RECURRING_INTERVAL,
+  POLAR_SUBSCRIPTION_STATUS,
+  POLAR_WEBHOOK_EVENT,
+} from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { LICENSE_EMAIL_PURPOSE, LICENSE_STATUS, LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
@@ -28,6 +35,9 @@ import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlicensed-orders"
 import { order } from "~/src/modules/order/order.schema"
 import { recordOrder } from "~/src/modules/order/use-cases/record-order"
+import { subscription } from "~/src/modules/subscription/subscription.schema"
+
+import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
@@ -38,6 +48,30 @@ vi.mock(import("~/src/modules/order/use-cases/record-order"), async (importOrigi
 })
 
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
+
+const ONE_TIME = {
+  id: "product-one-time",
+  name: "One-time product",
+  price: { amount: 9900, currency: DEFAULT_CURRENCY_CODE },
+  recurringInterval: JSON_NULL,
+} as const satisfies PolarProduct
+
+const MONTHLY = {
+  id: "product-monthly",
+  name: "Monthly plan",
+  price: { amount: 1900, currency: DEFAULT_CURRENCY_CODE },
+  recurringInterval: POLAR_RECURRING_INTERVAL.MONTH,
+} as const satisfies PolarProduct
+
+const CHANGE_DELAY_MS = 60_000
+
+const deliver = async (type: models.WebhookEventType, data: models.Order | models.Subscription): Promise<number> => {
+  const { body, headers } = signedPolarWebhook({ data, secret: env.POLAR_WEBHOOK_SECRET, type })
+  const response = await auth.handler(new Request(WEBHOOKS_URL, { body, headers, method: "POST" }))
+  return response.status
+}
+
+const changedLater = (createdAt: string): string => new Date(Date.parse(createdAt) + CHANGE_DELAY_MS).toISOString()
 
 const post = async ({ body, headers }: ReturnType<typeof signedPolarWebhook>): Promise<number> => {
   const response = await auth.handler(new Request(WEBHOOKS_URL, { body, headers, method: "POST" }))
@@ -70,7 +104,51 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("one paid licence order for the licence and the billing area", () => {
+describe("the copies of Polar's orders and subscriptions, through Polar's webhook endpoint", () => {
+  it("copies an order that Polar creates for an account and updates the copy when Polar changes the order", async () => {
+    const buyer = await signUpAndVerify()
+    const placed = polarOrder({
+      checkoutId: JSON_NULL,
+      customer: polarCustomer(env.POLAR_ORGANIZATION_ID, buyer.userId),
+      metadata: {},
+      product: ONE_TIME,
+      status: POLAR_ORDER_STATUS.PENDING,
+    })
+
+    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_CREATED, placed)).toBe(HTTP_STATUS.OK)
+    await expect(db.select().from(order).where(eq(order.id, placed.id))).resolves.toMatchObject([
+      { productId: ONE_TIME.id, status: POLAR_ORDER_STATUS.PENDING, userId: buyer.userId },
+    ])
+
+    const voided = { ...placed, modified_at: changedLater(placed.created_at), status: POLAR_ORDER_STATUS.VOID }
+    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_UPDATED, voided)).toBe(HTTP_STATUS.OK)
+    await expect(db.select().from(order).where(eq(order.id, placed.id))).resolves.toMatchObject([
+      { status: POLAR_ORDER_STATUS.VOID, userId: buyer.userId },
+    ])
+  })
+
+  it("copies a subscription that Polar creates for an account and updates the copy when Polar changes the subscription", async () => {
+    const subscriber = await signUpAndVerify()
+    const started = polarSubscription({
+      customer: polarCustomer(env.POLAR_ORGANIZATION_ID, subscriber.userId),
+      product: MONTHLY,
+      status: POLAR_SUBSCRIPTION_STATUS.ACTIVE,
+    })
+
+    expect(await deliver(POLAR_WEBHOOK_EVENT.SUBSCRIPTION_CREATED, started)).toBe(HTTP_STATUS.OK)
+    await expect(db.select().from(subscription).where(eq(subscription.id, started.id))).resolves.toMatchObject([
+      { cancelAtPeriodEnd: false, productName: MONTHLY.name, status: POLAR_SUBSCRIPTION_STATUS.ACTIVE, userId: subscriber.userId },
+    ])
+
+    const canceled = { ...started, cancel_at_period_end: true, modified_at: changedLater(started.created_at) }
+    expect(await deliver(POLAR_WEBHOOK_EVENT.SUBSCRIPTION_UPDATED, canceled)).toBe(HTTP_STATUS.OK)
+    await expect(db.select().from(subscription).where(eq(subscription.id, started.id))).resolves.toMatchObject([
+      { cancelAtPeriodEnd: true, status: POLAR_SUBSCRIPTION_STATUS.ACTIVE, userId: subscriber.userId },
+    ])
+  })
+})
+
+describe("one paid licence order for the licence and the copy of the order", () => {
   it("grants the licence and copies the order from a single order.paid", async () => {
     const { buyer, delivery, paid } = await paidLicenseOrder()
 

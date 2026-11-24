@@ -17,14 +17,13 @@ import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
+import { COURSE_ACCESS_GRANTS } from "~/src/modules/lesson/lesson.access"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { user } from "~/src/modules/user/user.schema"
 
-import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
-import { LICENSE_COURSE_ACCESS } from "~/src/data/license.course-access"
 import { TIER_PRICES } from "~/src/data/marketing"
 
 import * as ROUTES from "~/src/routes"
@@ -95,7 +94,7 @@ const firstLessons = async () => {
   return rows.filter(({ at }) => at !== null).toSorted((left, right) => left.userId.localeCompare(right.userId))
 }
 
-beforeEach(async () => {
+const seedLicences = async (): Promise<void> => {
   await seedCatalogue()
   await db.delete(license)
   await db
@@ -106,22 +105,36 @@ beforeEach(async () => {
   await db
     .insert(license)
     .values(LICENCES.map(({ status, tier, userId }) => ({ id: `licence-${userId}`, polarCustomerId: "customer", status, tier, userId })))
-})
+}
 
-afterEach(() => {
+const restoreClock = (): void => {
   vi.restoreAllMocks()
   vi.useRealTimers()
-})
+}
 
 describe("course access through a licence", () => {
-  it("joins the licence to the ways of unlocking paid lessons", () => {
-    expect(COURSE_ACCESS_GRANTS).toStrictEqual(LICENSE_COURSE_ACCESS)
+  beforeEach(seedLicences)
+
+  afterEach(restoreClock)
+
+  it("is the one way of unlocking paid lessons", () => {
+    expect(COURSE_ACCESS_GRANTS.map(({ holders, includedWith, key, offer }) => ({ holders, includedWith, key, offer }))).toStrictEqual([
+      {
+        holders: "components.custom.pricing.courseAccess.holders",
+        includedWith: [
+          `components.custom.pricing.tiers.${LICENSE_TIER.COMPLETE}.name`,
+          `components.custom.pricing.tiers.${LICENSE_TIER.AGENCY}.name`,
+        ],
+        key: "license",
+        offer: `components.custom.pricing.tiers.${LICENSE_TIER.COMPLETE}.name`,
+      },
+    ])
   })
 
   it("offers Complete at its price on the licence page, coming back to the lesson afterwards", () => {
     const lesson = "/courses/the-walkthrough/billing"
 
-    expect(LICENSE_COURSE_ACCESS.map(({ price, unlock }) => ({ price, unlock: unlock(lesson) }))).toStrictEqual([
+    expect(COURSE_ACCESS_GRANTS.map(({ price, unlock }) => ({ price, unlock: unlock(lesson) }))).toStrictEqual([
       {
         price: TIER_PRICES[LICENSE_TIER.COMPLETE],
         unlock: { search: { redirect: lesson, tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP_LICENSE },
@@ -188,87 +201,93 @@ describe("course access through a licence", () => {
   })
 })
 
-it("decides who watches which lesson for every licence tier and status, a guest, an account and staff", async () => {
-  const table: Record<string, Record<string, string>> = {}
+describe("who watches which lesson", () => {
+  beforeEach(seedLicences)
 
-  for (const viewer of VIEWERS) {
-    table[viewer.name] = await decisions(viewer)
-  }
+  afterEach(restoreClock)
 
-  expect(table).toMatchInlineSnapshot(`
-    {
-      "account": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "agency active": {
-        "billing": "locked: false, playback: allowed, progress: allowed",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "agency refunded": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "agency revoked": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "complete active": {
-        "billing": "locked: false, playback: allowed, progress: allowed",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "complete refunded": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "complete revoked": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "core active": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "core refunded": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "core revoked": {
-        "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
-      "guest": {
-        "billing": "locked: true, playback: AppError: UNAUTHORIZED, progress: AppError: UNAUTHORIZED",
-        "boundaries": "locked: false, playback: allowed, progress: AppError: UNAUTHORIZED",
-        "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: UNAUTHORIZED",
-        "sessions": "locked: true, playback: AppError: UNAUTHORIZED, progress: AppError: UNAUTHORIZED",
-      },
-      "staff": {
-        "billing": "locked: false, playback: allowed, progress: allowed",
-        "boundaries": "locked: false, playback: allowed, progress: allowed",
-        "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
-        "sessions": "locked: false, playback: allowed, progress: allowed",
-      },
+  it("decides for every licence tier and status, a guest, an account and staff", async () => {
+    const table: Record<string, Record<string, string>> = {}
+
+    for (const viewer of VIEWERS) {
+      table[viewer.name] = await decisions(viewer)
     }
-  `)
+
+    expect(table).toMatchInlineSnapshot(`
+      {
+        "account": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "agency active": {
+          "billing": "locked: false, playback: allowed, progress: allowed",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "agency refunded": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "agency revoked": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "complete active": {
+          "billing": "locked: false, playback: allowed, progress: allowed",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "complete refunded": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "complete revoked": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "core active": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "core refunded": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "core revoked": {
+          "billing": "locked: true, playback: AppError: FORBIDDEN, progress: AppError: FORBIDDEN",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: FORBIDDEN",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+        "guest": {
+          "billing": "locked: true, playback: AppError: UNAUTHORIZED, progress: AppError: UNAUTHORIZED",
+          "boundaries": "locked: false, playback: allowed, progress: AppError: UNAUTHORIZED",
+          "coverage": "locked: true, playback: AppError: NOT_FOUND, progress: AppError: UNAUTHORIZED",
+          "sessions": "locked: true, playback: AppError: UNAUTHORIZED, progress: AppError: UNAUTHORIZED",
+        },
+        "staff": {
+          "billing": "locked: false, playback: allowed, progress: allowed",
+          "boundaries": "locked: false, playback: allowed, progress: allowed",
+          "coverage": "locked: false, playback: AppError: NOT_FOUND, progress: allowed",
+          "sessions": "locked: false, playback: allowed, progress: allowed",
+        },
+      }
+    `)
+  })
 })

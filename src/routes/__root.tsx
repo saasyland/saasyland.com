@@ -17,6 +17,7 @@ import { ROOT_COMPONENTS } from "~/src/areas/browser"
 import { getLocaleDirection } from "~/src/data/locales"
 import { THEME } from "~/src/presentation/theme"
 
+import { restoreLostPointerDowns } from "~/src/lib/lost-pointer-down"
 import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"
 import { listenForStaleBuilds } from "~/src/lib/stale-build"
 
@@ -29,6 +30,7 @@ import type { RouterContext } from "~/src/router"
 
 const RootComponent = () => {
   useEffect(listenForStaleBuilds, [])
+  useEffect(restoreLostPointerDowns, [])
 
   return (
     <AriaProvider>

@@ -71,7 +71,7 @@ const CoursesPage = (): JSX.Element => {
         emptyDescription={t("table.emptyDescription")}
         id={COURSE_GRID_ID}
         label={t("title")}
-        onReorder={({ position, row }) => move.mutateAsync({ courseId: row.id, position })}
+        onReorder={({ offset, row }) => move.mutateAsync({ courseId: row.id, offset })}
         query={(request) => getCoursesPageQuery(courseZodSchemas.getCourses.parse(request))}
         rowActions={CourseActions}
         search={t("table.search")}

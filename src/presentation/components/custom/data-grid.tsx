@@ -78,7 +78,7 @@ export type DataGridQuery<TData extends DataGridRow> = (
 ) => Pick<UseQueryOptions<DataGridPage<TData>>, "queryFn" | "queryKey">
 
 export interface DataGridMove<TData> {
-  readonly position: number
+  readonly offset: number
   readonly row: TData
 }
 
@@ -428,12 +428,12 @@ const useRowDrag = <TData extends DataGridRow>({
   const { pageIndex, pageSize } = table.state.pagination
   const total = table.getRowCount()
   const start = pageIndex * pageSize
-  const offset = isServer ? 0 : start
+  const firstRow = isServer ? 0 : start
 
-  const persist = (row: TData, position: number): void => {
+  const persist = (row: TData, position: number, offset: number): void => {
     announce(t("moved", { position, total }))
     order.setMoving((count) => count + 1)
-    void onReorder?.({ position, row })
+    void onReorder?.({ offset, row })
       .catch(() => {
         order.setOrder(undefined)
       })
@@ -449,12 +449,12 @@ const useRowDrag = <TData extends DataGridRow>({
     onDragEnd: (row, from, isDropped) => {
       order.setDragged(undefined)
       if (!isDropped) {
-        order.place(moveRow(order.rows, row, from + offset))
+        order.place(moveRow(order.rows, row, from + firstRow))
         return
       }
-      const index = order.rows.indexOf(row) - offset
+      const index = order.rows.indexOf(row) - firstRow
       if (index !== from) {
-        persist(row, start + index + FIRST_POSITION)
+        persist(row, start + index + FIRST_POSITION, index - from)
       }
     },
     onDragOver: (row) => {
@@ -472,7 +472,7 @@ const useRowDrag = <TData extends DataGridRow>({
     },
     onStep: (row, step) => {
       const index = order.rows.indexOf(row) + step
-      const position = start + index - offset + FIRST_POSITION
+      const position = start + index - firstRow + FIRST_POSITION
       if (position < FIRST_POSITION || position > total) {
         return
       }
@@ -482,7 +482,7 @@ const useRowDrag = <TData extends DataGridRow>({
       if (target !== pageIndex) {
         table.setPageIndex(target)
       }
-      persist(row, position)
+      persist(row, position, step)
     },
   }
 }

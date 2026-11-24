@@ -421,7 +421,7 @@ describe("admin course list", () => {
     expect(mutations.deleteCourses).toHaveBeenCalledWith({ courseIds: [COURSE_ID, OTHER_COURSE_ID] }, expect.anything())
   })
 
-  it("moves a course with the arrow keys on its handle and saves its new place", async () => {
+  it("moves a course with the arrow keys on its handle and saves how far it moved", async () => {
     const { invalidateQueries, user } = await renderAdminCourses("/admin/courses")
 
     const [first] = screen.getAllByRole("button", { name: gridLabels.rows.handle })
@@ -429,7 +429,7 @@ describe("admin course list", () => {
     await user.keyboard("{ArrowDown}")
 
     await waitFor(() => {
-      expect(mutations.moveCourse).toHaveBeenCalledWith({ courseId: COURSE_ID, position: 2 }, expect.anything())
+      expect(mutations.moveCourse).toHaveBeenCalledWith({ courseId: COURSE_ID, offset: 1 }, expect.anything())
     })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
     expect(screen.getAllByRole("row").map((row) => row.getAttribute("aria-rowindex"))).toStrictEqual(["1", "2", "3"])

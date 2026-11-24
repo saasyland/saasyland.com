@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { chooseRowAction } from "../fixtures/data-grid"
+import { dragOnto } from "../fixtures/drag"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -74,7 +75,7 @@ test("an administrator orders chapters and lessons by dragging them, a lesson in
 
   const deploy = curriculum(page).getByRole("row", { name: "Deploy" })
   const monitor = curriculum(page).getByRole("row", { name: "Monitor" })
-  await deploy.dragTo(monitor, { sourcePosition: { x: 24, y: 16 }, targetPosition: { x: 40, y: 4 } })
+  await dragOnto(deploy, monitor, { from: { x: 24, y: 16 }, to: { x: 40, y: 4 } })
   await expect.poll(() => order(page)).toStrictEqual(["Basics", "Install", "Shipping", "Deploy", "Monitor"])
 
   await curriculum(page).getByRole("row", { name: "Shipping" }).focus()

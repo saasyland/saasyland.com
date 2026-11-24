@@ -347,37 +347,49 @@ describe("deleteCourses", () => {
 })
 
 describe("moveCourse", () => {
-  it("moves the course to any place in the catalogue order", async () => {
+  it("moves the course up or down by any number of places in the catalogue order", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, position: 1 })
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, offset: -2 })
     await expect(courseOrder()).resolves.toStrictEqual([IDS.TUTORIAL, IDS.DRAFT_COURSE, IDS.COURSE])
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, position: 2 })
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, offset: 1 })
     await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE, IDS.TUTORIAL, IDS.COURSE])
   })
 
-  it("keeps a place past the end at the end, and leaves a course already in its place alone", async () => {
+  it("keeps a move past either end at that end, and leaves a course that moves by nothing alone", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, position: 40 })
+    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, offset: 40 })
     await expect(courseOrder()).resolves.toStrictEqual([IDS.COURSE, IDS.TUTORIAL, IDS.DRAFT_COURSE])
 
-    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, position: 3 })
+    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, offset: 0 })
     await expect(courseOrder()).resolves.toStrictEqual([IDS.COURSE, IDS.TUTORIAL, IDS.DRAFT_COURSE])
+
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, offset: -40 })
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.TUTORIAL, IDS.COURSE, IDS.DRAFT_COURSE])
   })
 
-  it("rejects a missing course and a place before the first", async () => {
+  it("moves the course from where it is now, whatever was deleted since the admin loaded the list", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(moveCourseMutation, { courseId: MISSING_ID, position: 1 })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
-    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, position: 0 })).rejects.toThrow()
+    await executeMutation(deleteCoursesMutation, { courseIds: [IDS.DRAFT_COURSE] })
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, offset: -1 })
+
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.TUTORIAL, IDS.COURSE])
+  })
+
+  it("rejects a missing course and an offset that is not a whole number", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await expect(executeMutation(moveCourseMutation, { courseId: MISSING_ID, offset: -1 })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, offset: 0.5 })).rejects.toThrow()
   })
 
   it("is for staff only", async () => {
     signInAs(ROLE_CODES.CUSTOMER)
 
-    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, position: 1 })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
+    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, offset: 1 })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })
 

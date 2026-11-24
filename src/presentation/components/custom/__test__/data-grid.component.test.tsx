@@ -324,14 +324,14 @@ describe("data grid row order", () => {
     expect(dragSourceOf(0)).toHaveAttribute("draggable", "true")
 
     fireEvent.dragStart(dragSourceOf(0), transfer("move"))
-    fireEvent.dragEnter(bodyRows()[2] ?? document.body)
+    expect(fireEvent.dragEnter(bodyRows()[2] ?? document.body, transfer("none"))).toBe(false)
     expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])
     expect(bodyRows()[2]).toHaveClass("opacity-40")
     expect(fireEvent.dragOver(bodyRows()[2] ?? document.body, transfer("none"))).toBe(false)
     expect(fireEvent.drop(bodyRows()[2] ?? document.body)).toBe(false)
     fireEvent.dragEnd(dragSourceOf(2), transfer("move"))
 
-    expect(onReorder).toHaveBeenCalledWith({ position: 3, row: PEOPLE[0] })
+    expect(onReorder).toHaveBeenCalledWith({ offset: 2, row: PEOPLE[0] })
     expect(bodyRows()[2]).not.toHaveClass("opacity-40")
     expect(announced()).toBe("Moved to position 3 of 3.")
   })
@@ -341,13 +341,13 @@ describe("data grid row order", () => {
     renderGrid({ onReorder })
 
     fireEvent.dragStart(dragSourceOf(0), transfer("move"))
-    fireEvent.dragEnter(bodyRows()[1] ?? document.body)
+    fireEvent.dragEnter(bodyRows()[1] ?? document.body, transfer("none"))
     expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
     fireEvent.dragEnd(dragSourceOf(1), transfer("none"))
     expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
 
     fireEvent.dragStart(dragSourceOf(1), transfer("move"))
-    fireEvent.dragEnter(bodyRows()[1] ?? document.body)
+    fireEvent.dragEnter(bodyRows()[1] ?? document.body, transfer("none"))
     fireEvent.dragEnd(dragSourceOf(1), transfer("move"))
 
     expect(onReorder).not.toHaveBeenCalled()
@@ -356,8 +356,7 @@ describe("data grid row order", () => {
   it("leaves the rows alone under a drag that did not start on a handle", () => {
     renderGrid({ onReorder: vi.fn<Reorder>() })
 
-    fireEvent.dragEnter(bodyRows()[2] ?? document.body)
-
+    expect(fireEvent.dragEnter(bodyRows()[2] ?? document.body)).toBe(true)
     expect(fireEvent.dragOver(bodyRows()[2] ?? document.body, transfer("none"))).toBe(true)
     expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
   })
@@ -374,7 +373,7 @@ describe("data grid row order", () => {
 
     await user.keyboard("{ArrowDown}")
     expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
-    expect(onReorder).toHaveBeenLastCalledWith({ position: 2, row: PEOPLE[0] })
+    expect(onReorder).toHaveBeenLastCalledWith({ offset: 1, row: PEOPLE[0] })
     await waitFor(() => {
       expect(handleOf(1)).toHaveFocus()
     })
@@ -407,7 +406,7 @@ describe("data grid row order", () => {
     handleOf(0).focus()
     await user.keyboard("{ArrowUp}")
 
-    expect(onReorder).toHaveBeenCalledWith({ position: 10, row: MANY_PEOPLE[10] })
+    expect(onReorder).toHaveBeenCalledWith({ offset: -1, row: MANY_PEOPLE[10] })
     expect(screen.getByText(pagination.page.replace("{current}", "1").replace("{total}", "3"))).toBeVisible()
     expect(columnTexts("Name").at(-1)).toBe("Person 10")
     await waitFor(() => {

@@ -187,6 +187,18 @@ describe("data grid column dragging and resizing", () => {
     expect(announced()).toBe("Age moved before Team.")
   })
 
+  it("takes a column drag as soon as it enters a header of the same region, so Safari drops it there", () => {
+    renderGrid()
+    const transfer = dataTransfer()
+
+    fireEvent.dragStart(header("Age"), { dataTransfer: transfer })
+
+    expect(fireEvent.dragEnter(header("Name"), { dataTransfer: transfer })).toBe(true)
+    expect(header("Name")).not.toHaveClass("bg-muted")
+    expect(fireEvent.dragEnter(header("Team"), { dataTransfer: transfer })).toBe(false)
+    expect(header("Team")).toHaveClass("bg-muted")
+  })
+
   it("ignores a drop that no column drag started", () => {
     renderGrid()
 

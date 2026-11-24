@@ -196,7 +196,7 @@ const refetch = async (queryClient: ReturnType<typeof gridQueryClient>): Promise
 }
 
 describe("data grid order on the server", () => {
-  it("saves a row's place in the whole order and keeps showing it until the saved order arrives", async () => {
+  it("saves how many places a row moved and keeps showing its new place until the saved order arrives", async () => {
     const user = userEvent.setup()
     const saved = Promise.withResolvers<undefined>()
     const fetchPage = vi.fn<FetchPage>().mockImplementation(() => Promise.resolve({ rows: copies(PEOPLE), total: 13 }))
@@ -210,7 +210,7 @@ describe("data grid order on the server", () => {
 
     screen.getAllByRole("button", { name: gridMessages.rows.handle })[0]?.focus()
     await user.keyboard("{ArrowDown}")
-    expect(onReorder).toHaveBeenCalledWith({ position: 12, row: ada })
+    expect(onReorder).toHaveBeenCalledWith({ offset: 1, row: ada })
     await refetch(queryClient)
     expect(columnTexts("Name")).toStrictEqual(["Grace", "Ada", "Alan"])
 
@@ -243,7 +243,7 @@ describe("data grid order on the server", () => {
     screen.getAllByRole("button", { name: gridMessages.rows.handle })[0]?.focus()
     await user.keyboard("{ArrowUp}")
 
-    expect(onReorder).toHaveBeenCalledWith({ position: 10, row: ada })
+    expect(onReorder).toHaveBeenCalledWith({ offset: -1, row: ada })
     expect(screen.getByText(pagination.page.replace("{current}", "1").replace("{total}", "2"))).toBeVisible()
     await waitFor(() => {
       expect(columnTexts("Name")).toStrictEqual(["Grace", "Alan", "Ada"])

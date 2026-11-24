@@ -18,6 +18,7 @@ import {
   removeFilter,
   resetLayout,
 } from "../fixtures/data-grid"
+import { dragOnto } from "../fixtures/drag"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -228,9 +229,9 @@ test("an administrator writes a lesson, swaps its video and adds materials that 
   await expect(linkDialog).toBeHidden()
 
   const materialList = page.getByRole("grid", { name: "Materials" })
-  await materialList.getByRole("row", { name: "Course docs" }).dragTo(materialList.getByRole("row", { name: "Workbook" }), {
-    sourcePosition: { x: 16, y: 20 },
-    targetPosition: { x: 40, y: 4 },
+  await dragOnto(materialList.getByRole("row", { name: "Course docs" }), materialList.getByRole("row", { name: "Workbook" }), {
+    from: { x: 16, y: 20 },
+    to: { x: 40, y: 4 },
   })
   await expect.poll(() => materialList.getByRole("row").allTextContents()).toStrictEqual([
     expect.stringContaining("Course docs"),

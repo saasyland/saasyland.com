@@ -28,12 +28,13 @@ import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as SettingsRoute } from "~/src/routes/app.settings"
 import { Route as DeleteAccountRoute } from "~/src/routes/app.settings_.delete-account"
 
-import type { AppOverviewArea } from "~/src/data/app-overview"
+import { ACCOUNT_DELETION_NOTICES } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationContentMessages from "~/messages/en-US/navigation.content.json"
+import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAppDeleteAccountMessages from "~/messages/en-US/pages.app.delete-account.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
@@ -51,38 +52,25 @@ const sessionRequest = vi.hoisted(() => vi.fn())
 const summaryRequest = vi.hoisted(() => vi.fn<() => Promise<{ readonly orders: number }>>())
 const SUMMARY_QUERY_KEY = vi.hoisted(() => ["summary"] as const)
 const SUMMARY_SECTION = vi.hoisted(() => "Account summary")
-const SETTINGS_BADGE = vi.hoisted(() => "3 unread")
-const deletionNoticeLoad = vi.hoisted(() => vi.fn(() => Promise.resolve()))
-const DELETION_NOTICE = vi.hoisted(() => "Sample deletion notice")
+const COURSES_BADGE = vi.hoisted(() => "3/24")
 const confirmDeletionMock = vi.hoisted(() => vi.fn<NonNullable<typeof confirmAccountDeletionMutation.mutationFn>>())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const SUMMARY = { orders: 2 }
+const noticeText = (key: string): string => `Sample ${key} deletion notice`
 const { account, navigation } = pagesAppSidebarMessages
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
 })
-vi.mock("~/src/data/app-badges.entries", async () => {
-  const PATHS = await import("~/src/routes")
-  return { TEST_APP_BADGES: [{ Badge: () => <span>{SETTINGS_BADGE}</span>, to: PATHS.APP_SETTINGS }] }
-})
-vi.mock("~/src/data/app-overview.entries", () => ({
-  TEST_APP_OVERVIEW: {
-    search: {},
-    sections: [
-      {
-        key: "summary",
-        load: ({ queryClient }) => queryClient.query({ queryFn: summaryRequest, queryKey: SUMMARY_QUERY_KEY, staleTime: "static" }),
-        Pending: () => {},
-        Section: () => <section aria-label={SUMMARY_SECTION} />,
-      },
-    ],
-  } satisfies AppOverviewArea,
+vi.mock("~/src/presentation/components/custom/courses/course-progress-badge", () => ({
+  CourseProgressBadge: () => <span>{COURSES_BADGE}</span>,
 }))
-vi.mock("~/src/data/account-deletion.entries", () => ({
-  TEST_ACCOUNT_DELETION: [{ Notice: () => <li>{DELETION_NOTICE}</li>, key: "sample", load: deletionNoticeLoad }],
+vi.mock("~/src/presentation/components/custom/app/license-overview", () => ({
+  LicenseOverview: () => <section aria-label={SUMMARY_SECTION} />,
+  loadLicenseOverview: ({ queryClient }: { readonly queryClient: QueryClient }) =>
+    queryClient.query({ queryFn: summaryRequest, queryKey: SUMMARY_QUERY_KEY, staleTime: "static" }),
 }))
 vi.mock(import("~/src/modules/user/use-cases/confirm-account-deletion"), () => ({
   confirmAccountDeletionMutation: { mutationFn: confirmDeletionMock, mutationKey: USER_MUTATION_KEYS.CONFIRM_ACCOUNT_DELETION },
@@ -135,7 +123,10 @@ beforeEach(() => {
   vi.spyOn(getActiveSessionsQuery, "queryFn").mockResolvedValue([])
   vi.spyOn(listAccountsQuery, "queryFn").mockResolvedValue([])
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
-  deletionNoticeLoad.mockClear()
+  for (const notice of ACCOUNT_DELETION_NOTICES) {
+    vi.spyOn(notice, "load").mockResolvedValue(undefined)
+    vi.spyOn(notice, "Notice").mockImplementation(() => <li>{noticeText(notice.key)}</li>)
+  }
   confirmDeletionMock.mockReset().mockResolvedValue({ message: "User deleted", success: true })
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
@@ -171,8 +162,11 @@ describe("customer workspace routes", () => {
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).toHaveAttribute("aria-current", "page")
-    expect(within(nav).getByText(SETTINGS_BADGE).closest("[data-sidebar=menu-badge]")).not.toBeNull()
-    expect(within(nav).getAllByText(SETTINGS_BADGE)).toHaveLength(1)
+    expect(within(nav).getByText(COURSES_BADGE).closest("[data-sidebar=menu-item]")).toContainElement(
+      within(nav).getByRole("link", { name: navigationCoursesMessages.app.courses }),
+    )
+    expect(within(nav).getByText(COURSES_BADGE).closest("[data-sidebar=menu-badge]")).not.toBeNull()
+    expect(within(nav).getAllByText(COURSES_BADGE)).toHaveLength(1)
     expect(
       within(screen.getByRole("navigation", { name: navigation.resources })).getByRole("link", { name: navigation.support }),
     ).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
@@ -192,7 +186,9 @@ describe("customer workspace routes", () => {
     expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
-    expect(deletionNoticeLoad).toHaveBeenCalledOnce()
+    for (const { load } of ACCOUNT_DELETION_NOTICES) {
+      expect(load).toHaveBeenCalledOnce()
+    }
     expect(summaryRequest).not.toHaveBeenCalled()
     expect(router.state.matches.at(-1)?.meta).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: pagesAppSettingsMessages.metadata.description, name: "description" })]),
@@ -246,8 +242,10 @@ describe("account deletion page", () => {
     const { router, user } = await renderApp(`${ROUTES.APP_DELETE_ACCOUNT}?token=deletion-token`)
 
     expect(await screen.findByRole("heading", { level: 2, name: confirm.title })).toBeVisible()
-    expect(screen.getByText(DELETION_NOTICE)).toBeVisible()
-    expect(deletionNoticeLoad).toHaveBeenCalledOnce()
+    for (const { key, load } of ACCOUNT_DELETION_NOTICES) {
+      expect(screen.getByText(noticeText(key))).toBeVisible()
+      expect(load).toHaveBeenCalledOnce()
+    }
     expect(screen.getByRole("link", { name: confirm.keep })).toHaveAttribute("href", ROUTES.APP_SETTINGS)
     expect(confirmDeletionMock).not.toHaveBeenCalled()
 

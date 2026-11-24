@@ -1,19 +1,33 @@
 import { type JSX, useEffect, useState } from "react"
 
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { type UseQueryOptions, useQueries, useQuery } from "@tanstack/react-query"
 import { useHydrated, useRouter } from "@tanstack/react-router"
-import { CornerDownLeft, History, LoaderCircle, type LucideIcon, Search } from "lucide-react"
+import {
+  BookOpen,
+  CornerDownLeft,
+  GraduationCap,
+  History,
+  LoaderCircle,
+  type LucideIcon,
+  ReceiptText,
+  Search,
+  UserRound,
+} from "lucide-react"
 import { Autocomplete, Button, Input, SearchField, useFilter } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 import * as zod from "zod"
 
-import { hasPermission } from "~/src/integrations/better-auth/auth.access"
+import { type Permission, hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { SEARCH_TEXT_MIN_LENGTH } from "~/src/modules/_core/utils/search"
+import { SEARCH_TEXT_MIN_LENGTH, type SearchHit } from "~/src/modules/_core/utils/search"
+import { searchCoursesQuery } from "~/src/modules/course/use-cases/search-courses"
+import { searchLessonsQuery } from "~/src/modules/lesson/use-cases/search-lessons"
+import { searchOrdersQuery } from "~/src/modules/order/use-cases/search-orders"
+import { searchUsersQuery } from "~/src/modules/user/use-cases/search-users"
 
-import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import { ADMIN_COMMAND_ACTIONS, ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import {
@@ -30,6 +44,35 @@ const SEARCH_DEBOUNCE_MS = 200
 const RECENT_LIMIT = 5
 const RECENT_STORAGE_KEY = "admin-command-palette-recent"
 const APPLE_PLATFORM = /Mac|iPhone|iPad/u
+
+interface CommandSearchInput {
+  readonly locale: SupportedLocale
+  readonly text: string
+}
+
+interface CommandSearch {
+  readonly icon: LucideIcon
+  readonly label: string
+  readonly permission: Permission
+  readonly query: (input: CommandSearchInput) => UseQueryOptions<readonly SearchHit[], Error, readonly SearchHit[], string[]>
+}
+
+export const COMMAND_SEARCHES: readonly CommandSearch[] = [
+  {
+    icon: UserRound,
+    label: "navigation.auth.search.users",
+    permission: { user: ["list"] },
+    query: ({ text }) => searchUsersQuery({ text }),
+  },
+  {
+    icon: ReceiptText,
+    label: "navigation.payments.search.orders",
+    permission: { order: ["read"] },
+    query: ({ text }) => searchOrdersQuery({ text }),
+  },
+  { icon: GraduationCap, label: "navigation.courses.search.courses", permission: { course: ["read"] }, query: searchCoursesQuery },
+  { icon: BookOpen, label: "navigation.courses.search.lessons", permission: { course: ["read"] }, query: searchLessonsQuery },
+]
 
 interface PaletteItem {
   readonly detail: string
@@ -53,7 +96,7 @@ const PAGE_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) =>
 
 const iconOf = ({ group, to }: { readonly group: string; readonly to: string }): LucideIcon =>
   [...PAGE_ITEMS.map(({ item }) => item), ...ADMIN_COMMAND_ACTIONS].find((item) => item.to === to)?.icon ??
-  COMMAND_SEARCHES.find((search) => `${search.area}.${search.key}` === group)?.icon ??
+  COMMAND_SEARCHES.find((search) => search.label === group)?.icon ??
   History
 
 const readRecent = (): readonly PaletteItem[] => {
@@ -110,7 +153,7 @@ const useDebounced = (value: string): string => {
 }
 
 const useRecordGroups = (query: string): { readonly groups: readonly PaletteGroup[]; readonly isSearching: boolean } => {
-  const t = useTranslations("navigation")
+  const t = useTranslations()
   const text = useDebounced(query.trim())
 
   const role = useQuery(getCurrentSessionQuery).data?.user.role
@@ -120,11 +163,11 @@ const useRecordGroups = (query: string): { readonly groups: readonly PaletteGrou
 
   const groups = results.flatMap((result, index) =>
     searches.slice(index, index + 1).map((search) => ({
-      heading: t(`${search.area}.search.${search.key}`),
-      id: `${search.area}.${search.key}`,
+      heading: t(search.label),
+      id: search.label,
       items: (result.data ?? []).map((hit) => ({
         detail: hit.detail,
-        group: `${search.area}.${search.key}`,
+        group: search.label,
         icon: search.icon,
         title: hit.title,
         to: hit.to,

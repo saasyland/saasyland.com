@@ -10,8 +10,6 @@ import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user
 import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
 import { getUserInitials } from "~/src/modules/user/user.utils"
 
-import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
-
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
@@ -20,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/src/presentation/componen
 import { AdminUserProfilePending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { UserActions } from "~/src/presentation/components/custom/admin/users/row-actions"
 import { UserDetails } from "~/src/presentation/components/custom/admin/users/user-details"
+import { USER_PROFILE_SECTIONS, UserProfileSections } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 import { UserSessions } from "~/src/presentation/components/custom/admin/users/user-sessions"
 
 import * as ROUTES from "~/src/routes"
@@ -47,9 +46,7 @@ const UserProfilePage = (): JSX.Element => {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_1fr]">
         <div className="flex min-w-0 flex-col gap-6">
           <UserDetails user={user} />
-          {USER_PROFILE_SECTIONS.map(({ key, Section }) => (
-            <Section key={key} userId={user.id} />
-          ))}
+          <UserProfileSections userId={user.id} />
         </div>
         <UserSessions user={user} />
       </div>

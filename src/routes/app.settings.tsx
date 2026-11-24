@@ -9,7 +9,6 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
 import { SETTINGS_TAB, settingsSearchSchema } from "~/src/data/auth"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
@@ -19,7 +18,7 @@ import { Tabs, TabsContent } from "~/src/presentation/components/shadcn/tabs"
 
 import { AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
-import { DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
+import { ACCOUNT_DELETION_NOTICES, DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 

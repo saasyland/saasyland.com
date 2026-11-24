@@ -14,8 +14,6 @@ import { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/con
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
-
 import { onlyDeclaredSearch, searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
@@ -23,7 +21,7 @@ import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
 import { AppDeleteAccountPending } from "~/src/presentation/components/custom/app/auth-pending"
-import { AccountDeletionConsequences } from "~/src/presentation/components/custom/settings/delete-account-card"
+import { ACCOUNT_DELETION_NOTICES, AccountDeletionConsequences } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import * as ROUTES from "~/src/routes"
 

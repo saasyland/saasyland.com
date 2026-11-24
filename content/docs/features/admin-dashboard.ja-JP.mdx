@@ -20,7 +20,7 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 - **最近使った項目**: パレットから最後に開いたページとレコード。最大 `RECENT_LIMIT` 件で、検索が空のあいだ表示されます。ブラウザーの `localStorage` にだけ保存されます。
 - **クイックアクション**: `src/data/navigation.ts` の `ADMIN_COMMAND_ACTIONS` の項目。**新しいコース** と **サイトを開く** です。
 - **ページ**: `ADMIN_NAVIGATION` のすべての項目を、サイドバーのグループとともにブラウザーで絞り込みます。
-- レコード: `src/data/command-search.ts` の `COMMAND_SEARCHES` の検索で、各エリアが `src/data/<area>.command-search.ts` で追加します。検索が `SEARCH_TEXT_MIN_LENGTH` 文字に達して入力が止まると、パレットはサインイン中のロールが実行できる検索をすべて並行して実行し、それぞれ最大 `SEARCH_HITS_LIMIT` 件を返します。
+- レコード: `COMMAND_SEARCHES` の検索で、`custom/admin/admin-command-palette.tsx` が下の表の順に宣言します。各検索はアイコン、見出しの完全なキー、必要な権限、クエリを持ちます。検索が `SEARCH_TEXT_MIN_LENGTH` 文字に達して入力が止まると、パレットはサインイン中のロールが実行できる検索をすべて並行して実行し、それぞれ最大 `SEARCH_HITS_LIMIT` 件を返します。
 
 | グループ | エリア     | サーバー関数    | 権限           | 一致の対象                                                           |
 | -------- | ---------- | --------------- | -------------- | -------------------------------------------------------------------- |
@@ -36,8 +36,8 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 `/admin`（`src/routes/admin.index.tsx`）は `getUsersQuery` をプリロードし、ダッシュボードの各統計と各パネルのクエリを、それぞれの `prefetch` を通じてプリロードします。そして `src/presentation/components/custom/admin/dashboard` のウィジェットと各エリアが追加するパネルを組み合わせます。
 
 - `DashboardActions`: `src/data/navigation.ts` の `ADMIN_DASHBOARD_ACTIONS` の各項目を、リストの順に並べたリンクで、ラベルはその `label` が指すメッセージから付きます。決済のエリアのページである **注文** と **顧客** です（[注文と顧客](/docs/features/orders)を参照）。
-- `DashboardStats`: `ADMIN_DASHBOARD_STATS` の統計、つまり `src/data/<area>.dashboard.ts` のうち `DASHBOARD_PLACEMENT.STAT` に配置された項目を `order` の順に表示します。それぞれのラベルはそのエリアの `dashboard.<area>.json` から付き、値はページのロケールで書式設定されます。各カードには統計の `icon` が表示され、`to` を持つ統計は、カード全体がその統計の数える対象を一覧するページへのリンクになります。
-- `ADMIN_DASHBOARD_PANELS` のパネル、つまり `DASHBOARD_PLACEMENT.PANEL` に配置された項目を `order` の順に表示します。それぞれ `AdminDashboardPending` が表示するスケルトンを持ちます。各項目は `lazyRouteComponent` でパネルを指定するため、パネルのコードはグラフや表とともに専用のチャンクで読み込まれ、ダッシュボードのローダーがパネルのデータと一緒にプリロードします。スケルトンはパネルの `-pending.tsx` ファイルから取ります。
+- `DashboardStats`: `DASHBOARD_STATS` の統計で、`custom/admin/dashboard/stats.tsx` が下の表の順に宣言します。各統計は `icon`、そのエリアの `dashboard.<area>.json` にある `label` の完全なキー、ローダーが実行する `prefetch`、数値を読み取る `useValue` フックを持ち、数値はページのロケールで書式設定されます。`to` を持つ統計は、カード全体がその統計の数える対象を一覧するページへのリンクになります。
+- `DashboardPanels`: `DASHBOARD_PANELS` のパネルで、`custom/admin/dashboard/panels.tsx` が表示する順に宣言します。それぞれ `AdminDashboardPending` が表示するスケルトンを持ちます。各項目は `lazyRouteComponent` でパネルを指定するため、パネルのコードはグラフや表とともに専用のチャンクで読み込まれ、ダッシュボードのローダーがパネルのデータと一緒にプリロードします。スケルトンはパネルの `-pending.tsx` ファイルから取ります。
 - ユーザーカード: 最新のアカウントを 1 ページ <RepositoryFact name="adminPreviewPageSize" /> 行で表示し、検索とステータスのフィルターを備えます。各ユーザーの名前はそのユーザーのプロフィールへリンクし、アクションはそこにあります。
 
 | 統計                     | エリア       | 取得元                                                                                        |
@@ -108,7 +108,7 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 
 ## 実データのみ [#real-data-only]
 
-管理画面が表示する数値と行はすべて、`authorized(...)` の背後にあるモジュールのユースケースが D1 から読み取ります。`scripts/admin-data-lint-plugin.ts` の lint ルール `admin-data/no-literal-data` がこれを守らせます。`src/routes/admin*.tsx`、`src/presentation/components/custom/admin/`、`src/data/admin*.ts`、`src/data/*.dashboard.ts` のファイルが次のいずれかを宣言すると、`bun run check` は失敗します。
+管理画面が表示する数値と行はすべて、`authorized(...)` の背後にあるモジュールのユースケースが D1 から読み取ります。`scripts/admin-data-lint-plugin.ts` の lint ルール `admin-data/no-literal-data` がこれを守らせます。`src/routes/admin*.tsx`、`src/presentation/components/custom/admin/`、`src/data/admin*.ts` のファイルが次のいずれかを宣言すると、`bun run check` は失敗します。
 
 - 2 つ以上の数値のリスト。これはハードコードされた系列です。
 - 並び順（`order`）以外の数値を持つ、2 つ以上のレコードのリスト。

@@ -8,17 +8,18 @@ import {
   USER_COLUMN_SIZES,
 } from "~/src/data/admin"
 import { SETTINGS_TABS } from "~/src/data/auth"
-import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
-import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { GridPanelPending } from "~/src/presentation/components/custom/admin/dashboard/grid-panel-pending"
+import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { RowActionPending } from "~/src/presentation/components/custom/admin/pending-blocks"
+import { USER_PROFILE_SECTIONS } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import { EmailCardPending } from "~/src/presentation/components/custom/settings/settings-pending"
@@ -27,8 +28,8 @@ export const AdminDashboardPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">
     <AdminPageHeaderPending actions={ADMIN_DASHBOARD_ACTIONS.length} />
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 lg:grid-cols-3">
-      {ADMIN_DASHBOARD_STATS.map((stat) => (
-        <div className="flex flex-col gap-4 bg-card p-4 sm:p-5" key={stat.key}>
+      {DASHBOARD_STATS.map((stat) => (
+        <div className="flex flex-col gap-4 bg-card p-4 sm:p-5" key={stat.label}>
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />
             <Skeleton className="size-8 rounded-md" />
@@ -37,7 +38,7 @@ export const AdminDashboardPending = (): JSX.Element => (
         </div>
       ))}
     </div>
-    {ADMIN_DASHBOARD_PANELS.map(({ Pending, key }) => (
+    {DASHBOARD_PANELS.map(({ Pending, key }) => (
       <Pending key={key} />
     ))}
     <GridPanelPending columns={DASHBOARD_USER_PENDING_COLUMNS} isSelectable rows={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize} />

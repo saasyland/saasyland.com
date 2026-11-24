@@ -4,7 +4,6 @@ import { Link, getRouteApi, useRouterState } from "@tanstack/react-router"
 import { Mail } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { appBadge } from "~/src/data/app-badges"
 import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -24,6 +23,7 @@ import {
 } from "~/src/presentation/components/shadcn/sidebar"
 
 import { SignOutButton } from "~/src/presentation/components/custom/app/sign-out-button"
+import { CourseProgressBadge } from "~/src/presentation/components/custom/courses/course-progress-badge"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
@@ -60,7 +60,6 @@ export const AppSidebar = (): JSX.Element => {
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
                 const isActive = pathname === item.to || (item.to !== ROUTES.APP && pathname.startsWith(`${item.to}/`))
-                const badge = appBadge(item.to)
 
                 return (
                   <SidebarMenuItem key={item.to}>
@@ -78,9 +77,9 @@ export const AppSidebar = (): JSX.Element => {
                       />
                       <span>{t(item.label)}</span>
                     </SidebarMenuLink>
-                    {badge !== undefined && (
+                    {item.to === ROUTES.COURSES && (
                       <SidebarMenuBadge>
-                        <badge.Badge />
+                        <CourseProgressBadge />
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>

@@ -59,13 +59,6 @@ describe("admin users", () => {
     expect(preloadRoute).toHaveBeenNthCalledWith(1, { to: "/admin/users/all" })
     expect(preloadRoute).toHaveBeenNthCalledWith(2, { to: "/admin/users/all" })
   })
-
-  it("selects the invitations tab from /admin/users/invitations", () => {
-    renderAdminPage(UsersLayoutRoute.options.component, { path: "/admin/users/invitations" })
-
-    expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.invitations })).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.allUsers })).toHaveAttribute("aria-selected", "false")
-  })
 })
 
 describe("admin users skeletons", () => {

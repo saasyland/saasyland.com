@@ -5,6 +5,8 @@ import { USER_LICENSE_DETAILS } from "~/src/data/license"
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+export const CustomerMachinesPending = (): JSX.Element => <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
+
 export const UserLicensePending = (): JSX.Element => (
   <Card>
     <CardHeader className="border-b">

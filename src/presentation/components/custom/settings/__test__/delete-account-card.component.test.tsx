@@ -10,10 +10,8 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import type * as RequestAccountDeletionUseCase from "~/src/modules/user/use-cases/request-account-deletion"
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
 
-import type { AccountDeletionNotice } from "~/src/data/account-deletion"
-
 import { GITHUB_ACCOUNT, renderSettings, settingsSession } from "~/src/presentation/components/custom/settings/__test__/fixtures"
-import { DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
+import { ACCOUNT_DELETION_NOTICES, DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import authValidationsMessages from "~/messages/en-US/auth.validations.json"
@@ -22,16 +20,10 @@ import * as ROUTES from "~/src/routes"
 
 type Requested = Awaited<ReturnType<NonNullable<typeof RequestAccountDeletionUseCase.requestAccountDeletionMutation.mutationFn>>>
 
-const TEST_NOTICE = vi.hoisted(() => "The test area keeps its own records.")
 const requestDeletionMock = vi.hoisted(() =>
   vi.fn<NonNullable<typeof RequestAccountDeletionUseCase.requestAccountDeletionMutation.mutationFn>>(),
 )
 
-vi.mock("~/src/data/account-deletion.entries", () => ({
-  TEST_ACCOUNT_DELETION: [
-    { Notice: () => <li>{TEST_NOTICE}</li>, key: "test", load: () => Promise.resolve() },
-  ] satisfies readonly AccountDeletionNotice[],
-}))
 vi.mock(import("~/src/modules/user/use-cases/request-account-deletion"), () => ({
   requestAccountDeletionMutation: { mutationFn: requestDeletionMock, mutationKey: USER_MUTATION_KEYS.REQUEST_ACCOUNT_DELETION },
 }))
@@ -46,6 +38,8 @@ const t = createTranslator({
   namespace: "auth.security.delete",
   timeZone: I18N.DEFAULT_TIMEZONE,
 })
+
+const noticeText = (key: string): string => `What the ${key} notice says`
 
 const sentMessage = (email: string): string => t("sent", { email, hours: EMAIL_LINK_LIFETIME_HOURS })
 
@@ -65,14 +59,20 @@ const sendWithPassword = async (user: ReturnType<typeof userEvent.setup>): Promi
 beforeEach(() => {
   requestDeletionMock.mockReset().mockResolvedValue(REQUESTED)
   vi.spyOn(toast, "error").mockReturnValue(0)
+  for (const notice of ACCOUNT_DELETION_NOTICES) {
+    vi.spyOn(notice, "Notice").mockImplementation(() => <li>{noticeText(notice.key)}</li>)
+  }
 })
 
 describe("delete account card", () => {
-  it("lists what deletion removes, then what each area says about it", () => {
+  it("lists what deletion removes, then what each notice says about it", () => {
     renderSettings(<DeleteAccountCard />)
 
     expect(screen.getByRole("heading", { name: labels.title })).toBeVisible()
-    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toStrictEqual([labels.consequences, TEST_NOTICE])
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toStrictEqual([
+      labels.consequences,
+      ...ACCOUNT_DELETION_NOTICES.map(({ key }) => noticeText(key)),
+    ])
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 

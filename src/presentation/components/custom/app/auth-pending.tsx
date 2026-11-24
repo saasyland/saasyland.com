@@ -1,9 +1,8 @@
 import type { JSX } from "react"
 
-import { APP_OVERVIEW_SECTIONS } from "~/src/data/app-overview"
-
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+import { LicenseOverviewPending } from "~/src/presentation/components/custom/app/license-pending"
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import {
@@ -38,9 +37,7 @@ const SupportStepPending = (): JSX.Element => (
 export const AppOverviewPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
     <PageHeaderPending />
-    {APP_OVERVIEW_SECTIONS.map(({ key, Pending }) => (
-      <Pending key={key} />
-    ))}
+    <LicenseOverviewPending />
     <div className="grid gap-8 sm:grid-cols-2">
       <DocsStepPending />
       <SupportStepPending />

@@ -2,9 +2,8 @@ import type { JSX } from "react"
 
 import { usePagePending } from "~/src/hooks/use-page-pending"
 
-import { USER_TABS } from "~/src/data/user-tabs"
-
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
 export const AdminUsersPending = (): JSX.Element => {
   const Page = usePagePending("/admin/users")

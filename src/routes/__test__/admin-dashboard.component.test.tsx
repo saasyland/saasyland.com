@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 
+import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
@@ -15,13 +16,13 @@ import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
 
-import { ADMIN_DASHBOARD_PANELS } from "~/src/data/dashboard"
-
 import * as download from "~/src/lib/download"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
+import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
 
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import authDashboardMessages from "~/messages/en-US/dashboard.auth.json"
@@ -34,7 +35,7 @@ import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.
 
 beforeAll(() =>
   Promise.all(
-    ADMIN_DASHBOARD_PANELS.map(async ({ Panel }) => {
+    DASHBOARD_PANELS.map(async ({ Panel }) => {
       await Panel.preload?.()
     }),
   ),
@@ -143,6 +144,14 @@ describe("admin dashboard", () => {
     expect(screen.getByText(paymentsDashboardMessages.revenue.empty)).toBeVisible()
     expect(screen.getByText(authDashboardMessages.signups.empty)).toBeVisible()
     expect(screen.getByText(coursesDashboardMessages.progress.empty)).toBeVisible()
+  })
+
+  it.each(I18N.SUPPORTED_LOCALES)("labels every statistic in %s", (locale) => {
+    const messages = getTestMessages(locale)
+
+    for (const { label } of DASHBOARD_STATS) {
+      expect(messages).toHaveProperty(label.split("."), expect.stringMatching(/\S/u))
+    }
   })
 
   it("replaces the route's pending UI when the dashboard loader finishes", async () => {

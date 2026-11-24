@@ -1,3 +1,4 @@
+import type * as RouterModule from "@tanstack/react-router"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
@@ -20,6 +21,7 @@ import { listInvitationsQuery } from "~/src/modules/invitation/use-cases/list-in
 import type { resendInvitationMutation } from "~/src/modules/invitation/use-cases/resend-invitation"
 import type { revokeInvitationMutation } from "~/src/modules/invitation/use-cases/revoke-invitation"
 
+import { Route as UsersLayoutRoute } from "~/src/routes/admin.users"
 import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
 
 import { getLocaleName } from "~/src/data/locales"
@@ -32,12 +34,15 @@ import { adminQueryClient, renderAdminPage } from "~/src/presentation/components
 import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import errorsMessages from "~/messages/en-US/errors.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
+import navigationTeamMessages from "~/messages/en-US/navigation.team.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
 const create = vi.hoisted(() => vi.fn<NonNullable<typeof createInvitationMutation.mutationFn>>())
 const resend = vi.hoisted(() => vi.fn<NonNullable<typeof resendInvitationMutation.mutationFn>>())
 const revoke = vi.hoisted(() => vi.fn<NonNullable<typeof revokeInvitationMutation.mutationFn>>())
 
+vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
 vi.mock(import("~/src/modules/invitation/use-cases/create-invitation"), () => ({
   createInvitationMutation: { mutationFn: create, mutationKey: INVITATION_MUTATION_KEYS.CREATE },
 }))
@@ -98,6 +103,15 @@ beforeEach(() => {
   revoke.mockResolvedValue({ email: grace.email })
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
+})
+
+describe("the invitations tab", () => {
+  it("selects the invitations tab from /admin/users/invitations", () => {
+    renderAdminPage(UsersLayoutRoute.options.component, { path: "/admin/users/invitations" })
+
+    expect(screen.getByRole("tab", { name: navigationTeamMessages.userTabs.invitations })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: navigationAuthMessages.userTabs.allUsers })).toHaveAttribute("aria-selected", "false")
+  })
 })
 
 describe("open invitations", () => {

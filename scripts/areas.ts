@@ -22,6 +22,7 @@ export type Area = (typeof AREA)[keyof typeof AREA]
 export interface AreaFootprint {
   readonly derive?: readonly string[]
   readonly files: readonly string[]
+  readonly names?: Readonly<Record<string, readonly string[]>>
   readonly requires: readonly Area[]
 }
 
@@ -309,6 +310,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "e2e/specs/admin-invitations.spec.ts",
       "messages/*/{emails.invitation-email,pages.auth.invite}.json",
     ],
+    names: { "src/areas/auth.shared.ts": ["ACCEPT_INVITATION", "ADMIN_USERS_INVITATIONS", "API_AUTH.ACCEPT_INVITATION"] },
     requires: [AREA.AUTH],
   },
 }

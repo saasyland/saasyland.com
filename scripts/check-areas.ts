@@ -6,25 +6,29 @@ import process from "node:process"
 import * as zod from "zod"
 
 import { AREA, AREAS, AREA_SCENARIO, AREA_SCENARIOS, type Area, type AreaScenario } from "./areas.ts"
+import { type PruneProblem, pruneProject } from "./prune-references.ts"
 import { FAILURE_EXIT_CODE, runCommand, scriptArguments } from "./run-command.ts"
 
-const ROOT_ALIAS = "~/"
-const RELATIVE_PREFIX = "."
-const TYPESCRIPT_EXTENSION = ".ts"
-const MODULE_SUFFIXES = ["", TYPESCRIPT_EXTENSION, ".tsx", "/index.ts", "/index.tsx"]
-const RE_EXPORT = /export \{[^}]*\} from "(?<module>[^"]+)"\n?/gu
+const MESSAGES = "messages"
+const MESSAGE_EXTENSION = ".json"
+const GENERATED = ":(attr:linguist-generated)"
 const DEPENDENCIES = "node_modules"
 const CORE_DERIVED = ["generate:cn"]
 const ROUTE_TREE = "generate:routes"
 const TYPE_CHECK = ["run", "tsc", "--noEmit"]
 
-const reExportSchema = zod.object({ module: zod.string() })
 const scenarioSchema = zod.enum(AREA_SCENARIO)
 
 export interface AreaRemoval {
-  readonly barrels: ReadonlyMap<string, string>
   readonly kept: readonly string[]
+  readonly problems: readonly PruneProblem[]
   readonly removed: readonly Area[]
+  readonly sources: ReadonlyMap<string, string>
+}
+
+export interface ProjectSource {
+  readonly generated: ReadonlySet<string>
+  readonly read: (file: string) => string
 }
 
 export const removedAreas = (areas: readonly Area[]): Area[] => {
@@ -38,61 +42,67 @@ export const removedAreas = (areas: readonly Area[]): Area[] => {
 export const isInFootprint = (file: string, areas: readonly Area[]): boolean =>
   areas.some((area) => AREAS[area].files.some((glob) => posix.matchesGlob(file, glob)))
 
-const isLocalModule = (specifier: string): boolean => specifier.startsWith(ROOT_ALIAS) || specifier.startsWith(RELATIVE_PREFIX)
-
-const modulePath = (barrel: string, specifier: string): string =>
-  specifier.startsWith(ROOT_ALIAS) ? specifier.slice(ROOT_ALIAS.length) : posix.join(posix.dirname(barrel), specifier)
-
-export const isMissingModule = (barrel: string, specifier: string, files: ReadonlySet<string>): boolean =>
-  isLocalModule(specifier) && !MODULE_SUFFIXES.some((suffix) => files.has(`${modulePath(barrel, specifier)}${suffix}`))
-
-const reExportsOf = (source: string): RegExpExecArray[] => [...source.matchAll(RE_EXPORT)]
-
-export const isBarrel = (source: string): boolean => reExportsOf(source).length > 0 && source.replaceAll(RE_EXPORT, "").trim().length === 0
-
-export const prunedBarrel = (barrel: string, source: string, files: ReadonlySet<string>): string =>
-  reExportsOf(source)
-    .filter((statement) => !isMissingModule(barrel, reExportSchema.parse(statement.groups).module, files))
-    .map(([statement]) => statement)
-    .join("")
-
-const prunedBarrels = (files: readonly string[], read: (file: string) => string): Map<string, string> => {
-  const present = new Set(files)
-
-  return new Map(
-    files
-      .filter((file) => file.endsWith(TYPESCRIPT_EXTENSION))
-      .flatMap((file) => {
-        const source = read(file)
-        const pruned = prunedBarrel(file, source, present)
-
-        return isBarrel(source) && pruned !== source ? [[file, pruned] as const] : []
-      }),
+export const removedNames = (areas: readonly Area[]): Map<string, string[]> =>
+  new Map(
+    [
+      ...Map.groupBy(
+        areas.flatMap((area) => Object.entries(AREAS[area].names ?? {})),
+        ([file]) => file,
+      ),
+    ].map(([file, entries]) => [file, entries.flatMap(([, names]) => names)]),
   )
+
+const namespacesOf = (files: readonly string[]): Set<string> =>
+  new Set(
+    files
+      .filter((file) => posix.dirname(posix.dirname(file)) === MESSAGES && file.endsWith(MESSAGE_EXTENSION))
+      .map((file) => posix.basename(file, MESSAGE_EXTENSION)),
+  )
+
+export const removedNamespaces = (deleted: readonly string[], kept: readonly string[]): Set<string> => {
+  const keptNamespaces = namespacesOf(kept)
+
+  return new Set([...namespacesOf(deleted)].filter((namespace) => !keptNamespaces.has(namespace)))
 }
 
-export const areaRemoval = (areas: readonly Area[], files: readonly string[], read: (file: string) => string): AreaRemoval => {
+export const areaRemoval = (areas: readonly Area[], files: readonly string[], { generated, read }: ProjectSource): AreaRemoval => {
   const removed = removedAreas(areas)
   const kept = files.filter((file) => !isInFootprint(file, removed))
+  const deleted = files.filter((file) => isInFootprint(file, removed))
+  const { problems, sources } = pruneProject({
+    deleted: new Set(deleted),
+    generated,
+    kept,
+    names: removedNames(removed),
+    namespaces: removedNamespaces(deleted, kept),
+    read,
+  })
 
-  return { barrels: prunedBarrels(kept, read), kept, removed }
+  return { kept, problems, removed, sources }
 }
 
-const projectFiles = (): string[] => {
-  const { stdout } = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate"], {
-    encoding: "utf8",
-  })
+export const problemLines = (problems: readonly PruneProblem[]): string[] =>
+  problems.map(({ column, file, line, reason }) => `${file}:${String(line)}:${String(column)}: ${reason}`)
+
+const gitFiles = (pathspecs: readonly string[]): string[] => {
+  const { stdout } = spawnSync(
+    "git",
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", ...pathspecs],
+    {
+      encoding: "utf8",
+    },
+  )
 
   return stdout.split("\0").filter((file) => file.length > 0 && existsSync(file))
 }
 
-const copyProject = ({ barrels, kept }: AreaRemoval, root: string): void => {
+const copyProject = ({ kept, sources }: AreaRemoval, root: string): void => {
   for (const file of kept) {
     mkdirSync(posix.dirname(join(root, file)), { recursive: true })
     cpSync(file, join(root, file))
   }
 
-  for (const [file, source] of barrels) {
+  for (const [file, source] of sources) {
     writeFileSync(join(root, file), source)
   }
 
@@ -111,18 +121,22 @@ const typeChecks = (removal: AreaRemoval, root: string): boolean =>
   derivedScripts(removal.removed).every((script) => runCommand("bun", ["run", script], { cwd: root }).status === 0) &&
   runCommand("bun", TYPE_CHECK, { cwd: root }).status === 0
 
-const checkScenario = (scenario: AreaScenario, files: readonly string[]): boolean => {
-  const removal = areaRemoval(AREA_SCENARIOS[scenario], files, (file) => readFileSync(file, "utf8"))
+const checkScenario = (scenario: AreaScenario, files: readonly string[], project: ProjectSource): boolean => {
+  const removal = areaRemoval(AREA_SCENARIOS[scenario], files, project)
   const root = mkdtempSync(join(tmpdir(), `check-areas-${scenario}-`))
 
   console.log(
-    `check:areas ${scenario}: without ${removal.removed.join(", ")}; ${String(files.length - removal.kept.length)} files deleted, ${String(removal.barrels.size)} barrels pruned`,
+    `check:areas ${scenario}: without ${removal.removed.join(", ")}; ${String(files.length - removal.kept.length)} files deleted, ${String(removal.sources.size)} files pruned, ${String(removal.problems.length)} references left that cannot be pruned`,
   )
+
+  if (removal.problems.length > 0) {
+    console.error(problemLines(removal.problems).join("\n"))
+  }
 
   try {
     copyProject(removal, root)
 
-    return typeChecks(removal, root)
+    return typeChecks(removal, root) && removal.problems.length === 0
   } finally {
     rmSync(root, { force: true, recursive: true })
   }
@@ -130,9 +144,10 @@ const checkScenario = (scenario: AreaScenario, files: readonly string[]): boolea
 
 if (import.meta.main) {
   const requested = scriptArguments().map((scenario) => scenarioSchema.parse(scenario))
-  const files = projectFiles()
+  const files = gitFiles([])
+  const project: ProjectSource = { generated: new Set(gitFiles([GENERATED])), read: (file) => readFileSync(file, "utf8") }
   const scenarios = requested.length > 0 ? requested : Object.values(AREA_SCENARIO)
-  const failed = scenarios.filter((scenario) => !checkScenario(scenario, files))
+  const failed = scenarios.filter((scenario) => !checkScenario(scenario, files, project))
 
   if (failed.length > 0) {
     console.error(`check:areas: the site does not type-check ${failed.map((scenario) => `in ${scenario}`).join(", ")}`)

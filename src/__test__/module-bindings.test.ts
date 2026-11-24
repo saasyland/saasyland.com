@@ -50,8 +50,8 @@ describe("analyzeModule: module bindings", () => {
       ),
     ).toStrictEqual([
       "a:true",
-      "c:false",
-      "d:false",
+      "c:true",
+      "d:true",
       "e:true",
       "f:false",
       "g:false",
@@ -157,27 +157,33 @@ describe("analyzeModule: references", () => {
     expect(referencesTo(source, "Item")).toStrictEqual(["Item", "Item", "Item"])
   })
 
-  it("tracks the locals the pruning may delete, with their references, and none it may not", () => {
+  it("tracks every local with its references, and marks the ones the pruning may delete", () => {
     const source =
-      "function outer() {\n  const kept = 1\n  const { picked, ...rest } = values\n  function inner() {}\n  return [kept, picked, rest, inner]\n}\n"
+      "function outer(parameter) {\n  const kept = 1\n  const { picked, ...rest } = values\n  const [first, , last] = values\n  function inner() {}\n  return [parameter, kept, picked, rest, first, last, inner]\n}\n"
     const { locals } = analyzeModule(FILE, source)
 
-    expect(locals.map(({ declaration, references }) => [textOf(source, declaration), references.length])).toStrictEqual([
-      ["kept = 1", 1],
-      ["picked", 1],
-      ["...rest", 1],
-      ["function inner() {}", 1],
+    expect(
+      locals.map(({ declaration, references, removable }) => [textOf(source, declaration), references.length, removable]),
+    ).toStrictEqual([
+      ["parameter", 1, false],
+      ["kept = 1", 1, true],
+      ["picked", 1, true],
+      ["...rest", 1, true],
+      ["first", 1, true],
+      ["last", 1, true],
+      ["function inner() {}", 1, true],
     ])
   })
 })
 
 describe("analyzeModule: arrays, dynamic imports and ambient modules", () => {
-  it("lists every array literal and every import whose module is a string", () => {
+  it("lists every array literal, every block and every import whose module is a string", () => {
     const source =
-      'const list = [[1], 2]\nconst lazy = () => import("./lazy")\nconst dynamic = import("./" + name)\ntype Module = typeof import("./types")\n'
-    const { arrays, imports } = analyzeModule(FILE, source)
+      'const list = [[1], 2]\nconst lazy = () => import("./lazy")\nconst dynamic = import("./" + name)\ntype Module = typeof import("./types")\nfunction run() {\n  if (list) {}\n}\n'
+    const { arrays, blocks, imports } = analyzeModule(FILE, source)
 
     expect(arrays.map((array) => textOf(source, array))).toStrictEqual(["[[1], 2]", "[1]"])
+    expect(blocks.map((block) => textOf(source, block))).toStrictEqual(["{\n  if (list) {}\n}", "{}"])
     expect(imports.map(({ source: module }) => module)).toStrictEqual(["./lazy", "./types"])
   })
 

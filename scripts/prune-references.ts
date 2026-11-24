@@ -1,7 +1,10 @@
 import { posix } from "node:path"
 import type { ESTree } from "vite/rolldown/utils"
 
-import { BINDING_KIND, type ModuleBinding, type SourceModule, analyzeModule, childNodes, isNode, nameOf } from "./module-bindings.ts"
+import { BINDING_KIND, type ModuleBinding, type SourceModule, analyzeModule, childNodes, nameOf } from "./module-bindings.ts"
+import { LINE_BREAK, applyEdits, editsOf, isRemoved } from "./prune-edits.ts"
+import { FUNCTIONS, ancestorsOf, callUnit, emptiedUnit, isRemovableDeclarator, unitOf } from "./prune-units.ts"
+import { type ModuleMock, TEST_KIND, type TestCall, isTestFile, moduleMocksOf, testCallsOf } from "./test-cases.ts"
 
 const ROOT_ALIAS = "~/"
 const RELATIVE_PREFIX = "."
@@ -9,13 +12,8 @@ const MODULE_SUFFIXES = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"] as const
 const QUERY = /\?.*$/u
 const CODE_FILE = /\.[cm]?[jt]sx?$/u
 const DECLARATION_FILE = ".d.ts"
-const STATEMENT = /(?:Declaration|Statement)$/u
-const TRAILING_SEPARATOR = /^\s*[,;]/u
 const PATH_SEPARATOR = "."
-const LINE_BREAK = "\n"
-const FUNCTIONS: ReadonlySet<string> = new Set(["ArrowFunctionExpression", "FunctionDeclaration", "FunctionExpression"])
-const TYPE_KIND = "type"
-const SPECIFIERS = "specifiers"
+const AFTER_FIRST_LINE = /\n[\s\S]*/u
 
 export interface PruneProblem {
   readonly column: number
@@ -34,6 +32,7 @@ export interface ProjectPrune {
 }
 
 export interface PrunedProject {
+  readonly deleted: ReadonlySet<string>
   readonly problems: readonly PruneProblem[]
   readonly sources: ReadonlyMap<string, string>
 }
@@ -50,6 +49,7 @@ interface Context {
 
 interface FilePrune {
   readonly changed: boolean
+  readonly deleted: boolean
   readonly file: string
   readonly problems: readonly PruneProblem[]
   readonly removed: ReadonlySet<string>
@@ -57,20 +57,28 @@ interface FilePrune {
 }
 
 interface Prune {
+  readonly callbacks: ReadonlyMap<ESTree.Node, TestCall>
   readonly context: Context
+  readonly deciding: Set<ESTree.Node>
+  readonly emptied: Set<ESTree.Node>
   readonly file: string
+  readonly guarded: ReadonlySet<ESTree.Node>
+  readonly isDerived: (node: ESTree.Node) => boolean
+  readonly mocks: readonly ModuleMock[]
   readonly module: SourceModule
   readonly problems: PruneProblem[]
   readonly removed: Set<string>
   readonly source: string
+  readonly stranded: Set<ESTree.Node>
   readonly targets: Set<ESTree.Node>
-  readonly unprunable: ESTree.Node[]
+  readonly tests: readonly TestCall[]
+  readonly unprunable: Map<ESTree.Node, ESTree.Node>
 }
 
-interface Edit {
-  readonly end: number
-  readonly start: number
-  readonly text: string
+interface Mark {
+  readonly removed: number
+  readonly targets: number
+  readonly unprunable: number
 }
 
 interface Owner {
@@ -78,17 +86,12 @@ interface Owner {
   readonly path: readonly string[]
 }
 
-interface Neighbours {
-  readonly keptAfter: boolean
-  readonly keptBefore: boolean
-  readonly next: ESTree.Node | undefined
-  readonly previous: ESTree.Node | undefined
-}
-
 interface ParsedFile {
   readonly file: string
+  readonly mocks: readonly ModuleMock[]
   readonly module: SourceModule
   readonly source: string
+  readonly tests: readonly TestCall[]
 }
 
 interface MemberStep {
@@ -130,44 +133,6 @@ const problemAt = (prune: Prune, node: ESTree.Node, reason: string): PruneProble
   reason,
 })
 
-const ancestorsOf = (parents: ReadonlyMap<ESTree.Node, ESTree.Node>, node: ESTree.Node): ESTree.Node[] => {
-  const ancestors: ESTree.Node[] = []
-
-  for (let parent = parents.get(node); parent !== undefined; parent = parents.get(parent)) {
-    ancestors.push(parent)
-  }
-
-  return ancestors
-}
-
-const arrayElement = (child: ESTree.Node, [parent, ...rest]: readonly ESTree.Node[]): ESTree.Node[] => {
-  if (parent === undefined) {
-    return []
-  }
-
-  return parent.type === "ArrayExpression" ? [child] : arrayElement(parent, rest)
-}
-
-const isItem = (child: ESTree.Node, parent: ESTree.Node): boolean => {
-  if (parent.type === "ObjectExpression" || parent.type === "TSInterfaceBody" || parent.type === "TSTypeLiteral") {
-    return true
-  }
-
-  if (parent.type === "JSXElement" || parent.type === "JSXFragment") {
-    return parent.children.some((item) => item === child)
-  }
-
-  return parent.type === "ExportNamedDeclaration" && child.type === "ExportSpecifier"
-}
-
-const nearestItem = (child: ESTree.Node, [parent, ...rest]: readonly ESTree.Node[]): ESTree.Node[] => {
-  if (parent === undefined || STATEMENT.test(child.type)) {
-    return []
-  }
-
-  return isItem(child, parent) ? [child] : nearestItem(parent, rest)
-}
-
 const memberNames = (parent: ESTree.Node, child: ESTree.Node): string[] => {
   if (parent.type === "TSQualifiedName" || parent.type === "JSXMemberExpression") {
     return [parent.type === "TSQualifiedName" ? parent.right.name : parent.property.name]
@@ -202,21 +167,61 @@ const memberSteps = (parents: ReadonlyMap<ESTree.Node, ESTree.Node>, node: ESTre
   return steps
 }
 
-const cut = (prune: Prune, node: ESTree.Node, reported: ESTree.Node): void => {
-  const ancestors = ancestorsOf(prune.module.parents, node)
-  const [target] = [...arrayElement(node, ancestors), ...nearestItem(node, ancestors)]
+const boundBy = (prune: Prune, declarator: ESTree.VariableDeclarator): ESTree.Node[] =>
+  [...prune.module.bindings, ...prune.module.locals]
+    .filter(({ declaration }) => declaration === declarator || isInside([declarator.id], declaration))
+    .flatMap(({ references }) => references)
 
-  if (target === undefined) {
-    prune.unprunable.push(reported)
+const markOf = ({ removed, targets, unprunable }: Prune): Mark => ({
+  removed: removed.size,
+  targets: targets.size,
+  unprunable: unprunable.size,
+})
 
-    return
+const dropAfter = <Item>(items: Map<Item, unknown> | Set<Item>, size: number): void => {
+  for (const item of [...items.keys()].slice(size)) {
+    items.delete(item)
   }
+}
+
+const rollBack = (prune: Prune, mark: Mark): void => {
+  dropAfter(prune.removed, mark.removed)
+  dropAfter(prune.targets, mark.targets)
+  dropAfter(prune.unprunable, mark.unprunable)
+}
+
+const takeUnit = (prune: Prune, target: ESTree.Node): boolean => {
+  if (prune.targets.has(target)) {
+    return true
+  }
+
+  const mark = markOf(prune)
 
   prune.targets.add(target)
 
   if (target.type === "ExportSpecifier") {
     prune.removed.add(nameOf(target.exported))
   }
+
+  if (target.type === "VariableDeclarator" && !boundBy(prune, target).every((reference) => cut(prune, reference, reference))) {
+    rollBack(prune, mark)
+
+    return false
+  }
+
+  return true
+}
+
+const take = (prune: Prune, units: readonly ESTree.Node[]): boolean => units.some((unit) => takeUnit(prune, unit))
+
+const cut = (prune: Prune, node: ESTree.Node, reported: ESTree.Node): boolean => {
+  const taken = take(prune, unitOf(prune, node))
+
+  if (!taken) {
+    prune.unprunable.set(reported, node)
+  }
+
+  return taken
 }
 
 const ownerOf = (prune: Prune, binding: ModuleBinding): Owner => ({
@@ -232,6 +237,58 @@ const goneMember = (prune: Prune, owner: Owner, reference: ESTree.Node): ESTree.
     .filter((_, index) => isGone(prune.context, owner.module, path.slice(0, owner.path.length + index + 1)))
     .slice(0, 1)
     .map(({ node }) => node)
+}
+
+const isTaken = (prune: Prune, node: ESTree.Node): boolean =>
+  [node, ...ancestorsOf(prune.module.parents, node)].some((ancestor) => prune.targets.has(ancestor))
+
+const isDoomed = (prune: Prune, declaration: ESTree.Node): boolean => {
+  const declarator = [declaration, ...ancestorsOf(prune.module.parents, declaration)].find(
+    (node): node is ESTree.VariableDeclarator => node.type === "VariableDeclarator",
+  )
+
+  if (
+    declarator === undefined ||
+    prune.deciding.has(declarator) ||
+    (declarator !== declaration && !isInside([declarator.id], declaration))
+  ) {
+    return false
+  }
+
+  prune.deciding.add(declarator)
+
+  const doomed = isRemovableDeclarator(prune, declarator)
+
+  prune.deciding.delete(declarator)
+
+  return doomed
+}
+
+const isGoneDeclaration = (prune: Prune, declaration: ESTree.Node): boolean => isTaken(prune, declaration) || isDoomed(prune, declaration)
+
+const isRemovedReference = (prune: Prune, binding: ModuleBinding, reference: ESTree.Node): boolean => {
+  const owner = ownerOf(prune, binding)
+
+  return (
+    isGone(prune.context, owner.module, owner.path) ||
+    isGoneDeclaration(prune, binding.declaration) ||
+    goneMember(prune, owner, reference).length > 0
+  )
+}
+
+const isDerived = (prune: Prune, node: ESTree.Node): boolean => {
+  const ranges = [node]
+  const fromModule = prune.module.bindings.flatMap((binding) =>
+    binding.references.filter((reference) => isInside(ranges, reference)).map((reference) => isRemovedReference(prune, binding, reference)),
+  )
+  const fromScopes = prune.module.locals
+    .filter(({ declaration }) => !isInside(ranges, declaration))
+    .flatMap(({ declaration, references }) =>
+      references.filter((reference) => isInside(ranges, reference)).map(() => isGoneDeclaration(prune, declaration)),
+    )
+  const references = [...fromModule, ...fromScopes]
+
+  return references.length > 0 && references.every(Boolean)
 }
 
 const pruneBindings = (prune: Prune): void => {
@@ -362,13 +419,23 @@ const pruneNames = (prune: Prune): void => {
 }
 
 const pruneDynamicImports = (prune: Prune): void => {
+  const mocked = new Set(prune.mocks.map(({ specifier }) => specifier))
+
   for (const { node, source } of prune.module.imports) {
-    if (isGone(prune.context, resolveModule(prune.file, source, prune.context), [])) {
+    if (!mocked.has(node) && isGone(prune.context, resolveModule(prune.file, source, prune.context), [])) {
       const functions =
         node.type === "ImportExpression" ? ancestorsOf(prune.module.parents, node).filter((ancestor) => FUNCTIONS.has(ancestor.type)) : []
-      const [owner = node] = functions
+      const [nearest = node] = functions
 
-      cut(prune, owner, node)
+      cut(prune, prune.callbacks.has(nearest) ? node : nearest, node)
+    }
+  }
+}
+
+const pruneMocks = (prune: Prune): void => {
+  for (const { call, source, specifier } of prune.mocks) {
+    if (isGone(prune.context, resolveModule(prune.file, source, prune.context), [])) {
+      cut(prune, call, specifier)
     }
   }
 }
@@ -405,45 +472,6 @@ const pruneEmptiedArrays = (prune: Prune): void => {
   }
 }
 
-const isRemoved = (prune: Prune, node: ESTree.Node): boolean => prune.targets.has(node) || isEmptied(prune, node)
-
-const allRemoved = (prune: Prune, nodes: readonly ESTree.Node[]): boolean =>
-  nodes.length > 0 && nodes.every((node) => isRemoved(prune, node))
-
-const isEmptiedPattern = (prune: Prune, node: ESTree.Node): boolean => node.type === "ObjectPattern" && allRemoved(prune, node.properties)
-
-const isEmptied = (prune: Prune, node: ESTree.Node): boolean => {
-  if (node.type === "ImportDeclaration") {
-    return allRemoved(prune, node.specifiers)
-  }
-
-  if (node.type === "ExportNamedDeclaration") {
-    return node.declaration === null ? allRemoved(prune, node.specifiers) : isRemoved(prune, node.declaration)
-  }
-
-  if (node.type === "ExportDefaultDeclaration") {
-    return isRemoved(prune, node.declaration)
-  }
-
-  if (node.type === "VariableDeclaration") {
-    return allRemoved(prune, node.declarations)
-  }
-
-  if (node.type === "VariableDeclarator") {
-    return isEmptiedPattern(prune, node.id)
-  }
-
-  return node.type === "Property" && isEmptiedPattern(prune, node.value)
-}
-
-const childGroups = (node: ESTree.Node): ESTree.Node[][] =>
-  Object.entries(node).flatMap(([key, value]: [string, unknown]) => {
-    const values: unknown[] = Array.isArray(value) ? value : [value]
-    const nodes = values.filter((child) => isNode(child))
-
-    return key === SPECIFIERS || nodes.length === 0 ? [] : [nodes]
-  })
-
 const removedNodes = (prune: Prune, node: ESTree.Node): ESTree.Node[] =>
   childNodes(node).flatMap(([, child]) => (isRemoved(prune, child) ? [child] : removedNodes(prune, child)))
 
@@ -454,7 +482,7 @@ const settleUnused = (prune: Prune): void => {
   const removed = removedNodes(prune, prune.module.program)
   const candidates = [
     ...prune.module.bindings.filter((binding) => binding.kind === BINDING_KIND.IMPORT || binding.removable),
-    ...prune.module.locals,
+    ...prune.module.locals.filter(({ removable }) => removable),
   ]
   const unused = candidates.filter(
     ({ declaration, references }) =>
@@ -473,106 +501,146 @@ const settleUnused = (prune: Prune): void => {
   }
 }
 
-const removal = (prune: Prune, item: ESTree.Node, { keptAfter, keptBefore, next, previous }: Neighbours): Edit => {
-  if (keptAfter && next !== undefined) {
-    return { end: next.start, start: item.start, text: "" }
+const strand = (prune: Prune, blocks: readonly ESTree.Node[]): void => {
+  for (const block of blocks) {
+    prune.stranded.add(block)
   }
-
-  const separator = next === undefined && !keptBefore ? (TRAILING_SEPARATOR.exec(prune.source.slice(item.end))?.[0].length ?? 0) : 0
-
-  return { end: item.end + separator, start: previous?.end ?? item.start, text: "" }
 }
 
-const kindPrefix = (kind: string | undefined): string => (kind === TYPE_KIND ? `${TYPE_KIND} ` : "")
+const isEmptiedBlock = (removed: readonly ESTree.Node[], block: ESTree.Node): boolean =>
+  block.type === "BlockStatement" &&
+  block.body.length > 0 &&
+  !isInside(removed, block) &&
+  block.body.every((statement: ESTree.Node) => isInside(removed, statement))
 
-const importText = (prune: Prune, node: ESTree.ImportDeclaration): string => {
-  const kept = node.specifiers.filter((specifier) => !prune.targets.has(specifier))
-  const named = kept.flatMap((specifier) =>
-    specifier.type === "ImportSpecifier" ? [prune.source.slice(specifier.start, specifier.end)] : [],
-  )
-  const clauses = [
-    ...kept.flatMap((specifier) => (specifier.type === "ImportDefaultSpecifier" ? [specifier.local.name] : [])),
-    ...kept.flatMap((specifier) => (specifier.type === "ImportNamespaceSpecifier" ? [`* as ${specifier.local.name}`] : [])),
-    ...(named.length > 0 ? [`{ ${named.join(", ")} }`] : []),
-  ]
+const casesIn = (prune: Prune, { callbacks }: TestCall): TestCall[] =>
+  prune.tests.filter(({ call, kind }) => kind === TEST_KIND.CASE && isInside(callbacks, call))
 
-  return `import ${kindPrefix(node.importKind)}${clauses.join(", ")} from `
-}
+const isEmptiedTest = (prune: Prune, removed: readonly ESTree.Node[], test: TestCall): boolean => {
+  const cases = test.kind === TEST_KIND.GROUP ? casesIn(prune, test) : []
 
-const exportText = (prune: Prune, node: ESTree.ExportNamedDeclaration): string => {
-  const kept = node.specifiers.filter((specifier) => !prune.targets.has(specifier)).map(({ end, start }) => prune.source.slice(start, end))
-
-  return `export ${kindPrefix(node.exportKind)}{ ${kept.join(", ")} }${node.source === null ? "" : " from "}`
-}
-
-const specifierEdits = (prune: Prune, node: ESTree.Node): Edit[] => {
-  if (node.type === "ImportDeclaration" && node.specifiers.some((specifier) => prune.targets.has(specifier))) {
-    return [{ end: node.source.start, start: node.start, text: importText(prune, node) }]
-  }
-
-  if (node.type === "ExportNamedDeclaration" && node.specifiers.some((specifier) => prune.targets.has(specifier))) {
-    return [{ end: node.source?.start ?? node.end, start: node.start, text: exportText(prune, node) }]
-  }
-
-  return []
-}
-
-const itemEdits = (prune: Prune, item: ESTree.Node, neighbours: Neighbours): Edit[] =>
-  isRemoved(prune, item) ? [removal(prune, item, neighbours)] : editsOf(prune, item)
-
-const listEdits = (prune: Prune, items: readonly ESTree.Node[]): Edit[] => {
-  const removed = items.map((item) => isRemoved(prune, item))
-
-  return items.flatMap((item, index) =>
-    itemEdits(prune, item, {
-      keptAfter: removed.slice(index + 1).includes(false),
-      keptBefore: removed.slice(0, index).includes(false),
-      next: items[index + 1],
-      previous: items[index - 1],
-    }),
+  return (
+    test.tables.some((table) => table.type === "ArrayExpression" && isEmptiedArray(prune, table)) ||
+    test.callbacks.some(({ body }) => isEmptiedBlock(removed, body)) ||
+    (cases.length > 0 && cases.every(({ call }) => isInside(removed, call)))
   )
 }
 
-const editsOf = (prune: Prune, node: ESTree.Node): Edit[] => [
-  ...specifierEdits(prune, node),
-  ...childGroups(node).flatMap((items) => listEdits(prune, items)),
-]
+const pruneEmptied = (prune: Prune): void => {
+  const removed = removedNodes(prune, prune.module.program)
 
-const applyEdits = (source: string, edits: readonly Edit[]): string =>
-  edits
-    .toSorted((left, right) => right.start - left.start)
-    .reduce((text, edit) => `${text.slice(0, edit.start)}${edit.text}${text.slice(edit.end)}`, source)
+  for (const test of prune.tests.filter((candidate) => !isInside(removed, candidate.call) && isEmptiedTest(prune, removed, candidate))) {
+    if (!take(prune, callUnit(prune, test))) {
+      prune.emptied.add(test.call)
+      strand(prune, [...test.callbacks.map(({ body }) => body), ...test.tables])
+    }
+  }
+
+  const owners = prune.module.blocks.flatMap((block): [ESTree.Node, ESTree.Node][] => {
+    const owner = prune.module.parents.get(block)
+
+    return owner !== undefined && !prune.callbacks.has(owner) && isEmptiedBlock(removed, block) ? [[block, owner]] : []
+  })
+
+  strand(
+    prune,
+    owners.filter(([, owner]) => !take(prune, emptiedUnit(prune, owner))).map(([block]) => block),
+  )
+}
+
+const retryUnprunable = (prune: Prune): void => {
+  const attempts = new Map(prune.unprunable)
+
+  prune.unprunable.clear()
+
+  for (const [reported, node] of attempts) {
+    cut(prune, node, reported)
+  }
+}
+
+const settleSource = (prune: Prune): void => {
+  const before = prune.targets.size
+
+  retryUnprunable(prune)
+  pruneEmptiedArrays(prune)
+  pruneEmptied(prune)
+  settleUnused(prune)
+
+  if (prune.targets.size > before) {
+    settleSource(prune)
+  }
+}
+
+const textOf = (prune: Prune, node: ESTree.Node): string => prune.source.slice(node.start, node.end).replace(AFTER_FIRST_LINE, "")
 
 const unprunableReason = (prune: Prune, node: ESTree.Node): string =>
-  `\`${prune.source.slice(node.start, node.end)}\` names what the removed areas take away, and no array element, object property or JSX element around it can go with it`
+  `\`${textOf(prune, node)}\` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`
+
+const emptiedReason = (prune: Prune, node: ESTree.Node): string =>
+  `\`${textOf(prune, node)}\` is left empty once the code that names what the removed areas take away goes, and it cannot go whole`
+
+const isLeftWithoutCases = (prune: Prune, removed: readonly ESTree.Node[]): boolean => {
+  const cases = prune.tests.filter(({ kind }) => kind === TEST_KIND.CASE)
+
+  return isTestFile(prune.file) && cases.length > 0 && cases.every(({ call }) => isInside(removed, call))
+}
 
 const finish = (prune: Prune): FilePrune => {
   const removed = prune.targets.size > 0 ? removedNodes(prune, prune.module.program) : []
-  const problems = prune.unprunable
-    .filter((node) => !isInside(removed, node))
-    .map((node) => problemAt(prune, node, unprunableReason(prune, node)))
+  const problems = [
+    ...[...prune.unprunable.keys()]
+      .filter((node) => !isInside(removed, node))
+      .map((node) => problemAt(prune, node, unprunableReason(prune, node))),
+    ...[...prune.emptied].filter((node) => !isInside(removed, node)).map((node) => problemAt(prune, node, emptiedReason(prune, node))),
+  ]
+  const deleted = isLeftWithoutCases(prune, removed)
 
   return {
     changed: prune.targets.size > 0,
+    deleted,
     file: prune.file,
-    problems: [...prune.problems, ...problems],
+    problems: deleted ? [] : [...prune.problems, ...problems],
     removed: prune.removed,
     source: prune.targets.size > 0 ? applyEdits(prune.source, editsOf(prune, prune.module.program)) : prune.source,
   }
 }
 
-const pruneSource = ({ file, module, source }: ParsedFile, context: Context): FilePrune => {
-  const prune: Prune = { context, file, module, problems: [], removed: new Set(context.names), source, targets: new Set(), unprunable: [] }
+const pruneSource = (parsed: ParsedFile, context: Context, guarded: ReadonlySet<ESTree.Node>): FilePrune => {
+  const { file, mocks, module, source, tests } = parsed
+  const prune: Prune = {
+    callbacks: new Map(tests.flatMap((test) => test.callbacks.map((callback): [ESTree.Node, TestCall] => [callback, test]))),
+    context,
+    deciding: new Set(),
+    emptied: new Set(),
+    file,
+    guarded,
+    isDerived: (node) => isDerived(prune, node),
+    mocks,
+    module,
+    problems: [],
+    removed: new Set(context.names),
+    source,
+    stranded: new Set(),
+    targets: new Set(),
+    tests,
+    unprunable: new Map(),
+  }
 
   pruneModuleStatements(prune)
   pruneBindings(prune)
   pruneNames(prune)
   pruneDynamicImports(prune)
+  pruneMocks(prune)
   pruneNamespaces(prune)
-  pruneEmptiedArrays(prune)
 
   if (prune.targets.size > 0) {
-    settleUnused(prune)
+    settleSource(prune)
+  }
+
+  const stranded = [...prune.stranded].filter((block) => !guarded.has(block))
+
+  if (stranded.length > 0) {
+    return pruneSource(parsed, context, new Set([...guarded, ...stranded]))
   }
 
   return finish(prune)
@@ -585,8 +653,9 @@ const compareProblems = (left: PruneProblem, right: PruneProblem): number =>
 
 const parse = (read: (file: string) => string, file: string): ParsedFile => {
   const source = read(file)
+  const module = analyzeModule(file, source)
 
-  return { file, module: analyzeModule(file, source), source }
+  return { file, mocks: moduleMocksOf(module), module, source, tests: testCallsOf(module) }
 }
 
 const ambientModulesOf = (files: readonly ParsedFile[]): Set<string> => new Set(files.flatMap(({ module }) => module.ambientModules))
@@ -603,7 +672,9 @@ export const pruneProject = ({ deleted: deletedFiles, generated, kept, names, na
   const modules = kept.filter((file) => CODE_FILE.test(file) && !generated.has(file)).map((file) => parse(read, file))
   const deleted = removedModules(deletedFiles, modules, read)
   const settle = (paths: Paths): FilePrune[] => {
-    const results = modules.map((parsed) => pruneSource(parsed, { deleted, files, names: names.get(parsed.file) ?? [], namespaces, paths }))
+    const results = modules.map((parsed) =>
+      pruneSource(parsed, { deleted, files, names: names.get(parsed.file) ?? [], namespaces, paths }, new Set()),
+    )
     const discovered = results
       .filter(({ removed }) => removed.size > 0)
       .map(({ file, removed }): [string, ReadonlySet<string>] => [file, removed])
@@ -614,7 +685,8 @@ export const pruneProject = ({ deleted: deletedFiles, generated, kept, names, na
   const results = settle(new Map([...names].map(([file, list]) => [file, new Set(list)])))
 
   return {
+    deleted: new Set(results.filter((result) => result.deleted).map(({ file }) => file)),
     problems: results.flatMap(({ problems }) => problems).toSorted(compareProblems),
-    sources: new Map(results.filter(({ changed }) => changed).map(({ file, source }) => [file, source])),
+    sources: new Map(results.filter((result) => result.changed && !result.deleted).map(({ file, source }) => [file, source])),
   }
 }

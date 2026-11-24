@@ -135,7 +135,7 @@ describe("pruneProject: what it cannot prune", () => {
 
     expect(problemsOf(project)).toStrictEqual([`${PAGE}:3:22 gone`, `${PAGE}:5:18 Gone`, `${PAGE}:9:10 gone`])
     expect(prune(project).problems[0]?.reason).toBe(
-      "`gone` names what the removed areas take away, and no array element, object property or JSX element around it can go with it",
+      "`gone` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it",
     )
     expect(pruned(project)).toBe(
       "export const value = gone()\nexport const Other = () => {\n  const result = Gone.call()\n\n  return result\n}\nexport = gone\n",
@@ -145,16 +145,20 @@ describe("pruneProject: what it cannot prune", () => {
   it("does not report a reference that goes with the code around it", () => {
     const source = `${GONE_IMPORT}const helper = () => gone()\n\nexport const LIST = [{ icon: Gone, run: helper }, 1]\n`
 
-    expect(prune({ kept: { [PAGE]: source } })).toStrictEqual({ problems: [], sources: new Map([[PAGE, "export const LIST = [1]\n"]]) })
+    expect(prune({ kept: { [PAGE]: source } })).toStrictEqual({
+      deleted: new Set(),
+      problems: [],
+      sources: new Map([[PAGE, "export const LIST = [1]\n"]]),
+    })
   })
 
   it("sorts the problems by file, line and column", () => {
-    const source = `${GONE_IMPORT}gone()\n`
+    const source = `${GONE_IMPORT}export default gone\n`
 
-    expect(problemsOf({ kept: { "src/a.ts": `${source}Gone()\n`, "src/b.ts": source } })).toStrictEqual([
-      "src/a.ts:2:1 gone",
-      "src/a.ts:3:1 Gone",
-      "src/b.ts:2:1 gone",
+    expect(problemsOf({ kept: { "src/a.ts": `${source}export const other = Gone\n`, "src/b.ts": source } })).toStrictEqual([
+      "src/a.ts:2:16 gone",
+      "src/a.ts:3:22 Gone",
+      "src/b.ts:2:16 gone",
     ])
   })
 })
@@ -284,14 +288,14 @@ describe("pruneProject: names the removed areas own in kept files", () => {
 })
 
 describe("pruneProject: dynamic imports and import types", () => {
-  it("deletes the element or property whose function imports a removed file, and reports one at the top level", () => {
+  it("deletes the element, property or statement whose function imports a removed file, and reports one it exports", () => {
     const source =
-      'vi.mock(import("./gone"))\n\nexport const PANELS = [{ load: () => import("./gone"), key: "a" }, { load: () => import("./kept") }]\nexport const LAZY = { load: async () => (await import("~/src/gone")).value, kept: 1 }\nexport const DYNAMIC = [import("./" + String(1))]\n'
+      'register(import("./gone"))\n\nexport const PANELS = [{ load: () => import("./gone"), key: "a" }, { load: () => import("./kept") }]\nexport const LAZY = { load: async () => (await import("~/src/gone")).value, kept: 1 }\nexport const DYNAMIC = [import("./" + String(1))]\nexport const load = () => import("./gone")\n'
 
     expect(pruned({ kept: { [PAGE]: source } })).toBe(
-      'vi.mock(import("./gone"))\n\nexport const PANELS = [{ load: () => import("./kept") }]\nexport const LAZY = { kept: 1 }\nexport const DYNAMIC = [import("./" + String(1))]\n',
+      'export const PANELS = [{ load: () => import("./kept") }]\nexport const LAZY = { kept: 1 }\nexport const DYNAMIC = [import("./" + String(1))]\nexport const load = () => import("./gone")\n',
     )
-    expect(problemsOf({ kept: { [PAGE]: source } })).toStrictEqual([`${PAGE}:1:9 import("./gone")`])
+    expect(problemsOf({ kept: { [PAGE]: source } })).toStrictEqual([`${PAGE}:6:27 import("./gone")`])
   })
 
   it("deletes the member whose type imports a removed file", () => {
@@ -332,7 +336,7 @@ describe("pruneProject: what the pruning leaves unused", () => {
     const source = `import Default, * as Icons from "icons"\nimport Logo, { Star, Moon } from "logos"\nimport { untouched } from "other"\n${GONE_IMPORT}\ntype Shape = Record<string, unknown>\nconst ENTRY: Shape = { icon: Star, label: helper(), logo: Default }\nfunction helper() {\n  return Moon\n}\n\nexport const LIST: Shape[] = [{ ...ENTRY, to: gone }, { icon: Icons.Sun }, { icon: Logo }]\n`
 
     expect(pruned({ kept: { [PAGE]: source } })).toBe(
-      'import * as Icons from "icons"\nimport Logo from "logos"\nimport { untouched } from "other"\ntype Shape = Record<string, unknown>\nexport const LIST: Shape[] = [{ icon: Icons.Sun }, { icon: Logo }]\n',
+      'import * as Icons from "icons"\nimport Logo from "logos"\nimport { untouched } from "other"\n\ntype Shape = Record<string, unknown>\nexport const LIST: Shape[] = [{ icon: Icons.Sun }, { icon: Logo }]\n',
     )
   })
 
@@ -353,6 +357,159 @@ describe("pruneProject: what the pruning leaves unused", () => {
   })
 })
 
+describe("pruneProject: test cases", () => {
+  const SPEC = "src/page.test.ts"
+  const VITEST = 'import { describe, expect, it } from "vite-plus/test"\n'
+  const KEPT_IMPORT = 'import { kept } from "./kept"\n'
+
+  it("deletes each test whose callback names what the removed areas take away, whatever else around it could go, and a group left with none", () => {
+    const source = `${VITEST}${GONE_IMPORT}${KEPT_IMPORT}\ndescribe("group", () => {\n  it("names it twice", () => {\n    expect(gone()).toBe(Gone)\n  })\n\n  it.skip("names it in a list", () => {\n    expect([gone, kept]).toHaveLength(2)\n  })\n\n  it("keeps", () => {\n    expect(kept).toBe(1)\n  })\n})\n\ndescribe.only("only cases that name it", () => {\n  it("inside", () => {\n    expect(kept).toBe(gone)\n  })\n})\n`
+
+    expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
+      'import { describe, expect, it } from "vite-plus/test"\nimport { kept } from "./kept"\n\ndescribe("group", () => {\n  it("keeps", () => {\n    expect(kept).toBe(1)\n  })\n})\n',
+    )
+  })
+
+  it("deletes a row of a table, and the test or group whose table it empties", () => {
+    const source = `${VITEST}${GONE_IMPORT}\nit.each([{ path: gone }, { path: "/kept" }])("opens $path", ({ path }) => {\n  expect(path).toBeDefined()\n})\n\nit.each([gone])("opens only what goes", (path) => {\n  expect(path).toBeDefined()\n})\n\ndescribe.each([Gone])("a group of what goes", (path) => {\n  it("opens it", () => {\n    expect(path).toBeDefined()\n  })\n})\n\nit("stays", () => {\n  expect(1).toBe(1)\n})\n`
+
+    expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
+      'import { expect, it } from "vite-plus/test"\n\nit.each([{ path: "/kept" }])("opens $path", ({ path }) => {\n  expect(path).toBeDefined()\n})\n\nit("stays", () => {\n  expect(1).toBe(1)\n})\n',
+    )
+  })
+
+  it("deletes a Playwright step on its own, and the test its steps leave empty or whose step's value it reads", () => {
+    const source = `import { expect, test } from "../fixtures/test"\n${GONE_IMPORT}\ntest("a journey", async ({ page }) => {\n  await test.step("keeps", async () => {\n    await page.goto("/")\n  })\n  await test.step("names it", async () => {\n    await page.goto(gone)\n  })\n})\n\ntest("a journey of steps that all go", async ({ page }) => {\n  await test.step("names it", async () => {\n    await page.goto(gone)\n  })\n})\n\ntest("a journey that reads what a step returns", async () => {\n  const path = await test.step("names it", async () => gone)\n  expect(path).toBe("/")\n})\n`
+
+    expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
+      'import { test } from "../fixtures/test"\n\ntest("a journey", async ({ page }) => {\n  await test.step("keeps", async () => {\n    await page.goto("/")\n  })\n})\n',
+    )
+  })
+
+  it("deletes each mock of a removed module, the statements of a setup hook that name it, and the hook they leave empty", () => {
+    const source = `import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vite-plus/test"\nimport { kept, seed } from "./kept"\n\nvi.mock("./gone")\nvi.mock(import("./gone"), () => ({ value: 1 }))\nvi.mock("./kept")\n\nbeforeEach(async () => {\n  seed(kept)\n  vi.doMock("~/src/gone")\n  await import("./gone")\n})\n\nafterEach(() => import("./gone"))\n\nbeforeAll(async () => {\n  if (kept) {\n    await import("./gone")\n  }\n})\n\nafterAll(() => {\n  vi.doUnmock("./gone")\n})\n\nit("loads what goes", async () => {\n  await import("./gone")\n})\n\nit("stays", () => {\n  expect(kept).toBe(1)\n})\n`
+
+    expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
+      'import { beforeEach, expect, it, vi } from "vite-plus/test"\nimport { kept, seed } from "./kept"\n\nvi.mock("./kept")\n\nbeforeEach(async () => {\n  seed(kept)\n})\n\nit("stays", () => {\n  expect(kept).toBe(1)\n})\n',
+    )
+  })
+
+  it("keeps a test or a group a helper defines, which cannot go, with everything in it, and reports what it names", () => {
+    const source = `import { describe, expect, it } from "vite-plus/test"\n${GONE_IMPORT}\nexport const defineCases = (): void => {\n  describe("cases a helper defines", () => {\n    it("names it", () => {\n      expect(gone).toBe(1)\n    })\n  })\n  it.each([Gone])("opens %s", (path) => {\n    expect(path).toBeDefined()\n  })\n}\n`
+    const project = { kept: { [SPEC]: source } }
+
+    expect(pruned(project, SPEC)).toBe(source.replace(GONE_IMPORT, ""))
+    expect(problemsOf(project)).toStrictEqual([`${SPEC}:7:14 gone`, `${SPEC}:10:12 Gone`])
+  })
+
+  it("reports a test a helper defines, which cannot go, when only the removed message namespaces empty its table", () => {
+    const source =
+      'import { expect, it } from "vite-plus/test"\n\nexport const defineCases = (): void => {\n  it.each(["pages.gone"])("loads %s", (namespace) => {\n    expect(namespace).toBeDefined()\n  })\n}\n'
+    const project = { kept: { [SPEC]: source }, namespaces: ["pages.gone"] }
+
+    expect(pruned(project, SPEC)).toBe(source.replace('"pages.gone"', ""))
+    expect(prune(project).problems.map(({ reason }) => reason)).toStrictEqual([
+      '`it.each(["pages.gone"])("loads %s", (namespace) => {` is left empty once the code that names what the removed areas take away goes, and it cannot go whole',
+    ])
+  })
+
+  it("deletes a test file the pruning leaves without a test, with what it reports, but keeps a file that never had one", () => {
+    const project = {
+      kept: {
+        [SPEC]: `import { expect, it } from "vite-plus/test"\n${GONE_IMPORT}\nexport const value = gone\n\nit("names it", () => {\n  expect(gone).toBe(1)\n})\n`,
+        "src/helpers.test.ts": `${GONE_IMPORT}export const helper = gone\n`,
+      },
+    }
+
+    expect(prune(project).deleted).toStrictEqual(new Set([SPEC]))
+    expect(prune(project).sources.has(SPEC)).toBe(false)
+    expect(problemsOf(project)).toStrictEqual(["src/helpers.test.ts:2:23 gone"])
+  })
+})
+
+describe("pruneProject: declarations and statements", () => {
+  it("deletes a declarator whose value comes only from what the removed areas take away, with every use of the names it binds, until nothing changes", () => {
+    const source = `import { gone, useGone } from "./gone"\nimport { kept, track } from "./kept"\n\nconst value = gone()\nconst { first, second: [third] } = useGone()\nconst derived = first ?? value\nconst names = gone.map((item) => item.name)\nconst LIST = [derived, kept, names]\ntrack(third)\n\nexport const Page = () => {\n  const workspace = useGone()\n  const name = workspace.name\n  const deps = [name, kept]\n\n  return (\n    <main>\n      {workspace.title}\n      <p>{deps}</p>\n    </main>\n  )\n}\n\nexport { LIST }\n`
+
+    expect(prune({ kept: { [PAGE]: source } })).toStrictEqual({
+      deleted: new Set(),
+      problems: [],
+      sources: new Map([
+        [
+          PAGE,
+          'import { kept } from "./kept"\n\nconst LIST = [kept]\n\nexport const Page = () => {\n  const deps = [kept]\n\n  return (\n    <main>\n      \n      <p>{deps}</p>\n    </main>\n  )\n}\n\nexport { LIST }\n',
+        ],
+      ]),
+    })
+  })
+
+  it("follows a removed path into the declarator built from it", () => {
+    const project = {
+      kept: {
+        [PAGE]: 'import * as ROUTES from "./routes"\n\nconst path = ROUTES.GONE\n\nexport const LINKS = [path, ROUTES.KEPT]\n',
+        [ROUTES]: 'export const GONE = "/gone"\nexport const KEPT = "/kept"\n',
+      },
+      names: { [ROUTES]: ["GONE"] },
+    }
+
+    expect(pruned(project)).toBe('import * as ROUTES from "./routes"\n\nexport const LINKS = [ROUTES.KEPT]\n')
+  })
+
+  it("keeps a declarator whose value also draws on what stays, or a use of whose names cannot go, and reports what it names", () => {
+    const source = `import { type Gone, gone, signedIn } from "./gone"\nimport { LINKS, kept } from "./kept"\n\nexport const Menu = () => {\n  const workspace = gone()\n\n  return LINKS.map((entry) => {\n    const { label, to } = signedIn(entry, workspace)\n\n    return <a href={to}>{label}</a>\n  })\n}\n\nexport const total = (): number => {\n  const amount = gone()\n  const doubled = amount * 2\n\n  return doubled\n}\n\nconst mixed = gone + kept\nconst rows: Gone[] = [kept]\n\nexport default [mixed, rows]\n`
+    const project = { kept: { [PAGE]: source } }
+
+    expect(problemsOf(project)).toStrictEqual([
+      `${PAGE}:5:21 gone`,
+      `${PAGE}:8:27 signedIn`,
+      `${PAGE}:15:18 gone`,
+      `${PAGE}:21:15 gone`,
+      `${PAGE}:22:13 Gone`,
+    ])
+    expect(pruned(project)).toBe(source.replace('import { type Gone, gone, signedIn } from "./gone"\n', ""))
+  })
+
+  it("does not take a function, a class, a return, a condition or an export whole", () => {
+    const source = `${GONE_IMPORT}\nconst helper = () => gone()\nconst later = function () {\n  return gone\n}\nclass Box {\n  value = gone\n}\nfunction read(): unknown {\n  return gone\n}\nif (gone) {\n  read()\n}\nfor (let index = Gone; index < 1; index += 1) {\n  read()\n}\nexport const exported = gone\nconst handler = (() => gone()) satisfies Handler\nexport { handler, helper, later, Box }\n`
+
+    expect(problemsOf({ kept: { [PAGE]: source } })).toStrictEqual([
+      `${PAGE}:3:22 gone`,
+      `${PAGE}:5:10 gone`,
+      `${PAGE}:8:11 gone`,
+      `${PAGE}:11:10 gone`,
+      `${PAGE}:13:5 gone`,
+      `${PAGE}:16:18 Gone`,
+      `${PAGE}:19:25 gone`,
+      `${PAGE}:20:24 gone`,
+    ])
+  })
+
+  it("deletes a statement at the top of a module, and inside a function only one that names nothing else, with the callback or loop it empties", () => {
+    const source = `${GONE_IMPORT}import { open, register, subscribe } from "./kept"\n\nregister(gone)\ngone.start()\n\nexport const visit = async (page: Page): Promise<void> => {\n  await page.goto(gone)\n  gone.track()\n  await page.wait()\n}\n\nsubscribe(() => {\n  gone()\n})\n\nfor (const item of open()) {\n  gone(item)\n}\n`
+
+    expect(pruned({ kept: { [PAGE]: source } })).toBe(
+      "export const visit = async (page: Page): Promise<void> => {\n  await page.goto(gone)\n  await page.wait()\n}\n",
+    )
+    expect(problemsOf({ kept: { [PAGE]: source } })).toStrictEqual([`${PAGE}:8:19 gone`])
+  })
+
+  it("keeps the statements of a block whose function or condition cannot go once it is empty, and reports them", () => {
+    const source = `${GONE_IMPORT}import { open } from "./kept"\n\nexport function reset(): void {\n  gone()\n}\n\nif (open()) {\n  const value = gone()\n  Gone(value)\n}\n`
+
+    expect(pruned({ kept: { [PAGE]: source } })).toBe(source.replace(GONE_IMPORT, ""))
+    expect(problemsOf({ kept: { [PAGE]: source } })).toStrictEqual([`${PAGE}:5:3 gone`, `${PAGE}:9:17 gone`, `${PAGE}:10:3 Gone`])
+  })
+
+  it("leaves a hole for an array pattern element the pruning leaves unused, and deletes a pattern it empties", () => {
+    const SPEC = "src/page.test.ts"
+    const source = `import { expect, it } from "vite-plus/test"\n${GONE_IMPORT}import { ACCOUNTS } from "./kept"\n\nconst [admin, customer, guest] = ACCOUNTS\nconst [, other] = ACCOUNTS\n\nit("signs in an admin to what goes", () => {\n  expect(gone(admin, guest, other)).toBe(true)\n})\n\nit("signs in a customer", () => {\n  expect(customer).toBeDefined()\n})\n`
+
+    expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
+      'import { expect, it } from "vite-plus/test"\nimport { ACCOUNTS } from "./kept"\n\nconst [, customer] = ACCOUNTS\n\nit("signs in a customer", () => {\n  expect(customer).toBeDefined()\n})\n',
+    )
+  })
+})
+
 describe("pruneProject: which files it reads", () => {
   it("prunes only the code files that are not generated, and reports no file the removal leaves untouched", () => {
     const project = {
@@ -360,6 +517,6 @@ describe("pruneProject: which files it reads", () => {
       kept: { [PAGE]: "export const kept = 1\n", "messages/en-US/page.json": "{}", "src/routeTree.gen.ts": GONE_IMPORT },
     }
 
-    expect(prune(project)).toStrictEqual({ problems: [], sources: new Map() })
+    expect(prune(project)).toStrictEqual({ deleted: new Set(), problems: [], sources: new Map() })
   })
 })

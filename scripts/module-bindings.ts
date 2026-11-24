@@ -42,6 +42,7 @@ export interface SourceModule {
   readonly ambientModules: readonly string[]
   readonly arrays: readonly ESTree.ArrayExpression[]
   readonly bindings: readonly ModuleBinding[]
+  readonly blocks: readonly ESTree.BlockStatement[]
   readonly imports: readonly DynamicImport[]
   readonly locals: readonly LocalDeclaration[]
   readonly parents: ReadonlyMap<ESTree.Node, ESTree.Node>
@@ -65,6 +66,7 @@ interface Frame {
 
 interface Walk {
   readonly arrays: ESTree.ArrayExpression[]
+  readonly blocks: ESTree.BlockStatement[]
   readonly imports: DynamicImport[]
   readonly locals: Tracked[]
   readonly parents: Map<ESTree.Node, ESTree.Node>
@@ -160,7 +162,7 @@ const patternDeclarations = (node: Pattern, owner: ESTree.Node, removable: boole
   }
 
   if (node.type === "ArrayPattern") {
-    return node.elements.flatMap((element) => (element === null ? [] : patternDeclarations(element, element, false)))
+    return node.elements.flatMap((element) => (element === null ? [] : patternDeclarations(element, element, removable)))
   }
 
   if (node.type === "Property") {
@@ -311,6 +313,10 @@ const record = (walk: Walk, node: ESTree.Node, scopes: Scopes): void => {
     walk.arrays.push(node)
   }
 
+  if (node.type === "BlockStatement") {
+    walk.blocks.push(node)
+  }
+
   if (node.type === "TSImportType") {
     walk.imports.push({ node, source: node.source.value })
   }
@@ -342,7 +348,7 @@ const scopeOf = (walk: Walk, node: ESTree.Node): Map<string, Tracked>[] => {
     return Object.assign(declaration, { references })
   })
 
-  walk.locals.push(...tracked.filter(({ removable }) => removable))
+  walk.locals.push(...tracked)
 
   return tracked.length > 0 ? [new Map(tracked.map((entry) => [entry.name, entry]))] : []
 }
@@ -434,7 +440,7 @@ export const analyzeModule = (file: string, source: string): SourceModule => {
 
       return Object.assign(site, { references: shared })
     })
-  const walk: Walk = { arrays: [], imports: [], locals: [], parents: new Map(), references }
+  const walk: Walk = { arrays: [], blocks: [], imports: [], locals: [], parents: new Map(), references }
 
   for (const statement of program.body) {
     walk.parents.set(statement, program)
@@ -445,6 +451,7 @@ export const analyzeModule = (file: string, source: string): SourceModule => {
     ambientModules: ambientModules(program),
     arrays: walk.arrays,
     bindings,
+    blocks: walk.blocks,
     imports: walk.imports,
     locals: walk.locals,
     parents: walk.parents,

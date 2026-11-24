@@ -69,7 +69,7 @@ export const areaRemoval = (areas: readonly Area[], files: readonly string[], { 
   const removed = removedAreas(areas)
   const kept = files.filter((file) => !isInFootprint(file, removed))
   const deleted = files.filter((file) => isInFootprint(file, removed))
-  const { problems, sources } = pruneProject({
+  const pruned = pruneProject({
     deleted: new Set(deleted),
     generated,
     kept,
@@ -78,7 +78,7 @@ export const areaRemoval = (areas: readonly Area[], files: readonly string[], { 
     read,
   })
 
-  return { kept, problems, removed, sources }
+  return { kept: kept.filter((file) => !pruned.deleted.has(file)), problems: pruned.problems, removed, sources: pruned.sources }
 }
 
 export const problemLines = (problems: readonly PruneProblem[]): string[] =>

@@ -9,11 +9,11 @@ Better Auth stores users, accounts, sessions and verification tokens in D1 throu
 
 | File                                                   | Responsibility                                                                                                                                                                                        |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | The `betterAuth` instance: providers, the `admin`, `twoFactor`, `lastLoginMethod` and `tanstackStartCookies` plugins and those the areas add, allowed hosts, D1 rate limiting and email hooks         |
+| `auth.server.ts`                                       | The `betterAuth` instance: providers, the `admin`, `twoFactor`, `lastLoginMethod` and `tanstackStartCookies` plugins and every other plugin, allowed hosts, D1 rate limiting and email hooks          |
 | `auth.client.ts`                                       | `authClient` and its methods (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` and others)                                                                                                    |
 | `auth.routes.ts`                                       | Route guards for `beforeLoad`                                                                                                                                                                         |
 | `auth.middleware.ts`                                   | Server-function middleware: `withRequest`, `authorized`, `withRateLimit` and `RATE_LIMITS`                                                                                                            |
-| `auth.access.ts`                                       | `ac`, `ROLES` and `hasPermission`, built from the permission statements and grants the areas declare                                                                                                  |
+| `auth.access.ts`                                       | `ac`, `ROLES` and `hasPermission`, and the permission statements in `APP_STATEMENTS` and their grants                                                                                                 |
 | `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` and `isRole`                                                                                                                                         |
 | `auth.constants.ts`                                    | `AUTH_PROVIDER`: the ids of the email and password provider (`credential`) and the OAuth providers; `LOGIN_METHOD` and `LAST_LOGIN_METHOD_COOKIE` for the **Last used** badge                         |
 | `auth.session.ts`                                      | `getRequestSession`, the `getCurrentSession` server function and `getCurrentSessionQuery`                                                                                                             |
@@ -42,17 +42,30 @@ Page guards only protect navigation, so every protected server function checks t
 
 ## Roles and permissions
 
-`auth.roles.ts` defines two roles: `admin` and `customer` (the default for new accounts). Each area declares the statements of its resources and grants them to roles in `src/areas/<area>.access.ts`: today the auth area declares `admin` and `settings`, the products area `category` and `product`, the courses area `course` and `video`, and the payments area `order`, and each grants them to admins. `auth.access.ts` builds the access control and the roles from them; the admin role also receives Better Auth's admin statements. `hasPermission({ permission, role })` is shared by guards, middleware and the UI. See [Roles and permissions](/docs/guides/roles-and-permissions).
+`auth.roles.ts` defines two roles: `admin` and `customer` (the default for new accounts). `auth.access.ts` declares the statements of every resource in `APP_STATEMENTS`: `admin` and `settings` for the admin console and its settings, `category` and `product` for the products, `course` and `video` for the courses, and `order` for the orders. It grants them all to admins, who also receive Better Auth's admin statements, and builds the access control and the roles from them. `hasPermission({ permission, role })` is shared by guards, middleware and the UI. See [Roles and permissions](/docs/guides/roles-and-permissions).
+
+## Plugins
+
+`plugins` in `auth.server.ts` lists every Better Auth plugin, in the order Better Auth applies them:
+
+| Plugin                    | What it adds                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin`                   | User and session administration with `ac` and `ROLES` from `auth.access.ts`                                                                   |
+| `twoFactor`               | Two-factor authentication                                                                                                                     |
+| `lastLoginMethod`         | The cookie that remembers the last sign-in method                                                                                             |
+| `invitationPlugin`        | Invitations (`src/modules/invitation/invitation.plugin.ts`)                                                                                   |
+| `haveIBeenPwned`          | The breach check of every new password (`NEW_PASSWORD_PATHS`)                                                                                 |
+| `password-change-notice`  | `notifyPasswordChange` after a password change                                                                                                |
+| `license-retention`       | The `user.delete.before` hook that revokes a deleted account's licence                                                                        |
+| `polar`                   | The Polar plugin with the customer portal and the webhooks, which hand each event to `handlePolarEvent` ([Payments](/docs/features/payments)) |
+| `polar-verified-customer` | `requireVerifiedEmail` before every `/customer/` endpoint                                                                                     |
+| `tanstackStartCookies`    | Sets Better Auth's cookies on TanStack Start's responses, and must come last                                                                  |
+
+Every plugin is written out in the list, so Better Auth's types include the user and session fields each one adds. An element that names a feature's file, such as `revokeAccountLicense` or `polarCore`, leaves with that feature, and so does `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` in `rateLimit.customRules`, which keeps Polar's deliveries out of Better Auth's rate limiter.
 
 ## Email and rate limits
 
-`auth.server.ts` names no other area. A list of the auth area's own joins the plugins the others add:
-
-| List         | Each area declares                                                                                | Barrel                             | Used by                                                                                                                                                                                                  |
-| ------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth plugins | `src/data/<area>.auth-plugins.ts`: plugins, with the paths Better Auth exempts from rate limiting | `src/data/auth-plugins.entries.ts` | `plugins` and `rateLimit.customRules`; the auth area adds `haveIBeenPwned`, the licence area the `user.delete.before` hook that revokes a deleted account's licence, and the polar area the Polar plugin |
-
-The areas' plugins follow `admin` and `twoFactor` and precede `tanstackStartCookies`, which must come last. Better Auth reads the user and session fields of its plugins from the plugin list in order up to the first spread list, so a plugin that adds such fields belongs in `auth.server.ts`. The email hooks call the senders of the verification, account and user modules directly, because auth needs email: `sendVerifyEmail`, `sendExistingAccountEmail`, `sendResetPasswordEmail`, `sendPasswordChangedEmail`, `sendDeleteAccountEmail` and `sendChangeEmailConfirmationEmail`. Better Auth's own rate limiter stores its counters in the D1 `rate_limit` table under an `auth:` prefix through `consumeRateLimit` from `src/lib/rate-limit.ts`, which uses atomic upserts and rejects requests when its storage is unavailable. `clientAddress` in `auth.middleware.ts` resolves a request's client the way that limiter does, from `cf-connecting-ip` with IPv6 addresses grouped by /64. The cookie prefix is `APP_SLUG` from the branding. `getRequestSession` bypasses the cookie cache, so authorization always reads the session from D1.
+The email hooks call the senders of the verification, account and user modules directly, because auth needs email: `sendVerifyEmail`, `sendExistingAccountEmail`, `sendResetPasswordEmail`, `sendPasswordChangedEmail`, `sendDeleteAccountEmail` and `sendChangeEmailConfirmationEmail`. Better Auth's own rate limiter stores its counters in the D1 `rate_limit` table under an `auth:` prefix through `consumeRateLimit` from `src/lib/rate-limit.ts`, which uses atomic upserts and rejects requests when its storage is unavailable. `clientAddress` in `auth.middleware.ts` resolves a request's client the way that limiter does, from `cf-connecting-ip` with IPv6 addresses grouped by /64. The cookie prefix is `APP_SLUG` from the branding. `getRequestSession` bypasses the cookie cache, so authorization always reads the session from D1.
 
 ## Related guides
 

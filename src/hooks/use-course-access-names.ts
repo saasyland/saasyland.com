@@ -1,6 +1,6 @@
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
+import { COURSE_ACCESS_GRANTS } from "~/src/modules/lesson/lesson.access"
 
 interface CourseAccessNames {
   readonly holders: string

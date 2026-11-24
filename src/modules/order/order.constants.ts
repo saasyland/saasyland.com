@@ -1,4 +1,4 @@
-import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
 export const ORDER_STATUSES = [
   POLAR_ORDER_STATUS.DRAFT,
@@ -16,6 +16,13 @@ export const REVENUE_ORDER_STATUSES = [
   POLAR_ORDER_STATUS.PARTIALLY_REFUNDED,
   POLAR_ORDER_STATUS.REFUNDED,
 ] as const satisfies readonly OrderStatus[]
+
+export const ORDER_WEBHOOK_EVENTS = [
+  POLAR_WEBHOOK_EVENT.ORDER_CREATED,
+  POLAR_WEBHOOK_EVENT.ORDER_PAID,
+  POLAR_WEBHOOK_EVENT.ORDER_REFUNDED,
+  POLAR_WEBHOOK_EVENT.ORDER_UPDATED,
+] as const
 
 export const ORDER_SORT_COLUMNS = ["placedAt", "totalAmount", "refundedAmount", "status"] as const
 

@@ -1,39 +1,37 @@
 ---
 title: "Ролі та дозволи"
-description: "Оголошуйте декларації дозволів розділу та ролі, яким їх надано, у файлі доступу розділу й перевіряйте їх у guard маршрутів і серверних функціях."
+description: "Оголошуйте декларації дозволів і ролі, яким їх надано, у файлі доступу Better Auth і перевіряйте їх у guard маршрутів і серверних функціях."
 ---
 
-Контроль доступу використовує плагін admin Better Auth. Кожен розділ оголошує декларації дозволів своїх ресурсів і ролі, яким їх надає, у `src/areas/<area>.access.ts`. `src/areas/access.entries.ts` об’єднує розділи, а `src/integrations/better-auth/auth.access.ts` будує з них контроль доступу Better Auth, ролі й перевірку дозволів, тож інтеграція автентифікації не називає жодного розділу. Коди ролей розміщені в `src/integrations/better-auth/auth.roles.ts`.
+Контроль доступу використовує плагін admin Better Auth. `src/integrations/better-auth/auth.access.ts` оголошує декларації дозволів кожного ресурсу в `APP_STATEMENTS`, надає їх ролям і будує з них контроль доступу Better Auth та перевірку дозволів — в одному файлі, який переглядає людина. Коди ролей розміщені в `src/integrations/better-auth/auth.roles.ts`.
 
 ## Дозволи та ролі
 
-```ts title="src/areas/auth.access.ts"
-const STATEMENTS = {
+```ts title="src/integrations/better-auth/auth.access.ts"
+export const APP_STATEMENTS = {
   admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
+  video: ["read", "delete"],
 } as const
 
-export const AUTH_ACCESS = {
-  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
-  statements: STATEMENTS,
-} as const satisfies AreaAccess
-```
-
-```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
 }
 ```
 
-- `APP_STATEMENTS` у `src/integrations/better-auth/auth.access.ts` об’єднує декларації всіх розділів, відсортовані за ресурсом, і падає під час запуску, коли два розділи оголошують той самий ресурс. `grantsOf(role)` об’єднує все, що кожен розділ надає цій ролі.
-- Розділ автентифікації оголошує `admin` і `settings`, розділ продуктів — `category` і `product`, розділ курсів — `course` і `video`, а розділ платежів — `order`.
+- `APP_STATEMENTS` перелічує по одній декларації на ресурс, відсортовані за ресурсом: `admin` і `settings` для адмінпанелі та її налаштувань, `category` і `product` для продуктів, `course` і `video` для курсів, а `order` — для замовлень.
 - `defaultStatements` з Better Auth додають ресурси `user` і `session` (наприклад, `user: ["list", "set-role", "ban", "impersonate", "delete"]` і `session: ["list", "revoke"]`).
-- Кожен розділ надає всі свої декларації ролі `admin`, яка також отримує адміністративні декларації Better Auth; ролі `customer`, типовій для нових користувачів, не надано жодної.
+- Роль `admin` отримує всі декларації та адміністративні декларації Better Auth; ролі `customer`, типовій для нових користувачів, не надано жодної.
+- Можливість, яку проєкт пропускає, забирає свої декларації з собою: `scripts/areas.ts` їх називає, як-от `APP_STATEMENTS.course`, а правило очищення видаляє їх з об’єкта ([Тестування](/docs/conventions/testing#tests-follow-the-areas)).
 - `ROLE_VALUES` типізує колонку `user.role` і схеми ролей у `user.zod.ts`.
-- `Permission`, тип, який приймають `authorized` і `hasPermission`, будується з декларацій, які оголошують розділи, тож декларація чи дія, якої не оголошує жоден розділ, не компілюється.
+- `Permission`, тип, який приймають `authorized` і `hasPermission`, будується з `APP_STATEMENTS`, тож декларація чи дія, якої там не оголошено, не компілюється.
 
 ## Де перевіряються дозволи
 
@@ -48,15 +46,15 @@ Guard маршруту лише визначає, які сторінки рен
 
 ## Додайте дозвіл
 
-1. Додайте дію до декларацій розділу, якому належить ресурс, наприклад `report: ["read", "export"]` у `src/areas/analytics.access.ts`. Новий розділ додає свій файл і один рядок до `src/areas/access.entries.ts`.
-2. Надайте її в `grants` того самого файлу: розділи надають усі свої `STATEMENTS` ролі `ROLE_CODES.ADMIN`, а ролі, яка має отримати менше, надають лише частину з них.
+1. Додайте дію до декларації ресурсу в `APP_STATEMENTS` або додайте ресурс на його місце в порядку сортування, наприклад `report: ["read", "export"]`. Можливість, яку можна пропустити, називає новий ресурс у своїх `names` у `scripts/areas.ts`, як-от `APP_STATEMENTS.report`.
+2. Надайте її в `ROLES`: `admin` отримує весь `APP_STATEMENTS`, а ролі, яка має отримати менше, надають лише частину декларацій.
 3. Вимагайте її в серверній функції: `.middleware([authorized({ report: ["export"] })])`.
-4. Протестуйте і дозволений випадок, і випадок `FORBIDDEN` — у `src/areas/__test__/<area>.access.test.ts` розділу та в тестах сценарію використання.
+4. Протестуйте і дозволений випадок, і випадок `FORBIDDEN` — у `src/integrations/better-auth/__test__/auth.access.<area>.test.ts` та в тестах сценарію використання.
 
 ## Додайте роль
 
 1. Додайте код до `ROLE_CODES` і `ROLE_VALUES` в `auth.roles.ts`.
-2. Додайте її до `ROLES` в `auth.access.ts` і надайте їй декларації в `grants` тих розділів, якими вона може користуватися.
+2. Додайте її до `ROLES` в `auth.access.ts` разом із деклараціями, якими вона може користуватися.
 3. Додайте мітку ролі до `filters.role.options` у `messages/<locale>/pages.admin.users.json` для кожної мови.
 
 Клієнт автентифікації (`auth.client.ts`) отримує `ac` і `ROLES`, тож адміністративні дії в браузері використовують ті самі визначення.

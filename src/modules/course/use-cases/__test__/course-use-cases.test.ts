@@ -28,7 +28,11 @@ import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { LESSON_FORMAT } from "~/src/modules/lesson/lesson.constants"
 
-vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => {
+  const { withTestCourseAccess } = await import("~/src/modules/course/__test__/fixtures/course-access")
+
+  return withTestCourseAccess(importOriginal)
+})
 
 const signIn = (userId: string, role: string = ROLE_CODES.CUSTOMER): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId }))

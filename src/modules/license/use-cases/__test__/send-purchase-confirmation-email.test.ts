@@ -28,7 +28,7 @@ const INVOICE_NUMBER = "SAASYLAND-0001"
 const ORIGIN = "http://127.0.0.1:3000"
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
-vi.mock(import("~/src/data/course-access"), async (importOriginal) => ({
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => ({
   ...(await importOriginal()),
   holdsCourseAccess: (userId: string) => Promise.resolve(userId === BUYER.id),
 }))

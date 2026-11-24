@@ -103,7 +103,11 @@ vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOrigin
   }
 })
 
-vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => {
+  const { withTestCourseAccess } = await import("~/src/modules/course/__test__/fixtures/course-access")
+
+  return withTestCourseAccess(importOriginal)
+})
 
 vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), async () => {
   const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")

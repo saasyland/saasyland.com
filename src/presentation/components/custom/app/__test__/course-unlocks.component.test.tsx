@@ -19,7 +19,11 @@ import { CourseUnlocks, CourseUnlocksPending } from "~/src/presentation/componen
 
 import messages from "~/messages/en-US/components.custom.course-unlocks.json"
 
-vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+vi.mock(import("~/src/modules/lesson/lesson.access"), async (importOriginal) => {
+  const { withTestCourseAccess } = await import("~/src/modules/course/__test__/fixtures/course-access")
+
+  return withTestCourseAccess(importOriginal)
+})
 
 const CATALOGUE_KEY = catalogueQuery({ locale: I18N.DEFAULT_LOCALE }).queryKey
 

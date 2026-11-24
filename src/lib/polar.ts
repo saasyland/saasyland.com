@@ -5,6 +5,8 @@ import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
 import * as zod from "zod"
 
+import { POLAR_EVENTS } from "~/src/integrations/polar/polar.webhooks"
+
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS, appHostsForMode } from "~/src/modules/_core/constants/api"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -17,7 +19,6 @@ import {
 import { toMinorUnits } from "~/src/data/currencies"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_SERVER } from "~/src/data/polar"
-import { POLAR_EVENTS } from "~/src/data/polar-events"
 import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 

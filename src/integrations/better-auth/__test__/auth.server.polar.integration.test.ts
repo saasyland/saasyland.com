@@ -12,21 +12,20 @@ import { browserHeaders, postJson, signUpSignedIn } from "~/src/integrations/bet
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
+import type { handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import type { PolarEventHandler } from "~/src/data/polar-events"
-import { POLAR_AUTH_PLUGINS } from "~/src/data/polar.auth-plugins"
 import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import * as ROUTES from "~/src/routes"
 
-const sample = vi.hoisted(() => ({ handle: vi.fn<PolarEventHandler["handle"]>() }))
+const dispatch = vi.hoisted(() => ({ handle: vi.fn<typeof handlePolarEvent>() }))
 
-vi.mock("~/src/data/polar-events.entries", async () => {
-  const { POLAR_WEBHOOK_EVENT: EVENT } = await import("~/src/integrations/polar/polar.constants")
-  return { SAMPLE_POLAR_EVENTS: [{ events: [EVENT.ORDER_PAID], handle: sample.handle }] }
-})
+vi.mock(import("~/src/integrations/polar/polar.webhooks"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  handlePolarEvent: dispatch.handle,
+}))
 
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
 
@@ -54,23 +53,23 @@ const deliver = async (type: models.WebhookEventType): Promise<number> => {
 }
 
 beforeEach(() => {
-  sample.handle.mockReset()
+  dispatch.handle.mockReset()
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("the polar area's Polar plugin", () => {
+describe("the Polar plugin", () => {
   it("adds the Polar plugin to Better Auth", () => {
-    expect(auth.options.plugins.map(({ id }) => id)).toContain(POLAR_AUTH_PLUGINS[0].plugin.id)
+    expect(auth.options.plugins.map(({ id }) => id)).toContain("polar")
   })
 
   it("exempts the webhooks from rate limiting", () => {
     expect(auth.options.rateLimit.customRules).toHaveProperty([ROUTES.API_AUTH_POLAR.WEBHOOKS], false)
   })
 
-  it("adds the portal and the webhooks but no checkout endpoint, so every checkout starts in the area that sells the product", () => {
+  it("adds the portal and the webhooks but no checkout endpoint, so every checkout starts in the feature that sells the product", () => {
     expect(auth.api).not.toHaveProperty("checkout")
     expect(auth.api).toHaveProperty("portal")
     expect(auth.api).toHaveProperty("polarWebhooks")
@@ -84,18 +83,13 @@ describe("the polar area's Polar plugin", () => {
     expect(response.status).toBe(HTTP_STATUS.NOT_FOUND)
   })
 
-  it("hands a signed event to the areas that handle it and acknowledges it", async () => {
+  it("hands a signed event to the Polar event dispatch and acknowledges it", async () => {
     expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID)).toBe(HTTP_STATUS.OK)
-    expect(sample.handle).toHaveBeenCalledWith(expect.objectContaining({ type: POLAR_WEBHOOK_EVENT.ORDER_PAID }))
+    expect(dispatch.handle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: POLAR_WEBHOOK_EVENT.ORDER_PAID }))
   })
 
-  it("acknowledges an event no area handles without handing it on", async () => {
-    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED)).toBe(HTTP_STATUS.OK)
-    expect(sample.handle).not.toHaveBeenCalled()
-  })
-
-  it("answers 500 when an area's handler fails, so Polar delivers the event again", async () => {
-    sample.handle.mockRejectedValueOnce(new Error("mirror unavailable"))
+  it("answers 500 when a handler fails, so Polar delivers the event again", async () => {
+    dispatch.handle.mockRejectedValueOnce(new Error("mirror unavailable"))
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID)).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR)

@@ -1,39 +1,37 @@
 ---
 title: "Roles and permissions"
-description: "Declare an area's permission statements and role grants in its access file and check them in route guards and server functions."
+description: "Declare the permission statements and role grants in Better Auth's access file and check them in route guards and server functions."
 ---
 
-Access control uses the Better Auth admin plugin. Each area declares the permission statements of its resources and the roles it grants them to in `src/areas/<area>.access.ts`. `src/areas/access.entries.ts` joins the areas, and `src/integrations/better-auth/auth.access.ts` builds Better Auth's access control, the roles and the permission check from them, so the auth integration names no area. The role codes live in `src/integrations/better-auth/auth.roles.ts`.
+Access control uses the Better Auth admin plugin. `src/integrations/better-auth/auth.access.ts` declares the permission statements of every resource in `APP_STATEMENTS`, grants them to the roles and builds Better Auth's access control and the permission check from them, in one file that a person reviews. The role codes live in `src/integrations/better-auth/auth.roles.ts`.
 
 ## Statements and roles
 
-```ts title="src/areas/auth.access.ts"
-const STATEMENTS = {
+```ts title="src/integrations/better-auth/auth.access.ts"
+export const APP_STATEMENTS = {
   admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
+  video: ["read", "delete"],
 } as const
 
-export const AUTH_ACCESS = {
-  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
-  statements: STATEMENTS,
-} as const satisfies AreaAccess
-```
-
-```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
 }
 ```
 
-- `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` joins the statements of every area, sorted by resource, and fails at startup when two areas declare the same resource. `grantsOf(role)` joins what every area grants that role.
-- The auth area declares `admin` and `settings`, the products area `category` and `product`, the courses area `course` and `video`, and the payments area `order`.
+- `APP_STATEMENTS` lists one statement per resource, sorted by resource: `admin` and `settings` for the admin console and its settings, `category` and `product` for the products, `course` and `video` for the courses, and `order` for the orders.
 - `defaultStatements` from Better Auth add the `user` and `session` resources (such as `user: ["list", "set-role", "ban", "impersonate", "delete"]` and `session: ["list", "revoke"]`).
-- Every area grants all of its statements to `admin`, which also receives Better Auth's admin statements; `customer`, the default role for new users, is granted none.
+- `admin` is granted every statement and Better Auth's admin statements; `customer`, the default role for new users, is granted none.
+- A feature that a project leaves out takes its statements with it: `scripts/areas.ts` names them, such as `APP_STATEMENTS.course`, and the pruning rule deletes them from the object ([Testing](/docs/conventions/testing#tests-follow-the-areas)).
 - `ROLE_VALUES` types the `user.role` column and the role schemas in `user.zod.ts`.
-- `Permission`, the type `authorized` and `hasPermission` take, is built from the statements the areas declare, so a statement or action that no area declares does not compile.
+- `Permission`, the type `authorized` and `hasPermission` take, is built from `APP_STATEMENTS`, so a statement or action that it does not declare does not compile.
 
 ## Where permissions are checked
 
@@ -48,15 +46,15 @@ The route guard only decides which pages render. Server functions are callable d
 
 ## Add a permission
 
-1. Add the action to the statements of the area that owns the resource, for example `report: ["read", "export"]` in `src/areas/analytics.access.ts`. A new area adds its file and one line to `src/areas/access.entries.ts`.
-2. Grant it in the same file's `grants`: the areas grant their whole `STATEMENTS` to `ROLE_CODES.ADMIN`, and a role that should get less is granted a subset.
+1. Add the action to the resource's statement in `APP_STATEMENTS`, or add the resource in its sorted place, for example `report: ["read", "export"]`. A feature that can be left out names a new resource in its `names` in `scripts/areas.ts`, such as `APP_STATEMENTS.report`.
+2. Grant it in `ROLES`: `admin` receives the whole of `APP_STATEMENTS`, and a role that should get less is granted a subset.
 3. Require it in the server function: `.middleware([authorized({ report: ["export"] })])`.
-4. Test both the allowed and the `FORBIDDEN` case, in the area's `src/areas/__test__/<area>.access.test.ts` and in the use case's tests.
+4. Test both the allowed and the `FORBIDDEN` case, in the owning area's `src/integrations/better-auth/__test__/auth.access.<area>.test.ts` and in the use case's tests.
 
 ## Add a role
 
 1. Add the code to `ROLE_CODES` and `ROLE_VALUES` in `auth.roles.ts`.
-2. Add it to `ROLES` in `auth.access.ts`, and grant it statements in the `grants` of the areas it may use.
+2. Add it to `ROLES` in `auth.access.ts` with the statements it may use.
 3. Add the role label to `filters.role.options` in `messages/<locale>/pages.admin.users.json` for every locale.
 
 The auth client (`auth.client.ts`) receives `ac` and `ROLES`, so admin actions in the browser use the same definitions.

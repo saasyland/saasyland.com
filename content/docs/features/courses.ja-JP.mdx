@@ -60,13 +60,13 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 ## アクセスレベル [#access-levels]
 
-| `access`  | 視聴できる人                                                                                        |
-| --------- | --------------------------------------------------------------------------------------------------- |
-| `preview` | サインインの有無を問わず全員                                                                        |
-| `account` | サインインしているすべてのユーザー                                                                  |
-| `paid`    | ティア `complete` または `agency` の `active` なライセンスを持つユーザー（`LICENSE_COURSE_ACCESS`） |
+| `access`  | 視聴できる人                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `preview` | サインインの有無を問わず全員                                                                       |
+| `account` | サインインしているすべてのユーザー                                                                 |
+| `paid`    | ティア `complete` または `agency` の `active` なライセンスを持つユーザー（`COURSE_LICENSE_TIERS`） |
 
-`course: ["read"]` を持つロール（管理者が該当）は、すべてのレッスンを視聴できます。判定は `hasLessonAccess`（`src/modules/lesson/lesson.access.ts`）が行い、その対象となる視聴者は `resolveViewer`（`lesson.viewer.ts`）がセッション、ロール、ほかのエリアが与えるコースアクセス（`holdsCourseAccess`）から組み立てます。コースアクセスが有効になるのは確認済みのメールアドレスだけです。アドレスが未確認の保有者には `mustConfirmEmail` が返され、ページは確認を求めます。この判定はページだけでなく、コースのコンテンツを返すすべてのサーバー関数で行われます。
+`course: ["read"]` を持つロール（管理者が該当）は、すべてのレッスンを視聴できます。判定は `hasLessonAccess`（`src/modules/lesson/lesson.access.ts`）が行い、その対象となる視聴者は `resolveViewer`（`lesson.viewer.ts`）がセッション、ロール、`COURSE_ACCESS_GRANTS` の付与が与えるコースアクセス（`holdsCourseAccess`）から組み立てます。コースアクセスが有効になるのは確認済みのメールアドレスだけです。アドレスが未確認の保有者には `mustConfirmEmail` が返され、ページは確認を求めます。この判定はページだけでなく、コースのコンテンツを返すすべてのサーバー関数で行われます。
 
 - `getCatalogue`（公開）は、公開済みのコースを、レッスン数、動画の合計時間、無料プレビューと有料レッスンの数、視聴者が完了したレッスンとともに返し、さらに `viewer`（サインインしている人がいるかどうか、その人が有料レッスンを開けるかどうか、アクセス権はあるが先にアドレスの確認が必要かどうか（`mustConfirmEmail`））を返します。
 - `getCourseShowcase`（公開）は、ランディングページ用に、公開済みの最初の <RepositoryFact name="courseShowcaseCourses" /> つのコース（`COURSE_SHOWCASE`）を返します。各コースには、レッスン数、収録済みのレッスン、無料レッスンの数（`previewCount`）、動画の合計時間、カリキュラム順で最初の <RepositoryFact name="courseShowcaseLessons" /> つのレッスンが付き、各レッスンにはアクセスレベル、再生時間（`durationMs`）、視聴者が開けるかどうか（`locked`）、収録中かどうかが付きます。
@@ -77,7 +77,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 コースアクセスを持つ視聴者が有料レッスンを開くと、`getLesson` と `getLessonPlayback` は応答する前に `recordPaidLessonOpened`（`lesson.viewer.ts`）でそれを記録します。そのため、レッスンの資料と動画が記録されないまま渡されることはありません。無料プレビュー、サインインしたすべてのユーザー向けのレッスン、コースアクセスを持たないスタッフの視聴では、何も記録されません。
 
-コースアクセスは、コースのエリアが自分で定義するリストです。コースアクセスを販売するエリアは `src/data/<area>.course-access.ts` で `CourseAccessGrant` を宣言し、`src/data/course-access.entries.ts` がそれらをまとめます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。付与は、ユーザーがアクセスを持つかどうか（`holds`、サーバー専用の関数）、何に含まれるか（`includedWith`、ライセンスページが挙げる名前のメッセージキー）、いくらか（`price`、`TIER_PRICES` の値）、どこで入手するか（`unlock`、視聴者が今いるレッスンから組み立てるリンク）、そのアクセスで開いた有料レッスンをどう記録するか（`recordUse`、`recordCourseAccessUse` がレッスンとユーザーを渡して呼び出すサーバー専用の関数）を示します。ライセンスのエリアの `LICENSE_COURSE_ACCESS`（`src/data/license.course-access.ts`）は、Complete または Agency の `active` なライセンスにアクセスを与え、そのアクセスで最初に開いた有料レッスンを購入の最初の使用としてライセンスに記録し（`recordLessonOpened`、[ライセンス](/docs/features/licences#records-and-refunds)を参照）、サインイン中の視聴者を、レッスンを `redirect` にした `/app/license?tier=complete` に案内します。ゲストは登録を経てそこへ進みます。チェックアウトは `redirect` を Polar に渡して戻り、アクティベーションのパネルには **中断したところから続ける** が表示されます。付与が 1 つもなければ、有料レッスンを視聴できるのはスタッフだけで、ロックされたパネルにはリンクが表示されません。コースの文言はティアを名指しせず、付与からさらに 2 つの名前を受け取ります。アクセスの表示、解放のパネル、カタログの説明では `unlock` のリンクが販売するもの（`offer`）を、管理画面の有料アクセスレベルではアクセスを持つ人（`holders`）を使います。ライセンスは Complete と `components.custom.pricing` の `courseAccess.holders` の文言を渡すので、ページの表示はこれまでと同じです。
+コースアクセスはレッスンが自分で持つリストで、`hasLessonAccess` と同じ `src/modules/lesson/lesson.access.ts` にある `COURSE_ACCESS_GRANTS` です。コースアクセスを販売する機能は、そこに `CourseAccessGrant` を要素として 1 つ追加し、このファイルへの変更はすべて人がレビューします。付与は、ユーザーがアクセスを持つかどうか（`holds`、サーバー専用の関数）、何に含まれるか（`includedWith`、ライセンスページが挙げる名前のメッセージキー）、いくらか（`price`、`TIER_PRICES` の値）、どこで入手するか（`unlock`、視聴者が今いるレッスンから組み立てるリンク）、そのアクセスで開いた有料レッスンをどう記録するか（`recordUse`、`recordCourseAccessUse` がレッスンとユーザーを渡して呼び出すサーバー専用の関数）を示します。現在の唯一の要素はライセンスの付与で、ライセンスのユースケース `getLicense` と `recordLessonOpened`、および `license.constants.ts` のティアを使って、リストの中に直接書かれています。この付与は、`COURSE_LICENSE_TIERS` のティア（Complete または Agency）の `active` なライセンスにアクセスを与え、販売するティアとして `OFFERED_COURSE_TIER`（Complete）を示し、そのアクセスで最初に開いた有料レッスンを購入の最初の使用としてライセンスに記録し（`recordLessonOpened`、[ライセンス](/docs/features/licences#records-and-refunds)を参照）、サインイン中の視聴者を、レッスンを `redirect` にした `/app/license?tier=complete` に案内します。ゲストは登録を経てそこへ進みます。チェックアウトは `redirect` を Polar に渡して戻り、アクティベーションのパネルには **中断したところから続ける** が表示されます。ライセンスのないプロジェクトでは、ライセンスのファイルと一緒にこの要素も外れます。付与が 1 つもなければ、有料レッスンを視聴できるのはスタッフだけで、ロックされたパネルにはリンクが表示されません。サブスクリプションなど別の方法でアクセスを与えるサイトは、自分の要素を追加します。コースの文言はティアを名指しせず、付与からさらに 2 つの名前を受け取ります。アクセスの表示、解放のパネル、カタログの説明では `unlock` のリンクが販売するもの（`offer`）を、管理画面の有料アクセスレベルではアクセスを持つ人（`holders`）を使います。ライセンスは Complete と `components.custom.pricing` の `courseAccess.holders` の文言を渡すので、ページの表示はこれまでと同じです。
 
 ## 資料 [#materials]
 

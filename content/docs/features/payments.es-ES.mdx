@@ -1,21 +1,16 @@
 ---
 title: "Pagos"
-description: "El área de Polar: el plugin de Polar de Better Auth, el portal de cliente, los webhooks que entrega a las áreas, las copias en D1 de los pedidos y las suscripciones de Polar y los ingresos que llevan al panel de administración."
+description: "El plugin de Polar de Better Auth, el portal de cliente, los webhooks que entrega a sus handlers, las copias en D1 de los pedidos y las suscripciones de Polar y los ingresos que llevan al panel de administración."
 ---
 
-Los pagos pasan por Polar con el plugin `@polar-sh/better-auth`, que el área de Polar añade a Better Auth en `src/data/polar.auth-plugins.ts`:
+Los pagos pasan por Polar con el plugin `@polar-sh/better-auth`, que figura en `plugins`, en `src/integrations/better-auth/auth.server.ts`, seguido de un plugin propio:
 
-```ts title="src/data/polar.auth-plugins.ts"
-export const POLAR_AUTH_PLUGINS = [
-  {
-    plugin: polar({
+```ts title="src/integrations/better-auth/auth.server.ts"
+    polar({
       client: polarCore,
       use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],
     }),
-    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
-  },
-  {
-    plugin: {
+    {
       hooks: {
         before: [
           {
@@ -26,41 +21,38 @@ export const POLAR_AUTH_PLUGINS = [
       },
       id: "polar-verified-customer",
     },
-    rateLimitExemptPaths: [],
-  },
-] as const satisfies readonly AuthPluginEntry[]
 ```
 
-El plugin añade el portal de cliente y los webhooks, que quedan exentos del limitador de frecuencia de Better Auth, pero ningún pago: su `checkout()` crearía un pago solo con el ID de la cuenta, de modo que Polar volvería a pedir su correo a un comprador con la sesión iniciada. Better Auth no cierra ninguna ruta por HTTP, así que `src/data/__test__/polar.auth-plugins.integration.test.ts` comprueba que la ruta de pago del plugin responde 404 y falla en cuanto se añade `checkout()` al plugin. Un área que vende crea sus pagos con el SDK de Polar tras sus propias comprobaciones, como hace `startCheckout` del área de licencias (consulta [Licencias](/docs/features/licences)).
+El plugin añade el portal de cliente y los webhooks, que `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false`, en `rateLimit.customRules`, exime del limitador de frecuencia de Better Auth, pero ningún pago: su `checkout()` crearía un pago solo con el ID de la cuenta, de modo que Polar volvería a pedir su correo a un comprador con la sesión iniciada. Better Auth no cierra ninguna ruta por HTTP, así que `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` comprueba que la ruta de pago del plugin responde 404 y falla en cuanto se añade `checkout()` al plugin. Una funcionalidad que vende crea sus pagos con el SDK de Polar tras sus propias comprobaciones, como hace `startCheckout` de la licencia (consulta [Licencias](/docs/features/licences)).
 
-La segunda entrada, `polar-verified-customer`, es un plugin propio que ejecuta `requireVerifiedEmail` (`auth.hooks.ts`) antes de cada endpoint de `/customer/`, así que el portal de clientes responde `403 EMAIL_NOT_VERIFIED` hasta que se confirma la dirección de la cuenta ([Verificación de correo](/docs/features/email-verification)).
+El segundo elemento, `polar-verified-customer`, es un plugin propio que ejecuta `requireVerifiedEmail` (`auth.hooks.ts`) antes de cada endpoint de `/customer/`, así que el portal de clientes responde `403 EMAIL_NOT_VERIFIED` hasta que se confirma la dirección de la cuenta ([Verificación de correo](/docs/features/email-verification)).
 
-`src/integrations/polar/polar.config.ts` crea `polarCore` a partir de `POLAR_ACCESS_TOKEN` y `POLAR_SERVER`, que es el que usa el plugin, y `polar`, los servicios de pagos, claves de licencia y pedidos construidos sobre él. `POLAR_ORGANIZATION_ID` acota a la organización cada llamada a Polar que nombra una organización; [Entorno y bindings](/docs/reference/environment) las enumera. `src/integrations/polar/polar.constants.ts` contiene los valores propios de Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` y `POLAR_WEBHOOK_EVENT`, cada uno comprobado con los tipos del SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` y `POLAR_ID_MAX_LENGTH`, la longitud de cada columna que guarda un ID de Polar. No lee ningún entorno, así que también lo importan el navegador y la suite del navegador. Las rutas del área de Polar, `API_AUTH_POLAR` y `API_AUTH_CUSTOMER_PORTAL`, están en `src/areas/polar.shared.ts`. [Configuración de Polar](/docs/getting-started/polar-setup) describe los productos, las claves de licencia, la casilla de consentimiento, el comportamiento fiscal, el webhook y el token que este código espera en Polar, y `bun run polar:verify:<environment>` los comprueba.
+`src/integrations/polar/polar.config.ts` crea `polarCore` a partir de `POLAR_ACCESS_TOKEN` y `POLAR_SERVER`, que es el que usa el plugin, y `polar`, los servicios de pagos, claves de licencia y pedidos construidos sobre él. `POLAR_ORGANIZATION_ID` acota a la organización cada llamada a Polar que nombra una organización; [Entorno y bindings](/docs/reference/environment) las enumera. `src/integrations/polar/polar.constants.ts` contiene los valores propios de Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` y `POLAR_WEBHOOK_EVENT`, cada uno comprobado con los tipos del SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` y `POLAR_ID_MAX_LENGTH`, la longitud de cada columna que guarda un ID de Polar. No lee ningún entorno, así que también lo importan el navegador y la suite del navegador. Las rutas de Polar, `API_AUTH_POLAR` y `API_AUTH_CUSTOMER_PORTAL`, están en `src/routes.ts`. [Configuración de Polar](/docs/getting-started/polar-setup) describe los productos, las claves de licencia, la casilla de consentimiento, el comportamiento fiscal, el webhook y el token que este código espera en Polar, y `bun run polar:verify:<environment>` los comprueba.
 
 ## Webhooks [#webhooks]
 
-Polar envía los eventos a `/api/auth/polar/webhooks`. El plugin verifica la firma con `POLAR_WEBHOOK_SECRET` y pasa cada evento a `handlePolarEvent`, en `src/data/polar-events.ts`. Un área que reacciona a los eventos de Polar declara una lista en `src/data/<area>.polar-events.ts` y la añade a `src/data/polar-events.entries.ts`. Cada entrada indica los eventos que gestiona y la función que los gestiona:
+Polar envía los eventos a `/api/auth/polar/webhooks`. El plugin verifica la firma con `POLAR_WEBHOOK_SECRET` y pasa cada evento a `handlePolarEvent`, en `src/integrations/polar/polar.webhooks.ts`. `POLAR_EVENT_HANDLERS`, en el mismo archivo, enumera el código al que llega cada evento, y cada elemento indica los eventos que gestiona y la función que los gestiona:
 
-```ts
+```ts title="src/integrations/polar/polar.webhooks.ts"
 export interface PolarEventHandler {
   readonly events: readonly models.WebhookEventType[]
   readonly handle: (event: webhooks.WebhookPayload) => Promise<void>
 }
 ```
 
-- `handlePolarEvent` ejecuta a la vez el `handle` de cada entrada que incluye el tipo del evento y espera a que terminen todos.
-- Cuando uno falla, `handlePolarEvent` espera igualmente a que terminen los demás, para que ningún área se quede a mitad de sus escrituras, y después rechaza con un `AggregateError` de todos los fallos. El plugin responde 500 y Polar vuelve a entregar el evento más tarde, así que cada handler debe poder ejecutarse dos veces con el mismo evento sin causar problemas. Polar desactiva un endpoint que falla una y otra vez, y `polar:verify` informa de un endpoint desactivado.
-- Un evento que no incluye ninguna entrada se confirma y no va a ninguna parte.
-- `POLAR_EVENTS` reúne los eventos de todas las entradas, ordenados y sin repetir. El endpoint de webhook en Polar debe enviar exactamente esos, y `polar:verify` los compara.
-- El área de Polar añade una lista vacía en `src/data/polar.polar-events.ts`, para que el barrel nunca esté vacío. El área de facturación copia los pedidos y las suscripciones en D1 desde `src/data/billing.polar-events.ts` (consulta [Escribir las copias](#writing-the-copies)), y el área de licencias concede y revoca licencias en `src/data/license.polar-events.ts` (consulta [Licencias](/docs/features/licences#webhooks-and-licences)).
+- `handlePolarEvent` ejecuta a la vez el `handle` de cada elemento que incluye el tipo del evento y espera a que terminen todos.
+- Cuando uno falla, `handlePolarEvent` espera igualmente a que terminen los demás, para que ningún handler se quede a mitad de sus escrituras, y después rechaza con un `AggregateError` de todos los fallos. El plugin responde 500 y Polar vuelve a entregar el evento más tarde, así que cada handler debe poder ejecutarse dos veces con el mismo evento sin causar problemas. Polar desactiva un endpoint que falla una y otra vez, y `polar:verify` informa de un endpoint desactivado.
+- Un evento que no incluye ningún elemento se confirma y no va a ninguna parte.
+- `POLAR_EVENTS` reúne los eventos de todos los elementos, ordenados y sin repetir. El endpoint de webhook en Polar debe enviar exactamente esos, y `polar:verify` los compara.
+- Los dos primeros elementos copian los pedidos y las suscripciones en D1 para los eventos de `ORDER_WEBHOOK_EVENTS` (`order.constants.ts`) y `SUBSCRIPTION_WEBHOOK_EVENTS` (`subscription.constants.ts`) (consulta [Escribir las copias](#writing-the-copies)), y el tercero concede y revoca licencias para los de `LICENSE_WEBHOOK_EVENTS` (consulta [Licencias](/docs/features/licences#webhooks-and-licences)). Un proyecto sin la licencia o sin las copias de los pedidos pierde el elemento que nombra sus archivos.
 
-`polar:verify` se ejecuta en Bun, fuera del Worker, y lee `POLAR_EVENTS`, así que `src/data/polar-events.ts` y cada `<area>.polar-events.ts` no importan código de servidor. El `handle` de un área carga sus handlers cuando llega un evento:
+`polar:verify` se ejecuta en Bun, fuera del Worker, y lee `POLAR_EVENTS`, así que `polar.webhooks.ts` solo importa constantes. Un handler carga su código cuando llega un evento:
 
-```ts
+```ts title="src/integrations/polar/polar.webhooks.ts"
 const { licenseWebhookHandlers } = await import("~/src/modules/license/license.webhooks")
 ```
 
-`src/data/__test__/polar-events.test.ts` importa `src/data/polar-events.ts` en Bun y falla cuando esa importación llega al entorno de ejecución del Worker.
+`src/integrations/polar/__test__/polar.webhooks.test.ts` importa `polar.webhooks.ts` en Bun y falla cuando esa importación llega al entorno de ejecución del Worker.
 
 ## Pedidos y suscripciones en D1 [#orders-and-subscriptions-in-d1]
 
@@ -81,7 +73,7 @@ El área de Polar guarda copias de los pedidos y las suscripciones de Polar en d
 
 ### Escribir las copias [#writing-the-copies]
 
-`src/data/billing.polar-events.ts` añade dos entradas a los eventos de Polar (consulta [Webhooks](#webhooks)), y cada una carga su caso de uso cuando llega un evento:
+Los dos primeros elementos de `POLAR_EVENT_HANDLERS` (consulta [Webhooks](#webhooks)) cargan cada uno su caso de uso cuando llega un evento:
 
 | Eventos                                                          | Caso de uso                                                                         |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -91,7 +83,7 @@ El área de Polar guarda copias de los pedidos y las suscripciones de Polar en d
 - Cada caso de uso recibe el registro de Polar, `models.Order` o `models.Subscription`, y lo escribe en una sola sentencia: una inserción con el ID de Polar que, si la fila ya existe, solo la actualiza cuando el `changed_at` guardado no es posterior al del registro. Una versión más nueva se aplica, una más antigua que llega tarde no cambia nada y la misma versión entregada dos veces se vuelve a escribir con los mismos valores. De dos estados distintos con el mismo `modified_at`, queda el último que se escribió hasta que Polar vuelve a cambiar el registro.
 - `recordOrder` toma el descuento y el país de facturación de `polarOrderTerms` (`src/modules/order/order.polar.ts`), que también usa `scripts/backfill-order-terms.ts`. Una versión posterior sin dirección de facturación conserva el país ya copiado.
 - La misma sentencia rellena `user_id` mediante `polarCustomerAccount`, en `src/integrations/polar/polar.customers.ts`: la cuenta cuyo ID es el `external_id` del cliente, que el área que vende fija en el checkout, como hace `startCheckout` en el área de licencias. Queda vacío cuando el cliente no tiene `external_id` o ninguna cuenta tiene ese ID, por ejemplo porque la cuenta se eliminó.
-- El área de licencias también gestiona `order.paid` y `order.refunded`. La copia los recibe igualmente, así que refleja el pago y el reembolso tanto si Polar envía además `order.updated` por ellos como si no. `handlePolarEvent` ejecuta las dos áreas a la vez; si la copia falla, la entrega responde 500, y el reintento de Polar repite las dos escrituras sin cambiar lo que una de ellas ya escribió.
+- La licencia también gestiona `order.paid` y `order.refunded`. La copia los recibe igualmente, así que refleja el pago y el reembolso tanto si Polar envía además `order.updated` por ellos como si no. `handlePolarEvent` ejecuta los dos handlers a la vez; si la copia falla, la entrega responde 500, y el reintento de Polar repite las dos escrituras sin cambiar lo que una de ellas ya escribió.
 - El panel de administración lee las copias de los pedidos para mostrar los pedidos de licencia pagados que no tienen licencia (consulta [Licencias](/docs/features/licences#orders-that-match-no-account)) y para totalizar los ingresos (consulta [Ingresos en el panel](#revenue-on-the-dashboard)); ninguna página lee todavía las copias de las suscripciones.
 
 ## Portal de cliente
@@ -100,7 +92,7 @@ El área de Polar guarda copias de los pedidos y las suscripciones de Polar en d
 
 ## Ingresos en el panel [#revenue-on-the-dashboard]
 
-El área de pagos define las declaraciones de permisos `order` (`read`, `update`, `refund`) en `src/areas/payments.access.ts` y añade el panel **Ingresos** al panel de control como una entrada de `DASHBOARD_PANELS` (`custom/admin/dashboard/panels.tsx`). Su consulta, `getRevenue` en `src/modules/order/use-cases/get-revenue.ts`, comprueba `order: ["read"]` y totaliza por moneda las copias de los pedidos pagados de un periodo, con los reembolsos restados; [Panel de administración](/docs/features/admin-dashboard#revenue) describe lo que cuenta. `get-unlicensed-orders`, del área de licencias, también comprueba `order: ["read"]`. [Pedidos y clientes](/docs/features/orders) describe las pantallas de administración que leen las copias. Ningún caso de uso actualiza ni reembolsa pedidos todavía: los reembolsos y las liquidaciones se hacen en Polar.
+La declaración de permisos `order` (`read`, `update`, `refund`) está en `APP_STATEMENTS` (`src/integrations/better-auth/auth.access.ts`), y el área de pagos añade el panel **Ingresos** al panel de control como una entrada de `DASHBOARD_PANELS` (`custom/admin/dashboard/panels.tsx`). Su consulta, `getRevenue` en `src/modules/order/use-cases/get-revenue.ts`, comprueba `order: ["read"]` y totaliza por moneda las copias de los pedidos pagados de un periodo, con los reembolsos restados; [Panel de administración](/docs/features/admin-dashboard#revenue) describe lo que cuenta. `get-unlicensed-orders`, del área de licencias, también comprueba `order: ["read"]`. [Pedidos y clientes](/docs/features/orders) describe las pantallas de administración que leen las copias. Ningún caso de uso actualiza ni reembolsa pedidos todavía: los reembolsos y las liquidaciones se hacen en Polar.
 
 ## Páginas relacionadas
 

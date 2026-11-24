@@ -2,11 +2,13 @@ import "@tanstack/react-start/server-only"
 
 import { env, waitUntil } from "cloudflare:workers"
 
+import { polar, portal, webhooks } from "@polar-sh/better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createEmailVerificationToken } from "better-auth/api"
 import { lastLoginMethod } from "better-auth/plugins"
 import { admin } from "better-auth/plugins/admin"
+import { haveIBeenPwned } from "better-auth/plugins/haveibeenpwned"
 import { twoFactor } from "better-auth/plugins/two-factor"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { v7 as uuidv7 } from "uuid"
@@ -16,10 +18,12 @@ import { ROLES, ac } from "~/src/integrations/better-auth/auth.access"
 import { pageCallbackURL } from "~/src/integrations/better-auth/auth.callbacks"
 import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_SECONDS, LAST_LOGIN_METHOD_COOKIE } from "~/src/integrations/better-auth/auth.constants"
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
-import { enforceInputPolicy, signInNewAccount } from "~/src/integrations/better-auth/auth.hooks"
+import { enforceInputPolicy, notifyPasswordChange, requireVerifiedEmail, signInNewAccount } from "~/src/integrations/better-auth/auth.hooks"
 import { DEFAULT_ROLE_CODE, ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
+import { polarCore } from "~/src/integrations/polar/polar.config"
+import { handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
@@ -27,12 +31,12 @@ import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-case
 import { sendExistingAccountEmail } from "~/src/modules/account/use-cases/send-existing-account-email"
 import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 import { invitationPlugin } from "~/src/modules/invitation/invitation.plugin"
+import { revokeAccountLicense } from "~/src/modules/license/use-cases/revoke-account-license"
 import { sendDeleteAccountEmail } from "~/src/modules/user/use-cases/send-delete-account-email"
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 import { sendResetPasswordEmail } from "~/src/modules/verification/use-cases/send-reset-password-email"
 import { sendVerifyEmail } from "~/src/modules/verification/use-cases/send-verify-email"
 
-import { AUTH_PLUGINS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 import { COUNTRIES } from "~/src/data/countries"
 
 import { consumeRateLimit } from "~/src/lib/rate-limit"
@@ -43,6 +47,16 @@ import * as ROUTES from "~/src/routes"
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 const RATE_LIMIT_KEY_PREFIX = "auth:"
 const UNNAMED_CALLBACK_URL = "/"
+
+const NEW_PASSWORD_PATHS = [
+  ROUTES.API_AUTH.ACCEPT_INVITATION,
+  ROUTES.API_AUTH.ADMIN_CREATE_USER,
+  ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD,
+  ROUTES.API_AUTH.CHANGE_PASSWORD,
+  ROUTES.API_AUTH.RESET_PASSWORD,
+  ROUTES.API_AUTH.SET_PASSWORD,
+  ROUTES.API_AUTH.SIGN_UP_EMAIL,
+]
 
 const signUpCallbackSchema = zod.object({ callbackURL: zod.string() })
 
@@ -139,14 +153,37 @@ export const auth = betterAuth({
     twoFactor({ issuer: APP_NAME }),
     lastLoginMethod({ cookieName: LAST_LOGIN_METHOD_COOKIE }),
     invitationPlugin(),
-    ...AUTH_PLUGINS,
+    haveIBeenPwned({ paths: NEW_PASSWORD_PATHS }),
+    {
+      hooks: { after: [{ handler: notifyPasswordChange, matcher: ({ path }) => path === ROUTES.API_AUTH.CHANGE_PASSWORD }] },
+      id: "password-change-notice",
+    },
+    {
+      id: "license-retention",
+      init: () => ({ options: { databaseHooks: { user: { delete: { before: ({ id }) => revokeAccountLicense(id) } } } } }),
+    },
+    polar({
+      client: polarCore,
+      use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],
+    }),
+    {
+      hooks: {
+        before: [
+          {
+            handler: requireVerifiedEmail,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+          },
+        ],
+      },
+      id: "polar-verified-customer",
+    },
     tanstackStartCookies(),
   ],
   rateLimit: {
     customRules: {
       [ROUTES.API_AUTH.GET_SESSION]: false,
       [ROUTES.API_AUTH.SIGN_OUT]: false,
-      ...Object.fromEntries(RATE_LIMIT_EXEMPT_AUTH_PATHS.map((path) => [path, false] as const)),
+      [ROUTES.API_AUTH_POLAR.WEBHOOKS]: false,
     },
     customStorage: {
       consume: (key, { max, window }) => consumeRateLimit({ key: `${RATE_LIMIT_KEY_PREFIX}${key}`, limit: max, windowSeconds: window }),

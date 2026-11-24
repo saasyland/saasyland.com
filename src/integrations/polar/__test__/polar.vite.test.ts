@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test"
 
-import { POLAR_VITE_PLUGINS } from "~/src/data/polar.vite"
+import { POLAR_VITE_PLUGINS } from "~/src/integrations/polar/polar.vite"
 
 const [optionalPeers] = POLAR_VITE_PLUGINS
 

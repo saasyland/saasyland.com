@@ -57,21 +57,16 @@ export const updateCourseMutation = mutationOptions({
 
 ## 権限
 
-各権限ステートメントは、リソースを所有するエリアが `src/areas/<area>.access.ts` で、付与先のロールと一緒に一度だけ宣言します。
+各権限ステートメントは `src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` で一度だけ宣言し、同じファイルの `ROLES` がそれをロールに付与します。
 
-```ts title="src/areas/auth.access.ts"
-const STATEMENTS = {
-  admin: ["access"],
-  settings: ["manage"],
-} as const
-
-export const AUTH_ACCESS = {
-  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
-  statements: STATEMENTS,
-} as const satisfies AreaAccess
+```ts title="src/integrations/better-auth/auth.access.ts"
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
 ```
 
-- 新しいリソースはそのエリアのファイルにステートメントを追加し、`auth.access.ts` がエリアの付与からすべてのロールを組み立てます（[ロールと権限](/docs/guides/roles-and-permissions)を参照）。
+- 新しいリソースは `APP_STATEMENTS` の並び順どおりの位置にステートメントを追加し、その変更は人がレビューします（[ロールと権限](/docs/guides/roles-and-permissions)を参照）。
 - サーバー関数はステートメントを `authorized` に渡します。その他のサーバーコードは、`lesson.viewer.ts` の `resolveViewer` がスタッフのアクセスに対して行っているように、`hasPermission({ permission, role })` をその場でチェックします。`canEditCourses()` のようなラッパーはありません。
 - サーバー関数がチェックする権限は[権限マトリクス](/docs/reference/permissions)に記載されています。
 

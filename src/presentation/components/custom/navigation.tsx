@@ -3,9 +3,8 @@ import { type JSX, useEffect } from "react"
 import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
+import { useSiteNavigation } from "~/src/hooks/use-site-navigation"
 
-import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { preloadWhenIdle } from "~/src/lib/idle-preload"
@@ -47,7 +46,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 
 export const Navigation = (): JSX.Element => {
   const t = useTranslations()
-  const workspace = useVisitorWorkspace()
+  const { header } = useSiteNavigation()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
   const contentId = useMatches({
     select: (matches) => matches.map(({ staticData }) => staticData.contentId).findLast((id) => id !== undefined) ?? SITE_CONTENT_ID,
@@ -58,11 +57,11 @@ export const Navigation = (): JSX.Element => {
   useEffect(
     () =>
       preloadWhenIdle(() => {
-        for (const entry of HEADER_NAVIGATION) {
-          void router.preloadRoute({ to: signedInDestination(entry, workspace).to })
+        for (const { to } of header) {
+          void router.preloadRoute({ to })
         }
       }),
-    [router, shownPath, workspace],
+    [header, router, shownPath],
   )
 
   return (
@@ -82,25 +81,21 @@ export const Navigation = (): JSX.Element => {
 
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden items-center gap-1 lg:flex">
-              {HEADER_NAVIGATION.map((entry) => {
-                const { label, to } = signedInDestination(entry, workspace)
-
-                return (
-                  <Link
-                    {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
-                    className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
-                    key={entry.label}
-                    to={to}
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {t(label)}
-                        {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
-                      </>
-                    )}
-                  </Link>
-                )
-              })}
+              {header.map((entry) => (
+                <Link
+                  {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
+                  className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
+                  key={entry.label}
+                  to={entry.to}
+                >
+                  {({ isActive }) => (
+                    <>
+                      {t(entry.label)}
+                      {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
+                    </>
+                  )}
+                </Link>
+              ))}
             </div>
             <a
               {...startBuilding}

@@ -3,10 +3,9 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { signedInDestination, useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
+import { useSiteNavigation } from "~/src/hooks/use-site-navigation"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
-import { FOOTER_NAVIGATION } from "~/src/data/navigation"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -31,10 +30,9 @@ const PROFILE_LINKS = [
 
 export const Footer = (): JSX.Element => {
   const t = useTranslations()
-  const workspace = useVisitorWorkspace()
+  const { footer } = useSiteNavigation()
 
-  const { buildYear } = REPOSITORY_FACTS
-  const years = buildYear > APP_FOUNDED_YEAR ? `${APP_FOUNDED_YEAR}–${buildYear}` : String(APP_FOUNDED_YEAR)
+  const years = [...new Set([APP_FOUNDED_YEAR, REPOSITORY_FACTS.buildYear])].join("–")
 
   return (
     <footer className="relative z-10 border-t border-border bg-background">
@@ -59,7 +57,7 @@ export const Footer = (): JSX.Element => {
             </a>
           </div>
 
-          {FOOTER_NAVIGATION.map((column) => (
+          {footer.map((column) => (
             <div className={cn("flex-1", { "md:flex-[1.3]": column.key === FOOTER_COLUMN.PRODUCT })} key={column.key}>
               <h3 className={HEADING_CLASSNAME}>{t(`components.custom.footer.columns.${column.key}`)}</h3>
               <ul className={cn("mt-4", { "md:grid md:grid-cols-[1fr_1fr] md:gap-x-8": column.key === FOOTER_COLUMN.PRODUCT })}>
@@ -71,17 +69,13 @@ export const Footer = (): JSX.Element => {
                       </Link>
                     </li>
                   ))}
-                {column.links.map((link) => {
-                  const { label, to } = signedInDestination(link, workspace)
-
-                  return (
-                    <li key={link.label}>
-                      <Link className={LINK_CLASSNAME} to={to}>
-                        {t(label)}
-                      </Link>
-                    </li>
-                  )
-                })}
+                {column.links.map((link) => (
+                  <li key={link.label}>
+                    <Link className={LINK_CLASSNAME} to={link.to}>
+                      {t(link.label)}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
           ))}

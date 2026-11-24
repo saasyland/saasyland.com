@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
-import { createRouter } from "@tanstack/react-router"
+import { type AnyRouter, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { getGlobalStartContext } from "@tanstack/react-start"
 
@@ -19,9 +19,19 @@ export interface RouterContext {
   queryClient: QueryClient
 }
 
+interface QueryError {
+  readonly error: Error
+  readonly queryClient: QueryClient
+  readonly router: AnyRouter
+}
+
+const QUERY_ERROR_HANDLERS: readonly ((queryError: QueryError) => Promise<void>)[] = [recheckRefusedSession]
+
 export const getRouter = () => {
   const onError = (error: Error): void => {
-    void recheckRefusedSession({ error, queryClient, router })
+    for (const handle of QUERY_ERROR_HANDLERS) {
+      void handle({ error, queryClient, router })
+    }
   }
 
   const queryClient = new QueryClient({

@@ -95,8 +95,21 @@ describe("areaRemoval", () => {
       ]),
     )
     expect(problemLines(removal.problems)).toStrictEqual([
-      `${PAGE}:5:21: \`ROUTES.NEWSLETTER\` names what the removed areas take away, and no array element, object property or JSX element around it can go with it`,
+      `${PAGE}:5:21: \`ROUTES.NEWSLETTER\` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`,
     ])
+  })
+
+  it("keeps no test file the pruning leaves without a test", () => {
+    const spec = "src/presentation/components/custom/__test__/probe.component.test.tsx"
+    const sources: Readonly<Record<string, string>> = {
+      ...SOURCES,
+      [spec]:
+        'import { expect, it } from "vite-plus/test"\n\nimport * as ROUTES from "~/src/routes"\n\nit("links the newsletter", () => {\n  expect(ROUTES.NEWSLETTER).toBe("/newsletter")\n})\n',
+    }
+    const removal = areaRemoval([AREA.NEWSLETTER], [...FILES, spec], { ...PROJECT, read: (file) => sources[file] ?? "" })
+
+    expect(removal.kept).not.toContain(spec)
+    expect(removal.sources.has(spec)).toBe(false)
   })
 
   it("changes nothing when the kept files name nothing the removed areas take away", () => {

@@ -1,4 +1,4 @@
-import { NONE, STACK_CHOICES, STACK_EXTRAS, STACK_MODULES } from "@saasyland/stack"
+import { MODULE, NONE, STACK_CHOICES, STACK_EXTRAS, STACK_MODULES } from "@saasyland/stack"
 import stack from "@saasyland/stack/package.json" with { type: "json" }
 import { posix } from "node:path"
 import { expect, it } from "vite-plus/test"
@@ -13,13 +13,14 @@ import {
   CLI_PACKAGE_SPEC,
   CLI_RELEASE_CHANNEL,
   CLI_SETUP_LINES,
+  CLI_TEMPLATE_SUPPORT,
   NPM_DIST_TAG,
   PACKAGE_MANAGER,
   SCAFFOLD_DIR,
 } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import english from "~/messages/en-US/pages.landing.json"
+import stackMessages from "~/messages/en-US/stack.json"
 import root from "~/package.json"
 import motion from "~/remotion/package.json"
 import motionTypes from "~/remotion/tsconfig.json"
@@ -43,9 +44,9 @@ const installed = (entry: string): string => `./${posix.join("node_modules", sta
 
 it("labels every question, option and extra of the stack in the configurator's messages", () => {
   for (const choice of STACK_CHOICES) {
-    expect(sorted(Object.keys(english.cli.choices[choice.id].options))).toStrictEqual(sorted(choice.options.map((option) => option.id)))
+    expect(sorted(Object.keys(stackMessages[choice.id].options))).toStrictEqual(sorted(choice.options.map((option) => option.id)))
   }
-  expect(sorted(Object.keys(english.cli.choices.extras.options))).toStrictEqual(sorted(STACK_EXTRAS.map((extra) => extra.id)))
+  expect(sorted(Object.keys(stackMessages.extras.options))).toStrictEqual(sorted(STACK_EXTRAS.map((extra) => extra.id)))
 })
 
 it("counts a CLI module as optional only when its question can be answered with none", () => {
@@ -60,19 +61,27 @@ it("counts a CLI module as optional only when its question can be answered with 
   })
 })
 
+it("counts a CLI module as generated when it is always written or the templates write one of its question's options other than none", () => {
+  const notGenerated = STACK_MODULES.filter(
+    (module) => "choiceId" in module && CLI_TEMPLATE_SUPPORT.choices[module.choiceId].every((option) => option === NONE),
+  )
+  expect(notGenerated.map((module) => module.id)).toStrictEqual([MODULE.BILLING])
+  expect(REPOSITORY_FACTS.cliGeneratedModules).toBe(STACK_MODULES.length - notGenerated.length)
+})
+
 it("rules an option out only by answers to earlier questions, and explains every rule beside its question", () => {
   const asked: string[] = []
   for (const choice of STACK_CHOICES) {
     for (const choiceId of ruled(choice.options)) {
       expect(asked).toContain(choiceId)
     }
-    expect("note" in english.cli.choices[choice.id]).toBe(ruled(choice.options).length > 0)
+    expect("note" in stackMessages[choice.id]).toBe(ruled(choice.options).length > 0)
     asked.push(choice.id)
   }
   for (const choiceId of ruled(STACK_EXTRAS)) {
     expect(asked).toContain(choiceId)
   }
-  expect(english.cli.choices.extras.note).not.toBe("")
+  expect(stackMessages.extras.note).not.toBe("")
 })
 
 it("runs the CLI from the npm tag that the installed @saasyland/stack release was published on", () => {

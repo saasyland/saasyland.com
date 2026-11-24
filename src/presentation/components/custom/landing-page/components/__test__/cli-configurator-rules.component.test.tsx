@@ -14,6 +14,7 @@ import { SCAFFOLD_TARGET } from "~/src/data/cli"
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 
 import english from "~/messages/en-US/pages.landing.json"
+import choices from "~/messages/en-US/stack.json"
 
 vi.mock(import("~/src/data/cli"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -31,7 +32,7 @@ vi.mock(import("~/src/data/cli"), async (importOriginal) => {
   }
 })
 
-const { choices, coming } = english.cli
+const { coming } = english.cli
 
 const OPTION_COUNT = STACK_CHOICES.reduce((count, choice) => count + choice.options.length, 0)
 

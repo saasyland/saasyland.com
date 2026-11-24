@@ -14,8 +14,9 @@ import { CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/da
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 
 import english from "~/messages/en-US/pages.landing.json"
+import choices from "~/messages/en-US/stack.json"
 
-const { choices, coming } = english.cli
+const { coming } = english.cli
 
 const INIT_YES_ANSWERS = [
   { label: choices.library.label, option: choices.library.options.react },

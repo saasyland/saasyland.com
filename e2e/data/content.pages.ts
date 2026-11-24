@@ -23,6 +23,7 @@ export const CONTENT_PAGES = [
   { path: "/docs/guides/security-checklist" },
   { path: "/docs/integrations/tanstack-table" },
   { path: "/docs/project/changelog" },
+  { path: "/docs/project/roadmap" },
   { path: "/docs/reference/routes" },
   { path: "/docs/tooling/playwright" },
   { path: "/docs/ui/data-grid" },

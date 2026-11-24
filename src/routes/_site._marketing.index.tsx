@@ -63,7 +63,8 @@ const LandingPage = (): JSX.Element => (
   </MotionProvider>
 )
 
-const NAMESPACE = "pages.landing"
+const LANDING_NAMESPACE = "pages.landing"
+const NAMESPACES = [LANDING_NAMESPACE, "stack"] as const
 
 export const Route = createFileRoute("/_site/_marketing/")({
   component: LandingPage,
@@ -74,11 +75,11 @@ export const Route = createFileRoute("/_site/_marketing/")({
     const [metadata, posts] = await Promise.all([
       loadPageMetadata({
         locale,
-        namespace: NAMESPACE,
+        namespace: LANDING_NAMESPACE,
         values: { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, languages: REPOSITORY_FACTS.languages, price },
       }),
       loadBlogIndex(locale),
-      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
     const { latest, lead } = blogNotes(posts)
@@ -92,5 +93,5 @@ export const Route = createFileRoute("/_site/_marketing/")({
     }
   },
   pendingComponent: HomePending,
-  staticData: { namespaces: [NAMESPACE], underHeader: true },
+  staticData: { namespaces: NAMESPACES, underHeader: true },
 })

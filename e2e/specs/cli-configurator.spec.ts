@@ -5,11 +5,12 @@ import { CLI_EXEC } from "../../src/data/cli"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 
 import landing from "../../messages/en-US/pages.landing.json" with { type: "json" }
+import choices from "../../messages/en-US/stack.json" with { type: "json" }
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-const { choices, coming } = landing.cli
+const { coming } = landing.cli
 
 const PRESS_MS = 120
 const EDGE_INSET_PX = 1

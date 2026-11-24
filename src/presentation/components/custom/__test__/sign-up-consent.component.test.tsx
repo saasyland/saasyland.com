@@ -6,15 +6,9 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
-
-import { SignUpConsent, SignUpConsentPending } from "~/src/presentation/components/custom/sign-up-consent"
+import { SignUpConsent } from "~/src/presentation/components/custom/sign-up-consent"
 
 import * as ROUTES from "~/src/routes"
-
-it("adds the consent line and its skeleton to the sign-up form", () => {
-  expect(SIGN_UP_NOTICES).toContainEqual(expect.objectContaining({ Notice: SignUpConsent, Pending: SignUpConsentPending }))
-})
 
 it.each([
   ["Terms of Service", ROUTES.TERMS],

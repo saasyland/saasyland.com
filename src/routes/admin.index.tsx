@@ -10,7 +10,6 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -19,7 +18,8 @@ import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
-import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
+import { DASHBOARD_PANELS, DashboardPanels } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DASHBOARD_STATS, DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { DASHBOARD_USER_GRID_ID, useDashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
@@ -36,9 +36,7 @@ const DashboardPage = (): JSX.Element => {
 
       <DashboardStats />
 
-      {ADMIN_DASHBOARD_PANELS.map(({ Panel, key }) => (
-        <Panel key={key} />
-      ))}
+      <DashboardPanels />
 
       <section className="flex flex-col gap-4">
         <div>
@@ -76,8 +74,8 @@ export const Route = createFileRoute("/admin/")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
-      ...[...ADMIN_DASHBOARD_STATS, ...ADMIN_DASHBOARD_PANELS].map((entry) => entry.prefetch?.(context.queryClient)),
-      ...ADMIN_DASHBOARD_PANELS.map(({ Panel }) => Panel.preload?.()),
+      ...[...DASHBOARD_STATS, ...DASHBOARD_PANELS].map(({ prefetch }) => prefetch(context.queryClient)),
+      ...DASHBOARD_PANELS.map(({ Panel }) => Panel.preload?.()),
     ])
     return { locale, metadata }
   },

@@ -1,6 +1,5 @@
 import type { JSX } from "react"
 
-import { CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
 import {
   CUSTOMER_COLUMN_SIZES,
   ORDER_COLUMN_SIZES,
@@ -13,6 +12,7 @@ import { Card, CardContent, CardHeader } from "~/src/presentation/components/sha
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+import { CustomerMachinesPending } from "~/src/presentation/components/custom/admin/license-pending"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
 
 const USER_ORDER_ROWS = ["first", "second"] as const
@@ -103,8 +103,8 @@ const CUSTOMER_PENDING_COLUMNS = [
   { cell: <Skeleton className="h-lh w-6 scale-y-70 text-sm" />, id: "orders", width: CUSTOMER_COLUMN_SIZES.orders },
   { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "revenue", width: CUSTOMER_COLUMN_SIZES.revenue },
   { cell: <TextPending />, id: "lastOrderAt", width: CUSTOMER_COLUMN_SIZES.lastOrderAt },
-  ...CUSTOMER_COLUMNS.map(({ key }) => ({ cell: <TextPending />, id: key, width: CUSTOMER_COLUMN_SIZES.area })),
-]
+  { cell: <CustomerMachinesPending />, id: "machines", width: CUSTOMER_COLUMN_SIZES.machines },
+] as const
 
 export const AdminCustomersPending = (): JSX.Element => (
   <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">

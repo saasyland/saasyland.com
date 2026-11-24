@@ -1,7 +1,7 @@
 import { type JSX, useId, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
+import { type QueryClient, useMutation, useSuspenseQuery } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
@@ -13,12 +13,11 @@ import { fieldErrorMessage, isFieldInvalid, validateOnBlur } from "~/src/integra
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
+import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { requestAccountDeletionMutation } from "~/src/modules/user/use-cases/request-account-deletion"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
-
-import { ACCOUNT_DELETION_NOTICES } from "~/src/data/account-deletion"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
@@ -32,12 +31,29 @@ import {
 } from "~/src/presentation/components/shadcn/dialog"
 import { Field, FieldLabel } from "~/src/presentation/components/shadcn/field"
 
+import { AccountDeletionRecords } from "~/src/presentation/components/custom/account-deletion-records"
+import { LicenseDeletionNotice } from "~/src/presentation/components/custom/app/license-deletion-notice"
 import { PasswordInput } from "~/src/presentation/components/custom/auth/password-input"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
 import * as ROUTES from "~/src/routes"
 
 const passwordSchema = userZodSchemas.requestAccountDeletion.pick({ password: true }).required()
+
+interface AccountDeletionNotice {
+  readonly key: string
+  readonly load: (context: { readonly queryClient: QueryClient }) => Promise<unknown>
+  readonly Notice: () => JSX.Element | undefined
+}
+
+export const ACCOUNT_DELETION_NOTICES: readonly AccountDeletionNotice[] = [
+  { Notice: AccountDeletionRecords, key: "records", load: () => Promise.resolve() },
+  {
+    Notice: LicenseDeletionNotice,
+    key: "license",
+    load: ({ queryClient }) => queryClient.query({ ...currentLicenseQuery, staleTime: "static" }),
+  },
+]
 
 export const AccountDeletionConsequences = (): JSX.Element => {
   const t = useTranslations("auth.security.delete")

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { COMMAND_SEARCHES } from "~/src/data/command-search"
 import {
   ADMIN_COMMAND_ACTIONS,
   ADMIN_DASHBOARD_ACTIONS,
@@ -14,7 +13,9 @@ import {
 } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
-import { USER_TABS } from "~/src/data/user-tabs"
+
+import { COMMAND_SEARCHES } from "~/src/presentation/components/custom/admin/admin-command-palette"
+import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { loadLocaleMessages } from "~/scripts/i18n-messages"
@@ -22,8 +23,6 @@ import * as ROUTES from "~/src/routes"
 
 const NAVIGATION = "navigation"
 const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)[NAVIGATION]
-const USER_TABS_GROUP = "userTabs"
-const COMMAND_SEARCH_GROUP = "search"
 
 const leafKeys = (value: unknown, prefix: string): string[] => {
   if (typeof value !== "object" || value === null) {
@@ -49,6 +48,8 @@ const ENTRY_LABELS = [
     ...APP_NAVIGATION,
     ...APP_RESOURCE_NAVIGATION,
     ...SITE_ENTRIES,
+    ...USER_TABS,
+    ...COMMAND_SEARCHES,
   ].map(({ label }) => label),
   ...SITE_ENTRIES.flatMap(({ signedIn }) => (signedIn === undefined ? [] : [signedIn.label])),
   ...ADMIN_ITEMS.flatMap(({ breadcrumbs = {} }) => Object.values(breadcrumbs)),
@@ -77,10 +78,7 @@ describe("the website's navigation", () => {
   })
 
   it("labels exactly the menu entries, user tabs and command palette searches, and gives breadcrumbs only to pages below a section", () => {
-    const tabLabels = USER_TABS.map(({ area, key }) => `${NAVIGATION}.${area}.${USER_TABS_GROUP}.${key}`)
-    const searchLabels = COMMAND_SEARCHES.map(({ area, key }) => `${NAVIGATION}.${area}.${COMMAND_SEARCH_GROUP}.${key}`)
-
-    expect(LABELS.toSorted()).toStrictEqual([...new Set([...ENTRY_LABELS, ...tabLabels, ...searchLabels])].toSorted())
+    expect(LABELS.toSorted()).toStrictEqual([...new Set(ENTRY_LABELS)].toSorted())
     expect(
       ADMIN_ITEMS.flatMap(({ breadcrumbs = {}, to }) => Object.keys(breadcrumbs).map((action) => `${to}/${action}`)).filter(
         (path) => !PATHS.has(path),

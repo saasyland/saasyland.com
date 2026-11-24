@@ -4,9 +4,10 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
-import { USER_TABS } from "~/src/data/user-tabs"
 
 import { cn } from "~/src/lib/cn"
+
+import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
 import * as ROUTES from "~/src/routes"
 
@@ -65,7 +66,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
           </Link>
         </>
       )}
-      {tab && <CurrentPage label={t(`navigation.${tab.area}.userTabs.${tab.key}`)} />}
+      {tab && <CurrentPage label={t(tab.label)} />}
       {!tab && crumb !== undefined && <CurrentPage label={t(crumb)} />}
     </nav>
   )

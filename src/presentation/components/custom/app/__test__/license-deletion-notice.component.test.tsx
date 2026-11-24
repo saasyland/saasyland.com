@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { screen } from "@testing-library/react"
 import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
@@ -13,6 +13,7 @@ import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { LicenseDeletionNotice } from "~/src/presentation/components/custom/app/license-deletion-notice"
+import { ACCOUNT_DELETION_NOTICES } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
@@ -82,5 +83,17 @@ describe("licence deletion notice", () => {
     renderNotice(owned)
 
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument()
+  })
+})
+
+describe("licence notice on the account deletion card", () => {
+  it("loads the licence the notice reads", async () => {
+    const queryClient = new QueryClient()
+    vi.spyOn(currentLicenseQuery, "queryFn").mockResolvedValue({ license: undefined })
+    const notice = ACCOUNT_DELETION_NOTICES.find(({ Notice }) => Notice === LicenseDeletionNotice)
+
+    await notice?.load({ queryClient })
+
+    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toStrictEqual({ license: undefined })
   })
 })

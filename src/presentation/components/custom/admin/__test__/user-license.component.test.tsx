@@ -1,7 +1,8 @@
 import { PLATFORM } from "@saasyland/stack/api"
+import { QueryClient } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import { createTranslator } from "use-intl"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -17,6 +18,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { UserLicensePending } from "~/src/presentation/components/custom/admin/license-pending"
 import { UserLicense } from "~/src/presentation/components/custom/admin/users/user-license"
+import { USER_PROFILE_SECTIONS } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 
 import commonMessages from "~/messages/en-US/common.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
@@ -224,5 +226,34 @@ describe("admin licence card", () => {
 
     expect(rows).toHaveLength(USER_LICENSE_DETAILS.length + 1)
     expect(container.querySelectorAll("[data-slot=card-content] > div:first-child > div")).toHaveLength(rows.length)
+  })
+})
+
+describe("licence section of the user profile", () => {
+  const section = USER_PROFILE_SECTIONS.find(({ Section }) => Section === UserLicense)
+
+  it("loads the licence and its machines in Polar", async () => {
+    const queryClient = new QueryClient()
+    const query = vi.spyOn(queryClient, "query").mockResolvedValue({ license: undefined })
+
+    await section?.load({ queryClient, userId: USER_ID })
+
+    expect(query.mock.calls.map(([options]) => options.queryKey)).toStrictEqual([
+      userLicenseQuery({ userId: USER_ID }).queryKey,
+      userActivationsQuery({ userIds: [USER_ID] }).queryKey,
+    ])
+  })
+
+  it("also loads the title of the first paid lesson the licence opened", async () => {
+    const queryClient = new QueryClient()
+    const query = vi.spyOn(queryClient, "query").mockResolvedValue({ license: { openedLessonId: LESSON_ID } })
+
+    await section?.load({ queryClient, userId: USER_ID })
+
+    expect(query.mock.calls.map(([options]) => options.queryKey)).toStrictEqual([
+      userLicenseQuery({ userId: USER_ID }).queryKey,
+      userActivationsQuery({ userIds: [USER_ID] }).queryKey,
+      lessonTitleQuery({ lessonId: LESSON_ID }).queryKey,
+    ])
   })
 })

@@ -1,20 +1,17 @@
 import type { JSX } from "react"
 
-import { useRouterState } from "@tanstack/react-router"
-
 import { TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
-import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { createOtpSlotIndices } from "~/src/modules/two-factor/two-factor.utils"
 
 import { usePagePending } from "~/src/hooks/use-page-pending"
 
 import { AUTH_ASSURANCES, OAUTH_PROVIDERS } from "~/src/data/auth"
-import { findSignUpIntro } from "~/src/data/sign-up-intros"
-import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+import { SignUpIntroPending } from "~/src/presentation/components/custom/auth/sign-up-intro"
+import { SignUpConsentPending } from "~/src/presentation/components/custom/sign-up-consent"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 const TitlePending = (): JSX.Element => <Skeleton className="h-lh w-3/5 scale-y-70 text-headline-support" />
@@ -77,18 +74,6 @@ export const SignInPending = (): JSX.Element => (
   </div>
 )
 
-const SignUpIntroPending = (): JSX.Element => {
-  const redirect = useRouterState({ select: ({ location }) => authSearchSchema.parse(location.search).redirect })
-
-  const intro = findSignUpIntro(redirect)
-
-  if (intro === undefined) {
-    return <Skeleton className="mt-3 h-lh w-4/5 scale-y-70 text-body" />
-  }
-
-  return <intro.Pending />
-}
-
 export const SignUpPending = (): JSX.Element => (
   <div aria-busy="true" className="flex flex-col">
     <TitlePending />
@@ -104,9 +89,7 @@ export const SignUpPending = (): JSX.Element => (
         <PasswordRulesPending />
         <Skeleton className="h-11 w-full rounded-md" />
       </div>
-      {SIGN_UP_NOTICES.map(({ Pending, key }) => (
-        <Pending key={key} />
-      ))}
+      <SignUpConsentPending />
     </div>
     <FooterPending />
   </div>

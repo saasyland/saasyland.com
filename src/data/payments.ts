@@ -34,10 +34,10 @@ export const ORDER_POLAR_AMOUNTS = ["subtotal", "discount", "net", "tax", "total
 export const ORDER_POLAR_DETAILS = ["status", "discountName", "billingName", "billingCountry", "customerName", "customerEmail"] as const
 
 export const CUSTOMER_COLUMN_SIZES = {
-  area: 168,
   customer: 248,
   emailVerified: 176,
   lastOrderAt: 216,
+  machines: 168,
   orders: 160,
   revenue: 240,
   signedUpAt: 200,

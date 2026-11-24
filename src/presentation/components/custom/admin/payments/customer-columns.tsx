@@ -9,14 +9,16 @@ import { FLAG_FILTERS } from "~/src/modules/_core/utils/pagination"
 import type { Order } from "~/src/modules/order/order.types"
 
 import { CURRENCIES } from "~/src/data/currencies"
-import { type CustomerColumn as AreaColumn, CUSTOMER_COLUMNS } from "~/src/data/customer-columns"
 import { CUSTOMER_COLUMN_SIZES } from "~/src/data/payments"
 
 import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderCustomer } from "~/src/presentation/components/custom/admin/payments/order-columns"
+import { CustomerMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type CustomerRow = Order["customerRow"]
+
+type AccountCellComponent = (props: { readonly accounts: readonly string[]; readonly userId: string }) => JSX.Element
 
 export const CUSTOMER_GRID_ID = "customers"
 
@@ -84,11 +86,11 @@ const LastOrderCell = ({ getValue }: CellContext<DataGridFeatures, CustomerRow, 
 const pageAccounts = (rows: readonly { readonly original: CustomerRow }[]): string[] =>
   rows.flatMap(({ original }) => (original.user === null ? [] : [original.user.id]))
 
-const AreaCell = ({
+const AccountCell = ({
   Cell,
   row,
   table,
-}: CellContext<DataGridFeatures, CustomerRow, CustomerRow["user"]> & Pick<AreaColumn, "Cell">): JSX.Element => {
+}: CellContext<DataGridFeatures, CustomerRow, CustomerRow["user"]> & { readonly Cell: AccountCellComponent }): JSX.Element => {
   const { user } = row.original
 
   if (user === null) {
@@ -163,15 +165,13 @@ export const useCustomerColumns = (): DataGridColumn<CustomerRow>[] => {
         meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE } },
         size: CUSTOMER_COLUMN_SIZES.lastOrderAt,
       }),
-      ...CUSTOMER_COLUMNS.map(({ Cell, header, key }) =>
-        columnHelper.accessor("user", {
-          cell: (context) => <AreaCell {...context} Cell={Cell} />,
-          enableSorting: false,
-          header: t(header),
-          id: key,
-          size: CUSTOMER_COLUMN_SIZES.area,
-        }),
-      ),
+      columnHelper.accessor("user", {
+        cell: (context) => <AccountCell {...context} Cell={CustomerMachines} />,
+        enableSorting: false,
+        header: t("pages.admin.users.license.activations.header"),
+        id: "machines",
+        size: CUSTOMER_COLUMN_SIZES.machines,
+      }),
     ])
   }, [t])
 }

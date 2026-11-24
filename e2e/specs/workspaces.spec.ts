@@ -106,6 +106,7 @@ for (const account of TEST_ACCOUNTS) {
       await expect(page.getByRole("alert").filter({ hasText: "Something went wrong" })).toHaveCount(0)
       await expect(page.getByText("Page not found", { exact: true })).toHaveCount(0)
       if (heading !== undefined) await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading)
+      await page.waitForLoadState("networkidle")
     }
     if (account.role === ROLE_CODES.CUSTOMER) {
       await page.goto("/pl-PL/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -118,6 +119,7 @@ for (const account of TEST_ACCOUNTS) {
       await expect(navigation.getByRole("link", { name: "Ustawienia", exact: true })).toHaveAttribute("aria-current", "page")
       await expect(page.getByRole("heading", { level: 1, name: "Ustawienia", exact: true })).toBeVisible()
       await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-settings-polish.png") })
+      await page.waitForLoadState("networkidle")
 
       await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await expect(page).toHaveURL(/\/app\/?$/u)

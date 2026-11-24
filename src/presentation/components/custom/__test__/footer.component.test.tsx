@@ -154,4 +154,16 @@ describe("the footer for a signed-in visitor", () => {
     })
     expect(within(footer).queryByRole("link", { name: navigationAuthMessages.footer.signIn })).not.toBeInTheDocument()
   })
+
+  it("turns the sign-in link into the account link in place, so a press while the session loads still lands on it", async () => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+    const session = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
+    sessionRequest.mockReturnValue(session.promise)
+    renderFooter()
+    const footer = screen.getByRole("contentinfo")
+    const signIn = within(footer).getByRole("link", { name: navigationAuthMessages.footer.signIn })
+    session.resolve(createAuthSessionFixture())
+
+    expect(await within(footer).findByRole("link", { name: navigationAuthMessages.footer.account })).toBe(signIn)
+  })
 })

@@ -62,8 +62,8 @@ export const MobileMenu = (): JSX.Element => {
               <div className="mx-auto w-full max-w-site px-6 pb-10 md:px-10">
                 <nav aria-label={t("components.custom.navigation.ariaLabel")}>
                   <ul className="divide-y divide-border">
-                    {header.map((entry) => (
-                      <li key={entry.label}>
+                    {header.map((entry, position) => (
+                      <li key={position}>
                         <Link
                           {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
                           className="group flex items-center justify-between gap-6 py-4 text-lead font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"

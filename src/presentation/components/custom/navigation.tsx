@@ -81,11 +81,11 @@ export const Navigation = (): JSX.Element => {
 
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden items-center gap-1 lg:flex">
-              {header.map((entry) => (
+              {header.map((entry, position) => (
                 <Link
                   {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
                   className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
-                  key={entry.label}
+                  key={position}
                   to={entry.to}
                 >
                   {({ isActive }) => (

@@ -18,7 +18,8 @@ import { AFFILIATE_PORTAL_URL } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES, CLI_INIT_COMMAND } from "~/src/data/cli"
 import { BILLING_GENERATION } from "~/src/data/marketing"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import {
   PPP_ATTRIBUTE,
   PPP_COOKIE,
@@ -15,8 +16,6 @@ import {
   regionalPrice,
   rewritePppOffer,
 } from "~/src/modules/license/license.pricing"
-
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
 
 const formatPrice = (amount: number): string => new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(amount)
 

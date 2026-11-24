@@ -7,7 +7,8 @@ import { useTranslations } from "use-intl/react"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { CTA_CLASSES } from "~/src/data/cta"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import * as ROUTES from "~/src/routes"
 

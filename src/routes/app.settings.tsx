@@ -3,13 +3,14 @@ import type { JSX } from "react"
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { settingsSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
-import { SETTINGS_TAB, settingsSearchSchema } from "~/src/data/auth"
+import { SETTINGS_TAB } from "~/src/data/auth"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"

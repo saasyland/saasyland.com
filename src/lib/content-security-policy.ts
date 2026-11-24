@@ -1,8 +1,8 @@
 import type { Environment } from "@polar-sh/sdk/2026-10"
 
-import { CONTENT_SECURITY_POLICY } from "~/src/modules/_core/constants/api"
+import { polarCheckoutOrigin } from "~/src/integrations/polar/polar.constants"
 
-import { polarCheckoutOrigin } from "~/src/data/polar"
+import { CONTENT_SECURITY_POLICY } from "~/src/modules/_core/constants/api"
 
 import { randomHex } from "~/src/lib/hex"
 

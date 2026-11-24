@@ -4,7 +4,8 @@ import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { HEAD_START_HIGH_HOURS, HEAD_START_LOW_HOURS, HEAD_START_ROWS } from "~/src/data/head-start"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 export const HeadStartTable = (): JSX.Element => {
   const format = useFormatter()

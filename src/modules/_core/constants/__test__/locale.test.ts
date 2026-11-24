@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { LOCALES, LOCALE_CODES, getLocaleDirection, getLocaleName, isLocaleCode } from "~/src/data/locales"
+import { LOCALES, LOCALE_CODES, getLocaleDirection, getLocaleName, isLocaleCode } from "~/src/modules/_core/constants/locale"
 
 afterEach(() => {
   vi.restoreAllMocks()

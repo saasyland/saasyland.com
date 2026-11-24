@@ -6,7 +6,7 @@ import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
 import type { LicenseTier } from "~/src/modules/license/license.constants"
 import { PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey, regionalPrice } from "~/src/modules/license/license.pricing"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 
 import { readCookie } from "~/src/lib/cookie"
 

@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test"
 
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
-import { TIER_PRICES } from "../../src/data/marketing"
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "../../src/data/polar"
+import { TIER_PRICES } from "../../src/data/license"
+import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "../../src/integrations/polar/polar.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
-import { DEFAULT_CURRENCY_CODE } from "../../src/data/pricing"
+import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { SESSION_STALE_TIME_MS } from "../../src/modules/session/session.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE, TEST_LICENSED_ACCOUNT, TEST_UNLICENSED_ORDER } from "../data/licenses"

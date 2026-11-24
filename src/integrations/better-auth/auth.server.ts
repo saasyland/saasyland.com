@@ -27,6 +27,7 @@ import { handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
+import { COUNTRIES } from "~/src/modules/_core/constants/country"
 import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-cases/send-change-email-confirmation-email"
 import { sendExistingAccountEmail } from "~/src/modules/account/use-cases/send-existing-account-email"
 import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
@@ -36,8 +37,6 @@ import { sendDeleteAccountEmail } from "~/src/modules/user/use-cases/send-delete
 import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 import { sendResetPasswordEmail } from "~/src/modules/verification/use-cases/send-reset-password-email"
 import { sendVerifyEmail } from "~/src/modules/verification/use-cases/send-verify-email"
-
-import { COUNTRIES } from "~/src/data/countries"
 
 import { consumeRateLimit } from "~/src/lib/rate-limit"
 

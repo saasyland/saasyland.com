@@ -23,6 +23,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { CourseCover } from "~/src/presentation/components/custom/courses/course-cover"
 import { CourseFacts } from "~/src/presentation/components/custom/courses/course-facts"
 import { LessonMeta } from "~/src/presentation/components/custom/courses/lesson-meta"
+import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 import courseTourPosterAvif800 from "~/src/presentation/assets/motion/course-tour-800.avif?url"
 import courseTourPosterWebp800 from "~/src/presentation/assets/motion/course-tour-800.webp?url"
@@ -33,6 +34,7 @@ import courseTourPosterWebp from "~/src/presentation/assets/motion/course-tour.w
 import * as ROUTES from "~/src/routes"
 
 const TOUR = LANDING_VIDEO_SIZES["course-tour"]
+const SHOWCASE_DELAY_MS = 100
 const TOUR_POSTER_SMALL_WIDTH = 800
 
 const TOUR_SIZES =
@@ -297,47 +299,49 @@ export const CourseShowcase = (): JSX.Element => {
   const { data, isError, isPending } = useQuery({ ...courseShowcaseQuery({ locale }), enabled: isNear })
 
   return (
-    <article ref={article} aria-busy={isNear && isPending} className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="p-7 md:p-9">
-        <h3 className="text-headline-support text-balance text-foreground">{t("title")}</h3>
-        <p className="mt-3 max-w-[68ch] text-body text-pretty text-muted-foreground">{t("body")}</p>
-      </div>
-
-      <div className="grid gap-7 border-y border-border bg-background px-7 py-8 md:px-9 md:py-10 lg:grid-cols-[1.35fr_1fr] lg:items-center lg:gap-12">
-        <CourseTour />
-        <div className="min-w-0">
-          <p className="text-title text-balance text-foreground">{t("tour.title")}</p>
-          <p className="mt-2 max-w-[46ch] text-body-sm text-pretty text-muted-foreground" id="course-tour-body">
-            {t("tour.body")}
-          </p>
+    <Reveal className="mt-6" delay={SHOWCASE_DELAY_MS}>
+      <article ref={article} aria-busy={isNear && isPending} className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="p-7 md:p-9">
+          <h3 className="text-headline-support text-balance text-foreground">{t("title")}</h3>
+          <p className="mt-3 max-w-[68ch] text-body text-pretty text-muted-foreground">{t("body")}</p>
         </div>
-      </div>
 
-      <div className="px-7 py-8 md:px-9 md:py-10">
-        {isPending && (
-          <div aria-hidden>
-            <ShowcasePending />
+        <div className="grid gap-7 border-y border-border bg-background px-7 py-8 md:px-9 md:py-10 lg:grid-cols-[1.35fr_1fr] lg:items-center lg:gap-12">
+          <CourseTour />
+          <div className="min-w-0">
+            <p className="text-title text-balance text-foreground">{t("tour.title")}</p>
+            <p className="mt-2 max-w-[46ch] text-body-sm text-pretty text-muted-foreground" id="course-tour-body">
+              {t("tour.body")}
+            </p>
           </div>
-        )}
-        {isError && <ShowcaseMessage message="error" />}
-        {data !== undefined && <ShowcaseCourses courses={data} />}
-      </div>
+        </div>
 
-      <div className="border-t border-border px-7 py-5 md:px-9">
-        <Link
-          className={cn(
-            LINK_CLASSNAME,
-            "group inline-flex items-center gap-2 text-body-sm font-medium text-foreground hover:text-muted-foreground",
+        <div className="px-7 py-8 md:px-9 md:py-10">
+          {isPending && (
+            <div aria-hidden>
+              <ShowcasePending />
+            </div>
           )}
-          to={ROUTES.COURSES}
-        >
-          {t("browse")}
-          <ArrowRight
-            aria-hidden
-            className="size-3.5 transition-transform duration-200 ease-exp group-hover:translate-x-0.5 motion-reduce:transition-none"
-          />
-        </Link>
-      </div>
-    </article>
+          {isError && <ShowcaseMessage message="error" />}
+          {data !== undefined && <ShowcaseCourses courses={data} />}
+        </div>
+
+        <div className="border-t border-border px-7 py-5 md:px-9">
+          <Link
+            className={cn(
+              LINK_CLASSNAME,
+              "group inline-flex items-center gap-2 text-body-sm font-medium text-foreground hover:text-muted-foreground",
+            )}
+            to={ROUTES.COURSES}
+          >
+            {t("browse")}
+            <ArrowRight
+              aria-hidden
+              className="size-3.5 transition-transform duration-200 ease-exp group-hover:translate-x-0.5 motion-reduce:transition-none"
+            />
+          </Link>
+        </div>
+      </article>
+    </Reveal>
   )
 }

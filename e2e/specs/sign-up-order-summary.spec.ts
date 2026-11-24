@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test"
 
-import { CURRENCY_FORMAT } from "../../src/data/pricing"
+import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import { TIER_PRICES } from "../../src/data/marketing"
+import { TIER_PRICES } from "../../src/data/license"
 import { REFUND_TERMS } from "../../src/data/refunds"
 import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/auth"

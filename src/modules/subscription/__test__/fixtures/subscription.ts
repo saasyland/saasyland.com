@@ -2,9 +2,8 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { POLAR_RECURRING_INTERVAL, POLAR_SUBSCRIPTION_STATUS } from "~/src/integrations/polar/polar.constants"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import type { Subscription } from "~/src/modules/subscription/subscription.types"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 export const subscriptionRow = (overrides: Partial<Subscription["insert"]> = {}): Subscription["insert"] => ({
   amount: 2900,

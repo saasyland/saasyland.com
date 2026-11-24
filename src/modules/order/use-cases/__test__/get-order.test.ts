@@ -10,7 +10,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_DASHBOARD_HOSTS, POLAR_ORDER_STATUS, POLAR_ORGANIZATION_SLUG } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -31,8 +31,6 @@ import { POLAR_READ } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
 import { user } from "~/src/modules/user/user.schema"
-
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
 
 const dashboardUrl = (orderId: string): string =>
   `https://${POLAR_DASHBOARD_HOSTS[env.POLAR_SERVER]}/dashboard/${POLAR_ORGANIZATION_SLUG}/sales/${orderId}`

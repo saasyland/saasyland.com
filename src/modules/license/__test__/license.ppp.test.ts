@@ -5,7 +5,7 @@ import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.const
 import { buyerTierPrice } from "~/src/modules/license/license.ppp"
 import { PPP_COOKIE, PPP_DECLINED } from "~/src/modules/license/license.pricing"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 
 const headers = (fields: Readonly<Record<string, string>>): Headers => new Headers(fields)
 

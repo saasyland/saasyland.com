@@ -12,7 +12,8 @@ import {
   HEADER_NAVIGATION,
 } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { COMMAND_SEARCHES } from "~/src/presentation/components/custom/admin/admin-command-palette"
 import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"

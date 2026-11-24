@@ -9,10 +9,9 @@ import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
 import { localizedTierName, orderCurrencySchema, polarOrderUrl } from "~/src/modules/license/license.utils"
-
-import { fromMinorUnits } from "~/src/data/currencies"
 
 import type alertMessages from "~/messages/en-US/emails.unmatched-order-alert-email.json"
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"

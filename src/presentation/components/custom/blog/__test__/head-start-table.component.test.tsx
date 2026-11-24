@@ -5,7 +5,8 @@ import { afterEach, expect, it } from "vite-plus/test"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { HEAD_START_HIGH_HOURS, HEAD_START_LOW_HOURS, HEAD_START_ROWS } from "~/src/data/head-start"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { HeadStartTable } from "~/src/presentation/components/custom/blog/head-start-table"
 

@@ -34,7 +34,6 @@ import { LOCAL_SERVER, TEST_SERVER_PORTS } from "~/src/data/local-server"
 import { ANGULARPROJECTS_ACCESS, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
@@ -42,6 +41,7 @@ import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"

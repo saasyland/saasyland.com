@@ -3,11 +3,10 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { POLAR_ID_MAX_LENGTH } from "~/src/integrations/polar/polar.constants"
 
+import { COUNTRY_CODE_LENGTH } from "~/src/modules/_core/constants/country"
+import { CURRENCY_CODE_LENGTH } from "~/src/modules/_core/constants/currency"
 import { ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { user } from "~/src/modules/user/user.schema"
-
-import { COUNTRY_CODE_LENGTH } from "~/src/data/countries"
-import { CURRENCY_CODE_LENGTH } from "~/src/data/currencies"
 
 export const order = sqliteTable(
   "order",

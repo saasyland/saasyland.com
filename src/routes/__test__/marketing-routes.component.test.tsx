@@ -25,11 +25,11 @@ import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/
 import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_COVER, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
 import { pageAuthor } from "~/src/lib/blog-seo"
 import { starCountQuery } from "~/src/lib/github"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
 
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"

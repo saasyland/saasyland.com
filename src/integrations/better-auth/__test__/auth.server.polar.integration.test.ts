@@ -15,8 +15,7 @@ import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/pola
 import type { handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 import * as ROUTES from "~/src/routes"
 

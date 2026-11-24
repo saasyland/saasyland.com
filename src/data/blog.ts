@@ -1,5 +1,3 @@
-import * as ROUTES from "../routes.ts"
-
 export const BLOG_TAG = {
   AI_AGENTS: "ai-agents",
   ARCHITECTURE: "architecture",
@@ -66,8 +64,6 @@ export const BLOG_AUTHORS = {
 >
 
 export const AUTHOR_IMAGE_SIZE = 288
-
-export const blogAuthorPath = (author: BlogAuthor): string => `${ROUTES.AUTHORS}/${author}`
 
 export const BLOG_COVER = {
   HEIGHT: 660,

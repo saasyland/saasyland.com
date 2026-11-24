@@ -12,12 +12,11 @@ import {
 } from "~/src/integrations/polar/polar.constants"
 import { POLAR_EVENTS, POLAR_EVENT_HANDLERS, handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { ORDER_WEBHOOK_EVENTS } from "~/src/modules/order/order.constants"
 import type { recordOrder } from "~/src/modules/order/use-cases/record-order"
 import { SUBSCRIPTION_WEBHOOK_EVENTS } from "~/src/modules/subscription/subscription.constants"
 import type { recordSubscription } from "~/src/modules/subscription/use-cases/record-subscription"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const recorders = vi.hoisted(() => ({
   recordOrder: vi.fn<typeof recordOrder>(),

@@ -8,7 +8,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, isSupportedLocale, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { getLocaleName } from "~/src/data/locales"
+import { getLocaleName } from "~/src/modules/_core/constants/locale"
 
 import { cn } from "~/src/lib/cn"
 

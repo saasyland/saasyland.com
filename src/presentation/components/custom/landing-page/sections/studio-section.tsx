@@ -8,8 +8,6 @@ import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/c
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-const SECOND_CARD_DELAY_MS = 100
-
 const BUILDER_IMAGE_SIZES =
   "(min-width: 80rem) calc((80rem - 5rem - 2px) * 1.35 / 2.35 - 4.5rem - 3px), (min-width: 64rem) calc((100vw - 5rem - 2px) * 1.35 / 2.35 - 4.5rem - 3px), (min-width: 48rem) calc(100vw - 9.5rem - 4px), calc(100vw - 6.5rem - 4px)"
 
@@ -45,9 +43,7 @@ export const StudioSection = (): JSX.Element => {
           </article>
         </Reveal>
 
-        <Reveal className="mt-6" delay={SECOND_CARD_DELAY_MS}>
-          <CourseShowcase />
-        </Reveal>
+        <CourseShowcase />
       </div>
     </section>
   )

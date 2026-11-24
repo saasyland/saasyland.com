@@ -9,7 +9,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_DASHBOARD_HOSTS, POLAR_ORDER_STATUS, POLAR_ORGANIZATION_SLUG } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -19,8 +19,6 @@ import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlic
 import { orderRow } from "~/src/modules/order/__test__/fixtures/order"
 import { order } from "~/src/modules/order/order.schema"
 import { user } from "~/src/modules/user/user.schema"
-
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
 
 const ADMIN_ID = "01900000-0000-7000-8000-000000000021"
 const BUYER_ID = "01900000-0000-7000-8000-000000000022"

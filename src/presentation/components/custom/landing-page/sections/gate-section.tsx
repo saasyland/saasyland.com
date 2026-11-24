@@ -8,9 +8,10 @@ import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { CTA_CLASSES } from "~/src/data/cta"
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 import { Price } from "~/src/presentation/components/custom/pricing"

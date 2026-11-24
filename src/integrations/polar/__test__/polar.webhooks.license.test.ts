@@ -8,13 +8,12 @@ import { createPolarOrder, grantPolarLicenseKey } from "~/src/platform/testing/m
 import { POLAR_ORDER_STATUS, POLAR_RECURRING_INTERVAL, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 import { POLAR_EVENTS, POLAR_EVENT_HANDLERS, handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import type { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { recordOrder } from "~/src/modules/order/use-cases/record-order"
 import type { recordSubscription } from "~/src/modules/subscription/use-cases/record-subscription"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const recorders = vi.hoisted(() => ({
   recordOrder: vi.fn<typeof recordOrder>(),

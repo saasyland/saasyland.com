@@ -1,13 +1,15 @@
 import { createFormatter, createTranslator } from "use-intl"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { BILLING_GENERATION, TIER_PRICES } from "~/src/data/marketing"
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
+import { TIER_PRICES } from "~/src/data/license"
+import { BILLING_GENERATION } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 const TEXT_KEY = "text"
 

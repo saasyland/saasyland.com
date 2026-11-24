@@ -10,12 +10,11 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
+import { licenseSearchSchema } from "~/src/modules/license/license.zod"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 import { withdrawalContractQuery } from "~/src/modules/withdrawal/use-cases/get-withdrawal-contract"
-
-import { licenseSearchSchema } from "~/src/data/license"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"

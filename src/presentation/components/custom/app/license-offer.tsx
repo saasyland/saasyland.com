@@ -6,7 +6,9 @@ import { useTranslations } from "use-intl/react"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { LICENSE_OFFER_ID, licenseSearchSchema } from "~/src/data/license"
+import { licenseSearchSchema } from "~/src/modules/license/license.zod"
+
+import { LICENSE_OFFER_ID } from "~/src/data/license"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/src/presentation/components/shadcn/collapsible"
 

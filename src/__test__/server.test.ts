@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { createEdgeCache } from "~/src/platform/testing/mocks/cache"
 
+import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
@@ -14,8 +15,6 @@ import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundl
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import { PPP_ATTRIBUTE } from "~/src/modules/license/license.pricing"
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
-
-import { POLAR_SERVER } from "~/src/data/polar"
 
 import { documentPolicy } from "~/src/lib/content-security-policy"
 

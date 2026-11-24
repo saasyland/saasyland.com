@@ -9,10 +9,10 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { parseEnv } from "node:util"
 import * as zod from "zod"
 
+import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
+
 import { polarOrderTerms } from "~/src/modules/order/order.polar"
 import { order } from "~/src/modules/order/order.schema"
-
-import { POLAR_SERVER } from "~/src/data/polar"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 

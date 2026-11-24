@@ -8,9 +8,16 @@ import { affonsoReferralMetadata } from "~/src/integrations/affonso/affonso.refe
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { polar } from "~/src/integrations/polar/polar.config"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_FIXED_PRICE, POLAR_PRICE_CURRENCY } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_CHECKOUT_ID_PLACEHOLDER,
+  POLAR_FIXED_PRICE,
+  POLAR_PRICE_CURRENCY,
+  polarCheckoutLanguage,
+} from "~/src/integrations/polar/polar.constants"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_CHECKOUT_METADATA, LICENSE_MUTATION_KEYS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { buyerTierPrice } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
@@ -20,10 +27,7 @@ import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
-import { toMinorUnits } from "~/src/data/currencies"
-import { TIER_PRICES } from "~/src/data/marketing"
-import { polarCheckoutLanguage } from "~/src/data/polar"
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
+import { TIER_PRICES } from "~/src/data/license"
 
 import { trustedRequestOrigin } from "~/src/lib/request-origin"
 

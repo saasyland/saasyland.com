@@ -3,7 +3,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, realpat
 import { join, sep } from "node:path"
 import process from "node:process"
 
-import { SKILL_SOURCES, isSkillSource } from "../src/data/skills.ts"
+import { SKILL_SOURCES } from "../src/data/skills.ts"
 import { BUN_LOCK, type Dependency, PACKAGE_JSON, readDependencies } from "./dependencies.ts"
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 import {
@@ -96,6 +96,8 @@ export const skillFolderHash = (directory: string): string => {
 
   return hash.digest("hex")
 }
+
+const isSkillSource = (source: string): boolean => Object.hasOwn(SKILL_SOURCES, source)
 
 export const sourceProblems = (skills: SkillsLock): string[] => {
   const locked = new Set(Object.values(skills).map(({ source }) => source))

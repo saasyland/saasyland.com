@@ -4,10 +4,9 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { ArrowUpRight } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { upgradePriceQuery } from "~/src/modules/license/use-cases/get-upgrade-price"
-
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 

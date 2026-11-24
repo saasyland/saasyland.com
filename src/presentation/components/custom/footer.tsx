@@ -7,9 +7,9 @@ import { useSiteNavigation } from "~/src/hooks/use-site-navigation"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { LocaleSwitcher } from "~/src/presentation/components/custom/locale-switcher"
 import { NewsletterForm } from "~/src/presentation/components/custom/newsletter-form"

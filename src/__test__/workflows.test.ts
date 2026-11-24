@@ -5,10 +5,10 @@ import * as zod from "zod"
 
 import { importClosure } from "~/src/platform/testing/lib/import-closure"
 
+import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
+
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
-
-import { POLAR_SERVER } from "~/src/data/polar"
 
 import { AREA_SCENARIO } from "~/scripts/areas"
 import { REPORT_MODE } from "~/scripts/report-updates"

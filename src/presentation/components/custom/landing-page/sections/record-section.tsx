@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"

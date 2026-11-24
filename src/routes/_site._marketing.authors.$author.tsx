@@ -12,8 +12,9 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AUTHOR_IMAGE_SIZE, BLOG_AUTHOR, BLOG_AUTHORS, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
+import { AUTHOR_IMAGE_SIZE, BLOG_AUTHOR, BLOG_AUTHORS, type BlogAuthor } from "~/src/data/blog"
 
+import { blogAuthorPath } from "~/src/lib/blog-archive"
 import { buildAuthorStructuredDataHtml } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"

@@ -33,6 +33,10 @@ describe("documentedDependencies", () => {
   it("picks the dependencies that match a package name or a scope", () => {
     expect(documentedDependencies([RESEND], DEPENDENCIES)).toStrictEqual([dependency(RESEND, "6.39.0")])
     expect(documentedDependencies(["@polar-sh/*"], DEPENDENCIES)).toStrictEqual([dependency(SDK, "1.3.2")])
+    expect(
+      documentedDependencies(["@polar-sh/*"], [dependency("@polar-sh-fork/sdk", "1.0.0"), dependency("polar", "1.0.0")]),
+    ).toStrictEqual([])
+    expect(documentedDependencies([RESEND], [dependency("react-email", "5.0.0")])).toStrictEqual([])
   })
 })
 

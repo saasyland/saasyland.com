@@ -47,9 +47,9 @@ import { CLI_KEY_LINES, SCAFFOLD_DIR } from "~/src/data/cli"
 import { LICENSE_OFFER_ID } from "~/src/data/license"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import type { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"

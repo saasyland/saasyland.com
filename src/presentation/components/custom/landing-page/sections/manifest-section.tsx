@@ -5,7 +5,8 @@ import { useTranslations } from "use-intl/react"
 import { useAdminSections } from "~/src/hooks/use-admin-sections"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"

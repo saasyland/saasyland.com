@@ -3,10 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
-import { POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
+import { POLAR_SERVER, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 import { POLAR_EVENTS } from "~/src/integrations/polar/polar.webhooks"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_TIER,
@@ -15,10 +16,8 @@ import {
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
 
+import { TIER_PRICES } from "~/src/data/license"
 import { LOCAL_HOSTS } from "~/src/data/local-server"
-import { TIER_PRICES } from "~/src/data/marketing"
-import { POLAR_SERVER } from "~/src/data/polar"
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import {

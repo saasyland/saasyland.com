@@ -7,9 +7,8 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import type { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
 
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
-
 import { starCountQuery } from "~/src/lib/github"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 

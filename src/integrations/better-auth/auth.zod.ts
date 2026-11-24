@@ -10,7 +10,9 @@ import {
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 
-import { searchParam } from "~/src/lib/search-params"
+import { SETTINGS_TAB, SETTINGS_TABS } from "~/src/data/auth"
+
+import { searchChoice, searchParam, searchText } from "~/src/lib/search-params"
 
 const INTERNAL_PATH_PATTERN = /^\/(?![/\\])/u
 
@@ -21,6 +23,11 @@ export const authSearchSchema = zod.object({
 })
 
 export type AuthSearch = zod.infer<typeof authSearchSchema>
+
+export const settingsSearchSchema = zod.object({
+  error: searchText(),
+  tab: searchChoice(SETTINGS_TABS, SETTINGS_TAB.GENERAL),
+})
 
 export const emailSchema = zod.email({ message: "emailInvalid" }).max(EMAIL_MAX_LENGTH, {
   message: "emailMaxLength",

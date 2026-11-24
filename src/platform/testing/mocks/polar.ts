@@ -23,11 +23,10 @@ import {
   POLAR_LICENSE_KEY_STATUS,
   POLAR_MINIMUM_PRICE_AMOUNT,
   POLAR_ORDER_STATUS,
+  polarCheckoutOrigin,
 } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-
-import { polarCheckoutOrigin } from "~/src/data/polar"
 
 type RequestSchema<Model> = { readonly [Key in keyof Model]?: zod.ZodType<Model[Key]> }
 

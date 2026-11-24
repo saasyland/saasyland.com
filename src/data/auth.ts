@@ -1,8 +1,4 @@
-import * as zod from "zod"
-
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
-
-import { searchChoice, searchText } from "~/src/lib/search-params"
 
 import * as ROUTES from "~/src/routes"
 
@@ -26,11 +22,6 @@ export const SETTINGS_TAB = {
 
 export const SETTINGS_TABS = [SETTINGS_TAB.GENERAL, SETTINGS_TAB.SECURITY] as const
 
-export const settingsSearchSchema = zod.object({
-  error: searchText(),
-  tab: searchChoice(SETTINGS_TABS, SETTINGS_TAB.GENERAL),
-})
-
 export const TWO_FACTOR_INTENT = {
   DISABLE: "disable",
   ENABLE: "enable",
@@ -53,5 +44,3 @@ export const OAUTH_CLIENTS = {
 } as const satisfies Record<(typeof OAUTH_PROVIDERS)[number]["id"], OAuthClient>
 
 export const SOCIAL_SIGN_IN_PATH = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`
-
-export const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`

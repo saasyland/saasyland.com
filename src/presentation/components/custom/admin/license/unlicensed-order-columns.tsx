@@ -7,10 +7,10 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
+import { CURRENCIES } from "~/src/modules/_core/constants/currency"
 import type { License } from "~/src/modules/license/license.types"
 
 import { DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
-import { CURRENCIES } from "~/src/data/currencies"
 
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 

@@ -4,7 +4,7 @@ import { useTranslations } from "use-intl/react"
 
 import type { LicenseTier } from "~/src/modules/license/license.constants"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 
 import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
 import { Price, REGIONAL_TAGS } from "~/src/presentation/components/custom/pricing"

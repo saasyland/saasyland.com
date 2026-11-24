@@ -15,7 +15,8 @@ import {
 import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 
 import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_HIGHLIGHTS, BLOG_TAG, FEATURED_BLOG_POSTS } from "~/src/data/blog"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import * as ROUTES from "~/src/routes"
 

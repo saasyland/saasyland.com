@@ -5,7 +5,7 @@ import { useTranslations } from "use-intl/react"
 
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import { redirectTierSchema } from "~/src/data/license"
+import { redirectTierSchema } from "~/src/modules/license/license.zod"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 

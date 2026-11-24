@@ -20,15 +20,9 @@ import { useTranslations } from "use-intl/react"
 
 import { EXP, EXP_FAST } from "~/src/integrations/motion/motion.tokens"
 
-import {
-  CLI_GENERATION_VALUES,
-  CLI_TEMPLATE_SUPPORT,
-  PACKAGE_MANAGERS,
-  SCAFFOLD_DIR,
-  SCAFFOLD_TARGET,
-  resolveCliAnswers,
-} from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGERS, SCAFFOLD_DIR, SCAFFOLD_TARGET } from "~/src/data/cli"
 
+import { resolveCliAnswers } from "~/src/lib/cli"
 import { cn } from "~/src/lib/cn"
 
 import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"

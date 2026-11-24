@@ -7,7 +7,7 @@ import { LOCAL_SERVER, LOCAL_SERVER_ORIGIN, TEST_SERVER_PORTS } from "~/src/data
 import playwrightConfig from "~/playwright.config"
 import viteConfig from "~/vite.config"
 
-vi.mock(import("~/src/data/vite"), () => ({ vitePlugins: () => Promise.resolve([]) }))
+vi.mock(import("vite-plus"), async (importOriginal) => ({ ...(await importOriginal()), lazyPlugins: () => [] }))
 
 afterEach(() => {
   vi.unstubAllEnvs()

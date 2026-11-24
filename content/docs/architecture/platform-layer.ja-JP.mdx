@@ -17,18 +17,19 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 `/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt` へのリクエストは、Worker を実行せずに静的アセットから返されます。サーバーコードは、バインディング、シークレット、`waitUntil` を `cloudflare:workers` から読み取ります。`src/server.ts` は、返すすべてのレスポンスにセキュリティヘッダーを追加します。Worker を経由せずに配信されるファイルには、`public/_headers` のサブセットが付きます（[セキュリティと堅牢化](/docs/features/security)）。
 
-## エリアが追加するもの [#what-the-areas-add]
+## Worker とビルドが実行するもの [#what-the-worker-and-the-build-run]
 
-プラットフォームのファイルはどのエリアも名指ししません。コースやライセンス販売といった各エリアが、Worker と Vite のビルドに必要なものを自分のファイルで追加し、バレルがそれらをまとめます。ルートルート、タイムゾーン、公開サイトのチェックは、パスやメニューと同じように、使うものを直接名指しします（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）。
+Worker と Vite のビルドは、それぞれ自分のリストを、それを実行するファイルの中に持ちます。機能は、その機能自身の識別子を指す 1 つの要素としてリストに加わるため、機能を外すと、その要素も機能のファイルと一緒に消えます。ルートルート、タイムゾーン、公開サイトのチェックは、パスやメニューと同じように、使うものを直接名指しします（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）。
 
-| 対象              | 各エリアが宣言するもの                                              | バレル                       | 使う側                                                                                          |
-| ----------------- | ------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| Worker ハンドラー | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ | `src/data/worker.entries.ts` | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します |
-| Vite プラグイン   | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ      | `src/data/vite.entries.ts`   | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                            |
+| リスト              | ファイル         | 実行                                                                                   |
+| ------------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `REQUEST_HANDLERS`  | `src/server.ts`  | Worker が、ロケールのミドルウェア、静的アセット、TanStack Start より前に実行します     |
+| `DOCUMENT_REWRITES` | `src/server.ts`  | Worker が、返すすべての HTML ページに対して実行します                                  |
+| `VITE_PLUGINS`      | `vite.config.ts` | `vp dev` と `vp build` が実行し、`vitest` が指定されたエントリーは Vitest も実行します |
 
-リクエストハンドラーは `pathPrefix` を受け持ち、その配下のすべてのリクエストに、ロケールのミドルウェア、静的アセット、TanStack Start より先に応答します。コースのエリアのハンドラーが `/media/` に対して、ライセンスのエリアのハンドラーが `/bundles/` に対して行っているのがこれです。ドキュメントハンドラーは、Worker が返すすべての HTML ページをそのロケールとリクエストとともに受け取り、送信するページを返します。ライセンスのエリアの地域別価格がこれにあたります。`src/server.ts` はハンドラーを静的にインポートするため、ハンドラーはコールドスタートのたびに評価されます。そのためハンドラーのファイルがインポートするのは定数と純粋なヘルパーだけで、それより大きなものは動的 `import()` で読み込みます（[パフォーマンス](/docs/conventions/performance)を参照）。
+リクエストハンドラーは `pathPrefix` を受け持ち、その配下のすべてのリクエストに応答します。`/media/covers/` のコースのカバー画像は `serveCover`、`/media/downloads/` のレッスンの資料は `serveAttachment`、それ以外の `/media/` は `serveMedia`、`/bundles/` のテンプレートバンドルは `serveBundle` が返します。Worker は、パスがそのプレフィックスで始まる最初のハンドラーを使うため、狭いプレフィックスは、それを含むプレフィックスより前に置きます。ドキュメントの書き換えは、Worker が返すすべての HTML ページをそのロケールとリクエストとともに受け取り、送信するページを返します。地域別価格に対して `src/modules/license/license.pricing.ts` の `rewritePppOffer` が行っているのがこれです。`src/server.ts` はプレフィックスと書き換えを静的にインポートするため、これらはコールドスタートのたびに評価されます。そのため `src/server.ts` がインポートするのは定数と純粋なヘルパーだけで、各ハンドラーは自分のモジュールを動的 `import()` で読み込みます（[パフォーマンス](/docs/conventions/performance)を参照）。
 
-Vite プラグインのエントリーには、ほかのエリアのプラグインの中での位置を決める `order` と、Vitest でも読み込むかどうかを示す `vitest` があります。Vite は `~` エイリアスを解決する前に設定を読み込むため、`vite.ts`、`vite.entries.ts`、各 `<area>.vite.ts` は `.ts` 拡張子付きの相対パスでインポートします。また、`vp lint` と `vp fmt` がプラグインのパッケージを読み込まないように、エントリーはそのパッケージを `plugins` 関数の中でインポートします。
+Vite プラグインのエントリーには、プラグインのパッケージをインポートしてそのプラグインを返す `load` と、Vitest でも読み込むかどうかを示す `vitest` があります。エントリーはリストの順に実行されます。Cloudflare、Fumadocs、コンテンツのインデックス、リポジトリの情報、Tailwind CSS、TanStack Start、React、zod のチャンク、デプロイする Worker、Polar SDK の任意のピア依存関係の順です。ベンダーのプラグインはベンダーと一緒に `src/integrations/<vendor>/<vendor>.vite.ts` に置きます。`fumadocsVitePlugins`、`zodVitePlugins`、`polarVitePlugins` がそれです。Vite は `~` エイリアスを解決する前に設定を読み込むため、`vite.config.ts` と、`src/lib/prerender.ts` の `shouldPrerender` をはじめとする、それがインポートするファイルは、`.ts` 拡張子付きの相対パスでインポートします。また、`vp lint` と `vp fmt` がプラグインのパッケージを読み込まないように、各エントリーはそのパッケージを `load` の中でインポートします。
 
 `src/routes/__root.tsx` はアウトレットの隣に `AffiliateReferral` を描画します。これは、アフィリエイトプログラムが開いていて、訪問に紹介パラメーターが付いているときだけ Affonso のスクリプトを読み込みます（[アフィリエイトプログラム](/docs/features/affiliates)）。`TranslationsProvider` は、`TIME_ZONE_HOOKS` の最初のフックである `useSessionTimeZone`（`src/hooks/use-session-time-zone.ts`）のタイムゾーンで日付をフォーマットします。このフックは、ルートガードが読み込んだセッションからサインイン中のユーザーのタイムゾーンを返し、セッションがなければ `UTC` を返します。サインインのないプロジェクトにはフックがなく、その場合もプロバイダーは `UTC` を使います。`useSiteNavigation` は、ヘッダーとフッター用の訪問者のワークスペースを、`WORKSPACE_HOOKS` にある唯一のフック `useVisitorWorkspace` から受け取ります。`getRouter` は失敗したクエリとミューテーションをすべて `QUERY_ERROR_HANDLERS` の各ハンドラー、つまり認証エリアの `recheckRefusedSession` に渡します。`useErrorMessage` は、エラーのメッセージを翻訳する名前空間を `ERROR_NAMESPACES` で引きます。この Map は、認証エリアの `AUTH_ERRORS` をコアの `ERROR_CODES` と並べて展開したものです。サインインがなければ、メニューは並べたとおりのままで、失敗したリクエストは何も確認し直さず、メッセージは `ERROR_CODES` だけから引かれます。フッターの著作権表示は `APP_FOUNDED_YEAR` から `REPOSITORY_FACTS.buildYear` までで、同じ年は一度だけ表示するため、`REPOSITORY_FACTS` のないプロジェクトは創業年だけを表示します。いずれも、機能自身のファイルを名指しする 1 つの要素または 1 つの JSX 要素なので、その機能を外すとファイルと一緒に消えます。
 
@@ -40,7 +41,7 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 
 管理画面と顧客ワークスペースのリストは、それぞれを描画するコンポーネントの中にあり、ほかのエリアは自分の識別子を指す要素としてそこに加わります。ユーザー管理のタブは `USER_TABS`、ユーザーのプロフィールのカードは `USER_PROFILE_SECTIONS`（[ユーザー（管理）](/docs/features/users-admin)）、ダッシュボードの統計とパネルは `DASHBOARD_STATS` と `DASHBOARD_PANELS`、コマンドパレットの検索は `COMMAND_SEARCHES`（[管理ダッシュボード](/docs/features/admin-dashboard)）、アカウント削除の案内は `ACCOUNT_DELETION_NOTICES`（[設定](/docs/features/settings#delete-account)）です。1 つのエリアだけが追加するものは、リストを使わずに直接描画します。ワークスペースの **講座** 項目の横に表示するコースの進捗（[顧客アプリ](/docs/features/customer-app)）、概要ページのライセンスのセクション、登録フォームの下の同意の一文（[法務ページ](/docs/features/legal-pages)）、顧客テーブルの **端末** 列（[注文と顧客](/docs/features/orders#customers)）です。登録ページは、導入文と自分の説明文のどちらを表示するかを選ぶため、ライセンスの注文概要だけを項目に持つ導入文のリストを残しています（[ライセンス](/docs/features/licences)）。エリアを外すと、そのファイルを指すリストの要素、プロパティ、JSX 要素がすべて削除されます。
 
-任意のエリアだけが中身を入れるバレルには、コアがファイルを追加します。空のリストを持つ `src/data/core.worker.ts` です。これにより、それらのエリアがないプロジェクトでも型チェックと lint が通ります。メールを送る各モジュールは、`VERIFICATION_EMAIL_PURPOSE` のように、メールの目的の名前を自分の `<module>.constants.ts` に定義します（[Resend](/docs/integrations/resend)）。
+メールを送る各モジュールは、`VERIFICATION_EMAIL_PURPOSE` のように、メールの目的の名前を自分の `<module>.constants.ts` に定義します（[Resend](/docs/integrations/resend)）。
 
 ## 環境
 

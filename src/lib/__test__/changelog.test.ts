@@ -8,13 +8,14 @@ import {
   type Changelog,
   ENTRY_KEY,
   ENTRY_ORIGIN,
-  MAIN_BRANCH,
   joinEntries,
   originOf,
   pullRequestOf,
   readChangelog,
+  releaseNotes,
   unreleasedEntryProblems,
 } from "~/src/lib/changelog"
+import { MAIN_BRANCH } from "~/src/lib/release"
 
 const COMMIT_HASH = "0b9a1b9865859643bedbbb41c3f26b3ff6a1eede"
 const TRANSLATED_LOCALE = "de-DE"
@@ -255,4 +256,93 @@ describe("pullRequestOf", () => {
       expect(pullRequestOf(ref)).toBeUndefined()
     },
   )
+})
+
+const DEPLOYED_COMMIT = "4f9c2d1e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e"
+
+const EARLIER_COMMIT = "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
+
+const CHANGELOG_LINK = "See the [changelog](https://saasyland.com/docs/project/changelog)."
+
+const CHANGELOG: Changelog = {
+  days: [
+    {
+      date: "2026-11-14",
+      entries: [
+        { key: "151", release: "v2026.11.14.2", source: "- Videos play with captions. See [Videos](/docs/features/videos).\n" },
+        { key: DEPLOYED_COMMIT, release: "v2026.11.14.2", source: "- Dependencies updated.\n" },
+        {
+          key: "150",
+          release: "v2026.11.14",
+          source: "- Dependencies updated, see [Vite+](https://viteplus.dev/).\n- Fixed: the logo scrolls to the top.\n",
+        },
+      ],
+    },
+    {
+      date: "2026-11-13",
+      entries: [
+        { key: "120", release: "v2026.11.14", source: "- Courses.\n" },
+        { key: EARLIER_COMMIT, release: undefined, source: "- Payments.\n" },
+      ],
+    },
+  ],
+  unreleased: [{ key: "152", source: "- Changelog entries.\n" }],
+}
+
+describe("releaseNotes", () => {
+  it("gives a release the entries it shipped, newest first and across days, with absolute site links and every bullet ending with the pull request it came from", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14")).toBe(
+      [
+        "- Dependencies updated, see [Vite+](https://viteplus.dev/). (#150)",
+        "- Fixed: the logo scrolls to the top. (#150)",
+        "- Courses. (#120)",
+      ].join("\n"),
+    )
+  })
+
+  it("leaves out the entries of other releases and the ones not on main yet, and names the commit of an entry without a pull request", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14.2")).toBe(
+      `- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos). (#151)\n- Dependencies updated. (${DEPLOYED_COMMIT})`,
+    )
+  })
+
+  it("gives the release a production deploy publishes the entries that reached main since the previous release tag", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#10)", "2026-11-14T09:00:00Z")
+    repository.tag("v2026.11.14")
+    repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-14T10:00:00Z")
+    repository.commit("🚀 perf(worker): load less (#12)", "2026-11-14T11:00:00Z")
+
+    for (const key of ["10", "11", "12"]) {
+      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+    }
+
+    const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.14.2" })
+
+    expect(releaseNotes(changelog, "v2026.11.14.2")).toBe("- Change 12. (#12)\n- Change 11. (#11)")
+    expect(releaseNotes(changelog, "v2026.11.14")).toBe("- Change 10. (#10)")
+  })
+
+  it("gives the release of one push every pull request of the merge group that push brought to main", async () => {
+    const repository = createGitRepository()
+
+    repository.commit("✨ feat(courses): add courses (#10)", "2026-11-21T09:00:00Z")
+    repository.tag("v2026.11.21")
+    repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-21T10:00:00Z")
+    repository.commit("🚀 perf(worker): load less (#12)", "2026-11-21T10:00:01Z")
+    repository.commit("📚 docs(ci): describe the merge queue (#13)", "2026-11-21T10:00:02Z")
+
+    for (const key of ["10", "11", "12", "13"]) {
+      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+    }
+
+    const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.21.2" })
+
+    expect(releaseNotes(changelog, "v2026.11.21.2")).toBe("- Change 13. (#13)\n- Change 12. (#12)\n- Change 11. (#11)")
+  })
+
+  it("links to the changelog when the release shipped no entry", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.14.3")).toBe(CHANGELOG_LINK)
+  })
 })

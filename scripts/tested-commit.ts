@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process"
 import process from "node:process"
 import * as zod from "zod"
 
-import { MAIN_BRANCH } from "~/src/lib/changelog"
+import { MAIN_BRANCH } from "~/src/lib/release"
 
 import { scriptArguments } from "./run-command.ts"
 

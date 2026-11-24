@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` や `<area>.worker.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。`scripts/verify-build.ts` はビルドのたびにこれを確認します。デプロイされる Worker のエントリーである `dist/server/index.js` の静的インポートをたどり、それらが `@polar-sh`、`drizzle-orm`、`resend` からバンドルされたコードに到達した場合や、合計が `BOOT_CLOSURE_MAX_BYTES` を超えた場合に失敗します。パスもこれらの静的インポートに含まれるため、`src/routes.ts` はパスを宣言するだけで何もインポートしません。
+以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` やそれがインポートするモジュールに静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。`scripts/verify-build.ts` はビルドのたびにこれを確認します。デプロイされる Worker のエントリーである `dist/server/index.js` の静的インポートをたどり、それらが `@polar-sh`、`drizzle-orm`、`resend` からバンドルされたコードに到達した場合や、合計が `BOOT_CLOSURE_MAX_BYTES` を超えた場合に失敗します。パスもこれらの静的インポートに含まれるため、`src/routes.ts` はパスを宣言するだけで何もインポートしません。
 
 ## ルートツリーを軽く保つ [#keep-the-route-tree-light]
 
@@ -178,9 +178,9 @@ Drizzle は Worker の中だけで動きます。ブラウザーには、フォ�
 | `/app`         | 496.6 KiB | 421.0 KiB |
 | `/admin`       | 515.0 KiB | 439.4 KiB |
 
-`src/data/tanstack.vite.ts` は、TanStack Start のインポート保護によって、クライアント環境での `drizzle-orm` のインポートを禁止しています。
+`vite.config.ts` は、TanStack Start のインポート保護によって、クライアント環境での `drizzle-orm` のインポートを禁止しています。
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ TanStack Router はルートの outlet を Suspense 境界で包み、React は�
 
 ## スケルトンはエントリースクリプトに残す [#skeletons-stay-in-the-entry-script]
 
-TanStack Router はデフォルトでは `pendingComponent` を専用のチャンクに分割せず、`src/data/tanstack.vite.ts` もこのデフォルトを保っています。そのため、すべてのスケルトンはエントリースクリプトに含まれ、ナビゲーションが `pendingMs` を超えた瞬間に表示されます。分割は計測したうえで採用しませんでした。
+TanStack Router はデフォルトでは `pendingComponent` を専用のチャンクに分割せず、`vite.config.ts` もこのデフォルトを保っています。そのため、すべてのスケルトンはエントリースクリプトに含まれ、ナビゲーションが `pendingMs` を超えた瞬間に表示されます。分割は計測したうえで採用しませんでした。
 
 - 計測した時点では、レイアウトのスケルトン `AdminPending`、`AppPending`、`MarketingPending` は、すべてのエリアのスケルトンをインポートするリストからページのスケルトンを描画していました。ルーターはページのハイドレーション前に、マッチしたルートの読み込み中コンポーネントを読み込みます。`/`、`/app`、`/admin` は分割後も、専用のチャンクとしてすべてのスケルトンを読み込み、gzip 圧縮後で 3.5〜6.5 KiB 増えました。軽くなったのは、`/docs` や `/blog` のように、レイアウトが独自のスケルトンを持つページだけでした。
 - 分割したスケルトンは、読み込まれるまで表示できません。ヘッドレス Chromium で 400 ms の遅延と 200 KiB/s を加えると、`/` から `/blog` へのクライアント側のナビゲーションでブログが表示されるまで 1,390 ms ではなく 2,290 ms かかり、その間、分割しないビルドでは一度も必要なかったスケルトンが表示されました。遅延が 150 ms の場合は 640 ms ではなく 800 ms でした。

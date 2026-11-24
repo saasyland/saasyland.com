@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polara, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy. Dlatego `COUNTRY_HEADER` i `IP_ADDRESS_HEADER` znajdują się w `src/modules/_core/constants/api.ts`, który nie importuje niczego ciężkiego. Zanim dodasz statyczny import do `server.ts` lub do pliku `<area>.worker.ts`, prześledź jego łańcuch importów: wszystko, co dociera do `polar`, `drizzle-orm` lub `resend`, jest regresją. `scripts/verify-build.ts` sprawdza to przy każdym buildzie: śledzi statyczne importy punktu wejścia wdrażanego Workera, `dist/server/index.js`, i kończy się błędem, gdy docierają one do kodu zbundlowanego z `@polar-sh`, `drizzle-orm` lub `resend` albo gdy razem przekraczają `BOOT_CLOSURE_MAX_BYTES`. Ścieżki należą do tego domknięcia importów, dlatego `src/routes.ts` je deklaruje i niczego nie importuje.
+Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polara, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy. Dlatego `COUNTRY_HEADER` i `IP_ADDRESS_HEADER` znajdują się w `src/modules/_core/constants/api.ts`, który nie importuje niczego ciężkiego. Zanim dodasz statyczny import do `server.ts` lub do modułu, który on importuje, prześledź jego łańcuch importów: wszystko, co dociera do `polar`, `drizzle-orm` lub `resend`, jest regresją. `scripts/verify-build.ts` sprawdza to przy każdym buildzie: śledzi statyczne importy punktu wejścia wdrażanego Workera, `dist/server/index.js`, i kończy się błędem, gdy docierają one do kodu zbundlowanego z `@polar-sh`, `drizzle-orm` lub `resend` albo gdy razem przekraczają `BOOT_CLOSURE_MAX_BYTES`. Ścieżki należą do tego domknięcia importów, dlatego `src/routes.ts` je deklaruje i niczego nie importuje.
 
 ## Lekkie drzewo tras [#keep-the-route-tree-light]
 
@@ -178,9 +178,9 @@ Drizzle działa tylko w Workerze. Przeglądarka potrzebuje schematów Zod moduł
 | `/app`         | 496,6 KiB | 421,0 KiB |
 | `/admin`       | 515,0 KiB | 439,4 KiB |
 
-`src/data/tanstack.vite.ts` blokuje `drizzle-orm` w środowisku klienta za pomocą ochrony importów TanStack Start:
+`vite.config.ts` blokuje `drizzle-orm` w środowisku klienta za pomocą ochrony importów TanStack Start:
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ Konfigurator CLI na stronie głównej renderuje czterdzieści przycisków React 
 
 ## Szkielety zostają w skrypcie wejściowym [#skeletons-stay-in-the-entry-script]
 
-TanStack Router domyślnie nie wydziela `pendingComponent` do osobnego chunka, a `src/data/tanstack.vite.ts` zachowuje to ustawienie, więc każdy szkielet znajduje się w skrypcie wejściowym i pojawia się, gdy tylko nawigacja przekroczy `pendingMs`. Wydzielenie ich zostało zmierzone i odrzucone:
+TanStack Router domyślnie nie wydziela `pendingComponent` do osobnego chunka, a `vite.config.ts` zachowuje to ustawienie, więc każdy szkielet znajduje się w skrypcie wejściowym i pojawia się, gdy tylko nawigacja przekroczy `pendingMs`. Wydzielenie ich zostało zmierzone i odrzucone:
 
 - W chwili pomiaru szkielety layoutów `AdminPending`, `AppPending` i `MarketingPending` rysowały szkielet strony z listy, która importowała szkielety wszystkich obszarów, a router ładuje komponenty stanu oczekiwania dopasowanych tras, zanim strona przejdzie hydratację. `/`, `/app` i `/admin` nadal ładowały każdy szkielet, teraz w osobnych chunkach, i urosły o 3,5 do 6,5 KiB po kompresji gzip; lżejsze stały się tylko strony, których layout ma własny szkielet, takie jak `/docs` i `/blog`.
 - Wydzielony szkielet musi się załadować, zanim może się pojawić. W Chromium bez interfejsu, z dodatkowymi 400 ms opóźnienia i przepustowością 200 KiB/s, nawigacja po stronie klienta z `/` na `/blog` pokazała blog po 2290 ms zamiast po 1390 ms, za szkieletem, którego build bez wydzielania nigdy nie potrzebował; przy 150 ms opóźnienia trwała 800 ms zamiast 640 ms.

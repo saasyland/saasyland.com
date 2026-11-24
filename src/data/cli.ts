@@ -1,4 +1,4 @@
-import { STACK_CHOICES, type Stack, isOptionLegal, resolveAnswers, stackZodSchemas } from "@saasyland/stack"
+import type { Stack } from "@saasyland/stack"
 import { CLI_NAME, TEMPLATE_SUPPORT } from "@saasyland/stack/cli"
 
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
@@ -32,9 +32,7 @@ export const CLI_COMMAND = {
   WHOAMI: "whoami",
 } as const
 
-type CliCommand = (typeof CLI_COMMAND)[keyof typeof CLI_COMMAND]
-
-export const cliCommand = (command: CliCommand): string => `${CLI_EXEC} ${command}`
+export type CliCommand = (typeof CLI_COMMAND)[keyof typeof CLI_COMMAND]
 
 export const SCAFFOLD_DIR = "my-app"
 
@@ -42,7 +40,7 @@ export const SCAFFOLD_TARGET = `${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFO
 
 export const CLI_INIT_COMMAND = `${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`
 
-const ACTIVATE_LINE = { command: cliCommand(CLI_COMMAND.ACTIVATE), id: CLI_COMMAND.ACTIVATE } as const
+const ACTIVATE_LINE = { command: `${CLI_EXEC} ${CLI_COMMAND.ACTIVATE}`, id: CLI_COMMAND.ACTIVATE } as const
 
 const INIT_LINE = { command: CLI_INIT_COMMAND, id: CLI_COMMAND.INIT } as const
 
@@ -51,8 +49,8 @@ export const CLI_SETUP_LINES = [ACTIVATE_LINE, INIT_LINE] as const
 export const CLI_KEY_LINES = [
   ACTIVATE_LINE,
   INIT_LINE,
-  { command: cliCommand(CLI_COMMAND.WHOAMI), id: CLI_COMMAND.WHOAMI },
-  { command: cliCommand(CLI_COMMAND.DEACTIVATE), id: CLI_COMMAND.DEACTIVATE },
+  { command: `${CLI_EXEC} ${CLI_COMMAND.WHOAMI}`, id: CLI_COMMAND.WHOAMI },
+  { command: `${CLI_EXEC} ${CLI_COMMAND.DEACTIVATE}`, id: CLI_COMMAND.DEACTIVATE },
 ] as const
 
 export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.AVAILABLE
@@ -63,17 +61,3 @@ export const CLI_GENERATION_VALUES: { readonly generation: FeatureStatus; readon
 }
 
 export const CLI_TEMPLATE_SUPPORT: Stack["support"] = TEMPLATE_SUPPORT
-
-const keepLegalAnswers = (selection: Stack["selection"]): Stack["selection"] => {
-  const kept: Record<string, unknown> = {}
-  for (const choice of STACK_CHOICES) {
-    const answer = choice.options.find((option) => option.id === selection[choice.id])
-    if (answer !== undefined && isOptionLegal(answer, kept)) {
-      kept[choice.id] = answer.id
-    }
-  }
-  return kept
-}
-
-export const resolveCliAnswers = (selection: Stack["selection"], supported: Stack["support"]["choices"]): Stack["partialAnswers"] =>
-  stackZodSchemas.flags.out.parse(resolveAnswers(keepLegalAnswers(selection), supported))

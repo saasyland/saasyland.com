@@ -21,11 +21,9 @@ const files = listPrerenderedPages()
 const pages = await Promise.all(files.map(async (file) => readPageHead(await readFile(join(CLIENT_DIR, file), "utf8"))))
 const listed = listedPages(pages, await readFile(join(CLIENT_DIR, ROBOTS_TXT), "utf8"))
 
-await writeFile(join(CLIENT_DIR, SITEMAP_PATH), buildSitemap(listed))
+const xmlFiles = [{ path: SITEMAP_PATH, xml: buildSitemap(listed) }, ...buildBlogFeeds(listed)]
 
-const feeds = buildBlogFeeds(listed)
-
-await Promise.all(feeds.map(({ path, xml }) => writeFile(join(CLIENT_DIR, path), xml)))
+await Promise.all(xmlFiles.map(({ path, xml }) => writeFile(join(CLIENT_DIR, path), xml)))
 
 const imagePath = (url: string): string => {
   const image = new URL(url)
@@ -67,5 +65,5 @@ await Promise.all(
 const seconds = ((performance.now() - started) / MILLISECONDS_PER_SECOND).toFixed(1)
 
 console.log(
-  `Wrote ${SITEMAP_PATH} with ${listed.length} of ${pages.length} prerendered pages, ${feeds.length} blog feeds, the organisation logo and ${cards.size - 1} social images in ${seconds} s.`,
+  `Wrote ${xmlFiles.map(({ path }) => path).join(", ")} with ${listed.length} of ${pages.length} prerendered pages listed, the organisation logo and ${cards.size - 1} social images in ${seconds} s.`,
 )

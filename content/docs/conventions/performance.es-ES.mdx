@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts` o a un `<area>.worker.ts`, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión. `scripts/verify-build.ts` lo comprueba en cada build: sigue las importaciones estáticas de la entrada del Worker desplegado, `dist/server/index.js`, y falla cuando llegan a código empaquetado desde `@polar-sh`, `drizzle-orm` o `resend`, o cuando suman más de `BOOT_CLOSURE_MAX_BYTES`. Las rutas forman parte de esas importaciones estáticas, así que `src/routes.ts` las declara y no importa nada.
+Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts` o a un módulo que este importa, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión. `scripts/verify-build.ts` lo comprueba en cada build: sigue las importaciones estáticas de la entrada del Worker desplegado, `dist/server/index.js`, y falla cuando llegan a código empaquetado desde `@polar-sh`, `drizzle-orm` o `resend`, o cuando suman más de `BOOT_CLOSURE_MAX_BYTES`. Las rutas forman parte de esas importaciones estáticas, así que `src/routes.ts` las declara y no importa nada.
 
 ## Mantén ligero el árbol de rutas [#keep-the-route-tree-light]
 
@@ -178,9 +178,9 @@ Antes, `<table>.zod.ts` también construía esquemas `insert`, `select` y `updat
 | `/app`         | 496,6 KiB | 421,0 KiB |
 | `/admin`       | 515,0 KiB | 439,4 KiB |
 
-`src/data/tanstack.vite.ts` prohíbe `drizzle-orm` en el entorno del cliente mediante la protección de importaciones de TanStack Start:
+`vite.config.ts` prohíbe `drizzle-orm` en el entorno del cliente mediante la protección de importaciones de TanStack Start:
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ El configurador de la CLI de la página de inicio renderiza cuarenta botones de 
 
 ## Los esqueletos se quedan en el script de entrada [#skeletons-stay-in-the-entry-script]
 
-TanStack Router no separa `pendingComponent` en un chunk propio por defecto, y `src/data/tanstack.vite.ts` mantiene ese valor por defecto, así que cada esqueleto está en el script de entrada y aparece en cuanto una navegación supera `pendingMs`. Separarlos se midió y se descartó:
+TanStack Router no separa `pendingComponent` en un chunk propio por defecto, y `vite.config.ts` mantiene ese valor por defecto, así que cada esqueleto está en el script de entrada y aparece en cuanto una navegación supera `pendingMs`. Separarlos se midió y se descartó:
 
 - Cuando se midió, los esqueletos de layout `AdminPending`, `AppPending` y `MarketingPending` dibujaban el esqueleto de la página a partir de una lista que importaba los esqueletos de todas las áreas, y el router carga los componentes de carga de las rutas coincidentes antes de que la página se hidrate. `/`, `/app` y `/admin` seguían cargando todos los esqueletos, ahora en chunks propios, y crecieron entre 3,5 y 6,5 KiB con gzip; solo se aligeraron las páginas cuyo layout tiene un esqueleto propio, como `/docs` y `/blog`.
 - Un esqueleto separado tiene que cargarse antes de poder mostrarse. En Chromium sin interfaz, con 400 ms de latencia añadida y 200 KiB/s, una navegación en el cliente de `/` a `/blog` mostró el blog a los 2290 ms en lugar de a los 1390 ms, detrás de un esqueleto que el build sin separar nunca necesitó; con 150 ms de latencia tardó 800 ms en lugar de 640 ms.

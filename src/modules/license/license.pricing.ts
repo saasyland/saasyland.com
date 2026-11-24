@@ -1,4 +1,10 @@
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+
 import type { CountryCode } from "~/src/data/countries"
+
+import { readCookie } from "~/src/lib/cookie"
 
 const FULL_PRICE_MULTIPLIER = 1
 
@@ -38,3 +44,32 @@ export const regionalPrice = (amount: number, multiplierKey: number): number => 
 export const PPP_COOKIE = "regional_pricing"
 
 export const PPP_DECLINED = "off"
+
+export const rewritePppOffer = (page: Response, { locale, request }: { locale: SupportedLocale; request: Request }): Response => {
+  const country = request.headers.get(COUNTRY_HEADER)?.toUpperCase()
+  const multiplierKey = pppMultiplierKey(country)
+
+  if (country === undefined || multiplierKey === PPP_PERCENT) {
+    return page
+  }
+
+  const region = new Intl.DisplayNames([locale], { type: "region" }).of(country)
+  const percent = new Intl.NumberFormat(locale, { style: "percent" }).format(getPppPercentOff(country) / PPP_PERCENT)
+  const declined = readCookie({ header: request.headers.get("Cookie"), name: PPP_COOKIE }) === PPP_DECLINED
+
+  return new HTMLRewriter()
+    .on("html", {
+      element: (html) => {
+        html.setAttribute(PPP_ATTRIBUTE, String(multiplierKey))
+        html.setAttribute("style", `--ppp-region:${JSON.stringify(region)};--ppp-percent:${JSON.stringify(percent)}`)
+      },
+    })
+    .on(".ppp-offer input", {
+      element: (input) => {
+        if (declined) {
+          input.removeAttribute("checked")
+        }
+      },
+    })
+    .transform(page)
+}

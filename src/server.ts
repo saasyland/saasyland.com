@@ -3,8 +3,11 @@ import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
 import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
-
-import { DOCUMENT_HANDLERS, REQUEST_HANDLERS } from "~/src/data/worker"
+import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
+import { LESSON_ATTACHMENT_PATH_PREFIX } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
+import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
+import { rewritePppOffer } from "~/src/modules/license/license.pricing"
+import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 import { serializeCookie } from "~/src/lib/cookie"
@@ -21,6 +24,50 @@ interface Rendered {
   readonly policy: string
   readonly response: Response
 }
+
+interface RequestHandler {
+  readonly fetch: (request: Request) => Promise<Response>
+  readonly pathPrefix: string
+}
+
+type DocumentRewrite = (document: Response, context: { locale: SupportedLocale; request: Request }) => Response
+
+const REQUEST_HANDLERS: readonly RequestHandler[] = [
+  {
+    fetch: async (request) => {
+      const { serveCover } = await import("~/src/modules/course/course.delivery")
+
+      return serveCover(request)
+    },
+    pathPrefix: `${COURSE_COVER_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveAttachment } = await import("~/src/modules/lesson-attachment/lesson-attachment.delivery")
+
+      return serveAttachment(request)
+    },
+    pathPrefix: `${LESSON_ATTACHMENT_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveMedia } = await import("~/src/modules/video/video.delivery")
+
+      return serveMedia(request)
+    },
+    pathPrefix: `${MEDIA_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveBundle } = await import("~/src/modules/license/license.delivery")
+
+      return serveBundle(request)
+    },
+    pathPrefix: `${BUNDLE_PATH_PREFIX}/`,
+  },
+]
+
+const DOCUMENT_REWRITES: readonly DocumentRewrite[] = [rewritePppOffer]
 
 const DOCUMENT_CACHE_CONTROL = "private, no-cache"
 
@@ -102,7 +149,7 @@ const respond = async (request: Request, env: Cloudflare.Env): Promise<Rendered>
   const locale = extractLocaleFromPath(pathname) ?? I18N.DEFAULT_LOCALE
   setDocumentHeaders(page.headers, locale)
 
-  return { policy, response: DOCUMENT_HANDLERS.reduce((document, { rewrite }) => rewrite(document, { locale, request }), page) }
+  return { policy, response: DOCUMENT_REWRITES.reduce((document, rewrite) => rewrite(document, { locale, request }), page) }
 }
 
 export default {

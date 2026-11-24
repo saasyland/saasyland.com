@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts` ou à un `<area>.worker.ts`, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression. `scripts/verify-build.ts` le vérifie à chaque build : il suit les imports statiques du point d'entrée du Worker déployé, `dist/server/index.js`, et échoue lorsqu'ils atteignent du code issu de `@polar-sh`, `drizzle-orm` ou `resend` dans le bundle, ou qu'ils totalisent plus de `BOOT_CLOSURE_MAX_BYTES`. Les chemins font partie de ces imports statiques : `src/routes.ts` les déclare donc et n'importe rien.
+Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts` ou à un module qu'il importe, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression. `scripts/verify-build.ts` le vérifie à chaque build : il suit les imports statiques du point d'entrée du Worker déployé, `dist/server/index.js`, et échoue lorsqu'ils atteignent du code issu de `@polar-sh`, `drizzle-orm` ou `resend` dans le bundle, ou qu'ils totalisent plus de `BOOT_CLOSURE_MAX_BYTES`. Les chemins font partie de ces imports statiques : `src/routes.ts` les déclare donc et n'importe rien.
 
 ## Gardez l'arbre des routes léger [#keep-the-route-tree-light]
 
@@ -178,9 +178,9 @@ Drizzle ne s'exécute que dans le Worker. Le navigateur a besoin des schémas Zo
 | `/app`         | 496,6 Kio | 421,0 Kio |
 | `/admin`       | 515,0 Kio | 439,4 Kio |
 
-`src/data/tanstack.vite.ts` interdit `drizzle-orm` à l'environnement client grâce à la protection des imports de TanStack Start :
+`vite.config.ts` interdit `drizzle-orm` à l'environnement client grâce à la protection des imports de TanStack Start :
 
-```ts title="src/data/tanstack.vite.ts"
+```ts title="vite.config.ts"
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
@@ -245,7 +245,7 @@ Le configurateur de la CLI de la page d'accueil affiche quarante boutons React A
 
 ## Les squelettes restent dans le script d'entrée [#skeletons-stay-in-the-entry-script]
 
-TanStack Router ne sépare pas `pendingComponent` dans un chunk à part par défaut, et `src/data/tanstack.vite.ts` conserve ce réglage, si bien que chaque squelette se trouve dans le script d'entrée et s'affiche dès qu'une navigation dépasse `pendingMs`. Les séparer a été mesuré puis écarté :
+TanStack Router ne sépare pas `pendingComponent` dans un chunk à part par défaut, et `vite.config.ts` conserve ce réglage, si bien que chaque squelette se trouve dans le script d'entrée et s'affiche dès qu'une navigation dépasse `pendingMs`. Les séparer a été mesuré puis écarté :
 
 - Au moment de la mesure, les squelettes de layout `AdminPending`, `AppPending` et `MarketingPending` dessinaient le squelette de la page à partir d'une liste qui importait les squelettes de toutes les zones, et le routeur charge les composants de chargement des routes correspondantes avant l'hydratation de la page. `/`, `/app` et `/admin` chargeaient toujours chaque squelette, désormais dans des chunks à part, et grossissaient de 3,5 à 6,5 Kio compressés avec gzip ; seules les pages dont le layout a son propre squelette, comme `/docs` et `/blog`, s'allégeaient.
 - Un squelette séparé doit être chargé avant de pouvoir s'afficher. Dans Chromium sans interface, avec 400 ms de latence ajoutée et 200 Kio/s, une navigation côté client de `/` vers `/blog` affichait le blog après 2 290 ms au lieu de 1 390 ms, derrière un squelette dont le build non séparé n'avait jamais eu besoin ; avec 150 ms de latence, elle prenait 800 ms au lieu de 640 ms.

@@ -28,6 +28,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
+import { pageAuthor } from "~/src/lib/blog-seo"
 import { starCountQuery } from "~/src/lib/github"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
 
@@ -184,7 +185,13 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   Object.assign(BlogPostRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post, posts: [], section: pagesBlogMessages.metadata.title }),
+    loader: (): typeof BlogPostRoute.types.loaderData => ({
+      author: pageAuthor(post.author),
+      locale: "en-US",
+      post,
+      posts: [],
+      section: pagesBlogMessages.metadata.title,
+    }),
     path: "/$",
   })
   const blog = BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])

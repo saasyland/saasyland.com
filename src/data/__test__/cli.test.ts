@@ -1,22 +1,4 @@
-import {
-  ARCHITECTURE,
-  AUTH,
-  CHOICE_GROUP,
-  CONTENT,
-  DATABASE,
-  DEPLOYMENT,
-  EMAIL,
-  FRAMEWORK,
-  LIBRARY,
-  NONE,
-  ORM,
-  PROVIDER,
-  RUNTIME,
-  STACK_CHOICES,
-  STACK_EXTRAS,
-  STACK_MODULES,
-  TENANCY,
-} from "@saasyland/stack"
+import { NONE, STACK_CHOICES, STACK_EXTRAS, STACK_MODULES } from "@saasyland/stack"
 import stack from "@saasyland/stack/package.json" with { type: "json" }
 import { posix } from "node:path"
 import { expect, it } from "vite-plus/test"
@@ -31,12 +13,9 @@ import {
   CLI_PACKAGE_SPEC,
   CLI_RELEASE_CHANNEL,
   CLI_SETUP_LINES,
-  CLI_TEMPLATE_SUPPORT,
   NPM_DIST_TAG,
   PACKAGE_MANAGER,
   SCAFFOLD_DIR,
-  cliCommand,
-  resolveCliAnswers,
 } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -48,23 +27,6 @@ import motionTypes from "~/remotion/tsconfig.json"
 const PRERELEASE = /^\d+\.\d+\.\d+-(?<channel>[a-z]+)\.\d+$/u
 const CARET_RANGE = /^\^/u
 const VIDEO_SHARED_PACKAGES = ["lucide-react", "react", "react-dom"] as const
-
-const INIT_YES_ANSWERS = {
-  architecture: ARCHITECTURE.MONOLITH,
-  auth: AUTH.BETTER_AUTH,
-  billing: NONE,
-  content: CONTENT.MDX,
-  database: DATABASE.SQLITE,
-  deployment: DEPLOYMENT.CLOUDFLARE,
-  email: EMAIL.RESEND,
-  [CHOICE_GROUP.EXTRAS]: [],
-  framework: FRAMEWORK.TANSTACK,
-  library: LIBRARY.REACT,
-  orm: ORM.DRIZZLE,
-  provider: PROVIDER.D1,
-  runtime: RUNTIME.NODE,
-  tenancy: TENANCY.SINGLE,
-}
 
 interface RuledOption {
   readonly id: string
@@ -113,16 +75,6 @@ it("rules an option out only by answers to earlier questions, and explains every
   expect(english.cli.choices.extras.note).not.toBe("")
 })
 
-it("opens on the answers init --yes resolves, and re-resolves only the answers a changed answer rules out", () => {
-  expect(resolveCliAnswers({}, CLI_TEMPLATE_SUPPORT.choices)).toStrictEqual(INIT_YES_ANSWERS)
-  expect(resolveCliAnswers({ ...INIT_YES_ANSWERS, deployment: DEPLOYMENT.VERCEL }, CLI_TEMPLATE_SUPPORT.choices)).toStrictEqual({
-    ...INIT_YES_ANSWERS,
-    database: DATABASE.POSTGRES,
-    deployment: DEPLOYMENT.VERCEL,
-    provider: PROVIDER.NEON,
-  })
-})
-
 it("runs the CLI from the npm tag that the installed @saasyland/stack release was published on", () => {
   expect(CLI_RELEASE_CHANNEL).toBe(PRERELEASE.exec(stack.version)?.groups?.["channel"] ?? NPM_DIST_TAG.LATEST)
   expect(CLI_PACKAGE_SPEC).toBe(`${CLI_PACKAGE}@${CLI_RELEASE_CHANNEL}`)
@@ -152,7 +104,7 @@ it("pins lucide-react, React and React DOM in the landing videos, which render t
 
 it("takes a buyer from activating the key to a first project, and lists every command that uses the key", () => {
   expect(CLI_SETUP_LINES).toStrictEqual([
-    { command: cliCommand(CLI_COMMAND.ACTIVATE), id: CLI_COMMAND.ACTIVATE },
+    { command: `${PACKAGE_MANAGER.NPM.exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`, id: CLI_COMMAND.ACTIVATE },
     { command: CLI_INIT_COMMAND, id: CLI_COMMAND.INIT },
   ])
   expect(CLI_KEY_LINES.map(({ id }) => id)).toStrictEqual([

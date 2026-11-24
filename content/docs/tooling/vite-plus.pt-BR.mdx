@@ -19,18 +19,18 @@ O Vite+ (`vite-plus`, comando `vp`) reúne Vite, Vitest, oxlint e oxfmt em uma �
 
 ## Configuração
 
-`vite.config.ts` não nomeia nenhum plugin: ele carrega sob demanda os plugins que cada área declara em `src/data/<area>.vite.ts`, que `src/data/vite.entries.ts` reúne e `vitePlugins` em `src/data/vite.ts` ordena pelo `order` de cada um (veja [O que as áreas adicionam](/docs/architecture/platform-layer#what-the-areas-add)). No Vitest, apenas as entradas marcadas com `vitest` são carregadas, ou seja, `repositoryFacts()`, `contentIndexes()` e `@vitejs/plugin-react`; nos demais casos, a stack é:
+`vite.config.ts` lista seus plugins em `VITE_PLUGINS` e os carrega sob demanda, cada entrada importando o seu pacote dentro de `load`; os plugins de um fornecedor vêm de `src/integrations/<vendor>/<vendor>.vite.ts` (veja [O que o Worker e o build executam](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)). No Vitest, apenas as entradas marcadas com `vitest` são carregadas, ou seja, `contentIndexes()`, `repositoryFacts()` e `@vitejs/plugin-react`; nos demais casos, a stack é:
 
 - `@cloudflare/vite-plugin`: executa o Worker no ambiente de SSR e persiste o estado local (em `.wrangler/test` no modo `test` e em `.wrangler/state` nos demais), com `remoteBindings: false`, então nenhum servidor de desenvolvimento ou build de nenhum ambiente se conecta a um binding remoto.
 - `fumadocs-mdx`: compila as coleções da documentação e do blog.
+- `saasyland:fumadocs-bundled`: mantém `fumadocs-core` e `@fumadocs/base-ui` no bundle do servidor (`resolve.noExternal`). Ele e o `fumadocs-mdx` vêm de `fumadocsVitePlugins` (`src/integrations/fumadocs/fumadocs.vite.ts`).
 - `contentIndexes` (`scripts/content-indexes.ts`): serve `virtual:content-indexes` e `virtual:docs-search`, os índices da documentação, do blog e de busca que `fumadocs.indexes.ts` monta a partir de `content/docs` e `content/blog`; veja [Fumadocs](/docs/integrations/fumadocs#content-indexes).
-- `saasyland:fumadocs-bundled`: mantém `fumadocs-core` e `@fumadocs/base-ui` no bundle do servidor (`resolve.noExternal`).
 - `repositoryFacts` (`scripts/repository-facts.ts`): serve o módulo `virtual:repository-facts`: as contagens, as versões e as configurações de ferramentas que a landing page e a documentação mostram, lidas do repositório durante o build; veja [Traduções e conteúdo](/docs/conventions/translations).
 - `unused-primitives` (`scripts/unused-primitives.ts`): antes do Tailwind, deixa de fora as classes de cada primitiva do shadcn que nenhum código da aplicação importa; veja [Componentes do shadcn](/docs/ui/shadcn-components).
 - `@tailwindcss/vite`: Tailwind CSS 4.
-- `tanstackStart`: roteamento, code splitting e pré-renderização das páginas públicas.
+- `tanstackStart`: roteamento, code splitting e pré-renderização das páginas públicas, filtrada por `shouldPrerender` (`src/lib/prerender.ts`).
 - `@vitejs/plugin-react`.
-- `saasyland:zod-config-chunk`: no build do cliente, coloca `src/integrations/zod/zod.config.ts` no chunk próprio do zod, para que o zod rode em modo `jitless` antes que qualquer chunk construa um schema e nunca verifique se `eval` está disponível sob a Content Security Policy; veja [Segurança e hardening](/docs/features/security).
+- `saasyland:zod-config-chunk` (`src/integrations/zod/zod.vite.ts`): no build do cliente, coloca `src/integrations/zod/zod.config.ts` no chunk próprio do zod, para que o zod rode em modo `jitless` antes que qualquer chunk construa um schema e nunca verifique se `eval` está disponível sob a Content Security Policy; veja [Segurança e hardening](/docs/features/security).
 - `deployedWorker` (`scripts/deployed-worker.ts`): depois da pré-renderização, recompila o Worker sem as páginas compiladas da documentação e do blog e sem as traduções da landing e das páginas legais; veja [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 - `saasyland:polar-sdk-optional-peers`: marca como externas as dependências peer opcionais de `@polar-sh/sdk` que não estão instaladas (`build.rolldownOptions.external`); veja [Dependências](/docs/conventions/dependencies).
 
@@ -38,7 +38,7 @@ O servidor de desenvolvimento escuta em `localhost:3000` e falha se a porta esti
 
 `vp preview`, que `start`, `start:test` e a pré-renderização executam, escuta em `127.0.0.1:3000`, o endereço `LOCAL_SERVER` de `src/data/local-server.ts`, e o Playwright abre esse endereço; a pré-renderização usa o mesmo endereço com uma porta livre. Com `localhost`, o servidor escutaria apenas no primeiro endereço para o qual o Node resolve o nome, `::1`, e cada cliente tentaria `::1` e depois `127.0.0.1`, dando pouco tempo para cada um responder: em uma máquina sobrecarregada esse tempo se esgota antes de o cliente perceber a conexão, o cliente desiste de `::1`, não encontra nada em `127.0.0.1` e a pré-renderização para com `ETIMEDOUT ::1` e `ECONNREFUSED 127.0.0.1`.
 
-`src/integrations/polar/polar.vite.ts` adiciona um plugin cujo hook `config` lista em `build.rolldownOptions.external` as dependências peer opcionais de `@polar-sh/sdk` (OpenTelemetry e `ioredis`). Elas não estão instaladas, e o módulo que as importa é removido do Worker por tree-shaking.
+`polarVitePlugins`, em `src/integrations/polar/polar.vite.ts`, retorna um plugin cujo hook `config` lista em `build.rolldownOptions.external` as dependências peer opcionais de `@polar-sh/sdk` (OpenTelemetry e `ioredis`). Elas não estão instaladas, e o módulo que as importa é removido do Worker por tree-shaking.
 
 ## Hooks do Git
 

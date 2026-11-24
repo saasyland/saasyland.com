@@ -111,7 +111,6 @@ import {
   CLI_SETUP_LINES,
   PACKAGE_MANAGERS,
   SCAFFOLD_TARGET,
-  cliCommand,
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
@@ -125,6 +124,7 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SKILL_SOURCES } from "~/src/data/skills"
 
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
+import { cliCommand } from "~/src/lib/cli"
 import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"

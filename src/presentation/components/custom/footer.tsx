@@ -69,8 +69,8 @@ export const Footer = (): JSX.Element => {
                       </Link>
                     </li>
                   ))}
-                {column.links.map((link) => (
-                  <li key={link.label}>
+                {column.links.map((link, position) => (
+                  <li key={position}>
                     <Link className={LINK_CLASSNAME} to={link.to}>
                       {t(link.label)}
                     </Link>

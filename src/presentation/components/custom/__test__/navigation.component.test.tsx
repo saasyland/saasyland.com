@@ -430,6 +430,21 @@ describe("signed-in visitors", () => {
     },
   )
 
+  it("turns the sign-in link into the account link in place, so a press while the session loads still lands on it", async () => {
+    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
+    const session = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
+    sessionRequest.mockReturnValue(session.promise)
+    renderNavigation()
+    const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
+    const headerSignIn = within(nav).getByRole("link", { name: signInLabel })
+    await userEvent.setup({ delay: null }).click(menuButton())
+    const menuSignIn = within(menu()).getByRole("link", { name: signInLabel })
+    session.resolve(createAuthSessionFixture())
+
+    expect(await within(nav).findByRole("link", { hidden: true, name: accountLabel })).toBe(headerSignIn)
+    expect(within(menu()).getByRole("link", { name: accountLabel })).toBe(menuSignIn)
+  })
+
   it("keeps sign-in for a browser whose session has ended", async () => {
     document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
     sessionRequest.mockResolvedValue(createMissingAuthSessionResult())

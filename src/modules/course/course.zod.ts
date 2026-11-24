@@ -3,15 +3,7 @@ import * as zod from "zod"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { MAX_PAGE_SIZE, choiceOf, paginationSchema, searchTextField, sortingOf } from "~/src/modules/_core/utils/pagination"
 import { localizedSearchSchema } from "~/src/modules/_core/utils/search"
-import {
-  MIN_FIELD_LENGTH,
-  dateRangeField,
-  idField,
-  localeField,
-  numberRangeField,
-  positionField,
-  slugField,
-} from "~/src/modules/_core/utils/zod-fields"
+import { MIN_FIELD_LENGTH, dateRangeField, idField, localeField, numberRangeField, slugField } from "~/src/modules/_core/utils/zod-fields"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import {
   COURSE_DOCUMENT,
@@ -182,7 +174,7 @@ const getCourses = paginationSchema.extend({
   sorting: sortingOf(COURSE_SORT_COLUMNS),
 })
 
-const moveCourse = courseIdInput.extend({ position: positionField })
+const moveCourse = courseIdInput.extend({ offset: zod.int() })
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 

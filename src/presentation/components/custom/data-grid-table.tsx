@@ -53,6 +53,11 @@ const SELECTED_ROW = { "data-state": "selected" } as const
 
 const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown } as const
 
+const acceptMove = (event: DragEvent<HTMLElement>): void => {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = DROP_EFFECT.MOVE
+}
+
 const RESIZE_KEYS: Readonly<Record<string, number>> = { ArrowLeft: -RESIZE_STEP_PX, ArrowRight: RESIZE_STEP_PX }
 
 const ROW_STEPS: Readonly<Record<string, number>> = { ArrowDown: 1, ArrowUp: -1 }
@@ -173,6 +178,13 @@ const DataGridHead = <TData extends DataGridRow>({
   const accepts =
     isMovable && draggedColumn !== undefined && draggedColumn.id !== column.id && draggedColumn.getIsPinned() === column.getIsPinned()
 
+  const acceptColumn = (event: DragEvent<HTMLTableCellElement>): void => {
+    if (accepts) {
+      acceptMove(event)
+      setDropTarget(true)
+    }
+  }
+
   return (
     <TableHead
       {...(column.getCanSort() && sorted !== false && { "aria-sort": ARIA_SORT[sorted] })}
@@ -191,15 +203,11 @@ const DataGridHead = <TData extends DataGridRow>({
       onDragEnd={() => {
         dragging.setDragged(undefined)
       }}
+      onDragEnter={acceptColumn}
       onDragLeave={() => {
         setDropTarget(false)
       }}
-      onDragOver={(event: DragEvent<HTMLTableCellElement>) => {
-        if (accepts) {
-          event.preventDefault()
-          setDropTarget(true)
-        }
-      }}
+      onDragOver={acceptColumn}
       onDragStart={(event: DragEvent<HTMLTableCellElement>) => {
         event.dataTransfer.effectAllowed = "move"
         event.dataTransfer.setData(COLUMN_DRAG_TYPE, column.id)
@@ -320,13 +328,15 @@ const DataGridBodyRow = <TData extends DataGridRow>({
     aria-rowindex={rowIndex}
     className={cn("group/row", { "opacity-40": drag.dragged === row.original })}
     {...(row.getIsSelected() && SELECTED_ROW)}
-    onDragEnter={() => {
+    onDragEnter={(event: DragEvent<HTMLTableRowElement>) => {
+      if (drag.dragged !== undefined) {
+        acceptMove(event)
+      }
       drag.onDragOver(row.original)
     }}
     onDragOver={(event: DragEvent<HTMLTableRowElement>) => {
       if (drag.dragged !== undefined) {
-        event.preventDefault()
-        event.dataTransfer.dropEffect = DROP_EFFECT.MOVE
+        acceptMove(event)
       }
     }}
     onDrop={(event: DragEvent<HTMLTableRowElement>) => {

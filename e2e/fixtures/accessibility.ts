@@ -5,19 +5,25 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 
 export const COLOR_SCHEMES = ["light", "dark"] as const
 
+const WAITING_FOR_VIEWPORT = "[data-reveal=hidden]"
+
 const revealWholePage = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
+  await page.evaluate(async (waiting) => {
     const nextFrame = async (): Promise<void> => {
       await new Promise((resolve) => requestAnimationFrame(resolve))
       await new Promise((resolve) => requestAnimationFrame(resolve))
     }
-    for (let top = 0; top < document.documentElement.scrollHeight; top += window.innerHeight / 2) {
-      window.scrollTo({ behavior: "instant", top })
+    const visited = new Set<Element>()
+    const nextWaiting = (): Element | undefined => [...document.querySelectorAll(waiting)].find((element) => !visited.has(element))
+    await nextFrame()
+    for (let element = nextWaiting(); element !== undefined; element = nextWaiting()) {
+      visited.add(element)
+      element.scrollIntoView({ behavior: "instant", block: "center" })
       await nextFrame()
     }
     window.scrollTo({ behavior: "instant", top: document.documentElement.scrollHeight })
     await nextFrame()
-  })
+  }, WAITING_FOR_VIEWPORT)
 }
 
 export const accessibilityViolations = async (page: Page): Promise<string[]> => {

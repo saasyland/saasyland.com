@@ -1,14 +1,28 @@
 diff --git a/dist/esm/lazyRouteComponent.js b/dist/esm/lazyRouteComponent.js
-index 7788648a35e73af6625769575ec15596b4abe2ee..a76ae158cece45ec486eadad0d4e7e20f94e6617 100644
+index 7788648a35e73af6625769575ec15596b4abe2ee..ec1469bf6ed00bfabbdf33f67688fa9221719dd9 100644
 --- a/dist/esm/lazyRouteComponent.js
 +++ b/dist/esm/lazyRouteComponent.js
-@@ -3,6 +3,32 @@ import { isModuleNotFoundError } from "@tanstack/router-core";
+@@ -3,6 +3,41 @@ import { isModuleNotFoundError } from "@tanstack/router-core";
  import * as React$1 from "react";
  import { isServer } from "@tanstack/router-core/isServer";
  //#region src/lazyRouteComponent.tsx
++const stayEvents = [
++	"pageshow",
++	"pointerdown",
++	"keydown"
++];
++let pageIsLeaving = false;
++if (typeof window !== "undefined") {
++	window.addEventListener("beforeunload", () => {
++		pageIsLeaving = true;
++	});
++	for (const event of stayEvents) window.addEventListener(event, () => {
++		pageIsLeaving = false;
++	}, true);
++}
 +function watchPageUnload() {
 +	if (typeof window === "undefined") return () => false;
-+	let unloading = false;
++	let unloading = pageIsLeaving;
 +	const onBeforeUnload = () => {
 +		unloading = true;
 +	};
@@ -20,22 +34,17 @@ index 7788648a35e73af6625769575ec15596b4abe2ee..a76ae158cece45ec486eadad0d4e7e20
 +}
 +function waitForPageToStay() {
 +	return new Promise((resolve) => {
-+		const events = [
-+			"pageshow",
-+			"pointerdown",
-+			"keydown"
-+		];
 +		const stay = () => {
-+			for (const event of events) window.removeEventListener(event, stay, true);
++			for (const event of stayEvents) window.removeEventListener(event, stay, true);
 +			resolve();
 +		};
-+		for (const event of events) window.addEventListener(event, stay, true);
++		for (const event of stayEvents) window.addEventListener(event, stay, true);
 +	});
 +}
  /**
  * Wrap a dynamic import to create a route component that supports
  * `.preload()` and friendly reload-on-module-missing behavior.
-@@ -16,10 +42,15 @@ function lazyRouteComponent(importer, exportName) {
+@@ -16,10 +51,15 @@ function lazyRouteComponent(importer, exportName) {
  	let loadPromise;
  	let comp;
  	let error;
@@ -51,7 +60,7 @@ index 7788648a35e73af6625769575ec15596b4abe2ee..a76ae158cece45ec486eadad0d4e7e20
  				if (!(isServer ?? typeof window === "undefined")) {
  					loadPromise = void 0;
  					lazyComp.preload = void 0;
-@@ -27,6 +58,7 @@ function lazyRouteComponent(importer, exportName) {
+@@ -27,6 +67,7 @@ function lazyRouteComponent(importer, exportName) {
  				comp = res[exportName ?? "default"];
  			}).catch((err) => {
  				loadPromise = void 0;
@@ -59,7 +68,7 @@ index 7788648a35e73af6625769575ec15596b4abe2ee..a76ae158cece45ec486eadad0d4e7e20
  				error = err;
  			});
  		}
-@@ -34,6 +66,14 @@ function lazyRouteComponent(importer, exportName) {
+@@ -34,6 +75,14 @@ function lazyRouteComponent(importer, exportName) {
  	};
  	const lazyComp = function Lazy(props) {
  		if (error) {

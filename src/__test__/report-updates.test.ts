@@ -6,6 +6,7 @@ import { createContentDirectory } from "~/src/platform/testing/lib/content-direc
 import { createSkillsRepository } from "~/src/platform/testing/lib/skills-repository"
 
 import type { OutdatedDependency } from "~/scripts/dependencies"
+import type { LatestRelease } from "~/scripts/github-actions"
 import {
   type Gh,
   ISSUE_ACTION,
@@ -41,8 +42,10 @@ const skill = (computedHash: string, commit?: string): LockedSkill => ({
 const RANGE: OutdatedDependency = { latest: "6.40.0", name: RESEND, package: RESEND, spec: "^6.39.0", version: "6.39.0" }
 const PINNED: OutdatedDependency = { latest: "1.7.30", name: "better-auth", package: "better-auth", spec: "1.7.27", version: "1.7.27" }
 const SKILL_CHANGE = { from: "063246e", name: RESEND, source: RESEND_SOURCE, to: "abcdef1" }
-const NOTHING: Updates = { packages: [], skills: [] }
-const EVERYTHING: Updates = { packages: [RANGE, PINNED], skills: [SKILL_CHANGE] }
+const CHECKOUT = "actions/checkout"
+const ACTION_CHANGE = { from: "v7.0.0", name: CHECKOUT, to: "v7.0.1" }
+const NOTHING: Updates = { actions: [], packages: [], skills: [] }
+const EVERYTHING: Updates = { actions: [ACTION_CHANGE], packages: [RANGE, PINNED], skills: [SKILL_CHANGE] }
 
 describe("changedSkills", () => {
   it("names each skill whose files changed upstream, with the commits it moves between", () => {
@@ -60,19 +63,21 @@ describe("changedSkills", () => {
 })
 
 describe("issueBody", () => {
-  it("tells how to update and lists the packages, marking the pins, and the skills", () => {
+  it("tells how to update and lists the packages, marking the pins, the skills and the GitHub Actions", () => {
     const body = issueBody(EVERYTHING)
 
     expect(body).toContain(`Run \`${UPDATE_COMMAND}\``)
     expect(body).toContain(`| \`${RESEND}\` | 6.39.0 | 6.40.0 | \`${UPDATE_COMMAND}\` |`)
     expect(body).toContain("| `better-auth` | 1.7.27 | 1.7.30 | by hand: pinned |")
     expect(body).toContain(`| \`${RESEND}\` | \`${RESEND_SOURCE}\` | 063246e | abcdef1 |`)
+    expect(body).toContain(`| \`${CHECKOUT}\` | v7.0.0 | v7.0.1 |`)
     expect(body.endsWith("|\n")).toBe(true)
   })
 
   it("leaves out a section that has nothing to list", () => {
-    expect(issueBody({ packages: [RANGE], skills: [] })).not.toContain("## Agent skills")
-    expect(issueBody({ packages: [], skills: [SKILL_CHANGE] })).not.toContain("## Packages")
+    expect(issueBody({ actions: [], packages: [RANGE], skills: [] })).not.toContain("## Agent skills")
+    expect(issueBody({ actions: [], packages: [], skills: [SKILL_CHANGE] })).not.toContain("## Packages")
+    expect(issueBody({ actions: [], packages: [RANGE], skills: [] })).not.toContain("## GitHub Actions")
   })
 })
 
@@ -93,6 +98,13 @@ describe("syncIssue", () => {
 
     expect(syncIssue(gh, EVERYTHING)).toBe(ISSUE_ACTION.CREATED)
     expect(gh).toHaveBeenLastCalledWith(["issue", "create", "--title", ISSUE_TITLE, "--body", issueBody(EVERYTHING)])
+  })
+
+  it("opens the issue when only a GitHub Action has a newer release", () => {
+    const gh = fakeGh([])
+    const actionsOnly: Updates = { ...NOTHING, actions: [ACTION_CHANGE] }
+
+    expect(syncIssue(gh, actionsOnly)).toBe(ISSUE_ACTION.CREATED)
   })
 
   it("rewrites the open issue with the current updates", () => {
@@ -124,14 +136,17 @@ describe("syncIssue", () => {
 const repository = (): string =>
   createSkillsRepository({
     dependencies: { [RESEND]: "^6.39.0" },
+    files: { ".github/workflows/ci.yml": `steps:\n  - uses: ${CHECKOUT}@${"a".repeat(40)} # v7.0.0\n` },
     resolved: { [RESEND]: `${RESEND}@6.39.0` },
     skills: { [RESEND]: skill("r1", "063246e") },
   })
 
 const latestOf = (): Promise<string> => Promise.resolve("6.40.0")
 
+const releaseOf: LatestRelease = () => ({ commit: "b".repeat(40), version: "v7.0.1" })
+
 describe("findUpdates", () => {
-  it("lists the outdated packages and the skills the update changed", async () => {
+  it("lists the outdated packages, the skills the update changed and the GitHub Actions with a newer release", async () => {
     const root = repository()
     const updateSkills = (): number => {
       writeFileSync(join(root, SKILLS_LOCK), JSON.stringify({ skills: { [RESEND]: skill("r2", "abcdef1") }, version: 2 }))
@@ -139,11 +154,15 @@ describe("findUpdates", () => {
       return PASSED
     }
 
-    await expect(findUpdates({ latestOf, root, updateSkills })).resolves.toStrictEqual({ packages: [RANGE], skills: [SKILL_CHANGE] })
+    await expect(findUpdates({ latestOf, releaseOf, root, updateSkills })).resolves.toStrictEqual({
+      actions: [ACTION_CHANGE],
+      packages: [RANGE],
+      skills: [SKILL_CHANGE],
+    })
   })
 
   it("fails when the skills update fails", async () => {
-    await expect(findUpdates({ latestOf, root: repository(), updateSkills: () => FAILED })).rejects.toThrow(
+    await expect(findUpdates({ latestOf, releaseOf, root: repository(), updateSkills: () => FAILED })).rejects.toThrow(
       `bun ${SKILLS_UPDATE_SCRIPT.join(" ")} failed`,
     )
   })

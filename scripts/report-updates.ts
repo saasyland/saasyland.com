@@ -10,13 +10,14 @@ import {
   outdatedDependencies,
   readDependencies,
 } from "./dependencies.ts"
+import { type ActionChange, type LatestRelease, latestRelease, outdatedActions } from "./github-actions.ts"
 import { runCommand, scriptArguments } from "./run-command.ts"
 import { type SkillsLock, readSkillsLock } from "./skills-lock.ts"
 import { SKILLS_UPDATE_SCRIPT } from "./sync-skills.ts"
 
 export const ISSUE_TITLE = "Dependency and skills updates available"
 export const UPDATE_COMMAND = "bun run deps:update"
-export const UP_TO_DATE_COMMENT = "Every dependency and agent skill is on its latest version."
+export const UP_TO_DATE_COMMENT = "Every dependency, agent skill and GitHub Action is on its latest version."
 
 const SUCCESS_EXIT_CODE = 0
 const SHORT_COMMIT_LENGTH = 7
@@ -34,7 +35,12 @@ const outdatedSchema = zod.object({
   version: zod.string(),
 })
 const skillChangeSchema = zod.object({ from: zod.string(), name: zod.string(), source: zod.string(), to: zod.string() })
-const updatesSchema = zod.object({ packages: zod.array(outdatedSchema), skills: zod.array(skillChangeSchema) })
+const actionChangeSchema = zod.object({ from: zod.string(), name: zod.string(), to: zod.string() })
+const updatesSchema = zod.object({
+  actions: zod.array(actionChangeSchema),
+  packages: zod.array(outdatedSchema),
+  skills: zod.array(skillChangeSchema),
+})
 
 export interface SkillChange {
   readonly from: string
@@ -44,6 +50,7 @@ export interface SkillChange {
 }
 
 export interface Updates {
+  readonly actions: readonly ActionChange[]
   readonly packages: readonly OutdatedDependency[]
   readonly skills: readonly SkillChange[]
 }
@@ -78,9 +85,9 @@ const packageRow = (dependency: OutdatedDependency): string => {
   return `| \`${dependency.name}\` | ${dependency.version} | ${dependency.latest} | ${how} |`
 }
 
-export const issueBody = ({ packages, skills }: Updates): string => {
+export const issueBody = ({ actions, packages, skills }: Updates): string => {
   const sections = [
-    `Run \`${UPDATE_COMMAND}\` on a branch, then \`bun run check\`, \`bun run test:coverage\` and \`bun run build:test\`. It updates the dependencies and the agent skills together. A pinned package moves by hand: read why it is pinned in the Dependencies docs first.`,
+    `Run \`${UPDATE_COMMAND}\` on a branch, then \`bun run check\`, \`bun run test:coverage\` and \`bun run build:test\`. It updates the dependencies, the agent skills and the GitHub Actions together. A pinned package moves by hand: read why it is pinned in the Dependencies docs first.`,
   ]
 
   if (packages.length > 0) {
@@ -107,6 +114,18 @@ export const issueBody = ({ packages, skills }: Updates): string => {
     )
   }
 
+  if (actions.length > 0) {
+    sections.push(
+      [
+        "## GitHub Actions",
+        "",
+        "| Action | Pinned | Latest |",
+        "| --- | --- | --- |",
+        ...actions.map(({ from, name, to }) => `| \`${name}\` | ${from} | ${to} |`),
+      ].join("\n"),
+    )
+  }
+
   return `${sections.join("\n\n")}\n`
 }
 
@@ -124,7 +143,7 @@ export const syncIssue = (gh: Gh, updates: Updates): IssueAction => {
   const open = issuesSchema
     .parse(JSON.parse(ghOutput(gh, ["issue", "list", "--state", "open", "--search", `${ISSUE_TITLE} in:title`, "--json", "number,title"])))
     .find(({ title }) => title === ISSUE_TITLE)
-  const pending = updates.packages.length > 0 || updates.skills.length > 0
+  const pending = updates.actions.length > 0 || updates.packages.length > 0 || updates.skills.length > 0
 
   if (!pending) {
     if (open === undefined) {
@@ -151,21 +170,24 @@ export const syncIssue = (gh: Gh, updates: Updates): IssueAction => {
 
 export const findUpdates = async ({
   latestOf,
+  releaseOf,
   root,
   updateSkills,
 }: {
   latestOf: LatestVersion
+  releaseOf: LatestRelease
   root: string
   updateSkills: () => number
 }): Promise<Updates> => {
   const packages = await outdatedDependencies(readDependencies(root), latestOf)
+  const actions = outdatedActions(root, releaseOf)
   const before = readSkillsLock(root)
 
   if (updateSkills() !== SUCCESS_EXIT_CODE) {
     throw new Error(`bun ${SKILLS_UPDATE_SCRIPT.join(" ")} failed`)
   }
 
-  return { packages, skills: changedSkills(before, readSkillsLock(root)) }
+  return { actions, packages, skills: changedSkills(before, readSkillsLock(root)) }
 }
 
 export const writeUpdates = (path: string, updates: Updates): void => {
@@ -181,11 +203,14 @@ if (import.meta.main) {
     const root = process.cwd()
     const updates = await findUpdates({
       latestOf: latestVersion,
+      releaseOf: latestRelease,
       root,
       updateSkills: () => runCommand(process.execPath, SKILLS_UPDATE_SCRIPT).status,
     })
     writeUpdates(path, updates)
-    console.log(`${String(updates.packages.length)} packages and ${String(updates.skills.length)} skills have updates.`)
+    console.log(
+      `${String(updates.packages.length)} packages, ${String(updates.skills.length)} skills and ${String(updates.actions.length)} GitHub Actions have updates.`,
+    )
   } else {
     console.log(`Issue "${ISSUE_TITLE}": ${syncIssue((args) => runCommand("gh", args, { capture: true }), readUpdates(path))}.`)
   }

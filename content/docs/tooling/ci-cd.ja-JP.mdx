@@ -21,6 +21,8 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 ビルドが変更履歴を生成し、`content.spec.ts` がそれを読み込む `e2e-reusable.yml` のチェックアウト、サイトをビルドする `deploy-reusable.yml` のチェックアウト、そして `release` ジョブのチェックアウトは、すべてのコミットをツリーなしで取得します（`fetch-depth: 0` と `filter: tree:0`）。[変更履歴](/docs/project/changelog)が、各エントリの日付をそれを `main` に入れたコミットから決めるためです。シャロークローンと比べて増えるのはコミットそのものだけです。シャロークローンでは、エントリの日付を誤る代わりにビルドが失敗します。これらのチェックアウトが履歴を取得しなくなると、`src/__test__/workflows.test.ts` が失敗します。
 
+`actions/*` を含め、ほかのリポジトリのアクションはすべてリリースのコミット SHA 全体に固定し、その後ろのコメントにリリースタグを書きます: `uses: <owner>/<repo>@<commit> # <tag>`。そのため、タグが後で動かされても、ワークフローはそのリリースのコードをそのまま実行します。`.github/workflows/` または `.github/actions/` の `uses:` がコミットではなくタグやブランチを指している場合、コミットの後ろにリリースタグがない場合、または 1 つのリポジトリの 2 つのリリースを固定している場合、`src/__test__/workflows.test.ts` は失敗します。`bun run deps:update` は各アクションを最新リリースに移し、コミットとタグを一緒に書き換えます（[依存関係](/docs/conventions/dependencies#upgrading)）。そのため、アクションはパッケージと同じブランチで更新されます。
+
 ## チェック [#checks]
 
 `verify` ジョブが報告する必須チェック `Format, lint, types, i18n, tests` は、`ci.yml` の `check`、`test`、`features` の各ジョブで構成されます。
@@ -72,8 +74,6 @@ Playwright 自体のリトライとワーカーは、どのシャードでも [P
 
 `deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`upload: true` の場合は、最後の 2 つのステップの代わりに `vp exec wrangler versions upload` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、デプロイ前チェック、つまり `package.json` の `<name>:verify:<environment>` スクリプトは、CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報と、`Preview` にある[ジャーニースイート](#journey-suite)のサンドボックス設定しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入り、アップロードは並行して実行されます。プルリクエストに新しいコミットが追加されると、誰もマージすることのない 1 つ前のコミットに対する `ci.yml` の実行はキャンセルされます。一方、マージキューの実行は互いにキャンセルすることがなく、`main` での `deploy.yml` と `e2e-full.yml` の実行はキューに入ります（`concurrency` と `queue: max`）。そのため、`main` へのプッシュはすべてデプロイされます。
 
-Dependabot は GitHub Actions を毎週更新します。
-
 ## ジャーニースイート [#journey-suite]
 
 `journey.yml` は、[ジャーニースイート](/docs/tooling/playwright#journey-suite)である `bun run test:journey` を `https://preview.saasyland.com` に対して、UTC のスケジュール <RepositoryFact name="journeySchedule" /> と手動での起動時に実行します。
@@ -88,7 +88,7 @@ gh workflow run journey.yml --ref <branch> -f journey=all
 
 ## 更新 [#updates]
 
-`updates.yml` は、UTC のスケジュール <RepositoryFact name="updatesSchedule" /> と手動実行で、依存関係とエージェントスキルの更新を探します。最初のステップ `bun scripts/report-updates.ts find` は、npm レジストリにすべての直接依存関係の最新リリースを問い合わせ、ランナーのチェックアウトで `bun run skills:update` を実行して、上流で変わったスキルを確認します。このチェックアウトからは何もコミットしません。2 つ目のステップ `bun scripts/report-updates.ts issue` は 1 つの Issue <RepositoryFact name="updatesIssueTitle" /> を管理します。更新があれば Issue を作成し、以降の実行で書き直し、すべてが最新になったらクローズします。Issue には、古くなった各パッケージを `bun run deps:update` で動くものか固定のものかを示して並べ、各スキルを移動前後のコミットとともに並べます。
+`updates.yml` は、UTC のスケジュール <RepositoryFact name="updatesSchedule" /> と手動実行で、依存関係とエージェントスキルの更新を探します。最初のステップ `bun scripts/report-updates.ts find` は、npm レジストリにすべての直接依存関係の最新リリースを問い合わせ、ランナーのチェックアウトで `bun run skills:update` を実行して、上流で変わったスキルを確認します。このチェックアウトからは何もコミットしません。2 つ目のステップ `bun scripts/report-updates.ts issue` は 1 つの Issue <RepositoryFact name="updatesIssueTitle" /> を管理します。更新があれば Issue を作成し、以降の実行で書き直し、すべてが最新になったらクローズします。Issue には、古くなった各パッケージを `bun run deps:update` で動くものか固定のものかを示して並べ、各スキルを移動前後のコミットとともに並べます。最初のステップは、トークンが不要な `git ls-remote` で、固定した各アクションのリポジトリのリリースタグも読み取ります。Issue には、固定したリリースが最新リリースより古いアクションも並べます。
 
 このワークフローに許されているのはリポジトリの読み取りと Issue の書き込みだけで、トークンを受け取るのは 2 つ目のステップだけです。プルリクエストは作成しません。ワークフロー自身のトークンで作成したプルリクエストに対して GitHub はワークフローを起動しないため、そのチェックが実行されないからです。代わりにブランチで `bun run deps:update` を実行してください。
 

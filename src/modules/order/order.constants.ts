@@ -56,6 +56,7 @@ export const ORDER_QUERY_KEYS = {
   DETAIL: ["order", "getOrder"],
   FILTERS: ["order", "getOrderFilters"],
   LIST: ["order", "getOrders"],
+  PRODUCT_SALES: ["order", "getProductSales"],
   REVENUE: ["order", "getRevenue"],
   SEARCH: ["order", "searchOrders"],
   USER: ["order", "getUserOrders"],

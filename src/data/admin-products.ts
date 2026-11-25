@@ -1,10 +1,20 @@
-export const ADMIN_PRODUCT_TABS = ["all", "onetime", "subscriptions", "categories", "collections", "drafts"] as const
+import { POLAR_PRODUCT_STATUS, type PolarProductStatus } from "~/src/integrations/polar/polar.constants"
 
-export const PRODUCT_COLUMN_SIZES = {
-  createdAt: 152,
-  pricing: 176,
-  product: 320,
-  status: 152,
-  type: 152,
-  updatedAt: 152,
+import type { BadgeVariant } from "~/src/presentation/components/shadcn/badge"
+
+export const POLAR_PRODUCT_COLUMN_SIZES = {
+  licenseKeys: 168,
+  polar: 232,
+  prices: 216,
+  product: 288,
+  revenue: 240,
+  sales: 160,
+  status: 136,
 } as const
+
+export const POLAR_PRODUCT_STATUS_BADGES: Record<PolarProductStatus, BadgeVariant> = {
+  [POLAR_PRODUCT_STATUS.ARCHIVED]: "destructive",
+  [POLAR_PRODUCT_STATUS.DRAFT]: "warning",
+  [POLAR_PRODUCT_STATUS.PRIVATE]: "neutral",
+  [POLAR_PRODUCT_STATUS.PUBLIC]: "accent",
+}

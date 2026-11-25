@@ -12,6 +12,58 @@ export const POLAR_MINIMUM_PRICE_AMOUNT = 50
 
 export const POLAR_FIXED_PRICE = "fixed" satisfies models.ProductPriceFixedCreate["amount_type"]
 
+export const POLAR_PRICE_TYPE = {
+  CUSTOM: "custom",
+  FIXED: "fixed",
+  METERED_TIERS: "metered_tiers",
+  METERED_UNIT: "metered_unit",
+  SEAT_BASED: "seat_based",
+  UNIT_BASED: "unit_based",
+} as const satisfies Record<string, models.ProductPrice["amount_type"]>
+
+export const POLAR_BENEFIT_TYPE = {
+  CUSTOM: "custom",
+  LICENSE_KEYS: "license_keys",
+} as const satisfies Record<string, models.BenefitType>
+
+export const POLAR_PRODUCT_VISIBILITY = {
+  DRAFT: "draft",
+  PRIVATE: "private",
+  PUBLIC: "public",
+} as const satisfies Record<string, models.ProductVisibility>
+
+export const POLAR_PRODUCT_STATUS = {
+  ARCHIVED: "archived",
+  ...POLAR_PRODUCT_VISIBILITY,
+} as const
+
+export const POLAR_PRODUCT_STATUSES = [
+  POLAR_PRODUCT_STATUS.PUBLIC,
+  POLAR_PRODUCT_STATUS.PRIVATE,
+  POLAR_PRODUCT_STATUS.DRAFT,
+  POLAR_PRODUCT_STATUS.ARCHIVED,
+] as const
+
+export type PolarProductStatus = (typeof POLAR_PRODUCT_STATUSES)[number]
+
+export const POLAR_PRODUCT_SORTING = {
+  NAME: "name",
+} as const satisfies Record<string, models.ProductSortProperty>
+
+export const POLAR_PAGE_SIZE = 100
+
+export const POLAR_SCOPE = {
+  CHECKOUTS: "checkouts:write",
+  CUSTOMER_SESSIONS: "customer_sessions:write",
+  LICENSE_KEYS: "license_keys:write",
+  ORDERS: "orders:read",
+  ORGANIZATIONS: "organizations:read",
+  PRODUCTS: "products:read",
+  WEBHOOKS: "webhooks:read",
+} as const
+
+export type PolarScope = (typeof POLAR_SCOPE)[keyof typeof POLAR_SCOPE]
+
 export const POLAR_ID_MAX_LENGTH = 64
 
 export const POLAR_ORDER_STATUS = {
@@ -70,6 +122,12 @@ export const POLAR_DASHBOARD_HOSTS = {
 export const polarCheckoutOrigin = (server: Environment): string => `https://${POLAR_DASHBOARD_HOSTS[server]}`
 
 export const POLAR_ORGANIZATION_SLUG = "saasyland"
+
+export const polarDashboardUrl = (server: Environment, ...path: readonly string[]): string =>
+  new URL(
+    ["", "dashboard", POLAR_ORGANIZATION_SLUG, ...path].map((segment) => encodeURIComponent(segment)).join("/"),
+    polarCheckoutOrigin(server),
+  ).toString()
 
 export const POLAR_CHECKOUT_DEFAULT_LANGUAGE = "en"
 

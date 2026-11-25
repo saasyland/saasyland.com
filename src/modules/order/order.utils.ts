@@ -5,7 +5,7 @@ import { env } from "cloudflare:workers"
 import { type SQL, inArray, sql } from "drizzle-orm"
 import * as zod from "zod"
 
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/integrations/polar/polar.constants"
+import { polarDashboardUrl } from "~/src/integrations/polar/polar.constants"
 
 import { COUNTRIES, type CountryCode } from "~/src/modules/_core/constants/country"
 import { type CurrencyCode, fromMinorUnits } from "~/src/modules/_core/constants/currency"
@@ -14,11 +14,7 @@ import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { order } from "~/src/modules/order/order.schema"
 import { user } from "~/src/modules/user/user.schema"
 
-export const polarOrderUrl = (orderId: string): string =>
-  new URL(
-    `/dashboard/${POLAR_ORGANIZATION_SLUG}/sales/${encodeURIComponent(orderId)}`,
-    `https://${POLAR_DASHBOARD_HOSTS[env.POLAR_SERVER]}`,
-  ).toString()
+export const polarOrderUrl = (orderId: string): string => polarDashboardUrl(env.POLAR_SERVER, "sales", orderId)
 
 export const netAmount: SQL<number> = sql<number>`coalesce(sum(${order.totalAmount} - ${order.refundedAmount}), 0)`.mapWith(Number)
 

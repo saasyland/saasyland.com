@@ -5,7 +5,14 @@ import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
 import * as zod from "zod"
 
-import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_BENEFIT_TYPE,
+  POLAR_PAGE_SIZE,
+  POLAR_PRICE_TYPE,
+  POLAR_SCOPE,
+  POLAR_SERVER,
+  type PolarScope,
+} from "~/src/integrations/polar/polar.constants"
 import { POLAR_EVENTS } from "~/src/integrations/polar/polar.webhooks"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS, appHostsForMode } from "~/src/modules/_core/constants/api"
@@ -24,16 +31,6 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
-
-export const POLAR_PRICE_TYPE = {
-  CUSTOM: "custom",
-  FIXED: "fixed",
-} as const satisfies Record<string, models.ProductPrice["amount_type"]>
-
-export const POLAR_BENEFIT_TYPE = {
-  CUSTOM: "custom",
-  LICENSE_KEYS: "license_keys",
-} as const satisfies Record<string, models.BenefitType>
 
 export const POLAR_CUSTOM_FIELD_TYPE = {
   CHECKBOX: "checkbox",
@@ -57,11 +54,9 @@ export const POLAR_TAX_BEHAVIOR = {
   LOCATION: "location",
 } as const satisfies Record<string, models.TaxBehaviorOption>
 
-export const POLAR_SCOPE = {
-  ORGANIZATIONS: "organizations:read",
-  PRODUCTS: "products:read",
-  WEBHOOKS: "webhooks:read",
-} as const
+const SITE_SCOPE_USES: Readonly<Partial<Record<PolarScope, string>>> = {
+  [POLAR_SCOPE.PRODUCTS]: "the admin product catalogue and the dashboard's product count list the products with it (getPolarProducts)",
+}
 
 const POLAR_SERVER_BY_ENVIRONMENT = {
   [ENVIRONMENT.DEVELOPMENT]: POLAR_SERVER.SANDBOX,
@@ -78,8 +73,6 @@ const PRODUCT_ID_KEYS = {
   [LICENSE_TIER.COMPLETE]: "POLAR_PRODUCT_ID_COMPLETE",
   [LICENSE_TIER.CORE]: "POLAR_PRODUCT_ID_CORE",
 } as const satisfies Record<LicenseTier, string>
-
-const PAGE_SIZE = 100
 
 const ANY_SUBDOMAIN = "*."
 
@@ -130,13 +123,23 @@ const readSettings = (values: Readonly<Record<string, string | undefined>>, { fi
   return parsed.data
 }
 
-const describeRefusal = (error: unknown, scope: string, { file, server }: Source): string => {
+const lacksScope = (scope: PolarScope, file: string): string => {
+  const use = SITE_SCOPE_USES[scope]
+
+  if (use === undefined) {
+    return `POLAR_ACCESS_TOKEN in ${file} lacks the ${scope} scope.`
+  }
+
+  return `POLAR_ACCESS_TOKEN in ${file} lacks the ${scope} scope, which the deployed site needs too: ${use}.`
+}
+
+const describeRefusal = (error: unknown, scope: PolarScope, { file, server }: Source): string => {
   if (error instanceof PolarClientError && error.statusCode === HTTP_STATUS.UNAUTHORIZED) {
     return `Polar ${server} rejects POLAR_ACCESS_TOKEN from ${file}: create an organisation token in the Polar ${server} and copy it there.`
   }
 
   if (error instanceof PolarClientError && error.statusCode === HTTP_STATUS.FORBIDDEN) {
-    return `POLAR_ACCESS_TOKEN in ${file} lacks the ${scope} scope.`
+    return lacksScope(scope, file)
   }
 
   return `Polar ${server} refused or failed a request that needs ${scope}: ${String(error)}`
@@ -147,7 +150,7 @@ interface Listing<Item> {
   readonly refusal?: string
 }
 
-const listAll = async <Item>(items: AsyncIterable<Item>, scope: string, source: Source): Promise<Listing<Item>> => {
+const listAll = async <Item>(items: AsyncIterable<Item>, scope: PolarScope, source: Source): Promise<Listing<Item>> => {
   try {
     return { items: await Array.fromAsync(items) }
   } catch (error) {
@@ -155,7 +158,7 @@ const listAll = async <Item>(items: AsyncIterable<Item>, scope: string, source: 
   }
 }
 
-const readOne = async <Item>(item: Promise<Item>, scope: string, source: Source): Promise<Listing<Item>> => {
+const readOne = async <Item>(item: Promise<Item>, scope: PolarScope, source: Source): Promise<Listing<Item>> => {
   try {
     return { items: [await item] }
   } catch (error) {
@@ -165,7 +168,7 @@ const readOne = async <Item>(item: Promise<Item>, scope: string, source: Source)
 
 const readPolar = async (settings: Settings, source: Source): Promise<PolarState> => {
   const polar = createPolarCore({ accessToken: settings.POLAR_ACCESS_TOKEN, environment: source.server })
-  const query = { limit: PAGE_SIZE, organization_id: settings.POLAR_ORGANIZATION_ID }
+  const query = { limit: POLAR_PAGE_SIZE, organization_id: settings.POLAR_ORGANIZATION_ID }
 
   const [products, endpoints, organizations] = await Promise.all([
     listAll(createProductsService(polar).iterList(query), POLAR_SCOPE.PRODUCTS, source),

@@ -5,12 +5,25 @@ import { createElement } from "react"
 import { beforeEach, describe, expect, it } from "vite-plus/test"
 
 import type { PolarProduct } from "~/src/platform/testing/lib/polar"
-import { POLAR_API, createPolarOrder, polarApi, polarCheckouts, seedPolarCatalogue } from "~/src/platform/testing/mocks/polar"
+import {
+  POLAR_API,
+  createPolarOrder,
+  polarApi,
+  polarCheckouts,
+  revokePolarScope,
+  seedPolarCatalogue,
+} from "~/src/platform/testing/mocks/polar"
 import { takeProviderRefusals } from "~/src/platform/testing/mocks/providers"
 import { getSentEmails, resendApi } from "~/src/platform/testing/mocks/resend"
 
 import { polar } from "~/src/integrations/polar/polar.config"
-import { POLAR_FIXED_PRICE, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_PRICE_CURRENCY } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_FIXED_PRICE,
+  POLAR_MINIMUM_PRICE_AMOUNT,
+  POLAR_PAGE_SIZE,
+  POLAR_PRICE_CURRENCY,
+  POLAR_SCOPE,
+} from "~/src/integrations/polar/polar.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -176,9 +189,25 @@ describe("Polar test double", () => {
     expect(takeProviderRefusals()).toHaveLength(1)
   })
 
+  it("answers 403 to a request that needs a scope the token lacks, as Polar does, and records the refusal", async () => {
+    revokePolarScope(POLAR_SCOPE.PRODUCTS)
+
+    await expect(polar.products.list({ limit: POLAR_PAGE_SIZE })).rejects.toThrow("insufficient_scope")
+    expect(takeProviderRefusals()).toStrictEqual([expect.stringContaining(`: the token lacks the ${POLAR_SCOPE.PRODUCTS} scope`)])
+  })
+
+  it("answers 422 to a product listing with a query it does not expect", async () => {
+    await expect(polar.products.list({ is_archived: false, limit: POLAR_PAGE_SIZE })).rejects.toThrow(
+      `Polar API returned an error: ${String(HTTP_STATUS.UNPROCESSABLE_CONTENT)}`,
+    )
+    expect(takeProviderRefusals()).toStrictEqual([expect.stringContaining(": query: ")])
+  })
+
   it("refuses an endpoint the application never calls", async () => {
     const response = await fetch(`${polarApi.origin}${POLAR_API.PRODUCTS}`, {
+      body: JSON.stringify({ name: "Unused" }),
       headers: { authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` },
+      method: "POST",
     })
 
     expect(response.status).toBe(HTTP_STATUS.NOT_FOUND)

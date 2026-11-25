@@ -1,40 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+import { POLAR_READ } from "~/src/modules/order/order.constants"
+import { productSalesQuery } from "~/src/modules/order/use-cases/get-product-sales"
 
-import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
+import { expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
 
-import { getRouter } from "~/src/router"
+import { polarProductsQuery } from "~/src/lib/polar-catalogue"
 
 afterEach(() => vi.restoreAllMocks())
 
-describe("admin catalog route loaders", () => {
+describe("admin products route loaders", () => {
   it("loads localized metadata for an authorized administrator at /admin/products", async () => {
     expectLocalizedAdminPage(await loadAsAdmin("/admin/products"))
   })
 
-  it("populates required query data before rendering /admin/products", async () => {
-    vi.spyOn(getProductsQuery, "queryFn")
-    vi.spyOn(getCategoriesQuery, "queryFn")
+  it("reads the Polar catalogue and the sales from the copies of the orders before rendering /admin/products", async () => {
+    vi.spyOn(polarProductsQuery, "queryFn")
+    vi.spyOn(productSalesQuery, "queryFn")
     const router = await loadAsAdmin("/admin/products")
-    expectPrefetched(router, getProductsQuery, EMPTY_PAGE)
-    expectPrefetched(router, getCategoriesQuery, EMPTY_PAGE)
+    expectPrefetched(router, polarProductsQuery, expect.objectContaining({ read: POLAR_READ.AVAILABLE }))
+    expectPrefetched(router, productSalesQuery, { products: [] })
   })
 
-  it("prefetches the product count the catalog adds to /admin", async () => {
-    vi.spyOn(getProductsQuery, "queryFn")
-    expectPrefetched(await loadAsAdmin("/admin"), getProductsQuery, EMPTY_PAGE)
-  })
-
-  it.each([
-    ["categories", "categories"],
-    ["drafts", "drafts"],
-    [undefined, "all"],
-    ["invalid", "all"],
-    [["all"], "all"],
-  ])("validates the requested product tab: %s", (tab, expected) => {
-    const router = getRouter()
-    expect(router.matchRoutes("/admin/products", { tab }).at(-1)?.search).toMatchObject({ tab: expected })
+  it("prefetches the product count the catalogue adds to /admin", async () => {
+    vi.spyOn(polarProductsQuery, "queryFn")
+    expectPrefetched(await loadAsAdmin("/admin"), polarProductsQuery, expect.objectContaining({ read: POLAR_READ.AVAILABLE }))
   })
 })

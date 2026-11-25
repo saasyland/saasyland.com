@@ -1,8 +1,7 @@
-import { CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
-import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
+import { POLAR_PRICE_TYPE, POLAR_PRODUCT_STATUSES, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
 
 export const PRODUCTS_LABELS = [
-  { keys: Object.values(PRODUCT_STATUS), labels: "pages.admin.products.table.statusLabels" },
-  { keys: Object.values(PRODUCT_TYPE), labels: "pages.admin.products.table.typeLabels" },
-  { keys: Object.values(CATEGORY_VISIBILITY), labels: "pages.admin.products.table.visibilityLabels" },
+  { keys: POLAR_PRODUCT_STATUSES, labels: "pages.admin.products.table.statusLabels" },
+  { keys: Object.values(POLAR_PRICE_TYPE).filter((type) => type !== POLAR_PRICE_TYPE.FIXED), labels: "pages.admin.products.table.prices" },
+  { keys: Object.values(POLAR_RECURRING_INTERVAL), labels: "pages.admin.products.table.recurrence" },
 ]

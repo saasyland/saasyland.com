@@ -10,16 +10,18 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+import { POLAR_READ } from "~/src/modules/order/order.constants"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
 
 import * as download from "~/src/lib/download"
+import { polarProductsQuery } from "~/src/lib/polar-catalogue"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminPolarProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels"
 import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
@@ -32,6 +34,11 @@ import newsletterDashboardMessages from "~/messages/en-US/dashboard.newsletter.j
 import paymentsDashboardMessages from "~/messages/en-US/dashboard.payments.json"
 import productsDashboardMessages from "~/messages/en-US/dashboard.products.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+
+const TWO_PRODUCTS = {
+  products: [adminPolarProduct(), adminPolarProduct({ id: "prod_complete", name: "Complete" })],
+  read: POLAR_READ.AVAILABLE,
+}
 
 beforeAll(() =>
   Promise.all(
@@ -118,7 +125,7 @@ describe("admin dashboard", () => {
   it("reads every statistic from its query and shows only real panels", () => {
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 3, rows: [adminUser()], total: 12_345 })
-    queryClient.setQueryData(getProductsQuery.queryKey, { rows: [], total: 2 })
+    queryClient.setQueryData(polarProductsQuery.queryKey, TWO_PRODUCTS)
     queryClient.setQueryData(courseProgressQuery.queryKey, { learners: 41, rows: [] })
     queryClient.setQueryData(getVideosQuery.queryKey, { rows: [], total: 7 })
     queryClient.setQueryData(newsletterSubscribersQuery.queryKey, { total: 1500 })

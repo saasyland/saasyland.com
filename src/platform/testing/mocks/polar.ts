@@ -12,6 +12,7 @@ import {
   polarLicenseKey,
   polarLicenseKeyGrant,
   polarOrder,
+  polarProduct,
   polarProductPrice,
 } from "~/src/platform/testing/lib/polar"
 import * as AREA_POLAR_CATALOGUES from "~/src/platform/testing/mocks/polar-catalogue.entries"
@@ -23,6 +24,9 @@ import {
   POLAR_LICENSE_KEY_STATUS,
   POLAR_MINIMUM_PRICE_AMOUNT,
   POLAR_ORDER_STATUS,
+  POLAR_PRODUCT_SORTING,
+  POLAR_SCOPE,
+  type PolarScope,
   polarCheckoutOrigin,
 } from "~/src/integrations/polar/polar.constants"
 
@@ -57,6 +61,7 @@ const orders = new Map<string, models.Order>()
 const licenseKeys = new Map<string, models.LicenseKeyWithActivations>()
 const activationConditions = new Map<string, models.LicenseKeyActivate["conditions"]>()
 const customers = new Map<string, models.CustomerIndividual>()
+const grantedScopes = new Set<PolarScope>()
 
 export const seedPolarCatalogue = (catalogue: PolarCatalogue): void => {
   for (const product of catalogue.products) {
@@ -77,9 +82,16 @@ const resetPolar = (): void => {
   licenseKeys.clear()
   activationConditions.clear()
   customers.clear()
+  for (const scope of Object.values(POLAR_SCOPE)) {
+    grantedScopes.add(scope)
+  }
   for (const catalogue of Object.values(AREAS)) {
     seedPolarCatalogue(catalogue)
   }
+}
+
+export const revokePolarScope = (scope: PolarScope): void => {
+  grantedScopes.delete(scope)
 }
 
 const found = <Value>(value: Value | null | undefined, kind: string, id: string): Value => {
@@ -357,6 +369,13 @@ const ordersQuerySchema = zod.strictObject({
   sorting: zod.literal("-created_at" satisfies models.OrderSortProperty),
 })
 
+const productsQuerySchema = zod.strictObject({
+  limit: zod.coerce.number().int().min(1).max(MAX_PAGE_SIZE),
+  organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
+  page: zod.coerce.number().int().min(1),
+  sorting: zod.literal(POLAR_PRODUCT_SORTING.NAME),
+})
+
 const licenseKeyDeactivateSchema = zod.strictObject({
   activation_id: zod.uuid(),
   key: zod.string().min(1),
@@ -526,6 +545,24 @@ const listOrders = (request: Request) => {
   } satisfies models.ListResourceOrder)
 }
 
+const listProducts = (request: Request) => {
+  const query = productsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams))
+  if (!query.success) {
+    return invalid("query", zod.prettifyError(query.error))
+  }
+  const { limit, page } = query.data
+  const items = [...products.values()]
+    .toSorted((first, second) => first.name.localeCompare(second.name))
+    .map((product) => {
+      const benefit = licenseKeyBenefits.get(product.id)
+      return polarProduct(env.POLAR_ORGANIZATION_ID, product, benefit === undefined ? [] : [benefit])
+    })
+  return respond(HTTP_STATUS.OK, {
+    items: items.slice((page - 1) * limit, page * limit),
+    pagination: { max_page: Math.max(1, Math.ceil(items.length / limit)), total_count: items.length },
+  } satisfies models.ListResourceProduct)
+}
+
 export const polarInvoiceUrl = (orderId: string): string => `${polarCheckoutOrigin(env.POLAR_SERVER)}/invoices/${orderId}.pdf`
 
 const readInvoice = (_request: Request, match: URLPatternResult): Response => {
@@ -557,6 +594,7 @@ interface Endpoint {
   method: string
   pattern: URLPattern
   respond: (request: Request, match: URLPatternResult) => Promise<Reply> | Reply
+  scope: PolarScope
 }
 
 const resourceSchema = zod.object({ id: zod.string() })
@@ -564,19 +602,38 @@ const resourceSchema = zod.object({ id: zod.string() })
 const resourceId = (match: URLPatternResult): string => resourceSchema.parse(match.pathname.groups).id
 
 const ENDPOINTS: readonly Endpoint[] = [
-  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDERS }), respond: listOrders },
-  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.CHECKOUTS }), respond: createCheckout },
-  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_ACTIVATION }), respond: activateLicenseKey },
-  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_DEACTIVATION }), respond: deactivateLicenseKey },
-  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }), respond: readLicenseKey },
-  { method: "PATCH", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }), respond: updateLicenseKey },
-  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER }), respond: readOrder },
-  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER_INVOICE }), respond: readInvoice },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDERS }), respond: listOrders, scope: POLAR_SCOPE.ORDERS },
+  { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.CHECKOUTS }), respond: createCheckout, scope: POLAR_SCOPE.CHECKOUTS },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_ACTIVATION }),
+    respond: activateLicenseKey,
+    scope: POLAR_SCOPE.LICENSE_KEYS,
+  },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_DEACTIVATION }),
+    respond: deactivateLicenseKey,
+    scope: POLAR_SCOPE.LICENSE_KEYS,
+  },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }), respond: readLicenseKey, scope: POLAR_SCOPE.LICENSE_KEYS },
+  {
+    method: "PATCH",
+    pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY }),
+    respond: updateLicenseKey,
+    scope: POLAR_SCOPE.LICENSE_KEYS,
+  },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER }), respond: readOrder, scope: POLAR_SCOPE.ORDERS },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDER_INVOICE }), respond: readInvoice, scope: POLAR_SCOPE.ORDERS },
+  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.PRODUCTS }), respond: listProducts, scope: POLAR_SCOPE.PRODUCTS },
 ]
 
 const route = (request: Request) => {
   for (const endpoint of ENDPOINTS) {
     const match = endpoint.pattern.exec(request.url)
+    if (endpoint.method === request.method && match !== null && !grantedScopes.has(endpoint.scope)) {
+      return refuse(HTTP_STATUS.FORBIDDEN, { error: "insufficient_scope" }, `the token lacks the ${endpoint.scope} scope`)
+    }
     if (endpoint.method === request.method && match !== null) {
       return endpoint.respond(request, match)
     }

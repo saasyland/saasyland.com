@@ -311,6 +311,8 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       areaData(AREA.PRODUCTS),
       areaMessages(AREA.PRODUCTS),
       "src/data/admin-products.ts",
+      "src/lib/polar-catalogue.ts",
+      "src/lib/__test__/polar-catalogue.test.ts",
       "src/modules/{category,product}/**",
       "src/integrations/better-auth/__test__/auth.access.products.test.ts",
       "src/routes/admin.products.*.tsx",
@@ -324,7 +326,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/{category.errors,product.errors}.json",
     ],
     names: { [ACCESS_FILE]: ["APP_STATEMENTS.category", "APP_STATEMENTS.product"], [ROUTES_FILE]: ["ADMIN_PRODUCTS"] },
-    requires: [AREA.AUTH, AREA.POLAR],
+    requires: [AREA.AUTH, AREA.BILLING, AREA.POLAR],
   },
   [AREA.REPOSITORY_FACTS]: {
     files: [

@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
-import { POLAR_SERVER, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_BENEFIT_TYPE,
+  POLAR_PRICE_TYPE,
+  POLAR_SCOPE,
+  POLAR_SERVER,
+  POLAR_WEBHOOK_EVENT,
+} from "~/src/integrations/polar/polar.constants"
 import { POLAR_EVENTS } from "~/src/integrations/polar/polar.webhooks"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -21,10 +27,7 @@ import { LOCAL_HOSTS } from "~/src/data/local-server"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import {
-  POLAR_BENEFIT_TYPE,
   POLAR_CUSTOM_FIELD_TYPE,
-  POLAR_PRICE_TYPE,
-  POLAR_SCOPE,
   POLAR_TAX_BEHAVIOR,
   POLAR_WEBHOOK_FORMAT,
   type PolarEnvironment,
@@ -475,7 +478,7 @@ describe("verifyPolar when Polar refuses the token", () => {
     )
   })
 
-  it("names each scope the token lacks, in the order it reads them", async () => {
+  it("names each scope the token lacks, in the order it reads them, and what on the deployed site needs it too", async () => {
     const insufficientScope = Response.json({ error: "insufficient_scope" }, { status: HTTP_STATUS.FORBIDDEN })
     serve({}, { "/v1/products/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope, [ORGANIZATION_PATH]: insufficientScope })
 
@@ -483,7 +486,7 @@ describe("verifyPolar when Polar refuses the token", () => {
       new Error(
         [
           "Polar production could not be read with the token in .env.production:",
-          `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.PRODUCTS} scope.`,
+          `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.PRODUCTS} scope, which the deployed site needs too: the admin product catalogue and the dashboard's product count list the products with it (getPolarProducts).`,
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.WEBHOOKS} scope.`,
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.ORGANIZATIONS} scope.`,
         ].join("\n"),

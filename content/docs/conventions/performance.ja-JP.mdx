@@ -115,7 +115,7 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 - ヘッダーのリンクに TanStack Router の `preload="viewport"` を付けると、リンクがビューポートに入った時点で始まります。固定ヘッダーは常にビューポート内にあるので、ハイドレーションと競合してしまいます。またスマートフォンではリンクがメニューの中にあり、メニューは開いたときに初めてリンクをレンダリングします。
 - この方法でプリロードするのはヘッダーのリンクだけです。ドキュメントのサイドバーにある何百ものリンクをはじめ、ほかのリンクはすべて `defaultPreload: "intent"` のままです。
 
-`src/router.tsx` は `defaultPreloadStaleTime` を `QUERY_STALE_TIME_MS`、つまり `defaultStaleTime` と同じ <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> に設定します。以前の値は `0` で、TanStack Query がキャッシュを管理する場合に TanStack Router が推奨する値ですが、ドキュメントとブログのローダーは TanStack Query を通さずにデータを直接返すため、`0` ではプリロード後のクリックでローダーがもう一度実行されていました。この時間内のクリックは、ローダーを実行せずにプリロード済みのページを表示します。それを過ぎても、TanStack Router がプリロード済みのページを読み込みから 5 分後に破棄するまで（`defaultPreloadGcTime`）は、クリックするとプリロード済みのページがすぐに表示され、バックグラウンドで読み込み直されます。
+`src/router.tsx` は `defaultPreloadStaleTime` を TanStack Router の TanStack Query ガイドが示す値 <RepositoryFact name="routerPreloadStaleTimeMs" unit="millisecond" /> にし、`defaultStaleTime` はルーターの既定値のままにしています。そのため何が新しいかを決めるのは TanStack Query だけで、プリロード後のクリックはページの loader をもう一度実行し、loader はプリロードがクエリキャッシュに入れたものを読みます。以前はドキュメントとブログの loader が TanStack Query の外でサーバー関数を呼んでいたので、ルーターはプリロードしたページをクエリの stale time のあいだ保持していました。今はこれらの loader がビルド時のインデックスを読み込み、ブラウザーは一度読み込んだインデックスを保持するので、その必要はありません。`bun run build:test` のビルドでリンクにホバーしてからクリックしたところ、講座、ブログ、ドキュメント、管理コンソールのどのページでも、サーバー関数の呼び出しはどちらの設定でも同じでした。最初のホバーではページのクエリに応じて 1 回か 2 回、2 回目のホバー、クリック、戻る操作では 0 回です。
 
 preview.saasyland.com で、実行ごとに新しいブラウザーを使って計測しました。各実行は `/` を読み込み、ネットワークが静かになってからさらに 2 秒待ち、**ドキュメント** をクリックします。Cloudflare は 1 つのブラウザーのリクエストを複数の isolate に振り分けるため、変更前はほとんどの実行が新しい isolate に当たりました。各セルは中央値と、括弧内に範囲を示します。
 

@@ -106,7 +106,6 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
   }),
   component: NewsletterConfirmPage,
   errorComponent: () => <NewsletterConfirmResult status={LOAD_ERROR} />,
-  head: pageHead(ROUTES.NEWSLETTER_CONFIRM),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -115,6 +114,7 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.NEWSLETTER_CONFIRM),
   pendingComponent: NewsletterPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },

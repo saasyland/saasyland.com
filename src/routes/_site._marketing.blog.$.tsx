@@ -18,7 +18,7 @@ import { BLOG_COVER } from "~/src/data/blog"
 
 import { buildBlogPostStructuredDataHtml, pageAuthor } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
-import { type PageAuthor, buildPageHead } from "~/src/lib/seo"
+import { buildPageHead } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import { BackToBlogLink } from "~/src/presentation/components/custom/blog/back-to-blog-link"
@@ -50,8 +50,6 @@ const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: Bl
     updated,
   }
 }
-
-type BlogPostData = ReturnType<typeof toPostData>
 
 const SEARCH = { enabled: false } as const
 const THEME = { enabled: false } as const
@@ -137,31 +135,8 @@ const BlogPostPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.blog"
 
-interface BlogPostLoaderData {
-  readonly author: PageAuthor
-  readonly locale: SupportedLocale
-  readonly post: BlogPostData
-  readonly section: string
-}
-
 export const Route = createFileRoute("/_site/_marketing/blog/$")({
   component: BlogPostPage,
-  head: ({ loaderData, match }: { loaderData?: BlogPostLoaderData | undefined; match: { error: unknown } }) => {
-    if (isNotFound(match.error)) {
-      return notFoundHead(getCurrentLocale())
-    }
-
-    return buildPageHead({
-      author: loaderData?.author,
-      dates: loaderData?.post,
-      description: loaderData?.post.description ?? loaderData?.post.summary,
-      locale: loaderData?.locale,
-      pathname: loaderData?.post.url ?? ROUTES.BLOG,
-      section: loaderData?.section,
-      title: loaderData?.post.title,
-      type: "article",
-    })
-  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [posts, blog] = await Promise.all([
@@ -181,6 +156,22 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
       posts: posts.map((other) => toBlogPostLink(other, locale)),
       section: blog.title,
     }
+  },
+  head: ({ loaderData, match }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
+      author: loaderData?.author,
+      dates: loaderData?.post,
+      description: loaderData?.post.description ?? loaderData?.post.summary,
+      locale: loaderData?.locale,
+      pathname: loaderData?.post.url ?? ROUTES.BLOG,
+      section: loaderData?.section,
+      title: loaderData?.post.title,
+      type: "article",
+    })
   },
   pendingComponent: BlogPostPending,
   staticData: { namespaces: [NAMESPACE] },

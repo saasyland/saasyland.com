@@ -8,11 +8,10 @@ import * as zod from "zod"
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AUTHOR_IMAGE_SIZE, BLOG_AUTHOR, BLOG_AUTHORS, type BlogAuthor } from "~/src/data/blog"
+import { AUTHOR_IMAGE_SIZE, BLOG_AUTHOR, BLOG_AUTHORS } from "~/src/data/blog"
 
 import { blogAuthorPath } from "~/src/lib/blog-archive"
 import { buildAuthorStructuredDataHtml } from "~/src/lib/blog-seo"
@@ -95,27 +94,8 @@ const authorMessageSchema = zod.object({ bio: zod.string() })
 
 const authorMessagesSchema = zod.object({ authors: zod.record(authorSchema, authorMessageSchema) })
 
-interface AuthorLoaderData {
-  readonly author: BlogAuthor
-  readonly description: string
-  readonly locale: SupportedLocale
-}
-
 export const Route = createFileRoute("/_site/_marketing/authors/$author")({
   component: AuthorPage,
-  head: ({ loaderData, match }: { loaderData?: AuthorLoaderData | undefined; match: { error: unknown } }) => {
-    if (isNotFound(match.error) || loaderData === undefined) {
-      return notFoundHead(getCurrentLocale())
-    }
-
-    return buildPageHead({
-      description: loaderData.description,
-      locale: loaderData.locale,
-      pathname: blogAuthorPath(loaderData.author),
-      title: BLOG_AUTHORS[loaderData.author].name,
-      type: "profile",
-    })
-  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const { data: author, success } = authorSchema.safeParse(params.author)
@@ -136,6 +116,19 @@ export const Route = createFileRoute("/_site/_marketing/authors/$author")({
       locale,
       posts: (Object.groupBy(index, (post) => post.author)[author] ?? []).map((post) => toBlogPostSummary(post, locale)),
     }
+  },
+  head: ({ loaderData, match }) => {
+    if (isNotFound(match.error) || loaderData === undefined) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
+      description: loaderData.description,
+      locale: loaderData.locale,
+      pathname: blogAuthorPath(loaderData.author),
+      title: BLOG_AUTHORS[loaderData.author].name,
+      type: "profile",
+    })
   },
   pendingComponent: AuthorPending,
   staticData: { namespaces: [NAMESPACE] },

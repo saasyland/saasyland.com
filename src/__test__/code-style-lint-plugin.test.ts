@@ -5,6 +5,7 @@ import {
   noMultilineTernary,
   noUndefinedBranch,
   noUndefinedFallback,
+  routeOptionOrder,
   zodNamespaceImport,
 } from "~/scripts/code-style-lint-plugin"
 
@@ -17,6 +18,7 @@ const fallback = { messageId: "fallback" }
 const ternary = { messageId: "ternary" }
 const returned = { messageId: "return" }
 const zodImport = { messageId: "import" }
+const order = { messageId: "order" }
 
 tester.run("no-comments", noComments, {
   invalid: [
@@ -134,5 +136,29 @@ tester.run("zod-namespace-import", zodNamespaceImport, {
     'import type * as zod from "zod"',
     'import { zodResolver } from "zod-form-adapter"',
     'import { createServerFn } from "@tanstack/react-start"',
+  ],
+})
+
+tester.run("route-option-order", routeOptionOrder, {
+  invalid: [
+    { code: 'export const Route = createFileRoute("/a")({ head: ({ loaderData }) => loaderData, loader: () => ({}) })', errors: [order] },
+    {
+      code: 'export const Route = createFileRoute("/a")({ loader: ({ deps }) => deps, loaderDeps: ({ search }) => search })',
+      errors: [order],
+    },
+    {
+      code: 'export const Route = createFileRoute("/a")({ component: Page, loader: () => ({}), validateSearch: schema })',
+      errors: [order],
+    },
+    { code: "export const Route = createRootRouteWithContext()({ head: () => ({}), beforeLoad: () => ({}) })", errors: [order] },
+    { code: "const route = createRoute({ getParentRoute, scripts: () => [], headers: () => ({}), loader: () => ({}) })", errors: [order] },
+    { code: "const root = createRootRoute({ head: () => ({}), validateSearch: schema, loader: () => ({}) })", errors: [order, order] },
+  ],
+  valid: [
+    'export const Route = createFileRoute("/a")({ validateSearch: schema, component: Page, loaderDeps: ({ search }) => search, beforeLoad: guard, loader: () => ({}), head: pageHead(ROUTES.A), pendingComponent: Pending })',
+    'export const Route = createFileRoute("/a")({ component: Page, head: () => ({}) })',
+    'export const Route = createFileRoute("/a")({ ...shared, loader: () => ({}), headers: () => ({}), head: () => ({}) })',
+    "const options = { head: () => ({}), loader: () => ({}) }",
+    'const result = configure("/a")({ head: () => ({}), loader: () => ({}) })',
   ],
 })

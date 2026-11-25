@@ -102,7 +102,6 @@ const NAMESPACES = ["auth.validations", "flow-features", "fumadocs", "stack"] as
 
 export const Route = createFileRoute("/_site/docs")({
   component: DocumentationLayout,
-  head: () => ({ links: [{ href: docsCss, rel: "stylesheet" }] }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [{ tree }] = await Promise.all([
@@ -111,6 +110,7 @@ export const Route = createFileRoute("/_site/docs")({
     ])
     return { tree }
   },
+  head: () => ({ links: [{ href: docsCss, rel: "stylesheet" }] }),
   pendingComponent: DocsPending,
   staticData: { contentId: DOCS_CONTENT_ID, namespaces: NAMESPACES },
 })

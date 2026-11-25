@@ -63,7 +63,6 @@ const NAMESPACE = "pages.admin.courses"
 
 export const Route = createFileRoute("/admin/courses/")({
   component: CoursesPage,
-  head: pageHead(ROUTES.ADMIN_COURSES),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -73,6 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -89,13 +89,13 @@ Uma página cujo título vem de um registro aguarda esse registro e monta o seu 
 ```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
     return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/admin/courses")({
 
 ## Ordem das opções
 
-`sort-keys` fica desativado em `src/routes` porque o TanStack Router infere os tipos na ordem de declaração. As opções ficam em ordem alfabética, exceto `validateSearch`, que vem primeiro, antes de tudo o que lê os search params:
+`sort-keys` fica desativado em `src/routes` porque o TanStack Router infere os tipos na ordem de declaração: os tipos de uma opção vêm das opções acima dela. As opções ficam em ordem alfabética, exceto aquelas pelas quais o router infere tipos, que seguem a ordem do guia de carregamento de dados dele: `validateSearch` primeiro, antes de tudo o que lê os search params, depois `loaderDeps`, `context`, `beforeLoad` e `loader`, e `head`, `headers` e `scripts` depois de `loader`, porque leem os dados dele. Assim `head` recebe o tipo que o loader retorna como ele é, sem nenhum tipo escrito à mão, e `code-style/route-option-order` reprova uma rota que declara essas opções em outra ordem:
 
 ```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({

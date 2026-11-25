@@ -23,7 +23,7 @@ import { BLOG_ARCHIVE, BLOG_SORT, BLOG_SORTS, BLOG_TAGS } from "~/src/data/blog"
 import { buildBlogStructuredDataHtml } from "~/src/lib/blog-seo"
 import { BLOG_FEED_TYPE, blogFeedPath } from "~/src/lib/feed"
 import { searchChoice, searchParam, searchText } from "~/src/lib/search-params"
-import { type PageLoaderData, buildPageHead } from "~/src/lib/seo"
+import { buildPageHead } from "~/src/lib/seo"
 
 import { BlogIndexPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { FeaturedPosts } from "~/src/presentation/components/custom/blog/featured-posts"
@@ -92,8 +92,6 @@ const LOADED_PAGES = zod
 
 const TOPIC = zod.enum(BLOG_TAGS)
 
-type BlogIndexLoaderData = PageLoaderData & { readonly pages: number }
-
 export const Route = createFileRoute("/_site/_marketing/blog/")({
   validateSearch: zod.object({
     page: searchParam(LOADED_PAGES),
@@ -102,13 +100,6 @@ export const Route = createFileRoute("/_site/_marketing/blog/")({
     tag: searchParam(TOPIC),
   }),
   component: BlogIndexPage,
-  head: ({ loaderData }: { loaderData?: BlogIndexLoaderData | undefined }) =>
-    buildPageHead({
-      ...loaderData?.metadata,
-      locale: loaderData?.locale,
-      pathname: ROUTES.BLOG,
-      sequence: blogArchiveSequence({ page: BLOG_ARCHIVE.FIRST_PAGE, pages: loaderData?.pages ?? BLOG_ARCHIVE.FIRST_PAGE }),
-    }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata, index] = await Promise.all([
@@ -129,6 +120,13 @@ export const Route = createFileRoute("/_site/_marketing/blog/")({
       updated: summarize(updated),
     }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({
+      ...loaderData?.metadata,
+      locale: loaderData?.locale,
+      pathname: ROUTES.BLOG,
+      sequence: blogArchiveSequence({ page: BLOG_ARCHIVE.FIRST_PAGE, pages: loaderData?.pages ?? BLOG_ARCHIVE.FIRST_PAGE }),
+    }),
   pendingComponent: BlogIndexPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },

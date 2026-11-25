@@ -66,7 +66,6 @@ const NAMESPACES = [LANDING_NAMESPACE, "pages.landing.notes", "stack"] as const
 
 export const Route = createFileRoute("/_site/_marketing/")({
   component: LandingPage,
-  head: pageHead(ROUTES.HOME),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const values = {
@@ -83,6 +82,7 @@ export const Route = createFileRoute("/_site/_marketing/")({
     ])
     return { locale, metadata, notes: await notes }
   },
+  head: pageHead(ROUTES.HOME),
   pendingComponent: HomePending,
   staticData: { namespaces: NAMESPACES, underHeader: true },
 })

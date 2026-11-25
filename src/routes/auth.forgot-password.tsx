@@ -40,7 +40,6 @@ export const Route = createFileRoute("/auth/forgot-password")({
     email: searchText(),
   }),
   component: ForgotPasswordPage,
-  head: pageHead(ROUTES.FORGOT_PASSWORD),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -49,6 +48,7 @@ export const Route = createFileRoute("/auth/forgot-password")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.FORGOT_PASSWORD),
   pendingComponent: ForgotPasswordPending,
   staticData: { namespaces: [NAMESPACE] },
 })

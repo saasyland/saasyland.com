@@ -47,7 +47,6 @@ const NAMESPACE = "pages.admin.users"
 
 export const Route = createFileRoute("/admin/users/all")({
   component: UsersAllPage,
-  head: pageHead(ROUTES.ADMIN_USERS_ALL),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -57,6 +56,7 @@ export const Route = createFileRoute("/admin/users/all")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_USERS_ALL),
   pendingComponent: AdminUsersAllPending,
   staticData: { namespaces: [NAMESPACE] },
 })

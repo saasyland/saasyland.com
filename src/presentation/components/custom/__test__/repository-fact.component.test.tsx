@@ -9,7 +9,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
-import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
@@ -106,7 +106,7 @@ describe("RepositoryFact", () => {
     expect(screen.getByTestId("fact")).toHaveTextContent(new Intl.ListFormat(locale).format(I18N.SUPPORTED_LOCALES))
   })
 
-  it("prints the query and router cache times in minutes from the constants the router is created with", () => {
+  it("prints the query cache times in minutes and the router's preload stale time in milliseconds, from the constants the router is created with", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -117,18 +117,19 @@ describe("RepositoryFact", () => {
           <RepositoryFact name="queryGcTimeMinutes" unit="minute" />
         </li>
         <li>
-          <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />
+          <RepositoryFact name="routerPreloadStaleTimeMs" unit="millisecond" />
         </li>
       </ul>,
     )
 
-    expect(listItems()).toEqual(
-      [QUERY_STALE_TIME_MS, QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS].map((milliseconds) =>
+    expect(listItems()).toEqual([
+      ...[QUERY_STALE_TIME_MS, QUERY_GC_TIME_MS].map((milliseconds) =>
         new Intl.NumberFormat("en-US", { style: "unit", unit: "minute", unitDisplay: "long" }).format(
           milliseconds / MILLISECONDS_PER_MINUTE,
         ),
       ),
-    )
+      new Intl.NumberFormat("en-US", { style: "unit", unit: "millisecond", unitDisplay: "short" }).format(ROUTER_PRELOAD_STALE_TIME_MS),
+    ])
   })
 
   it("prints the cache lifetimes of the KV entries and the retries of the live site check in their units", () => {

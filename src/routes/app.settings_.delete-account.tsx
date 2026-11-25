@@ -91,7 +91,6 @@ const NAMESPACE = "pages.app.delete-account"
 export const Route = createFileRoute("/app/settings_/delete-account")({
   validateSearch: deleteAccountSearchSchema,
   component: DeleteAccountPage,
-  head: pageHead(ROUTES.APP_DELETE_ACCOUNT),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -101,6 +100,7 @@ export const Route = createFileRoute("/app/settings_/delete-account")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.APP_DELETE_ACCOUNT),
   pendingComponent: AppDeleteAccountPending,
   search: { middlewares: [onlyDeclaredSearch(deleteAccountSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

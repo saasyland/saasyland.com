@@ -63,7 +63,6 @@ const NAMESPACE = "pages.admin.courses"
 
 export const Route = createFileRoute("/admin/courses/")({
   component: CoursesPage,
-  head: pageHead(ROUTES.ADMIN_COURSES),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -73,6 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -89,13 +89,13 @@ export const Route = createFileRoute("/admin/courses/")({
 ```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
     return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/admin/courses")({
 
 ## オプションの順序
 
-TanStack Router は宣言順に型を推論するため、`src/routes` では `sort-keys` を無効にしています。オプションはアルファベット順に並べますが、`validateSearch` だけは例外で、検索パラメーターを読み取るどのオプションよりも前の先頭に置きます。
+TanStack Router は宣言順に型を推論し、各オプションの型はそれより上のオプションから決まるため、`src/routes` では `sort-keys` を無効にしています。オプションはアルファベット順に並べますが、ルーターが型を推論する経路になるオプションだけは、データ読み込みのガイドが示す順に並べます。`validateSearch` を先頭に置いて検索パラメーターを読み取るどのオプションよりも前にし、続けて `loaderDeps`、`context`、`beforeLoad`、`loader` の順に置き、`head`、`headers`、`scripts` は `loader` のデータを読むので `loader` の後に置きます。こうすると `head` は手書きの型なしで loader の戻り値の型をそのまま受け取り、これらのオプションを別の順で宣言したルートは `code-style/route-option-order` で失敗します。
 
 ```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({

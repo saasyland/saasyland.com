@@ -45,7 +45,7 @@ bun run test:e2e:pr
 
 破壊的変更を避けるためにパッケージを古いリリースに固定してはいけません。また、ライブラリのバグを回避するコードをアプリケーションに追加してはいけません。
 
-## バグがアップストリームにある場合
+## バグがアップストリームにある場合 [#when-the-bug-is-upstream]
 
 アプリケーションがすでにドキュメントどおりの使い方をしていて、新しいバージョンのほうが誤っている場合は、新しいバージョンのまま修正を保持します。
 
@@ -63,6 +63,8 @@ bun run test:e2e:pr
 - `patches/playwright-core@1.65.1.patch` は、Polar のホスト型チェックアウトからワークスペースへ戻るときのように、`Cross-Origin-Opener-Policy` を送るページへのクロスサイトのナビゲーションを Playwright の WebKit ドライバーが追えるようにします。Playwright 1.65 の WebKit ビルドはプロセスの切り替えのために、1 つ目の仮ページを破棄する前に 2 つ目を作ります。ドライバーは `WKPage._onTargetCreated` のアサーションで失敗する代わりに、1 つ目を破棄するようになります。これに合わせて `@playwright/test` は 1.65.1 に固定しています。アップストリームには [microsoft/playwright#44254](https://github.com/microsoft/playwright/issues/44254) として報告しており、Playwright は完了としてクローズしました。1.65.1 より後の安定版で修正を含むものはまだないため、それが出るまでパッチを残します。
 
 `src/lib/stale-build.ts` が `isModuleNotFoundError` をインポートするため、`@tanstack/router-core` は直接の依存関係であり、パッチが適用され続けるよう 1.171.39 に固定されています。`@tanstack/react-router` は 1.170.46 に、`@tanstack/react-start` は 1.169.7 に固定されています。どちらもパッチを当てた TanStack のバージョンにそのまま依存しているためです。`fumadocs-mdx` 15.6.0 へのパッチも同じ方法で保持し、15.6.1 でアップストリームの修正がリリースされた時点で削除しました。`@fumadocs/base-ui` と `fumadocs-core` 16.19.2 へのパッチも、16.19.3 でそれぞれの修正がリリースされた時点で削除しました。`@videojs/utils` 10.4.0 へのパッチは、10.5.0 で修正がリリースされた時点で削除しました。Fumadocs のドキュメントレイアウトに `skipToContent` スロットを加えるパッチは、Fumadocs がそのスロットを採用しなかったため削除しました。代わりに `globals.css` が Fumadocs のリンクを隠し、サイト自身のスキップリンクがドキュメントの記事へ移動します（[ドキュメントサイト](/docs/features/docs-site)を参照）。
+
+`saasyland init` が書き出すプロジェクトは、そのスタックに必要なパッチを自分の `patches/` フォルダーと `patchedDependencies` に独自のコピーとして持ち、パッチを当てる各パッケージはパッチ対象のバージョンに固定されます。TanStack Start のテンプレートは `@tanstack/router-core` と `@tanstack/react-router` のパッチを加え、すべてのプロジェクトが `framer-motion` のパッチを受け取ります。`router-core` と `framer-motion` のパッチはここと同じファイルです。プロジェクトの `react-router` のパッチは TanStack/router#8830 で提案された修正だけで、`beforeunload` の後に読み込みを始めたチャンクに対するこのサイト独自の拡張は含みません。`better-auth` と `playwright-core` のパッチはこのサイトだけに残ります。生成されたプロジェクトは `haveIBeenPwned` プラグインも、このサイトにある Polar のチェックアウトの WebKit テストも使わないためです。リリースに修正が入ったら、プロジェクトはこのサイトと同じように、パッチと `patchedDependencies` のエントリーを削除してそのリリースに移ります（[SaaSy Land CLI](/docs/cli#create-a-project) を参照）。
 
 パッチが変えるのはパッケージのファイルであり、Bun がそのパッケージにインストールするバージョンではありません。パッケージが自分の依存関係の 1 つを、アプリケーションが使うリリースより古いバージョンに固定していて、2 つのコピーの型が合わない場合は、代わりに `package.json` の `overrides` のエントリーでそのバージョンを引き上げます。現在は必要ありません。`@polar-sh/better-auth` が使う `@polar-sh/adapter-utils` 1.1.1 は `@polar-sh/sdk` を 1.3.1 に固定しているので、Bun はアプリケーションの 1.3.2 の横にそのコピーをインストールします。アダプターが SDK をインポートするのはプラグインの `webhooks({ onPayload })` を型付けするためだけで、1.3.2 のペイロードを受け取る `handlePolarEvent` は 1.3.1 のペイロードも受け入れます。1.3.2 はサブスクリプションのステータスへの `trial_ended` の追加のように、型を広げただけだからです。今後の SDK リリースがアダプターのコピーでは受け入れられない形でペイロードを変えたときは、`bun run check` が `handlePolarEvent` で失敗します。その場合は、`@polar-sh/adapter-utils` のリリースがその SDK に依存するようになるまで、`@polar-sh/sdk` の `overrides` エントリーでアダプターのコピーを引き上げます（`npm view @polar-sh/adapter-utils dependencies`）。
 

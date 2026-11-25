@@ -16,7 +16,7 @@ const DocumentationIndexPage = () => {
 
 export const Route = createFileRoute("/_site/docs/")({
   component: DocumentationIndexPage,
-  head: docsHead,
   loader: () => loadDocsPage(),
+  head: docsHead,
   pendingComponent: DocsIndexPending,
 })

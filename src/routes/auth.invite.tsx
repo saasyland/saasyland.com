@@ -35,7 +35,6 @@ const NAMESPACE = "pages.auth.invite"
 export const Route = createFileRoute("/auth/invite")({
   validateSearch: inviteSearchSchema,
   component: InvitePage,
-  head: pageHead(ROUTES.ACCEPT_INVITATION),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
     const locale = getCurrentLocale()
@@ -48,6 +47,7 @@ export const Route = createFileRoute("/auth/invite")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ACCEPT_INVITATION),
   pendingComponent: AcceptInvitationPending,
   search: { middlewares: [onlyDeclaredSearch(inviteSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

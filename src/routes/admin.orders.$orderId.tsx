@@ -5,7 +5,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import { ExternalLink } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -63,8 +62,6 @@ const NAMESPACES = ["pages.admin.orders", "countries"] as const
 
 export const Route = createFileRoute("/admin/orders/$orderId")({
   component: OrderPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_ORDERS, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [{ order }] = await Promise.all([
@@ -73,6 +70,8 @@ export const Route = createFileRoute("/admin/orders/$orderId")({
     ])
     return { locale, pathname: `${ROUTES.ADMIN_ORDERS}/${order.id}`, title: order.description }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_ORDERS, title: loaderData?.title }),
   pendingComponent: AdminOrderPending,
   staticData: { namespaces: NAMESPACES },
 })

@@ -13,7 +13,6 @@ const BLOG_NAMESPACE = "pages.blog"
 const NAMESPACES = ["fumadocs", BLOG_NAMESPACE] as const
 
 export const Route = createFileRoute("/_site/_marketing/blog")({
-  head: ({ loaderData }) => ({ links: [{ href: docsCss, rel: "stylesheet" }, ...blogFeedLinks(loaderData)] }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [{ title }] = await Promise.all([
@@ -22,6 +21,7 @@ export const Route = createFileRoute("/_site/_marketing/blog")({
     ])
     return { locale, title }
   },
+  head: ({ loaderData }) => ({ links: [{ href: docsCss, rel: "stylesheet" }, ...blogFeedLinks(loaderData)] }),
   pendingComponent: BlogPending,
   staticData: { namespaces: NAMESPACES },
 })

@@ -315,7 +315,7 @@ const tooling = {
       },
       {
         files: ["src/routes/**"],
-        rules: { "sort-keys": "off" },
+        rules: { "code-style/route-option-order": "error", "sort-keys": "off" },
       },
     ],
     rules: {

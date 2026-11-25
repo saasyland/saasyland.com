@@ -63,7 +63,6 @@ const NAMESPACE = "pages.admin.courses"
 
 export const Route = createFileRoute("/admin/courses/")({
   component: CoursesPage,
-  head: pageHead(ROUTES.ADMIN_COURSES),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -73,6 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -89,13 +89,13 @@ Strona, której tytuł pochodzi z rekordu, czeka na ten rekord i buduje swój he
 ```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
     return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/admin/courses")({
 
 ## Kolejność opcji
 
-Reguła `sort-keys` jest wyłączona w `src/routes`, ponieważ TanStack Router wnioskuje typy w kolejności deklaracji. Opcje są ułożone alfabetycznie, z tym wyjątkiem, że `validateSearch` stoi na pierwszym miejscu, przed wszystkim, co odczytuje parametry wyszukiwania:
+Reguła `sort-keys` jest wyłączona w `src/routes`, ponieważ TanStack Router wnioskuje typy w kolejności deklaracji: typy opcji pochodzą z opcji nad nią. Opcje są ułożone alfabetycznie, z wyjątkiem tych, przez które router wnioskuje typy. Te stoją w kolejności z jego przewodnika po ładowaniu danych: `validateSearch` na pierwszym miejscu, przed wszystkim, co odczytuje parametry wyszukiwania, potem `loaderDeps`, `context`, `beforeLoad` i `loader`, a `head`, `headers` i `scripts` po `loader`, bo odczytują jego dane. Dzięki temu `head` dostaje typ zwracany przez loader bez zmian, bez typu pisanego ręcznie, a `code-style/route-option-order` odrzuca trasę, która deklaruje te opcje w innej kolejności:
 
 ```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({

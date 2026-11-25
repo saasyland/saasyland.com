@@ -60,7 +60,6 @@ export const Route = createFileRoute("/auth/reset-password")({
     token: searchText(),
   }),
   component: ResetPasswordPage,
-  head: pageHead(ROUTES.RESET_PASSWORD),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -69,6 +68,7 @@ export const Route = createFileRoute("/auth/reset-password")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.RESET_PASSWORD),
   pendingComponent: ResetPasswordPending,
   staticData: { namespaces: [NAMESPACE] },
 })

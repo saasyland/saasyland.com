@@ -46,7 +46,6 @@ const NAMESPACE = "pages.legal.refunds"
 
 export const Route = createFileRoute("/_site/_marketing/refunds")({
   component: RefundsPage,
-  head: pageHead(ROUTES.REFUNDS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -55,6 +54,7 @@ export const Route = createFileRoute("/_site/_marketing/refunds")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.REFUNDS),
   pendingComponent: LegalPending,
   staticData: { namespaces: [NAMESPACE] },
 })

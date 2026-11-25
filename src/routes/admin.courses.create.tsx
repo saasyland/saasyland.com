@@ -29,7 +29,6 @@ const NAMESPACE = "pages.admin.courses.create"
 
 export const Route = createFileRoute("/admin/courses/create")({
   component: CourseCreatePage,
-  head: pageHead(ROUTES.ADMIN_COURSES_CREATE),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -38,6 +37,7 @@ export const Route = createFileRoute("/admin/courses/create")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_COURSES_CREATE),
   pendingComponent: AdminCourseCreatePending,
   staticData: { namespaces: [NAMESPACE] },
 })

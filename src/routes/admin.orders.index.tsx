@@ -46,7 +46,6 @@ const NAMESPACES = [ORDERS_NAMESPACE, "countries"] as const
 
 export const Route = createFileRoute("/admin/orders/")({
   component: OrdersPage,
-  head: pageHead(ROUTES.ADMIN_ORDERS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -57,6 +56,7 @@ export const Route = createFileRoute("/admin/orders/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_ORDERS),
   pendingComponent: AdminOrdersPending,
   staticData: { namespaces: NAMESPACES },
 })

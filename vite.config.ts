@@ -127,11 +127,6 @@ const ignorePatterns = [
   "test-results",
 ]
 
-const undefinedBranchBacklog = [
-  "src/presentation/components/custom/app/course-unlocks.tsx",
-  "src/presentation/components/custom/app/upgrade-offer.tsx",
-]
-
 const tooling = {
   fmt: {
     arrowParens: "always",
@@ -321,10 +316,6 @@ const tooling = {
       {
         files: ["src/routes/**"],
         rules: { "sort-keys": "off" },
-      },
-      {
-        files: undefinedBranchBacklog,
-        rules: { "code-style/no-undefined-branch": "off" },
       },
     ],
     rules: {

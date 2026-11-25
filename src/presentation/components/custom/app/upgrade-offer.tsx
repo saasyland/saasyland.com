@@ -6,23 +6,19 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, type LicenseTier } from "~/src/modules/license/license.constants"
-import { upgradePriceQuery } from "~/src/modules/license/use-cases/get-upgrade-price"
+import { type getUpgradePrice, upgradePriceQuery } from "~/src/modules/license/use-cases/get-upgrade-price"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
 
-const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | undefined => {
+type Upgrade = NonNullable<Awaited<ReturnType<typeof getUpgradePrice>>["upgrade"]>
+
+const UpgradeSection = ({ tier, upgrade }: Readonly<{ tier: LicenseTier; upgrade: Upgrade }>): JSX.Element => {
   const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license.upgrade")
   const format = useFormatter()
   const headingId = useId()
-
-  const { upgrade } = useSuspenseQuery(upgradePriceQuery({ tier })).data
-
-  if (upgrade === undefined) {
-    return undefined
-  }
 
   const names = { from: tTier(`tiers.${upgrade.fromTier}.name`), tier: tTier(`tiers.${tier}.name`) }
 
@@ -59,6 +55,12 @@ const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | u
       </div>
     </section>
   )
+}
+
+const UpgradeCard = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element | false => {
+  const { upgrade } = useSuspenseQuery(upgradePriceQuery({ tier })).data
+
+  return upgrade !== undefined && <UpgradeSection tier={tier} upgrade={upgrade} />
 }
 
 export const UpgradeOfferPending = (): JSX.Element => (

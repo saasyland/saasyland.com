@@ -3,7 +3,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -23,7 +23,6 @@ import { adminUser } from "~/src/presentation/components/custom/admin/__test__/a
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { adminPolarProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
-import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels"
 import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
 
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
@@ -39,14 +38,6 @@ const TWO_PRODUCTS = {
   products: [adminPolarProduct(), adminPolarProduct({ id: "prod_complete", name: "Complete" })],
   read: POLAR_READ.AVAILABLE,
 }
-
-beforeAll(() =>
-  Promise.all(
-    DASHBOARD_PANELS.map(async ({ Panel }) => {
-      await Panel.preload?.()
-    }),
-  ),
-)
 
 afterEach(() => vi.restoreAllMocks())
 

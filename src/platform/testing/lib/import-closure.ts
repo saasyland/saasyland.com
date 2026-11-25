@@ -12,7 +12,7 @@ const specifierSchema = zod.object({ specifier: zod.string() })
 
 const isFile = (path: string): boolean => statSync(path, { throwIfNoEntry: false })?.isFile() === true
 
-const resolveImport = (file: string, specifier: string): string => {
+export const resolveImport = (file: string, specifier: string): string => {
   const base = specifier.startsWith(ROOT_ALIAS) ? specifier.slice(ROOT_ALIAS.length) : posix.join(posix.dirname(file), specifier)
   const resolved = RESOLVED_SUFFIXES.map((suffix) => `${base}${suffix}`).find((candidate) => isFile(candidate))
   if (resolved === undefined) {

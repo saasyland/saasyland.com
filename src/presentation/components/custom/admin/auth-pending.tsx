@@ -16,7 +16,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { GridPanelPending } from "~/src/presentation/components/custom/admin/dashboard/grid-panel-pending"
-import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DashboardPanelsPending } from "~/src/presentation/components/custom/admin/dashboard/panels-pending"
 import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { RowActionPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { USER_PROFILE_SECTIONS } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
@@ -38,9 +38,7 @@ export const AdminDashboardPending = (): JSX.Element => (
         </div>
       ))}
     </div>
-    {DASHBOARD_PANELS.map(({ Pending, key }) => (
-      <Pending key={key} />
-    ))}
+    <DashboardPanelsPending />
     <GridPanelPending columns={DASHBOARD_USER_PENDING_COLUMNS} isSelectable rows={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize} />
     <div className="flex justify-end">
       <Skeleton className="h-7 w-26 rounded-md" />

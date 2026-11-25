@@ -308,7 +308,7 @@ test.describe("course and lesson pages", () => {
     const playlist = signedPlaylist(page)
     await page.goto(lessonPath(preview.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     expect((await playlist).status()).toBe(HTTP_STATUS.OK)
-    await expect(page.getByText(preview.description["en-US"].split("\n")[0] ?? "")).toBeVisible()
+    await expect(page.locator("#lesson-description").getByText(preview.description["en-US"].split("\n")[0] ?? "")).toBeVisible()
 
     const [moment] = preview.keyMoments
     await page.getByRole("region", { name: "Key moments" }).getByRole("button", { name: `0:01 ${moment.label["en-US"]}` }).click()

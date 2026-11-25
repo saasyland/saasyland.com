@@ -7,7 +7,13 @@ export const PAYMENTS_FLOWS = [
     outcome:
       "The dashboard totals the paid orders of the last 30 days or 12 months per currency, refunds subtracted and pending orders left out",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-dashboard.spec.ts", title: "the dashboard totals the seeded orders per currency, refunds subtracted, and follows the period" }],
+    tests: [
+      { spec: "admin-dashboard.spec.ts", title: "the dashboard totals the seeded orders per currency, refunds subtracted, and follows the period" },
+      {
+        spec: "admin-dashboard.spec.ts",
+        title: "a press on a dashboard panel right after a full load hydrates the console takes effect, however late the scripts arrive",
+      },
+    ],
   },
   {
     area: FLOW_AREA.ADMIN_PAYMENTS,

@@ -13,7 +13,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-export const CourseUnlocks = (): JSX.Element | undefined => {
+export const CourseUnlocks = (): JSX.Element | false => {
   const t = useTranslations("components.custom.course-unlocks")
   const headingId = useId()
 
@@ -21,69 +21,64 @@ export const CourseUnlocks = (): JSX.Element | undefined => {
   const { data } = useSuspenseQuery(catalogueQuery({ locale: getCurrentLocale() }))
 
   const locked = data.courses.filter(({ paid }) => paid > 0)
-
-  if (locked.length === 0) {
-    return undefined
-  }
-
   const lessons = locked.reduce((total, { paid }) => total + paid, 0)
 
   return (
-    <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card p-6 md:p-8">
-      <h3 className="text-title text-foreground" id={headingId}>
-        {t("title", { includedWith })}
-      </h3>
-      <p className="mt-1.5 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
-        {t("description", { courses: locked.length, lessons })}
-      </p>
-      <ul className="mt-5 divide-y divide-border border-y border-border">
-        {locked.map((course) => (
-          <li key={course.id}>
-            <Link
-              className="group flex items-center gap-3 py-3.5 text-body-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              params={{ course: course.slug }}
-              to="/courses/$course"
-            >
-              <Lock aria-hidden className="size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-              <span className="min-w-0 flex-1 font-medium text-foreground">{course.title}</span>
-              <span className="text-spec whitespace-nowrap text-muted-foreground">{t("lessons", { count: course.paid })}</span>
-              <ArrowRight
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-0.5 group-hover:text-foreground"
-              />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    locked.length > 0 && (
+      <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card p-6 md:p-8">
+        <h3 className="text-title text-foreground" id={headingId}>
+          {t("title", { includedWith })}
+        </h3>
+        <p className="mt-1.5 max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
+          {t("description", { courses: locked.length, lessons })}
+        </p>
+        <ul className="mt-5 divide-y divide-border border-y border-border">
+          {locked.map((course) => (
+            <li key={course.id}>
+              <Link
+                className="group flex items-center gap-3 py-3.5 text-body-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                params={{ course: course.slug }}
+                to="/courses/$course"
+              >
+                <Lock aria-hidden className="size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
+                <span className="min-w-0 flex-1 font-medium text-foreground">{course.title}</span>
+                <span className="text-spec whitespace-nowrap text-muted-foreground">{t("lessons", { count: course.paid })}</span>
+                <ArrowRight
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-0.5 group-hover:text-foreground"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
   )
 }
 
-export const CourseUnlocksPending = (): JSX.Element | undefined => {
+export const CourseUnlocksPending = (): JSX.Element | false => {
   const queryClient = useQueryClient()
 
   const catalogue = queryClient.getQueryData(catalogueQuery({ locale: getCurrentLocale() }).queryKey)
   const courses = catalogue?.courses.filter(({ paid }) => paid > 0).length ?? 0
 
-  if (courses === 0) {
-    return undefined
-  }
-
   return (
-    <div className="rounded-lg border border-border bg-card p-6 md:p-8">
-      <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-title" />
-      <div className="mt-1.5 flex w-full flex-col text-body-sm">
-        <Skeleton className="h-lh w-full max-w-[60ch] scale-y-70" />
-        <Skeleton className="h-lh w-2/3 scale-y-70 sm:hidden" />
+    courses > 0 && (
+      <div className="rounded-lg border border-border bg-card p-6 md:p-8">
+        <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-title" />
+        <div className="mt-1.5 flex w-full flex-col text-body-sm">
+          <Skeleton className="h-lh w-full max-w-[60ch] scale-y-70" />
+          <Skeleton className="h-lh w-2/3 scale-y-70 sm:hidden" />
+        </div>
+        <div className="mt-5 divide-y divide-border border-y border-border">
+          {Array.from({ length: courses }, (_, course) => (
+            <div className="flex items-center gap-3 py-3.5 text-body-sm" key={course}>
+              <Skeleton className="size-3.5 shrink-0" />
+              <Skeleton className="h-lh w-48 scale-y-70" />
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="mt-5 divide-y divide-border border-y border-border">
-        {Array.from({ length: courses }, (_, course) => (
-          <div className="flex items-center gap-3 py-3.5 text-body-sm" key={course}>
-            <Skeleton className="size-3.5 shrink-0" />
-            <Skeleton className="h-lh w-48 scale-y-70" />
-          </div>
-        ))}
-      </div>
-    </div>
+    )
   )
 }

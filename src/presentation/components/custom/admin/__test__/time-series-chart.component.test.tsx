@@ -1,16 +1,18 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { TIME_BUCKET, TIME_RANGE, bucketKey, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 
-import { TimeSeriesChart } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
+import { TimeSeriesBars, TimeSeriesChart } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 
 const NOW = new Date("2026-11-20T12:00:00.000Z")
 const SERIES = timeSeries(TIME_RANGE.LAST_7_DAYS, NOW)
 const CHART = { height: 200, width: 320 } as const
+
+beforeAll(() => TimeSeriesBars.preload?.())
 
 afterEach(() => vi.restoreAllMocks())
 

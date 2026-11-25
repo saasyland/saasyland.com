@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { PlayerPending } from "~/src/presentation/components/custom/courses/lesson-player"
+import { PlayerPending } from "~/src/presentation/components/custom/courses/player-pending"
 
 const CARDS = ["first", "second"] as const
 const CHAPTERS = ["first", "second", "third", "fourth"] as const

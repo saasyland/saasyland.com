@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vite-plus/test"
+import { beforeAll, describe, expect, it } from "vite-plus/test"
 
 import { TIME_RANGE, type TimeRange, bucketKey, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
@@ -8,9 +8,12 @@ import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { SignupsChart } from "~/src/presentation/components/custom/admin/dashboard/signups-chart"
+import { TimeSeriesBars } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 
 import dashboardMessages from "~/messages/en-US/dashboard.auth.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+
+beforeAll(() => TimeSeriesBars.preload?.())
 
 const labels = dashboardMessages.signups
 const ranges = pagesAdminDashboardMessages.chart.range

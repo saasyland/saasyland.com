@@ -260,7 +260,7 @@ Como todas las páginas cargan todos los esqueletos, un esqueleto importa `Skele
 | `/app`         | 430,4 KiB | 404,1 KiB |
 | `/admin`       | 452,9 KiB | 427,7 KiB |
 
-`/` y `/blog` ahorran menos porque sus layouts renderizan el formulario del boletín, que necesita TanStack Form de todos modos. `pending-imports.test.ts` sigue los imports de cada `*-pending.tsx` y falla cuando alguno llega a `@tanstack/react-form`, `@tanstack/react-table` o `recharts`. Los paneles del panel de administración emparejan cada esqueleto con su componente en una sola lista, y los esqueletos se dibujan a partir de esa lista, así que los gráficos y las tablas de los paneles se cargaban con cada página. Ahora cada entrada nombra su panel con `lazyRouteComponent` y toma su esqueleto de un archivo `-pending.tsx` propio, y el loader del panel de administración precarga los paneles junto con sus datos, así que los paneles se cargan en chunks propios y el panel de administración los sigue renderizando al instante. Los scripts que importa el script de entrada, con gzip, de la salida de `bun run build:test`:
+`/` y `/blog` ahorran menos porque sus layouts renderizan el formulario del boletín, que necesita TanStack Form de todos modos. `pending-imports.test.ts` sigue los imports de cada `*-pending.tsx` y falla cuando alguno llega a `@tanstack/react-form`, `@tanstack/react-table` o `recharts`. Los paneles del panel de administración emparejaban cada esqueleto con su componente en una sola lista, y los esqueletos se dibujaban a partir de esa lista, así que los gráficos y las tablas de los paneles se cargaban con cada página. Ahora su lista solo nombra el esqueleto y la consulta de cada panel, y los paneles se cargan con el panel de administración (consulta [Una sección con controles se carga con su página](#a-section-with-controls-loads-with-its-page)). Los scripts que importa el script de entrada, con gzip, de la salida de `bun run build:test`:
 
 | Medida                                      | Antes     | Después   |
 | ------------------------------------------- | --------- | --------- |
@@ -268,6 +268,31 @@ Como todas las páginas cargan todos los esqueletos, un esqueleto importa `Skele
 | Archivos                                    | 176       | 172       |
 
 Las secciones del resumen del cliente siguen emparejando cada esqueleto con su componente en la lista del área, así que esos componentes se cargan con los esqueletos.
+
+## Una sección con controles se carga con su página [#a-section-with-controls-loads-with-its-page]
+
+Antes de que React hidrate una página, el router carga los chunks de las rutas que coinciden: `hydrate` en `@tanstack/router-core` espera el componente y el componente de carga de cada ruta. Un componente que una página nombra con `lazy` de React o con `lazyRouteComponent` no está entre ellos, así que en una carga completa su chunk solo se pide cuando React llega a él durante la hidratación. Hasta que ese chunk llega, React deja el límite `Suspense` más cercano como el HTML del servidor y descarta cada pulsación sobre él; no la repite cuando el límite se hidrata. Los paneles del panel de administración se cargaban así, y el límite más cercano era el de la propia ruta, así que todo el panel de administración bajo el layout de la consola ignoraba los clics hasta que llegaban los chunks de los paneles. El reproductor de los cursos también se cargaba así, dentro de un límite propio, así que su botón de reproducir no hacía nada hasta que llegaba el chunk del reproductor.
+
+Por eso una parte con un botón, un enlace, un campo o una tabla la importa la página que la renderiza, y solo una parte que no recibe pulsaciones se carga de forma diferida, dentro de un límite `Suspense` propio. `source-layout.test.ts` sigue cada módulo que un archivo de `src/presentation` o `src/routes` carga con `lazy` o `lazyRouteComponent`, y falla cuando alguno llega a React Aria, al router, a TanStack Form, a TanStack Table o al reproductor de vídeo. Cuando un esqueleto dibuja sus partes a partir de una lista, esa lista solo contiene lo que necesitan el esqueleto y el loader: `DASHBOARD_PANELS` en `panels-pending.tsx` nombra la `key`, el esqueleto y el `prefetch` de cada panel, y `panels.tsx` asigna a cada clave su panel en un `Record` cuyo tipo dan esas claves, así que un panel sin entrada, o una entrada sin panel, no pasa la comprobación de tipos. El esqueleto de las páginas de los cursos toma el esqueleto del reproductor de `player-pending.tsx`. El componente del panel de administración importa `panels.tsx` y el de la lección importa el reproductor, así que sus controles llegan con el chunk de la propia página, antes de la hidratación, y los esqueletos siguen tan ligeros como antes.
+
+Solo el dibujo de los gráficos del panel de administración sigue cargándose de forma diferida. Con Recharts en el chunk del panel de administración, el navegador lo evaluaba antes de la hidratación, en la misma tarea larga que el código del panel, y una carga completa de `/admin` bloqueaba el hilo principal 98 ms más que con el dibujo en un chunk propio (Chromium con la CPU 6 veces más lenta, medianas de seis cargas alternadas). `TimeSeriesChart` renderiza ahora la tabla de sus valores con el panel y carga las barras, `TimeSeriesBars` en `time-series-bars.tsx`, con `lazyRouteComponent` dentro de un límite propio, y el loader del panel de administración las precarga con los datos. Los botones del periodo y las pestañas de moneda funcionan desde el primer momento; un dibujo que aún no ha llegado sigue a la pulsación en cuanto llega su chunk.
+
+La prueba "a press on a dashboard panel right after a full load hydrates the console takes effect, however late the scripts arrive" de `e2e/specs/admin-dashboard.spec.ts` ralentiza cada script, carga `/admin`, pulsa 12 meses en el panel de ingresos en cuanto la barra lateral de la consola se ha hidratado y comprueba que el panel cambia. Fallaba con los paneles diferidos y ahora pasa. Abajo están el script de entrada con sus imports estáticos, con gzip, de la salida de `bun run build:test`; el preset de escritorio de Lighthouse con la CPU 7 veces más lenta, medianas de cinco ejecuciones alternadas; y el tiempo que las tareas largas que Chromium registró en una carga completa con la CPU 6 veces más lenta bloquearon el hilo principal, medianas de doce cargas de `/admin` y siete de una lección. La simulación de Lighthouse da un Total Blocking Time más alto para `/admin`, mientras que las tareas largas que registra Chromium bloquean el hilo principal menos tiempo:
+
+| Medida                                                  | Secciones diferidas | Secciones con su página |
+| ------------------------------------------------------- | ------------------- | ----------------------- |
+| Script de entrada con sus imports estáticos             | 415,8 KiB           | 409,0 KiB               |
+| `/`: First Contentful Paint                             | 439 ms              | 435 ms                  |
+| `/`: Largest Contentful Paint                           | 857 ms              | 856 ms                  |
+| `/`: Total Blocking Time                                | 202 ms              | 197 ms                  |
+| `/admin`: First Contentful Paint                        | 520 ms              | 506 ms                  |
+| `/admin`: Largest Contentful Paint                      | 584 ms              | 601 ms                  |
+| `/admin`: Total Blocking Time                           | 383 ms              | 430 ms                  |
+| Una lección: First Contentful Paint                     | 417 ms              | 421 ms                  |
+| Una lección: Largest Contentful Paint                   | 531 ms              | 555 ms                  |
+| Una lección: Total Blocking Time                        | 188 ms              | 233 ms                  |
+| `/admin`: hilo principal bloqueado por tareas largas    | 512 ms              | 478 ms                  |
+| Una lección: hilo principal bloqueado por tareas largas | 257 ms              | 220 ms                  |
 
 ## Un solo build de Tailwind
 

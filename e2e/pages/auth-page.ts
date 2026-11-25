@@ -76,6 +76,10 @@ export class AuthPage extends BasePage {
     return this.page.getByRole("button", { name: /continue with github/iu })
   }
 
+  oauthGoogleButton(): Locator {
+    return this.page.getByRole("button", { name: /continue with google/iu })
+  }
+
   twoFactorSubmitButton(): Locator {
     return this.page.getByTestId("two-factor-form-submit-button")
   }

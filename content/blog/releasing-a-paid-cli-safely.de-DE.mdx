@@ -1,0 +1,693 @@
+---
+title: "Eine kostenpflichtige CLI sicher veröffentlichen, wenn KI-Agenten die Arbeit machen"
+description: "Wie du eine kostenpflichtige CLI sicher auf npm veröffentlichst: Staged Publishing mit 2FA-Freigabe, Trusted Publishing ohne Tokens, gepinnte Downloads, ein Gate auf jeder Plattform und Tags erst, wenn npm die Version ausliefert."
+excerpt: "Eine Version auf npm ist endgültig, und eine kostenpflichtige CLI lädt außerdem herunter, was sie generiert, und spricht mit einem Lizenzserver. Dieser Leitfaden beschreibt die Release-Pipeline, in der KI-Agenten alles bis zur Registry erledigen, während eine Person den einen Schritt freigibt, der sich nicht rückgängig machen lässt, mit den Vorfällen, die sie geprägt haben."
+author: piotr-borowiecki
+date: 2026-11-25
+updated: 2026-11-25
+image: /images/blog/releasing-a-paid-cli-safely.webp
+tags:
+  - ai-agents
+  - release
+  - tooling
+faq:
+  - question: Was ist Staged Publishing bei npm?
+    answer: >-
+      Ein Freigabeschritt zwischen der CI und der öffentlichen Registry. Die CI führt npm stage
+      publish aus, das keinen zweiten Faktor braucht, und die Version wartet in einem Staging-Bereich,
+      mit dem Dist-Tag, mit dem sie bereitgestellt wurde. Öffentlich wird sie erst, wenn ein
+      Maintainer sie freigibt, auf npmjs.com oder mit npm stage approve, und npm verlangt in beiden
+      Fällen die Zwei-Faktor-Authentifizierung. Eine abgelehnte Version wird entfernt, ohne
+      veröffentlicht zu werden.
+  - question: Sollte ich aus der CI mit Trusted Publishing oder mit einem npm-Token veröffentlichen?
+    answer: >-
+      Mit Trusted Publishing. Die CI tauscht ein kurzlebiges OIDC-Token von GitHub Actions oder
+      GitLab gegen eine Berechtigung zum Veröffentlichen, also gibt es kein langlebiges Token, das du
+      speichern und rotieren musst oder das abhandenkommen kann. Gib nur dem Job, der veröffentlicht,
+      die Berechtigung id-token write, beschränke den Trusted Publisher auf das Staging, wenn du
+      zusätzlich eine Freigabe willst, und stell das Paket so ein, dass es Zwei-Faktor-Authentifizierung
+      verlangt und keine Tokens zulässt.
+  - question: Bekommt mein Paket durch Trusted Publishing Provenance?
+    answer: >-
+      Nur aus einem öffentlichen Repository. npm erzeugt Provenance-Attestierungen beim Trusted
+      Publishing automatisch, wenn sowohl das Quell-Repository als auch das Paket öffentlich sind,
+      und bei privaten Repositories nicht. Ein Paket, das aus einem privaten Repository gebaut wird,
+      trägt trotzdem die Registry-Signatur von npm, die npm audit signatures prüft, aber keine
+      Provenance.
+  - question: Wann sollte ein Release-Workflow Git-Tags und GitHub Releases anlegen?
+    answer: >-
+      Nachdem die Registry die Version ausliefert, nicht schon, wenn die CI sie bereitstellt oder
+      veröffentlicht. Eine bereitgestellte Version kann abgelehnt, von einer neueren ersetzt oder
+      schlicht nie freigegeben werden, und dann beschreiben ein Tag und ein Release ein Paket, das
+      niemand installieren kann. Frag zuerst die Registry nach genau dieser Version, mach den Job
+      beliebig oft wiederholbar und führe ihn nach jeder Freigabe erneut aus.
+  - question: Wie stellt eine CLI sicher, dass sie genau die Dateien herunterlädt, mit denen sie veröffentlicht wurde?
+    answer: >-
+      Pinne im veröffentlichten Code einen Digest des Inhalts, nicht der komprimierten Datei, und
+      schreib den Pin, wenn die Version entsteht. Lade die Datei hoch, bevor sich das Paket
+      installieren lässt, lass den Server mit der Größe und dem Digest antworten, die er gespeichert
+      hat, und lehne jeden Download ab, dessen Größe oder Digest von der Antwort des Servers oder vom
+      Pin abweicht, bevor du irgendetwas daraus liest.
+  - question: Kann ein leeres Changeset ein Release blockieren?
+    answer: >-
+      Ja. Die Changesets-Action wählt überhaupt keine Arbeit aus, wenn jedes anstehende Changeset
+      leer ist, selbst wenn der Branch eine Version enthält, die npm noch nicht hat. Uns ist das
+      passiert, als ein leeres Changeset gemergt wurde, nachdem der Versions-Pull-Request gebaut
+      worden war, und der Versions-Pull-Request gemergt wurde, ohne neu gebaut zu werden. Merge einen
+      Versions-Pull-Request nur, wenn er aus dem aktuellen Head des Branches gebaut wurde.
+  - question: Was sollte ich tun, wenn eine veröffentlichte npm-Version kaputt ist?
+    answer: >-
+      Markiere sie als veraltet, mit einer Nachricht, die die korrigierte Version nennt, und liefere
+      die Korrektur als neuen Patch über die normale Pipeline aus. Zieh sie nicht zurück: npm lässt
+      einen Namen und eine Version nie wieder verwenden, und jedes Projekt, das die Version gepinnt
+      hat, bricht. Eine Version, die nur bereitgestellt ist, kannst du stattdessen ablehnen.
+  - question: Sollten KI-Agenten Pakete veröffentlichen dürfen?
+    answer: >-
+      Sie können alles bis zur Registry erledigen: Changesets, Versions-Pull-Requests, Änderungen an
+      Workflows unter Review, Release Notes, Verifikation und die Einträge nach einem Release. Der
+      Schritt, der sich nicht rückgängig machen lässt, sollte einen Faktor brauchen, den kein Agent
+      hat, etwa die Zwei-Faktor-Freigabe einer bereitgestellten Version durch einen Maintainer, und
+      nirgends sollte ein Token zum Veröffentlichen liegen, das ein Agent benutzen könnte.
+---
+
+<Callout title="Was dieser Artikel ist">
+
+Ein praktischer Leitfaden für das Release eines Kommandozeilenwerkzeugs auf npm, wenn das Werkzeug kostenpflichtig ist und KI-Coding-Agenten den Großteil der Release-Arbeit erledigen. Jede Schutzmaßnahme kommt mit dem Fehlschlag, der sie nötig gemacht hat, aus der Release-Historie der CLI von SaaSy Land. Er behandelt:
+
+1. Warum ein Release kein Merge ist und wohin der Schlüssel einer Person gehört.
+2. Versionierung, Changesets und Kanäle, auf die sich ein Kunde verlassen kann.
+3. Staged Publishing mit 2FA-Freigabe und Trusted Publishing ohne Tokens.
+4. Das Pinnen dessen, was die CLI herunterlädt, einmaliges Bauen und ein Gate auf jeder Plattform.
+5. Ein Release erst festhalten, wenn es existiert, und das leere Changeset, das eines blockiert hat.
+6. Rollback, was uns noch fehlt, und ein Release-Kit zum Übernehmen.
+
+</Callout>
+
+_Zuletzt geprüft am 25. November 2026. Was npm, GitHub Actions und Changesets tun, stammt aus deren eigener Dokumentation und deren Changelogs, gelesen an diesem Tag und ganz unten verlinkt, und das Verhalten der Changesets-Action stammt aus ihrem Quellcode in v2.1.2. Alles über die CLI von SaaSy Land stammt aus ihrem privaten Repository, ihren Workflow-Läufen und der npm-Registry, Stand 0.1.0-beta.5. Der Code der CLI bleibt privat, deshalb zitiert dieser Beitrag ihre Release-Workflows und ihre öffentlichen Release Notes, nicht ihren Quellcode; ihre Pull Requests werden als CLI #n geschrieben, und die übrigen verlinken auf das öffentliche Repository von saasyland.com. Dies ist der fünfte Beitrag einer Serie über das Bauen von Software mit KI-Coding-Agenten; [der erste](/blog/ai-coding-agent-guardrails) verlegt jede Regel, bei der das geht, in Prüfungen, und [der vorige](/blog/reviewing-ai-generated-code) behandelt, was das Review abfangen muss. In diesem geht es um den Schritt nach dem Merge._
+
+## Die kurze Antwort
+
+Behandle das Release als den einen Schritt, der kein Merge ist. Alles vor der Registry lässt sich automatisieren und wiederholen: die Versionierung aus Changesets, der Build, das einmalige Packen, der Lauf des gebauten Programms auf jeder Plattform, die du unterstützt, der Upload von allem, was die CLI herunterladen wird. Der Schritt, der sich nicht rückgängig machen lässt, das Erscheinen einer Version auf npm, bekommt einen zweiten Schlüssel, den kein Workflow hat. Stelle das Release aus der CI mit dem Trusted Publishing von npm bereit, das ein kurzlebiges OIDC-Token statt eines gespeicherten verwendet, und lass einen Maintainer die bereitgestellte Version mit Zwei-Faktor-Authentifizierung freigeben. Pinne alles, was die CLI zur Laufzeit abruft, über seinen Inhalt, und prüfe es gegen zwei Quellen. Lege Git-Tags und GitHub Releases erst an, wenn npm die Version ausliefert, denn eine bereitgestellte Version wird vielleicht nie veröffentlicht. Und achte auf die Momente, in denen ein Release-Werkzeug nach seinen eigenen Regeln entscheidet, dass es nichts zu tun gibt: Ein leeres Changeset hat einmal verhindert, dass eine unserer Betas überhaupt bereitgestellt wurde, während jeder Job grün war.
+
+## Warum ein Release kein Merge ist
+
+Einen Merge kann man mit einem weiteren Merge rückgängig machen. Ein Release nicht, und dafür gibt es drei Gründe.
+
+**Die Versionsnummer ist verbraucht.** Die Unpublish-Richtlinie von npm ist unmissverständlich: „Sobald `package@version` verwendet wurde, kannst du es nie wieder verwenden“ („Once `package@version` has been used, you can never use it again.“). Und weiter: „Das gilt selbst dann, wenn dieses Paket zurückgezogen wurde“ („This is true even if that package is unpublished.“). Das Zurückziehen selbst ist in den ersten 72 Stunden nur erlaubt, wenn kein anderes Paket in der Registry von deinem abhängt, und danach nur unter strengeren Bedingungen; für alles andere empfiehlt npm, die Version als veraltet zu markieren. Ein fehlerhaftes Release wird mit einer neuen Version nach vorn korrigiert, und das fehlerhafte bleibt für alle, die es gepinnt haben, in der Registry.
+
+**Kunden bauen ihre Skripte darauf.** Die öffentliche Schnittstelle einer CLI ist breiter als die Exporte einer Bibliothek: ihre Befehle, Flags und Standardwerte, ihre Exit-Codes, ihre maschinenlesbare Ausgabe, die Dateien, die sie schreibt, und die Laufzeitumgebungen, auf denen sie startet. Ein geänderter Standardwert oder ein neuer Exit-Code bricht einen CI-Job, den du nie zu sehen bekommst.
+
+**Eine kostenpflichtige CLI hat mehr als ein bewegliches Teil.** Unsere prüft die Lizenz bei saasyland.com, jedes Mal, wenn sie ein Projekt anlegt, und lädt die Vorlagen, aus denen sie generiert, als ein Bundle pro Release über die Lizenz-API der Website herunter. Ein Release ist ein Paket auf npm plus ein Vorlagen-Bundle im Speicher plus ein Vertrag mit einem Server. Die drei müssen ab der ersten Minute zusammenpassen, in der ein Kunde die Version installieren kann.
+
+KI-Agenten verschieben, wo das Risiko liegt. Bei den umkehrbaren Teilen sind sie schnell und gründlich: Changesets schreiben, einen Versions-Pull-Request aktuell halten, Workflows bearbeiten, Release Notes in <RepositoryFact name="languages" /> Sprachen schreiben, hinterher die Registry prüfen. Beim unumkehrbaren Teil sind sie genauso zuversichtlich wie bei allem anderen. Das Designprinzip dieses Beitrags ist deshalb einfach: Lass die Agenten alles bis zur Registry erledigen, sorge dafür, dass jeder Schritt davor gefahrlos zweimal laufen kann, und leg den Schlüssel einer Person auf den einen Schritt, der weder umkehrbar noch wiederholbar ist.
+
+Ein Wort zum Setup, damit du es auf deines übertragen kannst. Die CLI von SaaSy Land besteht aus drei npm-Paketen, `saasyland`, `create-saasyland` und `@saasyland/stack`, die aus einem privaten GitHub-Repository mit Changesets 3 und GitHub Actions veröffentlicht werden. Stand 25. November 2026 erscheinen Vorabversionen auf dem npm-Tag <RepositoryFact name="cliReleaseChannel" />, zuletzt 0.1.0-beta.5 vom 20. November, und Kunden führen <RepositoryFact name="cliPackageSpec" /> aus; `latest` enthält noch den Platzhalter `0.0.0`, der die Namen reserviert hat. Die Agenten sind Sitzungen von Claude Code, ein leitender Agent und die ausführenden Agenten, die er brieft, und sie verantworten die CLI von Anfang bis Ende. Als der Inhaber sie übergab, bat er um „Versionierung, Changelog und alles so professionell wie möglich“ („versioning, changelog and everything as professional as possible“), veröffentlicht „in Bündeln, die wirklich Sinn ergeben“ („in batches that make real sense“). Er gibt jede Veröffentlichung frei.
+
+## Die Pipeline im Überblick
+
+Jede Zeile ist ein Schritt des Releases, mit dem, was er schreiben darf, und dem, was ihn stoppt. Der Rest des Beitrags geht die Zeilen in der Reihenfolge durch, in der sie scheitern können.
+
+| Schritt                     | Was läuft                                                                                 | Was er schreiben darf                                 | Was ihn stoppt                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Pull Request                | CI unter Linux und eine Changeset-Prüfung                                                 | Nichts außerhalb des Pull Requests                    | Jede Prüfung oder ein veröffentlichtes Paket, das ohne Changeset geändert wurde                             |
+| Versions-Pull-Request       | `changeset version`, dann der Pin der Vorlagen                                            | Den eigenen Branch und Pull Request                   | Ein Reviewer, der einen falschen Versionssprung findet oder eine Notiz, die ein Kunde nicht verstehen würde |
+| Merge in `main` oder `beta` | Der Modus wird gewählt: version, publish oder none                                        | Nichts                                                | Nichts zu veröffentlichen                                                                                   |
+| Packen                      | Formatierung, Lint, Typen, Tests bei voller Coverage, Smoke-Tests, `changeset pack`       | Ein Artefakt mit den Tarballs                         | Jeder Fehlschlag                                                                                            |
+| Gebaute Bins                | Neun Jobs: Linux, macOS und Windows mit je drei Node-Versionen, und Bun                   | Nichts                                                | Jeder der neun                                                                                              |
+| Bereitstellen               | Das Vorlagen-Bundle wird geprüft und hochgeladen, dann `npm stage publish`                | Den Vorlagenspeicher und eine bereitgestellte Version | Ein Bundle, das nicht das gepinnte ist, oder ein abgelehnter Token-Austausch                                |
+| Freigabe                    | Ein Maintainer, mit Zwei-Faktor-Authentifizierung                                         | Die öffentliche Version und ihr Dist-Tag              | Alles, was an der bereitgestellten Version nicht stimmt                                                     |
+| Tags und Releases           | Zuerst wird npm gefragt, dann werden Git-Tags und GitHub Releases angelegt                | Tags und Releases                                     | Eine Version, die npm noch nicht ausliefert                                                                 |
+| Nach dem Release            | Eine Installation von npm in einem sauberen Verzeichnis und die Release Notes der Website | Die Website                                           | Eine fehlgeschlagene Prüfung der installierten Version                                                      |
+
+## Versionierung, auf die sich ein Kunde verlassen kann
+
+### Halte fest, was bei einer CLI ein Breaking Change ist
+
+Semantic Versioning hilft nur, wenn du aufgeschrieben hast, was deine öffentliche Schnittstelle ist. Unsere Release-Richtlinie listet auf, was bei der CLI als Breaking Change gilt:
+
+- ein Befehl, ein Flag oder ein Flag-Wert, der entfernt oder umbenannt wird, oder ein geänderter Standardwert;
+- ein anderer Exit-Code für dieselbe Situation;
+- ein Feld der Ausgabe von `--json`, das entfernt, umbenannt oder mit einem anderen Typ versehen wird, während ein neues Feld kein Breaking Change ist;
+- eine Änderung am Projektmanifest, die eine ältere CLI nicht lesen kann;
+- eine höhere Mindestversion von Node;
+- ein entfernter oder geänderter Export des gemeinsamen Pakets;
+- eine Änderung, die die eigenen Regeln der Lizenz-API als Breaking Change einstufen.
+
+Vor 1.0 bringt eine Minor-Version neue Features oder einen Breaking Change, und ein Patch bringt nur Korrekturen. Die Lizenz-API hält an ihrer eigenen Grenze dieselbe Disziplin. Innerhalb von `v1` darf die Website ein Antwortfeld, einen Endpunkt oder einen Fehlercode hinzufügen, und die CLI ignoriert Felder, die sie nicht kennt; alles andere braucht ein `v2`, das neben `v1` ausgeliefert wird, solange eine unterstützte CLI es aufruft. [Der erste Beitrag dieser Serie](/blog/ai-coding-agent-guardrails) erzählt, wie eine veröffentlichte CLI ein Feld schickte, das die Live-Website noch nicht akzeptierte, und warum eine Vertragsänderung jetzt zuerst auf dem Server ausgeliefert wird.
+
+### Ein Changeset ist eine Release Note für Kunden
+
+Jeder Pull Request, der ein veröffentlichtes Paket ändert, fügt ein Changeset hinzu, und die CI weist einen ab, der das nicht tut: `changeset status --since=origin/<base>` schlägt fehl, wenn ein Paket ohne Changeset geändert wurde. Wichtiger ist die Regel zum Inhalt. Ein Changeset ist die Release Note für den Kunden: ein oder zwei schlichte Sätze dazu, was sich für ihn ändert und was er tun muss, mit Befehlen und Flags so geschrieben, wie er sie tippt. „Bug im Flag-Parser behoben“ sagt einem Kunden nichts. Das ist die Notiz von 0.1.0-beta.5, wie die öffentlichen [Release Notes](/docs/cli/releases) sie ausgeben:
+
+> **Breaking Change:** `--billing lemonsqueezy` entfällt, weil Lemon Squeezy schließt: Seit dem 16. November 2026 nimmt es keine neuen Registrierungen mehr an, und am 31. März 2027 wird es eingestellt. `--billing polar` und `--billing stripe` bleiben, und `init --billing lemonsqueezy` beendet sich jetzt mit dem Code <RepositoryFact name="cliExitUsage" />, wie jeder andere Wert, den `--billing` nicht kennt.
+
+Wie die Regel formuliert ist, entscheidet darüber, was die Agenten liefern. Sagt man einem Agenten nur, er solle „ein Changeset hinzufügen“, schreibt er gern „Flag-Parser refaktoriert“. Sagt man ihm, dass das Changeset das ist, was ein Kunde im Changelog liest, schreibt er die Notiz oben. Eine Änderung, die Kunden nicht bemerken können, etwa ein Refactoring oder ein neuer Test, bekommt ein leeres Changeset. Diese Hintertür ist die Quelle des zweiten Vorfalls in diesem Beitrag.
+
+### Eine Version für Pakete, die zusammen ausgeliefert werden
+
+Die drei Pakete bilden eine Fixed Group von Changesets, in der „alle Pakete der Gruppe gemeinsam eine neue Version bekommen und veröffentlicht werden, selbst wenn es keine Änderungen gibt“ („all packages in the group will be version-bumped and published together even when there are no changes“). Deshalb erscheint `saasyland@0.1.0-beta.5` immer zusammen mit `@saasyland/stack@0.1.0-beta.5`, und ein Kunde, ein Bugreport und eine Antwort des Supports brauchen alle nur eine Nummer. Der Preis ist im Changelog sichtbar: Ein Paket, das selbst nichts zu sagen hat, bekommt trotzdem ein Release, und die Release Notes unserer Website geben dafür „Keine Änderungen in dieser Version.“ aus, statt eine Lücke zu lassen, die wie ein Versehen aussieht.
+
+### Releases bündeln und den Versions-Pull-Request zurückhalten
+
+Changesets hält einen Pull Request „Version Packages“ offen und baut ihn neu, sobald Changesets gemergt werden. Dieser Pull Request ist das Release-Gate: Ihn zu mergen ist die Entscheidung für das Release. Wir schneiden Releases als zusammenhängende Bündel, nie eines pro Pull Request. Auf `main` ist der Pull Request „Version Packages“ für 0.1.0 seit dem 14. November offen und enthielt am 25. November 24 Changesets; er wird gemergt, wenn das stabile Bündel vollständig und dokumentiert ist.
+
+Vorabversionen erscheinen von einem Branch `beta` im Pre-Release-Modus von Changesets. Dessen Dokumentation warnt: „Prereleases sind sehr kompliziert!“ („Prereleases are very complicated!“), und: „Fehler können zu Zuständen im Repository und bei der Veröffentlichung führen, die sehr schwer zu beheben sind“ („Mistakes can lead to repository and publish states that are very hard to fix.“). Beide Sätze haben sich bei uns bewahrheitet, wie du sehen wirst. Wenn du den Pre-Release-Modus verwendest, halte ihn auf einem eigenen Branch, halte die Historie dieses Branches linear, damit die Release-Tags in eine Historie zeigen, die du lesen kannst, und hol Änderungen aus `main` so herein, dass du sie reviewen kannst. Wir cherry-picken die Commits von `main` auf einen Branch, der von `beta` abzweigt, und führen ihn per Squash-Merge zusammen, sodass `beta` nie einen Merge-Commit bekommt.
+
+### Die README auf npm gehört zum Release
+
+Bis zum ersten stabilen Release ist `latest` der Platzhalter, also führt eine README, die `npx saasyland init` empfiehlt, den Platzhalter aus, in dem kein Befehl funktioniert. In 0.1.0-beta.1 taten die gepackten READMEs genau das, und `create`-Befehle ohne Tag lösten ebenfalls zu `latest` auf (CLI #20). Ein Smoke-Test liest jetzt die README in jedem gepackten Tarball und schlägt fehl, wenn ein Befehl eines der Pakete ohne das Dist-Tag nennt oder mit einem anderen. Das Dist-Tag, das die Tests erwarten, ist an einer einzigen Stelle deklariert, und es umzustellen ist ein Schritt des ersten stabilen Releases. Der [CLI-Leitfaden](/docs/cli) der Website gibt seine Befehle aus demselben Grund aus einer einzigen Konstante aus, <RepositoryFact name="cliPackageSpec" />.
+
+## Staged Publishing: Der Schlüssel einer Person liegt bei der Registry
+
+### Was Staging ist
+
+Das Staged Publishing von npm „fügt einen Freigabeschritt ein, bevor Pakete in der npm-Registry live gehen“ („adds an approval step before packages go live on the npm registry“). Die CI führt `npm stage publish` aus, das „keine 2FA erfordert“ („does not require 2FA“), und die Version wartet in einem Staging-Bereich, bis ein Maintainer sie freigibt: „Du wirst zur 2FA-Verifizierung aufgefordert, ob du das Paket in der CLI oder auf npmjs.com freigibst“ („You will be prompted for 2FA verification whether you approve the package in the CLI or on npmjs.com.“). Auch das Ablehnen einer bereitgestellten Version braucht den zweiten Faktor. Das Dist-Tag wird festgelegt, wenn die Version bereitgestellt wird: „Das Tag ist eine unveränderliche Eigenschaft des bereitgestellten Pakets“ („The tag is an immutable property of the staged package.“). Staging braucht npm 11.15.0 oder neuer; unser Staging-Job verwendet das npm, das mit Node 26.13.1 gebündelt ist, also npm 11.20.0, und gibt in seiner Zusammenfassung die npm-Version aus, mit der er bereitgestellt hat.
+
+npm bewegt alle in diese Richtung. Sein Changelog vom September 2026 sagt: „npm plant für Januar 2027, das direkte Veröffentlichen über Tokens, die 2FA umgehen, abzuschaffen“ („npm is targeting January 2027 to remove direct publishing through bypass-2FA tokens“), und bietet Tokens, die nur bereitstellen dürfen, als Migrationspfad für Automatisierungen an, die noch nicht auf Trusted Publishing umsteigen können. Unsere Staging-Läufe protokollieren den Hinweis von npm: „npm-Tokens, die 2FA umgehen, werden für Kontoänderungen und direktes Veröffentlichen eingeschränkt“ („npm tokens that bypass 2FA are being restricted for account changes and direct publishing.“).
+
+### Warum das Gate bei npm liegt und nicht in der CI
+
+GitHub kann einen Job über Umgebungen auf einen Reviewer warten lassen, und der Leitfaden von Changesets schlägt vor, „eine Umgebung mit erforderlichen Reviewern anzulegen, die den Lauf des Publish-Jobs freigeben“ („creating an environment with required reviewers to approve the publish job run“). Wir haben den Schlüssel stattdessen bei npm angebracht, aus zwei Gründen. Er schützt das Unumkehrbare selbst: Was auch immer ein Workflow tut und was auch immer ein Agent mergt, nichts ist öffentlich, bis ein Maintainer genau die bereitgestellte Version freigibt. Und er beruht auf dem zweiten Faktor des Maintainers bei npm, den kein Workflow, kein Agent und kein GitHub-Token haben kann. Eine Freigabe in der CI schützt einen Job, und sobald sie erteilt ist, kann dieser Job veröffentlichen, was immer er gebaut hat. Außerdem bietet GitHub erforderliche Reviewer bei privaten Repositories nur in seinen Enterprise-Tarifen an, sodass die Registry für viele Teams der einzige Ort ist, an dem ein solches Gate überhaupt verfügbar ist.
+
+### Changesets stellt noch nicht bereit, also stell aus seinem Plan bereit
+
+Der Leitfaden von Changesets ist deutlich: „Im Moment funktioniert Staged Publishing nicht mit Changesets, deshalb solltest du vorerst stattdessen Trusted Publishing verwenden“ („At the moment, Staged Publishing does not work with Changesets, so you should use Trusted Publishing instead for now.“). Die Ankündigung von v3 sagt, dass Staging mit „dem nächsten Feature-Update“ („the next feature update“) kommt. Bis dahin führt seine Publish-Action `npm publish` aus, und das lehnt npm bei einem Trusted Publisher ab, der nur bereitstellen darf. Unser Staging-Job tut deshalb, was die Action tun würde, mit einem einzigen geänderten Befehl. Er liest den Veröffentlichungsplan, den `changeset pack` neben die Tarballs schreibt, und stellt jedes Paket mit dem Zugriff und dem Dist-Tag bereit, die Changesets gewählt hat: `beta` im Pre-Release-Modus, sonst `latest`.
+
+**Die Staging-Schleife in `release.yml` des CLI-Repositorys, Stand 0.1.0-beta.5, ohne ihre Einrückung:**
+
+```bash
+while IFS=$'\t' read -r name version access tag tarball; do
+  versions=$(npm view "$name" versions --json)
+  if jq -e --arg version "$version" '[.] | flatten | any(. == $version)' <<< "$versions" > /dev/null; then
+    echo "| \`$name\` | $version | $tag | | None, already published |" >> "$GITHUB_STEP_SUMMARY"
+  elif staged=$(npm stage publish "$PACK_DIR/$tarball" --access "$access" --tag "$tag" --json); then
+    stage_id=$(jq -r --arg name "$name" '.[$name].stageId' <<< "$staged")
+    echo "| \`$name\` | $version | $tag | \`$stage_id\` | Approve it on npmjs.com, or run \`npm stage approve $stage_id\` |" >> "$GITHUB_STEP_SUMMARY"
+  elif [ "$(jq -r '.error.code' <<< "$staged")" = E409 ]; then
+    echo "| \`$name\` | $version | $tag | | Staged by an earlier run: approve it on npmjs.com, or find its id with \`npm stage list $name\` |" >> "$GITHUB_STEP_SUMMARY"
+  else
+    exit 1
+  fi
+done <<< "$releases"
+```
+
+Drei Zweige machen sie gefahrlos wiederholbar, und das zählt, weil ein Release-Job genau der ist, den du nach einem ausgefallenen Runner am ehesten erneut starten willst:
+
+- **Schon auf npm:** übersprungen. Ein Push auf `main` nach einem Release oder ein erneuter Lauf versucht nicht, zweimal zu veröffentlichen.
+- **Von einem früheren Lauf bereitgestellt:** npm antwortet mit einem 409, und der Job meldet das und macht weiter. Ein Token aus Trusted Publishing kann bereitstellen und veröffentlichen, aber npm sagt, dass „kurzlebige Tokens keine Unterbefehle von `npm stage` ausführen können“ („Shortlived tokens cannot run `npm stage` subcommands“), also kann der Job die bereitgestellten Versionen nicht auflisten, um die frühere ID zu finden; seine Zusammenfassung sagt der freigebenden Person, wo sie nachsehen muss.
+- **Alles andere:** Der Job bricht vor dem nächsten Paket ab.
+
+Die Zusammenfassung des Jobs ist die Arbeitsliste der freigebenden Person: eine Zeile pro Paket, mit seiner Version, seinem Dist-Tag, seiner Stage-ID und genau dem Befehl, der es freigibt. Die drei Pakete sind ein Release, also werden alle drei zusammen freigegeben.
+
+### Was die Registry festhält
+
+Für 0.1.0-beta.5 nennen die Metadaten von npm GitHub Actions als Veröffentlicher, über einen Trusted Publisher, und den Maintainer, der die Version freigegeben hat. Sie wurde am 20. November um 11:25 UTC bereitgestellt und um 11:44 öffentlich. Dieser Eintrag ist der Audit-Trail: welcher Workflow die Bytes erzeugt hat und welche Person sie herausgelassen hat.
+
+## Trusted Publishing: kein Token, das abhandenkommen kann
+
+### Kurzlebige Zugangsdaten, nur in einem Job
+
+Trusted Publishing lässt die CI veröffentlichen, und zwar „mit kurzlebigen, kryptografisch signierten Tokens“ („using short-lived, cryptographically-signed tokens“), die über das OIDC des CI-Anbieters bezogen werden statt über ein gespeichertes npm-Token. Es braucht npm 11.5.1 und Node 22.14.0 oder neuer, und auf GitHub gilt: „Die entscheidende Voraussetzung ist die Berechtigung id-token: write“ („The critical requirement is the id-token: write permission“). Auf der Seite von npm nennt ein Trusted Publisher die GitHub-Organisation oder den Nutzer, das Repository, die Workflow-Datei und optional eine Umgebung. Zwei weitere Einstellungen schließen die übrigen Türen:
+
+- **Der Trusted Publisher darf bereitstellen und sonst nichts.** Mit der CLI von npm ist das `npm trust github <package> --file release.yml --repo <owner>/<repo> --env release --allow-stage-publish`, ohne `--allow-publish`. Für einen Trusted Publisher, so die Dokumentation von npm, „ist `npm stage publish` immer erlaubt“ („`npm stage publish` is always allowed“), während direktes Veröffentlichen und Änderungen an Dist-Tags eigene Optionen sind, die ausgeschaltet bleiben, bis ein Maintainer sie einschaltet.
+- **Der Veröffentlichungszugriff verlangt Zwei-Faktor-Authentifizierung und lässt keine Tokens zu.** npm merkt an, dass das „nur die klassische Token-Authentifizierung betrifft“ („only affects traditional token authentication“), also funktioniert der Trusted Publisher weiter, während kein Token, wo auch immer es gespeichert ist, veröffentlichen kann.
+
+Ein Trusted Publisher wird in den Einstellungen eines Pakets auf npmjs.com konfiguriert, deshalb kostet ein neuer Paketname einen manuellen Schritt: Der Inhaber veröffentlicht einen Platzhalter `0.0.0` von Hand, mit Zwei-Faktor-Authentifizierung, und fügt dann den Trusted Publisher und die Zugriffseinstellung hinzu. Deshalb enthält `latest` heute `0.0.0`.
+
+Auf der Seite von GitHub beginnt der Workflow mit `permissions: {}`, und jeder Job fordert an, was er braucht. Der Leitfaden von Changesets sagt es unverblümt: „Stell sicher, dass `id-token: write` nur bei dem Job gesetzt ist, der veröffentlichen muss“ („make sure the `id-token: write` is only set on the job that needs to publish.“).
+
+| Job                          | Berechtigungen                                             | Warum                                                               |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| Release-Modus wählen         | `contents: read`                                           | Liest die anstehenden Changesets                                    |
+| Versions-Pull-Request öffnen | `contents`, `pull-requests` und `actions` mit Schreibrecht | Pusht den Release-Branch, öffnet den Pull Request, startet seine CI |
+| Bauen, prüfen und packen     | `contents: read`                                           | Baut, testet und packt                                              |
+| Gebaute Bins, neun Jobs      | `contents: read`                                           | Baut und startet die Bins                                           |
+| Auf npm bereitstellen        | `contents: read` und `id-token: write`, Umgebung `release` | Tauscht ein OIDC-Token mit npm und lädt das Vorlagen-Bundle hoch    |
+| Git-Tags und GitHub Releases | `contents: write`                                          | Legt Tags und Releases an                                           |
+
+**Der Kopf des Staging-Jobs in `release.yml` des CLI-Repositorys:**
+
+```yaml
+stage:
+  name: Stage on npm
+  needs: [pack, runtimes]
+  runs-on: ubuntu-latest
+  timeout-minutes: 10
+  environment: release
+  permissions:
+    contents: read
+    id-token: write
+```
+
+Die Umgebung `release` enthält die Zugangsdaten für den Vorlagenspeicher, und nur die Release-Branches dürfen in sie deployen. GitHub macht die Secrets einer Umgebung „nur für Workflow-Jobs verfügbar, die die Umgebung verwenden“ („only available to workflow jobs that use the environment“), also kann kein anderer Job und kein Workflow-Lauf von einem anderen Branch sie lesen.
+
+### Auch das Token im Checkout ist eine Berechtigung
+
+`actions/checkout` legt das Token des Jobs in der lokalen Git-Konfiguration ab, „um authentifizierte Git-Befehle auszuführen“ („to run authenticated git commands“), es sei denn, du setzt `persist-credentials: false`. Wir hatten das in jedem Job auf false gesetzt, und der erste Pull Request „Version Packages“ wurde nie geöffnet: Als Changesets den Release-Branch pushte, meldete Git „could not read Username for 'https://github.com'“ (CLI #4). Die Korrektur gab das Token diesem einen Job zurück, dem einzigen, der pusht. Das Prinzip der geringsten Rechte gilt für jeden Job einzeln; es ist keine Einstellung, die man durch eine ganze Datei kopiert.
+
+### Der Fehler, den npm nicht erklären konnte
+
+Die erste Beta erreichte npm zwölf Stunden, nachdem ihr Versions-Pull-Request gemergt worden war. Am 14. November um 06:18 UTC schlug der Staging-Job mit dieser Meldung fehl:
+
+```text
+npm error code ENEEDAUTH
+npm error need auth This command requires you to be logged in to https://registry.npmjs.org/
+```
+
+Die Meldung fordert dich auf, dich anzumelden. Der eigentliche Grund war, dass der Austausch des OIDC-Tokens fehlgeschlagen war, und npm schreibt diesen Grund auf der Log-Stufe verbose in ein Debug-Log auf dem Runner, das mit dem Job gelöscht wird. CLI #8 ließ den Staging-Job `~/.npm/_logs/` als Artefakt hochladen, sobald er fehlschlägt, und das Log des nächsten Fehlschlags nannte die Ursache: npm fand keinen Trusted Publisher, der zum Repository, zum Workflow und zur Umgebung des Laufs passte. Die Dokumentation von npm warnt genau davor: „npm prüft deine Konfiguration des Trusted Publishers nicht, wenn du sie speicherst“ („npm does not verify your trusted publisher configuration when you save it“), und „Bei allen Feldern wird zwischen Groß- und Kleinschreibung unterschieden, und sie müssen exakt stimmen“ („All fields are case-sensitive and must be exact.“). Sobald die Einstellungen auf npmjs.com zum Workflow passten, stellte ein erneuter Lauf des fehlgeschlagenen Jobs 0.1.0-beta.0 um 18:24 bereit, und der Inhaber gab die Version vier Minuten später frei.
+
+Die Lehre reicht über npm hinaus. Wenn eine Authentifizierungsschicht scheitert, beschreibt ihre Fehlermeldung meist den Fallback, den sie zuletzt versucht hat, nicht den Schritt, der zuerst scheiterte. Bewahre das Debug-Log des Werkzeugs aus jedem fehlgeschlagenen Release-Job auf, mit kurzer Aufbewahrungsdauer, und lies es, bevor du irgendetwas änderst.
+
+### Provenance braucht ein öffentliches Repository
+
+Bei einem öffentlichen Repository bekommst du mit Trusted Publishing die Provenance, den signierten Herkunftsnachweis eines Pakets, ohne Mehraufwand: npm „erzeugt und veröffentlicht automatisch Provenance-Attestierungen“ („automatically generates and publishes provenance attestations“), aber nur, wenn du „aus einem öffentlichen Repository veröffentlichst“ („Publishing from a public repository“) und „ein öffentliches Paket veröffentlichst“ („Publishing a public package“), und „die Erzeugung von Provenance wird für private Repositories nicht unterstützt“ („Provenance generation is not supported for private repositories“). Unsere CLI ist kommerziell und ihr Repository privat, also tragen ihre Pakete keine Provenance-Attestierung. Was sie tragen, ist die Registry-Signatur von npm, die jeder prüfen kann: In einem sauberen Verzeichnis mit installiertem `saasyland@0.1.0-beta.5` meldet `npm audit signatures` „1 package has a verified registry signature“. Wenn deine Quelle öffentlich ist, schalte Provenance ein und sag deinen Nutzern, wie sie sie prüfen. Wenn sie privat ist, sag das, statt „Trusted Publishing“ eine Garantie andeuten zu lassen, die du nicht hast.
+
+## Alles pinnen, was die CLI herunterlädt
+
+### Die Vorlagen gehören zum Release, aber nicht zum Paket
+
+`saasyland init` generiert ein Projekt aus Vorlagen, die es nicht mitbringt. Nach der Lizenzprüfung lädt es das Vorlagen-Bundle seines eigenen Releases über die Lizenz-API der Website herunter. Das hält kostenpflichtige Vorlagen aus einem öffentlichen npm-Tarball heraus und gibt jedem Release ein zweites Artefakt, von dem npm nichts weiß. Daraus folgen zwei Regeln: Das Bundle, das ein Kunde bekommt, muss genau das sein, mit dem das Release getestet wurde, und es muss existieren, bevor irgendjemand das Release installieren kann.
+
+### Der Digest gilt dem Inhalt, nicht der Kompression
+
+Das Bundle wird deterministisch gebaut: Schichten nach ID sortiert, Dateien nach Pfad, Schlüssel in fester Reihenfolge, und aus dem Dateisystem wird nichts übernommen außer dem Inhalt jeder Datei und ihrem Ausführungsbit. Sein Digest ist der SHA-256 des JSON im Archiv, nicht der gzip-Bytes, weil Node und Bun dasselbe JSON zu unterschiedlichen Bytes komprimieren. Als wir es gemessen haben, unterschieden sich die Digests der Archive, die des Inhalts nicht. Ein Digest der komprimierten Datei identifiziert einen Kompressor; er würde brechen, sobald eine Laufzeitumgebung zum ersten Mal ihr zlib aktualisiert, und einem Kunden würde gesagt, sein Download sei beschädigt.
+
+### Beim Versionieren pinnen, vor dem Upload prüfen, vor dem Staging hochladen
+
+Der Pin wird im Pull Request „Version Packages“ geschrieben. Das Versionsskript führt `changeset version` aus, baut dann das Bundle der neuen Version und trägt seinen Digest in eine Datei mit Pins in der CLI ein, sodass der Reviewer den Versionssprung und den Pin nebeneinander sieht und das Release den Digest in seinem eigenen Code mitbringt. Das Pinnen weigert sich, einen bereits gepinnten Digest zu ändern. Jede CLI trägt auch die Pins aller früheren Releases, weil `update`, sobald es kommt, das Release, aus dem ein Projekt entstanden ist, als Basis seines Merges neu generieren wird.
+
+Beim Release baut der Staging-Job das Bundle neu und schlägt fehl, wenn sein Digest nicht der gepinnte ist. Dann lädt er das Archiv mit dem Digest als Metadaten des Objekts in den Speicher hoch, den die Lizenz-API liest, und liest jedes Objekt zurück: seine Größe, seinen Content-Type, seine Metadaten und den Digest seines Inhalts. Erst dann stellt er irgendetwas auf npm bereit, denn eine veröffentlichte CLI darf nie nach einem Bundle fragen, das nicht da ist. Der Upload lehnt jedes Archiv ab, das nicht das gepinnte Bundle ist, sodass ein erneuter Lauf nie ändern kann, was ein Release ausliefert.
+
+### Zweimal prüfen, gegen zwei Quellen
+
+Die Website beantwortet einen Bundle-Request mit einer kurzlebigen signierten URL, die <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> lang gültig ist, und mit der Größe und dem Digest des Bundles, die sie aus dem Head des gespeicherten Objekts liest, ohne das Archiv zu öffnen:
+
+```ts title="src/modules/license/license.api.ts"
+const storedBundle = async (version: string): Promise<StoredBundle> => {
+  const key = bundleObjectKey(version)
+  const object = await env.BUNDLES.head(key)
+
+  if (object === null) {
+    return { error: { code: API_ERROR.VERSION_NOT_FOUND, version }, success: false }
+  }
+
+  const metadata = bundleMetadataSchema.safeParse(object.customMetadata)
+
+  if (!metadata.success) {
+    throw new Error(`${key} has no ${BUNDLE_METADATA.SHA256} digest in its custom metadata`, { cause: metadata.error })
+  }
+
+  return { bundle: { sha256: metadata.data[BUNDLE_METADATA.SHA256], size: object.size }, success: true }
+}
+```
+
+Ein Objekt ohne seinen Digest wird nicht ausgeliefert: Die API antwortet mit `serviceUnavailable`, und das Log nennt das Objekt. Die CLI lädt dann das Archiv herunter, liest nicht mehr als die angekündigte Größe und lehnt es ab, wenn Größe und Digest nicht zur Antwort der API passen oder der Digest nicht auch zum Pin passt, der in das Release kompiliert ist. Bei einer Abweichung beendet sich die CLI mit dem Code <RepositoryFact name="cliExitProtocol" /> und schreibt nichts; selbst ein einwandfreier Download wird in einem Zug in das Projektverzeichnis geschrieben, sodass ein abgebrochener Lauf nichts zurücklässt.
+
+Warum beide Prüfungen? Der Digest der API schützt den Download. Der Pin schützt das Release vor seinem eigenen Server: Was auch immer im Speicher unter dem Schlüssel einer Version liegt, eine veröffentlichte CLI führt nur die Vorlagen aus, mit denen ihr Release getestet wurde. Jede Quelle prüft die andere, und keiner wird allein vertraut. Die Dokumentation der Website beschreibt den Endpunkt und die Regeln für das Veröffentlichen von Bundles vollständig unter [CLI-Lizenz-API](/docs/features/cli-licence-api#publishing-bundles).
+
+### Die allgemeine Regel
+
+Alles, was deine CLI zur Laufzeit abruft, ob Vorlagen, Schemas, Binärdateien oder eine Liste von Plugins, gehört zum Release. Versioniere es mit dem Release, pinne es im veröffentlichten Code über seinen Inhalt, lade es hoch, bevor sich das Paket installieren lässt, und behalte jede Version, nach der ein unterstütztes Release noch fragen kann.
+
+## Einmal bauen, dann testen, was du auslieferst
+
+### Einmal packen, genau diese Bytes bereitstellen
+
+Der Pack-Job führt die Prüfungen für Formatierung, Lint und Typen, die Tests bei voller Coverage und die Smoke-Tests aus, und dann schreibt `changeset pack` die Tarballs und den Veröffentlichungsplan in ein Artefakt. Der Staging-Job lädt dieses Artefakt herunter; er baut nie. Die Bytes, die npm bereitstellt, sind die Bytes, die dieser Job erzeugt hat.
+
+### Ein Packer, der Workspace-Syntax durchsickern ließ
+
+0.1.0-beta.1 ging mit `catalog:`-Angaben in den `devDependencies` aller drei Pakete auf npm, sechs Einträge insgesamt, wie die Registry noch heute zeigt. Ein Bun-Workspace schreibt gemeinsame Versionen als `catalog:`. Changesets 3 packt nur mit npm, pnpm oder Yarn, und in einem Bun-Workspace fiel es auf `npm pack` zurück, das diese Angaben unaufgelöst in die gepackte `package.json` kopiert. Nichts schlug fehl, weil niemand die Dev-Dependencies einer CLI installiert. Dasselbe Leck in `dependencies` hätte jede Installation des Releases kaputt gemacht.
+
+Die Korrektur der Ursache (CLI #20) bringt einen mit `bun patch` erstellten Patch für Changesets mit, der mit `bun pm pack` packt; das schreibt die Version, zu der jede Angabe aufgelöst wird, und weigert sich, eine zu packen, die es nicht auflösen kann. Der Patch ist die Pack-Hälfte eines offenen Upstream-Pull-Requests, der Changesets um Bun erweitert, [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334), und er verschwindet, sobald ein Release diese Änderung enthält. Dauerhaft hält die Korrektur ein Test: Die Smoke-Tests packen jedes veröffentlichte Paket mit dem eigenen Befehl des Releases und schlagen bei jedem `catalog:` oder `workspace:` fehl, das in irgendeinem Abhängigkeitsfeld übrig ist. Teste den Tarball, nicht den Workspace. Die Workspace-Features deines Paketmanagers sind für einen Test, der aus dem Quellcode läuft, unsichtbar.
+
+### Bereitstellen erst, wenn jede Plattform besteht
+
+Kunden führen die CLI unter Node und Bun aus, auf Linux, macOS und Windows. Pull Requests starten das gebaute Programm nur unter Linux, um Minuten zu sparen; der Release-Lauf prüft jede Plattform, auf genau dem Commit, den er gleich bereitstellen wird. Neun Jobs bauen die Pakete und starten die Bins unter Node 22.12.0, 24 und 26 auf jedem System und unter Bun auf jedem Runner.
+
+**Die Matrix in `release.yml` des CLI-Repositorys:**
+
+```yaml
+runtimes:
+  name: Built bins on Node ${{ matrix.node }}, ${{ matrix.os }}
+  needs: select-mode
+  if: needs.select-mode.outputs.mode == 'publish' && vars.NPM_PUBLISH_ENABLED == 'true'
+  runs-on: ${{ matrix.os }}
+  timeout-minutes: 15
+  permissions:
+    contents: read
+  strategy:
+    fail-fast: false
+    matrix:
+      os: [ubuntu-latest, macos-latest, windows-latest]
+      node: ["22.12.0", "24", "26"]
+```
+
+Der Staging-Job hat `needs: [pack, runtimes]` ohne eigenes `if:`, also wird er übersprungen, sofern nicht der Pack-Job und alle neun Matrix-Jobs bestanden haben, und `fail-fast: false` lässt jeden fehlschlagenden Matrix-Job berichten statt nur den ersten.
+
+Ein Gate, das du nie hast scheitern sehen, ist eine Hoffnung, kein Gate. Bevor wir diesem vertrauten, führte CLI #41 den echten Release-Workflow auf einem temporären Branch aus, von einem Commit, der einem gemergten Pull Request „Version Packages“ entsprach, mit einem absichtlich zum Scheitern gebrachten Matrix-Job: Windows unter Node 26. Jeder andere Job bestand, und `Stage on npm` wurde übersprungen, sobald der letzte Matrix-Job fertig war. Die Probe hätte nicht veröffentlichen können, selbst wenn das Gate falsch gewesen wäre, denn die Umgebung, die der Staging-Job braucht, deployt nur von den Release-Branches; danach listete npm dieselben Versionen wie vorher, und weder ein Tag noch ein Release war aufgetaucht.
+
+Die Läufe unter macOS und Windows von jedem Merge in das Release selbst zu verlegen, senkte die abrechenbaren Minuten eines Merges in `main` um ein Drittel bis die Hälfte, nach der Messung in diesem Pull Request, zu Kosten, die einmal pro Release anfallen. Was das Gate nicht leistet, steht gegen Ende dieses Beitrags: Es führt `--version` und `--help` aus, keine vollständige Projektgenerierung, und es baut auf jedem Runner, statt den bereitgestellten Tarball zu installieren.
+
+## Ein Release erst festhalten, wenn es existiert
+
+### Die nie veröffentlichte 0.1.0-beta.3
+
+Unser erster Release-Workflow legte die Git-Tags und GitHub Releases direkt nach dem Staging an. CLI #1 hielt den Grund fest: „npm hat keinen Freigabe-Hook, auf den man reagieren könnte“ („npm has no approval hook to trigger on.“). Die Tags erschienen also, wenn eine Version bereitgestellt wurde, nicht wenn sie veröffentlicht wurde. Die Release-Historie zeigt, was das bedeutete, in UTC:
+
+| Version      | Versions-Pull-Request gemergt | GitHub Releases angelegt | Von npm ausgeliefert |
+| ------------ | ----------------------------- | ------------------------ | -------------------- |
+| 0.1.0-beta.0 | 14. November, 06:17           | 14. November, 18:24      | 14. November, 18:28  |
+| 0.1.0-beta.1 | 14. November, 18:38           | 14. November, 18:40      | 14. November, 23:08  |
+| 0.1.0-beta.2 | 15. November, 22:52           | 15. November, 22:55      | 15. November, 23:32  |
+| 0.1.0-beta.3 | 17. November, 14:23           | 17. November, 14:26      | Nie                  |
+| 0.1.0-beta.4 | 20. November, 09:49           | 20. November, 09:51      | 20. November, 10:11  |
+| 0.1.0-beta.5 | 20. November, 11:18           | 20. November, 11:45      | 20. November, 11:44  |
+
+0.1.0-beta.3 wurde am 17. November bereitgestellt und wartete drei Tage später noch auf die Freigabe, als die nächste Beta, mit all ihren Änderungen und einer weiteren, erstellt und bereitgestellt wurde. Der Inhaber gab 0.1.0-beta.4 frei. 0.1.0-beta.3 erreichte npm nie, und `npm view saasyland versions` listet 0.1.0-beta.2 und dann 0.1.0-beta.4. Das Repository hatte dafür aber drei Tags und drei GitHub Releases, die Pakete beschrieben, die niemand installieren konnte. Selbst bei den veröffentlichten Betas kamen die Releases zuerst, um vier Minuten bis viereinhalb Stunden. Der Workflow lag bei allem richtig außer bei dem einen, was er nicht wissen konnte: ob und wann eine Person freigeben würde.
+
+### Erst npm fragen, dann taggen
+
+CLI #53 verlegte Tags und Releases in einen Job, der zuerst die Registry fragt. Für jedes veröffentlichte Paket prüft er drei Dinge: dass das `CHANGELOG.md` des Pakets einen Abschnitt für die ausgecheckte Version hat, den nur ein Pull Request „Version Packages“ schreibt; dass npm genau diese Version ausliefert, geprüft mit einem öffentlichen `npm view`, das kein Token braucht; und ob das Tag schon existiert. Nur wenn jedes Paket die ersten beiden Prüfungen besteht und ein Tag fehlt, führt er `changeset git-tag` über die Changesets-Action aus, die die Tags pusht und aus jedem Changelog-Eintrag ein Release anlegt. Sonst schreibt er nichts, und seine Zusammenfassung sagt, warum.
+
+**Die Registry-Prüfung in `.github/actions/release-records/action.yml` des CLI-Repositorys, ohne ihre Einrückung:**
+
+```bash
+if [ "$(npm view "$name@$version" version 2> /dev/null)" != "$version" ]; then
+  served=no
+  unserved=$((unserved + 1))
+fi
+if ! git rev-parse -q --verify "refs/tags/$name@$version" > /dev/null; then
+  tagged=no
+  untagged=$((untagged + 1))
+fi
+```
+
+Der Job läuft auf drei Arten: direkt nach dem Staging, wo er die Version meist noch wartend vorfindet; von Hand, was der leitende Agent tut, sobald der Inhaber freigegeben hat; und einmal täglich als Rückfallebene. Seine Läufe auf einem Branch teilen sich eine Concurrency-Gruppe und reihen sich in eine Warteschlange ein, statt sich zu überlappen, sodass nie zwei Läufe gleichzeitig taggen, und er holt zuerst alle Tags, sodass er nur anlegt, was fehlt, und beliebig oft laufen kann.
+
+0.1.0-beta.5 war das erste Release, das durch ihn lief. Der Job für Tags und Releases im Release-Lauf startete um 11:25 UTC und fand die Version noch nicht ausgeliefert. npm lieferte sie um 11:44:37 aus; der leitende Agent startete den Workflow für Tags und Releases um 11:45:27, und die drei Releases erschienen um 11:45:51.
+
+### Ein Zeitplan ist ein Sicherheitsnetz, kein Schritt
+
+Die tägliche Rückfallebene hat uns zwei Dinge über das Ereignis `schedule` von GitHub gelehrt. Erstens: „Geplante Workflows laufen auf dem neuesten Commit des Standardbranches“ („Scheduled workflows run on the latest commit on the default branch“), und die Tags einer Beta müssen auf einen Commit auf `beta` zeigen. Der geplante Job taggt also selbst nichts: Er liest die Branches aus dem eigenen Trigger des Release-Workflows und startet den Workflow für Tags und Releases auf jedem davon mit `workflow_dispatch`, sodass jeder Lauf seinen eigenen Branch taggt. Zweitens ist der Zeitplan nur ungefähr. GitHub sagt, das Ereignis „kann sich in Zeiten hoher Last verzögern“ („can be delayed during periods of high loads“) und „einige Jobs in der Warteschlange können verworfen werden“ („some queued jobs may be dropped“). Unserer ist auf 05:41 UTC gestellt; vom 21. bis 24. November startete er etwa acht bis elf Stunden zu spät. Ein geplanter Job kann auffangen, was eine Person vergessen hat. Er sollte nie der Schritt sein, auf den ein Release wartet.
+
+### Kennzeichne, was nie ausgeliefert wurde
+
+Die Tags und Releases von 0.1.0-beta.3 bleiben, wo sie sind: Sie zu löschen würde den Nachweis dessen tilgen, was gebaut und bereitgestellt wurde. Stattdessen steht jetzt im Changelog jedes Pakets unter der Überschrift 0.1.0-beta.3: „Nicht auf npm veröffentlicht: 0.1.0-beta.4 hat diese Version ersetzt, bevor sie freigegeben wurde, und jede Änderung unten ist mit 0.1.0-beta.4 erschienen“ („Not published to npm: this version was superseded by 0.1.0-beta.4 before it was approved, and every change below shipped in 0.1.0-beta.4.“). Die drei GitHub Releases tragen im Titel den Zusatz „(not published)“, also „nicht veröffentlicht“, und die [Release Notes](/docs/cli/releases) der Website sagen dasselbe. Die Richtlinie hat außerdem eine Regel dazubekommen: Gib ein bereitgestelltes Release frei oder lehne es ab, bevor der nächste Pull Request „Version Packages“ gemergt wird.
+
+## Das leere Changeset, das ein Release blockierte
+
+[Der erste Beitrag dieser Serie](/blog/ai-coding-agent-guardrails) erzählt diese Geschichte kurz, als Beispiel für einen Agenten, der eine Prüfung nach ihrem Buchstaben erfüllt. Hier ist der vollständige Ablauf, weil er eine Klasse von Fehlschlägen zeigt, die man leicht übersieht: ein Release-Werkzeug, das nach seinen eigenen Regeln korrekt entscheidet, dass es nichts zu tun gibt.
+
+### Drei Merges in 81 Sekunden
+
+Alles geschah am 20. November auf `beta`, in UTC:
+
+1. **11:17:12.** Ein Pull Request brachte zwei Commits aus `main` herüber (CLI #55). Sein Release-Lauf öffnete den Pull Request „Version Packages“ CLI #56 für 0.1.0-beta.5.
+2. **11:18:06.** CLI #54 wurde gemergt. Er fügte den drei Changelogs den Hinweis „Nicht auf npm veröffentlicht“ hinzu. Eine Änderung am Changelog zählt als Änderung am Paket, also verlangte die Changeset-Prüfung ein Changeset, und der Pull Request fügte ein leeres hinzu, genau wie es die Release-Richtlinie für eine Änderung vorschrieb, die Kunden nicht bemerken können.
+3. **11:18:33.** Der Versions-Pull-Request CLI #56 wurde gemergt, 27 Sekunden später. Er war gebaut worden, bevor CLI #54 gemergt wurde, und hatte das leere Changeset deshalb nicht verbraucht.
+4. **11:19.** Der Release-Lauf auf diesem Merge-Commit wählte seinen Modus und übersprang jeden anderen Job. 0.1.0-beta.5 war auf `beta` versioniert und nicht bereitgestellt, und jeder Job war grün.
+
+Unterdessen öffnete der Release-Lauf des Merge-Commits von CLI #54, der hinter den anderen in der Warteschlange stand, einen zweiten Pull Request „Version Packages“ von einem Commit, der bereits Geschichte war; er wurde ungemergt geschlossen.
+
+### Warum der Modus „none“ war
+
+`changesets/action/select-mode` gibt einen von drei Modi zurück: version, publish oder none. Das ist die Entscheidung in seinem Quellcode in v2.1.2, in der Formatierung dieser Website:
+
+```ts
+if (changesets.length > 0) {
+  const hasNonEmptyChangesets = changesets.some((changeset) => changeset.releases.length > 0)
+  if (hasNonEmptyChangesets) {
+    return { mode: "version" }
+  }
+  return { mode: "none" }
+}
+```
+
+Wenn irgendein Changeset ansteht und alle leer sind, ist der Modus `none`, und der Veröffentlichungsplan, der festgestellt hätte, dass 0.1.0-beta.5 auf npm fehlte, wird nie berechnet. Für sich genommen ist das vernünftig: Ein leeres Changeset bedeutet „nichts veröffentlichen“. Zusammen mit einem Versions-Pull-Request, der gemergt wurde, bevor er neu gebaut war, bedeutete es ein Release, das erstellt und nie ausgeliefert wurde.
+
+### Die Korrektur und die Regeln
+
+CLI #58 entfernte das leere Changeset fünf Minuten später. Der nächste Lauf wählte `publish` und stellte 0.1.0-beta.5 um 11:25 bereit, und der Inhaber gab die Version um 11:44 frei. Unsere Richtlinie sagt jetzt, dass leere Changesets nur auf `main` gehören und dass eine Änderung direkt auf `beta`, die Kunden nicht bemerken können, etwa eine Korrektur am Changelog, kein Changeset bekommt, wobei ihre fehlschlagende Changeset-Prüfung der eine erlaubte Fehlschlag ist.
+
+Zwei Regeln lassen sich auf jedes Team übertragen:
+
+- **Merge einen Versions-Pull-Request nur, wenn er aus dem aktuellen Head des Branches gebaut wurde.** Wenn nach seinem letzten Update etwas gemergt wurde, warte, bis der Release-Workflow ihn neu gebaut hat.
+- **Behandle „nichts zu tun“ als Ergebnis, das geprüft werden muss.** Ein Release-Lauf, der keine Arbeit auswählt, während die Version auf dem Branch in der Registry fehlt, ist gescheitert, auch wenn jeder Job grün ist.
+
+Die erste Regel haben wir schriftlich, die zweite noch nicht als Prüfung. Und unsere schriftliche Regel zu leeren Changesets deckt den Branch ab, auf dem es passiert ist, während der Mechanismus nicht vom Pre-Release-Modus abhängt: Dieselbe Race Condition auf `main` würde dasselbe leere Changeset anstehen lassen.
+
+## CI für den Pull Request, aus dem du veröffentlichst
+
+### GitHub startet keine Workflows für Pushes seines eigenen Tokens
+
+Der Versions-Job pusht den Branch für „Version Packages“ mit dem `GITHUB_TOKEN` des Workflows, und die Dokumentation von GitHub sagt, dass „Ereignisse, die durch das `GITHUB_TOKEN` ausgelöst werden, keinen neuen Workflow-Lauf erzeugen“ („events triggered by the `GITHUB_TOKEN` will not create a new workflow run“), mit einer Ausnahme, auf die es hier ankommt: „`workflow_dispatch`- und `repository_dispatch`-Ereignisse erzeugen immer Workflow-Läufe“ („`workflow_dispatch` and `repository_dispatch` events always create workflow runs.“). Der Pull Request, den wir gleich veröffentlichen wollten, zeigte also überhaupt keine Checks; um auf einem davon einen Lauf zu bekommen, schloss ein Agent ihn von Hand und öffnete ihn wieder (CLI #9). Die Korrektur behält das Standard-Token und startet die CI selbst.
+
+**Der Schritt im Versions-Job des CLI-Repositorys:**
+
+```yaml
+- name: Run CI on the version pull request
+  if: steps.version.outputs.pr-number != ''
+  env:
+    GH_TOKEN: ${{ github.token }}
+    PR_NUMBER: ${{ steps.version.outputs.pr-number }}
+  run: gh workflow run ci.yml --ref "$(gh pr view "$PR_NUMBER" --json headRefName --jq .headRefName)"
+```
+
+Der Job bekommt `actions: write` für diesen einen Aufruf, und die Check-Läufe hängen am Head-Commit des Branches, also erscheinen sie im Pull Request. Ein Token einer GitHub App würde die CI ebenfalls auslösen, aber dafür braucht es eine App und ein weiteres Secret; diese Lösung braucht keins von beiden.
+
+### Release-Läufe einreihen, nie ersetzen
+
+Concurrency-Gruppen von GitHub Actions hielten früher nur einen wartenden Lauf: „Wenn ein anderer Lauf in die Gruppe kam, wurde der wartende Lauf abgebrochen und ersetzt“ („If another run entered the group, the pending run was canceled and replaced.“). Für einen Release-Workflow ist das falsch, denn bei drei schnellen Pushes auf `beta` fiele der mittlere weg. Seit Mai 2026 lässt `queue: max` eine Gruppe „mehrere wartende Läufe einreihen und nacheinander abarbeiten“ („queue multiple pending runs and process them sequentially“), bis zu 100, wenn `cancel-in-progress` false ist.
+
+**Der Anfang von `release.yml` des CLI-Repositorys:**
+
+```yaml
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+```
+
+Jeder Push bekommt jetzt seinen eigenen vollständigen Lauf, der Reihe nach. Der Ablauf mit dem leeren Changeset zeigt die andere Seite dieser Garantie: Ein eingereihter Lauf entscheidet anhand seines eigenen Commits, selbst wenn dieser Commit bereits Geschichte ist, wenn der Lauf drankommt. Das Einreihen bewahrt jeden Lauf; es macht die Entscheidung eines alten Laufs nicht aktuell.
+
+## Wer welchen Schlüssel hält
+
+Die Agenten führen das Release durch; der Inhaber hält, was sich nicht rückgängig machen lässt.
+
+| Aufgabe                                              | Agenten                                                                                    | Inhaber                                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Changesets und der Versions-Pull-Request             | Schreiben sie, prüfen die Notizen und mergen, wenn das Bündel vollständig ist              | Nichts                                                                                             |
+| Release-Workflows                                    | Schreiben die Änderung und belegen sie, zum Beispiel mit einem Probelauf                   | Stimmt jeder Änderung an den Dateien, die entscheiden, was npm erreicht, mit einem zitierten Ja zu |
+| Bauen, testen, packen und bereitstellen              | Nichts: Die CI erledigt das auf dem Merge-Commit                                           | Nichts                                                                                             |
+| Eine bereitgestellte Version freigeben oder ablehnen | Übergeben die genauen Stage-IDs                                                            | Gibt frei oder lehnt ab, mit Zwei-Faktor-Authentifizierung                                         |
+| Tags und GitHub Releases                             | Starten den Workflow für Tags und Releases direkt nach der Freigabe                        | Nichts                                                                                             |
+| Ein neuer Paketname                                  | Bereiten ihn auf `main` vor und schreiben die genauen Schritte auf                         | Veröffentlicht den Platzhalter und richtet seinen Trusted Publisher ein                            |
+| Eine fehlerhafte Version                             | Schreiben die Deprecation-Nachricht und die Korrektur                                      | Führt `npm deprecate` mit Zwei-Faktor-Authentifizierung aus                                        |
+| Release Notes und Verifikation                       | Installieren von npm in einem sauberen Verzeichnis, schreiben die Notizen in jeder Sprache | Prüft sie                                                                                          |
+
+Der Release-Workflow, die Changesets-Konfiguration und die Paketfelder, die entscheiden, was npm erreicht, stehen auf der Liste für menschliches Review des CLI-Repositorys, deshalb zitiert der Pull Request, der geändert hat, wie Releases festgehalten werden, das Ja des Inhabers: „Ja zur Korrektur des Release-Workflows“ („yes to the release workflow fix“). Dieselbe Anweisungsdatei verbietet Agenten, jemals zu veröffentlichen oder `npm trust` auszuführen. Und kein Agent hat Zugangsdaten für npm, weil es keine gibt: Jedes Paket lässt Veröffentlichungen mit Tokens nicht zu, und die einzige automatisierte Identität, die bereitstellen kann, ist der Release-Workflow selbst.
+
+Die Verifikation endet nicht mit dem Release. Die Journey-Suite der Website läuft nach dem Zeitplan <RepositoryFact name="journeySchedule" /> in UTC: Sie kauft jede Stufe in der Sandbox von Polar auf dem Preview-Deployment und steuert dann die veröffentlichte CLI, direkt von npm, durch die Aktivierung, die Gerätelimits, die Deaktivierung und die Erstattung, die die Lizenz beendet:
+
+```ts title="e2e/journey/cli.ts"
+const child = spawn("env", ["-i", ...variables, PACKAGE_MANAGER.NPM.exec, "--yes", CLI_PACKAGE_SPEC, ...inputs, "--json"], { cwd: home })
+```
+
+Das Prinzip ist das, mit dem dieser Beitrag begonnen hat. Agenten dürfen alles tun, was umkehrbar ist oder was ein späterer Schritt abfängt. Die Schritte, auf die keins von beidem zutrifft, hält eine Person, über einen Faktor, den die Agenten nicht haben können.
+
+## Wenn ein Release fehlerhaft ist
+
+Eine Version auf npm ist endgültig, also heißt Rollback, nach vorn zu gehen.
+
+- **Als veraltet markieren, dann einen Patch ausliefern.** `npm deprecate` mit einer Nachricht, die die Korrektur nennt, zum Beispiel „Defekt bei init unter Windows. Verwende 1.4.1 oder neuer.“, ausgeführt vom Inhaber mit Zwei-Faktor-Authentifizierung. Die Korrektur läuft durch dieselbe Pipeline wie jedes Release. Ein Sicherheitsfix oder eine Korrektur gegen Datenverlust wird sofort veröffentlicht, ohne auf ihr Bündel zu warten.
+- **Nie zurückziehen.** Ein Unpublish bricht jedes Projekt und jedes Skript, das die Version gepinnt hat, und die Versionsnummer kann nie wieder verwendet werden.
+- **Ablehnen, was nur bereitgestellt ist.** `npm stage reject <stage id>` entfernt eine bereitgestellte Version, ohne sie zu veröffentlichen, ebenfalls mit Zwei-Faktor-Authentifizierung.
+- **An die abgelehnte Version denken.** Eine abgelehnte Version ist immer noch die Version im Repository und fehlt immer noch auf npm, also stellt der nächste Push ohne anstehendes Changeset sie erneut bereit. Bring zuerst die Korrektur mit ihrem Changeset ein, vor allem anderen.
+
+## Was uns noch fehlt
+
+Im Geist des Rests der Serie: Hier ist unser eigener Release-Prozess schwach.
+
+- **Keine Provenance.** Das Repository ist privat, also tragen die Pakete die Registry-Signatur von npm und keine Provenance-Attestierung.
+- **Noch kein stabiler Kanal.** `latest` ist noch der Platzhalter, und jeder Befehl, den wir veröffentlichen, nennt das Tag <RepositoryFact name="cliReleaseChannel" />. Das erste stabile Release muss die READMEs, die Tests, die sie prüfen, und die Befehle der Website gemeinsam umstellen.
+- **Ein oberflächliches plattformübergreifendes Gate.** Unter macOS und Windows prüft das Release `--version` und `--help` mit jeder Laufzeitumgebung, kein vollständiges `init`, und es baut auf jedem Runner, statt den Tarball zu installieren, der bereitgestellt wird.
+- **Die Freigabe stützt sich auf die Zusammenfassung.** `npm stage download` holt einen bereitgestellten Tarball „zur lokalen Prüfung“ („for local inspection“) ohne zweiten Faktor, sodass die freigebende Person genau diese Bytes vor der Freigabe installieren und ausführen könnte. Das tun wir noch nicht.
+- **Kein Alarm für „nichts zu tun“.** Ein Release-Lauf, der keine Arbeit auswählt, während die Version des Branches auf npm fehlt, lässt nichts fehlschlagen.
+- **Ein spätes Sicherheitsnetz.** Der geplante Lauf für Tags und Releases startet Stunden nach seiner Zeit, also startet der leitende Agent ihn nach jeder Freigabe von Hand.
+- **Eine einzige freigebende Person.** 0.1.0-beta.3 wartete drei Tage auf die Freigabe und wurde ersetzt. Ein Release, das vom zweiten Faktor einer einzigen Person abhängt, bewegt sich in deren Tempo.
+- **Kein Lauf gegen die Live-API vor einem Release.** [Der erste Beitrag](/blog/ai-coding-agent-guardrails) beschreibt die Leitplanke, die wir wollen: die veröffentlichte CLI in der CI vor jedem Release gegen die Produktion laufen lassen. Dafür braucht es einen Lizenzschlüssel als CI-Secret, eine Änderung mit menschlichem Review, die auf den Inhaber wartet.
+
+## Ein Release-Kit zum Übernehmen
+
+**Eine Release-Checkliste**, der Reihe nach:
+
+1. Das Bündel ist gemergt, und der letzte CI-Lauf auf dem Release-Branch ist grün.
+2. Jedes Changeset liest sich wie eine Notiz an einen Kunden, und der Versionssprung stimmt.
+3. Der Versions-Pull-Request wurde nach dem letzten Merge neu gebaut, und seine Checks sind grün.
+4. Die Dokumentation, die das Release braucht, ist live, und jede Änderung an einem Vertrag, den der Server liest, ist auf dem Server deployt.
+5. Kein bereitgestelltes Release wartet noch auf seine Freigabe.
+6. Merge den Versions-Pull-Request.
+7. Pack einmal; starte das gebaute Programm auf jedem System und mit jeder Laufzeitumgebung, die du unterstützt; stell nur bereit, wenn alles bestanden hat.
+8. Lade alles hoch, was die CLI herunterladen wird, lies es zurück und prüfe es gegen den Pin, bevor du bereitstellst.
+9. Gib jedes Paket des Releases mit Zwei-Faktor-Authentifizierung frei, oder lehne es ab.
+10. Lege Tags und Releases an, sobald die Registry jedes Paket des Releases ausliefert.
+11. Installiere aus der Registry in einem sauberen Verzeichnis und führe die CLI aus.
+12. Veröffentliche die Release Notes und kennzeichne alles, was bereitgestellt und nie veröffentlicht wurde.
+
+**Ein Staging-Job** für ein Repository ohne Changesets, mit den tokenfreien und idempotenten Teilen unseres Jobs. Er setzt einen Job `pack` voraus, der die Tarballs als Artefakt mit dem Namen `tarballs` hochlädt, eine Umgebung mit dem Namen `release` und einen Trusted Publisher auf npmjs.com, der diese Workflow-Datei, diese Umgebung und die Berechtigung nennt, nur bereitzustellen:
+
+```yaml
+stage:
+  needs: pack
+  runs-on: ubuntu-latest
+  environment: release
+  permissions:
+    contents: read
+    id-token: write
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 26
+    - uses: actions/download-artifact@v8
+      with:
+        name: tarballs
+    - name: Stage every tarball npm does not serve yet
+      shell: bash
+      run: |
+        for tarball in *.tgz; do
+          manifest=$(tar -xOzf "$tarball" package/package.json)
+          name=$(jq -r .name <<< "$manifest")
+          version=$(jq -r .version <<< "$manifest")
+          if [ "$(npm view "$name@$version" version 2> /dev/null)" = "$version" ]; then
+            echo "$name@$version is already on npm" >> "$GITHUB_STEP_SUMMARY"
+          elif staged=$(npm stage publish "$tarball" --access public --tag latest --json); then
+            echo "$name@$version staged as $(jq -r --arg name "$name" '.[$name].stageId' <<< "$staged")" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$(jq -r '.error.code' <<< "$staged")" = E409 ]; then
+            echo "$name@$version was staged by an earlier run" >> "$GITHUB_STEP_SUMMARY"
+          else
+            exit 1
+          fi
+        done
+    - name: Keep npm's logs when staging fails
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: npm-logs
+        path: ~/.npm/_logs/
+        retention-days: 7
+```
+
+**Ein Trusted Publisher, der nur bereitstellen darf**, einmal pro Paket eingerichtet von einem Maintainer mit Zwei-Faktor-Authentifizierung:
+
+```sh
+npm trust github <package> --file release.yml --repo <owner>/<repo> --env release --allow-stage-publish
+```
+
+**Tags nur für das, was npm ausliefert**, beliebig oft gefahrlos ausführbar, zum Beispiel nach jeder Freigabe:
+
+```sh
+name=$(jq -r .name package.json)
+version=$(jq -r .version package.json)
+if [ "$(npm view "$name@$version" version 2> /dev/null)" != "$version" ]; then
+  echo "npm does not serve $name@$version yet, so nothing is tagged"
+  exit 0
+fi
+if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+  exit 0
+fi
+git tag "v$version"
+git push origin "v$version"
+gh release create "v$version" --verify-tag --notes-file release-notes.md
+```
+
+**Ein Download, der gegen den Server und den Pin geprüft wird**, bevor irgendetwas ihn liest, in TypeScript für Node:
+
+```ts
+import { createHash } from "node:crypto"
+import { gunzipSync } from "node:zlib"
+
+const MAX_CONTENT_BYTES = 256 * 1024 * 1024
+
+interface BundleAnswer {
+  readonly sha256: string
+  readonly size: number
+}
+
+export const verifiedContent = (archive: Buffer, answer: BundleAnswer, pinned: string): Buffer => {
+  if (archive.length !== answer.size) {
+    throw new Error(`Expected ${answer.size} bytes and received ${archive.length}`)
+  }
+
+  const content = gunzipSync(archive, { maxOutputLength: MAX_CONTENT_BYTES })
+  const digest = createHash("sha256").update(content).digest("hex")
+
+  if (digest !== answer.sha256 || digest !== pinned) {
+    throw new Error("The download is not the bundle this release was tested with")
+  }
+
+  return content
+}
+```
+
+**Release-Regeln für deine Anweisungsdatei**, damit Agenten vorbereiten, was der Inhaber freigeben wird:
+
+```md
+## Releases
+
+- Never run npm publish, npm unpublish, npm stage approve or npm stage reject. CI stages releases, and a maintainer approves them with 2FA.
+- Every change to a published package adds a changeset written for customers: what changes for them and what they have to do.
+- Merge a version pull request only when it was built from the branch's current head, and never while a staged release awaits approval.
+- After an approval, start the records workflow, install the release from npm in a clean directory and run it before announcing anything.
+- Label a version that was staged and never published in its changelog and its GitHub Release. Never delete its tag.
+```
+
+## Weiterführende Artikel
+
+<Cards>
+
+<Card title="KI-generierten Code reviewen: Was Tests nicht abfangen können" href="/blog/reviewing-ai-generated-code">
+  Der vorige Beitrag dieser Serie: worauf ein Reviewer bei KI-geschriebenem Code achtet, das kein Test sehen kann, einschließlich Änderungen
+  an Release-Workflows.
+</Card>
+
+<Card title="Leitplanken statt Prompts: Wie wir KI-geschriebenen Code auslieferbar halten" href="/blog/ai-coding-agent-guardrails">
+  Der erste Beitrag dieser Serie: die Prüfungen, die zurückweisen, was ein Programm entscheiden kann, die Pfade mit menschlichem Review und
+  der Vertragsvorfall zwischen der CLI und der Website.
+</Card>
+
+<Card
+  title="Lehren aus dem Einsatz eines Teams von KI-Coding-Agenten auf einer einzigen Codebasis"
+  href="/blog/running-ai-coding-agents-in-parallel"
+>
+  Der zweite Beitrag dieser Serie: Worktrees, eine einzige Merge-Queue, das Briefing eines Agenten und die ersten Lehren aus den Releases
+  der CLI.
+</Card>
+
+<Card title="Documentation Drift vermeiden: Jede Zahl kommt aus dem Code" href="/blog/documentation-drift-numbers-from-code">
+  Der dritte Beitrag dieser Serie: jede Zahl aus dem Code ausgeben, und ein einziges Vertragspaket, das sich die CLI und die Website teilen.
+</Card>
+
+</Cards>
+
+<Callout title="Lies die Release Notes hinter diesem Artikel">
+
+Die [Release Notes](/docs/cli/releases) der CLI listen jedes hier genannte Release auf, 0.1.0-beta.3 eingeschlossen, in jeder Sprache, und der [CLI-Leitfaden](/docs/cli) zeigt, wie du das aktuelle ausführst. Um zu sehen, was eine Lizenz enthält, [vergleiche die Stufen](/#pricing): eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt.
+
+</Callout>
+
+## Häufig gestellte Fragen
+
+<PostFaq entries={frontmatter.faq} />
+
+### Quellen
+
+- npm: [Staged Publishing](https://docs.npmjs.com/staged-publishing), [`npm stage`](https://docs.npmjs.com/cli/v11/commands/npm-stage), [Trusted Publishing](https://docs.npmjs.com/trusted-publishers), [`npm trust`](https://docs.npmjs.com/cli/v11/commands/npm-trust), [Provenance-Statements erzeugen](https://docs.npmjs.com/generating-provenance-statements) und die [Unpublish-Richtlinie](https://docs.npmjs.com/policies/unpublish); Changelog von GitHub: [Stage-only npm tokens for safer automation](https://github.blog/changelog/2026-09-18-stage-only-npm-tokens-for-safer-automation) (September 2026)
+- GitHub Actions: [Einen Workflow auslösen](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow), [Ereignisse, die Workflows auslösen](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows), [Concurrency](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency), [Concurrency groups now allow larger queues](https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues) (Mai 2026), [Deployments und Umgebungen](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) und [actions/checkout](https://github.com/actions/checkout)
+- Changesets: [Changesets automatisieren](https://changesets.dev/guide/automating), [Prereleases](https://changesets.dev/guide/prereleases), [Fixed Packages](https://changesets.dev/guide/fixed-packages), [Announcing Changesets v3](https://changesets.dev/blog/announcing-changesets-v3) (August 2026), der [Quellcode von `select-mode` in changesets/action v2.1.2](https://github.com/changesets/action/blob/v2.1.2/src/select-mode/index.ts) und der offene Pull Request [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334)
+- saasyland.com: die [Release Notes](/docs/cli/releases) der CLI, der [CLI-Leitfaden](/docs/cli) und die [CLI-Lizenz-API](/docs/features/cli-licence-api)
+- Die npm-Registry: die Versionen, Veröffentlichungszeitpunkte und Metadaten von `saasyland`, `create-saasyland` und `@saasyland/stack` sowie `npm audit signatures` auf `saasyland@0.1.0-beta.5`, alles gelesen am 25. November 2026
+
+_Geschrieben von Piotr J. Borowiecki, der die Arbeit der Agenten prüft, die saasyland.com bauen, und jedes Release seiner CLI freigibt. Die externen Quellen wurden am 25. November 2026 gelesen und können sich seitdem geändert haben; die Links führen zur Quelle. Wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

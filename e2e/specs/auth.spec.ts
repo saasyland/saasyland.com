@@ -1,22 +1,30 @@
+import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { SOCIAL_IMAGE } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
-import type { Page } from "@playwright/test"
+import type { APIRequestContext, Page } from "@playwright/test"
 import authErrorMessages from "../../messages/en-US/auth.errors.json" with { type: "json" }
+import resetPasswordMessages from "../../messages/en-US/pages.auth.reset-password.json" with { type: "json" }
 import verifyEmailMessages from "../../messages/en-US/pages.auth.verify-email.json" with { type: "json" }
 import {
   expectExistingAccountEmail,
+  expectNoEmail,
   expectPasswordChangedEmail,
   expectResetPasswordEmail,
   expectVerificationEmail,
 } from "../fixtures/emails"
+import { approveGoogle } from "../fixtures/google"
 import { expect, test } from "../fixtures/auth"
 import { AuthPage } from "../pages"
 import { RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
 
 const SIGN_UP_PASSWORD = "StrongPassword123!"
 const NEW_PASSWORD = "RenewedPassword456!"
+const REFUSED_PASSWORD = "UnusedLinkPassword789!"
+const POLISH_LOCALE = "pl-PL"
+const POLISH_PREFIX = `/${POLISH_LOCALE}`
+const SERVER_FUNCTION_PATH = "/_serverFn/"
 const MS_PER_SECOND = 1000
 
 const secondOf = (milliseconds: number): number => Math.floor(milliseconds / MS_PER_SECOND)
@@ -27,6 +35,51 @@ const completeSignUp = async (authPage: AuthPage, email: string): Promise<void> 
   await authPage.emailField().fill(email)
   await authPage.signUpPasswordField().fill(SIGN_UP_PASSWORD)
   await authPage.signUpSubmitButton().click()
+}
+
+const fromNewAddress = (target: Page): Promise<void> =>
+  target.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+
+const signedOutAccount = async ({ authPage, page, request }: { authPage: AuthPage; page: Page; request: APIRequestContext }, label: string): Promise<string> => {
+  const email = `${label}.${crypto.randomUUID()}@example.test`
+  await fromNewAddress(page)
+  await completeSignUp(authPage, email)
+  await expect(page).toHaveURL(/\/app\/?$/u)
+  await page.goto((await expectVerificationEmail(request, email)).toString())
+  await expect(page).toHaveURL(/\/app\/?$/u)
+  await page.context().clearCookies()
+  return email
+}
+
+const askForResetLink = async (authPage: AuthPage, page: Page, email: string): Promise<string> => {
+  await fromNewAddress(page)
+  await authPage.gotoForgotPassword()
+  await authPage.emailField().fill(email)
+  const answer = page.waitForResponse((response) => response.url().includes(SERVER_FUNCTION_PATH) && response.request().method() === "POST")
+  await page.getByRole("button", { exact: true, name: "Send reset link" }).click()
+  const body = await (await answer).text()
+  await expect(page.getByText(`If an account exists for ${email}`, { exact: false })).toBeVisible()
+  return `${body}\n${(await page.getByRole("main").innerText()).replaceAll(email, "<address>")}`
+}
+
+const submitNewPassword = async (authPage: AuthPage, page: Page, password: string): Promise<void> => {
+  await authPage.waitForAppReady()
+  await page.getByLabel("New password", { exact: true }).fill(password)
+  await authPage.resetPasswordSubmitButton().click()
+}
+
+const expectNewLinkOffer = async (authPage: AuthPage, page: Page): Promise<void> => {
+  await expect(page.getByText(resetPasswordMessages.form.invalidToken, { exact: true })).toBeVisible()
+  await expect(authPage.requestNewResetLink()).toHaveAttribute("href", ROUTES.FORGOT_PASSWORD)
+  await expect(authPage.resetPasswordSubmitButton()).toHaveCount(0)
+}
+
+const signInWith = async (authPage: AuthPage, page: Page, email: string, password: string): Promise<void> => {
+  await fromNewAddress(page)
+  await authPage.gotoSignIn()
+  await authPage.emailField().fill(email)
+  await authPage.passwordField().fill(password)
+  await authPage.signInSubmitButton().click()
 }
 
 test.describe("auth", () => {
@@ -173,8 +226,6 @@ test.describe("auth", () => {
     const id = crypto.randomUUID()
     const existing = `existing.${id}@example.test`
     const pending = `pending.${id}@example.test`
-    const fromNewAddress = (target: Page): Promise<void> =>
-      target.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
     const sessionOf = async (target: Page): Promise<unknown> => (await target.request.get("/api/auth/get-session")).json()
     const unconfirmedNotice = verifyEmailMessages.pending.unverified.slice(0, verifyEmailMessages.pending.unverified.indexOf("<address>"))
 
@@ -251,6 +302,94 @@ test.describe("auth", () => {
     await expect(visitorPage).toHaveURL(/\/app\/?$/u)
     expect(await sessionOf(visitorPage)).toMatchObject({ user: { email: existing, emailVerified: true } })
     await visitorContext.close()
+  })
+
+  test("a used or an expired reset link changes no password and offers a new link", async ({ authPage, page, request }) => {
+    const email = await signedOutAccount({ authPage, page, request }, "used-reset")
+    await askForResetLink(authPage, page, email)
+    const firstLink = await expectResetPasswordEmail(request, email)
+    const otherTab = await page.context().newPage()
+    const other = new AuthPage(otherTab)
+    await otherTab.goto(firstLink.toString())
+    await expect(other.resetPasswordSubmitButton()).toBeVisible()
+
+    await page.goto(firstLink.toString())
+    await submitNewPassword(authPage, page, NEW_PASSWORD)
+    await expect(page).toHaveURL(/\/auth\/sign-in$/u)
+    await submitNewPassword(other, otherTab, REFUSED_PASSWORD)
+    await expectNewLinkOffer(other, otherTab)
+    await otherTab.close()
+    await page.goto(firstLink.toString())
+    await expectNewLinkOffer(authPage, page)
+
+    await askForResetLink(authPage, page, email)
+    await page.goto((await expectResetPasswordEmail(request, email, 2)).toString())
+    await expect(authPage.resetPasswordSubmitButton()).toBeVisible()
+    const expired = await request.get("/__test/password-resets/expire", { params: { email } })
+    expect(await expired.json()).toEqual({ expired: 1 })
+    await submitNewPassword(authPage, page, REFUSED_PASSWORD)
+    await expectNewLinkOffer(authPage, page)
+    await authPage.requestNewResetLink().click()
+    await expect(page).toHaveURL(/\/auth\/forgot-password$/u)
+
+    await signInWith(authPage, page, email, REFUSED_PASSWORD)
+    await expect(page.getByText(authErrorMessages.invalidEmailOrPassword, { exact: true })).toBeVisible()
+    await signInWith(authPage, page, email, NEW_PASSWORD)
+    await expect(page).toHaveURL(/\/app\/?$/u)
+  })
+
+  test("asking to reset the password of an address without an account sends no email and answers as for an account", async ({
+    authPage,
+    page,
+    request,
+  }) => {
+    const known = await signedOutAccount({ authPage, page, request }, "known-reset")
+    const unknown = `unknown-reset.${crypto.randomUUID()}@example.test`
+
+    const unknownAnswer = await askForResetLink(authPage, page, unknown)
+    const knownAnswer = await askForResetLink(authPage, page, known)
+
+    expect(unknownAnswer).toBe(knownAnswer)
+    await expectResetPasswordEmail(request, known)
+    await expectNoEmail(request, unknown)
+  })
+
+  test("signs a visitor in with Google and lands in /app with an account for the Google address", async ({ authPage, page }) => {
+    const email = `google.${crypto.randomUUID()}@example.test`
+    await approveGoogle(page, { email, name: "Goo Gle", sub: crypto.randomUUID() })
+    await fromNewAddress(page)
+    await authPage.gotoSignIn()
+
+    await authPage.oauthGoogleButton().click()
+
+    await expect(page).toHaveURL(/\/app\/?$/u)
+    const session = await page.request.get("/api/auth/get-session")
+    expect(await session.json()).toMatchObject({ user: { email, emailVerified: true, name: "Goo Gle" } })
+    const accounts = await page.request.get("/api/auth/list-accounts")
+    expect(await accounts.json()).toEqual([expect.objectContaining({ providerId: AUTH_PROVIDER.GOOGLE })])
+  })
+
+  test("a visitor who signs up on /pl-PL receives the verification email in Polish, with a link back under /pl-PL", async ({
+    authPage,
+    page,
+    request,
+  }) => {
+    const email = `polish.${crypto.randomUUID()}@example.test`
+    await fromNewAddress(page)
+    await authPage.gotoSignUp(POLISH_PREFIX)
+    await page.locator("#sign-up-name").fill("Test User")
+    await page.locator("#sign-up-email").fill(email)
+    await authPage.signUpPasswordField().fill(SIGN_UP_PASSWORD)
+    await authPage.signUpSubmitButton().click()
+    await expect(page).toHaveURL(/\/pl-PL\/app\/?$/u)
+
+    const verificationUrl = await expectVerificationEmail(request, email, 1, POLISH_LOCALE)
+    expect(verificationUrl.pathname).toBe(`${POLISH_PREFIX}${ROUTES.VERIFY_EMAIL}`)
+    await page.goto(verificationUrl.toString())
+
+    await expect(page).toHaveURL(/\/pl-PL\/app\/?$/u)
+    const session = await page.request.get("/api/auth/get-session")
+    expect(await session.json()).toMatchObject({ user: { email, emailVerified: true } })
   })
 
   test("forgot-password page renders email field", async ({ authPage }) => {

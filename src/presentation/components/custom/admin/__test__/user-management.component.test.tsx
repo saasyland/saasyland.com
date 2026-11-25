@@ -15,6 +15,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
+import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import type { banUserMutation } from "~/src/modules/user/use-cases/ban-user"
 import type { createUserMutation } from "~/src/modules/user/use-cases/create-user"
 import type { deleteUserMutation } from "~/src/modules/user/use-cases/delete-user"
@@ -440,7 +441,7 @@ describe("impersonating a user", () => {
 })
 
 describe("banning a user", () => {
-  it("bans only after confirmation", async () => {
+  it("bans only after confirmation and reloads the user with the sessions the ban ended", async () => {
     const { invalidateQueries, user } = renderUsers()
     await chooseAction(user, labels.actions.row.ban)
     const dialog = screen.getByRole("alertdialog")
@@ -452,7 +453,7 @@ describe("banning a user", () => {
       expect(toast.success).toHaveBeenCalledWith(labels.actions.feedback.banSuccess)
     })
     expect(ban).toHaveBeenCalledWith({ userId: ada.id }, expect.anything())
-    expect(invalidateQueries).toHaveBeenCalledExactlyOnceWith({ queryKey: USER_QUERY_KEYS.ALL })
+    expect(invalidateQueries.mock.calls).toStrictEqual([[{ queryKey: USER_QUERY_KEYS.ALL }], [{ queryKey: SESSION_QUERY_KEYS.USER }]])
   })
 
   it("leaves the user alone when the ban is cancelled", async () => {

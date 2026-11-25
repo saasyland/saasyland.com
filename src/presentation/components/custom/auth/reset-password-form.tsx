@@ -28,6 +28,8 @@ import { ValidationFieldError } from "~/src/presentation/components/custom/valid
 
 import * as ROUTES from "~/src/routes"
 
+const INVALID_LINK_CODE = "INVALID_TOKEN" satisfies keyof typeof AUTH_ERRORS
+
 export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password.form")
   const router = useRouter()
@@ -53,6 +55,10 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
         { ...value, token },
         {
           onError: (error) => {
+            if (error.message === AUTH_ERRORS.INVALID_TOKEN) {
+              void router.navigate({ replace: true, search: { error: INVALID_LINK_CODE, redirect }, to: ROUTES.RESET_PASSWORD })
+              return
+            }
             if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {
               showFieldError(formApi, { controlId: "reset-password-password", field: "password", message: error.message })
               return

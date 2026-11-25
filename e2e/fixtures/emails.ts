@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs"
+
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
+
+import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 
 import { ACCOUNT_EMAIL_PURPOSE } from "../../src/modules/account/account.constants"
 import { INVITATION_EMAIL_PURPOSE } from "../../src/modules/invitation/invitation.constants"
@@ -30,10 +34,20 @@ const getSentEmails = async (request: APIRequestContext, recipient: string): Pro
 const emailsFor = async (request: APIRequestContext, recipient: string, purpose: string): Promise<zod.infer<typeof sentEmailsSchema>> =>
   (await getSentEmails(request, recipient)).filter(({ idempotencyKey }) => idempotencyKey.startsWith(`${purpose}/`))
 
+const subjectSchema = zod.object({ subject: zod.string() })
+
+const verificationSubject = (locale: SupportedLocale): string =>
+  subjectSchema.parse(JSON.parse(readFileSync(new URL(`../../messages/${locale}/emails.verify-email.json`, import.meta.url), "utf8"))).subject
+
+export const expectNoEmail = async (request: APIRequestContext, recipient: string): Promise<void> => {
+  expect(await getSentEmails(request, recipient)).toEqual([])
+}
+
 export const expectVerificationEmail = async (
   request: APIRequestContext,
   recipient: string,
   expectedCount = 1,
+  locale: SupportedLocale = I18N.DEFAULT_LOCALE,
 ): Promise<URL> => {
   await expect.poll(async () => (await emailsFor(request, recipient, VERIFICATION_EMAIL_PURPOSE.VERIFY_EMAIL)).length).toBe(expectedCount)
 
@@ -41,9 +55,9 @@ export const expectVerificationEmail = async (
   const email = emails.at(-1)
   if (!email) throw new Error(`No verification email was sent to ${recipient}`)
 
-  expect(email.subject).toBe("Verify your email address")
+  expect(email.subject).toBe(verificationSubject(locale))
   expect(email.to).toEqual([recipient])
-  expect(email.html).toContain('lang="en-US"')
+  expect(email.html).toContain(`lang="${locale}"`)
   const verificationLink = email.html.match(/href="([^"]*\/auth\/verify-email\?[^"]*token=[^"]+)"/u)?.[1]
   if (!verificationLink) throw new Error("The verification email has no account verification link")
 

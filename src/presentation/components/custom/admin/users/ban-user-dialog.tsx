@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { banUserMutation } from "~/src/modules/user/use-cases/ban-user"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import type { User } from "~/src/modules/user/user.types"
@@ -37,7 +38,10 @@ export const BanUserDialog = ({ isOpen, onOpenChange, user }: BanUserDialogProps
       toast.error(errorMessage(error))
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL }),
+        queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.USER }),
+      ])
       toast.success(t("feedback.banSuccess"))
     },
   })

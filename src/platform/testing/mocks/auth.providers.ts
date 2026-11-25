@@ -4,8 +4,11 @@ import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
+
 import { BREACHED_PASSWORD } from "~/e2e/data/accounts"
 import { githubTestIdentity } from "~/e2e/data/github"
+import { GOOGLE_CALLBACK_PATH, type GoogleGrant, googleTestGrant } from "~/e2e/data/google"
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO } from "~/src/presentation/branding"
 
 const RANGE_PATH = /^\/range\/(?<prefix>[\dA-F]{5})$/u
@@ -99,4 +102,79 @@ export const githubApi = {
   },
 } satisfies ProviderDouble
 
-export const AUTH_PROVIDER_DOUBLES = [githubApi, githubLogin, haveIBeenPwnedApi] as const satisfies readonly ProviderDouble[]
+const GOOGLE_TOKEN_PATH = "/token"
+const GOOGLE_ISSUER = "https://accounts.google.com"
+const GOOGLE_GRANT_TYPE = "authorization_code"
+const GOOGLE_TOKEN_SCOPES = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
+const GOOGLE_TOKEN_LIFETIME_SECONDS = 3599
+const UNSECURED_JWT_HEADER = { alg: "none", typ: "JWT" }
+
+const base64Url = (bytes: Uint8Array): string =>
+  btoa(String.fromCodePoint(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "")
+
+const encodeSegment = (value: object): string => base64Url(new TextEncoder().encode(JSON.stringify(value)))
+
+const codeChallengeOf = async (verifier: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+  return base64Url(new Uint8Array(digest))
+}
+
+const googleIdToken = ({ email, name, sub }: GoogleGrant): string => {
+  const issuedAt = Math.floor(Date.now() / MILLISECONDS_PER_SECOND)
+  const claims = {
+    aud: env.AUTH_GOOGLE_CLIENT_ID,
+    azp: env.AUTH_GOOGLE_CLIENT_ID,
+    email,
+    email_verified: true,
+    exp: issuedAt + GOOGLE_TOKEN_LIFETIME_SECONDS,
+    iat: issuedAt,
+    iss: GOOGLE_ISSUER,
+    name,
+    sub,
+  }
+  return `${encodeSegment(UNSECURED_JWT_HEADER)}.${encodeSegment(claims)}.`
+}
+
+const isGoogleClient = (body: URLSearchParams): boolean =>
+  body.get("client_id") === env.AUTH_GOOGLE_CLIENT_ID && body.get("client_secret") === env.AUTH_GOOGLE_CLIENT_SECRET
+
+const answersGrant = async (body: URLSearchParams, grant: GoogleGrant): Promise<boolean> =>
+  body.get("grant_type") === GOOGLE_GRANT_TYPE &&
+  URL.parse(body.get("redirect_uri") ?? "")?.pathname === GOOGLE_CALLBACK_PATH &&
+  (await codeChallengeOf(body.get("code_verifier") ?? "")) === grant.codeChallenge
+
+export const googleOAuth = {
+  origin: "https://oauth2.googleapis.com",
+  reset: () => {},
+  respond: async (request: Request) => {
+    if (request.method !== "POST" || new URL(request.url).pathname !== GOOGLE_TOKEN_PATH) {
+      return refuse(request, HTTP_STATUS.NOT_FOUND)
+    }
+    const body = new URLSearchParams(await request.text())
+    if (!isGoogleClient(body)) {
+      return {
+        reason: "The client is not the app's Google client",
+        response: Response.json({ error: "invalid_client" }, { status: HTTP_STATUS.UNAUTHORIZED }),
+      }
+    }
+    const grant = googleTestGrant(body.get("code") ?? "")
+    if (grant === undefined || !(await answersGrant(body, grant))) {
+      return {
+        reason: "The code, its PKCE verifier or the redirect_uri does not match the authorization",
+        response: Response.json({ error: "invalid_grant" }, { status: HTTP_STATUS.BAD_REQUEST }),
+      }
+    }
+    return Response.json({
+      access_token: crypto.randomUUID(),
+      expires_in: GOOGLE_TOKEN_LIFETIME_SECONDS,
+      id_token: googleIdToken(grant),
+      scope: GOOGLE_TOKEN_SCOPES,
+      token_type: "Bearer",
+    })
+  },
+} satisfies ProviderDouble
+
+export const AUTH_PROVIDER_DOUBLES = [githubApi, githubLogin, googleOAuth, haveIBeenPwnedApi] as const satisfies readonly ProviderDouble[]

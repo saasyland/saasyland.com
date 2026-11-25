@@ -587,6 +587,25 @@ describe("reset password form", () => {
     expect(navigate).not.toHaveBeenCalled()
   })
 
+  it("offers a new link instead of the form when the link was used or has expired", async () => {
+    setupResetPasswordFormMocks()
+    resetPasswordMock.mockRejectedValueOnce(new Error(AUTH_ERRORS.INVALID_TOKEN))
+    const user = userEvent.setup({ delay: null })
+    const { navigate } = await renderResetPasswordPage()
+    navigate.mockRestore()
+
+    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await user.click(screen.getByTestId("reset-password-form-submit-button"))
+
+    expect(await screen.findByRole("link", { name: pagesAuthResetPasswordMessages.form.requestNewLink })).toHaveAttribute(
+      "href",
+      ROUTES.FORGOT_PASSWORD,
+    )
+    expect(screen.getByText(pagesAuthResetPasswordMessages.form.invalidToken)).toBeInTheDocument()
+    expect(screen.queryByTestId("reset-password-form-submit-button")).not.toBeInTheDocument()
+    expect(toastErrorMock).not.toHaveBeenCalled()
+  })
+
   it("blocks a new password shorter than the minimum length", async () => {
     setupResetPasswordFormMocks()
     const user = userEvent.setup({ delay: null })

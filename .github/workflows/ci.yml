@@ -66,13 +66,14 @@ jobs:
 
   verify:
     name: Format, lint, types, i18n, tests
-    needs: [check, test]
+    needs: [check, test, features]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       CHECK_RESULT: ${{ needs.check.result }}
       TEST_RESULT: ${{ needs.test.result }}
+      FEATURES_RESULT: ${{ needs.features.result }}
     steps:
       - name: Checkout
         if: needs.test.result == 'success'
@@ -105,10 +106,10 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Require the checks, every shard and the merged coverage to pass
+      - name: Require the checks, every shard, the merged coverage and every scenario without features to pass
         run: |
-          if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then
-            echo "::error::The checks finished with $CHECK_RESULT and the test shards with $TEST_RESULT."
+          if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" || "$FEATURES_RESULT" != "success" ]]; then
+            echo "::error::The checks finished with $CHECK_RESULT, the test shards with $TEST_RESULT and the scenarios without features with $FEATURES_RESULT."
             exit 1
           fi
 
@@ -140,6 +141,15 @@ jobs:
     uses: ./.github/workflows/e2e-reusable.yml
     with:
       browser: chromium
+
+  e2e-webkit:
+    name: Build and E2E
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/e2e-reusable.yml
+    with:
+      browser: webkit
 
   upload:
     name: Worker upload

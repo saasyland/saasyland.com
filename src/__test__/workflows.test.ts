@@ -59,7 +59,7 @@ const BUILD_ARTIFACT = `BUILD_ARTIFACT: test-worker-${BROWSER}`
 const WAIT_FOR_BUILD = 'run: bun scripts/download-artifact.ts "$BUILD_JOB" "$BUILD_STEP" "$BUILD_ARTIFACT" test-worker.zip'
 const UNZIP_BUILD = "unzip -q test-worker.zip"
 const ACTIONS_READ = "\n      actions: read\n"
-const JOBS_WITH_ACTIONS_READ = 4
+const JOBS_WITH_ACTIONS_READ = 5
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
 const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
 const MERGE_COMMAND = "run: bun run test:coverage --merge-reports"
@@ -264,6 +264,7 @@ describe(E2E_WORKFLOW, () => {
     expect(jobOf(E2E, "build")).not.toContain(ACTIONS_READ)
     expect(jobOf(E2E, "report")).not.toContain(ACTIONS_READ)
     expect(jobOf(CI, "e2e")).toContain(ACTIONS_READ)
+    expect(jobOf(CI, "e2e-webkit")).toContain(ACTIONS_READ)
     expect(jobOf(E2E_FULL, "e2e")).toContain(ACTIONS_READ)
     expect(jobOf(MAIN, "checks")).toContain(ACTIONS_READ)
     expect([CI, E2E_FULL, MAIN, E2E].join("\n").split(ACTIONS_READ)).toHaveLength(JOBS_WITH_ACTIONS_READ + 1)
@@ -334,15 +335,23 @@ describe(CI_WORKFLOW, () => {
     expect(test).toContain("if-no-files-found: error")
   })
 
-  it("reports the required check from one job that merges the shards' coverage under the configured thresholds and fails unless the checks and every shard passed", () => {
+  it("reports the required check from one job that merges the shards' coverage under the configured thresholds and fails unless the checks, every shard and every scenario without features passed", () => {
     const verify = jobOf(CI, "verify")
 
     expect(verify).toContain(REQUIRED_CHECK)
-    expect(verify).toContain("needs: [check, test]")
+    expect(verify).toContain("needs: [check, test, features]")
     expect(verify).toContain(UNLESS_CANCELLED)
     expect(verify).toContain(MERGE_COMMAND)
     expect(verify).not.toContain("--coverage.thresholds")
-    expect(verify).toContain('if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then')
+    expect(verify).toContain(
+      'if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" || "$FEATURES_RESULT" != "success" ]]; then',
+    )
+  })
+
+  it("runs the browser suite in Chromium and in WebKit on every pull request, one required check per browser", () => {
+    expect(jobOf(CI, "e2e")).toContain("browser: chromium")
+    expect(jobOf(CI, "e2e-webkit")).toContain("browser: webkit")
+    expect(jobOf(CI, "e2e-webkit")).toContain(`uses: ./${E2E_WORKFLOW}`)
   })
 
   it("fails the run when the site does not check without the features of a scenario in scripts/features.ts, one job per scenario", () => {

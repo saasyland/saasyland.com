@@ -50,7 +50,6 @@ export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId
   const order = await polar.orders.get(polarOrderId)
 
   if (licenseTierForProduct(order.product_id) === undefined) {
-    console.error(`[license] license key ${polarLicenseKeyId} was granted for order ${polarOrderId}, which is not a license purchase`)
     return
   }
 

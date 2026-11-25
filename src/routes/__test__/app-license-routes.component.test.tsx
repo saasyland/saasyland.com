@@ -54,6 +54,7 @@ import { LicenseCard } from "~/src/presentation/components/custom/app/license-ca
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
 import authSessionMessages from "~/messages/en-US/auth.session.json"
+import checkoutButtonMessages from "~/messages/en-US/components.custom.checkout-button.json"
 import bannerMessages from "~/messages/en-US/components.custom.email-verification-banner.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
@@ -61,6 +62,7 @@ import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
+import plCheckoutButtonMessages from "~/messages/pl-PL/components.custom.checkout-button.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plErrorsMessages from "~/messages/pl-PL/errors.json"
 import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
@@ -308,7 +310,7 @@ describe("buying a license", () => {
     checkoutMock.mockReturnValue(checkout.promise)
     const { region } = await startPolishCheckout()
 
-    const pending = within(region).getByRole("button", { name: (name) => name.endsWith(plPagesLicenseMessages.buy.pending) })
+    const pending = within(region).getByRole("button", { name: (name) => name.endsWith(plCheckoutButtonMessages.pending) })
     expect(pending).toHaveAttribute("aria-disabled", "true")
     expect(within(region).getByRole("button", { name: plPricingMessages.tiers.core.cta })).toBeDisabled()
 
@@ -334,7 +336,9 @@ describe("buying a license", () => {
     await user.click(tierButton(LICENSE_TIER.CORE))
 
     await waitFor(() => {
-      expect(overlayMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ title: buy.overlay, url: CHECKOUT_URL }))
+      expect(overlayMock).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ title: checkoutButtonMessages.overlay, url: CHECKOUT_URL }),
+      )
     })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: LICENSE_QUERY_KEYS.ALL })
     expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(overlayMock.mock.invocationCallOrder[0] ?? 0)

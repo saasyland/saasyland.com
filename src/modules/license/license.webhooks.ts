@@ -125,7 +125,6 @@ export const licenseWebhookHandlers = {
     const tier = licenseTierForProduct(data.product_id)
 
     if (tier === undefined) {
-      console.error(`[license] order ${data.id} is not for a licence product`)
       return
     }
 

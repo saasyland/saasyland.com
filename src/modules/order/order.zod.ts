@@ -76,6 +76,8 @@ export const orderZodSchemas = {
   startCheckout,
 }
 
+export const startedCheckoutSchema = zod.object({ checkoutId: zod.string(), url: zod.string() })
+
 export const checkoutSearchSchema = zod.object({
   checkoutId: searchParam(zod.uuid()),
 })

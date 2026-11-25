@@ -18,6 +18,8 @@ export const NEWSLETTER_STATUS = {
 
 export const NEWSLETTER_STATUSES = [NEWSLETTER_STATUS.SUBSCRIBED, NEWSLETTER_STATUS.UNSUBSCRIBED, NEWSLETTER_STATUS.PENDING] as const
 
+export const NEWSLETTER_SUBSCRIBER_SORT_COLUMNS = ["email", "createdAt", "subscribedAt", "status", "locale"] as const
+
 export const CONFIRMATION_STATUS = {
   CONFIRMED: "confirmed",
   EXPIRED: "expired",
@@ -35,6 +37,7 @@ export const SUBSCRIPTION_RESULT = {
 
 export const NEWSLETTER_SUBSCRIBER_QUERY_KEYS = {
   ALL: ["newsletter-subscriber"],
+  LIST: ["newsletter-subscriber", "listNewsletterSubscribers"],
   SUBSCRIBERS: ["newsletter-subscriber", "getNewsletterSubscribers"],
   SUBSCRIPTION: ["newsletter-subscriber", "getNewsletterSubscription"],
 } as const

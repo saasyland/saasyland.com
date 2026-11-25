@@ -18,7 +18,7 @@ interface DashboardStat {
   readonly icon: LucideIcon
   readonly label: string
   readonly prefetch: (queryClient: QueryClient) => Promise<unknown>
-  readonly to?: string
+  readonly to: string
   readonly useValue: () => number
 }
 
@@ -62,22 +62,18 @@ export const DASHBOARD_STATS: readonly DashboardStat[] = [
     icon: Mail,
     label: "dashboard.newsletter.subscribers",
     prefetch: (queryClient) => queryClient.query({ ...newsletterSubscribersQuery, staleTime: "static" }),
+    to: ROUTES.ADMIN_NEWSLETTER,
     useValue: () => useSuspenseQuery(newsletterSubscribersQuery).data.total,
   },
 ]
 
-const StatLabel = ({ label, to }: { readonly label: string; readonly to: string | undefined }): JSX.Element => (
-  <>
-    {to === undefined && label}
-    {to !== undefined && (
-      <Link
-        className="rounded-sm outline-none after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        to={to}
-      >
-        {label}
-      </Link>
-    )}
-  </>
+const StatLabel = ({ label, to }: { readonly label: string; readonly to: string }): JSX.Element => (
+  <Link
+    className="rounded-sm outline-none after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    to={to}
+  >
+    {label}
+  </Link>
 )
 
 const StatTile = ({ stat }: { readonly stat: DashboardStat }): JSX.Element => {
@@ -98,13 +94,11 @@ const StatTile = ({ stat }: { readonly stat: DashboardStat }): JSX.Element => {
       </dt>
       <dd className="flex items-end justify-between gap-3">
         <span className="text-headline-support text-foreground tabular-nums">{format.number(value)}</span>
-        {stat.to !== undefined && (
-          <ArrowUpRight
-            aria-hidden
-            className="size-4 text-muted-foreground opacity-0 transition-opacity duration-200 ease-exp group-has-[a:hover]/stat:opacity-100"
-            strokeWidth={1.75}
-          />
-        )}
+        <ArrowUpRight
+          aria-hidden
+          className="size-4 text-muted-foreground opacity-0 transition-opacity duration-200 ease-exp group-has-[a:hover]/stat:opacity-100"
+          strokeWidth={1.75}
+        />
       </dd>
     </div>
   )

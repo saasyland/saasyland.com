@@ -1,0 +1,57 @@
+---
+title: "Newsletter"
+description: "A lista de assinantes do admin e a exportação em CSV, a redação de uma edição em cada idioma com prévia e o envio pelo Resend em lotes que uma nova tentativa ou um segundo clique nunca enviam duas vezes."
+---
+
+Os visitantes se inscrevem no diário de desenvolvimento pelo rodapé e confirmam o endereço por e-mail ([Landing page](/docs/features/landing-page#newsletter)). O admin acompanha as inscrições e envia as edições em `/admin/newsletter`, que a área de newsletter adiciona ao grupo Conteúdo da barra lateral em `src/data/navigation.ts`, com as abas Assinantes e Edições de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). O bloco Assinantes da newsletter do painel leva até ela ([Painel administrativo](/docs/features/admin-dashboard#newsletter-subscribers)). Toda função de servidor abaixo executa `authorized({ admin: ["access"] })`, então só um admin chega a elas.
+
+## Assinantes [#subscribers]
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) lista cada linha de `newsletter_subscriber` no `DataGrid` ([Grade de dados](/docs/ui/data-grid)) com `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` chama `listNewsletterSubscribers` (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). A paginação, a ordenação, a busca por e-mail e os filtros rodam no servidor, validados por `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Cada linha mostra o endereço, o status (aguardando confirmação, confirmado ou inscrição cancelada), quando o endereço se inscreveu, quando confirmou e o idioma em que seus e-mails são escritos. Por onde se inscreveu (o rodapé, o blog ou o app) fica no menu Colunas. Os filtros são os status, os idiomas, a origem da inscrição e os dias de inscrição e de confirmação.
+- A exportação grava num CSV as linhas que a busca e os filtros encontram, ou as marcadas. Uma célula que começa com `=`, `+`, `-`, `@`, uma tabulação ou um retorno de carro recebe um apóstrofo no início (`csvOf` em `src/lib/csv.ts`), então uma planilha mostra um endereço como `=cmd@example.com` como texto em vez de executá-lo como fórmula.
+
+## Escrever uma edição [#writing-an-issue]
+
+**Nova edição** abre `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`), onde `NewsletterIssueForm` (`newsletter-issue-form.tsx`) segue o padrão do shadcn com TanStack Form e valida com `newsletterIssueZodSchemas.issueTexts`:
+
+- O assunto e o corpo são escritos por idioma com o seletor de idioma de `FormLanguages`. O inglês é obrigatório; qualquer outro idioma fica completo, com assunto e corpo próprios, ou em branco. O assunto aceita até <RepositoryFact name="newsletterSubjectMaxLength" /> caracteres e o corpo até <RepositoryFact name="newsletterBodyMaxLength" />. Uma linha em branco começa um novo parágrafo.
+- `NewsletterIssuePreview` mostra a edição como os leitores do idioma escolhido a recebem. Quando esse idioma está incompleto, mostra a edição em inglês e avisa que esses leitores a recebem em inglês.
+- O formulário informa para quantos assinantes confirmados a edição vai, a partir de `newsletterSubscribersQuery`, e não pode ser enviado enquanto não houver nenhum. Enviar pede confirmação antes.
+
+Cada assinante recebe a edição no idioma salvo com a inscrição, ou em inglês quando a edição não tem uma versão completa nesse idioma (`issueContent` em `newsletter-issue.utils.ts`). O e-mail inteiro, rodapé incluído, fica no idioma do texto.
+
+## Envio [#sending]
+
+O envio são duas funções de servidor em `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` grava a edição em `newsletter_issue` com um ID que o formulário gera uma vez ao abrir e conta os destinatários: os assinantes com status `subscribed` que confirmaram antes desse momento. Executá-la de novo com o mesmo ID não grava nada.
+2. `sendNewsletterIssue` reserva a edição por <RepositoryFact name="newsletterLeaseSeconds" unit="second" />, envia até <RepositoryFact name="newsletterBatchesPerStep" /> lotes de <RepositoryFact name="newsletterBatchSize" /> e-mails com `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), uma requisição ao Resend depois da outra, e registra depois de cada lote o último assinante alcançado e quantos e-mails saíram. Ela responde com o andamento, e `sendNewsletterIssueMutation` a chama de novo até a edição ser enviada.
+
+Uma requisição envia no máximo <RepositoryFact name="newsletterStepRecipients" /> e-mails, então cada uma fica dentro dos limites do Worker, por maior que seja a lista, e uma requisição por vez mantém o envio dentro do limite de taxa do Resend. As duas funções aceitam <RepositoryFact name="newsletterRateLimit" /> chamadas por minuto de um mesmo endereço de cliente.
+
+Nada é enviado duas vezes:
+
+- Uma segunda requisição para uma edição já reservada, como num clique duplo, não envia nada e responde que a edição já está sendo enviada.
+- Os destinatários são lidos na ordem do ID, depois do último registrado, então uma requisição que retoma uma edição interrompida começa onde terminou o último lote concluído.
+- Cada lote leva uma chave de idempotência formada pela edição e pelos IDs dos destinatários. Se uma requisição falhar depois que o Resend aceitou o lote, mas antes de o andamento ser salvo, a nova tentativa envia o mesmo lote com a mesma chave, e o Resend devolve a primeira resposta em vez de enviá-lo de novo enquanto guardar a chave.
+
+Um endereço que o Resend recusa não trava a edição: cada lote sai com `batchValidation: "permissive"`, então o Resend envia os outros e-mails do lote, a recusa fica registrada no log e o andamento conta só os e-mails que o Resend aceitou.
+
+Quando o Resend recusa um lote inteiro, a reserva é liberada, o admin vê o erro e a edição continua em **Enviando**. A aba Edições a lista com **Retomar envio** no menu da linha, que continua a partir do último lote que saiu.
+
+## Cancelamento da inscrição [#unsubscribing]
+
+Todo e-mail termina com uma linha explicando por que o leitor o recebe e um link para `/newsletter/unsubscribe?token=` no idioma do assinante, montado por `unsubscribeUrl`. Ele também leva o cabeçalho `List-Unsubscribe` com esse endereço e `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, para que o cliente de e-mail ofereça o próprio botão de cancelar inscrição. Esse botão envia um `POST` ao mesmo endereço, que a própria rota responde (`server.handlers.POST` em `_site._marketing.newsletter.unsubscribe.tsx`) e que cancela a inscrição na hora. Abrir o endereço continua apenas perguntando; nada muda até o leitor pressionar o botão.
+
+## Edições [#issues]
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) lista as edições com `getNewsletterIssues` e `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): o assunto em inglês, Enviando ou Enviada, quantos e-mails saíram de quantos destinatários, em quantos idiomas a edição foi escrita, quando começou e quando terminou. A busca encontra o assunto em qualquer idioma; os filtros são o status e o dia de início.
+
+## Páginas relacionadas
+
+- [Landing page](/docs/features/landing-page#newsletter)
+- [E-mail transacional](/docs/features/email)
+- [Painel administrativo](/docs/features/admin-dashboard)

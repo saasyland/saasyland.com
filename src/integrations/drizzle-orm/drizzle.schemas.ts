@@ -7,6 +7,7 @@ export { lessonAttachment, lessonAttachmentRelations } from "~/src/modules/lesso
 export { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 export { lesson, lessonRelations } from "~/src/modules/lesson/lesson.schema"
 export { license, licenseRelations, revokedLicenseOrder } from "~/src/modules/license/license.schema"
+export { newsletterIssue } from "~/src/modules/newsletter-issue/newsletter-issue.schema"
 export { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 export { order } from "~/src/modules/order/order.schema"
 export { product } from "~/src/modules/product/product.schema"

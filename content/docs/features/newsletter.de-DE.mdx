@@ -1,0 +1,57 @@
+---
+title: "Newsletter"
+description: "Die Abonnentenliste im Admin und ihr CSV-Export, eine Ausgabe in jeder Sprache mit Vorschau schreiben und sie über Resend in Batches verschicken, die ein erneuter Versuch oder ein zweiter Klick nie doppelt verschickt."
+---
+
+Besucher melden sich im Footer für das Entwicklungsjournal an und bestätigen ihre Adresse per E-Mail ([Landingpage](/docs/features/landing-page#newsletter)). Der Admin liest die Anmeldungen und verschickt die Ausgaben unter `/admin/newsletter`. Der Newsletter-Bereich fügt die Seite in `src/data/navigation.ts` der Gruppe Inhalt der Seitenleiste hinzu, mit den Tabs Abonnenten und Ausgaben aus `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Die Kachel Newsletter-Abonnenten im Dashboard verlinkt dorthin ([Admin-Dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Jede Serverfunktion unten läuft mit `authorized({ admin: ["access"] })`, also erreicht sie nur ein Admin.
+
+## Abonnenten [#subscribers]
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) listet jede Zeile von `newsletter_subscriber` im `DataGrid` ([Datenraster](/docs/ui/data-grid)) mit `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` ruft `listNewsletterSubscribers` auf (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). Seiten, Sortierung, die Suche nach E-Mail und die Filter laufen auf dem Server, geprüft von `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Jede Zeile zeigt die Adresse, den Status (wartet auf Bestätigung, bestätigt oder abgemeldet), wann sich die Adresse angemeldet hat, wann sie bestätigt wurde, und die Sprache, in der ihre E-Mails geschrieben sind. Wo sie sich angemeldet hat (Footer, Blog oder App), wartet im Menü Spalten. Die Filter sind die Status, die Sprachen, der Ort der Anmeldung und die Tage der Anmeldung und der Bestätigung.
+- Der Export schreibt die Zeilen, die Suche und Filter finden, oder die angehakten in eine CSV-Datei. Eine Zelle, die mit `=`, `+`, `-`, `@`, einem Tabulator oder einem Wagenrücklauf beginnt, bekommt ein führendes Apostroph (`csvOf` in `src/lib/csv.ts`), sodass eine Tabellenkalkulation eine Adresse wie `=cmd@example.com` als Text zeigt, statt sie als Formel auszuführen.
+
+## Eine Ausgabe schreiben [#writing-an-issue]
+
+**Neue Ausgabe** öffnet `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`). Dort folgt `NewsletterIssueForm` (`newsletter-issue-form.tsx`) dem Muster von shadcn mit TanStack Form und prüft mit `newsletterIssueZodSchemas.issueTexts`:
+
+- Betreff und Text werden pro Sprache geschrieben, mit der Sprachauswahl von `FormLanguages`. Englisch ist Pflicht; jede andere Sprache ist entweder vollständig, mit eigenem Betreff und Text, oder bleibt leer. Der Betreff fasst bis zu <RepositoryFact name="newsletterSubjectMaxLength" /> Zeichen, der Text bis zu <RepositoryFact name="newsletterBodyMaxLength" />. Eine Leerzeile beginnt einen neuen Absatz.
+- `NewsletterIssuePreview` zeigt die Ausgabe so, wie Leser der gewählten Sprache sie erhalten. Ist diese Sprache unvollständig, zeigt sie die englische Ausgabe und sagt, dass diese Leser Englisch bekommen.
+- Das Formular nennt, an wie viele bestätigte Abonnenten die Ausgabe geht, aus `newsletterSubscribersQuery`, und lässt sich nicht verschicken, solange es keine gibt. Verschicken fragt vorher nach.
+
+Jeder Abonnent erhält die Ausgabe in der Sprache, die mit seinem Abonnement gespeichert ist, oder auf Englisch, wenn die Ausgabe in dieser Sprache keine vollständige Fassung hat (`issueContent` in `newsletter-issue.utils.ts`). Die ganze E-Mail, Fußzeile eingeschlossen, ist in der Sprache ihres Textes.
+
+## Versand [#sending]
+
+Der Versand besteht aus zwei Serverfunktionen in `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` speichert die Ausgabe in `newsletter_issue` unter einer ID, die das Formular einmal beim Öffnen erzeugt, und zählt ihre Empfänger: die Abonnenten mit dem Status `subscribed`, die vor diesem Moment bestätigt haben. Ein zweiter Aufruf mit derselben ID schreibt nichts.
+2. `sendNewsletterIssue` nimmt die Ausgabe für <RepositoryFact name="newsletterLeaseSeconds" unit="second" /> in Beschlag (Lease), verschickt bis zu <RepositoryFact name="newsletterBatchesPerStep" /> Batches mit je <RepositoryFact name="newsletterBatchSize" /> E-Mails über `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), eine Anfrage an Resend nach der anderen, und hält nach jedem Batch fest, welchen Abonnenten er zuletzt erreicht hat und wie viele E-Mails hinausgingen. Sie antwortet mit dem Fortschritt, und `sendNewsletterIssueMutation` ruft sie erneut auf, bis die Ausgabe verschickt ist.
+
+Eine Anfrage verschickt höchstens <RepositoryFact name="newsletterStepRecipients" /> E-Mails, sodass jede innerhalb der Grenzen des Workers bleibt, wie lang die Liste auch ist, und eine Anfrage nach der anderen hält den Versand innerhalb des Rate Limits von Resend. Beide Funktionen nehmen <RepositoryFact name="newsletterRateLimit" /> Aufrufe pro Minute von einer Client-Adresse an.
+
+Nichts wird doppelt verschickt:
+
+- Eine zweite Anfrage für eine Ausgabe, deren Lease vergeben ist, etwa durch einen Doppelklick, verschickt nichts und antwortet, dass die Ausgabe bereits verschickt wird.
+- Empfänger werden in der Reihenfolge ihrer ID gelesen, nach dem zuletzt festgehaltenen, sodass eine Anfrage, die eine unterbrochene Ausgabe fortsetzt, dort beginnt, wo der letzte abgeschlossene Batch endete.
+- Jeder Batch trägt einen Idempotenzschlüssel aus der Ausgabe und den IDs seiner Empfänger. Scheitert eine Anfrage, nachdem Resend den Batch angenommen hat, aber bevor der Fortschritt gespeichert wurde, schickt der erneute Versuch denselben Batch unter demselben Schlüssel, und Resend gibt die erste Antwort zurück, statt ihn noch einmal zu verschicken, solange es den Schlüssel aufbewahrt.
+
+Eine Adresse, die Resend ablehnt, hält die Ausgabe nicht auf: Jeder Batch geht mit `batchValidation: "permissive"` hinaus, sodass Resend die übrigen E-Mails des Batches verschickt, die Ablehnung protokolliert wird und der Fortschritt nur die E-Mails zählt, die Resend angenommen hat.
+
+Lehnt Resend einen ganzen Batch ab, wird die Lease freigegeben, der Admin sieht den Fehler, und die Ausgabe bleibt bei **Wird verschickt**. Der Tab Ausgaben listet sie mit **Versand fortsetzen** im Zeilenmenü, das beim letzten verschickten Batch weitermacht.
+
+## Abmelden [#unsubscribing]
+
+Jede E-Mail endet mit einer Zeile, die sagt, warum der Leser sie erhält, und einem Link auf `/newsletter/unsubscribe?token=` in der Sprache des Abonnenten, gebaut von `unsubscribeUrl`. Außerdem trägt sie den Header `List-Unsubscribe` mit dieser Adresse und `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, sodass ein Mailprogramm eine eigene Abmeldeschaltfläche anbieten kann. Diese Schaltfläche schickt ein `POST` an dieselbe Adresse, das die Route selbst beantwortet (`server.handlers.POST` in `_site._marketing.newsletter.unsubscribe.tsx`) und das sofort abmeldet. Das Öffnen der Adresse fragt weiterhin nur nach; nichts ändert sich, bis der Leser die Schaltfläche drückt.
+
+## Ausgaben [#issues]
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) listet die Ausgaben mit `getNewsletterIssues` und `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): den englischen Betreff, Wird verschickt oder Verschickt, wie viele E-Mails von wie vielen Empfängern hinausgingen, in wie vielen Sprachen die Ausgabe geschrieben wurde, wann sie begann und wann sie abgeschlossen war. Die Suche findet den Betreff in jeder Sprache; die Filter sind der Status und der Starttag.
+
+## Verwandte Seiten
+
+- [Landingpage](/docs/features/landing-page#newsletter)
+- [Transaktions-E-Mails](/docs/features/email)
+- [Admin-Dashboard](/docs/features/admin-dashboard)

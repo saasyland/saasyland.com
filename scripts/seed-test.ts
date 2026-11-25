@@ -9,6 +9,7 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { authSeed } from "~/e2e/data/auth.seed"
 import { coursesSeed } from "~/e2e/data/courses.seed"
 import { licenseSeed } from "~/e2e/data/license.seed"
+import { newsletterSeed } from "~/e2e/data/newsletter.seed"
 import { paymentsSeed } from "~/e2e/data/payments.seed"
 import { productsSeed } from "~/e2e/data/products.seed"
 import type { TestSeed } from "~/e2e/data/seed"
@@ -25,7 +26,14 @@ const wrangler = (args: readonly string[], failure: string): void => {
   }
 }
 
-const seeds: readonly TestSeed[] = await Promise.all([authSeed(), coursesSeed(), licenseSeed(), paymentsSeed(), productsSeed()])
+const seeds: readonly TestSeed[] = await Promise.all([
+  authSeed(),
+  coursesSeed(),
+  licenseSeed(),
+  newsletterSeed(),
+  paymentsSeed(),
+  productsSeed(),
+])
 const statements = seeds.flatMap((seed) => seed.statements)
 const objects = seeds.flatMap((seed) => seed.objects)
 

@@ -1,0 +1,57 @@
+---
+title: "Newsletter"
+description: "Lista subskrybentów w panelu administracyjnym z eksportem do CSV, pisanie numeru w każdym języku z podglądem i wysyłka przez Resend partiami, których ponowna próba ani drugie kliknięcie nigdy nie wyślą dwa razy."
+---
+
+Odwiedzający zapisują się do dziennika prac w stopce i potwierdzają adres e-mailem ([Strona główna](/docs/features/landing-page#newsletter)). Administrator przegląda zapisy i wysyła numery pod `/admin/newsletter`. Obszar newslettera dodaje tę stronę do grupy Treści na pasku bocznym w `src/data/navigation.ts`, z zakładkami Subskrybenci i Numery z `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Prowadzi do niej kafelek Subskrybenci newslettera na pulpicie ([Panel administracyjny](/docs/features/admin-dashboard#newsletter-subscribers)). Każda opisana niżej funkcja serwerowa wywołuje `authorized({ admin: ["access"] })`, więc korzysta z nich tylko administrator.
+
+## Subskrybenci [#subscribers]
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) pokazuje każdy wiersz `newsletter_subscriber` w `DataGrid` ([Siatka danych](/docs/ui/data-grid)) z kolumnami z `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` wywołuje `listNewsletterSubscribers` (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). Stronicowanie, sortowanie, wyszukiwanie po adresie e-mail i filtry działają na serwerze, a sprawdza je `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Każdy wiersz pokazuje adres, status (czeka na potwierdzenie, potwierdzony lub wypisany), datę zapisu, datę potwierdzenia i język, w którym przychodzą e-maile. Miejsce zapisu (stopka, blog lub panel klienta) czeka w menu Kolumny. Filtry obejmują statusy, języki, miejsce zapisu oraz dni zapisu i potwierdzenia.
+- Eksport zapisuje do pliku CSV wiersze znalezione przez wyszukiwanie i filtry albo zaznaczone wiersze. Komórka, która zaczyna się od `=`, `+`, `-`, `@`, tabulatora lub powrotu karetki, dostaje na początku apostrof (`csvOf` w `src/lib/csv.ts`), więc arkusz kalkulacyjny pokaże adres taki jak `=cmd@example.com` jako tekst, zamiast wykonać go jako formułę.
+
+## Pisanie numeru [#writing-an-issue]
+
+**Nowy numer** otwiera `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`), gdzie `NewsletterIssueForm` (`newsletter-issue-form.tsx`) działa według wzorca shadcn z TanStack Form i sprawdza dane schematem `newsletterIssueZodSchemas.issueTexts`:
+
+- Temat i treść pisze się osobno dla każdego języka, wybierając go w `FormLanguages`. Wersja angielska jest wymagana; każda inna jest kompletna, z własnym tematem i treścią, albo zostaje pusta. Temat może mieć do <RepositoryFact name="newsletterSubjectMaxLength" /> znaków, a treść do <RepositoryFact name="newsletterBodyMaxLength" />. Pusty wiersz zaczyna nowy akapit.
+- `NewsletterIssuePreview` pokazuje numer tak, jak dostaną go czytelnicy wybranego języka. Gdy ta wersja jest niepełna, pokazuje numer po angielsku i informuje, że ci czytelnicy dostaną wersję angielską.
+- Formularz podaje, do ilu potwierdzonych subskrybentów trafi numer, na podstawie `newsletterSubscribersQuery`, i nie pozwala go wysłać, dopóki nie ma żadnego. Przed wysyłką prosi o potwierdzenie.
+
+Każdy subskrybent dostaje numer w języku zapisanym przy subskrypcji albo po angielsku, gdy numer nie ma w tym języku kompletnej wersji (`issueContent` w `newsletter-issue.utils.ts`). Cały e-mail, razem ze stopką, jest w języku swojej treści.
+
+## Wysyłka [#sending]
+
+Na wysyłkę składają się dwie funkcje serwerowe w `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` zapisuje numer w `newsletter_issue` pod identyfikatorem, który formularz generuje raz przy otwarciu, i liczy odbiorców: subskrybentów ze statusem `subscribed`, którzy potwierdzili adres przed tą chwilą. Ponowne wywołanie z tym samym identyfikatorem niczego nie zapisuje.
+2. `sendNewsletterIssue` rezerwuje numer na <RepositoryFact name="newsletterLeaseSeconds" unit="second" />, wysyła do <RepositoryFact name="newsletterBatchesPerStep" /> partii po <RepositoryFact name="newsletterBatchSize" /> e-maili przez `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), jedno żądanie do Resend po drugim, i po każdej partii zapisuje ostatniego subskrybenta, do którego dotarła, oraz liczbę wysłanych e-maili. Odpowiada stanem wysyłki, a `sendNewsletterIssueMutation` wywołuje ją ponownie, aż numer zostanie wysłany.
+
+Jedno żądanie wysyła najwyżej <RepositoryFact name="newsletterStepRecipients" /> e-maili, więc każde mieści się w limitach Workera bez względu na długość listy, a wysyłanie żądań po kolei utrzymuje wysyłkę w limicie żądań Resend. Obie funkcje przyjmują <RepositoryFact name="newsletterRateLimit" /> wywołań na minutę z jednego adresu klienta.
+
+Nic nie wychodzi dwa razy:
+
+- Drugie żądanie dla numeru, który jest już zarezerwowany, na przykład po podwójnym kliknięciu, niczego nie wysyła i odpowiada, że numer jest już w trakcie wysyłki.
+- Odbiorcy są czytani w kolejności identyfikatorów, od miejsca po ostatnim zapisanym, więc żądanie, które wznawia przerwaną wysyłkę, zaczyna tam, gdzie skończyła się ostatnia zakończona partia.
+- Każda partia ma klucz idempotencji zbudowany z numeru i identyfikatorów jej odbiorców. Jeśli żądanie się nie powiedzie po tym, jak Resend przyjął partię, ale przed zapisaniem stanu wysyłki, ponowna próba wysyła tę samą partię z tym samym kluczem, a Resend zwraca pierwszą odpowiedź, zamiast wysłać ją jeszcze raz, dopóki przechowuje klucz.
+
+Adres odrzucony przez Resend nie wstrzymuje numeru: każda partia wychodzi z `batchValidation: "permissive"`, więc Resend wysyła pozostałe e-maile z partii, odmowa trafia do logów, a stan wysyłki liczy tylko e-maile przyjęte przez Resend.
+
+Gdy Resend odrzuci całą partię, rezerwacja zostaje zwolniona, administrator widzi błąd, a numer zostaje w stanie **W trakcie wysyłki**. Zakładka Numery pokazuje go z poleceniem **Wznów wysyłkę** w menu wiersza, które kontynuuje od ostatniej wysłanej partii.
+
+## Wypisywanie się [#unsubscribing]
+
+Każdy e-mail kończy się zdaniem, dlaczego czytelnik go dostaje, i linkiem do `/newsletter/unsubscribe?token=` w języku subskrybenta, który buduje `unsubscribeUrl`. Ma też nagłówek `List-Unsubscribe` z tym adresem i `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, więc program pocztowy może pokazać własny przycisk wypisania. Ten przycisk wysyła `POST` pod ten sam adres, na który odpowiada sama trasa (`server.handlers.POST` w `_site._marketing.newsletter.unsubscribe.tsx`), i od razu wypisuje. Samo otwarcie adresu nadal tylko pyta; nic się nie zmienia, dopóki czytelnik nie naciśnie przycisku.
+
+## Numery [#issues]
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) pokazuje numery z `getNewsletterIssues` i kolumnami z `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): temat po angielsku, stan W trakcie wysyłki lub Wysłany, do ilu odbiorców spośród wszystkich wyszedł już e-mail, w ilu językach napisano numer, kiedy wysyłka się zaczęła i kiedy się skończyła. Wyszukiwanie znajduje temat w każdym języku; filtry obejmują status i dzień rozpoczęcia.
+
+## Powiązane strony
+
+- [Strona główna](/docs/features/landing-page#newsletter)
+- [E-maile transakcyjne](/docs/features/email)
+- [Panel administracyjny](/docs/features/admin-dashboard)

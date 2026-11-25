@@ -23,6 +23,7 @@ import {
   TWO_FACTOR_CODE_LENGTH,
 } from "~/src/integrations/better-auth/auth.constraints"
 import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/better-auth/auth.middleware"
+import { RESEND_BATCH_LIMIT } from "~/src/integrations/resend/resend.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { DATA_GRID_DENSITIES, DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -76,6 +77,13 @@ import {
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
+import {
+  NEWSLETTER_ISSUE_BATCHES_PER_STEP,
+  NEWSLETTER_ISSUE_BODY_MAX_LENGTH,
+  NEWSLETTER_ISSUE_LEASE_SECONDS,
+  NEWSLETTER_ISSUE_RATE_LIMIT,
+  NEWSLETTER_ISSUE_SUBJECT_MAX_LENGTH,
+} from "~/src/modules/newsletter-issue/newsletter-issue.constants"
 import { CONFIRMATION_WINDOW_IN_HOURS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { CHECKOUT_RATE_LIMIT, REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
@@ -315,8 +323,15 @@ const FACTS = {
   nameMaxLength: NAME_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
+  newsletterBatchSize: RESEND_BATCH_LIMIT,
+  newsletterBatchesPerStep: NEWSLETTER_ISSUE_BATCHES_PER_STEP,
+  newsletterBodyMaxLength: NEWSLETTER_ISSUE_BODY_MAX_LENGTH,
   newsletterConfirmationHours: CONFIRMATION_WINDOW_IN_HOURS,
+  newsletterLeaseSeconds: NEWSLETTER_ISSUE_LEASE_SECONDS,
+  newsletterRateLimit: NEWSLETTER_ISSUE_RATE_LIMIT.max,
   newsletterSending: NEWSLETTER_SENDING,
+  newsletterStepRecipients: NEWSLETTER_ISSUE_BATCHES_PER_STEP * RESEND_BATCH_LIMIT,
+  newsletterSubjectMaxLength: NEWSLETTER_ISSUE_SUBJECT_MAX_LENGTH,
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),

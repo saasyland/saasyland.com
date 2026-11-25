@@ -16,6 +16,7 @@ import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.con
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { COMMAND_SEARCHES } from "~/src/presentation/components/custom/admin/admin-command-palette"
+import { NEWSLETTER_TABS } from "~/src/presentation/components/custom/admin/newsletter/newsletter-tabs"
 import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
@@ -50,6 +51,7 @@ const ENTRY_LABELS = [
     ...APP_RESOURCE_NAVIGATION,
     ...SITE_ENTRIES,
     ...USER_TABS,
+    ...NEWSLETTER_TABS,
     ...COMMAND_SEARCHES,
   ].map(({ label }) => label),
   ...SITE_ENTRIES.flatMap(({ signedIn }) => (signedIn === undefined ? [] : [signedIn.label])),
@@ -62,7 +64,7 @@ describe("the website's navigation", () => {
       [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
       [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
       [ADMIN_NAVIGATION_GROUP.SALES, [ROUTES.ADMIN_ORDERS]],
-      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES]],
+      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES, ROUTES.ADMIN_NEWSLETTER]],
       [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
     ])
     expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_ORDERS, ROUTES.ADMIN_USERS_CUSTOMERS])

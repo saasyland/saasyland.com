@@ -1,0 +1,57 @@
+---
+title: "Newsletter"
+description: "L’elenco degli iscritti nell’amministrazione e la sua esportazione CSV, la scrittura di un numero in ogni lingua con anteprima e il suo invio tramite Resend in lotti che un nuovo tentativo o un secondo clic non inviano mai due volte."
+---
+
+I visitatori si iscrivono al diario di sviluppo dal footer e confermano il proprio indirizzo via email ([Landing page](/docs/features/landing-page#newsletter)). L’amministratore legge le iscrizioni e invia i numeri da `/admin/newsletter`, che l’area newsletter aggiunge al gruppo Contenuto della barra laterale in `src/data/navigation.ts`, con le schede Iscritti e Numeri di `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Il riquadro Iscritti alla newsletter della dashboard rimanda qui ([Dashboard di amministrazione](/docs/features/admin-dashboard#newsletter-subscribers)). Ogni funzione server descritta qui esegue `authorized({ admin: ["access"] })`, quindi solo un amministratore vi accede.
+
+## Iscritti [#subscribers]
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) elenca ogni riga di `newsletter_subscriber` nel `DataGrid` ([Griglia dati](/docs/ui/data-grid)) con `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` chiama `listNewsletterSubscribers` (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). Paginazione, ordinamento, ricerca per email e filtri vengono eseguiti sul server, convalidati da `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Ogni riga mostra l’indirizzo, lo stato (in attesa di conferma, confermato o disiscritto), quando l’indirizzo si è iscritto, quando ha confermato e la lingua in cui sono scritte le sue email. Da dove si è iscritto (il footer, il blog o l’app) si trova nel menu Colonne. I filtri sono gli stati, le lingue, la provenienza dell’iscrizione e i giorni di iscrizione e di conferma.
+- L’esportazione scrive in un CSV le righe trovate dalla ricerca e dai filtri, oppure quelle selezionate. Una cella che inizia con `=`, `+`, `-`, `@`, una tabulazione o un ritorno a capo riceve un apostrofo iniziale (`csvOf` in `src/lib/csv.ts`), così un foglio di calcolo mostra un indirizzo come `=cmd@example.com` come testo invece di eseguirlo come formula.
+
+## Scrivere un numero [#writing-an-issue]
+
+**Nuovo numero** apre `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`), dove `NewsletterIssueForm` (`newsletter-issue-form.tsx`) segue lo schema di shadcn con TanStack Form e convalida con `newsletterIssueZodSchemas.issueTexts`:
+
+- Oggetto e testo si scrivono per lingua con il selettore di lingua di `FormLanguages`. L’inglese è obbligatorio; ogni altra lingua è completa, con oggetto e testo propri, oppure resta vuota. L’oggetto accetta fino a <RepositoryFact name="newsletterSubjectMaxLength" /> caratteri e il testo fino a <RepositoryFact name="newsletterBodyMaxLength" />. Una riga vuota inizia un nuovo paragrafo.
+- `NewsletterIssuePreview` mostra il numero come lo ricevono i lettori della lingua scelta. Se quella lingua è incompleta, mostra il numero in inglese e avvisa che quei lettori lo ricevono in inglese.
+- Il modulo indica a quanti iscritti confermati arriva il numero, da `newsletterSubscribersQuery`, e non si può inviare finché non ce n’è nessuno. L’invio chiede prima una conferma.
+
+Ogni iscritto riceve il numero nella lingua salvata con la sua iscrizione, oppure in inglese se il numero non ha una versione completa in quella lingua (`issueContent` in `newsletter-issue.utils.ts`). L’intera email, piè di pagina compreso, è nella lingua del suo testo.
+
+## Invio [#sending]
+
+L’invio è affidato a due funzioni server in `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` salva il numero in `newsletter_issue` con un ID che il modulo genera una sola volta all’apertura e conta i destinatari: gli iscritti con stato `subscribed` che hanno confermato prima di quel momento. Eseguirla di nuovo con lo stesso ID non scrive nulla.
+2. `sendNewsletterIssue` prenota il numero per <RepositoryFact name="newsletterLeaseSeconds" unit="second" />, invia fino a <RepositoryFact name="newsletterBatchesPerStep" /> lotti da <RepositoryFact name="newsletterBatchSize" /> email con `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), una richiesta a Resend dopo l’altra, e dopo ogni lotto registra l’ultimo iscritto raggiunto e quante email sono partite. Risponde con l’avanzamento, e `sendNewsletterIssueMutation` la richiama finché il numero non è inviato.
+
+Una richiesta invia al massimo <RepositoryFact name="newsletterStepRecipients" /> email, così ognuna resta nei limiti del Worker per quanto lunga sia la lista, e una richiesta alla volta mantiene l’invio entro il limite di frequenza di Resend. Entrambe le funzioni accettano <RepositoryFact name="newsletterRateLimit" /> chiamate al minuto da uno stesso indirizzo client.
+
+Nulla viene inviato due volte:
+
+- Una seconda richiesta per un numero già prenotato, per esempio un doppio clic, non invia nulla e risponde che il numero è già in fase di invio.
+- I destinatari vengono letti in ordine di ID, dopo l’ultimo registrato, così una richiesta che riprende un numero interrotto parte da dove è finito l’ultimo lotto completato.
+- Ogni lotto ha una chiave di idempotenza costruita dal numero e dagli ID dei suoi destinatari. Se una richiesta fallisce dopo che Resend ha accettato il lotto ma prima che l’avanzamento venga salvato, il nuovo tentativo invia lo stesso lotto con la stessa chiave, e Resend restituisce la prima risposta invece di inviarlo di nuovo finché conserva la chiave.
+
+Un indirizzo che Resend rifiuta non blocca il numero: ogni lotto parte con `batchValidation: "permissive"`, così Resend invia le altre email del lotto, il rifiuto viene registrato nei log e l’avanzamento conta solo le email che Resend ha accettato.
+
+Quando Resend rifiuta un intero lotto, la prenotazione viene rilasciata, l’amministratore vede l’errore e il numero resta in **Invio in corso**. La scheda Numeri lo elenca con **Riprendi l’invio** nel menu della riga, che continua dall’ultimo lotto partito.
+
+## Disiscrizione [#unsubscribing]
+
+Ogni email si chiude con una riga che spiega al lettore perché la riceve e con un link a `/newsletter/unsubscribe?token=` nella lingua dell’iscritto, costruito da `unsubscribeUrl`. Porta anche l’intestazione `List-Unsubscribe` con quell’indirizzo e `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, così il client di posta può offrire un proprio pulsante di disiscrizione. Quel pulsante invia un `POST` allo stesso indirizzo, a cui risponde la route stessa (`server.handlers.POST` in `_site._marketing.newsletter.unsubscribe.tsx`) e che annulla subito l’iscrizione. Aprire l’indirizzo continua solo a chiedere; nulla cambia finché il lettore non preme il pulsante.
+
+## Numeri [#issues]
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) elenca i numeri con `getNewsletterIssues` e `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): l’oggetto in inglese, Invio in corso o Inviato, quante email sono partite su quanti destinatari, in quante lingue è stato scritto il numero, quando è iniziato e quando si è concluso l’invio. La ricerca trova l’oggetto in qualsiasi lingua; i filtri sono lo stato e il giorno di avvio.
+
+## Pagine correlate
+
+- [Landing page](/docs/features/landing-page#newsletter)
+- [Email transazionali](/docs/features/email)
+- [Dashboard di amministrazione](/docs/features/admin-dashboard)

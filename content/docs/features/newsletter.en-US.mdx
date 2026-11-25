@@ -1,0 +1,57 @@
+---
+title: "Newsletter"
+description: "The admin's subscriber list and its CSV export, writing an issue in every language with a preview, and sending it through Resend in batches that a retry or a second click never sends twice."
+---
+
+Visitors sign up for the build log from the footer and confirm their address by email ([Landing page](/docs/features/landing-page#newsletter)). The admin reads the sign-ups and sends the issues at `/admin/newsletter`, which the newsletter area adds to the Content group of the sidebar in `src/data/navigation.ts`, with the Subscribers and Issues tabs of `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). The dashboard's Newsletter subscribers tile links to it ([Admin dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Every server function below runs `authorized({ admin: ["access"] })`, so only an admin reaches them.
+
+## Subscribers
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) lists every row of `newsletter_subscriber` in the `DataGrid` ([Data grid](/docs/ui/data-grid)) with `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` calls `listNewsletterSubscribers` (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). Paging, sorting, the search by email and the filters run on the server, validated by `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Each row shows the address, the status (waiting for confirmation, confirmed or unsubscribed), when the address signed up, when it confirmed, and the language its emails are written in. Where it signed up (the footer, the blog or the app) waits in the Columns menu. The filters are the statuses, the languages, where it signed up, and the sign-up and confirmation days.
+- Export writes the rows the search and filters find, or the ones ticked, to a CSV. A cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading apostrophe (`csvOf` in `src/lib/csv.ts`), so a spreadsheet shows an address such as `=cmd@example.com` as text instead of running it as a formula.
+
+## Writing an issue
+
+**New issue** opens `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`), where `NewsletterIssueForm` (`newsletter-issue-form.tsx`) follows the shadcn TanStack Form pattern and validates with `newsletterIssueZodSchemas.issueTexts`:
+
+- The subject and the body are written per language with the language picker of `FormLanguages`. English is required; another language is either complete, with its own subject and body, or left empty. The subject takes up to <RepositoryFact name="newsletterSubjectMaxLength" /> characters and the body up to <RepositoryFact name="newsletterBodyMaxLength" />. An empty line starts a new paragraph.
+- `NewsletterIssuePreview` shows the issue as readers of the chosen language get it. When that language is incomplete, it shows the English issue and says that those readers get English.
+- The form says how many confirmed subscribers the issue goes to, from `newsletterSubscribersQuery`, and cannot be sent while there are none. Send asks for confirmation first.
+
+Each subscriber gets the issue in the language stored with their subscription, or in English when the issue has no complete version in that language (`issueContent` in `newsletter-issue.utils.ts`). The whole email, footer included, is in the language its text is in.
+
+## Sending
+
+Sending is two server functions in `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` stores the issue in `newsletter_issue` under an ID the form generates once when it opens, and counts its recipients: the subscribers whose status is `subscribed` and who confirmed before that moment. Running it again with the same ID writes nothing.
+2. `sendNewsletterIssue` takes a lease on the issue for <RepositoryFact name="newsletterLeaseSeconds" unit="second" />, sends up to <RepositoryFact name="newsletterBatchesPerStep" /> batches of <RepositoryFact name="newsletterBatchSize" /> emails with `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), one Resend request after the other, and records after each batch the last subscriber it reached and how many emails went out. It answers with the progress, and `sendNewsletterIssueMutation` calls it again until the issue is sent.
+
+One request sends at most <RepositoryFact name="newsletterStepRecipients" /> emails, so each stays within the Worker's limits however long the list is, and one request at a time keeps the sending within Resend's rate limit. Both functions accept <RepositoryFact name="newsletterRateLimit" /> calls a minute from one client address.
+
+Nothing is sent twice:
+
+- A second request for an issue whose lease is held, such as a double click, sends nothing and answers that the issue is already being sent.
+- Recipients are read in the order of their ID, after the last one recorded, so a request that resumes an interrupted issue starts where the last finished batch ended.
+- Each batch carries an idempotency key built from the issue and the IDs of its recipients. If a request fails after Resend accepted the batch but before the progress was saved, the retry sends the same batch under the same key, and Resend returns the first answer instead of sending it again while it keeps the key.
+
+An address Resend refuses does not hold up the issue: each batch goes out with `batchValidation: "permissive"`, so Resend sends the other emails of the batch, the refusal is logged, and the progress counts only the emails Resend accepted.
+
+When Resend refuses a whole batch, the lease is released, the admin sees the error, and the issue stays **Sending**. The Issues tab lists it with **Resume sending** in its row menu, which continues from the last batch that went out.
+
+## Unsubscribing
+
+Every email ends with a line saying why the reader gets it and a link to `/newsletter/unsubscribe?token=` in the subscriber's language, built by `unsubscribeUrl`. It also carries the `List-Unsubscribe` header with that address and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, so a mail client can offer its own unsubscribe button. That button sends a `POST` to the same address, which the route answers itself (`server.handlers.POST` in `_site._marketing.newsletter.unsubscribe.tsx`) and which unsubscribes at once. Opening the address still only asks; nothing changes until the reader presses the button.
+
+## Issues
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) lists the issues with `getNewsletterIssues` and `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): the English subject, Sending or Sent, how many emails went out of how many recipients, in how many languages the issue was written, when it started and when it finished. The search matches the subject in any language; the filters are the status and the start day.
+
+## Related pages
+
+- [Landing page](/docs/features/landing-page#newsletter)
+- [Email](/docs/features/email)
+- [Admin dashboard](/docs/features/admin-dashboard)

@@ -18,6 +18,9 @@ const SOURCES: Readonly<Record<string, string>> = {
   [ROUTES_FILE]: [
     'export const ACCEPT_INVITATION = "/auth/invite"',
     'export const ADMIN = "/admin"',
+    'export const ADMIN_NEWSLETTER = "/admin/newsletter"',
+    'export const ADMIN_NEWSLETTER_COMPOSE = "/admin/newsletter/compose"',
+    'export const ADMIN_NEWSLETTER_ISSUES = "/admin/newsletter/issues"',
     'export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"',
     'export const API_AUTH = { ACCEPT_INVITATION: "/invitation/accept", GET_SESSION: "/get-session" } as const',
     'export const HOME = "/"',

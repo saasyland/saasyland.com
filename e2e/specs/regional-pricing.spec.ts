@@ -1,6 +1,30 @@
+import * as zod from "zod"
+
+import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
+import { LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import { TIER_PRICES } from "../../src/data/license"
+import * as ROUTES from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
+const STRUCTURED_DATA = /<script type="application\/ld\+json">(?<json>[^<]+)<\/script>/gu
+
+const productGraphSchema = zod.object({
+  "@graph": zod.array(zod.object({ "@type": zod.literal("Product"), offers: zod.object({ price: zod.number(), priceCurrency: zod.string() }) })),
+})
+
 test.use({ extraHTTPHeaders: { "cf-ipcountry": "PL" } })
+
+test("the prerendered landing page describes each tier as a product at its regular price in the currency the page shows", async ({
+  request,
+}) => {
+  const html = await (await request.get(ROUTES.HOME)).text()
+  const products = Array.from(html.matchAll(STRUCTURED_DATA), ({ groups }) => productGraphSchema.safeParse(JSON.parse(groups?.["json"] ?? "")))
+    .flatMap(({ data }) => data?.["@graph"] ?? [])
+
+  expect(products.map(({ offers }) => [offers.price, offers.priceCurrency])).toStrictEqual(
+    LICENSE_TIERS.map((tier) => [TIER_PRICES[tier], CURRENCY_FORMAT.currency]),
+  )
+})
 
 test("shows the regional price next to the struck-through regular price and remembers a decline", async ({ appPage, page }) => {
   await page.goto("/")

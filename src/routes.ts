@@ -49,6 +49,7 @@ export const AUTHORS = "/authors"
 export const BLOG = "/blog"
 export const BLOG_FEED = `${BLOG}/rss.xml`
 export const COURSES = "/courses"
+export const COURSES_SITEMAP = "/sitemap-courses.xml"
 export const DOCS = "/docs"
 export const DOCS_CLI = `${DOCS}/cli`
 export const DOCS_TEST_COVERAGE = `${DOCS}/tooling/test-coverage`
@@ -68,7 +69,7 @@ export const TWO_FACTOR = "/auth/two-factor"
 export const VERIFY_EMAIL = "/auth/verify-email"
 export const WITHDRAWAL = "/withdrawal"
 
-export const UNLISTED_ROUTES: readonly string[] = [ADMIN, API, APP, AUTH, COURSES, NEWSLETTER]
+export const REQUEST_RENDERED_ROUTES: readonly string[] = [ADMIN, API, APP, AUTH, COURSES, NEWSLETTER]
 
-export const isUnlistedRoute = (pathname: string): boolean =>
-  UNLISTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+export const isRequestRenderedRoute = (pathname: string): boolean =>
+  REQUEST_RENDERED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))

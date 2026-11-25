@@ -16,7 +16,7 @@ import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
-import { TIER_FEATURES, TIER_SUPPORT_VALUES } from "~/src/data/license"
+import { TIER_FEATURES, TIER_PRICES, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import {
   ANGULARPROJECTS_FACTS,
   ANGULARPROJECTS_URL,
@@ -28,10 +28,11 @@ import {
   REACTPROJECTS_URL,
 } from "~/src/data/marketing"
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
-import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
+import { FEATURE_STATUS, FEATURE_STATUSES, MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
+import { SCHEMA_AVAILABILITY, SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
 import { CompareSection } from "~/src/presentation/components/custom/landing-page/sections/compare-section"
@@ -51,7 +52,7 @@ import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricin
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
 
 const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
@@ -192,6 +193,35 @@ describe("regional pricing", () => {
     renderSection(<PricingSection />)
 
     expect(screen.getByRole("checkbox", { name: /off with regional pricing/u })).not.toBeChecked()
+  })
+})
+
+describe("tier structured data", () => {
+  it("describes each tier to search engines as a product whose offer has its price in the currency the page shows", () => {
+    const { container } = renderSection(<PricingSection />)
+    const script = container.querySelector('script[type="application/ld+json"]')
+    const translate = createTranslator({ locale: "en-US", messages: pricing })
+    const home = `${APP_URL}${ROUTES.HOME}`
+
+    expect(JSON.parse(script?.textContent ?? "")).toStrictEqual({
+      "@context": "https://schema.org",
+      "@graph": LICENSE_TIERS.map((tier) => ({
+        "@id": `${home}#${tier}`,
+        "@type": "Product",
+        brand: { "@type": "Brand", name: APP_NAME },
+        description: translate(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES),
+        image: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`,
+        name: `${APP_NAME} ${pricing.tiers[tier].name}`,
+        offers: {
+          "@type": "Offer",
+          availability: SCHEMA_AVAILABILITY.IN_STOCK,
+          price: TIER_PRICES[tier],
+          priceCurrency: CURRENCY_FORMAT.currency,
+          seller: { "@type": "Organization", name: APP_NAME, url: APP_URL },
+          url: `${home}#${MARKETING_SECTION_IDS.PRICING}`,
+        },
+      })),
+    })
   })
 })
 

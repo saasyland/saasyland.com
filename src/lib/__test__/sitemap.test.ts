@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { ROBOTS } from "~/src/lib/seo"
-import { buildSitemap, isIndexable, listedPages } from "~/src/lib/sitemap"
+import { buildSitemap, buildSitemapIndex, isIndexable, listedPages, localizedSitemapPages } from "~/src/lib/sitemap"
 
 import { APP_URL } from "~/src/presentation/branding"
 
@@ -83,6 +85,46 @@ describe("buildSitemap", () => {
     expect(() => buildSitemap([page("/"), page("/")])).toThrow(`${APP_URL}/ is listed twice`)
     expect(() => buildSitemap([{ ...page("/"), alternates: [{ href: `${APP_URL}/de-DE`, hreflang: "de-DE" }] }])).toThrow(
       `${APP_URL}/ names ${APP_URL}/de-DE as an alternate, which is not listed`,
+    )
+  })
+})
+
+describe("localizedSitemapPages", () => {
+  it("lists a path in every locale with the same alternates and the time it last changed", () => {
+    const modified = new Date("2026-11-20T10:00:00.000Z")
+    const pages = localizedSitemapPages({ baseUrl: APP_URL, modified, pathname: "/courses/the-walkthrough" })
+    const alternates = [
+      ...I18N.SUPPORTED_LOCALES.map((locale) => ({
+        href: locale === I18N.DEFAULT_LOCALE ? `${APP_URL}/courses/the-walkthrough` : `${APP_URL}/${locale}/courses/the-walkthrough`,
+        hreflang: locale,
+      })),
+      { href: `${APP_URL}/courses/the-walkthrough`, hreflang: "x-default" },
+    ]
+
+    expect(pages.map(({ canonical }) => canonical)).toStrictEqual(
+      alternates.slice(0, I18N.SUPPORTED_LOCALES.length).map(({ href }) => href),
+    )
+    expect(pages.every((entry) => entry.modified === modified.toISOString())).toBe(true)
+    expect(pages.map((entry) => entry.alternates)).toStrictEqual(pages.map(() => alternates))
+    expect(() => buildSitemap(pages)).not.toThrow()
+  })
+})
+
+describe("buildSitemapIndex", () => {
+  it("names each sitemap by its escaped address", () => {
+    expect(buildSitemapIndex([`${APP_URL}/sitemap-pages.xml`, `${APP_URL}/a&b.xml`])).toBe(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        "  <sitemap>",
+        `    <loc>${APP_URL}/sitemap-pages.xml</loc>`,
+        "  </sitemap>",
+        "  <sitemap>",
+        `    <loc>${APP_URL}/a&amp;b.xml</loc>`,
+        "  </sitemap>",
+        "</sitemapindex>",
+        "",
+      ].join("\n"),
     )
   })
 })

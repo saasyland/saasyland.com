@@ -1,3 +1,6 @@
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
+
 import type { PageHead } from "~/src/lib/page-head"
 import { isAllowedByRobots, parseRobotsRules } from "~/src/lib/robots"
 import { ROBOTS } from "~/src/lib/seo"
@@ -7,8 +10,11 @@ const XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml"
 
 const NOINDEX = /\b(?:noindex|none)\b/iu
 const W3C_DATE_LENGTH = "YYYY-MM-DD".length
+const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 
-type SitemapPage = Pick<PageHead, "alternates" | "canonical" | "modified">
+export const SITEMAP_CONTENT_TYPE = "application/xml; charset=utf-8"
+
+export type SitemapPage = Pick<PageHead, "alternates" | "canonical" | "modified">
 
 export const escapeXml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;")
@@ -55,10 +61,37 @@ export const buildSitemap = (pages: readonly SitemapPage[]): string => {
   }
 
   return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
+    XML_DECLARATION,
     `<urlset xmlns="${SITEMAP_NAMESPACE}" xmlns:xhtml="${XHTML_NAMESPACE}">`,
     ...pages.toSorted((first, second) => first.canonical.localeCompare(second.canonical)).map((page) => urlEntry(page)),
     "</urlset>",
     "",
   ].join("\n")
 }
+
+export const localizedSitemapPages = ({
+  baseUrl,
+  modified,
+  pathname,
+}: {
+  readonly baseUrl: string
+  readonly modified: Date
+  readonly pathname: string
+}): SitemapPage[] =>
+  I18N.SUPPORTED_LOCALES.map((locale) => {
+    const canonical = `${baseUrl}${localizePathname({ locale, pathname })}`
+    const alternates = localeLinks({ origin: baseUrl, pathname }).flatMap(({ href, hrefLang }) =>
+      hrefLang === undefined ? [] : [{ href, hreflang: hrefLang }],
+    )
+
+    return { alternates, canonical, modified: modified.toISOString() }
+  })
+
+export const buildSitemapIndex = (locations: readonly string[]): string =>
+  [
+    XML_DECLARATION,
+    `<sitemapindex xmlns="${SITEMAP_NAMESPACE}">`,
+    ...locations.map((location) => ["  <sitemap>", `    <loc>${escapeXml(location)}</loc>`, "  </sitemap>"].join("\n")),
+    "</sitemapindex>",
+    "",
+  ].join("\n")

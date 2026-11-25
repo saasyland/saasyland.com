@@ -10,7 +10,7 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, isAvailable, isPlayable } from "~/src/modules/course/course.utils"
+import { courseLessons, coursePath, courseShareImage, isAvailable, isOpenToVisitors, isPlayable } from "~/src/modules/course/course.utils"
 import type { Lesson as LessonDetail } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
@@ -19,7 +19,7 @@ import { useLessonProgress } from "~/src/hooks/use-lesson-progress"
 
 import { cn } from "~/src/lib/cn"
 import { notFoundHead, rethrowAsNotFound } from "~/src/lib/not-found"
-import { buildPageHead } from "~/src/lib/seo"
+import { ROBOTS, buildPageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
@@ -229,23 +229,28 @@ const LessonPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
+interface LessonLoaderData {
+  readonly course: { readonly cover: string | null; readonly title: string }
+  readonly locale: SupportedLocale
+  readonly pathname: string
+  readonly robots?: string
+  readonly summary: string
+  readonly title: string
+}
+
 export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson")({
   component: LessonPage,
-  head: ({
-    loaderData,
-    match,
-  }: {
-    loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
-    match: { error: unknown }
-  }) => {
+  head: ({ loaderData, match }: { loaderData?: LessonLoaderData | undefined; match: { error: unknown } }) => {
     if (isNotFound(match.error)) {
       return notFoundHead(getCurrentLocale())
     }
 
     return buildPageHead({
       description: loaderData?.summary,
+      image: loaderData && courseShareImage(loaderData.course),
       locale: loaderData?.locale,
       pathname: loaderData?.pathname ?? ROUTES.COURSES,
+      robots: loaderData?.robots,
       title: loaderData?.title,
     })
   },
@@ -260,10 +265,12 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson"
       await context.queryClient.query(lessonPlaybackQuery({ courseSlug: params.course, lessonSlug: params.lesson }))
     }
     return {
+      course: { cover: data.course.cover, title: data.course.title },
       locale,
-      pathname: `${ROUTES.COURSES}/${data.course.slug}/${lesson.slug}`,
+      pathname: `${coursePath(data.course.slug)}/${lesson.slug}`,
       summary: lesson.summary,
       title: `${lesson.title} · ${data.course.title}`,
+      ...(isOpenToVisitors(lesson) ? {} : { robots: ROBOTS.NOINDEX }),
     }
   },
   pendingComponent: LessonPending,

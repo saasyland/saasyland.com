@@ -6,13 +6,16 @@ import { createSocialCardRenderer } from "~/src/integrations/takumi/takumi.rende
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 import { buildBlogFeeds } from "~/src/lib/feed"
 import { readPageHead } from "~/src/lib/page-head"
-import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
-import { buildSitemap, listedPages } from "~/src/lib/sitemap"
+import { ORGANIZATION_LOGO, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
+import { buildSitemap, buildSitemapIndex, listedPages } from "~/src/lib/sitemap"
 
 import { CLIENT_DIR, listPrerenderedPages } from "./prerendered-pages.ts"
 import { APP_URL } from "~/src/presentation/branding"
+import * as ROUTES from "~/src/routes"
 
 const ROBOTS_TXT = "robots.txt"
+
+const SITEMAPS = [PAGES_SITEMAP_PATH, ROUTES.COURSES_SITEMAP]
 
 const started = performance.now()
 
@@ -21,7 +24,11 @@ const files = listPrerenderedPages()
 const pages = await Promise.all(files.map(async (file) => readPageHead(await readFile(join(CLIENT_DIR, file), "utf8"))))
 const listed = listedPages(pages, await readFile(join(CLIENT_DIR, ROBOTS_TXT), "utf8"))
 
-const xmlFiles = [{ path: SITEMAP_PATH, xml: buildSitemap(listed) }, ...buildBlogFeeds(listed)]
+const xmlFiles = [
+  { path: SITEMAP_PATH, xml: buildSitemapIndex(SITEMAPS.map((path) => `${APP_URL}${path}`)) },
+  { path: PAGES_SITEMAP_PATH, xml: buildSitemap(listed) },
+  ...buildBlogFeeds(listed),
+]
 
 await Promise.all(xmlFiles.map(({ path, xml }) => writeFile(join(CLIENT_DIR, path), xml)))
 

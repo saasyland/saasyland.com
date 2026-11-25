@@ -70,6 +70,33 @@ const TEXT_LESSON = {
 export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.COURSES,
+    id: "course-sitemap",
+    outcome:
+      "Search engines find the catalogue, every published course and every lesson a signed-out visitor may watch in the course sitemap, in every locale with the day each last changed, and no other lesson",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-seo.spec.ts",
+        title:
+          "the course sitemap lists the catalogue, the course and its free lesson in every locale with the day each last changed, and no lesson a visitor may not watch",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "course-structured-data",
+    outcome:
+      "A course page describes its course as a Course in structured data in its language, and a lesson that needs an account or a licence, or is being recorded, carries noindex",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-seo.spec.ts",
+        title: "a course page describes its course in structured data and a lesson outside the sitemap stays out of search results",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
     id: "watch-free-lesson",
     outcome: "A visitor finds the course on /courses, starts it and watches the free lesson through a signed playlist",
     status: FLOW_STATUS.COVERED,

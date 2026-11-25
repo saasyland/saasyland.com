@@ -5,21 +5,25 @@ import { BadgeCheck, Check, CircleDashed, FlaskConical, Receipt, RotateCcw } fro
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/license"
-import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
+import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus, MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
+import { SCHEMA_AVAILABILITY, SCHEMA_CONTEXT, SOCIAL_IMAGE, absoluteUrl, localizedUrl, toStructuredDataHtml } from "~/src/lib/seo"
 import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/lib/tier-features"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
+import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
@@ -213,3 +217,30 @@ export const PricingTiers = ({ Action }: Readonly<{ Action: TierAction }>): JSX.
     <PricingTrust />
   </div>
 )
+
+export const TierStructuredData = (): JSX.Element => {
+  const t = useTranslations("components.custom.pricing")
+  const home = localizedUrl({ baseUrl: APP_URL, locale: getCurrentLocale(), pathname: ROUTES.HOME })
+  const seller = { "@type": "Organization", name: APP_NAME, url: APP_URL }
+
+  const products = LICENSE_TIERS.map((tier) => ({
+    "@id": `${home}#${tier}`,
+    "@type": "Product",
+    brand: { "@type": "Brand", name: APP_NAME },
+    description: t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES),
+    image: absoluteUrl(APP_URL, SOCIAL_IMAGE.SITE_PATH),
+    name: `${APP_NAME} ${t(`tiers.${tier}.name`)}`,
+    offers: {
+      "@type": "Offer",
+      availability: SCHEMA_AVAILABILITY.IN_STOCK,
+      price: TIER_PRICES[tier],
+      priceCurrency: CURRENCY_FORMAT.currency,
+      seller,
+      url: `${home}#${MARKETING_SECTION_IDS.PRICING}`,
+    },
+  }))
+
+  return (
+    <script dangerouslySetInnerHTML={toStructuredDataHtml({ "@context": SCHEMA_CONTEXT, "@graph": products })} type="application/ld+json" />
+  )
+}

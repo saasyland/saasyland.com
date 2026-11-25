@@ -3,7 +3,7 @@ import { DEPLOYED_HOSTS, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH } from "~/src/data/auth"
 
 import { signInPost } from "~/src/lib/auth"
-import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
+import { ORGANIZATION_LOGO, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import * as ROUTES from "~/src/routes"
 
@@ -38,6 +38,7 @@ export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.HOME },
   { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROBOTS_TXT },
   { contentType: CONTENT_TYPE.XML, path: SITEMAP_PATH },
+  { contentType: CONTENT_TYPE.XML, path: PAGES_SITEMAP_PATH },
   { contentType: SOCIAL_IMAGE.TYPE, path: SOCIAL_IMAGE.SITE_PATH },
   { contentType: SOCIAL_IMAGE.TYPE, path: ORGANIZATION_LOGO.PATH },
   { contentType: CONTENT_TYPE.JSON, path: ROUTES.API },
@@ -45,6 +46,7 @@ export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
   ...OAUTH_PROVIDERS.map((provider) => ({ contentType: CONTENT_TYPE.JSON, path: SOCIAL_SIGN_IN_PATH, post: signInPost(provider) })),
   { contentType: CONTENT_TYPE.XML, path: ROUTES.BLOG_FEED },
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.COURSES },
+  { contentType: CONTENT_TYPE.XML, path: ROUTES.COURSES_SITEMAP },
 ]
 
 const METHOD = { GET: "GET", POST: "POST" } as const

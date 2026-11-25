@@ -24,7 +24,7 @@ const SOURCES: Readonly<Record<string, string>> = {
     'export const NEWSLETTER = "/newsletter"',
     'export const NEWSLETTER_CONFIRM = "/newsletter/confirm"',
     'export const NEWSLETTER_UNSUBSCRIBE = "/newsletter/unsubscribe"',
-    "export const UNLISTED_ROUTES: readonly string[] = [ADMIN, NEWSLETTER]",
+    "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ADMIN, NEWSLETTER]",
     "",
   ].join("\n"),
 }
@@ -88,7 +88,7 @@ describe("areaRemoval", () => {
             'export const ADMIN = "/admin"',
             'export const API_AUTH = { GET_SESSION: "/get-session" } as const',
             'export const HOME = "/"',
-            "export const UNLISTED_ROUTES: readonly string[] = [ADMIN]",
+            "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ADMIN]",
             "",
           ].join("\n"),
         ],

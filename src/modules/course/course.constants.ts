@@ -119,3 +119,13 @@ export const COURSE_VALIDATION_PARAMS: Record<string, Record<string, number>> = 
   tooManyKeyMoments: { max: LESSON_KEY_MOMENTS_MAX_ITEMS },
   videoTooLarge: { max: VIDEO_UPLOAD_MAX_GIGABYTES },
 }
+
+export const COURSE_OFFER_CATEGORY = {
+  FREE: "Free",
+  PAID: "Paid",
+  PARTIALLY_FREE: "Partially Free",
+} as const
+
+export const COURSE_MODE = {
+  ONLINE: "Online",
+} as const

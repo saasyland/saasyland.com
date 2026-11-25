@@ -30,6 +30,8 @@ export const ORGANIZATION_LOGO = {
 
 export const SITEMAP_PATH = "/sitemap.xml"
 
+export const PAGES_SITEMAP_PATH = "/sitemap-pages.xml"
+
 const TITLE_SEPARATORS: Record<SupportedLocale, string> = {
   "de-DE": " – ",
   "en-US": " — ",
@@ -73,7 +75,7 @@ const socialImage = ({
   readonly title: string | undefined
 }): ShareImage => {
   const card = { height: SOCIAL_IMAGE.HEIGHT, type: SOCIAL_IMAGE.TYPE, width: SOCIAL_IMAGE.WIDTH }
-  if (ROUTES.isUnlistedRoute(deLocalizePathname(canonicalPath))) {
+  if (ROUTES.isRequestRenderedRoute(deLocalizePathname(canonicalPath))) {
     return { ...card, alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
   }
 
@@ -146,6 +148,7 @@ export const buildPageHead = ({
   image: shareImage,
   locale = I18N.DEFAULT_LOCALE,
   pathname,
+  robots,
   section,
   sequence = {},
   title,
@@ -157,6 +160,7 @@ export const buildPageHead = ({
   readonly image?: ShareImage | undefined
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
+  readonly robots?: string | undefined
   readonly section?: string | undefined
   readonly sequence?: PageSequence | undefined
   readonly title?: string | undefined
@@ -177,6 +181,7 @@ export const buildPageHead = ({
     meta: [
       { title: pageTitle },
       { content: description, name: "description" },
+      ...(robots === undefined ? [] : [{ content: robots, name: "robots" }]),
       { content: APP_NAME, property: "og:site_name" },
       { content: shareTitle, property: "og:title" },
       { content: description, property: "og:description" },
@@ -213,6 +218,10 @@ export const pageHead =
 export type StructuredDataNode = Record<string, unknown>
 
 export const SCHEMA_CONTEXT = "https://schema.org"
+
+export const SCHEMA_AVAILABILITY = {
+  IN_STOCK: `${SCHEMA_CONTEXT}/InStock`,
+} as const
 
 export const ORGANIZATION: StructuredDataNode = {
   "@type": "Organization",

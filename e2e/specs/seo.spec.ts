@@ -10,7 +10,7 @@ import { deLocalizePathname, localizePathname } from "../../src/integrations/use
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { BLOG_FEED_TYPE, blogFeedPath } from "../../src/lib/feed"
 import { readPageHead } from "../../src/lib/page-head"
-import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
+import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
@@ -45,11 +45,31 @@ const publishedPostDates = (): [string, string][] =>
     return published ? [[url, updated]] : []
   })
 
-const readSitemap = async (request: { get: (path: string) => Promise<{ status: () => number; text: () => Promise<string> }> }) => {
-  const response = await request.get(SITEMAP_PATH)
+type Requester = { get: (path: string) => Promise<{ status: () => number; text: () => Promise<string> }> }
+
+const readSitemap = async (request: Requester, path: string = PAGES_SITEMAP_PATH) => {
+  const response = await request.get(path)
   expect(response.status()).toBe(HTTP_STATUS.OK)
   return Array.from((await response.text()).matchAll(LOCATION), (match) => match.groups?.["url"] ?? "")
 }
+
+const readSitemaps = async (request: Requester) => {
+  const sitemaps = await readSitemap(request, SITEMAP_PATH)
+  const lists = await Promise.all(sitemaps.map((url) => readSitemap(request, new URL(url).pathname)))
+  return lists.flat()
+}
+
+test("the sitemap index names the pages' sitemap first and every sitemap it names answers as XML", async ({ request }) => {
+  const sitemaps = await readSitemap(request, SITEMAP_PATH)
+
+  expect(sitemaps[0]).toBe(`${APP_URL}${PAGES_SITEMAP_PATH}`)
+  for (const url of sitemaps) {
+    const response = await request.get(new URL(url).pathname)
+
+    expect(response.status()).toBe(HTTP_STATUS.OK)
+    expect(response.headers()["content-type"]).toMatch(XML_CONTENT_TYPE)
+  }
+})
 
 test("the sitemap lists every prerendered page that allows indexing and nothing else", async ({ request }) => {
   const listed = await readSitemap(request)
@@ -66,7 +86,7 @@ test("the sitemap lists every prerendered page that allows indexing and nothing 
 test("the sitemap dates every published blog post in every locale by its last update and leaves every other page undated", async ({
   request,
 }) => {
-  const response = await request.get(SITEMAP_PATH)
+  const response = await request.get(PAGES_SITEMAP_PATH)
   const dated = Array.from((await response.text()).matchAll(URL_ENTRY), ({ groups }) => [groups?.["url"], groups?.["lastmod"]]).filter(
     ([, lastmod]) => lastmod !== undefined,
   )
@@ -77,7 +97,7 @@ test("the sitemap dates every published blog post in every locale by its last up
 })
 
 test("every sitemap URL answers 200 on the built site without a redirect", async ({ request }) => {
-  const listed = await readSitemap(request)
+  const listed = await readSitemaps(request)
 
   for (let start = 0; start < listed.length; start += REQUESTS_AT_ONCE) {
     const batch = listed.slice(start, start + REQUESTS_AT_ONCE)

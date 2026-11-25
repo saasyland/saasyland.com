@@ -260,6 +260,18 @@ export const LICENSE_FLOWS = [
   },
   {
     area: FLOW_AREA.PURCHASE,
+    id: "tier-structured-data",
+    outcome: "The prerendered landing page describes each tier to search engines as a product whose offer carries its regular price in the currency the page shows",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "regional-pricing.spec.ts",
+        title: "the prerendered landing page describes each tier as a product at its regular price in the currency the page shows",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.PURCHASE,
     id: "regional-price-display",
     outcome:
       "A visitor from a regional-pricing country sees the regional price beside the struck-through full price, can decline it, and the choice survives a reload and a client-side visit",

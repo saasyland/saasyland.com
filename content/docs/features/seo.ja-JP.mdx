@@ -1,9 +1,9 @@
 ---
 title: "検索エンジンとソーシャルプレビュー"
-description: "ページのメタデータ、robots.txt、サイトマップ、そしてビルドがプリレンダリングされたすべてのページ用に描画するソーシャルカード。"
+description: "ページのメタデータ、構造化データ、robots.txt、サイトマップ、そしてビルドがプリレンダリングされたすべてのページ用に描画するソーシャルカード。"
 ---
 
-各ページは、ルートの `head` を通じて検索エンジンとリンクプレビューに自身の情報を伝えます。ビルドはその情報から `sitemap.xml` と、プリレンダリングされたページごとのソーシャルカードを生成します。どちらも `dist/client` に置かれる静的ファイルなので、これらに関して Worker で実行されるものはありません。
+各ページは、ルートの `head` を通じて検索エンジンとリンクプレビューに自身の情報を伝えます。ビルドはその情報から、プリレンダリングされたページのサイトマップと、それぞれのページのソーシャルカードを生成します。どちらも `dist/client` に置かれる静的ファイルなので、これらに関して Worker で実行されるものはありません。コースのページはリクエストごとに D1 から読み込まれるため、Worker が専用のサイトマップにそれらを載せます（[コースのサイトマップ](#course-sitemap)を参照）。
 
 ## ページのメタデータ
 
@@ -17,7 +17,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 ルートの head は名前またはプロパティごとにタグを 1 つしか保持しません。そのため、ブログ記事のタグを並べる `article:tag` のようなリストは記事ページ自身が描画し、React がそれらのタグをドキュメントの head に配置します。同じ理由で、ルートルートはほかの言語の `og:locale:alternate` をドキュメント自体に追加します。ルートルートは `robots` ディレクティブも設定します。`production` ビルドでは `ROBOTS.FULL_PREVIEWS` を設定し、検索エンジンが大きな画像プレビューと完全なスニペットを表示できるようにします。それ以外のすべてのビルドモードでは `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）を設定し、プレビューとテストのデプロイが検索結果に表示されないようにします。
 
-ページを検索結果から除外するには、`robots` メタタグに `ROBOTS.NOINDEX`（`noindex`）を設定します。ページが見つからない場合のページはすべてこれを使います。`src/lib/not-found.ts` の `notFoundHead` が `errors.not-found` から翻訳済みのタイトルと説明、そして `noindex` を設定し、canonical リンクとソーシャルカードは出力しません。
+ページを検索結果から除外するには、`robots` メタタグに `ROBOTS.NOINDEX`（`noindex`）を設定します。ルートがこれを `robots` として渡すと、`buildPageHead` がこのタグを書き出します。コースのカタログは公開済みのコースが 1 つもない間これを使い、サインインしていない訪問者が視聴できないすべてのレッスン、つまりアカウントやライセンスが必要なレッスンと収録中のレッスンも同様です（`src/modules/course/course.utils.ts` の `isOpenToVisitors`）。ページが見つからない場合のページもすべてこれを使います。`src/lib/not-found.ts` の `notFoundHead` が `errors.not-found` から翻訳済みのタイトルと説明、そして `noindex` を設定し、canonical リンクとソーシャルカードは出力しません。
 
 ドキュメントページは、パンくずリストに表示されるセクションを指定します。`fumadocs.indexes.ts` がドキュメントのインデックスを作るときに Fumadocs の `getBreadcrumbItems` でセクションを読み取るため、`/docs` と各セクションの最初のページにはセクションがありません。ブログ記事は、`pages.blog` のタイトルでブログをセクションとして指定します。
 
@@ -30,12 +30,15 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 - 執筆者のページ `/authors/<id>` は、名前、説明、言語を持ち、`mainEntity` が同じ `Person` である `ProfilePage` を追加します（`buildAuthorStructuredDataHtml`）。そのため、すべての記事の `author` とプロフィールは 1 つのノードを指します。[ブログ](/docs/features/blog#authors)を参照してください。
 - ブログの一覧は、名前、説明、言語、発行者を持つ `Blog` を追加し、その言語で公開済みのすべての記事を、見出し、URL、公開日を持つ `BlogPosting` として列挙し、最初のページの記事を `ItemList` として列挙します（`buildBlogStructuredDataHtml`）。
 - ブログのアーカイブの 2 ページ目以降の各ページ `/blog/page/<n>` は、`Blog` の一部である `CollectionPage`、アーカイブ全体を通して番号を振った `ItemList` としてのそのページの記事、そして `APP_NAME` からブログを経てそのページへとたどる `BreadcrumbList` を追加します（`buildBlogArchiveStructuredDataHtml`）。[ブログ](/docs/features/blog#routes)を参照してください。
+- ランディングページの料金セクションは、各ティアを `Product` として記述します（`src/presentation/components/custom/pricing.tsx` の `TierStructuredData`）。`APP_NAME` とティアの名前、説明としてのキャッチコピー、`Brand` としての `APP_NAME`、画像としてのサイトカード、そして `TIER_PRICES` のティアの価格、ページが表示する `CURRENCY_FORMAT` の通貨、在庫状況 `InStock`、料金セクションのアドレス、販売者としての組織を持つ `Offer` です。ダウンロードできるコードのライセンスは `SoftwareApplication` としても記述できますが、Google がソフトウェアアプリのリッチリザルトを表示するのは評価やレビューがある場合だけで、このサイトはそれらを集めていません。一方、`Offer` を持つ `Product` は、価格付きの商品スニペットの対象になります。地域別価格はここに含めません。地域別価格は Worker が訪問者ごとにページへ書き込むもので、通常価格はどの訪問者のページにも最初に表示される価格だからです。
+- コースのページは `Course` を追加します（`src/modules/course/course.utils.ts` の `courseStructuredDataHtml`）。タイトル、概要、ページのアドレスと言語、ページに表示されるとおりのレベル、`image` としてのカバー画像、`teaches` としての到達目標、`coursePrerequisites` としての前提条件、`provider` としての組織です。`offers` には、`COURSE_ACCESS_GRANTS` の各コースアクセスについて、その価格と同じ通貨の `Offer` が入ります。ライセンスが必要なレッスンが 1 つもない場合は、価格 0 の無料の `Offer` が 1 つだけ入ります。その `category` はレッスンのアクセスレベルに応じて `Free`、`Partially Free`、`Paid` のいずれかになり、無料のコースでは `isAccessibleForFree` が true になります。`hasCourseInstance` は `Online` の `CourseInstance` で、レッスンに収録済みの動画ができると、その動画の長さを分単位に切り上げた値が `courseWorkload` になります。
+- コースのカタログは、公開済みのコースのアドレスをそのカタログの言語で並べた `ItemList` を追加します（`catalogueStructuredDataHtml`）。Google はこの一覧ページからコースのリストを読み取ります。
 
 ## ソーシャルカード
 
 プリレンダリングされた各ページには `/images/og/<canonical path>.png` に専用のカードがあり、ホームページのカードは `/images/og/index.png` です（`socialImagePath`）。カードには、サイトの背景と同じグリッドとグローの上に、ワードマーク、セクションがあればアクセントカラーのセクション名、ページの `og:title`、ドメインが表示されます。代替テキストはその内容をページの言語で表したもので、タイトル、セクション、`APP_NAME` を言語ごとのタイトルの区切り文字でつないだものです。
 
-プリレンダリングされないページ、つまり <RepositoryFact name="unlistedRoutes" /> とその配下のすべてのパスは、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。`src/routes.ts` の `UNLISTED_ROUTES` が、ほかのパスと並べてそれらを列挙します。`shouldPrerender`（`src/lib/prerender.ts`）はこれらをプリレンダリングの対象から外し、`buildPageHead` はこれらにサイトカードを割り当てます。 唯一の例外はカバー画像のあるコースのページで、`courseShareImage`（`src/modules/course/course.utils.ts`）がそのカバー画像を `og:image` と `twitter:image` に設定します。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。
+Worker がリクエストごとに描画するページ、つまり <RepositoryFact name="requestRenderedRoutes" /> とその配下のすべてのパスはプリレンダリングされず、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。`src/routes.ts` の `REQUEST_RENDERED_ROUTES` が、ほかのパスと並べてそれらを列挙します。`shouldPrerender`（`src/lib/prerender.ts`）はこれらをプリレンダリングの対象から外し、`buildPageHead` は、ルートが独自の画像を渡さない限り、これらにサイトカードを割り当てます。コースのページは独自の画像を渡します。`courseShareImage`（`src/modules/course/course.utils.ts`）が、コースのページとそのすべてのレッスンに、コースのカバー画像を `og:image` と `twitter:image` として、コースのタイトルを代替テキストとして設定するので、どのコースにも専用のカードがあります。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。カバー画像のないコースはサイトカードを共有します。ビルドはコースのカードを描画しません。Takumi はビルド中に Node で実行されますが、コースは管理者がデプロイ後に変更する D1 の行だからです。
 
 カードは React コンポーネントで、`src/presentation/social-card.tsx` の `PageCard` と `SiteCard` です。同じファイルの `LogoCard` は、組織のロゴ、つまり明るい背景に置いた `APP_LOGO_PATH` のマークを、正方形の PNG として `ORGANIZATION_LOGO.PATH` に描画します。これが、構造化データがロゴとして指定する画像です。`src/integrations/takumi/takumi.render.tsx` の `createSocialCardRenderer` が、これらを [Takumi](https://takumi.kane.tw/docs/)（`@takumi-rs/core`）で描画します。Takumi はネイティブの Node バインディングを持つ Rust 製のレンダラーで、ブラウザーを必要としません。
 
@@ -47,22 +50,33 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 ## サイトマップと robots.txt
 
-`public/robots.txt` はすべてのパスを許可し、`https://saasyland.com/sitemap.xml` を指定しています。この行が `APP_URL` と `SITEMAP_PATH` に一致しないと、`robots.test.ts` が失敗します。
+`public/robots.txt` はすべてのパスを許可し、`https://saasyland.com/sitemap.xml` を指定しています。この行が `APP_URL` と `SITEMAP_PATH` に一致しないと、`robots.test.ts` が失敗します。`sitemap.xml` はサイトマップインデックスで、プリレンダリングされたページのサイトマップである `sitemap-pages.xml` と、機能が自前で配信するすべてのサイトマップ（現在は `/sitemap-courses.xml`）を指定します。そのため検索エンジンは、`robots.txt` が示す 1 つのアドレスからそのすべてを見つけられます。
 
 `scripts/generate-seo-files.ts` は、すべてのビルドスクリプトの最後、`optimize-prerendered-html.ts` の後に実行されます。`src/lib/page-head.ts` の `readPageHead` で `dist/client` にあるプリレンダリングされたすべてのページの head を読み取り、次の処理を行います。
 
-1. `robots` ディレクティブがインデックスを許可し、かつ `robots.txt` がそのパスを禁止していないすべてのページを載せた `dist/client/sitemap.xml` を書き出します（`src/lib/sitemap.ts` の `listedPages` と `buildSitemap`。照合には `src/lib/robots.ts` の RFC 9309 に沿ったマッチングを使います）。各 `<url>` には、そのページ自身の `alternate` リンクを `x-default` も含めて `xhtml:link` エントリーとして列挙します。サイトマップに載っていない代替ページをページが指定している場合や、同じ URL が 2 回現れる場合、ビルドは失敗します。`ROBOTS.NON_PRODUCTION` はページ自身のディレクティブとは見なされないため、どのビルドモードでも同じサイトマップが書き出されます。
-2. サイトマップに載っているブログの一覧と記事の head から、すべての言語のブログの RSS フィードを書き出します（`src/lib/feed.ts` の `buildBlogFeeds`）。[ブログ](/docs/features/blog#feed)を参照してください。
-3. サイトカードとすべてのページのカードを `dist/client/images/og` に描画し、組織のロゴも描画します。2 つのページが同じ画像を指定している場合は失敗します。
+1. `robots` ディレクティブがインデックスを許可し、かつ `robots.txt` がそのパスを禁止していないすべてのページを載せた `dist/client/sitemap-pages.xml`（`PAGES_SITEMAP_PATH`）を書き出します（`src/lib/sitemap.ts` の `listedPages` と `buildSitemap`。照合には `src/lib/robots.ts` の RFC 9309 に沿ったマッチングを使います）。各 `<url>` には、そのページ自身の `alternate` リンクを `x-default` も含めて `xhtml:link` エントリーとして列挙します。サイトマップに載っていない代替ページをページが指定している場合や、同じ URL が 2 回現れる場合、ビルドは失敗します。`ROBOTS.NON_PRODUCTION` はページ自身のディレクティブとは見なされないため、どのビルドモードでも同じサイトマップが書き出されます。
+2. `SITEMAPS` のサイトマップのインデックスである `dist/client/sitemap.xml` を書き出します。対象は `PAGES_SITEMAP_PATH` と `ROUTES.COURSES_SITEMAP` です（`buildSitemapIndex`）。コースのないプロジェクトはこのリストから `ROUTES.COURSES_SITEMAP` を外し、そのインデックスはページのサイトマップだけを指定します。
+3. サイトマップに載っているブログの一覧と記事の head から、すべての言語のブログの RSS フィードを書き出します（`src/lib/feed.ts` の `buildBlogFeeds`）。[ブログ](/docs/features/blog#feed)を参照してください。
+4. サイトカードとすべてのページのカードを `dist/client/images/og` に描画し、組織のロゴも描画します。2 つのページが同じ画像を指定している場合は失敗します。
 
-スクリプトはサイトマップとフィードを 1 つの XML ファイルのリストとして書き出すため、ブログのないプロジェクトではサイトマップだけを書き出します。そして、書き出したファイル、サイトマップに載せたページ数、書き出したカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
+スクリプトはサイトマップとフィードを 1 つの XML ファイルのリストとして書き出すため、ブログのないプロジェクトではサイトマップだけを書き出します。そして、書き出したファイル、サイトマップに載せたページ数、書き出したカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのプリレンダリングされたページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。
 
-Worker は変わりません。Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml` とカードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
+Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml`、`sitemap-pages.xml`、カードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
+
+### コースのサイトマップ [#course-sitemap]
+
+コースのページはリクエストごとに D1 から読み込まれ、プリレンダリングされないため、ビルドはそれらをサイトマップに載せられません。`/sitemap-courses.xml`（`ROUTES.COURSES_SITEMAP`）には Worker 自身が応答します。`src/server.ts` がこのパスを `src/modules/course/course.delivery.ts` の `serveCourseSitemap` に渡し、`serveCourseSitemap` はリクエストの時点で D1 を読んで、次のページを、それぞれすべての言語で、ページと同じ `hreflang` の代替リンク付きで列挙します（`src/lib/sitemap.ts` の `localizedSitemapPages`）。
+
+- `/courses`（コースが 1 つでも公開されている場合）
+- 公開済みのすべてのコース
+- サインインしていない訪問者が視聴できる公開済みのすべてのレッスン（`isOpenToVisitors`）。つまり、収録が公開済みの無料プレビューと、無料のテキストのレッスンです。アカウントやライセンスが必要なレッスンと収録中のレッスンは含まれず、`noindex` が付きます。
+
+各 `<lastmod>` は、そのページが表示する内容について保存された最新の `updatedAt` の日付です。レッスンではその行とその動画の行、コースではその行、チャプター、公開済みのレッスンとその動画、カタログでは最後に更新されたコースが対象です。そのため、管理者の変更は次のリクエストでサイトマップに反映されます。レスポンスは `Cache-Control: public, max-age=3600` 付きの `application/xml` で、`HEAD` にはヘッダーだけが返ります。公開済みのコースが 1 つもない間はサイトマップが空になり、`/courses` には `noindex` が付きます。
 
 ## テスト
 
-- `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`feed.test.ts`、`robots.test.ts` は、タグと構造化データの生成、タグの読み取り、サイトマップ、フィード、robots のルールをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語のカードとロゴを描画し、そのサイズを確認します。
-- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、公開済みのすべての記事の `<lastmod>` がすべての言語でその `updated`（ない場合は `date`）であり、ほかの URL には付いていないことを確認し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。さらに、プリレンダリング済みのホームページに組織の構造化データが含まれていること、ロゴがそのサイズで配信されていること、ブログの一覧と記事がその言語のフィードを示していること、すべてのフィードがその言語の公開済みの記事を過不足なく公開日付きで列挙していることも確認します。
+- `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`feed.test.ts`、`robots.test.ts` は、タグと構造化データの生成、タグの読み取り、サイトマップとそのインデックス、フィード、robots のルールをテストします。`course.utils.test.ts` は `Course` と `ItemList` の構造化データを、`course.delivery.test.ts` はコースのサイトマップとその日付を、`marketing-sections.component.test.tsx` はティアの `Product` の構造化データをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語のカードとロゴを描画し、そのサイズを確認します。
+- `e2e/specs/seo.spec.ts` は、サイトマップインデックスがページのサイトマップを指定し、そこに指定されたすべてのサイトマップが XML で応答することを確認し、ページのサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、公開済みのすべての記事の `<lastmod>` がすべての言語でその `updated`（ない場合は `date`）であり、ほかの URL には付いていないことを確認し、すべてのサイトマップのすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。さらに、プリレンダリング済みのホームページに組織の構造化データと、各ティアの価格付きの `Product` が含まれていること、ロゴがそのサイズで配信されていること、ブログの一覧と記事がその言語のフィードを示していること、すべてのフィードがその言語の公開済みの記事を過不足なく公開日付きで列挙していることも確認します。`e2e/specs/course-seo.spec.ts` は、コースのサイトマップがカタログ、シードデータのコース、その無料レッスンをすべての言語でそれぞれ `<lastmod>` 付きで列挙し、訪問者が視聴できないレッスンを 1 つも含まないこと、そしてコースのページに `Course` の構造化データがあり、サイトマップに含まれないレッスンに `noindex` が付いていることを確認します。
 - デプロイ後、`verify-deployment.ts` は <RepositoryFact name="liveSiteCheckPaths" /> をリクエストします。サイトマップとサイトカードもこれに含まれます。
 
 ## 関連ページ

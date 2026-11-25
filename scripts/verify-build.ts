@@ -120,7 +120,7 @@ for (const alias of LOCALE_ALIASES) {
   }
 }
 
-for (const route of ROUTES.UNLISTED_ROUTES) {
+for (const route of ROUTES.REQUEST_RENDERED_ROUTES) {
   const prerendered = globSync("**/index.html", { cwd: join(CLIENT_DIR, route) })
 
   if (prerendered.length > 0) {

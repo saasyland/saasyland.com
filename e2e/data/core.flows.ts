@@ -76,9 +76,11 @@ export const CORE_FLOWS = [
   {
     area: FLOW_AREA.CONTENT,
     id: "sitemap",
-    outcome: "The sitemap lists every indexable prerendered page, and each of its addresses answers 200 without a redirect",
+    outcome:
+      "The sitemap index names the pages' sitemap and every sitemap a feature serves, the pages' sitemap lists every indexable prerendered page, and every address in them answers 200 without a redirect",
     status: FLOW_STATUS.COVERED,
     tests: [
+      { spec: "seo.spec.ts", title: "the sitemap index names the pages' sitemap first and every sitemap it names answers as XML" },
       { spec: "seo.spec.ts", title: "the sitemap lists every prerendered page that allows indexing and nothing else" },
       { spec: "seo.spec.ts", title: "every sitemap URL answers 200 on the built site without a redirect" },
     ],

@@ -18,6 +18,7 @@ import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { documentPolicy } from "~/src/lib/content-security-policy"
 
+import * as ROUTES from "~/src/routes"
 import worker from "~/src/server"
 
 const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options: { context: { nonce: string } }) => Promise<Response>>())
@@ -427,6 +428,15 @@ it("serves a course cover itself, without the locale middleware or TanStack Star
   expect(response.headers.get("content-type")).toBe("image/webp")
   expect(response.headers.get("set-cookie")).toBeNull()
   expect(headersNamed(response, Object.keys(HTTPS_SECURITY_HEADERS))).toStrictEqual(HTTPS_SECURITY_HEADERS)
+  expect(fetchHandler).not.toHaveBeenCalled()
+})
+
+it("writes the course sitemap itself, without the locale middleware or TanStack Start", async () => {
+  const response = await worker.fetch(new Request(`https://localhost${ROUTES.COURSES_SITEMAP}`, { method: "HEAD" }), env)
+
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8")
+  expect(response.headers.get("set-cookie")).toBeNull()
   expect(fetchHandler).not.toHaveBeenCalled()
 })
 

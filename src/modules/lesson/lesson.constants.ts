@@ -28,6 +28,8 @@ export const LESSON_KEY_MOMENT_MAX_SECONDS = 86_400
 
 export const LESSON_STALE_MS = 60_000
 
+export const LESSON_PLAYBACK_STALE_MS = 3_600_000
+
 export const LESSON_QUERY_KEYS = {
   ALL: ["lesson"],
   DETAIL: ["lesson", "getLesson"],

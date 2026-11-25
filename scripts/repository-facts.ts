@@ -8,8 +8,9 @@ import * as zod from "zod"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
 import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
+import { FOOTER_PHONE_WIDTHS, TEXT_LAYOUT_VIEWPORTS } from "../e2e/data/viewports.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
-import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
+import { MILLISECONDS_PER_SECOND, SECONDS_PER_DAY } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
 import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
@@ -38,12 +39,14 @@ const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
 const CLI_CONTRACT_PACKAGE = "@saasyland/stack"
 const JOURNEY_SPEC = "journey.spec.ts"
 const GLOBAL_STYLESHEET = "src/presentation/styles/globals.css"
+const STATIC_HEADERS = "public/_headers"
 const PIXELS_PER_REM = 16
 const MODULES_PATH = "src/modules"
 const SERVER_FUNCTION = "createServerFn"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
+const ASSET_MAX_AGE = /^\/assets\/\*\n\s+Cache-Control:[^\n]*\bmax-age=(?<seconds>\d+)/mu
 const SHARD_MATRIX = /^ +shard: \[(?<shards>[\d, ]+)\]$/mu
 const BASE_RADIUS = /--radius:\s*(?<rem>[\d.]+)rem;/u
 const RADIUS_STEP = /--radius-(?<step>sm|md|lg):\s*(?:calc\(var\(--radius\) \* (?<factor>[\d.]+)\)|var\(--radius\));/gu
@@ -59,6 +62,7 @@ const rootPackageSchema = zod.object({ packageManager: zod.string() })
 const versionMatchSchema = zod.object({ version: zod.string() })
 const scheduleMatchSchema = zod.object({ schedule: zod.string() })
 const shardsMatchSchema = zod.object({ shards: zod.string() })
+const maxAgeMatchSchema = zod.object({ seconds: zod.coerce.number() })
 const baseRadiusSchema = zod.object({ rem: zod.coerce.number() })
 const radiusStepSchema = zod.object({ factor: zod.coerce.number().default(1), step: zod.enum(["sm", "md", "lg"]) })
 const radiusScaleSchema = zod.object({ lg: zod.number(), md: zod.number(), sm: zod.number() })
@@ -130,6 +134,9 @@ const readShards = (path: string): number => {
 
   return shardsMatchSchema.parse(SHARD_MATRIX.exec(workflow)?.groups).shards.split(",").length
 }
+
+const readAssetCacheDays = (): number =>
+  maxAgeMatchSchema.parse(ASSET_MAX_AGE.exec(readFileSync(STATIC_HEADERS, "utf8"))?.groups).seconds / SECONDS_PER_DAY
 
 const readRadiusScale = () => {
   const stylesheet = readFileSync(GLOBAL_STYLESHEET, "utf8")
@@ -290,6 +297,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
   const smallText = readSmallText()
 
   return {
+    assetCacheDays: readAssetCacheDays(),
     authIntegrationPath: AUTH_INTEGRATION_PATH,
     buildYear: new Date().getUTCFullYear(),
     bunVersion: readBunVersion(),
@@ -366,6 +374,13 @@ export const collectCoverageScope = (config: unknown) => {
 
 export type CoverageScope = ReturnType<typeof collectCoverageScope>
 
+export const collectTestViewports = () => ({
+  footerPhoneWidths: FOOTER_PHONE_WIDTHS.map(String),
+  textLayoutWidths: TEXT_LAYOUT_VIEWPORTS.map(({ width }) => String(width)),
+})
+
+export type TestViewports = ReturnType<typeof collectTestViewports>
+
 export const repositoryFacts = (): Plugin => {
   let moduleSource = ""
 
@@ -380,6 +395,7 @@ export const repositoryFacts = (): Plugin => {
           `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
           `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
           `export const moduleTables = ${JSON.stringify(collectModuleTables())}`,
+          `export const testViewports = ${JSON.stringify(collectTestViewports())}`,
         ].join("\n")
       },
       order: "pre",

@@ -218,13 +218,14 @@ saasyland.com fait passer son Worker devant chaque chemin, à l’exception des 
 
 `src/server.ts` traite ensuite une requête dans cet ordre :
 
-1. Le handler de requêtes d’une zone prend les chemins qu’elle revendique : la zone des cours prend `/media/`, la zone des licences prend `/bundles/`.
+1. Le handler de requêtes d’une fonctionnalité prend les chemins qu’elle revendique, comme `/media/` pour la fonctionnalité des cours et `/bundles/` pour celle des licences.
 2. Un chemin de langue non canonique est redirigé.
 3. Une requête `GET` ou `HEAD` est recherchée dans `ASSETS`, qui contient toutes les pages prérendues ; seules les requêtes qui n’y trouvent rien atteignent TanStack Start.
 4. Chaque réponse HTML, prérendue ou rendue, reçoit son propre nonce pour sa Content Security Policy et est envoyée en `private, no-cache` ; chaque réponse reçoit les en-têtes de sécurité.
-5. Le handler de documents de la zone des licences réécrit la page pour la tarification régionale lorsque le pays du visiteur y donne droit.
+5. Le handler de documents de la fonctionnalité des licences réécrit la page pour la tarification régionale lorsque le pays du visiteur y donne droit.
+6. Le handler de documents de la fonctionnalité d’authentification, `markSession`, pose `data-session` sur la page lorsque la requête porte le cookie de session, pour que l’en-tête affiche le lien vers le compte dès le premier affichage.
 
-Les étapes 4 et 5 en sont la raison : une page statique ne peut pas porter un nonce neuf, et elle ne peut pas connaître le pays du visiteur. [Content Security Policy avec des nonces sur Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) explique en détail la partie consacrée au nonce. Les fichiers qui contournent le Worker reçoivent les mêmes en-têtes de sécurité depuis `public/_headers`, et `src/__test__/server.test.ts` échoue lorsque ce fichier et les constantes du code diffèrent. Le prix à payer est une requête facturée pour chaque page vue et chaque image, que la section sur les coûts chiffre.
+Les étapes 4 à 6 en sont la raison : une page statique ne peut pas porter un nonce neuf, ni connaître le pays du visiteur, ni savoir s’il est connecté. [Content Security Policy avec des nonces sur Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) explique en détail la partie consacrée au nonce. Les fichiers qui contournent le Worker reçoivent les mêmes en-têtes de sécurité depuis `public/_headers`, et `src/__test__/server.test.ts` échoue lorsque ce fichier et les constantes du code diffèrent. Le prix à payer est une requête facturée pour chaque page vue et chaque image, que la section sur les coûts chiffre.
 
 ## Gardez le chemin à froid court
 

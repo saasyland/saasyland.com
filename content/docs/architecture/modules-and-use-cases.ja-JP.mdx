@@ -9,59 +9,57 @@ description: "モジュールが 1 つのデータベーステーブルを所有
 
 - `<table>.schema.ts`：Drizzle のテーブル。`src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートされます
 - `<table>.zod.ts`：入力スキーマ。フォームとサーバー関数の両方で使います
-- `<table>.constants.ts`：`CATEGORY_KIND` のような名前付きのドメイン値、カラムの上限値、クエリキー、ミューテーションキー
-- `<table>.types.ts`：モジュール名のインターフェースで、行の型と各操作の入力型（`Category["createCategory"]` など）を持ちます
+- `<table>.constants.ts`：`COURSE_STATUS` のような名前付きのドメイン値、カラムの上限値、クエリキー、ミューテーションキー
+- `<table>.types.ts`：モジュール名のインターフェースで、行の型と各操作の入力型（`Course["createCourse"]` など）を持ちます
 - `<table>.utils.ts`：テーブルが必要とする場合のみ
 - `use-cases/<operation>.ts`：1 ファイルにつき 1 つの操作
 
-現在のモジュールは、account、category、chapter、course、lesson、lesson-attachment、lesson-progress、license、newsletter-subscriber、order、product、rate-limit、session、subscription、two-factor、user、verification、video、withdrawal です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを持ちます。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
+モジュールは <RepositoryFact name="modules" /> です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを持ちます。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
 
 ## ユースケース
 
 ほとんどのユースケースは、ブラウザから呼び出されるサーバー関数です。各ファイルは、`createServerFn` と、そのクエリオプションまたはミューテーションオプションをエクスポートします。
 
-```ts
+```ts title="src/modules/course/use-cases/create-course.ts"
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { v7 } from "uuid"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { rethrowAsConflict } from "~/src/integrations/drizzle-orm/drizzle.errors"
 
-import { CATEGORY_ICON, CATEGORY_MUTATION_KEYS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
-import { category } from "~/src/modules/category/category.schema"
-import type { Category } from "~/src/modules/category/category.types"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { nextPosition } from "~/src/modules/_core/utils/ordering"
+import { COURSE_MUTATION_KEYS } from "~/src/modules/course/course.constants"
+import { course } from "~/src/modules/course/course.schema"
+import type { Course } from "~/src/modules/course/course.types"
+import { courseZodSchemas } from "~/src/modules/course/course.zod"
 
-export const createCategory = createServerFn({ method: "POST" })
-  .middleware([authorized({ category: ["create"] })])
-  .validator((input: Category["createCategory"]) => categoryZodSchemas.createCategory.parse(input))
-  .handler(({ data }) =>
-    db
-      .insert(category)
-      .values({
-        description: data.description ?? "",
-        icon: data.icon ?? CATEGORY_ICON.FOLDER_OPEN,
-        id: v7(),
-        kind: data.kind,
-        name: data.name,
-        visibility: data.visibility ?? CATEGORY_VISIBILITY.PUBLIC,
-      })
-      .returning()
-      .get(),
-  )
+export const createCourse = createServerFn({ method: "POST" })
+  .middleware([authorized({ course: ["create"] })])
+  .validator((input: Course["createCourse"]) => courseZodSchemas.createCourse.parse(input))
+  .handler(async ({ data }) => {
+    const positions = await db.select({ position: course.position }).from(course)
 
-export const createCategoryMutation = mutationOptions({
-  mutationFn: (data: Category["createCategory"]) => createCategory({ data }),
-  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+    return db
+      .insert(course)
+      .values({ ...data, id: v7(), position: nextPosition(positions) })
+      .returning({ id: course.id })
+      .get()
+      .catch(rethrowAsConflict)
+  })
+
+export const createCourseMutation = mutationOptions({
+  mutationFn: (data: Course["createCourse"]) => createCourse({ data }),
+  mutationKey: COURSE_MUTATION_KEYS.CREATE,
 })
 ```
 
-- **ミドルウェア**は `src/integrations/better-auth/auth.middleware.ts` で提供されています。`authorized()` はセッションを必須とし、`authorized({ category: ["create"] })` はさらに権限もチェックします。`withRateLimit(kind, RATE_LIMITS.SENSITIVE)` は公開された操作の実行回数を制限します。
+- **ミドルウェア**は `src/integrations/better-auth/auth.middleware.ts` で提供されています。`authorized()` はセッションを必須とし、`authorized({ course: ["create"] })` はさらに権限もチェックします。`withRateLimit(kind, RATE_LIMITS.SENSITIVE)` は公開された操作の実行回数を制限します。
 - **バリデーション**では、ハンドラーの実行前に、モジュールの Zod スキーマで入力をパースします。
 - **所有権**はセッションから判断します。呼び出し元自身のデータに対する操作は `context.auth.user.id` で絞り込み、入力に含まれるユーザー ID を信用することはありません。
-- **エラー**は `new AppError(ERROR_CODES.X)` としてスローします。`withRequest` は Better Auth の API エラーをそのエラーのメッセージキー付きの `AUTH_API_ERROR` に、Zod のエラーを `VALIDATION` に変換します。それ以外のエラーはログに記録され、クライアントには `INTERNAL_ERROR` として届きます。
-- **読み取り**では、代わりに `queryOptions` をエクスポートします。たとえば `getCategoriesPageQuery(input)` は、データテーブル用に `{ rows, total }` を返します。
+- **エラー**は `new AppError(ERROR_CODES.X)` としてスローします。`rethrowAsConflict` は、すでに使われているコースのスラッグのような一意制約違反を `CONFLICT` に変換します。`withRequest` は Better Auth の API エラーをそのエラーのメッセージキー付きの `AUTH_API_ERROR` に、Zod のエラーを `VALIDATION` に変換します。それ以外のエラーはログに記録され、クライアントには `INTERNAL_ERROR` として届きます。
+- **読み取り**では、代わりに `queryOptions` をエクスポートします。たとえば `getCoursesPageQuery(input)` は、データテーブル用に `{ rows, total }` を返します。
 
 一部のユースケースは、サーバー上でのみ実行され RPC エンドポイントを持たない、通常の async 関数です。`send-verify-email.ts` や `grant-license.ts` などがこれにあたり、Better Auth のフックや Polar の Webhook ハンドラーから呼び出されます。
 

@@ -57,7 +57,7 @@ describe("getCourses", () => {
 ## アサーションではコードの名前を使う
 
 - 期待するステータス、種別、ロール、エラーコードには、コードが使う定数を使います（`COURSE_STATUS.DRAFT`、`ROLE_CODES.ADMIN`、`rejects.toThrow(ERROR_CODES.FORBIDDEN)`）。テストでドメインの文字列リテラルを繰り返すことはなく、e2e のデータやテストのシードも同様です。`e2e/data/courses.ts` は `kind: COURSE_KIND.COURSE` と書いています。
-- 保存される値をそのまま書くのは、スキーマのテストだけです。`product.schema.test.ts` は `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])` で値を固定しているため、データベースに保存される値を変えると、誰も書いていないマイグレーションが必要になる代わりにテストが失敗します。
+- 保存される値をそのまま書くのは、スキーマのテストだけです。`license.schema.test.ts` は `expect(LICENSE_STATUSES).toStrictEqual(["active", "revoked", "refunded"])` で値を固定しているため、データベースに保存される値を変えると、誰も書いていないマイグレーションが必要になる代わりにテストが失敗します。
 - ブラウザーテストのスイートは定数をアプリケーションからインポートします（`LICENSE_TIER`、`ROLE_CODES`、`I18N.SUPPORTED_LOCALES`）。そのため、インポートできるのは Worker の外で読み込めるファイルだけです。Polar の値は、環境を読み取らない `polar.constants.ts` から取得します。`e2e/fixtures/license.ts` と Polar サンドボックスを使うジャーニースイートは注文ステータスを `POLAR_ORDER_STATUS` から取得し、注文そのものは `src/platform/testing/lib/polar.ts` から取得します。例外はプランの商品 ID です。`POLAR_PRODUCT_IDS` は `cloudflare:workers` を読み込むため、ブラウザーテストのスイートはそれらを `.env.test` から読み取ります。
 - コンポーネントのテストは、期待する文言を英語のメッセージファイルから読み取り、要素はロールとアクセシブルな名前で探します。`admin-course-routes.component.test.tsx` では `import labels from "~/messages/en-US/pages.admin.courses.json"` と `labels.form.kinds.course` を使っています。
 - 型が必要なテストは、型付きのソースから読み取るか、`toHaveProperty` で実行時にチェックします。キャストは決して使いません。
@@ -116,7 +116,7 @@ Vitest のタイムアウトと `waitFor`・`findBy*` の 1 秒の猶予は実�
 
 `navigation.website.test.ts` のようにサイト全体を固定するテスト（すべてのメニューの順序を確認します）はこのサイト専用で、テンプレートは生成しません。
 
-`scripts/features.ts` は、オプションの各機能のファイルを glob で、残るファイルの中でその機能が持つ名前（`src/routes.ts` にある各機能のパスなど）と、その機能が必要とする機能を挙げます。`bun run check:features` は、それらを外してもサイトが動くことをチェックします。どのシナリオもウェブサイトにしかない機能を外し、そのうち 4 つはさらにコース、課金の機能、コンテンツ、認証の機能のどれかを外します。スクリプトはシナリオごとに、それらの機能と、そのどれかを必要とするすべての機能のファイルを削除し、残るファイルを 1 つのルールで刈り込みます。`saasyland` CLI が機能を外すときに従うのと同じルールです。
+`scripts/features.ts` は、オプションの各機能のファイルを glob で、残るファイルの中でその機能が持つ名前（`src/routes.ts` にある各機能のパスなど）と、その機能が必要とする機能を挙げます。`bun run check:features` は、それらを外してもサイトが動くことをチェックします。1 つのシナリオはウェブサイトにしかない機能だけを外し、ほかの各シナリオはそれに加えてコース、課金の機能、コンテンツ、認証の機能のどれかを外します。スクリプトはシナリオごとに、それらの機能と、そのどれかを必要とするすべての機能のファイルを削除し、残るファイルを 1 つのルールで刈り込みます。`saasyland` CLI が機能を外すときに従うのと同じルールです。
 
 1. 外した機能が持つ名前を、それぞれの宣言またはオブジェクトのプロパティごと削除します。
 2. 外された参照とは、削除されたファイルからインポートした識別子、外された名前の使用（たとえば `src/routes.ts` が宣言しなくなった `ROUTES.COURSES`）、削除されたファイルに対して `import()` を呼ぶ関数、または削除されたモジュールを指す `vi.mock`、`vi.doMock`、`vi.unmock`、`vi.doUnmock` のことです。削除されたファイルの `import` と `export … from` はすべて消え、削除された宣言ファイルだけが宣言するモジュール（たとえば `virtual:repository-facts`）のインポートも消えます。

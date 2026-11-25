@@ -16,6 +16,8 @@ import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
 import { countryCodeField, dateRangeField, idField, localeField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 import { CUSTOMER_SORT_COLUMNS, ORDER_SORT_COLUMNS, ORDER_STATUSES } from "~/src/modules/order/order.constants"
 
+import { searchParam } from "~/src/lib/search-params"
+
 const orderFilters = zod.object({
   country: zod.array(countryCodeField).max(COUNTRY_CODES.length).optional(),
   customer: searchTextField.optional(),
@@ -46,6 +48,8 @@ const getCustomers = paginationSchema.extend({
   sorting: sortingOf(CUSTOMER_SORT_COLUMNS),
 })
 
+const getCurrentOrderInvoice = zod.object({ orderId: idField })
+
 const getOrder = zod.object({ orderId: idField })
 
 const getRevenue = timeRangeSchema
@@ -62,6 +66,7 @@ const startCheckout = zod.object({
 })
 
 export const orderZodSchemas = {
+  getCurrentOrderInvoice,
   getCustomers,
   getOrder,
   getOrders,
@@ -70,3 +75,7 @@ export const orderZodSchemas = {
   searchOrders,
   startCheckout,
 }
+
+export const checkoutSearchSchema = zod.object({
+  checkoutId: searchParam(zod.uuid()),
+})

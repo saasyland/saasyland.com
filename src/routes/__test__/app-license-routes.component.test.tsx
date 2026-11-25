@@ -455,7 +455,7 @@ describe("upgrading a license", () => {
     },
   )
 
-  it("lets an owner who has not confirmed their email upgrade, without showing the key or the invoices", async () => {
+  it("lets an owner who has not confirmed their email upgrade, without showing the key", async () => {
     const confirmed = createAuthSessionFixture()
     sessionRequest.mockResolvedValue({ ...confirmed, user: { ...confirmed.user, emailVerified: false } })
     checkoutMock.mockReturnValue(new Promise(() => {}))
@@ -468,7 +468,7 @@ describe("upgrading a license", () => {
     expect(screen.getByRole("link", { name: upgradeCopy.link.replace("{tier}", complete) })).toBeVisible()
     expect(screen.queryByText(LICENSE_KEY)).toBeNull()
     expect(screen.queryByRole("button", { name: copy.key })).toBeNull()
-    expect(screen.queryByRole("link", { name: pagesLicenseMessages.manage })).toBeNull()
+    expect(screen.getByRole("link", { name: pagesLicenseMessages.manage })).toHaveAttribute("href", ROUTES.APP_BILLING)
 
     await user.click(within(card).getByRole("button", { name: upgradeCopy.cta.replace("{tier}", complete) }))
 
@@ -588,7 +588,7 @@ describe("owning a license", () => {
     },
   )
 
-  it("withholds the key and the invoices until the buyer confirms their email, and says where the link went", async () => {
+  it("withholds the key until the buyer confirms their email, says where the link went and still leads to the invoices", async () => {
     const confirmed = createAuthSessionFixture()
     sessionRequest.mockResolvedValue({ ...confirmed, user: { ...confirmed.user, emailVerified: false } })
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
@@ -600,7 +600,7 @@ describe("owning a license", () => {
       screen.getByText((_, element) => element?.tagName === "P" && element.textContent.startsWith("Your key appears here")),
     ).toBeVisible()
     expect(screen.queryByText(LICENSE_KEY)).toBeNull()
-    expect(screen.queryByRole("link", { name: pagesLicenseMessages.manage })).toBeNull()
+    expect(screen.getByRole("link", { name: pagesLicenseMessages.manage })).toHaveAttribute("href", ROUTES.APP_BILLING)
     expect(screen.getByRole("region", { name: bannerMessages.title })).toBeVisible()
   })
 
@@ -624,7 +624,7 @@ describe("owning a license", () => {
 
     expect(await screen.findByText(LICENSE_KEY)).toBeVisible()
     expect(screen.getByText(pagesLicenseMessages.activations.activated.replace("{date}", "Sep 8, 2026, 10:00 AM UTC"))).toBeVisible()
-    expect(screen.getByRole("link", { name: pagesLicenseMessages.manage })).toHaveAttribute("href", ROUTES.API_AUTH_CUSTOMER_PORTAL)
+    expect(screen.getByRole("link", { name: pagesLicenseMessages.manage })).toHaveAttribute("href", ROUTES.APP_BILLING)
     expect(screen.getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
     await user.click(screen.getByRole("button", { name: pagesLicenseMessages.activations.deactivate }))

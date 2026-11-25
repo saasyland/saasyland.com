@@ -1,0 +1,1 @@
+ALTER TABLE `order` ADD `checkout_id` text(64);

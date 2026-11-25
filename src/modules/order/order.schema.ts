@@ -13,6 +13,7 @@ export const order = sqliteTable(
   {
     billingCountry: text("billing_country", { length: COUNTRY_CODE_LENGTH }),
     changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
+    checkoutId: text("checkout_id", { length: POLAR_ID_MAX_LENGTH }),
     currency: text("currency", { length: CURRENCY_CODE_LENGTH }).notNull(),
     customerId: text("customer_id", { length: POLAR_ID_MAX_LENGTH }).notNull(),
     description: text("description").notNull(),

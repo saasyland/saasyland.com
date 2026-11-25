@@ -66,7 +66,13 @@ describe("the website's navigation", () => {
       [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
     ])
     expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_ORDERS, ROUTES.ADMIN_USERS_CUSTOMERS])
-    expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.APP, ROUTES.APP_LICENSE, ROUTES.COURSES, ROUTES.APP_SETTINGS])
+    expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([
+      ROUTES.APP,
+      ROUTES.APP_LICENSE,
+      ROUTES.APP_BILLING,
+      ROUTES.COURSES,
+      ROUTES.APP_SETTINGS,
+    ])
     expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME, ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS, ROUTES.SIGN_IN])
     expect(FOOTER_NAVIGATION.map(({ key, links }) => [key, links.map(({ to }) => to)])).toStrictEqual([
       [FOOTER_COLUMN.PRODUCT, [ROUTES.DOCS, ROUTES.BLOG, ROUTES.AFFILIATES, ROUTES.SIGN_IN]],

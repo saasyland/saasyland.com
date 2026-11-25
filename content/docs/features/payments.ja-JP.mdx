@@ -1,6 +1,6 @@
 ---
 title: "決済"
-description: "Better Auth の Polar プラグイン、あらゆる Polar 商品のチェックアウト、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
+description: "Better Auth の Polar プラグイン、あらゆる Polar 商品のチェックアウト、お支払いページ、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
 ---
 
 決済は `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。このプラグインは、`src/integrations/better-auth/auth.server.ts` の `plugins` に、直後に続く専用のプラグインと一緒に並んでいます。
@@ -39,7 +39,9 @@ description: "Better Auth の Polar プラグイン、あらゆる Polar 商品�
 4. `returnPath` を `return_url` として渡し、Polar がそのページへの戻るボタンを表示するようにします。また、購入者の言語にした（`localizePathname`）`successPath` を成功 URL として渡し、パス自身の検索パラメーターの前に `checkoutId={CHECKOUT_ID}` を付けます。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
 5. 呼び出し側が独自の条件（`allow_discount_codes`、`metadata`、`prices`）を渡さない限り、購入者は Polar の割引コードを入力でき、Polar で設定した商品の価格が請求されます。最後に `{ checkoutId, url }` を返します。
 
-`src/modules/order/use-cases/start-checkout.ts` の `startCheckout` は、任意の Polar 商品のチェックアウトを開始するサーバー関数です。その入力である `orderZodSchemas.startCheckout`（`Order["startCheckout"]`）は、商品の Polar ID を UUID として受け取り、2 つのパスはサイト内にとどまるよう `callbackPathSchema` で検証します。`authorized()` を実行するため、購入できるのはサインイン済みのアカウントだけです。また、機能が独自のチェックアウトで販売する商品は、Polar に問い合わせることなく `FORBIDDEN` で拒否します。その判定を行う `hasOwnCheckout` は `PRODUCTS_WITH_OWN_CHECKOUT` を読み取り、その唯一の要素はライセンスの `POLAR_PRODUCT_IDS` です。ライセンス独自の `startCheckout` は、アカウントのライセンスを確認し、プランの価格を決めてから、独自の条件で `createCheckout` を呼び出します（[ライセンス](/docs/features/licences#starting-the-checkout)）。このサイトには、ほかの商品を提供するページはまだありません。
+`src/modules/order/use-cases/start-checkout.ts` の `startCheckout` は、任意の Polar 商品のチェックアウトを開始するサーバー関数です。その入力である `orderZodSchemas.startCheckout`（`Order["startCheckout"]`）は、商品の Polar ID を UUID として受け取り、2 つのパスはサイト内にとどまるよう `callbackPathSchema` で検証します。`authorized()` を実行するため、購入できるのはサインイン済みのアカウントだけです。また、機能が独自のチェックアウトで販売する商品は、Polar に問い合わせることなく `FORBIDDEN` で拒否します。その判定を行う `hasOwnCheckout` は `PRODUCTS_WITH_OWN_CHECKOUT` を読み取り、その唯一の要素はライセンスの `POLAR_PRODUCT_IDS` です。ライセンス独自の `startCheckout` は、アカウントのライセンスを確認し、プランの価格を決めてから、独自の条件で `createCheckout` を呼び出します（[ライセンス](/docs/features/licences#starting-the-checkout)）。
+
+`CheckoutButton`（`src/presentation/components/custom/billing/checkout-button.tsx`）は、どのページからでも 1 つの商品を販売します。商品の Polar ID を受け取り、自身のあるページを `returnPath`、`/app/billing` を `successPath` として `startCheckout` を呼び出し、`openCheckoutOverlay` でページの上に Polar のチェックアウトを開きます。購入者が支払いを終えると `/app/billing?checkoutId=…` を開き、そこでページが注文の到着を待ちます（[お支払いページ](#billing-page)）。チェックアウトをページの上に開けない場合は Polar のチェックアウトページに移動し、支払い後はそこから同じアドレスに戻ります。このサイトには、そのような商品を提供するページはまだありません。
 
 どちらのサーバー関数も `authorized()` の前に `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` を実行し、どちらが開始したかにかかわらず、クライアントごとに 1 分あたり <RepositoryFact name="checkoutsPerMinute" /> 件までのチェックアウトを許可します。チェックアウトはそれぞれ組織のトークンを使った Polar API へのリクエストであり、そのトークンのレート制限はすべての購入者で共有されるためです。
 
@@ -72,12 +74,12 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 Polar のエリアは、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、Polar の Webhook からのみ書き込まれ、手作業で編集することはありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
 
-| テーブル       | 列                                                                                                                                                                                                                                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `order`        | `id`、`user_id`、`customer_id`、`product_id`、`subscription_id`、`status`（`ORDER_STATUSES`）、`currency`、`total_amount`、`refunded_amount`、`invoice_number`、`discount_id`、`discount_code`、`discount_name`、`discount_amount`、`billing_country`、`description`、`placed_at`、`changed_at`       |
-| `subscription` | `id`、`user_id`、`customer_id`、`product_id`、`product_name`、`status`（`SUBSCRIPTION_STATUSES`）、`amount`、`currency`、`recurring_interval`（`SUBSCRIPTION_RECURRING_INTERVALS`）、`recurring_interval_count`、`current_period_end`、`cancel_at_period_end`、`started_at`、`ended_at`、`changed_at` |
+| テーブル       | 列                                                                                                                                                                                                                                                                                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`        | `id`、`user_id`、`customer_id`、`product_id`、`subscription_id`、`checkout_id`、`status`（`ORDER_STATUSES`）、`currency`、`total_amount`、`refunded_amount`、`invoice_number`、`discount_id`、`discount_code`、`discount_name`、`discount_amount`、`billing_country`、`description`、`placed_at`、`changed_at` |
+| `subscription` | `id`、`user_id`、`customer_id`、`product_id`、`product_name`、`status`（`SUBSCRIPTION_STATUSES`）、`amount`、`currency`、`recurring_interval`（`SUBSCRIPTION_RECURRING_INTERVALS`）、`recurring_interval_count`、`current_period_end`、`cancel_at_period_end`、`started_at`、`ended_at`、`changed_at`          |
 
-- `id`、`customer_id`、`product_id`、`subscription_id` は Polar の ID で、Polar からコピーする列はすべて Polar のフィールド名を使います。Polar のイベントは順不同で届くことがあるため、`subscription_id` には外部キーがありません。
+- `id`、`customer_id`、`product_id`、`subscription_id`、`checkout_id` は Polar の ID で、Polar からコピーする列はすべて Polar のフィールド名を使います。Polar のイベントは順不同で届くことがあるため、`subscription_id` には外部キーがありません。`checkout_id` は注文を作成したチェックアウトで、お支払いページはこれを使って、あるチェックアウトの注文が届いたかどうかを判断します。チェックアウトから作成されていない注文と、この列ができる前にコピーされた注文では空です。
 - `user_id` はアカウントを紐付け、アカウントを持たない顧客では空のままです。アカウントを削除しても、その注文とサブスクリプションは残り、`user_id` が空になります（`ON DELETE SET NULL`）。
 - 金額は、Polar が送るとおり通貨の最小単位で表します。`description` は Polar が請求書に記載した注文の購入内容、`product_name` は Polar が最後に伝えたサブスクリプションの商品名です。
 - `discount_id`、`discount_code`、`discount_name` は Polar が適用した割引で、注文の `discount_id` とその `discount` から取ります。`discount_amount` はその割引が小計から差し引いた額です。`billing_country` は注文の請求先住所の国で、ISO 3166-1 alpha-2 のコードです。割引や請求先住所のない注文では空になり、`discount_amount` が空になるのは、これらの列ができる前にコピーされた注文だけです（[注文と顧客](/docs/features/orders#discounts-and-billing-countries-of-older-orders)を参照）。
@@ -98,11 +100,26 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 - `recordOrder` は割引と請求先の国を `polarOrderTerms`（`src/modules/order/order.polar.ts`）から取得し、`scripts/backfill-order-terms.ts` も同じものを使います。請求先住所のない後のバージョンは、すでにコピーされた国を保ちます。
 - 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は `createCheckout` がすべてのチェックアウトに設定します（[チェックアウト](#checkout)）。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
 - ライセンスも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のハンドラーを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
-- 管理ダッシュボードは注文のコピーを読み取り、ライセンスのない支払い済みのライセンス注文を一覧表示し（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）、売上を集計します（[ダッシュボードの売上](#revenue-on-the-dashboard)を参照）。サブスクリプションのコピーを読み取るページはまだありません。
+- 管理ダッシュボードは注文のコピーを読み取り、ライセンスのない支払い済みのライセンス注文を一覧表示し（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）、売上を集計します（[ダッシュボードの売上](#revenue-on-the-dashboard)を参照）。お支払いページは、アカウント自身の注文とサブスクリプションを一覧表示します（[お支払いページ](#billing-page)を参照）。
 
-## カスタマーポータル
+## お支払いページ [#billing-page]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL`（`/api/auth/customer/portal`）は、サインイン中のアカウントの Polar カスタマーポータルを開きます。`/app/license` のライセンスカードがここにリンクしています。
+`/app/billing`（`src/routes/app.billing.tsx`、顧客向けアプリのサイドバーの **お支払い**）は、サインイン中のアカウントが購入したものを表示します。D1 のコピーを読み取るため、Polar に問い合わせることなく読み込まれます。
+
+- `BillingSubscriptions` は `getCurrentSubscriptions`（`src/modules/subscription/use-cases/get-current-subscriptions.ts`）を読み取り、各サブスクリプションを商品、期間ごとの価格、ステータス、更新日または終了日とともに表示します。サブスクリプションのないアカウントにはカードが表示されません。
+- `BillingOrders` は `getCurrentOrders`（`src/modules/order/use-cases/get-current-orders.ts`）を読み取り、各注文を新しい順に、購入した内容、注文日、請求書番号、合計、返金額、ステータスとともに表示します。`REVENUE_ORDER_STATUSES` に含まれる注文には **請求書** ボタンがあります。
+- `InvoiceButton` は `getCurrentOrderInvoice`（`get-current-order-invoice.ts`）に注文の請求書を求めます。この関数は Polar から最新の注文を読み取り、Polar が請求書を発行済みであればそのアドレスを返して、ブラウザーがそれを開きます。発行されるまでは、カスタマーポータルで請求書をリクエストできることをボタンが伝えます。
+- **お支払いの管理**（`ManageBillingButton`）はカスタマーポータルを開きます（[カスタマーポータル](#customer-portal)）。このボタンが表示されるのは、アカウントが何かを購入し、かつアドレスが確認された後です。購入していないアカウントには、Polar 上の顧客が存在しないためです。
+
+3 つのサーバー関数はいずれも `authorized()` を実行し、セッション自身のアカウントだけを読み取ります。そのため管理者は、ここでは自分の購入を、管理コンソールではすべての顧客の購入を確認します（[注文と顧客](/docs/features/orders)）。別のアカウントの注文や、どのアカウントにも属さない注文の請求書を求めると、Polar に問い合わせることなく `NOT_FOUND` を返します。
+
+`CheckoutButton` は `/app/billing?checkoutId=…` に戻ります。このページは `checkoutId` だけを残す（`order.zod.ts` の `checkoutSearchSchema` と `onlyDeclaredSearch`）ため、Polar のチェックアウトページが付け加える `customer_session_token` がアドレスに残ることはありません。`CheckoutConfirmation`（`custom/billing/checkout-confirmation.tsx`）は支払いを受け付けたことを伝え、そのチェックアウトを `checkout_id` に持つ支払い済みの注文が現れるまで、<RepositoryFact name="checkoutConfirmationPollSeconds" unit="second" />ごとに注文を再取得します（`CHECKOUT_CONFIRMATION_POLL_MS`）。注文が現れると購入者にお礼を伝え、サブスクリプションも再取得します。サブスクリプションのチェックアウトは、サブスクリプションも作成するためです。<RepositoryFact name="checkoutConfirmationTimeoutSeconds" unit="second" />（`CHECKOUT_CONFIRMATION_TIMEOUT_MS`）たっても注文が届かない場合は再取得をやめ、サポートのメールアドレス、問い合わせ用のチェックアウト ID、**もう一度確認** ボタンを表示します。
+
+`AppBillingPending`（`custom/billing/billing-pending.tsx`）はこのページのスケルトンです。`checkoutSearchSchema` で検索パラメーターを読み取り、キャッシュ済みの注文とサブスクリプションを読み取って、確認のパネル、読み込み済みの注文とサブスクリプションごとの行、ポータルのボタンを描画します。
+
+## カスタマーポータル [#customer-portal]
+
+`ROUTES.API_AUTH_CUSTOMER_PORTAL`（`/api/auth/customer/portal`）は、サインイン中のアカウントの Polar カスタマーセッションを作成し、そのポータルのアドレスを返します。顧客はポータルで支払い方法と請求先情報を更新し、請求書をダウンロードし、サブスクリプションを変更または解約します。このエンドポイントは JSON を返すため、通常のリンクではポータルではなくその JSON が表示されてしまいます。そこでお支払いページの **お支払いの管理** は Better Auth クライアント（`authClient.$fetch`）でエンドポイントを呼び出し、クライアントのリダイレクトプラグインがブラウザーをそのアドレスへ移動させます。`/app/license` のライセンスカードは、お支払いページにリンクしています。
 
 ## ダッシュボードの売上 [#revenue-on-the-dashboard]
 

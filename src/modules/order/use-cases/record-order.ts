@@ -12,6 +12,7 @@ import { order } from "~/src/modules/order/order.schema"
 export const recordOrder = async (polarOrder: models.Order): Promise<void> => {
   const copy = {
     changedAt: new Date(polarOrder.modified_at ?? polarOrder.created_at),
+    checkoutId: polarOrder.checkout_id,
     currency: polarOrder.currency,
     customerId: polarOrder.customer_id,
     description: polarOrder.description,

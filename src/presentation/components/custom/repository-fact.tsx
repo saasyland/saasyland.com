@@ -153,6 +153,10 @@ import { SOCIAL_IMAGE } from "~/src/lib/seo"
 import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/lib/tier-features"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
+import {
+  CHECKOUT_CONFIRMATION_POLL_MS,
+  CHECKOUT_CONFIRMATION_TIMEOUT_MS,
+} from "~/src/presentation/components/custom/billing/checkout-confirmation"
 
 import * as ROUTES from "~/src/routes"
 
@@ -219,6 +223,8 @@ const FACTS = {
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
+  checkoutConfirmationPollSeconds: CHECKOUT_CONFIRMATION_POLL_MS / MILLISECONDS_PER_SECOND,
+  checkoutConfirmationTimeoutSeconds: CHECKOUT_CONFIRMATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   checkoutOverlayGraceSeconds: CHECKOUT_OVERLAY_GRACE_MS / MILLISECONDS_PER_SECOND,
   checkoutsPerMinute: CHECKOUT_RATE_LIMIT.max,
   cliActivate: cliCommand(CLI_COMMAND.ACTIVATE),

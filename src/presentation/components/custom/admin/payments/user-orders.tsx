@@ -8,8 +8,8 @@ import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
 
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
-import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
+import { MoneyAmount } from "~/src/presentation/components/custom/billing/money-amount"
 
 export const UserOrders = ({ userId }: { readonly userId: string }): JSX.Element => {
   const t = useTranslations()

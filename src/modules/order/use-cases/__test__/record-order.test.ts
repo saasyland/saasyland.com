@@ -24,6 +24,8 @@ const PRODUCT = {
 
 const DISCOUNT = { basisPoints: 1000, code: "RECORDED10", name: "Recorded discount" } as const
 
+const CHECKOUT_ID = "8f1c2d3e-4b5a-4c6d-9e7f-0a1b2c3d4e5f"
+
 const PLACED_AT = "2026-11-16T10:00:00.000Z"
 const PAID_AT = "2026-11-16T10:00:05.000Z"
 const REFUNDED_AT = "2026-11-17T09:00:00.000Z"
@@ -63,7 +65,12 @@ const storedOrder = async (id: string) => {
 describe("recording a Polar order", () => {
   it("copies a new order under Polar's ID with Polar's fields, linked to the buyer's account, at the version of its creation", async () => {
     const buyer = await createAccount()
-    const placed = { ...placedOrder(buyer), invoice_number: "SAASY-0001", subscription_id: "subscription-recorded" }
+    const placed = {
+      ...placedOrder(buyer),
+      checkout_id: CHECKOUT_ID,
+      invoice_number: "SAASY-0001",
+      subscription_id: "subscription-recorded",
+    }
 
     await recordOrder(placed)
 
@@ -71,6 +78,7 @@ describe("recording a Polar order", () => {
     expect(stored).toStrictEqual({
       billingCountry: JSON_NULL,
       changedAt: new Date(PLACED_AT),
+      checkoutId: CHECKOUT_ID,
       createdAt: stored?.createdAt,
       currency: DEFAULT_CURRENCY_CODE.toLowerCase(),
       customerId: placed.customer_id,

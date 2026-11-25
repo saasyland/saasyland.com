@@ -112,13 +112,21 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
   },
   [FEATURE.BILLING]: {
     files: [
-      "e2e/data/billing.flows.ts",
+      "e2e/data/billing.ts",
+      "e2e/data/billing.{flows,pages,worker}.ts",
+      "src/data/billing.ts",
+      "messages/*/{navigation,pages}.billing.json",
       "src/modules/{order,subscription}/**",
+      "src/routes/app.billing.tsx",
+      "src/routes/__test__/app-billing-*",
+      "src/presentation/components/custom/billing/**",
       "src/lib/checkout-overlay.ts",
       "src/lib/__test__/checkout-overlay.component.test.ts",
       "src/integrations/better-auth/__test__/auth.access.billing.test.ts",
+      "e2e/specs/billing.spec.ts",
+      "messages/*/components.custom.checkout-button.json",
     ],
-    names: { [ACCESS_FILE]: ["APP_STATEMENTS.order"] },
+    names: { [ACCESS_FILE]: ["APP_STATEMENTS.order"], [ROUTES_FILE]: ["APP_BILLING"] },
     requires: [FEATURE.POLAR],
   },
   [FEATURE.CONTENT]: {

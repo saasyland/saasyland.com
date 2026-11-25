@@ -21,6 +21,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppLicenseRouteImport } from './routes/app.license'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -127,6 +128,11 @@ const ApiIndexRoute = ApiIndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLicenseRoute = AppLicenseRouteImport.update({
@@ -395,6 +401,7 @@ export interface FileRoutesByFullPath {
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
+  '/app/billing': typeof AppBillingRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -451,6 +458,7 @@ export interface FileRoutesByTo {
   '/': typeof SiteMarketingIndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -512,6 +520,7 @@ export interface FileRoutesById {
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
+  '/app/billing': typeof AppBillingRoute
   '/app/license': typeof AppLicenseRoute
   '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -576,6 +585,7 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/settings'
     | '/admin/users'
+    | '/app/billing'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin/settings'
+    | '/app/billing'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/settings'
     | '/admin/users'
+    | '/app/billing'
     | '/app/license'
     | '/app/settings'
     | '/auth/callback'
@@ -841,6 +853,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/billing': {
+      id: '/app/billing'
+      path: '/billing'
+      fullPath: '/app/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/license': {
@@ -1344,6 +1363,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppRouteChildren {
+  AppBillingRoute: typeof AppBillingRoute
   AppLicenseRoute: typeof AppLicenseRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -1351,6 +1371,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBillingRoute: AppBillingRoute,
   AppLicenseRoute: AppLicenseRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,

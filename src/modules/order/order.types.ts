@@ -3,6 +3,7 @@ import type * as zod from "zod"
 import type { order } from "~/src/modules/order/order.schema"
 import type { Money } from "~/src/modules/order/order.utils"
 import type { orderZodSchemas } from "~/src/modules/order/order.zod"
+import type { getCurrentOrders } from "~/src/modules/order/use-cases/get-current-orders"
 import type { getCustomers } from "~/src/modules/order/use-cases/get-customers"
 import type { getOrder } from "~/src/modules/order/use-cases/get-order"
 import type { getOrderFilters } from "~/src/modules/order/use-cases/get-order-filters"
@@ -26,8 +27,11 @@ export interface Order {
   filterOptions: Awaited<ReturnType<typeof getOrderFilters>>
   polarOrder: Extract<OrderDetail["polar"], { amounts: unknown }>
   userOrders: Awaited<ReturnType<typeof getUserOrders>>
+  currentOrders: Awaited<ReturnType<typeof getCurrentOrders>>
+  currentOrder: Awaited<ReturnType<typeof getCurrentOrders>>["orders"][number]
   orderFilters: zod.output<typeof orderZodSchemas.getOrders>["filters"]
   customerFilters: zod.output<typeof orderZodSchemas.getCustomers>["filters"]
+  getCurrentOrderInvoice: zod.input<typeof orderZodSchemas.getCurrentOrderInvoice>
   getCustomers: zod.input<typeof orderZodSchemas.getCustomers>
   getOrder: zod.input<typeof orderZodSchemas.getOrder>
   getOrders: zod.input<typeof orderZodSchemas.getOrders>

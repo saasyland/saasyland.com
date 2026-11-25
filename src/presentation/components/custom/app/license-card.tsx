@@ -17,7 +17,7 @@ import { CLI_KEY_LINES, SCAFFOLD_DIR } from "~/src/data/cli"
 import { LICENSE_OFFER_ID } from "~/src/data/license"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
-import { AnchorButton, buttonVariants } from "~/src/presentation/components/shadcn/button"
+import { AnchorButton, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
@@ -148,7 +148,6 @@ export const LicenseCard = (): JSX.Element | undefined => {
   const t = useTranslations()
 
   const { license } = useSuspenseQuery(licenseSetupQuery).data
-  const { unconfirmedEmail } = useEmailVerification()
 
   if (license === undefined) {
     return
@@ -167,11 +166,9 @@ export const LicenseCard = (): JSX.Element | undefined => {
         {license.status === LICENSE_STATUS.ACTIVE && <KeyCommands />}
         <p className="text-spec leading-relaxed text-muted-foreground">{t.rich("pages.license.agreement", AGREEMENT_TAGS)}</p>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          {unconfirmedEmail === undefined && (
-            <a className={buttonVariants({ size: "sm", variant: "outline" })} href={ROUTES.API_AUTH_CUSTOMER_PORTAL}>
-              {t("pages.license.manage")}
-            </a>
-          )}
+          <LinkButton size="sm" to={ROUTES.APP_BILLING} variant="outline">
+            {t("pages.license.manage")}
+          </LinkButton>
           {license.status === LICENSE_STATUS.ACTIVE && <TierChanges tier={license.tier} />}
         </div>
       </CardContent>

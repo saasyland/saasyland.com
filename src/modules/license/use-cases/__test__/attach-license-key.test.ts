@@ -97,19 +97,19 @@ describe("attach-license-key", () => {
     expect(await getLicense(USER_ID)).toBeUndefined()
   })
 
-  it("acknowledges and logs a key granted for an order that is not a license purchase", async () => {
+  it("acknowledges a key that another product's order grants, without a log, and leaves the key as Polar issued it", async () => {
     const order = createPolarOrder(
       { externalCustomerId: USER_ID, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
       { product_id: crypto.randomUUID() },
     )
-    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, POLAR_PRODUCT_IDS[LICENSE_TIER.CORE]))
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const grant = grantPolarLicenseKey(order, POLAR_PRODUCT_IDS[LICENSE_TIER.CORE])
+    const licenseKey = polarLicenseKeyOf(grant)
+    const consoleError = vi.spyOn(console, "error")
 
-    await expect(attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()
+    await expect(attachLicenseKey({ polarLicenseKeyId: licenseKey.id, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()
 
-    expect(consoleError).toHaveBeenCalledWith(
-      `[license] license key ${licenseKeyId} was granted for order ${order.id}, which is not a license purchase`,
-    )
+    expect(consoleError).not.toHaveBeenCalled()
+    expect(polarLicenseKeyOf(grant)).toStrictEqual(licenseKey)
     expect(await getLicense(USER_ID)).toBeUndefined()
   })
 

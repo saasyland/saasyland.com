@@ -15,7 +15,7 @@ import type { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
 
 import { CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
 
-import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
+import checkoutButtonMessages from "~/messages/en-US/components.custom.checkout-button.json"
 import * as ROUTES from "~/src/routes"
 
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
@@ -23,7 +23,6 @@ const CHECKOUT_URL = "#polar-checkout"
 const STARTED_CHECKOUT = { checkoutId: CHECKOUT_ID, url: CHECKOUT_URL }
 const BUY_CORE = "Get Core"
 const BUY_AGENCY = "Get Agency"
-const { buy } = pagesLicenseMessages
 
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const overlayMock = vi.hoisted(() => vi.fn<typeof openCheckoutOverlay>())
@@ -70,7 +69,9 @@ describe("opening Polar's checkout over the page", () => {
     const { router } = await pressBuy()
 
     await waitFor(() => {
-      expect(overlayMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ title: buy.overlay, url: CHECKOUT_URL }))
+      expect(overlayMock).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ title: checkoutButtonMessages.overlay, url: CHECKOUT_URL }),
+      )
     })
     expect(router.state.location.href).toBe(ROUTES.APP_LICENSE)
   })
@@ -84,7 +85,10 @@ describe("opening Polar's checkout over the page", () => {
     await waitFor(() => {
       expect(overlayMock).toHaveBeenCalledOnce()
     })
-    expect(screen.getByRole("button", { name: (name) => name.endsWith(buy.pending) })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByRole("button", { name: (name) => name.endsWith(checkoutButtonMessages.pending) })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    )
     expect(screen.getByRole("button", { name: BUY_AGENCY })).toBeDisabled()
     await act(async () => {
       opened.resolve(undefined)

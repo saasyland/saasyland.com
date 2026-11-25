@@ -170,14 +170,14 @@ describe("license webhooks on paid orders", () => {
   it.each([
     { order: "a product this app does not sell", payload: orderPayload(UNKNOWN_PRODUCT_ID, USER_ID) },
     { order: "no product and no buyer", payload: orderPayload() },
-  ])("only logs an order for $order, without an alert", async ({ payload }) => {
+  ])("ignores a paid order for $order, without a log or an alert", async ({ payload }) => {
     expect.hasAssertions()
     resetUseCases()
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const consoleError = vi.spyOn(console, "error")
 
     await licenseWebhookHandlers.onOrderPaid(payload)
 
-    expect(consoleError).toHaveBeenCalledExactlyOnceWith("[license] order ord_1 is not for a licence product")
+    expect(consoleError).not.toHaveBeenCalled()
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
     expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     expect(useCaseMocks.sendUnmatchedOrderAlert).not.toHaveBeenCalled()

@@ -1,25 +1,21 @@
-import { type JSX, type ReactNode, useRef } from "react"
+import type { JSX, ReactNode } from "react"
 
-import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { isPolarCheckoutTranslated } from "~/src/integrations/polar/polar.constants"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
-import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { REFUND_TERMS } from "~/src/data/refunds"
 
-import { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
-
-import { Button } from "~/src/presentation/components/shadcn/button"
-import { Spinner } from "~/src/presentation/components/shadcn/spinner"
+import { PolarCheckoutButton } from "~/src/presentation/components/custom/billing/checkout-button"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
@@ -56,58 +52,33 @@ interface CheckoutButtonProps {
 export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps): JSX.Element => {
   const t = useTranslations("pages.license.buy")
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
   const navigate = useNavigate()
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const returnPath = useRouterState({ select: ({ location }) => location.publicHref })
-  const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
 
   const { redirect } = useAuthRedirect()
 
   const refreshLicense = () => queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
 
-  const { isPending, mutate } = useMutation({
-    ...startCheckoutMutation,
-    onError: async (error) => {
-      toast.error(errorMessage(error))
-      await refreshLicense()
-    },
-    onSuccess: async (checkout) => {
-      await refreshLicense()
-      if ("alreadyActive" in checkout) {
-        toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
-        return
-      }
-      await openCheckoutOverlay({
-        onClose: () => {
-          buttonRef.current?.focus()
-        },
-        onPaid: () => {
-          void navigate({ search: { checkoutId: checkout.checkoutId, redirect, tier }, to: ROUTES.APP })
-        },
-        onUnavailable: () => {
-          globalThis.location.href = checkout.url
-        },
-        title: t("overlay"),
-        url: checkout.url,
-      })
-    },
-  })
-
   return (
-    <Button
-      className="h-11 w-full px-5 text-body-sm font-semibold"
-      isDisabled={isStarting && !isPending}
-      isPending={isPending}
-      onPress={() => {
-        mutate({ locale: getCurrentLocale(), redirect, returnPath, tier })
+    <PolarCheckoutButton
+      checkout={{
+        ...startCheckoutMutation,
+        onError: refreshLicense,
+        onSuccess: async (checkout) => {
+          await refreshLicense()
+          if ("alreadyActive" in checkout) {
+            toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
+          }
+        },
       }}
-      ref={buttonRef}
+      className="h-11 w-full px-5 text-body-sm font-semibold"
+      onPaid={(checkoutId) => {
+        void navigate({ search: { checkoutId, redirect, tier }, to: ROUTES.APP })
+      }}
+      variables={(place) => ({ ...place, redirect, tier })}
       variant={featured ? "default" : "outline"}
     >
-      {isPending && <Spinner />}
-      {isPending ? t("pending") : children}
-    </Button>
+      {children}
+    </PolarCheckoutButton>
   )
 }
 

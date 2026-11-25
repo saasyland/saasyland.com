@@ -5,7 +5,7 @@ import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
-import { expectVerificationEmail } from "../fixtures/emails"
+import { expectVerificationEmail, latestEmail } from "../fixtures/emails"
 import { buyLicense } from "../fixtures/license"
 import { expectPurchaseConfirmation, expectWithdrawalAcknowledgement, expectWithdrawalNotification } from "../fixtures/license-emails"
 import type { AuthPage } from "../pages"
@@ -16,6 +16,10 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
+import { WITHDRAWAL_EMAIL_PURPOSE } from "../../src/modules/withdrawal/withdrawal.constants"
+import notificationMessages from "../../messages/en-US/emails.withdrawal-notification-email.json" with { type: "json" }
+import polishAcknowledgementMessages from "../../messages/pl-PL/emails.withdrawal-acknowledgement-email.json" with { type: "json" }
+import polishWithdrawalMessages from "../../messages/pl-PL/pages.withdrawal.json" with { type: "json" }
 
 const [admin] = TEST_ACCOUNTS
 const BUYER_NAME = "Withdrawing Buyer"
@@ -209,6 +213,51 @@ test.describe("withdrawal function", () => {
     await expect(terms).toBeVisible()
     const printed = USED_IN_A_LESSON.exec((await terms.textContent()) ?? "")?.groups?.["date"]?.replaceAll(ANY_SPACE, " ")
     expect([printedAs(openedFrom), printedAs(openedUntil)]).toContain(printed)
+  })
+
+  test("a statement whose order number and email address match no licence is still acknowledged, and the contact address is asked to find the order by hand", async ({
+    appPage,
+    page,
+    request,
+  }) => {
+    await useOwnRateLimit(page)
+    const email = `unmatched.${crypto.randomUUID()}@example.test`
+    const reference = `ORD-${crypto.randomUUID().slice(0, 8)}`
+    await openWithdrawalPage(appPage, page, ROUTES.WITHDRAWAL)
+    const form = statementForm(page)
+    await form.getByRole("textbox", { name: "Your name" }).fill(BUYER_NAME)
+    await form.getByRole("textbox", { name: "Email for the acknowledgement" }).fill(email)
+    await form.getByRole("textbox", { name: "Order number" }).fill(reference)
+    await form.getByRole("button", { name: "Confirm withdrawal" }).click()
+
+    await expect(page.getByRole("heading", { level: 3, name: "We received your withdrawal" })).toBeFocused()
+    await expect(page.getByRole("definition").filter({ hasText: reference })).toBeVisible()
+    const acknowledgement = await expectWithdrawalAcknowledgement(request, email)
+    expect(acknowledgement).toContain(reference)
+    const notification = await expectWithdrawalNotification(request, CONTACT_EMAIL, reference)
+    expect(notification).toContain(notificationMessages.licence.unmatched)
+    expect(notification).toContain(notificationMessages.eligibility.unmatched)
+  })
+
+  test("a statement sent from the Polish page gets its acknowledgement of receipt in Polish", async ({ appPage, page, request }) => {
+    await useOwnRateLimit(page)
+    const { form: labels, receipt } = polishWithdrawalMessages
+    const email = `polish.${crypto.randomUUID()}@example.test`
+    const reference = `ORD-${crypto.randomUUID().slice(0, 8)}`
+    await page.goto(`/pl-PL${ROUTES.WITHDRAWAL}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const form = page.locator("form").filter({ has: page.getByRole("button", { name: labels.confirm }) })
+    await appPage.waitForHydration(form)
+    await form.getByRole("textbox", { name: labels.name }).fill(BUYER_NAME)
+    await form.getByRole("textbox", { name: labels.email }).fill(email)
+    await form.getByRole("textbox", { name: labels.reference }).fill(reference)
+    await form.getByRole("button", { name: labels.confirm }).click()
+
+    await expect(page.getByRole("heading", { level: 3, name: receipt.title })).toBeFocused()
+    const acknowledgement = await latestEmail(request, email, WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, 1)
+    expect(acknowledgement.subject).toBe(polishAcknowledgementMessages.subject)
+    expect(acknowledgement.html).toContain('lang="pl-PL"')
+    expect(acknowledgement.html).toContain(reference)
   })
 
   test("the footer of every page and the Refund Policy lead to the withdrawal function", async ({ appPage, page }) => {

@@ -101,12 +101,12 @@ describe("the flow inventory", () => {
     expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.MISSING).length)
     expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.MISSING))
     expect(rows).toContainEqual([
-      "free-slot",
+      "language-switcher",
       expect.any(String),
-      expect.stringMatching(/^Only the journey suite/u),
-      "journey.spec.ts › free a CI slot on /app/license, and the refused machine takes it",
+      "The spec opens the switcher and checks its links but never follows one.",
+      "locales.spec.ts › en-US: canonical language, mobile layout, and all legal documents",
     ])
-    expect(captionOf("free-slot")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.LICENCE}`))
+    expect(captionOf("language-switcher")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.I18N}`))
   })
 
   it("lists each flow still to build under its feature with the reason it cannot be tested yet", () => {

@@ -37,6 +37,9 @@ import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
+import { TEST_PRODUCT_IDS } from "../data/polar-settings"
+import pricingMessages from "../../messages/en-US/components.custom.pricing.json" with { type: "json" }
+import polishPricingMessages from "../../messages/pl-PL/components.custom.pricing.json" with { type: "json" }
 
 const [, customer] = TEST_ACCOUNTS
 const [, , paid] = TEST_LESSONS
@@ -48,6 +51,8 @@ const OVERLAY_TITLE = "Polar checkout"
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 
 const COURSE_TIERS: readonly string[] = [LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY]
+
+const IMMEDIATE_SUPPLY = /^You asked for immediate supply at checkout, so the right of withdrawal ended/u
 
 const checklist = (page: Page) => page.getByRole("region", { name: "Get started" })
 
@@ -607,6 +612,77 @@ test.describe("checkout funnel", () => {
     await expect(page.getByText(`0 of ${String(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE])} in use`)).toBeVisible()
     expect(await sawNoLimit()).toBe(false)
     expect(await isSamePage(page)).toBe(true)
+  })
+
+  for (const tier of LICENSE_TIERS) {
+    const { cta, name } = pricingMessages.tiers[tier]
+
+    test(`a ${tier} checkout charges the full price to the signed-in account, and the ticked consent ends in an active ${tier} licence and its confirmation`, async ({
+      appPage,
+      authPage,
+      page,
+      request,
+    }) => {
+      await authPage.gotoSignUp()
+      const { email, userId } = await signUpAndVerify({ authPage, page, request })
+      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+
+      await page.getByRole("button", { name: cta, exact: true }).click()
+
+      await expect(checkoutOverlay(page)).toBeFocused()
+      const [checkout] = await startedCheckouts(request, userId)
+      assert(checkout !== undefined)
+      expect(checkout).toMatchObject({
+        customer_email: email,
+        discount_id: null,
+        external_customer_id: userId,
+        locale: "en",
+        product_id: TEST_PRODUCT_IDS[tier],
+        total_amount: toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE),
+      })
+      await payInCheckoutOverlay(page)
+      await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+      await payCheckout(request, checkout.id)
+
+      await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible()
+      await expect(page.getByText(`Thank you for buying ${name}.`, { exact: false })).toBeVisible()
+      const confirmation = await expectPurchaseConfirmation(request, email)
+      expect(confirmation).toContain(`Your SaaSy Land ${name} licence`)
+      expect(confirmation).toContain("so the right of withdrawal does not apply to this order")
+      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+      await expect(page.getByRole("heading", { name, exact: true })).toBeVisible()
+      await expect(page.getByRole("button", { name: "Copy licence key" })).toBeVisible()
+      await expect(page.getByText(IMMEDIATE_SUPPLY)).toBeVisible()
+    })
+  }
+
+  test("a buyer on the Polish site checks out in Polish and receives the purchase confirmation in Polish", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    const { cta, name } = polishPricingMessages.tiers[LICENSE_TIER.CORE]
+    await authPage.gotoSignUp()
+    const { email, userId } = await signUpAndVerify({ authPage, page, request })
+    await page.goto(`/pl-PL${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await page.getByRole("button", { name: cta, exact: true }).click()
+
+    await expect(checkoutOverlay(page)).toBeFocused()
+    const [checkout] = await startedCheckouts(request, userId)
+    assert(checkout !== undefined)
+    expect(checkout).toMatchObject({ locale: "pl", metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: "pl-PL" } })
+    await payInCheckoutOverlay(page)
+    await payCheckout(request, checkout.id)
+
+    const confirmation = await expectPurchaseConfirmation(request, email)
+    expect(confirmation).toContain(`Twoja licencja SaaSy Land na pakiet ${name}`)
+    expect(confirmation).toContain('lang="pl-PL"')
+    expect(confirmation).toContain(`/pl-PL${ROUTES.APP_LICENSE}`)
   })
 
   test("a buyer from a regional-price country pays the whole-dollar price the cards show, or the full price after declining it", async ({

@@ -1,4 +1,8 @@
+import assert from "node:assert/strict"
+
 import type { APIRequestContext, Browser, BrowserContext, Page, PlaywrightWorkerArgs, Request } from "@playwright/test"
+import { STACK_DEFAULTS } from "@saasyland/stack"
+import { API_ENDPOINT } from "@saasyland/stack/api"
 import * as zod from "zod"
 
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
@@ -8,10 +12,12 @@ import { ERROR_CODES } from "../../src/modules/_core/constants/errors"
 import { DEFAULT_PAGE_SIZE } from "../../src/modules/_core/utils/pagination"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
+import { TEST_BUNDLE } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectVerificationEmail } from "../fixtures/emails"
-import { deliverPaidOrder } from "../fixtures/license"
+import { CLI_ACTIVATION, machineConnection, sendToApi } from "../fixtures/cli-api"
+import { buyLicense, deliverPaidOrder } from "../fixtures/license"
 import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
 import authErrors from "../../messages/en-US/auth.errors.json" with { type: "json" }
@@ -638,6 +644,43 @@ test("admin reads a buyer's licence, consent, first uses and refund terms on the
     expect(await accessibilityViolations(page)).toEqual([])
     await licence.screenshot({ animations: "disabled", path: testInfo.outputPath(`admin-user-licence-${colorScheme}.png`) })
   }
+})
+
+test("admin reads the first CLI activation and the first template download on the buyer's profile, and the refund terms they end", async ({
+  appPage,
+  authPage,
+  baseURL,
+  page,
+  request,
+}) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  const { id } = await addUser({ appPage, page }, "Using Buyer")
+  const licence = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { name: "Licence", exact: true }) })
+  const detail = (label: string) => licence.getByText(label, { exact: true }).locator("xpath=following-sibling::dd")
+  const { key } = await buyLicense(request, { tier: LICENSE_TIER.CORE, userId: id })
+  const connection = await machineConnection(key, baseURL)
+
+  const activation = await sendToApi(API_ENDPOINT.ACTIVATE, CLI_ACTIVATION, connection)
+  assert(activation.success)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await expect(detail("First activation")).not.toHaveText("Never")
+  await expect(detail("First template download")).toHaveText("Never")
+  await expect(detail("Refund")).toHaveText(/^Refundable until /u)
+
+  const bundle = await sendToApi(
+    API_ENDPOINT.BUNDLE,
+    { body: { answers: STACK_DEFAULTS, version: TEST_BUNDLE.version }, params: { activationId: activation.data.activationId } },
+    connection,
+  )
+  expect(bundle.success).toBe(true)
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  const downloadedOn = (await detail("First template download").innerText()).trim()
+  expect(downloadedOn).not.toBe("Never")
+  await expect(detail("Refund")).toHaveText(
+    `Not refundable. The buyer consented to immediate delivery, and the CLI downloaded templates with this licence on ${downloadedOn}.`,
+  )
 })
 
 test.describe("a browser whose clock and time zone are not the server's", () => {

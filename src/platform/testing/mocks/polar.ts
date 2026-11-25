@@ -65,6 +65,8 @@ const orders = new Map<string, models.Order>()
 const licenseKeys = new Map<string, models.LicenseKeyWithActivations>()
 const activationConditions = new Map<string, models.LicenseKeyActivate["conditions"]>()
 const customers = new Map<string, models.CustomerIndividual>()
+const licenseKeyGrants = new Map<string, models.BenefitGrantLicenseKeysWebhook>()
+const unreachableLicenseKeys = new Set<string>()
 const grantedScopes = new Set<PolarScope>()
 
 export const seedPolarCatalogue = (catalogue: PolarCatalogue): void => {
@@ -86,6 +88,8 @@ const resetPolar = (): void => {
   licenseKeys.clear()
   activationConditions.clear()
   customers.clear()
+  licenseKeyGrants.clear()
+  unreachableLicenseKeys.clear()
   for (const scope of Object.values(POLAR_SCOPE)) {
     grantedScopes.add(scope)
   }
@@ -222,7 +226,23 @@ export const grantPolarLicenseKey = (
   const customer = customerOf(order)
   const licenseKey = polarLicenseKey({ benefit, customer })
   licenseKeys.set(licenseKey.id, licenseKey)
-  return polarLicenseKeyGrant({ benefit, customer, licenseKey, orderId: order.id })
+  const grant = polarLicenseKeyGrant({ benefit, customer, licenseKey, orderId: order.id })
+  licenseKeyGrants.set(order.id, grant)
+  return grant
+}
+
+export const polarLicenseKeyGrantOf = (orderId: string): models.BenefitGrantLicenseKeysWebhook =>
+  found(licenseKeyGrants.get(orderId), "licence-key grant of order", orderId)
+
+export const polarOrderOf = (orderId: string): models.Order => found(orders.get(orderId), "order", orderId)
+
+export const cutOffPolarLicenseKey = (key: string): void => {
+  const licenseKey = found(
+    [...licenseKeys.values()].find((candidate) => candidate.key === key),
+    "license key",
+    key,
+  )
+  unreachableLicenseKeys.add(licenseKey.id)
 }
 
 export const seedPolarLicenseKey = ({
@@ -669,7 +689,15 @@ const ENDPOINTS: readonly Endpoint[] = [
   { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.PRODUCTS }), respond: listProducts, scope: POLAR_SCOPE.PRODUCTS },
 ]
 
+const isCutOff = (request: Request): boolean => {
+  const match = new URLPattern({ pathname: POLAR_API.LICENSE_KEY }).exec(request.url)
+  return match !== null && unreachableLicenseKeys.has(resourceId(match))
+}
+
 const route = (request: Request) => {
+  if (isCutOff(request)) {
+    throw new TypeError(`fetch failed: the test double cut ${request.url} off`)
+  }
   for (const endpoint of ENDPOINTS) {
     const match = endpoint.pattern.exec(request.url)
     if (endpoint.method === request.method && match !== null && !grantedScopes.has(endpoint.scope)) {

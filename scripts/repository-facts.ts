@@ -315,7 +315,6 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     flowCheckCommand: FLOW_CHECK_COMMAND,
     flows: FLOWS.length,
     flowsCovered: flowsWith(FLOW_STATUS.COVERED),
-    flowsInJourney: FLOWS.filter((flow) => "journey" in flow).length,
     flowsMissing: flowsWith(FLOW_STATUS.MISSING),
     flowsToBuild: flowsWith(FLOW_STATUS.TO_BUILD),
     i18nCheckCommand: I18N_CHECK_COMMAND,

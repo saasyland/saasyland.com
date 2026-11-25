@@ -99,14 +99,13 @@ describe("collectRepositoryFacts", () => {
     expect(collectRepositoryFacts(configWith(), tests).e2eTests).toBe(2)
   })
 
-  it("counts the flows of the inventory by status, and the missing ones the journey suite performs", () => {
+  it("counts the flows of the inventory by status", () => {
     const facts = collectRepositoryFacts(configWith(), [])
 
     expect(facts.flows).toBe(FLOWS.length)
     expect(facts.flowsCovered + facts.flowsMissing + facts.flowsToBuild).toBe(facts.flows)
     expect(facts.flowsCovered).toBe(FLOWS.filter(({ status }) => status === FLOW_STATUS.COVERED).length)
     expect(facts.flowsToBuild).toBe(FLOWS.filter(({ status }) => status === FLOW_STATUS.TO_BUILD).length)
-    expect(facts.flowsInJourney).toBe(FLOWS.filter((flow) => "journey" in flow).length)
   })
 
   it("prints the password of the seeded accounts from the browser test data", () => {
@@ -184,14 +183,11 @@ describe("collectFlowTables", () => {
       ["auth.spec.ts › auth › signs a new account in straight away, and its link confirms the address"],
     ])
     expect(missing).toContainEqual([
-      "refund-revokes",
-      FLOW_FEATURE.AFTER_SALE,
+      "language-switcher",
+      FLOW_FEATURE.I18N,
       expect.any(String),
-      expect.any(String),
-      [
-        "checkout-funnel.spec.ts › checkout funnel › a refunded licence says so without its key, commands or a pending key, and offers a new one",
-        "journey.spec.ts › a refund in the Polar sandbox stops the key and removes the credentials",
-      ],
+      "The spec opens the switcher and checks its links but never follows one.",
+      ["locales.spec.ts › en-US: canonical language, mobile layout, and all legal documents"],
     ])
   })
 

@@ -27,6 +27,7 @@ import { ActivationLimit } from "~/src/presentation/components/custom/activation
 import { HeadStartTable } from "~/src/presentation/components/custom/blog/head-start-table"
 import { PostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 import { ChangelogLinks } from "~/src/presentation/components/custom/changelog-links"
+import { LegalNotice } from "~/src/presentation/components/custom/legal-notice"
 import { RegionalDiscounts } from "~/src/presentation/components/custom/regional-discounts"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 import { ScaffoldCommand } from "~/src/presentation/components/custom/scaffold-command"
@@ -83,6 +84,7 @@ export const mdxComponents = {
   CardTitle,
   ChangelogLinks,
   HeadStartTable,
+  LegalNotice,
   PostFaq,
   RegionalDiscounts,
   RepositoryFact,

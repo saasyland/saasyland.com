@@ -69,7 +69,6 @@ const NAMESPACE = "pages.admin.dashboard"
 
 export const Route = createFileRoute("/admin/")({
   component: DashboardPage,
-  head: pageHead(ROUTES.ADMIN),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -81,6 +80,7 @@ export const Route = createFileRoute("/admin/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN),
   pendingComponent: AdminDashboardPending,
   staticData: { namespaces: [NAMESPACE] },
 })

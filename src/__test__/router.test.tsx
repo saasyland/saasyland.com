@@ -115,3 +115,8 @@ it("hands every failed query and mutation to the session recheck with the router
     [{ error: refused, queryClient, router }],
   ])
 })
+
+it("leaves loading to TanStack Query: a preloaded route runs its loader again, which reads the query cache", () => {
+  expect(getRouter().options).toMatchObject({ defaultPreloadStaleTime: 0 })
+  expect(getRouter().options.defaultStaleTime).toBeUndefined()
+})

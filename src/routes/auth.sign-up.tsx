@@ -45,7 +45,6 @@ export const Route = createFileRoute("/auth/sign-up")({
   validateSearch: authSearchSchema,
   beforeLoad: redirectIfSignedIn,
   component: SignUpPage,
-  head: pageHead(ROUTES.SIGN_UP),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -54,6 +53,7 @@ export const Route = createFileRoute("/auth/sign-up")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.SIGN_UP),
   pendingComponent: SignUpPending,
   staticData: { namespaces: [NAMESPACE] },
 })

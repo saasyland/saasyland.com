@@ -74,7 +74,6 @@ const NAMESPACE = "pages.license"
 export const Route = createFileRoute("/app/license")({
   validateSearch: licenseSearchSchema,
   component: LicensePage,
-  head: pageHead(ROUTES.APP_LICENSE),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -95,6 +94,7 @@ export const Route = createFileRoute("/app/license")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.APP_LICENSE),
   pendingComponent: AppLicensePending,
   search: { middlewares: [onlyDeclaredSearch(licenseSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

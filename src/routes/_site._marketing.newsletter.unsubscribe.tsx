@@ -97,7 +97,6 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")
   }),
   component: NewsletterUnsubscribePage,
   errorComponent: () => <NewsletterUnsubscribeResult status={UNSUBSCRIBE_STATUS.ERROR} />,
-  head: pageHead(ROUTES.NEWSLETTER_UNSUBSCRIBE),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -106,6 +105,7 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.NEWSLETTER_UNSUBSCRIBE),
   pendingComponent: NewsletterPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },

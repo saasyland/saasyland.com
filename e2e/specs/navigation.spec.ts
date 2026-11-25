@@ -552,3 +552,22 @@ test.describe("the header's pages", () => {
     expect(requests).toEqual([])
   })
 })
+
+test.describe("a link preloaded on hover", () => {
+  test("opens its page without another server function call, because the click reads what the preload put in the query cache", async ({ page }) => {
+    const course = `${ROUTES.COURSES}/${TEST_COURSE.slug}`
+    await waitForHeaderPreloads(page, ROUTES.COURSES)
+    const requests = serverFunctionRequests(page)
+    const link = page.getByRole("main").locator(`a[href="${course}"]`).first()
+
+    await link.hover()
+    await expect.poll(() => requests.length).toBeGreaterThan(0)
+    await page.waitForLoadState("networkidle")
+    requests.length = 0
+    await link.click()
+
+    await expect(page.getByRole("heading", { level: 1, name: TEST_COURSE.title["en-US"] })).toBeVisible()
+    await page.waitForLoadState("networkidle")
+    expect(requests).toEqual([])
+  })
+})

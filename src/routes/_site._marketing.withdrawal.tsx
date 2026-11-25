@@ -55,7 +55,6 @@ const NAMESPACE = "pages.withdrawal"
 
 export const Route = createFileRoute("/_site/_marketing/withdrawal")({
   component: WithdrawalPage,
-  head: pageHead(ROUTES.WITHDRAWAL),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -64,6 +63,7 @@ export const Route = createFileRoute("/_site/_marketing/withdrawal")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.WITHDRAWAL),
   pendingComponent: WithdrawalPending,
   staticData: { namespaces: [NAMESPACE] },
 })

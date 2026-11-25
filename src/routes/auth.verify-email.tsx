@@ -53,7 +53,6 @@ export const Route = createFileRoute("/auth/verify-email")({
     await redirectIfVerified(context)
   },
   component: VerifyEmailPage,
-  head: pageHead(ROUTES.VERIFY_EMAIL),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -62,6 +61,7 @@ export const Route = createFileRoute("/auth/verify-email")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.VERIFY_EMAIL),
   pendingComponent: VerifyEmailPending,
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -63,7 +63,6 @@ const NAMESPACE = "pages.admin.courses"
 
 export const Route = createFileRoute("/admin/courses/")({
   component: CoursesPage,
-  head: pageHead(ROUTES.ADMIN_COURSES),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -73,6 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -89,13 +89,13 @@ export const Route = createFileRoute("/admin/courses/")({
 ```tsx title="src/routes/admin.courses.$courseId.tsx"
 export const Route = createFileRoute("/admin/courses/$courseId")({
   component: CourseEditorPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
     return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/admin/courses")({
 
 ## Порядок опцій
 
-`sort-keys` вимкнено в `src/routes`, бо TanStack Router виводить типи в порядку оголошення. Опції йдуть за алфавітом, але `validateSearch` стоїть першим, перед усім, що читає параметри пошуку:
+`sort-keys` вимкнено в `src/routes`, бо TanStack Router виводить типи в порядку оголошення: типи опції беруться з опцій над нею. Опції йдуть за алфавітом, крім тих, через які роутер виводить типи: вони стоять у порядку з його посібника про завантаження даних. `validateSearch` стоїть першим, перед усім, що читає параметри пошуку, далі `loaderDeps`, `context`, `beforeLoad` і `loader`, а `head`, `headers` і `scripts` стоять після `loader`, бо читають його дані. Тоді `head` отримує тип, який повертає loader, як є, без типу, написаного вручну, а `code-style/route-option-order` не пропускає маршрут, що оголошує ці опції в іншому порядку:
 
 ```tsx title="src/routes/auth.reset-password.tsx"
 export const Route = createFileRoute("/auth/reset-password")({

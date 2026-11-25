@@ -5,7 +5,6 @@ import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
 import { ArrowLeft, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -128,29 +127,8 @@ const CoursePage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
-interface CourseLoaderData {
-  readonly cover: string | null
-  readonly locale: SupportedLocale
-  readonly pathname: string
-  readonly summary: string
-  readonly title: string
-}
-
 export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
   component: CoursePage,
-  head: ({ loaderData, match }: { loaderData?: CourseLoaderData | undefined; match: { error: unknown } }) => {
-    if (isNotFound(match.error)) {
-      return notFoundHead(getCurrentLocale())
-    }
-
-    return buildPageHead({
-      description: loaderData?.summary,
-      image: loaderData && courseShareImage(loaderData),
-      locale: loaderData?.locale,
-      pathname: loaderData?.pathname ?? ROUTES.COURSES,
-      title: loaderData?.title,
-    })
-  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([
@@ -164,6 +142,19 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
       summary: data.course.summary,
       title: data.course.title,
     }
+  },
+  head: ({ loaderData, match }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
+      description: loaderData?.summary,
+      image: loaderData && courseShareImage(loaderData),
+      locale: loaderData?.locale,
+      pathname: loaderData?.pathname ?? ROUTES.COURSES,
+      title: loaderData?.title,
+    })
   },
   pendingComponent: CoursePending,
   staticData: { namespaces: [NAMESPACE] },

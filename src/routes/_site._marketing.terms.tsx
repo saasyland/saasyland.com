@@ -36,7 +36,6 @@ const NAMESPACE = "pages.legal.terms"
 
 export const Route = createFileRoute("/_site/_marketing/terms")({
   component: TermsPage,
-  head: pageHead(ROUTES.TERMS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -45,6 +44,7 @@ export const Route = createFileRoute("/_site/_marketing/terms")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.TERMS),
   pendingComponent: LegalPending,
   staticData: { namespaces: [NAMESPACE] },
 })

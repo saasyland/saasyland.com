@@ -55,7 +55,6 @@ const NAMESPACE = "pages.admin.settings"
 export const Route = createFileRoute("/admin/settings")({
   validateSearch: settingsSearchSchema,
   component: SettingsPage,
-  head: pageHead(ROUTES.ADMIN_SETTINGS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -66,6 +65,7 @@ export const Route = createFileRoute("/admin/settings")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.ADMIN_SETTINGS),
   pendingComponent: AdminSettingsPending,
   search: { middlewares: [onlyDeclaredSearch(settingsSearchSchema), stripSearchParams({ tab: SETTINGS_TAB.GENERAL })] },
   staticData: { namespaces: [NAMESPACE] },

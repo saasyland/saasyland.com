@@ -34,7 +34,6 @@ const NAMESPACE = "pages.auth.two-factor"
 export const Route = createFileRoute("/auth/two-factor")({
   validateSearch: authSearchSchema,
   component: TwoFactorPage,
-  head: pageHead(ROUTES.TWO_FACTOR),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -43,6 +42,7 @@ export const Route = createFileRoute("/auth/two-factor")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.TWO_FACTOR),
   pendingComponent: TwoFactorPending,
   staticData: { namespaces: [NAMESPACE] },
 })

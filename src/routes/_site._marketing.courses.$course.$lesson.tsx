@@ -5,7 +5,6 @@ import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
 import { AlignLeft, ArrowLeft, ArrowRight, Check, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -229,31 +228,8 @@ const LessonPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
-interface LessonLoaderData {
-  readonly course: { readonly cover: string | null; readonly title: string }
-  readonly locale: SupportedLocale
-  readonly pathname: string
-  readonly robots?: string
-  readonly summary: string
-  readonly title: string
-}
-
 export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson")({
   component: LessonPage,
-  head: ({ loaderData, match }: { loaderData?: LessonLoaderData | undefined; match: { error: unknown } }) => {
-    if (isNotFound(match.error)) {
-      return notFoundHead(getCurrentLocale())
-    }
-
-    return buildPageHead({
-      description: loaderData?.summary,
-      image: loaderData && courseShareImage(loaderData.course),
-      locale: loaderData?.locale,
-      pathname: loaderData?.pathname ?? ROUTES.COURSES,
-      robots: loaderData?.robots,
-      title: loaderData?.title,
-    })
-  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([
@@ -272,6 +248,20 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson"
       title: `${lesson.title} · ${data.course.title}`,
       ...(isOpenToVisitors(lesson) ? {} : { robots: ROBOTS.NOINDEX }),
     }
+  },
+  head: ({ loaderData, match }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
+      description: loaderData?.summary,
+      image: loaderData && courseShareImage(loaderData.course),
+      locale: loaderData?.locale,
+      pathname: loaderData?.pathname ?? ROUTES.COURSES,
+      robots: loaderData?.robots,
+      title: loaderData?.title,
+    })
   },
   pendingComponent: LessonPending,
   staticData: { namespaces: [NAMESPACE] },

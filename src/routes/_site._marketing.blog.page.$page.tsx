@@ -22,7 +22,7 @@ import { BLOG_ARCHIVE } from "~/src/data/blog"
 
 import { buildBlogArchiveStructuredDataHtml } from "~/src/lib/blog-seo"
 import { notFoundHead } from "~/src/lib/not-found"
-import { type PageLoaderData, buildPageHead } from "~/src/lib/seo"
+import { buildPageHead } from "~/src/lib/seo"
 
 import { BlogArchivePending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post-finder"
@@ -75,22 +75,8 @@ const PAGE_NUMBER = /^[1-9]\d*$/u
 
 const archiveMessagesSchema = zod.object({ archive: zod.object({ pageTitle: zod.string() }) })
 
-type BlogArchiveLoaderData = PageLoaderData & { readonly page: number; readonly pages: number }
-
 export const Route = createFileRoute("/_site/_marketing/blog/page/$page")({
   component: BlogArchivePage,
-  head: ({ loaderData, match }: { loaderData?: BlogArchiveLoaderData | undefined; match: { error: unknown } }) => {
-    if (isNotFound(match.error) || loaderData === undefined) {
-      return notFoundHead(getCurrentLocale())
-    }
-
-    return buildPageHead({
-      ...loaderData.metadata,
-      locale: loaderData.locale,
-      pathname: blogArchivePath(loaderData.page),
-      sequence: blogArchiveSequence(loaderData),
-    })
-  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [metadata, messages, index] = await Promise.all([
@@ -125,6 +111,18 @@ export const Route = createFileRoute("/_site/_marketing/blog/page/$page")({
       posts,
       total: index.length,
     }
+  },
+  head: ({ loaderData, match }) => {
+    if (isNotFound(match.error) || loaderData === undefined) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
+      ...loaderData.metadata,
+      locale: loaderData.locale,
+      pathname: blogArchivePath(loaderData.page),
+      sequence: blogArchiveSequence(loaderData),
+    })
   },
   pendingComponent: BlogArchivePending,
   staticData: { namespaces: [NAMESPACE] },

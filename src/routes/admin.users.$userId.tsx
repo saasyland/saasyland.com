@@ -3,7 +3,6 @@ import type { JSX } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user-sessions"
@@ -56,8 +55,6 @@ const UserProfilePage = (): JSX.Element => {
 
 export const Route = createFileRoute("/admin/users/$userId")({
   component: UserProfilePage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_USERS, title: loaderData?.title }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [user] = await Promise.all([
@@ -67,5 +64,7 @@ export const Route = createFileRoute("/admin/users/$userId")({
     ])
     return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_USERS, title: loaderData?.title }),
   pendingComponent: AdminUserProfilePending,
 })

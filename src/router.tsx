@@ -4,7 +4,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { getGlobalStartContext } from "@tanstack/react-start"
 
 import { recheckRefusedSession } from "~/src/integrations/better-auth/auth.routes"
-import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import "~/src/integrations/zod/zod.config"
 
@@ -54,8 +54,7 @@ export const getRouter = () => {
     defaultPreload: "intent",
     defaultPreloadDelay: 100,
     defaultPreloadIntentProximity: 0,
-    defaultPreloadStaleTime: QUERY_STALE_TIME_MS,
-    defaultStaleTime: QUERY_STALE_TIME_MS,
+    defaultPreloadStaleTime: ROUTER_PRELOAD_STALE_TIME_MS,
     defaultStructuralSharing: true,
     rewrite: LOCALE_REWRITE,
     routeTree,

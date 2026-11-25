@@ -25,8 +25,8 @@ const DocumentationNotFound = (): JSX.Element => (
 
 export const Route = createFileRoute("/_site/docs/$")({
   component: DocumentationPage,
-  head: docsHead,
   loader: ({ params }) => loadDocsPage(params._splat),
+  head: docsHead,
   notFoundComponent: DocumentationNotFound,
   pendingComponent: DocsPagePending,
 })

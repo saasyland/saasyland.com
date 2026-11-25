@@ -23,7 +23,7 @@ import {
   TWO_FACTOR_CODE_LENGTH,
 } from "~/src/integrations/better-auth/auth.constraints"
 import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/better-auth/auth.middleware"
-import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { DATA_GRID_DENSITIES, DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -339,7 +339,7 @@ const FACTS = {
   requestRenderedRoutes: ROUTES.REQUEST_RENDERED_ROUTES,
   resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,
-  routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
+  routerPreloadStaleTimeMs: ROUTER_PRELOAD_STALE_TIME_MS,
   scaffoldTarget: SCAFFOLD_TARGET,
   secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
   secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,

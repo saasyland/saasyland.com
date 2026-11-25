@@ -48,7 +48,6 @@ const NAMESPACE = "pages.legal.licence"
 
 export const Route = createFileRoute("/_site/_marketing/licence")({
   component: LicencePage,
-  head: pageHead(ROUTES.LICENCE),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -57,6 +56,7 @@ export const Route = createFileRoute("/_site/_marketing/licence")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.LICENCE),
   pendingComponent: LegalPending,
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -75,7 +75,6 @@ export const Route = createFileRoute("/auth/sign-in")({
   }),
   beforeLoad: redirectIfSignedIn,
   component: SignInPage,
-  head: pageHead(ROUTES.SIGN_IN),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -84,6 +83,7 @@ export const Route = createFileRoute("/auth/sign-in")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.SIGN_IN),
   pendingComponent: SignInPending,
   staticData: { namespaces: [NAMESPACE] },
 })

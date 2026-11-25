@@ -45,7 +45,6 @@ const NAMESPACE = "pages.legal.privacy"
 
 export const Route = createFileRoute("/_site/_marketing/privacy")({
   component: PrivacyPage,
-  head: pageHead(ROUTES.PRIVACY),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -54,6 +53,7 @@ export const Route = createFileRoute("/_site/_marketing/privacy")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.PRIVACY),
   pendingComponent: LegalPending,
   staticData: { namespaces: [NAMESPACE] },
 })

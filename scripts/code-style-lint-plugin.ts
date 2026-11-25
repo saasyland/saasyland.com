@@ -163,6 +163,53 @@ export const zodNamespaceImport = defineRule({
   },
 })
 
+const ROUTE_FACTORIES = new Set(["createFileRoute", "createRootRoute", "createRootRouteWithContext", "createRoute"])
+
+const ROUTE_OPTION_ORDER = [["validateSearch"], ["loaderDeps"], ["context"], ["beforeLoad"], ["loader"], ["head", "headers", "scripts"]]
+
+const ROUTE_OPTION_RANKS = new Map(ROUTE_OPTION_ORDER.flatMap((names, rank) => names.map((name) => [name, rank] as const)))
+
+const isRouteFactory = (node: ESTree.Node): boolean => node.type === "Identifier" && ROUTE_FACTORIES.has(node.name)
+
+const takesRouteOptions = (node: ESTree.CallExpression): boolean =>
+  isRouteFactory(node.callee) || (node.callee.type === "CallExpression" && isRouteFactory(node.callee.callee))
+
+export const routeOptionOrder = defineRule({
+  create: (context) => ({
+    CallExpression: (node) => {
+      const [options] = node.arguments
+      if (!takesRouteOptions(node) || options?.type !== "ObjectExpression") {
+        return
+      }
+
+      let latest = { name: "", rank: -1 }
+      for (const property of options.properties) {
+        if (property.type === "Property" && property.key.type === "Identifier") {
+          const { name } = property.key
+          const rank = ROUTE_OPTION_RANKS.get(name) ?? latest.rank
+          if (rank < latest.rank) {
+            context.report({ data: { later: latest.name, option: name }, messageId: "order", node: property })
+          }
+          if (rank > latest.rank) {
+            latest = { name, rank }
+          }
+        }
+      }
+    },
+  }),
+  meta: {
+    docs: {
+      description:
+        "Route options that TanStack Router infers types through come in the order its docs give: validateSearch, loaderDeps, context, beforeLoad, loader, then head, headers and scripts.",
+    },
+    messages: {
+      order:
+        "`{{option}}` comes after `{{later}}`, so TypeScript infers `{{later}}` before the types `{{option}}` gives it. Declare validateSearch, loaderDeps, context, beforeLoad and loader in that order, and head, headers and scripts after loader.",
+    },
+    type: "problem",
+  },
+})
+
 export default definePlugin({
   meta: { name: "code-style" },
   rules: {
@@ -170,6 +217,7 @@ export default definePlugin({
     "no-multiline-ternary": noMultilineTernary,
     "no-undefined-branch": noUndefinedBranch,
     "no-undefined-fallback": noUndefinedFallback,
+    "route-option-order": routeOptionOrder,
     "zod-namespace-import": zodNamespaceImport,
   },
 })

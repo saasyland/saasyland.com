@@ -15,7 +15,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 
-import { type PageLoaderData, ROBOTS, buildPageHead } from "~/src/lib/seo"
+import { ROBOTS, buildPageHead } from "~/src/lib/seo"
 
 import { CourseCard, FeaturedCourseCard } from "~/src/presentation/components/custom/courses/course-card"
 import { CataloguePending } from "~/src/presentation/components/custom/courses/courses-pending"
@@ -98,15 +98,9 @@ const CoursesPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
-interface CatalogueLoaderData extends PageLoaderData {
-  readonly robots?: string
-}
-
 export const Route = createFileRoute("/_site/_marketing/courses/")({
   component: CoursesPage,
-  head: ({ loaderData }: { loaderData?: CatalogueLoaderData | undefined }) =>
-    buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname: ROUTES.COURSES, robots: loaderData?.robots }),
-  loader: async ({ context }): Promise<CatalogueLoaderData> => {
+  loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata, catalogue] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
@@ -115,6 +109,8 @@ export const Route = createFileRoute("/_site/_marketing/courses/")({
     ])
     return { locale, metadata, ...(catalogue.courses.length > 0 ? {} : { robots: ROBOTS.NOINDEX }) }
   },
+  head: ({ loaderData }) =>
+    buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname: ROUTES.COURSES, robots: loaderData?.robots }),
   pendingComponent: CataloguePending,
   staticData: { namespaces: [NAMESPACE] },
 })

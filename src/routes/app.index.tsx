@@ -63,7 +63,6 @@ const overviewSearchSchema = zod.object({ ...licenseSearchSchema.shape })
 export const Route = createFileRoute("/app/")({
   validateSearch: overviewSearchSchema,
   component: OverviewPage,
-  head: pageHead(ROUTES.APP),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -73,6 +72,7 @@ export const Route = createFileRoute("/app/")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.APP),
   pendingComponent: AppOverviewPending,
   search: { middlewares: [onlyDeclaredSearch(overviewSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

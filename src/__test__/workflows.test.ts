@@ -11,6 +11,7 @@ import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { FEATURE_SCENARIO } from "~/scripts/features"
+import { COMMIT, RELEASE_TAG, actionReferences, workflowPaths } from "~/scripts/github-actions"
 import { REPORT_MODE } from "~/scripts/report-updates"
 
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
@@ -86,7 +87,7 @@ const JOURNEY_TAG = /const journeyTag = \(journey: Journey\): string => `@\$\{jo
 const DISPATCH_OPTIONS = /options:\n(?<options>(?: {10}- .+\n)+)/u
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
 const TRIGGER_PATH = /"(?<path>[^"]+)"/gu
-const CHECKOUT_OPTIONS = /uses: actions\/checkout@v\d+\n +with:\n(?<options>(?: {10}[\w-]+: .+\n)+)/gu
+const CHECKOUT_OPTIONS = /uses: actions\/checkout@[\da-f]{40} # v[\d.]+\n +with:\n(?<options>(?: {10}[\w-]+: .+\n)+)/gu
 const CHOOSE_RELEASE_TAG =
   /- name: Choose the release tag\n +id: release-tag\n +if: inputs\.target == 'production'\n +run: bun scripts\/choose-release-tag\.ts "\$GITHUB_SHA" >> "\$GITHUB_OUTPUT"\n/u
 const BUILD_WITH_RELEASE_TAG =
@@ -244,7 +245,7 @@ describe(E2E_WORKFLOW, () => {
 
     expect(shard).not.toContain("needs:")
     expect(jobOf(E2E, "build")).toContain(`name: ${BUILD_JOB}`)
-    expect(jobOf(E2E, "build")).toContain(`- name: ${BUILD_STEP}\n        uses: actions/upload-artifact@v`)
+    expect(jobOf(E2E, "build")).toContain(`- name: ${BUILD_STEP}\n        uses: actions/upload-artifact@`)
     expect(shard).toContain(`BUILD_JOB: ${BUILD_JOB}`)
     expect(shard).toContain(`BUILD_STEP: ${BUILD_STEP}`)
     expect(shard).toContain(WAIT_FOR_BUILD)
@@ -497,5 +498,38 @@ describe(UPDATES_WORKFLOW, () => {
     expect(job.split("github.token")).toHaveLength(2)
     expect(job.indexOf("GH_TOKEN")).toBeGreaterThan(issue)
     expect(job).toContain("persist-credentials: false")
+  })
+})
+
+const ACTIONS = actionReferences(".")
+const LOCAL_ACTION = /^\s*(?:-\s+)?uses:\s+\.\//u
+const ANY_ACTION = /^\s*(?:-\s+)?uses:\s+/u
+
+const linesOf = (pattern: RegExp): string[] =>
+  workflowPaths(".").flatMap((file) =>
+    readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => pattern.test(line)),
+  )
+
+describe("the actions the workflows use", () => {
+  it("are read from every workflow and composite action", () => {
+    expect(workflowPaths(".")).toEqual(expect.arrayContaining([CI_WORKFLOW, UPDATES_WORKFLOW, SETUP_ACTION]))
+    expect(ACTIONS.length).toBeGreaterThan(0)
+  })
+
+  it("are each a local action or another repository's action at a full commit SHA", () => {
+    expect(ACTIONS).toHaveLength(linesOf(ANY_ACTION).length - linesOf(LOCAL_ACTION).length)
+    expect(ACTIONS.filter(({ ref }) => !COMMIT.test(ref))).toStrictEqual([])
+  })
+
+  it("name the release tag of their commit after it", () => {
+    expect(ACTIONS.filter(({ tag }) => !RELEASE_TAG.test(tag ?? ""))).toStrictEqual([])
+  })
+
+  it("pin one release of each repository across every workflow", () => {
+    const releases = new Set(ACTIONS.map(({ ref, repository, tag }) => `${repository}@${ref} # ${tag ?? ""}`))
+
+    expect(releases.size).toBe(new Set(ACTIONS.map(({ repository }) => repository)).size)
   })
 })

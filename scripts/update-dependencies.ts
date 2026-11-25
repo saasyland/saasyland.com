@@ -11,6 +11,7 @@ import {
   outdatedDependencies,
   readDependencies,
 } from "./dependencies.ts"
+import { type ActionChange, type LatestRelease, latestRelease, updateActions } from "./github-actions.ts"
 import { runCommand } from "./run-command.ts"
 import { SKILLS_UPDATE_SCRIPT } from "./sync-skills.ts"
 
@@ -48,15 +49,22 @@ export const pinnedReport = (outdated: readonly OutdatedDependency[]): string[] 
         `${name} is pinned to ${spec}; ${latest} is out. Read why it is pinned in the Dependencies docs before moving it.`,
     )
 
+export interface UpdateReport {
+  readonly actions: readonly ActionChange[]
+  readonly pinned: readonly string[]
+}
+
 export const updateDependencies = async ({
   latestOf,
+  releaseOf,
   root,
   run,
 }: {
   latestOf: LatestVersion
+  releaseOf: LatestRelease
   root: string
   run: Run
-}): Promise<string[]> => {
+}): Promise<UpdateReport> => {
   const commands = updateCommands(readDependencies(root), await latestOf(VITE_PLUS))
   const failed = commands.find((args) => run(args) !== SUCCESS_EXIT_CODE)
 
@@ -64,19 +72,28 @@ export const updateDependencies = async ({
     throw new Error(`bun ${failed.join(" ")} failed`)
   }
 
-  return pinnedReport(await outdatedDependencies(readDependencies(root), latestOf))
+  const actions = updateActions(root, releaseOf)
+
+  return { actions, pinned: pinnedReport(await outdatedDependencies(readDependencies(root), latestOf)) }
 }
 
 if (import.meta.main) {
-  const pinned = await updateDependencies({
+  const { actions, pinned } = await updateDependencies({
     latestOf: latestVersion,
+    releaseOf: latestRelease,
     root: process.cwd(),
     run: (args) => runCommand(process.execPath, args).status,
   })
+
+  for (const { from, name, to } of actions) {
+    console.log(`↑ ${name} ${from} → ${to}`)
+  }
 
   for (const line of pinned) {
     console.log(`! ${line}`)
   }
 
-  console.log("\n✓ Dependencies and agent skills updated. Run bun run check, bun run test:coverage and bun run build:test next.")
+  console.log(
+    "\n✓ Dependencies, agent skills and GitHub Actions updated. Run bun run check, bun run test:coverage and bun run build:test next.",
+  )
 }

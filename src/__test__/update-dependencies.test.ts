@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSkillsRepository } from "~/src/platform/testing/lib/skills-repository"
 
 import { type Dependency, VITE_PLUS } from "~/scripts/dependencies"
+import type { LatestRelease } from "~/scripts/github-actions"
 import { SKILLS_UPDATE_SCRIPT } from "~/scripts/sync-skills"
 import { MIGRATE_OPTIONS, pinnedReport, updateCommands, updateDependencies } from "~/scripts/update-dependencies"
 
@@ -48,29 +51,41 @@ describe("pinnedReport", () => {
   })
 })
 
+const CHECKOUT = "actions/checkout"
+const CHECKOUT_COMMIT = "a".repeat(40)
+const WORKFLOW = ".github/workflows/ci.yml"
+
 const repository = (): string =>
   createSkillsRepository({
     dependencies: { [BETTER_AUTH]: "1.7.27", [RESEND]: "^6.39.0" },
     devDependencies: { [VITE_PLUS]: "1.7.0" },
+    files: { [WORKFLOW]: `steps:\n  - uses: ${CHECKOUT}@v7\n` },
     resolved: { [BETTER_AUTH]: `${BETTER_AUTH}@1.7.27`, [RESEND]: `${RESEND}@6.39.0`, [VITE_PLUS]: `${VITE_PLUS}@1.7.0` },
   })
 
 const latestOf = (name: string): Promise<string> => Promise.resolve(name === BETTER_AUTH ? "1.7.30" : "1.7.0")
 
+const releaseOf: LatestRelease = () => ({ commit: CHECKOUT_COMMIT, version: "v7.0.1" })
+
 describe("updateDependencies", () => {
-  it("runs every update command and then names the pins that have a newer release", async () => {
+  it("runs every update command, pins the GitHub Actions to their latest releases and then names the pins that have a newer release", async () => {
+    const root = repository()
     const run = vi.fn(() => PASSED)
 
-    await expect(updateDependencies({ latestOf, root: repository(), run })).resolves.toStrictEqual([
-      `${BETTER_AUTH} is pinned to 1.7.27; 1.7.30 is out. Read why it is pinned in the Dependencies docs before moving it.`,
-    ])
+    await expect(updateDependencies({ latestOf, releaseOf, root, run })).resolves.toStrictEqual({
+      actions: [{ from: "v7", name: CHECKOUT, to: "v7.0.1" }],
+      pinned: [`${BETTER_AUTH} is pinned to 1.7.27; 1.7.30 is out. Read why it is pinned in the Dependencies docs before moving it.`],
+    })
     expect(run.mock.calls).toStrictEqual([[["update", "--latest", RESEND]], [SKILLS_UPDATE_COMMAND]])
+    expect(readFileSync(join(root, WORKFLOW), "utf8")).toBe(`steps:\n  - uses: ${CHECKOUT}@${CHECKOUT_COMMIT} # v7.0.1\n`)
   })
 
   it("stops at the first command that fails, before the skills are updated", async () => {
     const run = vi.fn(() => FAILED)
 
-    await expect(updateDependencies({ latestOf, root: repository(), run })).rejects.toThrow(`bun update --latest ${RESEND} failed`)
+    await expect(updateDependencies({ latestOf, releaseOf, root: repository(), run })).rejects.toThrow(
+      `bun update --latest ${RESEND} failed`,
+    )
     expect(run).toHaveBeenCalledTimes(1)
   })
 })

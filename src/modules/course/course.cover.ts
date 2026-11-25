@@ -1,4 +1,5 @@
-import { BYTES_PER_MEGABYTE, MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
+import { BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
+import { IMAGE_TYPES, MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 
 const COURSE_COVER_KEY_PREFIX = "covers"
 
@@ -17,10 +18,10 @@ export const COURSE_COVER_MAX_MEGABYTES = 10
 export const COURSE_COVER_MAX_BYTES = COURSE_COVER_MAX_MEGABYTES * BYTES_PER_MEGABYTE
 
 export const COURSE_COVER_SOURCE_TYPES = {
-  avif: "image/avif",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
+  avif: IMAGE_TYPES.AVIF,
+  jpeg: IMAGE_TYPES.JPEG,
+  png: IMAGE_TYPES.PNG,
+  webp: IMAGE_TYPES.WEBP,
 } as const
 
 export const COURSE_COVER_STORED_TYPES = {

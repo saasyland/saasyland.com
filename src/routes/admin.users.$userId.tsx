@@ -9,8 +9,7 @@ import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user
 import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
 import { getUserInitials } from "~/src/modules/user/user.utils"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
-import { buildPageHead } from "~/src/lib/seo"
+import { recordHead, rethrowAsNotFound } from "~/src/lib/not-found"
 
 import { Avatar, AvatarFallback, AvatarImage } from "~/src/presentation/components/shadcn/avatar"
 
@@ -64,7 +63,6 @@ export const Route = createFileRoute("/admin/users/$userId")({
     ])
     return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
   },
-  head: ({ loaderData }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_USERS, title: loaderData?.title }),
+  head: recordHead(ROUTES.ADMIN_USERS),
   pendingComponent: AdminUserProfilePending,
 })

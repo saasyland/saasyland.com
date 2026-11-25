@@ -1,5 +1,14 @@
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+export const MEDIA_PATH_PREFIX = "/media"
+
+export const IMAGE_TYPES = {
+  AVIF: "image/avif",
+  JPEG: "image/jpeg",
+  PNG: "image/png",
+  WEBP: "image/webp",
+} as const
+
 const READ_METHODS = new Set(["GET", "HEAD"])
 
 export const emptyResponse = (status: number, headers: HeadersInit = {}): Response => new Response(undefined, { headers, status })

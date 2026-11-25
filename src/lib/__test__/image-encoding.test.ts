@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { stubImageEncoding } from "~/src/platform/testing/mocks/canvas"
 
-import { encodeImages } from "~/src/lib/image-encoding"
+import { encodeContainedImage, encodeImages } from "~/src/lib/image-encoding"
 
 const WEBP = "image/webp"
 const JPEG = "image/jpeg"
@@ -47,6 +47,52 @@ describe("encodeImages", () => {
     const { bitmap } = stubImageEncoding({ draws: false })
 
     await expect(encode()).rejects.toThrow("This browser cannot draw images.")
+    expect(bitmap.close).toHaveBeenCalledTimes(1)
+  })
+})
+
+const PNG = "image/png"
+
+const contain = (maxSide: number) =>
+  encodeContainedImage({ fallbackType: PNG, file: new Blob(["source"]), maxSide, preferredType: WEBP, quality: 0.9 })
+
+describe("encodeContainedImage", () => {
+  it("scales the whole image down to fit the longest side, keeping its proportions", async () => {
+    const { bitmap, drawings } = stubImageEncoding()
+
+    const image = await contain(500)
+
+    expect(image.type).toBe(WEBP)
+    expect(drawings).toStrictEqual([{ args: [0, 0, 500, 250], height: 250, smoothing: "high", width: 500 }])
+    expect(bitmap.close).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps a smaller image at its own size", async () => {
+    const { drawings } = stubImageEncoding()
+
+    await contain(4000)
+
+    expect(drawings).toStrictEqual([{ args: [0, 0, 2000, 1000], height: 1000, smoothing: "high", width: 2000 }])
+  })
+
+  it("keeps at least one pixel on a side that would round to none", async () => {
+    const { drawings } = stubImageEncoding()
+
+    await contain(1)
+
+    expect(drawings.map(({ height, width }) => [width, height])).toStrictEqual([[1, 1]])
+  })
+
+  it("falls back to a type that keeps transparency in a browser that cannot encode the preferred one", async () => {
+    stubImageEncoding({ encodes: [PNG] })
+
+    await expect(contain(500)).resolves.toHaveProperty("type", PNG)
+  })
+
+  it("releases the decoded image when it cannot draw", async () => {
+    const { bitmap } = stubImageEncoding({ draws: false })
+
+    await expect(contain(500)).rejects.toThrow("This browser cannot draw images.")
     expect(bitmap.close).toHaveBeenCalledTimes(1)
   })
 })

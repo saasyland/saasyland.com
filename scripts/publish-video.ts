@@ -9,11 +9,12 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
-import { BYTES_PER_MEGABYTE, MEDIA_BINDING, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
+import { MEDIA_BINDING, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import { video } from "~/src/modules/video/video.schema"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
 import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
+import { BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
 
 import { executeD1, inline, sqlBuilder } from "./d1-execute.ts"
 import { scriptArguments } from "./run-command.ts"

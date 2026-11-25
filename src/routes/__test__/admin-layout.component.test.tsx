@@ -12,6 +12,7 @@ import { SETTINGS_TAB } from "~/src/data/auth"
 
 import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
+import { adminBusinessProfile } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import {
   adminQueryClient,
   breadcrumbDividers,
@@ -26,6 +27,7 @@ import preferencesCardMessages from "~/messages/en-US/components.custom.preferen
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationCoursesMessages from "~/messages/en-US/navigation.courses.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
+import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
@@ -127,10 +129,12 @@ describe("general workspace settings", () => {
     expect(screen.getByLabelText(authSecurityMessages.password.current)).toHaveValue("")
   })
 
-  it("shows only the admin's own saved time zone, with no unconnected workspace controls", () => {
+  it("shows the business profile, its logo and the admin's own saved time zone, and nothing that saves nothing", () => {
     vi.spyOn(SettingsRoute, "useSearch").mockReturnValue({ tab: SETTINGS_TAB.GENERAL })
     renderAdminPage(SettingsRoute.options.component)
-    expect(screen.queryByRole("textbox")).toBeNull()
+    expect(screen.getByRole("heading", { level: 2, name: pagesAdminSettingsMessages.business.title })).toBeVisible()
+    expect(screen.getByRole("textbox", { name: pagesAdminSettingsMessages.business.name })).toHaveValue(adminBusinessProfile().name)
+    expect(screen.getByRole("heading", { level: 2, name: pagesAdminSettingsMessages.logo.title })).toBeVisible()
     expect(screen.queryByRole("button", { name: /delete/iu })).toBeNull()
     expect(screen.getByRole("heading", { name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])

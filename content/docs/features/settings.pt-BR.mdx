@@ -5,10 +5,19 @@ description: "As telas /app/settings e /admin/settings: preferências, o endere�
 
 `src/routes/app.settings.tsx` e `src/routes/admin.settings.tsx` mostram duas abas de `SETTINGS_TABS` (`src/data/auth.ts`), **Geral** e **Segurança**. A aba é o parâmetro de busca `tab`, validado por `settingsSearchSchema` e removido do endereço quando é a padrão, então um link OAuth volta para `?tab=security`. Os cards ficam em `src/presentation/components/custom/settings`, compartilham o namespace `auth.security`, que os layouts de `/app` e `/admin` carregam, e atendem igualmente clientes e administradores; só a aba Geral do cliente termina com **Excluir conta**. Os dois loaders pré-carregam a lista de sessões (`getActiveSessionsQuery`) e os métodos de login (`listAccountsQuery`), e `/app/settings` também executa os carregamentos dos avisos de exclusão da conta.
 
-| Aba       | `/app/settings`                                                          | `/admin/settings`                                                        |
-| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Geral     | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
-| Segurança | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+| Aba       | `/app/settings`                                                          | `/admin/settings`                                                         |
+| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Geral     | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| Segurança | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
+
+## Perfil da empresa [#business-profile]
+
+A aba Geral de `/admin/settings` começa com dois cards sobre a empresa que mantém o site, e não sobre o administrador conectado: `BusinessProfileCard` e `BusinessLogoCard`, ambos em `src/presentation/components/custom/admin/business-profile-card.tsx`. Eles leem `businessProfileQuery`, que o loader da página carrega antes, e cada caso de uso por trás deles verifica `settings: ["manage"]`.
+
+- A tabela `business_profile` (`src/modules/business-profile`) tem uma única linha, `BUSINESS_PROFILE_ID`, que a migração que cria a tabela insere. O nome e o e-mail de suporte começam como `APP_NAME` e `CONTACT_EMAIL`, o endereço postal fica vazio e não há logo.
+- **Salvar perfil** chama `updateBusinessProfile`, que remove os espaços nas pontas dos três campos e os valida com `businessProfileZodSchemas.updateBusinessProfile`: um nome de no máximo `BUSINESS_NAME_MAX_LENGTH` caracteres, um e-mail válido e um endereço de no máximo `BUSINESS_ADDRESS_MAX_LENGTH` caracteres, salvo linha a linha como foi digitado.
+- **Enviar logo** reduz a imagem escolhida no navegador com `encodeContainedImage` (`src/lib/image-encoding.ts`) até que o lado maior caiba em `BUSINESS_LOGO_MAX_SIDE`, mantendo as proporções e a transparência, em WebP ou, num navegador que não codifica WebP, em PNG. `uploadBusinessLogo` (com limite de taxa) a guarda no R2 em `logos/<logoId>.<extension>`, registra a chave e apaga o logo que ela substitui; **Remover logo** chama `removeBusinessLogo`. `serveBusinessLogo` serve o logo em `/media/logos/`; veja [Cloudflare R2](/docs/integrations/cloudflare-r2).
+- Fora desses cards, nada lê o perfil ainda: o rodapé, os e-mails, as páginas legais e os dados estruturados continuam mostrando as constantes de `src/presentation/branding`.
 
 ## Preferências
 
@@ -50,4 +59,4 @@ Excluir o usuário remove em cascata as sessões, os métodos de login, a linha 
 
 ## Esqueletos
 
-`PreferencesCardPending`, em `preferences-card-pending.tsx`, e `SettingsTabsPending`, `EmailCardPending` e `DeleteAccountCardPending`, em `custom/settings/settings-pending.tsx`, desenham `AdminSettingsPending`, `AppSettingsPending` e `AppDeleteAccountPending`. Eles têm arquivos próprios porque toda página carrega os esqueletos, e os arquivos dos cards contêm os formulários (veja [Desempenho](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Um esqueleto desenha a aba Geral.
+`PreferencesCardPending`, em `preferences-card-pending.tsx`, e `SettingsTabsPending`, `EmailCardPending` e `DeleteAccountCardPending`, em `custom/settings/settings-pending.tsx`, desenham `AdminSettingsPending`, `AppSettingsPending` e `AppDeleteAccountPending`. Eles têm arquivos próprios porque toda página carrega os esqueletos, e os arquivos dos cards contêm os formulários (veja [Desempenho](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Um esqueleto desenha a aba Geral. `BusinessProfileCardPending` e `BusinessLogoCardPending`, em `custom/admin/business-profile-pending.tsx`, abrem a aba Geral do administrador em `AdminSettingsPending`.

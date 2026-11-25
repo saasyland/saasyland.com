@@ -1,6 +1,6 @@
 import { useFormatter } from "use-intl/react"
 
-import { BYTES_PER_GIGABYTE, BYTES_PER_KILOBYTE, BYTES_PER_MEGABYTE } from "~/src/modules/video/video.constants"
+import { BYTES_PER_GIGABYTE, BYTES_PER_KILOBYTE, BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
 
 const SIZE_DIGITS = 1
 

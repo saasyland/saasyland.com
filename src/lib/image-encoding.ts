@@ -45,3 +45,25 @@ export const encodeImages = async <Size extends ImageSize>({ file, sizes, ...opt
     bitmap.close()
   }
 }
+
+interface ContainRequest extends Omit<EncodeRequest<ImageSize>, "sizes"> {
+  readonly maxSide: number
+}
+
+const SMALLEST_SIDE = 1
+
+const containedSize = ({ height, width }: ImageSize, maxSide: number): ImageSize => {
+  const scale = Math.min(1, maxSide / width, maxSide / height)
+
+  return { height: Math.max(SMALLEST_SIDE, Math.round(height * scale)), width: Math.max(SMALLEST_SIDE, Math.round(width * scale)) }
+}
+
+export const encodeContainedImage = async ({ file, maxSide, ...options }: ContainRequest): Promise<Blob> => {
+  const bitmap = await createImageBitmap(file)
+
+  try {
+    return await encode(bitmap, { ...options, ...containedSize(bitmap, maxSide) })
+  } finally {
+    bitmap.close()
+  }
+}

@@ -38,7 +38,7 @@ Every search is a server function behind `authorized(...)`, and the palette leav
 - `DashboardActions`: a link for each entry of `ADMIN_DASHBOARD_ACTIONS` in `src/data/navigation.ts`, in its order, labelled by the message its `label` names: **Orders** and **Customers**, whose pages belong to the payments feature (see [Orders and customers](/docs/features/orders)).
 - `DashboardStats`: the statistics of `DASHBOARD_STATS`, which `custom/admin/dashboard/stats.tsx` declares in the order of the table below, each with its `icon`, the full key of its `label` in its feature's `dashboard.<feature>.json`, a `prefetch` that the loader runs and a `useValue` hook that reads the number, formatted for the page's locale. A statistic with a `to` links its whole card to the page that lists what it counts.
 - `DashboardPanels`: the panels of `DASHBOARD_PANELS`, which `custom/admin/dashboard/panels-pending.tsx` declares in their order, each with the skeleton from the panel's `-pending.tsx` file, which `AdminDashboardPending` shows for it, and a `prefetch` that the loader runs. `panels.tsx` gives each entry's `key` its panel, and its type requires a panel for every key. The page imports the panels themselves, so their buttons, tabs and tables load with the dashboard's own code, before the page hydrates, and a press on a panel works from the first moment; only the drawing of a chart, `TimeSeriesBars`, loads in a chunk of its own, which the loader preloads (see [Performance](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)).
-- A users card: the newest accounts, <RepositoryFact name="adminPreviewPageSize" /> rows per page, with search and status filters. Each name links to the user's profile, where the actions are.
+- A users card: the newest accounts first, <RepositoryFact name="adminPreviewPageSize" /> rows per page, with search and filters that the server applies to every account. Each name links to the user's profile, where the actions are.
 
 | Statistic                  | Feature      | Source                                                                                                        |
 | -------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -96,15 +96,16 @@ Each panel keeps its period in component state. `RangePicker` changes it in a tr
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-The grid works in the browser on the newest users of the first page of `getUsersQuery`, which holds <RepositoryFact name="defaultPageSize" /> users, newest first; it searches, filters by user, status and the day they joined, and sorts them without asking the server again. Its **Joined** column is the account's `created_at`. **View all** links to `/admin/users`.
+The grid asks the server for every page, as the list in `/admin/users` does: `getUsers` searches, filters by user, role, status and the day they joined, and sorts all the accounts, newest first, so a search finds an account that is not on the first page. The loader prefetches the first page, <RepositoryFact name="adminPreviewPageSize" /> users. The **Role** column names each role as the users list does, and the **Joined** column is the account's `created_at`. **View all users** links to `/admin/users`.
 
 ## Real data only
 

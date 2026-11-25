@@ -5,10 +5,19 @@ description: "The /app/settings and /admin/settings screens: preferences, the em
 
 `src/routes/app.settings.tsx` and `src/routes/admin.settings.tsx` render two tabs from `SETTINGS_TABS` (`src/data/auth.ts`), **General** and **Security**. The tab is the `tab` search param, validated by `settingsSearchSchema` and dropped from the address when it is the default, so an OAuth link returns to `?tab=security`. The cards live in `src/presentation/components/custom/settings`, share the `auth.security` namespace, which the `/app` and `/admin` layouts load, and serve customers and admins alike; only the customer's General tab ends with **Delete account**. Both loaders preload the session list (`getActiveSessionsQuery`) and the sign-in methods (`listAccountsQuery`), and `/app/settings` also runs the loads of the account deletion notices.
 
-| Tab      | `/app/settings`                                                          | `/admin/settings`                                                        |
-| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| General  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
-| Security | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+| Tab      | `/app/settings`                                                          | `/admin/settings`                                                         |
+| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| General  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| Security | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
+
+## Business profile [#business-profile]
+
+`/admin/settings` opens its General tab with two cards about the business that runs the site rather than the signed-in admin: `BusinessProfileCard` and `BusinessLogoCard`, both in `src/presentation/components/custom/admin/business-profile-card.tsx`. They read `businessProfileQuery`, which the page's loader prefetches, and every use case behind them checks `settings: ["manage"]`.
+
+- The `business_profile` table (`src/modules/business-profile`) holds one row, `BUSINESS_PROFILE_ID`, which the migration that creates the table inserts. The name and the support email start as `APP_NAME` and `CONTACT_EMAIL`, the postal address is empty and there is no logo.
+- **Save profile** calls `updateBusinessProfile`, which trims the three fields and validates them with `businessProfileZodSchemas.updateBusinessProfile`: a name of at most `BUSINESS_NAME_MAX_LENGTH` characters, a valid email and an address of at most `BUSINESS_ADDRESS_MAX_LENGTH` characters, kept line by line as typed.
+- **Upload logo** scales the chosen image in the browser to fit `BUSINESS_LOGO_MAX_SIDE` on its longest side with `encodeContainedImage` (`src/lib/image-encoding.ts`), keeping its proportions and transparency, as WebP, or PNG in a browser that cannot encode WebP. `uploadBusinessLogo` (rate limited) stores it in R2 under `logos/<logoId>.<extension>`, records the key and deletes the logo it replaces; **Remove logo** calls `removeBusinessLogo`. `serveBusinessLogo` serves the logo under `/media/logos/`; see [Cloudflare R2](/docs/integrations/cloudflare-r2).
+- Nothing outside these cards reads the profile yet: the footer, the emails, the legal pages and the structured data still print the constants of `src/presentation/branding`.
 
 ## Preferences
 
@@ -50,4 +59,4 @@ Deleting the user cascades to its sessions, sign-in methods, two-factor row and 
 
 ## Skeletons
 
-`PreferencesCardPending`, in `preferences-card-pending.tsx`, and `SettingsTabsPending`, `EmailCardPending` and `DeleteAccountCardPending`, in `custom/settings/settings-pending.tsx`, draw `AdminSettingsPending`, `AppSettingsPending` and `AppDeleteAccountPending`. They have files of their own because every page loads the skeletons, and the cards' files hold the forms (see [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). A skeleton draws the General tab.
+`PreferencesCardPending`, in `preferences-card-pending.tsx`, and `SettingsTabsPending`, `EmailCardPending` and `DeleteAccountCardPending`, in `custom/settings/settings-pending.tsx`, draw `AdminSettingsPending`, `AppSettingsPending` and `AppDeleteAccountPending`. They have files of their own because every page loads the skeletons, and the cards' files hold the forms (see [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). A skeleton draws the General tab. `BusinessProfileCardPending` and `BusinessLogoCardPending`, in `custom/admin/business-profile-pending.tsx`, open the admin's General tab in `AdminSettingsPending`.

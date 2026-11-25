@@ -633,12 +633,16 @@ export const AUTH_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_USERS,
     id: "admin-dashboard-users-grid",
     outcome:
-      "The dashboard's newest users filter by status and sort by join day in the browser, and a column the admin hides stays hidden after a reload until the layout is reset",
+      "The dashboard's newest users are searched, filtered by status and role and sorted by join day on the server across every account, each role is shown by its name, and a column the admin hides stays hidden after a reload until the layout is reset",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "admin-dashboard.spec.ts",
         title: "the admin filters the newest users by status, sorts them by join day, hides a column and keeps it after a reload",
+      },
+      {
+        spec: "admin-dashboard.spec.ts",
+        title: "the admin finds any account from the newest users on the server and reads each role by its name",
       },
     ],
   },
@@ -695,6 +699,13 @@ export const AUTH_FLOWS = [
     outcome: "A customer who opens /admin is sent to the workspace and sees none of the dashboard's figures",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "admin-dashboard.spec.ts", title: "a customer is sent to the workspace and never sees the dashboard's figures" }],
+  },
+  {
+    feature: FLOW_FEATURE.ADMIN_USERS,
+    id: "admin-missing-user",
+    outcome: "An admin who opens a user that does not exist gets a 404 with the not-found page, titled as one and kept out of search",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-users.spec.ts", title: "a user who does not exist answers 404 with the not-found page and its title" }],
   },
   {
     feature: FLOW_FEATURE.ADMIN_USERS,
@@ -759,10 +770,11 @@ export const AUTH_FLOWS = [
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
-    id: "admin-workspace-profile",
-    outcome: "The admin saves the workspace name, support email, address and logo",
-    reason: "The Profile card's fields and buttons save nothing.",
-    status: FLOW_STATUS.TO_BUILD,
+    id: "admin-business-profile",
+    outcome:
+      "The admin saves the business name, support email and postal address, finds them after a reload, and uploads, replaces and removes the business logo, which the site serves from its own path",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "admin-settings.spec.ts", title: "admin general settings › the admin saves the business profile, and uploads, replaces and removes its logo" }],
   },
   {
     feature: FLOW_FEATURE.SECURITY,

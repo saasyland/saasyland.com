@@ -1,12 +1,14 @@
 import * as zod from "zod"
 
-const PAGE_SIZE = { LARGE: 50, LARGEST: 100, MEDIUM: 25, SMALL: 10 } as const
+const PAGE_SIZE = { LARGE: 50, LARGEST: 100, MEDIUM: 25, PREVIEW: 5, SMALL: 10 } as const
 
-export const PAGE_SIZES = [PAGE_SIZE.SMALL, PAGE_SIZE.MEDIUM, PAGE_SIZE.LARGE, PAGE_SIZE.LARGEST] as const
+export const PAGE_SIZES = [PAGE_SIZE.PREVIEW, PAGE_SIZE.SMALL, PAGE_SIZE.MEDIUM, PAGE_SIZE.LARGE, PAGE_SIZE.LARGEST] as const
 
 export type PageSize = (typeof PAGE_SIZES)[number]
 
 export const DEFAULT_PAGE_SIZE = PAGE_SIZE.SMALL
+
+export const PREVIEW_PAGE_SIZE = PAGE_SIZE.PREVIEW
 
 export const MAX_PAGE_SIZE = PAGE_SIZE.LARGEST
 

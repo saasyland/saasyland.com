@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
 import { DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
 import { USER_STATUSES } from "~/src/modules/user/user.constants"
@@ -40,9 +41,11 @@ const UserCell = ({ row }: CellContext<DataGridFeatures, DashboardUser, string>)
   </div>
 )
 
-const RoleCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, DashboardUser["role"]>): JSX.Element => (
-  <Badge>{getValue()}</Badge>
-)
+const RoleCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, DashboardUser["role"]>): JSX.Element => {
+  const t = useTranslations("pages.admin.dashboard.users.table.role")
+
+  return <Badge>{t(getValue())}</Badge>
+}
 
 const StatusCell = ({ getValue }: CellContext<DataGridFeatures, DashboardUser, UserStatus>): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard.users.table.status")
@@ -71,7 +74,15 @@ export const useDashboardUserColumns = (): DataGridColumn<DashboardUser>[] => {
           meta: { export: ({ email, name }) => `${name} <${email}>`, filter: { kind: DATA_GRID_FILTER.TEXT }, pinned: DATA_GRID_PIN.START },
           size: DASHBOARD_COLUMN_SIZES.user,
         }),
-        columnHelper.accessor("role", { cell: RoleCell, header: t("columns.role"), size: DASHBOARD_COLUMN_SIZES.role }),
+        columnHelper.accessor("role", {
+          cell: RoleCell,
+          header: t("columns.role"),
+          meta: {
+            export: ({ role }) => t(`role.${role}`),
+            filter: { kind: DATA_GRID_FILTER.MULTI_SELECT, options: ROLE_VALUES.map((value) => ({ label: t(`role.${value}`), value })) },
+          },
+          size: DASHBOARD_COLUMN_SIZES.role,
+        }),
         columnHelper.accessor((row) => getUserStatus(row), {
           cell: StatusCell,
           header: t("columns.status"),
@@ -88,7 +99,7 @@ export const useDashboardUserColumns = (): DataGridColumn<DashboardUser>[] => {
         columnHelper.accessor("createdAt", {
           cell: JoinedCell,
           header: t("columns.joined"),
-          id: "joined",
+          id: "createdAt",
           meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE } },
           size: DASHBOARD_COLUMN_SIZES.date,
           sortFn: "datetime",

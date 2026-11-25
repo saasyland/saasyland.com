@@ -6,9 +6,9 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { BYTES_PER_GIGABYTE, BYTES_PER_KILOBYTE, BYTES_PER_MEGABYTE } from "~/src/modules/video/video.constants"
-
 import { useFileSize } from "~/src/hooks/use-file-size"
+
+import { BYTES_PER_GIGABYTE, BYTES_PER_KILOBYTE, BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>

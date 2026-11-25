@@ -1,6 +1,9 @@
 import type { APIRequestContext, Browser, BrowserContext, Locator, Page } from "@playwright/test"
 
 import authErrors from "../../messages/en-US/auth.errors.json" with { type: "json" }
+import settingsMessages from "../../messages/en-US/pages.admin.settings.json" with { type: "json" }
+import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { BUSINESS_LOGO_PATH_PREFIX, BUSINESS_LOGO_STORED_TYPES } from "../../src/modules/business-profile/business-profile.logo"
 import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
@@ -10,12 +13,23 @@ import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
 
 const [admin] = TEST_ACCOUNTS
+const { business, logo } = settingsMessages
 
 const NEW_PASSWORD = "AdminSettings456!"
 const BACKUP_CODE_COUNT = 10
 const FIREFOX_ON_WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
 const SAFARI_ON_IPHONE =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1"
+
+const LOGO_PNG = {
+  buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAYAAACzzX7wAAAAEklEQVR4nGO4aWDwHx9moL0CAEhyRwG9n2cfAAAAAElFTkSuQmCC", "base64"),
+  mimeType: BUSINESS_LOGO_STORED_TYPES.png,
+  name: "logo.png",
+}
+
+const SAVE_LOGO = new RegExp(`^(?:${logo.upload}|${logo.replace})$`, "u")
+
+const LOGO_SOURCE = new RegExp(`^${BUSINESS_LOGO_PATH_PREFIX}/[\\da-f-]{36}\\.(?:webp|png)$`, "u")
 
 const ADMIN_HOME = /\/admin\/?$/u
 
@@ -199,5 +213,58 @@ test.describe("admin security settings", () => {
     await expect(page).toHaveURL(/\/admin\/settings/u)
     await firefox.context.close()
     await iphone.context.close()
+  })
+})
+
+test.describe("admin general settings", () => {
+  test("the admin saves the business profile, and uploads, replaces and removes its logo", async ({ appPage, authPage, page }) => {
+    const suffix = crypto.randomUUID().slice(0, 8)
+    const profile = {
+      address: `${suffix} Example Street\n00-001 Warsaw`,
+      name: `Example Studio ${suffix}`,
+      supportEmail: `support.${suffix}@example.test`,
+    }
+    await authPage.signIn(admin.email)
+    await expect(page).toHaveURL(ADMIN_HOME)
+    await page.goto(ROUTES.ADMIN_SETTINGS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await page.getByRole("textbox", { name: business.name }).fill(profile.name)
+    await page.getByRole("textbox", { name: business.supportEmail }).fill(profile.supportEmail)
+    await page.getByRole("textbox", { name: business.address }).fill(profile.address)
+    await page.getByRole("button", { name: business.save }).click()
+    await expect(page.getByText(business.saved)).toBeVisible()
+
+    await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(page.getByRole("textbox", { name: business.name })).toHaveValue(profile.name)
+    await expect(page.getByRole("textbox", { name: business.supportEmail })).toHaveValue(profile.supportEmail)
+    await expect(page.getByRole("textbox", { name: business.address })).toHaveValue(profile.address)
+
+    const preview = page.getByRole("img", { name: logo.preview.replace("{name}", profile.name) })
+    await page.locator("input[type=file]").setInputFiles(LOGO_PNG)
+    await page.getByRole("button", { name: SAVE_LOGO }).click()
+    await expect(page.getByText(logo.uploaded)).toBeVisible()
+    await expect(preview).toHaveAttribute("src", LOGO_SOURCE)
+    await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
+    const first = (await preview.getAttribute("src")) ?? ""
+    const served = await page.request.get(first)
+    expect(served.status()).toBe(HTTP_STATUS.OK)
+    expect(served.headers()["cache-control"]).toBe("public, max-age=31536000, immutable")
+
+    await page.locator("input[type=file]").setInputFiles(LOGO_PNG)
+    await page.getByRole("button", { name: logo.replace }).click()
+    await expect(preview).not.toHaveAttribute("src", first)
+    await expect(preview).toHaveAttribute("src", LOGO_SOURCE)
+    const second = (await preview.getAttribute("src")) ?? ""
+    expect((await page.request.get(second)).status()).toBe(HTTP_STATUS.OK)
+
+    await page.getByRole("button", { name: logo.remove }).click()
+    await expect(page.getByText(logo.removed)).toBeVisible()
+    await expect(preview).toHaveCount(0)
+    await expect(page.getByRole("button", { name: logo.upload })).toBeVisible()
+    await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(preview).toHaveCount(0)
   })
 })

@@ -7,13 +7,13 @@ description: "The Cloudflare runtime: Worker entry, bindings, environments, gene
 
 `wrangler.jsonc` sets `src/server.ts` as the Worker entry. The Worker receives these bindings:
 
-| Binding   | Type          | Used for                                                                                                               |
-| --------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `DB`      | D1 database   | All tables, including sessions and rate-limit counters                                                                 |
-| `CACHE`   | KV namespace  | The GitHub star count                                                                                                  |
-| `MEDIA`   | R2 bucket     | Videos, lesson materials and course covers, served under `/media/` by `serveMedia`, `serveAttachment` and `serveCover` |
-| `BUNDLES` | R2 bucket     | The CLI's template bundles, served by `serveBundle` under `/bundles/`                                                  |
-| `ASSETS`  | Static assets | Prerendered pages and files from `public`                                                                              |
+| Binding   | Type          | Used for                                                                                                                                                                               |
+| --------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB`      | D1 database   | All tables, including sessions and rate-limit counters                                                                                                                                 |
+| `CACHE`   | KV namespace  | The GitHub star count                                                                                                                                                                  |
+| `MEDIA`   | R2 bucket     | Videos, lesson materials and course covers, served under `/media/` by `serveMedia`, `serveAttachment` and `serveCover`; the business logo under `/media/logos/` by `serveBusinessLogo` |
+| `BUNDLES` | R2 bucket     | The CLI's template bundles, served by `serveBundle` under `/bundles/`                                                                                                                  |
+| `ASSETS`  | Static assets | Prerendered pages and files from `public`                                                                                                                                              |
 
 Requests for `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt` are served from static assets without running the Worker. Server code reads bindings, secrets and `waitUntil` from `cloudflare:workers`. `src/server.ts` adds the security headers to every response it returns; files served without the Worker get the subset in `public/_headers` ([Security and hardening](/docs/features/security)).
 
@@ -28,6 +28,8 @@ The Worker and the Vite build each run their own lists, in the file that runs th
 | `VITE_PLUGINS`      | `vite.config.ts` | by `vp dev`, `vp build` and, for the entries marked `vitest`, Vitest              |
 
 A request handler claims a `pathPrefix` and answers every request under it: `serveCover` the course covers under `/media/covers/`, `serveCourseSitemap` the course sitemap at `/sitemap-courses.xml`, `serveAttachment` the lesson materials under `/media/downloads/`, `serveMedia` the rest of `/media/` and `serveBundle` the template bundles under `/bundles/`. The Worker takes the first handler whose prefix the path starts with, so a narrower prefix comes before the one that contains it. A document rewrite receives every HTML page the Worker returns, with its locale and the request, and returns the page to send, as `rewritePppOffer` in `src/modules/license/license.pricing.ts` does for regional pricing and `markSession` in `src/modules/session/session.rewrite.ts` for the header's account link. `src/server.ts` imports the prefixes and the rewrites statically, so they are evaluated on every cold start: it imports only constants and pure helpers, and each handler loads its module with a dynamic `import()` (see [Performance](/docs/conventions/performance)).
+
+`serveBusinessLogo` (`src/modules/business-profile/business-profile.delivery.ts`) answers the business logo under `/media/logos/` and comes first, ahead of the courses' `/media/` handlers.
 
 A Vite plugin entry has `load`, which imports its plugin package and returns its plugins, and `vitest`, which says whether they also load under Vitest. The entries run in the order of the list: Cloudflare, Fumadocs, the content indexes, the repository facts, Tailwind CSS, TanStack Start, React, the zod chunk, the deployed Worker and the optional peers of the Polar SDK. A vendor's plugins live with the vendor, in `src/integrations/<vendor>/<vendor>.vite.ts`: `fumadocsVitePlugins`, `zodVitePlugins` and `polarVitePlugins`. Vite loads its configuration before the `~` alias resolves, so `vite.config.ts` and the files it imports, among them `shouldPrerender` in `src/lib/prerender.ts`, import by relative path with the `.ts` extension, and each entry imports its plugin package inside `load`, so that `vp lint` and `vp fmt` never load it.
 

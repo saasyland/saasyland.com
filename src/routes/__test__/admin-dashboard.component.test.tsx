@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
@@ -5,16 +6,21 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
-import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import type { User } from "~/src/modules/user/user.types"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
+
+import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 
 import * as download from "~/src/lib/download"
 import { polarProductsQuery } from "~/src/lib/polar-catalogue"
@@ -34,6 +40,19 @@ import paymentsDashboardMessages from "~/messages/en-US/dashboard.payments.json"
 import productsDashboardMessages from "~/messages/en-US/dashboard.products.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
 
+const PREVIEW_SIZE = ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize
+
+interface UsersPage {
+  readonly pendingVerification: number
+  readonly rows: User["select"][]
+  readonly total: number
+}
+
+const seedUsers = (queryClient: QueryClient, page: UsersPage): void => {
+  queryClient.setQueryData(getUsersQuery.queryKey, page)
+  queryClient.setQueryData(getUsersPageQuery({ pageSize: PREVIEW_SIZE }).queryKey, { ...page, rows: page.rows.slice(0, PREVIEW_SIZE) })
+}
+
 const TWO_PRODUCTS = {
   products: [adminPolarProduct(), adminPolarProduct({ id: "prod_complete", name: "Complete" })],
   read: POLAR_READ.AVAILABLE,
@@ -48,7 +67,7 @@ const usersTable = (): HTMLElement =>
   ).getByRole("table")
 
 describe("admin dashboard", () => {
-  it.each([0, 1, 6])("shows counts and a bounded preview for %i users", (count) => {
+  it.each([0, 1, 6])("shows the first page of the users the server returns for %i users", (count) => {
     const queryClient = adminQueryClient()
     const users = Array.from({ length: count }, (_, index) =>
       adminUser({
@@ -58,14 +77,14 @@ describe("admin dashboard", () => {
         banned: index === 3,
       }),
     )
-    queryClient.setQueryData(getUsersQuery.queryKey, {
+    seedUsers(queryClient, {
       rows: users,
       total: users.length,
       pendingVerification: users.filter((row) => !row.emailVerified && !row.banned).length,
     })
     renderAdminPage(DashboardRoute.options.component, { queryClient })
     expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
-    expect(within(usersTable()).getAllByRole("row")).toHaveLength(Math.min(count, 5) + 1)
+    expect(within(usersTable()).getAllByRole("row")).toHaveLength(Math.min(count, PREVIEW_SIZE) + 1)
     expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
       "href",
       "/admin/users",
@@ -74,7 +93,7 @@ describe("admin dashboard", () => {
 
   it("links a dashboard user to their profile and shows their identity, avatar and join date", () => {
     const queryClient = adminQueryClient()
-    queryClient.setQueryData(getUsersQuery.queryKey, {
+    seedUsers(queryClient, {
       pendingVerification: 0,
       rows: [
         adminUser({ updatedAt: new Date("2026-11-20T12:00:00Z") }),
@@ -95,27 +114,9 @@ describe("admin dashboard", () => {
     expect(adaRow).toHaveTextContent("AL")
   })
 
-  it("exports the newest users with their status as the table names it", async () => {
-    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
-    const queryClient = adminQueryClient()
-    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
-    renderAdminPage(DashboardRoute.options.component, { queryClient })
-
-    await userEvent.click(
-      within(usersTable().closest("section") ?? document.body).getByRole("button", { name: gridMessages.toolbar.export }),
-    )
-
-    await waitFor(() => {
-      expect(download.downloadFile).toHaveBeenCalledOnce()
-    })
-    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n")[1]).toBe(
-      `Ada Lovelace <ada@example.com>,customer,${pagesAdminDashboardMessages.users.table.status.active},2025-01-01T12:00:00.000Z`,
-    )
-  })
-
   it("reads every statistic from its query and shows only real panels", () => {
     const queryClient = adminQueryClient()
-    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 3, rows: [adminUser()], total: 12_345 })
+    seedUsers(queryClient, { pendingVerification: 3, rows: [adminUser()], total: 12_345 })
     queryClient.setQueryData(polarProductsQuery.queryKey, TWO_PRODUCTS)
     queryClient.setQueryData(courseProgressQuery.queryKey, { learners: 41, rows: [] })
     queryClient.setQueryData(getVideosQuery.queryKey, { rows: [], total: 7 })
@@ -194,5 +195,63 @@ describe("admin dashboard", () => {
     })
     expect(await screen.findByText("Ada Lovelace")).toBeVisible()
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(0)
+  })
+})
+
+describe("the dashboard's newest users", () => {
+  it("names each role as the users page does, not by its stored code", () => {
+    const queryClient = adminQueryClient()
+    seedUsers(queryClient, {
+      pendingVerification: 0,
+      rows: [adminUser({ role: ROLE_CODES.ADMIN }), adminUser({ id: "grace", name: "Grace Hopper" })],
+      total: 2,
+    })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+
+    const [, adaRow, graceRow] = within(usersTable()).getAllByRole("row")
+
+    expect(adaRow).toHaveTextContent(pagesAdminDashboardMessages.users.table.role.admin)
+    expect(adaRow).not.toHaveTextContent(ROLE_CODES.ADMIN)
+    expect(graceRow).toHaveTextContent(pagesAdminDashboardMessages.users.table.role.customer)
+  })
+
+  it("searches every account on the server, not only the rows on the first page", async () => {
+    const queryClient = adminQueryClient()
+    seedUsers(queryClient, { pendingVerification: 0, rows: [adminUser()], total: 1 })
+    queryClient.setQueryData(getUsersPageQuery({ pageSize: PREVIEW_SIZE, search: "Grace" }).queryKey, {
+      pendingVerification: 0,
+      rows: [adminUser({ id: "grace", name: "Grace Hopper" })],
+      total: 1,
+    })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+
+    await userEvent.type(
+      within(usersTable().closest("section") ?? document.body).getByRole("searchbox", { name: pagesAdminDashboardMessages.users.search }),
+      "Grace",
+    )
+
+    expect(await within(usersTable()).findByRole("link", { name: "Grace Hopper" })).toBeVisible()
+    expect(within(usersTable()).queryByRole("link", { name: "Ada Lovelace" })).not.toBeInTheDocument()
+  })
+
+  it("exports the newest users with their status as the table names it", async () => {
+    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
+    const queryClient = adminQueryClient()
+    const rows = [adminUser(), adminUser({ id: "grace", name: "Grace Hopper", role: ROLE_CODES.ADMIN })]
+    seedUsers(queryClient, { pendingVerification: 0, rows, total: rows.length })
+    queryClient.setQueryData(getUsersPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { pendingVerification: 0, rows, total: rows.length })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+
+    await userEvent.click(
+      within(usersTable().closest("section") ?? document.body).getByRole("button", { name: gridMessages.toolbar.export }),
+    )
+
+    await waitFor(() => {
+      expect(download.downloadFile).toHaveBeenCalledOnce()
+    })
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n").slice(1, -1)).toStrictEqual([
+      `Ada Lovelace <ada@example.com>,${pagesAdminDashboardMessages.users.table.role.customer},${pagesAdminDashboardMessages.users.table.status.active},2025-01-01T12:00:00.000Z`,
+      `Grace Hopper <ada@example.com>,${pagesAdminDashboardMessages.users.table.role.admin},${pagesAdminDashboardMessages.users.table.status.active},2025-01-01T12:00:00.000Z`,
+    ])
   })
 })

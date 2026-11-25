@@ -47,6 +47,7 @@ const NAMESPACES = [
   "auth.security",
   "auth.session",
   "auth.validations",
+  "business-profile.validations",
   "countries",
   "locales",
   "pages.admin",

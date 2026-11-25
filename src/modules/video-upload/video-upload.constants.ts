@@ -1,4 +1,4 @@
-import { BYTES_PER_GIGABYTE, BYTES_PER_MEGABYTE } from "~/src/modules/video/video.constants"
+import { BYTES_PER_GIGABYTE, BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
 
 export const VIDEO_UPLOAD_STATUS = {
   ENCODING: "encoding",

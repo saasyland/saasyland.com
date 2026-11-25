@@ -38,6 +38,8 @@ description: "MEDIA と BUNDLES のバケット：動画、レッスンの資料
 
 コースのカバー画像は公開されており、署名なしで `/media/covers/<courseId>/<file>` に置かれます。カタログ、コースのページ、ランディングページがすべての訪問者に表示するためです。`serveCover`（`src/modules/course/course.delivery.ts`）は `GET` と `HEAD` だけを受け付け（それ以外は `405`）、カバー画像を指さないパスと存在しないファイルには `404` を返し、カバー画像を `Cache-Control: public, max-age=31536000, immutable` で配信して、Workers キャッシュ `covers` にコピーを保持します。新しいカバー画像には毎回新しい ID が付くため、キャッシュされたコピーが古くなることはありません。[コースのカバー画像](/docs/features/courses#course-covers)を参照してください。
 
+事業者のロゴも公開で署名なしです。パスは `/media/logos/<file>`、R2 キーは `logos/<logoId>.<extension>` で、`src/modules/business-profile/business-profile.logo.ts` の `logoObjectKey` が組み立て、`logoContentType` がメディアタイプ（WebP または PNG）を返します。`serveBusinessLogo` は同じルールで配信し、Workers キャッシュ `logos` にコピーを保持します。`src/server.ts` はこのハンドラーをコースのハンドラーより前に並べるため、`/media/logos/` がコース側に届くことはありません。[設定](/docs/features/settings#business-profile)を参照してください。
+
 ## アップロード
 
 Worker は動画のアップロードを受け付けません。`scripts/publish-video.ts` が、`bunx wrangler login` でのログインを使い、`wrangler r2 bulk put --remote` でバケットに書き込みます。[動画](/docs/features/videos)を参照してください。管理画面から動画を削除すると、バインディングを通じてプレフィックス配下を一覧し、オブジェクトをページ単位で削除します。

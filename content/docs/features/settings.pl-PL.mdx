@@ -5,10 +5,19 @@ description: "Ekrany /app/settings i /admin/settings: preferencje, adres e-mail,
 
 `src/routes/app.settings.tsx` i `src/routes/admin.settings.tsx` wyświetlają dwie zakładki z `SETTINGS_TABS` (`src/data/auth.ts`): **Ogólne** i **Bezpieczeństwo**. Zakładkę wybiera parametr adresu `tab`, walidowany przez `settingsSearchSchema` i usuwany z adresu, gdy wskazuje zakładkę domyślną, więc link OAuth wraca do `?tab=security`. Karty leżą w `src/presentation/components/custom/settings`, współdzielą przestrzeń nazw `auth.security`, którą wczytują layouty `/app` i `/admin`, i służą zarówno klientom, jak i administratorom; tylko zakładka Ogólne klienta kończy się kartą **Usuń konto**. Oba loadery wczytują z wyprzedzeniem listę sesji (`getActiveSessionsQuery`) i sposoby logowania (`listAccountsQuery`), a `/app/settings` uruchamia też wczytywanie informacji o usuwaniu konta.
 
-| Zakładka       | `/app/settings`                                                          | `/admin/settings`                                                        |
-| -------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Ogólne         | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
-| Bezpieczeństwo | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+| Zakładka       | `/app/settings`                                                          | `/admin/settings`                                                         |
+| -------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Ogólne         | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| Bezpieczeństwo | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
+
+## Profil firmy [#business-profile]
+
+Karta Ogólne w `/admin/settings` zaczyna się od dwóch kart dotyczących firmy, która prowadzi witrynę, a nie zalogowanego administratora: `BusinessProfileCard` i `BusinessLogoCard`, obie w `src/presentation/components/custom/admin/business-profile-card.tsx`. Czytają `businessProfileQuery`, który loader strony wczytuje z wyprzedzeniem, a każdy przypadek użycia za nimi sprawdza `settings: ["manage"]`.
+
+- Tabela `business_profile` (`src/modules/business-profile`) ma jeden wiersz, `BUSINESS_PROFILE_ID`, który wstawia migracja tworząca tabelę. Nazwa i adres e-mail pomocy technicznej zaczynają się od `APP_NAME` i `CONTACT_EMAIL`, adres pocztowy jest pusty, a logo nie ma.
+- **Zapisz profil** wywołuje `updateBusinessProfile`, który obcina spacje na brzegach trzech pól i sprawdza je przez `businessProfileZodSchemas.updateBusinessProfile`: nazwa ma najwyżej `BUSINESS_NAME_MAX_LENGTH` znaków, adres e-mail musi być poprawny, a adres pocztowy ma najwyżej `BUSINESS_ADDRESS_MAX_LENGTH` znaków i zostaje zapisany wiersz po wierszu tak, jak go wpisano.
+- **Prześlij logo** pomniejsza wybrany obraz w przeglądarce przez `encodeContainedImage` (`src/lib/image-encoding.ts`), aż jego dłuższy bok zmieści się w `BUSINESS_LOGO_MAX_SIDE`, z zachowaniem proporcji i przezroczystości, jako WebP albo, w przeglądarce, która nie koduje WebP, jako PNG. `uploadBusinessLogo` (z limitem żądań) zapisuje go w R2 pod `logos/<logoId>.<extension>`, zapamiętuje klucz i usuwa zastąpione logo; **Usuń logo** wywołuje `removeBusinessLogo`. Logo serwuje `serveBusinessLogo` pod `/media/logos/`; zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
+- Poza tymi kartami nic jeszcze nie czyta profilu: stopka, e-maile, strony prawne i dane strukturalne nadal pokazują stałe z `src/presentation/branding`.
 
 ## Preferencje
 
@@ -50,4 +59,4 @@ Usunięcie użytkownika kaskadowo usuwa jego sesje, sposoby logowania, wiersz uw
 
 ## Szkielety
 
-`PreferencesCardPending` z `preferences-card-pending.tsx` oraz `SettingsTabsPending`, `EmailCardPending` i `DeleteAccountCardPending` z `custom/settings/settings-pending.tsx` rysują `AdminSettingsPending`, `AppSettingsPending` i `AppDeleteAccountPending`. Mają własne pliki, bo każda strona wczytuje szkielety, a pliki kart zawierają formularze (zobacz [Wydajność](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Szkielet rysuje zakładkę Ogólne.
+`PreferencesCardPending` z `preferences-card-pending.tsx` oraz `SettingsTabsPending`, `EmailCardPending` i `DeleteAccountCardPending` z `custom/settings/settings-pending.tsx` rysują `AdminSettingsPending`, `AppSettingsPending` i `AppDeleteAccountPending`. Mają własne pliki, bo każda strona wczytuje szkielety, a pliki kart zawierają formularze (zobacz [Wydajność](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Szkielet rysuje zakładkę Ogólne. `BusinessProfileCardPending` i `BusinessLogoCardPending` z `custom/admin/business-profile-pending.tsx` otwierają kartę Ogólne administratora w `AdminSettingsPending`.

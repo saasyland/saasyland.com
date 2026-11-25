@@ -18,7 +18,7 @@ description: "Worker のエントリー、ロケールミドルウェア、バ�
 
 `src/server.ts` がすべてのリクエストを処理します。
 
-1. `REQUEST_HANDLERS` のエントリーが受け持つパスは、ほかの何よりも先にそのハンドラーに渡されます。コースは `/media/` を受け持ち、コースのカバー画像を `serveCover` に、レッスンの資料を `serveAttachment` に、署名済みの動画ファイルを `serveMedia` に渡します。いずれも R2 から読み出し、カバー画像と動画は Workers のキャッシュを通します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。ライセンスは `/bundles/` を受け持ち、`serveBundle` に渡します。`serveBundle` は CLI の署名済みのテンプレートバンドルを R2 から配信します（[CLI ライセンス API](/docs/features/cli-licence-api#template-bundles) を参照）。以下の手順のうち、これらに適用されるのはセキュリティヘッダーだけです。
+1. `REQUEST_HANDLERS` のエントリーが受け持つパスは、ほかの何よりも先にそのハンドラーに渡されます。コースは `/media/` を受け持ち、コースのカバー画像を `serveCover` に、レッスンの資料を `serveAttachment` に、署名済みの動画ファイルを `serveMedia` に渡します。いずれも R2 から読み出し、カバー画像と動画は Workers のキャッシュを通します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。ライセンスは `/bundles/` を受け持ち、`serveBundle` に渡します。`serveBundle` は CLI の署名済みのテンプレートバンドルを R2 から配信します（[CLI ライセンス API](/docs/features/cli-licence-api#template-bundles) を参照）。以下の手順のうち、これらに適用されるのはセキュリティヘッダーだけです。 `serveBusinessLogo`（`src/modules/business-profile/business-profile.delivery.ts`）は `/media/logos/` 配下の事業者のロゴに応答し、コースの `/media/` ハンドラーより前に置かれます。
 2. `i18n.middleware.ts` の `resolveLocale` が、`/api` と `/_serverFn` 以外への `GET` と `HEAD` のドキュメントリクエストを検査します。言語エイリアスと正規でないロケールパスをステータス 308 でリダイレクトし、ロケール Cookie が URL のロケールと異なる場合はそれを通知します。
 3. `/api` と `/_serverFn` 以外への `GET` と `HEAD` のリクエストは、まず `ASSETS` から配信されます。プリレンダリングされたページもここに含まれます。404 の場合は TanStack Start のハンドラーに処理が移ります。
 4. ロケール Cookie の更新が必要な場合、Worker はそれをレスポンスに追加します。HTML レスポンスには、そのロケールのフォントに対する `Link` プリロードヘッダーも付与され、Cloudflare はこれを Early Hints として送ります（後述の「ゾーンの設定」を参照）。

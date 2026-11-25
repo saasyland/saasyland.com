@@ -1,4 +1,5 @@
-import { BYTES_PER_MEGABYTE, MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
+import { BYTES_PER_MEGABYTE } from "~/src/lib/file-size"
+import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 
 export const LESSON_ATTACHMENT_KIND = {
   FILE: "file",

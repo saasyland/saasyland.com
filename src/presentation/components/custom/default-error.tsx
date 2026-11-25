@@ -2,11 +2,15 @@ import { type JSX, useEffect, useState } from "react"
 
 import { useQueryErrorResetBoundary } from "@tanstack/react-query"
 import { type ErrorComponentProps, useRouter } from "@tanstack/react-router"
+import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
+import { CTA_CLASSES } from "~/src/data/cta"
+
+import { cn } from "~/src/lib/cn"
 import { claimReload, isStaleBuildError, whenPageStays } from "~/src/lib/stale-build"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { ContentPage } from "~/src/presentation/components/custom/content-page"
 
 export const DefaultError = ({ error }: ErrorComponentProps): JSX.Element => {
   const t = useTranslations("errors.global")
@@ -38,23 +42,23 @@ export const DefaultError = ({ error }: ErrorComponentProps): JSX.Element => {
   }, [error, queryErrorResetBoundary, router])
 
   if (isReloading) {
-    return <main aria-busy="true" className="flex-1" />
+    return <div aria-busy="true" className="flex-1" data-slot="default-error" />
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24 text-center" role="alert">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-medium tracking-tight text-foreground">{t("title")}</h1>
-        <p className="max-w-prose text-sm text-muted-foreground">{t("description")}</p>
-      </div>
-      <Button
-        onPress={() => {
-          void router.invalidate()
-        }}
-        variant="outline"
-      >
-        {t("retry")}
-      </Button>
-    </main>
+    <div className="flex-1" data-slot="default-error" role="alert">
+      <ContentPage lead={t("description")} title={t("title")}>
+        <div className="mt-10">
+          <Button
+            className={cn(CTA_CLASSES.PRIMARY, "cursor-pointer")}
+            onPress={() => {
+              void router.invalidate()
+            }}
+          >
+            {t("retry")}
+          </Button>
+        </div>
+      </ContentPage>
+    </div>
   )
 }

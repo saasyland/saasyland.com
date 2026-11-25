@@ -1,13 +1,13 @@
 import type { JSX } from "react"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 
@@ -30,7 +30,6 @@ import * as ROUTES from "~/src/routes"
 const DashboardPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard")
   const columns = useDashboardUserColumns()
-  const users = useSuspenseQuery(getUsersQuery).data
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 pb-8 duration-500 fade-in-50">
@@ -48,9 +47,10 @@ const DashboardPage = (): JSX.Element => {
 
         <DataGrid
           columns={columns}
-          data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+          defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
           id={DASHBOARD_USER_GRID_ID}
           label={t("users.title")}
+          query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
           search={t("users.search")}
           selectable
         />
@@ -75,6 +75,7 @@ export const Route = createFileRoute("/admin/")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
       ...[...DASHBOARD_STATS, ...DASHBOARD_PANELS].map(({ prefetch }) => prefetch(context.queryClient)),
       TimeSeriesBars.preload?.(),
     ])

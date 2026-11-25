@@ -56,7 +56,6 @@ const NAMESPACE = "pages.billing"
 export const Route = createFileRoute("/app/billing")({
   validateSearch: checkoutSearchSchema,
   component: BillingPage,
-  head: pageHead(ROUTES.APP_BILLING),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -67,6 +66,7 @@ export const Route = createFileRoute("/app/billing")({
     ])
     return { locale, metadata }
   },
+  head: pageHead(ROUTES.APP_BILLING),
   pendingComponent: AppBillingPending,
   search: { middlewares: [onlyDeclaredSearch(checkoutSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

@@ -4,27 +4,54 @@ const SHEBANG = "Shebang"
 
 const DIRECTIVE = /^[\s*]*(?:@ts-(?:expect-error|ignore|nocheck)|(?:eslint|oxlint)-disable)/u
 
+export const LINK_COMMENT_WORDS = 6
+
+const TASK_MARKER = /\b(?:FIXME|HACK|TODO|XXX)\b/u
+
+const LINK_COMMENT = new RegExp(String.raw`^(?:[\p{L}\p{N}'’,.:-]+ ){0,${LINK_COMMENT_WORDS}}(?:https://|/docs/)\S+$`, "u")
+
 export const COMMENT_MESSAGES = {
-  comment:
-    "Remove this comment. Say it in a name, a named constant or a smaller function, and put the reasoning in the commit message, the pull request or the docs.",
+  comment: `Remove this comment, or make it one line that links to where the reason lives, an https:// URL or a /docs/ path after at most ${LINK_COMMENT_WORDS} words. Say the rest in a name, a named constant or a smaller function, and put the reasoning in the commit message, the pull request or the docs.`,
   directive: "Remove this directive comment, which switches a check off, and fix the cause the rule or the compiler reports instead.",
 } as const
 
+export interface CommentSpan {
+  readonly endLine: number
+  readonly line: number
+  readonly text: string
+}
+
 export const commentMessageId = (text: string): keyof typeof COMMENT_MESSAGES => (DIRECTIVE.test(text) ? "directive" : "comment")
+
+const standsAlone = (comment: CommentSpan, comments: readonly CommentSpan[]): boolean =>
+  comments.every((other) => other === comment || other.endLine < comment.line - 1 || other.line > comment.endLine + 1)
+
+export const isLinkComment = (comment: CommentSpan, comments: readonly CommentSpan[]): boolean =>
+  comment.line === comment.endLine &&
+  commentMessageId(comment.text) === "comment" &&
+  !TASK_MARKER.test(comment.text) &&
+  LINK_COMMENT.test(comment.text.trim()) &&
+  standsAlone(comment, comments)
 
 export const noComments = defineRule({
   create: (context) => ({
     Program: () => {
-      for (const comment of context.sourceCode.getAllComments()) {
-        if (comment.type !== SHEBANG) {
-          context.report({ loc: comment.loc, messageId: commentMessageId(comment.value) })
+      const comments = context.sourceCode
+        .getAllComments()
+        .filter(({ type }) => type !== SHEBANG)
+        .map(({ loc, value }) => ({ endLine: loc.end.line, line: loc.start.line, loc, text: value }))
+
+      for (const comment of comments) {
+        if (!isLinkComment(comment, comments)) {
+          context.report({ loc: comment.loc, messageId: commentMessageId(comment.text) })
         }
       }
     },
   }),
   meta: {
     docs: {
-      description: "Source files carry no comments: names, the commit message, the pull request and the docs carry the meaning.",
+      description:
+        "Source files carry no comments but a one-line link to where the reason lives: names, the commit message, the pull request and the docs carry the meaning.",
     },
     messages: COMMENT_MESSAGES,
     type: "problem",

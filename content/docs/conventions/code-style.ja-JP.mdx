@@ -1,6 +1,6 @@
 ---
 title: "コードスタイル"
-description: "フォーマッター、リンター、コンパイラー、コメントチェックが強制すること。コメントの禁止、抜け道の禁止、1 行の三項演算子、?? undefined の禁止、名前付きの定数。"
+description: "フォーマッター、リンター、コンパイラー、コメントチェックが強制すること。リンクとしてだけのコメント、抜け道の禁止、1 行の三項演算子、?? undefined の禁止、名前付きの定数。"
 ---
 
 `bun run check` は `bun run generate:cn`、`bun run check:comments`、`bun run check:i18n`, `bun run check:content`、`bun run check:flows` を実行してから `vp check` を実行します。`vp check` は `vite.config.ts` と `tsconfig.json` の設定に従い、oxfmt によるフォーマット、oxlint によるリント、TypeScript による型チェックを一度に行います。CI も同じコマンドを実行します。ここに好みの問題は何もありません。このページのルールに反するコードをツールが受け入れたとしても、レビューで却下されます。
@@ -21,7 +21,7 @@ oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicio
 | `typescript/no-explicit-any`            | `error`                                                         | どの値も `any` で型付けしない                                                |
 | `typescript/ban-ts-comment`             | `@ts-expect-error`、`@ts-ignore`、`@ts-nocheck` に対して `true` | 理由の有無にかかわらず、コンパイラーのエラーを抑制しない                     |
 | `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                       | `as` によるキャストを使わない。`as const` と `satisfies` は使える            |
-| `code-style/no-comments`                | `error`                                                         | ディレクティブのコメントも含め、コメントを書かない                           |
+| `code-style/no-comments`                | `error`                                                         | 1 行のリンク以外のコメントを書かず、ディレクティブは決して書かない           |
 | `code-style/no-multiline-ternary`       | `error`                                                         | 三項演算子は 1 行に収める                                                    |
 | `code-style/no-undefined-branch`        | `error`                                                         | `undefined` や `null` の分岐を持つ三項演算子と `return undefined` を書かない |
 | `code-style/no-undefined-fallback`      | `error`                                                         | `?? undefined` を書かない                                                    |
@@ -47,9 +47,9 @@ oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicio
 
 `hydration/no-clock-or-locale-in-render` は、リポジトリ独自の oxlint プラグイン `scripts/hydration-lint-plugin.ts` のルールで、これを `src/hooks`、`src/presentation`、`src/providers`、`src/routes/*.tsx` で強制します。そこではすべてがレンダリングのコードとみなされますが、後で実行される関数は例外です。JSX の prop、オブジェクトのプロパティ、変数としての `on…` イベントハンドラー、`queryFn` と `mutationFn`、そして `useEffect`、`useLayoutEffect`、`useCallback`、`setTimeout`、`setInterval`、`requestAnimationFrame`、`addEventListener` に渡すコールバックです。プラグインのこれらのリストが許可リストです。別の種類の遅延コールバックは `src/__test__/hydration-lint-plugin.test.ts` にケースを加えてそこへ追加し、無効化コメントは決して使いません。
 
-## コメントを書かない
+## コメント [#comments]
 
-コメントは書きません。TypeScript、TSX、テスト、スクリプト、設定、CSS のいずれでも、自明でない制約を説明するためであっても同じです。代わりに名前で意味を伝え、理由はコミットメッセージ、プルリクエスト、またはこのドキュメントに書きます。
+原則としてコメントは書きません。TypeScript、TSX、テスト、スクリプト、設定、CSS、ワークフローのいずれでも同じです。代わりに名前で意味を伝え、理由はコミットメッセージ、プルリクエスト、またはこのドキュメントに書きます。
 
 ```ts
 const INCLUSIVE_END = 1
@@ -59,10 +59,17 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 最初の 2 つは `video.delivery.ts` と `release.ts` から、3 つ目は `src/integrations/polar/polar.vite.ts` から取ったもので、どれも名前がなければコメントが必要になるところです。
 
+コメントが意味を持つのは、コードを読む人が理由の在りかをどうしても知る必要があるときだけです。そのときも説明はせず、その場所を指し示します。チェックが受け入れる形は次の 2 つだけです。
+
+- リンクのコメント: 理由が書かれた場所へのリンクを内容とする 1 行で、リンクの前に置ける語は <RepositoryFact name="linkCommentWords" /> 語までです。リンクは、ドキュメントのページ、GitHub 上の README やロードマップ、上流の issue やプルリクエストなどの `https://` の URL か、このサイトの `/docs/` で始まるドキュメントのパスです。たとえば `// https://github.com/TanStack/router/issues/8933` や `// See /docs/conventions/code-style#comments` です。ブロックコメントや JSX のコメントも同じ 1 行の形に限られ、その上下の行に別のコメントを置くことはできません。
+- ワークフローのバージョンタグ: アクションを 40 文字のコミット SHA に固定する YAML の `uses:` の行は、そのコミットがリリースされたときのタグ、つまり `# v4` や `# v7.0.0` で終わります。YAML ファイルにはそれ以外のコメントを書けません。
+
+それ以外はすべて失敗します。説明、区切りのバナー、`TODO`、コメントアウトしたコード、2 行目、リンクの後ろの文、そしてリンクで終わっていてもディレクティブのコメントです。
+
 このルールは 2 つのチェックで強制され、どちらもファイル、行、修正方法を示します。
 
-- `code-style/no-comments` は、`scripts/code-style-lint-plugin.ts` にあるリポジトリの oxlint プラグインのルールで、リンターが読むファイルのすべてのコメントを、エディターと `vp check` で報告します。
-- `bun run check:comments` は、`bun run check` と pre-commit フックの中で、リンターより前に `scripts/check-comments.ts` を実行します。Git が追跡している、または追加しようとしているすべての TypeScript、JavaScript、CSS ファイルを、コードは oxc で、スタイルは PostCSS でパースするので、URL や正規表現の中の `//` や CSS の glob の中の `/*` はコメントとみなされません。リンターが読めないものも読みます。`e2e`、`remotion`、宣言ファイル、スタイルシート、そして `/* oxlint-disable */` コメントです。このコメントには、どのルールが見るよりも先にリンターが従ってしまいます。
+- `code-style/no-comments` は、`scripts/code-style-lint-plugin.ts` にあるリポジトリの oxlint プラグインのルールで、リンターが読むファイルにあるリンクのコメント以外のすべてのコメントを、エディターと `vp check` で報告します。
+- `bun run check:comments` は、`bun run check` と pre-commit フックの中で、リンターより前に `scripts/check-comments.ts` を実行します。Git が追跡している、または追加しようとしているすべての TypeScript、JavaScript、CSS、YAML ファイルを、コードは oxc で、スタイルは PostCSS で、YAML は `yaml` パッケージでパースするので、URL や正規表現の中の `//`、CSS の glob の中の `/*`、YAML の文字列の中の `#` はコメントとみなされません。リンターが読めないものも読みます。`e2e`、`remotion`、宣言ファイル、スタイルシート、ワークフロー、そして `/* oxlint-disable */` コメントです。このコメントには、どのルールが見るよりも先にリンターが従ってしまいます。
 
 対象外となるのは、`.gitattributes` が `linguist-generated` と指定しているファイル（そのうちコードは `src/routeTree.gen.ts` と `src/types/worker-configuration.d.ts`）と、JavaScript の文法がコメントとして数えないスクリプトの `#!` 行です。コンパイラーがどこでも必要とする型は、Vitest のグローバルと同じように `tsconfig.json` の `types` に入れ、`/// <reference>` コメントには決して書きません。
 

@@ -278,30 +278,35 @@ Am nächsten Tag tat #220 dasselbe für die Anrede. Jede Locale spricht den Lese
 
 ### Praxisbeispiel: keine Kommentare, durchgesetzt von einem Parser
 
-Das Audit oben hat gezeigt, dass unsere Regel gegen Kommentare nur zufällig durchgesetzt wurde. Das hier ist die Regel, die die Lücke geschlossen hat, geschrieben gegen die Regel-API von ESLint, die auch Oxlint lädt (laut Oxlint ist seine Plugin-API mit ESLint ab v9 kompatibel, „Oxlint’s plugin API is compatible with ESLint v9+“); unsere ist `code-style/no-comments` in `scripts/code-style-lint-plugin.ts`:
+Das Audit oben hat gezeigt, dass unsere Regel gegen Kommentare nur zufällig durchgesetzt wurde. Das hier ist die Regel, die die Lücke geschlossen hat, geschrieben gegen die Regel-API von ESLint, die auch Oxlint lädt (laut Oxlint ist seine Plugin-API mit ESLint ab v9 kompatibel, „Oxlint’s plugin API is compatible with ESLint v9+“); unsere ist `code-style/no-comments` in `scripts/code-style-lint-plugin.ts`, hier in ihrer heutigen Form, mit der einen Ausnahme, die sie später bekommen hat: Für den seltenen Kommentar, der wirklich nötig ist, darf eine einzelne Zeile auf die Stelle verlinken, an der die Begründung steht:
 
 ```ts title="scripts/code-style-lint-plugin.ts"
-export const COMMENT_MESSAGES = {
-  comment:
-    "Remove this comment. Say it in a name, a named constant or a smaller function, and put the reasoning in the commit message, the pull request or the docs.",
-  directive: "Remove this directive comment, which switches a check off, and fix the cause the rule or the compiler reports instead.",
-} as const
-
-export const commentMessageId = (text: string): keyof typeof COMMENT_MESSAGES => (DIRECTIVE.test(text) ? "directive" : "comment")
+export const isLinkComment = (comment: CommentSpan, comments: readonly CommentSpan[]): boolean =>
+  comment.line === comment.endLine &&
+  commentMessageId(comment.text) === "comment" &&
+  !TASK_MARKER.test(comment.text) &&
+  LINK_COMMENT.test(comment.text.trim()) &&
+  standsAlone(comment, comments)
 
 export const noComments = defineRule({
   create: (context) => ({
     Program: () => {
-      for (const comment of context.sourceCode.getAllComments()) {
-        if (comment.type !== SHEBANG) {
-          context.report({ loc: comment.loc, messageId: commentMessageId(comment.value) })
+      const comments = context.sourceCode
+        .getAllComments()
+        .filter(({ type }) => type !== SHEBANG)
+        .map(({ loc, value }) => ({ endLine: loc.end.line, line: loc.start.line, loc, text: value }))
+
+      for (const comment of comments) {
+        if (!isLinkComment(comment, comments)) {
+          context.report({ loc: comment.loc, messageId: commentMessageId(comment.text) })
         }
       }
     },
   }),
   meta: {
     docs: {
-      description: "Source files carry no comments: names, the commit message, the pull request and the docs carry the meaning.",
+      description:
+        "Source files carry no comments but a one-line link to where the reason lives: names, the commit message, the pull request and the docs carry the meaning.",
     },
     messages: COMMENT_MESSAGES,
     type: "problem",

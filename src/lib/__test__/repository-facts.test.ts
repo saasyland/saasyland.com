@@ -10,6 +10,7 @@ import { FLOW_FEATURE, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
 import { FLOWS } from "~/scripts/check-flows"
+import { LINK_COMMENT_WORDS } from "~/scripts/code-style-lint-plugin"
 import {
   collectCoverageScope,
   collectFlowTables,
@@ -68,6 +69,7 @@ describe("collectRepositoryFacts", () => {
     expect(collectRepositoryFacts(configWith(), [])).toMatchObject({
       coverageThreshold: 90,
       integrationTestTimeoutSeconds: 4,
+      linkCommentWords: LINK_COMMENT_WORDS,
       maxLines: 500,
       maxLinesPerFunction: 80,
       maxStatements: 15,

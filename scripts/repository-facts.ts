@@ -15,6 +15,7 @@ import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
 import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
 import { BUNDLE_BINDING, LICENSE_API_ENDPOINTS } from "../src/modules/license/license.constants.ts"
 import { type BrowserTest, FLOWS, TITLE_SEPARATOR, listBrowserTests, testLabel } from "./check-flows.ts"
+import { LINK_COMMENT_WORDS } from "./code-style-lint-plugin.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 import { LOCAL_ADMIN } from "./local-admin.ts"
 import { ISSUE_TITLE } from "./report-updates.ts"
@@ -320,6 +321,7 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     i18nCheckCommand: I18N_CHECK_COMMAND,
     integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
     journeySchedule: readSchedule(JOURNEY_WORKFLOW),
+    linkCommentWords: LINK_COMMENT_WORDS,
     localAdminEmail: LOCAL_ADMIN.EMAIL,
     localAdminPassword: LOCAL_ADMIN.DEFAULT_PASSWORD,
     maxLines: maxLines.max,

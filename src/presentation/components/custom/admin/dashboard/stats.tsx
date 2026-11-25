@@ -7,9 +7,10 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
+
+import { polarProductsQuery } from "~/src/lib/polar-catalogue"
 
 import * as ROUTES from "~/src/routes"
 
@@ -32,9 +33,9 @@ export const DASHBOARD_STATS: readonly DashboardStat[] = [
   {
     icon: Package,
     label: "dashboard.products.totalProducts",
-    prefetch: (queryClient) => queryClient.query({ ...getProductsQuery, staleTime: "static" }),
+    prefetch: (queryClient) => queryClient.query({ ...polarProductsQuery, staleTime: "static" }),
     to: ROUTES.ADMIN_PRODUCTS,
-    useValue: () => useSuspenseQuery(getProductsQuery).data.total,
+    useValue: () => useSuspenseQuery(polarProductsQuery).data.products.length,
   },
   {
     icon: MailQuestion,

@@ -1,242 +1,242 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
-import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
-import { CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
-import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
-import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
-import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-products"
+import { POLAR_PRICE_TYPE, POLAR_PRODUCT_STATUS, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
+
+import { POLAR_READ } from "~/src/modules/order/order.constants"
+import type { Order } from "~/src/modules/order/order.types"
+import { productSalesQuery } from "~/src/modules/order/use-cases/get-product-sales"
 
 import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 
 import * as download from "~/src/lib/download"
+import { type PolarCatalogue, polarProductsQuery } from "~/src/lib/polar-catalogue"
 
 import { adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { adminCategory, adminProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
+import { adminPolarProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
-import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
+import productsMessages from "~/messages/en-US/pages.admin.products.json"
 import { routeTree } from "~/src/routeTree.gen"
 
-const products = [
-  adminProduct(),
-  adminProduct({
-    id: "monthly",
-    name: "Monthly subscription",
-    type: PRODUCT_TYPE.SUBSCRIPTION,
-    billingCycle: "month",
-    status: PRODUCT_STATUS.DRAFT,
+const { headers, statusLabels } = productsMessages.table
+
+const CORE = adminPolarProduct()
+
+const PLAN = {
+  ...adminPolarProduct({
+    id: "prod_plan",
+    licenseKeys: [{ activations: undefined, id: "benefit_plan" }],
+    name: "Team plan",
+    polarUrl: "https://sandbox.polar.sh/dashboard/saasyland/products/prod_plan",
+    prices: [
+      { amountType: POLAR_PRICE_TYPE.FIXED, id: "price_plan", money: { amount: 19, currency: "USD" } },
+      { amountType: POLAR_PRICE_TYPE.FIXED, id: "price_plan_euro", money: { amount: 17, currency: "EUR" } },
+    ],
+    recurrence: { count: 1, interval: POLAR_RECURRING_INTERVAL.MONTH },
+    status: POLAR_PRODUCT_STATUS.PRIVATE,
   }),
-  adminProduct({
-    id: "yearly",
-    name: "Yearly subscription",
-    type: PRODUCT_TYPE.SUBSCRIPTION,
-    billingCycle: "",
-    status: PRODUCT_STATUS.ARCHIVED,
-  }),
-  adminProduct({ id: "course", name: "React course", type: PRODUCT_TYPE.COURSE }),
+  description: undefined,
+}
+
+const TIP = adminPolarProduct({
+  description: "Pay what the course was worth to you",
+  id: "prod_tip",
+  licenseKeys: [],
+  name: "Tip jar",
+  polarUrl: "https://sandbox.polar.sh/dashboard/saasyland/products/prod_tip",
+  prices: [{ amountType: POLAR_PRICE_TYPE.CUSTOM, id: "price_tip", money: { amount: 5, currency: "USD" } }],
+  status: POLAR_PRODUCT_STATUS.DRAFT,
+})
+
+const SEATS = adminPolarProduct({
+  id: "prod_seats",
+  licenseKeys: [],
+  name: "Seats",
+  polarUrl: "https://sandbox.polar.sh/dashboard/saasyland/products/prod_seats",
+  prices: [{ amountType: POLAR_PRICE_TYPE.SEAT_BASED, currency: "USD", id: "price_seats" }],
+  recurrence: { count: 3, interval: POLAR_RECURRING_INTERVAL.MONTH },
+  status: POLAR_PRODUCT_STATUS.ARCHIVED,
+})
+
+const RETIRED = adminPolarProduct({
+  id: "prod_retired",
+  licenseKeys: [],
+  name: "Retired kit",
+  polarUrl: "https://sandbox.polar.sh/dashboard/saasyland/products/prod_retired",
+  prices: [],
+  status: POLAR_PRODUCT_STATUS.ARCHIVED,
+})
+
+const PRODUCTS = [CORE, PLAN, TIP, SEATS, RETIRED]
+
+const SALES: Order["productSales"][] = [
+  { productId: CORE.id, revenue: [{ amount: 498, currency: "USD" }], sales: 2 },
+  {
+    productId: SEATS.id,
+    revenue: [
+      { amount: 25_000, currency: "JPY" },
+      { amount: 0, currency: "USD" },
+    ],
+    sales: 2,
+  },
+  { productId: "prod_deleted", revenue: [{ amount: 99, currency: "USD" }], sales: 1 },
 ]
-const categories = [
-  adminCategory(),
-  adminCategory({ id: "hidden", name: "Private category", visibility: CATEGORY_VISIBILITY.HIDDEN }),
-  adminCategory({ id: "collection", name: "Starter collection", kind: CATEGORY_KIND.COLLECTION }),
-]
-const categoryHeading = pagesAdminProductsMessages.categories.table.headers.category
-const collectionHeading = pagesAdminProductsMessages.collections.table.headers.collection
 
 afterEach(() => vi.restoreAllMocks())
 
-const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "categories" | "collections" = "all") => {
-  vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
+const LISTED: PolarCatalogue = { products: PRODUCTS, read: POLAR_READ.AVAILABLE }
+
+const renderProducts = (catalogue: PolarCatalogue = LISTED) => {
   const queryClient = adminQueryClient()
-  queryClient.setQueryData(getProductsPageQuery().queryKey, { rows, total: rows.length })
-  const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
-  queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: categories, total: categories.length })
-  return renderAdminPage(ProductsRoute.options.component, { path: `/admin/products?tab=${tab}`, queryClient })
+  queryClient.setQueryData(polarProductsQuery.queryKey, catalogue)
+  queryClient.setQueryData(productSalesQuery.queryKey, { products: SALES })
+  return renderAdminPage(ProductsRoute.options.component, { path: "/admin/products", queryClient })
 }
 
-describe("admin catalog", () => {
-  it.each([0, 5])("shows the row count for %i products without enabling navigation", (count) => {
-    renderProducts(Array.from({ length: count }, (_, index) => adminProduct({ id: `item-${index}`, name: `Item ${index}` })))
-    expect(screen.getByRole("button", { name: gridMessages.pagination.previous })).toBeDisabled()
-    expect(screen.getByRole("button", { name: gridMessages.pagination.next })).toBeDisabled()
-    const first = Math.min(1, count)
-    expect(screen.getByText(`${String(first)}–${String(count)} of ${String(count)}`)).toBeVisible()
-  })
+const rowOf = (name: string): HTMLElement => {
+  const row = screen.getByText(name, { selector: "span" }).closest("tr")
+  if (row === null) {
+    throw new Error(`No row shows ${name}`)
+  }
+  return row
+}
 
-  it("navigates between server pages and disables navigation at the boundaries", async () => {
-    vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab: "all" })
-    const queryClient = adminQueryClient()
-    queryClient.setQueryData(getProductsPageQuery().queryKey, {
-      rows: Array.from({ length: 10 }, (_, index) => adminProduct({ id: `item-${index}`, name: `Item ${index}` })),
-      total: 11,
-    })
-    queryClient.setQueryData(getProductsPageQuery({ pageIndex: 1 }).queryKey, { rows: [adminProduct({ name: "Last product" })], total: 11 })
-    for (const pageIndex of [0, 1]) {
-      queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: CATEGORY_KIND.CATEGORY }).queryKey, { rows: [], total: 0 })
-    }
-    renderAdminPage(ProductsRoute.options.component, { queryClient })
-    expect(screen.getByRole("button", { name: gridMessages.pagination.previous })).toBeDisabled()
-    await userEvent.click(screen.getByRole("button", { name: gridMessages.pagination.next }))
-    expect(await screen.findByText("Last product")).toBeVisible()
-    expect(screen.getByRole("button", { name: gridMessages.pagination.next })).toBeDisabled()
-    await userEvent.click(screen.getByRole("button", { name: gridMessages.pagination.previous }))
-    expect(await screen.findByText("Item 0")).toBeVisible()
-  })
+describe("admin products", () => {
+  it("lists each product of the Polar catalogue with its prices, licence key, status, sales and what buyers paid", () => {
+    renderProducts()
 
-  it.each([
-    ["all", "Starter Kit"],
-    ["drafts", "Monthly subscription"],
-    ["onetime", "Starter Kit"],
-    ["subscriptions", "Monthly subscription"],
-    ["categories", "Private category"],
-    ["collections", "Starter collection"],
-  ] as const)("renders the requested %s product panel", async (tab, expected) => {
-    vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
-    const queryClient = adminQueryClient()
-    const productInput = {
-      ...(tab === "subscriptions" ? { type: PRODUCT_TYPE.SUBSCRIPTION } : {}),
-      ...(tab === "onetime" ? { type: PRODUCT_TYPE.ONE_TIME } : {}),
-      ...(tab === "drafts" ? { status: PRODUCT_STATUS.DRAFT } : {}),
-    }
-    const visibleProducts = products.filter(
-      (row) => (!productInput.type || row.type === productInput.type) && (!productInput.status || row.status === productInput.status),
+    expect(screen.getByRole("heading", { name: productsMessages.title })).toBeVisible()
+    expect(rowOf("Core")).toHaveTextContent(
+      ["Core", "The starter with every module", "$249.00", "Up to 3 machines", statusLabels.public, "2", "$498.00", CORE.id].join(""),
     )
-    queryClient.setQueryData(getProductsPageQuery(productInput).queryKey, { rows: visibleProducts, total: visibleProducts.length })
-    const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
-    const visibleCategories = categories.filter((row) => row.kind === kind)
-    queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: visibleCategories, total: visibleCategories.length })
-    renderAdminPage(ProductsRoute.options.component, { queryClient })
-    expect(screen.getByRole("heading", { name: pagesAdminProductsMessages.title })).toBeVisible()
-    expect(await screen.findByText(expected)).toBeVisible()
-    if (tab === "onetime") {
-      expect(screen.queryByText("Monthly subscription")).not.toBeInTheDocument()
-    }
-    if (tab === "subscriptions") {
-      expect(screen.queryByText("Starter Kit")).not.toBeInTheDocument()
-    }
-    if (tab === "collections") {
-      expect(screen.queryByText("Private category")).not.toBeInTheDocument()
-    }
+    expect(rowOf("Team plan")).toHaveTextContent(
+      [
+        "Team plan",
+        "$19.00 per month",
+        "€17.00 per month",
+        productsMessages.table.unlimitedMachines,
+        statusLabels.private,
+        "0",
+        "Nothing paid",
+      ].join(""),
+    )
+    expect(rowOf("Tip jar")).toHaveTextContent(
+      [
+        "Tip jar",
+        "Pay what the course was worth to you",
+        "Pay what you want, from $5.00",
+        productsMessages.table.noLicenseKey,
+        statusLabels.draft,
+        "0",
+        productsMessages.table.noRevenue,
+        TIP.id,
+      ].join(""),
+    )
+    expect(rowOf("Seats")).toHaveTextContent(
+      [
+        "Seats",
+        "The starter with every module",
+        "Per seat (USD) every 3 months",
+        productsMessages.table.noLicenseKey,
+        statusLabels.archived,
+        "2",
+        "¥25,000$0.00",
+        SEATS.id,
+      ].join(""),
+    )
+    expect(rowOf("Retired kit")).toHaveTextContent(productsMessages.table.prices.none)
+    expect(screen.queryByText("prod_deleted")).not.toBeInTheDocument()
   })
 
-  it.each([
-    ["categories", categoryHeading, collectionHeading],
-    ["collections", collectionHeading, categoryHeading],
-  ] as const)("names the %s panel's first column after its kind", async (tab, heading, otherHeading) => {
-    renderProducts([], tab)
-    expect(await screen.findByText("Starters")).toBeVisible()
-    expect(screen.getByRole("columnheader", { name: new RegExp(`^${heading}`, "u") })).toBeVisible()
-    expect(screen.queryByRole("columnheader", { name: new RegExp(`^${otherHeading}`, "u") })).not.toBeInTheDocument()
+  it("names its columns in order, after the selection column", () => {
+    renderProducts()
+
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toStrictEqual([
       "",
-      heading,
-      pagesAdminProductsMessages.categories.table.headers.visibility,
-      pagesAdminProductsMessages.categories.table.headers.lastUpdated,
+      headers.product,
+      headers.prices,
+      headers.licenseKeys,
+      headers.status,
+      headers.sales,
+      headers.revenue,
+      headers.polar,
     ])
-    expect(screen.getByRole("table", { name: pagesAdminProductsMessages.tabs[tab] })).toBeVisible()
+    expect(screen.getByRole("table", { name: productsMessages.title })).toBeVisible()
   })
 
-  it.each([
-    [null, "$49.00"],
-    ["", "$49.00"],
-    ["month", "$49.00 / month"],
-  ])("displays billing information consistently for %s", (billingCycle, expected) => {
-    renderProducts([adminProduct({ billingCycle })])
-    const [, row] = screen.getAllByRole("row")
-    expect(row).toHaveTextContent("Starter Kit")
-    expect(row).toHaveTextContent(expected)
-    expect(row).toHaveTextContent(pagesAdminProductsMessages.table.statusLabels.published)
-    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toStrictEqual([
-      "",
-      pagesAdminProductsMessages.table.headers.product,
-      pagesAdminProductsMessages.table.headers.type,
-      pagesAdminProductsMessages.table.headers.pricing,
-      pagesAdminProductsMessages.table.headers.status,
-      pagesAdminProductsMessages.table.headers.updatedAt,
-    ])
-    expect(within(row ?? document.body).queryByRole("button")).toBeNull()
+  it("links each product to its page in the Polar dashboard, in a new tab", () => {
+    renderProducts()
+
+    const link = screen.getByRole("link", { name: `Open ${PLAN.name} in Polar` })
+
+    expect(link).toHaveAttribute("href", PLAN.polarUrl)
+    expect(link).toHaveAttribute("target", "_blank")
+    expect(link).toHaveAttribute("rel", "noreferrer")
   })
 
-  it.each([
-    ["USD", 4900, "$49.00"],
-    ["EUR", 1999, "€19.99"],
-    ["JPY", 4900, "¥4,900"],
-    ["KRW", 59_000, "₩59,000"],
-  ] as const)("shows a %s price of %i minor units as %s", (currency, priceCents, expected) => {
-    renderProducts([adminProduct({ currency, priceCents })])
-    const [, row] = screen.getAllByRole("row")
+  it("says when Polar did not send the products instead of showing an empty list", () => {
+    renderProducts({ products: [], read: POLAR_READ.UNAVAILABLE })
 
-    expect(within(row ?? document.body).getByText(expected)).toBeVisible()
-    expect(row).not.toHaveTextContent(String(priceCents))
+    expect(screen.getByRole("status")).toHaveTextContent(productsMessages.unavailable.title + productsMessages.unavailable.description)
+    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+  })
+
+  it("says when the Polar organisation has no products yet", () => {
+    renderProducts({ products: [], read: POLAR_READ.AVAILABLE })
+
+    expect(screen.getByText(productsMessages.table.empty)).toBeVisible()
+    expect(screen.getByText(productsMessages.table.emptyDescription)).toBeVisible()
+  })
+
+  it("narrows the list to the products whose name matches the search", async () => {
+    renderProducts()
+
+    await userEvent.type(screen.getByRole("searchbox", { name: productsMessages.table.search }), "plan")
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("row")).toHaveLength(2)
+    })
+    expect(rowOf("Team plan")).toBeVisible()
   })
 })
 
-describe("admin catalog export", () => {
-  it("exports the products with their type, price and billing cycle, and status as the table names them", async () => {
+describe("admin products export", () => {
+  it("exports the products with their prices, licence keys, status, sales, revenue and Polar page as the table names them", async () => {
     vi.spyOn(download, "downloadFile").mockImplementation(() => {})
-    const rows = [
-      adminProduct({ billingCycle: "month", id: "monthly", name: "Monthly", type: PRODUCT_TYPE.SUBSCRIPTION }),
-      adminProduct({ billingCycle: "", id: "kit", name: "Kit", status: PRODUCT_STATUS.DRAFT }),
-      adminProduct({ billingCycle: null, currency: "JPY", id: "yen", name: "Yen", priceCents: 4900 }),
-    ]
-    const { queryClient } = renderProducts(rows)
-    queryClient.setQueryData(getProductsPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows, total: rows.length })
+    renderProducts()
 
     await userEvent.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
 
     await waitFor(() => {
       expect(download.downloadFile).toHaveBeenCalledOnce()
     })
-    const { statusLabels, typeLabels } = pagesAdminProductsMessages.table
-    expect(
-      vi
-        .mocked(download.downloadFile)
-        .mock.calls[0]?.[0].content.split("\r\n")
-        .slice(1, 4)
-        .map((line) => line.split(",").slice(0, 4)),
-    ).toStrictEqual([
-      ["Monthly", typeLabels.subscription, "49.00 USD / month", statusLabels.published],
-      ["Kit", typeLabels.one_time, "49.00 USD", statusLabels.draft],
-      ["Yen", typeLabels.one_time, "4900 JPY", statusLabels.published],
-    ])
-  })
-
-  it("exports the categories with their visibility", async () => {
-    vi.spyOn(download, "downloadFile").mockImplementation(() => {})
-    const { queryClient } = renderProducts([], "categories")
-    queryClient.setQueryData(getCategoriesPageQuery({ kind: CATEGORY_KIND.CATEGORY, pageSize: MAX_PAGE_SIZE }).queryKey, {
-      rows: categories,
-      total: categories.length,
-    })
-
-    await userEvent.click(screen.getByRole("button", { name: gridMessages.toolbar.export }))
-
-    await waitFor(() => {
-      expect(download.downloadFile).toHaveBeenCalledOnce()
-    })
-    const { visibilityLabels } = pagesAdminProductsMessages.table
-    expect(
-      vi
-        .mocked(download.downloadFile)
-        .mock.calls[0]?.[0].content.split("\r\n")
-        .slice(1, 3)
-        .map((line) => line.split(",").slice(0, 2)),
-    ).toStrictEqual([
-      ["Starters", visibilityLabels.public],
-      ["Private category", visibilityLabels.hidden],
+    expect(vi.mocked(download.downloadFile).mock.calls[0]?.[0].content.split("\r\n").slice(0, 5)).toStrictEqual([
+      `﻿${[headers.product, headers.prices, headers.licenseKeys, headers.status, headers.sales, headers.revenue, headers.polar].join(",")}`,
+      ["Core", "249.00 USD", "Up to 3 machines", statusLabels.public, "2", "498.00 USD", CORE.polarUrl].join(","),
+      [
+        "Team plan",
+        "19.00 USD per month; 17.00 EUR per month",
+        productsMessages.table.unlimitedMachines,
+        statusLabels.private,
+        "0",
+        "",
+        PLAN.polarUrl,
+      ].join(","),
+      ["Tip jar", '"Pay what you want, from 5.00 USD"', "", statusLabels.draft, "0", "", TIP.polarUrl].join(","),
+      ["Seats", "Per seat (USD) every 3 months", "", statusLabels.archived, "2", "25000 JPY; 0.00 USD", SEATS.polarUrl].join(","),
     ])
   })
 })
 
-describe("admin catalog skeletons", () => {
-  it("renders the skeleton of the catalog", () => {
+describe("admin products skeleton", () => {
+  it("renders the skeleton of the products page", () => {
     const page = markupOf(<AdminProductsPending />)
     const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/products", routeTree) })
 

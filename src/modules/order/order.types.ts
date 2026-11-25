@@ -7,6 +7,7 @@ import type { getCustomers } from "~/src/modules/order/use-cases/get-customers"
 import type { getOrder } from "~/src/modules/order/use-cases/get-order"
 import type { getOrderFilters } from "~/src/modules/order/use-cases/get-order-filters"
 import type { getOrders } from "~/src/modules/order/use-cases/get-orders"
+import type { getProductSales } from "~/src/modules/order/use-cases/get-product-sales"
 import type { getRevenue } from "~/src/modules/order/use-cases/get-revenue"
 import type { getUserOrders } from "~/src/modules/order/use-cases/get-user-orders"
 
@@ -20,6 +21,7 @@ export interface Order {
   currencyRevenue: Awaited<ReturnType<typeof getRevenue>>["currencies"][number]
   listRow: Awaited<ReturnType<typeof getOrders>>["rows"][number]
   customerRow: Awaited<ReturnType<typeof getCustomers>>["rows"][number]
+  productSales: Awaited<ReturnType<typeof getProductSales>>["products"][number]
   detail: OrderDetail
   filterOptions: Awaited<ReturnType<typeof getOrderFilters>>
   polarOrder: Extract<OrderDetail["polar"], { amounts: unknown }>

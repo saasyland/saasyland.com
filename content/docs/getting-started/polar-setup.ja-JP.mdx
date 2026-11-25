@@ -35,10 +35,10 @@ Polar は 2 つの独立したサービスを運営しています。本番（`p
 | `license_keys:write`      | キーとそのアクティベーションの読み取り、端末のアクティベート、およびアクティベーションの解除（`deactivateLicense` と [CLI ライセンス API](/docs/features/cli-licence-api)）、さらにアップグレードでのキーのアクティベーション数の上限の引き上げと、アップグレードの注文に Polar が発行するキーの無効化 |
 | `orders:read`             | ライセンスの元になった注文と、イベントがどのアカウントにも対応しない注文の現在の顧客を読み取る Webhook ハンドラー、顧客がライセンスに支払った額を合計してアップグレードの価格を求める処理、注文とその請求書を読み取る管理画面の注文ページ、各注文の割引と請求先の国をコピーする `orders:backfill`      |
 | `organizations:read`      | チェックアウトのローカライズがオンかどうか、デフォルトの税の扱い、チェックアウトを埋め込めるホストを読み取る `polar:verify`                                                                                                                                                                            |
-| `products:read`           | `polar:verify`                                                                                                                                                                                                                                                                                         |
+| `products:read`           | `/admin/products` に商品を一覧表示し、ダッシュボードで数える `getPolarProducts`（[商品](/docs/features/products)）と `polar:verify`                                                                                                                                                                    |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                                                                                                                         |
 
-書き込みスコープには読み取りも含まれるため、`license_keys:write` でキーの読み取りもできます。組織トークンは、もともと自分の組織として動作します。それでも `polar:verify` は、アップグレードのための注文の一覧取得と同じように `POLAR_ORGANIZATION_ID` を `organization_id` クエリパラメーターとして送信するため、別の組織の ID を指定していると、商品がないものとして検出されます。
+書き込みスコープには読み取りも含まれるため、`license_keys:write` でキーの読み取りもできます。組織トークンは、もともと自分の組織として動作します。それでも `polar:verify` は、アップグレードのための注文の一覧取得や `getPolarProducts` と同じように `POLAR_ORGANIZATION_ID` を `organization_id` クエリパラメーターとして送信するため、別の組織の ID を指定していると、商品がないものとして検出されます。デプロイ済みの Worker は、最後の `deploy:preview` または `deploy:production` がアップロードしたトークンを使い続けるため、新しいトークンがサイトに反映されるのは次の手動デプロイのときです。
 
 ## 商品
 
@@ -163,7 +163,7 @@ A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhook
 
 - **`Set … in .env.<environment>`**: Polar のキーがないか空になっているか、`POLAR_SERVER` が誤ったサービスを指しています。
 - **`rejects POLAR_ACCESS_TOKEN`**: トークンが無効か、取り消されているか、`.env.preview` に入れた本番のトークンのように、もう一方のサービスのものです。
-- **`lacks the … scope`**: 上記のスコープを持つトークンを作成してください。
+- **`lacks the … scope`**: 上記のスコープを持つトークンを作成してください。`products:read` の場合は、デプロイ済みのサイトにもこのスコープが必要であることがメッセージに加わります。このスコープがないと、`/admin/products` とダッシュボードの商品数は Polar から商品を受け取れません。
 - **`names no product of the organisation`**: 商品 ID または `POLAR_ORGANIZATION_ID` が間違っているか、もう一方のサービスのものです。
 - **価格またはライセンスキー**: コードに合わせて Polar 側を変更してください。ビジネス上の値を意図的に変える場合は、先に `TIER_PRICES` か `LICENSE_ACTIVATION_LIMITS` を変更し、その後で Polar を変更します。
 - **`does not ask for the … checkout field`、`without requiring it`、`instead of a checkbox`、`label differs`**: [同意のチェックボックス](#consent-checkbox)を作成するか、商品に付けるか、修正してください。文言を意図的に変える場合は、先に `WITHDRAWAL_CONSENT_FIELD.label` を変更し、その後で Polar のラベルを変更します。

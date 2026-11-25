@@ -1,15 +1,15 @@
-import { toMinorUnits } from "../../src/modules/_core/constants/currency"
-import { TEST_CATEGORY, TEST_PRODUCTS } from "./products"
+import { MILLISECONDS_PER_DAY } from "../../src/lib/duration"
+import { TEST_CATALOGUE_CUSTOMER_ID, TEST_CATALOGUE_ORDERS, TEST_CATALOGUE_ORDERS_DAYS_AGO } from "./products"
 import { type TestSeed, literal } from "./seed"
 
-export const productsSeed = (): Promise<TestSeed> =>
-  Promise.resolve({
+export const productsSeed = (): Promise<TestSeed> => {
+  const placed = String(Date.now() - TEST_CATALOGUE_ORDERS_DAYS_AGO * MILLISECONDS_PER_DAY)
+
+  return Promise.resolve({
     objects: [],
-    statements: [
-      ...TEST_PRODUCTS.map(
-        ({ billingCycle, currency, description, id, name, price, status, type }) =>
-          `INSERT INTO product (id, name, description, price_cents, currency, type, status, billing_cycle) VALUES (${literal(id)}, ${literal(name)}, ${literal(description)}, ${String(toMinorUnits(price, currency))}, ${literal(currency)}, ${literal(type)}, ${literal(status)}, ${literal(billingCycle)}) ON CONFLICT(id) DO UPDATE SET price_cents = excluded.price_cents, currency = excluded.currency, status = excluded.status;`,
-      ),
-      `INSERT INTO category (id, name, description, kind, visibility) VALUES (${literal(TEST_CATEGORY.id)}, ${literal(TEST_CATEGORY.name)}, ${literal(TEST_CATEGORY.description)}, ${literal(TEST_CATEGORY.kind)}, ${literal(TEST_CATEGORY.visibility)}) ON CONFLICT(id) DO NOTHING;`,
-    ],
+    statements: TEST_CATALOGUE_ORDERS.map(
+      ({ currency, id, product, refundedAmount, status, totalAmount }) =>
+        `INSERT INTO "order" (id, customer_id, product_id, status, currency, total_amount, refunded_amount, description, placed_at, changed_at) VALUES (${literal(id)}, ${literal(TEST_CATALOGUE_CUSTOMER_ID)}, ${literal(product.id)}, ${literal(status)}, ${literal(currency)}, ${String(totalAmount)}, ${String(refundedAmount)}, ${literal(product.name)}, ${placed}, ${placed}) ON CONFLICT(id) DO UPDATE SET status = excluded.status, total_amount = excluded.total_amount, refunded_amount = excluded.refunded_amount, placed_at = excluded.placed_at, changed_at = excluded.changed_at;`,
+    ),
   })
+}

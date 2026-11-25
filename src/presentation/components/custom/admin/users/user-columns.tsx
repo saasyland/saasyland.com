@@ -64,7 +64,7 @@ const UserCell = ({ row }: CellContext<DataGridFeatures, AdminUser, string>): JS
   )
 }
 
-const RoleCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, string>): JSX.Element => {
+const RoleCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, AdminUser["role"]>): JSX.Element => {
   const t = useTranslations("pages.admin.users.filters.role.options")
   const role = getValue()
 
@@ -81,7 +81,7 @@ const BooleanCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, bool
   return <span className="text-sm text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
 }
 
-const TimezoneCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, string>): JSX.Element => (
+const TimezoneCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, AdminUser["timezone"]>): JSX.Element => (
   <span className="text-sm text-muted-foreground">{getValue()}</span>
 )
 

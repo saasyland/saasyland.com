@@ -1,37 +1,55 @@
 ---
 title: "Produits"
-description: "La table des produits dans D1 et sa liste paginée, en lecture seule, dans l’administration."
+description: "La liste des produits de l’administration : tous les produits de l’organisation Polar, lus depuis Polar, avec leurs prix, leur clé de licence et leur statut, ainsi que leurs ventes et leur chiffre d’affaires d’après les copies des commandes."
 ---
 
-## Données
+## Le catalogue dans Polar
 
-`src/modules/product/product.schema.ts` définit la table `product` : `name`, `description`, `priceCents`, `currency`, `type` (`one_time`, `subscription`, `course`), `status` (`draft`, `published`, `archived`), `billingCycle` et les horodatages.
+Polar détient les produits : les offres Core, Complete et Agency et tout autre produit de l’organisation. `/admin/products` les lit à chaque visite avec `getPolarProducts` de `src/lib/polar-catalogue.ts`, une fonction serveur protégée par `authorized({ product: ["read"] })`. Elle liste les produits de l’organisation avec le service des produits du SDK, `polar.products` dans `src/integrations/polar/polar.config.ts`, page par page et triés par nom, et a besoin du scope `products:read` sur `POLAR_ACCESS_TOKEN` (voir [Configurer Polar](/docs/getting-started/polar-setup)).
 
-Cas d’usage dans `src/modules/product/use-cases`, chacun protégé par la permission `product` correspondante :
+Pour chaque produit, elle renvoie :
 
-- `getProducts` — paginé, avec des filtres facultatifs `type` et `status` ; exporte `getProductsPageQuery` et `getProductsQuery`.
-- `getProduct`, `createProduct`, `updateProduct`, `deleteProduct`.
+- son nom et sa description ;
+- ses prix non archivés : un prix fixe dans l’unité principale de la devise, converti avec `fromMinorUnits` ; un prix libre avec son minimum ; ou, pour un prix par siège, à l’unité ou à l’usage, le modèle de prix et la devise ;
+- la période de facturation d’un abonnement, d’après `recurring_interval` et `recurring_interval_count` du produit ;
+- la limite d’activations de chaque avantage de clé de licence, ou aucune limite ;
+- son statut, parmi `POLAR_PRODUCT_STATUSES` dans `src/integrations/polar/polar.constants.ts` : archivé pour un produit archivé, sinon sa visibilité, public, privé ou brouillon ;
+- le lien vers le produit dans le tableau de bord de Polar, que `polarDashboardUrl` construit à partir de `POLAR_DASHBOARD_HOSTS` pour `POLAR_SERVER` et de `POLAR_ORGANIZATION_SLUG`.
+
+Quand Polar refuse la requête ou échoue, `getPolarProducts` journalise l’erreur et répond sans produits avec `POLAR_READ.UNAVAILABLE`. La page indique alors que Polar n’a pas envoyé les produits et nomme le scope à vérifier, et le nombre de produits du tableau de bord n’en compte aucun.
+
+## Ventes et chiffre d’affaires
+
+`getProductSales` dans `src/modules/order/use-cases/get-product-sales.ts` (`order: ["read"]`) lit les copies des commandes dans D1 (voir [Paiements](/docs/features/payments#orders-and-subscriptions-in-d1)). Pour chaque produit, elle compte les commandes dont le statut est l’un de <RepositoryFact name="revenueOrderStatuses" />, remboursées comprises, et additionne ce qu’elles ont payé après remboursements dans chaque devise ; les devises ne sont jamais additionnées entre elles. Les commandes en brouillon, en attente ou annulées ne sont pas des ventes. Un produit sans une telle commande n’affiche aucune vente, et une commande dont le produit n’est plus dans Polar n’apparaît dans aucune ligne.
 
 ## Écran d’administration
 
-`/admin/products` conserve son onglet dans le paramètre de recherche `?tab=` : `all`, `onetime`, `subscriptions`, `categories`, `collections` et `drafts`. Les onglets de produits affichent `ProductGrid` (`product-grid.tsx`), le `DataGrid` avec `useProductColumns`, et ajoutent le type ou le statut de l’onglet à chaque requête :
+`src/routes/admin.products.index.tsx` précharge `polarProductsQuery` et `productSalesQuery` et affiche `PolarProductGrid` (`custom/admin/products/polar-product-grid.tsx`). Celui-ci joint les deux par l’identifiant du produit et transmet les lignes au `DataGrid` avec `usePolarProductColumns` (`polar-product-columns.tsx`) :
 
 ```tsx
 <DataGrid
   columns={columns}
-  empty={t("empty")}
-  id={PRODUCT_GRID_ID}
-  label={label}
-  query={(request) => getProductsPageQuery(productZodSchemas.getProducts.parse({ ...request, ...preset }))}
-  search={t("search")}
+  data={rows}
+  empty={t("table.empty")}
+  emptyDescription={t("table.emptyDescription")}
+  id={POLAR_PRODUCT_GRID_ID}
+  label={t("title")}
+  search={t("table.search")}
   selectable
 />
 ```
 
-`getProducts` recherche dans le nom et la description, filtre par nom, type, statut, prix dans la devise du produit et jours de création et de modification, et trie par chaque colonne côté serveur. `categories` et `collections` affichent `CategoryGrid` (`category-grid.tsx`) avec `useCategoryColumns` et `getCategoriesPageQuery` (voir [Catégories](/docs/features/categories)). Les cours ont leur propre écran, `/admin/courses` (voir [Cours](/docs/features/courses)). Le compteur du tableau de bord lit aussi `getProductsQuery`.
+Les colonnes sont le produit avec sa description, ses prix avec la période de facturation, le nombre de machines qu’active sa clé de licence, son statut, ses ventes, ce que les acheteurs ont payé après remboursements dans chaque devise, et son identifiant Polar, qui renvoie vers sa page dans le tableau de bord de Polar. Tout le catalogue est dans le navigateur, si bien que la recherche par nom, le filtre de statut, la plage de ventes et le tri par nom, statut et ventes s’y exécutent. Les cases à cocher sélectionnent des produits à exporter en CSV.
 
-La liste est en lecture seule : ses cases à cocher sélectionnent des produits à exporter en CSV. Ses colonnes sont le produit, son type, son prix, son statut et le jour de sa dernière modification, le jour de sa création attendant dans le menu Colonnes ; il n’y a ni formulaire de création ni menu de ligne, car aucun écran n’est encore branché sur `createProduct`, `updateProduct`, `deleteProduct` ou `getProduct`, et une colonne des ventes nécessiterait un lien entre ces lignes et les produits de Polar, que la table n’a pas.
+La liste est en lecture seule : les produits se créent, se modifient et s’archivent dans le tableau de bord de Polar, vers lequel renvoie chaque ligne.
 
-`getProducts` vérifie la `currency` de chaque ligne avec `currencyCodeField` par rapport aux codes ISO 4217 de `CURRENCIES` : la liste échoue plutôt que d’afficher un prix dans une devise inconnue. La colonne du prix convertit `priceCents` dans l’unité principale de la devise avec `fromMinorUnits` et formate le montant selon la langue de la page : sur une page en anglais, 4900 unités mineures s’affichent $49.00 en USD, et ¥4,900 en JPY, dont l’exposant est 0.
+## La table des produits dans D1
 
-Le paiement n’utilise pas cette table : les offres achetables sont des produits Polar (voir [Licences](/docs/features/licences)).
+`src/modules/product` définit toujours une table `product` avec ses cas d’usage, et `src/modules/category` une table `category` (voir [Catégories](/docs/features/categories)), mais aucun écran ne les lit ni ne les écrit, et le paiement ne les a jamais utilisées : ce qu’un acheteur achète est un produit Polar (voir [Licences](/docs/features/licences)).
+
+## Pages associées
+
+- [Paiements](/docs/features/payments)
+- [Commandes et clients](/docs/features/orders)
+- [Tableau de bord d’administration](/docs/features/admin-dashboard)
+- [Configurer Polar](/docs/getting-started/polar-setup)

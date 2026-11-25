@@ -11,15 +11,20 @@ const RECURRING_INTERVAL_COUNT = 1
 const DAYS_PER_WEEK = 7
 
 export interface PolarProduct {
+  readonly benefits?: readonly models.Benefit[]
+  readonly description?: string
   readonly id: string
+  readonly isArchived?: boolean
   readonly name: string
   readonly price: { readonly amount: number; readonly currency: string }
+  readonly prices?: readonly models.ProductPrice[]
   readonly recurringInterval: models.RecurringInterval | null
   readonly requiredCheckboxes?: readonly string[]
+  readonly visibility?: models.ProductVisibility
 }
 
 export interface PolarLicenseKeyBenefit {
-  readonly activationLimit: number
+  readonly activationLimit: number | null
   readonly id: string
   readonly prefix: string
   readonly products: readonly PolarProduct[]
@@ -30,11 +35,14 @@ export interface PolarCatalogue {
   readonly products: readonly PolarProduct[]
 }
 
-const productFields = (organizationId: string, { id, name, recurringInterval }: PolarProduct): Omit<models.OrderProduct, "metadata"> => ({
+const productFields = (
+  organizationId: string,
+  { description, id, isArchived = false, name, recurringInterval, visibility = "public" }: PolarProduct,
+): Omit<models.OrderProduct, "metadata"> => ({
   created_at: CATALOGUE_CREATED_AT,
-  description: null,
+  description: description ?? null,
   id,
-  is_archived: false,
+  is_archived: isArchived,
   is_recurring: recurringInterval !== null,
   meter_interval: null,
   meter_interval_count: null,
@@ -45,7 +53,7 @@ const productFields = (organizationId: string, { id, name, recurringInterval }: 
   recurring_interval_count: recurringInterval && RECURRING_INTERVAL_COUNT,
   trial_interval: null,
   trial_interval_count: null,
-  visibility: "public",
+  visibility,
 })
 
 export const polarOrderProduct = (organizationId: string, product: PolarProduct): models.OrderProduct => ({
@@ -190,14 +198,46 @@ export const polarOrder = ({ checkoutId, customer, metadata, product, status }: 
   }
 }
 
-const polarProduct = (organizationId: string, product: PolarProduct): models.Product => ({
+const licenseKeyActivations = (limit: number | null): models.BenefitLicenseKeyActivationProperties | null => {
+  if (limit === null) {
+    return null
+  }
+  return { enable_customer_admin: true, limit }
+}
+
+export const polarLicenseKeysBenefit = (organizationId: string, benefit: PolarLicenseKeyBenefit): models.BenefitLicenseKeys => ({
+  created_at: CATALOGUE_CREATED_AT,
+  deletable: true,
+  description: `${benefit.prefix} licence key`,
+  id: benefit.id,
+  is_deleted: false,
+  metadata: {},
+  modified_at: null,
+  organization_id: organizationId,
+  properties: {
+    activations: licenseKeyActivations(benefit.activationLimit),
+    expires: null,
+    limit_usage: null,
+    prefix: benefit.prefix,
+  },
+  selectable: true,
+  type: "license_keys",
+  visibility: "public",
+  visibility_configurable: false,
+})
+
+export const polarProduct = (
+  organizationId: string,
+  product: PolarProduct,
+  benefits: readonly PolarLicenseKeyBenefit[] = [],
+): models.Product => ({
   ...productFields(organizationId, product),
   attached_custom_fields: [],
-  benefits: [],
+  benefits: [...benefits.map((benefit) => polarLicenseKeysBenefit(organizationId, benefit)), ...(product.benefits ?? [])],
   is_deletable: false,
   medias: [],
   metadata: {},
-  prices: [polarProductPrice(product)],
+  prices: product.prices === undefined ? [polarProductPrice(product)] : [...product.prices],
 })
 
 const periodEnd = (start: Date, interval: models.RecurringInterval): Date => {
@@ -307,26 +347,7 @@ export const polarLicenseKeyGrant = ({
   readonly licenseKey: models.LicenseKeyWithActivations
   readonly orderId: string
 }): models.BenefitGrantLicenseKeysWebhook => ({
-  benefit: {
-    created_at: CATALOGUE_CREATED_AT,
-    deletable: true,
-    description: `${benefit.prefix} licence key`,
-    id: benefit.id,
-    is_deleted: false,
-    metadata: {},
-    modified_at: null,
-    organization_id: licenseKey.organization_id,
-    properties: {
-      activations: { enable_customer_admin: true, limit: benefit.activationLimit },
-      expires: null,
-      limit_usage: null,
-      prefix: benefit.prefix,
-    },
-    selectable: true,
-    type: "license_keys",
-    visibility: "public",
-    visibility_configurable: false,
-  },
+  benefit: polarLicenseKeysBenefit(licenseKey.organization_id, benefit),
   benefit_id: benefit.id,
   created_at: licenseKey.created_at,
   customer,

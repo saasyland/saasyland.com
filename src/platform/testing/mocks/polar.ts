@@ -4,6 +4,7 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
 import {
+  POLAR_CUSTOMER_PORTAL_PATH,
   type PolarCatalogue,
   type PolarLicenseKeyBenefit,
   type PolarProduct,
@@ -20,6 +21,7 @@ import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import {
   POLAR_CHECKOUT_ID_PLACEHOLDER,
+  POLAR_CUSTOMER_SESSION_TOKEN_PARAM,
   POLAR_LICENSE_KEY_STATUS,
   POLAR_MINIMUM_PRICE_AMOUNT,
   POLAR_ORDER_STATUS,
@@ -39,10 +41,12 @@ const METADATA_MAX_KEYS = 50
 const METADATA_KEY_MAX_LENGTH = 40
 const METADATA_VALUE_MAX_LENGTH = 500
 const CHECKOUT_LIFETIME_MS = 3_600_000
+const CUSTOMER_SESSION_LIFETIME_MS = 3_600_000
 const AD_HOC_CURRENCY = "usd" satisfies models.PresentmentCurrency
 
 export const POLAR_API = {
   CHECKOUTS: "/v1/checkouts/",
+  CUSTOMER_SESSIONS: "/v1/customer-sessions/",
   LICENSE_KEY: "/v1/license-keys/:id",
   LICENSE_KEY_ACTIVATION: "/v1/license-keys/activate",
   LICENSE_KEY_DEACTIVATION: "/v1/license-keys/deactivate",
@@ -376,6 +380,11 @@ const productsQuerySchema = zod.strictObject({
   sorting: zod.literal(POLAR_PRODUCT_SORTING.NAME),
 })
 
+const customerSessionCreateSchema = zod.strictObject({
+  external_customer_id: zod.string().min(1),
+  return_url: zod.url().nullable().optional(),
+} satisfies RequestSchema<models.CustomerSessionCustomerExternalIDCreate>)
+
 const licenseKeyDeactivateSchema = zod.strictObject({
   activation_id: zod.uuid(),
   key: zod.string().min(1),
@@ -470,6 +479,32 @@ const createCheckout = async (request: Request) => {
   }
   checkouts.set(id, checkout)
   return respond(HTTP_STATUS.CREATED, checkout)
+}
+
+const createCustomerSession = async (request: Request) => {
+  const body = customerSessionCreateSchema.safeParse(await request.json())
+  if (!body.success) {
+    return invalid("body", zod.prettifyError(body.error))
+  }
+  const customer = [...customers.values()].find(({ external_id: id }) => id === body.data.external_customer_id)
+  if (customer === undefined) {
+    return invalid("body.external_customer_id", "Customer does not exist.")
+  }
+  const createdAt = new Date()
+  const token = `polar_cst_${crypto.randomUUID().replaceAll("-", "")}`
+  const portal = new URL(POLAR_CUSTOMER_PORTAL_PATH, polarCheckoutOrigin(env.POLAR_SERVER))
+  portal.searchParams.set(POLAR_CUSTOMER_SESSION_TOKEN_PARAM, token)
+  return respond(HTTP_STATUS.CREATED, {
+    created_at: createdAt.toISOString(),
+    customer,
+    customer_id: customer.id,
+    customer_portal_url: portal.toString(),
+    expires_at: new Date(createdAt.getTime() + CUSTOMER_SESSION_LIFETIME_MS).toISOString(),
+    id: crypto.randomUUID(),
+    modified_at: null,
+    return_url: body.data.return_url ?? null,
+    token,
+  } satisfies models.CustomerSession)
 }
 
 const activateLicenseKey = async (request: Request) => {
@@ -604,6 +639,12 @@ const resourceId = (match: URLPatternResult): string => resourceSchema.parse(mat
 const ENDPOINTS: readonly Endpoint[] = [
   { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDERS }), respond: listOrders, scope: POLAR_SCOPE.ORDERS },
   { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.CHECKOUTS }), respond: createCheckout, scope: POLAR_SCOPE.CHECKOUTS },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: POLAR_API.CUSTOMER_SESSIONS }),
+    respond: createCustomerSession,
+    scope: POLAR_SCOPE.CUSTOMER_SESSIONS,
+  },
   {
     method: "POST",
     pattern: new URLPattern({ pathname: POLAR_API.LICENSE_KEY_ACTIVATION }),

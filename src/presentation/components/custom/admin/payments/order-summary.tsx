@@ -9,8 +9,8 @@ import { ORDER_MIRROR_DETAILS } from "~/src/data/payments"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
-import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { useDiscountLabel } from "~/src/presentation/components/custom/admin/payments/order-columns"
+import { MoneyAmount } from "~/src/presentation/components/custom/billing/money-amount"
 
 type MirrorDetail = (typeof ORDER_MIRROR_DETAILS)[number]
 

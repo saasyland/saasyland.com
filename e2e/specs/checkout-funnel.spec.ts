@@ -112,7 +112,7 @@ test.describe("checkout funnel", () => {
     })
   }
 
-  test("a tier picked on the landing page goes from sign-up straight to checkout, and the key, invoices and paid lessons wait for the confirmed email", async ({
+  test("a tier picked on the landing page goes from sign-up straight to checkout, and the key, the billing portal and paid lessons wait for the confirmed email", async ({
     appPage,
     authPage,
     landingPage,
@@ -173,7 +173,7 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
     await expect(page.getByText("Your key appears here once you confirm your email address.", { exact: false })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Invoices and receipts" })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Invoices and receipts" })).toHaveAttribute("href", ROUTES.APP_BILLING)
     expect((await page.request.get(ROUTES.API_AUTH_CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
     for (const colorScheme of COLOR_SCHEMES) {
       await page.emulateMedia({ colorScheme })

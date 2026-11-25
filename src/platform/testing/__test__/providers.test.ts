@@ -3,8 +3,9 @@ import { env } from "cloudflare:workers"
 import { createElement } from "react"
 
 import { beforeEach, describe, expect, it } from "vite-plus/test"
+import * as zod from "zod"
 
-import type { PolarProduct } from "~/src/platform/testing/lib/polar"
+import { POLAR_CUSTOMER_PORTAL_PATH, type PolarProduct } from "~/src/platform/testing/lib/polar"
 import {
   POLAR_API,
   createPolarOrder,
@@ -18,11 +19,13 @@ import { getSentEmails, resendApi } from "~/src/platform/testing/mocks/resend"
 
 import { polar } from "~/src/integrations/polar/polar.config"
 import {
+  POLAR_CUSTOMER_SESSION_TOKEN_PARAM,
   POLAR_FIXED_PRICE,
   POLAR_MINIMUM_PRICE_AMOUNT,
   POLAR_PAGE_SIZE,
   POLAR_PRICE_CURRENCY,
   POLAR_SCOPE,
+  polarCheckoutOrigin,
 } from "~/src/integrations/polar/polar.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
@@ -31,6 +34,9 @@ import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 const RESEND_EMAILS = `${resendApi.origin}/emails`
 const POLAR_CHECKOUTS = `${polarApi.origin}${POLAR_API.CHECKOUTS}`
+const POLAR_CUSTOMER_SESSIONS = `${polarApi.origin}${POLAR_API.CUSTOMER_SESSIONS}`
+
+const customerSessionSchema = zod.object({ customer_id: zod.string(), customer_portal_url: zod.url(), token: zod.string() })
 
 const STARTER_KIT: PolarProduct = {
   id: crypto.randomUUID(),
@@ -129,6 +135,26 @@ describe("Polar test double", () => {
     const order = createPolarOrder({ externalCustomerId: "customer", productId: STARTER_KIT.id })
 
     await expect(polar.orders.get(order.id)).resolves.toStrictEqual(order)
+  })
+
+  it("opens a customer session on Polar's portal for a customer it holds, as the Better Auth portal asks", async () => {
+    const order = createPolarOrder({ externalCustomerId: "portal-customer", productId: STARTER_KIT.id })
+
+    const response = await post(POLAR_CUSTOMER_SESSIONS, { external_customer_id: "portal-customer" }, env.POLAR_ACCESS_TOKEN)
+
+    expect(response.status).toBe(HTTP_STATUS.CREATED)
+    const session = customerSessionSchema.parse(await response.json())
+    const portal = new URL(session.customer_portal_url)
+    expect(`${portal.origin}${portal.pathname}`).toBe(`${polarCheckoutOrigin(env.POLAR_SERVER)}${POLAR_CUSTOMER_PORTAL_PATH}`)
+    expect(portal.searchParams.get(POLAR_CUSTOMER_SESSION_TOKEN_PARAM)).toBe(session.token)
+    expect(session.customer_id).toBe(order.customer_id)
+  })
+
+  it("refuses a customer session for a customer it does not hold, as Polar does", async () => {
+    const response = await post(POLAR_CUSTOMER_SESSIONS, { external_customer_id: "unknown-customer" }, env.POLAR_ACCESS_TOKEN)
+
+    expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_CONTENT)
+    expect(takeProviderRefusals()).toStrictEqual([`POST ${POLAR_CUSTOMER_SESSIONS}: body.external_customer_id: Customer does not exist.`])
   })
 
   it("answers 404 for an order it does not hold, as Polar does, without refusing the request", async () => {

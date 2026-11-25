@@ -40,6 +40,7 @@ export const API_AUTH_POLAR = {
 export const API_AUTH_CUSTOMER_PORTAL = `${API_AUTH_BASE}${API_AUTH_POLAR.CUSTOMER_PORTAL}`
 export const API_AUTH_VERIFY_EMAIL = `${API_AUTH_BASE}/verify-email`
 export const APP = "/app"
+export const APP_BILLING = "/app/billing"
 export const APP_DELETE_ACCOUNT = "/app/settings/delete-account"
 export const APP_LICENSE = "/app/license"
 export const APP_SETTINGS = "/app/settings"

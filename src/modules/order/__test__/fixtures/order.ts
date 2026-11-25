@@ -7,6 +7,7 @@ import type { Order } from "~/src/modules/order/order.types"
 
 export const orderRow = (overrides: Partial<Order["insert"]> = {}): Order["insert"] => ({
   changedAt: new Date("2026-11-16T10:05:00.000Z"),
+  checkoutId: JSON_NULL,
   currency: DEFAULT_CURRENCY_CODE.toLowerCase(),
   customerId: crypto.randomUUID(),
   description: "Complete",

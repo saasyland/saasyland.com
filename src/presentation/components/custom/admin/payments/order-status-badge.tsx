@@ -4,7 +4,7 @@ import { useTranslations } from "use-intl/react"
 
 import type { OrderStatus } from "~/src/modules/order/order.constants"
 
-import { ORDER_STATUS_BADGES } from "~/src/data/payments"
+import { ORDER_STATUS_BADGES } from "~/src/data/billing"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 

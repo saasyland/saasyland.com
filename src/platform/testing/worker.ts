@@ -1,4 +1,5 @@
 import { AUTH_TEST_WORKER } from "~/e2e/data/auth.worker"
+import { BILLING_TEST_WORKER } from "~/e2e/data/billing.worker"
 import { COURSES_TEST_WORKER } from "~/e2e/data/courses.worker"
 import { LICENSE_TEST_WORKER } from "~/e2e/data/license.worker"
 import { NEWSLETTER_TEST_WORKER } from "~/e2e/data/newsletter.worker"
@@ -10,6 +11,7 @@ import type * as applicationModuleType from "~/src/server"
 
 const ENTRIES: readonly TestWorkerEntry[] = [
   ...AUTH_TEST_WORKER,
+  ...BILLING_TEST_WORKER,
   ...COURSES_TEST_WORKER,
   ...LICENSE_TEST_WORKER,
   ...NEWSLETTER_TEST_WORKER,

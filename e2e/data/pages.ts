@@ -1,4 +1,5 @@
 import { AUTH_PAGES } from "./auth.pages"
+import { BILLING_PAGES } from "./billing.pages"
 import { CONTENT_PAGES } from "./content.pages"
 import { COURSES_PAGES } from "./courses.pages"
 import { LEGAL_PAGES } from "./legal.pages"
@@ -16,6 +17,7 @@ const ENTRIES: readonly PageEntry[] = [
   { path: "/" },
   { path: "/pl-PL" },
   ...AUTH_PAGES,
+  ...BILLING_PAGES,
   ...CONTENT_PAGES,
   ...COURSES_PAGES,
   ...LEGAL_PAGES,

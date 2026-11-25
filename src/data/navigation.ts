@@ -1,4 +1,17 @@
-import { BookOpen, Globe, GraduationCap, Home, KeyRound, Package, ReceiptText, Settings, SquarePen, Users, UsersRound } from "lucide-react"
+import {
+  BookOpen,
+  CreditCard,
+  Globe,
+  GraduationCap,
+  Home,
+  KeyRound,
+  Package,
+  ReceiptText,
+  Settings,
+  SquarePen,
+  Users,
+  UsersRound,
+} from "lucide-react"
 
 import {
   ADMIN_NAVIGATION_GROUP,
@@ -58,6 +71,7 @@ export const ADMIN_DASHBOARD_ACTIONS: readonly IconEntry[] = [
 export const APP_NAVIGATION: readonly IconEntry[] = [
   { icon: Home, label: "navigation.auth.app.overview", to: ROUTES.APP },
   { icon: KeyRound, label: "navigation.license.app.license", to: ROUTES.APP_LICENSE },
+  { icon: CreditCard, label: "navigation.billing.app.billing", to: ROUTES.APP_BILLING },
   { icon: GraduationCap, label: "navigation.courses.app.courses", to: ROUTES.COURSES },
   { icon: Settings, label: "navigation.auth.app.settings", to: ROUTES.APP_SETTINGS },
 ]

@@ -10,8 +10,8 @@ import { ORDER_POLAR_AMOUNTS, ORDER_POLAR_DETAILS } from "~/src/data/payments"
 import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
-import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
+import { MoneyAmount } from "~/src/presentation/components/custom/billing/money-amount"
 
 type PolarDetail = (typeof ORDER_POLAR_DETAILS)[number]
 

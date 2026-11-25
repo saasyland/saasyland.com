@@ -1,10 +1,11 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
-import { POLAR_LICENSE_KEY_STATUS, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
+import { POLAR_LICENSE_KEY_STATUS, POLAR_ORGANIZATION_SLUG, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
 
 const MS_PER_SECOND = 1000
 export const POLAR_API_VERSION = "2026-10"
+export const POLAR_CUSTOMER_PORTAL_PATH = `/${POLAR_ORGANIZATION_SLUG}/portal`
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
 const RECURRING_INTERVAL_COUNT = 1

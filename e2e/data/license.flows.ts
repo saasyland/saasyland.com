@@ -3,7 +3,7 @@ import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "./flows"
 
 const BUY_COMPLETE = {
   spec: "checkout-funnel.spec.ts",
-  title: "checkout funnel › a tier picked on the landing page goes from sign-up straight to checkout, and the key, invoices and paid lessons wait for the confirmed email",
+  title: "checkout funnel › a tier picked on the landing page goes from sign-up straight to checkout, and the key, the billing portal and paid lessons wait for the confirmed email",
 } as const
 
 const CHECKOUT_LANGUAGE = {
@@ -199,7 +199,7 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.PURCHASE,
     id: "unconfirmed-buyer-gates",
     outcome:
-      "A buyer who paid before confirming the address sees no key, no invoices link and no paid lesson until the link is opened, and the portal refuses them",
+      "A buyer who paid before confirming the address sees no key and no paid lesson until the link is opened, and the customer portal refuses them",
     status: FLOW_STATUS.COVERED,
     tests: [BUY_COMPLETE],
   },

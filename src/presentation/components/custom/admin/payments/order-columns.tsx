@@ -16,8 +16,8 @@ import { ORDER_COLUMN_SIZES } from "~/src/data/payments"
 
 import { cn } from "~/src/lib/cn"
 
-import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
+import { MoneyAmount } from "~/src/presentation/components/custom/billing/money-amount"
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type OrderRow = Order["listRow"]

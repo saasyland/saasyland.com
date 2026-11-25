@@ -13,6 +13,11 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
+export const ORDER_INVOICE_STATUS = {
+  ISSUED: "issued",
+  PENDING: "pending",
+} as const
+
 export const REVENUE_ORDER_STATUSES = [
   POLAR_ORDER_STATUS.PAID,
   POLAR_ORDER_STATUS.PARTIALLY_REFUNDED,
@@ -52,6 +57,8 @@ export const CHECKOUT_RATE_LIMIT = { max: 10, window: SECONDS_PER_MINUTE } as co
 
 export const ORDER_QUERY_KEYS = {
   ALL: ["order"],
+  CURRENT: ["order", "current"],
+  CURRENT_INVOICE: ["order", "currentInvoice"],
   CUSTOMERS: ["order", "getCustomers"],
   DETAIL: ["order", "getOrder"],
   FILTERS: ["order", "getOrderFilters"],

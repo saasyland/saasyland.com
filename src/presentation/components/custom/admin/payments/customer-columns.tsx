@@ -11,9 +11,9 @@ import type { Order } from "~/src/modules/order/order.types"
 
 import { CUSTOMER_COLUMN_SIZES } from "~/src/data/payments"
 
-import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"
 import { OrderCustomer } from "~/src/presentation/components/custom/admin/payments/order-columns"
 import { CustomerMachines } from "~/src/presentation/components/custom/admin/users/license-machines"
+import { MoneyAmount } from "~/src/presentation/components/custom/billing/money-amount"
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
 type CustomerRow = Order["customerRow"]

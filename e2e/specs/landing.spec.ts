@@ -174,12 +174,14 @@ test.describe("landing page", () => {
       await landingPage.goto()
       const showcase = landingPage.courseShowcase()
       await showcase.scrollIntoViewIfNeeded()
-      await expect(showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })).toBeVisible()
+      const seeded = showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })
+      await expect(seeded).toBeVisible()
       await page.evaluate(async () => {
         await document.fonts.ready
       })
 
-      const layout = await badgeLayout(showcase)
+      const tile = showcase.getByRole("listitem").filter({ has: page.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] }) })
+      const layout = await badgeLayout(tile)
       const label = `${String(viewport.width)}px`
       expect(layout.badges, label).toBeGreaterThan(0)
       expect(layout.inkOffset, label).toBeLessThanOrEqual(BADGE_INK_TOLERANCE_PX)

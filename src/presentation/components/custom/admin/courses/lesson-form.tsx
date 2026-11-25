@@ -17,8 +17,8 @@ import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
-import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { type FormLocale, useFormLocale } from "~/src/hooks/use-form-locale"
+import { useSlugConflict } from "~/src/hooks/use-slug-conflict"
 
 import { MILLISECONDS_PER_SECOND, formatClock } from "~/src/lib/duration"
 import { RICH_TEXT_CODE_MARK } from "~/src/lib/rich-text"
@@ -57,11 +57,10 @@ const toValues = (lesson: Course["editorLesson"]): LessonFormValues => ({
 const useLessonForm = (lesson: Course["editorLesson"]) => {
   const t = useTranslations("pages.admin.courses.lessonEditor")
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
+  const refuseTakenSlug = useSlugConflict({ controlId: "lesson-slug", message: "lessonSlugTaken" })
 
   const update = useMutation({
     ...updateLessonMutation,
-    onError: (error) => toast.error(errorMessage(error)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
       toast.success(t("saved"))
@@ -71,8 +70,8 @@ const useLessonForm = (lesson: Course["editorLesson"]) => {
   const form = useForm({
     defaultValues: toValues(lesson),
     listeners: { onBlur: validateOnBlur },
-    onSubmit: ({ value }) => {
-      update.mutate({ ...value, lessonId: lesson.id })
+    onSubmit: ({ formApi, value }) => {
+      update.mutate({ ...value, lessonId: lesson.id }, { onError: refuseTakenSlug(formApi) })
     },
     validators: { onChange: lessonFormSchema },
   })

@@ -183,11 +183,11 @@ describe("collectFlowTables", () => {
       ["auth.spec.ts › auth › signs a new account in straight away, and its link confirms the address"],
     ])
     expect(missing).toContainEqual([
-      "language-switcher",
-      FLOW_FEATURE.I18N,
+      "expired-signed-path",
+      FLOW_FEATURE.SECURITY,
       expect.any(String),
-      "The spec opens the switcher and checks its links but never follows one.",
-      ["locales.spec.ts › en-US: canonical language, mobile layout, and all legal documents"],
+      expect.stringMatching(/^An expired path must be signed/u),
+      [],
     ])
   })
 

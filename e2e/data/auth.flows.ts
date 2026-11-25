@@ -82,7 +82,12 @@ export const AUTH_FLOWS = [
     outcome:
       "Signing up with the address of a confirmed account creates no second account and no session, shows the same screen as for an unconfirmed one, and emails the account a sign-in link and a reset link instead",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in" }],
+    tests: [
+      {
+        spec: "auth.spec.ts",
+        title: "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -121,7 +126,12 @@ export const AUTH_FLOWS = [
     id: "sign-up-email-suggestion",
     outcome: "After a misspelt email domain, sign-up suggests the likely address once the field is left, and one press fills it in",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "form-validation.spec.ts", title: "form validation timing › a misspelt email domain gets a suggestion once the visitor leaves the field" }],
+    tests: [
+      {
+        spec: "form-validation.spec.ts",
+        title: "form validation timing › a misspelt email domain gets a suggestion once the visitor leaves the field",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -156,7 +166,12 @@ export const AUTH_FLOWS = [
     id: "sign-in-last-used",
     outcome: "The sign-in page lists GitHub first and marks the way the browser signed in last time",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth-journeys.spec.ts", title: "signing in again › lists GitHub first and marks the way the visitor signed in last time" }],
+    tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "signing in again › lists GitHub first and marks the way the visitor signed in last time",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -241,7 +256,12 @@ export const AUTH_FLOWS = [
     id: "return-path-across-sign-up",
     outcome: "The return path survives switching from sign-in to sign-up and back",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth-redirect.spec.ts", title: "returning after sign-in › the return path survives the switch from sign-in to sign-up and back" }],
+    tests: [
+      {
+        spec: "auth-redirect.spec.ts",
+        title: "returning after sign-in › the return path survives the switch from sign-in to sign-up and back",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -280,42 +300,72 @@ export const AUTH_FLOWS = [
     id: "password-reset-invalid-token",
     outcome: "A reset link without a token, or with a used or expired one, changes no password and offers a new link",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › reset-password page without token shows invalid link state" }, { spec: "auth.spec.ts", title: "auth › a used or an expired reset link changes no password and offers a new link" }],
+    tests: [
+      {
+        spec: "auth.spec.ts",
+        title: "auth › reset-password page without token shows invalid link state" }, { spec: "auth.spec.ts", title: "auth › a used or an expired reset link changes no password and offers a new link",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "password-reset-unknown-address",
     outcome: "Asking to reset the password of an address without an account sends no email and answers as for any other address",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › asking to reset the password of an address without an account sends no email and answers as for an account" }],
+    tests: [
+      {
+        spec: "auth.spec.ts",
+        title: "auth › asking to reset the password of an address without an account sends no email and answers as for an account",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "sign-in-with-github",
     outcome: "A visitor signs in with GitHub and lands in /app with an account for the GitHub address",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › connects and disconnects GitHub, and keeps the only way an account signs in until it sets a password" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › connects and disconnects GitHub, and keeps the only way an account signs in until it sets a password",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "sign-in-with-google",
     outcome: "A visitor signs in with Google and lands in /app with an account for the Google address",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › signs a visitor in with Google and lands in /app with an account for the Google address" }],
+    tests: [
+      {
+        spec: "auth.spec.ts",
+        title: "auth › signs a visitor in with Google and lands in /app with an account for the Google address",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "two-factor-sign-in",
     outcome: "An account with two-factor authentication is sent to /auth/two-factor after its password and gets a session only with a valid code",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "two-factor-backup-code",
     outcome: "A backup code signs the account in once and is refused the second time, and new backup codes replace every old one",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -323,7 +373,12 @@ export const AUTH_FLOWS = [
     outcome:
       "A user changes their password in Settings with the current one: every other device is signed out, only the new password signs in, and an email says the password changed",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › changes the password: every other device is signed out, only the new password signs in, and an email says so" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › changes the password: every other device is signed out, only the new password signs in, and an email says so",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -331,7 +386,12 @@ export const AUTH_FLOWS = [
     outcome:
       "Settings lists the account's devices by browser, system and country with this one first, signs out one other device, then every other device, and keeps this one signed in",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › signs out one other device, then every other device, and keeps this one signed in" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › signs out one other device, then every other device, and keeps this one signed in",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -339,7 +399,12 @@ export const AUTH_FLOWS = [
     outcome:
       "A user turns on two-factor authentication with their password, a QR setup key and a code, saves backup codes shown once, replaces them, and turns it off with their password, after which signing in asks for no code",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › turns on two-factor authentication, replaces the backup codes, signs in with a code and once with each new backup code, and turns it off",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -347,14 +412,24 @@ export const AUTH_FLOWS = [
     outcome:
       "A user connects GitHub from Settings and disconnects it, an account that signs in only with GitHub cannot disconnect it and is told to set a password, and once it sets one it can disconnect GitHub and sign in with the password",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › connects and disconnects GitHub, and keeps the only way an account signs in until it sets a password" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › connects and disconnects GitHub, and keeps the only way an account signs in until it sets a password",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
     id: "change-email",
     outcome: "A user changes their email address, confirms the change from the old address and verifies the new one",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › changes the email: the old address confirms the change and the new address verifies it" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › changes the email: the old address confirms the change and the new address verifies it",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -362,7 +437,12 @@ export const AUTH_FLOWS = [
     outcome:
       "A user asks to delete their account with their password, confirms it on the page the emailed link opens, and is signed out, after which the address no longer signs in",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "account-security.spec.ts", title: "account security settings › deletes the account through the emailed link, after which its address no longer signs in" }],
+    tests: [
+      {
+        spec: "account-security.spec.ts",
+        title: "account security settings › deletes the account through the emailed link, after which its address no longer signs in",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ACCOUNT,
@@ -391,7 +471,12 @@ export const AUTH_FLOWS = [
     outcome:
       "The admin finds users by name or email and filters them by role and status on the server, sees the filtered empty state and clears the search and filters from it",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-users.spec.ts", title: "the admin finds users by name or email and filters them by role and status on the server" }],
+    tests: [
+      {
+        spec: "admin-users.spec.ts",
+        title: "the admin finds users by name or email and filters them by role and status on the server",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_USERS,
@@ -469,14 +554,24 @@ export const AUTH_FLOWS = [
     id: "admin-ban-user",
     outcome: "Banning a user ends their sessions and refuses their sign-in, and unbanning lets them sign in again",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-users.spec.ts", title: "banning a user ends their sessions and refuses their sign-in, and unbanning lets them sign in again" }],
+    tests: [
+      {
+        spec: "admin-users.spec.ts",
+        title: "banning a user ends their sessions and refuses their sign-in, and unbanning lets them sign in again",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_USERS,
     id: "admin-set-password",
     outcome: "The admin sets a new password for a user, who then signs in with it and not with the old one",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-users.spec.ts", title: "the admin sets a new password for a user, who then signs in with it and not with the old one" }],
+    tests: [
+      {
+        spec: "admin-users.spec.ts",
+        title: "the admin sets a new password for a user, who then signs in with it and not with the old one",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_USERS,
@@ -558,35 +653,60 @@ export const AUTH_FLOWS = [
     outcome:
       "A customer and a signed-out visitor are refused by every user-management server function (list, read, create, update, role, ban, unban, password, impersonate, sessions, delete), and nothing changes",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-users.spec.ts", title: "a customer and a signed-out visitor are refused by every user-management server function, and nothing changes" }],
+    tests: [
+      {
+        spec: "admin-users.spec.ts",
+        title: "a customer and a signed-out visitor are refused by every user-management server function, and nothing changes",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
     id: "admin-change-password",
     outcome: "An admin changes their password in Settings with the current one, and only the new password signs them in",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-settings.spec.ts", title: "admin security settings › an admin changes their password with the current one, and only the new password signs them in" }],
+    tests: [
+      {
+        spec: "admin-settings.spec.ts",
+        title: "admin security settings › an admin changes their password with the current one, and only the new password signs them in",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
     id: "admin-two-factor-enrol",
     outcome: "An admin turns on two-factor authentication with their password and a code from an authenticator, and receives backup codes",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-settings.spec.ts", title: "admin security settings › an admin turns on two-factor authentication with a code and gets backup codes, then turns it off so signing in asks for no code" }],
+    tests: [
+      {
+        spec: "admin-settings.spec.ts",
+        title: "admin security settings › an admin turns on two-factor authentication with a code and gets backup codes, then turns it off so signing in asks for no code",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
     id: "admin-two-factor-disable",
     outcome: "An admin turns two-factor authentication off with their password, and signing in asks for no code again",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-settings.spec.ts", title: "admin security settings › an admin turns on two-factor authentication with a code and gets backup codes, then turns it off so signing in asks for no code" }],
+    tests: [
+      {
+        spec: "admin-settings.spec.ts",
+        title: "admin security settings › an admin turns on two-factor authentication with a code and gets backup codes, then turns it off so signing in asks for no code",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
     id: "admin-own-sessions",
     outcome: "An admin signs out one of their other sessions, or all of them, from Settings, and those browsers are signed out",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-settings.spec.ts", title: "admin security settings › an admin signs out one other device, then every other device, and stays signed in here" }],
+    tests: [
+      {
+        spec: "admin-settings.spec.ts",
+        title: "admin security settings › an admin signs out one other device, then every other device, and stays signed in here",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_SETTINGS,
@@ -668,22 +788,32 @@ export const AUTH_FLOWS = [
     feature: FLOW_FEATURE.SECURITY,
     id: "auth-rate-limit",
     outcome: "A sensitive request (sign-up, reset request, verification email, two-factor code) over the limit for one address is refused",
-    reason: "Every spec sends its requests from an address of its own to stay under the limit; none asserts the refusal.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "auth-limits.spec.ts",
+        title: "auth limits › a sign-up, reset request, verification email or two-factor code over the limit for one address is refused",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.SECURITY,
     id: "email-recipient-limit",
     outcome: "A verification, reset or newsletter email over the hourly limit for one recipient is skipped without an error",
-    reason: "No spec sends more emails to one address than the hourly limit allows.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "auth-limits.spec.ts",
+        title: "auth limits › a reset or newsletter email over the hourly limit for one recipient is skipped without an error",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.SECURITY,
     id: "cross-origin-auth",
     outcome: "A sign-in or sign-out request from another origin is refused",
-    reason: "The specs send the site's own Origin header; none sends another.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth-limits.spec.ts", title: "auth limits › a sign-in or a sign-out from another origin is refused" }],
   },
   {
     feature: FLOW_FEATURE.I18N,
@@ -697,7 +827,12 @@ export const AUTH_FLOWS = [
     id: "localized-auth-email",
     outcome: "A visitor who signs up on /pl-PL receives the verification email in Polish, with a link back under /pl-PL",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › a visitor who signs up on /pl-PL receives the verification email in Polish, with a link back under /pl-PL" }],
+    tests: [
+      {
+        spec: "auth.spec.ts",
+        title: "auth › a visitor who signs up on /pl-PL receives the verification email in Polish, with a link back under /pl-PL",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.I18N,

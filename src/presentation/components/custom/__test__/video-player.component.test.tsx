@@ -67,13 +67,14 @@ describe("VideoPlayer", () => {
     expect(screen.getAllByRole("button").length).toBeGreaterThan(0)
   })
 
-  it("resumes at the saved position and reports progress and the end", () => {
+  it("resumes at the saved position and reports progress, a pause before the end and the end", () => {
     const onEnded = vi.fn<() => void>()
+    const onPause = vi.fn<(seconds: number) => void>()
     const onProgress = vi.fn<(seconds: number) => void>()
     const { container } = render(
       <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
         <Player poster={PLAYBACK.poster} title="Module boundaries">
-          <VideoPlayer onEnded={onEnded} onProgress={onProgress} playback={PLAYBACK} sizes="100vw" startAt={42.5} />
+          <VideoPlayer onEnded={onEnded} onPause={onPause} onProgress={onProgress} playback={PLAYBACK} sizes="100vw" startAt={42.5} />
         </Player>
       </IntlProvider>,
     )
@@ -86,9 +87,13 @@ describe("VideoPlayer", () => {
     expect(video.currentTime).toBe(42.5)
     video.currentTime = 50
     fireEvent.timeUpdate(video)
+    fireEvent.pause(video)
+    Object.defineProperty(video, "ended", { value: true })
+    fireEvent.pause(video)
     fireEvent.ended(video)
 
     expect(onProgress).toHaveBeenCalledWith(50)
+    expect(onPause).toHaveBeenCalledExactlyOnceWith(50)
     expect(onEnded).toHaveBeenCalledOnce()
   })
 
@@ -102,6 +107,7 @@ describe("VideoPlayer", () => {
     video.currentTime = 12
     fireEvent.loadedMetadata(video)
     fireEvent.timeUpdate(video)
+    fireEvent.pause(video)
     fireEvent.ended(video)
 
     expect(video.currentTime).toBe(0)

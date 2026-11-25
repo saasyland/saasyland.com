@@ -67,6 +67,17 @@ describe("locale switcher", () => {
     expect(menu).not.toHaveAttribute("open")
   })
 
+  it("keeps the trigger focused and the menu open while a language is pressed, as Safari moves focus nowhere on a link press", async () => {
+    const { menu, trigger, user } = renderSwitcher()
+
+    await user.click(trigger)
+    const polish = within(menu).getByRole("link", { name: getLocaleName("pl-PL") })
+
+    expect(fireEvent.mouseDown(polish)).toBe(false)
+    expect(trigger).toHaveFocus()
+    expect(menu).toHaveAttribute("open")
+  })
+
   it("closes on Escape and ignores other keys", async () => {
     const { menu, trigger, user } = renderSwitcher()
 

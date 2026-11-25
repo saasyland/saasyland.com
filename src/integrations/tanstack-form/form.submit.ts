@@ -35,7 +35,7 @@ export const submitForm = async <TName extends string>(
   element.querySelector<HTMLElement>(INVALID_CONTROL_SELECTOR)?.focus()
 }
 
-interface FieldErrorTarget<TName extends string> {
+export interface FieldErrorTarget<TName extends string> {
   setFieldMeta: (field: TName, updater: (meta: AnyFieldLikeMetaBase) => AnyFieldLikeMetaBase) => void
 }
 

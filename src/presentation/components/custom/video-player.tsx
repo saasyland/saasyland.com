@@ -16,13 +16,14 @@ import { cn } from "~/src/lib/cn"
 interface VideoPlayerProps {
   readonly className?: string
   readonly onEnded?: () => void
+  readonly onPause?: (seconds: number) => void
   readonly onProgress?: (seconds: number) => void
   readonly playback: Video["playback"]
   readonly sizes: string
   readonly startAt?: number
 }
 
-export const VideoPlayer = ({ className, onEnded, onProgress, playback, sizes, startAt = 0 }: VideoPlayerProps): JSX.Element => {
+export const VideoPlayer = ({ className, onEnded, onPause, onProgress, playback, sizes, startAt = 0 }: VideoPlayerProps): JSX.Element => {
   const locale = useLocale()
   const hydrated = useHydrated()
 
@@ -51,6 +52,11 @@ export const VideoPlayer = ({ className, onEnded, onProgress, playback, sizes, s
             onEnded={() => onEnded?.()}
             onLoadedMetadata={(event) => {
               event.currentTarget.currentTime = startAt
+            }}
+            onPause={({ currentTarget }) => {
+              if (!currentTarget.ended) {
+                onPause?.(currentTarget.currentTime)
+              }
             }}
             onTimeUpdate={(event) => onProgress?.(event.currentTarget.currentTime)}
             playsInline

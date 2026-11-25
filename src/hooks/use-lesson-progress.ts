@@ -3,13 +3,11 @@ import { useCallback, useRef } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
-import { LESSON_PROGRESS_QUERY_KEYS } from "~/src/modules/lesson-progress/lesson-progress.constants"
+import { LESSON_PROGRESS_QUERY_KEYS, LESSON_PROGRESS_SAVE_INTERVAL_MS } from "~/src/modules/lesson-progress/lesson-progress.constants"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
-
-export const SAVE_INTERVAL_MS = 15_000
 
 interface LessonProgressOptions {
   readonly enabled: boolean
@@ -33,16 +31,30 @@ export const useLessonProgress = ({ enabled, lessonId }: LessonProgressOptions) 
     },
   })
 
-  const save = useCallback(
+  const record = useCallback(
     (seconds: number) => {
-      const now = Date.now()
-      if (!enabled || now - lastSavedAt.current < SAVE_INTERVAL_MS) {
-        return
-      }
-      lastSavedAt.current = now
+      lastSavedAt.current = Date.now()
       mutate({ completed: false, lessonId, positionMs: Math.round(seconds * MILLISECONDS_PER_SECOND) })
     },
-    [enabled, lessonId, mutate],
+    [lessonId, mutate],
+  )
+
+  const save = useCallback(
+    (seconds: number) => {
+      if (enabled && Date.now() - lastSavedAt.current >= LESSON_PROGRESS_SAVE_INTERVAL_MS) {
+        record(seconds)
+      }
+    },
+    [enabled, record],
+  )
+
+  const pause = useCallback(
+    (seconds: number) => {
+      if (enabled) {
+        record(seconds)
+      }
+    },
+    [enabled, record],
   )
 
   const complete = useCallback(() => {
@@ -51,5 +63,5 @@ export const useLessonProgress = ({ enabled, lessonId }: LessonProgressOptions) 
     }
   }, [enabled, lessonId, mutate])
 
-  return { complete, save }
+  return { complete, pause, save }
 }

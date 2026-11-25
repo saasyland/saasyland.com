@@ -576,9 +576,10 @@ describe("admin course creation", () => {
     await fill(user, screen.getByLabelText(labels.form.slug), "the-walkthrough")
     await user.click(screen.getByRole("button", { name: labels.form.create }))
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errors.codes.CONFLICT)
-    })
+    expect(await screen.findByText(validations.courseSlugTaken)).toBeVisible()
+    expect(screen.getByLabelText(labels.form.slug)).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByLabelText(labels.form.slug)).toHaveFocus()
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 
@@ -635,13 +636,13 @@ describe("admin course editor", () => {
   })
 
   it("explains a failed save", async () => {
-    mutations.updateCourse.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
+    mutations.updateCourse.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     await user.click(screen.getByRole("button", { name: labels.form.save }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errors.codes.CONFLICT)
+      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
     })
   })
 })
@@ -717,7 +718,7 @@ describe("admin course chapters", () => {
 })
 
 describe("admin course lessons", () => {
-  it("adds a lesson without a video and explains a failed save", async () => {
+  it("adds a lesson without a video and refuses a slug another lesson of the course uses", async () => {
     mutations.createLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
@@ -728,9 +729,9 @@ describe("admin course lessons", () => {
     await fill(user, within(dialog).getByLabelText(labels.lesson.slug), "checkout")
     await user.click(within(dialog).getByRole("button", { name: labels.lesson.save }))
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errors.codes.CONFLICT)
-    })
+    expect(await within(dialog).findByText(validations.lessonSlugTaken)).toBeVisible()
+    expect(within(dialog).getByLabelText(labels.lesson.slug)).toHaveAttribute("aria-invalid", "true")
+    expect(toast.error).not.toHaveBeenCalled()
     expect(mutations.createLesson).toHaveBeenCalledWith(
       {
         access: LESSON_ACCESS.PAID,

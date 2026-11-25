@@ -27,8 +27,8 @@ import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { createCourseMutation } from "~/src/modules/course/use-cases/create-course"
 import { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
 
-import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { useFormLocale } from "~/src/hooks/use-form-locale"
+import { useSlugConflict } from "~/src/hooks/use-slug-conflict"
 
 import { COURSE_ICON_COMPONENTS } from "~/src/data/course-icons"
 
@@ -86,14 +86,10 @@ const useCourseForm = (course: Course["select"] | undefined) => {
   const t = useTranslations("pages.admin.courses.form")
   const router = useRouter()
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
+  const refuseTakenSlug = useSlugConflict({ controlId: "course-slug", message: "courseSlugTaken" })
 
-  const onError = (error: Error): void => {
-    toast.error(errorMessage(error))
-  }
   const create = useMutation({
     ...createCourseMutation,
-    onError,
     onSuccess: async ({ id }) => {
       await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
       toast.success(t("created"))
@@ -102,7 +98,6 @@ const useCourseForm = (course: Course["select"] | undefined) => {
   })
   const update = useMutation({
     ...updateCourseMutation,
-    onError,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
       toast.success(t("saved"))
@@ -112,12 +107,13 @@ const useCourseForm = (course: Course["select"] | undefined) => {
   const form = useForm({
     defaultValues: course === undefined ? NEW_COURSE : toValues(course),
     listeners: { onBlur: validateOnBlur },
-    onSubmit: ({ value }) => {
+    onSubmit: ({ formApi, value }) => {
+      const onError = refuseTakenSlug(formApi)
       if (course === undefined) {
-        create.mutate(value)
+        create.mutate(value, { onError })
         return
       }
-      update.mutate({ ...value, courseId: course.id })
+      update.mutate({ ...value, courseId: course.id }, { onError })
     },
     validators: { onChange: courseZodSchemas.createCourse },
   })

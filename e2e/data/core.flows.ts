@@ -119,9 +119,8 @@ export const CORE_FLOWS = [
     feature: FLOW_FEATURE.I18N,
     id: "language-switcher",
     outcome: "Choosing a language in the footer's switcher opens the same page in that language",
-    reason: "The spec opens the switcher and checks its links but never follows one.",
-    status: FLOW_STATUS.MISSING,
-    tests: [{ spec: "locales.spec.ts", title: "en-US: canonical language, mobile layout, and all legal documents" }],
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "locales.spec.ts", title: "choosing a language in the footer's switcher opens the same page in that language" }],
   },
   {
     feature: FLOW_FEATURE.SECURITY,
@@ -147,14 +146,30 @@ export const CORE_FLOWS = [
     id: "edge-scripts",
     outcome: "A script the edge adds with the response's nonce runs, and one without it is blocked",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "edge-scripts.spec.ts", title: "on /, a script the edge adds with the header's nonce runs, and one without the nonce is blocked" }],
+    tests: [
+      {
+        spec: "edge-scripts.spec.ts",
+        title: "on /, a script the edge adds with the header's nonce runs, and one without the nonce is blocked",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.SECURITY,
     id: "security-headers",
-    outcome:
-      "Every response carries X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Cross-Origin-Opener-Policy and Permissions-Policy, and HSTS over HTTPS",
-    reason: "The specs read the Content-Security-Policy header and the browser's Permissions-Policy errors; unit tests alone check the other headers.",
+    outcome: "Every response carries X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Cross-Origin-Opener-Policy and Permissions-Policy",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "security-headers.spec.ts",
+        title: "every response carries X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Cross-Origin-Opener-Policy and Permissions-Policy",
+      },
+    ],
+  },
+  {
+    feature: FLOW_FEATURE.SECURITY,
+    id: "hsts",
+    outcome: "Every response over HTTPS carries Strict-Transport-Security",
+    reason: "The browser suite reaches the local Worker over HTTP only; the unit tests of src/server.ts check HSTS on HTTPS requests.",
     status: FLOW_STATUS.MISSING,
   },
 ] as const satisfies readonly Flow[]

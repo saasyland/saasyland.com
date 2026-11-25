@@ -67,6 +67,61 @@ const TEXT_LESSON = {
   title: "lesson videos › an administrator makes a text lesson that visitors read without a player or a recording notice",
 } as const
 
+const EDIT_LESSON_TEXT = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › an administrator writes a lesson's description and key moments, and the lesson page shows them",
+} as const
+
+const EDIT_COURSE = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › an administrator edits a course's title, summary, level, outcomes and status, the course page follows, and unpublishing hides it",
+} as const
+
+const DRAFTS_HIDDEN = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › a draft course and a draft lesson answer 404 to visitors and customers",
+} as const
+
+const EDIT_CHAPTERS = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › an administrator renames a chapter, deletes a lesson and then the chapter, and the course page follows each change",
+} as const
+
+const EDIT_MATERIALS = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › an administrator renames a material and deletes another, and the lesson page and the download path follow",
+} as const
+
+const MATERIAL_LIMITS = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › a material over the size limit, of a type outside the list or past the per-minute limit is refused",
+} as const
+
+const SLUG_TAKEN = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › a course or lesson slug already in use is refused with a field error",
+} as const
+
+const EXPORT_COURSES = {
+  spec: "course-editing.spec.ts",
+  title: "course editing › an administrator exports every course or one, and the file of a deleted course imports it back without changes",
+} as const
+
+const COURSE_FUNCTIONS_REFUSED = {
+  spec: "course-permissions.spec.ts",
+  title: "a customer and a signed-out visitor are refused by every course, chapter, lesson, material, import and export server function, and nothing changes",
+} as const
+
+const VIDEO_FUNCTIONS_REFUSED = {
+  spec: "course-permissions.spec.ts",
+  title: "a customer and a signed-out visitor are refused by every upload and video server function, and nothing changes",
+} as const
+
+const RESUME_UPLOAD = {
+  spec: "course-videos.spec.ts",
+  title: "lesson videos › an upload cut off midway continues from the parts already stored when the same file is chosen again",
+} as const
+
 export const COURSES_FLOWS = [
   {
     feature: FLOW_FEATURE.COURSES,
@@ -164,22 +219,37 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.COURSES,
     id: "agency-watches-paid",
     outcome: "An Agency licence holder opens and streams every paid lesson",
-    reason: "No seeded account holds Agency.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-licences.spec.ts",
+        title: "paid lessons for each licence › an Agency licence holder opens every paid lesson, streams its recording and downloads its materials",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
     id: "core-refused-paid",
     outcome: "A Core licence holder is offered Complete on a paid lesson and receives no signed playlist",
-    reason: "The paid-lesson specs sign in as a customer without a licence.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-licences.spec.ts",
+        title: "paid lessons for each licence › a Core licence holder is offered Complete on a paid lesson and receives no playlist",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
     id: "refunded-loses-lessons",
     outcome: "A refunded or revoked Complete licence no longer opens paid lessons or their materials",
-    reason: "No spec refunds or revokes a licence.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-licences.spec.ts",
+        title: "paid lessons for each licence › a refunded Complete licence no longer opens a paid lesson or its materials",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
@@ -246,23 +316,32 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.COURSES,
     id: "lesson-progress",
     outcome: "A signed-in learner marks a lesson complete, and the course shows it as complete after a reload",
-    reason: "The spec finds the Mark as complete button but never presses it.",
-    status: FLOW_STATUS.MISSING,
-    tests: [{ spec: "courses.spec.ts", title: "courses › an administrator can watch every lesson" }],
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-progress.spec.ts",
+        title: "lesson progress › a signed-in learner marks a lesson complete, and the lesson and its course show it as complete after a reload",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
     id: "lesson-resume",
     outcome: "The playback position is saved while a signed-in learner watches, and the lesson resumes there",
-    reason: "No spec plays a lesson long enough to save its position.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-progress.spec.ts",
+        title: "lesson progress › the position where a signed-in learner pauses is saved, and the lesson resumes there",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
     id: "draft-hidden",
     outcome: "A draft course or lesson answers 404 to visitors and customers",
-    reason: "The specs open published courses only.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [DRAFTS_HIDDEN],
   },
   {
     feature: FLOW_FEATURE.COURSES,
@@ -306,7 +385,12 @@ export const COURSES_FLOWS = [
     id: "course-panel",
     outcome: "On a wide screen the course panel stays below the header with the same gap while the visitor scrolls",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "course-pages.spec.ts", title: "course and lesson pages › the unlock panel sticks below the header with the same gap at every scroll" }],
+    tests: [
+      {
+        spec: "course-pages.spec.ts",
+        title: "course and lesson pages › the unlock panel sticks below the header with the same gap at every scroll",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.COURSES,
@@ -351,7 +435,8 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.SECURITY,
     id: "expired-signed-path",
     outcome: "A signed video or download path past its expiry is refused",
-    reason: "The specs forge a signature; none presents an expired one.",
+    reason:
+      "An expired path must be signed with the Worker's AUTH_SECRET for a past expiry; a test endpoint that signs one reads that secret, which needs a person's review, and the unit tests of verifyPlayback and the download signature refuse an expired path.",
     status: FLOW_STATUS.MISSING,
   },
   {
@@ -393,9 +478,8 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-edit-lesson",
     outcome: "The admin writes a lesson's description and key moments, and the lesson page shows them",
-    reason: "The spec checks the editor's preview and the saved notice, not the lesson page.",
-    status: FLOW_STATUS.MISSING,
-    tests: [WRITE_LESSON],
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_LESSON_TEXT],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
@@ -442,22 +526,15 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-export-courses",
     outcome: "The admin exports every course, or one, as a JSON file that imports back into a site without changes",
-    reason: "The import spec reads the checked-in curriculum; no spec presses Export or imports what it downloaded.",
-    status: FLOW_STATUS.MISSING,
-    tests: [
-      {
-        spec: "course-import.spec.ts",
-        title: "an administrator imports the curriculum, visitors see it being recorded, and a second import changes nothing",
-      },
-    ],
+    status: FLOW_STATUS.COVERED,
+    tests: [EXPORT_COURSES],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-update-course",
     outcome: "The admin edits a course's title, summary, level, outcomes and status, the course page follows, and unpublishing hides it",
-    reason: "The spec renames a course; none edits its summary, level, outcomes or status after creating it.",
-    status: FLOW_STATUS.MISSING,
-    tests: [FRESH_COURSE],
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_COURSE],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
@@ -493,8 +570,8 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-edit-chapter",
     outcome: "Renaming a chapter shows its new title on the course page",
-    reason: "No spec edits a chapter after creating it.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_CHAPTERS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
@@ -507,8 +584,8 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-delete-chapter",
     outcome: "Deleting a chapter removes it and its lessons from the course",
-    reason: "No spec deletes a chapter.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_CHAPTERS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
@@ -521,8 +598,8 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-delete-lesson",
     outcome: "Deleting a lesson removes it from the course, and its page answers 404",
-    reason: "No spec deletes a lesson.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_CHAPTERS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
@@ -535,37 +612,37 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-edit-material",
     outcome: "Renaming a material from its ⋯ menu changes its title on the lesson page",
-    reason: "No spec renames a material after adding it.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_MATERIALS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-delete-material",
     outcome: "Deleting a material removes it from the lesson, and its download path answers 404",
-    reason: "The specs delete the whole course, never one material.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [EDIT_MATERIALS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-upload-limits",
     outcome: "A file over the size limit or of a type outside the allowed list is refused, and so are uploads over the per-minute limit",
-    reason: "The spec uploads one allowed file.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [MATERIAL_LIMITS],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-slug-taken",
     outcome: "A course or lesson slug already in use is refused with a field error",
-    reason: "Every spec makes up a new slug.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [SLUG_TAKEN],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,
     id: "admin-courses-refused",
     outcome:
       "A customer and a signed-out visitor are refused by every course, chapter, lesson, material, import and export server function, and nothing changes",
-    reason: "No spec calls a course-editing server function without the permission.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [COURSE_FUNCTIONS_REFUSED],
   },
   {
     feature: FLOW_FEATURE.ADMIN_VIDEOS,
@@ -593,15 +670,14 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_VIDEOS,
     id: "admin-resume-upload",
     outcome: "An upload cut off midway continues from the parts already stored when the same file is chosen again",
-    reason: "No spec interrupts an upload; the unit tests of useVideoUpload and startVideoUpload cover the resume.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [RESUME_UPLOAD],
   },
   {
     feature: FLOW_FEATURE.ADMIN_VIDEOS,
     id: "admin-videos-refused",
     outcome: "A customer and a signed-out visitor are refused by every upload and video server function, and nothing changes",
-    reason: "The spec checks the route guard and an unsigned stream; no spec calls the upload's server functions as a customer.",
-    status: FLOW_STATUS.MISSING,
-    tests: [CUSTOMER_KEPT_OUT],
+    status: FLOW_STATUS.COVERED,
+    tests: [VIDEO_FUNCTIONS_REFUSED, CUSTOMER_KEPT_OUT],
   },
 ] as const satisfies readonly Flow[]

@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs"
 
 import * as zod from "zod"
 
-import { I18N } from "../../src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 import { expect, test } from "../fixtures/test"
 
 const legalPages = ["privacy", "terms", "refunds", "licence"] as const
 const legalPageSchema = zod.object({ title: zod.string() })
+const SWITCHED_LOCALE: SupportedLocale = "pl-PL"
 
 for (const locale of I18N.SUPPORTED_LOCALES) {
   const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
@@ -64,3 +65,24 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
     expect(errors).toEqual([])
   })
 }
+
+test("choosing a language in the footer's switcher opens the same page in that language", async ({ appPage, page }) => {
+  const path = "/docs/getting-started/installation"
+  const choose = async (locale: SupportedLocale): Promise<void> => {
+    const localeSwitch = page.locator("footer details")
+    await localeSwitch.locator("summary").click()
+    await localeSwitch.locator(`a[hreflang="${locale}"]`).click()
+    await appPage.waitForAppReady()
+    await expect(page.locator("html")).toHaveAttribute("lang", locale)
+    await expect(localeSwitch.locator('a[aria-current="true"]')).toHaveAttribute("hreflang", locale)
+  }
+  await page.goto(path)
+  await appPage.waitForAppReady()
+  await appPage.waitForHydration(page.locator("footer"))
+
+  await choose(SWITCHED_LOCALE)
+  await expect(page).toHaveURL(`/${SWITCHED_LOCALE}${path}`)
+
+  await choose(I18N.DEFAULT_LOCALE)
+  await expect(page).toHaveURL(path)
+})

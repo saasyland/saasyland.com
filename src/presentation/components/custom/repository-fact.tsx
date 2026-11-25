@@ -75,6 +75,7 @@ import {
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
+import { CONFIRMATION_WINDOW_IN_HOURS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
@@ -122,9 +123,9 @@ import {
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
-import { CORE_PRICE_IN_HOURS } from "~/src/data/license"
+import { CORE_PRICE_IN_HOURS, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { TEST_SERVER_PORTS } from "~/src/data/local-server"
-import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
+import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS, TEAM_SEATS_ACCESS } from "~/src/data/marketing"
 import {
   FEATURE_STATUS,
   FEATURE_STATUSES,
@@ -132,6 +133,7 @@ import {
   NAVIGATION_PENDING_MIN_MS,
   NAVIGATION_PENDING_MS,
 } from "~/src/data/navigation.constants"
+import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { SKILL_SOURCES } from "~/src/data/skills"
@@ -197,6 +199,7 @@ const tierFeatureRows = (tier: LicenseTier) =>
 
 const FACTS = {
   ...REPOSITORY_FACTS,
+  ...TIER_SUPPORT_VALUES,
   activationPollSeconds: ACTIVATION_POLL_MS / MILLISECONDS_PER_SECOND,
   activationTimeoutSeconds: ACTIVATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   adminPreviewPageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize,
@@ -306,6 +309,8 @@ const FACTS = {
   nameMaxLength: NAME_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
+  newsletterConfirmationHours: CONFIRMATION_WINDOW_IN_HOURS,
+  newsletterSending: NEWSLETTER_SENDING,
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
@@ -343,6 +348,7 @@ const FACTS = {
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
   storyboardMaxTiles: STORYBOARD_MAX_FRAMES,
   supportedLocales: I18N.SUPPORTED_LOCALES,
+  teamSeatsAccess: TEAM_SEATS_ACCESS,
   testServerFirstPort: String(TEST_SERVER_PORTS.FIRST),
   testServerLastPort: String(TEST_SERVER_PORTS.LAST),
   tokenRateLimit: RATE_LIMITS.TOKEN.max,

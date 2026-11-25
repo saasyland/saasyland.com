@@ -7,6 +7,7 @@ import { useSiteNavigation } from "~/src/hooks/use-site-navigation"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
+import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 
 import { cn } from "~/src/lib/cn"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
@@ -40,7 +41,9 @@ export const Footer = (): JSX.Element => {
         <div className="grid gap-x-16 gap-y-8 border-b border-border py-14 md:grid-cols-2 md:items-end md:py-16">
           <div>
             <h2 className="text-headline-support text-foreground">{t("components.custom.footer.buildLog.title")}</h2>
-            <p className="mt-3 max-w-136 text-body text-pretty text-muted-foreground">{t("components.custom.footer.buildLog.body")}</p>
+            <p className="mt-3 max-w-136 text-body text-pretty text-muted-foreground">
+              {t("components.custom.footer.buildLog.body", { sending: NEWSLETTER_SENDING })}
+            </p>
           </div>
           <NewsletterForm />
         </div>

@@ -5,7 +5,7 @@ import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/
 
 import { AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { TIER_PRICES } from "~/src/data/license"
+import { TIER_PRICES, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { BILLING_GENERATION } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
@@ -19,6 +19,7 @@ export const postTextValues = (locale: string): Readonly<Record<string, number |
   return {
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
+    ...TIER_SUPPORT_VALUES,
     affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
     affiliateProgram: AFFILIATE_PROGRAM,
     billingGeneration: BILLING_GENERATION,

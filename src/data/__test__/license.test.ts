@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CORE_PRICE_IN_HOURS, TIER_FEATURES, TIER_PRICES } from "~/src/data/license"
-import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
+import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS, TEAM_SEATS_ACCESS } from "~/src/data/marketing"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
@@ -79,5 +79,11 @@ describe("licence tier data", () => {
     const statuses = Object.fromEntries(TIER_FEATURES[LICENSE_TIER.COMPLETE].map(({ id, status }) => [id, status]))
 
     expect(statuses).toMatchObject({ angularprojects: ANGULARPROJECTS_ACCESS, reactprojects: REACTPROJECTS_ACCESS })
+  })
+
+  it("takes the status of Agency's team seats from the one status the FAQ reads", () => {
+    const statuses = Object.fromEntries(TIER_FEATURES[LICENSE_TIER.AGENCY].map(({ id, status }) => [id, status]))
+
+    expect(statuses).toMatchObject({ seats: TEAM_SEATS_ACCESS })
   })
 })

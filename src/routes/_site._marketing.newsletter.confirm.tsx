@@ -9,13 +9,14 @@ import * as zod from "zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { CONFIRMATION_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { CONFIRMATION_STATUS, CONFIRMATION_WINDOW_IN_HOURS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { confirmNewsletterSubscriptionMutation } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { CTA_CLASSES } from "~/src/data/cta"
+import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 
 import { cn } from "~/src/lib/cn"
 import { searchChoice, searchParam } from "~/src/lib/search-params"
@@ -37,7 +38,10 @@ const NewsletterConfirmResult = ({ status }: { readonly status: ConfirmationStat
   const t = useTranslations("pages.newsletter.confirm")
 
   return (
-    <ContentPage lead={t(`${status}.body`)} title={t(`${status}.title`)}>
+    <ContentPage
+      lead={t(`${status}.body`, { hours: CONFIRMATION_WINDOW_IN_HOURS, sending: NEWSLETTER_SENDING })}
+      title={t(`${status}.title`)}
+    >
       <p className="mt-6 max-w-2xl text-body-sm text-pretty text-muted-foreground">{t(`${status}.note`)}</p>
       <div className="mt-10">
         {status === CONFIRMATION_STATUS.CONFIRMED && (
@@ -63,7 +67,7 @@ const NewsletterConfirmPrompt = ({ token }: { readonly token: string }): JSX.Ele
   })
 
   return (
-    <ContentPage lead={t("prompt.body")} title={t("prompt.title")}>
+    <ContentPage lead={t("prompt.body", { sending: NEWSLETTER_SENDING })} title={t("prompt.title")}>
       <Button
         className={cn("mt-10", CTA_CLASSES.PRIMARY)}
         isPending={confirm.isPending}

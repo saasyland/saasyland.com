@@ -12,6 +12,8 @@ import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
+import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
+
 import { pageHead } from "~/src/lib/seo"
 
 import { CourseCard, FeaturedCourseCard } from "~/src/presentation/components/custom/courses/course-card"
@@ -64,7 +66,9 @@ const CoursesPage = (): JSX.Element => {
         {featured === undefined && (
           <div className="mt-14 border-y border-border py-10 md:mt-20">
             <h2 className="text-title text-balance text-foreground">{t("catalogue.empty.title")}</h2>
-            <p className="mt-2 max-w-2xl text-body text-pretty text-muted-foreground">{t("catalogue.empty.body")}</p>
+            <p className="mt-2 max-w-2xl text-body text-pretty text-muted-foreground">
+              {t("catalogue.empty.body", { sending: NEWSLETTER_SENDING })}
+            </p>
           </div>
         )}
 

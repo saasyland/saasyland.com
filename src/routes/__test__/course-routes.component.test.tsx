@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
@@ -33,6 +34,7 @@ import {
 import { clearCourseRouters, expand, renderCourses, stubCourseGlobals } from "~/src/routes/__test__/fixtures/course-router"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
+import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 
@@ -192,7 +194,9 @@ describe("course catalogue", () => {
     })
 
     expect(screen.getByRole("heading", { level: 2, name: messages.catalogue.empty.title })).toBeVisible()
-    expect(screen.getByText(messages.catalogue.empty.body)).toBeVisible()
+    expect(
+      screen.getByText(createTranslator({ locale: "en-US", messages })("catalogue.empty.body", { sending: NEWSLETTER_SENDING })),
+    ).toBeVisible()
     expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
   })
 

@@ -16,7 +16,7 @@ import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
-import { TIER_FEATURES } from "~/src/data/license"
+import { TIER_FEATURES, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import {
   ANGULARPROJECTS_FACTS,
   ANGULARPROJECTS_URL,
@@ -63,6 +63,7 @@ const withFacts = (message: string): string =>
     ...REPOSITORY_FACTS,
     ...COURSE_PLATFORM_VALUES,
     ...CLI_GENERATION_VALUES,
+    ...TIER_SUPPORT_VALUES,
     days: REFUND_TERMS.WITHDRAWAL_DAYS,
     sections: ADMIN_SECTION_NAMES,
   })

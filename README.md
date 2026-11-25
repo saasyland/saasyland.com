@@ -2,7 +2,7 @@
 
 Source code for the SaaSy Land website, customer workspace, and admin console. The application combines a multilingual marketing site, documentation and blog, authentication, newsletter subscriptions, video streaming and courses, and Polar checkout and licence management in one TanStack Start application deployed to Cloudflare Workers.
 
-This repository contains the website application. The SaaSy Land CLI and private generator templates are maintained separately and are not included here. See [licensing](#licensing) for the distinction between the website source and the commercial product.
+This repository contains the website application. The SaaSy Land CLI and private generator templates are maintained separately and are not included here. The website source is MIT licensed, so you can start from it for free; the paid CLI writes a new project in the stack you choose, with its own tests, coverage gate, CI workflow and `AGENTS.md`. See [licensing](#licensing) for the distinction between the website source and the commercial product.
 
 [![SaaSy Land landing page: the headline "The 300+ hour head start for builders who care about quality", the install command, and the admin dashboard](.github/assets/landing-page-preview.webp)](.github/assets/landing-page.jpg)
 

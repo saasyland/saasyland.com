@@ -1,5 +1,6 @@
 import type { ReactElement } from "react"
 
+import { CHOICE } from "@saasyland/stack"
 import { cleanup, fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider, createTranslator } from "use-intl"
@@ -15,7 +16,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
-import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { TIER_FEATURES, TIER_PRICES, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import {
   ANGULARPROJECTS_FACTS,
@@ -53,8 +54,11 @@ import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricin
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
-import { APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
+import stackMessages from "~/messages/en-US/stack.json"
+import { APP_GITHUB_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
+
+const HERO_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
 
 const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
   ADMIN_NAVIGATION.flatMap(({ items }) => items).map((entry) => getNavigationLabel(I18N.DEFAULT_LOCALE)(entry)),
@@ -181,7 +185,7 @@ describe("regional pricing", () => {
     const { container } = renderSection(<PricingSection />)
     const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => regionalText(element))
 
-    expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $249"])
+    expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $899", "Regular price $249"])
     for (const price of ["$199", "$174", "$149", "$124", "$279", "$629"]) {
       expect(container.querySelectorAll(`.pv.ppp-text[data-text="${price}"]`).length).toBeGreaterThan(0)
     }
@@ -288,7 +292,9 @@ describe("marketing content and purchase links", () => {
   it("offers a working install command for every package manager", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<HeroSection />)
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.hero }).markup("title", { accent: (chunks: string) => chunks }),
+    )
     expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
     expect(screen.getByRole("link", { name: english.hero.ctaSecondary })).toHaveAttribute("href", "#foundation")
     for (const [runner, command] of [
@@ -309,10 +315,9 @@ describe("marketing content and purchase links", () => {
     renderSection(<PricingSection />)
     for (const [id, tier] of Object.entries(pricing.tiers)) {
       expect(screen.getByRole("heading", { name: tier.name })).toBeVisible()
-      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute(
-        "href",
-        `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP}?tier=${id}`)}`,
-      )
+      for (const link of screen.getAllByRole("link", { name: tier.cta })) {
+        expect(link).toHaveAttribute("href", `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP}?tier=${id}`)}`)
+      }
       for (const feature of Object.values(tier.features)) {
         expect(screen.getAllByText(withFacts(feature)).length).toBeGreaterThan(0)
       }
@@ -512,5 +517,48 @@ describe("record evidence", () => {
     for (const code of EVIDENCE_CODE) {
       expect(evidence).toContain(code)
     }
+  })
+})
+
+describe("positioning beside the hero and the tiers", () => {
+  it("names the stack the CLI writes today from its templates and links the roadmap for the others", () => {
+    renderSection(<HeroSection />)
+    const label = (choice: (typeof HERO_STACK)[number]): string =>
+      new Intl.ListFormat(I18N.DEFAULT_LOCALE, { type: "disjunction" }).format(
+        CLI_TEMPLATE_SUPPORT.choices[choice].flatMap((option) =>
+          Object.entries(stackMessages[choice].options)
+            .filter(([id]) => id === option)
+            .map(([, text]) => text),
+        ),
+      )
+    const sentence = createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.hero }).markup("stack", {
+      ...Object.fromEntries(HERO_STACK.map((choice) => [choice, label(choice)])),
+      roadmap: (chunks: string) => chunks,
+    })
+
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent.endsWith(sentence))).toBeVisible()
+    expect(screen.getByRole("link", { name: "roadmap" })).toHaveAttribute("href", ROUTES.DOCS_ROADMAP)
+  })
+
+  it("offers the free MIT source, the Agency licence and consulting as ways in beside the tiers", () => {
+    renderSection(<PricingSection />)
+
+    expect(screen.getByRole("heading", { name: english.pricing.free.title })).toBeVisible()
+    expect(screen.getByText(withFacts(english.pricing.free.body))).toBeVisible()
+    expect(screen.getByRole("link", { name: english.pricing.free.cta })).toHaveAttribute("href", APP_GITHUB_URL)
+    expect(screen.getByText(english.pricing.free.period).previousElementSibling).toHaveTextContent(
+      new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(0),
+    )
+    expect(screen.getByRole("heading", { name: english.pricing.agency.title })).toBeVisible()
+    expect(
+      screen.getByText(
+        createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.pricing.agency })("body", {
+          ...TIER_SUPPORT_VALUES,
+          machines: LICENSE_ACTIVATION_LIMITS.agency,
+        }),
+      ),
+    ).toBeVisible()
+    expect(screen.getAllByRole("link", { name: pricing.tiers.agency.cta })).toHaveLength(2)
+    expect(screen.getByRole("heading", { name: english.pricing.consulting.title })).toBeVisible()
   })
 })

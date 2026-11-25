@@ -78,7 +78,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
       "e2e/data/{accounts,google}.ts",
       "e2e/fixtures/{auth,emails,github,google,oauth,sign-up,totp}.ts",
       "e2e/pages/auth-page.ts",
-      "e2e/specs/{account-security,admin-command-palette,admin-dashboard,admin-navigation,admin-settings,admin-users,auth,auth-journeys,auth-layout,auth-limits,auth-redirect,auth-routing,form-validation,workspaces}.spec.ts",
+      "e2e/specs/{account-security,admin-command-palette,admin-dashboard,admin-navigation,admin-settings,admin-users,auth,auth-journeys,auth-layout,auth-limits,auth-redirect,auth-routing,form-validation,header-session,workspaces}.spec.ts",
       "messages/*/auth.*.json",
       "messages/*/pages.{admin,app,auth}.json",
       "messages/*/pages.{admin,app,auth}.*.json",

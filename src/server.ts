@@ -8,6 +8,7 @@ import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
 import { LESSON_ATTACHMENT_PATH_PREFIX } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import { rewritePppOffer } from "~/src/modules/license/license.pricing"
+import { markSession } from "~/src/modules/session/session.rewrite"
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
@@ -77,7 +78,7 @@ const REQUEST_HANDLERS: readonly RequestHandler[] = [
   },
 ]
 
-const DOCUMENT_REWRITES: readonly DocumentRewrite[] = [rewritePppOffer]
+const DOCUMENT_REWRITES: readonly DocumentRewrite[] = [rewritePppOffer, markSession]
 
 const DOCUMENT_CACHE_CONTROL = "private, no-cache"
 
@@ -126,6 +127,7 @@ const setDocumentHeaders = (headers: Headers, locale: SupportedLocale): void => 
 
   headers.append("Link", fonts.join(", "))
   headers.set("Cache-Control", DOCUMENT_CACHE_CONTROL)
+  headers.append("Vary", "Cookie")
   for (const name of STALE_DOCUMENT_HEADERS) {
     headers.delete(name)
   }

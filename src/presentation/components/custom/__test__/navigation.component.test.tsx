@@ -12,9 +12,10 @@ import {
   createAuthSessionFixture,
   createMissingAuthSessionResult,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "~/src/integrations/better-auth/auth.constants"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
+import { SESSION_ATTRIBUTE } from "~/src/modules/session/session.rewrite"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
@@ -403,68 +404,86 @@ describe("header preloading", () => {
   })
 })
 
+const accountLink = (scope: HTMLElement, href: string): HTMLElement | undefined =>
+  within(scope)
+    .getAllByRole("link", { hidden: true })
+    .find((link) => link.getAttribute("href") === href)
+
 describe("signed-in visitors", () => {
   const accountLabel = navigationAuthMessages.header.account
   const signInLabel = navigationAuthMessages.header.signIn
 
   afterEach(() => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    document.documentElement.removeAttribute(SESSION_ATTRIBUTE)
+  })
+
+  it("holds both labels in one slot of the link, Your account hidden until the page is marked signed in", () => {
+    renderNavigation()
+    const link = accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)
+    const [slot] = link?.children ?? []
+
+    expect(slot).toHaveClass("inline-grid")
+    expect([...(slot?.children ?? [])].map((label) => [label.textContent, label.className])).toStrictEqual([
+      [signInLabel, "[grid-area:1/1] signed-in:invisible"],
+      [accountLabel, "invisible [grid-area:1/1] signed-in:visible"],
+    ])
   })
 
   it.each([
     { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
     { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
   ])(
-    "asks a browser that has signed in before for its session, and leads a $role from its account link to $workspace",
+    "asks a page the Worker marked as signed in for its session, and leads a $role from its account link to $workspace",
     async ({ role, workspace }) => {
-      document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
+      document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
       sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
       renderNavigation()
       const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
-      expect(await within(nav).findByRole("link", { name: accountLabel })).toHaveAttribute("href", workspace)
-      expect(within(nav).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
+      await waitFor(() => {
+        expect(accountLink(nav, workspace)).toHaveTextContent(accountLabel)
+      })
+      expect(accountLink(nav, ROUTES.SIGN_IN)).toBeUndefined()
       await userEvent.setup({ delay: null }).click(menuButton())
-      expect(within(menu()).getByRole("link", { name: accountLabel })).toHaveAttribute("href", workspace)
-      expect(within(menu()).queryByRole("link", { name: signInLabel })).not.toBeInTheDocument()
+      expect(accountLink(menu(), workspace)).toHaveTextContent(accountLabel)
+      expect(document.documentElement).toHaveAttribute(SESSION_ATTRIBUTE)
     },
   )
 
-  it("turns the sign-in link into the account link in place, so a press while the session loads still lands on it", async () => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.GITHUB}; path=/`
+  it("keeps the same link while the session loads, so a press that starts on it still lands on it", async () => {
+    document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
     const session = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
     sessionRequest.mockReturnValue(session.promise)
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
-    const headerSignIn = within(nav).getByRole("link", { name: signInLabel })
+    const headerLink = accountLink(nav, ROUTES.SIGN_IN)
     await userEvent.setup({ delay: null }).click(menuButton())
-    const menuSignIn = within(menu()).getByRole("link", { name: signInLabel })
+    const menuLink = accountLink(menu(), ROUTES.SIGN_IN)
     session.resolve(createAuthSessionFixture())
 
-    expect(await within(nav).findByRole("link", { hidden: true, name: accountLabel })).toBe(headerSignIn)
-    expect(within(menu()).getByRole("link", { name: accountLabel })).toBe(menuSignIn)
+    await waitFor(() => {
+      expect(accountLink(nav, ROUTES.APP)).toBe(headerLink)
+    })
+    expect(accountLink(menu(), ROUTES.APP)).toBe(menuLink)
   })
 
-  it("keeps sign-in for a browser whose session has ended", async () => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+  it("removes the mark of a page whose session has ended, and keeps its link on sign-in", async () => {
+    document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
     sessionRequest.mockResolvedValue(createMissingAuthSessionResult())
     renderNavigation()
 
     await waitFor(() => {
-      expect(sessionRequest).toHaveBeenCalledOnce()
+      expect(document.documentElement).not.toHaveAttribute(SESSION_ATTRIBUTE)
     })
-    expect(
-      within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).getByRole("link", { name: signInLabel }),
-    ).toHaveAttribute("href", ROUTES.SIGN_IN)
+    expect(sessionRequest).toHaveBeenCalledOnce()
+    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)).toBeVisible()
   })
 
-  it("keeps sign-in, and asks for no session, in a browser that has never signed in", () => {
+  it("keeps sign-in, and asks for no session, on a page the Worker left unmarked", () => {
     sessionRequest.mockResolvedValue(createAuthSessionFixture())
     renderNavigation()
 
-    expect(
-      within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).getByRole("link", { name: signInLabel }),
-    ).toBeVisible()
+    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)).toBeVisible()
     expect(sessionRequest).not.toHaveBeenCalled()
   })
 })

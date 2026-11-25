@@ -14,6 +14,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { LocaleSwitcher } from "~/src/presentation/components/custom/locale-switcher"
 import { NewsletterForm } from "~/src/presentation/components/custom/newsletter-form"
+import { SiteEntryLabel } from "~/src/presentation/components/custom/site-entry-label"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -75,7 +76,7 @@ export const Footer = (): JSX.Element => {
                 {column.links.map((link, position) => (
                   <li key={position}>
                     <Link className={LINK_CLASSNAME} to={link.to}>
-                      {t(link.label)}
+                      <SiteEntryLabel entry={link} />
                     </Link>
                   </li>
                 ))}

@@ -14,6 +14,7 @@ import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
 import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import { PPP_ATTRIBUTE } from "~/src/modules/license/license.pricing"
+import { SESSION_ATTRIBUTE, SESSION_COOKIE_NAMES } from "~/src/modules/session/session.rewrite"
 import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { documentPolicy } from "~/src/lib/content-security-policy"
@@ -410,6 +411,42 @@ it.each([
     ["style", style],
   ])
   expect(headersNamed(response, Object.keys(OTHER_SECURITY_HEADERS))).toStrictEqual(OTHER_SECURITY_HEADERS)
+})
+
+it.each(["prerendered", "rendered"])(
+  "marks %s HTML for a request that carries the session cookie, and keeps it private to that browser",
+  async (source) => {
+    const html = new Response("<html>Page</html>", { headers: { "Content-Type": "text/html", Vary: "Accept-Encoding" } })
+    if (source === "prerendered") {
+      vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(html)
+      transformPage.mockImplementationOnce((page) => page)
+    } else {
+      fetchHandler.mockResolvedValueOnce(html)
+    }
+    transformPage.mockImplementationOnce((page) => new Response("marked page", page))
+    const [sessionCookie] = SESSION_COOKIE_NAMES
+
+    const response = await worker.fetch(new Request("http://localhost/docs", { headers: { Cookie: `${sessionCookie}=token` } }), env)
+    const setAttribute = vi.fn()
+    await runElementHandler("html", { setAttribute })
+
+    expect(await response.text()).toBe("marked page")
+    expect(setAttribute).toHaveBeenCalledExactlyOnceWith(SESSION_ATTRIBUTE, "")
+    expect(headersNamed(response, ["Cache-Control", "Vary"])).toStrictEqual({
+      "Cache-Control": "private, no-cache",
+      Vary: "Accept-Encoding, Cookie",
+    })
+  },
+)
+
+it("leaves the HTML of a request without the session cookie unmarked, and still varies it by cookie", async () => {
+  vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("<html>Page</html>", { headers: { "Content-Type": "text/html" } }))
+
+  const response = await worker.fetch(new Request("http://localhost/docs"), env)
+
+  expect(await response.text()).toBe("<html>Page</html>")
+  expect(rewriteHandlers).not.toHaveBeenCalledWith("html", expect.anything())
+  expect(headersNamed(response, ["Cache-Control", "Vary"])).toStrictEqual({ "Cache-Control": "private, no-cache", Vary: "Cookie" })
 })
 
 it("serves a course cover itself, without the locale middleware or TanStack Start", async () => {

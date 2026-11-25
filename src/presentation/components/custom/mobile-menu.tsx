@@ -15,6 +15,7 @@ import { cn } from "~/src/lib/cn"
 import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
+import { SiteEntryLabel } from "~/src/presentation/components/custom/site-entry-label"
 
 import * as ROUTES from "~/src/routes"
 
@@ -70,7 +71,7 @@ export const MobileMenu = (): JSX.Element => {
                           onClick={close}
                           to={entry.to}
                         >
-                          {t(entry.label)}
+                          <SiteEntryLabel entry={entry} />
                           <ArrowUpRight
                             aria-hidden
                             className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"

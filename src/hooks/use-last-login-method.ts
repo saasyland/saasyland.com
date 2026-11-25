@@ -5,11 +5,10 @@ import { getLastUsedLoginMethod } from "~/src/integrations/better-auth/auth.clie
 
 const readLastLoginMethod = createClientOnlyFn(() => getLastUsedLoginMethod())
 
-export const useLastLoginMethod = (): { readonly hasSignedInBefore: boolean; readonly isLastUsed: (method: string) => boolean } => {
+export const useLastLoginMethod = (): { readonly isLastUsed: (method: string) => boolean } => {
   const hydrated = useHydrated()
 
   return {
-    hasSignedInBefore: hydrated && typeof readLastLoginMethod() === "string",
     isLastUsed: (method) => hydrated && readLastLoginMethod() === method,
   }
 }

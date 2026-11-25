@@ -2,11 +2,9 @@ import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { createFormatter } from "use-intl"
-import { loadBlogIndex } from "virtual:content-indexes"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { blogNotes, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -29,7 +27,7 @@ import { HeroSection } from "~/src/presentation/components/custom/landing-page/s
 import { LineSection } from "~/src/presentation/components/custom/landing-page/sections/line-section"
 import { ManifestSection } from "~/src/presentation/components/custom/landing-page/sections/manifest-section"
 import { ManifestoSection } from "~/src/presentation/components/custom/landing-page/sections/manifesto-section"
-import { NotesSection } from "~/src/presentation/components/custom/landing-page/sections/notes-section"
+import { NotesSection, loadLandingNotes } from "~/src/presentation/components/custom/landing-page/sections/notes-section"
 import { PricingSection } from "~/src/presentation/components/custom/landing-page/sections/pricing-section"
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 import { QualitySection } from "~/src/presentation/components/custom/landing-page/sections/quality-section"
@@ -64,33 +62,26 @@ const LandingPage = (): JSX.Element => (
 )
 
 const LANDING_NAMESPACE = "pages.landing"
-const NAMESPACES = [LANDING_NAMESPACE, "stack"] as const
+const NAMESPACES = [LANDING_NAMESPACE, "pages.landing.notes", "stack"] as const
 
 export const Route = createFileRoute("/_site/_marketing/")({
   component: LandingPage,
   head: pageHead(ROUTES.HOME),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
-    const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
-    const [metadata, posts] = await Promise.all([
-      loadPageMetadata({
-        locale,
-        namespace: LANDING_NAMESPACE,
-        values: { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, languages: REPOSITORY_FACTS.languages, price },
-      }),
-      loadBlogIndex(locale),
+    const values = {
+      coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
+      languages: REPOSITORY_FACTS.languages,
+      price: createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT),
+    }
+    const notes = loadLandingNotes()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: LANDING_NAMESPACE, values }),
+      notes,
       preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    const { latest, lead } = blogNotes(posts)
-    return {
-      locale,
-      metadata,
-      notes: {
-        latest: latest.map((post) => toBlogPostSummary(post, locale)),
-        lead: lead && toBlogPostSummary(lead, locale),
-      },
-    }
+    return { locale, metadata, notes: await notes }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: NAMESPACES, underHeader: true },

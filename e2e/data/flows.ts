@@ -1,4 +1,4 @@
-export const FLOW_AREA = {
+export const FLOW_FEATURE = {
   ACCOUNT: "account",
   ADMIN_BLOG: "admin-blog",
   ADMIN_COURSES: "admin-courses",
@@ -26,7 +26,7 @@ export const FLOW_STATUS = {
   TO_BUILD: "to-build",
 } as const
 
-export type FlowArea = (typeof FLOW_AREA)[keyof typeof FLOW_AREA]
+export type FlowFeature = (typeof FLOW_FEATURE)[keyof typeof FLOW_FEATURE]
 
 export interface FlowTest {
   readonly spec: string
@@ -34,7 +34,7 @@ export interface FlowTest {
 }
 
 interface FlowOutcome {
-  readonly area: FlowArea
+  readonly feature: FlowFeature
   readonly id: string
   readonly outcome: string
 }

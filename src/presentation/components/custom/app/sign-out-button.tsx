@@ -9,7 +9,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
 export const SignOutButton = (): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.session")
 
   const { isPending, mutate } = useSignOut()
 

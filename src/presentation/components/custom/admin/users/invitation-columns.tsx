@@ -48,7 +48,7 @@ const InviterCell = ({ getValue }: CellContext<DataGridFeatures, OpenInvitation,
 }
 
 const DateCell = ({ getValue }: CellContext<DataGridFeatures, OpenInvitation, Date>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
   const format = useFormatter()
 
   const value = getValue()

@@ -1,15 +1,15 @@
-import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
+import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "./flows"
 
 export const CONTENT_FLOWS = [
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "docs-navigation",
     outcome: "The docs follow a sidebar link through the router before the page's MDX has loaded and render the next page",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "content.spec.ts", title: "documentation loads MDX and follows a sidebar link through the router before the page's MDX has loaded" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "docs-search",
     outcome: "The docs search downloads the static index of the page's language and finds pages in it",
     status: FLOW_STATUS.COVERED,
@@ -19,7 +19,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "changelog-links",
     outcome:
       "The changelog ends every entry with a link to the pull request or commit it came from, and each released entry with a link to the release that first shipped it",
@@ -36,21 +36,21 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-article",
     outcome: "A visitor opens a published article from the blog without a browser error",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "content.spec.ts", title: "blog opens a published article without browser errors" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-highlights",
     outcome: "The blog leads with the posts FEATURED_BLOG_POSTS names, then the latest and the recently updated posts",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "blog-index.spec.ts", title: "leads the blog with the featured posts, then the latest and the recently updated posts" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-search",
     outcome: "A visitor searches, filters by topic and sorts every post of the blog, and the address keeps the view without a hydration error",
     status: FLOW_STATUS.COVERED,
@@ -62,7 +62,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-finder",
     outcome:
       "On a wide screen the blog and its archive pages keep a finder beside the posts, with the search, the sort and the topics in place above an index of every post that scrolls on its own, every topic a popover away, and a change in it brings the reader to the matching posts",
@@ -98,7 +98,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-finder-phone",
     outcome: "On a phone the blog keeps its search under the header and filters the posts from a sheet, showing the active filters and clearing them in one press",
     status: FLOW_STATUS.COVERED,
@@ -110,7 +110,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-more-posts",
     outcome:
       "A visitor loads more posts in place with JavaScript, or follows the archive's pages without it, and each archive page names its own canonical address and neighbours",
@@ -124,14 +124,14 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-post-rail",
     outcome: "On a wide screen a post lists every other post beside it and marks the one being read",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "blog-index.spec.ts", title: "lists every post beside a post and marks the one being read" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "article-reading-position",
     outcome:
       "On a wide screen the table of contents beside a blog post or a docs page marks the section being read and moves its line with the scroll, in its own list and without gliding for a reader who prefers reduced motion",
@@ -155,7 +155,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "landing-notes",
     outcome: "The landing page leads its notes with the featured post and links the latest posts in its prerendered HTML",
     status: FLOW_STATUS.COVERED,
@@ -167,7 +167,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-share",
     outcome:
       "A post shares its canonical address on every network and by copying it, with and without JavaScript, keeps its share links where the server rendered them once it hydrates, and links each section to itself",
@@ -187,7 +187,7 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-author",
     outcome:
       "A post ends with a box that introduces its author and links the author's page in the post's language, which lists every post by the author, and both describe the author to search engines as one Person",
@@ -203,32 +203,32 @@ export const CONTENT_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "blog-feeds",
     outcome: "Each language's blog names its own feed, and the feed lists exactly the published posts of that language with their dates",
     status: FLOW_STATUS.COVERED,
     tests: [
-      { spec: "seo.spec.ts", title: "/blog names the blog feed of its own language" },
-      { spec: "seo.spec.ts", title: "/ja-JP/blog names the blog feed of its own language" },
-      { spec: "seo.spec.ts", title: "every blog feed lists exactly the published posts of its language with their publication dates" },
+      { spec: "content-seo.spec.ts", title: "/blog names the blog feed of its own language" },
+      { spec: "content-seo.spec.ts", title: "/ja-JP/blog names the blog feed of its own language" },
+      { spec: "content-seo.spec.ts", title: "every blog feed lists exactly the published posts of its language with their publication dates" },
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "content-without-worker",
     outcome: "Client navigation through the docs and the blog requests nothing but static files",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "content.spec.ts", title: "content without the Worker › client navigations through the docs and the blog request nothing but static files" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "docs-theme",
     outcome: "The theme chosen in the docs applies at once and survives a reload",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "theme.spec.ts", title: "documentation theme selector changes and persists the selected theme" }],
   },
   {
-    area: FLOW_AREA.I18N,
+    feature: FLOW_FEATURE.I18N,
     id: "docs-keep-locale",
     outcome: "The docs and the blog keep the visitor's language through client navigation",
     status: FLOW_STATUS.COVERED,

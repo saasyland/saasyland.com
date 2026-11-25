@@ -138,13 +138,13 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-すべての HTML レスポンスには、これらの値と、デプロイが使う Polar サーバーに対応する Polar のチェックアウトのオリジンから組み立てた `documentPolicy(nonce, polarServer)` が付きます。
+すべての HTML レスポンスには、これらの値と、デプロイが使う Polar サーバーに対応する Polar のチェックアウトのオリジンから組み立てた `documentPolicy(nonce, frameSources)` が付きます。
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string, polarServer: Environment): string =>
+export const documentPolicy = (nonce: string, frameSources: readonly string[]): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
-    `frame-src ${polarCheckoutOrigin(polarServer)}`,
+    `frame-src ${frameSources.join(" ")}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
@@ -194,7 +194,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -208,7 +208,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
+  return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response }
 }
 ```
 
@@ -412,7 +412,7 @@ saasyland.com は手順 2 と 3 を行わず、その結果が上のインシデ
   ],
 ```
 
-**専用のスペックが nonce を確認します。** `e2e/specs/content-security-policy.spec.ts` は、プリレンダリング済みのページ 3 つとレンダリングされるページ 2 つを、それぞれ 2 回ずつリクエストします。そして、ヘッダーが `documentPolicy(nonce, POLAR_SERVER)` と等しいこと、2 回目のレスポンスの nonce が異なること、JSON-LD を除くすべてのスクリプトとモジュールプリロードがヘッダーの nonce を持つこと、`csp-nonce` タグが一致すること、meta のポリシーがないこと、レスポンスが `ETag` なしの `private, no-cache` であることを確認します。続いて管理コンソールにサインインし、ワークスペースの上に開いた Polar のチェックアウトで顧客に支払わせます。このチェックアウトはテストダブルで、そのフレームはポリシーの `frame-src` が許可しなければなりません。
+**専用のスペックが nonce を確認します。** `e2e/specs/content-security-policy.spec.ts` は、プリレンダリング済みのページ 3 つとレンダリングされるページ 2 つを、それぞれ 2 回ずつリクエストします。そして、ヘッダーが `documentPolicy(nonce, [polarCheckoutOrigin(POLAR_SERVER)])` と等しいこと、2 回目のレスポンスの nonce が異なること、JSON-LD を除くすべてのスクリプトとモジュールプリロードがヘッダーの nonce を持つこと、`csp-nonce` タグが一致すること、meta のポリシーがないこと、レスポンスが `ETag` なしの `private, no-cache` であることを確認します。続いて管理コンソールにサインインし、ワークスペースの上に開いた Polar のチェックアウトで顧客に支払わせます。このチェックアウトはテストダブルで、そのフレームはポリシーの `frame-src` が許可しなければなりません。
 
 **エッジの役を演じるスペックもあります。** `e2e/specs/edge-scripts.spec.ts` は、配信されたページを Cloudflare と同じように書き換え、ヘッダーの nonce を持つスクリプトと持たないスクリプトを 1 つずつ追加します。
 

@@ -46,7 +46,7 @@ export const UserOrders = ({ userId }: { readonly userId: string }): JSX.Element
                   to="/admin/orders/$orderId"
                 >
                   <span className="truncate font-medium text-foreground">{order.description}</span>
-                  <span className="text-spec text-muted-foreground">{t("common.dateTime", { value: order.placedAt })}</span>
+                  <span className="text-spec text-muted-foreground">{t("auth.dates.dateTime", { value: order.placedAt })}</span>
                 </Link>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <MoneyAmount money={order.total} />

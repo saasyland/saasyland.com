@@ -14,25 +14,25 @@ describe("bundled locale namespaces", () => {
     expect(await loadNamespace({ locale: "en-US", namespace: "errors.global" })).toHaveProperty("title")
   })
   it("builds nested namespace paths", () => {
-    expect(buildMessageTree([["pages.auth.sign-in", { title: "Sign in" }]])).toEqual({
-      pages: { auth: { "sign-in": { title: "Sign in" } } },
+    expect(buildMessageTree([["pages.help.contact-us", { title: "Contact us" }]])).toEqual({
+      pages: { help: { "contact-us": { title: "Contact us" } } },
     })
   })
   it("merges parent and child namespaces without mutating imported messages", () => {
-    const parent = { title: "Admin" }
+    const parent = { title: "Console" }
     expect(
       buildMessageTree([
-        ["pages.admin", parent],
-        ["pages.admin.users", { title: "Users" }],
+        ["pages.console", parent],
+        ["pages.console.users", { title: "Users" }],
       ]),
-    ).toEqual({ pages: { admin: { title: "Admin", users: { title: "Users" } } } })
+    ).toEqual({ pages: { console: { title: "Console", users: { title: "Users" } } } })
     expect(
       buildMessageTree([
-        ["pages.admin.users", { title: "Users" }],
-        ["pages.admin", parent],
+        ["pages.console.users", { title: "Users" }],
+        ["pages.console", parent],
       ]),
-    ).toEqual({ pages: { admin: { title: "Admin", users: { title: "Users" } } } })
-    expect(parent).toEqual({ title: "Admin" })
+    ).toEqual({ pages: { console: { title: "Console", users: { title: "Users" } } } })
+    expect(parent).toEqual({ title: "Console" })
   })
   it("keeps each locale and namespace separate in one query cache", async () => {
     const queryClient = new QueryClient()

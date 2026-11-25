@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import gridMessages from "../../messages/en-US/components.custom.data-grid.json" with { type: "json" }
-import { expect } from "./auth"
+import { expect } from "./test"
 
 export { gridMessages }
 

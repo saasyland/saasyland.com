@@ -10,7 +10,7 @@ import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
-import { AREA_SCENARIO } from "~/scripts/areas"
+import { FEATURE_SCENARIO } from "~/scripts/features"
 import { REPORT_MODE } from "~/scripts/report-updates"
 
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
@@ -345,12 +345,13 @@ describe(CI_WORKFLOW, () => {
     expect(verify).toContain('if [[ "$CHECK_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then')
   })
 
-  it("type-checks the site without the areas of each scenario in scripts/areas.ts, one job per scenario", () => {
-    const areas = jobOf(CI, "areas")
+  it("fails the run when the site does not check without the features of a scenario in scripts/features.ts, one job per scenario", () => {
+    const features = jobOf(CI, "features")
 
-    expect(scenariosOf(areas)).toStrictEqual(Object.values(AREA_SCENARIO))
-    expect(areas).toContain("fail-fast: false")
-    expect(areas).toContain(`run: bun run check:areas ${expression("matrix.scenario")}`)
+    expect(scenariosOf(features)).toStrictEqual(Object.values(FEATURE_SCENARIO))
+    expect(features).toContain("fail-fast: false")
+    expect(features).toContain(`run: bun run check:features ${expression("matrix.scenario")}`)
+    expect(features).not.toContain("continue-on-error")
   })
 
   it("uploads the preview Worker as a version, deploying nothing, for every merge group and every pull request that can read the secrets", () => {

@@ -182,13 +182,13 @@ export const CONTENT_SECURITY_POLICY = {
 } as const
 ```
 
-Every HTML response gets `documentPolicy(nonce, polarServer)`, built from those values and the origin of Polar’s checkout for the Polar server the deployment uses:
+Every HTML response gets `documentPolicy(nonce, frameSources)`, built from those values and the origin of Polar’s checkout for the Polar server the deployment uses:
 
 ```ts title="src/lib/content-security-policy.ts"
-export const documentPolicy = (nonce: string, polarServer: Environment): string =>
+export const documentPolicy = (nonce: string, frameSources: readonly string[]): string =>
   [
     `script-src 'nonce-${nonce}' ${CONTENT_SECURITY_POLICY.SCRIPT_FALLBACKS}`,
-    `frame-src ${polarCheckoutOrigin(polarServer)}`,
+    `frame-src ${frameSources.join(" ")}`,
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
     CONTENT_SECURITY_POLICY.BASE_URI,
     CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
@@ -238,7 +238,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -252,7 +252,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
+  return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response }
 }
 ```
 
@@ -456,7 +456,7 @@ A policy is configuration that can regress with any commit, so test it like code
   ],
 ```
 
-**A dedicated spec checks the nonce.** `e2e/specs/content-security-policy.spec.ts` requests three prerendered pages and two rendered ones twice each. It checks that the header equals `documentPolicy(nonce, POLAR_SERVER)`, that the second response has a different nonce, that every script and module preload carries the header’s nonce, except JSON-LD, that the `csp-nonce` tag matches, that there is no meta policy, and that the response is `private, no-cache` without an `ETag`. It then signs in to the admin console, and has a customer pay in Polar’s checkout over the workspace, a test double whose frame the policy’s `frame-src` must allow.
+**A dedicated spec checks the nonce.** `e2e/specs/content-security-policy.spec.ts` requests three prerendered pages and two rendered ones twice each. It checks that the header equals `documentPolicy(nonce, [polarCheckoutOrigin(POLAR_SERVER)])`, that the second response has a different nonce, that every script and module preload carries the header’s nonce, except JSON-LD, that the `csp-nonce` tag matches, that there is no meta policy, and that the response is `private, no-cache` without an `ETag`. It then signs in to the admin console, and has a customer pay in Polar’s checkout over the workspace, a test double whose frame the policy’s `frame-src` must allow.
 
 **A spec plays the edge.** `e2e/specs/edge-scripts.spec.ts` rewrites a served page the way Cloudflare would, adding one script with the header’s nonce and one without:
 

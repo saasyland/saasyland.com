@@ -1,4 +1,4 @@
-export const AREA = {
+export const FEATURE = {
   AFFILIATES: "affiliates",
   ANALYTICS: "analytics",
   AUTH: "auth",
@@ -17,43 +17,42 @@ export const AREA = {
   TEAM: "team",
 } as const
 
-export type Area = (typeof AREA)[keyof typeof AREA]
+export type Feature = (typeof FEATURE)[keyof typeof FEATURE]
 
-export interface AreaFootprint {
+export interface FeatureFootprint {
   readonly derive?: readonly string[]
   readonly files: readonly string[]
   readonly names?: Readonly<Record<string, readonly string[]>>
-  readonly requires: readonly Area[]
+  readonly requires: readonly Feature[]
 }
-
-const areaData = (area: Area): string => `{src/data,e2e/data}/**/${area}.*`
-
-const areaMessages = (area: Area): string => `messages/*/*.${area}.json`
 
 const ACCESS_FILE = "src/integrations/better-auth/auth.access.ts"
 
 const ROUTES_FILE = "src/routes.ts"
 
-export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
-  [AREA.AFFILIATES]: {
+export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
+  [FEATURE.AFFILIATES]: {
     files: [
-      areaData(AREA.AFFILIATES),
+      "e2e/data/affiliates.flows.ts",
+      "src/data/affiliates.ts",
+      "src/data/__test__/affiliates.test.ts",
       "src/integrations/affonso/**",
       "src/routes/_site._marketing.affiliates.tsx",
       "src/presentation/components/custom/affiliate-referral.tsx",
       "src/presentation/components/custom/__test__/affiliate-referral.component.test.tsx",
       "src/types/affiliates.d.ts",
       "e2e/specs/affiliates.spec.ts",
-      areaMessages(AREA.AFFILIATES),
+      "messages/*/{navigation.affiliates,pages.legal.affiliates}.json",
     ],
     names: { [ROUTES_FILE]: ["AFFILIATES"] },
     requires: [],
   },
-  [AREA.ANALYTICS]: { files: [areaData(AREA.ANALYTICS)], requires: [AREA.AUTH] },
-  [AREA.AUTH]: {
+  [FEATURE.ANALYTICS]: { files: ["e2e/data/analytics.flows.ts"], requires: [FEATURE.AUTH] },
+  [FEATURE.AUTH]: {
     files: [
-      areaData(AREA.AUTH),
-      areaMessages(AREA.AUTH),
+      "e2e/data/auth.{flows,pages,seed,worker}.ts",
+      "src/data/auth.ts",
+      "messages/*/{dashboard,navigation}.auth.json",
       "src/data/{admin,email-domains}.ts",
       "src/data/__test__/admin.test.ts",
       "src/integrations/better-auth/**",
@@ -111,22 +110,22 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     },
     requires: [],
   },
-  [AREA.BILLING]: {
+  [FEATURE.BILLING]: {
     files: [
-      areaData(AREA.BILLING),
+      "e2e/data/billing.flows.ts",
       "src/modules/{order,subscription}/**",
       "src/lib/checkout-overlay.ts",
       "src/lib/__test__/checkout-overlay.component.test.ts",
       "src/integrations/better-auth/__test__/auth.access.billing.test.ts",
     ],
     names: { [ACCESS_FILE]: ["APP_STATEMENTS.order"] },
-    requires: [AREA.POLAR],
+    requires: [FEATURE.POLAR],
   },
-  [AREA.CONTENT]: {
+  [FEATURE.CONTENT]: {
     derive: ["content"],
     files: [
-      areaData(AREA.CONTENT),
-      areaMessages(AREA.CONTENT),
+      "e2e/data/content.{flows,pages}.ts",
+      "messages/*/{navigation.content,pages.landing.notes}.json",
       "src/data/{blog,head-start}.ts",
       "src/data/__test__/{blog,head-start}.test.ts",
       "src/integrations/fumadocs/**",
@@ -135,8 +134,9 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/routes/_site._marketing.{authors,blog}.*.tsx",
       "src/routes/_site._marketing.blog.tsx",
       "src/routes/__test__/{blog,docs}-*",
-      "src/routes/__test__/fixtures/blog-router.tsx",
+      "src/routes/__test__/fixtures/blog-{notes.ts,router.tsx}",
       "src/presentation/components/custom/blog/**",
+      "src/presentation/components/custom/landing-page/sections/notes-section.tsx",
       "src/presentation/components/custom/{blog-content,changelog-links,docs-content,docs-pending,docs-search-dialog,docs-toc,docs-toolbar}.tsx",
       "src/presentation/components/custom/__test__/{blog-content,changelog-links,docs-content,docs-pending,docs-search-dialog,docs-toolbar}.component.test.tsx",
       "src/hooks/use-{blog-view,fumadocs-i18n}.ts",
@@ -147,17 +147,18 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/integrations/use-intl/__test__/content.labels.ts",
       "scripts/{check-content,content-indexes}.ts",
       "content/**",
-      "e2e/specs/{blog-author,blog-index,blog-share,content,content-chrome,content-pages,table-of-contents}.spec.ts",
+      "e2e/specs/{blog-author,blog-index,blog-share,content,content-chrome,content-pages,content-seo,table-of-contents}.spec.ts",
       "messages/*/{fumadocs,pages.blog}.json",
       "messages/*/components.custom.changelog-links.json",
     ],
     names: { [ROUTES_FILE]: ["AUTHORS", "BLOG", "BLOG_FEED", "DOCS", "DOCS_CLI", "DOCS_TEST_COVERAGE"] },
     requires: [],
   },
-  [AREA.COURSES]: {
+  [FEATURE.COURSES]: {
     files: [
-      areaData(AREA.COURSES),
-      areaMessages(AREA.COURSES),
+      "e2e/data/courses.{flows,pages,seed,worker}.ts",
+      "e2e/data/courses.ts",
+      "messages/*/{dashboard,navigation,pages,pages.admin,purchase-email}.courses.json",
       "src/data/{admin-courses,course-badges,course-icons}.ts",
       "src/data/__test__/course-platform-access.test.ts",
       "src/modules/{chapter,course,lesson,lesson-attachment,lesson-progress,video,video-upload}/**",
@@ -196,12 +197,12 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       [ACCESS_FILE]: ["APP_STATEMENTS.course", "APP_STATEMENTS.video"],
       [ROUTES_FILE]: ["ADMIN_COURSES", "ADMIN_COURSES_CREATE", "COURSES"],
     },
-    requires: [AREA.AUTH],
+    requires: [FEATURE.AUTH],
   },
-  [AREA.LEGAL]: {
+  [FEATURE.LEGAL]: {
     files: [
-      areaData(AREA.LEGAL),
-      areaMessages(AREA.LEGAL),
+      "e2e/data/legal.{flows,pages}.ts",
+      "messages/*/navigation.legal.json",
       "src/data/refunds.ts",
       "src/routes/_site._marketing.{licence,privacy,refunds,terms}.tsx",
       "src/routes/__test__/legal-routes.component.test.tsx",
@@ -214,10 +215,12 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     names: { [ROUTES_FILE]: ["LICENCE", "PRIVACY", "REFUNDS", "TERMS"] },
     requires: [],
   },
-  [AREA.LICENSE]: {
+  [FEATURE.LICENSE]: {
     files: [
-      areaData(AREA.LICENSE),
-      areaMessages(AREA.LICENSE),
+      "e2e/data/license.{flows,pages,seed,worker}.ts",
+      "src/data/license.ts",
+      "src/data/__test__/license.test.ts",
+      "messages/*/{dashboard,navigation,pages,pages.admin.users}.license.json",
       "src/modules/{license,withdrawal}/**",
       "src/modules/lesson/__test__/lesson.access.license.{test.ts,component.test.tsx}",
       "src/integrations/better-auth/__test__/auth.server.license.integration.test.ts",
@@ -243,7 +246,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/integrations/use-intl/__test__/license.labels.ts",
       "scripts/backfill-order-terms.ts",
       "e2e/data/{licenses,polar-settings}.ts",
-      "e2e/fixtures/{license,polar-checkout}.ts",
+      "e2e/fixtures/{license,license-emails,polar-checkout}.ts",
       "e2e/fixtures/bundle/**",
       "e2e/journey/**",
       "e2e/specs/{admin-licence-machines,checkout-funnel,cli-licence-api,license,regional-pricing,sign-up-order-summary,withdrawal}.spec.ts",
@@ -252,12 +255,12 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/emails.{purchase-confirmation-email,unmatched-order-alert-email,withdrawal-acknowledgement-email,withdrawal-notification-email}.json",
     ],
     names: { [ROUTES_FILE]: ["APP_LICENSE", "WITHDRAWAL"] },
-    requires: [AREA.AUTH, AREA.BILLING, AREA.COURSES, AREA.LEGAL, AREA.POLAR],
+    requires: [FEATURE.AUTH, FEATURE.BILLING, FEATURE.COURSES, FEATURE.LEGAL, FEATURE.POLAR],
   },
-  [AREA.NEWSLETTER]: {
+  [FEATURE.NEWSLETTER]: {
     files: [
-      areaData(AREA.NEWSLETTER),
-      areaMessages(AREA.NEWSLETTER),
+      "e2e/data/newsletter.{flows,worker}.ts",
+      "messages/*/dashboard.newsletter.json",
       "src/modules/newsletter-subscriber/**",
       "src/routes/_site._marketing.newsletter.*.tsx",
       "src/presentation/components/custom/{newsletter-form,newsletter-pending}.tsx",
@@ -274,11 +277,13 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     names: { [ROUTES_FILE]: ["NEWSLETTER", "NEWSLETTER_CONFIRM", "NEWSLETTER_UNSUBSCRIBE"] },
     requires: [],
   },
-  [AREA.PAGE_BUILDER]: { files: [areaData(AREA.PAGE_BUILDER)], requires: [AREA.AUTH] },
-  [AREA.PAYMENTS]: {
+  [FEATURE.PAGE_BUILDER]: { files: ["e2e/data/page-builder.flows.ts"], requires: [FEATURE.AUTH] },
+  [FEATURE.PAYMENTS]: {
     files: [
-      areaData(AREA.PAYMENTS),
-      areaMessages(AREA.PAYMENTS),
+      "e2e/data/payments.{flows,pages,seed,worker}.ts",
+      "e2e/data/payments.ts",
+      "src/data/payments.ts",
+      "messages/*/{dashboard,navigation}.payments.json",
       "src/routes/admin.orders.*.tsx",
       "src/routes/admin.users.customers.tsx",
       "src/routes/__test__/admin-orders-*",
@@ -290,26 +295,27 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/pages.admin.{customers,orders}.json",
     ],
     names: { [ROUTES_FILE]: ["ADMIN_ORDERS", "ADMIN_USERS_CUSTOMERS"] },
-    requires: [AREA.AUTH, AREA.BILLING],
+    requires: [FEATURE.AUTH, FEATURE.BILLING],
   },
-  [AREA.POLAR]: {
+  [FEATURE.POLAR]: {
     files: [
       "src/integrations/polar/**",
       "src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts",
       "src/integrations/drizzle-orm/__test__/polar.rows.ts",
       "src/types/polar.d.ts",
       "src/platform/testing/lib/polar.ts",
-      "src/platform/testing/mocks/{polar,polar-catalogue.entries}.ts",
+      "src/platform/testing/mocks/polar.ts",
       "scripts/verify-polar.ts",
     ],
     names: { [ROUTES_FILE]: ["API_AUTH_CUSTOMER_PORTAL", "API_AUTH_POLAR"] },
-    requires: [AREA.AUTH],
+    requires: [FEATURE.AUTH],
   },
-  [AREA.POST_EDITOR]: { files: [areaData(AREA.POST_EDITOR)], requires: [AREA.AUTH] },
-  [AREA.PRODUCTS]: {
+  [FEATURE.POST_EDITOR]: { files: ["e2e/data/post-editor.flows.ts"], requires: [FEATURE.AUTH] },
+  [FEATURE.PRODUCTS]: {
     files: [
-      areaData(AREA.PRODUCTS),
-      areaMessages(AREA.PRODUCTS),
+      "e2e/data/products.{flows,pages,seed}.ts",
+      "e2e/data/products.ts",
+      "messages/*/{dashboard,navigation,pages.admin}.products.json",
       "src/data/admin-products.ts",
       "src/lib/polar-catalogue.ts",
       "src/lib/__test__/polar-catalogue.test.ts",
@@ -326,9 +332,9 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/{category.errors,product.errors}.json",
     ],
     names: { [ACCESS_FILE]: ["APP_STATEMENTS.category", "APP_STATEMENTS.product"], [ROUTES_FILE]: ["ADMIN_PRODUCTS"] },
-    requires: [AREA.AUTH, AREA.BILLING, AREA.POLAR],
+    requires: [FEATURE.AUTH, FEATURE.BILLING, FEATURE.POLAR],
   },
-  [AREA.REPOSITORY_FACTS]: {
+  [FEATURE.REPOSITORY_FACTS]: {
     files: [
       "src/data/__test__/navigation.website.test.ts",
       "src/presentation/components/custom/repository-fact.tsx",
@@ -340,29 +346,30 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
     ],
     requires: [],
   },
-  [AREA.TEAM]: {
+  [FEATURE.TEAM]: {
     files: [
-      areaData(AREA.TEAM),
-      areaMessages(AREA.TEAM),
+      "e2e/data/team.flows.ts",
+      "messages/*/navigation.team.json",
       "src/modules/invitation/**",
       "src/routes/admin.users.invitations.tsx",
       "src/routes/auth.invite.tsx",
       "src/routes/__test__/auth-invite-loaders.test.ts",
       "src/presentation/components/custom/admin/users/{invitation-actions,invitation-columns,invitation-list,invite-user-dialog}.tsx",
-      "src/presentation/components/custom/admin/__test__/user-invitations.component.test.tsx",
+      "src/presentation/components/custom/admin/__test__/{team.fixtures.ts,user-invitations.component.test.tsx}",
       "src/presentation/components/custom/auth/accept-invitation*.tsx",
       "src/presentation/components/custom/auth/__test__/accept-invitation.component.test.tsx",
       "src/presentation/emails/invitation-email.tsx",
       "src/presentation/emails/__test__/invitation-email.test.tsx",
+      "e2e/fixtures/invitation-emails.ts",
       "e2e/specs/admin-invitations.spec.ts",
       "messages/*/{emails.invitation-email,pages.auth.invite}.json",
     ],
     names: { [ROUTES_FILE]: ["ACCEPT_INVITATION", "ADMIN_USERS_INVITATIONS", "API_AUTH.ACCEPT_INVITATION"] },
-    requires: [AREA.AUTH],
+    requires: [FEATURE.AUTH],
   },
 }
 
-export const AREA_SCENARIO = {
+export const FEATURE_SCENARIO = {
   WEBSITE_ONLY: "website-only",
   WITHOUT_AUTH: "without-auth",
   WITHOUT_BILLING: "without-billing",
@@ -370,24 +377,24 @@ export const AREA_SCENARIO = {
   WITHOUT_COURSES: "without-courses",
 } as const
 
-export type AreaScenario = (typeof AREA_SCENARIO)[keyof typeof AREA_SCENARIO]
+export type FeatureScenario = (typeof FEATURE_SCENARIO)[keyof typeof FEATURE_SCENARIO]
 
 const WEBSITE_ONLY = [
-  AREA.AFFILIATES,
-  AREA.ANALYTICS,
-  AREA.LEGAL,
-  AREA.LICENSE,
-  AREA.NEWSLETTER,
-  AREA.PAGE_BUILDER,
-  AREA.POST_EDITOR,
-  AREA.REPOSITORY_FACTS,
-  AREA.TEAM,
+  FEATURE.AFFILIATES,
+  FEATURE.ANALYTICS,
+  FEATURE.LEGAL,
+  FEATURE.LICENSE,
+  FEATURE.NEWSLETTER,
+  FEATURE.PAGE_BUILDER,
+  FEATURE.POST_EDITOR,
+  FEATURE.REPOSITORY_FACTS,
+  FEATURE.TEAM,
 ] as const
 
-export const AREA_SCENARIOS: Readonly<Record<AreaScenario, readonly Area[]>> = {
-  [AREA_SCENARIO.WEBSITE_ONLY]: WEBSITE_ONLY,
-  [AREA_SCENARIO.WITHOUT_AUTH]: [...WEBSITE_ONLY, AREA.AUTH],
-  [AREA_SCENARIO.WITHOUT_BILLING]: [...WEBSITE_ONLY, AREA.BILLING, AREA.PAYMENTS, AREA.POLAR, AREA.PRODUCTS],
-  [AREA_SCENARIO.WITHOUT_CONTENT]: [...WEBSITE_ONLY, AREA.CONTENT],
-  [AREA_SCENARIO.WITHOUT_COURSES]: [...WEBSITE_ONLY, AREA.COURSES],
+export const FEATURE_SCENARIOS: Readonly<Record<FeatureScenario, readonly Feature[]>> = {
+  [FEATURE_SCENARIO.WEBSITE_ONLY]: WEBSITE_ONLY,
+  [FEATURE_SCENARIO.WITHOUT_AUTH]: [...WEBSITE_ONLY, FEATURE.AUTH],
+  [FEATURE_SCENARIO.WITHOUT_BILLING]: [...WEBSITE_ONLY, FEATURE.BILLING, FEATURE.PAYMENTS, FEATURE.POLAR, FEATURE.PRODUCTS],
+  [FEATURE_SCENARIO.WITHOUT_CONTENT]: [...WEBSITE_ONLY, FEATURE.CONTENT],
+  [FEATURE_SCENARIO.WITHOUT_COURSES]: [...WEBSITE_ONLY, FEATURE.COURSES],
 }

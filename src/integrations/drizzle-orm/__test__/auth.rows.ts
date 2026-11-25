@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
-import type { AreaRows } from "~/src/integrations/drizzle-orm/__test__/rows"
+import type { TableRows } from "~/src/integrations/drizzle-orm/__test__/rows"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { account } from "~/src/modules/account/account.schema"
@@ -19,4 +19,4 @@ export const AUTH_ROWS = [
     ],
     owned: (userId) => db.select().from(session).where(eq(session.userId, userId)),
   },
-] as const satisfies readonly AreaRows[]
+] as const satisfies readonly TableRows[]

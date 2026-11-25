@@ -1,21 +1,19 @@
 import { type MessageFormatElement, type SelectElement, isSelectElement, parse } from "@formatjs/icu-messageformat-parser"
 import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import { readFileSync, readdirSync } from "node:fs"
-import { createTranslator } from "use-intl"
 import { describe, expect, it } from "vite-plus/test"
 import * as zod from "zod"
 
 import { CLI_INIT_COMMAND } from "~/src/data/cli"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
-import { formatPostText, postTextValues } from "~/src/lib/post-text"
+import { formatPostText } from "~/src/lib/post-text"
 
 const BLOG_DIR = "content/blog"
 const POST_FAQ = "<PostFaq entries={frontmatter.faq} />"
 const LOCALE_PATTERN = /\.(?<locale>[a-z]{2}-[A-Z]{2})\.mdx$/u
 const STATUS_ARGUMENTS = ["generation", "billingGeneration", "affiliateProgram"] as const
 const OTHER_OPTION = "other"
-const TEXT_KEY = "text"
 
 const entrySchema = zod.object({ answer: zod.string(), question: zod.string() })
 
@@ -47,7 +45,7 @@ interface StatusFormat {
 }
 
 const formatWithStatus = ({ argument, locale, status, text }: StatusFormat): string =>
-  createTranslator({ locale, messages: { [TEXT_KEY]: text } })(TEXT_KEY, { ...postTextValues(locale), [argument]: status })
+  formatPostText({ locale, text, values: { [argument]: status } })
 
 describe("blog FAQs", () => {
   it.each(posts)("$file writes its FAQ once, in the frontmatter, and renders it with PostFaq", ({ content, faq }) => {

@@ -49,7 +49,7 @@ const MachineList = ({ machines }: { readonly machines: ListedMachines }): JSX.E
           <span className="flex flex-wrap gap-x-3 text-spec text-muted-foreground">
             <span>{platform(machine)}</span>
             <span>
-              {t("pages.admin.users.license.activations.activated", { date: t("common.dateTime", { value: machine.createdAt }) })}
+              {t("pages.admin.users.license.activations.activated", { date: t("auth.dates.dateTime", { value: machine.createdAt }) })}
             </span>
           </span>
         </li>

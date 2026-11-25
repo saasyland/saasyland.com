@@ -59,9 +59,9 @@ export const withOffer = (message: string): string => message.replace("{offer}",
 
 export const withRedirect = (page: string, path: string): string => `${page}?${new URLSearchParams({ redirect: path }).toString()}`
 
-export const signedInUnlock = (path: string): string => withRedirect(ROUTES.APP_LICENSE, path)
+export const SIGNED_IN_UNLOCK = ROUTES.COURSES
 
-export const signedOutUnlock = (path: string): string => withRedirect(ROUTES.SIGN_UP, signedInUnlock(path))
+export const SIGNED_OUT_UNLOCK = withRedirect(ROUTES.SIGN_UP, SIGNED_IN_UNLOCK)
 
 export const PLAYBACK: Video["playback"] = {
   captions: [],

@@ -1,4 +1,6 @@
-import * as AREA_PROVIDER_DOUBLES from "~/src/platform/testing/mocks/providers.entries"
+import { AUTH_PROVIDER_DOUBLES } from "~/src/platform/testing/mocks/auth.providers"
+import { POLAR_PROVIDER_DOUBLES } from "~/src/platform/testing/mocks/polar"
+import { RESEND_PROVIDER_DOUBLES } from "~/src/platform/testing/mocks/resend"
 
 interface Refusal {
   readonly reason: string
@@ -11,9 +13,7 @@ export interface ProviderDouble {
   readonly respond: (request: Request) => Promise<Refusal | Response>
 }
 
-const AREAS: Readonly<Record<string, readonly ProviderDouble[]>> = AREA_PROVIDER_DOUBLES
-
-const DOUBLES = Object.values(AREAS).flat()
+const DOUBLES: readonly ProviderDouble[] = [...AUTH_PROVIDER_DOUBLES, ...POLAR_PROVIDER_DOUBLES, ...RESEND_PROVIDER_DOUBLES]
 
 const PROVIDER_DOUBLES = new Map(DOUBLES.map(({ origin, respond }) => [origin, respond]))
 

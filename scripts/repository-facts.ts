@@ -6,7 +6,7 @@ import { exactRegex } from "vite/rolldown/pluginutils"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
-import { FLOW_AREA, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
+import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
@@ -173,18 +173,18 @@ export type SeededAccounts = ReturnType<typeof collectSeededAccounts>
 
 const flowsWith = (status: Flow["status"]): number => FLOWS.filter((flow) => flow.status === status).length
 
-const FLOW_AREAS = Object.values(FLOW_AREA)
+const FLOW_FEATURES = Object.values(FLOW_FEATURE)
 
-const byArea = (first: Flow, second: Flow): number => FLOW_AREAS.indexOf(first.area) - FLOW_AREAS.indexOf(second.area)
+const byFeature = (first: Flow, second: Flow): number => FLOW_FEATURES.indexOf(first.feature) - FLOW_FEATURES.indexOf(second.feature)
 
-const SORTED_FLOWS = FLOWS.toSorted(byArea)
+const SORTED_FLOWS = FLOWS.toSorted(byFeature)
 
 const coveredRow = (flow: Flow) => {
   if (flow.status !== FLOW_STATUS.COVERED) {
     return []
   }
 
-  return [[flow.id, flow.area, flow.outcome, flow.tests.map((test) => testLabel(test))] as const]
+  return [[flow.id, flow.feature, flow.outcome, flow.tests.map((test) => testLabel(test))] as const]
 }
 
 const journeyEvidence = (flow: Flow): string[] => ("journey" in flow ? [`${JOURNEY_SPEC}${TITLE_SEPARATOR}${flow.journey}`] : [])
@@ -196,7 +196,7 @@ const missingRow = (flow: Flow) => {
 
   const partial = "tests" in flow ? flow.tests.map((test) => testLabel(test)) : []
 
-  return [[flow.id, flow.area, flow.outcome, flow.reason, [...partial, ...journeyEvidence(flow)]] as const]
+  return [[flow.id, flow.feature, flow.outcome, flow.reason, [...partial, ...journeyEvidence(flow)]] as const]
 }
 
 const toBuildRow = (flow: Flow) => {
@@ -204,17 +204,17 @@ const toBuildRow = (flow: Flow) => {
     return []
   }
 
-  return [[flow.id, flow.area, flow.outcome, flow.reason] as const]
+  return [[flow.id, flow.feature, flow.outcome, flow.reason] as const]
 }
 
 export const collectFlowTables = () => ({
-  areas: FLOW_AREAS.map((area) => {
-    const flows = FLOWS.filter((flow) => flow.area === area)
+  covered: SORTED_FLOWS.flatMap((flow) => coveredRow(flow)),
+  features: FLOW_FEATURES.map((feature) => {
+    const flows = FLOWS.filter((flow) => flow.feature === feature)
     const count = (status: Flow["status"]): number => flows.filter((flow) => flow.status === status).length
 
-    return [area, flows.length, count(FLOW_STATUS.COVERED), count(FLOW_STATUS.MISSING), count(FLOW_STATUS.TO_BUILD)] as const
+    return [feature, flows.length, count(FLOW_STATUS.COVERED), count(FLOW_STATUS.MISSING), count(FLOW_STATUS.TO_BUILD)] as const
   }),
-  covered: SORTED_FLOWS.flatMap((flow) => coveredRow(flow)),
   missing: SORTED_FLOWS.flatMap((flow) => missingRow(flow)),
   toBuild: SORTED_FLOWS.flatMap((flow) => toBuildRow(flow)),
 })

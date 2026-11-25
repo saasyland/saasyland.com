@@ -1,3 +1,4 @@
+import { polarCheckoutOrigin } from "~/src/integrations/polar/polar.constants"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
@@ -90,7 +91,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     const asset = await env.ASSETS.fetch(request)
     if (isDocument(asset)) {
       const nonce = createNonce()
-      return { policy: documentPolicy(nonce, env.POLAR_SERVER), response: withNonce(asset, nonce) }
+      return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response: withNonce(asset, nonce) }
     }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
@@ -104,7 +105,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: documentPolicy(nonce, env.POLAR_SERVER), response }
+  return { policy: documentPolicy(nonce, [polarCheckoutOrigin(env.POLAR_SERVER)]), response }
 }
 
 const withSecurityHeaders = (response: Response, { policy, protocol }: { policy: string; protocol: string }): Response => {

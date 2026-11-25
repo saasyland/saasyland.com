@@ -5,17 +5,22 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { executeQuery } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import * as AREA_PUBLIC_QUERIES from "~/src/integrations/better-auth/__test__/public-queries.entries"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSessionQuery, getRequestSession, recheckSessionQuery } from "~/src/integrations/better-auth/auth.session"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
+
+import { starCountQuery } from "~/src/lib/github"
 
 const SOURCES = "src/**/*.{ts,tsx}"
 const UNSCANNED_SOURCES = /\/__test__\/|^src\/platform\/testing\//u
 const PUBLIC_QUERY = "public: true"
 
-const PUBLIC_QUERIES: Readonly<Record<string, () => Promise<unknown>>> = Object.fromEntries(
-  Object.values(AREA_PUBLIC_QUERIES).flatMap((queries) => Object.entries(queries)),
-)
+const PUBLIC_QUERIES: Readonly<Record<string, () => Promise<unknown>>> = {
+  "src/integrations/use-intl/i18n.messages.ts": () =>
+    executeQuery(messagesQueryOptions({ locale: I18N.DEFAULT_LOCALE, namespace: "common" })),
+  "src/lib/github.ts": () => executeQuery(starCountQuery),
+}
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -150,6 +155,7 @@ describe("queries that keep their data when the signed-in user changes", () => {
 
   it.each(Object.entries(PUBLIC_QUERIES))("%s answers without reading the session", async (_path, run) => {
     const getSession = vi.spyOn(auth.api, "getSession")
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ stargazers_count: 1 }))
 
     await expect(run()).resolves.toBeDefined()
     expect(getSession).not.toHaveBeenCalled()

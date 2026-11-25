@@ -86,7 +86,7 @@ const TimezoneCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, Adm
 )
 
 const DateCell = ({ getValue }: CellContext<DataGridFeatures, AdminUser, Date>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
 
   return <span className="text-sm text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }

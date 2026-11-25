@@ -89,7 +89,7 @@ const WithdrawalReceipt = ({ receipt }: { readonly receipt: Withdrawal["receipt"
         {t("pages.withdrawal.receipt.title")}
       </h3>
       <p className="text-sm text-foreground">
-        {t("pages.withdrawal.receipt.submittedAt", { submittedAt: t("common.dateTime", { value: receipt.submittedAt }) })}
+        {t("pages.withdrawal.receipt.submittedAt", { submittedAt: t("auth.dates.dateTime", { value: receipt.submittedAt }) })}
       </p>
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4">
         <p className="text-sm font-medium text-foreground">{t("pages.withdrawal.receipt.content")}</p>

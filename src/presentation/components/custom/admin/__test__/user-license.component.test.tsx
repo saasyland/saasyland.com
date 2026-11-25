@@ -20,7 +20,7 @@ import { UserLicensePending } from "~/src/presentation/components/custom/admin/l
 import { UserLicense } from "~/src/presentation/components/custom/admin/users/user-license"
 import { USER_PROFILE_SECTIONS } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authDatesMessages from "~/messages/en-US/auth.dates.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import labels from "~/messages/en-US/pages.admin.users.license.json"
 
@@ -42,8 +42,8 @@ const MACHINES: License["userMachines"] = {
 const PERIOD_END = new Date("2026-11-24T09:30:00.000Z")
 
 const t = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: labels, timeZone: I18N.DEFAULT_TIMEZONE })
-const common = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: commonMessages, timeZone: I18N.DEFAULT_TIMEZONE })
-const dateTime = (value: Date): string => common("dateTime", { value })
+const dates = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: authDatesMessages, timeZone: I18N.DEFAULT_TIMEZONE })
+const dateTime = (value: Date): string => dates("dateTime", { value })
 
 const licence = (overrides: Partial<NonNullable<License["userLicense"]>> = {}): NonNullable<License["userLicense"]> => ({
   activatedAt: ACTIVATED_AT,

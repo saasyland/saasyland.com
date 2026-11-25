@@ -1,4 +1,10 @@
-import * as AREA_PAGES from "./pages.entries"
+import { AUTH_PAGES } from "./auth.pages"
+import { CONTENT_PAGES } from "./content.pages"
+import { COURSES_PAGES } from "./courses.pages"
+import { LEGAL_PAGES } from "./legal.pages"
+import { LICENSE_PAGES } from "./license.pages"
+import { PAYMENTS_PAGES } from "./payments.pages"
+import { PRODUCTS_PAGES } from "./products.pages"
 
 export interface PageEntry {
   readonly heading?: string
@@ -6,7 +12,17 @@ export interface PageEntry {
   readonly role?: string
 }
 
-const ENTRIES: readonly PageEntry[] = Object.values(AREA_PAGES).flat()
+const ENTRIES: readonly PageEntry[] = [
+  { path: "/" },
+  { path: "/pl-PL" },
+  ...AUTH_PAGES,
+  ...CONTENT_PAGES,
+  ...COURSES_PAGES,
+  ...LEGAL_PAGES,
+  ...LICENSE_PAGES,
+  ...PAYMENTS_PAGES,
+  ...PRODUCTS_PAGES,
+]
 
 export const PUBLIC_PAGES = ENTRIES.filter(({ role }) => role === undefined).map(({ path }) => path)
 

@@ -14,7 +14,7 @@ const TEST_GRANT = {
   offer: "coursePass",
   price: 100,
   recordUse: vi.fn<(use: LessonAccess.CourseAccessUse) => Promise<void>>(() => Promise.resolve()),
-  unlock: (redirect: string) => linkOptions({ search: { redirect }, to: ROUTES.APP_LICENSE }),
+  unlock: () => linkOptions({ to: ROUTES.COURSES }),
 } as const satisfies LessonAccess.CourseAccessGrant
 
 export const TEST_COURSE_ACCESS = [TEST_GRANT] as const

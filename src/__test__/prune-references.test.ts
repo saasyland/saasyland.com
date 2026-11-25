@@ -135,7 +135,7 @@ describe("pruneProject: what it cannot prune", () => {
 
     expect(problemsOf(project)).toStrictEqual([`${PAGE}:3:22 gone`, `${PAGE}:5:18 Gone`, `${PAGE}:9:10 gone`])
     expect(prune(project).problems[0]?.reason).toBe(
-      "`gone` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it",
+      "`gone` names what the removed features take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it",
     )
     expect(pruned(project)).toBe(
       "export const value = gone()\nexport const Other = () => {\n  const result = Gone.call()\n\n  return result\n}\nexport = gone\n",
@@ -245,7 +245,7 @@ describe("pruneProject: removed exports", () => {
   })
 })
 
-describe("pruneProject: names the removed areas own in kept files", () => {
+describe("pruneProject: names the removed features own in kept files", () => {
   const routes =
     'export const KEPT = "/kept"\nexport const GONE = "/gone"\nexport const API = { GONE: "/api/gone", KEPT: "/api/kept", "QUOTED": "/api/quoted" } as const\nexport const UNLISTED = [KEPT, GONE]\n'
 
@@ -362,7 +362,7 @@ describe("pruneProject: test cases", () => {
   const VITEST = 'import { describe, expect, it } from "vite-plus/test"\n'
   const KEPT_IMPORT = 'import { kept } from "./kept"\n'
 
-  it("deletes each test whose callback names what the removed areas take away, whatever else around it could go, and a group left with none", () => {
+  it("deletes each test whose callback names what the removed features take away, whatever else around it could go, and a group left with none", () => {
     const source = `${VITEST}${GONE_IMPORT}${KEPT_IMPORT}\ndescribe("group", () => {\n  it("names it twice", () => {\n    expect(gone()).toBe(Gone)\n  })\n\n  it.skip("names it in a list", () => {\n    expect([gone, kept]).toHaveLength(2)\n  })\n\n  it("keeps", () => {\n    expect(kept).toBe(1)\n  })\n})\n\ndescribe.only("only cases that name it", () => {\n  it("inside", () => {\n    expect(kept).toBe(gone)\n  })\n})\n`
 
     expect(pruned({ kept: { [SPEC]: source } }, SPEC)).toBe(
@@ -409,7 +409,7 @@ describe("pruneProject: test cases", () => {
 
     expect(pruned(project, SPEC)).toBe(source.replace('"pages.gone"', ""))
     expect(prune(project).problems.map(({ reason }) => reason)).toStrictEqual([
-      '`it.each(["pages.gone"])("loads %s", (namespace) => {` is left empty once the code that names what the removed areas take away goes, and it cannot go whole',
+      '`it.each(["pages.gone"])("loads %s", (namespace) => {` is left empty once the code that names what the removed features take away goes, and it cannot go whole',
     ])
   })
 
@@ -428,7 +428,7 @@ describe("pruneProject: test cases", () => {
 })
 
 describe("pruneProject: declarations and statements", () => {
-  it("deletes a declarator whose value comes only from what the removed areas take away, with every use of the names it binds, until nothing changes", () => {
+  it("deletes a declarator whose value comes only from what the removed features take away, with every use of the names it binds, until nothing changes", () => {
     const source = `import { gone, useGone } from "./gone"\nimport { kept, track } from "./kept"\n\nconst value = gone()\nconst { first, second: [third] } = useGone()\nconst derived = first ?? value\nconst names = gone.map((item) => item.name)\nconst LIST = [derived, kept, names]\ntrack(third)\n\nexport const Page = () => {\n  const workspace = useGone()\n  const name = workspace.name\n  const deps = [name, kept]\n\n  return (\n    <main>\n      {workspace.title}\n      <p>{deps}</p>\n    </main>\n  )\n}\n\nexport { LIST }\n`
 
     expect(prune({ kept: { [PAGE]: source } })).toStrictEqual({

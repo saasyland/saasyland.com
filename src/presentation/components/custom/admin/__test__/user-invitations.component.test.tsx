@@ -27,8 +27,8 @@ import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
 
 import * as download from "~/src/lib/download"
 
-import { adminInvitation } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminInvitation } from "~/src/presentation/components/custom/admin/__test__/team.fixtures"
 
 import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"

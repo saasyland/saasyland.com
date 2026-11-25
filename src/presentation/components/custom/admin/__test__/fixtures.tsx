@@ -11,7 +11,13 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import * as AREA_QUERIES from "~/src/presentation/components/custom/admin/__test__/fixtures.entries"
+import { seedAuthQueries } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
+import { seedCoursesQueries } from "~/src/presentation/components/custom/admin/__test__/courses.fixtures"
+import { seedLicenseQueries } from "~/src/presentation/components/custom/admin/__test__/license.fixtures"
+import { seedNewsletterQueries } from "~/src/presentation/components/custom/admin/__test__/newsletter.fixtures"
+import { seedPaymentsQueries } from "~/src/presentation/components/custom/admin/__test__/payments.fixtures"
+import { seedProductsQueries } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
+import { seedTeamQueries } from "~/src/presentation/components/custom/admin/__test__/team.fixtures"
 
 interface AdminRenderOptions {
   readonly path?: string
@@ -23,7 +29,15 @@ export const adminMessages = getTestMessages("en-US")
 export const adminQueryClient = () => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
-  for (const seed of Object.values(AREA_QUERIES)) {
+  for (const seed of [
+    seedAuthQueries,
+    seedCoursesQueries,
+    seedLicenseQueries,
+    seedNewsletterQueries,
+    seedPaymentsQueries,
+    seedProductsQueries,
+    seedTeamQueries,
+  ]) {
     seed(queryClient)
   }
   return queryClient

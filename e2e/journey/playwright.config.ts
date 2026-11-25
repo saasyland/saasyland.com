@@ -26,8 +26,8 @@ export default defineConfig<AppOptions>({
   timeout: JOURNEY_TIMEOUT_MS,
   use: {
     baseURL: `https://${DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]}`,
+    browserDoublesEnabled: false,
     navigationTimeout: 60_000,
-    polarCheckoutDouble: false,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",

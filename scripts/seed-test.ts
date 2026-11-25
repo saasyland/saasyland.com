@@ -6,7 +6,12 @@ import { getPlatformProxy } from "wrangler"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import * as AREA_SEEDS from "~/e2e/data/seed.entries"
+import { authSeed } from "~/e2e/data/auth.seed"
+import { coursesSeed } from "~/e2e/data/courses.seed"
+import { licenseSeed } from "~/e2e/data/license.seed"
+import { paymentsSeed } from "~/e2e/data/payments.seed"
+import { productsSeed } from "~/e2e/data/products.seed"
+import type { TestSeed } from "~/e2e/data/seed"
 import { APP_SLUG } from "~/src/presentation/branding"
 
 const LOCAL_TEST_STATE_DIRECTORY = ".wrangler/test"
@@ -20,7 +25,7 @@ const wrangler = (args: readonly string[], failure: string): void => {
   }
 }
 
-const seeds = await Promise.all(Object.values(AREA_SEEDS).map((seed) => seed()))
+const seeds: readonly TestSeed[] = await Promise.all([authSeed(), coursesSeed(), licenseSeed(), paymentsSeed(), productsSeed()])
 const statements = seeds.flatMap((seed) => seed.statements)
 const objects = seeds.flatMap((seed) => seed.objects)
 

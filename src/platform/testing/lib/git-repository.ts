@@ -1,10 +1,8 @@
 import { execFileSync } from "node:child_process"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { onTestFinished } from "vite-plus/test"
-
-import { CHANGELOG_DIRECTORY } from "~/src/lib/changelog"
 
 const SETTINGS = [
   "-c",
@@ -25,7 +23,7 @@ export interface GitRepository {
   readonly commit: (subject: string, committedAt: string) => string
   readonly path: string
   readonly tag: (name: string) => void
-  readonly writeEntry: (file: string, source: string) => void
+  readonly writeFile: (file: string, source: string) => void
 }
 
 export const createGitRepository = (): GitRepository => {
@@ -57,9 +55,9 @@ export const createGitRepository = (): GitRepository => {
     tag: (name) => {
       git(path, ["tag", name])
     },
-    writeEntry: (file, source) => {
-      mkdirSync(join(path, CHANGELOG_DIRECTORY), { recursive: true })
-      writeFileSync(join(path, CHANGELOG_DIRECTORY, file), source)
+    writeFile: (file, source) => {
+      mkdirSync(dirname(join(path, file)), { recursive: true })
+      writeFileSync(join(path, file), source)
     },
   }
 }

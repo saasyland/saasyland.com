@@ -21,13 +21,13 @@ import {
   GUEST_PAGE,
   LEARNER_PAGE,
   type PlayerProps,
+  SIGNED_IN_UNLOCK,
+  SIGNED_OUT_UNLOCK,
   TUTORIAL_ROW,
   WALKTHROUGH_ROW,
   lesson,
   page,
   resetCoursePages,
-  signedInUnlock,
-  signedOutUnlock,
   withOffer,
   withRedirect,
 } from "~/src/routes/__test__/fixtures/course-pages"
@@ -146,10 +146,7 @@ describe("course catalogue", () => {
     const band = within(
       screen.getByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) }).closest("aside") ?? document.body,
     )
-    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
-      "href",
-      signedOutUnlock(ROUTES.COURSES),
-    )
+    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute("href", SIGNED_OUT_UNLOCK)
     expect(band.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.SIGN_IN, ROUTES.COURSES))
   })
 
@@ -162,10 +159,7 @@ describe("course catalogue", () => {
     const band = within(
       screen.getByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) }).closest("aside") ?? document.body,
     )
-    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
-      "href",
-      signedInUnlock(ROUTES.COURSES),
-    )
+    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute("href", SIGNED_IN_UNLOCK)
     expect(band.queryByRole("link", { name: "Sign in" })).toBeNull()
 
     customer.options.context.queryClient.setQueryData(catalogueQuery({ locale: "en-US" }).queryKey, {
@@ -222,10 +216,7 @@ describe("course page", () => {
     const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
     expect(panel.getByText("3 of 4 lessons ready")).toBeVisible()
     expect(panel.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
-    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
-      "href",
-      signedOutUnlock("/courses/the-walkthrough"),
-    )
+    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute("href", SIGNED_OUT_UNLOCK)
     expect(screen.queryByText(/lessons completed/u)).toBeNull()
 
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
@@ -277,10 +268,7 @@ describe("course page", () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
     const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
-    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
-      "href",
-      signedInUnlock("/courses/the-walkthrough"),
-    )
+    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute("href", SIGNED_IN_UNLOCK)
     expect(panel.queryByRole("link", { name: "Sign in" })).toBeNull()
   })
 

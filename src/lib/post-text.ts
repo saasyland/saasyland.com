@@ -13,25 +13,29 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 const TEXT_KEY = "text"
 
-export const postTextValues = (locale: string): Readonly<Record<string, number | string>> => {
-  const format = createFormatter({ locale })
-
-  return {
-    ...REPOSITORY_FACTS,
-    ...CLI_GENERATION_VALUES,
-    ...TIER_SUPPORT_VALUES,
-    affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
-    affiliateProgram: AFFILIATE_PROGRAM,
-    billingGeneration: BILLING_GENERATION,
-    refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
-    ...Object.fromEntries<number | string>(
-      LICENSE_TIERS.flatMap((tier) => [
-        [`${tier}Machines`, LICENSE_ACTIVATION_LIMITS[tier]],
-        [`${tier}Price`, format.number(TIER_PRICES[tier], CURRENCY_FORMAT)],
-      ]),
-    ),
-  }
+const POST_TEXT_VALUES: Readonly<Record<string, number | string>> = {
+  ...REPOSITORY_FACTS,
+  ...CLI_GENERATION_VALUES,
+  ...TIER_SUPPORT_VALUES,
+  affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
+  affiliateProgram: AFFILIATE_PROGRAM,
+  billingGeneration: BILLING_GENERATION,
+  refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
+  ...Object.fromEntries(LICENSE_TIERS.map((tier) => [`${tier}Machines`, LICENSE_ACTIVATION_LIMITS[tier]])),
 }
 
-export const formatPostText = ({ locale, text }: Readonly<{ locale: string; text: string }>): string =>
-  createTranslator({ locale, messages: { [TEXT_KEY]: text } })(TEXT_KEY, postTextValues(locale))
+interface PostText {
+  readonly locale: string
+  readonly text: string
+  readonly values?: Readonly<Record<string, string>>
+}
+
+export const formatPostText = ({ locale, text, values }: PostText): string => {
+  const format = createFormatter({ locale })
+
+  return createTranslator({ locale, messages: { [TEXT_KEY]: text } })(TEXT_KEY, {
+    ...POST_TEXT_VALUES,
+    ...Object.fromEntries(LICENSE_TIERS.map((tier) => [`${tier}Price`, format.number(TIER_PRICES[tier], CURRENCY_FORMAT)])),
+    ...values,
+  })
+}

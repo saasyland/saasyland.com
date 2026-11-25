@@ -1,8 +1,22 @@
+import { AUTH_TEST_WORKER } from "~/e2e/data/auth.worker"
+import { COURSES_TEST_WORKER } from "~/e2e/data/courses.worker"
+import { LICENSE_TEST_WORKER } from "~/e2e/data/license.worker"
+import { NEWSLETTER_TEST_WORKER } from "~/e2e/data/newsletter.worker"
+import { PAYMENTS_TEST_WORKER } from "~/e2e/data/payments.worker"
+import { PRODUCTS_TEST_WORKER } from "~/e2e/data/products.worker"
+import { RESEND_TEST_WORKER } from "~/e2e/data/resend.worker"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "~/e2e/data/worker"
-import * as AREA_TEST_WORKER from "~/e2e/data/worker.entries"
 import type * as applicationModuleType from "~/src/server"
 
-const ENTRIES: readonly TestWorkerEntry[] = Object.values(AREA_TEST_WORKER).flat()
+const ENTRIES: readonly TestWorkerEntry[] = [
+  ...AUTH_TEST_WORKER,
+  ...COURSES_TEST_WORKER,
+  ...LICENSE_TEST_WORKER,
+  ...NEWSLETTER_TEST_WORKER,
+  ...PAYMENTS_TEST_WORKER,
+  ...PRODUCTS_TEST_WORKER,
+  ...RESEND_TEST_WORKER,
+]
 
 let installation: Promise<void> | null = null
 let applicationModule: Promise<typeof applicationModuleType> | null = null

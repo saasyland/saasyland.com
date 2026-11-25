@@ -3,8 +3,22 @@ import { readFileSync } from "node:fs"
 import process from "node:process"
 import * as zod from "zod"
 
-import * as AREA_FLOWS from "../e2e/data/flows.entries.ts"
+import { AFFILIATES_FLOWS } from "../e2e/data/affiliates.flows.ts"
+import { ANALYTICS_FLOWS } from "../e2e/data/analytics.flows.ts"
+import { AUTH_FLOWS } from "../e2e/data/auth.flows.ts"
+import { BILLING_FLOWS } from "../e2e/data/billing.flows.ts"
+import { CONTENT_FLOWS } from "../e2e/data/content.flows.ts"
+import { CORE_FLOWS } from "../e2e/data/core.flows.ts"
+import { COURSES_FLOWS } from "../e2e/data/courses.flows.ts"
 import { FLOW_STATUS, type Flow, type FlowTest } from "../e2e/data/flows.ts"
+import { LEGAL_FLOWS } from "../e2e/data/legal.flows.ts"
+import { LICENSE_FLOWS } from "../e2e/data/license.flows.ts"
+import { NEWSLETTER_FLOWS } from "../e2e/data/newsletter.flows.ts"
+import { PAGE_BUILDER_FLOWS } from "../e2e/data/page-builder.flows.ts"
+import { PAYMENTS_FLOWS } from "../e2e/data/payments.flows.ts"
+import { POST_EDITOR_FLOWS } from "../e2e/data/post-editor.flows.ts"
+import { PRODUCTS_FLOWS } from "../e2e/data/products.flows.ts"
+import { TEAM_FLOWS } from "../e2e/data/team.flows.ts"
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
 const PULL_REQUEST_PROJECT = "chromium"
@@ -20,7 +34,23 @@ export const EXPECTED_STATUS = {
   TIMED_OUT: "timedOut",
 } as const
 
-export const FLOWS: readonly Flow[] = Object.values(AREA_FLOWS).flat()
+export const FLOWS: readonly Flow[] = [
+  ...AFFILIATES_FLOWS,
+  ...ANALYTICS_FLOWS,
+  ...AUTH_FLOWS,
+  ...BILLING_FLOWS,
+  ...CONTENT_FLOWS,
+  ...CORE_FLOWS,
+  ...COURSES_FLOWS,
+  ...LEGAL_FLOWS,
+  ...LICENSE_FLOWS,
+  ...NEWSLETTER_FLOWS,
+  ...PAGE_BUILDER_FLOWS,
+  ...PAYMENTS_FLOWS,
+  ...POST_EDITOR_FLOWS,
+  ...PRODUCTS_FLOWS,
+  ...TEAM_FLOWS,
+]
 
 const listedTestSchema = zod.object({ expectedStatus: zod.enum(EXPECTED_STATUS) })
 

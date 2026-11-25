@@ -79,12 +79,15 @@ describe("sign-up intro", () => {
   })
 
   it.each([
-    ["no redirect", ""],
-    ["a redirect without a tier", signUpWith(ROUTES.APP)],
-    ["a redirect with an unknown tier", signUpWith(tierRedirect(ROUTES.APP, "enterprise"))],
-    ["a redirect to a page that sells no tier", signUpWith(tierRedirect(ROUTES.APP_SETTINGS, LICENSE_TIER.COMPLETE))],
-    ["an external redirect", signUpWith(tierRedirect(`https://evil.example${ROUTES.APP}`, LICENSE_TIER.COMPLETE))],
-  ])("keeps the description with %s", async (_label, search) => {
+    { label: "no redirect", search: "" },
+    { label: "a redirect without a tier", search: signUpWith(ROUTES.APP) },
+    { label: "a redirect with an unknown tier", search: signUpWith(tierRedirect(ROUTES.APP, "enterprise")) },
+    {
+      label: "a redirect to a page that sells no tier",
+      search: signUpWith(tierRedirect(ROUTES.APP_SETTINGS, LICENSE_TIER.COMPLETE)),
+    },
+    { label: "an external redirect", search: signUpWith(tierRedirect(`https://evil.example${ROUTES.APP}`, LICENSE_TIER.COMPLETE)) },
+  ])("keeps the description with $label", async ({ search }) => {
     await renderSignUp(search)
 
     expect(screen.getByText(pagesAuthSignUpMessages.form.description)).toBeVisible()

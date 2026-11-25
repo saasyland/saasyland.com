@@ -30,7 +30,7 @@ import { Route as DeleteAccountRoute } from "~/src/routes/app.settings_.delete-a
 
 import { ACCOUNT_DELETION_NOTICES } from "~/src/presentation/components/custom/settings/delete-account-card"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authSessionMessages from "~/messages/en-US/auth.session.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationContentMessages from "~/messages/en-US/navigation.content.json"
@@ -40,7 +40,7 @@ import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
-import plCommonMessages from "~/messages/pl-PL/common.json"
+import plAuthSessionMessages from "~/messages/pl-PL/auth.session.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
 import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
@@ -98,13 +98,17 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   })
   const nested = createRoute({ component: () => <p>Session details</p>, getParentRoute: () => AppRoute, path: "/settings/details" })
   const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
-  const docs = createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS })
   const home = createRoute({ component: () => <h1>Home page</h1>, getParentRoute: () => root, path: ROUTES.HOME })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([home, signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, DeleteAccountRoute, nested])]),
+    routeTree: root.addChildren([
+      home,
+      signIn,
+      createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS }),
+      AppRoute.addChildren([OverviewRoute, SettingsRoute, DeleteAccountRoute, nested]),
+    ]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -286,13 +290,13 @@ describe("customer workspace account", () => {
     const region = await screen.findByRole("region", { name: account.label })
     expect(within(region).getByText(session.user.name)).toBeVisible()
     expect(within(region).getByText(session.user.email)).toBeVisible()
-    expect(within(region).getByRole("button", { name: commonMessages.signOut })).toBeEnabled()
+    expect(within(region).getByRole("button", { name: authSessionMessages.signOut })).toBeEnabled()
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
   it("removes the cached session and account data, keeps the translations, and opens sign in after successful sign-out", async () => {
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
-    await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
+    await user.click(await screen.findByRole("button", { name: authSessionMessages.signOut }))
 
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
@@ -301,7 +305,7 @@ describe("customer workspace account", () => {
     expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toBeUndefined()
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
-    expect(toast.success).toHaveBeenCalledWith(commonMessages.signedOut)
+    expect(toast.success).toHaveBeenCalledWith(authSessionMessages.signedOut)
     expect(toast.error).not.toHaveBeenCalled()
   })
 
@@ -309,14 +313,14 @@ describe("customer workspace account", () => {
     signOutMock.mockRejectedValue(new Error("Connection failed"))
     const session = createAuthSessionFixture()
     const { queryClient, router, user } = await renderApp(ROUTES.APP, "pl-PL")
-    await user.click(await screen.findByRole("button", { name: plCommonMessages.signOut }))
+    await user.click(await screen.findByRole("button", { name: plAuthSessionMessages.signOut }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(plErrorMessages.codes.INTERNAL_ERROR)
     })
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toStrictEqual(session)
     expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toStrictEqual(SUMMARY)
-    expect(screen.getByRole("button", { name: plCommonMessages.signOut })).toBeEnabled()
+    expect(screen.getByRole("button", { name: plAuthSessionMessages.signOut })).toBeEnabled()
     expect(router.state.location.pathname).toBe(ROUTES.APP)
     expect(toast.success).not.toHaveBeenCalled()
   })
@@ -327,8 +331,8 @@ describe("customer workspace account", () => {
     const session = createAuthSessionFixture()
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
 
-    await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
-    const pendingButton = await screen.findByRole("button", { name: commonMessages.signingOut })
+    await user.click(await screen.findByRole("button", { name: authSessionMessages.signOut }))
+    const pendingButton = await screen.findByRole("button", { name: authSessionMessages.signingOut })
     expect(pendingButton).toBeDisabled()
     await user.click(pendingButton)
     expect(signOutMock).toHaveBeenCalledOnce()

@@ -48,6 +48,8 @@ const lazyModulesOf = (file: string): string[] => {
   return bindings.some((binding) => isLazyLoader(binding)) ? imports.map(({ source }) => resolveImport(file, source)) : []
 }
 
+const BARRELS = "{e2e,remotion/src,scripts,src}/**/*.entries.ts"
+
 const importsOf = (file: string): string[] => {
   const { imports, program } = analyzeModule(file, readFileSync(file, "utf8"))
   const statements = program.body.flatMap((statement) => {
@@ -81,6 +83,10 @@ describe("the source layout", () => {
     expect(
       importClosure(lazyModules).filter((file) => importSpecifiers(file).some((specifier) => isControlPackage(specifier))),
     ).toStrictEqual([])
+  })
+
+  it("has no *.entries.ts barrel, because each list imports its elements from the files that declare them", () => {
+    expect(globSync(BARRELS)).toStrictEqual([])
   })
 
   it(`keeps only data in ${DATA_FOLDER}: no exported function and no ${ZOD} import`, () => {

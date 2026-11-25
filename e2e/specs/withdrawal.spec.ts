@@ -5,13 +5,9 @@ import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
-import {
-  expectPurchaseConfirmation,
-  expectVerificationEmail,
-  expectWithdrawalAcknowledgement,
-  expectWithdrawalNotification,
-} from "../fixtures/emails"
+import { expectVerificationEmail } from "../fixtures/emails"
 import { buyLicense } from "../fixtures/license"
+import { expectPurchaseConfirmation, expectWithdrawalAcknowledgement, expectWithdrawalNotification } from "../fixtures/license-emails"
 import type { AuthPage } from "../pages"
 import type { BasePage } from "../pages/base-page"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"

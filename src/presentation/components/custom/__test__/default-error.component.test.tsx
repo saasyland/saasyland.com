@@ -28,7 +28,9 @@ const renderFailure = (failure: "root" | "loader" | "render") => {
       <>
         <nav aria-label="Workspace">
           <Link to="/">Data</Link>
-          <Link to="/privacy">Other page</Link>
+          <Link params={{ _splat: "other" }} to="/$">
+            Other page
+          </Link>
         </nav>
         <Outlet />
       </>
@@ -44,7 +46,7 @@ const renderFailure = (failure: "root" | "loader" | "render") => {
     },
     path: "/",
   })
-  const other = createRoute({ component: () => <p>Other content</p>, getParentRoute: () => root, path: "/privacy" })
+  const other = createRoute({ component: () => <p>Other content</p>, getParentRoute: () => root, path: "/$" })
   const router = createRouter({
     defaultErrorComponent: DefaultError,
     history: createMemoryHistory({ initialEntries: ["/"] }),

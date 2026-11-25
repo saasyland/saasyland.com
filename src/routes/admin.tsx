@@ -41,9 +41,11 @@ const AdminLayout = (): JSX.Element => (
 )
 
 const NAMESPACES = [
+  "auth.dates",
   "auth.errors",
   "auth.form",
   "auth.security",
+  "auth.session",
   "auth.validations",
   "countries",
   "locales",

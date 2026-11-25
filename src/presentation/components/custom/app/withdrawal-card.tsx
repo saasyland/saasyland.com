@@ -26,7 +26,7 @@ const ContractWithdrawal = (): JSX.Element | undefined => {
     return
   }
 
-  const dateTime = (value: Date): string => t("common.dateTime", { value })
+  const dateTime = (value: Date): string => t("auth.dates.dateTime", { value })
   const { date, ...use } = refundEligibilityValues(contract.eligibility)
   const description = t("pages.withdrawal.card.contract", {
     date: dateTime(contract.purchasedAt),

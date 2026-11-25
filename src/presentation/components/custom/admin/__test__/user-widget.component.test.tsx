@@ -7,7 +7,7 @@ import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 import { renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authSessionMessages from "~/messages/en-US/auth.session.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({
@@ -28,7 +28,10 @@ describe("user widget", () => {
 
     const items = await screen.findAllByRole("menuitem")
 
-    expect(items.map((item) => item.textContent)).toStrictEqual([pagesAdminMessages.components.userWidget.settings, commonMessages.signOut])
+    expect(items.map((item) => item.textContent)).toStrictEqual([
+      pagesAdminMessages.components.userWidget.settings,
+      authSessionMessages.signOut,
+    ])
     expect(screen.getAllByText("Test User")).toHaveLength(1)
   })
 })

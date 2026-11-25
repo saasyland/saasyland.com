@@ -6,11 +6,8 @@ import * as zod from "zod"
 import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 
 import { ACCOUNT_EMAIL_PURPOSE } from "../../src/modules/account/account.constants"
-import { INVITATION_EMAIL_PURPOSE } from "../../src/modules/invitation/invitation.constants"
-import { LICENSE_EMAIL_PURPOSE } from "../../src/modules/license/license.constants"
 import { USER_EMAIL_PURPOSE } from "../../src/modules/user/user.constants"
 import { VERIFICATION_EMAIL_PURPOSE } from "../../src/modules/verification/verification.constants"
-import { WITHDRAWAL_EMAIL_PURPOSE } from "../../src/modules/withdrawal/withdrawal.constants"
 import { APP_NAME } from "../../src/presentation/branding"
 import { expect } from "./test"
 
@@ -25,7 +22,9 @@ const sentEmailsSchema = zod.array(
   }),
 )
 
-const getSentEmails = async (request: APIRequestContext, recipient: string): Promise<zod.infer<typeof sentEmailsSchema>> => {
+type SentEmail = zod.infer<typeof sentEmailsSchema>[number]
+
+export const getSentEmails = async (request: APIRequestContext, recipient: string): Promise<zod.infer<typeof sentEmailsSchema>> => {
   const response = await request.get("/__test/emails", { params: { to: recipient } })
   expect(response.ok()).toBe(true)
   return sentEmailsSchema.parse(await response.json())
@@ -67,7 +66,12 @@ export const expectVerificationEmail = async (
   return verificationUrl
 }
 
-const latestEmail = async (request: APIRequestContext, recipient: string, purpose: string, expectedCount: number) => {
+export const latestEmail = async (
+  request: APIRequestContext,
+  recipient: string,
+  purpose: string,
+  expectedCount: number,
+): Promise<SentEmail> => {
   await expect.poll(async () => (await emailsFor(request, recipient, purpose)).length).toBe(expectedCount)
 
   const email = (await emailsFor(request, recipient, purpose)).at(-1)
@@ -77,7 +81,7 @@ const latestEmail = async (request: APIRequestContext, recipient: string, purpos
   return email
 }
 
-const linkTo = (html: string, path: string): URL => {
+export const linkTo = (html: string, path: string): URL => {
   const link = [...html.matchAll(/href="([^"]+)"/gu)].map(([, href]) => href ?? "").find((href) => new URL(href.replaceAll("&amp;", "&")).pathname.includes(path))
   if (link === undefined) throw new Error(`The email has no link to ${path}`)
 
@@ -111,39 +115,6 @@ export const expectPasswordChangedEmail = async (request: APIRequestContext, rec
   expect(email.html).toContain("/auth/forgot-password")
 }
 
-export const expectPurchaseConfirmation = async (request: APIRequestContext, recipient: string): Promise<string> => {
-  const isConfirmation = ({ idempotencyKey }: { idempotencyKey: string }): boolean =>
-    idempotencyKey.startsWith(`${LICENSE_EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`)
-
-  await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isConfirmation).length).toBe(1)
-
-  const [email] = (await getSentEmails(request, recipient)).filter(isConfirmation)
-  if (!email) throw new Error(`No purchase confirmation was sent to ${recipient}`)
-
-  expect(email.to).toEqual([recipient])
-  return `${email.subject}\n${email.html}`
-}
-
-export const expectWithdrawalAcknowledgement = async (request: APIRequestContext, recipient: string): Promise<string> => {
-  const email = await latestEmail(request, recipient, WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_ACKNOWLEDGEMENT, 1)
-
-  expect(email.subject).toBe("We received your withdrawal")
-  return email.html
-}
-
-export const expectWithdrawalNotification = async (request: APIRequestContext, recipient: string, reference: string): Promise<string> => {
-  const isNotification = ({ html, idempotencyKey }: { html: string; idempotencyKey: string }): boolean =>
-    idempotencyKey.startsWith(`${WITHDRAWAL_EMAIL_PURPOSE.WITHDRAWAL_NOTIFICATION}/`) && html.includes(reference)
-
-  await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isNotification).length).toBe(1)
-
-  const [email] = (await getSentEmails(request, recipient)).filter(isNotification)
-  if (!email) throw new Error(`No withdrawal notification for ${reference} was sent to ${recipient}`)
-
-  return email.html
-}
-
-
 export const expectChangeEmailConfirmation = async (request: APIRequestContext, recipient: string): Promise<URL> => {
   const email = await latestEmail(request, recipient, ACCOUNT_EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, 1)
 
@@ -158,10 +129,3 @@ export const expectDeleteAccountEmail = async (request: APIRequestContext, recip
   return linkTo(email.html, "/app/settings/delete-account")
 }
 
-export const expectInvitationEmail = async (request: APIRequestContext, recipient: string, expectedCount = 1): Promise<URL> => {
-  const email = await latestEmail(request, recipient, INVITATION_EMAIL_PURPOSE.INVITATION, expectedCount)
-
-  expect(email.subject).toBe(`You're invited to ${APP_NAME}`)
-  expect(email.html).toContain('lang="en-US"')
-  return linkTo(email.html, "/auth/invite")
-}

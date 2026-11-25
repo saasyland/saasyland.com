@@ -4,6 +4,7 @@ import { expect, test } from "../fixtures/auth"
 import { checkoutOverlay, payInCheckoutOverlay } from "../fixtures/polar-checkout"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+import { polarCheckoutOrigin } from "../../src/integrations/polar/polar.constants"
 import { documentPolicy } from "../../src/lib/content-security-policy"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import * as ROUTES from "../../src/routes"
@@ -28,7 +29,7 @@ test.describe("content security policy", () => {
       const nonce = policyNonce(first.headers()[POLICY_HEADER])
       const html = await first.text()
 
-      expect(first.headers()[POLICY_HEADER]).toBe(documentPolicy(nonce, TEST_POLAR.POLAR_SERVER))
+      expect(first.headers()[POLICY_HEADER]).toBe(documentPolicy(nonce, [polarCheckoutOrigin(TEST_POLAR.POLAR_SERVER)]))
       expect(policyNonce(second.headers()[POLICY_HEADER])).not.toBe(nonce)
       expect(
         Array.from(html.matchAll(SCRIPT_TAG), ([tag]) => tag).filter((tag) => !DATA_BLOCK.test(tag) && !tag.includes(` nonce="${nonce}"`)),

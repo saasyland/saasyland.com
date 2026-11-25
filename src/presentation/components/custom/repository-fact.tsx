@@ -330,6 +330,7 @@ const FACTS = {
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundReimbursementDays: REFUND_TERMS.REIMBURSEMENT_DAYS,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
+  requestRenderedRoutes: ROUTES.REQUEST_RENDERED_ROUTES,
   resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
@@ -359,7 +360,6 @@ const FACTS = {
       .filter((action) => !moduleTables.checkedPermissions.includes(`${resource}.${action}`))
       .map((action) => `${resource}: ["${action}"]`),
   ),
-  unlistedRoutes: ROUTES.UNLISTED_ROUTES,
   verificationPollSeconds: VERIFICATION_POLL_MS / MILLISECONDS_PER_SECOND,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
   videoLibraryPageSize: VIDEO_LIBRARY_PAGE_SIZE,

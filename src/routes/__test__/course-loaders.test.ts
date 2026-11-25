@@ -12,6 +12,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IDS, LESSON_IDS, USERS, makeTextLesson, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
@@ -52,6 +53,40 @@ describe("course route loaders", () => {
 
     expect(router.state.matches.at(-1)?.status).toBe("success")
     expect(router.state.matches.at(-1)?.loaderData).toHaveProperty("metadata.title", "Courses")
+  })
+
+  it("keeps the catalogue out of search results while no course is published", async () => {
+    signOut()
+    await db.update(course).set({ status: COURSE_STATUS.DRAFT })
+
+    const router = await load("/courses")
+
+    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+  })
+
+  it("leaves the catalogue to search engines once a course is published", async () => {
+    signOut()
+
+    const router = await load("/courses")
+
+    expect(router.state.matches.at(-1)?.meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
+  })
+
+  it.each([
+    ["/courses/the-walkthrough/boundaries", false],
+    ["/courses/the-walkthrough/sessions", true],
+    ["/courses/the-walkthrough/billing", true],
+    ["/courses/the-walkthrough/coverage", true],
+  ])("keeps %s out of search results unless a signed-out visitor may watch it: %s", async (path, hidden) => {
+    signOut()
+    const cover = `covers/${IDS.COURSE}/0195a2b4-6c8d-7e9f-8a0b-00000000c0e1.webp`
+    await db.update(course).set({ cover }).where(eq(course.id, IDS.COURSE))
+
+    const router = await load(path)
+    const meta = router.state.matches.at(-1)?.meta
+
+    expect(meta?.some((tag) => tag?.name === "robots" && tag.content === ROBOTS.NOINDEX)).toBe(hidden)
+    expect(meta).toContainEqual({ content: `${APP_URL}/media/${cover}`, property: "og:image" })
   })
 
   it("titles the course page after the course", async () => {

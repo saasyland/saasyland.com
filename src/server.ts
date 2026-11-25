@@ -13,6 +13,7 @@ import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-securi
 import { serializeCookie } from "~/src/lib/cookie"
 
 import { fontPreloads } from "~/src/presentation/document-assets"
+import * as ROUTES from "~/src/routes"
 
 const HTML = /^text\/html(?:\s*;|$)/iu
 
@@ -40,6 +41,14 @@ const REQUEST_HANDLERS: readonly RequestHandler[] = [
       return serveCover(request)
     },
     pathPrefix: `${COURSE_COVER_PATH_PREFIX}/`,
+  },
+  {
+    fetch: async (request) => {
+      const { serveCourseSitemap } = await import("~/src/modules/course/course.delivery")
+
+      return serveCourseSitemap(request)
+    },
+    pathPrefix: ROUTES.COURSES_SITEMAP,
   },
   {
     fetch: async (request) => {

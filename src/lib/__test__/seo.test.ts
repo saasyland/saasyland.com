@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, SOCIAL_IMAGE, buildPageHead, pageHead, socialImagePath } from "~/src/lib/seo"
+import {
+  ORGANIZATION_LOGO,
+  ORGANIZATION_STRUCTURED_DATA_HTML,
+  ROBOTS,
+  SOCIAL_IMAGE,
+  buildPageHead,
+  pageHead,
+  socialImagePath,
+} from "~/src/lib/seo"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
@@ -109,12 +117,15 @@ describe("social preview", () => {
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:section" }))
   })
 
-  it.each([ROUTES.API, `${ROUTES.API}/search`, `/pl-PL${ROUTES.API}`])("gives %s, which is not prerendered, the site card", (pathname) => {
-    const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
+  it.each([ROUTES.API, `${ROUTES.API}/search`, `/pl-PL${ROUTES.API}`, `${ROUTES.COURSES}/the-walkthrough`])(
+    "gives %s, which is not prerendered, the site card",
+    (pathname) => {
+      const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
 
-    expect(meta).toContainEqual({ content: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`, property: "og:image" })
-    expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
-  })
+      expect(meta).toContainEqual({ content: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`, property: "og:image" })
+      expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
+    },
+  )
 
   it("shares the image a page passes, with its own type and size, in place of a card", () => {
     const image = { alt: "The walkthrough", height: 900, path: "/media/covers/course/cover.webp", type: "image/webp", width: 1600 }
@@ -131,6 +142,14 @@ describe("social preview", () => {
         { content: image.alt, name: "twitter:image:alt" },
       ]),
     )
+  })
+
+  it("keeps a page that asks for it out of search results and leaves the directive to the root otherwise", () => {
+    expect(buildPageHead({ pathname: ROUTES.COURSES, robots: ROBOTS.NOINDEX }).meta).toContainEqual({
+      content: ROBOTS.NOINDEX,
+      name: "robots",
+    })
+    expect(buildPageHead({ pathname: ROUTES.COURSES }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
   })
 
   it("describes the card of a page without a title by the site name alone", () => {

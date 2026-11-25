@@ -10,7 +10,7 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, courseShareImage } from "~/src/modules/course/course.utils"
+import { courseLessons, coursePath, courseShareImage, courseStructuredDataHtml } from "~/src/modules/course/course.utils"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
@@ -73,6 +73,10 @@ const CoursePage = (): JSX.Element => {
 
   return (
     <section className="relative isolate">
+      <script
+        dangerouslySetInnerHTML={courseStructuredDataHtml({ level: t(`levels.${data.course.level}`), locale, page: data })}
+        type="application/ld+json"
+      />
       <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[38rem] overflow-hidden mask-b-from-20% opacity-40">
         <CourseCover className="size-full scale-110 blur-3xl" course={data.course} isDecorative sizes="10vw" />
       </div>
@@ -156,7 +160,7 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
     return {
       cover: data.course.cover,
       locale,
-      pathname: `${ROUTES.COURSES}/${data.course.slug}`,
+      pathname: coursePath(data.course.slug),
       summary: data.course.summary,
       title: data.course.title,
     }

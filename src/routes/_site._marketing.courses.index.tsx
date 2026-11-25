@@ -7,6 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { catalogueStructuredDataHtml } from "~/src/modules/course/course.utils"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
@@ -14,7 +15,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 
-import { pageHead } from "~/src/lib/seo"
+import { type PageLoaderData, ROBOTS, buildPageHead } from "~/src/lib/seo"
 
 import { CourseCard, FeaturedCourseCard } from "~/src/presentation/components/custom/courses/course-card"
 import { CataloguePending } from "~/src/presentation/components/custom/courses/courses-pending"
@@ -74,6 +75,7 @@ const CoursesPage = (): JSX.Element => {
 
         {featured !== undefined && (
           <div className="mt-14 md:mt-20">
+            <script dangerouslySetInnerHTML={catalogueStructuredDataHtml({ courses: data.courses, locale })} type="application/ld+json" />
             <FeaturedCourseCard course={featured} />
           </div>
         )}
@@ -96,17 +98,22 @@ const CoursesPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
+interface CatalogueLoaderData extends PageLoaderData {
+  readonly robots?: string
+}
+
 export const Route = createFileRoute("/_site/_marketing/courses/")({
   component: CoursesPage,
-  head: pageHead(ROUTES.COURSES),
-  loader: async ({ context }) => {
+  head: ({ loaderData }: { loaderData?: CatalogueLoaderData | undefined }) =>
+    buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname: ROUTES.COURSES, robots: loaderData?.robots }),
+  loader: async ({ context }): Promise<CatalogueLoaderData> => {
     const locale = getCurrentLocale()
-    const [metadata] = await Promise.all([
+    const [metadata, catalogue] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
-      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(catalogueQuery({ locale })),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    return { locale, metadata }
+    return { locale, metadata, ...(catalogue.courses.length > 0 ? {} : { robots: ROBOTS.NOINDEX }) }
   },
   pendingComponent: CataloguePending,
   staticData: { namespaces: [NAMESPACE] },

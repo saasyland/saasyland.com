@@ -14,7 +14,7 @@ import { cn } from "~/src/lib/cn"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
-import { PRICE_TAGS, PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
+import { PRICE_TAGS, PricingTiers, type TierAction, TierStructuredData } from "~/src/presentation/components/custom/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
@@ -52,6 +52,7 @@ export const PricingSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.PRICING}>
+      <TierStructuredData />
       <div className="mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <div className="grid gap-x-16 gap-y-5 md:grid-cols-[1.1fr_1fr] md:items-end">

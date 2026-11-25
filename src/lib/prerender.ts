@@ -8,5 +8,5 @@ export const shouldPrerender = ({ path }: { path: string }): boolean => {
     return false
   }
 
-  return !ROUTES.isUnlistedRoute(path.replace(LOCALE_PREFIX, ""))
+  return !ROUTES.isRequestRenderedRoute(path.replace(LOCALE_PREFIX, ""))
 }

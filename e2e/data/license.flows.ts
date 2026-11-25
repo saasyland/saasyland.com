@@ -60,6 +60,35 @@ const UPGRADE = {
   title: "checkout funnel › a Core owner who picks Complete pays the difference and keeps the key, now with Complete's machines",
 } as const
 
+const fullPriceCheckout = (tier: LicenseTier) =>
+  ({
+    spec: "checkout-funnel.spec.ts",
+    title: `checkout funnel › a ${tier} checkout charges the full price to the signed-in account, and the ticked consent ends in an active ${tier} licence and its confirmation`,
+  }) as const
+
+const FULL_PRICE_CHECKOUTS = [
+  fullPriceCheckout(LICENSE_TIER.CORE),
+  fullPriceCheckout(LICENSE_TIER.COMPLETE),
+  fullPriceCheckout(LICENSE_TIER.AGENCY),
+] as const
+
+const POLISH_CHECKOUT = {
+  spec: "checkout-funnel.spec.ts",
+  title: "checkout funnel › a buyer on the Polish site checks out in Polish and receives the purchase confirmation in Polish",
+} as const
+
+const webhookTest = (title: string) => ({ spec: "license-webhooks.spec.ts", title: `licence webhooks › ${title}` }) as const
+
+const cliApiTest = (title: string) => ({ spec: "cli-licence-api.spec.ts", title: `CLI licence API › ${title}` }) as const
+
+const REFUND_STOPS_KEY = webhookTest("a refund stops the key: the licence page says so and the CLI licence API refuses it with licenseRefunded")
+
+const REVOKED_KEY = webhookTest("a revoked licence key marks the licence inactive, and the CLI licence API refuses the key with licenseRevoked")
+
+const publishedCliTest = (title: string) => ({ spec: "published-cli.spec.ts", title: `published CLI › ${title}` }) as const
+
+const SLOT_LIMIT = cliApiTest("refuses the machine after the tier's limit with activationLimitReached and the machines that hold the slots")
+
 const SECOND_CHECKOUT = {
   spec: "checkout-funnel.spec.ts",
   title: "checkout funnel › a page left open after buying refuses a second checkout and shows the license instead",
@@ -106,19 +135,6 @@ const WITHDRAWAL_LINKS = {
   spec: "withdrawal.spec.ts",
   title: "withdrawal function › the footer of every page and the Refund Policy lead to the withdrawal function",
 } as const
-
-const JOURNEY_STEP = {
-  ACTIVATE: "activate this machine with the key",
-  FILL_SLOTS: "CI machines fill the remaining slots and the next one is refused",
-  FREE_SLOT: "free a CI slot on /app/license, and the refused machine takes it",
-  KEY: "the webhooks issue the key on /app/license",
-  ORDER: "Polar records the order of the tier",
-  PAY: "pay the regional price with the Stripe test card",
-  REFUND: "a refund in the Polar sandbox stops the key and removes the credentials",
-  UPGRADE_REFUND: "a refund of the upgrade returns the lower tier and its limit, and the key still works",
-} as const
-
-const JOURNEY_ONLY = "Only the journey suite does this, against preview and the Polar sandbox, every night and outside the pull request checks."
 
 export const LICENSE_FLOWS = [
   {
@@ -215,27 +231,22 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.PURCHASE,
     id: "buy-core",
     outcome: "A buyer consents and checks out Core, and ends with an active Core licence, its confirmation email and Core on /app/license",
-    journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite checks out Complete only; the Core purchase test grants the licence through signed webhooks without a checkout.",
-    status: FLOW_STATUS.MISSING,
-    tests: [SECOND_CHECKOUT, BUY_CORE],
+    status: FLOW_STATUS.COVERED,
+    tests: [fullPriceCheckout(LICENSE_TIER.CORE), SECOND_CHECKOUT, BUY_CORE],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "buy-agency",
     outcome: "A buyer consents and checks out Agency, and ends with an active Agency licence, its confirmation email and Agency on /app/license",
-    journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite never checks out Agency; the Agency purchase test grants the licence through signed webhooks without a checkout.",
-    status: FLOW_STATUS.MISSING,
-    tests: [BUY_AGENCY],
+    status: FLOW_STATUS.COVERED,
+    tests: [fullPriceCheckout(LICENSE_TIER.AGENCY), BUY_AGENCY],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "checkout-full-price",
     outcome: "Outside the regional-pricing countries, the checkout Polar receives for each tier charges its full price from TIER_PRICES",
-    journey: JOURNEY_STEP.ORDER,
-    reason: "The browser suite never reads the product, amount or discount of the checkout the Polar double receives.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [...FULL_PRICE_CHECKOUTS],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
@@ -285,19 +296,15 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.PURCHASE,
     id: "checkout-prefilled",
     outcome: "The Polar checkout opens with the account's email, the buyer's locale and the account as Polar's external customer",
-    journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite reads the language and the back link of the checkout the Polar double receives, not its email or external customer.",
-    status: FLOW_STATUS.MISSING,
-    tests: [CHECKOUT_LANGUAGE],
+    status: FLOW_STATUS.COVERED,
+    tests: [...FULL_PRICE_CHECKOUTS, CHECKOUT_LANGUAGE],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "consent-reaches-polar",
     outcome: "The consent the buyer ticks on Polar's checkout reaches the order's withdrawal-consent field and is stored on the licence",
-    journey: JOURNEY_STEP.ORDER,
-    reason: "The browser suite writes the consent into a webhook it signs itself; only the journey reads it back from Polar.",
-    status: FLOW_STATUS.MISSING,
-    tests: [BUYER_PROFILE],
+    status: FLOW_STATUS.COVERED,
+    tests: [...FULL_PRICE_CHECKOUTS, BUYER_PROFILE],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
@@ -339,8 +346,8 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.PURCHASE,
     id: "confirmation-without-consent",
     outcome: "Without the consent, the purchase confirmation states the right of withdrawal and its period",
-    reason: "The browser suite reads the confirmation of an order with the consent only.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("without the consent, the purchase confirmation states the right of withdrawal and its period")],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
@@ -365,44 +372,43 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.PURCHASE,
     id: "webhook-duplicate",
     outcome: "A second delivery of the same order.paid leaves one licence and sends one confirmation email",
-    reason: "Every spec delivers each webhook once.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("a second delivery of the same order.paid leaves one licence with its key and sends one confirmation")],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "webhook-out-of-order",
     outcome: "A benefit_grant.created that arrives before its order.paid still ends with one active licence holding the key",
-    reason: "No spec sends benefit_grant.created.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("a key granted before its order.paid is refused until the order arrives, and Polar's retry then attaches it")],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "unmatched-order-alert",
     outcome: "An order.paid whose customer maps to no account grants nothing and emails the owner an alert with the order and the tier",
-    reason: "The dashboard spec reads a seeded unlicensed order; no spec sends such a webhook or reads the alert.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("an order.paid whose customer has no account grants nothing and emails the owner the order and its tier")],
   },
   {
     feature: FLOW_FEATURE.PURCHASE,
     id: "non-licence-order",
     outcome: "An order.paid for a product that is not a licence grants no licence",
-    reason: "Every order the specs deliver is for a licence product.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("an order.paid for a product that is not a licence grants no licence and sends no confirmation")],
   },
   {
     feature: FLOW_FEATURE.SECURITY,
     id: "webhook-signature",
     outcome: "A Polar webhook with a missing or wrong signature is refused and changes nothing",
-    reason: "deliverPaidOrder always signs with the test secret.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("a Polar webhook with a missing or wrong signature is refused and changes nothing")],
   },
   {
     feature: FLOW_FEATURE.I18N,
     id: "localized-checkout",
     outcome: "A buyer on /pl-PL gets the Polar checkout in Polish and receives the purchase confirmation in Polish",
-    reason: "The browser suite opens a Polish checkout, and an English one for Ukrainian, but reads the confirmation of English orders only.",
-    status: FLOW_STATUS.MISSING,
-    tests: [CHECKOUT_LANGUAGE],
+    status: FLOW_STATUS.COVERED,
+    tests: [POLISH_CHECKOUT, CHECKOUT_LANGUAGE],
   },
   {
     feature: FLOW_FEATURE.I18N,
@@ -415,10 +421,8 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.AFTER_SALE,
     id: "refund-revokes",
     outcome: "An order.refunded webhook marks the licence refunded, /app/license says the key no longer works, and the CLI is refused with licenseRefunded",
-    journey: JOURNEY_STEP.REFUND,
-    reason: "The browser suite checks the refunded licence on /app/license; only the journey runs the CLI against a refunded key.",
-    status: FLOW_STATUS.MISSING,
-    tests: [REFUNDED_LICENCE],
+    status: FLOW_STATUS.COVERED,
+    tests: [REFUND_STOPS_KEY, REFUNDED_LICENCE],
   },
   {
     feature: FLOW_FEATURE.AFTER_SALE,
@@ -431,8 +435,8 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.AFTER_SALE,
     id: "partial-refund-keeps-licence",
     outcome: "A partially refunded order keeps its licence active",
-    reason: "No spec sends order.refunded.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("a partial refund keeps the licence active and its key working")],
   },
   {
     feature: FLOW_FEATURE.AFTER_SALE,
@@ -470,22 +474,29 @@ export const LICENSE_FLOWS = [
     id: "withdrawal-unmatched",
     outcome:
       "A statement whose order number and email address match no active licence is still stored and acknowledged, and the site's contact address is asked to find the order by hand",
-    reason: "Only the unit tests of submitWithdrawal send an order number or email address that matches no licence.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "withdrawal.spec.ts",
+        title:
+          "withdrawal function › a statement whose order number and email address match no licence is still acknowledged, and the contact address is asked to find the order by hand",
+      }],
   },
   {
     feature: FLOW_FEATURE.I18N,
     id: "withdrawal-localized",
     outcome: "A statement sent from a page in another language gets its acknowledgement of receipt in that language",
-    reason: "The browser suite withdraws in English only; the unit tests read a Polish acknowledgement.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "withdrawal.spec.ts",
+        title: "withdrawal function › a statement sent from the Polish page gets its acknowledgement of receipt in Polish",
+      }],
   },
   {
     feature: FLOW_FEATURE.AFTER_SALE,
     id: "benefit-revoked",
     outcome: "A benefit_grant.revoked webhook marks the licence revoked, /app/license says so, and the CLI is refused with licenseRevoked",
-    reason: "No spec sends benefit_grant.revoked.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [REVOKED_KEY],
   },
   {
     feature: FLOW_FEATURE.AFTER_SALE,
@@ -500,9 +511,11 @@ export const LICENSE_FLOWS = [
     id: "first-use-recorded",
     outcome:
       "The first CLI activation and the first template download are recorded on the licence and shown on the buyer's profile, with the refund terms that follow from them",
-    reason: "The profile spec reads Never before any use; no spec activates or downloads and reads the dates back.",
-    status: FLOW_STATUS.MISSING,
-    tests: [BUYER_PROFILE],
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "admin-users.spec.ts",
+        title: "admin reads the first CLI activation and the first template download on the buyer's profile, and the refund terms they end",
+      }],
   },
   {
     feature: FLOW_FEATURE.ADMIN_PAYMENTS,
@@ -589,17 +602,22 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.LICENCE,
     id: "licence-on-overview",
     outcome: "The /app overview shows a licence holder their tier and the licence's status, with a link to /app/license",
-    reason: "The overview specs sign in as accounts without a licence.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "license.spec.ts",
+        title: "a licence holder › sees the tier and the status of the licence on the overview, with a link to the licence page",
+      }],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
     id: "licence-prices",
     outcome: "The offer on /app/license shows each tier's full price, or its regional price in a regional-pricing country",
-    journey: JOURNEY_STEP.PAY,
-    reason: "The browser suite reads the regional Core price on /app/license, not every tier's price.",
-    status: FLOW_STATUS.MISSING,
-    tests: [REGIONAL_CHECKOUT],
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "license.spec.ts",
+        title:
+          "the licence offer › shows each tier's full price, or its regional price beside the struck-through full price in a regional-pricing country",
+      }, REGIONAL_CHECKOUT],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
@@ -631,9 +649,12 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.LICENCE,
     id: "free-slot",
     outcome: "Freeing a machine's slot on /app/license lowers the count, and that machine is then refused with activationNotFound",
-    journey: JOURNEY_STEP.FREE_SLOT,
-    reason: JOURNEY_ONLY,
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [{
+        spec: "license.spec.ts",
+        title:
+          "a licence holder › frees a machine's slot on the licence page, which lowers the count, and that machine is then refused with activationNotFound",
+      }],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
@@ -655,9 +676,8 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.LICENCE,
     id: "upgrade-refunded",
     outcome: "A full refund of an upgrade order puts the licence back on its earlier tier and machine limit",
-    journey: JOURNEY_STEP.UPGRADE_REFUND,
-    reason: "No browser test sends order.refunded for an upgrade; the integration suite and the journey suite refund one, and the journey runs every night, outside the pull request checks.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [webhookTest("a full refund of an upgrade puts the licence back on Core and its machine limit, and the key still works")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
@@ -686,9 +706,8 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-bundle-every-answer",
     outcome: "The bundle endpoint accepts every answer the published CLI can send, not only the defaults",
-    reason: "The spec sends STACK_DEFAULTS only; production init failed on the library answer while every suite passed.",
-    status: FLOW_STATUS.MISSING,
-    tests: [CLI_BUNDLE],
+    status: FLOW_STATUS.COVERED,
+    tests: [cliApiTest("signs a bundle for every answer the published CLI can send, not only the defaults"), CLI_BUNDLE],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
@@ -701,69 +720,67 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-slot-limit",
     outcome: "The machine after the tier's limit is refused with activationLimitReached and stores no credentials",
-    journey: JOURNEY_STEP.FILL_SLOTS,
-    reason: JOURNEY_ONLY,
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [SLOT_LIMIT, publishedCliTest("is refused the machine after the tier's limit with activationLimitReached and stores no credentials")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-ci-slots",
     outcome: "A CI machine named by its repository takes one slot for that repository and keeps it on every run",
-    journey: JOURNEY_STEP.FILL_SLOTS,
-    reason: JOURNEY_ONLY,
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [cliApiTest("keeps one slot for a CI machine named by its repository on every run, and gives another repository its own")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-refunded-key",
     outcome: "The key of a refunded licence is refused with licenseRefunded, and the CLI removes its credentials",
-    journey: JOURNEY_STEP.REFUND,
-    reason: JOURNEY_ONLY,
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [publishedCliTest("loses the key of a refunded licence, refused with licenseRefunded, and removes its credentials"), REFUND_STOPS_KEY],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-revoked-key",
     outcome: "The key of a revoked licence is refused with licenseRevoked",
-    reason: "No spec revokes a licence.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [REVOKED_KEY],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-rate-limit",
     outcome: "Requests over the limit for one address or one key within the period are refused with rateLimited and a Retry-After",
-    reason: "Every request of the spec comes from an address of its own.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [cliApiTest("refuses requests over the limit for one address or one key with rateLimited and a Retry-After")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-invalid-request",
     outcome: "A malformed request is refused with invalidRequest",
-    reason: "Every request of the spec is well formed.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [cliApiTest("refuses a malformed request with invalidRequest")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-polar-unavailable",
     outcome: "When Polar cannot be reached, the API answers serviceUnavailable with a Retry-After",
-    reason: "The Polar double always answers.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [cliApiTest("answers serviceUnavailable with a Retry-After when Polar cannot be reached")],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-published-commands",
     outcome:
       "The published CLI activates with the key and writes its credentials, whoami shows the machine, and deactivate frees the slot and removes the credentials",
-    journey: JOURNEY_STEP.ACTIVATE,
-    reason: "The browser suite calls the API through the contract package, not the published CLI; only the journey runs the CLI.",
-    status: FLOW_STATUS.MISSING,
-    tests: [CLI_MACHINE],
+    status: FLOW_STATUS.COVERED,
+    tests: [publishedCliTest(
+        "activates with the key and writes its credentials, whoami shows the machine, and deactivate frees the slot and removes them",
+      ), CLI_MACHINE],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
     id: "cli-init-project",
     outcome: "The published CLI's init, with an activated licence, downloads the bundle for the chosen answers and writes the project",
-    reason: "No suite runs init against the site; the journey stops at the licence commands.",
+    reason:
+      "The published CLI asks for the bundle of its own release and downloads it from the https address the API contract requires, while the browser suite's Worker serves plain http and holds only a fixture bundle; the journey stops at the licence commands.",
     status: FLOW_STATUS.MISSING,
   },
 ] as const satisfies readonly Flow[]

@@ -9,12 +9,26 @@ import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 const purchaseSchema = zod.object({ customer: zod.string().min(1), tier: zod.enum(LICENSE_TIERS) })
 
+const guestPurchaseSchema = zod.object({ email: zod.email(), name: zod.string().min(1), tier: zod.enum(LICENSE_TIERS) })
+
+const refundSchema = zod.object({ amount: zod.coerce.number().int().positive().optional(), order: zod.string().min(1) })
+
+const orderSchema = zod.object({ order: zod.string().min(1) })
+
+const keySchema = zod.object({ key: zod.string().min(1) })
+
+const invalid = (error: string): Response => Response.json({ error }, { status: HTTP_STATUS.BAD_REQUEST })
+
 const paidOrderWebhooks = async (order: models.Order, secret: string) => {
   const polar = await import("../../src/platform/testing/mocks/polar")
   const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
 
+  const grant = polar.grantPolarLicenseKey(order)
+
   return {
-    grantCreated: signedPolarWebhook({ data: polar.grantPolarLicenseKey(order), secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
+    grantCreated: signedPolarWebhook({ data: grant, secret, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated }),
+    key: polar.polarLicenseKeyOf(grant).key,
+    orderId: order.id,
     orderPaid: signedPolarWebhook({ data: order, secret, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
   }
 }
@@ -105,6 +119,68 @@ export const LICENSE_TEST_WORKER = [
       const { payPolarCheckout } = await import("../../src/platform/testing/mocks/polar")
       const order = payPolarCheckout(checkoutId, { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true })
       return Response.json(await paidOrderWebhooks(order, env.POLAR_WEBHOOK_SECRET))
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/guest-purchase",
+    respond: async (url, env) => {
+      const purchase = guestPurchaseSchema.safeParse(Object.fromEntries(url.searchParams))
+      if (!purchase.success) {
+        return invalid("An email address, a name and a licence tier are required")
+      }
+      const { createGuestPolarOrder } = await import("../../src/platform/testing/mocks/polar")
+      const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
+      const { POLAR_PRODUCT_IDS } = await import("../../src/modules/license/license.utils")
+      const { email, name, tier } = purchase.data
+      const order = createGuestPolarOrder({ email, name, productId: POLAR_PRODUCT_IDS[tier] })
+      return Response.json({
+        orderId: order.id,
+        orderPaid: signedPolarWebhook({ data: order, secret: env.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid }),
+      })
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/refund",
+    respond: async (url, env) => {
+      const refund = refundSchema.safeParse(Object.fromEntries(url.searchParams))
+      if (!refund.success) {
+        return invalid("An order ID is required, and an amount is a positive number of minor units")
+      }
+      const { polarOrderOf, refundPolarOrder } = await import("../../src/platform/testing/mocks/polar")
+      const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
+      const { amount, order: orderId } = refund.data
+      const order = polarOrderOf(orderId)
+      const refunded = refundPolarOrder(orderId, amount ?? order.refundable_amount)
+      return Response.json(signedPolarWebhook({ data: refunded, secret: env.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderRefunded }))
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/revoke",
+    respond: async (url, env) => {
+      const revocation = orderSchema.safeParse(Object.fromEntries(url.searchParams))
+      if (!revocation.success) {
+        return invalid("An order ID is required")
+      }
+      const { polarLicenseKeyGrantOf, revokePolarLicenseKey } = await import("../../src/platform/testing/mocks/polar")
+      const { signedPolarWebhook } = await import("../../src/platform/testing/lib/polar")
+      const revoked = revokePolarLicenseKey(polarLicenseKeyGrantOf(revocation.data.order))
+      return Response.json(signedPolarWebhook({ data: revoked, secret: env.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked }))
+    },
+  },
+  {
+    kind: TEST_WORKER_KIND.ENDPOINT,
+    path: "/__test/polar/cut-off",
+    respond: async (url) => {
+      const cutOff = keySchema.safeParse(Object.fromEntries(url.searchParams))
+      if (!cutOff.success) {
+        return invalid("A licence key is required")
+      }
+      const { cutOffPolarLicenseKey } = await import("../../src/platform/testing/mocks/polar")
+      cutOffPolarLicenseKey(cutOff.data.key)
+      return new Response(undefined, { status: HTTP_STATUS.NO_CONTENT })
     },
   },
 ] as const satisfies readonly TestWorkerEntry[]

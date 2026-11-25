@@ -76,7 +76,7 @@ A practical guide to releasing a command-line tool on npm when the tool is paid 
 
 </Callout>
 
-_Last checked 25 November 2026. What npm, GitHub Actions and Changesets do comes from their own documentation and changelogs, read that day and linked at the bottom, and the behaviour of the Changesets action comes from its source at v2.1.2. Everything about the SaaSy Land CLI comes from its private repository, its workflow runs and the npm registry, as of 0.1.0-beta.5. The CLI’s code stays private, so this post quotes its release workflows and its public release notes, not its source; its pull requests are written CLI #n, and the others link to saasyland.com’s public repository. This is the fifth post in a series on building software with AI coding agents; [the first](/blog/ai-coding-agent-guardrails) moves every rule it can into checks, and [the previous one](/blog/reviewing-ai-generated-code) covers what review has to catch. This one is about the step after the merge._
+_Last checked 25 November 2026. What npm, GitHub Actions and Changesets do comes from their own documentation and changelogs, read that day and linked at the bottom, and the behaviour of the Changesets action comes from its source at v2.1.2. The SaaSy Land CLI is private, commercial code, so this post describes its release process in prose, as of 0.1.0-beta.5, and quotes only what is public: its release notes as npm and this site serve them, the npm registry, and the documentation of npm, GitHub and Changesets. Every code block below comes from saasyland.com’s public repository, with its path as the title, quotes public documentation or source, or is a generic example to adapt, labelled as one; none of them is the CLI’s code. This is the fifth post in a series on building software with AI coding agents; [the first](/blog/ai-coding-agent-guardrails) moves every rule it can into checks, and [the previous one](/blog/reviewing-ai-generated-code) covers what review has to catch. This one is about the step after the merge._
 
 ## The short answer
 
@@ -130,7 +130,7 @@ Before 1.0 a minor version carries new features or a break, and a patch carries 
 
 ### A changeset is a release note for customers
 
-Every pull request that changes a published package adds a changeset, and CI refuses one that does not: `changeset status --since=origin/<base>` fails when a package changed without one. The rule that matters more is about the content. A changeset is the customer’s release note: one or two plain sentences on what changes for them and what they have to do, with commands and flags written as they type them. "Fix bug in the flag parser" tells a customer nothing. This is the note of 0.1.0-beta.5, as the public [release notes](/docs/cli/releases) print it:
+Every pull request that changes a published package adds a changeset, and CI refuses one that does not: `changeset status --since=origin/<base>` fails when a package changed without one. The rule that matters more is about the content. A changeset is the customer’s release note: one or two plain sentences on what changes for them and what they have to do, with commands and flags written as they type them. "Fix bug in the flag parser" tells a customer nothing. This is the note of 0.1.0-beta.5, as the changelog published with the package on npm and the public [release notes](/docs/cli/releases) print it:
 
 > **Breaking:** `--billing lemonsqueezy` is gone, because Lemon Squeezy is closing: it has taken no new sign-ups since 16 November 2026 and shuts down on 31 March 2027. `--billing polar` and `--billing stripe` remain, and `init --billing lemonsqueezy` now exits with code <RepositoryFact name="cliExitUsage" />, like any other value `--billing` does not have.
 
@@ -148,7 +148,7 @@ Previews go out from a `beta` branch in Changesets’ pre mode. Its documentatio
 
 ### The README on npm is part of the release
 
-Until the first stable release, `latest` is the placeholder, so a README that says `npx saasyland init` runs the placeholder, where no command works. In 0.1.0-beta.1 the packed READMEs did exactly that, and untagged `create` commands resolved `latest` too (CLI #20). A smoke test now reads the README inside each packed tarball and fails when a command names one of the packages without the dist-tag, or with another one. The dist-tag the tests expect is declared once, and switching it is a step of the first stable release. The website’s own [CLI guide](/docs/cli) prints its commands from one constant, <RepositoryFact name="cliPackageSpec" />, for the same reason.
+Until the first stable release, `latest` is the placeholder, so a README that says `npx saasyland init` runs the placeholder, where no command works. In 0.1.0-beta.1 the packed READMEs did exactly that, and untagged `create` commands resolved `latest` too. A smoke test now reads the README inside each packed tarball and fails when a command names one of the packages without the dist-tag, or with another one. The dist-tag the tests expect is declared once, and switching it is a step of the first stable release. The website’s own [CLI guide](/docs/cli) prints its commands from one constant, <RepositoryFact name="cliPackageSpec" />, for the same reason.
 
 ## Staged publishing: the human key sits at the registry
 
@@ -166,31 +166,13 @@ GitHub can make a job wait for a reviewer through environments, and the Changese
 
 The Changesets guide is explicit: "At the moment, Staged Publishing does not work with Changesets, so you should use Trusted Publishing instead for now." Its v3 announcement says staging is coming in "the next feature update". Until then, its publish action runs `npm publish`, which a trusted publisher allowed only to stage rejects. So our stage job does what the action would do, with one command changed. It reads the publish plan that `changeset pack` writes beside the tarballs and stages each package with the access and the dist-tag that Changesets chose: `beta` in pre mode, `latest` otherwise.
 
-**The stage loop of the CLI repository’s `release.yml`, as of 0.1.0-beta.5, without its indentation:**
-
-```bash
-while IFS=$'\t' read -r name version access tag tarball; do
-  versions=$(npm view "$name" versions --json)
-  if jq -e --arg version "$version" '[.] | flatten | any(. == $version)' <<< "$versions" > /dev/null; then
-    echo "| \`$name\` | $version | $tag | | None, already published |" >> "$GITHUB_STEP_SUMMARY"
-  elif staged=$(npm stage publish "$PACK_DIR/$tarball" --access "$access" --tag "$tag" --json); then
-    stage_id=$(jq -r --arg name "$name" '.[$name].stageId' <<< "$staged")
-    echo "| \`$name\` | $version | $tag | \`$stage_id\` | Approve it on npmjs.com, or run \`npm stage approve $stage_id\` |" >> "$GITHUB_STEP_SUMMARY"
-  elif [ "$(jq -r '.error.code' <<< "$staged")" = E409 ]; then
-    echo "| \`$name\` | $version | $tag | | Staged by an earlier run: approve it on npmjs.com, or find its id with \`npm stage list $name\` |" >> "$GITHUB_STEP_SUMMARY"
-  else
-    exit 1
-  fi
-done <<< "$releases"
-```
-
-Three branches make it safe to run again, which matters because a release job is the one you most want to re-run after a runner fails:
+For each package in that plan, the job first asks npm, with a public `npm view` that needs no credentials, whether the exact version is already served. If it is not, it runs `npm stage publish` on the packed tarball with the plan’s access and dist-tag and the `--json` flag, and reads the stage id from npm’s answer. Every package ends in exactly one of three outcomes, and that is what makes the job safe to run again, which matters because a release job is the one you most want to re-run after a runner fails:
 
 - **Already on npm:** skipped. A push to `main` after a release, or a re-run, does not try to publish twice.
 - **Staged by an earlier run:** npm answers with a 409, and the job reports it and moves on. A trusted publishing token can stage and publish, but npm says that "Shortlived tokens cannot run `npm stage` subcommands", so the job cannot list the stages to find the earlier id; its summary tells the approver where to look.
 - **Anything else:** the job stops before the next package.
 
-The job summary is the approver’s worklist: one row per package, with its version, its dist-tag, its stage id and the exact command that approves it. The three packages are one release, so all three are approved together.
+The job summary is the approver’s worklist: one row per package, with its version, its dist-tag, its stage id and the exact command that approves it. The three packages are one release, so all three are approved together. The release kit at the end of this post has a generic version of this job, written from npm’s documentation, for a repository without Changesets.
 
 ### What the registry records
 
@@ -209,45 +191,31 @@ A trusted publisher is configured in a package’s settings on npmjs.com, so a n
 
 On GitHub’s side, the workflow starts with `permissions: {}`, and each job asks for what it needs. The Changesets guide puts it plainly: "make sure the `id-token: write` is only set on the job that needs to publish."
 
-| Job                           | Permissions                                                   | Why                                                              |
-| ----------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Select release mode           | `contents: read`                                              | Reads the pending changesets                                     |
-| Open the version pull request | `contents`, `pull-requests` and `actions` write               | Pushes the release branch, opens the pull request, starts its CI |
-| Build, verify and pack        | `contents: read`                                              | Builds, tests and packs                                          |
-| Built bins, nine jobs         | `contents: read`                                              | Builds and runs the bins                                         |
-| Stage on npm                  | `contents: read` and `id-token: write`, environment `release` | Exchanges an OIDC token with npm and uploads the template bundle |
-| Git tags and GitHub Releases  | `contents: write`                                             | Creates tags and Releases                                        |
+| Job                               | Permissions                                                     | Why                                                              |
+| --------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Choosing the release mode         | `contents: read`                                                | Reads the pending changesets                                     |
+| Opening the version pull request  | `contents`, `pull-requests` and `actions` write                 | Pushes the release branch, opens the pull request, starts its CI |
+| Building, verifying and packing   | `contents: read`                                                | Builds, tests and packs                                          |
+| Running the built bins, nine jobs | `contents: read`                                                | Builds and runs the bins                                         |
+| Staging on npm                    | `contents: read` and `id-token: write`, a protected environment | Exchanges an OIDC token with npm and uploads the template bundle |
+| Creating tags and Releases        | `contents: write`                                               | Creates tags and Releases                                        |
 
-**The stage job’s header in the CLI repository’s `release.yml`:**
-
-```yaml
-stage:
-  name: Stage on npm
-  needs: [pack, runtimes]
-  runs-on: ubuntu-latest
-  timeout-minutes: 10
-  environment: release
-  permissions:
-    contents: read
-    id-token: write
-```
-
-The `release` environment holds the credentials for the template storage, and only the release branches may deploy to it. GitHub makes environment secrets "only available to workflow jobs that use the environment", so no other job, and no workflow run from any other branch, can read them.
+The staging job is the only one that may request an OIDC token, and the only one that uses the protected environment. That environment holds the credentials for the template storage, and only the release branches may deploy to it. GitHub makes environment secrets "only available to workflow jobs that use the environment", so no other job, and no workflow run from any other branch, can read them.
 
 ### The token on the checkout is a permission too
 
-`actions/checkout` keeps the job’s token in the local Git configuration "to run authenticated git commands", unless you set `persist-credentials: false`. We set it to false in every job, and the first Version Packages pull request never opened: when Changesets pushed the release branch, Git "could not read Username for 'https://github.com'" (CLI #4). The fix gave the token back to that one job, the only one that pushes. Least privilege is a property of each job, not one setting copied through a file.
+`actions/checkout` keeps the job’s token in the local Git configuration "to run authenticated git commands", unless you set `persist-credentials: false`. We set it to false in every job, and the first Version Packages pull request never opened: when Changesets pushed the release branch, Git "could not read Username for 'https://github.com'". The fix gave the token back to that one job, the only one that pushes. Least privilege is a property of each job, not one setting copied through a file.
 
 ### The failure npm could not explain
 
-The first beta reached npm twelve hours after its version pull request merged. On 14 November at 06:18 UTC, the stage job failed with this:
+The first beta reached npm twelve hours after its version pull request merged. On 14 November at 06:18 UTC, the stage job failed with npm’s own error:
 
 ```text
 npm error code ENEEDAUTH
 npm error need auth This command requires you to be logged in to https://registry.npmjs.org/
 ```
 
-The message tells you to log in. The real reason was that the OIDC token exchange had failed, and npm writes that reason at verbose level, into a debug log on the runner that is deleted with the job. CLI #8 made the stage job upload `~/.npm/_logs/` as an artifact whenever it fails, and the log of the next failure named the cause: npm found no trusted publisher that matched the run’s repository, workflow and environment. npm’s docs warn about exactly this: "npm does not verify your trusted publisher configuration when you save it", and "All fields are case-sensitive and must be exact." Once the settings on npmjs.com matched the workflow, a re-run of the failed job staged 0.1.0-beta.0 at 18:24, and the owner approved it four minutes later.
+The message tells you to log in. The real reason was that the OIDC token exchange had failed, and npm writes that reason at verbose level, into a debug log on the runner that is deleted with the job. We made the stage job upload `~/.npm/_logs/` as an artifact whenever it fails, and the log of the next failure named the cause: npm found no trusted publisher that matched the run’s repository, workflow and environment. npm’s docs warn about exactly this: "npm does not verify your trusted publisher configuration when you save it", and "All fields are case-sensitive and must be exact." Once the settings on npmjs.com matched the workflow, a re-run of the failed job staged 0.1.0-beta.0 at 18:24, and the owner approved it four minutes later.
 
 The lesson reaches beyond npm. When an authentication layer fails, its error message usually describes the fallback it tried last, not the step that failed first. Keep the tool’s debug log from every failed release job, with a short retention, and read it before you change anything.
 
@@ -312,41 +280,23 @@ The pack job runs the format, lint and type checks, the tests at full coverage a
 
 0.1.0-beta.1 went to npm with `catalog:` specifiers in the `devDependencies` of all three packages, six entries in all, as the registry still shows. A Bun workspace writes shared versions as `catalog:`. Changesets 3 packs only with npm, pnpm or Yarn, and in a Bun workspace it fell back to `npm pack`, which copies those specifiers into the packed `package.json` unresolved. Nothing failed, because nobody installs a CLI’s dev dependencies. The same leak in `dependencies` would have broken every install of the release.
 
-The root-cause fix (CLI #20) carries a `bun patch` of Changesets that packs with `bun pm pack`, which writes the version each specifier resolves to and refuses to pack one it cannot resolve. The patch is the packing half of an open upstream pull request that adds Bun to Changesets, [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334), and it goes when a release includes that change. What keeps it fixed is a test: the smoke tests pack every published package with the release’s own command and fail on any `catalog:` or `workspace:` left in any dependency field. Test the tarball, not the workspace. Your package manager’s workspace features are invisible to a test that runs from source.
+The root-cause fix carries a `bun patch` of Changesets that packs with `bun pm pack`, which writes the version each specifier resolves to and refuses to pack one it cannot resolve. The patch is the packing half of an open upstream pull request that adds Bun to Changesets, [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334), and it goes when a release includes that change. What keeps it fixed is a test: the smoke tests pack every published package with the release’s own command and fail on any `catalog:` or `workspace:` left in any dependency field. Test the tarball, not the workspace. Your package manager’s workspace features are invisible to a test that runs from source.
 
 ### Gate staging on every platform
 
 Customers run the CLI under Node and Bun, on Linux, macOS and Windows. Pull requests run the built program on Linux only, to save minutes; the release run checks every platform, on the exact commit it is about to stage. Nine jobs build the packages and run the bins under Node 22.12.0, 24 and 26 on each system, and under Bun on each runner.
 
-**The matrix in the CLI repository’s `release.yml`:**
+The nine jobs are one matrix, three systems by three Node versions, starting at the oldest Node the CLI supports. Two settings turn that matrix into a gate. The staging job lists both the pack job and the matrix under `needs` and has no `if:` of its own, so GitHub skips it unless every one of them succeeded; a condition such as `if: always()` on the staging job would quietly undo that. And the matrix sets `fail-fast: false`, so a failure on one leg does not cancel the others, and the run shows every platform that broke instead of only the first.
 
-```yaml
-runtimes:
-  name: Built bins on Node ${{ matrix.node }}, ${{ matrix.os }}
-  needs: select-mode
-  if: needs.select-mode.outputs.mode == 'publish' && vars.NPM_PUBLISH_ENABLED == 'true'
-  runs-on: ${{ matrix.os }}
-  timeout-minutes: 15
-  permissions:
-    contents: read
-  strategy:
-    fail-fast: false
-    matrix:
-      os: [ubuntu-latest, macos-latest, windows-latest]
-      node: ["22.12.0", "24", "26"]
-```
+A gate you have never seen fail is a hope, not a gate. Before trusting this one, we ran the real release workflow on a temporary branch, from a commit equivalent to a merged Version Packages pull request, with one leg made to fail on purpose: Windows under Node 26. Every other job passed, and the staging job was skipped as soon as the last leg finished. The probe could not have published even if the gate had been wrong, because the environment the stage job needs deploys only from the release branches; afterwards, npm listed the same versions as before, and no tag or Release had appeared.
 
-The stage job `needs: [pack, runtimes]`, with no `if:` of its own, so it is skipped unless the pack job and all nine legs passed, and `fail-fast: false` lets every failing leg report instead of only the first.
-
-A gate you have never seen fail is a hope, not a gate. Before trusting this one, CLI #41 ran the real release workflow on a temporary branch, from a commit equivalent to a merged Version Packages pull request, with one leg made to fail on purpose: Windows under Node 26. Every other job passed, and `Stage on npm` was skipped as soon as the last leg finished. The probe could not have published even if the gate had been wrong, because the environment the stage job needs deploys only from the release branches; afterwards, npm listed the same versions as before, and no tag or Release had appeared.
-
-Moving the macOS and Windows runs from every merge to the release itself cut the billable minutes of a merge to `main` by a third to a half, in that pull request’s measurement, for a cost paid once per release. What the gate does not do is listed near the end of this post: it runs `--version` and `--help`, not a full project generation, and it builds on each runner instead of installing the staged tarball.
+Moving the macOS and Windows runs from every merge to the release itself cut the billable minutes of a merge to `main` by a third to a half, as we measured it when we made the change, for a cost paid once per release. What the gate does not do is listed near the end of this post: it runs `--version` and `--help`, not a full project generation, and it builds on each runner instead of installing the staged tarball.
 
 ## Record a release only after it exists
 
 ### The unpublished 0.1.0-beta.3
 
-Our first release workflow created the Git tags and GitHub Releases right after staging. CLI #1 recorded the reason: "npm has no approval hook to trigger on." So the tags appeared when a version was staged, not when it was published. The release history shows what that meant, in UTC:
+Our first release workflow created the Git tags and GitHub Releases right after staging. The reason was that npm gives a workflow no event to trigger on when a maintainer approves a staged version. So the tags appeared when a version was staged, not when it was published. The release history shows what that meant, in UTC:
 
 | Version      | Version pull request merged | GitHub Releases created | Served by npm      |
 | ------------ | --------------------------- | ----------------------- | ------------------ |
@@ -361,20 +311,9 @@ Our first release workflow created the Git tags and GitHub Releases right after 
 
 ### Ask npm, then tag
 
-CLI #53 moved tags and Releases into a job that asks the registry first. For each published package, it checks three things: that the package’s `CHANGELOG.md` has a section for the checked-out version, which only a Version Packages pull request writes; that npm serves exactly that version, through a public `npm view` that needs no token; and whether the tag already exists. Only when every package passes the first two checks and a tag is missing does it run `changeset git-tag` through the Changesets action, which pushes the tags and creates a Release from each changelog entry. Otherwise it writes nothing, and its summary says why.
+We moved tags and Releases into a separate job that asks the registry first. For each published package, it checks three things: that the package’s `CHANGELOG.md` has a section for the checked-out version, which only a Version Packages pull request writes; that npm serves exactly that version, through a public `npm view` that needs no token; and whether the tag already exists. Only when every package passes the first two checks and a tag is missing does it run `changeset git-tag` through the Changesets action, which pushes the tags and creates a Release from each changelog entry. Otherwise it writes nothing, and its summary says why.
 
-**The registry check in the CLI repository’s `.github/actions/release-records/action.yml`, without its indentation:**
-
-```bash
-if [ "$(npm view "$name@$version" version 2> /dev/null)" != "$version" ]; then
-  served=no
-  unserved=$((unserved + 1))
-fi
-if ! git rev-parse -q --verify "refs/tags/$name@$version" > /dev/null; then
-  tagged=no
-  untagged=$((untagged + 1))
-fi
-```
+Both checks are deliberately plain. A version counts as served only when `npm view` prints exactly that version, so a missing version, a network error and an unexpected answer all count as not served, and nothing is tagged. A tag counts as present only when Git resolves its full ref, so a branch with the same name cannot pass for it. The release kit at the end of this post has a generic version of the check for a single package.
 
 The job runs three ways: right after staging, where it usually finds the version still waiting; by hand, which the lead agent does as soon as the owner approves; and once a day as a fallback. Its runs on one branch share a concurrency group and queue instead of overlapping, so two runs never tag at once, and it fetches every tag first, so it creates only what is missing and can run any number of times.
 
@@ -382,7 +321,7 @@ The job runs three ways: right after staging, where it usually finds the version
 
 ### A schedule is a safety net, not a step
 
-The daily fallback taught us two things about GitHub’s `schedule` event. First, "Scheduled workflows run on the latest commit on the default branch", and a beta’s tags must point at a commit on `beta`. So the scheduled job tags nothing itself: it reads the branches from the release workflow’s own trigger and starts the records workflow on each of them with `workflow_dispatch`, so that each run tags its own branch. Second, the schedule is approximate. GitHub says the event "can be delayed during periods of high loads" and that "some queued jobs may be dropped". Ours is set for 05:41 UTC; from 21 to 24 November it started roughly eight to eleven hours late. A scheduled job can catch what a person forgot. It should never be the step a release waits for.
+The daily fallback taught us two things about GitHub’s `schedule` event. First, "Scheduled workflows run on the latest commit on the default branch", and a beta’s tags must point at a commit on `beta`. So the scheduled job tags nothing itself: it reads the branches from the release workflow’s own trigger and starts the records workflow on each of them with `workflow_dispatch`, so that each run tags its own branch. Second, the schedule is approximate. GitHub says the event "can be delayed during periods of high loads" and that "some queued jobs may be dropped". Ours is set for the early morning in UTC, and from 21 to 24 November it started roughly eight to eleven hours late. A scheduled job can catch what a person forgot. It should never be the step a release waits for.
 
 ### Label what never shipped
 
@@ -396,16 +335,16 @@ The tags and Releases of 0.1.0-beta.3 stay where they are: deleting them would e
 
 All of it happened on `beta` on 20 November, in UTC:
 
-1. **11:17:12.** A pull request brought two commits from `main` (CLI #55). Its release run opened the Version Packages pull request CLI #56 for 0.1.0-beta.5.
-2. **11:18:06.** CLI #54 merged. It added the "Not published to npm" note to the three changelogs. A changelog edit counts as a change to the package, so the changeset check asked for a changeset, and the pull request added an empty one, exactly as the release policy prescribed for a change customers cannot notice.
-3. **11:18:33.** The version pull request CLI #56 merged, 27 seconds later. It had been built before CLI #54 merged, so it had not consumed the empty changeset.
+1. **11:17:12.** A pull request brought two commits from `main`. Its release run opened the Version Packages pull request for 0.1.0-beta.5.
+2. **11:18:06.** A pull request that added the "Not published to npm" note to the three changelogs merged. A changelog edit counts as a change to the package, so the changeset check asked for a changeset, and the pull request added an empty one, exactly as the release policy prescribed for a change customers cannot notice.
+3. **11:18:33.** The version pull request merged, 27 seconds later. It had been built before the changelog fix merged, so it had not consumed the empty changeset.
 4. **11:19.** The release run on that merge commit selected its mode and skipped every other job. 0.1.0-beta.5 was versioned on `beta` and not staged, and every job was green.
 
-Meanwhile, the release run of CLI #54’s merge commit, queued behind the others, opened a second Version Packages pull request from a commit that was already history; it was closed unmerged.
+Meanwhile, the release run of the changelog fix’s merge commit, queued behind the others, opened a second Version Packages pull request from a commit that was already history; it was closed unmerged.
 
 ### Why the mode was "none"
 
-`changesets/action/select-mode` returns one of three modes: version, publish or none. This is the decision in its source at v2.1.2, in this site’s formatting:
+`changesets/action/select-mode` returns one of three modes: version, publish or none. This is the decision in its public source at v2.1.2, in this site’s formatting:
 
 ```ts
 if (changesets.length > 0) {
@@ -421,7 +360,7 @@ If any changeset is pending and all of them are empty, the mode is `none`, and t
 
 ### The fix and the rules
 
-CLI #58 removed the empty changeset five minutes later. The next run selected `publish`, staged 0.1.0-beta.5 at 11:25, and the owner approved it at 11:44. Our policy now says that empty changesets belong on `main` only, and that a change made directly on `beta` that customers cannot notice, such as a changelog correction, carries no changeset, with its failing changeset check as the one failure allowed.
+A follow-up pull request removed the empty changeset five minutes later. The next run selected `publish`, staged 0.1.0-beta.5 at 11:25, and the owner approved it at 11:44. Our policy now says that empty changesets belong on `main` only, and that a change made directly on `beta` that customers cannot notice, such as a changelog correction, carries no changeset, with its failing changeset check as the one failure allowed.
 
 Two rules carry over to any team:
 
@@ -434,18 +373,7 @@ We have the first rule in writing and not yet the second as a check. And our wri
 
 ### GitHub does not run workflows for its own token’s pushes
 
-The version job pushes the Version Packages branch with the workflow’s `GITHUB_TOKEN`, and GitHub’s docs say that "events triggered by the `GITHUB_TOKEN` will not create a new workflow run", with one exception that matters here: "`workflow_dispatch` and `repository_dispatch` events always create workflow runs." So the pull request we were about to release showed no checks at all; to get a run on one of them, an agent closed and reopened it by hand (CLI #9). The fix keeps the default token and starts CI itself.
-
-**The step in the CLI repository’s version job:**
-
-```yaml
-- name: Run CI on the version pull request
-  if: steps.version.outputs.pr-number != ''
-  env:
-    GH_TOKEN: ${{ github.token }}
-    PR_NUMBER: ${{ steps.version.outputs.pr-number }}
-  run: gh workflow run ci.yml --ref "$(gh pr view "$PR_NUMBER" --json headRefName --jq .headRefName)"
-```
+The version job pushes the Version Packages branch with the workflow’s `GITHUB_TOKEN`, and GitHub’s docs say that "events triggered by the `GITHUB_TOKEN` will not create a new workflow run", with one exception that matters here: "`workflow_dispatch` and `repository_dispatch` events always create workflow runs." So the pull request we were about to release showed no checks at all; to get a run on one of them, an agent closed and reopened it by hand. The fix keeps the default token and starts CI itself. Right after Changesets opens or updates the version pull request, the same job looks up the pull request’s branch and dispatches the CI workflow on it with `gh workflow run`, which works because the CI workflow accepts `workflow_dispatch` as well as `pull_request`.
 
 The job gains `actions: write` for that one call, and the check runs attach to the branch’s head commit, so they show on the pull request. A GitHub App token would also trigger CI, but it needs an app and another secret; this needs neither.
 
@@ -453,18 +381,16 @@ The job gains `actions: write` for that one call, and the check runs attach to t
 
 GitHub Actions concurrency groups used to keep one pending run: "If another run entered the group, the pending run was canceled and replaced." For a release workflow that is wrong, because three quick pushes to `beta` would drop the middle one. Since May 2026, `queue: max` lets a group "queue multiple pending runs and process them sequentially", up to 100 of them, when `cancel-in-progress` is false.
 
-**The top of the CLI repository’s `release.yml`:**
+A generic example, after GitHub’s concurrency documentation, for a release workflow that must never drop a run:
 
 ```yaml
-permissions: {}
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
   queue: max
 ```
 
-Every push now gets its own complete run, in order. The empty-changeset sequence shows the other side of that guarantee: a queued run decides from its own commit, even when that commit is already history by the time it runs. Queuing keeps every run; it does not make an old run’s decision current.
+Our release workflow works this way, so every push to a release branch gets its own complete run, in order. The empty-changeset sequence shows the other side of that guarantee: a queued run decides from its own commit, even when that commit is already history by the time it runs. Queuing keeps every run; it does not make an old run’s decision current.
 
 ## Who holds which key
 
@@ -481,7 +407,7 @@ The agents run the release; the owner holds what cannot be undone.
 | A bad version                           | Write the deprecation message and the fix                                | Runs `npm deprecate` with two-factor authentication                                |
 | Release notes and verification          | Install from npm in a clean directory, write the notes in every language | Reviews                                                                            |
 
-The release workflow, the Changesets configuration and the package fields that decide what reaches npm are on the CLI repository’s human-review list, so the pull request that changed how releases are recorded quotes the owner’s go-ahead: "yes to the release workflow fix". The same instruction file tells agents never to publish or run `npm trust`. And no agent holds an npm credential, because none exists: every package disallows publishing with tokens, and the only automated identity that can stage is the release workflow itself.
+The release workflow, the Changesets configuration and the package fields that decide what reaches npm are on the CLI repository’s human-review list, so every pull request that changes them, such as the one that changed how releases are recorded, quotes the owner’s written go-ahead. The same instruction file tells agents never to publish or run `npm trust`. And no agent holds an npm credential, because none exists: every package disallows publishing with tokens, and the only automated identity that can stage is the release workflow itself.
 
 Verification does not end at the release. The website’s journey suite runs on the schedule <RepositoryFact name="journeySchedule" /> in UTC: it buys each tier in Polar’s sandbox on the preview deployment, then drives the published CLI, straight from npm, through activation, the machine limits, deactivation and the refund that ends the licence:
 
@@ -530,7 +456,7 @@ In the spirit of the rest of the series, here is where our own release process i
 11. Install from the registry in a clean directory and run the CLI.
 12. Publish the release notes, and label anything that was staged and never published.
 
-**A staging job** for a repository without Changesets, with the token-free and idempotent parts of ours. It assumes a `pack` job that uploads the tarballs as an artifact named `tarballs`, an environment named `release`, and a trusted publisher on npmjs.com that names this workflow file, that environment and the stage-only permission:
+**A staging job**, a generic example written from npm’s documentation for a repository without Changesets, not the CLI’s own workflow. It needs no token and is safe to run again. It assumes a `pack` job that uploads the tarballs as an artifact named `tarballs`, an environment named `release`, and a trusted publisher on npmjs.com that names this workflow file, that environment and the stage-only permission:
 
 ```yaml
 stage:
@@ -579,7 +505,7 @@ stage:
 npm trust github <package> --file release.yml --repo <owner>/<repo> --env release --allow-stage-publish
 ```
 
-**Tags only for what npm serves**, safe to run any number of times, for example after each approval:
+**Tags only for what npm serves**, a generic example for a single package, safe to run any number of times, for example after each approval:
 
 ```sh
 name=$(jq -r .name package.json)
@@ -596,7 +522,7 @@ git push origin "v$version"
 gh release create "v$version" --verify-tag --notes-file release-notes.md
 ```
 
-**A download that is checked against the server and the pin** before anything reads it, in TypeScript for Node:
+**A download that is checked against the server and the pin** before anything reads it, a generic example in TypeScript for Node:
 
 ```ts
 import { createHash } from "node:crypto"
@@ -677,6 +603,6 @@ The CLI’s [release notes](/docs/cli/releases) list every release named here, 0
 - GitHub Actions: [Triggering a workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow), [Events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows), [Concurrency](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency), [Concurrency groups now allow larger queues](https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues) (May 2026), [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) and [actions/checkout](https://github.com/actions/checkout)
 - Changesets: [Automating Changesets](https://changesets.dev/guide/automating), [Prereleases](https://changesets.dev/guide/prereleases), [Fixed packages](https://changesets.dev/guide/fixed-packages), [Announcing Changesets v3](https://changesets.dev/blog/announcing-changesets-v3) (August 2026), the [`select-mode` source of changesets/action v2.1.2](https://github.com/changesets/action/blob/v2.1.2/src/select-mode/index.ts) and the open pull request [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334)
 - saasyland.com: the CLI’s [release notes](/docs/cli/releases), the [CLI guide](/docs/cli) and the [CLI licence API](/docs/features/cli-licence-api)
-- The npm registry: the versions, publication times and metadata of `saasyland`, `create-saasyland` and `@saasyland/stack`, and `npm audit signatures` on `saasyland@0.1.0-beta.5`, all read on 25 November 2026
+- The npm registry: the versions, publication times and metadata of `saasyland`, `create-saasyland` and `@saasyland/stack`, the `CHANGELOG.md` published in `saasyland@0.1.0-beta.5`, and `npm audit signatures` on `saasyland@0.1.0-beta.5`, all read on 25 November 2026
 
 _Written by Piotr J. Borowiecki, who reviews the work of the agents that build saasyland.com and approves every release of its CLI. The external sources were read on 25 November 2026 and may have changed since; the links go to the source. If anything here is out of date or wrong, tell me and I will correct it._

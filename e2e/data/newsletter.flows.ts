@@ -1,5 +1,16 @@
 import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "./flows"
 
+const ADMIN_LIST = {
+  spec: "admin-newsletter.spec.ts",
+  title: "the admin finds a subscriber and exports the list to a CSV that keeps a formula-like address as text",
+} as const
+
+const ADMIN_SEND = {
+  spec: "admin-newsletter.spec.ts",
+  title:
+    "the admin sends an issue in two languages, each confirmed subscriber gets it once in their language and can unsubscribe in one click",
+} as const
+
 const ROUND_TRIP = {
   spec: "newsletter.spec.ts",
   title: "localized newsletter signup, confirmation and unsubscribe survive hydration and refresh",
@@ -47,6 +58,42 @@ export const NEWSLETTER_FLOWS = [
       { spec: "newsletter.spec.ts", title: "/newsletter/unsubscribe" },
       { spec: "newsletter.spec.ts", title: "/pl-PL/newsletter/unsubscribe?token=invalid" },
     ],
+  },
+  {
+    feature: FLOW_FEATURE.NEWSLETTER,
+    id: "newsletter-one-click-unsubscribe",
+    outcome: "A mail client's own unsubscribe button posts to the issue's List-Unsubscribe address and unsubscribes the reader at once",
+    status: FLOW_STATUS.COVERED,
+    tests: [ADMIN_SEND],
+  },
+  {
+    feature: FLOW_FEATURE.NEWSLETTER,
+    id: "admin-newsletter-subscribers",
+    outcome: "The admin opens Newsletter from the sidebar and finds a subscriber with their status, sign-up and confirmation days",
+    status: FLOW_STATUS.COVERED,
+    tests: [ADMIN_LIST],
+  },
+  {
+    feature: FLOW_FEATURE.NEWSLETTER,
+    id: "admin-newsletter-export",
+    outcome: "The admin exports the subscribers to a CSV in which an address that starts like a formula stays text",
+    status: FLOW_STATUS.COVERED,
+    tests: [ADMIN_LIST],
+  },
+  {
+    feature: FLOW_FEATURE.NEWSLETTER,
+    id: "admin-newsletter-send",
+    outcome:
+      "The admin writes an issue in two languages with a preview, confirms, and each confirmed subscriber gets it once in their language while a pending address gets nothing",
+    status: FLOW_STATUS.COVERED,
+    tests: [ADMIN_SEND],
+  },
+  {
+    feature: FLOW_FEATURE.NEWSLETTER,
+    id: "admin-newsletter-resume",
+    outcome: "An issue that stopped while sending is resumed from its row menu under Issues and sends each remaining email once",
+    reason: "The browser suite cannot make the Resend double refuse a batch in the middle of an issue; send-newsletter-issue.test.ts covers the resume.",
+    status: FLOW_STATUS.MISSING,
   },
   {
     feature: FLOW_FEATURE.NEWSLETTER,

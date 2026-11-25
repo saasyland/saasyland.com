@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { sendEmail } from "~/src/integrations/resend/resend.utils"
+import { sendBatchEmails, sendEmail } from "~/src/integrations/resend/resend.utils"
 
 const PURPOSE = "sample-email"
 const RECIPIENT = "ada@example.test"
@@ -54,5 +54,52 @@ describe("sendEmail", () => {
     await expect(sendEmail({ ...message, idempotency: { purpose: PURPOSE, token: "token-4" } })).rejects.toThrow(
       `Failed to send "Hello" to ${RECIPIENT}: The domain is not verified.`,
     )
+  })
+})
+
+describe("sendBatchEmails", () => {
+  const batch = [
+    { headers: { "X-Entity-Ref-ID": "first" }, react: createElement("p", null, "One"), subject: "One", to: "one@example.test" },
+    { headers: {}, react: createElement("p", null, "Two"), subject: "Two", to: "two@example.test" },
+  ]
+
+  it("sends every email with its own headers in one request keyed on its purpose, so a retry is not sent twice", async () => {
+    const ids = await sendBatchEmails({ emails: batch, idempotency: { purpose: PURPOSE, token: "batch-1" } })
+    const retried = await sendBatchEmails({ emails: batch, idempotency: { purpose: PURPOSE, token: "batch-1" } })
+
+    expect(retried).toStrictEqual(ids)
+    expect(getSentEmails()).toStrictEqual([
+      expect.objectContaining({
+        from: env.RESEND_EMAIL_FROM,
+        headers: { "X-Entity-Ref-ID": "first" },
+        id: ids[0],
+        idempotencyKey: `${PURPOSE}/${sha256("batch-1")}`,
+        to: ["one@example.test"],
+      }),
+      expect.objectContaining({ headers: {}, id: ids[1], subject: "Two", to: ["two@example.test"] }),
+    ])
+  })
+
+  it("sends the emails Resend accepts and logs the ones it refuses instead of failing the batch", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    const ids = await sendBatchEmails({
+      emails: [...batch, { headers: {}, react: createElement("p", null, "Three"), subject: "Three", to: "not-an-address" }],
+      idempotency: { purpose: PURPOSE, token: "batch-3" },
+    })
+
+    expect(ids).toHaveLength(2)
+    expect(getSentEmails().map(({ to }) => to)).toStrictEqual([["one@example.test"], ["two@example.test"]])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`[resend] ${PURPOSE}: Resend refused email 2 of a batch:`))
+  })
+
+  it("throws with the purpose, the size of the batch and Resend's reason when Resend rejects it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ message: "Too many requests.", name: "rate_limit_exceeded", statusCode: 429 }, { status: 429 }),
+    )
+
+    await expect(
+      sendBatchEmails({ emails: batch, from: "owner@example.test", idempotency: { purpose: PURPOSE, token: "batch-2" } }),
+    ).rejects.toThrow(`Failed to send a batch of 2 emails for ${PURPOSE}: Too many requests.`)
   })
 })

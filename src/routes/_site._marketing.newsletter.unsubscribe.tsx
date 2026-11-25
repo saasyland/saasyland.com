@@ -9,9 +9,13 @@ import * as zod from "zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { UNSUBSCRIBE_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
-import { unsubscribeFromNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
+import {
+  unsubscribeByToken,
+  unsubscribeFromNewsletterMutation,
+} from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
@@ -90,6 +94,17 @@ const NAMESPACE = "pages.newsletter.unsubscribe"
 
 const SEARCH_DEFAULTS = { status: UNSUBSCRIBE_STATUS.ERROR } as const
 
+const unsubscribeInOneClick = async ({ request }: { readonly request: Request }): Promise<Response> => {
+  const link = newsletterSubscriberZodSchemas.unsubscribeFromNewsletter.safeParse({ token: new URL(request.url).searchParams.get("token") })
+
+  if (!link.success) {
+    return Response.json({ unsubscribed: false }, { status: HTTP_STATUS.BAD_REQUEST })
+  }
+
+  await unsubscribeByToken(link.data.token)
+  return Response.json({ unsubscribed: true })
+}
+
 export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")({
   validateSearch: zod.object({
     status: searchChoice([UNSUBSCRIBE_STATUS.ERROR, UNSUBSCRIBE_STATUS.SUCCESS], SEARCH_DEFAULTS.status),
@@ -108,5 +123,6 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")
   head: pageHead(ROUTES.NEWSLETTER_UNSUBSCRIBE),
   pendingComponent: NewsletterPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
+  server: { handlers: { POST: unsubscribeInOneClick } },
   staticData: { namespaces: [NAMESPACE] },
 })

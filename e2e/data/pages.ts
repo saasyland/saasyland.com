@@ -4,6 +4,7 @@ import { CONTENT_PAGES } from "./content.pages"
 import { COURSES_PAGES } from "./courses.pages"
 import { LEGAL_PAGES } from "./legal.pages"
 import { LICENSE_PAGES } from "./license.pages"
+import { NEWSLETTER_PAGES } from "./newsletter.pages"
 import { PAYMENTS_PAGES } from "./payments.pages"
 import { PRODUCTS_PAGES } from "./products.pages"
 
@@ -22,6 +23,7 @@ const ENTRIES: readonly PageEntry[] = [
   ...COURSES_PAGES,
   ...LEGAL_PAGES,
   ...LICENSE_PAGES,
+  ...NEWSLETTER_PAGES,
   ...PAYMENTS_PAGES,
   ...PRODUCTS_PAGES,
 ]

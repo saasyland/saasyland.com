@@ -1,0 +1,57 @@
+---
+title: "ニュースレター"
+description: "管理画面の購読者一覧と CSV 書き出し、プレビュー付きで各言語の号を作成する方法、再試行や二度目のクリックでも二重送信しないバッチで Resend から配信する仕組み。"
+---
+
+訪問者はフッターから開発日誌に登録し、メールでアドレスを確認します（[ランディングページ](/docs/features/landing-page#newsletter)）。管理者は `/admin/newsletter` で登録を確認し、号を配信します。ニュースレター領域は `src/data/navigation.ts` でこのページをサイドバーのコンテンツグループに追加し、`NEWSLETTER_TABS`（`newsletter-tabs.tsx`）の「購読者」と「配信号」のタブを並べます。ダッシュボードのニュースレター購読者タイルからもこのページへ移動できます（[管理ダッシュボード](/docs/features/admin-dashboard#newsletter-subscribers)）。以下のサーバー関数はすべて `authorized({ admin: ["access"] })` を実行するため、呼び出せるのは管理者だけです。
+
+## 購読者 [#subscribers]
+
+`/admin/newsletter`（`src/routes/admin.newsletter.index.tsx`）は、`newsletter_subscriber` のすべての行を `useNewsletterSubscriberColumns`（`newsletter-subscriber-columns.tsx`）で `DataGrid`（[データグリッド](/docs/ui/data-grid)）に表示します。
+
+- `listNewsletterSubscribersPageQuery` は `listNewsletterSubscribers`（`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`）を呼び出します。ページ送り、並べ替え、メールアドレスでの検索、フィルターはサーバーで実行され、`newsletterSubscriberZodSchemas.listNewsletterSubscribers` で検証されます。
+- 各行には、アドレス、ステータス（確認待ち、確認済み、配信停止）、登録日、確認日、メールを書く言語が表示されます。登録元（フッター、ブログ、アプリ）は「列」メニューから表示できます。フィルターは、ステータス、言語、登録元、登録日と確認日です。
+- 書き出しは、検索とフィルターに一致する行、またはチェックした行を CSV に書き出します。`=`、`+`、`-`、`@`、タブ、復帰文字で始まるセルには先頭にアポストロフィが付く（`src/lib/csv.ts` の `csvOf`）ため、表計算ソフトは `=cmd@example.com` のようなアドレスを数式として実行せず、テキストとして表示します。
+
+## 号の作成 [#writing-an-issue]
+
+「新しい号」は `/admin/newsletter/compose`（`admin.newsletter_.compose.tsx`）を開きます。ここで `NewsletterIssueForm`（`newsletter-issue-form.tsx`）は shadcn の TanStack Form パターンに従い、`newsletterIssueZodSchemas.issueTexts` で検証します。
+
+- 件名と本文は、`FormLanguages` の言語ピッカーで言語ごとに入力します。英語は必須です。ほかの言語は、件名と本文の両方がそろった完全な版にするか、空欄のままにします。件名は <RepositoryFact name="newsletterSubjectMaxLength" /> 文字まで、本文は <RepositoryFact name="newsletterBodyMaxLength" /> 文字まで入力できます。空行で新しい段落になります。
+- `NewsletterIssuePreview` は、選んだ言語の読者に届く形で号を表示します。その言語が未完成の場合は英語の号を表示し、その読者には英語で届くことを示します。
+- フォームは `newsletterSubscribersQuery` から確認済みの購読者が何人いるかを示し、1 人もいない間は配信できません。配信の前に確認を求めます。
+
+各購読者には、購読時に保存された言語で号が届きます。その言語に完全な版がない場合は英語で届きます（`newsletter-issue.utils.ts` の `issueContent`）。フッターを含むメール全体が、本文と同じ言語になります。
+
+## 配信 [#sending]
+
+配信は `src/modules/newsletter-issue/use-cases/` の 2 つのサーバー関数で行います。
+
+1. `createNewsletterIssue` は、フォームを開いたときに一度だけ生成される ID で号を `newsletter_issue` に保存し、受信者を数えます。受信者は、ステータスが `subscribed` で、その時点より前に確認した購読者です。同じ ID でもう一度実行しても何も書き込みません。
+2. `sendNewsletterIssue` は号を <RepositoryFact name="newsletterLeaseSeconds" unit="second" /> 確保し、`sendBatchEmails`（`src/integrations/resend/resend.utils.ts`）で <RepositoryFact name="newsletterBatchSize" /> 通のバッチを最大 <RepositoryFact name="newsletterBatchesPerStep" /> 個、Resend へのリクエストを 1 つずつ順に送ります。バッチごとに、最後に届けた購読者と送ったメールの数を記録します。進行状況を返し、号の配信が終わるまで `sendNewsletterIssueMutation` が繰り返し呼び出します。
+
+1 回のリクエストで送るメールは最大 <RepositoryFact name="newsletterStepRecipients" /> 通なので、リストがどれほど長くても各リクエストは Worker の制限内に収まり、リクエストを 1 つずつ送ることで Resend のレート制限も守れます。どちらの関数も、1 つのクライアントアドレスから 1 分あたり <RepositoryFact name="newsletterRateLimit" /> 回まで受け付けます。
+
+二重に送られることはありません。
+
+- 確保されている号に対する 2 回目のリクエスト（ダブルクリックなど）は何も送らず、その号がすでに配信中であることを返します。
+- 受信者は ID の順に、最後に記録した受信者の次から読み込むため、中断した号を再開するリクエストは、最後に完了したバッチの続きから始まります。
+- 各バッチには、号と受信者の ID から作る冪等キーが付きます。Resend がバッチを受け付けた後、進行状況を保存する前にリクエストが失敗した場合、再試行は同じバッチを同じキーで送ります。Resend はそのキーを保持している間、もう一度送らずに最初の応答を返します。
+
+Resend が拒否したアドレスがあっても、号の配信は止まりません。各バッチは `batchValidation: "permissive"` で送られるため、Resend はバッチ内のほかのメールを送り、拒否はログに記録され、進行状況には Resend が受け付けたメールだけが数えられます。
+
+Resend がバッチ全体を拒否すると、確保が解除され、管理者にエラーが表示され、号は「**配信中**」のまま残ります。「配信号」タブでは、その行のメニューに「**配信を再開**」が表示され、最後に送ったバッチの続きから配信を再開できます。
+
+## 配信停止 [#unsubscribing]
+
+各メールの末尾には、読者がこのメールを受け取る理由と、`unsubscribeUrl` が作る購読者の言語の `/newsletter/unsubscribe?token=` へのリンクが入ります。さらに、そのアドレスを含む `List-Unsubscribe` ヘッダーと `List-Unsubscribe-Post: List-Unsubscribe=One-Click` が付くため、メールソフトは独自の配信停止ボタンを表示できます。このボタンは同じアドレスに `POST` を送り、ルート自身がそれに応答して（`_site._marketing.newsletter.unsubscribe.tsx` の `server.handlers.POST`）、その場で配信を停止します。アドレスを開くだけでは引き続き確認を求めるだけで、読者がボタンを押すまで何も変わりません。
+
+## 配信号 [#issues]
+
+`/admin/newsletter/issues`（`admin.newsletter.issues.tsx`）は、`getNewsletterIssues` と `useNewsletterIssueColumns`（`newsletter-issue-columns.tsx`）で号を一覧表示します。英語の件名、配信中または配信済み、受信者数のうち送ったメールの数、号を書いた言語の数、開始日時と完了日時が表示されます。検索はすべての言語の件名に一致し、フィルターはステータスと開始日です。
+
+## 関連ページ
+
+- [ランディングページ](/docs/features/landing-page#newsletter)
+- [トランザクションメール](/docs/features/email)
+- [管理ダッシュボード](/docs/features/admin-dashboard)

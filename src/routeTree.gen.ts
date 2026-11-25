@@ -17,6 +17,7 @@ import { Route as SiteMarketingRouteImport } from './routes/_site._marketing'
 import { Route as SiteDocsRouteImport } from './routes/_site.docs'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminCoursesRouteImport } from './routes/admin.courses'
+import { Route as AdminNewsletterRouteImport } from './routes/admin.newsletter'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
@@ -47,6 +48,9 @@ import { Route as SiteDocsSplatRouteImport } from './routes/_site.docs.$'
 import { Route as AdminCoursesIndexRouteImport } from './routes/admin.courses.index'
 import { Route as AdminCoursesCourseIdRouteImport } from './routes/admin.courses.$courseId'
 import { Route as AdminCoursesCreateRouteImport } from './routes/admin.courses.create'
+import { Route as AdminNewsletterIndexRouteImport } from './routes/admin.newsletter.index'
+import { Route as AdminNewsletterIssuesRouteImport } from './routes/admin.newsletter.issues'
+import { Route as AdminNewsletterComposeRouteImport } from './routes/admin.newsletter_.compose'
 import { Route as AdminOrdersIndexRouteImport } from './routes/admin.orders.index'
 import { Route as AdminOrdersOrderIdRouteImport } from './routes/admin.orders.$orderId'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin.products.index'
@@ -108,6 +112,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminCoursesRoute = AdminCoursesRouteImport.update({
   id: '/courses',
   path: '/courses',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNewsletterRoute = AdminNewsletterRouteImport.update({
+  id: '/newsletter',
+  path: '/newsletter',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -260,6 +269,21 @@ const AdminCoursesCreateRoute = AdminCoursesCreateRouteImport.update({
   path: '/create',
   getParentRoute: () => AdminCoursesRoute,
 } as any)
+const AdminNewsletterIndexRoute = AdminNewsletterIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminNewsletterRoute,
+} as any)
+const AdminNewsletterIssuesRoute = AdminNewsletterIssuesRouteImport.update({
+  id: '/issues',
+  path: '/issues',
+  getParentRoute: () => AdminNewsletterRoute,
+} as any)
+const AdminNewsletterComposeRoute = AdminNewsletterComposeRouteImport.update({
+  id: '/newsletter_/compose',
+  path: '/newsletter/compose',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOrdersIndexRoute = AdminOrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
@@ -399,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteWithChildren
   '/docs': typeof SiteDocsRouteWithChildren
   '/admin/courses': typeof AdminCoursesRouteWithChildren
+  '/admin/newsletter': typeof AdminNewsletterRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/app/billing': typeof AppBillingRoute
@@ -427,6 +452,8 @@ export interface FileRoutesByFullPath {
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/newsletter/issues': typeof AdminNewsletterIssuesRoute
+  '/admin/newsletter/compose': typeof AdminNewsletterComposeRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
@@ -436,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
+  '/admin/newsletter/': typeof AdminNewsletterIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
@@ -482,6 +510,8 @@ export interface FileRoutesByTo {
   '/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/newsletter/issues': typeof AdminNewsletterIssuesRoute
+  '/admin/newsletter/compose': typeof AdminNewsletterComposeRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
@@ -491,6 +521,7 @@ export interface FileRoutesByTo {
   '/app/settings/delete-account': typeof AppSettingsDeleteAccountRoute
   '/docs': typeof SiteDocsIndexRoute
   '/admin/courses': typeof AdminCoursesIndexRoute
+  '/admin/newsletter': typeof AdminNewsletterIndexRoute
   '/admin/orders': typeof AdminOrdersIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
@@ -518,6 +549,7 @@ export interface FileRoutesById {
   '/_site/_marketing': typeof SiteMarketingRouteWithChildren
   '/_site/docs': typeof SiteDocsRouteWithChildren
   '/admin/courses': typeof AdminCoursesRouteWithChildren
+  '/admin/newsletter': typeof AdminNewsletterRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
   '/app/billing': typeof AppBillingRoute
@@ -546,6 +578,8 @@ export interface FileRoutesById {
   '/_site/docs/$': typeof SiteDocsSplatRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
+  '/admin/newsletter/issues': typeof AdminNewsletterIssuesRoute
+  '/admin/newsletter_/compose': typeof AdminNewsletterComposeRoute
   '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
@@ -556,6 +590,7 @@ export interface FileRoutesById {
   '/_site/_marketing/': typeof SiteMarketingIndexRoute
   '/_site/docs/': typeof SiteDocsIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
+  '/admin/newsletter/': typeof AdminNewsletterIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
@@ -583,6 +618,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/docs'
     | '/admin/courses'
+    | '/admin/newsletter'
     | '/admin/settings'
     | '/admin/users'
     | '/app/billing'
@@ -611,6 +647,8 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/newsletter/issues'
+    | '/admin/newsletter/compose'
     | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
@@ -620,6 +658,7 @@ export interface FileRouteTypes {
     | '/app/settings/delete-account'
     | '/docs/'
     | '/admin/courses/'
+    | '/admin/newsletter/'
     | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
@@ -666,6 +705,8 @@ export interface FileRouteTypes {
     | '/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/newsletter/issues'
+    | '/admin/newsletter/compose'
     | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
@@ -675,6 +716,7 @@ export interface FileRouteTypes {
     | '/app/settings/delete-account'
     | '/docs'
     | '/admin/courses'
+    | '/admin/newsletter'
     | '/admin/orders'
     | '/admin/products'
     | '/admin/users'
@@ -701,6 +743,7 @@ export interface FileRouteTypes {
     | '/_site/_marketing'
     | '/_site/docs'
     | '/admin/courses'
+    | '/admin/newsletter'
     | '/admin/settings'
     | '/admin/users'
     | '/app/billing'
@@ -729,6 +772,8 @@ export interface FileRouteTypes {
     | '/_site/docs/$'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
+    | '/admin/newsletter/issues'
+    | '/admin/newsletter_/compose'
     | '/admin/orders/$orderId'
     | '/admin/users/$userId'
     | '/admin/users/all'
@@ -739,6 +784,7 @@ export interface FileRouteTypes {
     | '/_site/_marketing/'
     | '/_site/docs/'
     | '/admin/courses/'
+    | '/admin/newsletter/'
     | '/admin/orders/'
     | '/admin/products/'
     | '/admin/users/'
@@ -825,6 +871,13 @@ declare module '@tanstack/react-router' {
       path: '/courses'
       fullPath: '/admin/courses'
       preLoaderRoute: typeof AdminCoursesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/newsletter': {
+      id: '/admin/newsletter'
+      path: '/newsletter'
+      fullPath: '/admin/newsletter'
+      preLoaderRoute: typeof AdminNewsletterRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/settings': {
@@ -1036,6 +1089,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/courses/create'
       preLoaderRoute: typeof AdminCoursesCreateRouteImport
       parentRoute: typeof AdminCoursesRoute
+    }
+    '/admin/newsletter/': {
+      id: '/admin/newsletter/'
+      path: '/'
+      fullPath: '/admin/newsletter/'
+      preLoaderRoute: typeof AdminNewsletterIndexRouteImport
+      parentRoute: typeof AdminNewsletterRoute
+    }
+    '/admin/newsletter/issues': {
+      id: '/admin/newsletter/issues'
+      path: '/issues'
+      fullPath: '/admin/newsletter/issues'
+      preLoaderRoute: typeof AdminNewsletterIssuesRouteImport
+      parentRoute: typeof AdminNewsletterRoute
+    }
+    '/admin/newsletter_/compose': {
+      id: '/admin/newsletter_/compose'
+      path: '/newsletter/compose'
+      fullPath: '/admin/newsletter/compose'
+      preLoaderRoute: typeof AdminNewsletterComposeRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/admin/orders/': {
       id: '/admin/orders/'
@@ -1320,6 +1394,20 @@ const AdminCoursesRouteWithChildren = AdminCoursesRoute._addFileChildren(
   AdminCoursesRouteChildren,
 )
 
+interface AdminNewsletterRouteChildren {
+  AdminNewsletterIssuesRoute: typeof AdminNewsletterIssuesRoute
+  AdminNewsletterIndexRoute: typeof AdminNewsletterIndexRoute
+}
+
+const AdminNewsletterRouteChildren: AdminNewsletterRouteChildren = {
+  AdminNewsletterIssuesRoute: AdminNewsletterIssuesRoute,
+  AdminNewsletterIndexRoute: AdminNewsletterIndexRoute,
+}
+
+const AdminNewsletterRouteWithChildren = AdminNewsletterRoute._addFileChildren(
+  AdminNewsletterRouteChildren,
+)
+
 interface AdminUsersRouteChildren {
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminUsersAllRoute: typeof AdminUsersAllRoute
@@ -1342,9 +1430,11 @@ const AdminUsersRouteWithChildren = AdminUsersRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminCoursesRoute: typeof AdminCoursesRouteWithChildren
+  AdminNewsletterRoute: typeof AdminNewsletterRouteWithChildren
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminNewsletterComposeRoute: typeof AdminNewsletterComposeRoute
   AdminOrdersOrderIdRoute: typeof AdminOrdersOrderIdRoute
   AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
   AdminProductsIndexRoute: typeof AdminProductsIndexRoute
@@ -1352,9 +1442,11 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCoursesRoute: AdminCoursesRouteWithChildren,
+  AdminNewsletterRoute: AdminNewsletterRouteWithChildren,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
+  AdminNewsletterComposeRoute: AdminNewsletterComposeRoute,
   AdminOrdersOrderIdRoute: AdminOrdersOrderIdRoute,
   AdminOrdersIndexRoute: AdminOrdersIndexRoute,
   AdminProductsIndexRoute: AdminProductsIndexRoute,

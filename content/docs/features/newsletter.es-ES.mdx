@@ -1,0 +1,57 @@
+---
+title: "Boletín"
+description: "La lista de suscriptores del administrador y su exportación a CSV, la redacción de un número en cada idioma con vista previa y su envío por Resend en lotes que un reintento o un segundo clic nunca envían dos veces."
+---
+
+Los visitantes se suscriben al diario de desarrollo desde el pie de página y confirman su dirección por correo ([Página de inicio](/docs/features/landing-page#newsletter)). El administrador consulta las suscripciones y envía los números en `/admin/newsletter`, que el área del boletín añade al grupo Contenido de la barra lateral en `src/data/navigation.ts`, con las pestañas Suscriptores y Números de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). La tarjeta Suscriptores del boletín del panel enlaza a esta página ([Panel de administración](/docs/features/admin-dashboard#newsletter-subscribers)). Cada función de servidor de esta página ejecuta `authorized({ admin: ["access"] })`, así que solo un administrador llega a ellas.
+
+## Suscriptores [#subscribers]
+
+`/admin/newsletter` (`src/routes/admin.newsletter.index.tsx`) muestra cada fila de `newsletter_subscriber` en el `DataGrid` ([Cuadrícula de datos](/docs/ui/data-grid)) con `useNewsletterSubscriberColumns` (`newsletter-subscriber-columns.tsx`).
+
+- `listNewsletterSubscribersPageQuery` llama a `listNewsletterSubscribers` (`src/modules/newsletter-subscriber/use-cases/list-newsletter-subscribers.ts`). La paginación, la ordenación, la búsqueda por correo y los filtros se ejecutan en el servidor, validados por `newsletterSubscriberZodSchemas.listNewsletterSubscribers`.
+- Cada fila muestra la dirección, el estado (pendiente de confirmar, confirmado o dado de baja), cuándo se suscribió, cuándo confirmó y el idioma en que se le escriben los correos. Desde dónde se suscribió (el pie de página, el blog o la aplicación) espera en el menú Columnas. Los filtros son los estados, los idiomas, el origen de la suscripción y los días de suscripción y de confirmación.
+- Exportar escribe en un CSV las filas que encuentran la búsqueda y los filtros, o las marcadas. Una celda que empieza por `=`, `+`, `-`, `@`, un tabulador o un retorno de carro recibe un apóstrofo delante (`csvOf` en `src/lib/csv.ts`), así que una hoja de cálculo muestra una dirección como `=cmd@example.com` como texto en lugar de ejecutarla como fórmula.
+
+## Redactar un número [#writing-an-issue]
+
+**Nuevo número** abre `/admin/newsletter/compose` (`admin.newsletter_.compose.tsx`), donde `NewsletterIssueForm` (`newsletter-issue-form.tsx`) sigue el patrón de shadcn con TanStack Form y valida con `newsletterIssueZodSchemas.issueTexts`:
+
+- El asunto y el cuerpo se escriben por idioma con el selector de idioma de `FormLanguages`. El inglés es obligatorio; cualquier otro idioma está completo, con su propio asunto y cuerpo, o se deja vacío. El asunto admite hasta <RepositoryFact name="newsletterSubjectMaxLength" /> caracteres y el cuerpo hasta <RepositoryFact name="newsletterBodyMaxLength" />. Una línea en blanco empieza un párrafo nuevo.
+- `NewsletterIssuePreview` muestra el número tal como lo reciben los lectores del idioma elegido. Si ese idioma está incompleto, muestra el número en inglés y avisa de que esos lectores lo reciben en inglés.
+- El formulario indica a cuántos suscriptores confirmados llegará el número, según `newsletterSubscribersQuery`, y no se puede enviar mientras no haya ninguno. Enviar pide confirmación antes.
+
+Cada suscriptor recibe el número en el idioma guardado con su suscripción, o en inglés si el número no tiene una versión completa en ese idioma (`issueContent` en `newsletter-issue.utils.ts`). Todo el correo, pie incluido, está en el idioma de su texto.
+
+## Envío [#sending]
+
+El envío son dos funciones de servidor en `src/modules/newsletter-issue/use-cases/`:
+
+1. `createNewsletterIssue` guarda el número en `newsletter_issue` con un ID que el formulario genera una vez al abrirse y cuenta sus destinatarios: los suscriptores con estado `subscribed` que confirmaron antes de ese momento. Volver a ejecutarla con el mismo ID no escribe nada.
+2. `sendNewsletterIssue` reserva el número durante <RepositoryFact name="newsletterLeaseSeconds" unit="second" />, envía hasta <RepositoryFact name="newsletterBatchesPerStep" /> lotes de <RepositoryFact name="newsletterBatchSize" /> correos con `sendBatchEmails` (`src/integrations/resend/resend.utils.ts`), una petición a Resend tras otra, y anota después de cada lote el último suscriptor al que llegó y cuántos correos salieron. Responde con el progreso, y `sendNewsletterIssueMutation` la vuelve a llamar hasta que el número queda enviado.
+
+Una petición envía como mucho <RepositoryFact name="newsletterStepRecipients" /> correos, así que cada una se mantiene dentro de los límites del Worker por larga que sea la lista, y una petición cada vez mantiene el envío dentro del límite de frecuencia de Resend. Ambas funciones aceptan <RepositoryFact name="newsletterRateLimit" /> llamadas por minuto desde una misma dirección de cliente.
+
+Nada se envía dos veces:
+
+- Una segunda petición para un número que ya está reservado, como un doble clic, no envía nada y responde que el número ya se está enviando.
+- Los destinatarios se leen por orden de ID, a partir del último anotado, así que una petición que reanuda un número interrumpido empieza donde terminó el último lote completo.
+- Cada lote lleva una clave de idempotencia formada por el número y los ID de sus destinatarios. Si una petición falla después de que Resend aceptara el lote pero antes de guardar el progreso, el reintento envía el mismo lote con la misma clave, y Resend devuelve la primera respuesta en lugar de enviarlo otra vez mientras conserve la clave.
+
+Una dirección que Resend rechaza no frena el número: cada lote sale con `batchValidation: "permissive"`, así que Resend envía los demás correos del lote, el rechazo queda registrado y el progreso cuenta solo los correos que Resend aceptó.
+
+Cuando Resend rechaza un lote entero, se libera la reserva, el administrador ve el error y el número se queda en **Enviándose**. La pestaña Números lo muestra con **Reanudar el envío** en el menú de su fila, que continúa desde el último lote que salió.
+
+## Darse de baja [#unsubscribing]
+
+Cada correo termina con una línea que explica por qué lo recibe el lector y un enlace a `/newsletter/unsubscribe?token=` en el idioma del suscriptor, construido por `unsubscribeUrl`. También lleva la cabecera `List-Unsubscribe` con esa dirección y `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, para que el cliente de correo pueda ofrecer su propio botón de baja. Ese botón envía un `POST` a la misma dirección, que la propia ruta responde (`server.handlers.POST` en `_site._marketing.newsletter.unsubscribe.tsx`) y que da de baja al momento. Abrir la dirección sigue limitándose a preguntar; nada cambia hasta que el lector pulsa el botón.
+
+## Números [#issues]
+
+`/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) muestra los números con `getNewsletterIssues` y `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): el asunto en inglés, Enviándose o Enviado, cuántos correos salieron de cuántos destinatarios, en cuántos idiomas se escribió el número, cuándo empezó y cuándo terminó. La búsqueda encuentra el asunto en cualquier idioma; los filtros son el estado y el día de inicio.
+
+## Páginas relacionadas
+
+- [Página de inicio](/docs/features/landing-page#newsletter)
+- [Correo transaccional](/docs/features/email)
+- [Panel de administración](/docs/features/admin-dashboard)

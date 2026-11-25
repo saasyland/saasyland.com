@@ -11,11 +11,11 @@ import { buildSitemap, buildSitemapIndex, listedPages } from "~/src/lib/sitemap"
 
 import { CLIENT_DIR, listPrerenderedPages } from "./prerendered-pages.ts"
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ROBOTS_TXT = "robots.txt"
 
-const SITEMAPS = [PAGES_SITEMAP_PATH, ROUTES.COURSES_SITEMAP]
+const SITEMAPS = [PAGES_SITEMAP_PATH, ROUTES.SITEMAPS.COURSES]
 
 const started = performance.now()
 

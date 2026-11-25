@@ -31,7 +31,7 @@ import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type UserSession = Awaited<ReturnType<NonNullable<ReturnType<typeof listUserSessionsQuery>["queryFn"]>>>[number]
 
@@ -79,17 +79,17 @@ const renderProfile = async ({ sessions = SESSIONS, user = adminUser() }: { sess
   queryClient.setQueryData(listUserSessionsQuery({ userId: user.id }).queryKey, sessions, { updatedAt: SESSIONS_READ_AT.getTime() })
   const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  const list = createRoute({ component: () => <p>{labels.title}</p>, getParentRoute: () => root, path: ROUTES.ADMIN_USERS_ALL })
+  const list = createRoute({ component: () => <p>{labels.title}</p>, getParentRoute: () => root, path: ROUTES.ADMIN.USERS.ALL })
   Object.assign(ProfileRoute.options, {
     getParentRoute: () => root,
     id: "/admin/users/$userId",
-    loader: () => ({ locale: "en-US", pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }),
+    loader: () => ({ locale: "en-US", pathname: `${ROUTES.ADMIN.USERS.INDEX}/${user.id}`, title: user.name }),
     path: "/admin/users/$userId",
   })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.ADMIN_USERS}/${user.id}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.ADMIN.USERS.INDEX}/${user.id}`] }),
     rewrite: LOCALE_REWRITE,
     routeTree: root.addChildren([list, ProfileRoute]),
   })
@@ -253,7 +253,7 @@ describe("deleting from the profile", () => {
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: labels.actions.deleteDialog.confirm }))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.ADMIN_USERS_ALL)
+      expect(router.state.location.pathname).toBe(ROUTES.ADMIN.USERS.ALL)
     })
     expect(remove).toHaveBeenCalledWith({ userId: "ada" }, expect.anything())
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: USER_QUERY_KEYS.ALL })

@@ -13,7 +13,7 @@ import { invitationZodSchemas } from "~/src/modules/invitation/invitation.zod"
 
 import { sha256Hex } from "~/src/lib/hex"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const PLUGIN_ID = "invitation"
 
@@ -24,7 +24,7 @@ export const invitationPlugin = () =>
   ({
     endpoints: {
       acceptInvitation: createAuthEndpoint(
-        ROUTES.API_AUTH.ACCEPT_INVITATION,
+        ROUTES.API.AUTH.ACCEPT_INVITATION,
         { body: invitationZodSchemas.acceptInvitation, metadata: { SERVER_ONLY: true }, method: "POST" },
         async (ctx) => {
           const tokenHash = await sha256Hex(ctx.body.token)

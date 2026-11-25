@@ -3,7 +3,7 @@ import { readFile, readdir } from "node:fs/promises"
 import { join } from "node:path"
 
 import { APP_URL } from "../presentation/branding"
-import * as ROUTES from "../routes.ts"
+import { ROUTES } from "../routes.ts"
 import { MILLISECONDS_PER_SECOND } from "./duration"
 import { MAIN_BRANCH, RELEASE_TAG } from "./release"
 
@@ -53,7 +53,7 @@ const LOG_FIELD_SEPARATOR = "\t"
 const DECORATION_SEPARATOR = ", "
 const TAG_DECORATION = /^tag: /u
 const SHALLOW_REPOSITORY = "true"
-const CHANGELOG_URL = `${APP_URL}${ROUTES.DOCS}/project/changelog`
+const CHANGELOG_URL = `${APP_URL}${ROUTES.DOCS.INDEX}/project/changelog`
 const SITE_LINK = "](/"
 
 const keyOrder = new Intl.Collator(undefined, { numeric: true })

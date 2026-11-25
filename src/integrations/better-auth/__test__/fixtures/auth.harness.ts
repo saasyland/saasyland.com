@@ -12,7 +12,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const AUTH_TEST_PASSWORD = "SecretPass1!"
 
@@ -85,7 +85,7 @@ export const signUp = async (account: TestAccount = createTestAccount()): Promis
 export const verifyEmail = async (recipient: string, browser: Headers = browserHeaders()): Promise<Headers> => {
   const { headers } = await auth.api.verifyEmail({
     headers: browser,
-    query: { token: emailToken(recipient, ROUTES.VERIFY_EMAIL) },
+    query: { token: emailToken(recipient, ROUTES.AUTH.VERIFY_EMAIL) },
     returnHeaders: true,
   })
   await flushWaitUntil()

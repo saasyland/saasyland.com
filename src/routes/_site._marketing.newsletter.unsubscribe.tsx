@@ -30,7 +30,7 @@ import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type UnsubscribeStatus = (typeof UNSUBSCRIBE_STATUS)[keyof typeof UNSUBSCRIBE_STATUS]
 
@@ -120,7 +120,7 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.NEWSLETTER_UNSUBSCRIBE),
+  head: pageHead(ROUTES.NEWSLETTER.UNSUBSCRIBE),
   pendingComponent: NewsletterPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   server: { handlers: { POST: unsubscribeInOneClick } },

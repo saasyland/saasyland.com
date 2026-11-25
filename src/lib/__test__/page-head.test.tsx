@@ -8,9 +8,9 @@ import { readPageHead } from "~/src/lib/page-head"
 import { ROBOTS, SOCIAL_IMAGE, buildPageHead } from "~/src/lib/seo"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-const DOCS_PAGE = `${ROUTES.DOCS}/conventions/files-and-naming`
+const DOCS_PAGE = `${ROUTES.DOCS.INDEX}/conventions/files-and-naming`
 
 const renderDocument = (head: ReturnType<typeof buildPageHead>, locale: SupportedLocale, body = ""): string => {
   const markup = renderToStaticMarkup(
@@ -57,7 +57,11 @@ describe("readPageHead", () => {
   })
 
   it("reads the time a blog post was last modified", () => {
-    const head = buildPageHead({ dates: { date: "2026-08-15", updated: "2026-11-17" }, pathname: `${ROUTES.BLOG}/post`, type: "article" })
+    const head = buildPageHead({
+      dates: { date: "2026-08-15", updated: "2026-11-17" },
+      pathname: `${ROUTES.BLOG.INDEX}/post`,
+      type: "article",
+    })
 
     expect(readPageHead(renderDocument(head, "en-US")).modified).toBe("2026-11-17T00:00:00.000Z")
   })
@@ -67,7 +71,7 @@ describe("readPageHead", () => {
       author: { name: "Ada Lovelace", pathname: "/authors/ada-lovelace" },
       dates: { date: "2026-08-15", updated: "2026-09-01" },
       description: "A post about tests",
-      pathname: `${ROUTES.BLOG}/post`,
+      pathname: `${ROUTES.BLOG.INDEX}/post`,
       title: "Post",
       type: "article",
     })
@@ -86,7 +90,7 @@ describe("readPageHead", () => {
   it("decodes the characters React escapes in attribute values", () => {
     const title = `Tom & Jerry's "quoted" <tags>`
 
-    const document = renderDocument(buildPageHead({ pathname: ROUTES.BLOG, title }), "en-US")
+    const document = renderDocument(buildPageHead({ pathname: ROUTES.BLOG.INDEX, title }), "en-US")
 
     expect(readPageHead(document).title).toBe(title)
   })

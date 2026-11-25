@@ -9,7 +9,7 @@ import { cn } from "~/src/lib/cn"
 
 import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SIDEBAR_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items)
 
@@ -41,7 +41,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
     return
   }
 
-  const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`
+  const sectionUrl = section === undefined ? ROUTES.ADMIN.INDEX : `${ROUTES.ADMIN.INDEX}/${section}`
   const item = SIDEBAR_ITEMS.find((candidate) => candidate.to === sectionUrl)
   const tab = USER_TABS.find((candidate) => candidate.to === pathname)
   const crumb = item?.breadcrumbs?.[action]
@@ -51,7 +51,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
       aria-label={t("pages.admin.components.breadcrumbs.home")}
       className="hidden min-w-0 items-center gap-1.5 text-body-sm text-muted-foreground sm:flex"
     >
-      <Link activeOptions={{ exact: true, includeSearch: false }} className={LINK_CLASSNAME} to={ROUTES.ADMIN}>
+      <Link activeOptions={{ exact: true, includeSearch: false }} className={LINK_CLASSNAME} to={ROUTES.ADMIN.INDEX}>
         {t("pages.admin.components.breadcrumbs.home")}
       </Link>
       {item && (

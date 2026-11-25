@@ -33,7 +33,7 @@ import errorsMessages from "~/messages/en-US/errors.json"
 import pagesBillingMessages from "~/messages/en-US/pages.billing.json"
 import plPagesBillingMessages from "~/messages/pl-PL/pages.billing.json"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const { confirmation, orders: ordersCopy, subscriptions: subscriptionsCopy } = pagesBillingMessages
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
@@ -106,7 +106,7 @@ const REFUNDED = orderOf({
 
 const PENDING = orderOf({ description: "Pending kit", id: "ord_pending", status: POLAR_ORDER_STATUS.PENDING })
 
-const renderBilling = async (path: string = ROUTES.APP_BILLING, locale: SupportedLocale = "en-US") => {
+const renderBilling = async (path: string = ROUTES.APP.BILLING, locale: SupportedLocale = "en-US") => {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: QUERY_STALE_TIME_MS } },
   })
@@ -310,7 +310,7 @@ describe("the billing page", () => {
   })
 
   it("speaks the reader's language", async () => {
-    await renderBilling(ROUTES.APP_BILLING, "pl-PL")
+    await renderBilling(ROUTES.APP.BILLING, "pl-PL")
 
     expect(await screen.findByRole("heading", { level: 1, name: plPagesBillingMessages.metadata.title })).toBeVisible()
     expect(screen.getByRole("button", { name: plPagesBillingMessages.manage })).toBeVisible()
@@ -327,7 +327,7 @@ describe("managing billing in Polar's customer portal", () => {
     await waitFor(() => {
       expect(globalThis.location.hash).toBe(PORTAL_URL)
     })
-    expect(network.mock.calls.map(([input]) => requestedPath(input))).toStrictEqual([ROUTES.API_AUTH_CUSTOMER_PORTAL])
+    expect(network.mock.calls.map(([input]) => requestedPath(input))).toStrictEqual([ROUTES.API.AUTH.CUSTOMER_PORTAL])
     expect(toast.error).not.toHaveBeenCalled()
   })
 
@@ -375,7 +375,7 @@ describe("managing billing in Polar's customer portal", () => {
 describe("coming back from a checkout", () => {
   it("thanks the buyer once the copies hold the paid order of the checkout", async () => {
     ordersMock.mockResolvedValue({ orders: [orderOf({ checkoutId: CHECKOUT_ID })] })
-    await renderBilling(`${ROUTES.APP_BILLING}?checkoutId=${CHECKOUT_ID}`)
+    await renderBilling(`${ROUTES.APP.BILLING}?checkoutId=${CHECKOUT_ID}`)
 
     expect(await screen.findByRole("heading", { name: confirmation.confirmed.title })).toBeVisible()
     expect(screen.getByRole("status")).toHaveTextContent(confirmation.confirmed.body)
@@ -383,20 +383,20 @@ describe("coming back from a checkout", () => {
 
   it("says Polar is confirming while the checkout's order is missing or unpaid", async () => {
     ordersMock.mockResolvedValue({ orders: [orderOf({ checkoutId: CHECKOUT_ID, status: POLAR_ORDER_STATUS.PENDING }), STARTER] })
-    await renderBilling(`${ROUTES.APP_BILLING}?checkoutId=${CHECKOUT_ID}`)
+    await renderBilling(`${ROUTES.APP.BILLING}?checkoutId=${CHECKOUT_ID}`)
 
     expect(await screen.findByRole("heading", { name: confirmation.confirming.title })).toBeVisible()
     expect(screen.queryByRole("heading", { name: confirmation.confirmed.title })).toBeNull()
   })
 
   it("keeps only the checkout ID of the address Polar sends the buyer back to", async () => {
-    const { router } = await renderBilling(`${ROUTES.APP_BILLING}?checkoutId=${CHECKOUT_ID}&customer_session_token=secret`)
+    const { router } = await renderBilling(`${ROUTES.APP.BILLING}?checkoutId=${CHECKOUT_ID}&customer_session_token=secret`)
 
     expect(router.state.location.search).toEqual({ checkoutId: CHECKOUT_ID })
   })
 
   it("ignores a checkout ID that is not one", async () => {
-    await renderBilling(`${ROUTES.APP_BILLING}?checkoutId=not-a-checkout`)
+    await renderBilling(`${ROUTES.APP.BILLING}?checkoutId=not-a-checkout`)
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesBillingMessages.metadata.title })).toBeVisible()
     expect(screen.queryByRole("status")).toBeNull()

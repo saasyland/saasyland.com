@@ -5,7 +5,7 @@ import adminCourses from "../../messages/en-US/pages.admin.courses.json" with { 
 import adminSidebar from "../../messages/en-US/pages.admin.sidebar.json" with { type: "json" }
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import type { BasePage } from "../pages"
@@ -25,7 +25,7 @@ const signInThroughTheApi = async (page: Page, baseURL: string | undefined): Pro
 
 const openConsole = async (page: Page, appPage: BasePage, baseURL: string | undefined): Promise<Locator> => {
   await signInThroughTheApi(page, baseURL)
-  await page.goto(ROUTES.ADMIN, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   return page.getByRole("navigation", { exact: true, name: adminSidebar.navigationLabel })
 }
@@ -64,7 +64,7 @@ const openEach = async (page: Page, appPage: BasePage, entries: readonly Locator
 
 const expectSessionEnded = async (page: Page, returnPath: string): Promise<void> => {
   await expect(page).toHaveURL(
-    (url) => url.pathname === ROUTES.SIGN_IN && url.searchParams.get("redirect") === returnPath && url.searchParams.get("error") === SESSION_EXPIRED_CODE,
+    (url) => url.pathname === ROUTES.AUTH.SIGN_IN && url.searchParams.get("redirect") === returnPath && url.searchParams.get("error") === SESSION_EXPIRED_CODE,
   )
   await expect(page.getByText(admin.email, { exact: true })).toHaveCount(0)
 }
@@ -105,5 +105,5 @@ test("an admin whose session ended elsewhere is sent to sign-in by the first ser
 
   await sidebar.getByRole("link", { exact: true, name: coursesNavigation.admin.courses }).click()
 
-  await expectSessionEnded(page, ROUTES.ADMIN_COURSES)
+  await expectSessionEnded(page, ROUTES.ADMIN.COURSES.INDEX)
 })

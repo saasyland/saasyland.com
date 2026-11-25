@@ -5,7 +5,7 @@ import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { RECIPIENT_EMAILS_PER_HOUR } from "../../src/modules/rate-limit/rate-limit.constants"
 import { RESEND_COOLDOWN_SECONDS } from "../../src/modules/verification/verification.constants"
 import { APP_SLUG } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { expectResetPasswordEmail, expectVerificationEmail } from "../fixtures/emails"
@@ -55,7 +55,7 @@ test.describe("the verify page", () => {
     await expect(page).toHaveURL(/\/app\/?$/u)
     await expectVerificationEmail(request, email)
 
-    await page.goto(ROUTES.VERIFY_EMAIL, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.AUTH.VERIFY_EMAIL, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1, name: "Check your inbox" })).toBeVisible()
     await expect(page.getByText(email, { exact: true })).toBeVisible()
@@ -83,17 +83,17 @@ test.describe("the verify page", () => {
 
   test("continues by itself once the link is opened in another tab", async ({ authPage, context, page, request }) => {
     const email = await newAddress(page)
-    await authPage.signUp(email, PASSWORD, `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(ROUTES.APP_LICENSE)}`)
-    await expect(page).toHaveURL(ROUTES.APP_LICENSE)
-    await page.goto(`${ROUTES.VERIFY_EMAIL}?redirect=${encodeURIComponent(ROUTES.APP_LICENSE)}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await authPage.signUp(email, PASSWORD, `${ROUTES.AUTH.SIGN_UP}?redirect=${encodeURIComponent(ROUTES.APP.LICENSE)}`)
+    await expect(page).toHaveURL(ROUTES.APP.LICENSE)
+    await page.goto(`${ROUTES.AUTH.VERIFY_EMAIL}?redirect=${encodeURIComponent(ROUTES.APP.LICENSE)}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1, name: "Check your inbox" })).toBeVisible()
 
     const inbox = await context.newPage()
     await inbox.goto((await expectVerificationEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await expect(inbox).toHaveURL(ROUTES.APP_LICENSE)
+    await expect(inbox).toHaveURL(ROUTES.APP.LICENSE)
 
-    await expect(page).toHaveURL(ROUTES.APP_LICENSE, { timeout: 15_000 })
+    await expect(page).toHaveURL(ROUTES.APP.LICENSE, { timeout: 15_000 })
   })
 
   test("names the address of a link that no longer works and leads with a new one, and says when the address is already confirmed", async ({
@@ -109,7 +109,7 @@ test.describe("the verify page", () => {
     await context.clearCookies()
     const unsigned = `e30.${Buffer.from(JSON.stringify({ email, exp: 1 })).toString("base64url")}.signature`
 
-    await page.goto(`${ROUTES.VERIFY_EMAIL}?token=${unsigned}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`${ROUTES.AUTH.VERIFY_EMAIL}?token=${unsigned}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1, name: "This link no longer works" })).toBeVisible()
     await expect(page.getByText(email, { exact: true })).toBeVisible()
@@ -126,7 +126,7 @@ test.describe("the verify page", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Your email is confirmed" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Sign in to continue" })).toHaveAttribute(
       "href",
-      `${ROUTES.SIGN_IN}?email=${encodeURIComponent(email)}`,
+      `${ROUTES.AUTH.SIGN_IN}?email=${encodeURIComponent(email)}`,
     )
   })
 })
@@ -143,7 +143,7 @@ test.describe("signing in again", () => {
     await context.clearCookies()
     await page.clock.install()
 
-    await page.goto(`${ROUTES.SIGN_IN}?redirect=${encodeURIComponent(ROUTES.APP_SETTINGS)}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`${ROUTES.AUTH.SIGN_IN}?redirect=${encodeURIComponent(ROUTES.APP.SETTINGS.INDEX)}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
     await authPage.emailField().fill(email)
     await authPage.passwordField().fill("WrongPassword123!")
@@ -157,7 +157,7 @@ test.describe("signing in again", () => {
 
     await alert.getByRole("link", { name: "Reset your password" }).click()
     await expect(page).toHaveURL(
-      `${ROUTES.FORGOT_PASSWORD}?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(ROUTES.APP_SETTINGS)}`,
+      `${ROUTES.AUTH.FORGOT_PASSWORD}?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(ROUTES.APP.SETTINGS.INDEX)}`,
     )
     await authPage.waitForAppReady()
     await expect(authPage.emailField()).toHaveValue(email)
@@ -166,17 +166,17 @@ test.describe("signing in again", () => {
     await expect(authPage.verifyEmailResendButton()).toBeDisabled()
 
     await page.goto((await expectResetPasswordEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await expect(page).toHaveURL((url) => url.pathname === ROUTES.RESET_PASSWORD && url.searchParams.get("redirect") === ROUTES.APP_SETTINGS)
+    await expect(page).toHaveURL((url) => url.pathname === ROUTES.AUTH.RESET_PASSWORD && url.searchParams.get("redirect") === ROUTES.APP.SETTINGS.INDEX)
     await authPage.waitForAppReady()
     await page.locator("#reset-password-password").fill(NEW_PASSWORD)
     await authPage.resetPasswordSubmitButton().click()
 
-    await expect(page).toHaveURL(`${ROUTES.SIGN_IN}?redirect=${encodeURIComponent(ROUTES.APP_SETTINGS)}`)
+    await expect(page).toHaveURL(`${ROUTES.AUTH.SIGN_IN}?redirect=${encodeURIComponent(ROUTES.APP.SETTINGS.INDEX)}`)
     await authPage.waitForAppReady()
     await authPage.emailField().fill(email)
     await authPage.passwordField().fill(NEW_PASSWORD)
     await authPage.signInSubmitButton().click()
-    await expect(page).toHaveURL(ROUTES.APP_SETTINGS)
+    await expect(page).toHaveURL(ROUTES.APP.SETTINGS.INDEX)
   })
 
   test("lists GitHub first and marks the way the visitor signed in last time", async ({ appPage, authPage, page }) => {
@@ -186,7 +186,7 @@ test.describe("signing in again", () => {
     expect((await page.context().cookies()).find(({ name }) => name === LAST_LOGIN_METHOD_COOKIE)?.value).toBe(LOGIN_METHOD.EMAIL)
 
     await page.getByRole("button", { exact: true, name: "Sign out" }).click()
-    await expect(page).toHaveURL(ROUTES.SIGN_IN)
+    await expect(page).toHaveURL(ROUTES.AUTH.SIGN_IN)
     await authPage.waitForAppReady()
 
     await expect(page.getByRole("button", { name: /^Continue with/u }).first()).toHaveText("Continue with GitHub")
@@ -199,9 +199,9 @@ test.describe("signing in again", () => {
     await appPage.waitForAppReady()
     await context.addCookies([{ name: `${APP_SLUG}.session_token`, url: baseURL ?? "", httpOnly: true, sameSite: "Lax", value: "ended" }])
 
-    await page.goto(ROUTES.APP_SETTINGS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.SETTINGS.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
-    await expect(page).toHaveURL((url) => url.pathname === ROUTES.SIGN_IN && url.searchParams.get("redirect") === ROUTES.APP_SETTINGS)
+    await expect(page).toHaveURL((url) => url.pathname === ROUTES.AUTH.SIGN_IN && url.searchParams.get("redirect") === ROUTES.APP.SETTINGS.INDEX)
     await authPage.waitForAppReady()
     await expect(page.getByRole("status")).toHaveText("Your session ended. Sign in to continue to Settings.")
   })
@@ -213,7 +213,7 @@ test.describe("signing in again", () => {
       landingPage,
       page,
     }) => {
-      const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN : ROUTES.APP
+      const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN.INDEX : ROUTES.APP.INDEX
       await page.setViewportSize(DESKTOP_VIEWPORT)
       await authPage.signIn(account.email)
       await expect(page).toHaveURL(workspace)

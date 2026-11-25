@@ -11,11 +11,11 @@ import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
 import { CHANGELOG_DIRECTORY, ENTRY_KEY, entryItems, pullRequestOf } from "~/src/lib/changelog"
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
+import { ROUTE_PATHS } from "~/src/lib/route-paths"
 
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
 
 const MIN_ENGLISH_PROSE_WORDS = 7
 
@@ -42,8 +42,8 @@ const REDIRECTED_ENDING_PATTERN = /(?:\/index)?(?:\.html)?\/?$/u
 const HOST_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\b|\b(?:localhost|127\.0\.0\.1):\d+\b/gu
 const LOCAL_HOST_PATTERN = /^(?:localhost|127\.0\.0\.1):/u
 const ENVIRONMENT_VARIABLE_PATTERN = /^[A-Z][A-Z0-9_]+$/u
-const ROUTE_CONSTANT_PATTERN = /^[A-Z][A-Z_]+$/u
 const ROUTES_PREFIX = /^ROUTES\./u
+const ROUTE_KEY_SEPARATOR = "."
 const ROUTE_WILDCARD = "/*"
 const DOCS_PREFIX = "docs/"
 
@@ -95,8 +95,6 @@ const workerVariables = new Set([...workerSecrets, ...wranglerEnvironments.flatM
 const packageManifest: unknown = JSON.parse(readFileSync(join(REPOSITORY_DIR, "package.json"), "utf8"))
 const packageScripts = new Set(Object.keys(packageSchema.parse(packageManifest).scripts))
 const appHosts = new Set(Object.values(ENVIRONMENT).flatMap((mode) => appHostsForMode(mode)))
-const routePaths: Readonly<Record<string, unknown>> = ROUTES
-
 const inlineCode = (text: string): string[] => [...text.matchAll(INLINE_CODE_PATTERN)].flatMap(({ groups }) => groups?.["code"] ?? [])
 
 const proseWithoutCode = (source: string): string => proseOf(source).replaceAll(INLINE_CODE_PATTERN, "")
@@ -160,23 +158,28 @@ const hostProblems = ({ label, target }: Translation): string[] =>
     .filter((host) => (LOCAL_HOST_PATTERN.test(host) || host.endsWith(`.${APP_DOMAIN}`)) && !appHosts.has(host))
     .map((host) => `${label} names ${host}, which appHostsForMode allows in no mode`)
 
+const isDocumentedRoute = (documented: ReadonlySet<string>, name: string): boolean =>
+  name.split(ROUTE_KEY_SEPARATOR).some((_, index, keys) => documented.has(keys.slice(0, index + 1).join(ROUTE_KEY_SEPARATOR)))
+
+const undocumentedRoutes = ({ label, target }: Pick<Translation, "label" | "target">): string[] => {
+  const documented = new Set(inlineCode(target).map((code) => code.replace(ROUTES_PREFIX, "")))
+
+  return [...ROUTE_PATHS.keys()].filter((name) => !isDocumentedRoute(documented, name)).map((name) => `${label} does not list ${name}`)
+}
+
 const routeProblems = ({ label, target }: Translation): string[] => [
   ...tableRows(target).flatMap(([pathCell = "", constantCell = ""]) => {
     const [path] = inlineCode(pathCell)
     const [constant = ""] = inlineCode(constantCell)
-    const route = routePaths[constant]
+    const route = ROUTE_PATHS.get(constant)
 
-    if (!ROUTE_CONSTANT_PATTERN.test(constant) || typeof route !== "string" || [route, `${route}${ROUTE_WILDCARD}`].includes(path ?? "")) {
+    if (route === undefined || [route, `${route}${ROUTE_WILDCARD}`].includes(path ?? "")) {
       return []
     }
 
     return [`${label} lists ${String(path)} for ROUTES.${constant}, which is ${route}`]
   }),
-  ...undocumented({
-    documented: new Set(inlineCode(target).map((code) => code.replace(ROUTES_PREFIX, ""))),
-    expected: new Set(Object.keys(ROUTES)),
-    label,
-  }),
+  ...undocumentedRoutes({ label, target }),
 ]
 
 const scriptProblems = ({ label, target }: Translation): string[] => {

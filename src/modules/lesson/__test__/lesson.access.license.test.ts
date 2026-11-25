@@ -26,7 +26,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { TIER_PRICES } from "~/src/data/license"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const COURSE_SLUG = "the-walkthrough"
 
@@ -137,7 +137,7 @@ describe("course access through a licence", () => {
     expect(COURSE_ACCESS_GRANTS.map(({ price, unlock }) => ({ price, unlock: unlock(lesson) }))).toStrictEqual([
       {
         price: TIER_PRICES[LICENSE_TIER.COMPLETE],
-        unlock: { search: { redirect: lesson, tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP_LICENSE },
+        unlock: { search: { redirect: lesson, tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP.LICENSE },
       },
     ])
   })

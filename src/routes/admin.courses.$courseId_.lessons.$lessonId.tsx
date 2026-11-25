@@ -24,7 +24,7 @@ import { LessonMaterials } from "~/src/presentation/components/custom/admin/cour
 import { LessonVideo } from "~/src/presentation/components/custom/admin/courses/lesson-video"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LessonEditorPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.lessonEditor")
@@ -60,7 +60,7 @@ const LessonEditorPage = (): JSX.Element => {
             </LinkButton>
           )
         }
-        back={{ label: localize(data.course.title, locale), to: `${ROUTES.ADMIN_COURSES}/${courseId}` }}
+        back={{ label: localize(data.course.title, locale), to: `${ROUTES.ADMIN.COURSES.INDEX}/${courseId}` }}
         description={t("pageDescription")}
         title={localize(lesson.title, locale)}
       />
@@ -86,10 +86,10 @@ export const Route = createFileRoute("/admin/courses/$courseId_/lessons/$lessonI
     }
     return {
       locale,
-      pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}/lessons/${lesson.id}`,
+      pathname: `${ROUTES.ADMIN.COURSES.INDEX}/${data.course.id}/lessons/${lesson.id}`,
       title: `${localize(lesson.title, locale)} · ${localize(data.course.title, locale)}`,
     }
   },
-  head: recordHead(ROUTES.ADMIN_COURSES),
+  head: recordHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminLessonEditorPending,
 })

@@ -17,7 +17,7 @@ Płatności obsługuje Polar przez wtyczkę `@polar-sh/better-auth`, którą lis
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -25,11 +25,11 @@ Płatności obsługuje Polar przez wtyczkę `@polar-sh/better-auth`, którą lis
     },
 ```
 
-Wtyczka dodaje portal klienta i webhooki, które `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` w `rateLimit.customRules` wyłącza z ograniczania liczby żądań w Better Auth, ale nie dodaje płatności: jej `checkout()` tworzyłby sesję płatności z samym ID konta, więc Polar jeszcze raz pytałby zalogowanego kupującego o adres e-mail. Better Auth nie blokuje żadnej ze swoich ścieżek HTTP, więc `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` sprawdza, że ścieżka płatności wtyczki odpowiada 404, i nie przechodzi, gdy ktoś doda do wtyczki `checkout()`. Sesje płatności tworzy zamiast niej moduł zamówień, przez SDK Polara (zobacz [Płatność](#checkout)).
+Wtyczka dodaje portal klienta i webhooki, które `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` w `rateLimit.customRules` wyłącza z ograniczania liczby żądań w Better Auth, ale nie dodaje płatności: jej `checkout()` tworzyłby sesję płatności z samym ID konta, więc Polar jeszcze raz pytałby zalogowanego kupującego o adres e-mail. Better Auth nie blokuje żadnej ze swoich ścieżek HTTP, więc `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` sprawdza, że ścieżka płatności wtyczki odpowiada 404, i nie przechodzi, gdy ktoś doda do wtyczki `checkout()`. Sesje płatności tworzy zamiast niej moduł zamówień, przez SDK Polara (zobacz [Płatność](#checkout)).
 
 Drugi element, `polar-verified-customer`, to osobna wtyczka, która uruchamia `requireVerifiedEmail` (`auth.hooks.ts`) przed każdym endpointem pod `/customer/`, więc portal klienta odpowiada `403 EMAIL_NOT_VERIFIED`, dopóki adres konta nie zostanie potwierdzony ([Weryfikacja e-maila](/docs/features/email-verification)).
 
-`src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, z którego korzysta wtyczka, oraz `polar`, czyli zbudowane na nim usługi sesji płatności, kluczy licencyjnych, zamówień i produktów. `POLAR_ORGANIZATION_ID` zawęża do organizacji każde wywołanie Polara, które ją wskazuje; wszystkie te zmienne wymienia strona [Środowisko i bindingi](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` zawiera wartości samego Polara: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` i `POLAR_WEBHOOK_EVENT`, każdą sprawdzaną względem typów SDK, a także `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` i `POLAR_ID_MAX_LENGTH`, czyli długość każdej kolumny z identyfikatorem Polara. Plik nie odczytuje środowiska, więc importują go też kod przeglądarki i testy przeglądarkowe. Ścieżki Polara, `API_AUTH_POLAR` i `API_AUTH_CUSTOMER_PORTAL`, są w `src/routes.ts`. [Konfiguracja Polara](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne, pole zgody, sposób naliczania podatku, webhook i token, których ten kod oczekuje w Polarze, a `bun run polar:verify:<environment>` sprawdza je wszystkie.
+`src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, z którego korzysta wtyczka, oraz `polar`, czyli zbudowane na nim usługi sesji płatności, kluczy licencyjnych, zamówień i produktów. `POLAR_ORGANIZATION_ID` zawęża do organizacji każde wywołanie Polara, które ją wskazuje; wszystkie te zmienne wymienia strona [Środowisko i bindingi](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` zawiera wartości samego Polara: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` i `POLAR_WEBHOOK_EVENT`, każdą sprawdzaną względem typów SDK, a także `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` i `POLAR_ID_MAX_LENGTH`, czyli długość każdej kolumny z identyfikatorem Polara. Plik nie odczytuje środowiska, więc importują go też kod przeglądarki i testy przeglądarkowe. Ścieżki Polara, `API.AUTH.POLAR` i `API.AUTH.CUSTOMER_PORTAL`, są w `src/routes.ts`. [Konfiguracja Polara](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne, pole zgody, sposób naliczania podatku, webhook i token, których ten kod oczekuje w Polarze, a `bun run polar:verify:<environment>` sprawdza je wszystkie.
 
 ## Płatność [#checkout]
 
@@ -123,7 +123,7 @@ Wszystkie trzy funkcje serwerowe uruchamiają `authorized()` i czytają tylko ko
 
 ## Portal klienta [#customer-portal]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) tworzy w Polarze sesję klienta dla zalogowanego konta i odpowiada adresem jego portalu, w którym klient zmienia metodę płatności i dane rozliczeniowe, pobiera faktury oraz zmienia lub anuluje subskrypcję. Endpoint odpowiada w formacie JSON, więc zwykły link pokazałby ten JSON zamiast portalu: **Zarządzaj płatnościami** na stronie rozliczeń wywołuje go przez klienta Better Auth (`authClient.$fetch`), którego wtyczka przekierowań przenosi przeglądarkę pod ten adres. Karta licencji na `/app/license` prowadzi do strony rozliczeń.
+`ROUTES.API.AUTH.CUSTOMER_PORTAL` (`/api/auth/customer/portal`) tworzy w Polarze sesję klienta dla zalogowanego konta i odpowiada adresem jego portalu, w którym klient zmienia metodę płatności i dane rozliczeniowe, pobiera faktury oraz zmienia lub anuluje subskrypcję. Endpoint odpowiada w formacie JSON, więc zwykły link pokazałby ten JSON zamiast portalu: **Zarządzaj płatnościami** na stronie rozliczeń wywołuje go przez klienta Better Auth (`authClient.$fetch`), którego wtyczka przekierowań przenosi przeglądarkę pod ten adres. Karta licencji na `/app/license` prowadzi do strony rozliczeń.
 
 ## Przychody na pulpicie [#revenue-on-the-dashboard]
 

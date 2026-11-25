@@ -4,7 +4,7 @@ import type { Locator, Page } from "@playwright/test"
 
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import {
   LICENSE_STATUS,
   LICENSE_STATUSES,
@@ -110,7 +110,7 @@ test("a press on a dashboard panel right after a full load hydrates the console 
     await route.continue()
   })
 
-  await page.goto(ROUTES.ADMIN, { waitUntil: "commit" })
+  await page.goto(ROUTES.ADMIN.INDEX, { waitUntil: "commit" })
   await page.waitForFunction(
     (prefix) => {
       const sidebar = document.querySelector("[data-slot=sidebar]")

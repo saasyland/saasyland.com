@@ -5,7 +5,7 @@ import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ROBOTS } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 
@@ -32,7 +32,7 @@ const courseSchema = zod.object({
 test("the course sitemap lists the catalogue, the course and its free lesson in every locale with the day each last changed, and no lesson a visitor may not watch", async ({
   request,
 }) => {
-  const response = await request.get(ROUTES.COURSES_SITEMAP)
+  const response = await request.get(ROUTES.SITEMAPS.COURSES)
   const entries = Object.fromEntries(Array.from((await response.text()).matchAll(URL_ENTRY), ({ groups }) => [groups?.["url"], groups?.["lastmod"]]))
   const listed = Object.keys(entries)
 

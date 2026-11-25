@@ -28,7 +28,7 @@ import {
   type PurchaseConfirmationLinks,
   type PurchaseConfirmationStep,
 } from "~/src/presentation/emails/purchase-confirmation-email"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const COURSES_STEP_NAMESPACE = "purchase-email.courses"
 
@@ -53,8 +53,8 @@ const absoluteUrl = (locale: SupportedLocale, pathname: string): string =>
   new URL(localizePathname({ locale, pathname }), getRequest().url).toString()
 
 const confirmationLinks = (locale: SupportedLocale): PurchaseConfirmationLinks => ({
-  account: absoluteUrl(locale, ROUTES.APP_LICENSE),
-  docs: absoluteUrl(locale, ROUTES.DOCS_CLI),
+  account: absoluteUrl(locale, ROUTES.APP.LICENSE),
+  docs: absoluteUrl(locale, ROUTES.DOCS.CLI),
   licence: absoluteUrl(locale, ROUTES.LICENCE),
   refunds: absoluteUrl(locale, ROUTES.REFUNDS),
   terms: absoluteUrl(locale, ROUTES.TERMS),

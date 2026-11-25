@@ -17,7 +17,7 @@ description: "Better Auth の Polar プラグイン、あらゆる Polar 商品�
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -25,11 +25,11 @@ description: "Better Auth の Polar プラグイン、あらゆる Polar 商品�
     },
 ```
 
-プラグインはカスタマーポータルと Webhook を追加し、Webhook は `rateLimit.customRules` の `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` によって Better Auth のレート制限の対象外になります。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。購入セッションは、代わりに注文モジュールで Polar SDK を使って作成します（[チェックアウト](#checkout)を参照）。
+プラグインはカスタマーポータルと Webhook を追加し、Webhook は `rateLimit.customRules` の `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` によって Better Auth のレート制限の対象外になります。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。購入セッションは、代わりに注文モジュールで Polar SDK を使って作成します（[チェックアウト](#checkout)を参照）。
 
 2 つ目の要素 `polar-verified-customer` は独立したプラグインで、`/customer/` 以下のすべてのエンドポイントの前に `requireVerifiedEmail`（`auth.hooks.ts`）を実行します。そのため、アカウントのアドレスが確認されるまで、カスタマーポータルは `403 EMAIL_NOT_VERIFIED` を返します（[メール確認](/docs/features/email-verification)）。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文、商品のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文、商品のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のパスである `API.AUTH.POLAR` と `API.AUTH.CUSTOMER_PORTAL` は `src/routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## チェックアウト [#checkout]
 
@@ -123,7 +123,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## カスタマーポータル [#customer-portal]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL`（`/api/auth/customer/portal`）は、サインイン中のアカウントの Polar カスタマーセッションを作成し、そのポータルのアドレスを返します。顧客はポータルで支払い方法と請求先情報を更新し、請求書をダウンロードし、サブスクリプションを変更または解約します。このエンドポイントは JSON を返すため、通常のリンクではポータルではなくその JSON が表示されてしまいます。そこでお支払いページの **お支払いの管理** は Better Auth クライアント（`authClient.$fetch`）でエンドポイントを呼び出し、クライアントのリダイレクトプラグインがブラウザーをそのアドレスへ移動させます。`/app/license` のライセンスカードは、お支払いページにリンクしています。
+`ROUTES.API.AUTH.CUSTOMER_PORTAL`（`/api/auth/customer/portal`）は、サインイン中のアカウントの Polar カスタマーセッションを作成し、そのポータルのアドレスを返します。顧客はポータルで支払い方法と請求先情報を更新し、請求書をダウンロードし、サブスクリプションを変更または解約します。このエンドポイントは JSON を返すため、通常のリンクではポータルではなくその JSON が表示されてしまいます。そこでお支払いページの **お支払いの管理** は Better Auth クライアント（`authClient.$fetch`）でエンドポイントを呼び出し、クライアントのリダイレクトプラグインがブラウザーをそのアドレスへ移動させます。`/app/license` のライセンスカードは、お支払いページにリンクしています。
 
 ## ダッシュボードの売上 [#revenue-on-the-dashboard]
 

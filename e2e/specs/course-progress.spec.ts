@@ -2,7 +2,7 @@ import type { Locator, Page, Request } from "@playwright/test"
 
 import authNavigation from "../../messages/en-US/navigation.auth.json" with { type: "json" }
 import { MILLISECONDS_PER_SECOND } from "../../src/lib/duration"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
@@ -85,7 +85,7 @@ const signInWithForm = async (authPage: AuthPage, page: Page, email: string): Pr
   await authPage.emailField().fill(email)
   await authPage.passwordField().fill(SIGN_UP_PASSWORD)
   await authPage.signInSubmitButton().click()
-  await expect(page).toHaveURL(ROUTES.APP)
+  await expect(page).toHaveURL(ROUTES.APP.INDEX)
   await authPage.waitForAppReady()
 }
 
@@ -144,13 +144,13 @@ test.describe("lesson progress", () => {
     await appPage.waitForHydration(markComplete)
     await dropped
     await page.waitForLoadState("networkidle")
-    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.SIGN_IN)
+    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.AUTH.SIGN_IN)
 
     sessionChecks.resume()
     const checked = page.waitForResponse((response) => response.url().includes(sessionChecks.path))
     await headerAccount(page).hover()
     await checked
-    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.APP)
+    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.APP.INDEX)
 
     await markComplete.click()
     await expect(completedNote(page)).toBeVisible()
@@ -170,10 +170,10 @@ test.describe("lesson progress", () => {
     await markLessonComplete(appPage, page)
 
     await headerAccount(page).click()
-    await expect(page).toHaveURL(ROUTES.APP)
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
     await appPage.waitForAppReady()
     await page.getByRole("button", { name: "Sign out", exact: true }).click()
-    await expect(page).toHaveURL(ROUTES.SIGN_IN)
+    await expect(page).toHaveURL(ROUTES.AUTH.SIGN_IN)
     await authPage.waitForAppReady()
     await signInWithForm(authPage, page, other.email)
 

@@ -12,22 +12,26 @@ const GENERATED = "src/routeTree.gen.ts"
 const CONFIRM_MESSAGES = "messages/en-US/pages.newsletter.confirm.json"
 const LANDING_MESSAGES = "messages/en-US/pages.landing.json"
 const SOURCES: Readonly<Record<string, string>> = {
-  [GENERATED]: 'import { NEWSLETTER } from "./routes.ts"\n',
+  [GENERATED]: 'import { ROUTES } from "./routes.ts"\n',
   [PAGE]:
-    'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME, ROUTES.NEWSLETTER, ROUTES.ACCEPT_INVITATION]\nexport const NAMESPACES = ["pages.landing", "pages.newsletter.confirm"]\nexport const PAGE = ROUTES.NEWSLETTER\n',
+    'import { ROUTES } from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME, ROUTES.NEWSLETTER.CONFIRM, ROUTES.AUTH.INVITE]\nexport const NAMESPACES = ["pages.landing", "pages.newsletter.confirm"]\nexport const PAGE = ROUTES.NEWSLETTER.BASE\n',
   [ROUTES_FILE]: [
-    'export const ACCEPT_INVITATION = "/auth/invite"',
-    'export const ADMIN = "/admin"',
-    'export const ADMIN_NEWSLETTER = "/admin/newsletter"',
-    'export const ADMIN_NEWSLETTER_COMPOSE = "/admin/newsletter/compose"',
-    'export const ADMIN_NEWSLETTER_ISSUES = "/admin/newsletter/issues"',
-    'export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"',
-    'export const API_AUTH = { ACCEPT_INVITATION: "/invitation/accept", GET_SESSION: "/get-session" } as const',
-    'export const HOME = "/"',
-    'export const NEWSLETTER = "/newsletter"',
-    'export const NEWSLETTER_CONFIRM = "/newsletter/confirm"',
-    'export const NEWSLETTER_UNSUBSCRIBE = "/newsletter/unsubscribe"',
-    "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ADMIN, NEWSLETTER]",
+    'const ADMIN = "/admin"',
+    'const NEWSLETTER = "/newsletter"',
+    "",
+    "export const ROUTES = {",
+    "  ADMIN: {",
+    "    INDEX: ADMIN,",
+    '    NEWSLETTER: { COMPOSE: "/admin/newsletter/compose", INDEX: "/admin/newsletter", ISSUES: "/admin/newsletter/issues" },',
+    '    USERS: { ALL: "/admin/users/all", INVITATIONS: "/admin/users/invitations" },',
+    "  },",
+    '  API: { AUTH: { ACCEPT_INVITATION: "/invitation/accept", GET_SESSION: "/get-session" } },',
+    '  AUTH: { INVITE: "/auth/invite", SIGN_IN: "/auth/sign-in" },',
+    '  HOME: "/",',
+    '  NEWSLETTER: { BASE: NEWSLETTER, CONFIRM: "/newsletter/confirm", UNSUBSCRIBE: "/newsletter/unsubscribe" },',
+    "} as const",
+    "",
+    "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ROUTES.ADMIN.INDEX, ROUTES.NEWSLETTER.BASE]",
     "",
   ].join("\n"),
 }
@@ -91,15 +95,24 @@ describe("featureRemoval", () => {
       new Map([
         [
           PAGE,
-          'import * as ROUTES from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME]\nexport const NAMESPACES = ["pages.landing"]\nexport const PAGE = ROUTES.NEWSLETTER\n',
+          'import { ROUTES } from "~/src/routes"\n\nexport const LINKS = [ROUTES.HOME]\nexport const NAMESPACES = ["pages.landing"]\nexport const PAGE = ROUTES.NEWSLETTER.BASE\n',
         ],
         [
           ROUTES_FILE,
           [
-            'export const ADMIN = "/admin"',
-            'export const API_AUTH = { GET_SESSION: "/get-session" } as const',
-            'export const HOME = "/"',
-            "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ADMIN]",
+            'const ADMIN = "/admin"',
+            "",
+            "export const ROUTES = {",
+            "  ADMIN: {",
+            "    INDEX: ADMIN,",
+            '    USERS: { ALL: "/admin/users/all" },',
+            "  },",
+            '  API: { AUTH: { GET_SESSION: "/get-session" } },',
+            '  AUTH: { SIGN_IN: "/auth/sign-in" },',
+            '  HOME: "/",',
+            "} as const",
+            "",
+            "export const REQUEST_RENDERED_ROUTES: readonly string[] = [ROUTES.ADMIN.INDEX]",
             "",
           ].join("\n"),
         ],
@@ -115,7 +128,7 @@ describe("featureRemoval", () => {
     const sources: Readonly<Record<string, string>> = {
       ...SOURCES,
       [spec]:
-        'import { expect, it } from "vite-plus/test"\n\nimport * as ROUTES from "~/src/routes"\n\nit("links the newsletter", () => {\n  expect(ROUTES.NEWSLETTER).toBe("/newsletter")\n})\n',
+        'import { expect, it } from "vite-plus/test"\n\nimport { ROUTES } from "~/src/routes"\n\nit("links the newsletter", () => {\n  expect(ROUTES.NEWSLETTER.BASE).toBe("/newsletter")\n})\n',
     }
     const removal = featureRemoval([FEATURE.NEWSLETTER], [...FILES, spec], { ...PROJECT, read: (file) => sources[file] ?? "" })
 

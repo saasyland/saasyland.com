@@ -12,7 +12,7 @@ import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { polarProductsQuery } from "~/src/lib/polar-catalogue"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface DashboardStat {
   readonly icon: LucideIcon
@@ -27,42 +27,42 @@ export const DASHBOARD_STATS: readonly DashboardStat[] = [
     icon: UsersRound,
     label: "dashboard.auth.registeredUsers",
     prefetch: (queryClient) => queryClient.query({ ...getUsersQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_USERS_ALL,
+    to: ROUTES.ADMIN.USERS.ALL,
     useValue: () => useSuspenseQuery(getUsersQuery).data.total,
   },
   {
     icon: Package,
     label: "dashboard.products.totalProducts",
     prefetch: (queryClient) => queryClient.query({ ...polarProductsQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_PRODUCTS,
+    to: ROUTES.ADMIN.PRODUCTS,
     useValue: () => useSuspenseQuery(polarProductsQuery).data.products.length,
   },
   {
     icon: MailQuestion,
     label: "dashboard.auth.pendingVerification",
     prefetch: (queryClient) => queryClient.query({ ...getUsersQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_USERS_ALL,
+    to: ROUTES.ADMIN.USERS.ALL,
     useValue: () => useSuspenseQuery(getUsersQuery).data.pendingVerification,
   },
   {
     icon: GraduationCap,
     label: "dashboard.courses.learners",
     prefetch: (queryClient) => queryClient.query({ ...courseProgressQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_COURSES,
+    to: ROUTES.ADMIN.COURSES.INDEX,
     useValue: () => useSuspenseQuery(courseProgressQuery).data.learners,
   },
   {
     icon: Clapperboard,
     label: "dashboard.courses.videos",
     prefetch: (queryClient) => queryClient.query({ ...getVideosQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_COURSES,
+    to: ROUTES.ADMIN.COURSES.INDEX,
     useValue: () => useSuspenseQuery(getVideosQuery).data.total,
   },
   {
     icon: Mail,
     label: "dashboard.newsletter.subscribers",
     prefetch: (queryClient) => queryClient.query({ ...newsletterSubscribersQuery, staleTime: "static" }),
-    to: ROUTES.ADMIN_NEWSLETTER,
+    to: ROUTES.ADMIN.NEWSLETTER.INDEX,
     useValue: () => useSuspenseQuery(newsletterSubscribersQuery).data.total,
   },
 ]

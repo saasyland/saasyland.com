@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { NEWSLETTER_TOKEN_LENGTH } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import common from "../../messages/en-US/common.json" with { type: "json" }
 import confirm from "../../messages/en-US/pages.newsletter.confirm.json" with { type: "json" }
 import landing from "../../messages/en-US/pages.landing.json" with { type: "json" }
@@ -9,10 +9,10 @@ import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
 const CONTENT_PAGES = [
-  ROUTES.BLOG,
+  ROUTES.BLOG.INDEX,
   ROUTES.COURSES,
-  ROUTES.NEWSLETTER_CONFIRM,
-  ROUTES.NEWSLETTER_UNSUBSCRIBE,
+  ROUTES.NEWSLETTER.CONFIRM,
+  ROUTES.NEWSLETTER.UNSUBSCRIBE,
   ROUTES.PRIVACY,
   ROUTES.TERMS,
   ROUTES.REFUNDS,
@@ -61,7 +61,7 @@ test("the primary call to action has one size on the landing page, the not-found
   await visit(page, "/this-page-does-not-exist")
   const notFoundButton = await buttonShape(page.getByRole("main").getByRole("link", { exact: true, name: common.backHome }))
 
-  await visit(page, `${ROUTES.NEWSLETTER_CONFIRM}?token=${TOKEN}`)
+  await visit(page, `${ROUTES.NEWSLETTER.CONFIRM}?token=${TOKEN}`)
   const newsletterButton = await buttonShape(page.getByRole("button", { exact: true, name: confirm.prompt.action }))
 
   expect(notFoundButton).toStrictEqual(landingButton)
@@ -69,7 +69,7 @@ test("the primary call to action has one size on the landing page, the not-found
 })
 
 test("the spent newsletter link offers the same way home as the not-found page", async ({ page }) => {
-  await visit(page, ROUTES.NEWSLETTER_CONFIRM)
+  await visit(page, ROUTES.NEWSLETTER.CONFIRM)
 
   await expect(page.getByRole("heading", { exact: true, level: 1, name: confirm.expired.title })).toBeVisible()
   await expect(page.getByRole("main").getByRole("link", { exact: true, name: common.backHome })).toHaveAttribute("href", ROUTES.HOME)

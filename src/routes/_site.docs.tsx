@@ -27,7 +27,7 @@ import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 import docsCss from "~/src/presentation/styles/docs.css?url"
 
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LINKS = [
   {
@@ -74,7 +74,7 @@ const DocumentationLayout = (): JSX.Element => {
   const i18n = useFumadocsI18n()
 
   const t = useTranslations("navigation.content")
-  const nav = useMemo(() => ({ title: t("header.docs"), url: ROUTES.DOCS }), [t])
+  const nav = useMemo(() => ({ title: t("header.docs"), url: ROUTES.DOCS.INDEX }), [t])
 
   const { tree } = useFumadocsLoader(Route.useLoaderData())
 

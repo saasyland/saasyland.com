@@ -22,7 +22,7 @@ import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { LOCAL_ADMIN } from "~/scripts/local-admin"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
 

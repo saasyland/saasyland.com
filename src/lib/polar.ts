@@ -30,7 +30,7 @@ import { TIER_PRICES } from "~/src/data/license"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const POLAR_CUSTOM_FIELD_TYPE = {
   CHECKBOX: "checkbox",
@@ -107,7 +107,7 @@ const DEPLOYED_ENVIRONMENTS = Object.keys(DEPLOYED_HOSTS).filter((name): name is
 
 const failing = (checks: readonly Check[]): string[] => checks.filter(([failed]) => failed).map(([, problem]) => problem)
 
-const webhookUrl = (host: string): string => `https://${host}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`
+const webhookUrl = (host: string): string => `https://${host}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`
 
 const readSettings = (values: Readonly<Record<string, string | undefined>>, { file, server }: Source): Settings => {
   const parsed = settingsSchema.safeParse(values)

@@ -32,7 +32,7 @@ import { revokeInvitationMutation } from "~/src/modules/invitation/use-cases/rev
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const INVITEE_NAME = "Invited Person"
 
@@ -52,7 +52,7 @@ const signedInAdmin = async () => {
 const invite = (email: string, role: (typeof ROLE_CODES)[keyof typeof ROLE_CODES] = ROLE_CODES.CUSTOMER) =>
   executeMutation(createInvitationMutation, { email, locale: "pl-PL", role })
 
-const inviteToken = (email: string): string => emailToken(email, ROUTES.ACCEPT_INVITATION)
+const inviteToken = (email: string): string => emailToken(email, ROUTES.AUTH.INVITE)
 
 const linkOf = async (token: string) => {
   const { invitation: link } = await executeQuery(invitationQuery({ token }))
@@ -86,7 +86,7 @@ describe("inviting a user", () => {
     const [sent] = getSentEmails(email)
     expect(sent?.idempotencyKey?.startsWith(`${INVITATION_EMAIL_PURPOSE.INVITATION}/`)).toBe(true)
     expect(sent?.html).toContain('lang="pl-PL"')
-    expect(sent?.html).toContain(`/pl-PL${ROUTES.ACCEPT_INVITATION}?token=`)
+    expect(sent?.html).toContain(`/pl-PL${ROUTES.AUTH.INVITE}?token=`)
     await expect(openInvitation(email)).resolves.toMatchObject({
       invitedBy: admin.account.name,
       role: ROLE_CODES.ADMIN,

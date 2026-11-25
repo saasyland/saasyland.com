@@ -14,14 +14,14 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminNewsletterComposePending } from "~/src/presentation/components/custom/admin/newsletter-pending"
 import { NewsletterIssueForm } from "~/src/presentation/components/custom/admin/newsletter/newsletter-issue-form"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NewsletterComposePage = (): JSX.Element => {
   const t = useTranslations("pages.admin.newsletter.compose")
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <AdminPageHeader back={{ label: t("back"), to: ROUTES.ADMIN_NEWSLETTER_ISSUES }} description={t("description")} title={t("title")} />
+      <AdminPageHeader back={{ label: t("back"), to: ROUTES.ADMIN.NEWSLETTER.ISSUES }} description={t("description")} title={t("title")} />
       <NewsletterIssueForm />
     </div>
   )
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/admin/newsletter_/compose")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_NEWSLETTER_COMPOSE),
+  head: pageHead(ROUTES.ADMIN.NEWSLETTER.COMPOSE),
   pendingComponent: AdminNewsletterComposePending,
   staticData: { namespaces: NAMESPACES },
 })

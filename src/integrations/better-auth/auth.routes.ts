@@ -16,7 +16,7 @@ import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface AuthRouteContext {
   context: RouterContext
@@ -64,14 +64,14 @@ const loadRouteSession = async ({ context: { queryClient } }: AuthRouteContext, 
 const isAdmin = (role: string | null | undefined): boolean => hasPermission({ permission: { admin: ["access"] }, role })
 
 const signInFirst = (search: AuthSearch & { readonly error?: typeof SESSION_EXPIRED_CODE }): never => {
-  throw redirect({ replace: true, search, to: ROUTES.SIGN_IN })
+  throw redirect({ replace: true, search, to: ROUTES.AUTH.SIGN_IN })
 }
 
 const goToRedirectOrWorkspace = (search: AuthSearch, role: string | null | undefined): never => {
   if (search.redirect !== undefined) {
     throw redirect({ href: search.redirect, replace: true })
   }
-  throw redirect({ replace: true, to: isAdmin(role) ? ROUTES.ADMIN : ROUTES.APP })
+  throw redirect({ replace: true, to: isAdmin(role) ? ROUTES.ADMIN.INDEX : ROUTES.APP.INDEX })
 }
 
 const requireSession = async (
@@ -109,7 +109,7 @@ export const requireSignedIn = async (context: ProtectedRouteContext) => ({
 export const requireAdmin = async (context: ProtectedRouteContext) => {
   const result = await requireSignedIn(context)
   if (!isAdmin(result.session.user.role)) {
-    throw redirect({ replace: true, to: ROUTES.APP })
+    throw redirect({ replace: true, to: ROUTES.APP.INDEX })
   }
   return result
 }

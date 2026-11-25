@@ -6,14 +6,14 @@ import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, FEATURED_BLOG_POSTS } from "../../src/data/blog"
 import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import landingNotes from "../../messages/en-US/pages.landing.notes.json" with { type: "json" }
 import { expect, test } from "../fixtures/test"
 
 const { archive, index } = pagesBlog
 const POSTS = globSync("content/blog/*.en-US.mdx").length
-const archivePath = (page: number): string => `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/${String(page)}`
+const archivePath = (page: number): string => `${ROUTES.BLOG.INDEX}/${BLOG_ARCHIVE.PAGE_SEGMENT}/${String(page)}`
 const SECOND_PAGE = archivePath(BLOG_ARCHIVE.FIRST_PAGE + 1)
 const LAST_PAGE = Math.ceil(POSTS / BLOG_ARCHIVE.PAGE_SIZE)
 const WIDE = { height: 900, width: 1280 }
@@ -70,17 +70,17 @@ const scrollToFraction = (page: Page, fraction: number): Promise<void> =>
     window.scrollTo({ behavior: "instant", top: document.documentElement.scrollHeight * share })
   }, fraction)
 
-const openBlog = async (page: Page, path: string = ROUTES.BLOG): Promise<void> => {
+const openBlog = async (page: Page, path: string = ROUTES.BLOG.INDEX): Promise<void> => {
   await page.goto(path)
   await expect(page.getByRole("searchbox", { name: archive.search })).not.toHaveAttribute("readonly")
 }
 
 test("leads the blog with the featured posts, then the latest and the recently updated posts", async ({ page }) => {
-  await page.goto(ROUTES.BLOG)
+  await page.goto(ROUTES.BLOG.INDEX)
 
   const featured = page.getByRole("region", { exact: true, name: index.featured })
   await expect(featured.getByRole("heading", { level: 3 })).toHaveCount(FEATURED_BLOG_POSTS.length)
-  await expect(featured.locator("h3 a").first()).toHaveAttribute("href", `${ROUTES.BLOG}/${LEAD}`)
+  await expect(featured.locator("h3 a").first()).toHaveAttribute("href", `${ROUTES.BLOG.INDEX}/${LEAD}`)
   await expect(featured.locator("img").first()).toHaveAttribute("fetchpriority", "high")
   await expect(page.getByRole("heading", { level: 2, name: index.latest })).toBeVisible()
   await expect(page.getByRole("heading", { level: 2, name: index.updated })).toBeVisible()
@@ -99,7 +99,7 @@ test("searches every post as the reader types and keeps the search in the addres
   await page.getByRole("button", { name: archive.clearSearch }).click()
 
   await expect.poll(() => archiveTitles(page)).toHaveLength(BLOG_ARCHIVE.PAGE_SIZE)
-  await expect(page).toHaveURL(ROUTES.BLOG)
+  await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
 })
 
 test("filters the posts by topic", async ({ page }) => {
@@ -138,13 +138,13 @@ test("loads the next posts in place without moving the page", async ({ page }) =
   await more.click()
 
   await expect.poll(() => archiveTitles(page)).toHaveLength(POSTS)
-  await expect(page).toHaveURL(`${ROUTES.BLOG}?page=2`)
+  await expect(page).toHaveURL(`${ROUTES.BLOG.INDEX}?page=2`)
   await expect(more).toBeHidden()
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
 })
 
 test("follows the archive's pages without JavaScript", async ({ pageWithoutJavaScript }) => {
-  await pageWithoutJavaScript.goto(ROUTES.BLOG)
+  await pageWithoutJavaScript.goto(ROUTES.BLOG.INDEX)
   await expect(archiveSection(pageWithoutJavaScript).getByRole("heading", { level: 3 })).toHaveCount(BLOG_ARCHIVE.PAGE_SIZE)
 
   await pageWithoutJavaScript.getByRole("link", { name: archive.loadMore }).click()
@@ -155,17 +155,17 @@ test("follows the archive's pages without JavaScript", async ({ pageWithoutJavaS
 
   await pageWithoutJavaScript.getByRole("link", { name: archive.newer }).click()
 
-  await expect(pageWithoutJavaScript).toHaveURL(ROUTES.BLOG)
+  await expect(pageWithoutJavaScript).toHaveURL(ROUTES.BLOG.INDEX)
 })
 
 for (const prefix of ["", "/ja-JP"]) {
   test(`${prefix}${SECOND_PAGE} names its own canonical address and links the blog as its previous page`, async ({ request }) => {
-    const [first, second] = await Promise.all([request.get(`${prefix}${ROUTES.BLOG}`), request.get(`${prefix}${SECOND_PAGE}`)])
+    const [first, second] = await Promise.all([request.get(`${prefix}${ROUTES.BLOG.INDEX}`), request.get(`${prefix}${SECOND_PAGE}`)])
     const html = await second.text()
 
     expect(second.status()).toBe(HTTP_STATUS.OK)
     expect(readPageHead(html).canonical).toBe(`${APP_URL}${prefix}${SECOND_PAGE}`)
-    expect(html).toContain(`<link href="${APP_URL}${prefix}${ROUTES.BLOG}" rel="prev"`)
+    expect(html).toContain(`<link href="${APP_URL}${prefix}${ROUTES.BLOG.INDEX}" rel="prev"`)
     expect(html).not.toContain('rel="next"')
     expect(await first.text()).toContain(`<link href="${APP_URL}${prefix}${SECOND_PAGE}" rel="next"`)
   })
@@ -184,7 +184,7 @@ test("hydrates a filtered address onto the prerendered blog without a browser er
   })
   page.on("pageerror", (error) => errors.push(error.message))
 
-  await openBlog(page, `${ROUTES.BLOG}?sort=${BLOG_SORT.READING_TIME}&page=2`)
+  await openBlog(page, `${ROUTES.BLOG.INDEX}?sort=${BLOG_SORT.READING_TIME}&page=2`)
 
   await expect.poll(() => archiveTitles(page)).toHaveLength(POSTS)
   await expect(page.getByRole("radio", { name: archive.sorts["reading-time"] })).toBeChecked()
@@ -311,7 +311,7 @@ test("brings the reader from the featured posts to the posts a finder filter mat
 
   await panel.getByRole("button", { name: archive.clearAll }).click()
 
-  await expect(page).toHaveURL(ROUTES.BLOG)
+  await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
   await expect(panel.getByRole("group", { name: archive.activeFilters })).toBeHidden()
   await expect(panel.getByRole("navigation", { name: pagesBlog.post.rail }).getByRole("link")).toHaveCount(POSTS)
 })
@@ -331,7 +331,7 @@ test("searches every post from an archive page and opens the blog at the matchin
 
   await search.press("Enter")
 
-  await expect(page).toHaveURL((url) => url.pathname === ROUTES.BLOG && url.searchParams.get("q") === title)
+  await expect(page).toHaveURL((url) => url.pathname === ROUTES.BLOG.INDEX && url.searchParams.get("q") === title)
   await expect.poll(() => archiveTitles(page)).toContain(title)
   await expect(archiveHeading(page)).toBeInViewport()
 })
@@ -362,14 +362,14 @@ test("keeps the search under the header on a phone and filters the posts from a 
 
   await active.getByRole("button", { name: archive.clearAll }).click()
 
-  await expect(page).toHaveURL(ROUTES.BLOG)
+  await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
   await expect(active).toBeHidden()
   await expect(bar.getByRole("button", { name: archive.filters, exact: true })).toBeVisible()
 })
 
 test("lists every post beside a post and marks the one being read", async ({ page }) => {
   await page.setViewportSize(WIDE)
-  const path = `${ROUTES.BLOG}/${LEAD}`
+  const path = `${ROUTES.BLOG.INDEX}/${LEAD}`
   await page.goto(path)
 
   await page.getByRole("heading", { level: 2 }).first().scrollIntoViewIfNeeded()
@@ -384,8 +384,8 @@ test("leads the landing page's notes with the featured post and links the latest
   await pageWithoutJavaScript.goto(ROUTES.HOME)
 
   const notes = pageWithoutJavaScript.locator("section").filter({ has: pageWithoutJavaScript.getByRole("heading", { level: 2, name: landingNotes.title }) })
-  await expect(notes.locator(`h3 a[href="${ROUTES.BLOG}/${LEAD}"]`)).toHaveCount(1)
+  await expect(notes.locator(`h3 a[href="${ROUTES.BLOG.INDEX}/${LEAD}"]`)).toHaveCount(1)
   await expect(notes.locator("img")).toHaveCount(1)
   await expect(notes.getByRole("heading", { level: 4 })).not.toHaveCount(0)
-  await expect(notes.getByRole("link", { name: landingNotes.cta })).toHaveAttribute("href", ROUTES.BLOG)
+  await expect(notes.getByRole("link", { name: landingNotes.cta })).toHaveAttribute("href", ROUTES.BLOG.INDEX)
 })

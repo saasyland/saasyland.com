@@ -4,7 +4,7 @@ import * as zod from "zod"
 import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM, POLAR_DASHBOARD_HOSTS } from "../../src/integrations/polar/polar.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { POLAR_CUSTOMER_PORTAL_PATH } from "../../src/platform/testing/lib/polar"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_PASSWORD } from "../data/accounts"
 import { TEST_BILLING_PRODUCTS, TEST_BILLING_SHOWN } from "../data/billing"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -43,7 +43,7 @@ interface Purchase {
 }
 
 const deliver = async (request: APIRequestContext, { body, headers }: SignedWebhook): Promise<void> => {
-  const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, { data: body, headers })
+  const response = await request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, { data: body, headers })
   expect(response.ok()).toBe(true)
 }
 
@@ -94,7 +94,7 @@ const servePolarPages = async (context: BrowserContext): Promise<void> => {
 }
 
 const openBilling = async (page: Page, authPage: AuthPage, search = ""): Promise<void> => {
-  await page.goto(`${ROUTES.APP_BILLING}${search}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(`${ROUTES.APP.BILLING}${search}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await authPage.waitForAppReady()
 }
 
@@ -155,7 +155,7 @@ test.describe("billing", () => {
     const placed = await placeOrder(request, { checkout, customer, product: TEST_BILLING_PRODUCTS.KIT.id })
 
     await openBilling(page, authPage, `?checkoutId=${checkout}&${POLAR_CUSTOMER_SESSION_TOKEN_PARAM}=polar_cst_e2e`)
-    await expect(page).toHaveURL(`${ROUTES.APP_BILLING}?checkoutId=${checkout}`)
+    await expect(page).toHaveURL(`${ROUTES.APP.BILLING}?checkoutId=${checkout}`)
     await expect(page.getByRole("heading", { name: "Payment received", exact: true })).toBeVisible()
     await expect(page.getByText("You have not bought anything yet.", { exact: true })).toBeVisible()
 
@@ -183,7 +183,7 @@ test.describe("billing", () => {
 
     await expect(listItem(page, TEST_BILLING_PRODUCTS.KIT.name).getByRole("button", { name: `Invoice ${kit.invoiceNumber}` })).toBeVisible()
     await expect(page.getByRole("button", { name: "Manage billing" })).toHaveCount(0)
-    expect((await page.request.get(ROUTES.API_AUTH_CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
+    expect((await page.request.get(ROUTES.API.AUTH.CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
   })
 
   test("a later subscription event changes the one copy of the subscription, and an older one delivered after it changes nothing", async ({

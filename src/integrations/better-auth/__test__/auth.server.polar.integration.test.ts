@@ -17,7 +17,7 @@ import type { handlePolarEvent } from "~/src/integrations/polar/polar.webhooks"
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const dispatch = vi.hoisted(() => ({ handle: vi.fn<typeof handlePolarEvent>() }))
 
@@ -26,7 +26,7 @@ vi.mock(import("~/src/integrations/polar/polar.webhooks"), async (importOriginal
   handlePolarEvent: dispatch.handle,
 }))
 
-const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
+const WEBHOOKS_URL = new URL(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, TEST_APP_URL)
 
 const PRODUCT = {
   id: "product-sample",
@@ -35,7 +35,7 @@ const PRODUCT = {
   recurringInterval: JSON_NULL,
 } as const satisfies PolarProduct
 
-const portal = (headers: Headers) => auth.handler(new Request(new URL(ROUTES.API_AUTH_CUSTOMER_PORTAL, TEST_APP_URL), { headers }))
+const portal = (headers: Headers) => auth.handler(new Request(new URL(ROUTES.API.AUTH.CUSTOMER_PORTAL, TEST_APP_URL), { headers }))
 
 const deliver = async (type: models.WebhookEventType): Promise<number> => {
   const order = polarOrder({
@@ -65,7 +65,7 @@ describe("the Polar plugin", () => {
   })
 
   it("exempts the webhooks from rate limiting", () => {
-    expect(auth.options.rateLimit.customRules).toHaveProperty([ROUTES.API_AUTH_POLAR.WEBHOOKS], false)
+    expect(auth.options.rateLimit.customRules).toHaveProperty([ROUTES.API.AUTH.POLAR.WEBHOOKS], false)
   })
 
   it("adds the portal and the webhooks but no checkout endpoint, so every checkout starts in the feature that sells the product", () => {
@@ -75,7 +75,7 @@ describe("the Polar plugin", () => {
   })
 
   it("answers 404 at the path of the plugin's own checkout, which no disabled path closes any more, so adding checkout() to the plugin fails here", async () => {
-    const checkoutPath = `${ROUTES.API_AUTH_BASE}${checkout()(polarCore).checkout.path}`
+    const checkoutPath = `${ROUTES.API.AUTH.BASE}${checkout()(polarCore).checkout.path}`
 
     const response = await auth.handler(postJson(checkoutPath, { products: PRODUCT.id }))
 

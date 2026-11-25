@@ -18,7 +18,7 @@ import { CheckoutButton } from "~/src/presentation/components/custom/billing/che
 
 import checkoutButtonMessages from "~/messages/en-US/components.custom.checkout-button.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const CHECKOUT_URL = "#polar-checkout"
@@ -26,7 +26,7 @@ const STARTER_KIT = "00000000-0000-4000-8000-0000000000a1"
 const TEAM_PLAN = "00000000-0000-4000-8000-0000000000a2"
 const BUY_STARTER = "Buy the starter kit"
 const BUY_TEAM = "Subscribe to the team plan"
-const OFFER_PATH = `${ROUTES.APP}?plan=team`
+const OFFER_PATH = `${ROUTES.APP.INDEX}?plan=team`
 
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const overlayMock = vi.hoisted(() => vi.fn<typeof openCheckoutOverlay>())
@@ -71,7 +71,7 @@ describe("buying a Polar product", () => {
     await pressBuy()
 
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
-      { locale: "en-US", productId: STARTER_KIT, returnPath: OFFER_PATH, successPath: ROUTES.APP_BILLING },
+      { locale: "en-US", productId: STARTER_KIT, returnPath: OFFER_PATH, successPath: ROUTES.APP.BILLING },
       expect.anything(),
     )
     await waitFor(() => {
@@ -141,7 +141,7 @@ describe("leaving Polar's checkout", () => {
     const { router } = await pressBuy()
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.APP_BILLING)
+      expect(router.state.location.pathname).toBe(ROUTES.APP.BILLING)
     })
     expect(router.state.location.search).toEqual({ checkoutId: CHECKOUT_ID })
   })

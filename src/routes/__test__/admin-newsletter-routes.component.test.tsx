@@ -50,7 +50,7 @@ import validations from "~/messages/en-US/newsletter-issue.validations.json"
 import adminLabels from "~/messages/en-US/pages.admin.json"
 import composeMessages from "~/messages/en-US/pages.admin.newsletter.compose.json"
 import newsletterMessages from "~/messages/en-US/pages.admin.newsletter.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
 const mutations = vi.hoisted(() => ({
@@ -111,7 +111,7 @@ const renderSubscribers = (rows: readonly NewsletterSubscriber["listRow"][]) => 
     rows: [...rows],
     total: rows.length,
   })
-  return renderAdminPage(SubscribersRoute.options.component, { path: ROUTES.ADMIN_NEWSLETTER, queryClient })
+  return renderAdminPage(SubscribersRoute.options.component, { path: ROUTES.ADMIN.NEWSLETTER.INDEX, queryClient })
 }
 
 const renderIssues = (rows: readonly NewsletterIssue["listRow"][]) => {
@@ -119,14 +119,14 @@ const renderIssues = (rows: readonly NewsletterIssue["listRow"][]) => {
   queryClient.setQueryData(getNewsletterIssuesQuery.queryKey, { rows: [...rows], total: rows.length })
   queryClient.setQueryData(getNewsletterIssuesPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows: [...rows], total: rows.length })
   vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
-  return renderAdminPage(IssuesRoute.options.component, { path: ROUTES.ADMIN_NEWSLETTER_ISSUES, queryClient })
+  return renderAdminPage(IssuesRoute.options.component, { path: ROUTES.ADMIN.NEWSLETTER.ISSUES, queryClient })
 }
 
 const renderCompose = (recipients: number) => {
   const queryClient = adminQueryClient()
   queryClient.setQueryData(newsletterSubscribersQuery.queryKey, { total: recipients })
   vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
-  const rendered = renderAdminPage(ComposeRoute.options.component, { path: ROUTES.ADMIN_NEWSLETTER_COMPOSE, queryClient })
+  const rendered = renderAdminPage(ComposeRoute.options.component, { path: ROUTES.ADMIN.NEWSLETTER.COMPOSE, queryClient })
   const navigate = vi.spyOn(rendered.router, "navigate").mockResolvedValue()
   return { ...rendered, navigate, user: userEvent.setup({ delay: null }) }
 }
@@ -165,17 +165,17 @@ afterEach(() => {
 
 describe("newsletter layout", () => {
   it.each([
-    [ROUTES.ADMIN_NEWSLETTER, navigationMessages.tabs.subscribers],
-    [ROUTES.ADMIN_NEWSLETTER_ISSUES, navigationMessages.tabs.issues],
+    [ROUTES.ADMIN.NEWSLETTER.INDEX, navigationMessages.tabs.subscribers],
+    [ROUTES.ADMIN.NEWSLETTER.ISSUES, navigationMessages.tabs.issues],
     ["/admin/newsletter/elsewhere", navigationMessages.tabs.subscribers],
   ])("names the page, links both tabs and New issue, and selects the tab of %s", (path, selected) => {
     renderAdminPage(NewsletterLayoutRoute.options.component, { path })
 
     expect(screen.getByRole("heading", { level: 1, name: newsletterMessages.title })).toBeVisible()
-    expect(screen.getByRole("tab", { name: navigationMessages.tabs.subscribers })).toHaveAttribute("href", ROUTES.ADMIN_NEWSLETTER)
-    expect(screen.getByRole("tab", { name: navigationMessages.tabs.issues })).toHaveAttribute("href", ROUTES.ADMIN_NEWSLETTER_ISSUES)
+    expect(screen.getByRole("tab", { name: navigationMessages.tabs.subscribers })).toHaveAttribute("href", ROUTES.ADMIN.NEWSLETTER.INDEX)
+    expect(screen.getByRole("tab", { name: navigationMessages.tabs.issues })).toHaveAttribute("href", ROUTES.ADMIN.NEWSLETTER.ISSUES)
     expect(screen.getByRole("tab", { selected: true })).toHaveAccessibleName(selected)
-    expect(screen.getByRole("link", { name: newsletterMessages.newIssue })).toHaveAttribute("href", ROUTES.ADMIN_NEWSLETTER_COMPOSE)
+    expect(screen.getByRole("link", { name: newsletterMessages.newIssue })).toHaveAttribute("href", ROUTES.ADMIN.NEWSLETTER.COMPOSE)
   })
 })
 
@@ -386,7 +386,7 @@ describe("writing an issue", () => {
     await user.click(within(dialog).getByRole("button", { name: composeMessages.confirm.send }))
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ to: ROUTES.ADMIN_NEWSLETTER_ISSUES })
+      expect(navigate).toHaveBeenCalledWith({ to: ROUTES.ADMIN.NEWSLETTER.ISSUES })
     })
     const created = mutations.createNewsletterIssue.mock.calls[0]?.[0]
     expect(created).toMatchObject({
@@ -424,8 +424,8 @@ describe("writing an issue", () => {
 
 describe("newsletter skeletons", () => {
   it.each([
-    [ROUTES.ADMIN_NEWSLETTER, AdminNewsletterSubscribersPending],
-    [`/${POLISH}${ROUTES.ADMIN_NEWSLETTER_ISSUES}`, AdminNewsletterIssuesPending],
+    [ROUTES.ADMIN.NEWSLETTER.INDEX, AdminNewsletterSubscribersPending],
+    [`/${POLISH}${ROUTES.ADMIN.NEWSLETTER.ISSUES}`, AdminNewsletterIssuesPending],
   ])("mirrors the tab at %s inside the layout skeleton", (path, Page) => {
     const page = markupOf(<Page />)
     const { container } = renderWithRouter(<AdminNewsletterPending />, { router: createTestRouter(path, routeTree) })
@@ -434,8 +434,8 @@ describe("newsletter skeletons", () => {
   })
 
   it.each([
-    [ROUTES.ADMIN_NEWSLETTER, AdminNewsletterSubscribersPending],
-    [ROUTES.ADMIN_NEWSLETTER_COMPOSE, AdminNewsletterComposePending],
+    [ROUTES.ADMIN.NEWSLETTER.INDEX, AdminNewsletterSubscribersPending],
+    [ROUTES.ADMIN.NEWSLETTER.COMPOSE, AdminNewsletterComposePending],
   ])("shows the skeleton of %s when it is entered from outside the admin", (path, Page) => {
     const page = markupOf(<Page />)
     const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter(path, routeTree) })

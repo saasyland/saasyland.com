@@ -19,7 +19,7 @@ import { UserDetails } from "~/src/presentation/components/custom/admin/users/us
 import { USER_PROFILE_SECTIONS, UserProfileSections } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 import { UserSessions } from "~/src/presentation/components/custom/admin/users/user-sessions"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const UserProfilePage = (): JSX.Element => {
   const { userId } = Route.useParams()
@@ -61,8 +61,8 @@ export const Route = createFileRoute("/admin/users/$userId")({
       context.queryClient.query(listUserSessionsQuery({ userId: params.userId })),
       ...USER_PROFILE_SECTIONS.map(({ load }) => load({ queryClient: context.queryClient, userId: params.userId })),
     ])
-    return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
+    return { locale, pathname: `${ROUTES.ADMIN.USERS.INDEX}/${user.id}`, title: user.name }
   },
-  head: recordHead(ROUTES.ADMIN_USERS),
+  head: recordHead(ROUTES.ADMIN.USERS.INDEX),
   pendingComponent: AdminUserProfilePending,
 })

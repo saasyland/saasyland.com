@@ -22,7 +22,7 @@ import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { CommandLine } from "~/src/presentation/components/custom/app/command-line"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const STEP_NUMBER_BASE = 1
 

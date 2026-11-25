@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
@@ -13,8 +13,8 @@ const CURRENT = '[aria-current="location"]'
 const THUMB = "span[aria-hidden]"
 
 const PAGES = [
-  { name: "a blog post", path: `${ROUTES.BLOG}/vercel-vs-cloudflare`, toc: 'nav[aria-labelledby="post-toc-title"]' },
-  { name: "a docs page", path: `${ROUTES.DOCS}/features/authentication`, toc: "#nd-toc" },
+  { name: "a blog post", path: `${ROUTES.BLOG.INDEX}/vercel-vs-cloudflare`, toc: 'nav[aria-labelledby="post-toc-title"]' },
+  { name: "a docs page", path: `${ROUTES.DOCS.INDEX}/features/authentication`, toc: "#nd-toc" },
 ] as const
 
 interface Box {

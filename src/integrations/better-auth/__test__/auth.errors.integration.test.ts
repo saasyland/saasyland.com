@@ -18,10 +18,10 @@ import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 import { searchText } from "~/src/lib/search-params"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SIGN_IN_ATTEMPTS_PER_WINDOW = 3
-const PROVIDER_CALLBACK = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${AUTH_PROVIDER.GITHUB}`
+const PROVIDER_CALLBACK = `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.CALLBACK}/${AUTH_PROVIDER.GITHUB}`
 
 const readClientError = async (response: Response): Promise<Record<string, unknown>> => ({
   ...(await response.json<Record<string, unknown>>()),
@@ -32,7 +32,7 @@ const readClientError = async (response: Response): Promise<Record<string, unkno
 const signInWithUnknownAccount = (ip: string): Promise<Response> =>
   auth.handler(
     postJson(
-      `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`,
+      `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`,
       { email: createTestAccount().email, password: "WrongPassword1!" },
       { ip },
     ),
@@ -63,7 +63,7 @@ describe("Better Auth responses mapped to user-facing errors", () => {
 
   it("sends a provider cancellation back to the per-flow error page with a mappable code", async () => {
     const started = await auth.api.signInSocial({
-      body: { callbackURL: ROUTES.AUTH_CALLBACK, errorCallbackURL: ROUTES.SIGN_IN, provider: AUTH_PROVIDER.GITHUB },
+      body: { callbackURL: ROUTES.AUTH.CALLBACK, errorCallbackURL: ROUTES.AUTH.SIGN_IN, provider: AUTH_PROVIDER.GITHUB },
       headers: browserHeaders(),
       returnHeaders: true,
     })
@@ -76,7 +76,7 @@ describe("Better Auth responses mapped to user-facing errors", () => {
 
     expect(response.status).toBe(HTTP_STATUS.FOUND)
     const { error, pathname } = redirectError(response)
-    expect(pathname).toBe(ROUTES.SIGN_IN)
+    expect(pathname).toBe(ROUTES.AUTH.SIGN_IN)
     expect(authErrorKeyFromSearch(error)).toBe("signInCancelled")
   })
 

@@ -31,7 +31,7 @@ import { LastUsedBadge, OAuthLinks } from "~/src/presentation/components/custom/
 import { PasswordInput } from "~/src/presentation/components/custom/auth/password-input"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const RECOVERY_LINK_CLASS = "inline-flex min-h-10 items-center font-medium text-foreground underline underline-offset-4"
 
@@ -53,7 +53,7 @@ const ForgotPasswordLink = ({ email }: { readonly email: string }): JSX.Element 
     <Link
       className="-my-3 inline-flex h-11 items-center text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
       search={{ email: forgotPasswordEmail.parse(email), redirect }}
-      to={ROUTES.FORGOT_PASSWORD}
+      to={ROUTES.AUTH.FORGOT_PASSWORD}
     >
       {t("forgotPassword")}
     </Link>
@@ -76,7 +76,7 @@ const SignInFailure = ({ email, reason }: SignInFailureProps): JSX.Element => {
               <Link
                 className={RECOVERY_LINK_CLASS}
                 search={{ email: forgotPasswordEmail.parse(email), redirect }}
-                to={ROUTES.FORGOT_PASSWORD}
+                to={ROUTES.AUTH.FORGOT_PASSWORD}
               >
                 {t("pages.auth.sign-in.form.resetPassword")}
               </Link>
@@ -110,14 +110,14 @@ export const SignInForm = (): JSX.Element => {
       if (error) {
         const reason = authErrorKey(error)
         if (reason === AUTH_ERRORS.EMAIL_NOT_VERIFIED) {
-          await router.navigate({ search: { email, redirect, unverified: true }, to: ROUTES.VERIFY_EMAIL })
+          await router.navigate({ search: { email, redirect, unverified: true }, to: ROUTES.AUTH.VERIFY_EMAIL })
           return
         }
         setFailure({ email, reason })
         return
       }
       if ("twoFactorRedirect" in data && data.twoFactorRedirect === true) {
-        await router.navigate({ search: { redirect }, to: ROUTES.TWO_FACTOR })
+        await router.navigate({ search: { redirect }, to: ROUTES.AUTH.TWO_FACTOR })
         return
       }
       toast.success(t("pages.auth.sign-in.form.success"))

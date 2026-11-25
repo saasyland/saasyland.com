@@ -22,7 +22,7 @@ import { CourseForm } from "~/src/presentation/components/custom/admin/courses/c
 import { CurriculumEditor } from "~/src/presentation/components/custom/admin/courses/curriculum-editor"
 import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CourseEditorPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.editor")
@@ -71,8 +71,8 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
-    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+    return { locale, pathname: `${ROUTES.ADMIN.COURSES.INDEX}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
-  head: recordHead(ROUTES.ADMIN_COURSES),
+  head: recordHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCourseEditorPending,
 })

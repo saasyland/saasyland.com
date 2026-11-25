@@ -7,7 +7,7 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const MODIFIERS = ["altKey", "ctrlKey", "metaKey", "shiftKey"] as const
 
@@ -80,7 +80,7 @@ describe("logo on the landing page", () => {
 describe("logo on another page", () => {
   it("navigates home as a normal link", async () => {
     const user = userEvent.setup({ delay: null })
-    const { router } = renderHomeLink(ROUTES.BLOG)
+    const { router } = renderHomeLink(ROUTES.BLOG.INDEX)
 
     await user.click(logo())
 
@@ -92,7 +92,7 @@ describe("logo on another page", () => {
 })
 
 describe("logo in the mobile menu", () => {
-  it.each([ROUTES.HOME, ROUTES.BLOG])("lets the menu close when it is chosen on %s", async (path) => {
+  it.each([ROUTES.HOME, ROUTES.BLOG.INDEX])("lets the menu close when it is chosen on %s", async (path) => {
     const user = userEvent.setup({ delay: null })
     const onClick = vi.fn<() => void>()
     renderWithRouter(<HomeLink onClick={onClick} />, { router: createTestRouter(path) })

@@ -9,12 +9,12 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 
 import { SESSION_ATTRIBUTE } from "~/src/modules/session/session.rewrite"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-type Workspace = typeof ROUTES.ADMIN | typeof ROUTES.APP
+type Workspace = typeof ROUTES.ADMIN.INDEX | typeof ROUTES.APP.INDEX
 
 const workspaceOf = (role: string | null | undefined): Workspace =>
-  hasPermission({ permission: { admin: ["access"] }, role }) ? ROUTES.ADMIN : ROUTES.APP
+  hasPermission({ permission: { admin: ["access"] }, role }) ? ROUTES.ADMIN.INDEX : ROUTES.APP.INDEX
 
 const isMarkedSignedIn = createClientOnlyFn(() => document.documentElement.hasAttribute(SESSION_ATTRIBUTE))
 

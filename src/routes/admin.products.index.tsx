@@ -15,7 +15,7 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 import { PolarProductGrid } from "~/src/presentation/components/custom/admin/products/polar-product-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ProductsPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.products")
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/admin/products/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_PRODUCTS),
+  head: pageHead(ROUTES.ADMIN.PRODUCTS),
   pendingComponent: AdminProductsPending,
   staticData: { namespaces: [NAMESPACE] },
 })

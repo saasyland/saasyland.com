@@ -15,7 +15,7 @@ import { user } from "~/src/modules/user/user.schema"
 import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY } from "~/src/modules/withdrawal/withdrawal.constants"
 import { withdrawal } from "~/src/modules/withdrawal/withdrawal.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const DELIVERED_AT = new Date("2026-11-02T10:00:00Z")
 const LESSON_OPENED_AT = new Date("2026-11-03T10:00:00Z")
@@ -67,9 +67,9 @@ describe("licence records of a deleted account", () => {
   it("keeps the licence and its delivery records with no account, and revokes it, when the customer deletes the account", async () => {
     const { account, headers, licenseId, userId, withdrawalId } = await licensedAccount(LICENSE_STATUS.ACTIVE)
 
-    await auth.api.deleteUser({ body: { callbackURL: ROUTES.APP_DELETE_ACCOUNT, password: account.password }, headers })
+    await auth.api.deleteUser({ body: { callbackURL: ROUTES.APP.SETTINGS.DELETE_ACCOUNT, password: account.password }, headers })
     await flushWaitUntil()
-    await auth.api.deleteUser({ body: { token: emailToken(account.email, ROUTES.APP_DELETE_ACCOUNT) }, headers })
+    await auth.api.deleteUser({ body: { token: emailToken(account.email, ROUTES.APP.SETTINGS.DELETE_ACCOUNT) }, headers })
 
     expect(await db.select().from(user).where(eq(user.id, userId))).toStrictEqual([])
     expect(await keptLicense(licenseId)).toMatchObject({

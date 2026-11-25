@@ -20,7 +20,7 @@ import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/fo
 import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import resendMessages from "~/messages/en-US/components.custom.email-link-resend.json"
 import pagesAuthForgotPasswordMessages from "~/messages/en-US/pages.auth.forgot-password.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const TEST_EMAIL = "user@example.com"
 
@@ -90,7 +90,7 @@ describe("forgot password form", () => {
 
   it("fills in the address carried from sign-in", () => {
     setupForgotPasswordFormMocks()
-    renderWithAuthMessages(<ForgotPasswordForm />, `${ROUTES.FORGOT_PASSWORD}?email=${encodeURIComponent(TEST_EMAIL)}`)
+    renderWithAuthMessages(<ForgotPasswordForm />, `${ROUTES.AUTH.FORGOT_PASSWORD}?email=${encodeURIComponent(TEST_EMAIL)}`)
 
     expect(screen.getByLabelText(/email/iu)).toHaveValue(TEST_EMAIL)
   })
@@ -116,20 +116,23 @@ describe("forgot password form", () => {
     expect(await screen.findByText(sentDescription(TEST_EMAIL))).toBeVisible()
     expect(screen.queryByTestId("forgot-password-form-submit-button")).not.toBeInTheDocument()
     expect(requestPasswordResetMock).toHaveBeenCalledTimes(2)
-    expect(requestPasswordResetMock).toHaveBeenLastCalledWith({ email: TEST_EMAIL, redirectTo: ROUTES.RESET_PASSWORD }, expect.anything())
+    expect(requestPasswordResetMock).toHaveBeenLastCalledWith(
+      { email: TEST_EMAIL, redirectTo: ROUTES.AUTH.RESET_PASSWORD },
+      expect.anything(),
+    )
   })
 
   it("keeps the return path in the reset link", async () => {
     setupForgotPasswordFormMocks()
     const user = userEvent.setup({ delay: null })
-    renderWithAuthMessages(<ForgotPasswordForm />, `${ROUTES.FORGOT_PASSWORD}?redirect=%2Fapp%2Flicense`)
+    renderWithAuthMessages(<ForgotPasswordForm />, `${ROUTES.AUTH.FORGOT_PASSWORD}?redirect=%2Fapp%2Flicense`)
 
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
 
     await waitFor(() => {
       expect(requestPasswordResetMock).toHaveBeenCalledWith(
-        { email: TEST_EMAIL, redirectTo: `${ROUTES.RESET_PASSWORD}?redirect=%2Fapp%2Flicense` },
+        { email: TEST_EMAIL, redirectTo: `${ROUTES.AUTH.RESET_PASSWORD}?redirect=%2Fapp%2Flicense` },
         expect.anything(),
       )
     })
@@ -160,7 +163,10 @@ describe("forgot password form", () => {
       expect(screen.getByRole("status")).toHaveTextContent("We've sent 3 links to this address in the last hour")
     })
     expect(requestPasswordResetMock).toHaveBeenCalledTimes(2)
-    expect(requestPasswordResetMock).toHaveBeenLastCalledWith({ email: TEST_EMAIL, redirectTo: ROUTES.RESET_PASSWORD }, expect.anything())
+    expect(requestPasswordResetMock).toHaveBeenLastCalledWith(
+      { email: TEST_EMAIL, redirectTo: ROUTES.AUTH.RESET_PASSWORD },
+      expect.anything(),
+    )
   })
 
   it("shows the limit instead of a confirmation when no link could be sent", async () => {

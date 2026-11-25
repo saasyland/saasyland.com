@@ -14,7 +14,7 @@ import { PostCover } from "~/src/presentation/components/custom/blog/post-cover"
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const landingRoute = getRouteApi("/_site/_marketing/")
 
@@ -115,7 +115,7 @@ export const NotesSection = (): JSX.Element => {
 
             <Link
               className="group mt-8 inline-flex items-center gap-2 self-start rounded-sm text-body-sm font-medium text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring lg:ml-5"
-              to={ROUTES.BLOG}
+              to={ROUTES.BLOG.INDEX}
             >
               {t("cta")}
               <ArrowRight

@@ -12,7 +12,7 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const changeEmail = async (headers: Headers, newEmail: string) => {
   const result = await auth.api.changeEmail({ body: { newEmail }, headers })
@@ -26,11 +26,11 @@ describe("auth change email", () => {
     const { email: newEmail } = createTestAccount()
 
     await changeEmail(headers, newEmail)
-    await auth.api.verifyEmail({ headers, query: { token: emailToken(account.email, ROUTES.API_AUTH_VERIFY_EMAIL) } })
+    await auth.api.verifyEmail({ headers, query: { token: emailToken(account.email, ROUTES.API.AUTH.VERIFY_EMAIL) } })
     await flushWaitUntil()
 
     await expect(findUser(account.email)).resolves.toMatchObject({ email: account.email })
-    await auth.api.verifyEmail({ headers: browserHeaders(), query: { token: emailToken(newEmail, ROUTES.VERIFY_EMAIL) } })
+    await auth.api.verifyEmail({ headers: browserHeaders(), query: { token: emailToken(newEmail, ROUTES.AUTH.VERIFY_EMAIL) } })
 
     expect(await findUser(newEmail)).toMatchObject({ email: newEmail, emailVerified: true })
   })

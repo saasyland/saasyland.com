@@ -21,7 +21,7 @@ import { GetStarted } from "~/src/presentation/components/custom/app/get-started
 
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LICENSE_KEY = "SAASY-TEST-KEY-0001"
 const { copy, setup } = pagesLicenseMessages

@@ -14,7 +14,7 @@ import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 import { Price } from "~/src/presentation/components/custom/pricing"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const DETAIL_DELAY_MS = 100
 const TERMS_DELAY_MS = 200
@@ -41,7 +41,7 @@ export const GateSection = (): JSX.Element => {
           <a className={CTA_CLASSES.PRIMARY} href={`#${MARKETING_SECTION_IDS.PRICING}`}>
             {t("ctaPrimary")}
           </a>
-          <Link className={CTA_CLASSES.SECONDARY} to={ROUTES.DOCS}>
+          <Link className={CTA_CLASSES.SECONDARY} to={ROUTES.DOCS.INDEX}>
             {t("ctaSecondary")}
             <ArrowRight
               aria-hidden

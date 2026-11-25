@@ -22,7 +22,7 @@ import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-fo
 import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const [githubProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
@@ -102,95 +102,98 @@ beforeEach(() => {
 
 describe("return path through the auth pages", () => {
   it("continues a completed sign-in through the auth callback to the return path", async () => {
-    const { navigate, user } = renderOnPage(ROUTES.SIGN_IN, <SignInForm />)
+    const { navigate, user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <SignInForm />)
 
     await signInWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: RETURN_TO }, to: ROUTES.AUTH_CALLBACK })
+      expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: RETURN_TO }, to: ROUTES.AUTH.CALLBACK })
     })
   })
 
   it("keeps the return path when sign-in asks for a two-factor code", async () => {
     signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
-    const { navigate, user } = renderOnPage(ROUTES.SIGN_IN, <SignInForm />)
+    const { navigate, user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <SignInForm />)
 
     await signInWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: { redirect: RETURN_TO }, to: ROUTES.TWO_FACTOR })
+      expect(navigate).toHaveBeenCalledWith({ search: { redirect: RETURN_TO }, to: ROUTES.AUTH.TWO_FACTOR })
     })
   })
 
   it("keeps the return path when sign-in needs a verified email first", async () => {
     signInEmailMock.mockResolvedValueOnce({ data: null, error: { code: "EMAIL_NOT_VERIFIED", status: 403, statusText: "Forbidden" } })
-    const { navigate, user } = renderOnPage(ROUTES.SIGN_IN, <SignInForm />)
+    const { navigate, user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <SignInForm />)
 
     await signInWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO, unverified: true }, to: ROUTES.VERIFY_EMAIL })
+      expect(navigate).toHaveBeenCalledWith({
+        search: { email: EMAIL, redirect: RETURN_TO, unverified: true },
+        to: ROUTES.AUTH.VERIFY_EMAIL,
+      })
     })
   })
 
   it("continues a new account straight to the return path, and asks Better Auth to confirm the address through the same callback", async () => {
-    const { navigate, user } = renderOnPage(ROUTES.SIGN_UP, <SignUpForm />)
+    const { navigate, user } = renderOnPage(ROUTES.AUTH.SIGN_UP, <SignUpForm />)
 
     await signUpWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: RETURN_TO }, to: ROUTES.AUTH_CALLBACK })
+      expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: RETURN_TO }, to: ROUTES.AUTH.CALLBACK })
     })
-    expect(navigate).not.toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.VERIFY_EMAIL }))
+    expect(navigate).not.toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.AUTH.VERIFY_EMAIL }))
     expect(signUpMock).toHaveBeenCalledWith(
-      expect.objectContaining({ callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}?redirect=${ENCODED_RETURN_TO}` }),
+      expect.objectContaining({ callbackURL: `/pl-PL${ROUTES.AUTH.CALLBACK}?redirect=${ENCODED_RETURN_TO}` }),
       expect.anything(),
     )
   })
 
   it("keeps the return path on the way to the inbox when sign-up does not sign the visitor in", async () => {
     signUpMock.mockResolvedValueOnce({ signedIn: false, user: createAuthSessionFixture().user })
-    const { navigate, user } = renderOnPage(ROUTES.SIGN_UP, <SignUpForm />)
+    const { navigate, user } = renderOnPage(ROUTES.AUTH.SIGN_UP, <SignUpForm />)
 
     await signUpWith(user)
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO }, to: ROUTES.VERIFY_EMAIL })
+      expect(navigate).toHaveBeenCalledWith({ search: { email: EMAIL, redirect: RETURN_TO }, to: ROUTES.AUTH.VERIFY_EMAIL })
     })
   })
 
   it("sends OAuth back through the auth callback, and failures back to sign-in, keeping the return path", async () => {
-    const { user } = renderOnPage(ROUTES.SIGN_IN, <OAuthButtons />)
+    const { user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <OAuthButtons />)
 
     await user.click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
 
     await waitFor(() => {
       expect(signInSocialMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}?redirect=${ENCODED_RETURN_TO}`,
-          errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}?redirect=${ENCODED_RETURN_TO}`,
+          callbackURL: `/pl-PL${ROUTES.AUTH.CALLBACK}?redirect=${ENCODED_RETURN_TO}`,
+          errorCallbackURL: `/pl-PL${ROUTES.AUTH.SIGN_IN}?redirect=${ENCODED_RETURN_TO}`,
         }),
       )
     })
   })
 
   it("carries the typed email and the return path to the forgot-password page", async () => {
-    const { user } = renderOnPage(ROUTES.SIGN_IN, <SignInForm />)
+    const { user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <SignInForm />)
 
     await user.type(screen.getByLabelText(/email/iu), EMAIL)
 
     expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
       "href",
-      `/pl-PL${ROUTES.FORGOT_PASSWORD}?email=${encodeURIComponent(EMAIL)}&redirect=${ENCODED_RETURN_TO}`,
+      `/pl-PL${ROUTES.AUTH.FORGOT_PASSWORD}?email=${encodeURIComponent(EMAIL)}&redirect=${ENCODED_RETURN_TO}`,
     )
   })
 
   it("keeps the return path on the links between sign-in and sign-up", () => {
-    renderOnPage(ROUTES.SIGN_IN, <AuthLinks />)
+    renderOnPage(ROUTES.AUTH.SIGN_IN, <AuthLinks />)
 
     const [signUpLink, signInLink] = screen.getAllByRole("link")
 
-    expect(signUpLink).toHaveAttribute("href", `/pl-PL${ROUTES.SIGN_UP}?redirect=${ENCODED_RETURN_TO}`)
-    expect(signInLink).toHaveAttribute("href", `/pl-PL${ROUTES.SIGN_IN}?redirect=${ENCODED_RETURN_TO}`)
+    expect(signUpLink).toHaveAttribute("href", `/pl-PL${ROUTES.AUTH.SIGN_UP}?redirect=${ENCODED_RETURN_TO}`)
+    expect(signInLink).toHaveAttribute("href", `/pl-PL${ROUTES.AUTH.SIGN_IN}?redirect=${ENCODED_RETURN_TO}`)
   })
 })

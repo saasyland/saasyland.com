@@ -12,7 +12,7 @@ import { SEARCH_HITS_LIMIT } from "~/src/modules/_core/utils/search"
 import { searchUsersQuery } from "~/src/modules/user/use-cases/search-users"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ADMIN_ID = "01900000-0000-7000-8000-000000000061"
 const ADA = { email: "ada.lovelace@example.test", id: "01900000-0000-7000-8000-000000000062", name: "Ada Lovelace" }
@@ -42,10 +42,10 @@ describe("search-users", () => {
     signInAs(ROLE_CODES.ADMIN)
 
     await expect(executeQuery(searchUsersQuery({ text: "LOVE" }))).resolves.toStrictEqual([
-      { detail: ADA.email, id: ADA.id, title: ADA.name, to: `${ROUTES.ADMIN_USERS}/${ADA.id}` },
+      { detail: ADA.email, id: ADA.id, title: ADA.name, to: `${ROUTES.ADMIN.USERS.INDEX}/${ADA.id}` },
     ])
     await expect(executeQuery(searchUsersQuery({ text: "navy" }))).resolves.toStrictEqual([
-      { detail: GRACE.email, id: GRACE.id, title: GRACE.name, to: `${ROUTES.ADMIN_USERS}/${GRACE.id}` },
+      { detail: GRACE.email, id: GRACE.id, title: GRACE.name, to: `${ROUTES.ADMIN.USERS.INDEX}/${GRACE.id}` },
     ])
   })
 

@@ -47,7 +47,7 @@ import {
 
 import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const unconfirmed = () => {
   const session = createAuthSessionFixture()
@@ -217,7 +217,7 @@ describe("lesson page", () => {
     {
       cta: messages.lesson.locked.account.cta,
       data: GUEST_PAGE,
-      href: withRedirect(ROUTES.SIGN_UP, "/courses/the-walkthrough/sessions"),
+      href: withRedirect(ROUTES.AUTH.SIGN_UP, "/courses/the-walkthrough/sessions"),
       path: "sessions",
     },
     {
@@ -248,7 +248,7 @@ describe("lesson locks", () => {
     const lock = within(screen.getByRole("heading", { name: messages.lesson.locked.account.title }).parentElement ?? document.body)
     expect(lock.getByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
-      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/sessions"),
+      withRedirect(ROUTES.AUTH.SIGN_IN, "/courses/the-walkthrough/sessions"),
     )
   })
 
@@ -259,7 +259,7 @@ describe("lesson locks", () => {
     expect(price).toBeVisible()
     expect(within(price.parentElement ?? document.body).getByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
-      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/billing"),
+      withRedirect(ROUTES.AUTH.SIGN_IN, "/courses/the-walkthrough/billing"),
     )
   })
 
@@ -277,11 +277,11 @@ describe("lesson locks", () => {
     expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
     expect(screen.getByRole("link", { name: messages.lesson.locked.confirm.change })).toHaveAttribute(
       "href",
-      withRedirect(ROUTES.VERIFY_EMAIL, "/courses/the-walkthrough/billing"),
+      withRedirect(ROUTES.AUTH.VERIFY_EMAIL, "/courses/the-walkthrough/billing"),
     )
     await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: messages.lesson.locked.confirm.resend }))
     await waitFor(() => {
-      expect(resendVerification).toHaveBeenCalledWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: user.email }, expect.anything())
+      expect(resendVerification).toHaveBeenCalledWith({ callbackURL: ROUTES.AUTH.CALLBACK, email: user.email }, expect.anything())
     })
 
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, signedIn)

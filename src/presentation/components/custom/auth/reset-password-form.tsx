@@ -26,7 +26,7 @@ import { PasswordInput } from "~/src/presentation/components/custom/auth/passwor
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const INVALID_LINK_CODE = "INVALID_TOKEN" satisfies keyof typeof AUTH_ERRORS
 
@@ -43,7 +43,7 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
       toast.success(t("success"))
-      await router.navigate({ search: { redirect }, to: ROUTES.SIGN_IN })
+      await router.navigate({ search: { redirect }, to: ROUTES.AUTH.SIGN_IN })
     },
   })
 
@@ -56,7 +56,7 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
         {
           onError: (error) => {
             if (error.message === AUTH_ERRORS.INVALID_TOKEN) {
-              void router.navigate({ replace: true, search: { error: INVALID_LINK_CODE, redirect }, to: ROUTES.RESET_PASSWORD })
+              void router.navigate({ replace: true, search: { error: INVALID_LINK_CODE, redirect }, to: ROUTES.AUTH.RESET_PASSWORD })
               return
             }
             if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {

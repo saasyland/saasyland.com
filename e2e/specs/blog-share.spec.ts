@@ -5,10 +5,10 @@ import type { Page } from "@playwright/test"
 
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
-const POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
+const POST = `${ROUTES.BLOG.INDEX}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
 const CANONICAL = `${APP_URL}${POST}`
 const { share } = pagesBlog.post
 const NETWORKS = [share.targets.x, share.targets.linkedin, share.targets.bluesky, share.targets.hackerNews, share.targets.reddit]

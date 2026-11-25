@@ -1,6 +1,6 @@
 import type { Route } from "@playwright/test"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -38,7 +38,7 @@ for (const [name, path] of [
   ["Privacy Policy", ROUTES.PRIVACY],
 ] as const) {
   test(`the sign-up consent links ${path}`, async ({ appPage, page }) => {
-    await page.goto(ROUTES.SIGN_UP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.AUTH.SIGN_UP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     await page.getByRole("link", { exact: true, name }).click()

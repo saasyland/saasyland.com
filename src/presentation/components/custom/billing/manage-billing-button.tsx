@@ -11,9 +11,9 @@ import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-const openCustomerPortal = createClientOnlyFn(() => authClient.$fetch(ROUTES.API_AUTH_POLAR.CUSTOMER_PORTAL, { method: "GET" }))
+const openCustomerPortal = createClientOnlyFn(() => authClient.$fetch(ROUTES.API.AUTH.POLAR.CUSTOMER_PORTAL, { method: "GET" }))
 
 export const ManageBillingButton = (): JSX.Element => {
   const t = useTranslations()

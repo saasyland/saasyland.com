@@ -8,7 +8,7 @@ import { ROBOTS, buildPageHead, buildTitle } from "~/src/lib/seo"
 
 import enNotFoundMessages from "~/messages/en-US/errors.not-found.json"
 import plNotFoundMessages from "~/messages/pl-PL/errors.not-found.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const thrown = (input: unknown): unknown => {
   try {
@@ -44,15 +44,15 @@ describe("notFoundHead", () => {
 })
 
 describe("recordHead", () => {
-  const head = recordHead(ROUTES.ADMIN_USERS)
-  const RECORD = { locale: "pl-PL", pathname: `${ROUTES.ADMIN_USERS}/ada`, title: "Ada Lovelace" } as const
+  const head = recordHead(ROUTES.ADMIN.USERS.INDEX)
+  const RECORD = { locale: "pl-PL", pathname: `${ROUTES.ADMIN.USERS.INDEX}/ada`, title: "Ada Lovelace" } as const
 
   it("titles a record's page after the record", () => {
     expect(head({ loaderData: RECORD, match: { error: undefined } })).toStrictEqual(buildPageHead(RECORD))
   })
 
   it("points at the list until the record has loaded", () => {
-    expect(head({ match: { error: undefined } })).toStrictEqual(buildPageHead({ pathname: ROUTES.ADMIN_USERS }))
+    expect(head({ match: { error: undefined } })).toStrictEqual(buildPageHead({ pathname: ROUTES.ADMIN.USERS.INDEX }))
   })
 
   it("titles a record that does not exist as a page that was not found, and keeps it out of search results", async () => {

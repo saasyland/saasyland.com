@@ -28,7 +28,7 @@ import { AppLicensePending } from "~/src/presentation/components/custom/app/lice
 import { UpgradeOffer } from "~/src/presentation/components/custom/app/upgrade-offer"
 import { WithdrawalCard } from "~/src/presentation/components/custom/app/withdrawal-card"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const hasIssuedKey = <Licence extends Pick<License["select"], "polarLicenseKeyId" | "status">>(
   license: Licence | undefined,
@@ -61,7 +61,7 @@ const LicensePage = (): JSX.Element => {
       {isBuying && <LicenseOffer />}
       <Link
         className="w-fit text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-        to={ROUTES.APP}
+        to={ROUTES.APP.INDEX}
       >
         {t("back")}
       </Link>
@@ -94,7 +94,7 @@ export const Route = createFileRoute("/app/license")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.APP_LICENSE),
+  head: pageHead(ROUTES.APP.LICENSE),
   pendingComponent: AppLicensePending,
   search: { middlewares: [onlyDeclaredSearch(licenseSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

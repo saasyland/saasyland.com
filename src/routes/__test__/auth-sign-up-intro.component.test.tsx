@@ -18,9 +18,9 @@ import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plPagesAuthSignUpMessages from "~/messages/pl-PL/pages.auth.sign-up.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-const SIGN_UP_SEGMENT = ROUTES.SIGN_UP.slice(ROUTES.AUTH.length)
+const SIGN_UP_SEGMENT = ROUTES.AUTH.SIGN_UP.slice(ROUTES.AUTH.BASE.length)
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 
@@ -35,14 +35,14 @@ const tierRedirect = (path: string, tier: string): string => `${path}?${new URLS
 
 const renderSignUp = async (search: string, title = pagesAuthSignUpMessages.form.title) => {
   Reflect.deleteProperty(RootRoute.options, "shellComponent")
-  Object.assign(AuthRoute.options, { getParentRoute: () => RootRoute, id: ROUTES.AUTH, path: ROUTES.AUTH })
+  Object.assign(AuthRoute.options, { getParentRoute: () => RootRoute, id: ROUTES.AUTH.BASE, path: ROUTES.AUTH.BASE })
   Object.assign(SignUpRoute.options, { getParentRoute: () => AuthRoute, id: SIGN_UP_SEGMENT, path: SIGN_UP_SEGMENT })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
     InnerWrap: TranslationsProvider,
     context: { queryClient },
     defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.SIGN_UP}${search}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.AUTH.SIGN_UP}${search}`] }),
     routeTree: RootRoute.addChildren([AuthRoute.addChildren([SignUpRoute])]),
   })
   render(
@@ -72,7 +72,7 @@ beforeEach(() => {
 
 describe("sign-up intro", () => {
   it("sums up the order in place of the description when the redirect carries a tier", async () => {
-    await renderSignUp(signUpWith(tierRedirect(ROUTES.APP, LICENSE_TIER.COMPLETE)))
+    await renderSignUp(signUpWith(tierRedirect(ROUTES.APP.INDEX, LICENSE_TIER.COMPLETE)))
 
     expect(screen.getByRole("heading", { level: 2, name: new RegExp(`^${pricingMessages.tiers.complete.name}`, "u") })).toBeVisible()
     expect(screen.queryByText(pagesAuthSignUpMessages.form.description)).not.toBeInTheDocument()
@@ -80,13 +80,13 @@ describe("sign-up intro", () => {
 
   it.each([
     { label: "no redirect", search: "" },
-    { label: "a redirect without a tier", search: signUpWith(ROUTES.APP) },
-    { label: "a redirect with an unknown tier", search: signUpWith(tierRedirect(ROUTES.APP, "enterprise")) },
+    { label: "a redirect without a tier", search: signUpWith(ROUTES.APP.INDEX) },
+    { label: "a redirect with an unknown tier", search: signUpWith(tierRedirect(ROUTES.APP.INDEX, "enterprise")) },
     {
       label: "a redirect to a page that sells no tier",
-      search: signUpWith(tierRedirect(ROUTES.APP_SETTINGS, LICENSE_TIER.COMPLETE)),
+      search: signUpWith(tierRedirect(ROUTES.APP.SETTINGS.INDEX, LICENSE_TIER.COMPLETE)),
     },
-    { label: "an external redirect", search: signUpWith(tierRedirect(`https://evil.example${ROUTES.APP}`, LICENSE_TIER.COMPLETE)) },
+    { label: "an external redirect", search: signUpWith(tierRedirect(`https://evil.example${ROUTES.APP.INDEX}`, LICENSE_TIER.COMPLETE)) },
   ])("keeps the description with $label", async ({ search }) => {
     await renderSignUp(search)
 
@@ -95,8 +95,8 @@ describe("sign-up intro", () => {
   })
 
   it("sums up the order in the visitor's locale for a locale-prefixed redirect", async () => {
-    vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000/pl-PL${ROUTES.SIGN_UP}`))
-    await renderSignUp(signUpWith(tierRedirect(`/pl-PL${ROUTES.APP}`, LICENSE_TIER.AGENCY)), plPagesAuthSignUpMessages.form.title)
+    vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000/pl-PL${ROUTES.AUTH.SIGN_UP}`))
+    await renderSignUp(signUpWith(tierRedirect(`/pl-PL${ROUTES.APP.INDEX}`, LICENSE_TIER.AGENCY)), plPagesAuthSignUpMessages.form.title)
 
     expect(screen.getByRole("heading", { level: 2, name: new RegExp(`^${plPricingMessages.tiers.agency.name}`, "u") })).toBeVisible()
     expect(screen.queryByText(plPagesAuthSignUpMessages.form.description)).not.toBeInTheDocument()

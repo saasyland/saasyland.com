@@ -11,7 +11,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 
@@ -94,7 +94,7 @@ export const QualitySection = (): JSX.Element => {
 
           <Link
             className="mt-4 flex w-fit rounded-sm text-spec text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
-            href={ROUTES.DOCS_TEST_COVERAGE}
+            href={ROUTES.DOCS.TOOLING.TEST_COVERAGE}
           >
             {t("coverageLink")}
           </Link>

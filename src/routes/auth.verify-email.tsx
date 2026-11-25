@@ -15,7 +15,7 @@ import { pageHead } from "~/src/lib/seo"
 import { VerifyEmailPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { VerifyEmailForm, VerifyEmailHeading } from "~/src/presentation/components/custom/auth/verify-email-form"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const VerifyEmailPage = (): JSX.Element => (
   <>
@@ -45,10 +45,10 @@ export const Route = createFileRoute("/auth/verify-email")({
       const email = readUnverifiedJwtPayload(search.token, tokenPayloadSchema)?.email
       const { publicHref: callbackURL } = buildLocation({
         search: { email, redirect: search.redirect, verified: true },
-        to: ROUTES.VERIFY_EMAIL,
+        to: ROUTES.AUTH.VERIFY_EMAIL,
       })
       const query = new URLSearchParams({ callbackURL, token: search.token })
-      throw redirect({ href: `${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`, reloadDocument: true, replace: true })
+      throw redirect({ href: `${ROUTES.API.AUTH.VERIFY_EMAIL}?${query}`, reloadDocument: true, replace: true })
     }
     await redirectIfVerified(context)
   },
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/auth/verify-email")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.VERIFY_EMAIL),
+  head: pageHead(ROUTES.AUTH.VERIFY_EMAIL),
   pendingComponent: VerifyEmailPending,
   staticData: { namespaces: [NAMESPACE] },
 })

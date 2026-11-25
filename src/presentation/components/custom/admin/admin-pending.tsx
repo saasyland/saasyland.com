@@ -14,7 +14,7 @@ import { IconPending } from "~/src/presentation/components/custom/admin/pending-
 import { Background } from "~/src/presentation/components/custom/background"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) => item.to)))
 
@@ -65,7 +65,7 @@ export const AdminPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
   const Page = usePagePending("/admin")
   const [, section, action] = pathname.split("/").filter(Boolean)
-  const hasSection = ADMIN_SIDEBAR_URLS.has(section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`)
+  const hasSection = ADMIN_SIDEBAR_URLS.has(section === undefined ? ROUTES.ADMIN.INDEX : `${ROUTES.ADMIN.INDEX}/${section}`)
 
   return (
     <div className="flex h-svh w-full overflow-hidden">

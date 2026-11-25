@@ -1,12 +1,12 @@
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 
 const POLICY_HEADER = "content-security-policy"
 const NONCE = /'nonce-(?<nonce>[\da-f]{32})'/u
 
-for (const path of [ROUTES.HOME, ROUTES.SIGN_IN]) {
+for (const path of [ROUTES.HOME, ROUTES.AUTH.SIGN_IN]) {
   test(`on ${path}, a script the edge adds with the header's nonce runs, and one without the nonce is blocked`, async ({
     appPage,
     cspViolations,

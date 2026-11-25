@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { PASSWORD_MIN_LENGTH } from "../../src/integrations/better-auth/auth.constraints"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { BREACHED_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 
@@ -20,7 +20,7 @@ const continueTyping = async (field: Locator, text: string): Promise<void> => {
 
 const requirementsList = (page: Page) => page.getByRole("list", { name: validations.requirementsListLabel, exact: true })
 
-const signUpUrl = new RegExp(`${ROUTES.SIGN_UP}$`, "u")
+const signUpUrl = new RegExp(`${ROUTES.AUTH.SIGN_UP}$`, "u")
 
 test.describe("form validation timing", () => {
   test("a password being typed updates the requirement live but is reported only after the visitor leaves it", async ({

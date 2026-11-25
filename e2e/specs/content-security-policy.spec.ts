@@ -7,12 +7,12 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import { polarCheckoutOrigin } from "../../src/integrations/polar/polar.constants"
 import { documentPolicy } from "../../src/lib/content-security-policy"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 
 const [admin, customer] = TEST_ACCOUNTS
 const POLICY_HEADER = "content-security-policy"
-const PRERENDERED_PAGES = [ROUTES.HOME, `${ROUTES.DOCS}/features/security`, `${ROUTES.BLOG}/ai-coding-agents-repository-readiness`]
-const RENDERED_PAGES = [ROUTES.SIGN_IN, ROUTES.COURSES]
+const PRERENDERED_PAGES = [ROUTES.HOME, `${ROUTES.DOCS.INDEX}/features/security`, `${ROUTES.BLOG.INDEX}/ai-coding-agents-repository-readiness`]
+const RENDERED_PAGES = [ROUTES.AUTH.SIGN_IN, ROUTES.COURSES]
 const NONCE = /'nonce-(?<nonce>[\da-f]{32})'/u
 const SCRIPT_TAG = /<script\b[^>]*>/giu
 const MODULE_PRELOAD = /<link\b[^>]*\brel="modulepreload"[^>]*>/giu
@@ -47,10 +47,10 @@ test.describe("content security policy", () => {
 
   test("the admin console runs under its policy", async ({ appPage, authPage, page }) => {
     await authPage.signIn(admin.email)
-    await expect(page).toHaveURL(ROUTES.ADMIN)
+    await expect(page).toHaveURL(ROUTES.ADMIN.INDEX)
     await appPage.waitForAppReady()
 
-    await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.ADMIN.COURSES.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   })
@@ -61,8 +61,8 @@ test.describe("content security policy", () => {
     page,
   }) => {
     await authPage.signIn(customer.email)
-    await expect(page).toHaveURL(ROUTES.APP)
-    const response = await page.goto(`${ROUTES.APP}?tier=${LICENSE_TIER.COMPLETE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
+    const response = await page.goto(`${ROUTES.APP.INDEX}?tier=${LICENSE_TIER.COMPLETE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const frameSources = response?.headers()[POLICY_HEADER]?.split("; ").filter((directive) => directive.startsWith("frame-src "))
 

@@ -12,7 +12,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/confirm-account-deletion"
 import { requestAccountDeletionMutation } from "~/src/modules/user/use-cases/request-account-deletion"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SENT = { message: "Verification email sent", success: true }
 const DELETED = { message: "User deleted", success: true }
@@ -26,15 +26,15 @@ afterEach(() => {
 })
 
 describe("requestAccountDeletion", () => {
-  it.each([{ callbackURL: ROUTES.APP_DELETE_ACCOUNT, password: "SecretPass1!" }, { callbackURL: `/pl-PL${ROUTES.APP_DELETE_ACCOUNT}` }])(
-    "asks Better Auth to email the confirmation link for $callbackURL",
-    async (input) => {
-      const deleteUser = vi.spyOn(auth.api, "deleteUser").mockResolvedValue(SENT)
+  it.each([
+    { callbackURL: ROUTES.APP.SETTINGS.DELETE_ACCOUNT, password: "SecretPass1!" },
+    { callbackURL: `/pl-PL${ROUTES.APP.SETTINGS.DELETE_ACCOUNT}` },
+  ])("asks Better Auth to email the confirmation link for $callbackURL", async (input) => {
+    const deleteUser = vi.spyOn(auth.api, "deleteUser").mockResolvedValue(SENT)
 
-      await expect(executeMutation(requestAccountDeletionMutation, input)).resolves.toStrictEqual(SENT)
-      expect(deleteUser).toHaveBeenCalledWith(expect.objectContaining({ body: input }))
-    },
-  )
+    await expect(executeMutation(requestAccountDeletionMutation, input)).resolves.toStrictEqual(SENT)
+    expect(deleteUser).toHaveBeenCalledWith(expect.objectContaining({ body: input }))
+  })
 
   it("refuses a callback that leaves the site", async () => {
     const deleteUser = vi.spyOn(auth.api, "deleteUser")

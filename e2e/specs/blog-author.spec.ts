@@ -11,14 +11,14 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"
 const AUTHOR = BLOG_AUTHOR.PIOTR_BOROWIECKI
 const { name, profiles } = BLOG_AUTHORS[AUTHOR]
 const AUTHOR_PAGE = blogAuthorPath(AUTHOR)
-const POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
+const POST = `${ROUTES.BLOG.INDEX}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
 const STRUCTURED_DATA = /<script type="application\/ld\+json">(?<json>.*?)<\/script>/gu
 const MARKUP = /<[^>]*>/gu
 const EMPLOYER = /\bIBM\b/u

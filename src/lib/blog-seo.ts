@@ -18,7 +18,7 @@ import {
 } from "~/src/lib/seo"
 
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const pageAuthor = (author: BlogAuthor): PageAuthor => ({ name: BLOG_AUTHORS[author].name, pathname: blogAuthorPath(author) })
 
@@ -113,7 +113,7 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
         },
         {
           "@type": "ListItem",
-          item: localizedUrl({ baseUrl: input.baseUrl, locale: input.locale, pathname: ROUTES.BLOG }),
+          item: localizedUrl({ baseUrl: input.baseUrl, locale: input.locale, pathname: ROUTES.BLOG.INDEX }),
           name: input.blogTitle,
           position: 2,
         },
@@ -166,7 +166,7 @@ type BlogArchiveStructuredDataInput = BlogListInput &
 const ITEM_LIST_ORDER_DESCENDING = "https://schema.org/ItemListOrderDescending"
 
 const blogIds = ({ locale, pathname }: Pick<BlogListInput, "locale" | "pathname">) => {
-  const blogUrl = localizedUrl({ baseUrl: APP_URL, locale, pathname: ROUTES.BLOG })
+  const blogUrl = localizedUrl({ baseUrl: APP_URL, locale, pathname: ROUTES.BLOG.INDEX })
   const pageUrl = localizedUrl({ baseUrl: APP_URL, locale, pathname })
 
   return { blogId: `${blogUrl}#blog`, blogUrl, listId: `${pageUrl}#posts`, pageUrl }

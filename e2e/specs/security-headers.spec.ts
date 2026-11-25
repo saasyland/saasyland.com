@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises"
 import type { APIResponse } from "@playwright/test"
 
 import { HTTP_STATUS, SECURITY_HEADERS } from "../../src/modules/_core/constants/api"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_ASSETS = "dist/client/assets"
@@ -28,7 +28,7 @@ test("every response carries X-Frame-Options, X-Content-Type-Options, Referrer-P
     { label: "a prerendered page", response: await request.get("/"), status: HTTP_STATUS.OK },
     { label: "a page rendered on request", response: await request.get(ROUTES.COURSES), status: HTTP_STATUS.OK },
     { label: "a missing page", response: await request.get("/this-page-does-not-exist"), status: HTTP_STATUS.NOT_FOUND },
-    { label: "an auth API answer", response: await request.get(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`), status: HTTP_STATUS.OK },
+    { label: "an auth API answer", response: await request.get(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.GET_SESSION}`), status: HTTP_STATUS.OK },
     { label: "a refused server function", response: await request.post("/_serverFn/refused"), status: HTTP_STATUS.FORBIDDEN },
     { label: "a static file", response: await request.get("/robots.txt"), status: HTTP_STATUS.OK },
     { label: "a hashed script", response: await request.get(`/assets/${script ?? ""}`), status: HTTP_STATUS.OK },

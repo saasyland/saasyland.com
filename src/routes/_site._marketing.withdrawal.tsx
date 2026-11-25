@@ -17,7 +17,7 @@ import { LegalLink } from "~/src/presentation/components/custom/legal-sections"
 import { WithdrawalForm } from "~/src/presentation/components/custom/withdrawal-form"
 import { WithdrawalPending } from "~/src/presentation/components/custom/withdrawal-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const RIGHTS_TAGS = {
   days: REFUND_TERMS.WITHDRAWAL_DAYS,
@@ -25,7 +25,7 @@ const RIGHTS_TAGS = {
 }
 
 const ACCOUNT_TAGS = {
-  license: (chunks: ReactNode) => <LegalLink to={ROUTES.APP_LICENSE}>{chunks}</LegalLink>,
+  license: (chunks: ReactNode) => <LegalLink to={ROUTES.APP.LICENSE}>{chunks}</LegalLink>,
 }
 
 const WithdrawalPage = (): JSX.Element => {

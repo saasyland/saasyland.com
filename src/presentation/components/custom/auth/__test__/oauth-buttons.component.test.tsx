@@ -20,7 +20,7 @@ import { OAuthButtons, OAuthLinks } from "~/src/presentation/components/custom/a
 
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const [githubProvider, googleProvider] = OAUTH_PROVIDERS
 const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
@@ -42,7 +42,7 @@ const createErrorContext = (error: BetterFetchError): ErrorContext => ({
     headers: new Headers(),
     method: "POST",
     signal: new AbortController().signal,
-    url: createTestRequestUrl(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`),
+    url: createTestRequestUrl(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_SOCIAL}`),
   },
   response: new Response(null, { status: error.status }),
 })
@@ -57,7 +57,7 @@ const clickSignIn = async (buttons: ReactElement = <OAuthButtons />): Promise<vo
 }
 
 beforeEach(() => {
-  vi.mocked(getRequest).mockReturnValue(new Request(createTestRequestUrl(`/pl-PL${ROUTES.SIGN_IN}`)))
+  vi.mocked(getRequest).mockReturnValue(new Request(createTestRequestUrl(`/pl-PL${ROUTES.AUTH.SIGN_IN}`)))
   signInSocialMock.mockReset().mockResolvedValue({ data: { redirect: true, url: "https://github.com/login/oauth" }, error: null })
   vi.spyOn(toast, "error").mockImplementation(() => 0)
 })
@@ -69,8 +69,8 @@ describe("OAuth buttons", () => {
     await waitFor(() => {
       expect(signInSocialMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}`,
-          errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}`,
+          callbackURL: `/pl-PL${ROUTES.AUTH.CALLBACK}`,
+          errorCallbackURL: `/pl-PL${ROUTES.AUTH.SIGN_IN}`,
           provider: AUTH_PROVIDER.GITHUB,
         }),
       )
@@ -78,7 +78,7 @@ describe("OAuth buttons", () => {
   })
 
   it("returns to the page it is given after the provider, or after a failed callback, in the visitor's locale", async () => {
-    const page = `${ROUTES.ACCEPT_INVITATION}?${new URLSearchParams({ token: "invitation-token" }).toString()}`
+    const page = `${ROUTES.AUTH.INVITE}?${new URLSearchParams({ token: "invitation-token" }).toString()}`
     const withPage = new URLSearchParams({ redirect: page }).toString()
 
     await clickSignIn(<OAuthButtons redirect={page} />)
@@ -86,8 +86,8 @@ describe("OAuth buttons", () => {
     await waitFor(() => {
       expect(signInSocialMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}?${withPage}`,
-          errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}?${withPage}`,
+          callbackURL: `/pl-PL${ROUTES.AUTH.CALLBACK}?${withPage}`,
+          errorCallbackURL: `/pl-PL${ROUTES.AUTH.SIGN_IN}?${withPage}`,
         }),
       )
     })

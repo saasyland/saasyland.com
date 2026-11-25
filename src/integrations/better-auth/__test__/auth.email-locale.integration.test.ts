@@ -18,7 +18,7 @@ import { sendVerificationEmailMutation } from "~/src/modules/verification/use-ca
 import changeEmailMessages from "~/messages/pl-PL/emails.change-email-confirmation-email.json"
 import resetPasswordMessages from "~/messages/pl-PL/emails.reset-password-email.json"
 import verifyEmailMessages from "~/messages/pl-PL/emails.verify-email.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const { host: HOST } = new URL(ORIGIN)
@@ -62,7 +62,7 @@ describe("auth emails follow the page the flow started on, not the locale cookie
   it("writes the password reset email in the locale of the forgot-password page", async () => {
     const email = await createUser({ emailVerified: true })
 
-    await callServerFunction(requestPasswordResetMutation, { email, redirectTo: `/pl-PL${ROUTES.RESET_PASSWORD}` })
+    await callServerFunction(requestPasswordResetMutation, { email, redirectTo: `/pl-PL${ROUTES.AUTH.RESET_PASSWORD}` })
 
     expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: resetPasswordMessages.subject, to: [email] })])
   })
@@ -70,17 +70,17 @@ describe("auth emails follow the page the flow started on, not the locale cookie
   it("writes the resent verification email in the locale of the verify-email page", async () => {
     const email = await createUser({ emailVerified: false })
 
-    await callServerFunction(sendVerificationEmailMutation, { callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}`, email })
+    await callServerFunction(sendVerificationEmailMutation, { callbackURL: `/pl-PL${ROUTES.AUTH.CALLBACK}`, email })
 
     expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: verifyEmailMessages.subject, to: [email] })])
-    expect(getSentEmails(email)[0]?.html).toContain(`${ORIGIN}/pl-PL${ROUTES.VERIFY_EMAIL}?token=`)
+    expect(getSentEmails(email)[0]?.html).toContain(`${ORIGIN}/pl-PL${ROUTES.AUTH.VERIFY_EMAIL}?token=`)
   })
 
   it("writes both change-email emails in the locale of the page the change started on, even after a link click", async () => {
     const email = await createUser({ emailVerified: true })
     const newEmail = `locale-${crypto.randomUUID()}@example.test`
     const signIn = await auth.handler(
-      request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`, {
+      request(`${ORIGIN}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`, {
         body: JSON.stringify({ email, password: PASSWORD }),
         method: "POST",
       }),
@@ -90,7 +90,7 @@ describe("auth emails follow the page the flow started on, not the locale cookie
       .map((cookie) => cookie.split(";")[0])
       .join("; ")
 
-    await callServerFunction(changeEmailMutation, { callbackURL: `/pl-PL${ROUTES.APP}`, newEmail }, `${session}; ${OTHER_TAB_COOKIE}`)
+    await callServerFunction(changeEmailMutation, { callbackURL: `/pl-PL${ROUTES.APP.INDEX}`, newEmail }, `${session}; ${OTHER_TAB_COOKIE}`)
 
     expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: changeEmailMessages.subject, to: [email] })])
     const confirmUrl = /href="(?<url>[^"]+\/verify-email\?[^"]+)"/u

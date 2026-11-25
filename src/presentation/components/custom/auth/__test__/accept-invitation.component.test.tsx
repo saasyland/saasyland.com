@@ -37,7 +37,7 @@ import authValidationMessages from "~/messages/en-US/auth.validations.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthInviteMessages from "~/messages/en-US/pages.auth.invite.json"
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Session = ReturnType<typeof createAuthSessionFixture> | null
 type User = ReturnType<typeof userEvent.setup>
@@ -78,7 +78,7 @@ const labels = pagesAuthInviteMessages
 const t = createTranslator({ locale: "en-US", messages: pagesAuthInviteMessages })
 const messages = getTestMessages("en-US")
 const TOKEN = "a".repeat(INVITATION_TOKEN_LENGTH)
-const INVITE_PAGE = `${ROUTES.ACCEPT_INVITATION}?${new URLSearchParams({ token: TOKEN }).toString()}`
+const INVITE_PAGE = `${ROUTES.AUTH.INVITE}?${new URLSearchParams({ token: TOKEN }).toString()}`
 const WITH_INVITE_PAGE = new URLSearchParams({ redirect: INVITE_PAGE }).toString()
 const NAME = "Grace Hopper"
 const PASSWORD = "correct horse battery"
@@ -140,7 +140,7 @@ const fillForm = async (user: User): Promise<HTMLElement> => {
 const expectUnavailable = (title: string, description: string): void => {
   expect(screen.getByRole("heading", { level: 1, name: title })).toBeVisible()
   expect(screen.getByText(description)).toBeVisible()
-  expect(screen.getByRole("link", { name: labels.signIn })).toHaveAttribute("href", ROUTES.SIGN_IN)
+  expect(screen.getByRole("link", { name: labels.signIn })).toHaveAttribute("href", ROUTES.AUTH.SIGN_IN)
 }
 
 beforeEach(() => {
@@ -188,7 +188,7 @@ describe("a signed-out invitee", () => {
     expect(screen.getByText(t("form.description", { email: INVITED, role: labels.roles.customer }))).toBeVisible()
     expect(screen.getByLabelText(labels.form.email)).toHaveValue(INVITED)
     expect(screen.getByLabelText(labels.form.email)).toHaveAttribute("readonly")
-    expect(screen.getByRole("link", { name: SIGN_IN_LINK })).toHaveAttribute("href", `${ROUTES.SIGN_IN}?${WITH_INVITE_PAGE}`)
+    expect(screen.getByRole("link", { name: SIGN_IN_LINK })).toHaveAttribute("href", `${ROUTES.AUTH.SIGN_IN}?${WITH_INVITE_PAGE}`)
   })
 
   it("returns to the invitation after signing in with a provider", async () => {
@@ -198,8 +198,8 @@ describe("a signed-out invitee", () => {
     await waitFor(() => {
       expect(signInSocial).toHaveBeenCalledWith(
         expect.objectContaining({
-          callbackURL: `${ROUTES.AUTH_CALLBACK}?${WITH_INVITE_PAGE}`,
-          errorCallbackURL: `${ROUTES.SIGN_IN}?${WITH_INVITE_PAGE}`,
+          callbackURL: `${ROUTES.AUTH.CALLBACK}?${WITH_INVITE_PAGE}`,
+          errorCallbackURL: `${ROUTES.AUTH.SIGN_IN}?${WITH_INVITE_PAGE}`,
           provider: AUTH_PROVIDER.GITHUB,
         }),
       )
@@ -225,7 +225,7 @@ describe("a signed-out invitee", () => {
       expect(toast.success).toHaveBeenCalledWith(WELCOME)
     })
     expect(accept).toHaveBeenCalledWith({ name: NAME, password: PASSWORD, token: TOKEN }, expect.anything())
-    expect(navigate).toHaveBeenCalledWith({ replace: true, search: {}, to: ROUTES.AUTH_CALLBACK })
+    expect(navigate).toHaveBeenCalledWith({ replace: true, search: {}, to: ROUTES.AUTH.CALLBACK })
   })
 
   it("shows progress and ignores repeat submits until the account is created", async () => {
@@ -301,7 +301,7 @@ describe("a signed-in invitee", () => {
       expect(toast.success).toHaveBeenCalledWith(WELCOME)
     })
     expect(claim).toHaveBeenCalledWith({ token: TOKEN }, expect.anything())
-    expect(navigate).toHaveBeenCalledWith({ replace: true, search: {}, to: ROUTES.AUTH_CALLBACK })
+    expect(navigate).toHaveBeenCalledWith({ replace: true, search: {}, to: ROUTES.AUTH.CALLBACK })
   })
 
   it("reports a failed acceptance and shows what became of the invitation", async () => {

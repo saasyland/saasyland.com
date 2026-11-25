@@ -19,7 +19,7 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "https://saasyland.test"
 const COVER = "covers/0195a2b4-6c8d-7e9f-8a0b-00000000c0c0/0195a2b4-6c8d-7e9f-8a0b-00000000c0e1.webp"
@@ -105,7 +105,7 @@ describe("serveCover", () => {
 const SITEMAP_ENTRY = /<url>\s*<loc>(?<url>[^<]+)<\/loc>\s*<lastmod>(?<lastmod>[^<]+)<\/lastmod>/gu
 const BASE_TIME = new Date("2026-01-01T00:00:00.000Z")
 
-const requestSitemap = (init?: RequestInit, path: string = ROUTES.COURSES_SITEMAP): Promise<Response> =>
+const requestSitemap = (init?: RequestInit, path: string = ROUTES.SITEMAPS.COURSES): Promise<Response> =>
   serveCourseSitemap(new Request(`${ORIGIN}${path}`, init))
 
 const readSitemap = async (): Promise<Record<string, string>> => {
@@ -199,7 +199,7 @@ describe("serveCourseSitemap", () => {
   it("allows only GET and HEAD and knows no other path", async () => {
     const [post, other] = await Promise.all([
       requestSitemap({ method: "POST" }),
-      requestSitemap(undefined, `${ROUTES.COURSES_SITEMAP}/more`),
+      requestSitemap(undefined, `${ROUTES.SITEMAPS.COURSES}/more`),
     ])
 
     expect(post.status).toBe(405)

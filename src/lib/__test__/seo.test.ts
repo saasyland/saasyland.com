@@ -11,7 +11,7 @@ import {
 } from "~/src/lib/seo"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ORGANIZATION = {
   "@type": "Organization",
@@ -27,7 +27,7 @@ describe("page sequences", () => {
     const { links } = buildPageHead({
       locale: "pl-PL",
       pathname: "/blog/page/2",
-      sequence: { next: "/blog/page/3", previous: ROUTES.BLOG },
+      sequence: { next: "/blog/page/3", previous: ROUTES.BLOG.INDEX },
     })
 
     expect(links).toContainEqual({ href: `${APP_URL}/pl-PL/blog`, rel: "prev" })
@@ -36,7 +36,7 @@ describe("page sequences", () => {
   })
 
   it("links no neighbour a page does not have", () => {
-    const { links } = buildPageHead({ pathname: ROUTES.BLOG })
+    const { links } = buildPageHead({ pathname: ROUTES.BLOG.INDEX })
 
     expect(links.filter(({ rel }) => rel === "prev" || rel === "next")).toStrictEqual([])
   })
@@ -48,7 +48,7 @@ it("describes the organisation with its logo and its profiles on other sites", (
 })
 
 it("leaves og:locale:alternate to the root document, because route heads keep only one tag per property", () => {
-  const { meta } = buildPageHead({ locale: "pl-PL", pathname: ROUTES.BLOG })
+  const { meta } = buildPageHead({ locale: "pl-PL", pathname: ROUTES.BLOG.INDEX })
   expect(meta).toContainEqual({ content: "pl_PL", property: "og:locale" })
   expect(meta).not.toContainEqual(expect.objectContaining({ property: "og:locale:alternate" }))
 })
@@ -72,7 +72,7 @@ describe("article times", () => {
   })
 
   it("leaves both out of a page without dates", () => {
-    const { meta } = buildPageHead({ pathname: ROUTES.DOCS, type: "article" })
+    const { meta } = buildPageHead({ pathname: ROUTES.DOCS.INDEX, type: "article" })
 
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:published_time" }))
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:modified_time" }))
@@ -117,7 +117,7 @@ describe("social preview", () => {
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:section" }))
   })
 
-  it.each([ROUTES.API, `${ROUTES.API}/search`, `/pl-PL${ROUTES.API}`, `${ROUTES.COURSES}/the-walkthrough`])(
+  it.each([ROUTES.API.INDEX, `${ROUTES.API.INDEX}/search`, `/pl-PL${ROUTES.API.INDEX}`, `${ROUTES.COURSES}/the-walkthrough`])(
     "gives %s, which is not prerendered, the site card",
     (pathname) => {
       const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
@@ -153,7 +153,7 @@ describe("social preview", () => {
   })
 
   it("describes the card of a page without a title by the site name alone", () => {
-    const { meta } = buildPageHead({ pathname: ROUTES.DOCS })
+    const { meta } = buildPageHead({ pathname: ROUTES.DOCS.INDEX })
 
     expect(meta).toContainEqual({ content: APP_NAME, property: "og:title" })
     expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })

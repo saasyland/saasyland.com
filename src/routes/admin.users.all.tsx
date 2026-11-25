@@ -17,7 +17,7 @@ import { UserRowActions } from "~/src/presentation/components/custom/admin/users
 import { USER_GRID_ID, useUserColumns } from "~/src/presentation/components/custom/admin/users/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const UsersAllPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.users.table")
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/admin/users/all")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_USERS_ALL),
+  head: pageHead(ROUTES.ADMIN.USERS.ALL),
   pendingComponent: AdminUsersAllPending,
   staticData: { namespaces: [NAMESPACE] },
 })

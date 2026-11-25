@@ -10,7 +10,7 @@ import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const PostCta = (): JSX.Element => {
   const t = useTranslations("pages.blog.post.cta")
@@ -27,7 +27,7 @@ export const PostCta = (): JSX.Element => {
         <Link className={CTA_CLASSES.PRIMARY} hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>
           {t("primary")}
         </Link>
-        <Link className={CTA_CLASSES.SECONDARY} to={ROUTES.DOCS}>
+        <Link className={CTA_CLASSES.SECONDARY} to={ROUTES.DOCS.INDEX}>
           {t("secondary")}
           <ArrowRight
             aria-hidden

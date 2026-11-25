@@ -23,7 +23,7 @@ import { ACCOUNT_DELETION_NOTICES, DeleteAccountCard } from "~/src/presentation/
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations()
@@ -38,7 +38,7 @@ const SettingsPage = (): JSX.Element => {
       </header>
       <Tabs className="w-full gap-6" selectedKey={tab}>
         <div className="border-b border-border">
-          <SettingsTabs to={ROUTES.APP_SETTINGS} />
+          <SettingsTabs to={ROUTES.APP.SETTINGS.INDEX} />
         </div>
         <TabsContent className="flex flex-col gap-6 outline-none" id={SETTINGS_TAB.GENERAL}>
           <PreferencesCard />
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/app/settings")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.APP_SETTINGS),
+  head: pageHead(ROUTES.APP.SETTINGS.INDEX),
   pendingComponent: AppSettingsPending,
   search: { middlewares: [onlyDeclaredSearch(settingsSearchSchema), stripSearchParams({ tab: SETTINGS_TAB.GENERAL })] },
   staticData: { namespaces: [NAMESPACE] },

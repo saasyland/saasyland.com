@@ -11,7 +11,7 @@ import {
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 
 import { APP_PREVIEW_DOMAIN, APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SAMPLE_SIZE = 50
 const TOKEN = "e".repeat(NEWSLETTER_TOKEN_LENGTH)
@@ -48,23 +48,23 @@ describe("newsletter-subscriber.utils", () => {
     expect.hasAssertions()
 
     const options = { locale: I18N.DEFAULT_LOCALE, origin: APP_URL, token: TOKEN }
-    expect(confirmationUrl(options)).toBe(`${APP_URL}${ROUTES.NEWSLETTER_CONFIRM}?token=${TOKEN}`)
-    expect(unsubscribeUrl(options)).toBe(`${APP_URL}${ROUTES.NEWSLETTER_UNSUBSCRIBE}?token=${TOKEN}`)
+    expect(confirmationUrl(options)).toBe(`${APP_URL}${ROUTES.NEWSLETTER.CONFIRM}?token=${TOKEN}`)
+    expect(unsubscribeUrl(options)).toBe(`${APP_URL}${ROUTES.NEWSLETTER.UNSUBSCRIBE}?token=${TOKEN}`)
   })
 
   it("keeps a subscriber in the language they signed up in", () => {
     expect.hasAssertions()
 
-    expect(confirmationUrl({ locale: "pl-PL", origin: APP_URL, token: TOKEN })).toContain(`/pl-PL${ROUTES.NEWSLETTER_CONFIRM}`)
-    expect(unsubscribeUrl({ locale: "pl-PL", origin: APP_URL, token: TOKEN })).toContain(`/pl-PL${ROUTES.NEWSLETTER_UNSUBSCRIBE}`)
+    expect(confirmationUrl({ locale: "pl-PL", origin: APP_URL, token: TOKEN })).toContain(`/pl-PL${ROUTES.NEWSLETTER.CONFIRM}`)
+    expect(unsubscribeUrl({ locale: "pl-PL", origin: APP_URL, token: TOKEN })).toContain(`/pl-PL${ROUTES.NEWSLETTER.UNSUBSCRIBE}`)
   })
 
   it.each(["http://localhost:3000", "http://127.0.0.1:3020", `https://${APP_PREVIEW_DOMAIN}`, APP_URL])(
     "keeps newsletter action links on their originating deployment: %s",
     (origin) => {
       const options = { locale: "fr-FR" as const, origin, token: TOKEN }
-      expect(confirmationUrl(options)).toBe(`${origin}/fr-FR${ROUTES.NEWSLETTER_CONFIRM}?token=${TOKEN}`)
-      expect(unsubscribeUrl(options)).toBe(`${origin}/fr-FR${ROUTES.NEWSLETTER_UNSUBSCRIBE}?token=${TOKEN}`)
+      expect(confirmationUrl(options)).toBe(`${origin}/fr-FR${ROUTES.NEWSLETTER.CONFIRM}?token=${TOKEN}`)
+      expect(unsubscribeUrl(options)).toBe(`${origin}/fr-FR${ROUTES.NEWSLETTER.UNSUBSCRIBE}?token=${TOKEN}`)
     },
   )
 

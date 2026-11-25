@@ -39,14 +39,14 @@ import { recordOrder } from "~/src/modules/order/use-cases/record-order"
 import { subscription } from "~/src/modules/subscription/subscription.schema"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 vi.mock(import("~/src/modules/order/use-cases/record-order"), async (importOriginal) => {
   const actual = await importOriginal()
   return { recordOrder: vi.fn(actual.recordOrder) }
 })
 
-const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
+const WEBHOOKS_URL = new URL(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, TEST_APP_URL)
 
 const ONE_TIME = {
   id: "product-one-time",

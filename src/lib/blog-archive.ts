@@ -3,7 +3,7 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { BLOG_SORT, BLOG_TAGS, type BlogAuthor, type BlogSort, type BlogTag } from "~/src/data/blog"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const blogAuthorPath = (author: BlogAuthor): string => `${ROUTES.AUTHORS}/${author}`
 

@@ -12,7 +12,7 @@ import {
   verifyDeployment,
 } from "~/src/lib/deployment"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const answerSchema = zod.object({ problems: zod.array(zod.string()) })
 
@@ -192,10 +192,10 @@ describe("verifyDeployment on a site that answers wrongly", () => {
   })
 
   it("refuses an API endpoint that fails, as when the Worker is missing a secret", async () => {
-    serve({ [ROUTES.API]: page(500, JSON_BODY) })
+    serve({ [ROUTES.API.INDEX]: page(500, JSON_BODY) })
 
     await expectProductionRefusal(
-      productionRefusal(`GET ${PRODUCTION_ORIGIN}${ROUTES.API} answered 500 ${JSON_BODY} instead of 200 application/json.`),
+      productionRefusal(`GET ${PRODUCTION_ORIGIN}${ROUTES.API.INDEX} answered 500 ${JSON_BODY} instead of 200 application/json.`),
     )
   })
 

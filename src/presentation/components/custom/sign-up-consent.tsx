@@ -5,7 +5,7 @@ import { useTranslations } from "use-intl/react"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LEGAL_LINK_CLASS = "text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
 

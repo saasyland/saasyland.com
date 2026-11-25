@@ -16,7 +16,7 @@ import {
 import { ORGANIZATION_LOGO } from "~/src/lib/seo"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const GRAPH_NODES_WITHOUT_FAQ = 3
 
@@ -168,7 +168,7 @@ describe("blog structured data", () => {
         listed: POSTS.slice(0, 1),
         locale: "de-DE",
         offset: 0,
-        pathname: ROUTES.BLOG,
+        pathname: ROUTES.BLOG.INDEX,
         posts: POSTS,
         title: "Blog",
         total: POSTS.length,
@@ -207,13 +207,15 @@ describe("blog structured data", () => {
       listed: [],
       locale: "en-US",
       offset: 0,
-      pathname: ROUTES.BLOG,
+      pathname: ROUTES.BLOG.INDEX,
       posts: [],
       title: "Blog",
       total: 0,
     })
     expect(html).not.toContain("<")
-    expect(JSON.parse(html)).toMatchObject({ "@graph": [{ blogPost: [], description: "</script>", url: `${APP_URL}${ROUTES.BLOG}` }, {}] })
+    expect(JSON.parse(html)).toMatchObject({
+      "@graph": [{ blogPost: [], description: "</script>", url: `${APP_URL}${ROUTES.BLOG.INDEX}` }, {}],
+    })
   })
 
   it("describes a later archive page as part of the blog, with its posts numbered across the archive and its breadcrumbs", () => {

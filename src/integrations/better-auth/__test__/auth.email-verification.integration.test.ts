@@ -20,13 +20,13 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const A_MINUTE_MS = 60_000
 
 const verificationRequest = (email: string, callbackURL: string): Request => {
-  const query = new URLSearchParams({ callbackURL, token: emailToken(email, ROUTES.VERIFY_EMAIL) })
-  return browserRequest(`${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`)
+  const query = new URLSearchParams({ callbackURL, token: emailToken(email, ROUTES.AUTH.VERIFY_EMAIL) })
+  return browserRequest(`${ROUTES.API.AUTH.VERIFY_EMAIL}?${query}`)
 }
 
 describe("auth email verification", () => {
@@ -34,8 +34,8 @@ describe("auth email verification", () => {
     const { email } = await signUp()
 
     expect(getSentEmails(email)).toHaveLength(1)
-    expect(emailLink(email, ROUTES.VERIFY_EMAIL).pathname).toBe(ROUTES.VERIFY_EMAIL)
-    expect(emailToken(email, ROUTES.VERIFY_EMAIL)).not.toBe("")
+    expect(emailLink(email, ROUTES.AUTH.VERIFY_EMAIL).pathname).toBe(ROUTES.AUTH.VERIFY_EMAIL)
+    expect(emailToken(email, ROUTES.AUTH.VERIFY_EMAIL)).not.toBe("")
   })
 
   it("verifies the address and signs the user in", async () => {
@@ -49,7 +49,7 @@ describe("auth email verification", () => {
 
   it("sets a usable session cookie before redirecting the verification link to its localized callback", async () => {
     const { email } = await signUp()
-    const callbackURL = `${TEST_APP_URL}/pl-PL${ROUTES.VERIFY_EMAIL}?verified=true`
+    const callbackURL = `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.VERIFY_EMAIL}?verified=true`
 
     const response = await auth.handler(verificationRequest(email, callbackURL))
 
@@ -62,7 +62,7 @@ describe("auth email verification", () => {
 
   it("does not create another session when a signed-out user reopens an already-used verification link", async () => {
     const { email } = await signUp()
-    const callbackURL = `${TEST_APP_URL}${ROUTES.VERIFY_EMAIL}?verified=true`
+    const callbackURL = `${TEST_APP_URL}${ROUTES.AUTH.VERIFY_EMAIL}?verified=true`
     await auth.handler(verificationRequest(email, callbackURL))
 
     const response = await auth.handler(verificationRequest(email, callbackURL))
@@ -73,10 +73,10 @@ describe("auth email verification", () => {
   })
 
   it("redirects an invalid token to the localized error page without setting a session cookie", async () => {
-    const callbackURL = `${TEST_APP_URL}/pl-PL${ROUTES.VERIFY_EMAIL}?verified=true`
+    const callbackURL = `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.VERIFY_EMAIL}?verified=true`
     const query = new URLSearchParams({ callbackURL, token: "invalid-token" })
 
-    const response = await auth.handler(browserRequest(`${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`))
+    const response = await auth.handler(browserRequest(`${ROUTES.API.AUTH.VERIFY_EMAIL}?${query}`))
 
     expect(response.status).toBe(HTTP_STATUS.FOUND)
     expect(response.headers.get("location")).toBe(`${callbackURL}&error=INVALID_TOKEN`)
@@ -89,7 +89,7 @@ describe("auth email verification", () => {
 })
 
 const signInFrom = async (account: { email: string; password: string }, referer: string | undefined) => {
-  const request = postJson(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`, account)
+  const request = postJson(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`, account)
   if (referer !== undefined) {
     request.headers.set("referer", referer)
   }
@@ -106,21 +106,21 @@ describe("signing in before verifying", () => {
 
   it.each([
     {
-      link: `${TEST_APP_URL}/pl-PL${ROUTES.VERIFY_EMAIL}?redirect=%2Fpl-PL%2Fapp%3Ftier%3Dcomplete&amp;token=`,
-      referer: `${TEST_APP_URL}/pl-PL${ROUTES.SIGN_IN}?redirect=%2Fpl-PL%2Fapp%3Ftier%3Dcomplete`,
+      link: `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.VERIFY_EMAIL}?redirect=%2Fpl-PL%2Fapp%3Ftier%3Dcomplete&amp;token=`,
+      referer: `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.SIGN_IN}?redirect=%2Fpl-PL%2Fapp%3Ftier%3Dcomplete`,
       subject: "Potwierdź adres e-mail",
     },
     {
-      link: `${TEST_APP_URL}${ROUTES.VERIFY_EMAIL}?token=`,
-      referer: `${TEST_APP_URL}${ROUTES.SIGN_IN}`,
+      link: `${TEST_APP_URL}${ROUTES.AUTH.VERIFY_EMAIL}?token=`,
+      referer: `${TEST_APP_URL}${ROUTES.AUTH.SIGN_IN}`,
       subject: "Verify your email address",
     },
     {
-      link: `${TEST_APP_URL}${ROUTES.VERIFY_EMAIL}?token=`,
-      referer: `https://example.org/pl-PL${ROUTES.SIGN_IN}?redirect=%2Fpl-PL%2Fapp`,
+      link: `${TEST_APP_URL}${ROUTES.AUTH.VERIFY_EMAIL}?token=`,
+      referer: `https://example.org/pl-PL${ROUTES.AUTH.SIGN_IN}?redirect=%2Fpl-PL%2Fapp`,
       subject: "Verify your email address",
     },
-    { link: `${TEST_APP_URL}${ROUTES.VERIFY_EMAIL}?token=`, referer: undefined, subject: "Verify your email address" },
+    { link: `${TEST_APP_URL}${ROUTES.AUTH.VERIFY_EMAIL}?token=`, referer: undefined, subject: "Verify your email address" },
   ])(
     "refuses the session and sends a fresh link in the language and with the return path of the sign-in page $referer",
     async ({ link, referer, subject }) => {

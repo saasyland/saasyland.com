@@ -34,7 +34,7 @@ import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.
 import plContentNavigationMessages from "~/messages/pl-PL/navigation.content.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
@@ -257,7 +257,7 @@ describe("the author page", () => {
     expect(posts.getByRole("link", { name: RELATED.title })).toHaveAttribute("href", RELATED.url)
     expect(posts.getByText("1 post")).toBeVisible()
     expect(screen.getByText(pagesBlogMessages.author.disclaimer)).toBeVisible()
-    expect(screen.getByRole("link", { name: pagesBlogMessages.post.backToBlog })).toHaveAttribute("href", ROUTES.BLOG)
+    expect(screen.getByRole("link", { name: pagesBlogMessages.post.backToBlog })).toHaveAttribute("href", ROUTES.BLOG.INDEX)
   })
 
   it("describes the author page as a profile of the author in the page's language", async () => {
@@ -409,7 +409,7 @@ describe("the posts beside a post", () => {
 
 describe("blog pages", () => {
   it("starts the blog below the fixed site header", async () => {
-    await renderBlog({ locale: "en-US", path: ROUTES.BLOG })
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX })
     expect(screen.getByRole("main")).toHaveClass("pt-header")
   })
 

@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -45,7 +45,7 @@ export const fillCourse = async (page: Page, { slug, status = "Published", title
 }
 
 export const createCourse = async (page: Page, appPage: BasePage, course: DraftCourse): Promise<string> => {
-  await page.goto(ROUTES.ADMIN_COURSES_CREATE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.COURSES.CREATE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await fillCourse(page, course)
   await page.getByRole("button", { name: "Create course" }).click()
@@ -92,7 +92,7 @@ export const addLesson = async (
 }
 
 export const deleteCourse = async (page: Page, appPage: BasePage, { slug, title }: DraftCourse): Promise<void> => {
-  await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.COURSES.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   const row = page.getByRole("row").filter({ hasText: slug })
   await chooseRowAction(row, `Actions for ${title}`, "Delete")

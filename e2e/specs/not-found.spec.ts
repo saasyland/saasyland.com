@@ -4,7 +4,7 @@ import type { SupportedLocale } from "../../src/integrations/use-intl/i18n.confi
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ROBOTS, buildTitle } from "../../src/lib/seo"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import enCommon from "../../messages/en-US/common.json" with { type: "json" }
 import enNotFound from "../../messages/en-US/errors.not-found.json" with { type: "json" }
 import plCommon from "../../messages/pl-PL/common.json" with { type: "json" }
@@ -26,13 +26,13 @@ const MISSING_PAGES = [
   { locale: "en-US", path: `/${MISSING}` },
   { locale: "en-US", path: `/${MISSING}/deeper/still` },
   { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `/${MISSING}` }) },
-  { locale: "en-US", path: `${ROUTES.AUTH}/${MISSING}` },
-  { locale: "en-US", path: `${ROUTES.APP}/${MISSING}` },
-  { locale: "en-US", path: `${ROUTES.BLOG}/${MISSING}` },
-  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `${ROUTES.BLOG}/${MISSING}` }) },
+  { locale: "en-US", path: `${ROUTES.AUTH.BASE}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.APP.INDEX}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.BLOG.INDEX}/${MISSING}` },
+  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `${ROUTES.BLOG.INDEX}/${MISSING}` }) },
   { locale: "en-US", path: `${ROUTES.COURSES}/${MISSING}` },
   { locale: "en-US", path: `${ROUTES.COURSES}/${TEST_COURSE.slug}/${MISSING}` },
-  { locale: "en-US", path: `${ROUTES.DOCS}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.DOCS.INDEX}/${MISSING}` },
 ] as const
 
 const visit = async (page: Page, path: string): Promise<number | undefined> => {
@@ -84,7 +84,7 @@ test("has no /premium page any more", async ({ page }) => {
 })
 
 test("navigating to a missing page in the browser shows the same page and title", async ({ page }) => {
-  await visit(page, ROUTES.BLOG)
+  await visit(page, ROUTES.BLOG.INDEX)
   await page.evaluate((path) => {
     window.history.pushState({}, "", path)
     window.dispatchEvent(new PopStateEvent("popstate"))

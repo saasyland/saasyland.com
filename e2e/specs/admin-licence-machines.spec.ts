@@ -4,7 +4,7 @@ import { createTranslator } from "use-intl"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_ACTIVATION_LIMITS } from "../../src/modules/license/license.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE, TEST_TIER_LICENSES } from "../data/licenses"
@@ -38,7 +38,7 @@ test("the customers tab and the profile show the machines a licence has activate
   page,
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_USERS_CUSTOMERS)
+  await page.goto(ROUTES.ADMIN.USERS.CUSTOMERS)
   await appPage.waitForAppReady()
 
   await page.getByRole("searchbox", { name: customersMessages.search }).fill(licensee.email)
@@ -52,7 +52,7 @@ test("the customers tab and the profile show the machines a licence has activate
   await page.keyboard.press("Escape")
 
   await row.getByRole("link", { exact: true, name: licensee.name }).click()
-  await expect(page).toHaveURL(`${ROUTES.ADMIN_USERS}/${licensee.id}`)
+  await expect(page).toHaveURL(`${ROUTES.ADMIN.USERS.INDEX}/${licensee.id}`)
   const machines = page.getByRole("region", { name: activations.title })
   await expect(machines).toContainText(machinesInUse)
   await expect(machines.getByRole("listitem")).toHaveText(
@@ -62,7 +62,7 @@ test("the customers tab and the profile show the machines a licence has activate
 
 test("a licence whose key Polar does not answer for keeps its card and says Polar could not be reached", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(`${ROUTES.ADMIN_USERS}/${unreadable.user.id}`)
+  await page.goto(`${ROUTES.ADMIN.USERS.INDEX}/${unreadable.user.id}`)
   await appPage.waitForAppReady()
 
   const machines = page.getByRole("region", { name: activations.title })
@@ -72,7 +72,7 @@ test("a licence whose key Polar does not answer for keeps its card and says Pola
 
 test("the profile's licence card names the first paid lesson the licence opened and its course", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(`${ROUTES.ADMIN_USERS}/${licensee.id}`)
+  await page.goto(`${ROUTES.ADMIN.USERS.INDEX}/${licensee.id}`)
   await appPage.waitForAppReady()
 
   const firstLesson = page.getByText(licenseMessages.details.firstLesson, { exact: true }).locator("xpath=following-sibling::dd")

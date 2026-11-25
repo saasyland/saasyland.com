@@ -18,7 +18,7 @@ import { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
 import { Button, type ButtonVariantProps } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type CheckoutPlace = Pick<Order["startCheckout"], "locale" | "returnPath">
 
@@ -103,9 +103,9 @@ export const CheckoutButton = ({ children, productId }: CheckoutButtonProps): JS
     <PolarCheckoutButton
       checkout={startCheckoutMutation}
       onPaid={(checkoutId) => {
-        void navigate({ search: { checkoutId }, to: ROUTES.APP_BILLING })
+        void navigate({ search: { checkoutId }, to: ROUTES.APP.BILLING })
       }}
-      variables={(place) => ({ ...place, productId, successPath: ROUTES.APP_BILLING })}
+      variables={(place) => ({ ...place, productId, successPath: ROUTES.APP.BILLING })}
     >
       {children}
     </PolarCheckoutButton>

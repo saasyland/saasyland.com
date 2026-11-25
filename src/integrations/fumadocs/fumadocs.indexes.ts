@@ -19,7 +19,7 @@ import { docsIcon } from "~/src/integrations/fumadocs/fumadocs.icons"
 import { blogSchema } from "~/src/integrations/fumadocs/fumadocs.schema"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const DOCS_DIRECTORY = docs.docs.dir
 export const BLOG_DIRECTORY = blog.dir
@@ -77,13 +77,13 @@ const toBlogFile = ({ path, source }: ContentFile): StaticSource<{ metaData: Met
 const createDocsSource = async (root: string) => {
   const files = await readContent({ directory: DOCS_DIRECTORY, pattern: DOCS_FILES, root })
 
-  return loader({ baseUrl: ROUTES.DOCS, i18n, icon: docsIcon, source: { files: files.map((file) => toDocsFile(file)) } })
+  return loader({ baseUrl: ROUTES.DOCS.INDEX, i18n, icon: docsIcon, source: { files: files.map((file) => toDocsFile(file)) } })
 }
 
 const createBlogSource = async (root: string) => {
   const files = await readContent({ directory: BLOG_DIRECTORY, pattern: BLOG_FILES, root })
 
-  return loader({ baseUrl: ROUTES.BLOG, i18n, source: { files: files.map((file) => toBlogFile(file)) } })
+  return loader({ baseUrl: ROUTES.BLOG.INDEX, i18n, source: { files: files.map((file) => toBlogFile(file)) } })
 }
 
 type DocsSource = Awaited<ReturnType<typeof createDocsSource>>

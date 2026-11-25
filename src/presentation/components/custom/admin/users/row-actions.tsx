@@ -32,7 +32,7 @@ import { EditUserDialog } from "~/src/presentation/components/custom/admin/users
 import { ResetPasswordDialog } from "~/src/presentation/components/custom/admin/users/reset-password-dialog"
 import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type UserDialog = "ban" | "delete" | "edit" | "resetPassword"
 
@@ -70,7 +70,7 @@ export const UserActions = ({ user }: { readonly user: User["select"] }): JSX.El
     onSuccess: async () => {
       removeUserData(queryClient)
       router.clearCache()
-      await router.navigate({ replace: true, to: ROUTES.APP })
+      await router.navigate({ replace: true, to: ROUTES.APP.INDEX })
       toast.success(t("actions.feedback.impersonateSuccess", { name: user.name }))
     },
   })

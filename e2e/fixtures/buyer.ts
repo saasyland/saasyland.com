@@ -2,7 +2,7 @@ import { type APIRequestContext, type Page, request as requests } from "@playwri
 import * as zod from "zod"
 
 import { IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import { expectVerificationEmail } from "./emails"
 import { expect } from "./test"
@@ -21,7 +21,7 @@ export const ownAddress = (): string => `2001:db8:${crypto.randomUUID().slice(0,
 
 const signUp = async (request: APIRequestContext, baseURL: string | undefined): Promise<Buyer> => {
   const email = `buyer.${crypto.randomUUID()}@example.test`
-  const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`, {
+  const response = await request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_UP_EMAIL}`, {
     data: { email, name: BUYER_NAME, password: BUYER_PASSWORD },
     headers: { [IP_ADDRESS_HEADER]: ownAddress(), origin: String(baseURL) },
   })

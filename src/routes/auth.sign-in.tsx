@@ -20,7 +20,7 @@ import { SignInPending } from "~/src/presentation/components/custom/auth/auth-pe
 import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SIGNED_IN_PAGES = [...APP_NAVIGATION, ...ADMIN_NAVIGATION.flatMap(({ items }) => items)]
 
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/auth/sign-in")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.SIGN_IN),
+  head: pageHead(ROUTES.AUTH.SIGN_IN),
   pendingComponent: SignInPending,
   staticData: { namespaces: [NAMESPACE] },
 })

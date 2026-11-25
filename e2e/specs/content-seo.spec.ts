@@ -12,7 +12,7 @@ import { BLOG_FEED_TYPE, blogFeedPath } from "../../src/lib/feed"
 import { readPageHead } from "../../src/lib/page-head"
 import { PAGES_SITEMAP_PATH } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"
@@ -21,11 +21,11 @@ const URL_ENTRY = /<url>\s*<loc>(?<url>[^<]+)<\/loc>\s*(?:<lastmod>(?<lastmod>[^
 const BLOG_POST_FILE = /^(?<slug>.+)\.(?<locale>[^.]+)\.mdx$/u
 const FEED_ITEM = /<item>\s*<title>[^<]*<\/title>\s*<link>(?<link>[^<]+)<\/link>[\s\S]*?<pubDate>(?<published>[^<]+)<\/pubDate>/gu
 const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
-const POST_PREFIX = `${ROUTES.BLOG}/`
+const POST_PREFIX = `${ROUTES.BLOG.INDEX}/`
 const ARCHIVE_PREFIX = `${POST_PREFIX}${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 const UNPUBLISHED = /^published:\s*false\s*$/mu
-const BLOG_POST = `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
-const DOCS_PAGE = `${ROUTES.DOCS}/conventions/files-and-naming`
+const BLOG_POST = `${ROUTES.BLOG.INDEX}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`
+const DOCS_PAGE = `${ROUTES.DOCS.INDEX}/conventions/files-and-naming`
 
 const postFileSchema = zod.object({ locale: zod.enum(I18N.SUPPORTED_LOCALES), slug: zod.string() })
 const postDatesSchema = zod.object({ date: zod.string(), published: zod.boolean().default(true), updated: zod.string().optional() })
@@ -34,7 +34,7 @@ const publishedPostDates = (): [string, string][] =>
   globSync("content/blog/*.mdx").flatMap((file) => {
     const { locale, slug } = postFileSchema.parse(BLOG_POST_FILE.exec(basename(file))?.groups)
     const { date, published, updated = date } = postDatesSchema.parse(frontmatter(readFileSync(file, "utf8")).data)
-    const url = `${APP_URL}${localizePathname({ locale, pathname: `${ROUTES.BLOG}/${slug}` })}`
+    const url = `${APP_URL}${localizePathname({ locale, pathname: `${ROUTES.BLOG.INDEX}/${slug}` })}`
 
     return published ? [[url, updated]] : []
   })
@@ -60,7 +60,7 @@ test("the sitemap dates every published blog post in every locale by its last up
   expect(Object.fromEntries(dated)).toStrictEqual(Object.fromEntries(posts))
 })
 
-for (const path of [ROUTES.BLOG, BLOG_POST, `/ja-JP${ROUTES.BLOG}`, `/ja-JP${BLOG_POST}`]) {
+for (const path of [ROUTES.BLOG.INDEX, BLOG_POST, `/ja-JP${ROUTES.BLOG.INDEX}`, `/ja-JP${BLOG_POST}`]) {
   test(`${path} names the blog feed of its own language`, async ({ page }) => {
     await page.goto(path)
     const locale = path.startsWith("/ja-JP") ? "ja-JP" : I18N.DEFAULT_LOCALE

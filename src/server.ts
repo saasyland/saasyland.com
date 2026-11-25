@@ -16,7 +16,7 @@ import { serializeCookie } from "~/src/lib/cookie"
 import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 
 import { fontPreloads } from "~/src/presentation/document-assets"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const HTML = /^text\/html(?:\s*;|$)/iu
 
@@ -59,7 +59,7 @@ const REQUEST_HANDLERS: readonly RequestHandler[] = [
 
       return serveCourseSitemap(request)
     },
-    pathPrefix: ROUTES.COURSES_SITEMAP,
+    pathPrefix: ROUTES.SITEMAPS.COURSES,
   },
   {
     fetch: async (request) => {

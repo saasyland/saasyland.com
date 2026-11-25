@@ -17,7 +17,7 @@ import { ACCOUNT_DELETION_NOTICES } from "~/src/presentation/components/custom/s
 
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type CurrentLicense = Omit<License["select"], "key">
 

@@ -14,7 +14,7 @@ import type { Video } from "~/src/modules/video/video.types"
 
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export type PlayerProps = ComponentProps<typeof VideoPlayer>
 
@@ -61,7 +61,7 @@ export const withRedirect = (page: string, path: string): string => `${page}?${n
 
 export const SIGNED_IN_UNLOCK = ROUTES.COURSES
 
-export const SIGNED_OUT_UNLOCK = withRedirect(ROUTES.SIGN_UP, SIGNED_IN_UNLOCK)
+export const SIGNED_OUT_UNLOCK = withRedirect(ROUTES.AUTH.SIGN_UP, SIGNED_IN_UNLOCK)
 
 export const PLAYBACK: Video["playback"] = {
   captions: [],

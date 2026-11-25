@@ -19,7 +19,7 @@ import {
 } from "~/src/presentation/components/custom/admin/newsletter/newsletter-issue-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NewsletterIssuesPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.newsletter.issues")
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/newsletter/issues")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_NEWSLETTER_ISSUES),
+  head: pageHead(ROUTES.ADMIN.NEWSLETTER.ISSUES),
   pendingComponent: AdminNewsletterIssuesPending,
   staticData: { namespaces: [NAMESPACE] },
 })

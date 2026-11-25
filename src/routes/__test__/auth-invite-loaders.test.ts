@@ -13,7 +13,7 @@ import { expectLocalizedAdminPage, loadAsAdmin } from "~/src/routes/__test__/fix
 
 import { sha256Hex } from "~/src/lib/hex"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const TOKEN = "b".repeat(INVITATION_TOKEN_LENGTH)
 const INVITED = "invitee@example.test"
@@ -34,7 +34,7 @@ describe("invitation page loader", () => {
       tokenHash: await sha256Hex(TOKEN),
     })
 
-    const router = await loadAsAdmin(`${ROUTES.ACCEPT_INVITATION}?${new URLSearchParams({ token: TOKEN }).toString()}`)
+    const router = await loadAsAdmin(`${ROUTES.AUTH.INVITE}?${new URLSearchParams({ token: TOKEN }).toString()}`)
 
     expectLocalizedAdminPage(router)
     expect(router.options.context.queryClient.getQueryData(invitationQuery({ token: TOKEN }).queryKey)).toStrictEqual({
@@ -43,7 +43,7 @@ describe("invitation page loader", () => {
   })
 
   it.each(["", "?token=too-short"])("loads the session but looks up no invitation for the link %j", async (search) => {
-    const router = await loadAsAdmin(`${ROUTES.ACCEPT_INVITATION}${search}`)
+    const router = await loadAsAdmin(`${ROUTES.AUTH.INVITE}${search}`)
 
     expectLocalizedAdminPage(router)
     expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: INVITATION_QUERY_KEYS.DETAIL })).toStrictEqual([])

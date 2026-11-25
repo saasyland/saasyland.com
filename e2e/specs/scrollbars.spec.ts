@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages/auth-page"
@@ -79,7 +79,7 @@ test("a public page keeps its column in place whether or not it scrolls", async 
 })
 
 test("an auth page keeps its form in place whether or not it scrolls", async ({ appPage, page }) => {
-  await page.goto(ROUTES.SIGN_UP)
+  await page.goto(ROUTES.AUTH.SIGN_UP)
   await appPage.waitForAppReady()
   await expectPageToStayWhenItFits(page, page.locator("html"))
 })
@@ -89,7 +89,7 @@ test("an admin page keeps its content in place whether or not it scrolls, and th
   authPage,
   page,
 }) => {
-  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN)
+  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN.INDEX)
   await expectPageToStayWhenItFits(page, page.locator("[data-page-scroller]"))
   expect(await boxOf(page.locator("body"))).toEqual({ left: 0, width: WINDOW.width })
 })
@@ -102,12 +102,12 @@ test("the window keeps the scrollbar's room on a page that fits", async ({ appPa
 })
 
 test("opening the docs search leaves the docs page in place", async ({ appPage, page }) => {
-  await openScrollingPage({ appPage, page }, ROUTES.DOCS)
+  await openScrollingPage({ appPage, page }, ROUTES.DOCS.INDEX)
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /^Search/u }), page.getByRole("dialog"))
 })
 
 test("opening the language select leaves the docs page in place", async ({ appPage, page }) => {
-  await openScrollingPage({ appPage, page }, ROUTES.DOCS)
+  await openScrollingPage({ appPage, page }, ROUTES.DOCS.INDEX)
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /Choose a language/u }), page.getByRole("listbox"))
 })
 
@@ -126,7 +126,7 @@ test("opening and closing the site menu leaves the page in place", async ({ appP
 })
 
 test("opening a dialog leaves the admin page in place", async ({ appPage, authPage, page }) => {
-  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN_USERS_ALL)
+  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN.USERS.ALL)
   await expectPageToStayWhileOpen(
     page,
     page.getByRole("button", { name: "Add user", exact: true }),
@@ -135,11 +135,11 @@ test("opening a dialog leaves the admin page in place", async ({ appPage, authPa
 })
 
 test("opening a menu leaves the admin page in place", async ({ appPage, authPage, page }) => {
-  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN_USERS_ALL)
+  await openAdminPage({ appPage, authPage, page }, ROUTES.ADMIN.USERS.ALL)
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /^Actions for /u }).first(), page.getByRole("menu"))
 })
 
-for (const path of [ROUTES.HOME, ROUTES.SIGN_IN]) {
+for (const path of [ROUTES.HOME, ROUTES.AUTH.SIGN_IN]) {
   test(`the window behind the dark page at ${path} takes its background in the light theme`, async ({ appPage, page }) => {
     await page.emulateMedia({ colorScheme: "light" })
     await page.goto(path)

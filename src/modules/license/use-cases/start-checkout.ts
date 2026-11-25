@@ -20,7 +20,7 @@ import { CHECKOUT_RATE_LIMIT, CHECKOUT_RATE_LIMIT_KIND } from "~/src/modules/ord
 
 import { TIER_PRICES } from "~/src/data/license"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface TierPrice {
   readonly amount: number
@@ -66,7 +66,7 @@ export const startCheckout = createServerFn({ method: "POST" })
 
     return createCheckout(
       context,
-      { locale, productId: POLAR_PRODUCT_IDS[tier], returnPath, successPath: `${ROUTES.APP}?${purchase.toString()}` },
+      { locale, productId: POLAR_PRODUCT_IDS[tier], returnPath, successPath: `${ROUTES.APP.INDEX}?${purchase.toString()}` },
       checkoutTerms(price, tier),
     )
   })

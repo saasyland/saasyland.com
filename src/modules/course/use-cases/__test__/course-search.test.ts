@@ -11,7 +11,7 @@ import { IDS, LESSON_IDS, USERS, seedCatalogue } from "~/src/modules/course/__te
 import { searchCoursesQuery } from "~/src/modules/course/use-cases/search-courses"
 import { searchLessonsQuery } from "~/src/modules/lesson/use-cases/search-lessons"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const signInAs = (role: string): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))
@@ -29,7 +29,7 @@ describe("searchCourses", () => {
   it("finds a course by its title in any language or by its slug and names it in the admin's language", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    const walkthrough = { detail: "the-walkthrough", id: IDS.COURSE, to: `${ROUTES.ADMIN_COURSES}/${IDS.COURSE}` }
+    const walkthrough = { detail: "the-walkthrough", id: IDS.COURSE, to: `${ROUTES.ADMIN.COURSES.INDEX}/${IDS.COURSE}` }
 
     await expect(executeQuery(searchCoursesQuery({ locale: "pl-PL", text: "walkthrough" }))).resolves.toStrictEqual([
       { ...walkthrough, title: "Przewodnik" },
@@ -62,7 +62,7 @@ describe("searchLessons", () => {
         detail: "Przewodnik",
         id: LESSON_IDS.PREVIEW,
         title: "Granice",
-        to: `${ROUTES.ADMIN_COURSES}/${IDS.COURSE}/lessons/${LESSON_IDS.PREVIEW}`,
+        to: `${ROUTES.ADMIN.COURSES.INDEX}/${IDS.COURSE}/lessons/${LESSON_IDS.PREVIEW}`,
       },
     ])
     await expect(executeQuery(searchLessonsQuery({ locale: "en-US", text: "billing" }))).resolves.toMatchObject([

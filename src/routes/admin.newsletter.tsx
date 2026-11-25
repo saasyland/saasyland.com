@@ -14,18 +14,18 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminNewsletterPending } from "~/src/presentation/components/custom/admin/newsletter-pending"
 import { NEWSLETTER_TABS, NewsletterTabs } from "~/src/presentation/components/custom/admin/newsletter/newsletter-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const AdminNewsletterLayout = (): JSX.Element => {
   const t = useTranslations("pages.admin.newsletter")
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const selectedTab = NEWSLETTER_TABS.find((tab) => tab.to === pathname)?.to ?? ROUTES.ADMIN_NEWSLETTER
+  const selectedTab = NEWSLETTER_TABS.find((tab) => tab.to === pathname)?.to ?? ROUTES.ADMIN.NEWSLETTER.INDEX
 
   return (
     <Tabs className="min-h-0 w-full flex-1 animate-in gap-0 duration-500 fade-in-50" selectedKey={selectedTab}>
       <AdminPageHeader
         actions={
-          <LinkButton className="h-9 gap-2" size="sm" to={ROUTES.ADMIN_NEWSLETTER_COMPOSE}>
+          <LinkButton className="h-9 gap-2" size="sm" to={ROUTES.ADMIN.NEWSLETTER.COMPOSE}>
             <SquarePen aria-hidden className="size-4" />
             {t("newIssue")}
           </LinkButton>

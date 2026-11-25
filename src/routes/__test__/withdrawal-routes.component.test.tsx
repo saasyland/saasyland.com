@@ -13,7 +13,7 @@ import { Route as WithdrawalRoute } from "~/src/routes/_site._marketing.withdraw
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import pageMessages from "~/messages/en-US/pages.withdrawal.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const t = createTranslator({ locale: "en-US", messages: pageMessages })
 
@@ -37,7 +37,7 @@ describe("withdrawal page", () => {
     const refunds = screen.getByRole("link", { name: "Refund Policy" })
     expect(refunds).toHaveAttribute("href", ROUTES.REFUNDS)
     expect(refunds.closest("p")?.textContent).toBe(t.markup("rights", { days: REFUND_TERMS.WITHDRAWAL_DAYS, refunds: (chunks) => chunks }))
-    expect(screen.getByRole("link", { name: "licence page" })).toHaveAttribute("href", ROUTES.APP_LICENSE)
+    expect(screen.getByRole("link", { name: "licence page" })).toHaveAttribute("href", ROUTES.APP.LICENSE)
     const statement = screen.getByRole("heading", { level: 2, name: pageMessages.form.title }).closest<HTMLElement>("[data-slot=card]")
     if (statement === null) {
       throw new Error("The statement is outside a card")

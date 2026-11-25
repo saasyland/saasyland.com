@@ -8,7 +8,7 @@ import { cn } from "~/src/lib/cn"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NAV_WIDTHS = ["w-28", "w-16", "w-24", "w-22", "w-18", "w-20", "w-26", "w-19", "w-17", "w-21"]
 const LIST_WIDTHS = ["w-full", "w-11/12", "w-4/5", "w-5/6"]
@@ -74,7 +74,7 @@ export const DocsIndexPending = (): JSX.Element => <DocsContentPending breadcrum
 export const DocsPagePending = (): JSX.Element => <DocsContentPending breadcrumb />
 
 export const DocsPending = (): JSX.Element => {
-  const isIndex = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.DOCS })
+  const isIndex = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.DOCS.INDEX })
 
   return (
     <div aria-busy="true" className="mx-auto flex min-h-dvh w-full max-w-site pt-header md:px-10">

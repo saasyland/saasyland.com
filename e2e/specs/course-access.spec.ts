@@ -1,7 +1,7 @@
 import { TIER_PRICES } from "../../src/data/license"
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/auth"

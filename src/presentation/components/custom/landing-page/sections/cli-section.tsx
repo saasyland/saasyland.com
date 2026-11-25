@@ -12,7 +12,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const FRAME_DELAY_MS = 100
 
@@ -49,7 +49,7 @@ const GeneratedStack = (): JSX.Element => {
         roadmap: (chunks: ReactNode) => (
           <Link
             className="rounded-sm text-foreground underline underline-offset-4 outline-none hover:text-muted-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
-            href={ROUTES.DOCS_ROADMAP}
+            href={ROUTES.DOCS.PROJECT.ROADMAP}
           >
             {chunks}
           </Link>

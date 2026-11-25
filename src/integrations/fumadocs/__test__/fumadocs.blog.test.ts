@@ -18,7 +18,7 @@ import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_HIGHLIGHTS, BLOG_TAG, FEATURED_BLOG_POS
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const POST: BlogPost = {
   author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
@@ -101,8 +101,8 @@ describe("featured blog posts", () => {
     const posts = [post("newest"), post(SECOND_FEATURED), post(FIRST_FEATURED)]
 
     expect(featuredBlogPosts(posts).map(({ url }) => url)).toStrictEqual([
-      `${ROUTES.BLOG}/${FIRST_FEATURED}`,
-      `${ROUTES.BLOG}/${SECOND_FEATURED}`,
+      `${ROUTES.BLOG.INDEX}/${FIRST_FEATURED}`,
+      `${ROUTES.BLOG.INDEX}/${SECOND_FEATURED}`,
     ])
   })
 })
@@ -153,8 +153,8 @@ describe("blog archive pages", () => {
   })
 
   it("puts the first page at the blog itself and every other page under its number", () => {
-    expect(blogArchivePath(BLOG_ARCHIVE.FIRST_PAGE)).toBe(ROUTES.BLOG)
-    expect(blogArchivePath(3)).toBe(`${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/3`)
+    expect(blogArchivePath(BLOG_ARCHIVE.FIRST_PAGE)).toBe(ROUTES.BLOG.INDEX)
+    expect(blogArchivePath(3)).toBe(`${ROUTES.BLOG.INDEX}/${BLOG_ARCHIVE.PAGE_SEGMENT}/3`)
   })
 
   it("slices the posts of one page", () => {
@@ -167,7 +167,7 @@ describe("blog archive pages", () => {
   it("names the previous and next pages where they exist", () => {
     expect(blogArchiveSequence({ page: 1, pages: 1 })).toStrictEqual({})
     expect(blogArchiveSequence({ page: 1, pages: 3 })).toStrictEqual({ next: blogArchivePath(2) })
-    expect(blogArchiveSequence({ page: 2, pages: 3 })).toStrictEqual({ next: blogArchivePath(3), previous: ROUTES.BLOG })
+    expect(blogArchiveSequence({ page: 2, pages: 3 })).toStrictEqual({ next: blogArchivePath(3), previous: ROUTES.BLOG.INDEX })
     expect(blogArchiveSequence({ page: 3, pages: 3 })).toStrictEqual({ previous: blogArchivePath(2) })
   })
 })

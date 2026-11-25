@@ -23,11 +23,11 @@ import { UserWidget } from "~/src/presentation/components/custom/admin/user-widg
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const isActiveUrl = (pathname: string, url: string): boolean => {
-  if (url === ROUTES.ADMIN) {
-    return pathname === ROUTES.ADMIN
+  if (url === ROUTES.ADMIN.INDEX) {
+    return pathname === ROUTES.ADMIN.INDEX
   }
 
   return pathname === url || pathname.startsWith(`${url}/`)
@@ -64,7 +64,7 @@ export const AdminSidebar = (): JSX.Element => {
                   return (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuLink
-                        activeOptions={{ exact: item.to === ROUTES.ADMIN }}
+                        activeOptions={{ exact: item.to === ROUTES.ADMIN.INDEX }}
                         className="relative h-8 gap-2.5 rounded-md px-2 text-body-sm transition-colors duration-200 ease-exp before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent group-data-[collapsible=icon]:before:hidden data-active:font-medium data-active:before:bg-ring"
                         to={item.to}
                         isActive={isActive}

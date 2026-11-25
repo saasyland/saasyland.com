@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test"
 
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import type { BasePage } from "../pages/base-page"
 
@@ -14,9 +14,9 @@ const STACKED_WINDOWS = [
   { height: 844, width: 390 },
 ] as const
 
-const AUTH_PAGES = [ROUTES.SIGN_IN, ROUTES.SIGN_UP, ROUTES.FORGOT_PASSWORD, ROUTES.RESET_PASSWORD, ROUTES.VERIFY_EMAIL, ROUTES.TWO_FACTOR] as const
+const AUTH_PAGES = [ROUTES.AUTH.SIGN_IN, ROUTES.AUTH.SIGN_UP, ROUTES.AUTH.FORGOT_PASSWORD, ROUTES.AUTH.RESET_PASSWORD, ROUTES.AUTH.VERIFY_EMAIL, ROUTES.AUTH.TWO_FACTOR] as const
 
-const FITTING_PAGES = AUTH_PAGES.filter((path) => path !== ROUTES.SIGN_UP)
+const FITTING_PAGES = AUTH_PAGES.filter((path) => path !== ROUTES.AUTH.SIGN_UP)
 
 interface Box {
   bottom: number

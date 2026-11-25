@@ -12,7 +12,7 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CourseCreatePage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.create")
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/admin/courses/create")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_COURSES_CREATE),
+  head: pageHead(ROUTES.ADMIN.COURSES.CREATE),
   pendingComponent: AdminCourseCreatePending,
   staticData: { namespaces: [NAMESPACE] },
 })

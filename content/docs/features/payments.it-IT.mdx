@@ -17,7 +17,7 @@ I pagamenti passano da Polar tramite il plugin `@polar-sh/better-auth`, che `plu
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -25,11 +25,11 @@ I pagamenti passano da Polar tramite il plugin `@polar-sh/better-auth`, che `plu
     },
 ```
 
-Il plugin aggiunge il portale clienti e i webhook, che `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` in `rateLimit.customRules` esclude dal rate limiter di Better Auth, ma nessun checkout: il suo `checkout()` creerebbe un checkout con il solo ID dell’account, per cui Polar chiederebbe di nuovo l’email a un acquirente che ha già effettuato l’accesso. Better Auth non chiude alcun percorso via HTTP, quindi `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` verifica che il percorso del checkout del plugin risponda 404 e fallisce non appena si aggiunge `checkout()` al plugin. I checkout partono invece dal modulo degli ordini, con l’SDK di Polar (vedi [Checkout](#checkout)).
+Il plugin aggiunge il portale clienti e i webhook, che `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` in `rateLimit.customRules` esclude dal rate limiter di Better Auth, ma nessun checkout: il suo `checkout()` creerebbe un checkout con il solo ID dell’account, per cui Polar chiederebbe di nuovo l’email a un acquirente che ha già effettuato l’accesso. Better Auth non chiude alcun percorso via HTTP, quindi `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` verifica che il percorso del checkout del plugin risponda 404 e fallisce non appena si aggiunge `checkout()` al plugin. I checkout partono invece dal modulo degli ordini, con l’SDK di Polar (vedi [Checkout](#checkout)).
 
 Il secondo elemento, `polar-verified-customer`, è un plugin a sé che esegue `requireVerifiedEmail` (`auth.hooks.ts`) prima di ogni endpoint sotto `/customer/`, quindi il portale clienti risponde `403 EMAIL_NOT_VERIFIED` finché l’indirizzo dell’account non è confermato ([Verifica dell’email](/docs/features/email-verification)).
 
-`src/integrations/polar/polar.config.ts` crea `polarCore` da `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, che il plugin usa, e `polar`, i servizi per checkout, chiavi di licenza, ordini e prodotti costruiti su di esso. `POLAR_ORGANIZATION_ID` circoscrive all’organizzazione ogni chiamata a Polar che nomina un’organizzazione; [Ambiente e binding](/docs/reference/environment) le elenca. `src/integrations/polar/polar.constants.ts` contiene i valori propri di Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` e `POLAR_WEBHOOK_EVENT`, ciascuno verificato rispetto ai tipi dell’SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` e `POLAR_ID_MAX_LENGTH`, la lunghezza di ogni colonna che contiene un ID di Polar. Non legge l’ambiente, quindi lo importano anche il browser e la suite del browser. I percorsi di Polar, `API_AUTH_POLAR` e `API_AUTH_CUSTOMER_PORTAL`, si trovano in `src/routes.ts`. [Configurazione di Polar](/docs/getting-started/polar-setup) descrive i prodotti, le chiavi di licenza, la casella del consenso, il comportamento fiscale, il webhook e il token che questo codice si aspetta in Polar, e `bun run polar:verify:<environment>` li controlla.
+`src/integrations/polar/polar.config.ts` crea `polarCore` da `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, che il plugin usa, e `polar`, i servizi per checkout, chiavi di licenza, ordini e prodotti costruiti su di esso. `POLAR_ORGANIZATION_ID` circoscrive all’organizzazione ogni chiamata a Polar che nomina un’organizzazione; [Ambiente e binding](/docs/reference/environment) le elenca. `src/integrations/polar/polar.constants.ts` contiene i valori propri di Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` e `POLAR_WEBHOOK_EVENT`, ciascuno verificato rispetto ai tipi dell’SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` e `POLAR_ID_MAX_LENGTH`, la lunghezza di ogni colonna che contiene un ID di Polar. Non legge l’ambiente, quindi lo importano anche il browser e la suite del browser. I percorsi di Polar, `API.AUTH.POLAR` e `API.AUTH.CUSTOMER_PORTAL`, si trovano in `src/routes.ts`. [Configurazione di Polar](/docs/getting-started/polar-setup) descrive i prodotti, le chiavi di licenza, la casella del consenso, il comportamento fiscale, il webhook e il token che questo codice si aspetta in Polar, e `bun run polar:verify:<environment>` li controlla.
 
 ## Checkout [#checkout]
 
@@ -123,7 +123,7 @@ Le tre funzioni server eseguono `authorized()` e leggono solo l’account della 
 
 ## Portale clienti [#customer-portal]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) crea una sessione cliente di Polar per l’account che ha effettuato l’accesso e risponde con l’indirizzo del suo portale, dove il cliente aggiorna il metodo di pagamento e i dati di fatturazione, scarica le fatture e modifica o annulla un abbonamento. L’endpoint risponde in JSON, quindi un semplice link mostrerebbe quel JSON al posto del portale: **Gestisci la fatturazione** nella pagina di fatturazione lo chiama con il client di Better Auth (`authClient.$fetch`), il cui plugin di reindirizzamento porta il browser a quell’indirizzo. La scheda della licenza su `/app/license` rimanda alla pagina di fatturazione.
+`ROUTES.API.AUTH.CUSTOMER_PORTAL` (`/api/auth/customer/portal`) crea una sessione cliente di Polar per l’account che ha effettuato l’accesso e risponde con l’indirizzo del suo portale, dove il cliente aggiorna il metodo di pagamento e i dati di fatturazione, scarica le fatture e modifica o annulla un abbonamento. L’endpoint risponde in JSON, quindi un semplice link mostrerebbe quel JSON al posto del portale: **Gestisci la fatturazione** nella pagina di fatturazione lo chiama con il client di Better Auth (`authClient.$fetch`), il cui plugin di reindirizzamento porta il browser a quell’indirizzo. La scheda della licenza su `/app/license` rimanda alla pagina di fatturazione.
 
 ## Ricavi nella dashboard [#revenue-on-the-dashboard]
 

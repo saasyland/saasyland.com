@@ -9,27 +9,27 @@ import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~
 
 import { sendPasswordChangedEmail } from "~/src/modules/account/use-cases/send-password-changed-email"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const passwordChange = zod.object({ newPassword: strictPasswordSchema })
 
 const INPUT_POLICY: Readonly<Record<string, zod.ZodType>> = {
-  [ROUTES.API_AUTH.ADMIN_CREATE_USER]: zod.object({ email: emailSchema, name: nameSchema, password: strictPasswordSchema }),
-  [ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD]: passwordChange,
-  [ROUTES.API_AUTH.ADMIN_UPDATE_USER]: zod.object({
+  [ROUTES.API.AUTH.ADMIN_CREATE_USER]: zod.object({ email: emailSchema, name: nameSchema, password: strictPasswordSchema }),
+  [ROUTES.API.AUTH.ADMIN_SET_USER_PASSWORD]: passwordChange,
+  [ROUTES.API.AUTH.ADMIN_UPDATE_USER]: zod.object({
     data: zod.object({ email: emailSchema.optional(), image: imageUrlSchema.nullish(), name: nameSchema.optional() }),
   }),
-  [ROUTES.API_AUTH.CHANGE_EMAIL]: zod.object({ newEmail: emailSchema }),
-  [ROUTES.API_AUTH.CHANGE_PASSWORD]: passwordChange,
-  [ROUTES.API_AUTH.RESET_PASSWORD]: passwordChange,
-  [ROUTES.API_AUTH.SET_PASSWORD]: passwordChange,
-  [ROUTES.API_AUTH.SIGN_UP_EMAIL]: zod.object({
+  [ROUTES.API.AUTH.CHANGE_EMAIL]: zod.object({ newEmail: emailSchema }),
+  [ROUTES.API.AUTH.CHANGE_PASSWORD]: passwordChange,
+  [ROUTES.API.AUTH.RESET_PASSWORD]: passwordChange,
+  [ROUTES.API.AUTH.SET_PASSWORD]: passwordChange,
+  [ROUTES.API.AUTH.SIGN_UP_EMAIL]: zod.object({
     email: emailSchema,
     image: imageUrlSchema.optional(),
     name: nameSchema,
     password: strictPasswordSchema,
   }),
-  [ROUTES.API_AUTH.UPDATE_USER]: zod.object({ image: imageUrlSchema.nullish(), name: nameSchema.optional() }),
+  [ROUTES.API.AUTH.UPDATE_USER]: zod.object({ image: imageUrlSchema.nullish(), name: nameSchema.optional() }),
 }
 
 const signUpResponseSchema = zod.object({ user: zod.object({ id: zod.string() }) })
@@ -45,7 +45,7 @@ export const enforceInputPolicy = createAuthMiddleware(async ({ body, path }) =>
 })
 
 export const signInNewAccount = createAuthMiddleware(async (ctx) => {
-  if (ctx.path !== ROUTES.API_AUTH.SIGN_UP_EMAIL) {
+  if (ctx.path !== ROUTES.API.AUTH.SIGN_UP_EMAIL) {
     return
   }
 

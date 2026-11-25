@@ -4,7 +4,7 @@ import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { APP_NAME } from "../../src/presentation/branding"
 import { THEME } from "../../src/presentation/theme"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { workspacePages } from "../data/pages"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -136,7 +136,7 @@ for (const account of TEST_ACCOUNTS) {
     landingPage,
     page,
   }) => {
-    const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN_SETTINGS : ROUTES.APP_SETTINGS
+    const workspace = account.role === ROLE_CODES.ADMIN ? ROUTES.ADMIN.SETTINGS : ROUTES.APP.SETTINGS.INDEX
     await authPage.signIn(account.email)
     await appPage.waitForAppReady()
 

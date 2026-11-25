@@ -5,7 +5,7 @@ import * as zod from "zod"
 
 import { EMAIL_HEADER, ONE_CLICK_UNSUBSCRIBE } from "../../src/integrations/resend/resend.constants"
 import { NEWSLETTER_STATUS, NEWSLETTER_STATUSES } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_NEWSLETTER_READERS } from "../data/newsletter"
 import { expect, test } from "../fixtures/auth"
@@ -73,7 +73,7 @@ test("the admin finds a subscriber and exports the list to a CSV that keeps a fo
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
   await page.getByRole("link", { exact: true, name: navigationMessages.admin.newsletter }).first().click()
-  await expect(page).toHaveURL(ROUTES.ADMIN_NEWSLETTER)
+  await expect(page).toHaveURL(ROUTES.ADMIN.NEWSLETTER.INDEX)
   await appPage.waitForAppReady()
 
   await page.getByRole("searchbox", { name: subscribers.search }).fill("formula.reader")
@@ -104,10 +104,10 @@ test("the admin sends an issue in two languages, each confirmed subscriber gets 
   const polishSubject = `Dziennik ${subject}`
 
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_NEWSLETTER_ISSUES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.NEWSLETTER.ISSUES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await page.getByRole("link", { name: newsletterMessages.newIssue }).click()
-  await expect(page).toHaveURL(ROUTES.ADMIN_NEWSLETTER_COMPOSE)
+  await expect(page).toHaveURL(ROUTES.ADMIN.NEWSLETTER.COMPOSE)
   await appPage.waitForAppReady()
 
   await page.getByLabel(composeMessages.form.subject).fill(subject)
@@ -122,7 +122,7 @@ test("the admin sends an issue in two languages, each confirmed subscriber gets 
   await page.getByRole("button", { name: composeMessages.form.send }).click()
   const dialog = page.getByRole("alertdialog", { name: composeMessages.confirm.title })
   await dialog.getByRole("button", { name: composeMessages.confirm.send }).click()
-  await expect(page).toHaveURL(ROUTES.ADMIN_NEWSLETTER_ISSUES)
+  await expect(page).toHaveURL(ROUTES.ADMIN.NEWSLETTER.ISSUES)
   const row = page.getByRole("row").filter({ hasText: subject })
   await expect(row).toContainText(issues.status.sent)
 

@@ -14,7 +14,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "~/src/presentat
 
 import { SignOutButton } from "~/src/presentation/components/custom/admin/sign-out-button"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const UserWidget = (): JSX.Element | undefined => {
   const session = useSuspenseQuery(getCurrentSessionQuery).data
@@ -29,7 +29,7 @@ export const UserWidget = (): JSX.Element | undefined => {
   const name = session.user.name || email
 
   const handleOpenSettings = () => {
-    void router.navigate({ to: ROUTES.ADMIN_SETTINGS })
+    void router.navigate({ to: ROUTES.ADMIN.SETTINGS })
   }
 
   return (

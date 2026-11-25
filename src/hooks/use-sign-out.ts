@@ -9,7 +9,7 @@ import { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-us
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const useSignOut = () => {
   const t = useTranslations("auth.session")
@@ -22,7 +22,7 @@ export const useSignOut = () => {
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: async () => {
       removeUserData(queryClient)
-      await router.navigate({ replace: true, to: ROUTES.SIGN_IN })
+      await router.navigate({ replace: true, to: ROUTES.AUTH.SIGN_IN })
       router.clearCache()
       toast.success(t("signedOut"))
     },

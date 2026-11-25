@@ -22,7 +22,7 @@ import { BillingSubscriptions } from "~/src/presentation/components/custom/billi
 import { CheckoutConfirmation } from "~/src/presentation/components/custom/billing/checkout-confirmation"
 import { ManageBillingButton } from "~/src/presentation/components/custom/billing/manage-billing-button"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const BillingPage = (): JSX.Element => {
   const t = useTranslations("pages.billing")
@@ -66,7 +66,7 @@ export const Route = createFileRoute("/app/billing")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.APP_BILLING),
+  head: pageHead(ROUTES.APP.BILLING),
   pendingComponent: AppBillingPending,
   search: { middlewares: [onlyDeclaredSearch(checkoutSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

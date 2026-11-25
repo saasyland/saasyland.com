@@ -32,7 +32,7 @@ const CoursesPage = (): JSX.Element => {
           <>
             <ImportCoursesDialog />
             <ExportCoursesButton />
-            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN.COURSES.CREATE} size="sm">
               <PlusCircle aria-hidden className="size-4" />
               {t("actions.create")}
             </LinkButton>
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_COURSES),
+  head: pageHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -92,9 +92,9 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
-    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+    return { locale, pathname: `${ROUTES.ADMIN.COURSES.INDEX}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
-  head: recordHead(ROUTES.ADMIN_COURSES),
+  head: recordHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -171,14 +171,14 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 | Що                                       | Де оголошено                                                                                                                                                                                                | Звідки читається                                                                                                    |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Шляхи                                    | `src/routes.ts`: один `export const` на шлях                                                                                                                                                                | `import * as ROUTES from "~/src/routes"`                                                                            |
+| Шляхи                                    | `src/routes.ts`: один об’єкт `ROUTES` із ключами за URL                                                                                                                                                     | `import { ROUTES } from "~/src/routes"`                                                                             |
 | Шляхи, що рендеряться для кожного запиту | `REQUEST_RENDERED_ROUTES` у `src/routes.ts`                                                                                                                                                                 | `isRequestRenderedRoute` у `src/routes.ts`                                                                          |
 | Пункти меню                              | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` і `FOOTER_NAVIGATION` у `src/data/navigation.ts`, у порядку показу | Бічні панелі, заголовок, футер, палітра команд і панель керування                                                   |
 | Простори імен макетів                    | `NAMESPACES` у маршруті макета                                                                                                                                                                              | Loader макета і `staticData`                                                                                        |
 | Списки адмін-панелі та робочого простору | `DASHBOARD_STATS`, `DASHBOARD_PANELS`, `COMMAND_SEARCHES`, `USER_TABS`, `USER_PROFILE_SECTIONS` і `ACCOUNT_DELETION_NOTICES`, кожен у компоненті, який його рендерить                                       | Цей компонент, його скелетон і маршрут, що завантажує його дані                                                     |
 | Перевірки живого сайту                   | `LIVE_SITE_CHECKS` у `src/lib/deployment.ts`                                                                                                                                                                | `verifyDeployment` ([Платформа та тестування](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)) |
 
-`src/routes.ts` оголошує кожен шлях і нічого не імпортує, бо його завантажує кожне середовище виконання: браузер, Worker під час кожного холодного старту, скрипти Bun, Playwright, `vite.config.ts` і проєкт Remotion. Кожен файл імпортує його як один простір імен, `import * as ROUTES from "~/src/routes"`, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів. Шлях, побудований з іншого, як-от `BLOG_FEED` із `BLOG`, стоїть одразу після того, з якого його побудовано.
+`src/routes.ts` оголошує кожен шлях в одному об’єкті, `ROUTES`, і нічого не імпортує, бо його завантажує кожне середовище виконання: браузер, Worker під час кожного холодного старту, скрипти Bun, Playwright, `vite.config.ts` і проєкт Remotion. Його ключі повторюють URL, тож `ROUTES.ADMIN.USERS.ALL` — це `/admin/users/all`; `INDEX` позначає шлях, який водночас є сторінкою і батьківським для інших, як-от `ROUTES.BLOG.INDEX`, а `BASE` — батьківський шлях без власної сторінки, як-от `ROUTES.AUTH.BASE`. Кожен файл імпортує його як `import { ROUTES } from "~/src/routes"`, а об’єкт оголошено з `as const`, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів. Сегмент, спільний для кількох шляхів, як-от `const BLOG = "/blog"`, — це неекспортована константа файлу, тож кожен сегмент записано лише раз.
 
 Worker і збірка ведуть свої списки так само: `REQUEST_HANDLERS` і `DOCUMENT_REWRITES` у `src/server.ts` та `VITE_PLUGINS` у `vite.config.ts` теж є літеральними списками, до яких необов’язкова можливість входить одним елементом.
 
@@ -188,9 +188,9 @@ Worker і збірка ведуть свої списки так само: `REQU
 export const HEADER_NAVIGATION: readonly SiteEntry[] = [
   { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
   { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
-  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
-  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
-  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG.INDEX },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS.INDEX },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.AUTH.SIGN_IN },
 ]
 ```
 

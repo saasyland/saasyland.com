@@ -14,12 +14,12 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { AuthPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const AuthLayout = (): JSX.Element => {
   const t = useTranslations("auth")
-  const isSignUp = useMatch({ from: ROUTES.SIGN_UP, shouldThrow: false }) !== undefined
-  const isVerifyEmail = useMatch({ from: ROUTES.VERIFY_EMAIL, shouldThrow: false }) !== undefined
+  const isSignUp = useMatch({ from: ROUTES.AUTH.SIGN_UP, shouldThrow: false }) !== undefined
+  const isVerifyEmail = useMatch({ from: ROUTES.AUTH.VERIFY_EMAIL, shouldThrow: false }) !== undefined
 
   return (
     <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">

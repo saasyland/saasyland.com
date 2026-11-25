@@ -18,7 +18,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { ContentPagePending } from "~/src/presentation/components/custom/content-page"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ROWS = Array.from({ length: BLOG_ARCHIVE.PAGE_SIZE }, (_, index) => index)
 const SIDE_POSTS = FEATURED_BLOG_POSTS.slice(1)
@@ -30,7 +30,7 @@ const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as con
 const RAIL_POSTS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"] as const
 const SHARE_CONTROLS = ["copy", "x", "linkedin", "bluesky", "hackerNews", "reddit", "email", "native"] as const
 const AUTHOR_PROFILES = Object.values(AUTHOR_PROFILE)
-const ARCHIVE_PREFIX = `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/`
+const ARCHIVE_PREFIX = `${ROUTES.BLOG.INDEX}/${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 
 const FeedLinkPending = (): JSX.Element => (
   <div className="mt-6 flex py-1.5 text-label">
@@ -310,7 +310,7 @@ export const BlogPostPending = (): JSX.Element => (
 export const BlogPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
 
-  if (pathname === ROUTES.BLOG) {
+  if (pathname === ROUTES.BLOG.INDEX) {
     return <BlogIndexPending />
   }
 

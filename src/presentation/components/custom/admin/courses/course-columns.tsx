@@ -23,7 +23,7 @@ import { DeleteCoursesDialog } from "~/src/presentation/components/custom/admin/
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type CourseRow = Course["listRow"]
 
@@ -83,7 +83,7 @@ export const CourseActions = ({ row }: { readonly row: CourseRow }): JSX.Element
   return (
     <div className="flex justify-end">
       <RowMenu label={t("menu", { title })}>
-        <DropdownMenuItem href={`${ROUTES.ADMIN_COURSES}/${row.id}`} textValue={t("edit")}>
+        <DropdownMenuItem href={`${ROUTES.ADMIN.COURSES.INDEX}/${row.id}`} textValue={t("edit")}>
           <Pencil aria-hidden />
           {t("edit")}
         </DropdownMenuItem>

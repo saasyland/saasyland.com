@@ -17,7 +17,7 @@ import { Reveal } from "~/src/presentation/components/custom/landing-page/compon
 import { PRICE_TAGS, PricingTiers, type TierAction, TierStructuredData } from "~/src/presentation/components/custom/pricing"
 
 import { APP_GITHUB_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const GRID_DELAY_MS = 100
 
@@ -32,7 +32,7 @@ const TierSignUpLink: TierAction = ({ featured, tier }) => {
   const t = useTranslations("components.custom.pricing")
   const router = useRouter()
 
-  const { publicHref: redirect } = router.buildLocation({ search: { tier }, to: ROUTES.APP })
+  const { publicHref: redirect } = router.buildLocation({ search: { tier }, to: ROUTES.APP.INDEX })
 
   return (
     <Link
@@ -44,7 +44,7 @@ const TierSignUpLink: TierAction = ({ featured, tier }) => {
         },
       )}
       search={{ redirect }}
-      to={ROUTES.SIGN_UP}
+      to={ROUTES.AUTH.SIGN_UP}
     >
       {t(`tiers.${tier}.cta`)}
     </Link>

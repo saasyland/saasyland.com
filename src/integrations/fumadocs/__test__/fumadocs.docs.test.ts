@@ -9,7 +9,7 @@ import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
 import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const { loadDocsIndex, preload } = vi.hoisted(() => {
   const page = {
@@ -78,7 +78,7 @@ describe("documentation head", () => {
     expect(meta).toContainEqual({ title: APP_NAME })
     expect(meta).toContainEqual({ content: "", name: "description" })
     expect(meta).toContainEqual({ content: "article", property: "og:type" })
-    expect(meta).toContainEqual({ content: `${APP_URL}${ROUTES.DOCS}`, property: "og:url" })
+    expect(meta).toContainEqual({ content: `${APP_URL}${ROUTES.DOCS.INDEX}`, property: "og:url" })
     expect(meta).toContainEqual({ content: "en_US", property: "og:locale" })
   })
 

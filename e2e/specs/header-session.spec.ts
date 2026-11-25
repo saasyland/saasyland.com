@@ -8,7 +8,7 @@ import signInPage from "../../messages/en-US/pages.auth.sign-in.json" with { typ
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { LAST_LOGIN_METHOD_COOKIE } from "../../src/integrations/better-auth/auth.constants"
 import { SESSION_ATTRIBUTE, SESSION_COOKIE_NAMES } from "../../src/modules/session/session.rewrite"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL, type BasePage, turnOnDataSaver } from "../pages/base-page"
@@ -152,7 +152,7 @@ test.describe("the header's account link", () => {
       await page.goto(locale.home, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
       const account = headerOf(page, locale.navigation).getByRole("link", { exact: true, name: locale.labels.account })
-      await expect(account).toHaveAttribute("href", new RegExp(`${ROUTES.APP}$`, "u"))
+      await expect(account).toHaveAttribute("href", new RegExp(`${ROUTES.APP.INDEX}$`, "u"))
 
       expectSameBoxes(await linkBoxes(page, locale.navigation), firstPaint)
     })
@@ -171,7 +171,7 @@ test.describe("the header's account link", () => {
     await signOutThroughTheApi(page, baseURL)
     expect((await page.context().cookies()).map(({ name }) => name)).toContain(LAST_LOGIN_METHOD_COOKIE)
     requests.length = 0
-    for (const path of [ROUTES.HOME, ROUTES.DOCS, ROUTES.BLOG]) {
+    for (const path of [ROUTES.HOME, ROUTES.DOCS.INDEX, ROUTES.BLOG.INDEX]) {
       await openQuietly(page, appPage, path)
       await expect(headerOf(page).getByRole("link", { exact: true, name: authNavigation.header.signIn })).toBeVisible()
     }
@@ -193,13 +193,13 @@ test.describe("the header's account link", () => {
     await openQuietly(page, appPage, ROUTES.HOME)
 
     await expect(page.locator("html")).not.toHaveAttribute(SESSION_ATTRIBUTE)
-    await expect(headerOf(page).getByRole("link", { exact: true, name: authNavigation.header.signIn })).toHaveAttribute("href", ROUTES.SIGN_IN)
+    await expect(headerOf(page).getByRole("link", { exact: true, name: authNavigation.header.signIn })).toHaveAttribute("href", ROUTES.AUTH.SIGN_IN)
     expectSameBoxes(await linkBoxes(page), signedOut)
     await expectTextLinksSpacedAlike(page)
     expect(requests).toHaveLength(1)
     expect((await page.context().cookies()).map(({ name }) => name)).not.toContain(SESSION_COOKIE)
 
-    await openQuietly(page, appPage, ROUTES.DOCS)
+    await openQuietly(page, appPage, ROUTES.DOCS.INDEX)
     expect(requests).toHaveLength(1)
   })
 
@@ -213,7 +213,7 @@ test.describe("the header's account link", () => {
 
     await headerOf(pageWithoutJavaScript).getByRole("link", { exact: true, name: authNavigation.header.account }).click()
 
-    await expect(pageWithoutJavaScript).toHaveURL(ROUTES.SIGN_IN)
+    await expect(pageWithoutJavaScript).toHaveURL(ROUTES.AUTH.SIGN_IN)
     await expect(pageWithoutJavaScript.getByRole("heading", { level: 1, name: signInPage.form.title })).toBeVisible()
     await pageWithoutJavaScript.goto(ROUTES.HOME)
     await expect(headerOf(pageWithoutJavaScript).getByRole("link", { exact: true, name: authNavigation.header.signIn })).toBeVisible()
@@ -229,7 +229,7 @@ test.describe("the header's account link", () => {
 
     await headerOf(pageWithoutJavaScript).getByRole("link", { exact: true, name: authNavigation.header.account }).click()
 
-    await expect(pageWithoutJavaScript).toHaveURL(ROUTES.ADMIN)
+    await expect(pageWithoutJavaScript).toHaveURL(ROUTES.ADMIN.INDEX)
   })
 
   test("leads a signed-in customer from Your account, pressed while the session is still loading, to the workspace", async ({
@@ -247,11 +247,11 @@ test.describe("the header's account link", () => {
     await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const account = headerOf(page).getByRole("link", { exact: true, name: authNavigation.header.account })
-    await expect(account).toHaveAttribute("href", ROUTES.SIGN_IN)
+    await expect(account).toHaveAttribute("href", ROUTES.AUTH.SIGN_IN)
 
     await account.click()
     held.resolve()
 
-    await expect(page).toHaveURL(ROUTES.APP)
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
   })
 })

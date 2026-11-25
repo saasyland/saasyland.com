@@ -28,7 +28,7 @@ import { LocaleSelect } from "~/src/presentation/components/custom/locale-switch
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const route = getRouteApi("/app")
 
@@ -59,12 +59,12 @@ export const AppSidebar = (): JSX.Element => {
           <SidebarGroup className="p-0">
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
-                const isActive = pathname === item.to || (item.to !== ROUTES.APP && pathname.startsWith(`${item.to}/`))
+                const isActive = pathname === item.to || (item.to !== ROUTES.APP.INDEX && pathname.startsWith(`${item.to}/`))
 
                 return (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuLink
-                      activeOptions={{ exact: item.to === ROUTES.APP }}
+                      activeOptions={{ exact: item.to === ROUTES.APP.INDEX }}
                       className="h-9 gap-2.5 rounded-md px-2 text-body-sm data-active:font-medium"
                       to={item.to}
                       isActive={isActive}

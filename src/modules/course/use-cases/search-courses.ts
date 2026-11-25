@@ -13,7 +13,7 @@ import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const searchCourses = createServerFn({ method: "GET" })
   .middleware([authorized({ course: ["read"] })])
@@ -29,7 +29,7 @@ export const searchCourses = createServerFn({ method: "GET" })
       detail: slug,
       id,
       title: localize(title, data.locale),
-      to: `${ROUTES.ADMIN_COURSES}/${id}`,
+      to: `${ROUTES.ADMIN.COURSES.INDEX}/${id}`,
     }))
   })
 

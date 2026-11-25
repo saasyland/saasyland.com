@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const AUTH_LINK_CLASS = "font-medium text-foreground underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
 
@@ -13,7 +13,7 @@ const AuthLink = ({
   to,
 }: {
   readonly children: ReactNode
-  readonly to: typeof ROUTES.SIGN_IN | typeof ROUTES.SIGN_UP
+  readonly to: typeof ROUTES.AUTH.SIGN_IN | typeof ROUTES.AUTH.SIGN_UP
 }): JSX.Element => {
   const { redirect } = useAuthRedirect()
 
@@ -25,6 +25,6 @@ const AuthLink = ({
 }
 
 export const AUTH_LINK_TAGS = {
-  signin: (chunks: ReactNode) => <AuthLink to={ROUTES.SIGN_IN}>{chunks}</AuthLink>,
-  signup: (chunks: ReactNode) => <AuthLink to={ROUTES.SIGN_UP}>{chunks}</AuthLink>,
+  signin: (chunks: ReactNode) => <AuthLink to={ROUTES.AUTH.SIGN_IN}>{chunks}</AuthLink>,
+  signup: (chunks: ReactNode) => <AuthLink to={ROUTES.AUTH.SIGN_UP}>{chunks}</AuthLink>,
 }

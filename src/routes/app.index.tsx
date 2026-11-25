@@ -20,7 +20,7 @@ import { AppOverviewPending } from "~/src/presentation/components/custom/app/aut
 import { LicenseOverview, loadLicenseOverview } from "~/src/presentation/components/custom/app/license-overview"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const OverviewPage = (): JSX.Element => {
   const t = useTranslations("pages.app")
@@ -38,7 +38,7 @@ const OverviewPage = (): JSX.Element => {
             <h2 className="text-sm font-semibold">{t("overview.docs.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("overview.docs.description", CLI_GENERATION_VALUES)}</p>
           </div>
-          <AnchorButton href={ROUTES.DOCS_CLI} size="sm" variant="outline">
+          <AnchorButton href={ROUTES.DOCS.CLI} size="sm" variant="outline">
             {t("overview.docs.action")}
           </AnchorButton>
         </section>
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/app/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.APP),
+  head: pageHead(ROUTES.APP.INDEX),
   pendingComponent: AppOverviewPending,
   search: { middlewares: [onlyDeclaredSearch(overviewSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

@@ -24,19 +24,19 @@ import {
   type SiteEntry,
 } from "~/src/data/navigation.constants"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
   {
-    items: [{ icon: Home, label: "navigation.auth.admin.dashboard", to: ROUTES.ADMIN }],
+    items: [{ icon: Home, label: "navigation.auth.admin.dashboard", to: ROUTES.ADMIN.INDEX }],
     key: ADMIN_NAVIGATION_GROUP.OVERVIEW,
   },
   {
-    items: [{ icon: Package, label: "navigation.products.admin.products", to: ROUTES.ADMIN_PRODUCTS }],
+    items: [{ icon: Package, label: "navigation.products.admin.products", to: ROUTES.ADMIN.PRODUCTS }],
     key: ADMIN_NAVIGATION_GROUP.OFFERINGS,
   },
   {
-    items: [{ icon: ReceiptText, label: "navigation.payments.admin.orders", to: ROUTES.ADMIN_ORDERS }],
+    items: [{ icon: ReceiptText, label: "navigation.payments.admin.orders", to: ROUTES.ADMIN.ORDERS }],
     key: ADMIN_NAVIGATION_GROUP.SALES,
   },
   {
@@ -45,64 +45,64 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         breadcrumbs: { create: "navigation.courses.breadcrumbs.create" },
         icon: GraduationCap,
         label: "navigation.courses.admin.courses",
-        to: ROUTES.ADMIN_COURSES,
+        to: ROUTES.ADMIN.COURSES.INDEX,
       },
       {
         breadcrumbs: { compose: "navigation.newsletter.breadcrumbs.compose", issues: "navigation.newsletter.tabs.issues" },
         icon: Mail,
         label: "navigation.newsletter.admin.newsletter",
-        to: ROUTES.ADMIN_NEWSLETTER,
+        to: ROUTES.ADMIN.NEWSLETTER.INDEX,
       },
     ],
     key: ADMIN_NAVIGATION_GROUP.CONTENT,
   },
   {
     items: [
-      { icon: Users, label: "navigation.auth.admin.userManagement", to: ROUTES.ADMIN_USERS },
-      { icon: Settings, label: "navigation.auth.admin.settings", to: ROUTES.ADMIN_SETTINGS },
+      { icon: Users, label: "navigation.auth.admin.userManagement", to: ROUTES.ADMIN.USERS.INDEX },
+      { icon: Settings, label: "navigation.auth.admin.settings", to: ROUTES.ADMIN.SETTINGS },
     ],
     key: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
   },
 ]
 
 export const ADMIN_COMMAND_ACTIONS: readonly IconEntry[] = [
-  { icon: SquarePen, label: "navigation.courses.command.newCourse", to: ROUTES.ADMIN_COURSES_CREATE },
+  { icon: SquarePen, label: "navigation.courses.command.newCourse", to: ROUTES.ADMIN.COURSES.CREATE },
   { icon: Globe, label: "navigation.auth.command.viewSite", to: ROUTES.HOME },
 ]
 
 export const ADMIN_DASHBOARD_ACTIONS: readonly IconEntry[] = [
-  { icon: ReceiptText, label: "navigation.payments.dashboard.orders", to: ROUTES.ADMIN_ORDERS },
-  { icon: UsersRound, label: "navigation.payments.dashboard.customers", to: ROUTES.ADMIN_USERS_CUSTOMERS },
+  { icon: ReceiptText, label: "navigation.payments.dashboard.orders", to: ROUTES.ADMIN.ORDERS },
+  { icon: UsersRound, label: "navigation.payments.dashboard.customers", to: ROUTES.ADMIN.USERS.CUSTOMERS },
 ]
 
 export const APP_NAVIGATION: readonly IconEntry[] = [
-  { icon: Home, label: "navigation.auth.app.overview", to: ROUTES.APP },
-  { icon: KeyRound, label: "navigation.license.app.license", to: ROUTES.APP_LICENSE },
-  { icon: CreditCard, label: "navigation.billing.app.billing", to: ROUTES.APP_BILLING },
+  { icon: Home, label: "navigation.auth.app.overview", to: ROUTES.APP.INDEX },
+  { icon: KeyRound, label: "navigation.license.app.license", to: ROUTES.APP.LICENSE },
+  { icon: CreditCard, label: "navigation.billing.app.billing", to: ROUTES.APP.BILLING },
   { icon: GraduationCap, label: "navigation.courses.app.courses", to: ROUTES.COURSES },
-  { icon: Settings, label: "navigation.auth.app.settings", to: ROUTES.APP_SETTINGS },
+  { icon: Settings, label: "navigation.auth.app.settings", to: ROUTES.APP.SETTINGS.INDEX },
 ]
 
 export const APP_RESOURCE_NAVIGATION: readonly IconEntry[] = [
-  { icon: BookOpen, label: "navigation.content.appResources.docs", to: ROUTES.DOCS },
+  { icon: BookOpen, label: "navigation.content.appResources.docs", to: ROUTES.DOCS.INDEX },
 ]
 
 export const HEADER_NAVIGATION: readonly SiteEntry[] = [
   { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
   { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
-  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
-  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
-  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG.INDEX },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS.INDEX },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.AUTH.SIGN_IN },
 ]
 
 export const FOOTER_NAVIGATION: readonly FooterNavigationColumn[] = [
   {
     key: FOOTER_COLUMN.PRODUCT,
     links: [
-      { label: "navigation.content.footer.docs", to: ROUTES.DOCS },
-      { label: "navigation.content.footer.blog", to: ROUTES.BLOG },
+      { label: "navigation.content.footer.docs", to: ROUTES.DOCS.INDEX },
+      { label: "navigation.content.footer.blog", to: ROUTES.BLOG.INDEX },
       { label: "navigation.affiliates.footer.affiliates", to: ROUTES.AFFILIATES },
-      { label: "navigation.auth.footer.signIn", signedIn: { label: "navigation.auth.footer.account" }, to: ROUTES.SIGN_IN },
+      { label: "navigation.auth.footer.signIn", signedIn: { label: "navigation.auth.footer.account" }, to: ROUTES.AUTH.SIGN_IN },
     ],
   },
   {

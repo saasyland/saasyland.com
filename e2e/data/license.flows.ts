@@ -475,21 +475,25 @@ export const LICENSE_FLOWS = [
     outcome:
       "A statement whose order number and email address match no active licence is still stored and acknowledged, and the site's contact address is asked to find the order by hand",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      {
         spec: "withdrawal.spec.ts",
         title:
           "withdrawal function › a statement whose order number and email address match no licence is still acknowledged, and the contact address is asked to find the order by hand",
-      }],
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.I18N,
     id: "withdrawal-localized",
     outcome: "A statement sent from a page in another language gets its acknowledgement of receipt in that language",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      {
         spec: "withdrawal.spec.ts",
         title: "withdrawal function › a statement sent from the Polish page gets its acknowledgement of receipt in Polish",
-      }],
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.AFTER_SALE,
@@ -512,10 +516,12 @@ export const LICENSE_FLOWS = [
     outcome:
       "The first CLI activation and the first template download are recorded on the licence and shown on the buyer's profile, with the refund terms that follow from them",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      {
         spec: "admin-users.spec.ts",
         title: "admin reads the first CLI activation and the first template download on the buyer's profile, and the refund terms they end",
-      }],
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_PAYMENTS,
@@ -603,21 +609,26 @@ export const LICENSE_FLOWS = [
     id: "licence-on-overview",
     outcome: "The /app overview shows a licence holder their tier and the licence's status, with a link to /app/license",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      {
         spec: "license.spec.ts",
         title: "a licence holder › sees the tier and the status of the licence on the overview, with a link to the licence page",
-      }],
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
     id: "licence-prices",
     outcome: "The offer on /app/license shows each tier's full price, or its regional price in a regional-pricing country",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      { spec: "license.spec.ts", title: "the licence offer › shows each tier's full price outside the regional-pricing countries" },
+      {
         spec: "license.spec.ts",
-        title:
-          "the licence offer › shows each tier's full price, or its regional price beside the struck-through full price in a regional-pricing country",
-      }, REGIONAL_CHECKOUT],
+        title: "the licence offer › in a regional-pricing country › shows each tier's regional price beside its struck-through full price",
+      },
+      REGIONAL_CHECKOUT,
+    ],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
@@ -650,11 +661,13 @@ export const LICENSE_FLOWS = [
     id: "free-slot",
     outcome: "Freeing a machine's slot on /app/license lowers the count, and that machine is then refused with activationNotFound",
     status: FLOW_STATUS.COVERED,
-    tests: [{
+    tests: [
+      {
         spec: "license.spec.ts",
         title:
           "a licence holder › frees a machine's slot on the licence page, which lowers the count, and that machine is then refused with activationNotFound",
-      }],
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.LICENCE,
@@ -721,7 +734,10 @@ export const LICENSE_FLOWS = [
     id: "cli-slot-limit",
     outcome: "The machine after the tier's limit is refused with activationLimitReached and stores no credentials",
     status: FLOW_STATUS.COVERED,
-    tests: [SLOT_LIMIT, publishedCliTest("is refused the machine after the tier's limit with activationLimitReached and stores no credentials")],
+    tests: [
+      SLOT_LIMIT,
+      publishedCliTest("is refused the machine after the tier's limit with activationLimitReached and stores no credentials"),
+    ],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
@@ -735,7 +751,10 @@ export const LICENSE_FLOWS = [
     id: "cli-refunded-key",
     outcome: "The key of a refunded licence is refused with licenseRefunded, and the CLI removes its credentials",
     status: FLOW_STATUS.COVERED,
-    tests: [publishedCliTest("loses the key of a refunded licence, refused with licenseRefunded, and removes its credentials"), REFUND_STOPS_KEY],
+    tests: [
+      publishedCliTest("loses the key of a refunded licence, refused with licenseRefunded, and removes its credentials"),
+      REFUND_STOPS_KEY,
+    ],
   },
   {
     feature: FLOW_FEATURE.CLI_API,
@@ -771,9 +790,12 @@ export const LICENSE_FLOWS = [
     outcome:
       "The published CLI activates with the key and writes its credentials, whoami shows the machine, and deactivate frees the slot and removes the credentials",
     status: FLOW_STATUS.COVERED,
-    tests: [publishedCliTest(
+    tests: [
+      publishedCliTest(
         "activates with the key and writes its credentials, whoami shows the machine, and deactivate frees the slot and removes them",
-      ), CLI_MACHINE],
+      ),
+      CLI_MACHINE,
+    ],
   },
   {
     feature: FLOW_FEATURE.CLI_API,

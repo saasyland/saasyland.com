@@ -20,7 +20,7 @@ import { expect, test } from "../fixtures/auth"
 import { signUpVerifiedBuyer } from "../fixtures/buyer"
 import { CLI_ACTIVATION, machineConnection, sendToApi } from "../fixtures/cli-api"
 import { buyLicense } from "../fixtures/license"
-import type { BasePage } from "../pages"
+import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import * as ROUTES from "../../src/routes"
 
@@ -331,26 +331,36 @@ test.describe("the licence offer", () => {
 
   const price = (page: Page, amount: number) => offer(page).getByText(`$${String(amount)}`, { exact: true }).filter({ visible: true })
 
-  test("shows each tier's full price, or its regional price beside the struck-through full price in a regional-pricing country", async ({
-    appPage,
-    authPage,
-    page,
-  }) => {
+  const openOffer = async ({ appPage, authPage, page }: { appPage: BasePage; authPage: AuthPage; page: Page }): Promise<void> => {
     await authPage.signIn(customer.email)
     await expect(page).toHaveURL(/\/app\/?$/u)
     await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
+  }
+
+  test("shows each tier's full price outside the regional-pricing countries", async ({ appPage, authPage, page }) => {
+    await openOffer({ appPage, authPage, page })
+
     for (const tier of LICENSE_TIERS) {
       await expect(price(page, TIER_PRICES[tier])).toHaveCount(1)
     }
     await expect(offer(page).locator("s").filter({ visible: true })).toHaveCount(0)
+  })
 
-    await page.setExtraHTTPHeaders({ [COUNTRY_HEADER]: REGIONAL_COUNTRY })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await appPage.waitForAppReady()
-    for (const tier of LICENSE_TIERS) {
-      await expect(price(page, regionalPrice(TIER_PRICES[tier], pppMultiplierKey(REGIONAL_COUNTRY)))).toHaveCount(1)
-      await expect(offer(page).locator("s").filter({ hasText: `$${String(TIER_PRICES[tier])}`, visible: true })).toHaveCount(1)
-    }
+  test.describe("in a regional-pricing country", () => {
+    test.use({ extraHTTPHeaders: { [COUNTRY_HEADER]: REGIONAL_COUNTRY } })
+
+    test("shows each tier's regional price beside its struck-through full price", async ({
+      appPage,
+      authPage,
+      page,
+    }) => {
+      await openOffer({ appPage, authPage, page })
+
+      for (const tier of LICENSE_TIERS) {
+        await expect(price(page, regionalPrice(TIER_PRICES[tier], pppMultiplierKey(REGIONAL_COUNTRY)))).toHaveCount(1)
+        await expect(offer(page).locator("s").filter({ hasText: `$${String(TIER_PRICES[tier])}`, visible: true })).toHaveCount(1)
+      }
+    })
   })
 })

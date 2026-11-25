@@ -55,7 +55,7 @@ export const GateSection = (): JSX.Element => {
           <p className="flex items-baseline justify-center gap-2.5">
             <span className="text-price text-foreground tabular-nums">
               <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} />
-            </span>
+            </span>{" "}
             <span className="text-spec text-muted-foreground">{t("terms")}</span>
           </p>
 

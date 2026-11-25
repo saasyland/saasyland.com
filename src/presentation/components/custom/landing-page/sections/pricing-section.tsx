@@ -84,7 +84,7 @@ export const PricingSection = (): JSX.Element => {
 
             <div className="flex flex-col items-stretch gap-4">
               <p className="flex items-baseline gap-2 md:justify-end">
-                <span className="text-price text-foreground tabular-nums">{format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}</span>
+                <span className="text-price text-foreground tabular-nums">{format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}</span>{" "}
                 <span className="text-spec text-muted-foreground">{t("consulting.period")}</span>
               </p>
               <a

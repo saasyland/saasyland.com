@@ -7,7 +7,7 @@ import type { LicenseTier } from "~/src/modules/license/license.constants"
 import { TIER_PRICES } from "~/src/data/license"
 
 import { CheckoutButton, CheckoutNotice } from "~/src/presentation/components/custom/app/checkout"
-import { Price, REGIONAL_TAGS } from "~/src/presentation/components/custom/pricing"
+import { Price, RegionalSaving } from "~/src/presentation/components/custom/pricing"
 
 export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
   const tTier = useTranslations("components.custom.pricing")
@@ -27,9 +27,8 @@ export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Eleme
           <p className="mt-6 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-price text-foreground tabular-nums">
               <Price amount={TIER_PRICES[tier]} />
-            </span>
-            <span className="text-spec text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span>
-            <span className="pv pv-regional basis-full text-label text-ring uppercase">{tTier.rich("regional.save", REGIONAL_TAGS)}</span>
+            </span>{" "}
+            <span className="text-spec text-muted-foreground">{tTier(`tiers.${tier}.period`)}</span> <RegionalSaving />
           </p>
         </div>
         <CheckoutButton featured tier={tier}>

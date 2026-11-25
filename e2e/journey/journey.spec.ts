@@ -184,7 +184,7 @@ const checkOut = async (
 const buy = async (pages: Pages, buyer: Buyer, price: number): Promise<void> => {
   await openLicence(pages)
   const offer = pages.page.getByRole("region", { name: "Get your licence" })
-  await expect(offer).toContainText(formatPrice(price), { useInnerText: true })
+  await expect.poll(async () => offer.ariaSnapshot()).toContain(formatPrice(price))
 
   await checkOut(pages, buyer, {
     button: offer.getByRole("button", { name: `Get ${TIER_NAMES[buyer.tier]}`, exact: true }),

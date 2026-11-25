@@ -622,7 +622,11 @@ test.describe("checkout funnel", () => {
     await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const price = regionalPrice(TIER_PRICES[LICENSE_TIER.CORE], pppMultiplierKey(country))
-    await expect(page.getByRole("region", { name: "Get your licence" }).getByText(`$${String(price)}`, { exact: true }).first()).toBeVisible()
+    await expect(page.getByRole("region", { name: "Get your licence" }).locator(".pv.ppp-text:visible").first()).toHaveCSS(
+      "content",
+      JSON.stringify(`$${String(price)}`),
+      { pseudo: "before" },
+    )
 
     await page.getByRole("button", { name: "Get Core", exact: true }).click()
 

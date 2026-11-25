@@ -5,6 +5,7 @@ import { useTranslations } from "use-intl/react"
 import { useAdminSections } from "~/src/hooks/use-admin-sections"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { BILLING_GENERATION } from "~/src/data/marketing"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -38,7 +39,7 @@ export const ManifestSection = (): JSX.Element => {
               >
                 <dt className="text-title text-foreground">{t(`items.${item}.label`)}</dt>
                 <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground md:mt-0">
-                  {t(`items.${item}.body`, { ...REPOSITORY_FACTS, sections })}
+                  {t(`items.${item}.body`, { ...REPOSITORY_FACTS, billing: BILLING_GENERATION, sections })}
                 </dd>
               </HighlightItem>
             ))}

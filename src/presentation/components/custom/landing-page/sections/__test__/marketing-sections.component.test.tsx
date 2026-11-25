@@ -20,6 +20,7 @@ import { TIER_FEATURES, TIER_PRICES, TIER_SUPPORT_VALUES } from "~/src/data/lice
 import {
   ANGULARPROJECTS_FACTS,
   ANGULARPROJECTS_URL,
+  BILLING_GENERATION,
   CONSULTING_HOURLY_RATE,
   COURSE_PLATFORM_VALUES,
   PRODUCT_CASES,
@@ -65,9 +66,18 @@ const withFacts = (message: string): string =>
     ...COURSE_PLATFORM_VALUES,
     ...CLI_GENERATION_VALUES,
     ...TIER_SUPPORT_VALUES,
+    billing: BILLING_GENERATION,
     days: REFUND_TERMS.WITHDRAWAL_DAYS,
     sections: ADMIN_SECTION_NAMES,
   })
+
+const regionalText = (element: Element | null): string =>
+  [...(element?.querySelectorAll<HTMLElement>(".ppp-text") ?? [])].map(({ dataset }) => dataset["text"]).join("")
+
+const REGIONAL_OFFER = createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: pricing }).markup("regional.offer", {
+  percent: () => "",
+  region: () => "",
+})
 
 const EVIDENCE_CODE: readonly string[] = [
   REPOSITORY_FACTS.authIntegrationPath,
@@ -124,10 +134,12 @@ describe("regional pricing", () => {
       </>,
     )
 
-    expect(
-      screen.getByText("once, with no subscription or per-user fees", { exact: false }).querySelector("s.pv-regional"),
-    ).toHaveTextContent("Regular price $249")
-    expect(container.querySelector("#gate s.pv-regional")).toHaveTextContent("Regular price $249")
+    const comparison = screen.getByText("once, with no subscription or per-user fees", { exact: false })
+
+    expect(comparison.textContent).toBe(`${english.compare.columns.saasyland} $249 once, with no subscription or per-user fees`)
+    expect(regionalText(comparison.querySelector("s.pv-regional"))).toBe("Regular price $249")
+    expect(regionalText(container.querySelector("#gate s.pv-regional"))).toBe("Regular price $249")
+    expect(container.querySelector("#gate s.pv-regional")?.closest("p")).toHaveTextContent(`$249 ${english.gate.terms}`)
   })
 
   it("anchors the price under the hero's buttons, with the refund period, and keeps one destination per call-to-action label", () => {
@@ -145,7 +157,7 @@ describe("regional pricing", () => {
       ),
     ).toBe(true)
     expect(line.querySelector(".pv-100")).toHaveTextContent("$249")
-    expect(line.querySelector("s.pv-regional")).toHaveTextContent("Regular price $249")
+    expect(regionalText(line.querySelector("s.pv-regional"))).toBe("Regular price $249")
     expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
     expect(screen.getByRole("link", { name: english.rally.ctaPrimary })).toHaveAttribute("href", "#cli")
     expect(english.rally.ctaPrimary).not.toBe(english.hero.ctaPrimary)
@@ -167,20 +179,23 @@ describe("regional pricing", () => {
 
   it("pairs every regional price with the struck-through regular price", () => {
     const { container } = renderSection(<PricingSection />)
-    const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => element.textContent)
+    const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => regionalText(element))
 
     expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $249"])
     for (const price of ["$199", "$174", "$149", "$124", "$279", "$629"]) {
-      expect(screen.getAllByText(price).length).toBeGreaterThan(0)
+      expect(container.querySelectorAll(`.pv.ppp-text[data-text="${price}"]`).length).toBeGreaterThan(0)
     }
     expect(container.querySelectorAll(".pv-regional.basis-full")).toHaveLength(3)
+    expect(container.querySelector("s.pv-regional")).toHaveTextContent(/^$/u)
   })
 
   it("applies regional pricing by default and remembers when the buyer turns it off", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<PricingSection />)
-    const offer = screen.getByRole("checkbox", { name: /off with regional pricing/u })
+    const offer = screen.getByRole("checkbox")
 
+    expect(regionalText(offer.closest("label"))).toBe(REGIONAL_OFFER)
+    expect(offer.closest("label")).toHaveTextContent(/^$/u)
     expect(offer).toBeChecked()
     await user.click(offer)
     expect(offer).not.toBeChecked()
@@ -192,7 +207,7 @@ describe("regional pricing", () => {
     document.cookie = "regional_pricing=off"
     renderSection(<PricingSection />)
 
-    expect(screen.getByRole("checkbox", { name: /off with regional pricing/u })).not.toBeChecked()
+    expect(screen.getByRole("checkbox")).not.toBeChecked()
   })
 })
 

@@ -11,6 +11,7 @@ import { preloadWhenIdle } from "~/src/lib/idle-preload"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
+import { SiteEntryLabel } from "~/src/presentation/components/custom/site-entry-label"
 
 import * as ROUTES from "~/src/routes"
 
@@ -90,7 +91,7 @@ export const Navigation = (): JSX.Element => {
                 >
                   {({ isActive }) => (
                     <>
-                      {t(entry.label)}
+                      <SiteEntryLabel className="justify-items-center" entry={entry} />
                       {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
                     </>
                   )}

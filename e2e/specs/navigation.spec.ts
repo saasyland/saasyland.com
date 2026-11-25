@@ -93,7 +93,7 @@ const visit = async (page: Page, path: string): Promise<void> => {
 }
 
 const linksOf = async (scope: Locator): Promise<string[][]> =>
-  scope.getByRole("link").evaluateAll((links) => links.map((link) => [link.textContent.trim(), link.getAttribute("href") ?? ""]))
+  scope.getByRole("link").evaluateAll((links: HTMLElement[]) => links.map((link) => [link.innerText.trim(), link.getAttribute("href") ?? ""]))
 
 const menuButton = (page: Page): Locator => page.getByRole("button", { exact: true, name: "Open menu" })
 
@@ -140,7 +140,7 @@ const headerLinks = async (page: Page): Promise<string[][]> => {
   return page
     .getByRole("banner")
     .getByRole("link")
-    .evaluateAll((links) => links.map((link) => [link.textContent.trim(), link.getAttribute("href") ?? ""]))
+    .evaluateAll((links: HTMLElement[]) => links.map((link) => [link.innerText.trim(), link.getAttribute("href") ?? ""]))
 }
 
 test.describe("server rendering and client navigation", () => {
@@ -371,7 +371,7 @@ test.describe("one site header", () => {
       const marked = await page
         .getByRole("banner")
         .getByRole("link")
-        .evaluateAll((links) => links.filter((link) => link.getAttribute("aria-current") === "page").map((link) => link.textContent.trim()))
+        .evaluateAll((links: HTMLElement[]) => links.filter((link) => link.getAttribute("aria-current") === "page").map((link) => link.innerText.trim()))
       expect(marked.filter((label) => label !== "SaaSy Land")).toStrictEqual(current)
     })
   }

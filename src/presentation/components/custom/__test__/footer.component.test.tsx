@@ -5,9 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { LAST_LOGIN_METHOD_COOKIE, LOGIN_METHOD } from "~/src/integrations/better-auth/auth.constants"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
+import { SESSION_ATTRIBUTE } from "~/src/modules/session/session.rewrite"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
@@ -135,35 +136,40 @@ describe("marketing footer", () => {
   })
 })
 
+const footerLink = (href: string): HTMLElement | undefined =>
+  within(screen.getByRole("contentinfo"))
+    .getAllByRole("link")
+    .find((link) => link.getAttribute("href") === href)
+
 describe("the footer for a signed-in visitor", () => {
   afterEach(() => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    document.documentElement.removeAttribute(SESSION_ATTRIBUTE)
   })
 
   it.each([
     { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
     { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
   ])("leads a $role from its account link to $workspace instead of sign-in", async ({ role, workspace }) => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+    document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
     sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
     renderFooter()
-    const footer = screen.getByRole("contentinfo")
 
     await waitFor(() => {
-      expect(within(footer).getByRole("link", { name: navigationAuthMessages.footer.account })).toHaveAttribute("href", workspace)
+      expect(footerLink(workspace)).toHaveTextContent(`${navigationAuthMessages.footer.signIn}${navigationAuthMessages.footer.account}`)
     })
-    expect(within(footer).queryByRole("link", { name: navigationAuthMessages.footer.signIn })).not.toBeInTheDocument()
+    expect(footerLink(ROUTES.SIGN_IN)).toBeUndefined()
   })
 
-  it("turns the sign-in link into the account link in place, so a press while the session loads still lands on it", async () => {
-    document.cookie = `${LAST_LOGIN_METHOD_COOKIE}=${LOGIN_METHOD.EMAIL}; path=/`
+  it("keeps the same link while the session loads, so a press that starts on it still lands on it", async () => {
+    document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
     const session = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
     sessionRequest.mockReturnValue(session.promise)
     renderFooter()
-    const footer = screen.getByRole("contentinfo")
-    const signIn = within(footer).getByRole("link", { name: navigationAuthMessages.footer.signIn })
+    const signIn = footerLink(ROUTES.SIGN_IN)
     session.resolve(createAuthSessionFixture())
 
-    expect(await within(footer).findByRole("link", { name: navigationAuthMessages.footer.account })).toBe(signIn)
+    await waitFor(() => {
+      expect(footerLink(ROUTES.APP)).toBe(signIn)
+    })
   })
 })

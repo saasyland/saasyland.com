@@ -15,7 +15,7 @@ const WORKSPACE_HOOKS: readonly (() => string | undefined)[] = [useVisitorWorksp
 const SIGNED_OUT_NAVIGATION: SiteNavigation = { footer: FOOTER_NAVIGATION, header: HEADER_NAVIGATION }
 
 const signedInEntry = (entry: SiteEntry, workspace: string): SiteEntry =>
-  entry.signedIn === undefined ? entry : { label: entry.signedIn.label, to: workspace }
+  entry.signedIn === undefined ? entry : { ...entry, to: workspace }
 
 const signedInNavigation = (workspace: string): SiteNavigation => ({
   footer: FOOTER_NAVIGATION.map(({ key, links }) => ({ key, links: links.map((link) => signedInEntry(link, workspace)) })),

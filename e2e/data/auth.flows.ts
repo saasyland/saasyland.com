@@ -202,6 +202,55 @@ export const AUTH_FLOWS = [
         spec: "auth-journeys.spec.ts",
         title: "signing in again › leads a signed-in customer from Your account in the header, the footer and the mobile menu to their workspace",
       },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › says Your account before any script runs for a signed-in visitor, and Sign in for everyone else",
+      },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › leads a signed-in admin from Your account, pressed before any script runs, to the admin console",
+      },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › leads a signed-in customer from Your account, pressed while the session is still loading, to the workspace",
+      },
+    ],
+  },
+  {
+    feature: FLOW_FEATURE.ACCOUNT,
+    id: "header-account-steady",
+    outcome:
+      "The header's links stay in place from the first paint on, whether the visitor is signed in or not, in every language, and a signed-out visitor's pages ask for no session",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › keeps every header link in place at /, signed out, signed in at first paint and once the session is known",
+      },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › keeps every header link in place at /pl-PL, signed out, signed in at first paint and once the session is known",
+      },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › asks for no session after sign-out, though the browser keeps the last sign-in method, and asks once while signed in",
+      },
+    ],
+  },
+  {
+    feature: FLOW_FEATURE.ACCOUNT,
+    id: "header-account-ended",
+    outcome: "A browser whose session ended elsewhere sees Sign in again once the page has checked, and Your account leads it to the sign-in form",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › turns back to Sign in, in place, when the session behind the cookie has ended, and asks no more after",
+      },
+      {
+        spec: "header-session.spec.ts",
+        title: "the header's account link › leads a visitor whose session has ended from Your account, pressed before any script runs, to the sign-in form, which clears the cookie",
+      },
     ],
   },
   {

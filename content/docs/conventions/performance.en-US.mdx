@@ -153,6 +153,28 @@ Measured on a `bun run build:test` build served by `bun run start:test`, in Chro
 
 `e2e/specs/admin-navigation.spec.ts` checks that every console page opens a second time without a request, and that a session ended elsewhere leads to sign-in at the first server function that refuses it.
 
+## The header knows the session before its scripts
+
+Every public page is prerendered, so its HTML cannot know who is reading it. The header's **Sign in** link used to turn into **Your account** only after the page had loaded its scripts, hydrated and asked for the session, and the wider label then pushed **Pricing**, **Courses**, **Blog** and **Docs** sideways. A browser that had ever signed in asked for the session on every page view, because the gate was Better Auth's last-used sign-in method cookie, which outlives sign-out.
+
+The Worker now decides the label before the HTML leaves it. `markSession` sets `data-session` on `<html>` when the request carries the session cookie; it reads only the cookie's presence, never the database. The link holds both labels in one grid cell and CSS shows the one the mark selects, so the link is as wide as the longer label whatever happens later. The session request runs only on a marked page, and a cookie whose session has ended is cleared by that first request, so the next page is unmarked (see [Paths and navigation](/docs/conventions/routes#paths-and-navigation) and [Caching and SSR](/docs/architecture/caching-and-ssr#prerendering)). The Worker's cold start grew by 702 bytes, to 38,292.
+
+Measured on `bun run build:test` builds served by `vp preview` on one machine, in Chromium at 1440 by 900 with data saver on, so that only the session request reaches a server function. The two builds ran in 2 interleaved rounds of 2 runs on `/`, `/docs` and `/blog` each, 12 page views per cell. A label is correct from the first frame that shows the header with the right text; the median comes first and the range in brackets:
+
+| Measure                                                    | Before                    | After                             |
+| ---------------------------------------------------------- | ------------------------- | --------------------------------- |
+| Signed in: label correct, normal CPU                       | 684 ms (438–2,863)        | 69 ms (52–101), the first frame   |
+| Signed in: label correct, CPU slowed 4 times               | 1,206 ms (1,021–1,753)    | 162 ms (114–391), the first frame |
+| Signed in: header links that move                          | 4 in every page view      | none                              |
+| Signed in: layout shift                                    | 0.0004 in every page view | 0                                 |
+| Session requests per page view, signed out after a sign-in | 1                         | 0                                 |
+| Session requests per page view, signed in                  | 1                         | 1                                 |
+| Session requests per page view, session ended elsewhere    | 1 on every page view      | 1 on the first, then 0            |
+
+A browser whose session ended elsewhere now sees **Your account** until the check answers, 405 ms (292–611) at normal speed, and then **Sign in** in the same place. Lighthouse 13 on `/`, behind an HTTP/2 proxy with Brotli, desktop preset at 7 times CPU slowdown, 4 runs per cell, medians, the 2 runs of a load spike left out: with the session cookie, First Contentful Paint 453 ms before and 403 ms after, Largest Contentful Paint 871 and 867 ms, Total Blocking Time 218 and 226 ms, Cumulative Layout Shift 0 in both; without it, and on the mobile preset, every metric stayed within the spread of the runs.
+
+`e2e/specs/header-session.spec.ts` checks, in Chromium and WebKit, that a page shows the right label before any script runs, that no header link moves between a signed-out page, a signed-in first paint and a page whose session is known, in English and in Polish, that a signed-out browser asks for no session, that an ended session turns the label back in place and asks no more, and that a press on **Your account** lands on the workspace, before the scripts run or while the session loads.
+
 ## React Aria links preload like router links
 
 `defaultPreload: "intent"` belongs to TanStack Router's `<Link>`. The sidebars, `LinkButton` and the other link buttons were React Aria `Link`s that navigate through React Aria's `RouterProvider`, so resting the pointer on them loaded nothing and a click waited for the page's code and server functions. `LinkButton` is now `createLink(AnchorButton)` and `SidebarMenuLink` is `createLink(SidebarMenuButton)`, which TanStack Router documents for React Aria Components: they take `to`, with `params` and `search`, and preload on intent, on focus and on touch like `<Link>`. `AnchorButton` stays for addresses outside the route tree. `TabsLink`, the tabs of `/admin/users`, calls `router.preloadRoute` when the pointer rests on a tab or it takes focus, and a result of `AdminCommandPalette` does the same when the pointer rests on it.

@@ -53,6 +53,7 @@ export const COURSES = "/courses"
 export const COURSES_SITEMAP = "/sitemap-courses.xml"
 export const DOCS = "/docs"
 export const DOCS_CLI = `${DOCS}/cli`
+export const DOCS_ROADMAP = `${DOCS}/project/roadmap`
 export const DOCS_TEST_COVERAGE = `${DOCS}/tooling/test-coverage`
 export const FORGOT_PASSWORD = "/auth/forgot-password"
 export const HOME = "/"

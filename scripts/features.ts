@@ -159,7 +159,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
       "messages/*/{fumadocs,pages.blog}.json",
       "messages/*/components.custom.changelog-links.json",
     ],
-    names: { [ROUTES_FILE]: ["AUTHORS", "BLOG", "BLOG_FEED", "DOCS", "DOCS_CLI", "DOCS_TEST_COVERAGE"] },
+    names: { [ROUTES_FILE]: ["AUTHORS", "BLOG", "BLOG_FEED", "DOCS", "DOCS_CLI", "DOCS_ROADMAP", "DOCS_TEST_COVERAGE"] },
     requires: [],
   },
   [FEATURE.COURSES]: {

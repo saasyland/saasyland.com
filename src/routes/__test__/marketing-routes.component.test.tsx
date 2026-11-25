@@ -31,7 +31,6 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 import { SIDEBAR_COOKIE } from "~/src/data/sidebar"
 
 import { starCountQuery } from "~/src/lib/github"
-import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
 
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
@@ -247,7 +246,9 @@ describe("public route content", () => {
 
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {
     await renderRoute("/")
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      createTranslator({ locale: "en-US", messages: pagesLandingMessages.hero }).markup("title", { accent: (chunks: string) => chunks }),
+    )
     expect(screen.getByText(new Intl.NumberFormat("en-US").format(STAR_COUNT), { selector: "dd" })).toBeVisible()
     expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()

@@ -1,9 +1,11 @@
 import { type JSX, type ReactNode, useState } from "react"
 
+import { CHOICE } from "@saasyland/stack"
 import { ArrowRight } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { Link } from "react-aria-components"
+import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CLI_GENERATION_VALUES, PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, CLI_TEMPLATE_SUPPORT, PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { CTA_CLASSES } from "~/src/data/cta"
 import { BILLING_GENERATION } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
@@ -17,12 +19,16 @@ import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/c
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
 import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 
+import * as ROUTES from "~/src/routes"
+
 const HERO_TAGS = {
   accent: (chunks: ReactNode) => <Accent id="hero" text={chunks} />,
   billing: BILLING_GENERATION,
   code: (chunks: ReactNode) => <code className="font-mono text-code text-foreground">{chunks}</code>,
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
 }
+
+const GENERATED_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
 
 const ANCHOR_TAGS = { ...PRICE_TAGS, days: REFUND_TERMS.WITHDRAWAL_DAYS }
 
@@ -51,6 +57,42 @@ const InstallCommand = (): JSX.Element => {
   )
 }
 
+const useGeneratedStack = (): Record<string, string> => {
+  const stack = useTranslations("stack")
+  const format = useFormatter()
+
+  return Object.fromEntries(
+    GENERATED_STACK.map((choice) => [
+      choice,
+      format.list(
+        CLI_TEMPLATE_SUPPORT.choices[choice].map((option) => stack(`${choice}.options.${option}`)),
+        { type: "disjunction" },
+      ),
+    ]),
+  )
+}
+
+const GeneratedStack = (): JSX.Element => {
+  const values = useGeneratedStack()
+  const t = useTranslations("pages.landing.hero")
+
+  return (
+    <>
+      {t.rich("stack", {
+        ...values,
+        roadmap: (chunks: ReactNode) => (
+          <Link
+            className="rounded-sm text-foreground underline underline-offset-4 outline-none hover:text-muted-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+            href={ROUTES.DOCS_ROADMAP}
+          >
+            {chunks}
+          </Link>
+        ),
+      })}
+    </>
+  )
+}
+
 export const HeroSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.hero")
 
@@ -65,7 +107,7 @@ export const HeroSection = (): JSX.Element => {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground sm:[--rise-delay:100ms] sm:motion-safe:animate-rise">
-          {t.rich("description", { ...HERO_TAGS, ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
+          {t.rich("description", { ...HERO_TAGS, ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })} <GeneratedStack />
         </p>
 
         <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4 sm:[--rise-delay:200ms] sm:motion-safe:animate-rise">

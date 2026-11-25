@@ -1,6 +1,6 @@
 ---
 title: "決済"
-description: "Better Auth の Polar プラグイン、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
+description: "Better Auth の Polar プラグイン、あらゆる Polar 商品のチェックアウト、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
 ---
 
 決済は `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。このプラグインは、`src/integrations/better-auth/auth.server.ts` の `plugins` に、直後に続く専用のプラグインと一緒に並んでいます。
@@ -23,11 +23,25 @@ description: "Better Auth の Polar プラグイン、カスタマーポータ�
     },
 ```
 
-プラグインはカスタマーポータルと Webhook を追加し、Webhook は `rateLimit.customRules` の `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` によって Better Auth のレート制限の対象外になります。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。販売を行う機能は、独自のチェックを行った後、Polar SDK で購入セッションを作成します。ライセンスの `startCheckout` がその例です（[ライセンス](/docs/features/licences)を参照）。
+プラグインはカスタマーポータルと Webhook を追加し、Webhook は `rateLimit.customRules` の `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` によって Better Auth のレート制限の対象外になります。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。購入セッションは、代わりに注文モジュールで Polar SDK を使って作成します（[チェックアウト](#checkout)を参照）。
 
 2 つ目の要素 `polar-verified-customer` は独立したプラグインで、`/customer/` 以下のすべてのエンドポイントの前に `requireVerifiedEmail`（`auth.hooks.ts`）を実行します。そのため、アカウントのアドレスが確認されるまで、カスタマーポータルは `403 EMAIL_NOT_VERIFIED` を返します（[メール確認](/docs/features/email-verification)）。
 
 `src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER`、`POLAR_CUSTOMER_SESSION_TOKEN_PARAM` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、同意のチェックボックス、税の扱い、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+
+## チェックアウト [#checkout]
+
+`src/modules/order/order.checkout.ts` の `createCheckout` は、サイトが開始するすべてのチェックアウトを `polar.checkouts.create` で作成します。サーバー関数のコンテキストからサインイン中のアカウントを、引数から `{ locale, productId, returnPath, successPath }` を受け取り、次の処理を行います。
+
+1. リクエストのオリジンを `trustedRequestOrigin`（`src/lib/request-origin.ts`）で読み取ります。この関数は、ビルドモードについて `appHostsForMode` が挙げていないホストや、開発とテスト以外での平文の HTTP を `FORBIDDEN` で拒否します。読み取ったオリジンは、チェックアウトをフレームに表示してそのメッセージを受け取れる唯一のページとして `embed_origin` に指定します。これにより、`openCheckoutOverlay`（`src/lib/checkout-overlay.ts`）がチェックアウトをページに重ねて表示できます（[ページに重ねて開くチェックアウト](/docs/features/licences#the-checkout-over-the-page)）。
+2. チェックアウトをアカウントに紐付け（`external_customer_id`）、そのメールアドレスと名前（`customer_email`、`customer_name`）を入力済みにするため、チェックアウトのフォームはそれらが入った状態で開きます。`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`。Better Auth の `getIP` で読み取り）も渡します。
+3. `polarCheckoutLanguage` が `locale` に対して返す言語で Polar のページを開き、`locale` そのものは `metadata` の `ORDER_CHECKOUT_METADATA.LOCALE`（`order.constants.ts`）に書き込みます。訪問者がアフィリエイトリンクから来た場合は、アフィリエイトの紹介情報もその隣に入ります（[アフィリエイトプログラム](/docs/features/affiliates)）。Polar はメタデータを注文にコピーします。
+4. `returnPath` を `return_url` として渡し、Polar がそのページへの戻るボタンを表示するようにします。また、購入者の言語にした（`localizePathname`）`successPath` を成功 URL として渡し、パス自身の検索パラメーターの前に `checkoutId={CHECKOUT_ID}` を付けます。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）をチェックアウト ID に置き換えます。
+5. 呼び出し側が独自の条件（`allow_discount_codes`、`metadata`、`prices`）を渡さない限り、購入者は Polar の割引コードを入力でき、Polar で設定した商品の価格が請求されます。最後に `{ checkoutId, url }` を返します。
+
+`src/modules/order/use-cases/start-checkout.ts` の `startCheckout` は、任意の Polar 商品のチェックアウトを開始するサーバー関数です。その入力である `orderZodSchemas.startCheckout`（`Order["startCheckout"]`）は、商品の Polar ID を UUID として受け取り、2 つのパスはサイト内にとどまるよう `callbackPathSchema` で検証します。`authorized()` を実行するため、購入できるのはサインイン済みのアカウントだけです。また、機能が独自のチェックアウトで販売する商品は、Polar に問い合わせることなく `FORBIDDEN` で拒否します。その判定を行う `hasOwnCheckout` は `PRODUCTS_WITH_OWN_CHECKOUT` を読み取り、その唯一の要素はライセンスの `POLAR_PRODUCT_IDS` です。ライセンス独自の `startCheckout` は、アカウントのライセンスを確認し、プランの価格を決めてから、独自の条件で `createCheckout` を呼び出します（[ライセンス](/docs/features/licences#starting-the-checkout)）。このサイトには、ほかの商品を提供するページはまだありません。
+
+どちらのサーバー関数も `authorized()` の前に `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` を実行し、どちらが開始したかにかかわらず、クライアントごとに 1 分あたり <RepositoryFact name="checkoutsPerMinute" /> 件までのチェックアウトを許可します。チェックアウトはそれぞれ組織のトークンを使った Polar API へのリクエストであり、そのトークンのレート制限はすべての購入者で共有されるためです。
 
 ## Webhook [#webhooks]
 
@@ -82,7 +96,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 
 - 各ユースケースは Polar のレコード（`models.Order` または `models.Subscription`）を受け取り、1 つの文で書き込みます。Polar の ID で行を挿入し、行がすでにある場合は、保存されている `changed_at` がレコードのものより後でないときだけ更新します。新しいバージョンは反映され、遅れて届いた古いバージョンは何も変えず、2 回届いた同じバージョンは同じ値で書き直されます。同じ `modified_at` を持つ 2 つの異なる状態では、最後に書き込まれたほうが、Polar がレコードを再び変更するまで残ります。
 - `recordOrder` は割引と請求先の国を `polarOrderTerms`（`src/modules/order/order.polar.ts`）から取得し、`scripts/backfill-order-terms.ts` も同じものを使います。請求先住所のない後のバージョンは、すでにコピーされた国を保ちます。
-- 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は販売するエリアがチェックアウト時に設定します。ライセンスのエリアの `startCheckout` もそうしています。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
+- 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は `createCheckout` がすべてのチェックアウトに設定します（[チェックアウト](#checkout)）。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
 - ライセンスも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のハンドラーを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
 - 管理ダッシュボードは注文のコピーを読み取り、ライセンスのない支払い済みのライセンス注文を一覧表示し（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）、売上を集計します（[ダッシュボードの売上](#revenue-on-the-dashboard)を参照）。サブスクリプションのコピーを読み取るページはまだありません。
 
@@ -96,7 +110,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 
 ## 関連ページ
 
-- 購入、ライセンスの Webhook、顧客向け画面については[ライセンス](/docs/features/licences)
+- ライセンスの購入、ライセンスの Webhook、顧客向け画面については[ライセンス](/docs/features/licences)
 - Polar での設定と `polar:verify` については [Polar の設定](/docs/getting-started/polar-setup)
 - 購入の前後の画面については[顧客アプリ](/docs/features/customer-app)
 - [環境変数](/docs/getting-started/environment-variables)

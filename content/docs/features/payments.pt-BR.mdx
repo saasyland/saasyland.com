@@ -1,6 +1,6 @@
 ---
 title: "Pagamentos"
-description: "O plugin da Polar para o Better Auth, o portal do cliente, os webhooks que ele repassa aos seus handlers, as cópias no D1 dos pedidos e das assinaturas da Polar e a receita que elas levam ao painel administrativo."
+description: "O plugin da Polar para o Better Auth, o checkout para qualquer produto da Polar, o portal do cliente, os webhooks que ele repassa aos seus handlers, as cópias no D1 dos pedidos e das assinaturas da Polar e a receita que elas levam ao painel administrativo."
 ---
 
 Os pagamentos passam pela Polar com o plugin `@polar-sh/better-auth`, que aparece em `plugins`, em `src/integrations/better-auth/auth.server.ts`, seguido de um plugin próprio:
@@ -23,11 +23,25 @@ Os pagamentos passam pela Polar com o plugin `@polar-sh/better-auth`, que aparec
     },
 ```
 
-O plugin adiciona o portal do cliente e os webhooks, que `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false`, em `rateLimit.customRules`, isenta do rate limiter do Better Auth, mas nenhum checkout: o `checkout()` dele criaria um checkout só com o ID da conta, então a Polar pediria o e-mail de novo a um comprador que já entrou na conta. O Better Auth não fecha nenhum caminho via HTTP, então `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` confere que o caminho do checkout do plugin responde 404 e falha assim que `checkout()` for adicionado ao plugin. Uma funcionalidade que vende cria seus checkouts com o SDK da Polar depois das próprias verificações, como faz o `startCheckout` da licença (veja [Licenças](/docs/features/licences)).
+O plugin adiciona o portal do cliente e os webhooks, que `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false`, em `rateLimit.customRules`, isenta do rate limiter do Better Auth, mas nenhum checkout: o `checkout()` dele criaria um checkout só com o ID da conta, então a Polar pediria o e-mail de novo a um comprador que já entrou na conta. O Better Auth não fecha nenhum caminho via HTTP, então `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` confere que o caminho do checkout do plugin responde 404 e falha assim que `checkout()` for adicionado ao plugin. Em vez disso, os checkouts começam no módulo de pedidos, com o SDK da Polar (veja [Checkout](#checkout)).
 
 O segundo elemento, `polar-verified-customer`, é um plugin próprio que executa `requireVerifiedEmail` (`auth.hooks.ts`) antes de cada endpoint em `/customer/`, então o portal do cliente responde `403 EMAIL_NOT_VERIFIED` até que o endereço da conta seja confirmado ([Verificação de e-mail](/docs/features/email-verification)).
 
 `src/integrations/polar/polar.config.ts` cria `polarCore` a partir de `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, que o plugin usa, e `polar`, os serviços de checkouts, chaves de licença e pedidos construídos sobre ele. `POLAR_ORGANIZATION_ID` delimita à organização cada chamada à Polar que nomeia uma organização; [Ambiente e bindings](/docs/reference/environment) lista todas. `src/integrations/polar/polar.constants.ts` guarda os valores da própria Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` e `POLAR_WEBHOOK_EVENT`, cada um conferido com os tipos do SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` e `POLAR_ID_MAX_LENGTH`, o tamanho de toda coluna que guarda um ID da Polar. Ele não lê nenhuma variável de ambiente, então o navegador e a suíte do navegador também o importam. Os caminhos da Polar, `API_AUTH_POLAR` e `API_AUTH_CUSTOMER_PORTAL`, ficam em `src/routes.ts`. [Configuração da Polar](/docs/getting-started/polar-setup) descreve os produtos, as chaves de licença, a caixa de consentimento, o comportamento fiscal, o webhook e o token que este código espera na Polar, e `bun run polar:verify:<environment>` os verifica.
+
+## Checkout [#checkout]
+
+`createCheckout`, em `src/modules/order/order.checkout.ts`, cria todos os checkouts que o site inicia, com `polar.checkouts.create`. Ele recebe a conta logada do contexto da função de servidor e `{ locale, productId, returnPath, successPath }`, e:
+
+1. lê a origem da requisição com `trustedRequestOrigin` (`src/lib/request-origin.ts`), que recusa com `FORBIDDEN` um host que `appHostsForMode` não lista para o modo de build, ou HTTP simples fora de desenvolvimento e teste, e a informa como `embed_origin`, a única página que pode exibir o checkout em um frame e receber as mensagens dele, para que `openCheckoutOverlay` (`src/lib/checkout-overlay.ts`) possa mostrá-lo sobre a página ([O checkout sobreposto à página](/docs/features/licences#the-checkout-over-the-page));
+2. vincula o checkout à conta (`external_customer_id`) e o preenche com o e-mail e o nome dela (`customer_email`, `customer_name`), para que o formulário de checkout abra com eles, e com o endereço IP do comprador de `cf-connecting-ip` (`customer_ip_address`, lido com o `getIP` do Better Auth);
+3. abre a página da Polar no idioma que `polarCheckoutLanguage` indica para `locale` e grava o próprio `locale` em `metadata`, sob `ORDER_CHECKOUT_METADATA.LOCALE` (`order.constants.ts`), ao lado da indicação de afiliado quando o visitante veio por um link de afiliado ([Programa de afiliados](/docs/features/affiliates)). A Polar copia os metadados para o pedido;
+4. passa `returnPath` como `return_url`, para que a Polar mostre um botão de voltar para essa página, e `successPath` no idioma do comprador (`localizePathname`) como URL de sucesso, com `checkoutId={CHECKOUT_ID}` antes dos parâmetros de busca do próprio caminho. A Polar substitui `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) pelo ID do checkout;
+5. deixa o comprador usar os códigos de desconto da Polar e cobra o preço que o produto tem na Polar, a menos que quem chama passe as próprias condições (`allow_discount_codes`, `metadata` e `prices`), e retorna `{ checkoutId, url }`.
+
+`startCheckout`, em `src/modules/order/use-cases/start-checkout.ts`, é a função de servidor que inicia um checkout para qualquer produto da Polar. A entrada dela, `orderZodSchemas.startCheckout` (`Order["startCheckout"]`), recebe o ID do produto na Polar como UUID e os dois caminhos, validados com `callbackPathSchema` para que fiquem no site. Ela executa `authorized()`, então só uma conta logada compra, e recusa com `FORBIDDEN`, sem consultar a Polar, um produto que uma funcionalidade vende por um checkout próprio: `hasOwnCheckout` lê `PRODUCTS_WITH_OWN_CHECKOUT`, cujo único elemento é o `POLAR_PRODUCT_IDS` da licença. O `startCheckout` próprio da licença verifica a licença da conta, define o preço do plano e só então chama `createCheckout` com as próprias condições ([Licenças](/docs/features/licences#starting-the-checkout)). Nenhuma página deste site oferece outro produto ainda.
+
+As duas funções de servidor executam `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` antes de `authorized()`, o que permite <RepositoryFact name="checkoutsPerMinute" /> checkouts por minuto por cliente, seja qual for a função que os inicia: cada checkout é uma requisição à API da Polar com o token da organização, cujo rate limit todos os compradores compartilham.
 
 ## Webhooks [#webhooks]
 
@@ -82,7 +96,7 @@ Os dois primeiros elementos de `POLAR_EVENT_HANDLERS` (veja [Webhooks](#webhooks
 
 - Cada caso de uso recebe o registro da Polar, `models.Order` ou `models.Subscription`, e o grava em uma única instrução: uma inserção sob o ID da Polar que, quando a linha já existe, só a atualiza se o `changed_at` guardado não for posterior ao do registro. Uma versão mais nova é aplicada, uma mais antiga que chega atrasada não muda nada, e a mesma versão entregue duas vezes é gravada de novo com os mesmos valores. De dois estados diferentes com o mesmo `modified_at`, fica o último gravado até a Polar mudar o registro outra vez.
 - `recordOrder` pega o desconto e o país de cobrança de `polarOrderTerms` (`src/modules/order/order.polar.ts`), que `scripts/backfill-order-terms.ts` também usa. Uma versão posterior sem endereço de cobrança mantém o país já copiado.
-- A mesma instrução preenche `user_id` com `polarCustomerAccount`, em `src/integrations/polar/polar.customers.ts`: a conta cujo ID é o `external_id` do cliente, que a área que vende define no checkout, como faz o `startCheckout` da área de licenças. Ele fica vazio quando o cliente não tem `external_id` ou nenhuma conta tem esse ID, por exemplo porque a conta foi excluída.
+- A mesma instrução preenche `user_id` com `polarCustomerAccount`, em `src/integrations/polar/polar.customers.ts`: a conta cujo ID é o `external_id` do cliente, que `createCheckout` define em todo checkout ([Checkout](#checkout)). Ele fica vazio quando o cliente não tem `external_id` ou nenhuma conta tem esse ID, por exemplo porque a conta foi excluída.
 - A licença também trata `order.paid` e `order.refunded`. A cópia também os recebe, então registra o pagamento e o reembolso quer a Polar envie também `order.updated` para eles, quer não. `handlePolarEvent` executa os dois handlers ao mesmo tempo; quando a cópia falha, a entrega responde 500, e a nova tentativa da Polar repete as duas gravações sem mudar o que uma delas já gravou.
 - O painel administrativo lê as cópias dos pedidos para listar os pedidos de licença pagos que não têm licença (veja [Licenças](/docs/features/licences#orders-that-match-no-account)) e para totalizar a receita (veja [Receita no painel](#revenue-on-the-dashboard)); nenhuma página lê as cópias das assinaturas ainda.
 
@@ -96,7 +110,7 @@ A declaração de permissão `order` (`read`, `update`, `refund`) fica em `APP_S
 
 ## Páginas relacionadas
 
-- [Licenças](/docs/features/licences) para o checkout, os webhooks das licenças e as telas do cliente
+- [Licenças](/docs/features/licences) para o checkout da licença, os webhooks das licenças e as telas do cliente
 - [Configuração da Polar](/docs/getting-started/polar-setup) para a configuração na Polar e o `polar:verify`
 - [Aplicativo do cliente](/docs/features/customer-app) para as telas em torno do checkout
 - [Variáveis de ambiente](/docs/getting-started/environment-variables)

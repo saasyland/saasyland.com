@@ -9,8 +9,9 @@ import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { LICENSE_CHECKOUT_METADATA, LICENSE_EMAIL_PURPOSE, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_EMAIL_PURPOSE, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
+import { ORDER_CHECKOUT_METADATA } from "~/src/modules/order/order.constants"
 
 import { CLI_SETUP_LINES } from "~/src/data/cli"
 import { REFUND_TERMS } from "~/src/data/refunds"
@@ -38,7 +39,7 @@ const order = (fields: Partial<models.Order> = {}) => ({
   currency: "usd",
   id: ORDER_ID,
   invoice_number: INVOICE_NUMBER,
-  metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" },
+  metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: "en-US" },
   total_amount: 39_900,
   ...fields,
 })
@@ -127,7 +128,7 @@ describe("the purchase confirmation", () => {
   })
 
   it("writes in the language of the checkout, with its tier names, dates, amount and links", async () => {
-    const paid = order({ currency: "jpy", metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "pl-PL" }, total_amount: 59_800 })
+    const paid = order({ currency: "jpy", metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: "pl-PL" }, total_amount: 59_800 })
     const t = createTranslator({ locale: "pl-PL", messages: plMessages })
     const format = createFormatter({ formats: I18N.FORMATS, locale: "pl-PL", timeZone: I18N.DEFAULT_TIMEZONE })
     const date = format.dateTime(new Date(paid.created_at), "calendarDate")
@@ -151,7 +152,7 @@ describe("the purchase confirmation", () => {
 
   it.each([
     ["no locale", {}],
-    ["a locale the site does not speak", { [LICENSE_CHECKOUT_METADATA.LOCALE]: "xx-XX" }],
+    ["a locale the site does not speak", { [ORDER_CHECKOUT_METADATA.LOCALE]: "xx-XX" }],
   ])("writes in English to an order with %s, naming it by its Polar ID before it has an invoice", async (_case, metadata) => {
     await sendPurchaseConfirmationEmail({
       order: order({ invoice_number: JSON_NULL, metadata }),

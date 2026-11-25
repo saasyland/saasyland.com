@@ -76,7 +76,7 @@ import {
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { CONFIRMATION_WINDOW_IN_HOURS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import { REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
+import { CHECKOUT_RATE_LIMIT, REVENUE_ORDER_STATUSES } from "~/src/modules/order/order.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { SESSION_STALE_TIME_MS } from "~/src/modules/session/session.constants"
 import { RESEND_COOLDOWN_SECONDS, VERIFICATION_POLL_MS } from "~/src/modules/verification/verification.constants"
@@ -220,6 +220,7 @@ const FACTS = {
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
   checkoutOverlayGraceSeconds: CHECKOUT_OVERLAY_GRACE_MS / MILLISECONDS_PER_SECOND,
+  checkoutsPerMinute: CHECKOUT_RATE_LIMIT.max,
   cliActivate: cliCommand(CLI_COMMAND.ACTIVATE),
   cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
   cliApiUrlVariable: CLI_VARIABLE.API_URL,

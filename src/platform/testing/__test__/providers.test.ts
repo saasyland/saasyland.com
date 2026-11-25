@@ -14,8 +14,7 @@ import { POLAR_FIXED_PRICE, POLAR_MINIMUM_PRICE_AMOUNT, POLAR_PRICE_CURRENCY } f
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 const RESEND_EMAILS = `${resendApi.origin}/emails`
 const POLAR_CHECKOUTS = `${polarApi.origin}${POLAR_API.CHECKOUTS}`

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
-import { TIMEZONES } from "~/src/data/timezones"
+import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 
 import type commonMessages from "~/messages/en-US/common.json"
 

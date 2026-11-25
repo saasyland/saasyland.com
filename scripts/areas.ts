@@ -85,7 +85,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "messages/*/pages.{admin,app,auth}.*.json",
       "messages/*/components.custom.{change-email-form,email-link-resend,email-verification-banner,impersonation-banner,preferences-card}.json",
       "messages/*/emails.{change-email-confirmation-email,delete-account-email,existing-account-email,password-changed-email,reset-password-email,verify-email}.json",
-      "scripts/{grant-admin,local-admin,verify-auth}.ts",
+      "scripts/{grant-admin,local-admin,seed-local-admin,verify-auth}.ts",
     ],
     names: {
       [ROUTES_FILE]: [
@@ -175,11 +175,13 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/app/course-unlocks.tsx",
       "src/presentation/components/custom/app/__test__/course-unlocks.component.test.tsx",
       "src/presentation/components/custom/video-player.tsx",
+      "src/presentation/components/custom/landing-page/components/course-showcase.tsx",
+      "src/presentation/components/custom/landing-page/components/__test__/course-showcase.component.test.tsx",
       "src/presentation/components/custom/__test__/video-player.*",
       "src/hooks/use-{course-access-names,file-size,lesson-progress,video-upload}.ts",
       "src/hooks/__test__/use-{file-size,video-upload}.component.test.tsx",
       "src/integrations/use-intl/__test__/courses.labels.ts",
-      "scripts/{encode-videos,publish-video,sync-courses,video-pipeline}.ts",
+      "scripts/{encode-videos,publish-video,seed-local-courses,sync-courses,video-pipeline}.ts",
       "e2e/data/videos.ts",
       "e2e/fixtures/{attachment,video}/**",
       "e2e/specs/course-*.spec.ts",
@@ -232,7 +234,7 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
       "src/presentation/components/custom/admin/__test__/license.fixtures.ts",
       "src/presentation/components/custom/{activation-limit,pricing,regional-discounts,tier-price,withdrawal-form,withdrawal-pending}.tsx",
       "src/presentation/components/custom/__test__/{activation-limit,regional-discounts,tier-price,withdrawal-form,withdrawal-pending}.component.test.tsx",
-      "src/lib/{checkout-overlay,polar}.ts",
+      "src/lib/{checkout-overlay,polar,tier-features}.ts",
       "src/lib/__test__/{checkout-overlay.component,polar}.test.ts",
       "src/presentation/emails/{purchase-confirmation-email,unmatched-order-alert-email,withdrawal-acknowledgement-email,withdrawal-notification-email}.tsx",
       "src/integrations/drizzle-orm/__test__/license.rows.ts",
@@ -290,7 +292,6 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
   },
   [AREA.POLAR]: {
     files: [
-      areaData(AREA.POLAR),
       "src/integrations/polar/**",
       "src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts",
       "src/integrations/drizzle-orm/__test__/polar.rows.ts",
@@ -325,12 +326,11 @@ export const AREAS: Readonly<Record<Area, AreaFootprint>> = {
   },
   [AREA.REPOSITORY_FACTS]: {
     files: [
-      areaData(AREA.REPOSITORY_FACTS),
       "src/data/__test__/navigation.website.test.ts",
       "src/presentation/components/custom/repository-fact.tsx",
       "src/presentation/components/custom/__test__/repository-fact.component.test.tsx",
-      "src/lib/github.ts",
-      "src/lib/__test__/github.test.ts",
+      "src/lib/{github,repository-facts}.ts",
+      "src/lib/__test__/{github,repository-facts}.test.ts",
       "src/types/repository-facts.d.ts",
       "scripts/repository-facts.ts",
     ],

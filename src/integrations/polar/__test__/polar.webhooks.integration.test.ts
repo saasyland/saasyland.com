@@ -29,6 +29,7 @@ import {
 } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_EMAIL_PURPOSE, LICENSE_STATUS, LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
@@ -36,8 +37,6 @@ import { unlicensedOrdersQuery } from "~/src/modules/license/use-cases/get-unlic
 import { order } from "~/src/modules/order/order.schema"
 import { recordOrder } from "~/src/modules/order/use-cases/record-order"
 import { subscription } from "~/src/modules/subscription/subscription.schema"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"

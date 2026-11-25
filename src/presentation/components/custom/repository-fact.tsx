@@ -27,12 +27,14 @@ import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tansta
 import { DATA_GRID_DENSITIES, DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import {
   LOCALIZED_LIST_ITEM_MAX_LENGTH,
   LOCALIZED_LIST_MAX_ITEMS,
   LOCALIZED_TEXT_MAX_LENGTH,
 } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_SORTED_COLUMNS, PAGE_SIZES, SEARCH_MAX_LENGTH } from "~/src/modules/_core/utils/pagination"
+import { DEFAULT_TIME_RANGE, TIME_RANGES } from "~/src/modules/_core/utils/time-series"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import {
   COURSE_DOCUMENT,
@@ -104,7 +106,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
-import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
+import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH } from "~/src/data/auth"
 import {
   CLI_COMMAND,
   CLI_EXEC,
@@ -120,8 +122,9 @@ import {
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
+import { CORE_PRICE_IN_HOURS } from "~/src/data/license"
 import { TEST_SERVER_PORTS } from "~/src/data/local-server"
-import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
+import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import {
   FEATURE_STATUS,
   FEATURE_STATUSES,
@@ -130,12 +133,10 @@ import {
   NAVIGATION_PENDING_MS,
 } from "~/src/data/navigation.constants"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { SKILL_SOURCES } from "~/src/data/skills"
-import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/data/tier-features"
 
+import { oauthCallbackPath } from "~/src/lib/auth"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "~/src/lib/checkout-overlay"
 import { cliCommand } from "~/src/lib/cli"
 import { cn } from "~/src/lib/cn"
@@ -145,8 +146,9 @@ import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
-import { DEFAULT_TIME_RANGE, TIME_RANGES } from "~/src/lib/time-series"
+import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/lib/tier-features"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 

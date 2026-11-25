@@ -24,7 +24,7 @@ import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/licen
 import { license } from "~/src/modules/license/license.schema"
 import { user } from "~/src/modules/user/user.schema"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 
 import * as ROUTES from "~/src/routes"
 

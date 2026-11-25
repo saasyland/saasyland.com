@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, renameSync, rmSync, symlinkSync } from "node:fs"
 import { dirname, join } from "node:path"
 import process from "node:process"
 
-import { skillGroup } from "../src/data/skills.ts"
+import { SKILL_SOURCES, TANSTACK_ROUTER } from "../src/data/skills.ts"
 import { readDependencies } from "./dependencies.ts"
 import { FAILURE_EXIT_CODE, runCommand } from "./run-command.ts"
 import { type LockedSkill, type SkillsLock, readSkillsLock, skillPackageVersions, writeRecordedVersions } from "./skills-lock.ts"
@@ -19,6 +19,10 @@ const LEGACY_AGENT_DIRECTORY = "agent"
 const STAGING_DIRECTORY = ".staging"
 const GROUP_SEPARATOR = "/"
 const FIXED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+const TANSTACK_START_GROUP = "tanstack/start"
+const TANSTACK_START_SKILL_PATH = /^packages\/(?:react-start|start-[^/]+)\//u
+
+const SKILL_GROUPS = new Map<string, string>(Object.entries(SKILL_SOURCES).map(([source, { group }]) => [source, group]))
 
 export type RunSkills = (args: readonly string[]) => number
 
@@ -26,6 +30,14 @@ export interface SyncResult {
   readonly failures: readonly string[]
   readonly summary: string
   readonly warnings: readonly string[]
+}
+
+const skillGroup = ({ skillPath, source }: LockedSkill): string | undefined => {
+  if (source === TANSTACK_ROUTER && TANSTACK_START_SKILL_PATH.test(skillPath)) {
+    return TANSTACK_START_GROUP
+  }
+
+  return SKILL_GROUPS.get(source)
 }
 
 export const skillLocation = (name: string, entry: LockedSkill): string => {

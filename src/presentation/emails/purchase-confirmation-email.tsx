@@ -5,8 +5,9 @@ import { createFormatter, createTranslator } from "use-intl"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
+import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
+
 import { CLI_SETUP_LINES } from "~/src/data/cli"
-import type { CurrencyCode } from "~/src/data/currencies"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import type emailMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"

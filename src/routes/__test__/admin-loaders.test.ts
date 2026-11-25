@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
+import { TIME_BUCKET } from "~/src/modules/_core/utils/time-series"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import { courseProgressQuery } from "~/src/modules/lesson-progress/use-cases/get-course-progress"
 import { newsletterSubscribersQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscribers"
@@ -11,8 +12,6 @@ import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { EMPTY_PAGE, expectLocalizedAdminPage, expectPrefetched, loadAsAdmin } from "~/src/routes/__test__/fixtures/admin-router"
-
-import { TIME_BUCKET } from "~/src/lib/time-series"
 
 beforeEach(() => {
   vi.spyOn(auth.api, "listUserAccounts").mockResolvedValue([])

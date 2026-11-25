@@ -5,12 +5,11 @@ import { v7 } from "uuid"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_MUTATION_KEYS, PRODUCT_STATUS } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import type { Product } from "~/src/modules/product/product.types"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
-
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 export const createProduct = createServerFn({ method: "POST" })
   .middleware([authorized({ product: ["create"] })])

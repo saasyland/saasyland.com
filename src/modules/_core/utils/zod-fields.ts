@@ -2,10 +2,9 @@ import * as zod from "zod"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { COUNTRY_CODES } from "~/src/modules/_core/constants/country"
+import { CURRENCY_CODES } from "~/src/modules/_core/constants/currency"
 import { FIRST_POSITION } from "~/src/modules/_core/constants/ordering"
-
-import { COUNTRY_CODES } from "~/src/data/countries"
-import { CURRENCY_CODES } from "~/src/data/currencies"
 
 export const MIN_FIELD_LENGTH = 1
 

@@ -15,7 +15,8 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { CLI_GENERATION, CLI_GENERATION_VALUES, CLI_INIT_COMMAND } from "~/src/data/cli"
 import { BILLING_GENERATION } from "~/src/data/marketing"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
 import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"

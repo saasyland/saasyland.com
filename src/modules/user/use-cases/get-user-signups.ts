@@ -6,12 +6,11 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { bucketOf } from "~/src/integrations/drizzle-orm/drizzle.time-series"
 
+import { pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import { user } from "~/src/modules/user/user.schema"
 import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
-
-import { pointsOf, timeSeries } from "~/src/lib/time-series"
 
 export const getUserSignups = createServerFn({ method: "GET" })
   .middleware([authorized({ user: ["list"] })])

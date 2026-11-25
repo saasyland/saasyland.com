@@ -9,7 +9,8 @@ import {
   HEAD_START_ROUNDING_HOURS,
   HEAD_START_ROWS,
 } from "~/src/data/head-start"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import blogMessages from "~/messages/en-US/pages.blog.json"
 

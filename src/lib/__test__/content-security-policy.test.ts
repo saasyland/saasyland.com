@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { POLAR_SERVER } from "~/src/integrations/polar/polar.constants"
 
-import { POLAR_SERVER } from "~/src/data/polar"
+import { SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 

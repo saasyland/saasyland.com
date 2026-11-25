@@ -5,9 +5,8 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { useAdminSections } from "~/src/hooks/use-admin-sections"
 
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
-
 import { starCountQuery } from "~/src/lib/github"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 

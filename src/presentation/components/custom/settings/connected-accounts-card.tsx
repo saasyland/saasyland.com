@@ -10,6 +10,7 @@ import { useTranslations } from "use-intl/react"
 import { authClient } from "~/src/integrations/better-auth/auth.client"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { authErrorKey, authErrorKeyFromSearch } from "~/src/integrations/better-auth/auth.errors"
+import { settingsSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { ACCOUNT_QUERY_KEYS } from "~/src/modules/account/account.constants"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
@@ -17,7 +18,7 @@ import { unlinkAccountMutation } from "~/src/modules/account/use-cases/unlink-ac
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { OAUTH_PROVIDERS, SETTINGS_TAB, settingsSearchSchema } from "~/src/data/auth"
+import { OAUTH_PROVIDERS, SETTINGS_TAB } from "~/src/data/auth"
 
 import { Alert, AlertDescription } from "~/src/presentation/components/shadcn/alert"
 import { Button } from "~/src/presentation/components/shadcn/button"

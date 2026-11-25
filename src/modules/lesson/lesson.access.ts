@@ -7,7 +7,7 @@ import { COURSE_LICENSE_TIERS, LICENSE_STATUS, OFFERED_COURSE_TIER } from "~/src
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { recordLessonOpened } from "~/src/modules/license/use-cases/record-lesson-opened"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/license"
 
 import * as ROUTES from "~/src/routes"
 

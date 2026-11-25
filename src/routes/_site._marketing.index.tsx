@@ -10,13 +10,13 @@ import { blogNotes, toBlogPostSummary } from "~/src/integrations/fumadocs/fumado
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { TIER_PRICES } from "~/src/data/marketing"
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { TIER_PRICES } from "~/src/data/license"
 
 import { starCountQuery } from "~/src/lib/github"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, pageHead } from "~/src/lib/seo"
 
 import { HomePending } from "~/src/presentation/components/custom/core-pending"

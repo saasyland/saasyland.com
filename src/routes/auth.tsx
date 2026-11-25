@@ -8,7 +8,8 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { AUTH_ASSURANCES } from "~/src/data/auth"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { AuthPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"

@@ -1,14 +1,13 @@
 import { expect, it } from "vite-plus/test"
 
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
-
 import {
   POLAR_CHECKOUT_DEFAULT_LANGUAGE,
   POLAR_SERVER,
   isPolarCheckoutTranslated,
   polarCheckoutLanguage,
   polarCheckoutOrigin,
-} from "~/src/data/polar"
+} from "~/src/integrations/polar/polar.constants"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 it("opens Polar's checkout in the language of each locale Polar translates, and in English for the others", () => {
   expect(Object.fromEntries(I18N.SUPPORTED_LOCALES.map((locale) => [locale, polarCheckoutLanguage(locale)]))).toStrictEqual({

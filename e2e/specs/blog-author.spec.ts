@@ -5,7 +5,8 @@ import * as zod from "zod"
 
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import plPagesBlog from "../../messages/pl-PL/pages.blog.json" with { type: "json" }
-import { BLOG_AUTHOR, BLOG_AUTHORS, blogAuthorPath } from "../../src/data/blog"
+import { BLOG_AUTHOR, BLOG_AUTHORS } from "../../src/data/blog"
+import { blogAuthorPath } from "../../src/lib/blog-archive"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { readPageHead } from "../../src/lib/page-head"

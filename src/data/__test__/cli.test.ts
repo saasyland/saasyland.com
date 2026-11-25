@@ -18,7 +18,8 @@ import {
   PACKAGE_MANAGER,
   SCAFFOLD_DIR,
 } from "~/src/data/cli"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import stackMessages from "~/messages/en-US/stack.json"
 import root from "~/package.json"

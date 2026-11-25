@@ -9,11 +9,10 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { TIME_BUCKET, TIME_RANGE } from "~/src/modules/_core/utils/time-series"
 import { orderRow } from "~/src/modules/order/__test__/fixtures/order"
 import { order } from "~/src/modules/order/order.schema"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
-
-import { TIME_BUCKET, TIME_RANGE } from "~/src/lib/time-series"
 
 const NOW = new Date("2026-11-20T15:00:00.000Z")
 const ADMIN_ID = "01900000-0000-7000-8000-000000000031"

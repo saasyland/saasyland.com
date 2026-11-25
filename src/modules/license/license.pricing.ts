@@ -1,8 +1,7 @@
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
-
-import type { CountryCode } from "~/src/data/countries"
+import type { CountryCode } from "~/src/modules/_core/constants/country"
 
 import { readCookie } from "~/src/lib/cookie"
 

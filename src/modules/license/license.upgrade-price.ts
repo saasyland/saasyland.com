@@ -7,13 +7,12 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_MINIMUM_PRICE_AMOUNT, POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
+import { toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { buyerTierPrice } from "~/src/modules/license/license.ppp"
 import type { UpgradableLicense } from "~/src/modules/license/license.upgrades"
 import { POLAR_PRODUCT_IDS, orderCurrencySchema } from "~/src/modules/license/license.utils"
-
-import { toMinorUnits } from "~/src/data/currencies"
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 const ORDER_PAGE_SIZE = 100
 

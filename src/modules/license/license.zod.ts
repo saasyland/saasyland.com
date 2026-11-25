@@ -1,10 +1,16 @@
 import * as zod from "zod"
 
 import { callbackPathSchema } from "~/src/integrations/better-auth/auth.zod"
+import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField, localeField } from "~/src/modules/_core/utils/zod-fields"
-import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
+import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
+
+import { searchParam } from "~/src/lib/search-params"
+
+import { APP_URL } from "~/src/presentation/branding"
+import * as ROUTES from "~/src/routes"
 
 const startCheckout = zod.object({
   locale: localeField,
@@ -36,3 +42,17 @@ export const licenseZodSchemas = {
   getUserLicense,
   startCheckout,
 }
+
+export const licenseSearchSchema = zod.object({
+  checkoutId: searchParam(zod.uuid()),
+  redirect: searchParam(callbackPathSchema),
+  tier: searchParam(zod.enum(LICENSE_TIER)),
+})
+
+const TIER_PAGES = new Set<string>([ROUTES.APP, ROUTES.APP_LICENSE])
+
+export const redirectTierSchema = callbackPathSchema
+  .transform((redirect) => new URL(redirect, APP_URL))
+  .refine(({ pathname }) => TIER_PAGES.has(deLocalizePathname(pathname)))
+  .transform(({ searchParams }) => licenseSearchSchema.parse(Object.fromEntries(searchParams)).tier)
+  .pipe(zod.enum(LICENSE_TIER))

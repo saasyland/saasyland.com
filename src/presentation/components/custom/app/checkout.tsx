@@ -5,6 +5,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
+import { isPolarCheckoutTranslated } from "~/src/integrations/polar/polar.constants"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
@@ -13,7 +14,6 @@ import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-che
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { isPolarCheckoutTranslated } from "~/src/data/polar"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { openCheckoutOverlay } from "~/src/lib/checkout-overlay"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { CURRENCIES, CURRENCY_CODES, CURRENCY_CODE_LENGTH, fromMinorUnits, toMinorUnits } from "~/src/data/currencies"
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
+import { CURRENCIES, CURRENCY_CODES, CURRENCY_CODE_LENGTH, fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 describe("currency catalog", () => {
   it("derives one code per catalog entry, uppercase ISO 4217", () => {

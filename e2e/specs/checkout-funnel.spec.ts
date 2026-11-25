@@ -23,12 +23,12 @@ import {
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
+import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM, POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/integrations/polar/polar.constants"
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
-import { toMinorUnits } from "../../src/data/currencies"
-import { DEFAULT_CURRENCY_CODE } from "../../src/data/pricing"
+import { toMinorUnits } from "../../src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { pppMultiplierKey, regionalPrice } from "../../src/modules/license/license.pricing"
-import { TIER_PRICES } from "../../src/data/marketing"
+import { TIER_PRICES } from "../../src/data/license"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_CHECKOUT_METADATA,
@@ -36,7 +36,6 @@ import {
   LICENSE_TIERS,
 } from "../../src/modules/license/license.constants"
 import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
-import { POLAR_CHECKOUT_DEFAULT_LANGUAGE } from "../../src/data/polar"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"

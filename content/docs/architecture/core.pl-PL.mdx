@@ -1,19 +1,24 @@
 ---
 title: "Współdzielone jądro Core"
-description: "Kody błędów, stałe HTTP, pola Zod i dane wejściowe przypadków użycia w src/modules/_core, na których opiera się każdy moduł."
+description: "Kody błędów, stałe HTTP, katalogi, pola Zod i dane wejściowe przypadków użycia w src/modules/_core, na których opiera się każdy moduł."
 ---
 
-`src/modules/_core` to jedyny folder modułu, który nie ma własnej tabeli. Zawiera tylko fundament, na którym opierają się schematy, schematy Zod i przypadki użycia modułów, dzięki czemu żaden moduł nie definiuje go od nowa: kody błędów, stałe HTTP i środowisk, współdzielone pola Zod i teksty w wielu językach oraz dane wejściowe paginacji, kolejności i wyszukiwania.
+`src/modules/_core` to jedyny folder modułu, który nie ma własnej tabeli. Zawiera tylko fundament, na którym opierają się schematy, schematy Zod i przypadki użycia modułów, dzięki czemu żaden moduł nie definiuje go od nowa: kody błędów, stałe HTTP i środowisk, katalogi języków, stref czasowych, krajów i walut razem z walutą sklepu, współdzielone pola Zod i teksty w wielu językach oraz dane wejściowe paginacji, kolejności, wyszukiwania i zakresu czasu.
 
 ## Stałe
 
-| Plik                    | Zawartość                                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `constants/errors.ts`   | `ERROR_CODES`, typ `ErrorCode` i klasa `AppError`                                                                                     |
-| `constants/api.ts`      | `HTTP_STATUS`, nazwy nagłówków `cf-ipcountry` i `cf-connecting-ip`, nagłówki bezpieczeństwa, dozwolone hosty dla każdego trybu builda |
-| `constants/ordering.ts` | `FIRST_POSITION`, czyli miejsce pierwszego elementu na uporządkowanej liście                                                          |
+| Plik                    | Zawartość                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, typ `ErrorCode` i klasa `AppError`                                                                                                 |
+| `constants/api.ts`      | `HTTP_STATUS`, nazwy nagłówków `cf-ipcountry` i `cf-connecting-ip`, nagłówki bezpieczeństwa, dozwolone hosty dla każdego trybu builda             |
+| `constants/locale.ts`   | Katalog `LOCALES`, `LocaleCode`, `getLocaleName` i `getLocaleDirection`                                                                           |
+| `constants/country.ts`  | Katalog `COUNTRIES` i `CountryCode`                                                                                                               |
+| `constants/currency.ts` | Katalog `CURRENCIES`, `CurrencyCode` oraz `toMinorUnits` i `fromMinorUnits`, które przeliczają kwotę na najmniejszą jednostkę waluty i z powrotem |
+| `constants/timezone.ts` | Katalog `TIMEZONES` i `TimezoneCode`                                                                                                              |
+| `constants/pricing.ts`  | Waluta sklepu `DEFAULT_CURRENCY_CODE` i formatowanie walut `CURRENCY_FORMAT`                                                                      |
+| `constants/ordering.ts` | `FIRST_POSITION`, czyli miejsce pierwszego elementu na uporządkowanej liście                                                                      |
 
-Dane i funkcje pomocnicze, z których moduły korzystają, ale na których się nie opierają, leżą poza `_core`: katalogi krajów, walut, języków i stref czasowych w `src/data/countries.ts`, `src/data/currencies.ts`, `src/data/locales.ts` i `src/data/timezones.ts`, waluta sklepu i format cen w `src/data/pricing.ts` oraz okresy i przedziały wykresów panelu administracyjnego w `src/lib/time-series.ts`. Katalog języków zawiera wszystkie znane języki; języki, które aplikacja obsługuje, definiuje `I18N.SUPPORTED_LOCALES` w `src/integrations/use-intl/i18n.config.ts`. Test w `src/__test__/module-tables.test.ts` kończy się błędem, gdy plik w `_core` nie jest opisany na tej stronie, więc każdy nowy plik jest świadomą decyzją.
+Katalogi leżą tutaj, bo opiera się na nich fundament: `countryCodeField` i `currencyCodeField`, schematy zamówień, produktów i subskrypcji, stałe użytkownika oraz domyślna waluta produktu. Katalog języków zawiera wszystkie znane języki; języki, które aplikacja obsługuje, definiuje `I18N.SUPPORTED_LOCALES` w `src/integrations/use-intl/i18n.config.ts`. Dane, na których nie opiera się żaden schemat ani przypadek użycia, trafiają do `src/data`, gdzie są tylko stałe i listy literałów, a ogólne funkcje pomocnicze do `src/lib`. Test w `src/__test__/module-tables.test.ts` kończy się błędem, gdy plik w `_core` nie jest opisany na tej stronie, więc każdy nowy plik jest świadomą decyzją.
 
 ## Funkcje pomocnicze
 
@@ -21,6 +26,7 @@ Dane i funkcje pomocnicze, z których moduły korzystają, ale na których się 
 - `utils/ordering.ts`: `nextPosition`, czyli najwyższa `position` plus jeden, oraz `reorder`, który przenosi element na wskazane miejsce wśród elementów jego grupy, miejsce przed początkiem albo za końcem listy traktuje jak jej początek albo koniec, numeruje listę od `FIRST_POSITION` i zwraca tylko elementy, których `position` się zmienia; przypadki użycia kursów, rozdziałów, lekcji i materiałów utrzymują dzięki nim `position` bez luk
 - `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`) i `DEFAULT_PAGE_SIZE`
 - `utils/search.ts`: `searchSchema` i `localizedSearchSchema`, dane wejściowe przypadków użycia wyszukiwania w panelu administracyjnym, ich limity długości i zwracany przez nie `SearchHit`
+- `utils/time-series.ts`: `TIME_RANGES` i `timeRangeSchema`, zakresy wykresów przychodów i rejestracji w panelu administracyjnym, `timeSeries`, dzienne lub miesięczne przedziały zakresu, oraz `pointsOf`, który przedziałowi bez wartości daje zero
 - `utils/zod-fields.ts`: pola Zod wielokrotnego użytku, takie jak `idField`, `localeField`, `positionField` (liczba całkowita od `FIRST_POSITION`) i `slugField`
 
 ## Błędy

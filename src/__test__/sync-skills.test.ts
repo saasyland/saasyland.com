@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSkillsRepository } from "~/src/platform/testing/lib/skills-repository"
 
+import { SKILL_SOURCES } from "~/src/data/skills"
+
 import { type LockedSkill, SKILL_PACKAGES } from "~/scripts/skills-lock"
 import {
   AGENTS_SKILLS,
@@ -22,6 +24,7 @@ const ROUTER_SOURCE = "TanStack/router"
 const UNKNOWN_SOURCE = "someone/skills"
 const RESEND = "resend"
 const START = "react-start"
+const ROUTER = "react-router"
 const LOOSE = "loose"
 const MISSING = "missing"
 const SKILL_FILE = "SKILL.md"
@@ -44,7 +47,14 @@ const restore = (root: string, names: readonly string[]): void => {
 
 describe("skill locations", () => {
   it("places a skill in its group, or at the top level when its source has none", () => {
+    expect(skillLocation(RESEND, SKILLS[RESEND])).toBe(`${SKILL_SOURCES[RESEND_SOURCE].group}/${RESEND}`)
     expect(skillLocation(START, SKILLS[START])).toBe(`tanstack/start/${START}`)
+    expect(skillLocation(START, locked(ROUTER_SOURCE, "packages/start-client-core/skills/start-core/SKILL.md"))).toBe(
+      `tanstack/start/${START}`,
+    )
+    expect(skillLocation(ROUTER, locked(ROUTER_SOURCE, "packages/react-router/skills/react-router/SKILL.md"))).toBe(
+      `tanstack/router/${ROUTER}`,
+    )
     expect(skillLocation(LOOSE, locked(UNKNOWN_SOURCE, SKILL_FILE))).toBe(LOOSE)
     expect(groupRoot("tanstack/start")).toBe("tanstack")
     expect(linkTarget("tanstack")).toBe(`../../${AGENTS_SKILLS}/tanstack`)

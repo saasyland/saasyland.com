@@ -7,8 +7,9 @@ import * as zod from "zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { licenseSearchSchema } from "~/src/modules/license/license.zod"
+
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { licenseSearchSchema } from "~/src/data/license"
 
 import { onlyDeclaredSearch } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"

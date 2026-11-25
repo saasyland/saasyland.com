@@ -1,7 +1,8 @@
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { BLOG_AUTHORS, BLOG_COVER, type BlogAuthor, blogAuthorPath } from "~/src/data/blog"
+import { BLOG_AUTHORS, BLOG_COVER, type BlogAuthor } from "~/src/data/blog"
 
+import { blogAuthorPath } from "~/src/lib/blog-archive"
 import {
   ORGANIZATION,
   type PageAuthor,

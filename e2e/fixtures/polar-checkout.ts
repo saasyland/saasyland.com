@@ -1,9 +1,8 @@
 import type { BrowserContext, FrameLocator, Locator, Page, Route } from "@playwright/test"
 import * as zod from "zod"
 
-import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM } from "../../src/integrations/polar/polar.constants"
+import { POLAR_CUSTOMER_SESSION_TOKEN_PARAM, polarCheckoutOrigin } from "../../src/integrations/polar/polar.constants"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import { polarCheckoutOrigin } from "../../src/data/polar"
 import { TEST_POLAR } from "../data/polar-settings"
 
 const CHECKOUT_PATH = /^\/checkout\/(?<secret>[^/]+)$/u

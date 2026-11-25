@@ -4,8 +4,9 @@ import { Link } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { PURCHASE_STEP, PURCHASE_STEP_COUNT, redirectTierSchema } from "~/src/data/license"
-import { TIER_PRICES } from "~/src/data/marketing"
+import { redirectTierSchema } from "~/src/modules/license/license.zod"
+
+import { PURCHASE_STEP, PURCHASE_STEP_COUNT, TIER_PRICES } from "~/src/data/license"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"

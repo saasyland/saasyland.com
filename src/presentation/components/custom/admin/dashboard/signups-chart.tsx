@@ -3,10 +3,10 @@ import { type JSX, useState, useTransition } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DEFAULT_TIME_RANGE, type TimeRange } from "~/src/modules/_core/utils/time-series"
 import { userSignupsQuery } from "~/src/modules/user/use-cases/get-user-signups"
 
 import { cn } from "~/src/lib/cn"
-import { DEFAULT_TIME_RANGE, type TimeRange } from "~/src/lib/time-series"
 
 import { Card } from "~/src/presentation/components/shadcn/card"
 

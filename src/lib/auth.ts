@@ -1,12 +1,14 @@
 import * as zod from "zod"
 
-import { OAUTH_CLIENTS, OAUTH_PROVIDERS, oauthCallbackPath } from "~/src/data/auth"
+import { OAUTH_CLIENTS, OAUTH_PROVIDERS } from "~/src/data/auth"
 
 import type { LiveSitePost } from "~/src/lib/deployment"
 
 import * as ROUTES from "~/src/routes"
 
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
+
+export const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
 
 const AUTHORIZE_PARAM = {
   CLIENT_ID: "client_id",

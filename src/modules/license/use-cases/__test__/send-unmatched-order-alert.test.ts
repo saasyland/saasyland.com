@@ -7,13 +7,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
+import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/integrations/polar/polar.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { LICENSE_EMAIL_PURPOSE, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
-
-import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "~/src/data/polar"
 
 import messages from "~/messages/en-US/emails.unmatched-order-alert-email.json"
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"

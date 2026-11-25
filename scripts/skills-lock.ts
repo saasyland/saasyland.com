@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import * as zod from "zod"
 
-import { SKILL_SOURCES, matchesPackage } from "../src/data/skills.ts"
+import { SKILL_SOURCES } from "../src/data/skills.ts"
 import type { Dependency } from "./dependencies.ts"
 
 export const SKILLS_LOCK = "skills-lock.json"
@@ -11,6 +11,8 @@ export const SKILLS_UPDATE_COMMAND = "bun run skills:update"
 export const SKILLS_SYNC_COMMAND = "bun run skills:sync"
 
 const JSON_INDENT = 2
+const WILDCARD = "*"
+const SCOPE_WILDCARD = `/${WILDCARD}`
 
 const lockedSkillSchema = zod.object({
   commit: zod.string().optional(),
@@ -30,6 +32,9 @@ export type PackageVersions = Readonly<Record<string, string>>
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
 
 export const readSkillsLock = (root: string): SkillsLock => skillsLockSchema.parse(readJson(join(root, SKILLS_LOCK))).skills
+
+const matchesPackage = (pattern: string, name: string): boolean =>
+  pattern.endsWith(SCOPE_WILDCARD) ? name.startsWith(pattern.replace(WILDCARD, "")) : name === pattern
 
 export const documentedDependencies = (patterns: readonly string[], dependencies: readonly Dependency[]): Dependency[] =>
   dependencies.filter(({ name }) => patterns.some((pattern) => matchesPackage(pattern, name)))

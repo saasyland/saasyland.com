@@ -32,7 +32,7 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
 })
 
-vi.mock(import("~/src/data/repository-facts"), async (importOriginal) => {
+vi.mock(import("~/src/lib/repository-facts"), async (importOriginal) => {
   const { REPOSITORY_FACTS } = await importOriginal()
   return { REPOSITORY_FACTS: Object.assign(facts, REPOSITORY_FACTS) }
 })

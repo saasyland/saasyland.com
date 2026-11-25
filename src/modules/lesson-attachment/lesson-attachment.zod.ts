@@ -10,7 +10,9 @@ import { attachmentContentType, attachmentFileName, uploadEntries } from "~/src/
 import * as ROUTES from "~/src/routes"
 
 const HTTPS_PROTOCOL = "https:"
-const DOCS_PATH = new RegExp(`^${ROUTES.DOCS}(?:/[\\da-z-]+)*(?:#[\\w-]+)?$`, "u")
+const pagePath = (section: string): RegExp => new RegExp(`^${section}(?:/[\\da-z-]+)*(?:#[\\w-]+)?$`, "u")
+
+const LINKED_SECTIONS: readonly RegExp[] = [pagePath(ROUTES.DOCS)]
 
 const isHttpsUrl = (value: string): boolean => URL.canParse(value) && new URL(value).protocol === HTTPS_PROTOCOL
 
@@ -22,7 +24,7 @@ const linkField = zod
   .string()
   .trim()
   .max(LESSON_ATTACHMENT_URL_MAX_LENGTH, { message: "urlInvalid" })
-  .refine((value) => DOCS_PATH.test(value) || isHttpsUrl(value), { message: "urlInvalid" })
+  .refine((value) => LINKED_SECTIONS.some((section) => section.test(value)) || isHttpsUrl(value), { message: "urlInvalid" })
 
 const fileField = zod
   .file({ message: "fileRequired" })

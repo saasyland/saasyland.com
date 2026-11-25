@@ -5,10 +5,10 @@ import { useTranslations } from "use-intl/react"
 
 import { DATA_GRID_ALIGN, DATA_GRID_FILTER, DATA_GRID_PIN, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
+import { CURRENCIES } from "~/src/modules/_core/constants/currency"
 import { FLAG_FILTERS } from "~/src/modules/_core/utils/pagination"
 import type { Order } from "~/src/modules/order/order.types"
 
-import { CURRENCIES } from "~/src/data/currencies"
 import { CUSTOMER_COLUMN_SIZES } from "~/src/data/payments"
 
 import { MoneyAmount } from "~/src/presentation/components/custom/admin/payments/money-amount"

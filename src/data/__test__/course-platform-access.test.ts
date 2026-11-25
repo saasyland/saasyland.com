@@ -16,7 +16,8 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 const MESSAGES_DIRECTORY = join(import.meta.dirname, "../../../messages")
 const ACCESS_ARGUMENTS = ["angularprojectsAccess", "reactprojectsAccess"]

@@ -8,7 +8,8 @@ import { CTA_CLASSES } from "~/src/data/cta"
 import { BILLING_GENERATION } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"

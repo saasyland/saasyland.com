@@ -7,10 +7,9 @@ import { VideoSkin } from "@videojs/react/video"
 import "@videojs/react/video/skin.css"
 import { useLocale } from "use-intl/react"
 
+import { getLocaleName } from "~/src/modules/_core/constants/locale"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
-
-import { getLocaleName } from "~/src/data/locales"
 
 import { cn } from "~/src/lib/cn"
 

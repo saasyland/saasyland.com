@@ -1,10 +1,11 @@
 import { expect, it } from "vite-plus/test"
 
-import { COUNTRIES } from "~/src/data/countries"
-import { CURRENCY_CODES } from "~/src/data/currencies"
-import { LOCALES } from "~/src/data/locales"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
-import { TIMEZONES } from "~/src/data/timezones"
+import { COUNTRIES } from "~/src/modules/_core/constants/country"
+import { CURRENCY_CODES } from "~/src/modules/_core/constants/currency"
+import { LOCALES } from "~/src/modules/_core/constants/locale"
+import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { FLOW_AREA } from "~/e2e/data/flows"
 import countryNames from "~/messages/en-US/countries.json"

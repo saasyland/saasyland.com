@@ -2,7 +2,7 @@ import { API_BASE_PATH, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/sta
 import { existsSync, readFileSync } from "node:fs"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
 import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"

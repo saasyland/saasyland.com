@@ -1,10 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query"
 
+import { TIME_BUCKET } from "~/src/modules/_core/utils/time-series"
 import { getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
 import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
 import { userOrdersQuery } from "~/src/modules/order/use-cases/get-user-orders"
-
-import { TIME_BUCKET } from "~/src/lib/time-series"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 

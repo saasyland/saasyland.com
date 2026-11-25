@@ -2,6 +2,8 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
+import { CURRENCY_CODE_LENGTH } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import {
   BILLING_CYCLE_MAX_LENGTH,
   PRODUCT_NAME_MAX_LENGTH,
@@ -10,9 +12,6 @@ import {
   PRODUCT_TYPE,
   PRODUCT_TYPES,
 } from "~/src/modules/product/product.constants"
-
-import { CURRENCY_CODE_LENGTH } from "~/src/data/currencies"
-import { DEFAULT_CURRENCY_CODE } from "~/src/data/pricing"
 
 export const product = sqliteTable(
   "product",

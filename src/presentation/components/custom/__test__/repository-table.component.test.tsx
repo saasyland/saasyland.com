@@ -12,9 +12,11 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CLI_TEMPLATE_SUPPORT } from "~/src/data/cli"
-import { COURSE_PLATFORM_VALUES, TIER_FEATURES } from "~/src/data/marketing"
+import { TIER_FEATURES } from "~/src/data/license"
+import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
 import { RepositoryTable } from "~/src/presentation/components/custom/repository-fact"

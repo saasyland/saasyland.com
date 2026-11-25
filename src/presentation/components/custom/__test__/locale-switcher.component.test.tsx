@@ -12,7 +12,7 @@ import { selectTriggerNamed } from "~/src/platform/testing/lib/select-trigger-na
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { getLocaleName } from "~/src/data/locales"
+import { getLocaleName } from "~/src/modules/_core/constants/locale"
 
 import { LocaleSelect, LocaleSwitcher } from "~/src/presentation/components/custom/locale-switcher"
 

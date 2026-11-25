@@ -24,7 +24,8 @@ import {
 import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"

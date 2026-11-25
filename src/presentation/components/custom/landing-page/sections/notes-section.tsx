@@ -6,7 +6,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { PostCover } from "~/src/presentation/components/custom/blog/post-cover"
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"

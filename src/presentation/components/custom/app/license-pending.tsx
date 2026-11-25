@@ -5,14 +5,14 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { hasReachedTier } from "~/src/modules/license/license.upgrades"
+import { licenseSearchSchema } from "~/src/modules/license/license.zod"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { CLI_KEY_LINES, CLI_SETUP_LINES } from "~/src/data/cli"
-import { licenseSearchSchema } from "~/src/data/license"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
-import { tierFeaturesWith } from "~/src/data/tier-features"
 
 import { cn } from "~/src/lib/cn"
+import { tierFeaturesWith } from "~/src/lib/tier-features"
 
 import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"

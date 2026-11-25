@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { Route as SiteRoute } from "~/src/routes/_site"
@@ -14,12 +15,11 @@ import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 import { Route as BlogArchiveRoute } from "~/src/routes/_site._marketing.blog.page.$page"
 
 import { BLOG_ARCHIVE, BLOG_AUTHOR, BLOG_AUTHORS, BLOG_TAG } from "~/src/data/blog"
-import { TIER_PRICES } from "~/src/data/marketing"
-import { CURRENCY_FORMAT } from "~/src/data/pricing"
-import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { TIER_PRICES } from "~/src/data/license"
 
 import { BLOG_FEED_TYPE } from "~/src/lib/feed"
 import { starCountQuery } from "~/src/lib/github"
+import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"

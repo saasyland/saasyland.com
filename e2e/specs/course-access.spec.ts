@@ -1,4 +1,4 @@
-import { TIER_PRICES } from "../../src/data/marketing"
+import { TIER_PRICES } from "../../src/data/license"
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import * as ROUTES from "../../src/routes"

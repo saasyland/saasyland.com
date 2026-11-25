@@ -3,7 +3,7 @@ export interface SkillSource {
   readonly packages: readonly string[]
 }
 
-const TANSTACK_ROUTER = "TanStack/router"
+export const TANSTACK_ROUTER = "TanStack/router"
 
 export const SKILL_SOURCES = {
   "Leonxlnx/taste-skill": { group: "taste", packages: [] },
@@ -19,24 +19,3 @@ export const SKILL_SOURCES = {
   "remotion-dev/skills": { group: "remotion", packages: [] },
   "resend/resend-skills": { group: "resend", packages: ["react-email", "resend"] },
 } as const satisfies Record<string, SkillSource>
-
-const TANSTACK_START_GROUP = "tanstack/start"
-const TANSTACK_START_SKILL_PATH = /^packages\/(?:react-start|start-[^/]+)\//u
-
-const SKILL_GROUPS = new Map<string, string>(Object.entries(SKILL_SOURCES).map(([source, { group }]) => [source, group]))
-
-export const isSkillSource = (source: string): source is keyof typeof SKILL_SOURCES => SKILL_GROUPS.has(source)
-
-export const skillGroup = ({ skillPath, source }: { readonly skillPath: string; readonly source: string }): string | undefined => {
-  if (source === TANSTACK_ROUTER && TANSTACK_START_SKILL_PATH.test(skillPath)) {
-    return TANSTACK_START_GROUP
-  }
-
-  return SKILL_GROUPS.get(source)
-}
-
-const WILDCARD = "*"
-const SCOPE_WILDCARD = `/${WILDCARD}`
-
-export const matchesPackage = (pattern: string, name: string): boolean =>
-  pattern.endsWith(SCOPE_WILDCARD) ? name.startsWith(pattern.replace(WILDCARD, "")) : name === pattern

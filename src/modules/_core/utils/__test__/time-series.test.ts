@@ -9,7 +9,7 @@ import {
   pointsOf,
   timeRangeSchema,
   timeSeries,
-} from "~/src/lib/time-series"
+} from "~/src/modules/_core/utils/time-series"
 
 const NOW = new Date("2026-03-01T00:30:00.000Z")
 

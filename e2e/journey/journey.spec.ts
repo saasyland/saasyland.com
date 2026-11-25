@@ -22,6 +22,7 @@ import {
   LICENSE_TIERS,
   type LicenseTier,
 } from "../../src/modules/license/license.constants"
+import { ORDER_CHECKOUT_METADATA } from "../../src/modules/order/order.constants"
 
 import { CLI_COMMAND, CLI_KEY_LINES } from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/license"
@@ -197,7 +198,7 @@ const paidOrder = async ({ tier, userId }: Buyer, price: number): Promise<models
   expect(others).toEqual([])
   expect(order).toMatchObject({
     custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true },
-    metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: I18N.DEFAULT_LOCALE },
+    metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: I18N.DEFAULT_LOCALE },
     product_id: PRODUCT_IDS[tier],
     status: POLAR_ORDER_STATUS.PAID,
     subtotal_amount: toMinorUnits(price, DEFAULT_CURRENCY_CODE),
@@ -449,7 +450,7 @@ for (const tier of LICENSE_TIERS) {
       expect(upgradeOrder).toMatchObject({
         custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true },
         metadata: {
-          [LICENSE_CHECKOUT_METADATA.LOCALE]: I18N.DEFAULT_LOCALE,
+          [ORDER_CHECKOUT_METADATA.LOCALE]: I18N.DEFAULT_LOCALE,
           [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_ORDER]: order.id,
           [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_TIER]: from,
         },

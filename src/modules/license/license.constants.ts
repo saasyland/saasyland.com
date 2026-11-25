@@ -67,7 +67,6 @@ export const LICENSE_CHECKOUT_FIELD = {
 } as const
 
 export const LICENSE_CHECKOUT_METADATA = {
-  LOCALE: "locale",
   UPGRADE_FROM_ORDER: "upgrade_from_order",
   UPGRADE_FROM_TIER: "upgrade_from_tier",
 } as const

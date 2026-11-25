@@ -15,9 +15,10 @@ import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { holdsCourseAccess } from "~/src/modules/lesson/lesson.access"
-import { LICENSE_CHECKOUT_METADATA, LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_EMAIL_PURPOSE, type LicenseTier } from "~/src/modules/license/license.constants"
 import { refundDeadline } from "~/src/modules/license/license.refunds"
 import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
+import { ORDER_CHECKOUT_METADATA } from "~/src/modules/order/order.constants"
 
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
 import type coursesStepMessages from "~/messages/en-US/purchase-email.courses.json"
@@ -31,7 +32,7 @@ import * as ROUTES from "~/src/routes"
 
 const COURSES_STEP_NAMESPACE = "purchase-email.courses"
 
-const orderLocaleSchema = zod.object({ [LICENSE_CHECKOUT_METADATA.LOCALE]: localeField })
+const orderLocaleSchema = zod.object({ [ORDER_CHECKOUT_METADATA.LOCALE]: localeField })
 
 type PaidOrder = Pick<models.Order, "created_at" | "currency" | "id" | "invoice_number" | "metadata" | "total_amount">
 

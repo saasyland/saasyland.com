@@ -1,5 +1,7 @@
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
+import { SECONDS_PER_MINUTE } from "~/src/lib/duration"
+
 export const ORDER_STATUSES = [
   POLAR_ORDER_STATUS.DRAFT,
   POLAR_ORDER_STATUS.PENDING,
@@ -40,6 +42,14 @@ export const POLAR_READ = {
   UNAVAILABLE: "unavailable",
 } as const
 
+export const ORDER_CHECKOUT_METADATA = {
+  LOCALE: "locale",
+} as const
+
+export const CHECKOUT_RATE_LIMIT_KIND = "start-checkout"
+
+export const CHECKOUT_RATE_LIMIT = { max: 10, window: SECONDS_PER_MINUTE } as const
+
 export const ORDER_QUERY_KEYS = {
   ALL: ["order"],
   CUSTOMERS: ["order", "getCustomers"],
@@ -49,4 +59,8 @@ export const ORDER_QUERY_KEYS = {
   REVENUE: ["order", "getRevenue"],
   SEARCH: ["order", "searchOrders"],
   USER: ["order", "getUserOrders"],
+} as const
+
+export const ORDER_MUTATION_KEYS = {
+  START_CHECKOUT: ["order", "startCheckout"],
 } as const

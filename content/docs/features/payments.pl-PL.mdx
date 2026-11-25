@@ -1,6 +1,6 @@
 ---
 title: "Płatności"
-description: "Wtyczka Polara dla Better Auth, portal klienta, webhooki, które przekazuje do ich handlerów, kopie zamówień i subskrypcji z Polara w D1 oraz przychody, które z nich trafiają na pulpit panelu administracyjnego."
+description: "Wtyczka Polara dla Better Auth, płatność za dowolny produkt w Polarze, portal klienta, webhooki, które przekazuje do ich handlerów, kopie zamówień i subskrypcji z Polara w D1 oraz przychody, które z nich trafiają na pulpit panelu administracyjnego."
 ---
 
 Płatności obsługuje Polar przez wtyczkę `@polar-sh/better-auth`, którą lista `plugins` w `src/integrations/better-auth/auth.server.ts` wymienia razem z następującą po niej osobną wtyczką:
@@ -23,11 +23,25 @@ Płatności obsługuje Polar przez wtyczkę `@polar-sh/better-auth`, którą lis
     },
 ```
 
-Wtyczka dodaje portal klienta i webhooki, które `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` w `rateLimit.customRules` wyłącza z ograniczania liczby żądań w Better Auth, ale nie dodaje płatności: jej `checkout()` tworzyłby sesję płatności z samym ID konta, więc Polar jeszcze raz pytałby zalogowanego kupującego o adres e-mail. Better Auth nie blokuje żadnej ze swoich ścieżek HTTP, więc `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` sprawdza, że ścieżka płatności wtyczki odpowiada 404, i nie przechodzi, gdy ktoś doda do wtyczki `checkout()`. Funkcja aplikacji, która sprzedaje, tworzy sesje płatności przez SDK Polara po własnych sprawdzeniach, tak jak robi to `startCheckout` licencji (zobacz [Licencje](/docs/features/licences)).
+Wtyczka dodaje portal klienta i webhooki, które `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` w `rateLimit.customRules` wyłącza z ograniczania liczby żądań w Better Auth, ale nie dodaje płatności: jej `checkout()` tworzyłby sesję płatności z samym ID konta, więc Polar jeszcze raz pytałby zalogowanego kupującego o adres e-mail. Better Auth nie blokuje żadnej ze swoich ścieżek HTTP, więc `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` sprawdza, że ścieżka płatności wtyczki odpowiada 404, i nie przechodzi, gdy ktoś doda do wtyczki `checkout()`. Sesje płatności tworzy zamiast niej moduł zamówień, przez SDK Polara (zobacz [Płatność](#checkout)).
 
 Drugi element, `polar-verified-customer`, to osobna wtyczka, która uruchamia `requireVerifiedEmail` (`auth.hooks.ts`) przed każdym endpointem pod `/customer/`, więc portal klienta odpowiada `403 EMAIL_NOT_VERIFIED`, dopóki adres konta nie zostanie potwierdzony ([Weryfikacja e-maila](/docs/features/email-verification)).
 
 `src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, z którego korzysta wtyczka, oraz `polar`, czyli zbudowane na nim usługi sesji płatności, kluczy licencyjnych i zamówień. `POLAR_ORGANIZATION_ID` zawęża do organizacji każde wywołanie Polara, które ją wskazuje; wszystkie te zmienne wymienia strona [Środowisko i bindingi](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` zawiera wartości samego Polara: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` i `POLAR_WEBHOOK_EVENT`, każdą sprawdzaną względem typów SDK, a także `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` i `POLAR_ID_MAX_LENGTH`, czyli długość każdej kolumny z identyfikatorem Polara. Plik nie odczytuje środowiska, więc importują go też kod przeglądarki i testy przeglądarkowe. Ścieżki Polara, `API_AUTH_POLAR` i `API_AUTH_CUSTOMER_PORTAL`, są w `src/routes.ts`. [Konfiguracja Polara](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne, pole zgody, sposób naliczania podatku, webhook i token, których ten kod oczekuje w Polarze, a `bun run polar:verify:<environment>` sprawdza je wszystkie.
+
+## Płatność [#checkout]
+
+`createCheckout` w `src/modules/order/order.checkout.ts` tworzy przez `polar.checkouts.create` każdą sesję płatności, którą rozpoczyna serwis. Przyjmuje zalogowane konto z kontekstu funkcji serwerowej oraz `{ locale, productId, returnPath, successPath }`, a następnie:
+
+1. odczytuje origin żądania przez `trustedRequestOrigin` (`src/lib/request-origin.ts`), który odrzuca z `FORBIDDEN` host niewymieniony przez `appHostsForMode` dla danego trybu builda albo zwykły HTTP poza środowiskiem deweloperskim i testowym, i podaje ten origin jako `embed_origin`, czyli jedyną stronę, która może osadzić płatność w ramce i odbierać jej komunikaty, aby `openCheckoutOverlay` (`src/lib/checkout-overlay.ts`) mógł pokazać płatność nad stroną ([Płatność nad stroną](/docs/features/licences#the-checkout-over-the-page));
+2. wiąże płatność z kontem (`external_customer_id`) i wypełnia ją jego adresem e-mail i imieniem (`customer_email`, `customer_name`), więc formularz płatności otwiera się z tymi danymi, a także adresem IP kupującego z `cf-connecting-ip` (`customer_ip_address`, odczytanym przez `getIP` z Better Auth);
+3. otwiera stronę Polara w języku, który `polarCheckoutLanguage` wybiera dla `locale`, a samo `locale` zapisuje w `metadata` pod `ORDER_CHECKOUT_METADATA.LOCALE` (`order.constants.ts`), obok polecenia partnerskiego, gdy odwiedzający przyszedł z linku partnerskiego ([Program partnerski](/docs/features/affiliates)). Polar kopiuje metadane do zamówienia;
+4. przekazuje `returnPath` jako `return_url`, aby Polar pokazał przycisk powrotu do tej strony, a `successPath` w języku kupującego (`localizePathname`) jako adres sukcesu, z `checkoutId={CHECKOUT_ID}` przed parametrami adresu URL, które ścieżka ma już sama. Polar zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
+5. pozwala kupującemu wpisać kody rabatowe Polara i pobiera cenę produktu ustawioną w Polarze, chyba że wywołujący przekaże własne warunki (`allow_discount_codes`, `metadata` i `prices`), po czym zwraca `{ checkoutId, url }`.
+
+`startCheckout` w `src/modules/order/use-cases/start-checkout.ts` to funkcja serwerowa, która rozpoczyna płatność za dowolny produkt w Polarze. Jej dane wejściowe, `orderZodSchemas.startCheckout` (`Order["startCheckout"]`), przyjmują identyfikator produktu w Polarze jako UUID oraz obie ścieżki, sprawdzane przez `callbackPathSchema`, aby nie wyprowadzały poza serwis. Funkcja uruchamia `authorized()`, więc kupić może tylko zalogowane konto, i bez pytania Polara odrzuca z `FORBIDDEN` produkt, który któraś funkcja aplikacji sprzedaje przez własną płatność: `hasOwnCheckout` odczytuje `PRODUCTS_WITH_OWN_CHECKOUT`, którego jedynym elementem jest `POLAR_PRODUCT_IDS` licencji. Własny `startCheckout` licencji sprawdza licencję konta, wycenia pakiet i dopiero wtedy wywołuje `createCheckout` ze swoimi warunkami ([Licencje](/docs/features/licences#starting-the-checkout)). Żadna strona serwisu nie oferuje jeszcze innego produktu.
+
+Obie funkcje serwerowe uruchamiają `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` przed `authorized()`, co pozwala jednemu klientowi rozpocząć <RepositoryFact name="checkoutsPerMinute" /> płatności na minutę, bez względu na to, przez którą z tych funkcji to robi: każda płatność to żądanie do API Polara z tokenem organizacji, a limit żądań tego tokenu dzielą wszyscy kupujący.
 
 ## Webhooki [#webhooks]
 
@@ -82,7 +96,7 @@ Pierwsze dwa elementy `POLAR_EVENT_HANDLERS` (zobacz [Webhooki](#webhooks)) ład
 
 - Każdy przypadek użycia przyjmuje rekord Polara, `models.Order` lub `models.Subscription`, i zapisuje go jedną instrukcją: wstawieniem pod identyfikatorem z Polara, które istniejący już wiersz aktualizuje tylko wtedy, gdy zapisany w nim `changed_at` nie jest późniejszy niż w rekordzie. Nowsza wersja zostaje zapisana, starsza, która przyszła z opóźnieniem, niczego nie zmienia, a ta sama wersja dostarczona dwa razy zostaje zapisana ponownie z tymi samymi wartościami. Z dwóch różnych stanów o tym samym `modified_at` zostaje ten zapisany jako ostatni, dopóki Polar znów nie zmieni rekordu.
 - `recordOrder` bierze rabat i kraj rozliczenia z `polarOrderTerms` (`src/modules/order/order.polar.ts`), z którego korzysta też `scripts/backfill-order-terms.ts`. Późniejsza wersja bez adresu rozliczeniowego zachowuje już skopiowany kraj.
-- Ta sama instrukcja wypełnia `user_id` przez `polarCustomerAccount` z `src/integrations/polar/polar.customers.ts`: wskazuje konto, którego ID jest `external_id` klienta, a ten ustawia przy płatności obszar, który sprzedaje, tak jak robi to `startCheckout` w obszarze licencji. Pole pozostaje puste, gdy klient nie ma `external_id` albo gdy żadne konto nie ma takiego ID, na przykład dlatego, że konto usunięto.
+- Ta sama instrukcja wypełnia `user_id` przez `polarCustomerAccount` z `src/integrations/polar/polar.customers.ts`: wskazuje konto, którego ID jest `external_id` klienta, ustawiany przez `createCheckout` w każdej płatności ([Płatność](#checkout)). Pole pozostaje puste, gdy klient nie ma `external_id` albo gdy żadne konto nie ma takiego ID, na przykład dlatego, że konto usunięto.
 - Kod licencji też obsługuje `order.paid` i `order.refunded`. Kopia również je przyjmuje, więc odnotowuje płatność i zwrot bez względu na to, czy Polar wysyła dla nich także `order.updated`. `handlePolarEvent` uruchamia oba handlery jednocześnie; gdy zapis kopii się nie uda, dostarczenie kończy się odpowiedzią 500, a ponowna próba Polara powtarza oba zapisy i nie zmienia tego, co jeden z nich już zapisał.
 - Pulpit panelu administracyjnego czyta kopie zamówień, aby wyświetlić opłacone zamówienia licencji, które nie mają licencji (zobacz [Licencje](/docs/features/licences#orders-that-match-no-account)), i aby zsumować przychody (zobacz [Przychody na pulpicie](#revenue-on-the-dashboard)); kopii subskrypcji nie czyta jeszcze żadna strona.
 
@@ -96,7 +110,7 @@ Deklaracja uprawnień `order` (`read`, `update`, `refund`) znajduje się w `APP_
 
 ## Powiązane strony
 
-- [Licencje](/docs/features/licences) — płatność, webhooki licencji i ekrany klienta
+- [Licencje](/docs/features/licences) — płatność za licencję, webhooki licencji i ekrany klienta
 - [Konfiguracja Polara](/docs/getting-started/polar-setup) — konfiguracja w Polarze i `polar:verify`
 - [Panel klienta](/docs/features/customer-app) — ekrany wokół płatności
 - [Zmienne środowiskowe](/docs/getting-started/environment-variables)

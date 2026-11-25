@@ -1,6 +1,6 @@
 ---
 title: "Платежі"
-description: "Плагін Polar для Better Auth, портал клієнта, вебхуки, які він передає їхнім обробникам, копії замовлень і підписок Polar у D1 і дохід, який вони виводять на панель адміністратора."
+description: "Плагін Polar для Better Auth, оплата будь-якого продукту Polar, портал клієнта, вебхуки, які він передає їхнім обробникам, копії замовлень і підписок Polar у D1 і дохід, який вони виводять на панель адміністратора."
 ---
 
 Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth`, який список `plugins` у `src/integrations/better-auth/auth.server.ts` перелічує разом з окремим плагіном одразу після нього:
@@ -23,11 +23,25 @@ description: "Плагін Polar для Better Auth, портал клієнта
     },
 ```
 
-Плагін додає портал клієнта й вебхуки, які `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` у `rateLimit.customRules` звільняє від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Better Auth не закриває жодного шляху для HTTP, тож `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` перевіряє, що шлях оплати плагіна відповідає 404, і падає, щойно до плагіна додають `checkout()`. Можливість, яка продає, сама створює свої сеанси оплати через SDK Polar після власних перевірок, як це робить `startCheckout` ліцензії (див. [Ліцензії](/docs/features/licences)).
+Плагін додає портал клієнта й вебхуки, які `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` у `rateLimit.customRules` звільняє від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Better Auth не закриває жодного шляху для HTTP, тож `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` перевіряє, що шлях оплати плагіна відповідає 404, і падає, щойно до плагіна додають `checkout()`. Натомість сеанси оплати створює модуль замовлень через SDK Polar (див. [Оплата](#checkout)).
 
 Другий елемент, `polar-verified-customer`, — окремий плагін, який запускає `requireVerifiedEmail` (`auth.hooks.ts`) перед кожним ендпоінтом під `/customer/`, тож портал клієнта відповідає `403 EMAIL_NOT_VERIFIED`, доки адресу облікового запису не підтверджено ([Підтвердження електронної пошти](/docs/features/email-verification)).
 
 `src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси сеансів оплати, ліцензійних ключів і замовлень. `POLAR_ORGANIZATION_ID` обмежує організацією кожен виклик Polar, що називає організацію; їх перелічує сторінка [Середовище та прив'язки](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` містить власні значення Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` і `POLAR_WEBHOOK_EVENT`, кожне з яких звірено з типами SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` і `POLAR_ID_MAX_LENGTH` — довжину кожного стовпця, що зберігає ідентифікатор Polar. Цей файл не читає змінних середовища, тож його імпортують також браузер і набір браузерних тестів. Шляхи Polar, `API_AUTH_POLAR` і `API_AUTH_CUSTOMER_PORTAL`, лежать у `src/routes.ts`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, прапорець згоди, режим оподаткування, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
+
+## Оплата [#checkout]
+
+`createCheckout` у `src/modules/order/order.checkout.ts` створює через `polar.checkouts.create` кожен сеанс оплати, який запускає сайт. Він бере обліковий запис, що ввійшов, з контексту серверної функції, приймає `{ locale, productId, returnPath, successPath }` і:
+
+1. читає походження запиту через `trustedRequestOrigin` (`src/lib/request-origin.ts`), який відхиляє з `FORBIDDEN` хост, якого `appHostsForMode` не перелічує для режиму збірки, або звичайний HTTP поза розробкою та тестуванням, і передає це походження як `embed_origin` — єдину сторінку, яка може вбудувати оплату у фрейм і отримувати її повідомлення, щоб `openCheckoutOverlay` (`src/lib/checkout-overlay.ts`) міг показати оплату поверх сторінки ([Оплата поверх сторінки](/docs/features/licences#the-checkout-over-the-page));
+2. прив’язує оплату до облікового запису (`external_customer_id`) і заповнює її адресою електронної пошти та ім’ям власника облікового запису (`customer_email`, `customer_name`), тож форма оплати відкривається з ними, а також IP-адресою покупця з `cf-connecting-ip` (`customer_ip_address`, прочитаною через `getIP` з Better Auth);
+3. відкриває сторінку Polar мовою, яку `polarCheckoutLanguage` дає для `locale`, а саме `locale` записує в `metadata` під ключем `ORDER_CHECKOUT_METADATA.LOCALE` (`order.constants.ts`) поруч із партнерським рефералом, якщо відвідувач прийшов за партнерським посиланням ([Партнерська програма](/docs/features/affiliates)). Polar копіює метадані в замовлення;
+4. передає `returnPath` як `return_url`, щоб Polar показав кнопку повернення на цю сторінку, і `successPath` мовою покупця (`localizePathname`) як URL успіху, з `checkoutId={CHECKOUT_ID}` перед власними параметрами пошуку цього шляху. Polar замінює `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) на ID оплати;
+5. дозволяє покупцеві вводити коди знижок Polar і стягує ціну продукту, задану в Polar, якщо код, що викликає функцію, не передає власних умов (`allow_discount_codes`, `metadata` і `prices`), і повертає `{ checkoutId, url }`.
+
+`startCheckout` у `src/modules/order/use-cases/start-checkout.ts` — серверна функція, яка запускає оплату будь-якого продукту Polar. Її вхідні дані, `orderZodSchemas.startCheckout` (`Order["startCheckout"]`), приймають ID продукту в Polar як UUID і обидва шляхи, перевірені `callbackPathSchema`, щоб вони лишалися на сайті. Вона запускає `authorized()`, тож купувати може лише обліковий запис, що ввійшов, і, не звертаючись до Polar, відхиляє з `FORBIDDEN` продукт, який певна можливість продає через власну оплату: `hasOwnCheckout` читає `PRODUCTS_WITH_OWN_CHECKOUT`, єдиний елемент якого — `POLAR_PRODUCT_IDS` ліцензії. Власний `startCheckout` ліцензії перевіряє ліцензію облікового запису, визначає ціну плану й лише тоді викликає `createCheckout` зі своїми умовами ([Ліцензії](/docs/features/licences#starting-the-checkout)). Жодна сторінка сайту поки що не пропонує іншого продукту.
+
+Обидві серверні функції запускають `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` перед `authorized()`, що дозволяє кожному клієнтові запустити <RepositoryFact name="checkoutsPerMinute" /> оплат на хвилину, хоч би яка з двох функцій їх запускала: кожна оплата — це запит до API Polar з токеном організації, ліміт запитів якого спільний для всіх покупців.
 
 ## Вебхуки [#webhooks]
 
@@ -82,7 +96,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 - Кожен сценарій використання приймає запис Polar, `models.Order` або `models.Subscription`, і записує його однією інструкцією: вставкою під ідентифікатором Polar, яка наявний рядок оновлює лише тоді, коли збережений у ньому `changed_at` не пізніший, ніж у записі. Новіша версія застосовується, старіша, що надходить запізно, нічого не змінює, а та сама версія, доставлена двічі, записується знову з тими самими значеннями. З двох різних станів з однаковим `modified_at` лишається той, що записаний останнім, доки Polar знову не змінить запис.
 - `recordOrder` бере знижку та країну для рахунку з `polarOrderTerms` (`src/modules/order/order.polar.ts`), який використовує й `scripts/backfill-order-terms.ts`. Пізніша версія без адреси для рахунку зберігає вже скопійовану країну.
-- Та сама інструкція заповнює `user_id` через `polarCustomerAccount` з `src/integrations/polar/polar.customers.ts`: це обліковий запис, ідентифікатор якого збігається з `external_id` клієнта, а його задає під час оформлення покупки розділ, що продає, як це робить `startCheckout` у розділі ліцензій. Поле лишається порожнім, коли клієнт не має `external_id` або жоден обліковий запис не має такого ідентифікатора, наприклад тому, що обліковий запис видалили.
+- Та сама інструкція заповнює `user_id` через `polarCustomerAccount` з `src/integrations/polar/polar.customers.ts`: це обліковий запис, ідентифікатор якого збігається з `external_id` клієнта, а його `createCheckout` задає для кожної оплати ([Оплата](#checkout)). Поле лишається порожнім, коли клієнт не має `external_id` або жоден обліковий запис не має такого ідентифікатора, наприклад тому, що обліковий запис видалили.
 - Код ліцензії теж обробляє `order.paid` і `order.refunded`. Копія також їх приймає, тож відображає оплату й повернення коштів незалежно від того, чи надсилає Polar для них ще й `order.updated`. `handlePolarEvent` запускає обидва обробники одночасно; якщо записати копію не вдається, доставка відповідає 500, а повторна спроба Polar повторює обидва записи, не змінюючи того, що один із них уже записав.
 - Панель адміністратора читає копії замовлень, щоб показати оплачені замовлення ліцензій без ліцензії (див. [Ліцензії](/docs/features/licences#orders-that-match-no-account)) і підсумувати дохід (див. [Дохід на панелі адміністратора](#revenue-on-the-dashboard)); копій підписок поки що не читає жодна сторінка.
 
@@ -96,7 +110,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Пов’язані сторінки
 
-- [Ліцензії](/docs/features/licences) — оплата, вебхуки ліцензій і екрани клієнта
+- [Ліцензії](/docs/features/licences) — оплата ліцензії, вебхуки ліцензій і екрани клієнта
 - [Налаштування Polar](/docs/getting-started/polar-setup) — налаштування в Polar і `polar:verify`
 - [Застосунок клієнта](/docs/features/customer-app) — екрани навколо оплати
 - [Змінні середовища](/docs/getting-started/environment-variables)

@@ -29,12 +29,8 @@ import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { pppMultiplierKey, regionalPrice } from "../../src/modules/license/license.pricing"
 import { TIER_PRICES } from "../../src/data/license"
-import {
-  LICENSE_ACTIVATION_LIMITS,
-  LICENSE_CHECKOUT_METADATA,
-  LICENSE_TIER,
-  LICENSE_TIERS,
-} from "../../src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import { ORDER_CHECKOUT_METADATA } from "../../src/modules/order/order.constants"
 import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data/cli"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
@@ -148,7 +144,7 @@ test.describe("checkout funnel", () => {
       custom_field_data: {},
       embed_origin: new URL(page.url()).origin,
       locale: "en",
-      metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" },
+      metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: "en-US" },
       return_url: new URL(`/app?tier=${LICENSE_TIER.COMPLETE}`, page.url()).href,
     })
     await payInCheckoutOverlay(page)

@@ -62,6 +62,7 @@ import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-cur
 import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 import { upgradePriceQuery } from "~/src/modules/license/use-cases/get-upgrade-price"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
+import { ORDER_CHECKOUT_METADATA } from "~/src/modules/order/order.constants"
 import { user } from "~/src/modules/user/user.schema"
 
 import { CLI_INIT_COMMAND } from "~/src/data/cli"
@@ -131,7 +132,7 @@ describe("checkout", () => {
       embed_origin: TEST_APP_URL,
       external_customer_id: buyer.userId,
       locale: "pl",
-      metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "pl-PL" },
+      metadata: { [ORDER_CHECKOUT_METADATA.LOCALE]: "pl-PL" },
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       return_url: `${TEST_APP_URL}${RETURN_PATH}`,
@@ -246,7 +247,7 @@ describe("checkout prices, referrals and refusals", () => {
 
     const checkout = await startCheckout(buyer, { cookie: `${AFFONSO.REFERRAL_COOKIE}=${referral}`, tier: LICENSE_TIER.CORE })
 
-    const metadata = { [AFFONSO.METADATA_KEY]: referral, [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
+    const metadata = { [AFFONSO.METADATA_KEY]: referral, [ORDER_CHECKOUT_METADATA.LOCALE]: "en-US" }
     expect(checkout.metadata).toStrictEqual(metadata)
     expect(payPolarCheckout(checkout.id, CONSENT).metadata).toStrictEqual(metadata)
   })
@@ -256,7 +257,7 @@ describe("checkout prices, referrals and refusals", () => {
 
     const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
 
-    const metadata = { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
+    const metadata = { [ORDER_CHECKOUT_METADATA.LOCALE]: "en-US" }
     expect(checkout.metadata).toStrictEqual(metadata)
     expect(payPolarCheckout(checkout.id, CONSENT).metadata).toStrictEqual(metadata)
   })
@@ -707,7 +708,7 @@ describe("upgrades", () => {
 
     expect(checkout).toMatchObject({
       metadata: {
-        [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US",
+        [ORDER_CHECKOUT_METADATA.LOCALE]: "en-US",
         [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_ORDER]: order.id,
         [LICENSE_CHECKOUT_METADATA.UPGRADE_FROM_TIER]: LICENSE_TIER.CORE,
       },

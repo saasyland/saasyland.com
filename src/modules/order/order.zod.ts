@@ -1,5 +1,7 @@
 import * as zod from "zod"
 
+import { callbackPathSchema } from "~/src/integrations/better-auth/auth.zod"
+
 import { COUNTRY_CODES } from "~/src/modules/_core/constants/country"
 import {
   MAX_FILTER_VALUES,
@@ -11,7 +13,7 @@ import {
 } from "~/src/modules/_core/utils/pagination"
 import { searchSchema } from "~/src/modules/_core/utils/search"
 import { timeRangeSchema } from "~/src/modules/_core/utils/time-series"
-import { countryCodeField, dateRangeField, idField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
+import { countryCodeField, dateRangeField, idField, localeField, numberRangeField } from "~/src/modules/_core/utils/zod-fields"
 import { CUSTOMER_SORT_COLUMNS, ORDER_SORT_COLUMNS, ORDER_STATUSES } from "~/src/modules/order/order.constants"
 
 const orderFilters = zod.object({
@@ -52,6 +54,13 @@ const getUserOrders = zod.object({ userId: idField })
 
 const searchOrders = searchSchema
 
+const startCheckout = zod.object({
+  locale: localeField,
+  productId: zod.uuid(),
+  returnPath: callbackPathSchema,
+  successPath: callbackPathSchema,
+})
+
 export const orderZodSchemas = {
   getCustomers,
   getOrder,
@@ -59,4 +68,5 @@ export const orderZodSchemas = {
   getRevenue,
   getUserOrders,
   searchOrders,
+  startCheckout,
 }

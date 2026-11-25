@@ -4,7 +4,7 @@ description: "Una guía práctica sobre barreras de protección para agentes de 
 excerpt: "Una regla que un agente no puede incumplir vale más que una regla que se le dice. Esta guía muestra qué reglas van en comprobaciones y cuáles en instrucciones, cómo convertir una regla de estilo en una comprobación, qué rutas necesitan la segunda llave de una persona, cómo definir terminado como códigos de salida, lo que cuesta y lo que todavía se le escapa, con las comprobaciones, los incidentes y las cifras de CI que hay detrás de saasyland.com."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/ai-coding-agent-guardrails.webp
 tags:
   - ai-agents
@@ -155,7 +155,7 @@ Una regla puede vivir en ocho sitios. Se diferencian en cuándo se ejecutan, en 
 
 Dos principios deciden dónde va una regla.
 
-**Pon cada regla en el escalón más bajo que pueda decidirla, y repítela en el primer escalón que el agente no pueda saltarse.** Una regla que solo vive en un hook de Git desaparece en cuanto alguien hace commit con `--no-verify`; una regla que solo vive en la CI obliga al agente a esperar varios minutos para enterarse de que falta un punto y coma. Los hooks son para la velocidad y la CI es para la verdad, así que nuestro hook de pre-commit ejecuta todas las comprobaciones de `bun run check` salvo el inventario de flujos, con el formato, el lint y los tipos solo sobre los archivos preparados, y saltarse el hook cuesta una ejecución de CI en rojo en lugar de un `main` roto.
+**Pon cada regla en el escalón más bajo que pueda decidirla, y repítela en el primer escalón que el agente no pueda saltarse.** Una regla que solo vive en un hook de Git desaparece en cuanto alguien hace commit con `--no-verify`; una regla que solo vive en la CI obliga al agente a esperar varios minutos para enterarse de que falta un punto y coma. Los hooks son para la velocidad y la CI es para la verdad, así que nuestro hook de pre-commit ejecuta todas las comprobaciones de `bun run check` salvo el inventario de flujos y `check:skills`, con el formato, el lint y los tipos solo sobre los archivos preparados, y saltarse el hook cuesta una ejecución de CI en rojo en lugar de un `main` roto.
 
 **No dejes nunca que la capa de permisos del agente sea la única capa.** Es el sitio más rápido para detener un comando peligroso y el más fácil de esquivar. La propia documentación de Claude Code advierte de que «los patrones de permisos de Bash que intentan restringir los argumentos de los comandos son frágiles», y de que una regla que rechaza `git push` no detecta «un push escrito de otra forma, como `git -C . push`». Todo lo que tenga que aguantar necesita detrás una regla en el servidor.
 
@@ -517,7 +517,7 @@ No necesitas todo esto el lunes. Este es el orden que más rinde por cada día d
 
 Las barreras de protección no son gratis, y quien te diga que lo son no ha mantenido ninguna.
 
-**Tiempo en cada cambio.** Nuestra CI tardaba unos 16 minutos y medio del push al verde el 20 de noviembre, la mayor parte en la suite del navegador en un solo runner. Desde que la suite se ejecuta en <RepositoryFact name="e2eShards" /> runners en paralelo, la ejecución de una pull request tarda unos 7 a 9 minutos, y la cola de fusión la ejecuta una vez más antes de la fusión, más lo que tarde una ejecución local antes del push. Los shards compran ese tiempo con minutos de runner, porque cada uno vuelve a preparar la cadena de herramientas y el navegador. Para un repositorio público, los minutos de CI en sí no cuestan nada en los runners estándar de GitHub, que GitHub documenta como gratuitos para repositorios públicos; un repositorio privado paga cada minuto, y una suite del navegador es donde se van esos minutos.
+**Tiempo en cada cambio.** Nuestra CI tardaba unos 16 minutos y medio del push al verde el 20 de noviembre, la mayor parte en la suite del navegador en un solo runner. Después de que #289 repartiera la suite entre runners en paralelo el 22 de noviembre, la ejecución de una pull request tardó ese día unos 7 a 9 minutos, y la cola de fusión la ejecuta una vez más antes de la fusión, más lo que tarde una ejecución local antes del push. Los shards compran ese tiempo con minutos de runner, porque cada uno vuelve a preparar la cadena de herramientas y el navegador. Para un repositorio público, los minutos de CI en sí no cuestan nada en los runners estándar de GitHub, que GitHub documenta como gratuitos para repositorios públicos; un repositorio privado paga cada minuto, y una suite del navegador es donde se van esos minutos.
 
 **Código que escribir y mantener.** Nuestras comprobaciones de contenido y de traducciones, el verificador del build, el plugin de hidratación y el hook de commit suman más de mil líneas de TypeScript entre todos, con sus propias pruebas. Son código como cualquier otro: tienen bugs, como muestran el shebang y el «ton» francés, y necesitan la misma revisión.
 

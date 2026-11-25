@@ -4,7 +4,7 @@ description: "A practical guide to running a SaaS on Cloudflare Workers with D1,
 excerpt: "Workers, D1, KV and R2 can run a real SaaS, if you build to their shape: a SQLite database that answers one query at a time, a cache that is eventually consistent, buckets with no egress fees and a script that has to load before every cold request. This guide turns that shape into rules you can apply, and checks each one against the production code of saasyland.com, with its incidents, measurements and costs at today’s prices."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -145,9 +145,9 @@ Most mistakes on this platform come from storing something in the product built 
 
 The rules behind it: whatever decides access is stored somewhere consistent; whatever is large goes to R2; whatever can be computed at build time is a static asset; and KV only holds what you could throw away and fetch again.
 
-### Worked example: five bindings
+### Worked example: the bindings of saasyland.com
 
-saasyland.com follows the table with five bindings, declared in `wrangler.jsonc`:
+saasyland.com follows the table with these bindings, declared in `wrangler.jsonc`:
 
 | Binding   | Product               | What it holds                                                                                | Where in the code                                                             |
 | --------- | --------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -178,7 +178,7 @@ A Worker’s configuration file is the map of your whole system, and it is worth
 
 ### Worked example: four environments and two deploy checks
 
-`wrangler.jsonc` defines four environments with the same bindings: `production`, `preview`, `development`, which binds a local D1 database, KV namespace and buckets of its own for `bun run dev`, and `test`, which keeps a local D1 database, KV namespace and buckets under `.wrangler/test` for the browser suite. Each environment lists the secrets it requires. Before any deploy, `scripts/verify-bindings.ts` fails when an environment lacks a binding, still has a placeholder D1 or KV ID, or when production shares its database, namespace or bucket with preview, and `scripts/prepare-deploy-secrets.ts` fails when a required secret is missing, empty or a placeholder, naming the key without printing its value.
+`wrangler.jsonc` defines its environments with the same bindings: `production`, `preview`, `development`, which binds a local D1 database, KV namespace and buckets of its own for `bun run dev`, and `test`, which keeps a local D1 database, KV namespace and buckets under `.wrangler/test` for the browser suite. Each environment lists the secrets it requires. Before any deploy, `scripts/verify-bindings.ts` fails when an environment lacks a binding, still has a placeholder D1 or KV ID, or when production shares its database, namespace or bucket with preview, and `scripts/prepare-deploy-secrets.ts` fails when a required secret is missing, empty or a placeholder, naming the key without printing its value.
 
 The second check came from a real mistake, recorded in [#223](https://github.com/saasyland/saasyland.com/pull/223). The production secrets file still held `[UPDATE]` as the Google OAuth client ID, the deploy uploaded it because the check then refused only empty values, and Google sign-in failed with `invalid_client`. The fix came in two layers: a live check after every deploy that starts a sign-in with each provider and validates the URL it is sent to, and a refusal of placeholder values before the build even starts. Each layer would have caught it alone; together they catch it twice.
 
@@ -278,7 +278,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-The check exists because of a mistake. One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds, as the [performance convention](/docs/conventions/performance) records. The header names now live in a file that imports nothing heavy.
+The check exists because of a mistake. One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds, as the [performance convention](/docs/conventions/performance) has recorded since [#122](https://github.com/saasyland/saasyland.com/pull/122), merged on 13 November 2026. The header names now live in a file that imports nothing heavy.
 
 ### Worked example: two pull requests that halved the cold path
 
@@ -691,7 +691,7 @@ So the bill for that month is $5, plus R2 storage beyond the free 10 GB. Multipl
 - KV holds nothing that decides access and nothing written more than once a second per key.
 - Cached values carry their fetch time and are validated on read.
 - Buckets are private; access is decided when a URL is issued, and URLs expire.
-- Large uploads bypass the Worker.
+- Large uploads reach R2 in parts below the request body limit.
 - Facts about objects that requests need are stored as custom metadata.
 - Each rate limit has a store that matches its required exactness, and a written decision on failing open or closed.
 

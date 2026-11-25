@@ -4,7 +4,7 @@ description: "Jak unijne prawo odstąpienia od umowy dotyczy oprogramowania i in
 excerpt: "Konsument z UE, który kupuje Twoje oprogramowanie online, zwykle może odstąpić od umowy w ciągu 14 dni. W przypadku treści cyfrowych to prawo może wygasnąć w chwili, gdy je dostarczysz, ale tylko wtedy, gdy wcześniej wydarzą się trzy rzeczy. Oto przepisy, skutki pominięcia każdego z kroków i kod, który realizuje je w tym serwisie."
 author: piotr-borowiecki
 date: 2026-11-17
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -115,7 +115,7 @@ Ten artykuł wyjaśnia unijne przepisy i jedną ich implementację, a każde twi
 
 </Callout>
 
-_Ostatnia aktualizacja: 22 listopada 2026. Każde twierdzenie prawne prowadzi do tekstu w EUR-Lex, na oficjalnym portalu UE lub w Dzienniku Ustaw, a źródła są wymienione na dole. Każda liczba dotycząca saasyland.com na tej stronie pochodzi wprost z jego kodu._
+_Ostatnia aktualizacja: 25 listopada 2026. Każde twierdzenie prawne prowadzi do tekstu w EUR-Lex, na oficjalnym portalu UE lub w Dzienniku Ustaw, a źródła są wymienione na dole. Każda liczba dotycząca saasyland.com na tej stronie pochodzi wprost z jego kodu._
 
 ## Czy konsumentom w UE przysługuje prawo odstąpienia od umowy przy produktach cyfrowych?
 
@@ -200,7 +200,7 @@ Szablon e-maila to [`purchase-confirmation-email.tsx`](https://github.com/saasyl
 
 ### 4. Zapisy dostarczenia
 
-Licencja przechowuje cztery znaczniki czasu, a każdy pozostaje pusty, dopóki dane zdarzenie nie nastąpi:
+Licencja przechowuje te znaczniki czasu, a każdy pozostaje pusty, dopóki dane zdarzenie nie nastąpi:
 
 | Zapis                   | Kiedy powstaje                                                                    |
 | ----------------------- | --------------------------------------------------------------------------------- |
@@ -209,13 +209,13 @@ Licencja przechowuje cztery znaczniki czasu, a każdy pozostaje pusty, dopóki d
 | `delivered_at`          | Gdy CLI po raz pierwszy pobiera szablony za pomocą klucza                         |
 | `lesson_opened_at`      | Gdy licencja po raz pierwszy otwiera płatną lekcję, wraz z identyfikatorem lekcji |
 
-Webhook sprawdza pole zgody schematem Zod, zanim zapisze pierwszy znacznik, [API licencji CLI](/docs/features/cli-licence-api) zapisuje `activated_at` i `delivered_at`, a strony kursów zapisują `lesson_opened_at`, gdy udostępniają pierwszą płatną lekcję. Nowy zakup na tym samym koncie zeruje wszystkie cztery, więc zawsze opisują bieżące zamówienie. Te zapisy rozstrzygają o zwrotach, a [Zasady zwrotów](/refunds) mówią, że mogą zostać przekazane Polarowi w odpowiedzi na wniosek o zwrot lub spór dotyczący płatności.
+Webhook sprawdza pole zgody schematem Zod, zanim zapisze pierwszy znacznik, [API licencji CLI](/docs/features/cli-licence-api) zapisuje `activated_at` i `delivered_at`, a strony kursów zapisują `lesson_opened_at`, gdy udostępniają pierwszą płatną lekcję. Nowy zakup na tym samym koncie zeruje je wszystkie, więc zawsze opisują bieżące zamówienie. Te zapisy rozstrzygają o zwrotach, a [Zasady zwrotów](/refunds) mówią, że mogą zostać przekazane Polarowi w odpowiedzi na wniosek o zwrot lub spór dotyczący płatności.
 
 ### 5. Zasady zwrotów hojniejsze niż prawo
 
 Zgoda kończy ustawowe prawo, ale saasyland.com nadal zwraca pełną kwotę w ciągu <RepositoryFact name="refundWithdrawalDays" unit="day" /> od zakupu, o ile zakup nie został użyty: CLI nie pobrało szablonów za pomocą klucza i nie otwarto żadnej płatnej lekcji. Zalogowanie się, wyświetlenie klucza i aktywowanie go na urządzeniu nie liczą się jako użycie. Po pierwszym użyciu serwis usuwa problem albo zwraca pieniądze za to, czego brakuje, co jest wadliwe lub niezgodne z opisem, jeśli prawo przyznaje kupującemu takie uprawnienie.
 
-[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) zamienia te zapisy na jedną z czterech odpowiedzi, którą administrator widzi w profilu kupującego:
+[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) zamienia te zapisy na jedną z tych odpowiedzi, którą administrator widzi w profilu kupującego:
 
 | Odpowiedź             | Kiedy                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
@@ -230,7 +230,7 @@ Okres zwrotów tak długi jak termin na odstąpienie od umowy sprawia, że łatw
 
 [Licencja komercyjna](/licence) stanowi, że pełny zwrot, obciążenie zwrotne lub inne cofnięcie płatności całkowicie kończy licencję dla tego zakupu: klucz zostaje unieważniony, a wszystkie prawa udzielone w ramach licencji wygasają, w tym prawa do aplikacji wygenerowanych na jej podstawie. Prawa wynikające z licencji MIT publicznego kodu i obowiązkowe uprawnienia konsumentów pozostają bez zmian.
 
-W przypadku zwrotów pieniędzy i cofnięcia benefitu kod odzwierciedla ten tekst. Gdy Polar zgłasza zamówienie zwrócone w całości, webhook oznacza licencję jako `refunded`; częściowy zwrot ją zachowuje. Gdy Polar cofa benefit klucza licencyjnego, licencja zostaje oznaczona jako `revoked`. API licencji CLI odrzuca klucz w każdym z tych stanów, a zamówienie zostaje zapisane, aby spóźniony webhook nie mógł ponownie przyznać licencji. Obciążenie zwrotne wpływa dziś na licencję tylko wtedy, gdy Polar zgłosi też zwrot pieniędzy za zamówienie albo cofnie benefit. Obsługa samych zdarzeń Polara dotyczących sporów o płatności, ze sporem widocznym na stronie zamówienia i rozstrzygnięciem przenoszonym na licencję, jest w przygotowaniu, jak podaje punkt 5 sekcji „Aplikacja” w [planie rozwoju](/docs/project/roadmap). Zobacz [Licencje](/docs/features/licences#webhooks-and-licences).
+W przypadku zwrotów pieniędzy i cofnięcia benefitu kod odzwierciedla ten tekst. Gdy Polar zgłasza zamówienie zwrócone w całości, webhook oznacza licencję jako `refunded`; częściowy zwrot ją zachowuje, a pełny zwrot za przejście na wyższy pakiet przywraca pakiet i limit urządzeń, które licencja miała wcześniej. Gdy Polar cofa benefit klucza licencyjnego, licencja zostaje oznaczona jako `revoked`. API licencji CLI odrzuca klucz w każdym z tych stanów, a zamówienie zostaje zapisane, aby spóźniony webhook nie mógł ponownie przyznać licencji. Obciążenie zwrotne wpływa dziś na licencję tylko wtedy, gdy Polar zgłosi też zwrot pieniędzy za zamówienie albo cofnie benefit. Obsługa samych zdarzeń Polara dotyczących sporów o płatności, ze sporem widocznym na stronie zamówienia i rozstrzygnięciem przenoszonym na licencję, jest w przygotowaniu, jak podaje sekcja „Aplikacja” w [planie rozwoju](/docs/project/roadmap). Zobacz [Licencje](/docs/features/licences#webhooks-and-licences).
 
 ### 7. Prowizja partnerska wstrzymywana dłużej niż okres zwrotów
 

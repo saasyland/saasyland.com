@@ -4,7 +4,7 @@ description: "Como o direito de desistência da UE se aplica a software e a outr
 excerpt: "Um consumidor da UE que compra o seu software on-line geralmente pode desistir em até 14 dias. Para conteúdo digital, esse direito pode se extinguir no momento em que você o fornece, mas só se três coisas acontecerem antes. Veja aqui a lei, o que dá errado quando falta cada etapa e o código que faz isso neste site."
 author: piotr-borowiecki
 date: 2026-11-17
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -115,7 +115,7 @@ Este artigo explica as regras da UE e uma implementação delas, e liga cada afi
 
 </Callout>
 
-_Última atualização em 22 de novembro de 2026. Toda afirmação jurídica tem link para o texto no EUR-Lex, o portal oficial da UE, ou no Dziennik Ustaw, o diário oficial da Polônia, e as fontes estão listadas no final. Todos os números sobre o saasyland.com nesta página vêm direto do código dele._
+_Última atualização em 25 de novembro de 2026. Toda afirmação jurídica tem link para o texto no EUR-Lex, o portal oficial da UE, ou no Dziennik Ustaw, o diário oficial da Polônia, e as fontes estão listadas no final. Todos os números sobre o saasyland.com nesta página vêm direto do código dele._
 
 ## Os consumidores da UE têm direito de desistência na compra de produtos digitais?
 
@@ -200,7 +200,7 @@ O template do e-mail é [`purchase-confirmation-email.tsx`](https://github.com/s
 
 ### 4. Registros de entrega
 
-A licença guarda quatro registros de data e hora, e cada um fica vazio até o fato acontecer:
+A licença guarda estes registros de data e hora, e cada um fica vazio até o fato acontecer:
 
 | Registro                | Quando é gravado                                                              |
 | ----------------------- | ----------------------------------------------------------------------------- |
@@ -209,13 +209,13 @@ A licença guarda quatro registros de data e hora, e cada um fica vazio até o f
 | `delivered_at`          | A primeira vez que a CLI baixa modelos com a chave                            |
 | `lesson_opened_at`      | A primeira vez que a licença abre uma aula paga, com o ID da aula             |
 
-O webhook valida o campo de consentimento com Zod antes de gravar o primeiro registro, a [API de licenças da CLI](/docs/features/cli-licence-api) grava `activated_at` e `delivered_at`, e as páginas dos cursos gravam `lesson_opened_at` quando entregam a primeira aula paga. Uma nova compra na mesma conta zera os quatro, então eles sempre descrevem o pedido atual. Esses registros decidem os reembolsos, e a [Política de Reembolso](/refunds) informa que eles podem ser compartilhados com a Polar para responder a um pedido de reembolso ou a uma contestação de pagamento.
+O webhook valida o campo de consentimento com Zod antes de gravar o primeiro registro, a [API de licenças da CLI](/docs/features/cli-licence-api) grava `activated_at` e `delivered_at`, e as páginas dos cursos gravam `lesson_opened_at` quando entregam a primeira aula paga. Uma nova compra na mesma conta zera todos eles, então eles sempre descrevem o pedido atual. Esses registros decidem os reembolsos, e a [Política de Reembolso](/refunds) informa que eles podem ser compartilhados com a Polar para responder a um pedido de reembolso ou a uma contestação de pagamento.
 
 ### 5. Uma política de reembolso mais generosa que a lei
 
 O consentimento extingue o direito previsto em lei, mas o saasyland.com ainda reembolsa integralmente em até <RepositoryFact name="refundWithdrawalDays" unit="day" /> após a compra, desde que ela não tenha sido usada: a CLI não baixou modelos com a chave e nenhuma aula paga foi aberta. Fazer login, ver a chave e ativá-la em um dispositivo não contam como uso. Depois do primeiro uso, o site corrige ou reembolsa o que estiver faltando, com defeito ou diferente do descrito, quando a lei garante ao comprador essa medida de reparação.
 
-[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) transforma os registros em uma de quatro respostas, que um administrador vê no perfil do comprador:
+[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) transforma os registros em uma destas respostas, que um administrador vê no perfil do comprador:
 
 | Resposta              | Quando                                                                                          |
 | --------------------- | ----------------------------------------------------------------------------------------------- |
@@ -230,7 +230,7 @@ Um prazo de reembolso tão longo quanto o prazo de desistência torna a caixa de
 
 A [Licença Comercial](/licence) diz que um reembolso integral, um chargeback ou outra reversão do pagamento encerra totalmente a licença daquela compra: a chave é revogada e todos os direitos concedidos pela licença terminam, inclusive os direitos sobre aplicativos gerados com ela. Os direitos da licença MIT do código público e as medidas obrigatórias de proteção ao consumidor permanecem inalterados.
 
-Para reembolsos e revogações, o código segue o texto. Quando a Polar informa um pedido reembolsado por completo, o webhook marca a licença como `refunded`; um reembolso parcial a mantém. Quando a Polar revoga o benefício da chave de licença, a licença é marcada como `revoked`. A API de licenças da CLI recusa uma chave em qualquer um dos dois estados, e o pedido é registrado para que um webhook atrasado não possa concedê-la de novo. Hoje um chargeback só afeta a licença quando a Polar também informa que o pedido foi reembolsado ou revoga o benefício; o tratamento dos próprios eventos de contestação da Polar, com a contestação na página do pedido e o resultado aplicado à licença, está a caminho, como diz o item 5 da seção Aplicação do [roadmap](/docs/project/roadmap). Veja [Licenças](/docs/features/licences#webhooks-and-licences).
+Para reembolsos e revogações, o código segue o texto. Quando a Polar informa um pedido reembolsado por completo, o webhook marca a licença como `refunded`; um reembolso parcial a mantém, e um upgrade reembolsado por completo devolve à licença o plano e o limite de dispositivos que ela tinha antes. Quando a Polar revoga o benefício da chave de licença, a licença é marcada como `revoked`. A API de licenças da CLI recusa uma chave em qualquer um dos dois estados, e o pedido é registrado para que um webhook atrasado não possa concedê-la de novo. Hoje um chargeback só afeta a licença quando a Polar também informa que o pedido foi reembolsado ou revoga o benefício; o tratamento dos próprios eventos de contestação da Polar, com a contestação na página do pedido e o resultado aplicado à licença, está a caminho, como diz a seção Aplicação do [roadmap](/docs/project/roadmap). Veja [Licenças](/docs/features/licences#webhooks-and-licences).
 
 ### 7. Comissão de afiliado retida por mais tempo que o prazo de reembolso
 

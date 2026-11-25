@@ -4,7 +4,7 @@ description: "Un guide pratique pour faire tourner un SaaS sur Cloudflare Worker
 excerpt: "Workers, D1, KV et R2 peuvent faire tourner un vrai SaaS, à condition de construire selon leur forme : une base de données SQLite qui répond à une requête à la fois, un cache à cohérence à terme, des buckets sans frais de sortie et un script qui doit être chargé avant chaque requête à froid. Ce guide transforme cette forme en règles applicables, et confronte chacune d’elles au code de production de saasyland.com, avec ses incidents, ses mesures et ses coûts aux prix actuels."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -154,9 +154,9 @@ La plupart des erreurs sur cette plateforme viennent du stockage de quelque chos
 
 Les règles qui le sous-tendent : ce qui décide de l’accès est stocké dans un endroit cohérent ; ce qui est volumineux va dans R2 ; ce qui peut être calculé au moment du build est une ressource statique ; et KV ne contient que ce que vous pourriez jeter et récupérer à nouveau.
 
-### Exemple concret : cinq bindings
+### Exemple concret : les bindings de saasyland.com
 
-saasyland.com suit ce tableau avec cinq bindings, déclarés dans `wrangler.jsonc` :
+saasyland.com suit ce tableau avec les bindings suivants, déclarés dans `wrangler.jsonc` :
 
 | Binding   | Produit                         | Ce qu’il contient                                                                                                                          | Où dans le code                                                               |
 | --------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
@@ -187,7 +187,7 @@ Le fichier de configuration d’un Worker est la carte de tout votre système, e
 
 ### Exemple concret : quatre environnements et deux vérifications de déploiement
 
-`wrangler.jsonc` définit quatre environnements avec les mêmes bindings : `production`, `preview`, `development`, qui lie pour `bun run dev` sa propre base D1, son propre espace de noms KV et ses propres buckets locaux, et `test`, qui garde une base D1, un espace de noms KV et des buckets locaux sous `.wrangler/test` pour la suite de tests dans le navigateur. Chaque environnement liste les secrets qu’il exige. Avant tout déploiement, `scripts/verify-bindings.ts` échoue lorsqu’un environnement n’a pas un binding, a encore un identifiant D1 ou KV factice, ou lorsque la production partage sa base de données, son espace de noms ou son bucket avec la préversion, et `scripts/prepare-deploy-secrets.ts` échoue lorsqu’un secret obligatoire est absent, vide ou contient un espace réservé, en nommant la clé sans afficher sa valeur.
+`wrangler.jsonc` définit ses environnements avec les mêmes bindings : `production`, `preview`, `development`, qui lie pour `bun run dev` sa propre base D1, son propre espace de noms KV et ses propres buckets locaux, et `test`, qui garde une base D1, un espace de noms KV et des buckets locaux sous `.wrangler/test` pour la suite de tests dans le navigateur. Chaque environnement liste les secrets qu’il exige. Avant tout déploiement, `scripts/verify-bindings.ts` échoue lorsqu’un environnement n’a pas un binding, a encore un identifiant D1 ou KV factice, ou lorsque la production partage sa base de données, son espace de noms ou son bucket avec la préversion, et `scripts/prepare-deploy-secrets.ts` échoue lorsqu’un secret obligatoire est absent, vide ou contient un espace réservé, en nommant la clé sans afficher sa valeur.
 
 La seconde vérification est née d’une vraie erreur, consignée dans [#223](https://github.com/saasyland/saasyland.com/pull/223). Le fichier des secrets de production contenait encore `[UPDATE]` comme identifiant client OAuth de Google, le déploiement l’a envoyé parce que la vérification ne refusait alors que les valeurs vides, et la connexion Google a échoué avec `invalid_client`. Le correctif est arrivé en deux couches : une vérification en ligne après chaque déploiement, qui lance une connexion avec chaque fournisseur et valide l’URL vers laquelle elle est envoyée, et un refus des valeurs factices avant même le début du build. Chaque couche l’aurait détectée seule ; ensemble, elles la détectent deux fois.
 
@@ -287,7 +287,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-Cette vérification existe à cause d’une erreur. Un seul import statique d’un nom d’en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d’accueil mettait jusqu’à 1,4 seconde à arriver, comme le consigne la [convention sur les performances](/docs/conventions/performance). Les noms d’en-têtes se trouvent désormais dans un fichier qui n’importe rien de lourd.
+Cette vérification existe à cause d’une erreur. Un seul import statique d’un nom d’en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d’accueil mettait jusqu’à 1,4 seconde à arriver, comme le consigne la [convention sur les performances](/docs/conventions/performance) depuis [#122](https://github.com/saasyland/saasyland.com/pull/122), fusionnée le 13 novembre 2026. Les noms d’en-têtes se trouvent désormais dans un fichier qui n’importe rien de lourd.
 
 ### Exemple concret : deux pull requests qui ont divisé par deux le chemin à froid
 
@@ -700,7 +700,7 @@ La facture de ce mois s’élève donc à 5 $, plus le stockage R2 au-delà des 
 - KV ne contient rien qui décide de l’accès, ni rien qui soit écrit plus d’une fois par seconde et par clé.
 - Les valeurs en cache portent leur heure de récupération et sont validées à la lecture.
 - Les buckets sont privés ; l’accès est décidé au moment où une URL est émise, et les URL expirent.
-- Les gros téléversements contournent le Worker.
+- Les gros téléversements arrivent dans R2 en parties inférieures à la limite du corps de requête.
 - Les informations sur les objets dont les requêtes ont besoin sont stockées en métadonnées personnalisées.
 - Chaque limite de débit a un stockage adapté à l’exactitude qu’elle exige, et une décision écrite sur son comportement en cas de panne : laisser passer ou refuser.
 

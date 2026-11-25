@@ -19,14 +19,19 @@ const TEXT_KEY = "text"
 
 const entrySchema = zod.object({ answer: zod.string(), question: zod.string() })
 
-const postSchema = zod.object({ faq: zod.array(entrySchema), title: zod.string() })
+const postSchema = zod.object({
+  description: zod.string(),
+  excerpt: zod.string().default(""),
+  faq: zod.array(entrySchema),
+  title: zod.string(),
+})
 
 const posts = readdirSync(BLOG_DIR).map((file) => {
   const source = readFileSync(`${BLOG_DIR}/${file}`, "utf8")
   const { content, data } = frontmatter(source)
-  const { faq, title } = postSchema.parse(data)
+  const { description, excerpt, faq, title } = postSchema.parse(data)
 
-  return { content, faq, file, locale: LOCALE_PATTERN.exec(file)?.groups?.["locale"] ?? "", title }
+  return { content, description, excerpt, faq, file, locale: LOCALE_PATTERN.exec(file)?.groups?.["locale"] ?? "", title }
 })
 
 type StatusArgument = (typeof STATUS_ARGUMENTS)[number]
@@ -59,6 +64,15 @@ describe("blog FAQs", () => {
       expect(formatted).not.toBe("text")
     }
   })
+
+  it.each(posts)(
+    "$file writes its description and excerpt as plain text, because the blog shows them as written",
+    ({ description, excerpt }) => {
+      for (const text of [description, excerpt]) {
+        expect(text).not.toMatch(/[{}]/u)
+      }
+    },
+  )
 
   it.each(STATUS_ARGUMENTS)("words every sentence that changes with %s for both statuses", (argument) => {
     const texts = posts.flatMap(({ faq, file, locale, title }) =>

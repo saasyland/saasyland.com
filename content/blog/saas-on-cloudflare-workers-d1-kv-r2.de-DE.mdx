@@ -4,7 +4,7 @@ description: "Ein praktischer Leitfaden für ein SaaS auf Cloudflare Workers mit
 excerpt: "Workers, D1, KV und R2 können ein echtes SaaS tragen, wenn du nach ihrer Form baust: eine SQLite-Datenbank, die eine Abfrage nach der anderen beantwortet, ein Cache, der nur letztendlich konsistent ist, Buckets ohne Egress-Gebühren und ein Skript, das vor jedem kalten Request geladen werden muss. Dieser Leitfaden macht aus dieser Form Regeln, die du anwenden kannst, und prüft jede davon am Produktionscode von saasyland.com, mit seinen Vorfällen, Messungen und Kosten zu heutigen Preisen."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -154,9 +154,9 @@ Die meisten Fehler auf dieser Plattform entstehen, wenn etwas in dem Produkt ges
 
 Die Regeln dahinter: Was über den Zugriff entscheidet, liegt an einem konsistenten Ort; was groß ist, kommt nach R2; was sich beim Build berechnen lässt, ist ein statisches Asset; und KV enthält nur, was du wegwerfen und erneut abrufen könntest.
 
-### Praxisbeispiel: fünf Bindings
+### Praxisbeispiel: die Bindings von saasyland.com
 
-saasyland.com folgt der Tabelle mit fünf Bindings, deklariert in `wrangler.jsonc`:
+saasyland.com folgt der Tabelle mit diesen Bindings, deklariert in `wrangler.jsonc`:
 
 | Binding   | Produkt                      | Was es enthält                                                                                                   | Wo im Code                                                                    |
 | --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -187,7 +187,7 @@ Die Konfigurationsdatei eines Workers ist die Landkarte deines ganzen Systems, u
 
 ### Praxisbeispiel: vier Umgebungen und zwei Deploy-Checks
 
-`wrangler.jsonc` definiert vier Umgebungen mit denselben Bindings: `production`, `preview`, `development`, das für `bun run dev` eine eigene lokale D1-Datenbank, einen eigenen KV-Namespace und eigene Buckets bindet, und `test`, das für die Browser-Suite eine lokale D1-Datenbank, einen KV-Namespace und Buckets unter `.wrangler/test` hält. Jede Umgebung führt die Secrets auf, die sie braucht. Vor jedem Deploy schlägt `scripts/verify-bindings.ts` fehl, wenn einer Umgebung ein Binding fehlt, sie noch eine Platzhalter-ID für D1 oder KV hat oder Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt, und `scripts/prepare-deploy-secrets.ts` schlägt fehl, wenn ein erforderliches Secret fehlt, leer oder ein Platzhalter ist, und nennt dabei den Schlüssel, ohne seinen Wert auszugeben.
+`wrangler.jsonc` definiert seine Umgebungen mit denselben Bindings: `production`, `preview`, `development`, das für `bun run dev` eine eigene lokale D1-Datenbank, einen eigenen KV-Namespace und eigene Buckets bindet, und `test`, das für die Browser-Suite eine lokale D1-Datenbank, einen KV-Namespace und Buckets unter `.wrangler/test` hält. Jede Umgebung führt die Secrets auf, die sie braucht. Vor jedem Deploy schlägt `scripts/verify-bindings.ts` fehl, wenn einer Umgebung ein Binding fehlt, sie noch eine Platzhalter-ID für D1 oder KV hat oder Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt, und `scripts/prepare-deploy-secrets.ts` schlägt fehl, wenn ein erforderliches Secret fehlt, leer oder ein Platzhalter ist, und nennt dabei den Schlüssel, ohne seinen Wert auszugeben.
 
 Der zweite Check geht auf einen echten Fehler zurück, festgehalten in [#223](https://github.com/saasyland/saasyland.com/pull/223). Die Datei mit den Produktions-Secrets enthielt als Client-ID für Google OAuth noch `[UPDATE]`, der Deploy lud sie hoch, weil der Check damals nur leere Werte ablehnte, und die Anmeldung mit Google scheiterte mit `invalid_client`. Die Korrektur kam in zwei Schichten: ein Live-Check nach jedem Deploy, der mit jedem Anbieter eine Anmeldung startet und die URL prüft, an die sie weiterleitet, und eine Ablehnung von Platzhalterwerten, noch bevor der Build beginnt. Jede Schicht hätte den Fehler allein gefunden; zusammen finden sie ihn doppelt.
 
@@ -287,7 +287,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-Den Check gibt es wegen eines Fehlers. Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden, wie die [Performance-Konvention](/docs/conventions/performance) festhält. Die Header-Namen liegen jetzt in einer Datei, die nichts Schweres importiert.
+Den Check gibt es wegen eines Fehlers. Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden, wie die [Performance-Konvention](/docs/conventions/performance) seit [#122](https://github.com/saasyland/saasyland.com/pull/122), gemergt am 13. November 2026, festhält. Die Header-Namen liegen jetzt in einer Datei, die nichts Schweres importiert.
 
 ### Praxisbeispiel: zwei Pull Requests, die den kalten Pfad halbiert haben
 
@@ -700,7 +700,7 @@ Die Rechnung für diesen Monat beträgt also 5 $, plus R2-Speicher über die kos
 - KV enthält nichts, was über den Zugriff entscheidet, und nichts, was pro Schlüssel öfter als einmal pro Sekunde geschrieben wird.
 - Gecachte Werte tragen ihren Abrufzeitpunkt und werden beim Lesen validiert.
 - Buckets sind privat; über den Zugriff wird beim Ausstellen einer URL entschieden, und URLs laufen ab.
-- Große Uploads umgehen den Worker.
+- Große Uploads erreichen R2 in Teilen unter der Grenze für den Request-Body.
 - Fakten über Objekte, die Requests brauchen, sind als benutzerdefinierte Metadaten gespeichert.
 - Jede Ratenbegrenzung hat einen Speicher, der zur geforderten Genauigkeit passt, und eine aufgeschriebene Entscheidung, ob sie bei einem Ausfall sperrt oder durchlässt.
 

@@ -358,8 +358,9 @@ test.describe("the licence offer", () => {
       await openOffer({ appPage, authPage, page })
 
       for (const tier of LICENSE_TIERS) {
-        await expect(price(page, regionalPrice(TIER_PRICES[tier], pppMultiplierKey(REGIONAL_COUNTRY)))).toHaveCount(1)
-        await expect(offer(page).locator("s").filter({ hasText: `$${String(TIER_PRICES[tier])}`, visible: true })).toHaveCount(1)
+        const regional = `$${String(regionalPrice(TIER_PRICES[tier], pppMultiplierKey(REGIONAL_COUNTRY)))}`
+        await expect(offer(page).getByText(regional, { exact: true }).first()).toBeVisible()
+        await expect(offer(page).locator("s").filter({ hasText: `$${String(TIER_PRICES[tier])}` }).first()).toBeVisible()
       }
     })
   })

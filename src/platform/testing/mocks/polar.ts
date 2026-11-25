@@ -15,7 +15,6 @@ import {
   polarProduct,
   polarProductPrice,
 } from "~/src/platform/testing/lib/polar"
-import * as AREA_POLAR_CATALOGUES from "~/src/platform/testing/mocks/polar-catalogue.entries"
 import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
@@ -31,6 +30,7 @@ import {
 } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { LICENSE_POLAR_CATALOGUE } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 
 type RequestSchema<Model> = { readonly [Key in keyof Model]?: zod.ZodType<Model[Key]> }
 
@@ -52,7 +52,7 @@ export const POLAR_API = {
   PRODUCTS: "/v1/products/",
 } as const
 
-const AREAS: Readonly<Record<string, PolarCatalogue>> = AREA_POLAR_CATALOGUES
+const CATALOGUES: readonly PolarCatalogue[] = [LICENSE_POLAR_CATALOGUE]
 
 const products = new Map<string, PolarProduct>()
 const licenseKeyBenefits = new Map<string, PolarLicenseKeyBenefit>()
@@ -85,7 +85,7 @@ const resetPolar = (): void => {
   for (const scope of Object.values(POLAR_SCOPE)) {
     grantedScopes.add(scope)
   }
-  for (const catalogue of Object.values(AREAS)) {
+  for (const catalogue of CATALOGUES) {
     seedPolarCatalogue(catalogue)
   }
 }

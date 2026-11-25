@@ -1,8 +1,8 @@
-import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
+import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "./flows"
 
 export const CORE_FLOWS = [
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "landing-page",
     outcome: "The landing page renders its hero, navigation and call to action, and Pricing leads to sign-up without reloading the document",
     status: FLOW_STATUS.COVERED,
@@ -12,7 +12,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "cli-configurator",
     outcome: "The configurator's command, output and clipboard follow every answer, and options not generated yet stay disabled and say why",
     status: FLOW_STATUS.COVERED,
@@ -25,14 +25,14 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "install-command",
     outcome: "The hero's install command follows the chosen package manager",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "landing-controls.spec.ts", title: "hero install command follows the selected package manager" }],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "site-header",
     outcome: "Every public page has the same header links in the same place, marks the current section and keeps one header, unmoved, through client navigation",
     status: FLOW_STATUS.COVERED,
@@ -51,7 +51,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "accessible-pages",
     outcome: "The public pages and both workspaces meet WCAG 2.2 AA in the light and dark themes",
     status: FLOW_STATUS.COVERED,
@@ -63,7 +63,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "not-found",
     outcome: "A missing page answers 404 with the titled not-found page under the site header, also after a client navigation",
     status: FLOW_STATUS.COVERED,
@@ -74,7 +74,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "sitemap",
     outcome:
       "The sitemap index names the pages' sitemap and every sitemap a feature serves, the pages' sitemap lists every indexable prerendered page, and every address in them answers 200 without a redirect",
@@ -86,7 +86,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "social-cards",
     outcome: "Each page names a social image in its own language that the site serves",
     status: FLOW_STATUS.COVERED,
@@ -96,7 +96,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "stale-build",
     outcome: "A tab opened before a deploy lands on the page the visitor clicks, even when the deploy removed that page's code",
     status: FLOW_STATUS.COVERED,
@@ -106,7 +106,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.I18N,
+    feature: FLOW_FEATURE.I18N,
     id: "locale-routing",
     outcome: "A short or prefixed locale address opens the page in that language with its lang attribute and hreflang alternates",
     status: FLOW_STATUS.COVERED,
@@ -116,7 +116,7 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.I18N,
+    feature: FLOW_FEATURE.I18N,
     id: "language-switcher",
     outcome: "Choosing a language in the footer's switcher opens the same page in that language",
     reason: "The spec opens the switcher and checks its links but never follows one.",
@@ -124,7 +124,7 @@ export const CORE_FLOWS = [
     tests: [{ spec: "locales.spec.ts", title: "en-US: canonical language, mobile layout, and all legal documents" }],
   },
   {
-    area: FLOW_AREA.SECURITY,
+    feature: FLOW_FEATURE.SECURITY,
     id: "content-security-policy",
     outcome:
       "Every HTML response gets a new nonce in its policy and on each of its scripts, frames only Polar's checkout, and no page of any spec breaks the policy",
@@ -143,14 +143,14 @@ export const CORE_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.SECURITY,
+    feature: FLOW_FEATURE.SECURITY,
     id: "edge-scripts",
     outcome: "A script the edge adds with the response's nonce runs, and one without it is blocked",
     status: FLOW_STATUS.COVERED,
     tests: [{ spec: "edge-scripts.spec.ts", title: "on /, a script the edge adds with the header's nonce runs, and one without the nonce is blocked" }],
   },
   {
-    area: FLOW_AREA.SECURITY,
+    feature: FLOW_FEATURE.SECURITY,
     id: "security-headers",
     outcome:
       "Every response carries X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Cross-Origin-Opener-Policy and Permissions-Policy, and HSTS over HTTPS",

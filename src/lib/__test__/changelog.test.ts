@@ -5,6 +5,7 @@ import { type GitRepository, createGitRepository } from "~/src/platform/testing/
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import {
+  CHANGELOG_DIRECTORY,
   type Changelog,
   ENTRY_KEY,
   ENTRY_ORIGIN,
@@ -29,7 +30,7 @@ const merged = (key: string, release?: string) => ({ ...entry(key), release })
 
 const writeEntries = (repository: GitRepository, keys: readonly string[]): void => {
   for (const key of keys) {
-    repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, entry(key).source)
+    repository.writeFile(`${CHANGELOG_DIRECTORY}/${key}.${I18N.DEFAULT_LOCALE}.mdx`, entry(key).source)
   }
 }
 
@@ -90,8 +91,8 @@ describe("readChangelog", () => {
     const repository = createGitRepository()
 
     repository.commit("✨ feat(courses): add courses (#10)", "2026-11-13T15:19:27Z")
-    repository.writeEntry(`10.${I18N.DEFAULT_LOCALE}.mdx`, "- Courses.\n")
-    repository.writeEntry(`10.${TRANSLATED_LOCALE}.mdx`, "- Kurse.\n")
+    repository.writeFile(`${CHANGELOG_DIRECTORY}/10.${I18N.DEFAULT_LOCALE}.mdx`, "- Courses.\n")
+    repository.writeFile(`${CHANGELOG_DIRECTORY}/10.${TRANSLATED_LOCALE}.mdx`, "- Kurse.\n")
 
     await expect(readChangelog({ cwd: repository.path, locale: TRANSLATED_LOCALE })).resolves.toStrictEqual({
       days: [{ date: "2026-11-13", entries: [{ key: "10", release: undefined, source: "- Kurse.\n" }] }],
@@ -315,7 +316,7 @@ describe("releaseNotes", () => {
     repository.commit("🚀 perf(worker): load less (#12)", "2026-11-14T11:00:00Z")
 
     for (const key of ["10", "11", "12"]) {
-      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+      repository.writeFile(`${CHANGELOG_DIRECTORY}/${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
     }
 
     const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.14.2" })
@@ -334,7 +335,7 @@ describe("releaseNotes", () => {
     repository.commit("📚 docs(ci): describe the merge queue (#13)", "2026-11-21T10:00:02Z")
 
     for (const key of ["10", "11", "12", "13"]) {
-      repository.writeEntry(`${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
+      repository.writeFile(`${CHANGELOG_DIRECTORY}/${key}.${I18N.DEFAULT_LOCALE}.mdx`, `- Change ${key}.\n`)
     }
 
     const changelog = await readChangelog({ cwd: repository.path, locale: I18N.DEFAULT_LOCALE, upcomingRelease: "v2026.11.21.2" })

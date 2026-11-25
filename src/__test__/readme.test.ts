@@ -112,7 +112,7 @@ const WCAG_VERSIONS = [
   ),
 ]
 const SERVED_PATHS = new Set([...stringsOf(ROUTES), ...LIVE_SITE_CHECKS.map(({ path }) => path), API_BASE_PATH])
-const SERVED_PREFIXES = [MEDIA_PATH_PREFIX, COURSE_COVER_PATH_PREFIX]
+const SERVED_PREFIXES: readonly string[] = [MEDIA_PATH_PREFIX, COURSE_COVER_PATH_PREFIX]
 const REMOTION_PORT = /--port=(?<port>\d+)/u.exec(readFileSync("remotion/package.json", "utf8"))?.groups?.["port"] ?? ""
 const CLOUDFLARE_CREDENTIALS = readFileSync(".env.example", "utf8").match(/^CLOUDFLARE_\w+=/gmu)?.length ?? 0
 const LOOPBACK_PORTS = new Set([

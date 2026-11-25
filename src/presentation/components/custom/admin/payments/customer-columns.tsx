@@ -33,7 +33,7 @@ const NoAccount = (): JSX.Element => {
 }
 
 const SignedUpCell = ({ row }: CellContext<DataGridFeatures, CustomerRow, Date | undefined>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
   const { user } = row.original
 
   if (user === null) {
@@ -78,7 +78,7 @@ const RevenueCell = ({ getValue }: CellContext<DataGridFeatures, CustomerRow, Cu
 }
 
 const LastOrderCell = ({ getValue }: CellContext<DataGridFeatures, CustomerRow, Date>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
 
   return <span className="text-sm text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }

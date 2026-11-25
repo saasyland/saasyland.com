@@ -41,7 +41,7 @@ const ActivationsCard = (issued: LicenseActivationsProps): JSX.Element => {
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-sm font-medium wrap-anywhere text-foreground">{activation.label}</span>
                 <span className="text-spec text-muted-foreground">
-                  {t("pages.license.activations.activated", { date: t("common.dateTime", { value: new Date(activation.created_at) }) })}
+                  {t("pages.license.activations.activated", { date: t("auth.dates.dateTime", { value: new Date(activation.created_at) }) })}
                 </span>
               </span>
               <DeactivateActivationButton activationId={activation.id} />

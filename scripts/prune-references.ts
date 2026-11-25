@@ -408,7 +408,7 @@ const pruneNames = (prune: Prune): void => {
 
     if (declarations.length === 0 || (next !== undefined && properties.length === 0)) {
       prune.problems.push(
-        problemAt(prune, prune.module.program, `the removed areas take away \`${name}\`, which ${prune.file} does not declare`),
+        problemAt(prune, prune.module.program, `the removed features take away \`${name}\`, which ${prune.file} does not declare`),
       )
     }
 
@@ -574,10 +574,10 @@ const settleSource = (prune: Prune): void => {
 const textOf = (prune: Prune, node: ESTree.Node): string => prune.source.slice(node.start, node.end).replace(AFTER_FIRST_LINE, "")
 
 const unprunableReason = (prune: Prune, node: ESTree.Node): string =>
-  `\`${textOf(prune, node)}\` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`
+  `\`${textOf(prune, node)}\` names what the removed features take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`
 
 const emptiedReason = (prune: Prune, node: ESTree.Node): string =>
-  `\`${textOf(prune, node)}\` is left empty once the code that names what the removed areas take away goes, and it cannot go whole`
+  `\`${textOf(prune, node)}\` is left empty once the code that names what the removed features take away goes, and it cannot go whole`
 
 const isLeftWithoutCases = (prune: Prune, removed: readonly ESTree.Node[]): boolean => {
   const cases = prune.tests.filter(({ kind }) => kind === TEST_KIND.CASE)

@@ -19,13 +19,13 @@ export const UserDetails = ({ user }: { readonly user: User["select"] }): JSX.El
   const t = useTranslations()
 
   const values: Record<UserDetail, ReactNode> = {
-    createdAt: t("common.dateTime", { value: user.createdAt }),
+    createdAt: t("auth.dates.dateTime", { value: user.createdAt }),
     emailVerified: t(`pages.admin.users.table.booleans.${user.emailVerified ? "yes" : "no"}`),
     role: isRole(user.role) ? t(`pages.admin.users.filters.role.options.${user.role}`) : user.role,
     status: <UserStatusBadge status={getUserStatus(user)} />,
     timezone: user.timezone,
     twoFactorEnabled: t(`pages.admin.users.table.booleans.${user.twoFactorEnabled ? "yes" : "no"}`),
-    updatedAt: t("common.dateTime", { value: user.updatedAt }),
+    updatedAt: t("auth.dates.dateTime", { value: user.updatedAt }),
   }
 
   return (

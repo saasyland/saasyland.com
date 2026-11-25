@@ -9,7 +9,8 @@ import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_BUNDLE, TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
-import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
+import { expectVerificationEmail } from "../fixtures/emails"
+import { expectPurchaseConfirmation } from "../fixtures/license-emails"
 import { buyLicense, deliverPaidOrder, orderLicense, payCheckout, startedCheckouts } from "../fixtures/license"
 import {
   POLAR_CUSTOMER_SESSION_TOKEN,

@@ -18,7 +18,7 @@ import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/co
 import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 
 const HERO_TAGS = {
-  accent: (chunks: ReactNode) => <Accent id="hero">{chunks}</Accent>,
+  accent: (chunks: ReactNode) => <Accent id="hero" text={chunks} />,
   billing: BILLING_GENERATION,
   code: (chunks: ReactNode) => <code className="font-mono text-code text-foreground">{chunks}</code>,
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,

@@ -7,10 +7,10 @@ import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
-import { FLOW_AREA } from "~/e2e/data/flows"
+import { FLOW_FEATURE } from "~/e2e/data/flows"
 import countryNames from "~/messages/en-US/countries.json"
 import currencyNames from "~/messages/en-US/currencies.json"
-import flowAreaNames from "~/messages/en-US/flow-areas.json"
+import flowFeatureNames from "~/messages/en-US/flow-features.json"
 import localeNames from "~/messages/en-US/locales.json"
 import timezoneNames from "~/messages/en-US/timezones.json"
 
@@ -19,7 +19,7 @@ const alphabetically = (left: string, right: string): number => left.localeCompa
 it.each([
   { catalogue: "countries", codes: COUNTRIES.map(({ alpha2 }) => alpha2), names: countryNames },
   { catalogue: "currencies", codes: CURRENCY_CODES, names: currencyNames },
-  { catalogue: "flow areas", codes: Object.values(FLOW_AREA), names: flowAreaNames },
+  { catalogue: "flow features", codes: Object.values(FLOW_FEATURE), names: flowFeatureNames },
   { catalogue: "locales", codes: LOCALES.map(({ code }) => code), names: localeNames },
   { catalogue: "timezones", codes: TIMEZONES.map(({ iana }) => iana), names: timezoneNames },
 ])("names exactly the $catalogue that the constants define", ({ codes, names }) => {

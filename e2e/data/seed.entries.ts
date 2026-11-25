@@ -1,6 +1,0 @@
-export { authSeed } from "./auth.seed"
-export { coreSeed } from "./core.seed"
-export { coursesSeed } from "./courses.seed"
-export { licenseSeed } from "./license.seed"
-export { paymentsSeed } from "./payments.seed"
-export { productsSeed } from "./products.seed"

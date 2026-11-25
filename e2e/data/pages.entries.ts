@@ -1,8 +1,0 @@
-export { AUTH_PAGES } from "./auth.pages"
-export { CONTENT_PAGES } from "./content.pages"
-export { CORE_PAGES } from "./core.pages"
-export { COURSES_PAGES } from "./courses.pages"
-export { LEGAL_PAGES } from "./legal.pages"
-export { LICENSE_PAGES } from "./license.pages"
-export { PAYMENTS_PAGES } from "./payments.pages"
-export { PRODUCTS_PAGES } from "./products.pages"

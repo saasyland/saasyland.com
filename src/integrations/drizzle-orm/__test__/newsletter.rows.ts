@@ -1,4 +1,4 @@
-import type { AreaRows } from "~/src/integrations/drizzle-orm/__test__/rows"
+import type { TableRows } from "~/src/integrations/drizzle-orm/__test__/rows"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
@@ -12,4 +12,4 @@ export const NEWSLETTER_ROWS = [
         .returning(),
     ],
   },
-] as const satisfies readonly AreaRows[]
+] as const satisfies readonly TableRows[]

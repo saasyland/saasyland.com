@@ -1,4 +1,4 @@
-import type { AreaRows } from "~/src/integrations/drizzle-orm/__test__/rows"
+import type { TableRows } from "~/src/integrations/drizzle-orm/__test__/rows"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { category } from "~/src/modules/category/category.schema"
@@ -11,4 +11,4 @@ export const PRODUCTS_ROWS = [
       db.insert(product).values({ id: "schema-product", name: "Product" }).returning(),
     ],
   },
-] as const satisfies readonly AreaRows[]
+] as const satisfies readonly TableRows[]

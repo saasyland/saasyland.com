@@ -20,7 +20,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { WithdrawalForm, type WithdrawalStatementFields } from "~/src/presentation/components/custom/withdrawal-form"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authDatesMessages from "~/messages/en-US/auth.dates.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import pageMessages from "~/messages/en-US/pages.withdrawal.json"
 import validationMessages from "~/messages/en-US/withdrawal.validations.json"
@@ -37,7 +37,7 @@ const SUBMITTED_AT = new Date("2026-11-12T12:00:00.000Z")
 const STATEMENT = { email: "ada@example.test", name: "Ada Buyer", reference: "SAASY-0042" }
 
 const t = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: pageMessages, timeZone: I18N.DEFAULT_TIMEZONE })
-const common = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: commonMessages, timeZone: I18N.DEFAULT_TIMEZONE })
+const dates = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: authDatesMessages, timeZone: I18N.DEFAULT_TIMEZONE })
 
 const receiptOf = (acknowledged: boolean): Withdrawal["receipt"] => ({ ...STATEMENT, acknowledged, submittedAt: SUBMITTED_AT })
 
@@ -94,7 +94,7 @@ describe("withdrawal form", () => {
 
     expect(await screen.findByRole("heading", { level: 3, name: receipt.title })).toHaveFocus()
     expect(submitMock).toHaveBeenCalledExactlyOnceWith({ ...STATEMENT, locale: "en-US" }, expect.anything())
-    const submittedAt = common("dateTime", { value: SUBMITTED_AT })
+    const submittedAt = dates("dateTime", { value: SUBMITTED_AT })
     expect(screen.getByText(t("receipt.submittedAt", { submittedAt }))).toBeTruthy()
     for (const value of Object.values(STATEMENT)) {
       expect(screen.getByText(value, { selector: "dd" })).toBeTruthy()

@@ -28,7 +28,7 @@ const LINK_CLASSES =
   "rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const PlacedCell = ({ row }: CellContext<DataGridFeatures, OrderRow, Date>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
 
   return (
     <Link className={cn(LINK_CLASSES, "flex min-w-0 flex-col")} params={{ orderId: row.original.id }} to="/admin/orders/$orderId">

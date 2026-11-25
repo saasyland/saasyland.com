@@ -17,7 +17,7 @@ type WithdrawalDetail = (typeof WITHDRAWAL_DETAILS)[number]
 const WithdrawalStatement = ({ row }: { readonly row: Withdrawal["userRow"] }): JSX.Element => {
   const t = useTranslations()
 
-  const dateTime = (value: Date): string => t("common.dateTime", { value })
+  const dateTime = (value: Date): string => t("auth.dates.dateTime", { value })
 
   const acknowledgement = (sentAt: Withdrawal["userRow"]["acknowledgedAt"]): string => {
     if (sentAt === null) {

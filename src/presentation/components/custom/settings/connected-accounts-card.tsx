@@ -44,7 +44,7 @@ export const ConnectedAccountsCard = (): JSX.Element => {
 
   const connect = useMutation({
     mutationFn: (provider: Provider) => {
-      const callbackURL = router.buildLocation({ search: { tab: SETTINGS_TAB.SECURITY }, to: "." }).publicHref
+      const callbackURL = `${router.buildLocation({ to: "." }).publicHref}?${new URLSearchParams({ tab: SETTINGS_TAB.SECURITY }).toString()}`
 
       return linkSocial({
         callbackURL,

@@ -5,7 +5,7 @@ import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRou
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
-import { useFormatter, useTranslations } from "use-intl/react"
+import { useFormatter } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -46,12 +46,11 @@ const sessionIn = (timezone: TimezoneCode) => {
 }
 
 const DateProbe = () => {
-  const t = useTranslations("common")
   const format = useFormatter()
 
   return (
     <>
-      <p data-testid="instant">{t("dateTime", { value: ACTIVATED_AT })}</p>
+      <p data-testid="instant">{format.dateTime(ACTIVATED_AT, { ...I18N.FORMATS.dateTime.date, ...I18N.FORMATS.dateTime.time })}</p>
       <p data-testid="calendar-date">{format.dateTime(PUBLISHED_ON, "calendarDate")}</p>
     </>
   )

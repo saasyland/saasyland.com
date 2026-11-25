@@ -13,8 +13,6 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
-import { LICENSE_MACHINES } from "~/src/modules/license/license.constants"
-import { userActivationsQuery } from "~/src/modules/license/use-cases/get-user-activations"
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import type { Order } from "~/src/modules/order/order.types"
 import { getCustomersPageQuery, getCustomersQuery } from "~/src/modules/order/use-cases/get-customers"
@@ -387,9 +385,6 @@ describe("order page", () => {
 
 const renderCustomers = (rows: Order["customerRow"][]) => {
   const queryClient = adminQueryClient()
-  queryClient.setQueryData(userActivationsQuery({ userIds: ["ada"] }).queryKey, {
-    machines: [{ activations: [], limit: 3, state: LICENSE_MACHINES.LISTED, userId: "ada" }],
-  })
   queryClient.setQueryData(getCustomersQuery.queryKey, { rows, total: rows.length })
   queryClient.setQueryData(getCustomersPageQuery({ pageSize: MAX_PAGE_SIZE }).queryKey, { rows, total: rows.length })
   renderAdminPage(CustomersRoute.options.component, { queryClient })

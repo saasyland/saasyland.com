@@ -17,21 +17,36 @@ const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 
 const TERMINAL_DELAY_MS = 120
 
-const TERMINAL_LINES = [
-  { kind: "command", text: REPOSITORY_FACTS.coverageCommand },
-  { kind: "output", text: `Test Files  ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})` },
-  { kind: "blank", text: "" },
-  { kind: "pass", text: "% Stmts     100" },
-  { kind: "pass", text: "% Branch    100" },
-  { kind: "pass", text: "% Funcs     100" },
-  { kind: "pass", text: "% Lines     100" },
-] as const
+const TERMINAL_LINE_KIND = {
+  BLANK: "blank",
+  COMMAND: "command",
+  OUTPUT: "output",
+  PASS: "pass",
+} as const
+
+interface TerminalLine {
+  readonly kind: (typeof TERMINAL_LINE_KIND)[keyof typeof TERMINAL_LINE_KIND]
+  readonly text: string
+}
+
+const TERMINAL_LINES: readonly TerminalLine[] = [
+  { kind: TERMINAL_LINE_KIND.COMMAND, text: REPOSITORY_FACTS.coverageCommand },
+  {
+    kind: TERMINAL_LINE_KIND.OUTPUT,
+    text: `Test Files  ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})`,
+  },
+  { kind: TERMINAL_LINE_KIND.BLANK, text: "" },
+  { kind: TERMINAL_LINE_KIND.PASS, text: "% Stmts     100" },
+  { kind: TERMINAL_LINE_KIND.PASS, text: "% Branch    100" },
+  { kind: TERMINAL_LINE_KIND.PASS, text: "% Funcs     100" },
+  { kind: TERMINAL_LINE_KIND.PASS, text: "% Lines     100" },
+]
 
 const TERMINAL_IMAGE_SIZES =
   "(min-width: 80rem) calc((80rem - 9rem) * 1.05 / 2.05 - 2px), (min-width: 64rem) calc((100vw - 9rem) * 1.05 / 2.05 - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), calc(100vw - 3rem - 2px)"
 
-const TerminalRow = ({ line }: Readonly<{ line: (typeof TERMINAL_LINES)[number] }>): JSX.Element => {
-  if (line.kind === "command") {
+const TerminalRow = ({ line }: Readonly<{ line: TerminalLine }>): JSX.Element => {
+  if (line.kind === TERMINAL_LINE_KIND.COMMAND) {
     return (
       <div className="whitespace-pre">
         <span className="text-muted-foreground/50 select-none">$ </span>
@@ -40,7 +55,7 @@ const TerminalRow = ({ line }: Readonly<{ line: (typeof TERMINAL_LINES)[number] 
     )
   }
 
-  if (line.kind === "pass") {
+  if (line.kind === TERMINAL_LINE_KIND.PASS) {
     return (
       <div className="whitespace-pre">
         <span className="text-ring select-none">{"✓ "}</span>
@@ -49,7 +64,7 @@ const TerminalRow = ({ line }: Readonly<{ line: (typeof TERMINAL_LINES)[number] 
     )
   }
 
-  if (line.kind === "blank") {
+  if (line.kind === TERMINAL_LINE_KIND.BLANK) {
     return <div className="whitespace-pre"> </div>
   }
 

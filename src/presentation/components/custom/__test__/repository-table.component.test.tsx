@@ -21,7 +21,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
 import { RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
-import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
+import { FLOW_FEATURE, FLOW_STATUS } from "~/e2e/data/flows"
 import { FLOWS } from "~/scripts/check-flows"
 
 const renderTranslated = (locale: SupportedLocale, children: ReactNode) =>
@@ -54,20 +54,20 @@ const captionOf = (flowId: string): string | null | undefined =>
     ?.querySelector("caption")?.textContent
 
 describe("the flow inventory", () => {
-  it("counts every area's flows by status, formatted for the page locale", () => {
+  it("counts every feature's flows by status, formatted for the page locale", () => {
     const t = translator("pl-PL")
     renderTranslated(
       "pl-PL",
-      <RepositoryTable columns={["Obszar", "Przepływy", "Pokryte", "Brakujące", "Do zbudowania"]} name="flowAreaTable" />,
+      <RepositoryTable columns={["Obszar", "Przepływy", "Pokryte", "Brakujące", "Do zbudowania"]} name="flowFeatureTable" />,
     )
 
     expect(tableRows().slice(1)).toEqual(
-      Object.values(FLOW_AREA).map((area) => {
-        const flows = FLOWS.filter((flow) => flow.area === area)
+      Object.values(FLOW_FEATURE).map((feature) => {
+        const flows = FLOWS.filter((flow) => flow.feature === feature)
         const count = (status: string): string => String(flows.filter((flow) => flow.status === status).length)
 
         return [
-          t(`flow-areas.${area}`),
+          t(`flow-features.${feature}`),
           String(flows.length),
           count(FLOW_STATUS.COVERED),
           count(FLOW_STATUS.MISSING),
@@ -77,7 +77,7 @@ describe("the flow inventory", () => {
     )
   })
 
-  it("lists each covered flow under its area with the spec and title of every test that proves it, one test a line", () => {
+  it("lists each covered flow under its feature with the spec and title of every test that proves it, one test a line", () => {
     renderTranslated("en-US", <RepositoryTable columns={["Flow", "Outcome", "Tests"]} grouped name="coveredFlowTable" />)
 
     const rows = groupedRows()
@@ -88,10 +88,10 @@ describe("the flow inventory", () => {
       expect.stringMatching(/^The admin impersonates a customer/u),
       "admin-users.spec.ts › admin impersonates a customer and stops impersonating",
     ])
-    expect(captionOf("admin-impersonate")).toBe(translator("en-US")(`flow-areas.${FLOW_AREA.ADMIN_USERS}`))
+    expect(captionOf("admin-impersonate")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.ADMIN_USERS}`))
   })
 
-  it("lists each missing flow under its area with what is missing and the tests or journey step that do part of it", () => {
+  it("lists each missing flow under its feature with what is missing and the tests or journey step that do part of it", () => {
     renderTranslated(
       "en-US",
       <RepositoryTable columns={["Flow", "Outcome", "Missing", "Partly done by"]} grouped name="missingFlowTable" />,
@@ -106,10 +106,10 @@ describe("the flow inventory", () => {
       expect.stringMatching(/^Only the journey suite/u),
       "journey.spec.ts › free a CI slot on /app/license, and the refused machine takes it",
     ])
-    expect(captionOf("free-slot")).toBe(translator("en-US")(`flow-areas.${FLOW_AREA.LICENCE}`))
+    expect(captionOf("free-slot")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.LICENCE}`))
   })
 
-  it("lists each flow still to build under its area with the reason it cannot be tested yet", () => {
+  it("lists each flow still to build under its feature with the reason it cannot be tested yet", () => {
     renderTranslated("en-US", <RepositoryTable columns={["Flow", "Outcome", "Why"]} grouped name="toBuildFlowTable" />)
 
     const rows = groupedRows()
@@ -134,15 +134,17 @@ describe("the flow inventory", () => {
     { columns: ["Przepływ", "Czego brakuje"], name: "missingFlowGaps", status: FLOW_STATUS.MISSING },
     { columns: ["Przepływ", "Dlaczego"], name: "toBuildFlowGaps", status: FLOW_STATUS.TO_BUILD },
   ] as const)(
-    "groups the $name of the roadmap by area, one captioned table per area with each flow's outcome and reason",
+    "groups the $name of the roadmap by feature, one captioned table per feature with each flow's outcome and reason",
     ({ columns, name, status }) => {
       const t = translator("pl-PL")
       renderTranslated("pl-PL", <RepositoryTable columns={columns} grouped name={name} />)
 
       const flows = FLOWS.filter((flow) => flow.status === status)
-      const areas = Object.values(FLOW_AREA).filter((area) => flows.some((flow) => flow.area === area))
+      const features = Object.values(FLOW_FEATURE).filter((feature) => flows.some((flow) => flow.feature === feature))
       const tables = screen.getAllByRole("table")
-      expect(tables.map((table) => table.querySelector("caption")?.textContent)).toEqual(areas.map((area) => t(`flow-areas.${area}`)))
+      expect(tables.map((table) => table.querySelector("caption")?.textContent)).toEqual(
+        features.map((feature) => t(`flow-features.${feature}`)),
+      )
       expect(
         tables.map((table) =>
           within(table)
@@ -150,7 +152,7 @@ describe("the flow inventory", () => {
             .slice(1)
             .map((row) => within(row).getAllByRole("cell").length),
         ),
-      ).toEqual(areas.map((area) => flows.filter((flow) => flow.area === area).map(() => columns.length)))
+      ).toEqual(features.map((feature) => flows.filter((flow) => flow.feature === feature).map(() => columns.length)))
       expect(
         within(tables[0] ?? document.body)
           .getAllByRole("columnheader")

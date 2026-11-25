@@ -1,7 +1,0 @@
-export { AUTH_LABELS } from "~/src/integrations/use-intl/__test__/auth.labels"
-export { CONTENT_LABELS } from "~/src/integrations/use-intl/__test__/content.labels"
-export { CORE_LABELS } from "~/src/integrations/use-intl/__test__/core.labels"
-export { COURSES_LABELS } from "~/src/integrations/use-intl/__test__/courses.labels"
-export { LANDING_LABELS } from "~/src/integrations/use-intl/__test__/landing.labels"
-export { LICENSE_LABELS } from "~/src/integrations/use-intl/__test__/license.labels"
-export { PRODUCTS_LABELS } from "~/src/integrations/use-intl/__test__/products.labels"

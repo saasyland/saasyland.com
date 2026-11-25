@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { FLOW_AREA, FLOW_STATUS, type Flow } from "~/e2e/data/flows"
+import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "~/e2e/data/flows"
 import { EXPECTED_STATUS, FLOWS, flowProblems, parseBrowserTests, readJourney } from "~/scripts/check-flows"
 
 const SPEC = "account.spec.ts"
@@ -28,7 +28,7 @@ const listing = (errors: readonly { message: string }[] = []) =>
   })
 
 const covered = (title: string): Flow => ({
-  area: FLOW_AREA.ACCOUNT,
+  feature: FLOW_FEATURE.ACCOUNT,
   id: "sign-up",
   outcome: "A visitor signs up",
   status: FLOW_STATUS.COVERED,
@@ -70,8 +70,8 @@ describe("flowProblems", () => {
 
   it("names a missing flow or a flow to build that does not say why", () => {
     const flows: Flow[] = [
-      { area: FLOW_AREA.ACCOUNT, id: "reset", outcome: "A user resets the password", reason: " ", status: FLOW_STATUS.MISSING },
-      { area: FLOW_AREA.ACCOUNT, id: "delete", outcome: "A user deletes the account", reason: "", status: FLOW_STATUS.TO_BUILD },
+      { feature: FLOW_FEATURE.ACCOUNT, id: "reset", outcome: "A user resets the password", reason: " ", status: FLOW_STATUS.MISSING },
+      { feature: FLOW_FEATURE.ACCOUNT, id: "delete", outcome: "A user deletes the account", reason: "", status: FLOW_STATUS.TO_BUILD },
     ]
 
     expect(problemsOf(flows)).toStrictEqual([
@@ -82,7 +82,7 @@ describe("flowProblems", () => {
 
   it("checks the partial tests of a missing flow and the journey step it names", () => {
     const flow: Flow = {
-      area: FLOW_AREA.PURCHASE,
+      feature: FLOW_FEATURE.PURCHASE,
       id: "buy",
       journey: "pay with the test card",
       outcome: "A buyer pays",

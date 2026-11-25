@@ -36,7 +36,7 @@ const OrderCell = ({ row }: CellContext<DataGridFeatures, UnlicensedOrder, strin
 }
 
 const DateCell = ({ getValue }: CellContext<DataGridFeatures, UnlicensedOrder, Date>): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.dates")
 
   return <span className="text-spec text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }

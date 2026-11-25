@@ -6,7 +6,7 @@ import { createNonce } from "~/src/lib/content-security-policy"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
-import { FLOW_AREA, FLOW_STATUS } from "~/e2e/data/flows"
+import { FLOW_FEATURE, FLOW_STATUS } from "~/e2e/data/flows"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
 import { FLOWS } from "~/scripts/check-flows"
@@ -160,14 +160,14 @@ describe("collectCoverageScope", () => {
 })
 
 describe("collectFlowTables", () => {
-  it("puts every flow in the table of its status once, grouped by area", () => {
+  it("puts every flow in the table of its status once, grouped by feature", () => {
     const { covered, missing, toBuild } = collectFlowTables()
-    const areas = Object.values(FLOW_AREA)
+    const features = Object.values(FLOW_FEATURE)
     const rows = [...covered, ...missing, ...toBuild]
 
     expect(rows.map(([id]) => id).toSorted()).toStrictEqual(FLOWS.map(({ id }) => id).toSorted())
     for (const table of [covered, missing, toBuild]) {
-      const order = table.map(([, area]) => areas.indexOf(area))
+      const order = table.map(([, feature]) => features.indexOf(feature))
       expect(order).toStrictEqual(order.toSorted((first, second) => first - second))
     }
   })
@@ -177,13 +177,13 @@ describe("collectFlowTables", () => {
 
     expect(covered).toContainEqual([
       "sign-up-and-verify",
-      FLOW_AREA.ACCOUNT,
+      FLOW_FEATURE.ACCOUNT,
       expect.any(String),
       ["auth.spec.ts › auth › signs a new account in straight away, and its link confirms the address"],
     ])
     expect(missing).toContainEqual([
       "refund-revokes",
-      FLOW_AREA.AFTER_SALE,
+      FLOW_FEATURE.AFTER_SALE,
       expect.any(String),
       expect.any(String),
       [
@@ -193,13 +193,13 @@ describe("collectFlowTables", () => {
     ])
   })
 
-  it("counts each area's flows by status", () => {
-    const { areas } = collectFlowTables()
+  it("counts each feature's flows by status", () => {
+    const { features } = collectFlowTables()
 
-    expect(areas.map(([area]) => area)).toStrictEqual(Object.values(FLOW_AREA))
-    for (const [area, total, covered, missing, toBuild] of areas) {
+    expect(features.map(([feature]) => feature)).toStrictEqual(Object.values(FLOW_FEATURE))
+    for (const [feature, total, covered, missing, toBuild] of features) {
       expect(covered + missing + toBuild).toBe(total)
-      expect(total).toBe(FLOWS.filter((flow) => flow.area === area).length)
+      expect(total).toBe(FLOWS.filter((flow) => flow.feature === feature).length)
     }
   })
 })

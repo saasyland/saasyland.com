@@ -9,7 +9,9 @@ import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { getNavigationLabel } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { NOTES, noteSummary } from "~/src/routes/__test__/fixtures/blog-notes"
 import {
+  type BlogPost,
   GUIDE,
   MINIMAL,
   POLISH_GUIDE,
@@ -21,7 +23,7 @@ import {
   useBlogTestEnvironment,
 } from "~/src/routes/__test__/fixtures/blog-router"
 
-import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_TAG } from "~/src/data/blog"
+import { BLOG_AUTHOR, BLOG_AUTHORS, BLOG_COVER, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
@@ -39,6 +41,34 @@ vi.mock("~/src/presentation/components/custom/blog-content", () => ({
 }))
 
 useBlogTestEnvironment()
+
+const COMPLETE: BlogPost = {
+  ...noteSummary("Complete guide", "complete"),
+  author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
+  description: undefined,
+  faq: [{ answer: "Because.", question: "Why?" }],
+  image: "/article.webp",
+  path: "complete.en-US.mdx",
+  related: [],
+  toc: [
+    { depth: 2, title: "Introduction", url: "#intro" },
+    { depth: 3, title: "Step 1 — Deploy", url: "#deploy" },
+    { depth: 3, title: "Ship it today", url: "#ship" },
+  ],
+  updated: undefined,
+}
+
+const MINIMAL_ARTICLE: BlogPost = {
+  ...COMPLETE,
+  faq: undefined,
+  image: undefined,
+  path: "minimal.en-US.mdx",
+  summary: undefined,
+  tags: [],
+  title: "Minimal",
+  toc: [],
+  url: "/blog/minimal",
+}
 
 describe("blog routes", () => {
   it("keeps the blog navigation current and localizes the pricing and page links", async () => {
@@ -374,5 +404,51 @@ describe("the posts beside a post", () => {
     await renderBlog({ locale: "en-US", path: "/blog/guide" })
 
     expect(screen.getByRole("link", { name: "See all 2 posts" })).toHaveAttribute("href", "/blog")
+  })
+})
+
+describe("blog pages", () => {
+  it("starts the blog below the fixed site header", async () => {
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG })
+    expect(screen.getByRole("main")).toHaveClass("pt-header")
+  })
+
+  it("renders the empty blog state with its stylesheet", async () => {
+    const router = await renderBlog({ locale: "en-US", path: "/blog", posts: [] })
+    expect(screen.getByRole("heading", { name: pagesBlogMessages.index.title })).toBeVisible()
+    expect(screen.getByText(pagesBlogMessages.index.empty)).toBeVisible()
+    expect(router.state.matches.some((match) => match.links?.some((link) => link?.rel === "stylesheet") === true)).toBe(true)
+  })
+
+  it("lists blog posts in the order the server returned them", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog", posts: [...NOTES] })
+    const titles = new Set(NOTES.map((note) => note.title))
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent)
+        .filter((title) => titles.has(title)),
+    ).toEqual(["Featured", "Recent", "Older"])
+  })
+
+  it("renders an article with its metadata, hero image, structured data and table of contents", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/complete", post: COMPLETE })
+    expect(screen.getByRole("heading", { name: "Complete guide" })).toBeVisible()
+    expect(screen.getByText("Article content")).toBeVisible()
+    expect(screen.getByText("Article summary")).toBeVisible()
+    expect(screen.getAllByText(BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI].name)).toHaveLength(2)
+    expect(document.querySelector('img[src="/article.webp"]')).toHaveAttribute("width", String(BLOG_COVER.WIDTH))
+    expect(screen.getAllByRole("link", { name: "Introduction" }).every((link) => link.getAttribute("href") === "#intro")).toBe(true)
+    expect(screen.getAllByRole("link", { name: "Step 1 — Deploy" }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: "Ship it today" }).every((link) => link.getAttribute("href") === "#ship")).toBe(true)
+    expect(document.querySelector('img[src="/article.webp"]')).toHaveAttribute("fetchpriority", "high")
+    expect(document.querySelector('script[type="application/ld+json"]')).toHaveTextContent("FAQPage")
+  })
+
+  it("renders a minimal article without empty summary, image or tags", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/minimal", post: MINIMAL_ARTICLE })
+    expect(screen.getByRole("heading", { name: "Minimal" })).toBeVisible()
+    expect(screen.queryByText("Article summary")).not.toBeInTheDocument()
+    expect(document.querySelector('img[src=""]')).not.toBeInTheDocument()
   })
 })

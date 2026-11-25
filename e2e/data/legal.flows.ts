@@ -1,8 +1,8 @@
-import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
+import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "./flows"
 
 export const LEGAL_FLOWS = [
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "legal-documents",
     outcome: "The privacy policy, the terms, the refund policy and the licence open from the footer in every language with their titles",
     status: FLOW_STATUS.COVERED,
@@ -13,7 +13,7 @@ export const LEGAL_FLOWS = [
     ],
   },
   {
-    area: FLOW_AREA.CONTENT,
+    feature: FLOW_FEATURE.CONTENT,
     id: "sign-up-consent-links",
     outcome: "The sign-up form links the terms and the privacy policy it asks the visitor to accept",
     status: FLOW_STATUS.COVERED,

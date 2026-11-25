@@ -38,15 +38,10 @@ const isScrollLocked = async (page: Page): Promise<boolean> =>
 
 const heading = (page: Page): Locator => page.locator("h1")
 
-const openDocs = async ({ appPage, page }: PageFixtures): Promise<void> => {
-  await page.goto(ROUTES.DOCS)
+const openScrollingPage = async ({ appPage, page }: PageFixtures, path: string): Promise<void> => {
+  await page.goto(path)
   await appPage.waitForAppReady()
-  expect(await hiddenHeight(page.locator("html")), "the docs page scrolls").toBeGreaterThan(0)
-}
-
-const openLegalPage = async ({ appPage, page }: PageFixtures): Promise<void> => {
-  await page.goto(ROUTES.TERMS)
-  await appPage.waitForAppReady()
+  expect(await hiddenHeight(page.locator("html")), `the page at ${path} scrolls`).toBeGreaterThan(0)
 }
 
 const openAdminPage = async ({ appPage, authPage, page }: PageFixtures & { authPage: AuthPage }, path: string): Promise<void> => {
@@ -79,7 +74,7 @@ const expectPageToStayWhileOpen = async (page: Page, trigger: Locator, overlay: 
 }
 
 test("a public page keeps its column in place whether or not it scrolls", async ({ appPage, page }) => {
-  await openLegalPage({ appPage, page })
+  await openScrollingPage({ appPage, page }, ROUTES.TERMS)
   await expectPageToStayWhenItFits(page, page.locator("html"))
 })
 
@@ -101,26 +96,24 @@ test("an admin page keeps its content in place whether or not it scrolls, and th
 
 test("the window keeps the scrollbar's room on a page that fits", async ({ appPage, browserName, page }) => {
   test.skip(browserName !== "chromium", "WebKit on macOS draws overlay scrollbars, which take no room")
-  await openLegalPage({ appPage, page })
+  await openScrollingPage({ appPage, page }, ROUTES.TERMS)
   await growPastPage(page, page.locator("html"))
   expect((await boxOf(page.locator("body"))).width).toBeLessThan(WINDOW.width)
 })
 
 test("opening the docs search leaves the docs page in place", async ({ appPage, page }) => {
-  await openDocs({ appPage, page })
+  await openScrollingPage({ appPage, page }, ROUTES.DOCS)
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /^Search/u }), page.getByRole("dialog"))
 })
 
 test("opening the language select leaves the docs page in place", async ({ appPage, page }) => {
-  await openDocs({ appPage, page })
+  await openScrollingPage({ appPage, page }, ROUTES.DOCS)
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /Choose a language/u }), page.getByRole("listbox"))
 })
 
 test("opening and closing the site menu leaves the page in place", async ({ appPage, page }) => {
   await page.setViewportSize({ height: WINDOW.height, width: MENU_WINDOW_WIDTH })
-  await page.goto(ROUTES.LICENCE)
-  await appPage.waitForAppReady()
-  expect(await hiddenHeight(page.locator("html")), "the licence page scrolls").toBeGreaterThan(0)
+  await openScrollingPage({ appPage, page }, ROUTES.LICENCE)
   const closed = await boxOf(heading(page))
   const menu = page.getByRole("dialog", { exact: true, name: "Menu" })
 

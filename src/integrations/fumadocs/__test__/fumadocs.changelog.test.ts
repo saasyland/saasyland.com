@@ -6,6 +6,7 @@ import { type GitRepository, createGitRepository } from "~/src/platform/testing/
 import { addChangelogEntries, changelogEntries, listChangelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { CHANGELOG_DIRECTORY } from "~/src/lib/changelog"
 import { MAIN_BRANCH } from "~/src/lib/release"
 
 const PAGE = `content/docs/project/changelog.${I18N.DEFAULT_LOCALE}.mdx`
@@ -18,13 +19,16 @@ const repositoryWithEntries = (): GitRepository => {
   repository.commit("✨ feat(courses): add courses (#10)", "2026-11-13T15:19:27Z")
   repository.commit("🐛 fix(auth): keep the locale (#11)", "2026-11-13T18:00:00Z")
   repository.commit("🚀 perf(modules): keep drizzle out of the browser (#12)", "2026-11-15T23:27:18Z")
-  repository.writeEntry(`10.${I18N.DEFAULT_LOCALE}.mdx`, "- Courses: `/courses` lists them. See [Courses](/docs/features/courses).\n")
-  repository.writeEntry(
-    `11.${I18N.DEFAULT_LOCALE}.mdx`,
+  repository.writeFile(
+    `${CHANGELOG_DIRECTORY}/10.${I18N.DEFAULT_LOCALE}.mdx`,
+    "- Courses: `/courses` lists them. See [Courses](/docs/features/courses).\n",
+  )
+  repository.writeFile(
+    `${CHANGELOG_DIRECTORY}/11.${I18N.DEFAULT_LOCALE}.mdx`,
     "- Fixed: verification links keep the locale.\n- Fixed: so do reset links, at $<year>.\n",
   )
-  repository.writeEntry(`12.${I18N.DEFAULT_LOCALE}.mdx`, "- The browser no longer downloads Drizzle.\n")
-  repository.writeEntry(`13.${I18N.DEFAULT_LOCALE}.mdx`, "- Changelog entries.\n")
+  repository.writeFile(`${CHANGELOG_DIRECTORY}/12.${I18N.DEFAULT_LOCALE}.mdx`, "- The browser no longer downloads Drizzle.\n")
+  repository.writeFile(`${CHANGELOG_DIRECTORY}/13.${I18N.DEFAULT_LOCALE}.mdx`, "- Changelog entries.\n")
 
   return repository
 }
@@ -65,7 +69,7 @@ describe("changelog entries", () => {
     const repository = repositoryWithEntries()
     const commit = repository.commit("♻️ chore(deps): update packages", "2026-11-16T09:00:00Z")
 
-    repository.writeEntry(`${commit}.${I18N.DEFAULT_LOCALE}.mdx`, "- Dependencies updated.\n")
+    repository.writeFile(`${CHANGELOG_DIRECTORY}/${commit}.${I18N.DEFAULT_LOCALE}.mdx`, "- Dependencies updated.\n")
 
     await expect(listIn(repository, CHANGELOG_PAGE)).resolves.toContain(
       `## 2026-11-16\n\n- Dependencies updated. <ChangelogLinks commit="${commit}" />\n\n## 2026-11-15`,
@@ -95,7 +99,7 @@ describe("changelog entries", () => {
   it("fails the build of a pull request into main whose page would list another pull request's entry as unreleased", async () => {
     const repository = repositoryWithEntries()
 
-    repository.writeEntry(`14.${I18N.DEFAULT_LOCALE}.mdx`, "- Pull request 14.\n")
+    repository.writeFile(`${CHANGELOG_DIRECTORY}/14.${I18N.DEFAULT_LOCALE}.mdx`, "- Pull request 14.\n")
     runIn({ baseRef: MAIN_BRANCH, ref: "refs/pull/14/merge" })
 
     await expect(listIn(repository, CHANGELOG_PAGE)).rejects.toThrow(

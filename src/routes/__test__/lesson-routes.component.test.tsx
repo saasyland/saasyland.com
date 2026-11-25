@@ -22,6 +22,8 @@ import {
   LEARNER_PAGE,
   PLAYBACK,
   type PlayerProps,
+  SIGNED_IN_UNLOCK,
+  SIGNED_OUT_UNLOCK,
   completeLesson,
   coursePages,
   details,
@@ -32,8 +34,6 @@ import {
   resendVerification,
   resetCoursePages,
   save,
-  signedInUnlock,
-  signedOutUnlock,
   withOffer,
   withRedirect,
 } from "~/src/routes/__test__/fixtures/course-pages"
@@ -206,13 +206,13 @@ describe("lesson page", () => {
     {
       cta: withOffer(messages.lesson.locked.paid.cta),
       data: GUEST_PAGE,
-      href: signedOutUnlock("/courses/the-walkthrough/billing"),
+      href: SIGNED_OUT_UNLOCK,
       path: "billing",
     },
     {
       cta: withOffer(messages.lesson.locked.paid.cta),
       data: CUSTOMER_PAGE,
-      href: signedInUnlock("/courses/the-walkthrough/billing"),
+      href: SIGNED_IN_UNLOCK,
       path: "billing",
     },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {

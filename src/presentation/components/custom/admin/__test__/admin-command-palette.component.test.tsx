@@ -25,8 +25,6 @@ import * as ROUTES from "~/src/routes"
 const copy = labels.components.commandPalette
 const RECENT_STORAGE_KEY = "admin-command-palette-recent"
 const ADA: SearchHit = { detail: "ada@example.test", id: "user-ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_USERS}/user-ada` }
-const ORDER: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_ORDERS}/ord_ada` }
-const COURSE: SearchHit = { detail: "shipping", id: "course-1", title: "Shipping", to: `${ROUTES.ADMIN_COURSES}/course-1` }
 
 const seedSearch = (
   text: string,
@@ -34,10 +32,15 @@ const seedSearch = (
 ) => {
   const queryClient = adminQueryClient()
   const locale = I18N.DEFAULT_LOCALE
-  queryClient.setQueryData(searchUsersQuery({ text }).queryKey, hits.users ?? [])
-  queryClient.setQueryData(searchOrdersQuery({ text }).queryKey, hits.orders ?? [])
-  queryClient.setQueryData(searchCoursesQuery({ locale, text }).queryKey, hits.courses ?? [])
-  queryClient.setQueryData(searchLessonsQuery({ locale, text }).queryKey, [])
+  const seeds = [
+    () => queryClient.setQueryData(searchUsersQuery({ text }).queryKey, hits.users ?? []),
+    () => queryClient.setQueryData(searchOrdersQuery({ text }).queryKey, hits.orders ?? []),
+    () => queryClient.setQueryData(searchCoursesQuery({ locale, text }).queryKey, hits.courses ?? []),
+    () => queryClient.setQueryData(searchLessonsQuery({ locale, text }).queryKey, []),
+  ]
+  for (const seed of seeds) {
+    seed()
+  }
   return queryClient
 }
 
@@ -116,7 +119,8 @@ describe("admin command palette", () => {
   })
 
   it("moves through results with the arrow keys and opens an order with Enter", async () => {
-    const { navigate, user } = renderPalette(seedSearch("ord_ada", { orders: [ORDER] }))
+    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_ORDERS}/ord_ada` }
+    const { navigate, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
     await user.keyboard("ord_ada")
@@ -125,22 +129,23 @@ describe("admin command palette", () => {
     expect(within(dialog).queryByText(copy.groups.pages)).toBeNull()
     await user.keyboard("{ArrowDown}{Enter}")
 
-    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ORDER.to })
+    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: order.to })
   })
 
   it("loads a result's page when the pointer rests on it", async () => {
-    const { preloadRoute, user } = renderPalette(seedSearch("ord_ada", { orders: [ORDER] }))
+    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_ORDERS}/ord_ada` }
+    const { preloadRoute, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
     await user.keyboard("ord_ada")
-    const order = await within(dialog).findByRole("menuitem", { name: /ord_ada/u })
-    await user.hover(order)
+    await user.hover(await within(dialog).findByRole("menuitem", { name: /ord_ada/u }))
 
-    expect(preloadRoute).toHaveBeenCalledExactlyOnceWith({ to: ORDER.to })
+    expect(preloadRoute).toHaveBeenCalledExactlyOnceWith({ to: order.to })
   })
 
   it("keeps the pages and actions that match beside the records, and drops the records below two letters", async () => {
-    const { user } = renderPalette(seedSearch("sh", { courses: [COURSE] }))
+    const course: SearchHit = { detail: "shipping", id: "course-1", title: "Shipping", to: `${ROUTES.ADMIN_COURSES}/course-1` }
+    const { user } = renderPalette(seedSearch("sh", { courses: [course] }))
 
     const dialog = await openPalette(user)
     await user.keyboard("sh")

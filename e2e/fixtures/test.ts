@@ -22,6 +22,8 @@ const reportCspViolations = (prefix: string): void => {
   })
 }
 
+const BROWSER_DOUBLES: readonly ((context: BrowserContext) => Promise<void>)[] = [servePolarCheckout]
+
 const consoleMessages = (context: BrowserContext, matches: (text: string) => boolean): string[] => {
   const messages: string[] = []
   context.on("console", (message) => {
@@ -32,24 +34,36 @@ const consoleMessages = (context: BrowserContext, matches: (text: string) => boo
 
 interface AppFixtures {
   appPage: BasePage
+  browserDoubles: void
   checkPermissionsPolicy: void
   checkTranslations: void
   cspViolations: string[]
   landingPage: LandingPage
   pageWithoutJavaScript: Page
-  polarCheckout: void
   readClipboard: () => Promise<string>
   recordRenders: void
 }
 
 export interface AppOptions {
-  polarCheckoutDouble: boolean
+  browserDoublesEnabled: boolean
 }
 
 export const test = base.extend<AppFixtures & AppOptions>({
   appPage: async ({ page }, runWith) => {
     await runWith(new BasePage(page))
   },
+  browserDoubles: [
+    async ({ browserDoublesEnabled, context }, runWith) => {
+      if (browserDoublesEnabled) {
+        for (const serve of BROWSER_DOUBLES) {
+          await serve(context)
+        }
+      }
+      await runWith()
+    },
+    { auto: true },
+  ],
+  browserDoublesEnabled: [true, { option: true }],
   checkPermissionsPolicy: [
     async ({ context }, runWith) => {
       const errors = consoleMessages(context, (text) => PERMISSIONS_POLICY_ERROR.test(text))
@@ -83,14 +97,6 @@ export const test = base.extend<AppFixtures & AppOptions>({
     await runWith(await context.newPage())
     await context.close()
   },
-  polarCheckout: [
-    async ({ context, polarCheckoutDouble }, runWith) => {
-      if (polarCheckoutDouble) await servePolarCheckout(context)
-      await runWith()
-    },
-    { auto: true },
-  ],
-  polarCheckoutDouble: [true, { option: true }],
   readClipboard: async ({ browserName, context, page }, runWith) => {
     await context.grantPermissions([...CLIPBOARD_PERMISSIONS[browserName]])
     await runWith(async () => page.evaluate(async () => navigator.clipboard.readText()))

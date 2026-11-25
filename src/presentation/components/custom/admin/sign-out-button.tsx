@@ -8,7 +8,7 @@ import { useSignOut } from "~/src/hooks/use-sign-out"
 import { DropdownMenuItem } from "~/src/presentation/components/shadcn/dropdown-menu"
 
 export const SignOutButton = (): JSX.Element => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.session")
 
   const { isPending, mutate } = useSignOut()
 

@@ -26,8 +26,8 @@ Nessun test contatta un account Cloudflare o un provider reale:
 
 - Controllano ciò che controlla il provider: la chiave API o il token di accesso, l'endpoint e il metodo, e il body o la query string, con schemi Zod rigorosi tipizzati sui modelli di richiesta degli SDK stessi (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). Il test double di Polar rifiuta anche un prodotto che l'organizzazione non ha e un prezzo di checkout per un altro prodotto o sotto il prezzo minimo di Polar.
 - Rispondono come risponde il provider: Resend ripete la risposta originale per un `Idempotency-Key` ripetuto invece di inviare due volte e risponde 409 quando la chiave torna con un'email diversa; Polar restituisce oggetti `models.Checkout`, `models.Order` e `models.LicenseKeyWithActivations` completi e un 404 per un ordine o una chiave che non possiede.
-- Il test double di Polar serve i prodotti e i benefit di chiave di licenza che le aree vi caricano, ciascuna da `__test__/fixtures/<area>.polar-catalogue.ts` nel proprio modulo, riuniti da `src/platform/testing/mocks/polar-catalogue.entries.ts`. Un prodotto ha un ID, un nome, un prezzo nell'unità minima della sua valuta insieme alla valuta e un intervallo di fatturazione, oppure nessuno per un acquisto una tantum. Il test double ricarica il catalogo a ogni reset, quindi un prodotto che un test aggiunge con `seedPolarCatalogue`, come un piano mensile, non esiste più nel test successivo.
-- Il catalogo dell'area delle licenze viene dal codice: un prodotto per piano con il suo ID in `POLAR_PRODUCT_IDS` e il suo prezzo in `TIER_PRICES`, e per ciascuno un benefit di chiave di licenza con il limite di attivazioni in `LICENSE_ACTIVATION_LIMITS`. Un checkout può portare in `prices` un proprio prezzo fisso per il suo prodotto, che l'ordine poi addebita.
+- Il double di Polar serve i prodotti e i benefit delle chiavi di licenza che le funzionalità vendono, ognuna da `__test__/fixtures/<feature>.polar-catalogue.ts` nel suo modulo, importati da `CATALOGUES` in `src/platform/testing/mocks/polar.ts`. Un prodotto ha un ID, un nome, un prezzo nell'unità minima della sua valuta insieme alla valuta e un intervallo di fatturazione, oppure nessuno per un acquisto una tantum. Il test double ricarica il catalogo a ogni reset, quindi un prodotto che un test aggiunge con `seedPolarCatalogue`, come un piano mensile, non esiste più nel test successivo.
+- Il catalogo della funzionalità delle licenze viene dal codice: un prodotto per piano con il suo ID in `POLAR_PRODUCT_IDS` e il suo prezzo in `TIER_PRICES`, e per ciascuno un benefit di chiave di licenza con il limite di attivazioni in `LICENSE_ACTIVATION_LIMITS`. Un checkout può portare in `prices` un proprio prezzo fisso per il suo prodotto, che l'ordine poi addebita.
 - Una richiesta che il provider rifiuterebbe o un endpoint che l'app non chiama viene registrato, e un `afterEach` condiviso fa fallire il test, anche quando l'app ha intercettato l'errore.
 
 ## Suite di integrazione [#integration-suites]
@@ -70,7 +70,7 @@ bun run test:journey
 
 `.github/workflows/ci.yml` viene eseguito sulle pull request e sui gruppi della coda di merge, e `.github/workflows/deploy.yml` lo esegue per un push su `main` il cui commit non è stato testato dalla coda:
 
-1. `bun run check`: formattazione, lint, controllo dei tipi, `check:comments`, `check:i18n` e `check:flows`
+1. `bun run check`: formattazione, lint, controllo dei tipi, `check:comments`, `check:i18n`, `check:content` e `check:flows`
 2. `bun run test:coverage` su <RepositoryFact name="vitestShards" /> shard in parallelo, la cui copertura un ultimo job unisce e confronta con le soglie
 3. Una sola build di test, poi la suite Playwright in Chromium su <RepositoryFact name="e2eShards" /> shard in parallelo
 4. Un caricamento del Worker di preview come versione che non riceve traffico, e su `main` i deploy di preview e di produzione

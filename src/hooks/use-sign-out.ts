@@ -12,7 +12,7 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import * as ROUTES from "~/src/routes"
 
 export const useSignOut = () => {
-  const t = useTranslations("common")
+  const t = useTranslations("auth.session")
   const queryClient = useQueryClient()
   const router = useRouter()
   const errorMessage = useErrorMessage()

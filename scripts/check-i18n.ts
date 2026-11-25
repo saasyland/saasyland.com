@@ -18,7 +18,7 @@ const SOURCE_LOCALE = I18N.DEFAULT_LOCALE
 const SOURCE_ROOT = join(import.meta.dirname, "../src")
 const KEY_SEPARATOR = "."
 
-const CATALOGUE_NAMESPACES = ["countries", "currencies", "flow-areas", "locales", "timezones"] as const
+const CATALOGUE_NAMESPACES = ["countries", "currencies", "flow-features", "locales", "timezones"] as const
 
 const SCOPE_PATTERN = /(?:useTranslations\(\s*|getTranslations\(\s*|namespace:\s+)(?:["'`](?<namespace>.*?)["'`])?/gu
 const KEY_PATTERN = /[^\w]t(?:\.rich|\.markup|\.raw)?\s*\(\s*(?<quote>["'`])(?<key>[\w.-]+)\k<quote>/gu

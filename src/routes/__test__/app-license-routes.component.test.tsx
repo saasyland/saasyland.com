@@ -53,7 +53,7 @@ import { TIER_FEATURE_VALUES } from "~/src/lib/tier-features"
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authSessionMessages from "~/messages/en-US/auth.session.json"
 import bannerMessages from "~/messages/en-US/components.custom.email-verification-banner.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
@@ -776,7 +776,7 @@ describe("the license in the customer workspace", () => {
     await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toStrictEqual({ license: undefined })
 
-    await user.click(screen.getByRole("button", { name: commonMessages.signOut }))
+    await user.click(screen.getByRole("button", { name: authSessionMessages.signOut }))
 
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()

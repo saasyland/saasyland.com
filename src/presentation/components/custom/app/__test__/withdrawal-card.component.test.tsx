@@ -20,7 +20,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { WithdrawalCard } from "~/src/presentation/components/custom/app/withdrawal-card"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authDatesMessages from "~/messages/en-US/auth.dates.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import pageMessages from "~/messages/en-US/pages.withdrawal.json"
 
@@ -43,8 +43,8 @@ const DELIVERED_AT = new Date("2026-11-11T16:20:00.000Z")
 const RECEIVED_AT = new Date("2026-11-12T12:00:00.000Z")
 
 const t = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: pageMessages, timeZone: I18N.DEFAULT_TIMEZONE })
-const common = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: commonMessages, timeZone: I18N.DEFAULT_TIMEZONE })
-const dateTime = (value: Date): string => common("dateTime", { value })
+const dates = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: authDatesMessages, timeZone: I18N.DEFAULT_TIMEZONE })
+const dateTime = (value: Date): string => dates("dateTime", { value })
 
 const contract = (overrides: Partial<Withdrawal["contract"]> = {}): Withdrawal["contract"] => ({
   eligibility: { kind: REFUND_ELIGIBILITY.STATUTORY_WITHDRAWAL, until: UNTIL },

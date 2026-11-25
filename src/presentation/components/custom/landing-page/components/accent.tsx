@@ -1,16 +1,16 @@
 import type { JSX, ReactNode } from "react"
 
 interface AccentProps {
-  readonly children: ReactNode
   readonly id: string
+  readonly text: ReactNode
 }
 
-export const Accent = ({ children, id }: AccentProps): JSX.Element => {
+export const Accent = ({ id, text }: AccentProps): JSX.Element => {
   const gradientId = `accent-stroke-${id}`
 
   return (
     <span className="relative inline md:inline-block">
-      <span className="bg-gradient-to-r from-ring via-ring to-chart-2 bg-clip-text text-transparent">{children}</span>
+      <span className="bg-gradient-to-r from-ring via-ring to-chart-2 bg-clip-text text-transparent">{text}</span>
       <svg
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -bottom-[0.17em] hidden h-[0.2em] w-full overflow-visible md:block"

@@ -13,14 +13,14 @@ import * as download from "~/src/lib/download"
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { UnlicensedOrders } from "~/src/presentation/components/custom/admin/license/unlicensed-orders"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authDatesMessages from "~/messages/en-US/auth.dates.json"
 import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import dashboardMessages from "~/messages/en-US/dashboard.license.json"
 
 const labels = dashboardMessages.unlicensedOrders
 const PLACED_AT = new Date("2026-11-16T09:30:00.000Z")
 
-const common = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: commonMessages, timeZone: I18N.DEFAULT_TIMEZONE })
+const dates = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: authDatesMessages, timeZone: I18N.DEFAULT_TIMEZONE })
 
 const unlicensedOrder = (overrides: Partial<License["unlicensedOrder"]> = {}): License["unlicensedOrder"] => ({
   amount: 719.2,
@@ -66,7 +66,7 @@ describe("paid orders without a licence", () => {
     expect(link).toHaveAttribute("target", "_blank")
     expect(link).toHaveAttribute("rel", "noreferrer")
     expect(link).toHaveTextContent("ord_unmatched")
-    expect(row).toHaveTextContent(common("dateTime", { value: PLACED_AT }))
+    expect(row).toHaveTextContent(dates("dateTime", { value: PLACED_AT }))
     expect(row).toHaveTextContent("cus_unmatched")
     expect(row).toHaveTextContent("€719.20")
     expect(screen.queryByText(labels.empty)).not.toBeInTheDocument()

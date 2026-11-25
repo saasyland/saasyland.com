@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { AreaRows } from "~/src/integrations/drizzle-orm/__test__/rows"
+import type { TableRows } from "~/src/integrations/drizzle-orm/__test__/rows"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { orderRow } from "~/src/modules/order/__test__/fixtures/order"
@@ -17,4 +17,4 @@ export const POLAR_ROWS = [
     insert: ({ userId }) => [db.insert(subscription).values(subscriptionRow({ userId })).returning()],
     owned: (userId) => db.select().from(subscription).where(eq(subscription.userId, userId)),
   },
-] as const satisfies readonly AreaRows[]
+] as const satisfies readonly TableRows[]

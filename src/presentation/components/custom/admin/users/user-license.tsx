@@ -23,7 +23,7 @@ type LicenseView = NonNullable<License["userLicense"]>
 const LicenseDetails = ({ license, userId }: { readonly license: LicenseView; readonly userId: string }): JSX.Element => {
   const t = useTranslations()
 
-  const dateTime = (value: Date): string => t("common.dateTime", { value })
+  const dateTime = (value: Date): string => t("auth.dates.dateTime", { value })
 
   const firstTime = (value: License["select"]["activatedAt"]): string => {
     if (value === null) {

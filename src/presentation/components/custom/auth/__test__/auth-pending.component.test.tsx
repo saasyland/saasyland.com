@@ -53,15 +53,15 @@ describe("path-aware skeletons", () => {
   })
 
   it.each([
-    ["/auth/sign-in", SignInPending],
-    ["/pl-PL/auth/sign-up", SignUpPending],
-    [TIER_SIGN_UP, SignUpPending],
-    ["/auth/forgot-password", ForgotPasswordPending],
-    ["/auth/reset-password", ResetPasswordPending],
-    ["/auth/two-factor", TwoFactorPending],
-    ["/auth/verify-email", VerifyEmailPending],
-    [`/pl-PL${ROUTES.ACCEPT_INVITATION}?token=invitation-token`, AcceptInvitationPending],
-  ])("renders the skeleton of the page at %s", (path, Page) => {
+    { Page: SignInPending, path: "/auth/sign-in" },
+    { Page: SignUpPending, path: "/pl-PL/auth/sign-up" },
+    { Page: SignUpPending, path: TIER_SIGN_UP },
+    { Page: ForgotPasswordPending, path: "/auth/forgot-password" },
+    { Page: ResetPasswordPending, path: "/auth/reset-password" },
+    { Page: TwoFactorPending, path: "/auth/two-factor" },
+    { Page: VerifyEmailPending, path: "/auth/verify-email" },
+    { Page: AcceptInvitationPending, path: `/pl-PL${ROUTES.ACCEPT_INVITATION}?token=invitation-token` },
+  ])("renders the skeleton of the page at $path", ({ Page, path }) => {
     const page = pageMarkupAt(path, Page)
     const { container } = renderAuthPending(path)
 

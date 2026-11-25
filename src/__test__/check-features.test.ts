@@ -1,8 +1,8 @@
 import { globSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
-import { AREA, AREAS, AREA_SCENARIO, AREA_SCENARIOS } from "~/scripts/areas"
-import { areaRemoval, isInFootprint, problemLines, removedAreas, removedNames, removedNamespaces } from "~/scripts/check-areas"
+import { featureRemoval, isInFootprint, problemLines, removedFeatures, removedNames, removedNamespaces } from "~/scripts/check-features"
+import { FEATURE, FEATURES, FEATURE_SCENARIO, FEATURE_SCENARIOS } from "~/scripts/features"
 import { pruneProject } from "~/scripts/prune-references"
 
 const ROUTES_FILE = "src/routes.ts"
@@ -31,31 +31,39 @@ const SOURCES: Readonly<Record<string, string>> = {
 const FILES = [GENERATED, PAGE, ROUTES_FILE, CONFIRM_MESSAGES, LANDING_MESSAGES]
 const PROJECT = { generated: new Set([GENERATED]), read: (file: string): string => SOURCES[file] ?? "" }
 
-describe("removedAreas", () => {
-  it("removes every area that requires a removed one, directly or through another, and sorts them", () => {
-    expect(removedAreas([AREA.LEGAL])).toStrictEqual([AREA.LEGAL, AREA.LICENSE])
-    expect(removedAreas([AREA.POLAR])).toStrictEqual([AREA.BILLING, AREA.LICENSE, AREA.PAYMENTS, AREA.POLAR, AREA.PRODUCTS])
+describe("removedFeatures", () => {
+  it("removes every feature that requires a removed one, directly or through another, and sorts them", () => {
+    expect(removedFeatures([FEATURE.LEGAL])).toStrictEqual([FEATURE.LEGAL, FEATURE.LICENSE])
+    expect(removedFeatures([FEATURE.POLAR])).toStrictEqual([
+      FEATURE.BILLING,
+      FEATURE.LICENSE,
+      FEATURE.PAYMENTS,
+      FEATURE.POLAR,
+      FEATURE.PRODUCTS,
+    ])
   })
 
-  it("removes only the areas asked for when nothing requires them", () => {
-    expect(removedAreas([AREA.NEWSLETTER, AREA.AFFILIATES])).toStrictEqual([AREA.AFFILIATES, AREA.NEWSLETTER])
+  it("removes only the features asked for when nothing requires them", () => {
+    expect(removedFeatures([FEATURE.NEWSLETTER, FEATURE.AFFILIATES])).toStrictEqual([FEATURE.AFFILIATES, FEATURE.NEWSLETTER])
   })
 })
 
 describe("isInFootprint", () => {
-  it("matches a file against the globs of the removed areas only", () => {
-    expect(isInFootprint(COURSES_PAGE, [AREA.COURSES])).toBe(true)
-    expect(isInFootprint(COURSES_PAGE, [AREA.NEWSLETTER])).toBe(false)
-    expect(isInFootprint(ROUTES_FILE, [AREA.COURSES])).toBe(false)
+  it("matches a file against the globs of the removed features only", () => {
+    expect(isInFootprint(COURSES_PAGE, [FEATURE.COURSES])).toBe(true)
+    expect(isInFootprint(COURSES_PAGE, [FEATURE.NEWSLETTER])).toBe(false)
+    expect(isInFootprint(ROUTES_FILE, [FEATURE.COURSES])).toBe(false)
   })
 })
 
 describe("removedNames", () => {
-  it("collects, by file, the names the removed areas own in files they keep", () => {
-    expect(removedNames([AREA.NEWSLETTER, AREA.TEAM])).toStrictEqual(
-      new Map([[ROUTES_FILE, [AREAS[AREA.NEWSLETTER].names, AREAS[AREA.TEAM].names].flatMap((names) => names?.[ROUTES_FILE] ?? [])]]),
+  it("collects, by file, the names the removed features own in files they keep", () => {
+    expect(removedNames([FEATURE.NEWSLETTER, FEATURE.TEAM])).toStrictEqual(
+      new Map([
+        [ROUTES_FILE, [FEATURES[FEATURE.NEWSLETTER].names, FEATURES[FEATURE.TEAM].names].flatMap((names) => names?.[ROUTES_FILE] ?? [])],
+      ]),
     )
-    expect(removedNames([AREA.ANALYTICS])).toStrictEqual(new Map())
+    expect(removedNames([FEATURE.ANALYTICS])).toStrictEqual(new Map())
   })
 })
 
@@ -70,11 +78,11 @@ describe("removedNamespaces", () => {
   })
 })
 
-describe("areaRemoval", () => {
-  it("keeps the files outside the footprints and prunes what the kept ones name of the removed areas", () => {
-    const removal = areaRemoval([AREA.NEWSLETTER, AREA.TEAM], FILES, PROJECT)
+describe("featureRemoval", () => {
+  it("keeps the files outside the footprints and prunes what the kept ones name of the removed features", () => {
+    const removal = featureRemoval([FEATURE.NEWSLETTER, FEATURE.TEAM], FILES, PROJECT)
 
-    expect(removal.removed).toStrictEqual([AREA.NEWSLETTER, AREA.TEAM])
+    expect(removal.removed).toStrictEqual([FEATURE.NEWSLETTER, FEATURE.TEAM])
     expect(removal.kept).toStrictEqual([GENERATED, PAGE, ROUTES_FILE, LANDING_MESSAGES])
     expect(removal.sources).toStrictEqual(
       new Map([
@@ -95,7 +103,7 @@ describe("areaRemoval", () => {
       ]),
     )
     expect(problemLines(removal.problems)).toStrictEqual([
-      `${PAGE}:5:21: \`ROUTES.NEWSLETTER\` names what the removed areas take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`,
+      `${PAGE}:5:21: \`ROUTES.NEWSLETTER\` names what the removed features take away, and no array element, object property, JSX element, test, statement or declaration around it can go with it`,
     ])
   })
 
@@ -106,44 +114,45 @@ describe("areaRemoval", () => {
       [spec]:
         'import { expect, it } from "vite-plus/test"\n\nimport * as ROUTES from "~/src/routes"\n\nit("links the newsletter", () => {\n  expect(ROUTES.NEWSLETTER).toBe("/newsletter")\n})\n',
     }
-    const removal = areaRemoval([AREA.NEWSLETTER], [...FILES, spec], { ...PROJECT, read: (file) => sources[file] ?? "" })
+    const removal = featureRemoval([FEATURE.NEWSLETTER], [...FILES, spec], { ...PROJECT, read: (file) => sources[file] ?? "" })
 
     expect(removal.kept).not.toContain(spec)
     expect(removal.sources.has(spec)).toBe(false)
   })
 
-  it("changes nothing when the kept files name nothing the removed areas take away", () => {
-    expect(areaRemoval([AREA.ANALYTICS], FILES, PROJECT)).toMatchObject({ problems: [], sources: new Map() })
+  it("changes nothing when the kept files name nothing the removed features take away", () => {
+    expect(featureRemoval([FEATURE.ANALYTICS], FILES, PROJECT)).toMatchObject({ problems: [], sources: new Map() })
   })
 })
 
-describe("the area footprints in scripts/areas.ts", () => {
-  it.each(Object.entries(AREAS).flatMap(([area, { files }]) => files.map((glob) => ({ area, glob }))))(
-    "$area: $glob matches a file of the project",
+describe("the feature footprints in scripts/features.ts", () => {
+  it.each(Object.entries(FEATURES).flatMap(([feature, { files }]) => files.map((glob) => ({ feature, glob }))))(
+    "$feature: $glob matches a file of the project",
     ({ glob }) => {
       expect(globSync(glob)).not.toStrictEqual([])
     },
   )
 
-  it.each(Object.values(AREA).flatMap((area) => [...removedNames(removedAreas([area]))].map(([file, list]) => ({ area, file, list }))))(
-    "$area: every name it and the areas that require it own in $file is declared there and can be pruned",
-    ({ file, list }) => {
-      const { problems } = pruneProject({
-        deleted: new Set(),
-        generated: new Set(),
-        kept: [file],
-        names: new Map([[file, list]]),
-        namespaces: new Set(),
-        read: (path) => readFileSync(path, "utf8"),
-      })
+  it.each(
+    Object.values(FEATURE).flatMap((feature) =>
+      [...removedNames(removedFeatures([feature]))].map(([file, list]) => ({ feature, file, list })),
+    ),
+  )("$feature: every name it and the features that require it own in $file is declared there and can be pruned", ({ file, list }) => {
+    const { problems } = pruneProject({
+      deleted: new Set(),
+      generated: new Set(),
+      kept: [file],
+      names: new Map([[file, list]]),
+      namespaces: new Set(),
+      read: (path) => readFileSync(path, "utf8"),
+    })
 
-      expect(problems).toStrictEqual([])
-    },
-  )
+    expect(problems).toStrictEqual([])
+  })
 
-  it("leaves out every website-only area in each scenario, which the templates never generate", () => {
-    for (const areas of Object.values(AREA_SCENARIOS)) {
-      expect(areas).toEqual(expect.arrayContaining([...AREA_SCENARIOS[AREA_SCENARIO.WEBSITE_ONLY]]))
+  it("leaves out every website-only feature in each scenario, which the templates never generate", () => {
+    for (const features of Object.values(FEATURE_SCENARIOS)) {
+      expect(features).toEqual(expect.arrayContaining([...FEATURE_SCENARIOS[FEATURE_SCENARIO.WEBSITE_ONLY]]))
     }
   })
 })

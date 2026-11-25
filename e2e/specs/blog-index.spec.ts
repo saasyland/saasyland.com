@@ -8,7 +8,7 @@ import { readPageHead } from "../../src/lib/page-head"
 import { APP_URL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
 import pagesBlog from "../../messages/en-US/pages.blog.json" with { type: "json" }
-import pagesLanding from "../../messages/en-US/pages.landing.json" with { type: "json" }
+import landingNotes from "../../messages/en-US/pages.landing.notes.json" with { type: "json" }
 import { expect, test } from "../fixtures/test"
 
 const { archive, index } = pagesBlog
@@ -383,9 +383,9 @@ test("lists every post beside a post and marks the one being read", async ({ pag
 test("leads the landing page's notes with the featured post and links the latest posts, before JavaScript runs", async ({ pageWithoutJavaScript }) => {
   await pageWithoutJavaScript.goto(ROUTES.HOME)
 
-  const notes = pageWithoutJavaScript.locator("section").filter({ has: pageWithoutJavaScript.getByRole("heading", { level: 2, name: pagesLanding.notes.title }) })
+  const notes = pageWithoutJavaScript.locator("section").filter({ has: pageWithoutJavaScript.getByRole("heading", { level: 2, name: landingNotes.title }) })
   await expect(notes.locator(`h3 a[href="${ROUTES.BLOG}/${LEAD}"]`)).toHaveCount(1)
   await expect(notes.locator("img")).toHaveCount(1)
   await expect(notes.getByRole("heading", { level: 4 })).not.toHaveCount(0)
-  await expect(notes.getByRole("link", { name: pagesLanding.notes.cta })).toHaveAttribute("href", ROUTES.BLOG)
+  await expect(notes.getByRole("link", { name: landingNotes.cta })).toHaveAttribute("href", ROUTES.BLOG)
 })

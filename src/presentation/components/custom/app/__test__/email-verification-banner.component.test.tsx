@@ -12,9 +12,8 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
+import { ACCOUNT_MUTATION_KEYS, ACCOUNT_QUERY_KEYS } from "~/src/modules/account/account.constants"
 import type * as ChangeEmailUseCase from "~/src/modules/account/use-cases/change-email"
-import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import type * as SendVerificationEmailUseCase from "~/src/modules/verification/use-cases/send-verification-email"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
 
@@ -56,7 +55,7 @@ const unconfirmedSession = (email = confirmedSession.user.email) => ({
 const renderBanner = (session: typeof confirmedSession | null) => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
-  queryClient.setQueryData(LICENSE_QUERY_KEYS.KEY, { key: undefined })
+  queryClient.setQueryData(ACCOUNT_QUERY_KEYS.LIST, [])
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <EmailVerificationBanner />
@@ -176,7 +175,7 @@ describe("email verification banner", () => {
     expect(await screen.findByText(messages.confirmed)).toHaveAttribute("role", "status")
     expect(screen.queryByRole("region", { name: messages.title })).toBeNull()
     await waitFor(() => {
-      expect(queryClient.getQueryState(LICENSE_QUERY_KEYS.KEY)?.isInvalidated).toBe(true)
+      expect(queryClient.getQueryState(ACCOUNT_QUERY_KEYS.LIST)?.isInvalidated).toBe(true)
     })
   })
 })

@@ -14,7 +14,7 @@ import { adminQueryClient, renderAdmin } from "~/src/presentation/components/cus
 import { UserWithdrawalsPending } from "~/src/presentation/components/custom/admin/license-pending"
 import { UserWithdrawals } from "~/src/presentation/components/custom/admin/users/user-withdrawals"
 
-import commonMessages from "~/messages/en-US/common.json"
+import authDatesMessages from "~/messages/en-US/auth.dates.json"
 import labels from "~/messages/en-US/pages.admin.users.license.json"
 
 const USER_ID = "grace"
@@ -22,8 +22,8 @@ const RECEIVED_AT = new Date("2026-11-12T12:00:00.000Z")
 const ACKNOWLEDGED_AT = new Date("2026-11-12T12:00:04.000Z")
 
 const t = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: labels.withdrawals, timeZone: I18N.DEFAULT_TIMEZONE })
-const common = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: commonMessages, timeZone: I18N.DEFAULT_TIMEZONE })
-const dateTime = (value: Date): string => common("dateTime", { value })
+const dates = createTranslator({ formats: I18N.FORMATS, locale: "en-US", messages: authDatesMessages, timeZone: I18N.DEFAULT_TIMEZONE })
+const dateTime = (value: Date): string => dates("dateTime", { value })
 
 const statement = (overrides: Partial<Withdrawal["userRow"]> = {}): Withdrawal["userRow"] => ({
   acknowledgedAt: ACKNOWLEDGED_AT,

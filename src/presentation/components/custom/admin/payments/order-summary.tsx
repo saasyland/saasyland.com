@@ -66,12 +66,12 @@ export const OrderSummary = ({ order }: { readonly order: Order["detail"]["order
 
   const values: Record<MirrorDetail, ReactNode> = {
     billingCountry: country(),
-    changedAt: t("common.dateTime", { value: order.changedAt }),
+    changedAt: t("auth.dates.dateTime", { value: order.changedAt }),
     customerId: <span className="font-mono text-spec">{order.customerId}</span>,
     discount: discount(),
     discountAmount: discountAmount(),
     invoiceNumber: optional(order.invoiceNumber),
-    placedAt: t("common.dateTime", { value: order.placedAt }),
+    placedAt: t("auth.dates.dateTime", { value: order.placedAt }),
     product: order.description,
     refunded: <MoneyAmount money={order.refunded} />,
     subscription: optional(order.subscriptionId),

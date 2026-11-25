@@ -69,7 +69,7 @@ const withFacts = (message: string): string =>
     sections: ADMIN_SECTION_NAMES,
   })
 
-const EVIDENCE_CODE = [
+const EVIDENCE_CODE: readonly string[] = [
   REPOSITORY_FACTS.authIntegrationPath,
   REPOSITORY_FACTS.ciWorkflowPath,
   REPOSITORY_FACTS.coverageCommand,

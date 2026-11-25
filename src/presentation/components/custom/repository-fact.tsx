@@ -183,7 +183,7 @@ const statusLabel = (status: FeatureStatus): Label => ({ label: `components.cust
 const generationStatus = (supported: readonly string[], id: string): Label =>
   statusLabel(supported.includes(id) ? CLI_GENERATION : FEATURE_STATUS.ARRIVING)
 
-const flowArea = (area: string): Label => ({ label: `flow-areas.${area}` })
+const flowFeature = (feature: string): Label => ({ label: `flow-features.${feature}` })
 
 const tierFeatureRows = (tier: LicenseTier) =>
   FEATURE_STATUSES.flatMap((status) =>
@@ -404,20 +404,22 @@ const TABLES = {
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
   coveredFlowTable: flowTables.covered.map(
-    ([id, area, outcome, tests]) => [flowArea(area), id, { text: outcome }, { text: tests.join(LINE_SEPARATOR) }] as const,
+    ([id, feature, outcome, tests]) => [flowFeature(feature), id, { text: outcome }, { text: tests.join(LINE_SEPARATOR) }] as const,
   ),
-  flowAreaTable: flowTables.areas.map(
-    ([area, flows, covered, missing, toBuild]) => [flowArea(area), flows, covered, missing, toBuild] as const,
+  flowFeatureTable: flowTables.features.map(
+    ([feature, flows, covered, missing, toBuild]) => [flowFeature(feature), flows, covered, missing, toBuild] as const,
   ),
   formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
     const { clauseOpeners, form, never, neverEndingSentence, neverInsideSentence, neverStartingClause } = FORMS_OF_ADDRESS[locale]
 
     return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
-  missingFlowGaps: flowTables.missing.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  missingFlowGaps: flowTables.missing.map(
+    ([, feature, outcome, reason]) => [flowFeature(feature), { text: outcome }, { text: reason }] as const,
+  ),
   missingFlowTable: flowTables.missing.map(
-    ([id, area, outcome, reason, tests]) =>
-      [flowArea(area), id, { text: outcome }, { text: reason }, { text: tests.join(LINE_SEPARATOR) }] as const,
+    ([id, feature, outcome, reason, tests]) =>
+      [flowFeature(feature), id, { text: outcome }, { text: reason }, { text: tests.join(LINE_SEPARATOR) }] as const,
   ),
   moduleUseCases: moduleTables.modules,
   permissionChecks: moduleTables.permissions,
@@ -428,9 +430,11 @@ const TABLES = {
   seededAccounts,
   skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),
   tierFeatures: LICENSE_TIERS.flatMap((tier) => tierFeatureRows(tier)),
-  toBuildFlowGaps: flowTables.toBuild.map(([, area, outcome, reason]) => [flowArea(area), { text: outcome }, { text: reason }] as const),
+  toBuildFlowGaps: flowTables.toBuild.map(
+    ([, feature, outcome, reason]) => [flowFeature(feature), { text: outcome }, { text: reason }] as const,
+  ),
   toBuildFlowTable: flowTables.toBuild.map(
-    ([id, area, outcome, reason]) => [flowArea(area), id, { text: outcome }, { text: reason }] as const,
+    ([id, feature, outcome, reason]) => [flowFeature(feature), id, { text: outcome }, { text: reason }] as const,
   ),
 } satisfies Record<string, readonly Row[]>
 

@@ -3,8 +3,10 @@ import type { JSX } from "react"
 import { Link, getRouteApi } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
+import { loadBlogIndex } from "virtual:content-indexes"
 
-import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { type BlogPostSummary, blogNotes, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -15,6 +17,18 @@ import { Reveal } from "~/src/presentation/components/custom/landing-page/compon
 import * as ROUTES from "~/src/routes"
 
 const landingRoute = getRouteApi("/_site/_marketing/")
+
+interface LandingNotes {
+  readonly latest: BlogPostSummary[]
+  readonly lead: BlogPostSummary | undefined
+}
+
+export const loadLandingNotes = async (): Promise<LandingNotes> => {
+  const locale = getCurrentLocale()
+  const { latest, lead } = blogNotes(await loadBlogIndex(locale))
+
+  return { latest: latest.map((post) => toBlogPostSummary(post, locale)), lead: lead && toBlogPostSummary(lead, locale) }
+}
 
 const GRID_DELAY_MS = 100
 

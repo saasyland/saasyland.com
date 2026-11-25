@@ -27,7 +27,7 @@ const MarketingLayout = (): JSX.Element => {
   )
 }
 
-const NAMESPACES = ["auth.validations", "withdrawal.validations"] as const
+const NAMESPACES = ["auth.dates", "auth.validations", "withdrawal.validations"] as const
 
 export const Route = createFileRoute("/_site/_marketing")({
   component: MarketingLayout,

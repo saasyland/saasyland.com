@@ -1,7 +1,19 @@
 import { globSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 
-import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import type { Page } from "@playwright/test"
+import { createTranslator } from "use-intl"
+import * as zod from "zod"
+
+import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
+import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
+import { COUNTRY_HEADER, HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
+import { LICENSE_TIERS } from "../../src/modules/license/license.constants"
+import { PPP_TIERS } from "../../src/modules/license/license.pricing"
+import { TIER_PRICES } from "../../src/data/license"
+import { CONSULTING_HOURLY_RATE } from "../../src/data/marketing"
+import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { readPageHead } from "../../src/lib/page-head"
 import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
@@ -22,6 +34,40 @@ const SHARED_PAGES = [
   `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`,
 ].flatMap((path) => [path, `/ja-JP${path === ROUTES.HOME ? "" : path}`])
 
+
+const [REGIONAL_COUNTRY] = PPP_TIERS[0].countries
+
+const VISITORS = [
+  { headers: {}, name: "at the regular price" },
+  { headers: { [COUNTRY_HEADER]: REGIONAL_COUNTRY }, name: "with a regional discount" },
+] as const
+
+const pricingCopySchema = zod.object({
+  regional: zod.object({ offer: zod.string() }),
+  regularPrice: zod.string(),
+  tiers: zod.record(zod.enum(LICENSE_TIERS), zod.object({ period: zod.string() })),
+})
+
+const landingCopySchema = zod.object({
+  faq: zod.object({ items: zod.record(zod.string(), zod.object({ answer: zod.string() })) }),
+  pricing: zod.object({ consulting: zod.object({ period: zod.string() }) }),
+})
+
+const readCopy = (locale: SupportedLocale, namespace: string): unknown =>
+  JSON.parse(readFileSync(`messages/${locale}/${namespace}.json`, "utf8"))
+
+const collapse = (text: string): string => text.replaceAll(/\s+/gu, " ").trim()
+
+const readerText = async (page: Page, html: string): Promise<string> =>
+  collapse(
+    await page.evaluate((source) => {
+      const parsed = new DOMParser().parseFromString(source, "text/html")
+      for (const element of parsed.querySelectorAll("script, style")) {
+        element.remove()
+      }
+      return parsed.body.textContent
+    }, html),
+  )
 
 type Requester = { get: (path: string) => Promise<{ status: () => number; text: () => Promise<string> }> }
 
@@ -111,5 +157,44 @@ for (const path of SHARED_PAGES) {
     expect(response.status()).toBe(HTTP_STATUS.OK)
     expect(response.headers()["content-type"]).toBe(SOCIAL_IMAGE.TYPE)
     expect([png.readUInt32BE(PNG_WIDTH_OFFSET), png.readUInt32BE(PNG_HEIGHT_OFFSET)]).toStrictEqual([SOCIAL_IMAGE.WIDTH, SOCIAL_IMAGE.HEIGHT])
+  })
+}
+
+for (const locale of I18N.SUPPORTED_LOCALES) {
+  const home = localizePathname({ locale, pathname: ROUTES.HOME })
+  const pricing = pricingCopySchema.parse(readCopy(locale, "components.custom.pricing"))
+  const landing = landingCopySchema.parse(readCopy(locale, "pages.landing"))
+  const price = (amount: number): string => new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(amount)
+  const offer = createTranslator({ locale, messages: { offer: pricing.regional.offer } }).markup("offer", {
+    percent: () => "",
+    region: () => "",
+  })
+
+  for (const visitor of VISITORS) {
+    test(`${home} reads as text, ${visitor.name}, with each price beside its label and no regional copy`, async ({ page, request }) => {
+      const response = await request.get(home, { headers: visitor.headers })
+      const text = await readerText(page, await response.text())
+
+      expect(response.status()).toBe(HTTP_STATUS.OK)
+      expect(text).not.toContain(collapse(pricing.regularPrice))
+      expect(text).not.toContain(collapse(offer))
+      for (const tier of LICENSE_TIERS) {
+        expect(text).toContain(collapse(`${price(TIER_PRICES[tier])} ${pricing.tiers[tier].period}`))
+      }
+      expect(text).toContain(collapse(`${price(CONSULTING_HOURLY_RATE)} ${landing.pricing.consulting.period}`))
+    })
+  }
+
+  test(`${home} carries every FAQ answer in its prerendered text, open or collapsed`, async ({ appPage, page, request }) => {
+    const text = await readerText(page, await (await request.get(home)).text())
+    await page.goto(home)
+    await appPage.waitForAppReady()
+    const answers = await page.locator(`#${MARKETING_SECTION_IDS.FAQ} [data-slot="accordion-content"]`).allTextContents()
+
+    expect(answers).toHaveLength(Object.keys(landing.faq.items).length)
+    for (const answer of answers) {
+      expect(collapse(answer)).not.toBe("")
+      expect(text).toContain(collapse(answer))
+    }
   })
 }

@@ -1,4 +1,4 @@
-import { type ComponentType, type JSX, type ReactNode, useId } from "react"
+import { Children, type ComponentType, type JSX, type ReactNode, useId } from "react"
 
 import { Link, useHydrated } from "@tanstack/react-router"
 import { BadgeCheck, Check, CircleDashed, FlaskConical, Receipt, RotateCcw } from "lucide-react"
@@ -9,7 +9,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
-import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, regionalPrice } from "~/src/modules/license/license.pricing"
+import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT, regionalPrice } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/license"
@@ -28,26 +28,46 @@ import * as ROUTES from "~/src/routes"
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 
-export const REGIONAL_TAGS = { percent: () => <span className="ppp-percent" />, region: () => <span className="ppp-region" /> }
+const REGIONAL_TAGS = { percent: () => <span className="ppp-percent" />, region: () => <span className="ppp-region" /> }
+
+const REGIONAL_KEYS = PPP_KEYS.filter((key) => key !== PPP_PERCENT)
 
 export type TierAction = ComponentType<Readonly<{ featured: boolean; tier: LicenseTier }>>
+
+const RegionalText = ({ className, text }: Readonly<{ className?: string; text: string }>): JSX.Element => (
+  <span className={cn("ppp-text", className)} data-text={text} />
+)
+
+const RegionalCopy = ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => (
+  <>{Children.map(children, (chunk) => (typeof chunk === "string" ? <RegionalText text={chunk} /> : chunk))}</>
+)
 
 export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => {
   const formatter = useFormatter()
   const t = useTranslations("components.custom.pricing")
+  const regular = formatter.number(amount, CURRENCY_FORMAT)
 
   return (
     <>
-      {PPP_KEYS.map((key) => (
-        <span className={`pv pv-${String(key)}`} key={key}>
-          {formatter.number(regionalPrice(amount, key), CURRENCY_FORMAT)}
-        </span>
+      <span className="pv pv-100">{regular}</span>
+      {REGIONAL_KEYS.map((key) => (
+        <RegionalText className={`pv pv-${String(key)}`} key={key} text={formatter.number(regionalPrice(amount, key), CURRENCY_FORMAT)} />
       ))}
       <s className="pv pv-regional ms-[0.3em] text-body-sm font-normal text-muted-foreground">
-        <span className="sr-only">{t("regularPrice")} </span>
-        {formatter.number(amount, CURRENCY_FORMAT)}
+        <RegionalText className="sr-only" text={`${t("regularPrice")} `} />
+        <RegionalText text={regular} />
       </s>
     </>
+  )
+}
+
+export const RegionalSaving = (): JSX.Element => {
+  const t = useTranslations("components.custom.pricing")
+
+  return (
+    <span className="pv pv-regional basis-full text-label text-ring uppercase">
+      <RegionalCopy>{t.rich("regional.save", REGIONAL_TAGS)}</RegionalCopy>
+    </span>
   )
 }
 
@@ -132,9 +152,8 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
         <p className="mt-7 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-price text-foreground tabular-nums">
             <Price amount={TIER_PRICES[tier]} />
-          </span>
-          <span className="text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span>
-          <span className="pv pv-regional basis-full text-label text-ring uppercase">{t.rich("regional.save", REGIONAL_TAGS)}</span>
+          </span>{" "}
+          <span className="text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span> <RegionalSaving />
         </p>
         <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">
           {t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}
@@ -164,7 +183,9 @@ const RegionalPricing = (): JSX.Element => {
             strokeWidth={3}
           />
         </span>
-        <span className="text-body-sm text-pretty text-foreground">{t.rich("regional.offer", REGIONAL_TAGS)}</span>
+        <span className="text-body-sm text-pretty text-foreground">
+          <RegionalCopy>{t.rich("regional.offer", REGIONAL_TAGS)}</RegionalCopy>
+        </span>
       </CheckboxButton>
     </CheckboxField>
   )

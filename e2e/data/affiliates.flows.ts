@@ -19,7 +19,12 @@ export const AFFILIATES_FLOWS = [
     feature: FLOW_FEATURE.AFFILIATES,
     id: "affiliate-referral-checkout",
     outcome: "A buyer who came through an affiliate link carries the referral into the Polar checkout's metadata",
-    reason: "The spec checks the referral cookie; no spec checks out with one.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "affiliate-checkout.spec.ts",
+        title: "a buyer whose visit through an affiliate link left Affonso's referral cookie carries the referral into the Polar checkout's metadata",
+      },
+    ],
   },
 ] as const satisfies readonly Flow[]

@@ -24,9 +24,9 @@ import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
-import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { useFileSize } from "~/src/hooks/use-file-size"
 import { useFormLocale } from "~/src/hooks/use-form-locale"
+import { useSlugConflict } from "~/src/hooks/use-slug-conflict"
 import { uploadLessonVideo } from "~/src/hooks/use-video-upload"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -93,7 +93,7 @@ interface LessonDialogProps {
 export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Element => {
   const t = useTranslations("pages.admin.courses.lesson")
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
+  const refuseTakenSlug = useSlugConflict({ controlId: "lesson-slug", message: "lessonSlugTaken" })
   const [isOpen, setOpen] = useState(false)
   const [recording, setRecording] = useState<File>()
 
@@ -112,16 +112,13 @@ export const LessonDialog = ({ chapterId, trigger }: LessonDialogProps): JSX.Ele
     toast.success(t(uploading ? "savedUploading" : "saved"))
     changeOpen(false)
   }
-  const onError = (error: Error): void => {
-    toast.error(errorMessage(error))
-  }
-  const create = useMutation({ ...createLessonMutation, onError, onSuccess })
+  const create = useMutation({ ...createLessonMutation, onSuccess })
 
   const form = useForm({
     defaultValues: NEW_LESSON,
     listeners: { onBlur: validateOnBlur },
-    onSubmit: ({ value }) => {
-      create.mutate({ ...value, chapterId })
+    onSubmit: ({ formApi, value }) => {
+      create.mutate({ ...value, chapterId }, { onError: refuseTakenSlug(formApi) })
     },
     validators: { onChange: lessonFormSchema },
   })

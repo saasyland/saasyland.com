@@ -1,10 +1,12 @@
 import { writeFile } from "node:fs/promises"
 
-import type { Locator, Page } from "@playwright/test"
+import type { Locator, Page, Request as PlaywrightRequest } from "@playwright/test"
 import * as zod from "zod"
 
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { VIDEO_UPLOAD_PART_BYTES } from "../../src/modules/video-upload/video-upload.constants"
+import { PART_FIELDS } from "../../src/modules/video-upload/video-upload.files"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
@@ -18,6 +20,16 @@ const SIGNED_PATH = /^\/media\/[\da-z]+\.[\da-f]{64}\//u
 const FORGED_SIGNATURE = "0".repeat(64)
 const ENCODER_WAIT_MS = 30_000
 const RECORDING = { name: "first-look.mp4", text: "a small recording for the encoder double" } as const
+const PARTS_IN_RECORDING = 3
+const FIRST_PART = 1
+const SERVER_FUNCTION_PATH = "/_serverFn/"
+const PART_NUMBER_FIELD = new RegExp(`name="${PART_FIELDS.PART_NUMBER}"\\r\\n\\r\\n(?<part>\\d+)\\r\\n`, "u")
+const MULTIPART_HEAD_BYTES = 1024
+
+const isServerFunction = (url: URL): boolean => url.pathname.startsWith(SERVER_FUNCTION_PATH)
+
+const partNumberOf = (request: PlaywrightRequest): number =>
+  Number(PART_NUMBER_FIELD.exec(request.postDataBuffer()?.subarray(0, MULTIPART_HEAD_BYTES).toString("latin1") ?? "")?.groups?.["part"] ?? 0)
 
 const signIn = async (page: Page, authPage: AuthPage, account: (typeof TEST_ACCOUNTS)[number]): Promise<void> => {
   await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
@@ -193,6 +205,53 @@ test.describe("lesson videos", () => {
     await visitor.goto(`/courses/${slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await expect(visitor.getByText("Recording now")).toHaveCount(0)
     await visitor.close()
+
+    await deleteCourse(page, appPage, slug)
+  })
+
+  test("an upload cut off midway continues from the parts already stored when the same file is chosen again", async ({
+    appPage,
+    authPage,
+    page,
+  }) => {
+    test.slow()
+    const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
+    const recording = test.info().outputPath("long-take.mp4")
+    await writeFile(recording, Buffer.alloc(VIDEO_UPLOAD_PART_BYTES * PARTS_IN_RECORDING - 1))
+    await signIn(page, authPage, admin)
+    await createCourse(page, appPage, { lessonType: "Video lesson", slug })
+    await chooseRowAction(page.getByRole("row", { name: "A first look" }), "Actions for A first look", "Edit")
+    await appPage.waitForAppReady()
+
+    const sent: number[] = []
+    let cutOff = true
+    await page.route(isServerFunction, async (route) => {
+      const part = partNumberOf(route.request())
+      if (part > 0) {
+        sent.push(part)
+      }
+      if (cutOff && part > FIRST_PART) {
+        await route.abort("connectionreset")
+        return
+      }
+      await route.continue()
+    })
+    const card = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Video" }) })
+    await card.locator("[data-slot=video-drop-zone] input[type=file]").setInputFiles(recording)
+    await expect(card.getByRole("alert")).toContainText("The upload stopped")
+    expect(sent).toContain(FIRST_PART)
+
+    cutOff = false
+    sent.length = 0
+    await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(card.getByText("The upload of long-take.mp4 stopped before it finished. Choose the same file to continue it.")).toBeVisible()
+    const chooser = page.waitForEvent("filechooser")
+    await card.getByRole("button", { name: "Choose the file again" }).click()
+    await (await chooser).setFiles(recording)
+
+    await expect(card.getByText("Waiting for the encoder")).toBeVisible({ timeout: ENCODER_WAIT_MS })
+    expect(sent.toSorted()).toStrictEqual(Array.from({ length: PARTS_IN_RECORDING - FIRST_PART }, (_, index) => index + FIRST_PART + 1))
 
     await deleteCourse(page, appPage, slug)
   })

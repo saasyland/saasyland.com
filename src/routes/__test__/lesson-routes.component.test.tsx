@@ -137,6 +137,7 @@ describe("lesson page", () => {
     expect(screen.getByRole("heading", { level: 1 }).nextElementSibling).toHaveTextContent(`${meta.access.preview} 2:05`)
     expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
     player.get("props")?.onProgress?.(30)
+    player.get("props")?.onPause?.(31)
     player.get("props")?.onEnded?.()
     expect(save).not.toHaveBeenCalled()
 
@@ -166,6 +167,22 @@ describe("lesson page", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: LESSON_QUERY_KEYS.DETAIL })
     expect(save.mock.calls[1]?.[0]).toStrictEqual({ completed: true, lessonId: "lesson-sessions", positionMs: 0 })
     expect(await screen.findByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
+  })
+
+  it("saves the position at once when a learner pauses, between the saves made while the lesson plays", async () => {
+    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/sessions" })
+
+    expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "42.5")
+    player.get("props")?.onProgress?.(43)
+    player.get("props")?.onPause?.(44.2)
+    player.get("props")?.onProgress?.(45)
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2)
+    })
+    expect(save.mock.calls.map(([input]) => input)).toStrictEqual([
+      { completed: false, lessonId: "lesson-sessions", positionMs: 43_000 },
+      { completed: false, lessonId: "lesson-sessions", positionMs: 44_200 },
+    ])
   })
 
   it("marks a lesson complete from the button", async () => {

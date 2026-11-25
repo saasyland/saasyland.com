@@ -1,3 +1,5 @@
+export const LESSON_PROGRESS_SAVE_INTERVAL_MS = 15_000
+
 export const LESSON_PROGRESS_MUTATION_KEYS = {
   SAVE: ["lessonProgress", "saveLessonProgress"],
 } as const

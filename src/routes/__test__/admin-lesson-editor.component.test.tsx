@@ -380,7 +380,7 @@ describe("lesson editor", () => {
   })
 
   it("removes a key moment and explains a failed save", async () => {
-    mutations.updateLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
+    mutations.updateLesson.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderLessonEditor()
 
     await user.click(screen.getByRole("button", { name: "Remove moment 1" }))
@@ -388,9 +388,20 @@ describe("lesson editor", () => {
     await user.click(screen.getByRole("button", { name: labels.lesson.save }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errors.codes.CONFLICT)
+      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
     })
     expect(mutations.updateLesson).toHaveBeenCalledWith(expect.objectContaining({ keyMoments: [] }), expect.anything())
+  })
+
+  it("refuses a slug another lesson of the course uses on the slug field", async () => {
+    mutations.updateLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
+    const { user } = await renderLessonEditor()
+
+    await user.click(screen.getByRole("button", { name: labels.lesson.save }))
+
+    expect(await screen.findByText(validations.lessonSlugTaken)).toBeVisible()
+    expect(screen.getByLabelText(labels.lesson.slug)).toHaveAttribute("aria-invalid", "true")
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 

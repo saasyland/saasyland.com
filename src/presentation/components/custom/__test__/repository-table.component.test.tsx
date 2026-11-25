@@ -100,13 +100,8 @@ describe("the flow inventory", () => {
     const rows = groupedRows()
     expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.MISSING).length)
     expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.MISSING))
-    expect(rows).toContainEqual([
-      "language-switcher",
-      expect.any(String),
-      "The spec opens the switcher and checks its links but never follows one.",
-      "locales.spec.ts › en-US: canonical language, mobile layout, and all legal documents",
-    ])
-    expect(captionOf("language-switcher")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.I18N}`))
+    expect(rows).toContainEqual(["expired-signed-path", expect.any(String), expect.stringMatching(/^An expired path must be signed/u), ""])
+    expect(captionOf("expired-signed-path")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.SECURITY}`))
   })
 
   it("lists each flow still to build under its feature with the reason it cannot be tested yet", () => {

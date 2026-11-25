@@ -184,4 +184,22 @@ test.describe("billing", () => {
     await expect(page.getByRole("button", { name: "Manage billing" })).toHaveCount(0)
     expect((await page.request.get(ROUTES.API_AUTH_CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
   })
+
+  test("an older order event delivered after a newer one leaves the one copy of the order as the newer event left it", async ({
+    authPage,
+    page,
+    request,
+  }) => {
+    const customer = await signUp({ authPage, page, request }, { confirms: false })
+    const placed = await placeOrder(request, { customer, product: TEST_BILLING_PRODUCTS.KIT.id })
+    await deliver(request, placed.orderUpdated)
+    await deliver(request, placed.orderCreated)
+    await deliver(request, placed.orderUpdated)
+
+    await openBilling(page, authPage)
+    const order = listItem(page, TEST_BILLING_PRODUCTS.KIT.name)
+    await expect(order).toHaveCount(1)
+    await expect(order.getByText("Paid", { exact: true })).toBeVisible()
+    await expect(order.getByText("Pending", { exact: true })).toHaveCount(0)
+  })
 })

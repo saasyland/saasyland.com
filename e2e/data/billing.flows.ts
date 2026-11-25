@@ -53,14 +53,20 @@ export const BILLING_FLOWS = [
     feature: FLOW_FEATURE.ADMIN_PAYMENTS,
     id: "orders-mirrored",
     outcome: "Polar's order webhooks keep one copy of each order in D1, and an older event never overwrites a newer one",
-    reason: "billing.spec.ts sends order.created and order.updated and reads the copies on the billing page, but no spec delivers an older event after a newer one.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "billing.spec.ts",
+        title: "billing › an older order event delivered after a newer one leaves the one copy of the order as the newer event left it",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_PAYMENTS,
     id: "subscriptions-mirrored",
     outcome: "Polar's subscription webhooks keep one copy of each subscription in D1, and an older event never overwrites a newer one",
-    reason: "billing.spec.ts sends subscription.created and reads the copy on the billing page, but no spec delivers an older event after a newer one.",
+    reason:
+      "billing.spec.ts sends subscription.created and reads the copy on the billing page, but the test Worker's /__test/polar/billing-purchase signs no later subscription event, and e2e/data/billing.worker.ts reads the webhook secret, so changing it needs a person's review.",
     status: FLOW_STATUS.MISSING,
   },
 ] as const satisfies readonly Flow[]

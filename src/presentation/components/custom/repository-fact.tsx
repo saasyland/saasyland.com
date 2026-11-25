@@ -59,6 +59,7 @@ import {
   LESSON_ATTACHMENT_MAX_MEGABYTES,
   LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
 } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
+import { LESSON_PROGRESS_SAVE_INTERVAL_MS } from "~/src/modules/lesson-progress/lesson-progress.constants"
 import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_FORMATS, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
@@ -102,8 +103,6 @@ import {
   VIDEO_QUALITY_CRF,
 } from "~/src/modules/video/video.encoding"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
-
-import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
@@ -300,7 +299,7 @@ const FACTS = {
   lessonDescriptionMaxLength: LESSON_DESCRIPTION_MAX_LENGTH,
   lessonFormats: LESSON_FORMATS,
   lessonKeyMomentsMaxItems: LESSON_KEY_MOMENTS_MAX_ITEMS,
-  lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
+  lessonProgressSaveSeconds: LESSON_PROGRESS_SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   licenseActivationsStaleMinutes: LICENSE_ACTIVATIONS_STALE_MS / MILLISECONDS_PER_MINUTE,
   licenseActivationsTimeoutSeconds: LICENSE_ACTIVATIONS_TIMEOUT_SECONDS,
   licenseKeyPollSeconds: LICENSE_POLL_MS.KEY / MILLISECONDS_PER_SECOND,

@@ -72,6 +72,9 @@ const LocaleSwitcher = ({ className, ...props }: ComponentProps<"details">): JSX
               href={localizePathname({ locale, pathname: basePath })}
               hrefLang={locale}
               lang={locale}
+              onMouseDown={(event) => {
+                event.preventDefault()
+              }}
             >
               {getLocaleName(locale)}
               {locale === currentLocale && <CheckIcon aria-hidden className="size-4 shrink-0" />}

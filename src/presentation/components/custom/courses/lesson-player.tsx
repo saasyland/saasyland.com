@@ -23,7 +23,7 @@ interface LessonPlayerProps {
 export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps): JSX.Element => {
   const { data } = useQuery(lessonPlaybackQuery({ courseSlug, lessonSlug: lesson.slug }))
 
-  const { complete, save } = useLessonProgress({ enabled: signedIn, lessonId: lesson.id })
+  const { complete, pause, save } = useLessonProgress({ enabled: signedIn, lessonId: lesson.id })
 
   if (data === undefined) {
     return <PlayerPending />
@@ -32,6 +32,7 @@ export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps
   return (
     <VideoPlayer
       onEnded={complete}
+      onPause={pause}
       onProgress={save}
       playback={data}
       sizes={PLAYER_SIZES}

@@ -1,4 +1,4 @@
-import { type JSX, Suspense, lazy } from "react"
+import type { JSX } from "react"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { VideoPlayer as Player } from "@videojs/react/video"
@@ -42,10 +42,7 @@ import { Switch } from "~/src/presentation/components/shadcn/switch"
 import { VideoDropZone } from "~/src/presentation/components/custom/admin/courses/video-drop-zone"
 import { VideoPickerDialog } from "~/src/presentation/components/custom/admin/courses/video-picker-dialog"
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
-
-const VideoPlayer = lazy(() =>
-  import("~/src/presentation/components/custom/video-player").then((module) => ({ default: module.VideoPlayer })),
-)
+import { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
 const PLAYER_SIZES = "(min-width: 80rem) 26rem, calc(100vw - 4rem)"
 
@@ -76,9 +73,7 @@ const VideoPreview = ({ video }: { readonly video: NonNullable<EditorLesson["vid
 
   return (
     <Player poster={data.poster} title={video.title}>
-      <Suspense fallback={<PlayerPending />}>
-        <VideoPlayer className="overflow-hidden rounded-md" playback={data} sizes={PLAYER_SIZES} />
-      </Suspense>
+      <VideoPlayer className="overflow-hidden rounded-md" playback={data} sizes={PLAYER_SIZES} />
     </Player>
   )
 }

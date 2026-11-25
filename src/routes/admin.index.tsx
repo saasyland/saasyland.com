@@ -18,8 +18,10 @@ import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
-import { DASHBOARD_PANELS, DashboardPanels } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DashboardPanels } from "~/src/presentation/components/custom/admin/dashboard/panels"
+import { DASHBOARD_PANELS } from "~/src/presentation/components/custom/admin/dashboard/panels-pending"
 import { DASHBOARD_STATS, DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
+import { TimeSeriesBars } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 import { DASHBOARD_USER_GRID_ID, useDashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
@@ -75,7 +77,7 @@ export const Route = createFileRoute("/admin/")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
       ...[...DASHBOARD_STATS, ...DASHBOARD_PANELS].map(({ prefetch }) => prefetch(context.queryClient)),
-      ...DASHBOARD_PANELS.map(({ Panel }) => Panel.preload?.()),
+      TimeSeriesBars.preload?.(),
     ])
     return { locale, metadata }
   },

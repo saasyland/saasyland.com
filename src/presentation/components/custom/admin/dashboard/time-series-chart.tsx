@@ -1,27 +1,14 @@
-import type { JSX } from "react"
+import { type JSX, Suspense } from "react"
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { lazyRouteComponent } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { TIME_BUCKET, TIME_RANGES, type TimeBucket, type TimePoint, type TimeRange } from "~/src/modules/_core/utils/time-series"
+import { TIME_BUCKET, TIME_RANGES, type TimeBucket, type TimeRange } from "~/src/modules/_core/utils/time-series"
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "~/src/presentation/components/shadcn/chart"
 import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
 
-const SERIES_KEY = "value"
-
-const CHART_MARGIN = { bottom: 0, left: 0, right: 0, top: 4 } as const
-
-const BAR_RADIUS = 3
-
-const AXIS_WIDTH = 64
-
-const TICK_GAP = 24
-
-const BUCKET_TICKS = {
-  [TIME_BUCKET.DAY]: { day: "numeric" },
-  [TIME_BUCKET.MONTH]: { year: "numeric" },
-} as const satisfies Record<TimeBucket, Intl.DateTimeFormatOptions>
+import type { TimeSeriesBarsProps } from "~/src/presentation/components/custom/admin/dashboard/time-series-bars"
+import { TimeSeriesChartPending } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart-pending"
 
 const BUCKET_LABELS = {
   [TIME_BUCKET.DAY]: { day: "numeric", year: "numeric" },
@@ -62,33 +49,20 @@ export const RangePicker = ({ onChange, range }: RangePickerProps): JSX.Element 
   )
 }
 
-interface TimeSeriesChartProps {
-  readonly bucket: TimeBucket
-  readonly formatTick: (value: number) => string
-  readonly formatValue: (value: number) => string
-  readonly label: string
-  readonly points: readonly TimePoint[]
-}
+export const TimeSeriesBars = lazyRouteComponent(
+  () => import("~/src/presentation/components/custom/admin/dashboard/time-series-bars"),
+  "TimeSeriesBars",
+)
 
-export const TimeSeriesChart = ({ bucket, formatTick, formatValue, label, points }: TimeSeriesChartProps): JSX.Element => {
+export const TimeSeriesChart = (props: TimeSeriesBarsProps): JSX.Element => {
+  const { bucket, formatValue, label, points } = props
   const format = useFormatter()
-  const config = { [SERIES_KEY]: { label } }
-  const data = points.map(({ start, value }) => ({
-    [SERIES_KEY]: value,
-    tick: format.dateTime(start, "calendarMonth", BUCKET_TICKS[bucket]),
-  }))
 
   return (
     <figure className="flex flex-col gap-3">
-      <ChartContainer aria-hidden className="aspect-auto h-56 w-full" config={config}>
-        <BarChart accessibilityLayer={false} data={data} margin={CHART_MARGIN}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="tick" minTickGap={TICK_GAP} tickLine={false} />
-          <YAxis axisLine={false} tickFormatter={formatTick} tickLine={false} width={AXIS_WIDTH} />
-          <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatValue(Number(value))} hideIndicator />} cursor={false} />
-          <Bar dataKey={SERIES_KEY} fill="var(--chart-1)" isAnimationActive={false} radius={BAR_RADIUS} />
-        </BarChart>
-      </ChartContainer>
+      <Suspense fallback={<TimeSeriesChartPending />}>
+        <TimeSeriesBars {...props} />
+      </Suspense>
       <figcaption className="sr-only">
         <table>
           <caption>{label}</caption>

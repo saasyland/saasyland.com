@@ -10,7 +10,7 @@ import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/b
 
 const BLOG_CODE = /\/assets\/_site\._marketing\.blog[.-][\w.-]+\.js$/u
 
-const VIDEO_PLAYER_STYLES = /\/assets\/video-player-[\w-]+\.css$/u
+const LESSON_CODE = /\/assets\/_site\._marketing\.courses\._course\._lesson-[\w-]+\.js$/u
 
 const [freeLesson] = TEST_LESSONS
 
@@ -106,13 +106,13 @@ test.describe("a tab opened before a deploy", () => {
 test.describe("a visitor leaving a page", () => {
   test("goes where they asked when leaving cancels the code the page still loads", async ({ appPage, page }) => {
     const lessons = recordDocuments(page, LESSON)
-    const styles = Promise.withResolvers<Route>()
-    await page.route(VIDEO_PLAYER_STYLES, (route) => {
-      styles.resolve(route)
+    const code = Promise.withResolvers<Route>()
+    await page.route(LESSON_CODE, (route) => {
+      code.resolve(route)
     })
     await page.goto(LESSON, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
-    await appPage.leaveWhileLoading(await styles.promise, ROUTES.PRIVACY)
+    await appPage.leaveWhileLoading(await code.promise, ROUTES.PRIVACY)
 
     await expect(page).toHaveURL(ROUTES.PRIVACY)
     expect(lessons).toHaveLength(1)

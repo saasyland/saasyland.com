@@ -260,7 +260,7 @@ Ponieważ każda strona ładuje każdy szkielet, szkielet importuje `Skeleton`, 
 | `/app`         | 430,4 KiB | 404,1 KiB |
 | `/admin`       | 452,9 KiB | 427,7 KiB |
 
-`/` i `/blog` oszczędzają mniej, bo ich layouty renderują formularz newslettera, który i tak potrzebuje TanStack Form. `pending-imports.test.ts` śledzi importy każdego `*-pending.tsx` i kończy się błędem, gdy któryś dociera do `@tanstack/react-form`, `@tanstack/react-table` lub `recharts`. Panele pulpitu administracyjnego łączą w jednej liście każdy szkielet z jego komponentem, a szkielety są rysowane z tej listy, więc wykresy i tabele paneli ładowały się z każdą stroną. Teraz każdy wpis wskazuje swój panel przez `lazyRouteComponent` i bierze szkielet z własnego pliku `-pending.tsx`, a loader pulpitu wstępnie ładuje panele razem z ich danymi, więc panele ładują się we własnych chunkach, a pulpit i tak renderuje je od razu. Skrypty importowane przez skrypt wejściowy, po kompresji gzip, z wyniku `bun run build:test`:
+`/` i `/blog` oszczędzają mniej, bo ich layouty renderują formularz newslettera, który i tak potrzebuje TanStack Form. `pending-imports.test.ts` śledzi importy każdego `*-pending.tsx` i kończy się błędem, gdy któryś dociera do `@tanstack/react-form`, `@tanstack/react-table` lub `recharts`. Panele pulpitu administracyjnego łączyły w jednej liście każdy szkielet z jego komponentem, a szkielety były rysowane z tej listy, więc wykresy i tabele paneli ładowały się z każdą stroną. Teraz ich lista wskazuje tylko szkielet i zapytanie każdego panelu, a same panele ładują się razem z pulpitem (zobacz [Sekcja z elementami sterującymi ładuje się razem ze swoją stroną](#a-section-with-controls-loads-with-its-page)). Skrypty importowane przez skrypt wejściowy, po kompresji gzip, z wyniku `bun run build:test`:
 
 | Pomiar                                        | Przed     | Po        |
 | --------------------------------------------- | --------- | --------- |
@@ -268,6 +268,31 @@ Ponieważ każda strona ładuje każdy szkielet, szkielet importuje `Skeleton`, 
 | Pliki                                         | 176       | 172       |
 
 Sekcje przeglądu klienta nadal łączą w liście obszaru każdy szkielet z jego komponentem, więc te komponenty ładują się razem ze szkieletami.
+
+## Sekcja z elementami sterującymi ładuje się razem ze swoją stroną [#a-section-with-controls-loads-with-its-page]
+
+Zanim React przeprowadzi hydratację strony, router ładuje chunki dopasowanych tras: `hydrate` w `@tanstack/router-core` czeka na komponent i komponent stanu oczekiwania każdej trasy. Komponent, który strona wskazuje przez `lazy` z Reacta albo przez `lazyRouteComponent`, do nich nie należy, więc przy pełnym ładowaniu strony jego chunk jest pobierany dopiero wtedy, gdy React dotrze do niego w trakcie hydratacji. Dopóki ten chunk nie dotrze, React zostawia najbliższą granicę `Suspense` jako HTML z serwera i odrzuca każde naciśnięcie w jej obrębie; nie powtarza go, gdy granica przejdzie hydratację. Tak ładowały się panele pulpitu administracyjnego, a najbliższą granicą była granica samej trasy, więc cały pulpit pod layoutem panelu administracyjnego ignorował kliknięcia, dopóki nie dotarły chunki paneli. Tak samo ładował się odtwarzacz kursów, we własnej granicy, więc jego przycisk odtwarzania nic nie robił, dopóki nie dotarł chunk odtwarzacza.
+
+Dlatego część z przyciskiem, linkiem, polem albo tabelą importuje strona, która ją renderuje, a z opóźnieniem ładuje się tylko część, która nie przyjmuje naciśnięć, we własnej granicy `Suspense`. `source-layout.test.ts` śledzi każdy moduł, który plik w `src/presentation` lub `src/routes` ładuje przez `lazy` albo `lazyRouteComponent`, i kończy się błędem, gdy któryś dociera do React Aria, routera, TanStack Form, TanStack Table albo odtwarzacza wideo. Gdy szkielet rysuje swoje części z listy, ta lista zawiera tylko to, czego potrzebują szkielet i loader: `DASHBOARD_PANELS` w `panels-pending.tsx` wskazuje `key`, szkielet i `prefetch` każdego panelu, a `panels.tsx` przypisuje każdemu kluczowi jego panel w `Record` typowanym tymi kluczami, więc panel bez wpisu albo wpis bez panelu nie przechodzi sprawdzania typów. Szkielet stron kursów bierze szkielet odtwarzacza z `player-pending.tsx`. Komponent pulpitu importuje `panels.tsx`, a komponent lekcji importuje odtwarzacz, więc ich elementy sterujące docierają razem z chunkiem samej strony, przed hydratacją, a szkielety pozostają tak lekkie jak wcześniej.
+
+Z opóźnieniem ładuje się już tylko rysunek wykresów pulpitu. Gdy Recharts był w chunku pulpitu, przeglądarka wykonywała go przed hydratacją, w tym samym długim zadaniu co kod pulpitu, a pełne ładowanie `/admin` blokowało wątek główny o 98 ms dłużej niż z rysunkiem we własnym chunku (Chromium z procesorem spowolnionym 6 razy, mediany z sześciu naprzemiennych ładowań). `TimeSeriesChart` renderuje teraz tabelę swoich wartości razem z panelem i ładuje słupki, `TimeSeriesBars` z `time-series-bars.tsx`, przez `lazyRouteComponent` we własnej granicy, a loader pulpitu pobiera je z wyprzedzeniem razem z danymi. Przyciski okresu i zakładki walut działają od pierwszej chwili; rysunek, który jeszcze nie dotarł, nadąża za naciśnięciem, gdy tylko dotrze jego chunk.
+
+Test „a press on a dashboard panel right after a full load hydrates the console takes effect, however late the scripts arrive” w `e2e/specs/admin-dashboard.spec.ts` spowalnia każdy skrypt, ładuje `/admin`, naciska 12 miesięcy w panelu przychodów w chwili, gdy pasek boczny panelu administracyjnego przejdzie hydratację, i sprawdza, że panel się przełącza. Z panelami ładowanymi z opóźnieniem kończył się błędem, teraz przechodzi. Poniżej: skrypt wejściowy z jego statycznymi importami, po kompresji gzip, z wyniku `bun run build:test`; desktopowy preset Lighthouse przy procesorze spowolnionym 7 razy, mediany z pięciu naprzemiennych uruchomień; oraz czas, przez który długie zadania zarejestrowane przez Chromium podczas pełnego ładowania przy procesorze spowolnionym 6 razy blokowały wątek główny, mediany z dwunastu ładowań `/admin` i siedmiu ładowań lekcji. Symulacja Lighthouse podaje dla `/admin` wyższy Total Blocking Time, a długie zadania rejestrowane przez Chromium blokują wątek główny krócej:
+
+| Pomiar                                                | Sekcje ładowane z opóźnieniem | Sekcje razem ze stroną |
+| ----------------------------------------------------- | ----------------------------- | ---------------------- |
+| Skrypt wejściowy z jego statycznymi importami         | 415,8 KiB                     | 409,0 KiB              |
+| `/`: First Contentful Paint                           | 439 ms                        | 435 ms                 |
+| `/`: Largest Contentful Paint                         | 857 ms                        | 856 ms                 |
+| `/`: Total Blocking Time                              | 202 ms                        | 197 ms                 |
+| `/admin`: First Contentful Paint                      | 520 ms                        | 506 ms                 |
+| `/admin`: Largest Contentful Paint                    | 584 ms                        | 601 ms                 |
+| `/admin`: Total Blocking Time                         | 383 ms                        | 430 ms                 |
+| Lekcja: First Contentful Paint                        | 417 ms                        | 421 ms                 |
+| Lekcja: Largest Contentful Paint                      | 531 ms                        | 555 ms                 |
+| Lekcja: Total Blocking Time                           | 188 ms                        | 233 ms                 |
+| `/admin`: wątek główny blokowany przez długie zadania | 512 ms                        | 478 ms                 |
+| Lekcja: wątek główny blokowany przez długie zadania   | 257 ms                        | 220 ms                 |
 
 ## Jeden build Tailwind
 

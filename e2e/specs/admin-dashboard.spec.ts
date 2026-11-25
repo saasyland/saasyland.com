@@ -1,6 +1,9 @@
+import { setTimeout as delay } from "node:timers/promises"
+
 import type { Locator, Page } from "@playwright/test"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import * as ROUTES from "../../src/routes"
 import {
   LICENSE_STATUS,
   LICENSE_STATUSES,
@@ -42,6 +45,12 @@ const REMOVED_SCREENS = [
 ] as const
 
 const REMOVED_LABELS = /analytics|pricing models|payments|blog|landing page|roles/iu
+
+const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
+
+const SCRIPT_LATENCY_MS = 400
+
+const REACT_FIBER_KEY_PREFIX = "__reactFiber$"
 
 const revenue = paymentsDashboardMessages.revenue
 const ranges = pagesAdminDashboardMessages.chart.range
@@ -89,6 +98,31 @@ test("the dashboard totals the seeded orders per currency, refunds subtracted, a
   await expect(signups.getByText(/^\d[\d,]* new users?$/u)).toBeVisible()
   await expect(panel(page, coursesDashboardMessages.progress.title).getByRole("table")).toBeVisible()
   await expect(page.getByText("Revenue Overview")).toHaveCount(0)
+})
+
+test("a press on a dashboard panel right after a full load hydrates the console takes effect, however late the scripts arrive", async ({
+  page,
+}) => {
+  await signInAsAdmin(page)
+  await page.route(CLIENT_SCRIPT, async (route) => {
+    await delay(SCRIPT_LATENCY_MS)
+    await route.continue()
+  })
+
+  await page.goto(ROUTES.ADMIN, { waitUntil: "commit" })
+  await page.waitForFunction(
+    (prefix) => {
+      const sidebar = document.querySelector("[data-slot=sidebar]")
+
+      return sidebar !== null && Object.keys(sidebar).some((key) => key.startsWith(prefix))
+    },
+    REACT_FIBER_KEY_PREFIX,
+    { polling: "raf" },
+  )
+
+  const revenuePanel = panel(page, revenue.title)
+  await revenuePanel.getByRole("radio", { name: ranges["12m"] }).click()
+  await expect(revenuePanel.getByRole("tab", { exact: true, name: "EUR" })).toBeVisible()
 })
 
 test("the dashboard counts each tier's licences by status, the seeded revoked ones exactly and the active and refunded ones purchases add to", async ({

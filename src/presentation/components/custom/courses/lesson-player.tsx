@@ -1,4 +1,4 @@
-import { type JSX, Suspense, lazy } from "react"
+import type { JSX } from "react"
 
 import { useQuery } from "@tanstack/react-query"
 
@@ -9,15 +9,10 @@ import { useLessonProgress } from "~/src/hooks/use-lesson-progress"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
-import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-
-const VideoPlayer = lazy(() =>
-  import("~/src/presentation/components/custom/video-player").then((module) => ({ default: module.VideoPlayer })),
-)
+import { PlayerPending } from "~/src/presentation/components/custom/courses/player-pending"
+import { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
 const PLAYER_SIZES = "(min-width: 80rem) 52rem, (min-width: 64rem) calc(100vw - 30rem), calc(100vw - 3rem)"
-
-export const PlayerPending = (): JSX.Element => <Skeleton className="aspect-video w-full rounded-lg" />
 
 interface LessonPlayerProps {
   readonly courseSlug: string
@@ -35,14 +30,12 @@ export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps
   }
 
   return (
-    <Suspense fallback={<PlayerPending />}>
-      <VideoPlayer
-        onEnded={complete}
-        onProgress={save}
-        playback={data}
-        sizes={PLAYER_SIZES}
-        startAt={lesson.positionMs / MILLISECONDS_PER_SECOND}
-      />
-    </Suspense>
+    <VideoPlayer
+      onEnded={complete}
+      onProgress={save}
+      playback={data}
+      sizes={PLAYER_SIZES}
+      startAt={lesson.positionMs / MILLISECONDS_PER_SECOND}
+    />
   )
 }

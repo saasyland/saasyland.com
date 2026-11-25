@@ -260,7 +260,7 @@ Because every page loads every skeleton, a skeleton imports `Skeleton`, the shad
 | `/app`         | 430.4 KiB | 404.1 KiB |
 | `/admin`       | 452.9 KiB | 427.7 KiB |
 
-`/` and `/blog` save less because their layouts render the newsletter form, which needs TanStack Form anyway. `pending-imports.test.ts` follows the imports of every `*-pending.tsx` and fails when one reaches `@tanstack/react-form`, `@tanstack/react-table` or `recharts`. The admin dashboard's panels pair each skeleton with its component in one list, and the skeletons are drawn from that list, so the panels' charts and tables used to load with every page. Each entry now names its panel with `lazyRouteComponent` and takes its skeleton from a `-pending.tsx` file of its own, and the dashboard's loader preloads the panels together with their data, so the panels load in chunks of their own while the dashboard still renders them at once. The scripts the entry script imports, gzipped, from the `bun run build:test` output:
+`/` and `/blog` save less because their layouts render the newsletter form, which needs TanStack Form anyway. `pending-imports.test.ts` follows the imports of every `*-pending.tsx` and fails when one reaches `@tanstack/react-form`, `@tanstack/react-table` or `recharts`. The admin dashboard's panels used to pair each skeleton with its component in one list, and the skeletons were drawn from that list, so the panels' charts and tables loaded with every page. Their list now names only each panel's skeleton and query, and the panels load with the dashboard (see [A section with controls loads with its page](#a-section-with-controls-loads-with-its-page)). The scripts the entry script imports, gzipped, from the `bun run build:test` output:
 
 | Measure                              | Before    | After     |
 | ------------------------------------ | --------- | --------- |
@@ -268,6 +268,31 @@ Because every page loads every skeleton, a skeleton imports `Skeleton`, the shad
 | Files                                | 176       | 172       |
 
 The customer overview's sections still pair each skeleton with its component in the area's list, so those components load with the skeletons.
+
+## A section with controls loads with its page
+
+Before React hydrates a page, the router loads the chunks of the routes it matched: `hydrate` in `@tanstack/router-core` waits for each route's component and pending component. A component that a page names with React's `lazy` or with `lazyRouteComponent` is not one of them, so on a full load its chunk is requested only when React reaches it during hydration. Until that chunk arrives, React keeps the nearest `Suspense` boundary as the server's HTML and drops every press on it; it does not replay the press once the boundary hydrates. The admin dashboard's panels were loaded that way, and the boundary nearest to them was the route's own, so the whole dashboard below the console's layout ignored clicks until the panels' chunks arrived. The course player was loaded that way too, inside a boundary of its own, so its play button did nothing until the player's chunk arrived.
+
+A part with a button, a link, a field or a table is therefore imported by the page that renders it, and only a part that takes no press loads lazily, inside a `Suspense` boundary of its own. `source-layout.test.ts` follows every module that a file under `src/presentation` or `src/routes` loads through `lazy` or `lazyRouteComponent`, and fails when one reaches React Aria, the router, TanStack Form, TanStack Table or the video player. When a skeleton draws its parts from a list, that list holds only what the skeleton and the loader need: `DASHBOARD_PANELS` in `panels-pending.tsx` names each panel's `key`, skeleton and `prefetch`, and `panels.tsx` gives each key its panel in a `Record` typed by those keys, so a panel without an entry, or an entry without a panel, fails the type check. The course pages' skeleton takes the player's skeleton from `player-pending.tsx`. The dashboard's component imports `panels.tsx` and the lesson's imports the player, so their controls arrive with the page's own chunk, before hydration, and the skeletons stay as light as before.
+
+Only the drawing of the dashboard's charts stays lazy. With Recharts in the dashboard's chunk, the browser evaluated it before hydration, in the same long task as the dashboard's code, and a full load of `/admin` blocked the main thread for 98 ms more than with the drawing in a chunk of its own (Chromium at 6× CPU, medians of six interleaved loads). `TimeSeriesChart` now renders the table of its values with the panel and loads the bars, `TimeSeriesBars` in `time-series-bars.tsx`, with `lazyRouteComponent` inside a boundary of their own, and the dashboard's loader preloads them with the data. The range buttons and the currency tabs work from the first moment; a drawing that has not arrived yet follows a press as soon as its chunk does.
+
+The test "a press on a dashboard panel right after a full load hydrates the console takes effect, however late the scripts arrive" in `e2e/specs/admin-dashboard.spec.ts` slows every script down, loads `/admin`, presses the revenue panel's 12 months the moment the console's sidebar has hydrated and checks that the panel switches to them. It failed with the lazy panels and passes now. Below are the entry script with its static imports, gzipped, from the `bun run build:test` output; Lighthouse's desktop preset at 7× CPU, medians of five interleaved runs; and the main-thread time blocked by the long tasks Chromium recorded during a full load at 6× CPU, medians of twelve loads of `/admin` and seven of a lesson. Lighthouse's simulation reports a higher Total Blocking Time for `/admin`, while the long tasks Chromium records block the main thread for less time:
+
+| Measure                                     | Lazy sections | Sections with their page |
+| ------------------------------------------- | ------------- | ------------------------ |
+| Entry script with its static imports        | 415.8 KiB     | 409.0 KiB                |
+| `/`: First Contentful Paint                 | 439 ms        | 435 ms                   |
+| `/`: Largest Contentful Paint               | 857 ms        | 856 ms                   |
+| `/`: Total Blocking Time                    | 202 ms        | 197 ms                   |
+| `/admin`: First Contentful Paint            | 520 ms        | 506 ms                   |
+| `/admin`: Largest Contentful Paint          | 584 ms        | 601 ms                   |
+| `/admin`: Total Blocking Time               | 383 ms        | 430 ms                   |
+| A lesson: First Contentful Paint            | 417 ms        | 421 ms                   |
+| A lesson: Largest Contentful Paint          | 531 ms        | 555 ms                   |
+| A lesson: Total Blocking Time               | 188 ms        | 233 ms                   |
+| `/admin`: main thread blocked by long tasks | 512 ms        | 478 ms                   |
+| A lesson: main thread blocked by long tasks | 257 ms        | 220 ms                   |
 
 ## One Tailwind build
 

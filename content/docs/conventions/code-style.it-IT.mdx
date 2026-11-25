@@ -1,6 +1,6 @@
 ---
 title: "Stile del codice"
-description: "Cosa impongono il formatter, il linter, il compilatore e il controllo dei commenti: niente commenti, niente scappatoie, ternari su una riga, niente ?? undefined e costanti con un nome."
+description: "Cosa impongono il formatter, il linter, il compilatore e il controllo dei commenti: commenti solo come link, niente scappatoie, ternari su una riga, niente ?? undefined e costanti con un nome."
 ---
 
 `bun run check` esegue `bun run generate:cn`, `bun run check:comments`, `bun run check:i18n`, `bun run check:content` e `bun run check:flows`, e poi `vp check`, che in un unico passaggio formatta con oxfmt, analizza con oxlint e controlla i tipi con TypeScript, con la configurazione in `vite.config.ts` e `tsconfig.json`. La CI esegue lo stesso comando. Niente qui è una questione di gusti: se gli strumenti accettano codice che viola una regola di questa pagina, la revisione lo rifiuta.
@@ -21,7 +21,7 @@ oxlint tratta come errori le categorie `correctness`, `nursery`, `pedantic`, `pe
 | `typescript/no-explicit-any`            | `error`                                                                       | Nessun valore è tipizzato `any`                                             |
 | `typescript/ban-ts-comment`             | `true` per `@ts-expect-error`, `@ts-ignore` e `@ts-nocheck`                   | Nessun errore del compilatore viene soppresso, con o senza un motivo        |
 | `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                                     | Nessun cast con `as`; `as const` e `satisfies` restano ammessi              |
-| `code-style/no-comments`                | `error`                                                                       | Nessun commento, compresi i commenti di direttiva                           |
+| `code-style/no-comments`                | `error`                                                                       | Nessun commento tranne un link su una riga, e mai una direttiva             |
 | `code-style/no-multiline-ternary`       | `error`                                                                       | Un ternario sta su una riga                                                 |
 | `code-style/no-undefined-branch`        | `error`                                                                       | Nessun ternario con un ramo `undefined` o `null`, nessun `return undefined` |
 | `code-style/no-undefined-fallback`      | `error`                                                                       | Nessun `?? undefined`                                                       |
@@ -47,9 +47,9 @@ Una pagina viene renderizzata due volte: sul server e di nuovo nel browser, quan
 
 `hydration/no-clock-or-locale-in-render`, la regola del plugin oxlint proprio del repository in `scripts/hydration-lint-plugin.ts`, lo impone in `src/hooks`, `src/presentation`, `src/providers` e `src/routes/*.tsx`. Lì tutto conta come codice di rendering tranne una funzione che viene eseguita dopo: un gestore di eventi `on…`, come prop JSX, proprietà di un oggetto o variabile; una `queryFn` o una `mutationFn`; e una callback passata a `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` o `addEventListener`. Queste liste nel plugin sono la allowlist: un altro tipo di callback differita si aggiunge lì, con un caso in `src/__test__/hydration-lint-plugin.test.ts`, mai con un commento di disattivazione.
 
-## Niente commenti
+## Commenti [#comments]
 
-Non scrivere commenti: né in TypeScript, TSX, test, script, configurazione o CSS, e nemmeno per spiegare un vincolo non ovvio. Il significato lo porta invece un nome, e il ragionamento va nel messaggio di commit, nella pull request o in questa documentazione.
+Di norma non scrivere commenti: né in TypeScript, TSX, test, script, configurazione, CSS o workflow. Il significato lo porta invece un nome, e il ragionamento va nel messaggio di commit, nella pull request o in questa documentazione.
 
 ```ts
 const INCLUSIVE_END = 1
@@ -59,10 +59,17 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 Le prime due vengono da `video.delivery.ts` e `release.ts`, la terza da `src/integrations/polar/polar.vite.ts`: ognuna avrebbe altrimenti bisogno di un commento.
 
+Un commento si guadagna il suo posto solo quando chi legge il codice ha davvero bisogno di sapere dove si trova una motivazione, e allora rimanda lì invece di spiegare. I controlli accettano due forme e nient'altro:
+
+- Un commento con un link: una sola riga il cui contenuto è un link al punto in cui si trova la motivazione, preceduto da al massimo <RepositoryFact name="linkCommentWords" /> parole. Il link è un URL `https://`, come una pagina di documentazione, il README o la roadmap su GitHub, oppure una issue o una pull request a monte, o un percorso della documentazione di questo sito che inizia con `/docs/`: `// https://github.com/TanStack/router/issues/8933` o `// See /docs/conventions/code-style#comments`. Un commento a blocco o JSX segue la stessa forma su una riga, e sulla riga sopra o sotto non può esserci un altro commento.
+- Il tag di versione in un workflow: una riga YAML `uses:` che fissa una action a uno SHA di commit di 40 caratteri termina con il tag con cui quel commit è stato rilasciato, `# v4` o `# v7.0.0`. Un file YAML non accetta altri commenti.
+
+Tutto il resto fallisce: una spiegazione, un banner, un `TODO`, codice commentato, una seconda riga, testo dopo il link e un commento di direttiva anche quando termina con un link.
+
 Due controlli impongono la regola, ed entrambi indicano il file, la riga e la correzione:
 
-- `code-style/no-comments`, una regola del plugin oxlint del repository in `scripts/code-style-lint-plugin.ts`, segnala ogni commento nei file che il linter legge, nell'editor e in `vp check`.
-- `bun run check:comments` esegue `scripts/check-comments.ts` prima del linter, in `bun run check` e nell'hook di pre-commit. Esegue il parsing di ogni file TypeScript, JavaScript e CSS che Git traccia o aggiungerebbe, con oxc per il codice e PostCSS per gli stili, quindi un `//` in un URL o in un'espressione regolare e un `/*` in un glob CSS non sono commenti. Legge ciò che il linter non può leggere: `e2e`, `remotion`, i file di dichiarazione, i fogli di stile e un commento `/* oxlint-disable */`, a cui il linter obbedisce prima che una qualsiasi regola lo veda.
+- `code-style/no-comments`, una regola del plugin oxlint del repository in `scripts/code-style-lint-plugin.ts`, segnala ogni commento che non sia un commento con un link nei file che il linter legge, nell'editor e in `vp check`.
+- `bun run check:comments` esegue `scripts/check-comments.ts` prima del linter, in `bun run check` e nell'hook di pre-commit. Esegue il parsing di ogni file TypeScript, JavaScript, CSS e YAML che Git traccia o aggiungerebbe, con oxc per il codice, PostCSS per gli stili e il pacchetto `yaml` per lo YAML, quindi un `//` in un URL o in un'espressione regolare, un `/*` in un glob CSS e un `#` in una stringa YAML non sono commenti. Legge ciò che il linter non può leggere: `e2e`, `remotion`, i file di dichiarazione, i fogli di stile, i workflow e un commento `/* oxlint-disable */`, a cui il linter obbedisce prima che una qualsiasi regola lo veda.
 
 Le esenzioni sono i file che `.gitattributes` contrassegna come `linguist-generated`, di cui `src/routeTree.gen.ts` e `src/types/worker-configuration.d.ts` sono codice, e la riga `#!` di uno script, che la grammatica di JavaScript non considera un commento. Un tipo di cui il compilatore ha bisogno ovunque va in `types` in `tsconfig.json`, come i globali di Vitest, mai in un commento `/// <reference>`.
 

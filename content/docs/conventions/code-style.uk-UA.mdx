@@ -1,6 +1,6 @@
 ---
 title: "Стиль коду"
-description: "Що забезпечують форматер, лінтер, компілятор і перевірка коментарів: жодних коментарів, жодних обхідних шляхів, однорядкові тернарні оператори, жодного ?? undefined та іменовані константи."
+description: "Що забезпечують форматер, лінтер, компілятор і перевірка коментарів: коментарі лише як посилання, жодних обхідних шляхів, однорядкові тернарні оператори, жодного ?? undefined та іменовані константи."
 ---
 
 `bun run check` запускає `bun run generate:cn`, `bun run check:comments`, `bun run check:i18n`, `bun run check:content` і `bun run check:flows`, а потім `vp check`, який за один прохід форматує код через oxfmt, лінтить через oxlint і перевіряє типи через TypeScript з конфігурацією з `vite.config.ts` і `tsconfig.json`. CI запускає ту саму команду. Ніщо тут не є справою смаку: якщо інструменти пропускають код, що порушує правило з цієї сторінки, його відхиляють на рев’ю.
@@ -21,7 +21,7 @@ oxlint запускає категорії `correctness`, `nursery`, `pedantic`,
 | `typescript/no-explicit-any`            | `error`                                                                       | Жодне значення не має типу `any`                                                         |
 | `typescript/ban-ts-comment`             | `true` для `@ts-expect-error`, `@ts-ignore` і `@ts-nocheck`                   | Жодну помилку компілятора не приглушують, ні з поясненням, ні без нього                  |
 | `typescript/consistent-type-assertions` | `assertionStyle: "never"`                                                     | Жодного приведення `as`; `as const` і `satisfies` залишаються                            |
-| `code-style/no-comments`                | `error`                                                                       | Жодного коментаря, зокрема коментарів-директив                                           |
+| `code-style/no-comments`                | `error`                                                                       | Жодного коментаря, крім однорядкового посилання, і жодної директиви                      |
 | `code-style/no-multiline-ternary`       | `error`                                                                       | Тернарний оператор вміщується в один рядок                                               |
 | `code-style/no-undefined-branch`        | `error`                                                                       | Жодного тернарного оператора з гілкою `undefined` чи `null` і жодного `return undefined` |
 | `code-style/no-undefined-fallback`      | `error`                                                                       | Жодного `?? undefined`                                                                   |
@@ -47,9 +47,9 @@ oxlint запускає категорії `correctness`, `nursery`, `pedantic`,
 
 `hydration/no-clock-or-locale-in-render`, правило власного oxlint-плагіна репозиторію в `scripts/hydration-lint-plugin.ts`, забезпечує це в `src/hooks`, `src/presentation`, `src/providers` і `src/routes/*.tsx`. Усе там вважається кодом рендерингу, крім функції, яка виконується пізніше: обробника подій `on…` як JSX-пропа, властивості об’єкта чи змінної; `queryFn` або `mutationFn`; і колбека, переданого в `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` або `addEventListener`. Ці списки в плагіні й є списком дозволених: новий вид відкладеного колбека додають туди з випадком у `src/__test__/hydration-lint-plugin.test.ts`, а не коментарем, що вимикає правило.
 
-## Жодних коментарів
+## Коментарі [#comments]
 
-Не пишіть коментарів: ні в TypeScript, TSX, тестах, скриптах, конфігурації чи CSS, ні навіть для пояснення неочевидного обмеження. Сенс натомість передає назва, а міркування потрапляють у повідомлення коміту, pull request або цю документацію.
+Типово не пишіть коментарів: ні в TypeScript, TSX, тестах, скриптах, конфігурації, CSS, ні у workflow. Сенс натомість передає назва, а міркування потрапляють у повідомлення коміту, pull request або цю документацію.
 
 ```ts
 const INCLUSIVE_END = 1
@@ -59,10 +59,17 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 Перші дві взято з `video.delivery.ts` і `release.ts`, третю — з `src/integrations/polar/polar.vite.ts`: інакше кожна з них потребувала б коментаря.
 
+Коментар доречний лише тоді, коли читачеві коду справді треба знати, де записано обґрунтування, і тоді він вказує туди, а не пояснює. Перевірки пропускають дві форми й нічого більше:
+
+- Коментар-посилання: один рядок, зміст якого — посилання на місце з обґрунтуванням, перед яким стоїть щонайбільше <RepositoryFact name="linkCommentWords" /> слів. Посилання — це URL `https://`, наприклад сторінка документації, README чи дорожня карта на GitHub або issue чи pull request у сторонньому проєкті, або шлях документації цього сайту, що починається з `/docs/`: `// https://github.com/TanStack/router/issues/8933` чи `// See /docs/conventions/code-style#comments`. Блоковий коментар і коментар у JSX мають ту саму однорядкову форму, а в рядку над ним і під ним не може бути іншого коментаря.
+- Тег версії у workflow: рядок YAML `uses:`, що закріплює action за 40-символьним SHA коміту, закінчується тегом, під яким цей коміт випущено, `# v4` чи `# v7.0.0`. Інших коментарів файл YAML не приймає.
+
+Усе інше не проходить: пояснення, банер, `TODO`, закоментований код, другий рядок, текст після посилання та коментар-директива, навіть якщо він закінчується посиланням.
+
 Правило забезпечують дві перевірки, і обидві називають файл, рядок і спосіб виправлення:
 
-- `code-style/no-comments`, правило власного oxlint-плагіна репозиторію в `scripts/code-style-lint-plugin.ts`, повідомляє про кожен коментар у файлах, які читає лінтер, у редакторі та у `vp check`.
-- `bun run check:comments` запускає `scripts/check-comments.ts` перед лінтером, у `bun run check` і в pre-commit-хуку. Він розбирає кожен файл TypeScript, JavaScript і CSS, який Git відстежує або додав би, через oxc для коду й PostCSS для стилів, тож `//` в URL чи регулярному виразі та `/*` у CSS-glob не є коментарями. Він читає те, чого не може лінтер: `e2e`, `remotion`, файли оголошень, таблиці стилів і коментар `/* oxlint-disable */`, якому лінтер підкоряється раніше, ніж його побачить будь-яке правило.
+- `code-style/no-comments`, правило власного oxlint-плагіна репозиторію в `scripts/code-style-lint-plugin.ts`, повідомляє про кожен коментар, крім коментаря-посилання, у файлах, які читає лінтер, у редакторі та у `vp check`.
+- `bun run check:comments` запускає `scripts/check-comments.ts` перед лінтером, у `bun run check` і в pre-commit-хуку. Він розбирає кожен файл TypeScript, JavaScript, CSS і YAML, який Git відстежує або додав би, через oxc для коду, PostCSS для стилів і пакет `yaml` для YAML, тож `//` в URL чи регулярному виразі, `/*` у CSS-glob і `#` у рядку YAML не є коментарями. Він читає те, чого не може лінтер: `e2e`, `remotion`, файли оголошень, таблиці стилів, workflow і коментар `/* oxlint-disable */`, якому лінтер підкоряється раніше, ніж його побачить будь-яке правило.
 
 Винятками є файли, які `.gitattributes` позначає як `linguist-generated`, з яких кодом є `src/routeTree.gen.ts` і `src/types/worker-configuration.d.ts`, а також рядок `#!` скрипта, який граматика JavaScript не вважає коментарем. Тип, потрібний компілятору всюди, додають у `types` у `tsconfig.json`, як глобальні змінні Vitest, і ніколи не в коментар `/// <reference>`.
 

@@ -34,7 +34,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 
 ## Rules without exceptions
 
-1. No comments anywhere: code, tests, scripts, configuration, CSS. Only generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt.
+1. No comment unless it is really needed, and then only one line that links to where the reason lives (an `https://` docs page, README, roadmap or upstream issue, or a `/docs/` path) after a few words, or the `# v4` version tag after an action pinned to a commit SHA; explanations, banners, TODOs and commented-out code go into the docs, the commit message or the pull request. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt.
 2. No `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `as` casts or `any` to get past a rule. Fix the cause.
 3. No multi-line ternaries; conditional classes use `cn("base", { "classes": condition })` from `~/src/lib/cn`.
 4. No `?? undefined`; validate with Zod instead. Outside tests and `src/platform/testing`, `null` is written only where an API defines it: in a comparison with a value that can be `null`, and in a React DOM ref (`useRef<HTMLElement>(null)`).

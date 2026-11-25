@@ -270,30 +270,35 @@ React рендерить сторінку двічі, на сервері й у 
 
 ### Приклад: жодних коментарів, і це забезпечує парсер
 
-Аудит вище показав, що наше правило «жодних коментарів» забезпечувалося лише випадково. Ось правило, яке закрило цю прогалину, написане для API правил ESLint, яке Oxlint теж завантажує («API плагінів Oxlint сумісний з ESLint v9+»); у нас це `code-style/no-comments` у `scripts/code-style-lint-plugin.ts`:
+Аудит вище показав, що наше правило «жодних коментарів» забезпечувалося лише випадково. Ось правило, яке закрило цю прогалину, написане для API правил ESLint, яке Oxlint теж завантажує («API плагінів Oxlint сумісний з ESLint v9+»); у нас це `code-style/no-comments` у `scripts/code-style-lint-plugin.ts`, у нинішньому вигляді, з єдиним винятком, який воно отримало пізніше: для рідкісного коментаря, що справді потрібен, — один рядок із посиланням на місце з обґрунтуванням:
 
 ```ts title="scripts/code-style-lint-plugin.ts"
-export const COMMENT_MESSAGES = {
-  comment:
-    "Remove this comment. Say it in a name, a named constant or a smaller function, and put the reasoning in the commit message, the pull request or the docs.",
-  directive: "Remove this directive comment, which switches a check off, and fix the cause the rule or the compiler reports instead.",
-} as const
-
-export const commentMessageId = (text: string): keyof typeof COMMENT_MESSAGES => (DIRECTIVE.test(text) ? "directive" : "comment")
+export const isLinkComment = (comment: CommentSpan, comments: readonly CommentSpan[]): boolean =>
+  comment.line === comment.endLine &&
+  commentMessageId(comment.text) === "comment" &&
+  !TASK_MARKER.test(comment.text) &&
+  LINK_COMMENT.test(comment.text.trim()) &&
+  standsAlone(comment, comments)
 
 export const noComments = defineRule({
   create: (context) => ({
     Program: () => {
-      for (const comment of context.sourceCode.getAllComments()) {
-        if (comment.type !== SHEBANG) {
-          context.report({ loc: comment.loc, messageId: commentMessageId(comment.value) })
+      const comments = context.sourceCode
+        .getAllComments()
+        .filter(({ type }) => type !== SHEBANG)
+        .map(({ loc, value }) => ({ endLine: loc.end.line, line: loc.start.line, loc, text: value }))
+
+      for (const comment of comments) {
+        if (!isLinkComment(comment, comments)) {
+          context.report({ loc: comment.loc, messageId: commentMessageId(comment.text) })
         }
       }
     },
   }),
   meta: {
     docs: {
-      description: "Source files carry no comments: names, the commit message, the pull request and the docs carry the meaning.",
+      description:
+        "Source files carry no comments but a one-line link to where the reason lives: names, the commit message, the pull request and the docs carry the meaning.",
     },
     messages: COMMENT_MESSAGES,
     type: "problem",

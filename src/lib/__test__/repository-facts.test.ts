@@ -2,6 +2,7 @@ import { API_BASE_PATH, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/sta
 import { existsSync, readFileSync } from "node:fs"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { createNonce } from "~/src/lib/content-security-policy"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
@@ -204,6 +205,10 @@ describe("collectFlowTables", () => {
 })
 
 describe("REPOSITORY_FACTS", () => {
+  it("gives the length, random bytes and bits of the nonces the site makes", () => {
+    expect(REPOSITORY_FACTS).toMatchObject({ nonceBits: 128, nonceBytes: 16, nonceHexCharacters: createNonce().length })
+  })
+
   it("counts at least one browser test in every spec file", () => {
     expect(REPOSITORY_FACTS.e2eTests).toBeGreaterThanOrEqual(REPOSITORY_FACTS.e2eSpecs)
   })

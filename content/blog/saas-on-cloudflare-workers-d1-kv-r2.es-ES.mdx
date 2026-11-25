@@ -4,7 +4,7 @@ description: "Una guía práctica para ejecutar un SaaS en Cloudflare Workers co
 excerpt: "Workers, D1, KV y R2 pueden sostener un SaaS real si construyes según su forma: una base de datos SQLite que responde a una sola consulta a la vez, una caché con consistencia eventual, buckets sin tarifas de salida de datos y un script que tiene que cargarse antes de cada petición en frío. Esta guía convierte esa forma en reglas que puedes aplicar y contrasta cada una con el código de producción de saasyland.com, con sus incidentes, sus mediciones y sus costes a los precios de hoy."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -153,9 +153,9 @@ La mayoría de los errores en esta plataforma vienen de guardar algo en el produ
 
 Las reglas que hay detrás: lo que decide el acceso se guarda en un sitio consistente; lo que es grande va a R2; lo que se puede calcular durante el build es un asset estático; y KV solo guarda lo que podrías tirar y volver a obtener.
 
-### Ejemplo práctico: cinco bindings
+### Ejemplo práctico: los bindings de saasyland.com
 
-saasyland.com sigue la tabla con cinco bindings, declarados en `wrangler.jsonc`:
+saasyland.com sigue la tabla con estos bindings, declarados en `wrangler.jsonc`:
 
 | Binding   | Producto                    | Qué guarda                                                                                                              | Dónde está en el código                                                       |
 | --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -186,7 +186,7 @@ El archivo de configuración de un Worker es el mapa de todo tu sistema, y merec
 
 ### Ejemplo práctico: cuatro entornos y dos comprobaciones de despliegue
 
-`wrangler.jsonc` define cuatro entornos con los mismos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` una base de datos D1, un espacio de nombres de KV y unos buckets locales propios, y `test`, que mantiene una base de datos D1, un espacio de nombres de KV y unos buckets locales en `.wrangler/test` para la suite del navegador. Cada entorno enumera los secretos que necesita. Antes de cualquier despliegue, `scripts/verify-bindings.ts` falla cuando a un entorno le falta un binding o todavía tiene un ID de D1 o de KV de marcador de posición, o cuando producción comparte con preview su base de datos, su espacio de nombres o un bucket, y `scripts/prepare-deploy-secrets.ts` falla cuando un secreto obligatorio falta, está vacío o es un marcador de posición, y nombra la clave sin imprimir su valor.
+`wrangler.jsonc` define sus entornos con los mismos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` una base de datos D1, un espacio de nombres de KV y unos buckets locales propios, y `test`, que mantiene una base de datos D1, un espacio de nombres de KV y unos buckets locales en `.wrangler/test` para la suite del navegador. Cada entorno enumera los secretos que necesita. Antes de cualquier despliegue, `scripts/verify-bindings.ts` falla cuando a un entorno le falta un binding o todavía tiene un ID de D1 o de KV de marcador de posición, o cuando producción comparte con preview su base de datos, su espacio de nombres o un bucket, y `scripts/prepare-deploy-secrets.ts` falla cuando un secreto obligatorio falta, está vacío o es un marcador de posición, y nombra la clave sin imprimir su valor.
 
 La segunda comprobación nació de un error real, registrado en [#223](https://github.com/saasyland/saasyland.com/pull/223). El archivo de secretos de producción todavía contenía `[UPDATE]` como ID de cliente OAuth de Google, el despliegue lo subió porque entonces la comprobación solo rechazaba los valores vacíos, y el inicio de sesión con Google falló con `invalid_client`. La corrección llegó en dos capas: una comprobación en vivo después de cada despliegue, que empieza un inicio de sesión con cada proveedor y valida la URL a la que se dirige, y el rechazo de los valores de marcador de posición antes incluso de que empiece el build. Cada capa lo habría detectado por sí sola; juntas lo detectan dos veces.
 
@@ -286,7 +286,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-La comprobación existe por un error. Una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar llegó a meter unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio tardaba hasta 1,4 segundos, como recoge la [convención de rendimiento](/docs/conventions/performance). Los nombres de las cabeceras viven ahora en un archivo que no importa nada pesado.
+La comprobación existe por un error. Una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar llegó a meter unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio tardaba hasta 1,4 segundos, como recoge la [convención de rendimiento](/docs/conventions/performance) desde [#122](https://github.com/saasyland/saasyland.com/pull/122), fusionada el 13 de noviembre de 2026. Los nombres de las cabeceras viven ahora en un archivo que no importa nada pesado.
 
 ### Ejemplo práctico: dos pull requests que redujeron a la mitad el camino en frío
 
@@ -699,7 +699,7 @@ Así que la factura de ese mes es de 5 $, más el almacenamiento de R2 que super
 - KV no guarda nada que decida el acceso ni nada que se escriba más de una vez por segundo por clave.
 - Los valores en caché llevan el momento en que se obtuvieron y se validan al leerlos.
 - Los buckets son privados; el acceso se decide al emitir una URL, y las URL caducan.
-- Las subidas grandes se saltan el Worker.
+- Las subidas grandes llegan a R2 en partes por debajo del límite del cuerpo de la petición.
 - Los datos sobre los objetos que necesitan las peticiones se guardan como metadatos personalizados.
 - Cada límite de frecuencia tiene un almacenamiento acorde con la exactitud que necesita, y una decisión por escrito sobre si falla abierto o cerrado.
 

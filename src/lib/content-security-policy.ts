@@ -6,7 +6,7 @@ import { CONTENT_SECURITY_POLICY } from "~/src/modules/_core/constants/api"
 
 import { randomHex } from "~/src/lib/hex"
 
-const NONCE_LENGTH = 32
+export const NONCE_LENGTH = 32
 const NONCE_ATTRIBUTE = "nonce"
 
 export const documentPolicy = (nonce: string, polarServer: Environment): string =>

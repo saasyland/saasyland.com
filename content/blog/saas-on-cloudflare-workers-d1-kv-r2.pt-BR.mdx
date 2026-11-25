@@ -4,7 +4,7 @@ description: "Um guia prático para rodar um SaaS no Cloudflare Workers com D1, 
 excerpt: "O Workers, o D1, o KV e o R2 conseguem rodar um SaaS de verdade, se você construir de acordo com o formato deles: um banco de dados SQLite que responde a uma consulta por vez, um cache com consistência eventual, buckets sem taxas de saída de dados e um script que precisa ser carregado antes de cada requisição em cold start. Este guia transforma esse formato em regras que você pode aplicar e confere cada uma delas no código de produção do saasyland.com, com os incidentes, as medições e os custos dele aos preços de hoje."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -153,9 +153,9 @@ A maioria dos erros nesta plataforma vem de guardar algo no produto feito para u
 
 As regras por trás dela: o que decide o acesso fica guardado em algum lugar consistente; o que é grande vai para o R2; o que pode ser calculado no build é um arquivo estático; e o KV só guarda o que você poderia jogar fora e buscar de novo.
 
-### Exemplo prático: cinco bindings
+### Exemplo prático: os bindings do saasyland.com
 
-O saasyland.com segue a tabela com cinco bindings, declarados em `wrangler.jsonc`:
+O saasyland.com segue a tabela com estes bindings, declarados em `wrangler.jsonc`:
 
 | Binding   | Produto                       | O que guarda                                                                                        | Onde fica no código                                                           |
 | --------- | ----------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -186,7 +186,7 @@ O arquivo de configuração de um Worker é o mapa do seu sistema inteiro, e val
 
 ### Exemplo prático: quatro ambientes e duas verificações de deploy
 
-`wrangler.jsonc` define quatro ambientes com os mesmos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` um banco de dados D1, um namespace KV e buckets locais próprios, e `test`, que mantém um banco D1, um namespace KV e buckets locais em `.wrangler/test` para a suíte de navegador. Cada ambiente lista os secrets de que precisa. Antes de qualquer deploy, `scripts/verify-bindings.ts` falha quando falta um binding a um ambiente, quando ele ainda tem um ID de D1 ou de KV de placeholder ou quando a produção compartilha o seu banco de dados, namespace ou bucket com o preview, e `scripts/prepare-deploy-secrets.ts` falha quando um secret obrigatório está ausente, vazio ou é um placeholder, nomeando a chave sem imprimir o valor dela.
+`wrangler.jsonc` define seus ambientes com os mesmos bindings: `production`, `preview`, `development`, que vincula para `bun run dev` um banco de dados D1, um namespace KV e buckets locais próprios, e `test`, que mantém um banco D1, um namespace KV e buckets locais em `.wrangler/test` para a suíte de navegador. Cada ambiente lista os secrets de que precisa. Antes de qualquer deploy, `scripts/verify-bindings.ts` falha quando falta um binding a um ambiente, quando ele ainda tem um ID de D1 ou de KV de placeholder ou quando a produção compartilha o seu banco de dados, namespace ou bucket com o preview, e `scripts/prepare-deploy-secrets.ts` falha quando um secret obrigatório está ausente, vazio ou é um placeholder, nomeando a chave sem imprimir o valor dela.
 
 A segunda verificação nasceu de um erro real, registrado no [#223](https://github.com/saasyland/saasyland.com/pull/223). O arquivo de secrets de produção ainda tinha `[UPDATE]` como client ID do OAuth do Google, o deploy o enviou porque a verificação, na época, só recusava valores vazios, e o login com o Google falhou com `invalid_client`. A correção veio em duas camadas: uma verificação no ar depois de cada deploy, que inicia um login com cada provedor e valida a URL para a qual ele é enviado, e a recusa de valores de placeholder antes mesmo de o build começar. Cada camada teria pegado o erro sozinha; juntas, elas o pegam duas vezes.
 
@@ -286,7 +286,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-A verificação existe por causa de um erro. Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente da Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo, como registra a [convenção de desempenho](/docs/conventions/performance). Os nomes dos cabeçalhos agora ficam em um arquivo que não importa nada pesado.
+A verificação existe por causa de um erro. Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente da Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo, como registra a [convenção de desempenho](/docs/conventions/performance) desde o [#122](https://github.com/saasyland/saasyland.com/pull/122), integrado em 13 de novembro de 2026. Os nomes dos cabeçalhos agora ficam em um arquivo que não importa nada pesado.
 
 ### Exemplo prático: dois pull requests que reduziram à metade o caminho do cold start
 
@@ -699,7 +699,7 @@ Então a conta desse mês é de US$ 5, mais o armazenamento do R2 além dos 10 G
 - O KV não guarda nada que decida o acesso nem nada gravado mais de uma vez por segundo por chave.
 - Os valores em cache levam o horário da busca e são validados na leitura.
 - Os buckets são privados; o acesso é decidido quando uma URL é emitida, e as URLs expiram.
-- Os uploads grandes dispensam o Worker.
+- Os uploads grandes chegam ao R2 em partes abaixo do limite do corpo da requisição.
 - As informações sobre os objetos de que as requisições precisam ficam guardadas como metadados personalizados.
 - Cada rate limit tem um armazenamento compatível com a exatidão de que ele precisa, e uma decisão por escrito sobre falhar aberto ou fechado.
 

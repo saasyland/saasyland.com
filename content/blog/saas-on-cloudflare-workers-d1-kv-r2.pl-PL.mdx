@@ -4,7 +4,7 @@ description: "Praktyczny przewodnik po prowadzeniu SaaS-a na Cloudflare Workers 
 excerpt: "Workers, D1, KV i R2 udźwigną prawdziwego SaaS-a, jeśli budujesz pod ich kształt: baza danych SQLite, która odpowiada na jedno zapytanie naraz, cache, który jest ostatecznie spójny, buckety bez opłat za transfer wychodzący i skrypt, który musi się załadować przed każdym zimnym żądaniem. Ten przewodnik zamienia ten kształt w zasady, które możesz zastosować, i sprawdza każdą z nich na kodzie, który obsługuje saasyland.com na produkcji, razem z incydentami, pomiarami i kosztami według dzisiejszych cen."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -149,9 +149,9 @@ Większość błędów na tej platformie bierze się z przechowywania czegoś w 
 
 Zasady, które za nią stoją: to, co decyduje o dostępie, przechowuj w spójnym miejscu; to, co duże, trafia do R2; to, co da się obliczyć podczas builda, jest zasobem statycznym; a KV przechowuje tylko to, co można wyrzucić i pobrać ponownie.
 
-### Przykład z praktyki: pięć bindingów
+### Przykład z praktyki: bindingi saasyland.com
 
-saasyland.com stosuje tę tabelę za pomocą pięciu bindingów zadeklarowanych w `wrangler.jsonc`:
+saasyland.com stosuje tę tabelę za pomocą bindingów zadeklarowanych w `wrangler.jsonc`:
 
 | Binding   | Produkt                  | Co przechowuje                                                                                | Gdzie w kodzie                                                                |
 | --------- | ------------------------ | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -182,7 +182,7 @@ Plik konfiguracyjny Workera to mapa całego Twojego systemu i warto traktować g
 
 ### Przykład z praktyki: cztery środowiska i dwie kontrole przed wdrożeniem
 
-`wrangler.jsonc` definiuje cztery środowiska z tymi samymi bindingami: `production`, `preview`, `development`, które dla `bun run dev` wiąże własną lokalną bazę D1, przestrzeń nazw KV i buckety, oraz `test`, które trzyma lokalną bazę D1, przestrzeń nazw KV i buckety w `.wrangler/test` na potrzeby testów przeglądarkowych. Każde środowisko wymienia sekrety, których wymaga. Przed każdym wdrożeniem `scripts/verify-bindings.ts` kończy się błędem, gdy środowisku brakuje bindingu, gdy wciąż ma zastępczy identyfikator D1 lub KV albo gdy produkcja dzieli bazę danych, przestrzeń nazw lub bucket ze środowiskiem preview, a `scripts/prepare-deploy-secrets.ts` kończy się błędem, gdy wymaganego sekretu brakuje, jest pusty albo jest wartością zastępczą, i podaje nazwę klucza bez wypisywania jego wartości.
+`wrangler.jsonc` definiuje środowiska z tymi samymi bindingami: `production`, `preview`, `development`, które dla `bun run dev` wiąże własną lokalną bazę D1, przestrzeń nazw KV i buckety, oraz `test`, które trzyma lokalną bazę D1, przestrzeń nazw KV i buckety w `.wrangler/test` na potrzeby testów przeglądarkowych. Każde środowisko wymienia sekrety, których wymaga. Przed każdym wdrożeniem `scripts/verify-bindings.ts` kończy się błędem, gdy środowisku brakuje bindingu, gdy wciąż ma zastępczy identyfikator D1 lub KV albo gdy produkcja dzieli bazę danych, przestrzeń nazw lub bucket ze środowiskiem preview, a `scripts/prepare-deploy-secrets.ts` kończy się błędem, gdy wymaganego sekretu brakuje, jest pusty albo jest wartością zastępczą, i podaje nazwę klucza bez wypisywania jego wartości.
 
 Druga kontrola wzięła się z prawdziwego błędu, odnotowanego w [#223](https://github.com/saasyland/saasyland.com/pull/223). Plik sekretów produkcji wciąż zawierał `[UPDATE]` jako identyfikator klienta Google OAuth, wdrożenie go przesłało, bo kontrola odrzucała wtedy tylko puste wartości, a logowanie przez Google kończyło się błędem `invalid_client`. Poprawka objęła dwie warstwy: kontrolę działającej witryny po każdym wdrożeniu, która rozpoczyna logowanie u każdego dostawcy i sprawdza adres URL, na który jest kierowane, oraz odrzucanie wartości zastępczych, zanim build w ogóle się zacznie. Każda z warstw wyłapałaby ten błąd sama; razem wyłapują go dwukrotnie.
 
@@ -282,7 +282,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-Ta kontrola istnieje z powodu błędu. Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polara, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy, co odnotowuje [konwencja wydajności](/docs/conventions/performance). Nazwy nagłówków są teraz w pliku, który nie importuje niczego ciężkiego.
+Ta kontrola istnieje z powodu błędu. Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polara, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy, co od [#122](https://github.com/saasyland/saasyland.com/pull/122), scalonego 13 listopada 2026, odnotowuje [konwencja wydajności](/docs/conventions/performance). Nazwy nagłówków są teraz w pliku, który nie importuje niczego ciężkiego.
 
 ### Przykład z praktyki: dwa pull requesty, które o połowę skróciły zimny start
 
@@ -695,7 +695,7 @@ Rachunek za taki miesiąc to więc 5 USD plus przechowywanie w R2 ponad darmowe 
 - KV nie przechowuje niczego, co decyduje o dostępie, ani niczego, co jest zapisywane częściej niż raz na sekundę na klucz.
 - Wartości w cache niosą czas pobrania i są walidowane przy odczycie.
 - Buckety są prywatne; o dostępie decyduje się w chwili wydania adresu URL, a adresy URL wygasają.
-- Duże pliki omijają Workera przy przesyłaniu.
+- Duże pliki trafiają do R2 w częściach mniejszych od limitu treści żądania.
 - Fakty o obiektach, których potrzebują żądania, są przechowywane jako własne metadane.
 - Każdy limit żądań ma magazyn dopasowany do wymaganej dokładności i spisaną decyzję, czy przy awarii przepuszcza, czy odmawia.
 

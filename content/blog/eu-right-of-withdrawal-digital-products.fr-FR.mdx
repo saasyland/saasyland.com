@@ -4,7 +4,7 @@ description: "Comment le droit de rétractation de l’UE s’applique aux logic
 excerpt: "Un consommateur de l’UE qui achète votre logiciel en ligne peut généralement se rétracter dans un délai de 14 jours. Pour un contenu numérique, ce droit peut prendre fin dès que vous le fournissez, mais seulement si trois conditions sont d’abord remplies. Voici la loi, ce qui tourne mal quand une étape manque, et le code qui les met en œuvre sur ce site."
 author: piotr-borowiecki
 date: 2026-11-17
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/eu-right-of-withdrawal-digital-products.webp
 tags:
   - payments
@@ -120,7 +120,7 @@ Cet article explique les règles de l’UE et une façon de les mettre en œuvre
 
 </Callout>
 
-_Dernière mise à jour le 22 novembre 2026. Chaque affirmation juridique renvoie au texte publié sur EUR-Lex, le portail officiel de l’UE, ou au Journal des lois polonais, et les sources sont listées en bas de page. Chaque chiffre concernant saasyland.com sur cette page provient de son code._
+_Dernière mise à jour le 25 novembre 2026. Chaque affirmation juridique renvoie au texte publié sur EUR-Lex, le portail officiel de l’UE, ou au Journal des lois polonais, et les sources sont listées en bas de page. Chaque chiffre concernant saasyland.com sur cette page provient de son code._
 
 ## Les consommateurs de l’UE ont-ils un droit de rétractation pour les produits numériques ?
 
@@ -205,7 +205,7 @@ Le modèle de l’e-mail est [`purchase-confirmation-email.tsx`](https://github.
 
 ### 4. Enregistrements de livraison
 
-La licence conserve quatre horodatages, chacun vide tant que l’événement ne s’est pas produit :
+La licence conserve ces horodatages, chacun vide tant que l’événement ne s’est pas produit :
 
 | Enregistrement          | Quand il est écrit                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------------------- |
@@ -214,13 +214,13 @@ La licence conserve quatre horodatages, chacun vide tant que l’événement ne 
 | `delivered_at`          | La première fois que la CLI télécharge des modèles avec la clé                                  |
 | `lesson_opened_at`      | La première fois que la licence ouvre une leçon payante, avec l’identifiant de la leçon         |
 
-Le webhook valide le champ de consentement avec Zod avant d’écrire le premier enregistrement, l’[API de licence de la CLI](/docs/features/cli-licence-api) écrit `activated_at` et `delivered_at`, et les pages des cours écrivent `lesson_opened_at` lorsqu’elles servent la première leçon payante. Un nouvel achat sur le même compte réinitialise les quatre, si bien qu’ils décrivent toujours la commande en cours. Ces enregistrements déterminent les remboursements, et la [Politique de remboursement](/refunds) indique qu’ils peuvent être communiqués à Polar pour répondre à une demande de remboursement ou à un litige de paiement.
+Le webhook valide le champ de consentement avec Zod avant d’écrire le premier enregistrement, l’[API de licence de la CLI](/docs/features/cli-licence-api) écrit `activated_at` et `delivered_at`, et les pages des cours écrivent `lesson_opened_at` lorsqu’elles servent la première leçon payante. Un nouvel achat sur le même compte les réinitialise tous, si bien qu’ils décrivent toujours la commande en cours. Ces enregistrements déterminent les remboursements, et la [Politique de remboursement](/refunds) indique qu’ils peuvent être communiqués à Polar pour répondre à une demande de remboursement ou à un litige de paiement.
 
 ### 5. Une politique de remboursement plus généreuse que la loi
 
 Le consentement met fin au droit légal, mais saasyland.com rembourse quand même intégralement dans un délai de <RepositoryFact name="refundWithdrawalDays" unit="day" /> après l’achat, tant que l’achat n’a pas été utilisé : la CLI n’a pas téléchargé de modèles avec la clé et aucune leçon payante n’a été ouverte. Se connecter, consulter la clé et l’activer sur une machine ne comptent pas comme une utilisation. Après la première utilisation, le site corrige ou rembourse ce qui manque, est défectueux ou ne correspond pas à sa description, lorsque la loi ouvre droit à ce recours pour l’acheteur.
 
-[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) transforme ces enregistrements en l’une de quatre réponses, qu’un administrateur voit sur le profil de l’acheteur :
+[`license.refunds.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.refunds.ts) transforme ces enregistrements en l’une de ces réponses, qu’un administrateur voit sur le profil de l’acheteur :
 
 | Réponse               | Quand                                                                                                                            |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -235,7 +235,7 @@ Un délai de remboursement aussi long que le délai de rétractation rend la cas
 
 La [Licence commerciale](/licence) prévoit qu’un remboursement intégral, une rétrofacturation ou toute autre annulation du paiement met entièrement fin à la licence pour cet achat : la clé est révoquée et tous les droits accordés par la licence prennent fin, y compris les droits sur les applications générées avec elle. Les droits issus de la licence MIT du code public et les recours impératifs des consommateurs restent inchangés.
 
-Pour les remboursements et les révocations, le code suit le texte. Lorsque Polar signale une commande remboursée en totalité, le webhook marque la licence `refunded` ; un remboursement partiel la conserve. Lorsque Polar révoque l’avantage de clé de licence, la licence est marquée `revoked`. L’API de licence de la CLI refuse une clé dans l’un ou l’autre de ces états, et la commande est consignée afin qu’un webhook tardif ne puisse pas l’accorder de nouveau. Aujourd’hui, une rétrofacturation n’a d’effet sur la licence que si Polar signale aussi la commande comme remboursée ou révoque l’avantage ; la prise en charge des événements de litige de Polar proprement dits, avec le litige sur la page de la commande et son issue appliquée à la licence, est à venir, comme l’indique le point 5 de la section Application de la [feuille de route](/docs/project/roadmap). Voir [Licences](/docs/features/licences#webhooks-and-licences).
+Pour les remboursements et les révocations, le code suit le texte. Lorsque Polar signale une commande remboursée en totalité, le webhook marque la licence `refunded` ; un remboursement partiel la conserve, et un passage à une formule supérieure remboursé en totalité rétablit la formule et la limite d’appareils que la licence avait auparavant. Lorsque Polar révoque l’avantage de clé de licence, la licence est marquée `revoked`. L’API de licence de la CLI refuse une clé dans l’un ou l’autre de ces états, et la commande est consignée afin qu’un webhook tardif ne puisse pas l’accorder de nouveau. Aujourd’hui, une rétrofacturation n’a d’effet sur la licence que si Polar signale aussi la commande comme remboursée ou révoque l’avantage ; la prise en charge des événements de litige de Polar proprement dits, avec le litige sur la page de la commande et son issue appliquée à la licence, est à venir, comme l’indique la section Application de la [feuille de route](/docs/project/roadmap). Voir [Licences](/docs/features/licences#webhooks-and-licences).
 
 ### 7. Une commission d’affiliation retenue plus longtemps que le délai de remboursement
 

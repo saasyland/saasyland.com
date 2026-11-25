@@ -7,6 +7,13 @@ import { CLI_TEMPLATE_SUPPORT } from "~/src/data/cli"
 import { HEAD_START_HIGH_HOURS, HEAD_START_HOURS, HEAD_START_LOW_HOURS } from "~/src/data/head-start"
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
+import { NONCE_LENGTH } from "~/src/lib/content-security-policy"
+import { HEX_DIGITS_PER_BYTE } from "~/src/lib/hex"
+
+const BITS_PER_BYTE = 8
+
+const NONCE_BYTES = NONCE_LENGTH / HEX_DIGITS_PER_BYTE
+
 export const REPOSITORY_FACTS = {
   ...facts,
   adminSections: ADMIN_NAVIGATION.flatMap(({ items }) => items).length,
@@ -20,4 +27,7 @@ export const REPOSITORY_FACTS = {
   headStartHours: HEAD_START_HOURS,
   headStartLowHours: HEAD_START_LOW_HOURS,
   languages: I18N.SUPPORTED_LOCALES.length,
+  nonceBits: NONCE_BYTES * BITS_PER_BYTE,
+  nonceBytes: NONCE_BYTES,
+  nonceHexCharacters: NONCE_LENGTH,
 }

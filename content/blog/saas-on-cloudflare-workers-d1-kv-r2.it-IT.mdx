@@ -4,7 +4,7 @@ description: "Una guida pratica per far girare un SaaS su Cloudflare Workers con
 excerpt: "Workers, D1, KV e R2 possono far girare un vero SaaS, se costruisci rispettando la loro forma: un database SQLite che risponde a una query alla volta, una cache eventualmente consistente, bucket senza costi per il traffico in uscita e uno script che deve essere caricato prima di ogni richiesta a freddo. Questa guida trasforma quella forma in regole da applicare, e verifica ciascuna sul codice di produzione di saasyland.com, con i suoi incidenti, le sue misurazioni e i suoi costi ai prezzi di oggi."
 author: piotr-borowiecki
 date: 2026-11-20
-updated: 2026-11-22
+updated: 2026-11-25
 image: /images/blog/saas-on-cloudflare-workers-d1-kv-r2.webp
 tags:
   - architecture
@@ -152,9 +152,9 @@ La maggior parte degli errori su questa piattaforma nasce dal salvare qualcosa n
 
 Le regole che ci stanno dietro: tutto ciò che decide l’accesso viene salvato in un posto consistente; tutto ciò che è grande va in R2; tutto ciò che si può calcolare in fase di build è un file statico; e KV contiene solo ciò che potresti buttare via e recuperare di nuovo.
 
-### Esempio concreto: cinque binding
+### Esempio concreto: i binding di saasyland.com
 
-saasyland.com segue la tabella con cinque binding, dichiarati in `wrangler.jsonc`:
+saasyland.com segue la tabella con questi binding, dichiarati in `wrangler.jsonc`:
 
 | Binding   | Prodotto                | Cosa contiene                                                                                            | Dove si trova nel codice                                                      |
 | --------- | ----------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -185,7 +185,7 @@ Il file di configurazione di un Worker è la mappa dell’intero sistema, e vale
 
 ### Esempio concreto: quattro ambienti e due controlli prima del deploy
 
-`wrangler.jsonc` definisce quattro ambienti con gli stessi binding: `production`, `preview`, `development`, che collega per `bun run dev` un proprio database D1, un namespace KV e dei bucket locali, e `test`, che tiene un database D1, un namespace KV e dei bucket locali in `.wrangler/test` per la suite nel browser. Ogni ambiente elenca i secret di cui ha bisogno. Prima di ogni deploy, `scripts/verify-bindings.ts` fallisce quando a un ambiente manca un binding, quando ha ancora un ID segnaposto per D1 o KV, o quando la produzione condivide il suo database, namespace o bucket con la preview, e `scripts/prepare-deploy-secrets.ts` fallisce quando un secret richiesto manca, è vuoto o è un segnaposto, indicando il nome della chiave senza stamparne il valore.
+`wrangler.jsonc` definisce i suoi ambienti con gli stessi binding: `production`, `preview`, `development`, che collega per `bun run dev` un proprio database D1, un namespace KV e dei bucket locali, e `test`, che tiene un database D1, un namespace KV e dei bucket locali in `.wrangler/test` per la suite nel browser. Ogni ambiente elenca i secret di cui ha bisogno. Prima di ogni deploy, `scripts/verify-bindings.ts` fallisce quando a un ambiente manca un binding, quando ha ancora un ID segnaposto per D1 o KV, o quando la produzione condivide il suo database, namespace o bucket con la preview, e `scripts/prepare-deploy-secrets.ts` fallisce quando un secret richiesto manca, è vuoto o è un segnaposto, indicando il nome della chiave senza stamparne il valore.
 
 Il secondo controllo nasce da un errore reale, documentato nella [#223](https://github.com/saasyland/saasyland.com/pull/223). Il file dei secret di produzione conteneva ancora `[UPDATE]` come ID client OAuth di Google, il deploy lo ha caricato perché all’epoca il controllo rifiutava solo i valori vuoti, e l’accesso con Google falliva con `invalid_client`. La correzione è arrivata su due livelli: un controllo sul sito online dopo ogni deploy, che avvia un accesso con ogni provider e valida l’URL verso cui viene inviato, e il rifiuto dei valori segnaposto prima ancora che parta la build. Ciascun livello lo avrebbe intercettato da solo; insieme lo intercettano due volte.
 
@@ -285,7 +285,7 @@ const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 ```
 
-Il controllo esiste a causa di un errore. Un solo import statico del nome di un header da un modulo che importava anche il client di Polar una volta ha trascinato circa 1,4 MB di SDK in ogni avvio a freddo, e il primo byte della landing page arrivava fino a 1,4 secondi dopo, come riporta la [convenzione sulle prestazioni](/docs/conventions/performance). I nomi degli header ora vivono in un file che non importa nulla di pesante.
+Il controllo esiste a causa di un errore. Un solo import statico del nome di un header da un modulo che importava anche il client di Polar una volta ha trascinato circa 1,4 MB di SDK in ogni avvio a freddo, e il primo byte della landing page arrivava fino a 1,4 secondi dopo, come riporta la [convenzione sulle prestazioni](/docs/conventions/performance) da [#122](https://github.com/saasyland/saasyland.com/pull/122), integrata il 13 novembre 2026. I nomi degli header ora vivono in un file che non importa nulla di pesante.
 
 ### Esempio concreto: due pull request che hanno dimezzato il percorso a freddo
 
@@ -698,7 +698,7 @@ Quindi il conto di quel mese è di $5, più lo storage R2 oltre i 10 GB gratuiti
 - KV non contiene nulla che decida l’accesso e nulla che venga scritto più di una volta al secondo per chiave.
 - I valori in cache portano l’istante del loro recupero e vengono validati in lettura.
 - I bucket sono privati; l’accesso viene deciso quando si emette un URL, e gli URL scadono.
-- I caricamenti grandi saltano il Worker.
+- I caricamenti grandi arrivano in R2 in parti sotto il limite del corpo della richiesta.
 - Le informazioni sugli oggetti di cui le richieste hanno bisogno vengono salvate come metadati personalizzati.
 - Ogni limite di richieste ha uno storage adatto all’esattezza che richiede, e una decisione scritta tra fail open e fail closed.
 

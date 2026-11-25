@@ -1,5 +1,5 @@
 const HEX_RADIX = 16
-const HEX_DIGITS_PER_BYTE = 2
+export const HEX_DIGITS_PER_BYTE = 2
 
 export const toHex = (bytes: Uint8Array): string =>
   Array.from(bytes, (byte) => byte.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_BYTE, "0")).join("")

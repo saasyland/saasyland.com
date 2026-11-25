@@ -6,7 +6,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 
-import { CORE_PRICE_IN_HOURS } from "~/src/data/license"
+import { CORE_PRICE_IN_HOURS, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { CONSULTING_HOURLY_RATE, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
@@ -76,7 +76,9 @@ export const PricingSection = (): JSX.Element => {
             <div>
               <p className="text-label text-muted-foreground uppercase">{t("consulting.label")}</p>
               <h3 className="mt-3 max-w-[26ch] text-title text-balance text-foreground">{t("consulting.title")}</h3>
-              <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">{t("consulting.body")}</p>
+              <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">
+                {t("consulting.body", TIER_SUPPORT_VALUES)}
+              </p>
             </div>
 
             <div className="flex flex-col items-stretch gap-4">

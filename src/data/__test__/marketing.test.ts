@@ -10,13 +10,14 @@ import {
   REACTPROJECTS_ACCESS,
   REACTPROJECTS_FACTS,
   REACTPROJECTS_URL,
+  TEAM_SEATS_ACCESS,
 } from "~/src/data/marketing"
 
 import landing from "~/messages/en-US/pages.landing.json"
 
 describe("marketing data", () => {
   it("spreads each course platform's facts into the values the copy reads", () => {
-    expect(COURSE_PLATFORM_VALUES).toStrictEqual({ ...REACTPROJECTS_FACTS, ...ANGULARPROJECTS_FACTS })
+    expect(COURSE_PLATFORM_VALUES).toStrictEqual({ ...REACTPROJECTS_FACTS, ...ANGULARPROJECTS_FACTS, teamSeatsAccess: TEAM_SEATS_ACCESS })
     expect(COURSE_PLATFORM_VALUES).toMatchObject({
       angularprojectsAccess: ANGULARPROJECTS_ACCESS,
       reactprojectsAccess: REACTPROJECTS_ACCESS,

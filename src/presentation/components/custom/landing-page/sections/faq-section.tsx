@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
@@ -61,6 +62,7 @@ export const FaqSection = (): JSX.Element => {
                     ...REPOSITORY_FACTS,
                     ...CLI_GENERATION_VALUES,
                     ...COURSE_PLATFORM_VALUES,
+                    ...TIER_SUPPORT_VALUES,
                     days: REFUND_TERMS.WITHDRAWAL_DAYS,
                   })}
                 </AccordionContent>

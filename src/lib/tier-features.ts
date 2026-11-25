@@ -1,12 +1,16 @@
 import type { LicenseTier } from "~/src/modules/license/license.constants"
 
-import { TIER_FEATURES } from "~/src/data/license"
+import { TIER_FEATURES, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import type { FeatureStatus } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
-export const TIER_FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...COURSE_PLATFORM_VALUES }
+export const TIER_FEATURE_VALUES = {
+  coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
+  ...COURSE_PLATFORM_VALUES,
+  ...TIER_SUPPORT_VALUES,
+}
 
 export const tierFeaturesWith = (tier: LicenseTier, status: FeatureStatus): readonly { readonly id: string }[] => {
   const features: readonly { readonly id: string; readonly status: FeatureStatus }[] = TIER_FEATURES[tier]

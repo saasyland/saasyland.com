@@ -9,6 +9,8 @@ export const REACTPROJECTS_ACCESS: FeatureStatus = FEATURE_STATUS.ARRIVING
 
 export const ANGULARPROJECTS_ACCESS: FeatureStatus = FEATURE_STATUS.ARRIVING
 
+export const TEAM_SEATS_ACCESS: FeatureStatus = FEATURE_STATUS.ARRIVING
+
 export const REACTPROJECTS_URL = "https://reactprojects.com"
 
 export const ANGULARPROJECTS_URL = "https://angularprojects.com"
@@ -25,7 +27,7 @@ export const ANGULARPROJECTS_FACTS = {
   angularprojectsBuilds: 5,
 } as const
 
-export const COURSE_PLATFORM_VALUES = { ...REACTPROJECTS_FACTS, ...ANGULARPROJECTS_FACTS }
+export const COURSE_PLATFORM_VALUES = { ...REACTPROJECTS_FACTS, ...ANGULARPROJECTS_FACTS, teamSeatsAccess: TEAM_SEATS_ACCESS }
 
 export const PRODUCT_CASE_STATUS = {
   LAUNCH: "launch",

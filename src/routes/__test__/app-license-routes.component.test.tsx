@@ -45,11 +45,10 @@ import { Route as LicenseRoute } from "~/src/routes/app.license"
 
 import { CLI_KEY_LINES, SCAFFOLD_DIR } from "~/src/data/cli"
 import { LICENSE_OFFER_ID } from "~/src/data/license"
-import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import type { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
-import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
+import { TIER_FEATURE_VALUES } from "~/src/lib/tier-features"
 
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
@@ -236,10 +235,7 @@ afterEach(() => {
 })
 
 const withFeatureValues = (message: string): string =>
-  createTranslator({ locale: "en-US", messages: { message } })("message", {
-    coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
-    ...COURSE_PLATFORM_VALUES,
-  })
+  createTranslator({ locale: "en-US", messages: { message } })("message", TIER_FEATURE_VALUES)
 
 describe("buying a license", () => {
   it.each([ROUTES.APP, ROUTES.APP_LICENSE])("offers every tier with its price and features on %s", async (path) => {

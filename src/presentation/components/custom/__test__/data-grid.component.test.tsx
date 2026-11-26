@@ -3,6 +3,11 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
+import { fill } from "~/src/platform/testing/lib/fill"
+
+import { DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
+
 import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
 
 import * as download from "~/src/lib/download"
@@ -87,19 +92,16 @@ describe("data grid", () => {
   })
 
   it("searches every column after the visitor stops typing and clears the search", async () => {
-    const user = userEvent.setup()
+    const user = controlTimers()
     renderGrid(SEARCH)
 
-    await user.click(screen.getByRole("searchbox", { name: "Search people" }))
-    await user.paste("gra")
-    await waitFor(() => {
-      expect(columnTexts("Name")).toStrictEqual(["Grace"])
-    })
+    await fill(user, screen.getByRole("searchbox", { name: "Search people" }), "gra")
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(columnTexts("Name")).toStrictEqual(["Grace"])
 
     await user.click(screen.getByRole("button", { name: "Clear search" }))
-    await waitFor(() => {
-      expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
-    })
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(columnTexts("Name")).toStrictEqual(["Ada", "Grace", "Alan"])
   })
 
   it("leaves the search out when the page names none", () => {
@@ -119,12 +121,12 @@ describe("data grid", () => {
   })
 
   it("says when nothing matches and clears the search and filters from there", async () => {
-    const user = userEvent.setup()
+    const user = controlTimers()
     renderGrid(SEARCH)
 
-    await user.click(screen.getByRole("searchbox", { name: "Search people" }))
-    await user.paste("nobody")
-    expect(await screen.findByText(empty.filteredTitle)).toBeVisible()
+    await fill(user, screen.getByRole("searchbox", { name: "Search people" }), "nobody")
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(screen.getByText(empty.filteredTitle)).toBeVisible()
 
     await user.click(screen.getByRole("button", { name: empty.clear }))
     expect(screen.getByRole("searchbox", { name: "Search people" })).toHaveValue("")

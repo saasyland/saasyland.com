@@ -8,6 +8,7 @@ import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { createContentDirectory, mdx } from "~/src/platform/testing/lib/content-directory"
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { DOCS_DIRECTORY, createContentIndexes } from "~/src/integrations/fumadocs/fumadocs.indexes"
@@ -84,7 +85,7 @@ it("downloads the page locale's index only when someone searches, and lists the 
   const dialog = within(await screen.findByRole("dialog"))
   expect(fetchIndex).not.toHaveBeenCalled()
 
-  await user.type(dialog.getByRole("combobox", { name: englishFumadocs.search.label }), "dependencies")
+  await fill(user, dialog.getByRole("combobox", { name: englishFumadocs.search.label }), "dependencies")
 
   expect(await dialog.findByRole("option", { name: /Install/u })).toBeInTheDocument()
   expect(dialog.getByRole("option", { name: /Clone the starter and install dependencies/u })).toBeInTheDocument()
@@ -97,7 +98,7 @@ it("searches the Polish index on a Polish page", async () => {
 
   await user.keyboard("{Control>}k{/Control}")
   const dialog = within(await screen.findByRole("dialog"))
-  await user.type(dialog.getByRole("combobox", { name: polishFumadocs.search.label }), "zależności")
+  await fill(user, dialog.getByRole("combobox", { name: polishFumadocs.search.label }), "zależności")
 
   expect(await dialog.findByRole("option", { name: /Instalacja/u })).toBeInTheDocument()
   expect(fetchIndex).toHaveBeenCalledExactlyOnceWith(SEARCH_INDEXES["pl-PL"])

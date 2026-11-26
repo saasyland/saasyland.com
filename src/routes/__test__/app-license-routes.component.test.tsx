@@ -9,6 +9,7 @@ import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
@@ -688,6 +689,7 @@ describe("the licence key, its commands and its machines", () => {
     currentLicenseMock.mockResolvedValue({ license: { ...core, key: JSON_NULL, polarLicenseKeyId: JSON_NULL } })
     licenseKeyMock.mockResolvedValue({ key: JSON_NULL })
     activationsMock.mockResolvedValue({ activations: [], limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE] })
+    controlTimers()
     const { queryClient } = await renderApp(ROUTES.APP.LICENSE)
 
     expect(await screen.findByText(pagesLicenseMessages.pending)).toBeVisible()
@@ -696,7 +698,8 @@ describe("the licence key, its commands and its machines", () => {
 
     currentLicenseMock.mockResolvedValue({ license: core })
     licenseKeyMock.mockResolvedValue({ key: LICENSE_KEY })
-    expect(await screen.findByText(LICENSE_KEY, {}, { timeout: LICENSE_POLL_MS.KEY * 2 })).toBeVisible()
+    await passTime(LICENSE_POLL_MS.KEY)
+    expect(await screen.findByText(LICENSE_KEY)).toBeVisible()
     expect(await screen.findByText(unused(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE]))).toBeVisible()
 
     currentLicenseMock.mockResolvedValue({ license: { ...core, tier: LICENSE_TIER.COMPLETE } })

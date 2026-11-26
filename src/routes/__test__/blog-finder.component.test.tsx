@@ -2,6 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 
 import { renderBlog, section, useBlogTestEnvironment } from "~/src/routes/__test__/fixtures/blog-router"
@@ -86,7 +88,7 @@ describe("the post finder beside the blog", () => {
     expect(postIndex().getByRole("link", { name: "Polar payments" })).toHaveAttribute("href", "/blog/polar")
     expect(postIndex().getByText(String(POSTS.length))).toBeVisible()
 
-    await user.type(finder().getByRole("searchbox", { name: archive.search }), "polar")
+    await fill(user, finder().getByRole("searchbox", { name: archive.search }), "polar")
 
     await waitFor(() => {
       expect(indexTitles()).toStrictEqual(["Polar payments"])

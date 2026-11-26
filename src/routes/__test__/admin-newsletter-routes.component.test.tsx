@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
@@ -131,19 +132,14 @@ const renderCompose = (recipients: number) => {
   return { ...rendered, navigate, user: userEvent.setup({ delay: null }) }
 }
 
-const fill = async (user: ReturnType<typeof userEvent.setup>, label: string, text: string): Promise<void> => {
-  await user.click(screen.getByLabelText(label))
-  await user.paste(text)
-}
-
 const chooseLanguage = async (user: ReturnType<typeof userEvent.setup>, locale: string): Promise<void> => {
   await user.click(screen.getByRole("button", { name: new RegExp(adminLabels.components.formLanguages.label, "u") }))
   await user.click(await screen.findByRole("option", { name: new RegExp(locale, "u") }))
 }
 
 const writeEnglishIssue = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await fill(user, composeMessages.form.subject, "Issue two")
-  await fill(user, composeMessages.form.body, "First paragraph.\n\nSecond paragraph.")
+  await fill(user, screen.getByLabelText(composeMessages.form.subject), "Issue two")
+  await fill(user, screen.getByLabelText(composeMessages.form.body), "First paragraph.\n\nSecond paragraph.")
 }
 
 const preview = (): HTMLElement => screen.getByRole("region", { name: composeMessages.preview.title })
@@ -366,7 +362,7 @@ describe("writing an issue", () => {
     await chooseLanguage(user, POLISH)
     expect(preview()).toHaveTextContent(composeMessages.preview.fallback.replace("{language}", locales[I18N.DEFAULT_LOCALE]))
     expect(within(preview()).getByText("Issue two").closest("[lang]")).toHaveAttribute("lang", I18N.DEFAULT_LOCALE)
-    await fill(user, composeMessages.form.subject, "Numer drugi")
+    await fill(user, screen.getByLabelText(composeMessages.form.subject), "Numer drugi")
     await user.click(screen.getByRole("button", { name: composeMessages.form.send }))
     expect(await screen.findByText(validations.translationIncomplete)).toBeVisible()
     expect(mutations.createNewsletterIssue).not.toHaveBeenCalled()
@@ -377,8 +373,8 @@ describe("writing an issue", () => {
 
     await writeEnglishIssue(user)
     await chooseLanguage(user, POLISH)
-    await fill(user, composeMessages.form.subject, "Numer drugi")
-    await fill(user, composeMessages.form.body, "Treść.")
+    await fill(user, screen.getByLabelText(composeMessages.form.subject), "Numer drugi")
+    await fill(user, screen.getByLabelText(composeMessages.form.body), "Treść.")
     expect(within(preview()).getByText("Numer drugi")).toBeVisible()
     await user.click(screen.getByRole("button", { name: composeMessages.form.send }))
     const dialog = await screen.findByRole("alertdialog", { name: composeMessages.confirm.title })
@@ -401,8 +397,8 @@ describe("writing an issue", () => {
     const { navigate, user } = renderCompose(1)
     mutations.sendNewsletterIssue.mockResolvedValueOnce(progress({ isClaimed: false, status: NEWSLETTER_ISSUE_STATUS.SENDING }))
 
-    await fill(user, composeMessages.form.subject, "Issue three")
-    await fill(user, composeMessages.form.body, "Body.")
+    await fill(user, screen.getByLabelText(composeMessages.form.subject), "Issue three")
+    await fill(user, screen.getByLabelText(composeMessages.form.body), "Body.")
     await user.click(screen.getByRole("button", { name: composeMessages.form.send }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: composeMessages.confirm.send }))
     await waitFor(() => {

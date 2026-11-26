@@ -6,6 +6,8 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vite-plus/test"
 import * as zod from "zod"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import { type StringField, isFieldInvalid, validateOnBlur } from "~/src/integrations/tanstack-form/form.fields"
 import { submitForm } from "~/src/integrations/tanstack-form/form.submit"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -130,11 +132,6 @@ const chooseLanguage = async (user: ReturnType<typeof userEvent.setup>, locale: 
   await user.click(await screen.findByRole("option", { name: new RegExp(locale, "u") }))
 }
 
-const fill = async (user: ReturnType<typeof userEvent.setup>, label: string, text: string): Promise<void> => {
-  await user.click(screen.getByLabelText(label))
-  await user.paste(text)
-}
-
 const progress = (complete: number): string =>
   copy.progress.replace("{complete}", String(complete)).replace("{total}", String(LOCALES.length))
 
@@ -160,18 +157,18 @@ describe("FormLanguages", () => {
   it("switches every field to the chosen language and rates each language", async () => {
     const { onSave, user } = renderForm()
 
-    await fill(user, "Title", "Pricing")
-    await fill(user, "Summary", "How it works.")
+    await fill(user, screen.getByLabelText("Title"), "Pricing")
+    await fill(user, screen.getByLabelText("Summary"), "How it works.")
     expect(screen.getByText(progress(1))).toBeVisible()
     await chooseLanguage(user, "pl-PL")
     expect(screen.getByLabelText("Title")).toHaveAttribute("lang", "pl-PL")
     expect(screen.getByLabelText("Summary")).toHaveValue("")
-    await fill(user, "Title", "Cennik")
+    await fill(user, screen.getByLabelText("Title"), "Cennik")
     await user.click(languagePicker())
     const polish = await screen.findByRole("option", { name: /pl-PL/u })
     expect(polish).toHaveTextContent(copy.states.partial)
     await user.click(polish)
-    await fill(user, "Summary", "Jak to działa.")
+    await fill(user, screen.getByLabelText("Summary"), "Jak to działa.")
     expect(screen.getByText(progress(2))).toBeVisible()
     await user.click(screen.getByRole("button", { name: "Save" }))
 
@@ -184,9 +181,9 @@ describe("FormLanguages", () => {
   it("names the other languages with errors and moves to them", async () => {
     const { user } = renderForm()
 
-    await fill(user, "Title", "Pricing")
+    await fill(user, screen.getByLabelText("Title"), "Pricing")
     await chooseLanguage(user, "de-DE")
-    await fill(user, "Title", TOO_LONG)
+    await fill(user, screen.getByLabelText("Title"), TOO_LONG)
     await chooseLanguage(user, "en-US")
 
     const alert = screen.getByRole("alert")
@@ -201,7 +198,7 @@ describe("FormLanguages", () => {
     const { onSave, user } = renderForm()
 
     await chooseLanguage(user, "ja-JP")
-    await fill(user, "Title", "料金")
+    await fill(user, screen.getByLabelText("Title"), "料金")
     await user.click(screen.getByRole("button", { name: "Save" }))
 
     const title = screen.getByLabelText("Title")
@@ -219,7 +216,7 @@ const openPanel = async (user: ReturnType<typeof userEvent.setup>): Promise<HTML
 
 const fillPolishInPanel = async (user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement): Promise<void> => {
   const search = within(sheet).getByRole("searchbox", { name: copy.panel.search })
-  await user.type(search, "pol")
+  await fill(user, search, "pol")
   await user.click(within(sheet).getByLabelText(locales["pl-PL"]))
   await user.paste("Cennik")
   await user.clear(search)
@@ -229,7 +226,7 @@ describe("TranslationsSheet", () => {
   it("lists every language for one field, the source first, with what is missing", async () => {
     const { user } = renderForm()
 
-    await fill(user, "Title", "Pricing")
+    await fill(user, screen.getByLabelText("Title"), "Pricing")
     const sheet = await openPanel(user)
 
     const rows = within(sheet).getAllByRole("listitem")
@@ -242,14 +239,14 @@ describe("TranslationsSheet", () => {
   it("fills a language in the panel, narrows it to the missing ones and saves with the form", async () => {
     const { onSave, user } = renderForm()
 
-    await fill(user, "Title", "Pricing")
+    await fill(user, screen.getByLabelText("Title"), "Pricing")
     const sheet = await openPanel(user)
     await fillPolishInPanel(user, sheet)
     await user.click(within(sheet).getByRole("button", { name: copy.panel.missingOnly }))
     expect(within(sheet).queryByLabelText(locales["pl-PL"])).toBeNull()
     expect(within(sheet).getAllByRole("listitem")).toHaveLength(LOCALES.length - 2)
     await user.click(within(sheet).getByRole("tab", { name: /Summary/u }))
-    await user.type(within(sheet).getByRole("searchbox", { name: copy.panel.search }), "zzz")
+    await fill(user, within(sheet).getByRole("searchbox", { name: copy.panel.search }), "zzz")
     expect(within(sheet).getByText(copy.noMatch)).toBeVisible()
     await user.click(within(sheet).getByRole("button", { name: copy.panel.missingOnly }))
     await user.click(within(sheet).getByRole("button", { name: copy.panel.done }))

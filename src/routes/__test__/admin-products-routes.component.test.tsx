@@ -2,10 +2,13 @@ import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { POLAR_PRICE_TYPE, POLAR_PRODUCT_STATUS, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
+import { DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 
 import { POLAR_READ } from "~/src/modules/order/order.constants"
 import type { Order } from "~/src/modules/order/order.types"
@@ -196,13 +199,13 @@ describe("admin products", () => {
   })
 
   it("narrows the list to the products whose name matches the search", async () => {
+    const user = controlTimers()
     renderProducts()
 
-    await userEvent.type(screen.getByRole("searchbox", { name: productsMessages.table.search }), "plan")
+    await fill(user, screen.getByRole("searchbox", { name: productsMessages.table.search }), "plan")
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
 
-    await waitFor(() => {
-      expect(screen.getAllByRole("row")).toHaveLength(2)
-    })
+    expect(screen.getAllByRole("row")).toHaveLength(2)
     expect(rowOf("Team plan")).toBeVisible()
   })
 })

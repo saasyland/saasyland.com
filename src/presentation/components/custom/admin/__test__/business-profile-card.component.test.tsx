@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { stubImageEncoding } from "~/src/platform/testing/mocks/canvas"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -93,11 +94,11 @@ describe("business profile card", () => {
     expect(screen.getByRole("textbox", { name: business.address })).toHaveValue(adminBusinessProfile().address)
 
     await user.clear(name)
-    await user.type(name, SAVED.name)
+    await fill(user, name, SAVED.name)
     await user.clear(screen.getByRole("textbox", { name: business.supportEmail }))
-    await user.type(screen.getByRole("textbox", { name: business.supportEmail }), SAVED.supportEmail)
+    await fill(user, screen.getByRole("textbox", { name: business.supportEmail }), SAVED.supportEmail)
     await user.clear(screen.getByRole("textbox", { name: business.address }))
-    await user.type(screen.getByRole("textbox", { name: business.address }), "2 Market Square{Enter}Kraków")
+    await fill(user, screen.getByRole("textbox", { name: business.address }), SAVED.address)
     await user.click(screen.getByRole("button", { name: business.save }))
 
     await waitFor(() => {
@@ -112,7 +113,7 @@ describe("business profile card", () => {
 
     await user.clear(screen.getByRole("textbox", { name: business.name }))
     await user.clear(screen.getByRole("textbox", { name: business.supportEmail }))
-    await user.type(screen.getByRole("textbox", { name: business.supportEmail }), "help")
+    await fill(user, screen.getByRole("textbox", { name: business.supportEmail }), "help")
     await user.tab()
     await user.click(screen.getByRole("button", { name: business.save }))
 
@@ -125,7 +126,7 @@ describe("business profile card", () => {
   it("names the length a long name may have", async () => {
     const { user } = renderCard("profile")
 
-    await user.type(screen.getByRole("textbox", { name: business.name }), "x".repeat(BUSINESS_NAME_MAX_LENGTH))
+    await fill(user, screen.getByRole("textbox", { name: business.name }), "x".repeat(BUSINESS_NAME_MAX_LENGTH))
     await user.tab()
 
     const message = validations.nameMaxLength.replace("{max}", String(BUSINESS_NAME_MAX_LENGTH))

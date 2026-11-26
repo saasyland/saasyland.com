@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
@@ -106,7 +107,7 @@ describe("email verification banner", () => {
 
     await user.click(screen.getByRole("button", { name: messages.change }))
     sessionRequest.mockResolvedValue(unconfirmedSession(NEW_EMAIL))
-    await user.type(screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
 
     expect(await screen.findByText(NEW_EMAIL, { selector: "strong" })).toBeVisible()
@@ -120,7 +121,7 @@ describe("email verification banner", () => {
     const { user } = renderBanner(unconfirmedSession())
 
     await user.click(screen.getByRole("button", { name: messages.change }))
-    await user.type(screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
 
     const submitting = await screen.findByRole("button", { name: changeEmailMessages.submitting })
@@ -139,7 +140,7 @@ describe("email verification banner", () => {
     const { user } = renderBanner(unconfirmedSession())
 
     await user.click(screen.getByRole("button", { name: messages.change }))
-    await user.type(screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
 
     await waitFor(() => {
@@ -155,7 +156,7 @@ describe("email verification banner", () => {
     await user.click(screen.getByRole("button", { name: messages.change }))
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
     expect(await screen.findByRole("alert")).toHaveTextContent(authValidationsMessages.emailInvalid)
-    await user.type(screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)

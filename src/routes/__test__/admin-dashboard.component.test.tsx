@@ -6,7 +6,11 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
+import { DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -223,12 +227,15 @@ describe("the dashboard's newest users", () => {
       rows: [adminUser({ id: "grace", name: "Grace Hopper" })],
       total: 1,
     })
+    const user = controlTimers()
     renderAdminPage(DashboardRoute.options.component, { queryClient })
 
-    await userEvent.type(
+    await fill(
+      user,
       within(usersTable().closest("section") ?? document.body).getByRole("searchbox", { name: pagesAdminDashboardMessages.users.search }),
       "Grace",
     )
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
 
     expect(await within(usersTable()).findByRole("link", { name: "Grace Hopper" })).toBeVisible()
     expect(within(usersTable()).queryByRole("link", { name: "Ada Lovelace" })).not.toBeInTheDocument()

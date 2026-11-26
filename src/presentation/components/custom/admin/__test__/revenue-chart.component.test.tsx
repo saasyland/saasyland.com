@@ -1,6 +1,6 @@
 import { act, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vite-plus/test"
+import { beforeAll, describe, expect, it } from "vite-plus/test"
 
 import { TIME_BUCKET, TIME_RANGE, type TimeBucket, type TimeRange, pointsOf, timeSeries } from "~/src/modules/_core/utils/time-series"
 import type { Order } from "~/src/modules/order/order.types"
@@ -8,10 +8,13 @@ import { revenueQuery } from "~/src/modules/order/use-cases/get-revenue"
 
 import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { TimeSeriesBars } from "~/src/presentation/components/custom/admin/dashboard/time-series-chart"
 import { RevenueChart } from "~/src/presentation/components/custom/admin/payments/revenue-chart"
 
 import dashboardMessages from "~/messages/en-US/dashboard.payments.json"
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+
+beforeAll(() => TimeSeriesBars.preload?.())
 
 const labels = dashboardMessages.revenue
 const ranges = pagesAdminDashboardMessages.chart.range

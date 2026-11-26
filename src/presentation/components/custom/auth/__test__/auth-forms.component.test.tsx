@@ -10,6 +10,7 @@ import type { ExternalToast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter as render } from "~/src/platform/testing/lib/render"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
@@ -218,8 +219,8 @@ afterEach(() => {
 })
 
 const submitSignIn = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-  await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+  await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+  await fill(user, getPasswordInput("sign-in-password"), TEST_PASSWORD)
   await user.click(screen.getByTestId("sign-in-form-submit-button"))
 }
 
@@ -229,7 +230,7 @@ describe("sign in form", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     const input = getPasswordInput("sign-in-password")
-    await user.type(input, TEST_PASSWORD)
+    await fill(user, input, TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: authFormMessages.showPassword }))
     expect(input).toHaveAttribute("type", "text")
     expect(input).toHaveValue(TEST_PASSWORD)
@@ -331,8 +332,8 @@ describe("sign in form, once submitted", () => {
     signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.AUTH.TWO_FACTOR }))
@@ -345,8 +346,8 @@ describe("sign in form, once submitted", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), "not-an-email")
-    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/email/iu), "not-an-email")
+    await fill(user, getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     expect(screen.getByLabelText(/email/iu)).toHaveAttribute("aria-invalid", "true")
@@ -359,7 +360,7 @@ describe("sign in form, once submitted", () => {
     renderWithAuthMessages(<SignInForm />)
     const password = getPasswordInput("sign-in-password")
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     expect(password).toHaveAttribute("aria-invalid", "true")
@@ -367,7 +368,7 @@ describe("sign in form, once submitted", () => {
     expect(screen.getByLabelText(/email/iu)).toHaveAttribute("aria-invalid", "false")
     expect(signInEmailMock).not.toHaveBeenCalled()
 
-    await user.type(password, TEST_PASSWORD)
+    await fill(user, password, TEST_PASSWORD)
 
     expect(password).toHaveAttribute("aria-invalid", "false")
     expect(password).toHaveAccessibleDescription("")
@@ -382,8 +383,8 @@ describe("sign in form, once submitted", () => {
     renderWithAuthMessages(<SignInForm />)
     const submit = screen.getByTestId("sign-in-form-submit-button")
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(submit)
 
     expect(submit).toHaveTextContent(pagesAuthSignInMessages.form.submitting)
@@ -406,8 +407,8 @@ describe("sign in form, once submitted", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     await waitFor(() => {
@@ -424,9 +425,9 @@ describe("sign up form", () => {
     signUpMock.mockRejectedValueOnce(new Error("Sign up unavailable"))
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
-    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-up-password"), TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
@@ -444,7 +445,7 @@ describe("sign up form", () => {
     expect(password).not.toHaveAttribute("placeholder")
     expect(password).toHaveAttribute("aria-describedby", "sign-up-password-error sign-up-password-requirements")
     expect(document.querySelector("#sign-up-password-requirements")).toHaveTextContent(authValidationMessages.breachCheck)
-    await user.type(password, "a".repeat(PASSWORD_MIN_LENGTH - 1))
+    await fill(user, password, "a".repeat(PASSWORD_MIN_LENGTH - 1))
     expect(screen.getByRole("listitem")).toHaveTextContent(authValidationMessages.requirementNotMet)
     expect(password).toHaveAttribute("aria-invalid", "false")
     await user.type(password, "a")
@@ -459,7 +460,7 @@ describe("sign up form", () => {
     const continueButton = screen.getByRole("button", { name: "Continue" })
 
     expect(continueButton).not.toHaveAttribute("aria-disabled")
-    await user.type(screen.getByLabelText(/email/iu), "not-an-email")
+    await fill(user, screen.getByLabelText(/email/iu), "not-an-email")
     expect(screen.getByLabelText(/email/iu)).toHaveAttribute("aria-invalid", "false")
     await user.click(continueButton)
 
@@ -477,7 +478,7 @@ describe("sign up form", () => {
     renderWithAuthMessages(<SignUpForm />)
     const email = screen.getByLabelText(/email/iu)
 
-    await user.type(email, "ada@gmial.com")
+    await fill(user, email, "ada@gmial.com")
     expect(screen.queryByRole("button", { name: "ada@gmail.com" })).not.toBeInTheDocument()
     await user.tab()
     await user.click(screen.getByRole("button", { name: "ada@gmail.com" }))
@@ -493,9 +494,9 @@ describe("sign up form", () => {
     renderWithAuthMessages(<SignUpForm />)
     const password = getPasswordInput("sign-up-password")
 
-    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(password, TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, password, TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {
@@ -517,9 +518,9 @@ describe("sign up outcome", () => {
     renderWithAuthMessages(<SignUpForm />)
     const submit = screen.getByRole("button", { name: pagesAuthSignUpMessages.form.submit })
 
-    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-up-password"), TEST_PASSWORD)
     await user.click(submit)
 
     expect(submit).toHaveTextContent(pagesAuthSignUpMessages.form.submitting)
@@ -543,9 +544,9 @@ describe("sign up outcome", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
 
-    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-up-password"), TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {
@@ -564,9 +565,9 @@ describe("sign up outcome", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
 
-    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
-    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await fill(user, screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, getPasswordInput("sign-up-password"), TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {
@@ -582,7 +583,7 @@ describe("reset password form", () => {
     resetPasswordMock.mockRejectedValueOnce(new Error("Reset link expired"))
     const user = userEvent.setup({ delay: null })
     const { navigate } = await renderResetPasswordPage()
-    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await fill(user, getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
@@ -598,7 +599,7 @@ describe("reset password form", () => {
     const { navigate } = await renderResetPasswordPage()
     navigate.mockRestore()
 
-    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await fill(user, getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     expect(await screen.findByRole("link", { name: pagesAuthResetPasswordMessages.form.requestNewLink })).toHaveAttribute(
@@ -615,7 +616,7 @@ describe("reset password form", () => {
     const user = userEvent.setup({ delay: null })
     await renderResetPasswordPage()
 
-    await user.type(getPasswordInput("reset-password-password"), "a".repeat(PASSWORD_MIN_LENGTH - 1))
+    await fill(user, getPasswordInput("reset-password-password"), "a".repeat(PASSWORD_MIN_LENGTH - 1))
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     expect(getPasswordInput("reset-password-password")).toHaveAttribute("aria-invalid", "true")
@@ -630,7 +631,7 @@ describe("reset password form", () => {
     const user = userEvent.setup({ delay: null })
     await renderResetPasswordPage()
 
-    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await fill(user, getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     await waitFor(() => {
@@ -648,7 +649,7 @@ describe("reset password form", () => {
     const { navigate } = await renderResetPasswordPage()
     const submit = screen.getByTestId("reset-password-form-submit-button")
 
-    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await fill(user, getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.click(submit)
 
     expect(submit).toHaveTextContent(pagesAuthResetPasswordMessages.form.submitting)
@@ -673,7 +674,7 @@ describe("reset password form", () => {
     const user = userEvent.setup({ delay: null })
     const { navigate } = await renderResetPasswordPage()
 
-    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await fill(user, getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     await waitFor(() => {

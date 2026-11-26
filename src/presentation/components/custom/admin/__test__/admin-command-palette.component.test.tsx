@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import type userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
@@ -14,7 +16,7 @@ import { searchOrdersQuery } from "~/src/modules/order/use-cases/search-orders"
 import { searchUsersQuery } from "~/src/modules/user/use-cases/search-users"
 
 import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { AdminCommandPalette } from "~/src/presentation/components/custom/admin/admin-command-palette"
+import { AdminCommandPalette, COMMAND_SEARCH_DEBOUNCE_MS } from "~/src/presentation/components/custom/admin/admin-command-palette"
 
 import authNavigation from "~/messages/en-US/navigation.auth.json"
 import coursesNavigation from "~/messages/en-US/navigation.courses.json"
@@ -48,7 +50,12 @@ const renderPalette = (queryClient = adminQueryClient()) => {
   const { router } = renderAdmin(<AdminCommandPalette />, { queryClient })
   const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
   const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
-  return { navigate, preloadRoute, user: userEvent.setup({ delay: null }) }
+  return { navigate, preloadRoute, user: controlTimers() }
+}
+
+const searchFor = async (user: ReturnType<typeof userEvent.setup>, text: string): Promise<void> => {
+  await user.paste(text)
+  await passTime(COMMAND_SEARCH_DEBOUNCE_MS)
 }
 
 const openPalette = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
@@ -102,7 +109,7 @@ describe("admin command palette", () => {
     const { navigate, user } = renderPalette(seedSearch("ada", { users: [ADA] }))
 
     const dialog = await openPalette(user)
-    await user.keyboard("ada")
+    await searchFor(user, "ada")
     const hit = await within(dialog).findByRole("menuitem", { name: /Ada Lovelace/u })
     expect(hit).toHaveTextContent(ADA.detail)
     expect(within(dialog).getByText(authNavigation.search.users)).toBeVisible()
@@ -123,7 +130,7 @@ describe("admin command palette", () => {
     const { navigate, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
-    await user.keyboard("ord_ada")
+    await searchFor(user, "ord_ada")
     await within(dialog).findByRole("menuitem", { name: /ord_ada/u })
     expect(within(dialog).getByText(paymentsNavigation.search.orders)).toBeVisible()
     expect(within(dialog).queryByText(copy.groups.pages)).toBeNull()
@@ -137,7 +144,7 @@ describe("admin command palette", () => {
     const { preloadRoute, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
-    await user.keyboard("ord_ada")
+    await searchFor(user, "ord_ada")
     await user.hover(await within(dialog).findByRole("menuitem", { name: /ord_ada/u }))
 
     expect(preloadRoute).toHaveBeenCalledExactlyOnceWith({ to: order.to })
@@ -148,23 +155,23 @@ describe("admin command palette", () => {
     const { user } = renderPalette(seedSearch("sh", { courses: [course] }))
 
     const dialog = await openPalette(user)
-    await user.keyboard("sh")
+    await searchFor(user, "sh")
     expect(await within(dialog).findByRole("menuitem", { name: /Shipping/u })).toBeVisible()
     expect(within(dialog).getByText(coursesNavigation.search.courses)).toBeVisible()
     await user.keyboard("{Backspace}")
+    await passTime(COMMAND_SEARCH_DEBOUNCE_MS)
 
-    await waitFor(() => {
-      expect(within(dialog).queryByRole("menuitem", { name: /Shipping/u })).toBeNull()
-    })
+    expect(within(dialog).queryByRole("menuitem", { name: /Shipping/u })).toBeNull()
   })
 
   it("says what it is doing while it searches and when nothing matches", async () => {
     const { user } = renderPalette()
 
     const dialog = await openPalette(user)
-    await user.keyboard("zz-nothing")
+    await user.paste("zz-nothing")
 
     expect(within(dialog).getAllByText(copy.searching).length).toBeGreaterThan(0)
+    await passTime(COMMAND_SEARCH_DEBOUNCE_MS)
     expect(await within(dialog).findByText(copy.empty.replace("{query}", "zz-nothing"))).toBeVisible()
     expect(within(dialog).getByText(copy.emptyHint)).toBeVisible()
   })
@@ -175,7 +182,7 @@ describe("admin command palette", () => {
     const { user } = renderPalette(queryClient)
 
     const dialog = await openPalette(user)
-    await user.keyboard("ada")
+    await searchFor(user, "ada")
 
     expect(await within(dialog).findByText(copy.empty.replace("{query}", "ada"))).toBeVisible()
   })
@@ -250,7 +257,7 @@ describe("admin command palette sessions", () => {
     const { navigate, user } = renderPalette()
 
     const dialog = await openPalette(user)
-    await user.keyboard("sett")
+    await searchFor(user, "sett")
     await user.click(within(dialog).getByRole("menuitem", { name: /^Settings/u }))
     expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ROUTES.ADMIN.SETTINGS })
     fireEvent.keyDown(document, { ctrlKey: true, key: "k" })

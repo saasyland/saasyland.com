@@ -77,10 +77,11 @@ describe("getCourses", () => {
 Vitest のタイムアウトと `waitFor`・`findBy*` の 1 秒の猶予は実時間で数えるため、振る舞いに必要のない処理をするテストやタイマーを待つテストは、何も壊れていなくても負荷の高いマシンで失敗します。既定のタイムアウトはそのままにし、遅いテストは処理を減らすように直します。
 
 - **多数のファイルにまたがるチェックはファイルごとに 1 つのテストにします。** `check-content.test.ts` は `it.each(sourcePages())` で英語の各ページについて `pageProblems` を実行し、差分があればそのページ名を示します。
-- **コンポーネントが Suspense で待つものは描画の前に読み込みます。** 翻訳では `preloadNamespaces` がこれを行います。読み込みそのものを確かめるテストでは、`translations-provider.component.test.tsx` のように `act` の中で解決します。`act` の外で再開したコンテンツは、React が表示を遅らせたあと、実際のタイマーで初めて現れるため、テストはそれをポーリングすることになります。
+- **コンポーネントが Suspense で待つものは描画の前に読み込みます。** 翻訳では `preloadNamespaces` が、`revenue-chart.component.test.tsx` の遅延読み込みのグラフでは `TimeSeriesBars.preload()` がこれを行います。読み込みそのものを確かめるテストでは、`translations-provider.component.test.tsx` のように `act` の中で解決します。`act` の外で再開したコンテンツは、React が表示を遅らせたあと、実際のタイマーで初めて現れるため、テストはそれをポーリングすることになります。
 - **コンポーネントを読み込み直さず、モジュールを一度だけ置き換えます。** `affiliate-referral.component.test.tsx` は `AFFILIATE_PROGRAM` を一度だけモックし、各テストで値を設定します。`vi.resetModules()` のあとにコンポーネントを読み込み直すと、そのインポートグラフ全体がテストの中で評価し直されます。
 - **すべてのテストが読むフィクスチャはファイルごとに一度だけ作ります。** `getTestMessages` のメッセージがその例です。
-- **キー入力そのものを確かめるのでなければ、フォームには `user.paste` で入力します。** `admin-course-routes.component.test.tsx` の `fill` はフィールドをクリックして貼り付けます。`user.type` は 1 文字ごとにフォームの検証と描画を実行します。
+- **キー入力そのものを確かめるのでなければ、フォームには `user.paste` で入力します。** `src/platform/testing/lib/fill.ts` の `fill` はフィールドをクリックして貼り付けます。`user.type` は 1 文字ごとにフォームの検証と描画を実行します。
+- **デバウンスやポーリングを待つテストは、待つ代わりに時計を進めます。** `src/platform/testing/lib/clock.ts` の `controlTimers()` はそのテストの間だけタイマーを模擬のものに置き換え、タイマーは実時間に合わせて進み続けます。`passTime(ms)` はコンポーネント自身の定数の分だけ `act` の中で時計を進めます。`DataGrid` の検索のテストは `DATA_GRID_TYPING_DELAY_MS`、ライセンスのページのテストは `LICENSE_POLL_MS.KEY` の分だけ進めます。実際の遅延を待つテストはその時間を何もせずに過ごし、負荷の高いマシンではその時間がさらに延びます。
 - **長い選択肢のリストは安く再描画できるようにします。** `preferences-card.tsx` のタイムゾーンのコンボボックスは選択肢をメモ化した `items` として `ComboboxList` に渡すので、フォームが再描画されても React Aria はそれを再利用します。
 
 ## テストは機能に従う [#tests-follow-the-features]

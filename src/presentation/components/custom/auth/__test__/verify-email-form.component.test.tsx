@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
@@ -173,7 +174,7 @@ describe("verify email page, signed out", () => {
     const field = screen.getByRole("textbox", { name: messages.form.email })
     expect(field).toHaveValue("")
     expect(screen.queryByRole("button", { name: messages.form.useDifferentEmail })).not.toBeInTheDocument()
-    await user.type(field, NEW_EMAIL)
+    await fill(user, field, NEW_EMAIL)
     await user.click(await resendButton(messages.pending.send))
 
     await waitFor(() => {
@@ -189,7 +190,7 @@ describe("verify email page, signed out", () => {
     ).toBeVisible()
     await user.click(await resendButton(messages.pending.send))
     expect(await screen.findByRole("alert")).toHaveTextContent(authValidationsMessages.emailInvalid)
-    await user.type(screen.getByRole("textbox", { name: messages.form.email }), "not-an-address")
+    await fill(user, screen.getByRole("textbox", { name: messages.form.email }), "not-an-address")
     await user.click(await resendButton(messages.pending.send))
 
     expect(resendMock).not.toHaveBeenCalled()
@@ -257,7 +258,7 @@ describe("verify email page, signed in", () => {
 
     await user.click(await screen.findByRole("button", { name: messages.form.useDifferentEmail }))
     sessionRequest.mockResolvedValue(unverifiedSession(NEW_EMAIL))
-    await user.type(screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: changeEmailMessages.label }), NEW_EMAIL)
     await user.click(screen.getByRole("button", { name: changeEmailMessages.submit }))
 
     await waitFor(() => {

@@ -175,6 +175,7 @@ import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETR
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
+import { CONTEXT_TERMS, neverTermText } from "~/src/lib/glossary-terms"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
@@ -228,6 +229,9 @@ const tierFeatureRows = (tier: LicenseTier) =>
         ] as const,
     ),
   )
+
+const glossaryTable = (rows: readonly (readonly [string, readonly string[], readonly string[]])[]): readonly Row[] =>
+  rows.map(([meaning, preferred, never]) => [meaning, preferred, never.map((term) => neverTermText(term))] as const)
 
 const FACTS = {
   ...REPOSITORY_FACTS,
@@ -368,6 +372,7 @@ const FACTS = {
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   plainUseCases: moduleTables.plainUseCases,
+  polishContextTerms: CONTEXT_TERMS,
   posterSmallWidth: POSTER_SMALL_WIDTH,
   posterWidth: POSTER_WIDTH,
   publicUseCases: moduleTables.publicUseCases,
@@ -475,9 +480,9 @@ const TABLES = {
   ),
   moduleUseCases: moduleTables.modules,
   permissionChecks: moduleTables.permissions,
-  polishNames: POLISH_NAMES,
-  polishPhrases: POLISH_PHRASES,
-  polishTerms: POLISH_TERMS,
+  polishNames: glossaryTable(POLISH_NAMES),
+  polishPhrases: glossaryTable(POLISH_PHRASES),
+  polishTerms: glossaryTable(POLISH_TERMS),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
   skillSources: Object.entries(SKILL_SOURCES).map(([source, { group, packages }]) => [source, group, packages] as const),

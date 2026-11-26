@@ -24,6 +24,8 @@ The item appears only for a user who is neither an admin nor banned. Better Auth
 
 `ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sits above the header of the `/app` layout. It reads `getCurrentSessionQuery` and renders only when the session has `impersonatedBy`: a region labelled from `components.custom.impersonation-banner.json` that names the impersonated user and their email, and a **Stop impersonating** button. The button calls `stopImpersonatingUser`, which deletes the impersonation session and restores the admin's session from the `admin_session` cookie; the banner then removes the user's data from the cache and opens that user's profile in `/admin/users`.
 
+Both mutations first wait for `settleQueries` (`src/lib/settle-queries.ts`), which resolves once no query is fetching, and only then call the server. A read still in flight carries the cookie of the session being left. If it reached the server after `stopImpersonatingUser` had deleted the impersonation session, Better Auth would answer it by expiring the session cookie, and an answer that arrived after the stop's own response would remove the admin's restored cookie and sign the admin out. The email verification check, which repeats while an impersonated customer has not confirmed their address, is such a read.
+
 ## Sessions
 
 - `getActiveSessions` leaves impersonation sessions out of the settings session list, and Better Auth's own `list-sessions` endpoint does the same.

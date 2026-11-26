@@ -24,6 +24,8 @@ O item aparece apenas para um usuário que não é administrador nem está bloqu
 
 `ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) fica acima do cabeçalho do layout de `/app`. Ele lê `getCurrentSessionQuery` e só é renderizado quando a sessão tem `impersonatedBy`: uma região rotulada a partir de `components.custom.impersonation-banner.json` que mostra o usuário personificado e o e-mail dele, e um botão **Encerrar personificação**. O botão chama `stopImpersonatingUser`, que exclui a sessão de personificação e restaura a sessão do administrador a partir do cookie `admin_session`; depois o banner remove os dados do usuário do cache e abre o perfil desse usuário em `/admin/users`.
 
+As duas mutações primeiro aguardam `settleQueries` (`src/lib/settle-queries.ts`), que se resolve quando nenhuma consulta está carregando, e só então chamam o servidor. Uma leitura ainda em andamento leva o cookie da sessão que está sendo deixada. Se ela chegasse ao servidor depois que `stopImpersonatingUser` excluiu a sessão de personificação, o Better Auth responderia expirando o cookie de sessão, e uma resposta que chegasse depois da resposta da própria interrupção apagaria o cookie restaurado do administrador e o desconectaria. A verificação de confirmação do e-mail, que se repete enquanto o cliente personificado não confirmou o endereço, é uma dessas leituras.
+
 ## Sessões
 
 - `getActiveSessions` deixa as sessões de personificação de fora da lista de sessões das configurações, e o próprio endpoint `list-sessions` do Better Auth faz o mesmo.

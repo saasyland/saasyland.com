@@ -24,6 +24,8 @@ L’entrée n’apparaît que pour un utilisateur qui n’est ni administrateur 
 
 `ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) se place au-dessus de l’en-tête du layout de `/app`. Il lit `getCurrentSessionQuery` et ne s’affiche que lorsque la session a `impersonatedBy` : une région dont le libellé vient de `components.custom.impersonation-banner.json`, qui nomme l’utilisateur dont l’identité est empruntée et son e-mail, et un bouton **Arrêter l’emprunt d’identité**. Le bouton appelle `stopImpersonatingUser`, qui supprime la session d’usurpation et restaure la session de l’administrateur à partir du cookie `admin_session` ; le bandeau supprime ensuite les données de l’utilisateur du cache et ouvre le profil de cet utilisateur dans `/admin/users`.
 
+Les deux mutations attendent d’abord `settleQueries` (`src/lib/settle-queries.ts`), qui se résout dès qu’aucune requête n’est en cours de chargement, et n’appellent le serveur qu’ensuite. Une lecture encore en cours porte le cookie de la session que l’on quitte. Si elle atteignait le serveur après que `stopImpersonatingUser` a supprimé la session d’usurpation, Better Auth y répondrait en faisant expirer le cookie de session, et une réponse arrivée après celle de l’arrêt effacerait le cookie restauré de l’administrateur et le déconnecterait. La vérification de l’e-mail, qui se répète tant que le client usurpé n’a pas confirmé son adresse, est une telle lecture.
+
 ## Sessions
 
 - `getActiveSessions` exclut les sessions d’usurpation de la liste des sessions des paramètres, et le point de terminaison `list-sessions` de Better Auth fait de même.

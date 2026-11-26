@@ -577,7 +577,10 @@ export const AUTH_FLOWS = [
     outcome:
       "The admin impersonates a customer, sees /app as them under the impersonation banner after a reload, and Stop impersonating returns to the profile",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "admin-users.spec.ts", title: "admin impersonates a customer and stops impersonating" }],
+    tests: [
+      { spec: "admin-users.spec.ts", title: "admin impersonates a customer and stops impersonating" },
+      { spec: "admin-users.spec.ts", title: "stopping an impersonation waits for the session read in flight, and the admin stays signed in" },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_USERS,

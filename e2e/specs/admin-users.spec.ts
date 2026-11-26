@@ -1,11 +1,12 @@
 import assert from "node:assert/strict"
 
-import type { APIRequestContext, Browser, BrowserContext, Page, PlaywrightWorkerArgs, Request } from "@playwright/test"
+import type { APIRequestContext, Browser, BrowserContext, Page, PlaywrightWorkerArgs, Request, Route } from "@playwright/test"
 import { STACK_DEFAULTS } from "@saasyland/stack"
 import { API_ENDPOINT } from "@saasyland/stack/api"
 import * as zod from "zod"
 
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ERROR_CODES } from "../../src/modules/_core/constants/errors"
 
@@ -73,6 +74,18 @@ interface Browsers {
 }
 
 const clientHeaders = (): Record<string, string> => ({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+
+const createdUserSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const createUserAsAdmin = async (page: Page, origin: string, name: string): Promise<{ email: string; id: string }> => {
+  const email = `managed.${crypto.randomUUID()}@example.test`
+  const response = await page.request.post("/api/auth/admin/create-user", {
+    data: { email, name, password: TEST_PASSWORD, role: ROLE_CODES.CUSTOMER },
+    headers: { ...clientHeaders(), Origin: origin },
+  })
+  expect(response.ok()).toBe(true)
+  return { email, id: createdUserSchema.parse(await response.json()).user.id }
+}
 
 const card = (page: Page, title: string) =>
   page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { exact: true, level: 2, name: title }) })
@@ -353,6 +366,46 @@ test("admin impersonates a customer and stops impersonating", async ({ appPage, 
   await expect(page.getByRole("region", { name: "Impersonation", exact: true })).toHaveCount(0)
 })
 
+test("stopping an impersonation waits for the session read in flight, and the admin stays signed in", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  const { id } = await addUser({ appPage, page }, "Polled Customer")
+  await chooseUserAction(page, "Polled Customer", "Impersonate")
+  await expect(page).toHaveURL(/\/app\/?$/u)
+  await appPage.waitForAppReady()
+
+  const inFlight = Promise.withResolvers<Route>()
+  await page.route(
+    SERVER_FUNCTION,
+    (route) => {
+      inFlight.resolve(route)
+    },
+    { times: 1 },
+  )
+  const read = await inFlight.promise
+  const impersonationCookies = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join("; ")
+  const stops: Request[] = []
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes(SERVER_FUNCTION_PATH)) {
+      stops.push(request)
+    }
+  })
+  const stop = page.getByRole("region", { name: "Impersonation", exact: true }).getByRole("button", { name: "Stop impersonating" })
+  await stop.click()
+  await expect(stop).toHaveAttribute("data-pending", "true")
+  expect(stops).toEqual([])
+  await read.fulfill({ response: await read.fetch({ headers: { ...(await read.request().allHeaders()), cookie: impersonationCookies } }) })
+
+  await expect(page).toHaveURL(new RegExp(`/admin/users/${id}$`, "u"))
+  await expect(page.getByRole("heading", { level: 2, name: "Polled Customer" })).toBeVisible()
+  expect(stops).toHaveLength(1)
+  await reloadProfile({ appPage, page })
+  await expect(page.getByRole("heading", { level: 2, name: "Polled Customer" })).toBeVisible()
+})
+
 test("a user the admin adds verifies their email, signs in and is signed out when the admin revokes every session", async ({
   appPage,
   authPage,
@@ -511,7 +564,6 @@ test("a customer and a signed-out visitor are refused by every user-management s
   appPage,
   authPage,
   baseURL,
-  browser,
   page,
   playwright,
   request,
@@ -519,13 +571,12 @@ test("a customer and a signed-out visitor are refused by every user-management s
   const origin = baseURL ?? LOCAL_SERVER_ORIGIN
   const refusedEmail = `refused.${crypto.randomUUID()}@example.test`
   await signInAsAdmin({ appPage, authPage, page })
-  const banned = await addUser({ appPage, page }, "Refused Banned Customer")
-  await chooseUserAction(page, "Refused Banned Customer", "Ban user")
-  await page.getByRole("alertdialog", { name: "Ban user?" }).getByRole("button", { name: "Ban user" }).click()
-  await expect(accountDetail(page, "Status")).toHaveText("Banned")
-  const attacker = await addUser({ appPage, page }, "Refused Customer")
-  const probe = await addUser({ appPage, page }, "Refused Probe")
-  const device = await openVerifiedDevice({ baseURL, browser }, request, probe.email)
+  const banned = await createUserAsAdmin(page, origin, "Refused Banned Customer")
+  const banning = await page.request.post("/api/auth/admin/ban-user", { data: { userId: banned.id }, headers: { ...clientHeaders(), Origin: origin } })
+  expect(banning.ok()).toBe(true)
+  const attacker = await createUserAsAdmin(page, origin, "Refused Customer")
+  const probe = await createUserAsAdmin(page, origin, "Refused Probe")
+  const probeSession = await verifiedRequest({ baseURL, playwright }, request, probe.email)
   const customer = await verifiedRequest({ baseURL, playwright }, request, attacker.email)
   const visitor = await playwright.request.newContext({ baseURL: origin })
 
@@ -605,17 +656,16 @@ test("a customer and a signed-out visitor are refused by every user-management s
   await expect(accountDetail(page, "Role")).toHaveText("Customer")
   await expect(accountDetail(page, "Status")).toHaveText("Active")
   await expect(card(page, "Sessions").getByRole("listitem")).toHaveCount(1)
-  await device.page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-  await expect(device.page).toHaveURL(/\/app\/?$/u)
+  expect(await (await probeSession.get("/api/auth/get-session")).json()).toMatchObject({ user: { email: probe.email } })
   expect(await (await customer.get("/api/auth/get-session")).json()).toMatchObject({ user: { email: attacker.email } })
   const signIn = await visitor.post("/api/auth/sign-in/email", { data: { email: probe.email, password: TEST_PASSWORD }, headers: { ...clientHeaders(), Origin: origin } })
   expect(signIn.ok()).toBe(true)
   await gotoUsers({ appPage, page })
   await page.getByRole("searchbox", { name: usersMessages.table.search }).fill(refusedEmail)
   await expect(page.getByRole("status").filter({ hasText: gridMessages.empty.filteredTitle })).toBeVisible()
+  await probeSession.dispose()
   await customer.dispose()
   await visitor.dispose()
-  await device.context.close()
 })
 
 test("admin reads a buyer's licence, consent, first uses and refund terms on the profile", async ({

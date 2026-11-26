@@ -11,14 +11,17 @@ const TABLE_OF_CONTENTS_POPOVER = { enabled: false }
 
 export const docsContent = browserCollections.docs.createClientLoader({
   component: ({ default: Mdx, frontmatter, toc }) => (
-    <DocsPage slots={SLOTS} tableOfContentPopover={TABLE_OF_CONTENTS_POPOVER} toc={toc}>
-      <DocsTitle>{frontmatter.title}</DocsTitle>
-      <DocsDescription>{frontmatter.description}</DocsDescription>
-      {toc.length > 0 && <InlineTOC className="xl:hidden" items={toc} />}
-      <DocsBody>
-        <Mdx components={mdxComponents} />
-      </DocsBody>
-    </DocsPage>
+    <>
+      <div className="hidden" id="nd-toc-column" />
+      <DocsPage slots={SLOTS} tableOfContent={{ enabled: toc.length > 0 }} tableOfContentPopover={TABLE_OF_CONTENTS_POPOVER} toc={toc}>
+        <DocsTitle>{frontmatter.title}</DocsTitle>
+        <DocsDescription>{frontmatter.description}</DocsDescription>
+        {toc.length > 0 && <InlineTOC className="xl:hidden" items={toc} />}
+        <DocsBody>
+          <Mdx components={mdxComponents} />
+        </DocsBody>
+      </DocsPage>
+    </>
   ),
   id: "docs",
 })

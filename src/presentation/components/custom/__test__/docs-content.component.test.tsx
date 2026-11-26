@@ -116,13 +116,23 @@ it("lists a page's headings beside the article in the table of contents the blog
   expect(toc.getByRole("link", { name: "Install" })).toHaveAttribute("href", "#install")
   expect(toc.getByRole("link", { name: "Install" })).toHaveClass("pl-4", "border-l")
   expect(toc.queryByRole("link", { current: "location" })).not.toBeInTheDocument()
-  expect(document.querySelector("#nd-toc-placeholder")).not.toBeInTheDocument()
 })
 
-it("keeps the table of contents column for a page without headings", async () => {
+it.each(["guide.mdx", "getting-started.mdx"])(
+  "reserves the table of contents column ahead of the article on %s, so the article never moves when the table of contents arrives",
+  async (path) => {
+    await renderContent(path)
+    const article = await screen.findByRole("article")
+    const column = document.querySelector("#nd-toc-column")
+
+    expect(column?.compareDocumentPosition(article)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  },
+)
+
+it("keeps the table of contents column, and renders no table of contents, for a page without headings", async () => {
   await renderContent("getting-started.mdx")
   await screen.findByRole("heading", { name: "Getting started" })
 
-  expect(document.querySelector("#nd-toc-placeholder")).toBeInTheDocument()
+  expect(document.querySelector("#nd-toc-column")).toBeInTheDocument()
   expect(document.querySelector("#nd-toc")).not.toBeInTheDocument()
 })

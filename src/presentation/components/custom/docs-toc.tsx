@@ -10,10 +10,6 @@ export const DocsToc = (): JSX.Element => {
   const items = useTOCItems()
   const t = useTranslations("fumadocs")
 
-  if (items.length === 0) {
-    return <div className="hidden" id="nd-toc-placeholder" />
-  }
-
   return (
     <nav
       aria-labelledby="toc-title"
